@@ -9,19 +9,45 @@ Account Access is a local authentication and delegated-access service for **Code
 
 **Status: release candidate.** The demo is usable today. Real websites require reviewed connectors; this is not an “add any website” consumer app or validated production access to banks, Google, Meta or insurance accounts.
 
-## Watch the beginner walkthrough
+## Easy installation
 
-[![Watch the Account Access installation and usage walkthrough](docs/video/poster.jpg)](https://github.com/fainir/account-access/releases/download/v0.3.1/account-access-walkthrough.mp4)
+On a Mac, [download the installer](https://github.com/fainir/account-access/releases/download/v0.4.0/Account-Access-Installer.zip), unzip it, and open **Install Account Access.command**.
 
-[Watch or download the narrated video](https://github.com/fainir/account-access/releases/download/v0.3.1/account-access-walkthrough.mp4) · [Copy the commands and read the transcript](docs/video/README.md) · [English captions](https://github.com/fainir/account-access/releases/download/v0.3.1/account-access-walkthrough.en.srt)
+The installer prepares Python, Account Access and its browser automatically, then opens a guided setup page. You do not need Git, a Python installation, a JSON configuration, or a terminal left running.
 
-The walkthrough has English narration and captions at 1080p. It shows the normal installation and account setup flow: save your login locally, grant catalog access, ask Codex to find the two cheapest products, and ask Claude Code for a backpack price. [Follow the same steps](docs/video/README.md) with the included shopping connector or a reviewed connector for your service.
+If macOS blocks the unsigned launcher, use this alternative: open Terminal, paste this one line, and press Enter.
 
-## Quick start
+```sh
+curl -fsSL https://raw.githubusercontent.com/fainir/account-access/v0.4.0/install.sh | sh
+```
 
-You need **Git**, [**uv**](https://docs.astral.sh/uv/getting-started/installation/) and macOS or Linux. uv can install Python for you. Install Codex or Claude Code separately if you want to use an agent; you can also try the client directly.
+No administrator rights are needed on macOS. Linux may need [browser system libraries and sandbox configuration](docs/setup.md#linux-sandbox-setup). Native Windows support is not implemented.
 
-### 1. Install
+## Connect and use
+
+1. Choose **Codex**, **Claude Code**, or both, and click **Set up my AI tools**. Have the selected AI tool installed and signed in already.
+2. Select a supported account, enter its username/password, check the permitted reads, and click **Connect account**.
+3. Repeat for other accounts. The included catalog provides a personal shopping account, work shopping account, and membership account using public example websites.
+4. Copy the request shown in setup into a fresh Codex chat or Claude Code session.
+
+For example:
+
+> Use $account-access to read one permitted operation from each connected account. Give me a short summary of each. Save progress as a task.
+
+In Claude Code, start the request with `/account-access` instead.
+
+Account Access saves accepted sessions and reuses them across requests. You can close the setup page and installer terminal; the local service continues running. Your computer must stay awake. After a restart, open **Account Access.command** in your user Applications folder to resume.
+
+The built-in connections use SauceDemo's public shopping logins (`standard_user` / `secret_sauce`, or `problem_user` / `secret_sauce`) and The Internet's public membership login (`tomsmith` / `SuperSecretPassword!`). They let you try the full connection flow without a private account. Other services need reviewed connectors; setup does not automatically add support for any website.
+
+Use **Manage permissions** to reconnect or revoke access. **Stop Account Access** stops the local app while keeping saved connections.
+
+## Screen recording
+
+A live computer walkthrough showing the new installer, several account connections, and the actual Claude Code/Codex interfaces is not available yet. The [previous edited overview](docs/video/legacy-guide.md) covers the older manual setup and is not the new guided flow.
+
+<details>
+<summary>Developer installation and local test accounts</summary>
 
 ```sh
 git clone https://github.com/fainir/account-access.git
@@ -29,62 +55,19 @@ cd account-access
 uv sync --locked --python 3.13
 uv run playwright install chromium
 uv build
-uv tool install --python 3.13 --force ./dist/account_access-0.3.1-py3-none-any.whl
+uv tool install --python 3.13 --force ./dist/account_access-0.4.0-py3-none-any.whl
+account-access start
 ```
 
-On Linux, Chromium may need system libraries: run `uv run playwright install --with-deps chromium` instead of the browser-install command above. That command may request administrator access to install OS packages.
-
-Ubuntu 23.10 and later may also require an AppArmor profile for the bundled browser's sandbox namespaces. Follow the [Linux sandbox setup](docs/setup.md#linux-sandbox-setup) if browser launch fails after dependencies are installed.
-
-If `account-access` is not found afterward, run `uv tool update-shell` and open a new terminal. No AI API key or personal account credentials are needed for the demo.
-
-The agent launcher also needs `python3` on its PATH. If that command is missing, run `uv python install 3.13 --default`, then `uv tool update-shell` and open a new terminal.
-
-### 2. Start the demo
+For a controlled development fixture with OAuth/password/TOTP accounts:
 
 ```sh
 account-access --root "$HOME/.local/share/account-access-demo" demo --install
 ```
 
-**Keep this terminal open.** The command starts a private local service, prepares three fictional accounts and installs the skill for Codex and Claude Code. Unrelated skills are preserved. Re-running it refreshes the demo connection and its client identities.
+Keep that development-demo terminal open. These accounts contain synthetic balances and use a development key; keep this directory separate from real accounts. Append `--public-sites` to include published public website identities.
 
-| Demo account | What it exercises | Expected result |
-| --- | --- | --- |
-| `demo-api` | OAuth, PKCE and renewable access | 1,234.56 ILS |
-| `demo-web` | Password login and saved browser session | 987.65 ILS |
-| `demo-mfa` | Password + enrolled login-only TOTP | 987.65 ILS |
-
-These are **synthetic balances**, not real financial information. The demo uses a development vault key and a separate data directory. Never use the demo command with a real account's storage directory.
-
-To also try two intentionally public testing websites, stop the demo with Ctrl+C and start it with:
-
-```sh
-account-access --root "$HOME/.local/share/account-access-demo" demo --install --public-sites
-```
-
-That adds SauceDemo inventory and The Internet's secure-area demo. It uses their published test identities, not your browser profile or personal accounts. These external sites can change or be unavailable.
-
-### 3. Ask your agent
-
-**Codex** — open a fresh chat and send:
-
-> Use $account-access to read one permitted operation from every connected demo account. Save progress as a task and label the results as demo data.
-
-**Claude Code** — start a fresh session and send:
-
-> /account-access Read one permitted operation from every connected demo account, save progress as a task, and label the results as demo data.
-
-The agent discovers available operations, submits work, waits for the results and reports them. You should not need to type the demo passwords or verification codes.
-
-**Try it without an agent** — in a second terminal:
-
-```sh
-python3 "$HOME/.agents/skills/account-access/scripts/access.py" doctor
-python3 "$HOME/.agents/skills/account-access/scripts/access.py" accounts
-python3 "$HOME/.agents/skills/account-access/scripts/access.py" run demo-api summary
-```
-
-`doctor` should return `"status": "OK"` and `"service_reachable": true`. `run` should return `"status": "COMPLETED"` with demo data. The client script selects the installed package's interpreter; `python3` only launches that small script.
+</details>
 
 ## How it works
 
@@ -207,3 +190,7 @@ Credentials, sessions and task outputs are encrypted. Agent clients receive scop
 ## License
 
 [MIT](LICENSE). Dependencies retain their own licenses.
+
+## Guided setup validation (0.4.0)
+
+On 13 October 2026, **50 distinct tests passed**: a 49-test regression run followed by 11 focused installation checks, including one added symlink-preservation case. The guided setup checks cover authenticated/CSRF-protected account connection, both agents' standing grants, shared session reuse, refusing unreviewed destinations, a launcher that needs no Python on PATH, and reopening/stopping the background app. The installer rejects modified downloads before executing them, and local app startup rejects an impostor on a reused port. Dependency auditing found no known vulnerabilities in the third-party packages. A live screen recording of the guided interface is still pending.

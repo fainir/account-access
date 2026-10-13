@@ -21,6 +21,8 @@ credentials*.json
 cookies*.json
 storage-state*.json
 installation.json
+desktop.json
+desktop.log
 *.pem
 *.p12
 *.pfx

@@ -1,0 +1,42 @@
+{
+  "version": "0.4.0",
+  "observed_date": "2026-10-13",
+  "full_regression": {"passed": 49, "seconds": 172.91},
+  "final_installation_checks": {"passed": 11, "seconds": 38.82},
+  "distinct_tests_passed": 50,
+  "lint": "passed",
+  "javascript_syntax": "passed",
+  "shell_syntax": "passed",
+  "dependency_audit": "No known third-party vulnerabilities; local project is not on PyPI",
+  "security_checks": [
+    "Owner authorization and origin checks required for install/connect/stop",
+    "Unreviewed URLs and selectors rejected",
+    "No credentials returned by owner state or agent results",
+    "Modified package download rejected before installation",
+    "Files outside symlinked skill paths preserved",
+    "Local app bootstrap verifies a fresh HMAC proof before opening an existing instance"
+  ],
+  "user_flow": [
+    "Open the downloaded Mac launcher or paste one command",
+    "Python, package and browser installed automatically",
+    "Choose Codex and/or Claude Code in guided setup",
+    "Connect a supported account and approve named reads",
+    "Repeat for additional accounts",
+    "Copy a request into the chosen agent",
+    "Background service continues after closing the installer terminal"
+  ],
+  "recording": {
+    "completed": false,
+    "tool": "cua_repl",
+    "block": "Computer Use is not allowed on the current browser URL",
+    "effect": "Computer-use session ended; no replacement screen recording was produced"
+  },
+  "limits": [
+    "Mac launcher is unsigned",
+    "Included catalog uses public example websites",
+    "Other services need reviewed connectors",
+    "Linux may need system browser dependencies and sandbox policy",
+    "Native Windows transport is unsupported",
+    "Same-user unrestricted shell access remains outside the credential-isolation boundary"
+  ]
+}

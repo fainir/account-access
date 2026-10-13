@@ -1,0 +1,4 @@
+#!/bin/sh
+# Replaced with an interpreter-specific launcher by Account Access setup.
+printf '%s\n' '{"status":"NEEDS_USER","reason":"skill_not_installed"}'
+exit 2

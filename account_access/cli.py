@@ -113,6 +113,10 @@ def parser():
     configure.add_argument("--config", required=True)
     sub.add_parser("serve")
     sub.add_parser("setup")
+    start = sub.add_parser("start", help="Open guided setup and run the local service in the background")
+    start.add_argument("--no-open", action="store_true", help=argparse.SUPPRESS)
+    sub.add_parser("stop", help="Stop the guided local app while preserving saved connections")
+    sub.add_parser("desktop-host", help=argparse.SUPPRESS)
     sub.add_parser("metrics")
     sub.add_parser("challenges")
     sub.add_parser("grants")
@@ -185,9 +189,24 @@ def main(argv=None):
             from .demo import serve_demo
             serve_demo(Path(args.root), install=args.install, public_sites=args.public_sites)
             return 0
+        if args.command == "start":
+            from .desktop import launch
+            if args.key_file and not args.development:
+                raise AccessError("DENIED", "file_key_requires_development_mode")
+            launch(Path(args.root), key_file=Path(args.key_file).expanduser() if args.key_file else None,
+                   open_browser=not args.no_open)
+            return 0
+        if args.command == "stop":
+            from .desktop import stop
+            stop(Path(args.root))
+            return 0
         from .broker import Broker
         store = owner_store(args, create=args.command == "init")
         broker = Broker(store)
+        if args.command == "desktop-host":
+            from .desktop import host
+            host(broker)
+            return 0
         if args.command in {"init", "configure"}:
             configuration = Configuration.model_validate_json(Path(args.config).read_bytes())
             if configuration.test_mode and not args.development:

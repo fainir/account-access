@@ -3,6 +3,7 @@
 import json
 import os
 import shutil
+import shlex
 import sys
 from pathlib import Path
 
@@ -21,6 +22,8 @@ def install_skill(store, agent, destination=None):
     marker = target / ".account-access-install"
     if target.is_symlink() or (target.exists() and not marker.exists()):
         raise AccessError("DENIED", "existing_skill_would_be_overwritten")
+    if target.exists() and any(path.is_symlink() for path in target.rglob("*")):
+        raise AccessError("DENIED", "symlink_path")
     target.mkdir(mode=0o700, parents=True, exist_ok=True)
     for entry in source.iterdir():
         dest = target / entry.name
@@ -28,6 +31,10 @@ def install_skill(store, agent, destination=None):
             shutil.copytree(entry, dest, dirs_exist_ok=True)
         else:
             shutil.copy2(entry, dest)
+    # A generated launcher avoids requiring python3 on the agent's PATH.
+    launcher = target / "scripts/access"
+    launcher.write_text("#!/bin/sh\nexec " + shlex.quote(sys.executable) + " "
+                        + shlex.quote(str(target / "scripts/access.py")) + ' "$@"\n')
     client_dir = store.root / "clients" / agent
     client_dir.mkdir(parents=True, mode=0o700, exist_ok=True)
     token_file = client_dir / "token"
@@ -46,5 +53,6 @@ def install_skill(store, agent, destination=None):
     private_file(marker, b"account-access-v1", replace=marker.exists())
     for path in target.rglob("*"):
         os.chmod(path, 0o700 if path.is_dir() else 0o600)
+    os.chmod(launcher, 0o700)
     return {"agent": agent, "skill_path": str(target), "principal": agent,
             "client_config": str(config_file)}

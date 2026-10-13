@@ -1,20 +1,47 @@
 """An ephemeral, loopback-only owner console. This authority is never an agent API."""
 
 import json
+import hashlib
+import hmac
 import secrets
 import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 from .errors import AccessError
 from .models import OAuthAccount
 
 
-def make_owner_server(broker):
+def make_owner_server(broker, *, guided=False, instance_key=None):
     token = secrets.token_urlsafe(32)
+    instance_key = instance_key or secrets.token_bytes(32)
     jobs = {}
     guard = threading.Lock()
+
+    def verify(account, job_id):
+        try:
+            config = broker.store.config().accounts[account]
+            with broker.store.lock("account:" + account, timeout=5):
+                broker.browser.read(account, next(iter(config.operations.values())), config,
+                                    secret_values=set())
+            broker.tick()
+            result = {"status": "CONNECTED", "account": account}
+        except AccessError as exc:
+            result = broker.error(exc, account)
+        except Exception:
+            result = {"status": "NEEDS_USER", "reason": "connection_not_completed", "account": account}
+        with guard:
+            jobs[job_id] = result
+
+    def new_job(account):
+        ident = secrets.token_hex(16)
+        with guard:
+            if sum(x["status"] == "RUNNING" for x in jobs.values()) >= 4:
+                raise AccessError("RETRYABLE", "connection_limit")
+            jobs[ident] = {"status": "RUNNING", "account": account}
+        return ident
 
     def connect(account, job_id):
         try:
@@ -62,14 +89,25 @@ def make_owner_server(broker):
             if self.headers.get("Host") != f"127.0.0.1:{self.server.server_port}":
                 self.send(403, {"status": "DENIED"})
                 return
-            static = {"/": ("index.html", "text/html"), "/owner.js": ("owner.js", "text/javascript"),
-                      "/owner.css": ("owner.css", "text/css")}
+            static = {"/": ("welcome.html" if guided else "index.html", "text/html"),
+                      "/manage": ("index.html", "text/html"),
+                      "/owner.js": ("owner.js", "text/javascript"),
+                      "/owner.css": ("owner.css", "text/css"),
+                      "/welcome.js": ("welcome.js", "text/javascript"),
+                      "/welcome.css": ("welcome.css", "text/css")}
             if self.path in static:
                 filename, mime = static[self.path]
                 self.send(200, (Path(__file__).parent / "ui" / filename).read_bytes(), mime)
                 return
             if not self.authorized():
                 self.send(401, {"status": "DENIED", "reason": "owner_authorization_required"})
+                return
+            if guided and self.path.startswith("/owner/ready?"):
+                challenge = parse_qs(urlsplit(self.path).query).get("challenge", [""])[0]
+                if len(challenge) != 64 or any(c not in "0123456789abcdef" for c in challenge):
+                    self.send(400, {"status": "DENIED"})
+                    return
+                self.send(200, {"proof": hmac.new(instance_key, challenge.encode(), hashlib.sha256).hexdigest()})
                 return
             if self.path == "/owner/state":
                 config = broker.store.config()
@@ -85,9 +123,13 @@ def make_owner_server(broker):
                     grants = [dict(r) for r in db.execute("SELECT * FROM grants")]
                 with guard:
                     connection_jobs = dict(jobs)
-                self.send(200, {"accounts": accounts, "principals": principals, "grants": grants,
-                                "connection_jobs": connection_jobs,
-                                "environment": "controlled-demo" if config.test_mode else "live"})
+                state = {"accounts": accounts, "principals": principals, "grants": grants,
+                         "connection_jobs": connection_jobs,
+                         "environment": "controlled-demo" if config.test_mode else "live"}
+                if guided:
+                    from .catalog import view
+                    state["catalog"] = view()
+                self.send(200, state)
             else:
                 self.send(404, {"status": "DENIED"})
 
@@ -100,6 +142,50 @@ def make_owner_server(broker):
                 if not 0 < length <= 65536:
                     raise ValueError()
                 data = json.loads(self.rfile.read(length))
+                if guided and self.path == "/owner/install":
+                    from .install import install_skill
+                    agents = data.get("agents")
+                    if (not isinstance(agents, list) or not 1 <= len(agents) <= 2
+                            or any(x not in {"codex", "claude"} for x in agents)):
+                        raise ValueError()
+                    for agent in sorted(set(agents)):
+                        install_skill(broker.store, agent)
+                    self.send(200, {"status": "INSTALLED"})
+                    return
+                if guided and self.path == "/owner/add":
+                    from .catalog import add, entries
+                    service = data.get("service")
+                    agents = data.get("agents")
+                    if (set(data) != {"service", "username", "password", "agents"}
+                            or not isinstance(service, str) or service not in entries()
+                            or not isinstance(agents, list) or not 1 <= len(agents) <= 2
+                            or any(x not in {"codex", "claude"} for x in agents)
+                            or any(not isinstance(data[x], str) or not 0 < len(data[x]) <= 4096
+                                   for x in ["username", "password"])):
+                        raise ValueError()
+                    with broker.store.db() as db:
+                        installed = {r[0] for r in db.execute("SELECT DISTINCT principal FROM clients WHERE revoked=0")}
+                    if not set(agents) <= installed:
+                        raise AccessError("DENIED", "install_your_agent_first")
+                    ident = new_job(service)
+                    try:
+                        add(broker.store, service)
+                        with broker.store.lock("account:" + service):
+                            broker.store.put("credential:" + service,
+                                             {"username": data["username"], "password": data["password"]})
+                        for agent in sorted(set(agents)):
+                            broker.grant(agent, service, list(broker.store.config().accounts[service].operations))
+                    except Exception:
+                        with guard:
+                            jobs.pop(ident, None)
+                        raise
+                    threading.Thread(target=verify, args=(service, ident), daemon=True).start()
+                    self.send(200, {"status": "CONNECTING", "id": ident})
+                    return
+                if guided and self.path == "/owner/stop":
+                    self.send(200, {"status": "STOPPED"})
+                    threading.Thread(target=self.server.shutdown, daemon=True).start()
+                    return
                 account = data.get("account")
                 config = broker.store.config()
                 if account not in config.accounts:

@@ -3,7 +3,7 @@ name: account-access
 description: Use connected accounts through the Account Access service, including browser and API operations, authentication recovery, and resumable tasks. Use when the user asks to work across their connected accounts or invokes account-access. Discover the available operations before promising service coverage.
 ---
 
-Use this service for work the user has delegated on connected accounts. Its standing grants determine which operations are available. To run the client, invoke `python3` with the absolute path to [scripts/access.py](scripts/access.py); resolve the script relative to this skill's directory. The installed script selects its configured interpreter and client identity itself.
+Use this service for work the user has delegated on connected accounts. Its standing grants determine which operations are available. Run the installed [scripts/access](scripts/access) launcher by its absolute path, resolving it relative to this skill's directory. It selects the installed Python interpreter and client identity, so Python does not need to be on PATH. Older installations can use `python3` with [scripts/access.py](scripts/access.py).
 
 Start with `scripts/access.py accounts` to discover account handles and permitted operations. Do not assume a service is connected or that arbitrary actions are supported. A response marked `controlled-demo` uses synthetic accounts; explicitly describe those results as a demo.
 
