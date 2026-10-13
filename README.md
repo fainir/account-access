@@ -44,7 +44,11 @@ Use **Manage permissions** to reconnect or revoke access. **Stop Account Access*
 
 ## Screen recording
 
-A live computer walkthrough showing the new installer, several account connections, and the actual Claude Code/Codex interfaces is not available yet. The [previous edited overview](docs/video/legacy-guide.md) covers the older manual setup and is not the new guided flow.
+[Watch Account Access in the actual Claude Code app](https://github.com/fainir/account-access/releases/download/v0.4.0/account-access-claude-code-live.mp4). This narrated screen recording shows one request reading three connected example accounts and returning a product comparison and membership welcome message. It includes captions.
+
+The video starts with accounts already connected. Follow [Easy installation](#easy-installation) and [Connect and use](#connect-and-use) above to set up your computer. Installation and browser setup footage, and a recording of the Codex interface, are still pending. Both agents have completed the same live three-account test; see the [recording and verification notes](docs/video/README.md).
+
+The [previous edited overview](docs/video/legacy-guide.md) covers the older manual setup.
 
 <details>
 <summary>Developer installation and local test accounts</summary>
@@ -90,7 +94,7 @@ The service reuses accepted browser sessions, refreshes eligible OAuth access an
 
 | Capability | Status |
 | --- | --- |
-| Codex and Claude Code | Portable skill installed and tested through both actual CLI agents |
+| Codex and Claude Code | Portable skill tested through Codex CLI and the actual Claude Code desktop interface; both completed three-account live reads |
 | Other agents | Same skill in a supported directory, or the CLI/authenticated API; other named hosts have not been executed |
 | OAuth code + PKCE and renewal | Controlled failure tests and external Duende demo refresh-token rotation |
 | Website email/username + password | Reviewed forms, encrypted sessions and bounded recovery; controlled sites and public demos tested |

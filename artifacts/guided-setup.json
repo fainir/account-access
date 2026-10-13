@@ -35,7 +35,9 @@
     "completed": false,
     "tool": "cua_repl",
     "block": "Computer Use is not allowed on the current browser URL",
-    "effect": "Computer-use session ended; no replacement screen recording was produced"
+    "effect": "Full installation/browser-setup recording remains unavailable; an independent Claude Code usage screen recording was produced",
+    "claude_code_usage_completed": true,
+    "verification": "artifacts/video/live-recording.json"
   },
   "limits": [
     "Mac launcher is unsigned",

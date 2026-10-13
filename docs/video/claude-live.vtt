@@ -1,0 +1,25 @@
+WEBVTT
+
+00:00.000 --> 00:06.000
+Account Access in the real Claude Code app.
+Three example accounts are connected for this recording.
+
+00:06.000 --> 00:14.000
+Connect accounts once, then ask for what you need
+in a normal message.
+
+00:14.000 --> 00:23.000
+One request reads two shopping accounts
+and a membership account.
+
+00:23.000 --> 00:33.000
+The installed skill uses the local service.
+It handles saved sessions and approved reads.
+
+00:33.000 --> 00:42.000
+Both stores: Sauce Labs Onesie, $7.99.
+The membership welcome message also returns.
+
+00:42.000 --> 00:53.000
+One saved task keeps progress for all three reads.
+Find installation instructions below the video.

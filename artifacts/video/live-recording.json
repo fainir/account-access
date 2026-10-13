@@ -1,0 +1,54 @@
+{
+  "observed_date": "2026-10-13",
+  "service_version": "0.4.0",
+  "source": "Real native Claude Code window recording",
+  "example_services": [
+    "https://www.saucedemo.com/",
+    "https://the-internet.herokuapp.com/login"
+  ],
+  "account_count": 3,
+  "website_count": 2,
+  "source_sha256": "81b41636d83224c957b557d19aea535a6efdb8b524b42acbb83405f1aa09a236",
+  "verification": [
+    {
+      "agent": "Claude Code desktop",
+      "task_id": "ea9b859b8582ae3788a1fdf4fbcbcb18",
+      "status": "COMPLETED",
+      "completed_reads": 3,
+      "recorded": true
+    },
+    {
+      "agent": "Codex CLI",
+      "task_id": "b68fa5920fec0fbbfddba21b54abeb61",
+      "status": "COMPLETED",
+      "completed_reads": 3,
+      "recorded": false
+    }
+  ],
+  "result": {
+    "cheapest_product_both_stores": "Sauce Labs Onesie",
+    "price_usd": 7.99,
+    "membership_heading": "Secure Area"
+  },
+  "editing": [
+    "Window padding cropped",
+    "One wait shortened",
+    "Narration and captions added",
+    "Final response held briefly"
+  ],
+  "remaining": [
+    "Installer and browser setup screen recording",
+    "Codex interface recording"
+  ],
+  "restriction": "Computer Use is not allowed on the browser setup URL; that route was not retried or captured with another tool.",
+  "published_video": {
+    "url": "https://github.com/fainir/account-access/releases/download/v0.4.0/account-access-claude-code-live.mp4",
+    "sha256": "dcc5a098ed38cdd4729656b593b6f9a822bfd52227e5609a6f89ddbcfc728648",
+    "duration_seconds": 52.367,
+    "width": 1080,
+    "height": 1472,
+    "has_narration": true,
+    "has_burned_captions": true,
+    "decode_check": "Passed; entire output decoded without errors"
+  }
+}

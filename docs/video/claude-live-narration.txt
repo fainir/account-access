@@ -1,0 +1,11 @@
+Here is Account Access in the real Claude Code app, using three example accounts.
+
+After installing Account Access and connecting accounts once, ask for what you need in a normal message.
+
+Here, Claude reads two shopping accounts and a membership account, then compares the cheapest products.
+
+The installed skill connects Claude to the local service. The service handles saved sessions and runs the reads you allowed.
+
+All three reads complete. Both stores show the Onesie at seven dollars ninety nine, and the membership account returns its welcome message.
+
+One saved task keeps progress for the whole request. The installation instructions and Mac installer are linked below the video.
