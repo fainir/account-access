@@ -1,8 +1,14 @@
 {
   "version": "0.4.0",
   "observed_date": "2026-10-13",
-  "full_regression": {"passed": 49, "seconds": 172.91},
-  "final_installation_checks": {"passed": 11, "seconds": 38.82},
+  "full_regression": {
+    "passed": 49,
+    "seconds": 172.91
+  },
+  "final_installation_checks": {
+    "passed": 11,
+    "seconds": 38.82
+  },
   "distinct_tests_passed": 50,
   "lint": "passed",
   "javascript_syntax": "passed",
@@ -38,5 +44,22 @@
     "Linux may need system browser dependencies and sandbox policy",
     "Native Windows transport is unsupported",
     "Same-user unrestricted shell access remains outside the credential-isolation boundary"
-  ]
+  ],
+  "linux_ci": {
+    "run_id": 38396548714,
+    "tests_passed": 50,
+    "seconds": 62.1,
+    "lint": "passed",
+    "dependency_audit": "passed",
+    "build": "passed"
+  },
+  "downloaded_installer": {
+    "anonymous_download": "passed",
+    "sha256": "e08366d0be51345e67fadc61bb9c57bbc4ccbbe11c4fd802b046009015f1bd0b",
+    "executable_launcher": "passed",
+    "install_and_background_start": "passed",
+    "test_browser_open": "suppressed; recording tool restriction respected",
+    "installed_browser_sandbox_launch": "passed",
+    "installed_runtime_audit": "No known third-party vulnerabilities"
+  }
 }
