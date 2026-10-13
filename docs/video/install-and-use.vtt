@@ -1,0 +1,79 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:03.700
+Open Account Access on your Mac.
+
+00:00:03.700 --> 00:00:10.717
+Click Install. Account Access prepares the software for you. Wait until the setup
+
+00:00:10.717 --> 00:00:17.733
+screen opens.
+
+00:00:17.733 --> 00:00:23.583
+Choose Claude Code, Codex, or both. Then click Set up my AI tools. The app adds
+
+00:00:23.583 --> 00:00:29.433
+the Account Access skill for you.
+
+00:00:29.433 --> 00:00:35.283
+Choose an account. Enter its username or email and password once. Approve what
+
+00:00:35.283 --> 00:00:41.133
+your AI can read, then click Connect account.
+
+00:00:41.133 --> 00:00:47.483
+Repeat for the work account, using its separate login. Approve the product read
+
+00:00:47.483 --> 00:00:53.833
+and connect it.
+
+00:00:53.833 --> 00:01:00.850
+Add the membership account and approve its welcome message read. When all three
+
+00:01:00.850 --> 00:01:07.867
+accounts turn green, you're ready.
+
+00:01:07.867 --> 00:01:13.550
+You won't retype these passwords during the task. Copy the request and open Claude
+
+00:01:13.550 --> 00:01:19.233
+Code.
+
+00:01:19.233 --> 00:01:22.633
+In a fresh Claude Code chat, ask for the work. One request starts all three
+
+00:01:22.633 --> 00:01:26.033
+account reads.
+
+00:01:26.033 --> 00:01:31.883
+Claude discovers the permitted accounts and starts one task. The example sessions
+
+00:01:31.883 --> 00:01:37.733
+were expired, so you can watch fresh sign-ins.
+
+00:01:37.733 --> 00:01:42.917
+The first shopping account opens. Account Access fills the saved username and
+
+00:01:42.917 --> 00:01:48.100
+masked password, then signs in. The user leaves the login form alone.
+
+00:01:48.100 --> 00:01:52.533
+Next, it signs into the work account automatically, using its separate saved
+
+00:01:52.533 --> 00:01:56.967
+login. It then reads product names and prices.
+
+00:01:56.967 --> 00:02:02.667
+Then it signs into the membership account and reads the welcome message. No
+
+00:02:02.667 --> 00:02:08.367
+password entry or login clicks are needed from the user.
+
+00:02:08.367 --> 00:02:12.744
+Claude shows the results from all three accounts. Both shopping accounts have the
+
+00:02:12.744 --> 00:02:17.122
+same cheapest product at seven dollars and ninety-nine cents. The membership
+
+00:02:17.122 --> 00:02:21.500
+welcome message is included, and the task is saved.

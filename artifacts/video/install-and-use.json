@@ -1,0 +1,93 @@
+{
+  "release": "0.4.1",
+  "source_commit": "94d775454a38479256c73f288c0bc8a9883ec916",
+  "task_id": "952e1fffcd56da847a6001e8631e34d6",
+  "status": "COMPLETED",
+  "completed_reads": 3,
+  "accounts": 3,
+  "sites": 2,
+  "user_requests": 1,
+  "user_login_inputs_during_task": 0,
+  "logins": [
+    {
+      "at": 1791914878.77388,
+      "account": "personal-store",
+      "event": "login_recovered"
+    },
+    {
+      "at": 1791914884.686431,
+      "account": "work-store",
+      "event": "login_recovered"
+    },
+    {
+      "at": 1791914890.704138,
+      "account": "member-portal",
+      "event": "login_recovered"
+    }
+  ],
+  "setup": "Fresh vault, actual graphical installation of the published wheel, both agent skills installed, all three accounts connected once through the native app. Existing dependency downloads were cached.",
+  "recording": "Real Finder, native installer, native Claude Code, and real browser page video. No generated app screens. Login playback is slowed for visibility; waits are shortened.",
+  "mac_distribution": "Developer ID signed; Apple notarization pending due rejected configured Xcode account authentication. No Gatekeeper bypass was performed.",
+  "normal_service_restored": true,
+  "codex_desktop_task": {
+    "task_id": "2fa1bb5ad3f288ca0bb9172f9a458bad",
+    "status": "COMPLETED",
+    "progress": 3,
+    "total": 3,
+    "host": "Current Codex desktop task; installed account-access skill used through its launcher"
+  },
+  "extra_codex_cli_attempt": {
+    "status": "STOPPED_BEFORE_ACCOUNT_ACCESS",
+    "reason": "The existing CLI model setting gpt-6.1-sol was rejected by its ChatGPT-account endpoint. No model or global host settings were modified."
+  },
+  "media": {
+    "filename": "account-access-install-and-use.mp4",
+    "duration_seconds": 141.5,
+    "size_bytes": 5090546,
+    "sha256": "a84764bdcb1d2abcdd02f54f70262bf18ce33d0e3471085aa6700ed876165c3b",
+    "format": "H.264/AAC, 1920x1080, 30 fps, 48 kHz stereo",
+    "decoded_without_errors": true,
+    "audio_peak_db": -4.8,
+    "visual_check": "Actual installer opening, installation progress, both AI tool selections, three connection forms, Claude request/progress, three actual password sign-ins, and completed three-row result. A wrongly framed intermediate was excluded."
+  },
+  "validation": {
+    "tests_passed": 51,
+    "linux_ci": "https://github.com/fainir/account-access/actions/runs/38442998025",
+    "lint": "passed",
+    "dependency_audit": "No known third-party vulnerabilities",
+    "mac_build": "Universal arm64/x86_64; Developer ID signature verified; runtime exercised on this Mac"
+  },
+  "sources": [
+    {
+      "filename": "claude-result.mov",
+      "sha256": "247a93b74cc8324a8144feee69c4647ab8d1869349fdaef3da4dcd50ba2e86c3"
+    },
+    {
+      "filename": "claude-working.mov",
+      "sha256": "86d5c3e1f9c09ac6bbf366c9af9dd81da957b2804aaf82fa110a781666635b6f"
+    },
+    {
+      "filename": "install-and-connect.mov",
+      "sha256": "d45c135cc565b9df64cb74d23dff1fa1d96b24a7a1891493a718ff5a72395b3c"
+    },
+    {
+      "filename": "open-installer.mov",
+      "sha256": "61c8a2fb9e26b077e7eafa88830e7220ff81a5e8dd62d1422fdde2665ba6fb1c"
+    },
+    {
+      "filename": "page@88a57089124901e559b7e61866fd68f4.webm",
+      "account": "personal-store",
+      "sha256": "b7e537473303746b06734dc173a6228fcb0321b40cdc34b06ea342381dfaa542"
+    },
+    {
+      "filename": "page@d1706f99e583ecf7273125fd6b2bb47a.webm",
+      "account": "work-store",
+      "sha256": "0accae75400be8a71d872d9fa8ffb8bb589b0fefd74c07d14b3d19a88acdcd22"
+    },
+    {
+      "filename": "page@e788e4937f90e4e33cb12f5d72fe82a7.webm",
+      "account": "member-portal",
+      "sha256": "c5a5506d096d7a0de552432b9278e1780dbaf4f23f597aa305ff2b63bcfbcb48"
+    }
+  ]
+}

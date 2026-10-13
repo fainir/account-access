@@ -46,11 +46,13 @@ Use **Manage permissions** to reconnect or revoke access. **Stop Account Access*
 
 ## Screen recording
 
-[Watch Account Access in the actual Claude Code app](https://github.com/fainir/account-access/releases/download/v0.4.0/account-access-claude-code-live.mp4). This narrated screen recording shows one request reading three connected example accounts and returning a product comparison and membership welcome message. It includes captions.
+[Watch installation and use in the actual computer interfaces](https://github.com/fainir/account-access/releases/download/v0.4.1/account-access-install-and-use.mp4). The narrated walkthrough shows opening the graphical Mac app, installing Account Access, choosing Claude Code and Codex, connecting three example accounts once, and asking Claude Code to do the work. The actual browser footage shows three automatic password sign-ins before Claude returns the completed results.
 
-The video starts with accounts already connected. Follow [Easy installation](#easy-installation) and [Connect and use](#connect-and-use) above to set up your computer. Installation and browser setup footage, and a recording of the Codex interface, are still pending. Both agents have completed the same live three-account test; see the [recording and verification notes](docs/video/README.md).
+[![Actual installation and Claude Code walkthrough](docs/video/install-and-use-preview.png)](https://github.com/fainir/account-access/releases/download/v0.4.1/account-access-install-and-use.mp4)
 
-The [previous edited overview](docs/video/legacy-guide.md) covers the older manual setup.
+The recording uses the [graphical Mac preview](macos/README.md), which is signed and tested locally. Public Mac downloads still need Apple notarization; Gatekeeper can block this preview. The footage uses public example identities on two testing sites. It does not establish private-account or universal website coverage. [Captions and verification notes](docs/video/README.md) describe the captured flow and tested limits.
+
+The [previous edited overview](docs/video/legacy-guide.md) covers older manual setup.
 
 <details>
 <summary>Developer installation and local test accounts</summary>
@@ -96,7 +98,7 @@ The service reuses accepted browser sessions, refreshes eligible OAuth access an
 
 | Capability | Status |
 | --- | --- |
-| Codex and Claude Code | Portable skill tested through Codex CLI and the actual Claude Code desktop interface; both completed three-account live reads |
+| Codex and Claude Code | Version 0.4.1 tested through the installed skill in this Codex desktop task and the actual Claude Code desktop interface; both completed three-account live reads. Earlier Codex CLI testing also passed |
 | Other agents | Same skill in a supported directory, or the CLI/authenticated API; other named hosts have not been executed |
 | OAuth code + PKCE and renewal | Controlled failure tests and external Duende demo refresh-token rotation |
 | Website email/username + password | Reviewed forms, encrypted sessions and bounded recovery; controlled sites and public demos tested |
