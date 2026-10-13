@@ -26,6 +26,8 @@ uv tool install --python 3.13 --force ./dist/account_access-0.3.1-py3-none-any.w
 
 On Linux, Chromium may need system libraries: run `uv run playwright install --with-deps chromium` instead of the browser-install command above. That command may request administrator access to install OS packages.
 
+Ubuntu 23.10 and later may also require an AppArmor profile for the bundled browser's sandbox namespaces. Follow the [Linux sandbox setup](docs/setup.md#linux-sandbox-setup) if browser launch fails after dependencies are installed.
+
 If `account-access` is not found afterward, run `uv tool update-shell` and open a new terminal. No AI API key or personal account credentials are needed for the demo.
 
 The agent launcher also needs `python3` on its PATH. If that command is missing, run `uv python install 3.13 --default`, then `uv tool update-shell` and open a new terminal.
@@ -152,6 +154,7 @@ The worker preserves completed steps, retries temporary failures with backoff, a
 | `service_unavailable` | Start the demo/service and keep its terminal open; use the script for the installation you intend to reach. |
 | Agent cannot find the skill | Start a fresh chat/session. The installer uses `~/.agents/skills/account-access` for Codex and `~/.claude/skills/account-access` for Claude. |
 | Chromium is missing or cannot launch | Run `uv run playwright install chromium` in this checkout; on Linux also install its system dependencies. |
+| Ubuntu browser still cannot launch | Have the administrator review the [per-binary AppArmor setup](docs/setup.md#linux-sandbox-setup). |
 | `existing_skill_would_be_overwritten` | An unrelated directory already has that name. Review it or choose a custom supported skills directory; the installer does not overwrite unknown skills. |
 | `NEEDS_USER` | Complete the specified step in owner setup. Preserve the same task ID. |
 | `DENIED` | Review the owner grant/configuration. The agent should not try another login path to bypass it. |

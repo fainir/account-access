@@ -10,6 +10,26 @@ jobs:
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
       - run: uv sync --locked
       - run: uv run playwright install --with-deps chromium
+      - name: Allow sandbox namespaces for the installed browser binaries
+        run: |
+          uv run python - <<'PY'
+          from playwright.sync_api import Error, sync_playwright
+          with sync_playwright() as pw:
+              try:
+                  pw.chromium.launch(headless=True, chromium_sandbox=True).close()
+                  print("Sandbox launch succeeds before AppArmor profile setup")
+              except Error as error:
+                  print("Sandbox launch before profile setup:", error)
+          PY
+          uv run python scripts/chromium_apparmor.py --output /tmp/account-access-chromium.apparmor
+          sudo apparmor_parser -r /tmp/account-access-chromium.apparmor
+      - name: Verify sandboxed Chromium
+        run: |
+          uv run python - <<'PY'
+          from playwright.sync_api import sync_playwright
+          with sync_playwright() as pw:
+              pw.chromium.launch(headless=True, chromium_sandbox=True).close()
+          PY
       - run: uv run ruff check account_access tests scripts
       - run: uv run pytest -q
       - run: uv run pip-audit --local

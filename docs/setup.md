@@ -2,6 +2,24 @@
 
 Start with the [README quick start](../README.md#quick-start) for a demo that needs no private credentials. The instructions below are for reviewed real-account connectors and additional agents.
 
+## Linux sandbox setup
+
+Account Access launches Chromium with its sandbox enabled. Ubuntu 23.10+ can restrict user namespaces for downloaded browser binaries, so installing browser libraries alone may not be sufficient. [Chromium's official guide](https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md) describes this requirement; [Ubuntu documents AppArmor namespace policy](https://documentation.ubuntu.com/security/security-features/privilege-restriction/apparmor/).
+
+On an AppArmor 4.x+ host, an administrator can review a policy scoped to the exact installed browser executables:
+
+```sh
+uv run python scripts/chromium_apparmor.py --output /tmp/account-access-chromium.apparmor
+cat /tmp/account-access-chromium.apparmor
+# After administrator review, install and load the policy:
+sudo install -m 644 /tmp/account-access-chromium.apparmor /etc/apparmor.d/account-access-chromium
+sudo apparmor_parser -r /etc/apparmor.d/account-access-chromium
+```
+
+The helper only writes a policy; it makes no privileged changes itself. The policy permits namespace creation for those binaries using Chromium's documented profile approach. Someone able to replace an approved binary can also gain that namespace permission, so keep browser binaries in the intended trusted execution boundary. Regenerate and review the profile after changing browser versions. This applies to the Linux host configuration; the application keeps Chromium's sandbox enabled.
+
+The repository CI uses the same scoped policy on its ephemeral Ubuntu runner and verifies a sandboxed browser launch before regression tests.
+
 ## Real-account setup
 
 ### 1. Prepare the connector
