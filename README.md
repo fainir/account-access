@@ -171,6 +171,8 @@ Recorded on 12 October 2026:
 
 These accelerated results do not establish thirty-day reliability or private financial-account coverage. See the [full validation report](docs/validation.md) and [machine-readable evidence](artifacts/).
 
+For public distribution on 13 October 2026, a clean-checkout installation completed the three-account demo, and [Linux CI passed all 43 tests, lint, dependency auditing and package building](https://github.com/fainir/account-access/actions/runs/38374863318). See [publication verification](artifacts/public-release.json).
+
 ```sh
 uv run ruff check account_access tests scripts
 uv run pytest -q

@@ -2,6 +2,14 @@
 
 Observed on 12 October 2026 on macOS, Python 3.13 and Chromium installed through Playwright. This is a **working release candidate**, not a certification of production financial access. No private bank, insurance, Google, Meta or other personal account was connected or tested. No phone inbox was accessed.
 
+## Public release verification — 13 October 2026
+
+The public GitHub repository was verified as readable without authentication. A clean checkout was synchronized, built and installed in an isolated tool directory, then completed all three local demo reads as one durable task. Existing host skill directories were not modified by that verification. Gitleaks reported zero findings in the publication tree and public history; runtime vaults, keys and raw agent traces are excluded. The original local development history was preserved locally, and only the fresh public history with GitHub's no-reply commit email was pushed.
+
+[Linux CI](https://github.com/fainir/account-access/actions/runs/38374863318) passed **43 regression tests**, lint, dependency auditing and distribution building for code revision `0cc7863ea9f1cb478e9da641933926a10ca7acc0`. The first Linux run exposed Ubuntu's restrictions on sandbox namespaces for the downloaded browser. CI now loads an AppArmor policy scoped to the exact installed browser executables and verifies launch with Chromium's sandbox enabled. An initial helper assumed the older headless executable filename; it was corrected for the current and older names before the successful run. The application sandbox setting was not weakened.
+
+Machine-readable publication results are in `artifacts/public-release.json`. These publication checks add Linux and installation evidence to the earlier experiment; they do not add private-account, mobile or thirty-day reliability validation.
+
 ## Measured checks
 
 | Check | Result | Evidence |
@@ -100,6 +108,6 @@ These use the user's existing CLI login and can consume agent usage. They create
 | Chrome convenience | Native bridge and origin-filter unit tests | Extension installation/live Chrome session adoption, compatibility testing and signed distribution |
 | Credential isolation | Private files, encrypted records and API boundaries | Broker under a separate OS identity/host for unrestricted agents; deployed TLS and operational validation |
 | Notifications | Durable shared challenges | Real delivery, cross-chat deduplication and wake/resume integration |
-| Packaging/operations | Wheel, portable skill, TLS example, local tests | Signed installer/updater, service lifecycle management, recovery/backup procedures and remote CI execution |
+| Packaging/operations | Wheel, portable skill, TLS example, macOS tests and passing Linux CI | Signed installer/updater, service lifecycle management, recovery/backup procedures and broader platform coverage |
 
 Payments, tax filings and account-changing writes are unsupported. No test result in this report authorizes or validates those operations. The goal of a broad production consumer product remains open; this release establishes a tested, usable foundation and the measurements needed for a real pilot.

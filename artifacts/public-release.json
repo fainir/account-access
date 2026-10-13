@@ -1,0 +1,44 @@
+{
+  "observed_date": "2026-10-13",
+  "repository": "https://github.com/fainir/account-access",
+  "visibility": "public",
+  "package_version": "0.3.1",
+  "public_code_revision": "0cc7863ea9f1cb478e9da641933926a10ca7acc0",
+  "linux_ci": {
+    "url": "https://github.com/fainir/account-access/actions/runs/38374863318",
+    "conclusion": "success",
+    "regression_tests_passed": 43,
+    "browser_sandbox_enabled": true,
+    "browser_namespaces": "AppArmor policy scoped to installed executable paths",
+    "lint": "passed",
+    "dependency_audit": "passed",
+    "build": "passed"
+  },
+  "fresh_install": {
+    "fresh_checkout": true,
+    "personal_accounts_used": false,
+    "host_skill_directories_modified": false,
+    "passed": true,
+    "package_version": "0.3.1",
+    "doctor_status": "OK",
+    "discovered_accounts": 3,
+    "task_status": "COMPLETED",
+    "task_progress": 3
+  },
+  "secret_scan": {
+    "tool": "gitleaks 8.17.0",
+    "publication_tree_findings": 0,
+    "public_history_findings": 0
+  },
+  "publication_privacy": {
+    "raw_agent_traces_included": false,
+    "vaults_or_runtime_keys_included": false,
+    "existing_local_private_history_published": false,
+    "github_noreply_commit_email": true
+  },
+  "limitations": [
+    "Release candidate, not production financial-account validation",
+    "No private accounts connected for publication tests",
+    "Native phone SMS companions not shipped"
+  ]
+}
