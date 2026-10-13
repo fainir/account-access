@@ -1,0 +1,16 @@
+{
+  "duration_seconds": 188.833008,
+  "resolution": "1920x1080",
+  "frame_rate": 24,
+  "video_codec": "H.264",
+  "audio_codec": "AAC",
+  "full_decode": "passed",
+  "caption_count": 46,
+  "caption_timestamps": "passed",
+  "command_shell_syntax": "passed",
+  "visual_review": "Decoded scene frames inspected for clipping and readable text",
+  "audio_mean_db": -16.5,
+  "audio_peak_db": -0.6,
+  "sha256": "5461c418eff94a52c7c8497d1ac4151c6cb836265c31110f8587ec850f3777da",
+  "anonymous_github_download": "passed; SHA-256 matches local video"
+}

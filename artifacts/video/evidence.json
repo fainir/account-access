@@ -1,0 +1,49 @@
+{
+  "recorded_at": "2026-10-13T10:21:02.062018+00:00",
+  "version": "0.3.1",
+  "environment": "controlled-demo",
+  "source_commit": "f0cff16f45a2722be24e39056f893fa250950483",
+  "agents": {
+    "codex": {
+      "passed": true,
+      "elapsed_seconds": 33.276,
+      "permission_denial_count": 0,
+      "status": "COMPLETED",
+      "progress": 3,
+      "total": 3,
+      "balances": {
+        "demo-api": "1,234.56",
+        "demo-web": "987.65",
+        "demo-mfa": "987.65"
+      }
+    },
+    "claude": {
+      "passed": true,
+      "elapsed_seconds": 80.096,
+      "permission_denial_count": 0,
+      "status": "COMPLETED",
+      "progress": 3,
+      "total": 3,
+      "balances": {
+        "demo-api": "1,234.56",
+        "demo-web": "987.65",
+        "demo-mfa": "987.65"
+      }
+    }
+  },
+  "installation": {
+    "fresh_checkout": true,
+    "clone": true,
+    "uv_sync": true,
+    "chromium_install": true,
+    "uv_build": true,
+    "uv_tool_install": true
+  },
+  "presentation": "Edited walkthrough with exact installation commands, reformatted verified result highlights, and actual owner-console screenshots. Not an uncut desktop recording.",
+  "limits": [
+    "Synthetic accounts only",
+    "No private accounts validated",
+    "Suggested prompts shown; CLI verification used the demo smoke harness",
+    "First Claude attempt completed its task but encountered a local plan-file permission denial; repeated with the required existing workspace record and no hooks disabled"
+  ]
+}

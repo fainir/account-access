@@ -25,3 +25,6 @@ installation.json
 *.p12
 *.pfx
 artifacts/publish-checks/
+artifacts/video/work/
+artifacts/video/*.mp4
+artifacts/video/*.wav

@@ -1,0 +1,67 @@
+[
+  {
+    "start": 0.0,
+    "title": "Account Access",
+    "id": "intro"
+  },
+  {
+    "start": 12.583,
+    "title": "Start with your usual tools",
+    "id": "prepare"
+  },
+  {
+    "start": 27.333,
+    "title": "Download Account Access",
+    "id": "clone"
+  },
+  {
+    "start": 37.917,
+    "title": "Install Python and the browser",
+    "id": "dependencies"
+  },
+  {
+    "start": 51.833,
+    "title": "Make the command available",
+    "id": "install"
+  },
+  {
+    "start": 65.083,
+    "title": "Start it once. Keep it running.",
+    "id": "start"
+  },
+  {
+    "start": 80.167,
+    "title": "Check the connection",
+    "id": "doctor"
+  },
+  {
+    "start": 91.333,
+    "title": "Ask Codex in a fresh chat",
+    "id": "codex"
+  },
+  {
+    "start": 107.833,
+    "title": "The same service works with Claude",
+    "id": "claude"
+  },
+  {
+    "start": 122.583,
+    "title": "You choose the account and permissions",
+    "id": "owner"
+  },
+  {
+    "start": 138.917,
+    "title": "Where authentication comes from",
+    "id": "authentication"
+  },
+  {
+    "start": 157.083,
+    "title": "Follow the specific status",
+    "id": "troubleshooting"
+  },
+  {
+    "start": 172.417,
+    "title": "Your first three-account task",
+    "id": "finish"
+  }
+]

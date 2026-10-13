@@ -9,6 +9,14 @@ Account Access is a local authentication and delegated-access service for **Code
 
 **Status: release candidate.** The demo is usable today. Real websites require reviewed connectors; this is not an “add any website” consumer app or validated production access to banks, Google, Meta or insurance accounts.
 
+## Watch the beginner walkthrough
+
+[![Watch the Account Access installation and usage walkthrough](docs/video/poster.jpg)](https://github.com/fainir/account-access/releases/download/v0.3.1/account-access-walkthrough.mp4)
+
+[Watch or download the narrated video](https://github.com/fainir/account-access/releases/download/v0.3.1/account-access-walkthrough.mp4) · [Copy the commands and read the transcript](docs/video/README.md) · [English captions](https://github.com/fainir/account-access/releases/download/v0.3.1/account-access-walkthrough.en.srt)
+
+The **3:09 walkthrough** has English narration and captions at 1080p. It shows installation, demo startup, prompts for Codex and Claude Code, verified demo results, and the actual owner console. It uses synthetic accounts and explains the current password/SMS/email limitations.
+
 ## Quick start
 
 You need **Git**, [**uv**](https://docs.astral.sh/uv/getting-started/installation/) and macOS or Linux. uv can install Python for you. Install Codex or Claude Code separately if you want to use an agent; you can also try the client directly.
