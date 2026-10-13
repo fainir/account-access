@@ -21,7 +21,8 @@ def main():
         executable = Path(pw.chromium.executable_path)
     cache = executable.parents[2]
     binaries = {executable.resolve(strict=True)}
-    binaries.update(p.resolve(strict=True) for p in cache.glob("chromium_headless_shell-*/chrome-*/headless_shell") if p.is_file())
+    for filename in ["chrome-headless-shell", "headless_shell"]:
+        binaries.update(p.resolve(strict=True) for p in cache.glob("chromium_headless_shell-*/chrome-*/" + filename) if p.is_file())
     if len(binaries) < 2:
         parser.error("Install both Playwright Chromium and its headless shell first")
     policy = ["abi <abi/4.0>,", "include <tunables/global>", ""]
