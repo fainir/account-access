@@ -1,0 +1,55 @@
+{
+  "environment": "controlled-demo",
+  "observed_date": "2026-10-12",
+  "package_version": "0.3.1",
+  "setup": "Programmatic synthetic consent, password and TOTP enrollment; human setup effort not measured",
+  "live_accounts_tested": 0,
+  "repeated_access": [
+    {
+      "account": "demo-api",
+      "runs": 30,
+      "unattended_completions": 30,
+      "unattended_completion_fraction": 1.0,
+      "unique_post_setup_challenges": 0,
+      "challenges_per_run": 0.0,
+      "automatic_refreshes": 30,
+      "automatic_password_logins": 0,
+      "automatic_totp_submissions": 0
+    },
+    {
+      "account": "demo-web",
+      "runs": 30,
+      "unattended_completions": 30,
+      "unattended_completion_fraction": 1.0,
+      "unique_post_setup_challenges": 0,
+      "challenges_per_run": 0.0,
+      "automatic_refreshes": 0,
+      "automatic_password_logins": 1,
+      "automatic_totp_submissions": 0
+    },
+    {
+      "account": "demo-mfa",
+      "runs": 30,
+      "unattended_completions": 30,
+      "unattended_completion_fraction": 1.0,
+      "unique_post_setup_challenges": 0,
+      "challenges_per_run": 0.0,
+      "automatic_refreshes": 0,
+      "automatic_password_logins": 1,
+      "automatic_totp_submissions": 1
+    }
+  ],
+  "recovery": {
+    "blocked_jobs": 5,
+    "unique_shared_challenges": 1,
+    "simulated_owner_repairs": 1,
+    "automatically_resumed_jobs": 5,
+    "repair_to_completion_seconds": 0.312
+  },
+  "elapsed_seconds": 85.023,
+  "limits": [
+    "Accelerated local fixtures; not 30 days of real use",
+    "No live Gmail, Twilio, financial, Google or Meta account tested",
+    "Actual notification delivery, mobile OS and biometric handoff not measured"
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "agent": "claude",
+  "service_version": "0.3.1",
+  "environment": "controlled-demo",
+  "exit_code": 0,
+  "elapsed_seconds": 51.73,
+  "passed": true,
+  "expected_accounts": [
+    "demo-api",
+    "demo-mfa",
+    "demo-web",
+    "internet-valid",
+    "sauce-standard"
+  ],
+  "independently_verified_tasks": [
+    {
+      "task_id": "7d60ca05bcaf00ff2045857557d2d59a",
+      "status": "COMPLETED",
+      "progress": 5,
+      "total": 5,
+      "accounts": [
+        "demo-api",
+        "demo-web",
+        "demo-mfa",
+        "sauce-standard",
+        "internet-valid"
+      ]
+    }
+  ],
+  "permission_denial_count": 0,
+  "final_report": "All 5 steps completed. Here are the demo results:\n\n---\n\n**Task ID:** `7d60ca05bcaf00ff2045857557d2d59a`\n**Key:** `claude-release-1791803369103930000`\n**Status:** COMPLETED (5/5)\n\n---\n\n### Demo Results (controlled-demo environment - synthetic fixtures)\n\n| Account | Operation | Result |\n|---|---|---|\n| `demo-api` | summary | Balance: 1,234.56 ILS |\n| `demo-web` | summary | Balance: 987.65 ILS |\n| `demo-mfa` | summary | Balance: 987.65 ILS |\n| `sauce-standard` | inventory | 6 products listed (Backpack, Bike Light, Bolt T-Shirt, Fleece Jacket, Onesie, Red T-Shirt) |\n| `internet-valid` | summary | Heading: \"Secure Area\" - welcome message confirmed |\n\n---\n\nAll 5 connected demo accounts responded successfully within the 60-second polling window. No blocked steps, no `NEEDS_USER` challenges. These are synthetic fixtures and intentionally public demo identities - no personal accounts or credentials were accessed.",
+  "limits": [
+    "Public demo/fixture accounts only",
+    "Existing host login and hooks used; no hooks disabled",
+    "This is a CLI agent test; desktop-chat discovery is a separate host interaction"
+  ]
+}

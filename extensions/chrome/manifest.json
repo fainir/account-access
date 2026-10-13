@@ -1,0 +1,9 @@
+{
+  "manifest_version": 3,
+  "name": "Account Access Session Connector",
+  "version": "0.1.0",
+  "description": "Explicitly connect a selected signed-in browser tab to your local Account Access service.",
+  "permissions": ["activeTab", "cookies", "nativeMessaging", "scripting"],
+  "optional_host_permissions": ["https://*/*"],
+  "action": {"default_popup": "popup.html"}
+}

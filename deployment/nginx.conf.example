@@ -1,0 +1,19 @@
+# Serve only behind an installed TLS certificate, on a broker host separate from untrusted agents.
+# Keep the vault owned by the broker OS user with mode 0700. Run this proxy with socket access.
+server {
+    listen 443 ssl;
+    server_name access.example.com;
+    ssl_certificate /etc/account-access/tls/fullchain.pem;
+    ssl_certificate_key /etc/account-access/tls/key.pem;
+    ssl_protocols TLSv1.3;
+    client_max_body_size 64k;
+    # Authorization and response data are intentionally absent from logs.
+    access_log off;
+    location /v1/ {
+        proxy_pass http://unix:/var/lib/account-access/service.sock:;
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header Host localhost;
+        proxy_read_timeout 65s;
+    }
+    location / { return 404; }
+}

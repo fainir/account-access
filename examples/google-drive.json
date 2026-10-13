@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "accounts": {
+    "google-drive": {
+      "kind": "oauth",
+      "label": "Google Drive metadata",
+      "authorization_url": "https://accounts.google.com/o/oauth2/v2/auth",
+      "token_url": "https://oauth2.googleapis.com/token",
+      "revoke_url": "https://oauth2.googleapis.com/revoke",
+      "client_id": "REPLACE_WITH_REGISTERED_DESKTOP_APP_CLIENT_ID",
+      "token_auth_method": "client_secret_post",
+      "scopes": ["https://www.googleapis.com/auth/drive.metadata.readonly"],
+      "authorization_params": {"access_type": "offline", "prompt": "consent"},
+      "api_origins": ["https://www.googleapis.com"],
+      "operations": {
+        "list-files": {
+          "description": "List metadata for up to 20 Drive files",
+          "url": "https://www.googleapis.com/drive/v3/files?pageSize=20&fields=files(id,name,modifiedTime)",
+          "required_scopes": ["https://www.googleapis.com/auth/drive.metadata.readonly"],
+          "fields": ["files"]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "agent": "codex",
+  "service_version": "0.3.1",
+  "environment": "controlled-demo",
+  "exit_code": 0,
+  "elapsed_seconds": 46.633,
+  "passed": true,
+  "expected_accounts": [
+    "demo-api",
+    "demo-mfa",
+    "demo-web",
+    "internet-valid",
+    "sauce-standard"
+  ],
+  "independently_verified_tasks": [
+    {
+      "task_id": "3a7c9131fc93307534c6914831b9cfa1",
+      "status": "COMPLETED",
+      "progress": 5,
+      "total": 5,
+      "accounts": [
+        "demo-api",
+        "demo-web",
+        "demo-mfa",
+        "sauce-standard",
+        "internet-valid"
+      ]
+    }
+  ],
+  "permission_denial_count": 0,
+  "final_report": "Demo results: all 5 connected accounts completed successfully.\n\n| Account | Operation | Result |\n|---|---|---|\n| demo-api | summary | 1,234.56 ILS |\n| demo-web | summary | 987.65 ILS |\n| demo-mfa | summary | 987.65 ILS |\n| sauce-standard | inventory | Products heading; 6 items |\n| internet-valid | summary | Secure Area heading and welcome message |\n\nOne durable task covered all accounts:\n- Key: `codex-release-1791803369108146000`\n- Task ID: `3a7c9131fc93307534c6914831b9cfa1`\n- Status: `COMPLETED` (5/5)\n- Used `task wait --timeout 60`.\n\nNo personal accounts, credentials, owner commands, or permission changes were accessed.",
+  "limits": [
+    "Public demo/fixture accounts only",
+    "Existing host login and hooks used; no hooks disabled",
+    "This is a CLI agent test; desktop-chat discovery is a separate host interaction"
+  ]
+}

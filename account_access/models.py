@@ -1,0 +1,180 @@
+"""Owner-authored connector configuration and a deliberately small agent API."""
+
+import hashlib
+import ipaddress
+import json
+from typing import Annotated, Literal
+from urllib.parse import urlsplit
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+Handle = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_-]{0,63}$")]
+
+
+class StrictModel(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+
+def origin(url: str) -> str:
+    parts = urlsplit(url)
+    port = parts.port
+    suffix = f":{port}" if port and port != {"https": 443, "http": 80}.get(parts.scheme) else ""
+    return f"{parts.scheme}://{parts.hostname}{suffix}"
+
+
+def validate_url(url: str, test_mode: bool = False) -> str:
+    p = urlsplit(url)
+    if p.username or p.password or p.fragment or not p.hostname:
+        raise ValueError("URLs must have a host and no credentials or fragment")
+    if p.scheme == "https":
+        try:
+            if ipaddress.ip_address(p.hostname).is_private:
+                raise ValueError("Private IP destinations are unsupported")
+        except ValueError as exc:
+            if "Private IP" in str(exc):
+                raise
+        return url
+    if test_mode and p.scheme == "http" and p.hostname == "127.0.0.1":
+        return url
+    raise ValueError("HTTPS is required; test mode permits only literal 127.0.0.1 HTTP")
+
+
+class ApiOperation(StrictModel):
+    kind: Literal["api"] = "api"
+    description: str = Field(min_length=1, max_length=240)
+    url: str
+    required_scopes: list[str] = Field(default_factory=list, max_length=32)
+    fields: list[str] = Field(min_length=1, max_length=16)
+
+
+class BrowserOperation(StrictModel):
+    kind: Literal["browser"] = "browser"
+    description: str = Field(min_length=1, max_length=240)
+    url: str
+    fields: dict[Handle, str] = Field(min_length=1, max_length=16)
+
+
+class OAuthAccount(StrictModel):
+    kind: Literal["oauth"]
+    label: str = Field(min_length=1, max_length=100)
+    authorization_url: str
+    token_url: str
+    revoke_url: str | None = None
+    client_id: str = Field(min_length=1, max_length=500)
+    token_auth_method: Literal["none", "client_secret_post", "client_secret_basic"] = "none"
+    scopes: list[str] = Field(min_length=1, max_length=32)
+    authorization_params: dict[str, str] = Field(default_factory=dict)
+    api_origins: list[str] = Field(min_length=1, max_length=8)
+    operations: dict[Handle, ApiOperation]
+
+    @model_validator(mode="after")
+    def no_protocol_overrides(self):
+        reserved = {"state", "redirect_uri", "client_id", "response_type", "scope",
+                    "code_challenge", "code_challenge_method"}
+        if reserved & self.authorization_params.keys():
+            raise ValueError("Authorization parameters cannot override protocol protections")
+        for op in self.operations.values():
+            if origin(op.url) not in self.api_origins:
+                raise ValueError("Operation destination is outside the API origin allowlist")
+            if not set(op.required_scopes) <= set(self.scopes):
+                raise ValueError("Operation requires scopes absent from the connection")
+        return self
+
+
+class LoginForm(StrictModel):
+    username_selector: str
+    password_selector: str
+    submit_selector: str
+    code_selector: str | None = None
+    code_submit_selector: str | None = None
+    code_source: Handle | None = None
+    login_only: Literal[True] = True
+
+
+class BrowserAccount(StrictModel):
+    kind: Literal["browser"]
+    label: str = Field(min_length=1, max_length=100)
+    login_url: str
+    ready_selector: str
+    login: LoginForm | None = None
+    challenge_selectors: dict[Literal["login", "sms", "email", "totp", "device", "passkey",
+                                     "admin", "action", "unknown"], str] = Field(default_factory=dict)
+    # Exact URLs, including query strings. GET alone does not prove a URL is read-only.
+    read_resources: list[str] = Field(default_factory=list, max_length=100)
+    login_resources: list[str] = Field(default_factory=list, max_length=100)
+    login_post_urls: list[str] = Field(default_factory=list, max_length=32)
+    javascript: bool = False
+    state_timeout_ms: int = Field(default=5000, ge=0, le=15000)
+    operations: dict[Handle, BrowserOperation] = Field(min_length=1)
+
+
+class CodeSource(StrictModel):
+    kind: Literal["totp", "gmail", "twilio"]
+    account: Handle | None = None
+    sender: str | None = Field(default=None, max_length=200)
+    recipient: str | None = Field(default=None, max_length=200)
+    subject: str | None = Field(default=None, max_length=200)
+    # Exact owner-reviewed message template; one {code}, no arbitrary regex supplied by the agent.
+    template: str | None = Field(default=None, max_length=2000)
+
+    @model_validator(mode="after")
+    def requirements(self):
+        if self.kind != "totp" and (not self.sender or not self.recipient or not self.template
+                                    or self.template.count("{code}") != 1):
+            raise ValueError("Message sources require sender, recipient and one {code} template")
+        if self.kind == "gmail" and (not self.account or not self.subject):
+            raise ValueError("Gmail code sources require an OAuth account and exact subject")
+        return self
+
+
+class Configuration(StrictModel):
+    version: Literal[1] = 1
+    test_mode: bool = False
+    accounts: dict[Handle, Annotated[OAuthAccount | BrowserAccount, Field(discriminator="kind")]]
+    code_sources: dict[Handle, CodeSource] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def check_all_urls(self):
+        for account in self.accounts.values():
+            if isinstance(account, OAuthAccount):
+                urls = [account.authorization_url, account.token_url, *account.api_origins]
+                if account.revoke_url:
+                    urls.append(account.revoke_url)
+            else:
+                urls = [account.login_url, *account.read_resources, *account.login_resources, *account.login_post_urls]
+                if account.login and account.login.code_source not in self.code_sources and account.login.code_source:
+                    raise ValueError("Unknown login code source")
+            urls.extend(op.url for op in account.operations.values())
+            for url in urls:
+                validate_url(url, self.test_mode)
+        for source in self.code_sources.values():
+            if source.kind == "gmail":
+                account = self.accounts.get(source.account)
+                if not isinstance(account, OAuthAccount):
+                    raise ValueError("Gmail source must reference an OAuth account")
+                if "https://www.googleapis.com/auth/gmail.readonly" not in account.scopes:
+                    raise ValueError("Gmail code source requires the gmail.readonly scope")
+        return self
+
+    def fingerprint(self, account: str) -> str:
+        data = self.accounts[account].model_dump()
+        if isinstance(self.accounts[account], BrowserAccount):
+            form = self.accounts[account].login
+            if form and form.code_source:
+                data["code_source_config"] = self.code_sources[form.code_source].model_dump()
+        data["test_mode"] = self.test_mode
+        return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
+
+
+class Step(StrictModel):
+    account: Handle
+    operation: Handle
+
+
+class TaskRequest(StrictModel):
+    key: str = Field(min_length=1, max_length=128, pattern=r"^[a-zA-Z0-9_.:-]+$")
+    steps: list[Step] = Field(min_length=1, max_length=32)
+
+
+class RunRequest(Step):
+    pass
