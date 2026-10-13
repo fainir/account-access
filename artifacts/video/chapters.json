@@ -1,67 +1,67 @@
 [
   {
     "start": 0.0,
-    "title": "Account Access",
+    "title": "Install. Connect. Ask your agent.",
     "id": "intro"
   },
   {
-    "start": 12.583,
-    "title": "Start with your usual tools",
+    "start": 13.25,
+    "title": "Open Terminal on your Mac",
     "id": "prepare"
   },
   {
-    "start": 27.333,
+    "start": 24.667,
     "title": "Download Account Access",
     "id": "clone"
   },
   {
-    "start": 37.917,
-    "title": "Install Python and the browser",
+    "start": 33.667,
+    "title": "Prepare Python and the browser",
     "id": "dependencies"
   },
   {
-    "start": 51.833,
-    "title": "Make the command available",
+    "start": 44.333,
+    "title": "Install the Account Access command",
     "id": "install"
   },
   {
-    "start": 65.083,
-    "title": "Start it once. Keep it running.",
+    "start": 53.75,
+    "title": "Choose the service and install the skill",
+    "id": "configure"
+  },
+  {
+    "start": 67.417,
+    "title": "Start the local service",
     "id": "start"
   },
   {
-    "start": 80.167,
-    "title": "Check the connection",
-    "id": "doctor"
+    "start": 77.417,
+    "title": "Open your account settings",
+    "id": "setup"
   },
   {
-    "start": 91.333,
-    "title": "Ask Codex in a fresh chat",
+    "start": 87.25,
+    "title": "Enter your login once",
+    "id": "password"
+  },
+  {
+    "start": 99.167,
+    "title": "Choose what your agent can read",
+    "id": "permissions"
+  },
+  {
+    "start": 111.583,
+    "title": "Find the two cheapest products",
     "id": "codex"
   },
   {
-    "start": 107.833,
-    "title": "The same service works with Claude",
+    "start": 126.0,
+    "title": "Ask a follow-up through Claude Code",
     "id": "claude"
   },
   {
-    "start": 122.583,
-    "title": "You choose the account and permissions",
-    "id": "owner"
-  },
-  {
-    "start": 138.917,
-    "title": "Where authentication comes from",
-    "id": "authentication"
-  },
-  {
-    "start": 157.083,
-    "title": "Follow the specific status",
-    "id": "troubleshooting"
-  },
-  {
-    "start": 172.417,
-    "title": "Your first three-account task",
+    "start": 139.25,
+    "title": "Keep using your normal agent",
     "id": "finish"
   }
 ]

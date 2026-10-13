@@ -1,80 +1,192 @@
 [
   {
-    "id": "intro", "chapter": "WELCOME", "title": "Account Access", "subtitle": "Install it. Ask your agent. See the results.", "kind": "intro",
-    "narration": "This is Account Access. In this walkthrough, we'll install it and use it with Codex and Claude Code. Everything you see uses fictional demo accounts, with no personal passwords required.",
-    "note": "Version 0.3.1 · Release candidate · macOS walkthrough"
+    "id": "intro",
+    "chapter": "GET STARTED",
+    "title": "Install. Connect. Ask your agent.",
+    "subtitle": "A shopping task, from first install to a useful answer.",
+    "kind": "intro",
+    "narration": "Let's install Account Access, connect a shopping account, and ask our AI agent to find the best priced products. You'll see the setup once, then use the account through your normal agent conversation.",
+    "note": "Illustrative account and sample data.",
+    "hero": [
+      "Connect your account.",
+      "Ask your agent to work."
+    ],
+    "labels": [
+      "Install",
+      "Connect account",
+      "Ask your agent"
+    ]
   },
   {
-    "id": "prepare", "chapter": "01 / PREPARE", "title": "Start with your usual tools", "subtitle": "Open Terminal on your Mac. The command guide is linked below the video.", "kind": "cards",
-    "cards": [["Git", "Downloads the public repository"], ["uv", "Installs Python and the package"], ["Your AI agent", "Codex or Claude Code, already installed"]],
-    "narration": "You'll need Git, the u v package manager, and your preferred AI agent already installed and signed in. The written guide links to u v installation. This video uses a Mac; Linux has extra browser setup instructions.",
-    "note": "No AI API key is needed for the demo. Native Windows support is not shipped."
+    "id": "prepare",
+    "chapter": "01 / BEFORE YOU START",
+    "title": "Open Terminal on your Mac",
+    "subtitle": "Have Git, uv, and your preferred AI agent installed.",
+    "kind": "cards",
+    "cards": [
+      [
+        "Git",
+        "Downloads Account Access"
+      ],
+      [
+        "uv",
+        "Prepares Python and the package"
+      ],
+      [
+        "Codex or Claude Code",
+        "Use the agent you already have"
+      ]
+    ],
+    "narration": "Start with Git, the u v package manager, and Codex or Claude Code installed and signed in. The guide below includes the installation links and every command you can copy.",
+    "note": "macOS shown. Linux setup is covered in the written guide."
   },
   {
-    "id": "clone", "chapter": "02 / DOWNLOAD", "title": "Download Account Access", "subtitle": "Copy these commands into Terminal, one line at a time.", "kind": "terminal",
+    "id": "clone",
+    "chapter": "02 / DOWNLOAD",
+    "title": "Download Account Access",
+    "subtitle": "Run these commands in Terminal.",
+    "kind": "terminal",
     "command": "git clone https://github.com/fainir/account-access.git\ncd account-access",
-    "output": "Cloning into 'account-access'...\nDownload complete. You are now inside the project folder.",
-    "narration": "First, clone the public GitHub repository. Then change into the account access folder. All installation commands in the next steps run from this folder.",
-    "tip": "The written guide includes every command, ready to copy.", "note": "Commands and successful output are presented for clarity; installation waits are shortened."
+    "output": "Cloning into 'account-access'...\nReady to install.",
+    "narration": "Download the repository, then open its folder with the change directory command. Run the next installation commands from this folder.",
+    "tip": "Copy the commands from the written guide.",
+    "note": "github.com/fainir/account-access"
   },
   {
-    "id": "dependencies", "chapter": "03 / SET UP", "title": "Install Python and the browser", "subtitle": "Wait for each command to finish before running the next.", "kind": "terminal",
+    "id": "dependencies",
+    "chapter": "03 / INSTALL",
+    "title": "Prepare Python and the browser",
+    "subtitle": "Wait for each command to finish.",
+    "kind": "terminal",
     "command": "uv sync --locked --python 3.13\nuv run playwright install chromium\nuv build",
-    "output": "account-access==0.3.1\nChromium available\nSuccessfully built:\n  dist/account_access-0.3.1-py3-none-any.whl",
-    "narration": "Run these three commands. The first prepares Python and the dependencies. The second installs the browser used by website connectors. The third builds the installable package. The first run can take a few minutes.",
-    "tip": "Linux: use the browser dependency instructions in docs/setup.md.", "note": "Fresh checkout installation verified on 13 October 2026. Output abridged."
+    "output": "Successfully built:\n  dist/account_access-0.3.1-py3-none-any.whl",
+    "narration": "Prepare Python and the required packages. Install Chromium for website access. Then build the package. Your first installation may take a few minutes.",
+    "tip": "Keep this project folder open until installation is complete.",
+    "note": "The written guide includes the additional browser setup for Linux."
   },
   {
-    "id": "install", "chapter": "04 / INSTALL", "title": "Make the command available", "subtitle": "The backslash continues the command onto the next line.", "kind": "terminal",
+    "id": "install",
+    "chapter": "04 / INSTALL",
+    "title": "Install the Account Access command",
+    "subtitle": "The backslash continues this command onto the next line.",
+    "kind": "terminal",
     "command": "uv tool install --python 3.13 --force \\\n  ./dist/account_access-0.3.1-py3-none-any.whl",
     "output": "Installed 2 executables:\n  access\n  account-access",
-    "narration": "Install the package as a command line tool. If your terminal cannot find account access afterward, run u v tool update shell and open a new terminal. The guide also covers a missing Python three launcher.",
-    "tip": "If the command is missing:\nuv tool update-shell\nThen open a new terminal.", "note": "This installs the service and CLI. The next step installs the agent skill."
+    "narration": "Install Account Access as a command. If the terminal cannot find it afterward, run u v tool update shell, then open a new terminal.",
+    "tip": "Command not found?\nuv tool update-shell\nOpen a new terminal.",
+    "note": "Next: choose the service you want your agent to use."
   },
   {
-    "id": "start", "chapter": "05 / START THE DEMO", "title": "Start it once. Keep it running.", "subtitle": "This terminal becomes the local service. Leave it open while you use the demo.", "kind": "terminal",
-    "command": "account-access \\\n  --root \"$HOME/.local/share/account-access-demo\" \\\n  demo --install",
-    "output": "environment: controlled-demo\nSkills installed: Codex + Claude Code\nDemo accounts: demo-api, demo-web, demo-mfa\nKeep this process running while testing agents.",
-    "narration": "Start the demo with this command. It prepares three fictional accounts and installs the Account Access skill for both Codex and Claude Code. Keep this terminal open. The demo handles its test credentials and authenticator code automatically.",
-    "tip": "Three synthetic accounts:\nOAuth API\nPassword website\nPassword + authenticator", "note": "Demo data stays in its own directory. Never point this command at a real-account vault."
+    "id": "configure",
+    "chapter": "05 / CONNECT YOUR AGENT",
+    "title": "Choose the service and install the skill",
+    "subtitle": "This shopping connector is included in the repository.",
+    "kind": "terminal",
+    "command": "account-access init --config examples/shopping.json\naccount-access install --agent codex\naccount-access install --agent claude",
+    "output": "Configured account: shopping\nAccount Access skill installed",
+    "narration": "Initialize the account using its service connector. This walkthrough uses the included shopping connector. Install the skill for Codex, Claude Code, or both. Each agent gets its own access identity.",
+    "tip": "You only need to install the skill for the agent you use.",
+    "note": "Other services use their own reviewed connector configuration."
   },
   {
-    "id": "doctor", "chapter": "06 / CHECK", "title": "Check the connection", "subtitle": "Open a second terminal. Keep the service running in the first one.", "kind": "terminal",
-    "command": "python3 \\\n  \"$HOME/.agents/skills/account-access/scripts/access.py\" \\\n  doctor",
-    "output": "{\n  \"status\": \"OK\",\n  \"service_reachable\": true,\n  \"environment\": \"controlled-demo\"\n}",
-    "narration": "In a second terminal, run the connection check. Look for status O K and service reachable true. That confirms the installed client can reach the local demo service.",
-    "tip": "service_unavailable?\nStart the demo again and keep its terminal open.", "note": "Actual service response, abridged. This check does not read private accounts."
+    "id": "start",
+    "chapter": "06 / START",
+    "title": "Start the local service",
+    "subtitle": "Keep this terminal open while you use Account Access.",
+    "kind": "terminal",
+    "command": "account-access serve",
+    "output": "",
+    "narration": "Start the service and leave this terminal open. Account Access runs locally while your agent works. Now open a second terminal for account setup.",
+    "tip": "Terminal 1:\nService running\n\nTerminal 2:\nAccount setup",
+    "note": "Keep your computer awake while tasks are running."
   },
   {
-    "id": "codex", "chapter": "07 / USE CODEX", "title": "Ask Codex in a fresh chat", "subtitle": "The dollar sign selects the installed skill.", "kind": "agent", "agent": "codex",
-    "prompt": "Use $account-access to read one permitted operation from every connected demo account. Save progress as a task and label the results as demo data.",
-    "narration": "Open a fresh Codex chat and paste this prompt. Codex discovers the accounts, creates a task, waits for it, and reports the results. Our actual Codex command line run completed all three reads. You don't type the demo password or code.",
-    "note": "Suggested chat prompt shown. Result highlights come from a verified Codex CLI run."
+    "id": "setup",
+    "chapter": "07 / OPEN SETUP",
+    "title": "Open your account settings",
+    "subtitle": "Use a second terminal.",
+    "kind": "terminal",
+    "command": "account-access setup",
+    "output": "Owner console opened in your browser.",
+    "narration": "Run account access setup in the second terminal. Your browser opens the account settings, where you connect the account and choose what the agent can do.",
+    "tip": "The setup page opens in your browser.",
+    "note": "Keep this setup command open while editing account settings."
   },
   {
-    "id": "claude", "chapter": "08 / USE CLAUDE CODE", "title": "The same service works with Claude", "subtitle": "Start a fresh Claude Code session. Select the skill with a slash.", "kind": "agent", "agent": "claude",
-    "prompt": "/account-access Read one permitted operation from every connected demo account, save progress as a task, and label the results as demo data.",
-    "narration": "In Claude Code, start a fresh session and use slash account access with the same request. The service is shared, while each agent has its own client identity. This actual Claude Code run also completed all three demo reads.",
-    "note": "Suggested session prompt shown. Result highlights come from a verified Claude Code CLI run."
+    "id": "password",
+    "chapter": "08 / CONNECT THE ACCOUNT",
+    "title": "Enter your login once",
+    "subtitle": "Open the password form, enter your username and password, and save.",
+    "kind": "ui",
+    "assets": [
+      "shopping-form-empty.png",
+      "shopping-form-filled.png",
+      "shopping-permissions.png"
+    ],
+    "labels": [
+      "Open the password form",
+      "Enter your login",
+      "Save locally"
+    ],
+    "tip": "Save locally\n\nYour login is stored for permitted account access.",
+    "narration": "Open the password form for your account. Enter your email or username and password, then click Save locally. Account Access can now sign in when you ask for an allowed operation.",
+    "note": "Passwords are entered in the local setup page."
   },
   {
-    "id": "owner", "chapter": "09 / REAL-ACCOUNT SETUP", "title": "You choose the account and permissions", "subtitle": "Actual owner console, showing synthetic accounts.", "kind": "owner",
-    "narration": "For a real account, a reviewed connector must exist first. Then owner setup lets you enter credentials locally, connect or repair the account, and choose the operations an agent may perform. The demo has already prepared its accounts and permissions for you.",
-    "note": "Real accounts: initialize a reviewed configuration, serve it, then open account-access setup."
+    "id": "permissions",
+    "chapter": "09 / ALLOW ACCESS",
+    "title": "Choose what your agent can read",
+    "subtitle": "Select your agent and click Allow selected operations.",
+    "kind": "ui",
+    "assets": [
+      "shopping-permissions.png"
+    ],
+    "labels": [
+      "Select Codex or Claude",
+      "Allow the catalog read"
+    ],
+    "tip": "Shopping account\n\nAllow product names, descriptions and prices.",
+    "narration": "Select Codex or Claude and allow the catalog read. If you use both agents, grant that read to each one. This is a standing permission, so you don't repeat the approval for every request.",
+    "note": "You can change these permissions or revoke access from the same page."
   },
   {
-    "id": "authentication", "chapter": "10 / PASSWORDS AND CODES", "title": "Where authentication comes from", "subtitle": "Configure supported sources once. Reuse saved sessions afterward.", "kind": "authentication",
-    "narration": "Today, passwords are entered once in local setup. An enrolled authenticator secret lets the service generate login codes. Gmail and Twilio adapters exist, but live code delivery is not validated. Personal phone inbox access and password manager import are not built yet.",
-    "note": "Provider-required fingerprint, passkey, device or admin approval still needs the owner."
+    "id": "codex",
+    "chapter": "10 / USE CODEX",
+    "title": "Find the two cheapest products",
+    "subtitle": "Open a fresh Codex chat and send this request.",
+    "kind": "agent",
+    "agent": "codex",
+    "prompt": "Use $account-access to check my shopping account. Find the two cheapest products and show their names and prices. Save progress as a task.",
+    "narration": "In a fresh Codex chat, ask for the two cheapest products. The agent reads the permitted catalog and compares the prices. It returns the onesie at seven dollars ninety nine, and the bike light at nine dollars ninety nine.",
+    "note": "The dollar sign selects the Account Access skill."
   },
   {
-    "id": "troubleshooting", "chapter": "11 / IF SOMETHING STOPS", "title": "Follow the specific status", "subtitle": "A task preserves its progress when authentication needs repair.", "kind": "statuses",
-    "narration": "If the skill is missing, open a fresh agent session. If the service is unavailable, restart it. Needs user means complete the specified step in owner setup, then continue the same task. Denied means review the permissions you granted.",
-    "note": "The service must remain running, and your computer must stay awake."
+    "id": "claude",
+    "chapter": "11 / USE CLAUDE CODE",
+    "title": "Ask a follow-up through Claude Code",
+    "subtitle": "Use the same connected account through another agent.",
+    "kind": "agent",
+    "agent": "claude",
+    "prompt": "/account-access Check my shopping account and tell me the backpack price. Save progress as a task.",
+    "narration": "You can use the same account from Claude Code. Ask for the backpack price. It returns twenty nine dollars ninety nine. The saved account session is reused, so you do not enter the password again.",
+    "note": "Start a fresh Claude Code session after installing the skill."
   },
   {
-    "id": "finish", "chapter": "READY TO TRY", "title": "Your first three-account task", "subtitle": "Install → start the demo → ask your agent.", "kind": "finish",
-    "narration": "You're ready to try the three account demo. The repository has every command, the captioned video, and the real account setup guide. This is a release candidate; arbitrary websites, banks, and insurance accounts still require connectors and testing.",
-    "note": "github.com/fainir/account-access"
+    "id": "finish",
+    "chapter": "YOU ARE READY",
+    "title": "Keep using your normal agent",
+    "subtitle": "Connect once. Allow the operation. Ask for the work you need.",
+    "kind": "finish",
+    "narration": "That's the workflow: install Account Access, connect your account, grant access, and ask your agent to do the work. Keep the service running. If a website needs your approval later, complete that step in account setup and continue the task.",
+    "note": "github.com/fainir/account-access",
+    "hero": [
+      "Your accounts connected.",
+      "Your agent ready to work."
+    ],
+    "labels": [
+      "Connected account",
+      "Saved login",
+      "Agent requests"
+    ]
   }
 ]

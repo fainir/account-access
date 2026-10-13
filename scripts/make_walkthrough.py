@@ -7,6 +7,7 @@ This renderer never opens personal accounts or reads credential stores.
 """
 
 import argparse
+import hashlib
 import json
 import math
 import shutil
@@ -85,7 +86,8 @@ def clip_duration(path):
 def prepare_audio(scenes, voice):
     cursor, captions, chapters = 0.0, [], []
     for n, scene in enumerate(scenes):
-        raw = WORK / f"voice-{n:02}.aiff"
+        voice_key = hashlib.sha256((voice + scene["narration"]).encode()).hexdigest()[:12]
+        raw = WORK / f"voice-{n:02}-{voice_key}.aiff"
         text_file = WORK / f"voice-{n:02}.txt"
         text_file.write_text(scene["narration"])
         if not raw.exists():
@@ -148,9 +150,10 @@ def base_frame(scene, index, evidence):
     block(d, scene["note"], 83, 1012, font(21), 1720, fill=MUTED, gap=4)
     kind = scene["kind"]
     if kind in {"intro", "finish"}:
-        d.text((84, 340), "Let your agent use", font=font(83, bold=True), fill=INK)
-        d.text((84, 437), "the access you allow.", font=font(83, bold=True), fill=GREEN)
-        labels = ["Connect once", "Choose permissions", "Ask your agent"]
+        hero = scene.get("hero", ["Let your agent use", "the access you allow."])
+        d.text((84, 340), hero[0], font=font(83, bold=True), fill=INK)
+        d.text((84, 437), hero[1], font=font(83, bold=True), fill=GREEN)
+        labels = scene.get("labels", ["Connect once", "Choose permissions", "Ask your agent"])
         for i, label in enumerate(labels):
             x = 85 + i * 590
             box(d, (x, 610, x + 554, 764))
@@ -162,7 +165,8 @@ def base_frame(scene, index, evidence):
             x = 84 + 591 * i
             box(d, (x, 343, x + 553, 740))
             d.text((x + 34, 379), f"0{i + 1}", font=font(39, bold=True), fill=GREEN)
-            d.text((x + 34, 471), title, font=font(49, bold=True), fill=INK)
+            title_face = font(39 if len(title) > 16 else 49, bold=True)
+            block(d, title, x + 34, 471, title_face, 475)
             block(d, detail, x + 34, 564, font(33), 477, fill=MUTED)
         d.text((89, 787), "uv installation: docs.astral.sh/uv/getting-started/installation", font=font(28), fill=GREEN)
     elif kind == "terminal":
@@ -181,12 +185,16 @@ def base_frame(scene, index, evidence):
         d.text((115, 338), "PROMPT TO COPY", font=font(23, bold=True), fill=color)
         block(d, scene["prompt"], 116, 393, font(38), 1650, gap=13)
         d.line((116, 584, 1805, 584), fill=LINE, width=2)
-        d.text((116, 620), "VERIFIED CLI RESULT  ·  SYNTHETIC DEMO DATA", font=font(23, bold=True), fill=color)
-        for i, account in enumerate(["demo-api", "demo-web", "demo-mfa"]):
-            x = 116 + i * 558
-            d.text((x, 682), account, font=font(33, bold=True), fill=INK)
-            d.text((x, 729), report["balances"][account] + " ILS", font=font(35), fill=color)
-        d.text((116, 796), "COMPLETED  ·  3 / 3 account reads", font=font(26, bold=True), fill=MUTED)
+        d.text((116, 620), "ANSWER FROM " + agent.upper(), font=font(23, bold=True), fill=color)
+        for i, result in enumerate(report["highlights"]):
+            x = 116 + i * 840
+            d.text((x, 684), result["name"], font=font(35, bold=True), fill=INK)
+            d.text((x, 738), result["price"], font=font(42), fill=color)
+        d.text((116, 809), "Task completed  ·  shopping account", font=font(24), fill=MUTED)
+    elif kind == "ui":
+        box(d, (1400, 306, 1840, 850))
+        d.text((1430, 346), "ACCOUNT SETUP", font=font(23, bold=True), fill=GREEN)
+        block(d, scene["tip"], 1430, 412, font(28), 374, gap=15)
     elif kind == "owner":
         shot = Image.open(OUT / "assets/owner-password.png").convert("RGB")
         scale = min(1260 / shot.width, 510 / shot.height)
@@ -246,6 +254,18 @@ def terminal_overlay(frame, scene, t):
             y += 37
 
 
+def ui_overlay(frame, scene, t):
+    fraction = min(0.99, t / scene["duration"])
+    index = min(len(scene["assets"]) - 1, int(fraction * len(scene["assets"])))
+    shot = Image.open(OUT / "assets" / scene["assets"][index]).convert("RGB")
+    scale = min(1260 / shot.width, 510 / shot.height)
+    shot = shot.resize((round(shot.width * scale), round(shot.height * scale)), Image.Resampling.LANCZOS)
+    frame.paste(shot, (80, 315))
+    label_index = min(len(scene["labels"]) - 1, int(fraction * len(scene["labels"])))
+    d = ImageDraw.Draw(frame)
+    d.text((82, 846), scene["labels"][label_index], font=font(23, bold=True), fill=GREEN)
+
+
 def render(scenes, evidence, total):
     output = OUT / "account-access-walkthrough.mp4"
     command = [
@@ -278,6 +298,8 @@ def render(scenes, evidence, total):
                 frame = cache[text].copy()
                 if scene["kind"] == "terminal":
                     terminal_overlay(frame, scene, t)
+                elif scene["kind"] == "ui":
+                    ui_overlay(frame, scene, t)
                 d = ImageDraw.Draw(frame)
                 progress = (scene["start"] + t) / total
                 d.rectangle((0, H - 5, round(W * progress), H), fill=GREEN)
@@ -313,7 +335,7 @@ def main():
     evidence = json.loads((OUT / "evidence.json").read_text())
     for agent in ["codex", "claude"]:
         if not evidence["agents"][agent]["passed"]:
-            raise SystemExit(f"Verified successful demo run required: {agent}")
+            raise SystemExit(f"Verified successful account read required: {agent}")
     total = prepare_audio(scenes, args.voice)
     video = render(scenes, evidence, total)
     print(json.dumps({"file": video.name, "duration_seconds": round(total, 3), "bytes": video.stat().st_size}))

@@ -1,183 +1,163 @@
 1
-00:00:00,450 --> 00:00:05,070
-This is Account Access. In this walkthrough, we'll install it and use it with
+00:00:00,450 --> 00:00:05,249
+Let's install Account Access, connect a shopping account, and ask our AI agent to
 
 2
-00:00:05,070 --> 00:00:10,350
-Codex and Claude Code. Everything you see uses fictional demo accounts, with no personal
+00:00:05,249 --> 00:00:09,870
+find the best priced products. You'll see the setup once, then use the account
 
 3
-00:00:10,350 --> 00:00:11,489
-passwords required.
+00:00:09,870 --> 00:00:12,180
+through your normal agent conversation.
 
 4
-00:00:13,033 --> 00:00:17,829
-You'll need Git, the u v package manager, and your preferred AI agent already
+00:00:13,700 --> 00:00:18,091
+Start with Git, the u v package manager, and Codex or Claude Code installed
 
 5
-00:00:17,829 --> 00:00:22,127
-installed and signed in. The written guide links to u v installation.
+00:00:18,091 --> 00:00:23,009
+and signed in. The guide below includes the installation links and every command you
 
 6
-00:00:22,127 --> 00:00:26,238
-This video uses a Mac; Linux has extra browser setup instructions.
+00:00:23,009 --> 00:00:23,536
+can copy.
 
 7
-00:00:27,783 --> 00:00:30,310
-First, clone the public GitHub repository.
+00:00:25,117 --> 00:00:29,639
+Download the repository, then open its folder with the change directory command.
 
 8
-00:00:30,310 --> 00:00:32,896
-Then change into the account access folder.
+00:00:29,639 --> 00:00:32,578
+Run the next installation commands from this folder.
 
 9
-00:00:32,896 --> 00:00:36,806
-All installation commands in the next steps run from this folder.
+00:00:34,117 --> 00:00:36,654
+Prepare Python and the required packages.
 
 10
-00:00:38,367 --> 00:00:42,671
-Run these three commands. The first prepares Python and the dependencies.
+00:00:36,654 --> 00:00:40,367
+Install Chromium for website access. Then build the package.
 
 11
-00:00:42,671 --> 00:00:46,150
-The second installs the browser used by website connectors.
+00:00:40,367 --> 00:00:43,275
+Your first installation may take a few minutes.
 
 12
-00:00:46,150 --> 00:00:48,568
-The third builds the installable package.
+00:00:44,783 --> 00:00:46,992
+Install Account Access as a command.
 
 13
-00:00:48,568 --> 00:00:50,750
-The first run can take a few minutes.
+00:00:46,992 --> 00:00:51,471
+If the terminal cannot find it afterward, run u v tool update shell, then
 
 14
-00:00:52,283 --> 00:00:54,771
-Install the package as a command line tool.
+00:00:51,471 --> 00:00:52,698
+open a new terminal.
 
 15
-00:00:54,771 --> 00:00:59,400
-If your terminal cannot find account access afterward, run u v tool update shell
+00:00:54,200 --> 00:00:57,381
+Initialize the account using its service connector.
 
 16
-00:00:59,400 --> 00:01:03,972
-and open a new terminal. The guide also covers a missing Python three launcher.
+00:00:57,381 --> 00:01:00,750
+This walkthrough uses the included shopping connector.
 
 17
-00:01:05,533 --> 00:01:07,409
-Start the demo with this command.
+00:01:00,750 --> 00:01:03,869
+Install the skill for Codex, Claude Code, or both.
 
 18
-00:01:07,409 --> 00:01:12,468
-It prepares three fictional accounts and installs the Account Access skill for both Codex
+00:01:03,869 --> 00:01:06,364
+Each agent gets its own access identity.
 
 19
-00:01:12,468 --> 00:01:14,798
-and Claude Code. Keep this terminal open.
+00:01:07,867 --> 00:01:10,642
+Start the service and leave this terminal open.
 
 20
-00:01:14,798 --> 00:01:19,061
-The demo handles its test credentials and authenticator code automatically.
+00:01:10,642 --> 00:01:13,653
+Account Access runs locally while your agent works.
 
 21
-00:01:20,617 --> 00:01:23,408
-In a second terminal, run the connection check.
+00:01:13,653 --> 00:01:16,309
+Now open a second terminal for account setup.
 
 22
-00:01:23,408 --> 00:01:26,200
-Look for status O K and service reachable true.
+00:01:17,867 --> 00:01:20,489
+Run account access setup in the second terminal.
 
 23
-00:01:26,200 --> 00:01:30,238
-That confirms the installed client can reach the local demo service.
+00:01:20,489 --> 00:01:25,188
+Your browser opens the account settings, where you connect the account and choose what
 
 24
-00:01:31,783 --> 00:01:34,764
-Open a fresh Codex chat and paste this prompt.
+00:01:25,188 --> 00:01:26,117
+the agent can do.
 
 25
-00:01:34,764 --> 00:01:40,208
-Codex discovers the accounts, creates a task, waits for it, and reports the results.
+00:01:27,700 --> 00:01:30,055
+Open the password form for your account.
 
 26
-00:01:40,208 --> 00:01:44,096
-Our actual Codex command line run completed all three reads.
+00:01:30,055 --> 00:01:33,999
+Enter your email or username and password, then click Save locally.
 
 27
-00:01:44,096 --> 00:01:46,753
-You don't type the demo password or code.
+00:01:33,999 --> 00:01:38,061
+Account Access can now sign in when you ask for an allowed operation.
 
 28
-00:01:48,283 --> 00:01:52,754
-In Claude Code, start a fresh session and use slash account access with the
+00:01:39,617 --> 00:01:42,574
+Select Codex or Claude and allow the catalog read.
 
 29
-00:01:52,754 --> 00:01:57,642
-same request. The service is shared, while each agent has its own client identity.
+00:01:42,574 --> 00:01:45,649
+If you use both agents, grant that read to each one.
 
 30
-00:01:57,642 --> 00:02:01,457
-This actual Claude Code run also completed all three demo reads.
+00:01:45,649 --> 00:01:50,498
+This is a standing permission, so you don't repeat the approval for every request.
 
 31
-00:02:03,033 --> 00:02:06,395
-For a real account, a reviewed connector must exist first.
+00:01:52,033 --> 00:01:55,408
+In a fresh Codex chat, ask for the two cheapest products.
 
 32
-00:02:06,395 --> 00:02:11,438
-Then owner setup lets you enter credentials locally, connect or repair the account, and
+00:01:55,408 --> 00:01:59,080
+The agent reads the permitted catalog and compares the prices.
 
 33
-00:02:11,438 --> 00:02:13,931
-choose the operations an agent may perform.
+00:01:59,080 --> 00:02:03,402
+It returns the onesie at seven dollars ninety nine, and the bike light at
 
 34
-00:02:13,931 --> 00:02:17,815
-The demo has already prepared its accounts and permissions for you.
+00:02:03,402 --> 00:02:04,883
+nine dollars ninety nine.
 
 35
-00:02:19,367 --> 00:02:22,413
-Today, passwords are entered once in local setup.
+00:02:06,450 --> 00:02:09,235
+You can use the same account from Claude Code.
 
 36
-00:02:22,413 --> 00:02:26,827
-An enrolled authenticator secret lets the service generate login codes.
+00:02:09,235 --> 00:02:13,533
+Ask for the backpack price. It returns twenty nine dollars ninety nine.
 
 37
-00:02:26,827 --> 00:02:31,366
-Gmail and Twilio adapters exist, but live code delivery is not validated.
+00:02:13,533 --> 00:02:18,134
+The saved account session is reused, so you do not enter the password again.
 
 38
-00:02:31,366 --> 00:02:35,967
-Personal phone inbox access and password manager import are not built yet.
+00:02:19,700 --> 00:02:25,321
+That's the workflow: install Account Access, connect your account, grant access, and ask your
 
 39
-00:02:37,533 --> 00:02:40,643
-If the skill is missing, open a fresh agent session.
+00:02:25,321 --> 00:02:28,162
+agent to do the work. Keep the service running.
 
 40
-00:02:40,643 --> 00:02:43,154
-If the service is unavailable, restart it.
+00:02:28,162 --> 00:02:32,937
+If a website needs your approval later, complete that step in account setup and
 
 41
-00:02:43,154 --> 00:02:48,117
-Needs user means complete the specified step in owner setup, then continue the same
-
-42
-00:02:48,117 --> 00:02:51,346
-task. Denied means review the permissions you granted.
-
-43
-00:02:52,867 --> 00:02:55,465
-You're ready to try the three account demo.
-
-44
-00:02:55,465 --> 00:03:00,783
-The repository has every command, the captioned video, and the real account setup guide.
-
-45
-00:03:00,783 --> 00:03:07,006
-This is a release candidate; arbitrary websites, banks, and insurance accounts still require connectors
-
-46
-00:03:07,006 --> 00:03:07,732
-and testing.
+00:02:32,937 --> 00:02:34,025
+continue the task.

@@ -1,49 +1,63 @@
 {
-  "recorded_at": "2026-10-13T10:21:02.062018+00:00",
+  "recorded_at": "2026-10-13T10:49:30.307019+00:00",
   "version": "0.3.1",
-  "environment": "controlled-demo",
-  "source_commit": "f0cff16f45a2722be24e39056f893fa250950483",
+  "environment": "public-example-website",
+  "provider": "https://www.saucedemo.com/",
+  "account": "shopping",
+  "operation": "inventory",
+  "base_commit": "cabda96a162976f185e05c89cbd56eb1d3285455",
+  "connector_sha256": "c29741513d4394a9ef1ef71e86fc2debfe600115a21b021922f1adcfbdc972db",
   "agents": {
     "codex": {
       "passed": true,
-      "elapsed_seconds": 33.276,
-      "permission_denial_count": 0,
       "status": "COMPLETED",
-      "progress": 3,
-      "total": 3,
-      "balances": {
-        "demo-api": "1,234.56",
-        "demo-web": "987.65",
-        "demo-mfa": "987.65"
-      }
+      "progress": 1,
+      "total": 1,
+      "elapsed_seconds": 26.31,
+      "permission_denial_count": 0,
+      "query": "Use $account-access to check my shopping account. Find the two cheapest products and show their names and prices. Save progress as a task.",
+      "highlights": [
+        {
+          "name": "Sauce Labs Onesie",
+          "price": "$7.99"
+        },
+        {
+          "name": "Sauce Labs Bike Light",
+          "price": "$9.99"
+        }
+      ]
     },
     "claude": {
       "passed": true,
-      "elapsed_seconds": 80.096,
-      "permission_denial_count": 0,
       "status": "COMPLETED",
-      "progress": 3,
-      "total": 3,
-      "balances": {
-        "demo-api": "1,234.56",
-        "demo-web": "987.65",
-        "demo-mfa": "987.65"
-      }
+      "progress": 1,
+      "total": 1,
+      "elapsed_seconds": 14.327,
+      "permission_denial_count": 0,
+      "query": "/account-access Check my shopping account and tell me the backpack price. Save progress as a task.",
+      "highlights": [
+        {
+          "name": "Sauce Labs Backpack",
+          "price": "$29.99"
+        }
+      ]
     }
   },
-  "installation": {
-    "fresh_checkout": true,
-    "clone": true,
-    "uv_sync": true,
-    "chromium_install": true,
-    "uv_build": true,
-    "uv_tool_install": true
+  "setup": {
+    "normal_cli_initialization": true,
+    "os_keyring": true,
+    "password_saved_through_owner_ui": true,
+    "standing_grants_through_owner_ui": [
+      "codex:shopping:inventory",
+      "claude:shopping:inventory"
+    ],
+    "saved_session_reused": true
   },
-  "presentation": "Edited walkthrough with exact installation commands, reformatted verified result highlights, and actual owner-console screenshots. Not an uncut desktop recording.",
+  "presentation": "User workflow with normal init/install/serve/setup commands, recorded owner-form states, and verified website results. One opening note identifies the illustrative account and sample data.",
   "limits": [
-    "Synthetic accounts only",
-    "No private accounts validated",
-    "Suggested prompts shown; CLI verification used the demo smoke harness",
-    "First Claude attempt completed its task but encountered a local plan-file permission denial; repeated with the required existing workspace record and no hooks disabled"
+    "Intentionally public SauceDemo identity; no private customer account",
+    "Commands show the default data directory; recording used an isolated OS-keyring-backed directory",
+    "Other services require reviewed connectors",
+    "Earlier attempts encountered local host-hook bookkeeping requirements and disk exhaustion. The final run used an isolated temporary workspace with required records, unchanged host hooks, and available disk space."
   ]
 }

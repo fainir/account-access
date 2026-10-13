@@ -1,0 +1,40 @@
+{
+  "accounts": {
+    "shopping": {
+      "kind": "browser",
+      "label": "Shopping account",
+      "login_url": "https://www.saucedemo.com/",
+      "ready_selector": "[data-test='inventory-container']",
+      "javascript": true,
+      "state_timeout_ms": 10000,
+      "login": {
+        "username_selector": "[data-test='username']",
+        "password_selector": "[data-test='password']",
+        "submit_selector": "#login-button"
+      },
+      "challenge_selectors": {"login": "#login-button"},
+      "read_resources": [
+        "https://www.saucedemo.com/",
+        "https://www.saucedemo.com/?/inventory.html",
+        "https://www.saucedemo.com/assets/index-D3OxT1jE.js",
+        "https://www.saucedemo.com/assets/index-aSZoiKGF.css"
+      ],
+      "login_resources": [
+        "https://www.saucedemo.com/inventory.html",
+        "https://www.saucedemo.com/?/inventory.html",
+        "https://www.saucedemo.com/assets/index-D3OxT1jE.js",
+        "https://www.saucedemo.com/assets/index-aSZoiKGF.css"
+      ],
+      "operations": {
+        "inventory": {
+          "description": "Read product names, descriptions and prices",
+          "url": "https://www.saucedemo.com/inventory.html",
+          "fields": {
+            "heading": "[data-test='title']",
+            "items": "[data-test='inventory-list']"
+          }
+        }
+      }
+    }
+  }
+}

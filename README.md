@@ -15,7 +15,7 @@ Account Access is a local authentication and delegated-access service for **Code
 
 [Watch or download the narrated video](https://github.com/fainir/account-access/releases/download/v0.3.1/account-access-walkthrough.mp4) · [Copy the commands and read the transcript](docs/video/README.md) · [English captions](https://github.com/fainir/account-access/releases/download/v0.3.1/account-access-walkthrough.en.srt)
 
-The **3:09 walkthrough** has English narration and captions at 1080p. It shows installation, demo startup, prompts for Codex and Claude Code, verified demo results, and the actual owner console. It uses synthetic accounts and explains the current password/SMS/email limitations.
+The walkthrough has English narration and captions at 1080p. It shows the normal installation and account setup flow: save your login locally, grant catalog access, ask Codex to find the two cheapest products, and ask Claude Code for a backpack price. [Follow the same steps](docs/video/README.md) with the included shopping connector or a reviewed connector for your service.
 
 ## Quick start
 
