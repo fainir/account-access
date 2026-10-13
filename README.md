@@ -11,17 +11,19 @@ Account Access is a local authentication and delegated-access service for **Code
 
 ## Easy installation
 
-On a Mac, [download the installer](https://github.com/fainir/account-access/releases/download/v0.4.0/Account-Access-Installer.zip), unzip it, and open **Install Account Access.command**.
+On a Mac, [download the installer](https://github.com/fainir/account-access/releases/download/v0.4.1/Account-Access-Installer.zip), unzip it, and open **Install Account Access.command**.
 
 The installer prepares Python, Account Access and its browser automatically, then opens a guided setup page. You do not need Git, a Python installation, a JSON configuration, or a terminal left running.
 
 If macOS blocks the unsigned launcher, use this alternative: open Terminal, paste this one line, and press Enter.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/fainir/account-access/v0.4.0/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/fainir/account-access/v0.4.1/install.sh | sh
 ```
 
 No administrator rights are needed on macOS. Linux may need [browser system libraries and sandbox configuration](docs/setup.md#linux-sandbox-setup). Native Windows support is not implemented.
+
+A [native graphical Mac preview](macos/README.md) also installs the app, adds the AI skills, and connects supported accounts without a terminal window. Its Developer ID signature verifies; Apple notarization is pending because the configured Xcode account could not authenticate. Gatekeeper can block the preview download. The new recording uses this genuine graphical build.
 
 ## Connect and use
 
@@ -59,7 +61,7 @@ cd account-access
 uv sync --locked --python 3.13
 uv run playwright install chromium
 uv build
-uv tool install --python 3.13 --force ./dist/account_access-0.4.0-py3-none-any.whl
+uv tool install --python 3.13 --force ./dist/account_access-0.4.1-py3-none-any.whl
 account-access start
 ```
 

@@ -1,6 +1,27 @@
 from account_access.broker import Broker
 
 
+def test_login_cooldown_waits_without_owner_challenge_and_task_resumes(env):
+    import time
+    from account_access.models import TaskRequest
+
+    provider, broker, _ = env
+    broker.store.put("login-attempt:demo-web", time.time())
+    task = broker.submit("test", TaskRequest(key="cooldown-recovery", steps=[
+        {"account": "demo-web", "operation": "summary"}]))
+    broker.advance(task["task_id"])
+    waiting = broker.task("test", task["task_id"])
+    assert waiting["status"] == "RETRYABLE"
+    assert waiting["blocked"]["reason"] == "login_retry_cooldown"
+    assert provider.login_count == 0
+    assert not broker.store.pending("demo-web")
+    broker.store.put("login-attempt:demo-web", 0)
+    broker.advance(task["task_id"])
+    assert broker.task("test", task["task_id"])["status"] == "COMPLETED"
+    assert provider.login_count == 1
+    assert not broker.store.pending("demo-web")
+
+
 def test_browser_repeated_sessions_with_one_password_login(env):
     provider, broker, _ = env
     for _ in range(10):

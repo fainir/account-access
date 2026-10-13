@@ -2,7 +2,7 @@
 # Official Account Access bootstrap. No Git, Python, uv, or admin rights needed on macOS.
 set -eu
 umask 077
-AC_VERSION=0.4.0
+AC_VERSION=0.4.1
 AC_RELEASE="https://github.com/fainir/account-access/releases/download/v$AC_VERSION"
 AC_RUNTIME="${ACCOUNT_ACCESS_INSTALL_DIR:-$HOME/.local/share/account-access/runtime}"
 AC_SCRATCH=$(mktemp -d "${TMPDIR:-/tmp}/account-access-install.XXXXXX")

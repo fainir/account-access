@@ -141,7 +141,9 @@ class Browser:
             raise AccessError("NEEDS_USER", "password_not_connected")
         last = self.store.get("login-attempt:" + account, 0)
         if time.time() - last < 60:
-            raise AccessError("NEEDS_USER", "login_retry_cooldown")
+            # A timed throttle needs waiting, not owner authentication. Keep the
+            # rate limit while letting durable tasks retry without a false prompt.
+            raise AccessError("RETRYABLE", "login_retry_cooldown")
         self.store.put("login-attempt:" + account, time.time())
         context = self.context(browser, config, state, login=True)
         try:

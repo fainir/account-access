@@ -56,6 +56,23 @@ def test_guided_setup_connects_grants_and_never_returns_credentials(env, tmp_pat
             assert broker.run("claude", "personal-store", "summary")["status"] == "COMPLETED"
             assert provider.login_count == 1  # One owner connection, both agents reuse it.
             assert client.post("/owner/add", json=payload, headers=headers).status_code == 403
+            broker.store.put("connection:personal-store", None)
+            broker.store.put("login-attempt:personal-store", 0)
+            assert client.post("/owner/verify", json={"account": "personal-store"}).status_code == 403
+            assert client.post("/owner/verify", json={"account": "evil"}, headers=headers).status_code == 403
+            assert client.post("/owner/verify", json={"account": "personal-store", "url": "https://attacker.example"}, headers=headers).status_code == 400
+            retry = client.post("/owner/verify", json={"account": "personal-store"}, headers=headers)
+            assert retry.status_code == 200
+            ident = retry.json()["id"]
+            deadline = time.monotonic() + 15
+            while time.monotonic() < deadline:
+                state = client.get("/owner/state", headers=headers).json()
+                if state["connection_jobs"][ident]["status"] != "RUNNING":
+                    break
+                time.sleep(0.1)
+            assert state["connection_jobs"][ident]["status"] == "CONNECTED"
+            assert provider.login_count == 2
+            assert DEMO_PASSWORD not in json.dumps(state)
     finally:
         server.shutdown()
         server.server_close()

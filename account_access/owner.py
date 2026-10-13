@@ -11,7 +11,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 from .errors import AccessError
-from .models import OAuthAccount
+from .models import BrowserAccount, OAuthAccount
 
 
 def make_owner_server(broker, *, guided=False, instance_key=None):
@@ -190,7 +190,13 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                 config = broker.store.config()
                 if account not in config.accounts:
                     raise AccessError("DENIED", "unknown_account")
-                if self.path == "/owner/credential":
+                if guided and self.path == "/owner/verify":
+                    if set(data) != {"account"} or not isinstance(config.accounts[account], BrowserAccount):
+                        raise ValueError()
+                    ident = new_job(account)
+                    threading.Thread(target=verify, args=(account, ident), daemon=True).start()
+                    self.send(200, {"status": "CONNECTING", "id": ident})
+                elif self.path == "/owner/credential":
                     if isinstance(config.accounts[account], OAuthAccount):
                         value = {"client_secret": data["client_secret"]}
                     else:
