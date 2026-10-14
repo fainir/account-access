@@ -33,7 +33,7 @@ public final class LoginChecks extends Instrumentation {
    NotificationManager manager=(NotificationManager)context.getSystemService(Context.NOTIFICATION_SERVICE);
    manager.createNotificationChannel(new NotificationChannel("account-access-check","Example login code",NotificationManager.IMPORTANCE_HIGH));
    String body=expected.getString("template").replace("{code}",args.getString("login_code"));
-   manager.notify(7,new Notification.Builder(context,"account-access-check").setSmallIcon(android.R.drawable.ic_dialog_info).setContentTitle(expected.getString("sender")).setContentText(body).setStyle(new Notification.BigTextStyle().bigText(body)).build());
+   manager.notify(7,new Notification.Builder(context,"account-access-check").setSmallIcon(android.R.drawable.ic_dialog_info).setContentTitle(expected.getString("sender")).setContentText("Notification source check; no login code").build());
    Thread.sleep(300);
    android.service.notification.StatusBarNotification[] posted=manager.getActiveNotifications();
    if(posted.length!=1)throw new Exception("Expected one controlled test notification");
