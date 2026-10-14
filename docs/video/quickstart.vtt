@@ -1,0 +1,37 @@
+WEBVTT
+
+00:00:00.160 --> 00:00:03.246
+Download Account Access for Mac, then open the app.
+
+00:00:07.160 --> 00:00:11.025
+Click Install. Your existing AI tools are connected automatically.
+
+00:00:13.160 --> 00:00:18.301
+Choose your password export from Chrome or a password manager. Approve what your AI can read.
+
+00:00:22.660 --> 00:00:26.283
+Connect your email once, using its application password.
+
+00:00:28.660 --> 00:00:32.436
+For SMS, set up forwarding to Messages and the Mac permission.
+
+00:00:34.160 --> 00:00:37.071
+Add your authenticator's setup QR or key once.
+
+00:00:40.660 --> 00:00:44.593
+In Claude Code, just ask normally. No command or skill name.
+
+00:00:48.660 --> 00:00:50.972
+The saved password signs into Atlas.
+
+00:00:53.160 --> 00:00:55.899
+The authenticator code is generated and submitted.
+
+00:00:58.660 --> 00:01:00.842
+The email code is retrieved and entered.
+
+00:01:04.160 --> 00:01:06.458
+The SMS code is retrieved and entered.
+
+00:01:09.660 --> 00:01:14.489
+Claude returns all four results. No more password or code entry during this task.

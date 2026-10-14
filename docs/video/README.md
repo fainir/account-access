@@ -1,35 +1,39 @@
-# Install, import and use Account Access
+# Download, install and use Account Access
 
-[Watch the computer walkthrough](https://github.com/fainir/account-access/releases/download/v0.5.0/account-access-install-import-and-verify.mp4) · [Captions](install-import-and-verify.vtt)
+[Watch the 75-second computer walkthrough](https://github.com/fainir/account-access/releases/download/v0.6.0/account-access-quickstart.mp4) · [Captions](quickstart.vtt) · [Recording evidence](../../artifacts/video/quickstart.json)
 
-[![Actual installation, import and Claude Code result](install-import-and-verify-preview.png)](https://github.com/fainir/account-access/releases/download/v0.5.0/account-access-install-import-and-verify.mp4)
+[![Claude Code returns all four results](quickstart-preview.jpg)](https://github.com/fainir/account-access/releases/download/v0.6.0/account-access-quickstart.mp4)
 
-The recording shows the native Mac installer, local verification settings, password import review, the actual Claude Code desktop interface and actual browser form submissions. Every application and website pixel comes from recorded footage. The edit adds narration and caption bars, shortens waits, crops window padding, slows login playback and holds the final result for reading.
+The recording follows one short sequence:
 
-The flow is:
+| Time | Action |
+| --- | --- |
+| 0:00 | Download the Mac app from the public GitHub release and open it |
+| 0:07 | Click Install; existing AI tools connect automatically |
+| 0:13 | Choose a Chrome-compatible password export and approve four account reads |
+| 0:22 | Save the configured email connection locally |
+| 0:28 | Review SMS forwarding/Mac access and save the SMS source |
+| 0:34 | Import an authenticator setup QR and save its masked key |
+| 0:40 | Ask Claude Code in ordinary language, without a command or skill name |
+| 0:48 | Watch password, authenticator, email and SMS website sign-ins |
+| 1:09 | Read Claude's four completed results |
 
-1. Open Account Access and click **Install Account Access**. The portable skill and CLI are installed automatically; Codex and Claude Code are detected without an agent-choice screen.
-2. Connect the configured email source and review the SMS setup instructions.
-3. Import a compatible password export, approve specific account reads, and explicitly opt into included authenticator keys.
-4. Copy the request, open Claude Code and ask for four permitted summaries in one saved task.
-5. Watch automatic password, authenticator, email and SMS login steps, followed by Claude's completed result.
+All application and website pixels are actual recordings: Chrome, Finder, the native 0.6 app, Claude Code and browser form submissions performed by Account Access. The edit adds narration and captions, crops windows, removes waits and slows the short website login clips. It contains no slides or generated application screens. Setup includes repeated recorded takes; it is not one uninterrupted installation session.
 
-The four accounts and all credentials/messages are controlled examples. Email uses an actual TLS IMAP server with synthetic delivery. SMS uses a Messages-format SQLite fixture; the video does not establish delivery from a carrier, physical iPhone or Gmail mailbox. The Mac permission screen is described, but broad disk access was not granted for the recording. The separate [Android emulator journey passed](https://github.com/fainir/account-access/actions/runs/38543728385), including an actual Android notification, Keystore-encrypted pairing, pinned HTTPS delivery and browser code submission. Physical phones remain unvalidated.
+The prompt was **“Summarize my four connected accounts and save the results as one task. Keep it short.”** Claude automatically discovered the skill and permitted operations, submitted a task and returned **4/4 completed**. Task `1e13faf6ade0621229dfb2f2c4dd6ff2` was independently inspected through the installed client. The four login clips were recorded after the example sessions expired, during this task. No password, code or further owner action was entered after the request. Claude's existing host approval settings were retained.
 
-The sample export is a Chrome-compatible CSV with a supported authenticator column. It was created for these examples, rather than extracted from the user's private Chrome vault. No private password or authenticator export appears in the recording. The selected export was moved to Trash after import; Trash is recoverable and was not emptied.
+Atlas Membership, Juniper Workspace, Beacon Rewards and Orbit Travel are fictional accounts on four distinct local website origins. The password file is a synthetic Chrome-format CSV, not an export of the user's private vault. The native file pickers show only the recording's password file and setup QR. Email uses actual TLS IMAP with synthetic messages; SMS uses a Messages-format test database, without carrier delivery or a physical phone. SMS forwarding and broad Mac privacy permission are explained in the app; that OS permission was not granted for the recording. The authenticator uses explicit QR enrollment and actual locally generated TOTP. These sources do not establish private Gmail, iPhone or arbitrary website coverage.
 
-Claude completed task `1133af469fc3e7f5ecce38a7536b2c65` at **4/4** with no owner input during the task. The four login recordings occurred after the example sessions were expired. Its saved tool-output receipt was inspected in Claude after a Mac restart removed the temporary vault. Setup was repeated for additional recorded takes after that restart; the walkthrough is edited footage, not one continuous take. A separate task through this Codex desktop session completed **4/4** and exercised the same three verification factors. [Machine-readable evidence](../../artifacts/video/install-import-and-verify.json) records receipts, source hashes, validation links and limits.
+The public 0.6 archive was downloaded and checksum-verified. The configured recording copy uses a separate app identity, vault and installation paths, plus a private copy of the existing browser dependency cache. Its install action runs the published checksum-verified bootstrap and wheel. The normal app, agent launcher metadata, token and standing grants were restored and checked after filming. The preview is Developer ID signed; Apple notarization is pending, so the recording does not demonstrate a clean-Mac notarized download opening.
 
-The app installed the published checksum-verified 0.5.0 wheel; dependency downloads were cached. The configured recording build uses a separate example vault and app identity to keep it separate from the normal installation. The normal installed app and portable skill were restored after filming. The Mac preview is Developer ID signed; **Apple notarization is pending**, and Gatekeeper may block a fresh download. This recording does not demonstrate a clean-Mac notarized installation.
+Importing a password does not add an unsupported website connector. Available accounts and reads still require reviewed configuration and owner grants. Genuine passkey, biometric, device, push or administrator approval remains an owner action.
 
-Reviewed connectors and standing permissions determine available operations. Importing a password does not add a connector for an arbitrary website. Passwords, cookies and codes are excluded from agent results; an agent with unrestricted same-user shell access is outside the local custody boundary. Genuine passkey, biometric, device or administrator approval remains an owner action. Both AI hosts used their existing approval settings.
-
-Reproduce the edit on macOS with ffmpeg, Pillow and the private captures/receipts:
+To reproduce the edit on macOS with ffmpeg, Pillow and these private source recordings:
 
 ```sh
-python scripts/make_verification_walkthrough.py \
+python scripts/make_quickstart_video.py \
   --work /path/to/recordings \
-  --output /path/to/account-access-install-import-and-verify.mp4
+  --output /path/to/account-access-quickstart.mp4
 ```
 
-The [previous three-account walkthrough](https://github.com/fainir/account-access/releases/download/v0.4.1/account-access-install-and-use.mp4) and [legacy overview](legacy-guide.md) describe older setup flows.
+Older recordings: [0.5 installation and verification](https://github.com/fainir/account-access/releases/download/v0.5.0/account-access-install-import-and-verify.mp4), [0.4 three-account walkthrough](https://github.com/fainir/account-access/releases/download/v0.4.1/account-access-install-and-use.mp4), and [legacy overview](legacy-guide.md).
