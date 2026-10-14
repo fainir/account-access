@@ -38,7 +38,7 @@
   "installer": "Verified public 0.6 archive and bootstrap; isolated paths and copied browser dependency cache for recording",
   "edit": "Real computer and browser recordings; waits removed; setup is edited footage, not one uninterrupted take",
   "normal_installation_restored": {
-    "app": "canonical 0.6 app",
+    "app": "Normal canonical 0.6 app restored again and independently verified after the Gmail guide take.",
     "token_and_grants_unchanged": true,
     "portable_and_claude_skills": "original normal installation",
     "example_service_stopped": true,
@@ -372,5 +372,15 @@
     "page@a6a034084efa5495d16befe734ea869d.webm": "a426b86271f11193da36c47638531cf8ad315a0dcb87a040d366b14186fdc063",
     "setup.mov": "aa0673fcd2429b8607056cc2da64f45bf8d418a25151da879de34be931c3ca16",
     "sms-retake.mov": "75164c303dd1dded8fd3d3ea1543ff5245dc7fa182fdbc86958ac94e245b43a4"
+  },
+  "post_recording_app_restore_correction": {
+    "issue": "Reopening the earlier recording app copied its isolated launcher back to the canonical app destination after restoration.",
+    "resolved": true,
+    "normal_bundle_identifier": "com.fainir.accountaccess",
+    "binary_matches_original_signed_release": true,
+    "signature_verified": true,
+    "normal_ui_connected_accounts": 3,
+    "token_and_standing_grants_unchanged": true,
+    "later_recording_copy_directory": "Private recording folder; canonical app is not a destination."
   }
 }

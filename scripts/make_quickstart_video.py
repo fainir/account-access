@@ -25,7 +25,7 @@ def duration(path):
     return float(json.loads(data)["format"]["duration"])
 
 
-def caption(path, title):
+def caption(path, title, note="Example accounts · Test email/SMS delivery · Waiting periods shortened"):
     image = Image.new("RGBA", (1920, 1080), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
     font_path = "/System/Library/Fonts/Supplemental/Arial.ttf"
@@ -34,7 +34,6 @@ def caption(path, title):
     draw.rectangle((0, 0, 1920, 61), fill="#191b22")
     draw.text((48, 13), title, font=title_font, fill="white")
     draw.rectangle((0, 1044, 1920, 1080), fill="#191b22")
-    note = "Example accounts · Test email/SMS delivery · Waiting periods shortened"
     draw.text((48, 1049), note, font=small_font, fill="#c4c7d2")
     image.save(path)
 
@@ -54,9 +53,11 @@ def main():
     parser.add_argument("--narration-only", action="store_true",
                         help="Replace voiceover and subtitles; reuse already rendered visuals")
     parser.add_argument("--speech-rate", type=int, default=175)
+    parser.add_argument("--verification-guide", action="store_true",
+                        help="Include Gmail-specific setup and explain Authenticator and SMS phone roles")
     args = parser.parse_args()
     work = args.work.resolve()
-    render = work / "quick-render"
+    render = work / ("verification-render" if args.verification_guide else "quick-render")
     render.mkdir(exist_ok=True)
     proof = json.loads((work / "proof.json").read_text())
     task = json.loads((work / "task.json").read_text())
@@ -130,10 +131,57 @@ def main():
              ("claude-working.mov", 10, 15.5, 5.5, None),
          ]),
     ]
+    if args.verification_guide:
+        native = "gmail-guide/native-setup.mov"
+        groups[0] = (groups[0][0],
+            "Account Access handles supported sign-ins for your AI, reducing login interruptions.", [
+                ("download-clean.mov", 3, 8, 4, "1320:660:280:350"),
+                ("open-app.mov", 7.8, 12, 1.5, "860:410:0:0"),
+            ])
+        groups[2] = (groups[2][0],
+            "Import passwords from Chrome or your password manager. Choose which accounts and information your AI can use.", [
+                ("setup.mov", 3, 8, 1.5, None),
+                ("import-picker.mov", 6, 13.8, 2, None),
+                ("email-final.mov", 79, 91, 4.5, None),
+            ])
+        groups[3] = ("3 · Gmail · Google app password → Enter it locally",
+            "For Gmail, enable two-step verification in your Google Account, then open App passwords and create one. Enter your Gmail address and the generated app password here, then connect.", [
+                (native, 14, 19, 4.5, None),
+                (native, 29, 41, 7.5, None),
+            ])
+        groups[4] = ("3 · iPhone and Android · For codes received by SMS text message",
+            "iPhone and Android setup is for codes received by SMS text message. iPhone forwards them to Messages on Mac. Android uses the paired companion.", [
+                (native, 54, 62, 5.5, None),
+                (native, 74, 82, 5, None),
+            ])
+        groups[5] = ("3 · Google Authenticator · Use the WEBSITE'S original setup QR/key",
+            "Google Authenticator on your phone and Account Access can use the same website setup key. Add that website's original QR or key here once. Both generate the same changing codes.", [
+                ("auth-final.mov", 0, 4, 2.5, None),
+                ("auth-picker.mov", 0, 14.8, 3.5, None),
+                ("auth-final.mov", 41, 51, 7, None),
+            ])
+        groups[6] = (groups[6][0],
+            "Now ask Claude Code normally. It uses the connected accounts automatically, with no command each session.", [
+                ("claude-request.mov", 7.5, 15.5, 5, "900:145:0:155"),
+                ("claude-working.mov", 0, 3, 2, None),
+            ])
+        for index, seconds, words in [
+            (7, 3.8, "Saved usernames and passwords handle this sign-in."),
+            (8, 4.7, "The saved authenticator key generates and submits this code."),
+            (9, 4.7, "It retrieves the fresh email code and submits it."),
+            (10, 4.8, "The incoming SMS code is handled automatically, too."),
+            (11, 5, "Fewer login interruptions. Personal approvals still need you."),
+        ]:
+            title, _, cuts = groups[index]
+            source, start, end, _, crop = cuts[0]
+            groups[index] = (title, words, [(source, start, end, seconds, crop)])
     segments, timeline, narration, cursor = [], [], [], 0.0
     for index, (title, words, cuts) in enumerate(groups):
         overlay = render / f"caption-{index}.png"
-        caption(overlay, title)
+        if args.verification_guide and index == 3:
+            caption(overlay, title, "Gmail setup guide · Example credentials entered locally, not submitted")
+        else:
+            caption(overlay, title)
         clips = []
         group_seconds = sum(cut[3] for cut in cuts)
         joined = render / f"joined-{index}.mp4"
@@ -187,14 +235,15 @@ def main():
         cursor += group_seconds
         segments.append(segment)
         print(f"Rendered {index+1}/{len(groups)}: {title}", flush=True)
-    assert cursor <= 80, cursor
+    assert cursor <= (90 if args.verification_guide else 80), cursor
     listing = render / "scenes.txt"
     listing.write_text("".join(f"file '{segment.name}'\n" for segment in segments))
     args.output.parent.mkdir(parents=True, exist_ok=True)
     run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "concat", "-safe", "0",
          "-i", str(listing), "-c", "copy", "-movflags", "+faststart", str(args.output)])
     args.output.with_suffix(".vtt").write_text("WEBVTT\n\n" + "\n".join(narration))
-    (work / "quick-timeline.json").write_text(json.dumps(timeline, indent=2))
+    timeline_name = "verification-timeline.json" if args.verification_guide else "quick-timeline.json"
+    (work / timeline_name).write_text(json.dumps(timeline, indent=2))
     print(f"Saved {args.output.resolve()} ({duration(args.output):.2f}s)")
 
 

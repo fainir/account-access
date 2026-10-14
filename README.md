@@ -47,6 +47,8 @@ A CSV export contains plaintext passwords. The app can move that export to Trash
 
 ### Email, SMS and authenticator codes
 
+Follow the [Gmail, Google Authenticator and SMS setup guide](docs/gmail-authenticator-and-sms.md). It explains the current Gmail app-password route, the configured Google OAuth option, and why phone SMS pairing is separate from authenticator keys. The public preview does not bundle a ready-to-use Google OAuth application or import Google Authenticator's Transfer/Export QR format.
+
 | Method | One-time setup | During a supported login |
 | --- | --- | --- |
 | Email | Connect a configured TLS IMAP mailbox, or a reviewed Gmail OAuth connection | Read a fresh message matching sender, recipient, subject and template; submit its login code |
@@ -60,13 +62,13 @@ Mac Full Disk Access and Android notification access are broader OS permissions 
 
 Close the setup app when finished; your AI can start the saved local service when needed, including after a restart. Your computer must be awake and its secure keyring available. Use **Manage accounts and verification** to reconnect or revoke access.
 
-## Watch the 75-second explainer
+## Watch the 85-second explainer
 
-[Watch what Account Access does and how to use it](https://github.com/fainir/account-access/releases/download/v0.6.0/account-access-explainer.mp4).
+[Watch what Account Access does and how to use it](https://github.com/fainir/account-access/releases/download/v0.6.0/account-access-gmail-authenticator-sms.mp4).
 
-[![Claude Code returns four account results after automatic sign-ins](docs/video/quickstart-preview.jpg)](https://github.com/fainir/account-access/releases/download/v0.6.0/account-access-explainer.mp4)
+[![Claude Code returns four account results after automatic sign-ins](docs/video/gmail-authenticator-sms-preview.jpg)](https://github.com/fainir/account-access/releases/download/v0.6.0/account-access-gmail-authenticator-sms.mp4)
 
-The narration explains how one-time setup reduces repeated login interruptions when your AI needs account access. Actual computer recordings show the public download, native 0.6 installer, password-export import, email/SMS/authenticator setup, and an ordinary request in Claude Code with no command or skill name. Four websites then sign in with saved passwords and configured verification codes; Claude returns all four results. Waiting periods are shortened. The accounts are fictional, email uses real local TLS IMAP with synthetic delivery, and SMS uses a Messages-format fixture. [Captions and recording evidence](docs/video/README.md) explain the setup and edit.
+The narration explains how one-time setup reduces repeated login interruptions when your AI needs account access. The Gmail section shows its app-password setup fields; Google Authenticator uses the website's original setup QR/key, while the iPhone and Android options are for SMS text-message codes. Actual computer recordings show the public download, native 0.6 installer, password-export import, email/SMS/authenticator setup, and an ordinary request in Claude Code with no command or skill name. Four websites then sign in with saved passwords and configured verification codes; Claude returns all four results. Waiting periods are shortened. The accounts are fictional, email uses real local TLS IMAP with synthetic delivery, and SMS uses a Messages-format fixture. [Captions and recording evidence](docs/video/README.md) explain the setup and edit.
 
 <details>
 <summary>Developer installation and local test accounts</summary>
@@ -176,7 +178,7 @@ The worker preserves completed steps, retries temporary failures with backoff, a
 
 ## Validation and development
 
-Version 0.6 validation on 14 October 2026: **75 Python tests passed** locally, with lint, dependency auditing and package building also covered by the [Linux CI workflow](https://github.com/fainir/account-access/actions/workflows/check.yml). Fresh ordinary-language requests activated the integration automatically: Codex completed a saved three-account task, and Claude Code completed the three approved reads and saved a comparison file. See [Codex evidence](artifacts/agent-tests/codex-implicit-06.json), [Claude evidence](artifacts/agent-tests/claude-implicit-06.json) and [automatic startup evidence](artifacts/automatic-start-06.json). The Codex test used an account-compatible model for that invocation; Claude's unrelated session-log hook encountered four permission denials after the account work succeeded. General host policies and hooks were retained. The [Android emulator journey](https://github.com/fainir/account-access/actions/runs/38543728385) passed separately. The [four-factor explainer recording](artifacts/video/explainer.json) verifies a completed Claude task at 4/4 with one plain-language request and zero password or code inputs during the task.
+Version 0.6 validation on 14 October 2026: **75 Python tests passed** locally, with lint, dependency auditing and package building also covered by the [Linux CI workflow](https://github.com/fainir/account-access/actions/workflows/check.yml). Fresh ordinary-language requests activated the integration automatically: Codex completed a saved three-account task, and Claude Code completed the three approved reads and saved a comparison file. See [Codex evidence](artifacts/agent-tests/codex-implicit-06.json), [Claude evidence](artifacts/agent-tests/claude-implicit-06.json) and [automatic startup evidence](artifacts/automatic-start-06.json). The Codex test used an account-compatible model for that invocation; Claude's unrelated session-log hook encountered four permission denials after the account work succeeded. General host policies and hooks were retained. The [Android emulator journey](https://github.com/fainir/account-access/actions/runs/38543728385) passed separately. The [four-factor explainer recording](artifacts/video/gmail-authenticator-sms.json) verifies a completed Claude task at 4/4 with one plain-language request and zero password or code inputs during the task.
 
 Earlier experiments on 12 October 2026:
 

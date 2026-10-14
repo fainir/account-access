@@ -1,0 +1,37 @@
+WEBVTT
+
+00:00:00.160 --> 00:00:05.335
+Account Access handles supported sign-ins for your AI, reducing login interruptions.
+
+00:00:05.660 --> 00:00:11.450
+Install it once. It connects to your existing AI tools, including Claude Code and Codex.
+
+00:00:11.660 --> 00:00:17.741
+Import passwords from Chrome or your password manager. Choose which accounts and information your AI can use.
+
+00:00:19.660 --> 00:00:30.436
+For Gmail, enable two-step verification in your Google Account, then open App passwords and create one. Enter your Gmail address and the generated app password here, then connect.
+
+00:00:31.660 --> 00:00:40.724
+iPhone and Android setup is for codes received by SMS text message. iPhone forwards them to Messages on Mac. Android uses the paired companion.
+
+00:00:42.160 --> 00:00:52.729
+Google Authenticator on your phone and Account Access can use the same website setup key. Add that website's original QR or key here once. Both generate the same changing codes.
+
+00:00:55.160 --> 00:01:01.378
+Now ask Claude Code normally. It uses the connected accounts automatically, with no command each session.
+
+00:01:02.160 --> 00:01:05.135
+Saved usernames and passwords handle this sign-in.
+
+00:01:05.960 --> 00:01:09.409
+The saved authenticator key generates and submits this code.
+
+00:01:10.660 --> 00:01:13.420
+It retrieves the fresh email code and submits it.
+
+00:01:15.360 --> 00:01:18.969
+The incoming SMS code is handled automatically, too.
+
+00:01:20.160 --> 00:01:23.888
+Fewer login interruptions. Personal approvals still need you.

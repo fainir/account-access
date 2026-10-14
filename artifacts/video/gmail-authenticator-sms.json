@@ -1,0 +1,335 @@
+{
+  "revision": "Gmail-specific setup guide, Google Authenticator key explanation and iPhone/Android SMS roles",
+  "source_release": "0.6.0",
+  "recording_evidence": "quickstart.json",
+  "media": {
+    "filename": "account-access-gmail-authenticator-sms.mp4",
+    "duration_seconds": 85.021333,
+    "width": 1920,
+    "height": 1080,
+    "sha256": "49bb2061c1d1db43b8afb49d88be4f81ac0cb62f83e56b5cf2a3a8abe8602e22"
+  },
+  "validation": {
+    "full_decode": "passed",
+    "setup_and_code_scene_visual_review": "passed",
+    "voice_fits_every_scene": true,
+    "audio_peak_db": -4.9,
+    "audio_mean_db": -19.6,
+    "script_lint": "passed"
+  },
+  "gmail_setup": {
+    "configured_mail_server": "imap.gmail.com",
+    "configured_mail_port": 993,
+    "example_credentials_entered_in_native_ui": true,
+    "credentials_submitted": false,
+    "real_google_credential_created": false,
+    "google_oauth_consent_performed": false,
+    "live_gmail_connection_verified": false,
+    "recording_copy_change": "Application-copy directory points inside its private folder; native 0.6 UI unchanged.",
+    "example_credentials_persisted": false,
+    "credential_not_persisted_check": "passed"
+  },
+  "authenticator": {
+    "explanation": "Website original setup key allows the phone authenticator and Account Access to generate the same codes.",
+    "enrollment_footage": "Actual native website otpauth QR import from the original controlled recording.",
+    "google_authenticator_transfer_qr_supported": false,
+    "phone_screen_read": false,
+    "physical_google_authenticator_app_tested": false
+  },
+  "phone_setup": {
+    "purpose": "SMS text-message login codes",
+    "iphone": "Messages forwarding to Mac; permission instructions shown.",
+    "android": "Companion pairing instructions shown; no new physical pairing performed.",
+    "physical_phone_delivery_verified": false
+  },
+  "original_task": {
+    "task_id": "1e13faf6ade0621229dfb2f2c4dd6ff2",
+    "status": "COMPLETED",
+    "progress": 4,
+    "total": 4
+  },
+  "original_task_user_requests": 1,
+  "original_task_user_password_or_code_inputs_after_request": 0,
+  "login_footage": "The four fresh login recordings from the independently checked original task.",
+  "email_login_transport": "Real TLS IMAP with synthetic delivery",
+  "sms_login_transport": "Messages-format fixture; no physical phone or carrier delivery",
+  "installation_restoration": {
+    "issue": "Reopening the earlier recording app copied its isolated launcher back to the canonical app destination after restoration.",
+    "resolved": true,
+    "normal_bundle_identifier": "com.fainir.accountaccess",
+    "binary_matches_original_signed_release": true,
+    "signature_verified": true,
+    "normal_ui_connected_accounts": 3,
+    "token_and_standing_grants_unchanged": true,
+    "later_recording_copy_directory": "Private recording folder; canonical app is not a destination."
+  },
+  "timeline": [
+    {
+      "start": 0.0,
+      "end": 5.5,
+      "title": "1 \u00b7 Download and open Account Access",
+      "narration": "Account Access handles supported sign-ins for your AI, reducing login interruptions.",
+      "cuts": [
+        {
+          "source": "download-clean.mov",
+          "start": 3,
+          "end": 8,
+          "seconds": 4,
+          "crop": "1320:660:280:350"
+        },
+        {
+          "source": "open-app.mov",
+          "start": 7.8,
+          "end": 12,
+          "seconds": 1.5,
+          "crop": "860:410:0:0"
+        }
+      ]
+    },
+    {
+      "start": 5.5,
+      "end": 11.5,
+      "title": "1 \u00b7 Click Install \u00b7 Your AI tools connect automatically",
+      "narration": "Install it once. It connects to your existing AI tools, including Claude Code and Codex.",
+      "cuts": [
+        {
+          "source": "install-clean.mov",
+          "start": 0,
+          "end": 5,
+          "seconds": 2,
+          "crop": null
+        },
+        {
+          "source": "install-clean.mov",
+          "start": 9,
+          "end": 31,
+          "seconds": 3,
+          "crop": null
+        },
+        {
+          "source": "install-clean.mov",
+          "start": 32,
+          "end": 34,
+          "seconds": 1,
+          "crop": null
+        }
+      ]
+    },
+    {
+      "start": 11.5,
+      "end": 19.5,
+      "title": "2 \u00b7 Import from Chrome or your password manager",
+      "narration": "Import passwords from Chrome or your password manager. Choose which accounts and information your AI can use.",
+      "cuts": [
+        {
+          "source": "setup.mov",
+          "start": 3,
+          "end": 8,
+          "seconds": 1.5,
+          "crop": null
+        },
+        {
+          "source": "import-picker.mov",
+          "start": 6,
+          "end": 13.8,
+          "seconds": 2,
+          "crop": null
+        },
+        {
+          "source": "email-final.mov",
+          "start": 79,
+          "end": 91,
+          "seconds": 4.5,
+          "crop": null
+        }
+      ]
+    },
+    {
+      "start": 19.5,
+      "end": 31.5,
+      "title": "3 \u00b7 Gmail \u00b7 Google app password \u2192 Enter it locally",
+      "narration": "For Gmail, enable two-step verification in your Google Account, then open App passwords and create one. Enter your Gmail address and the generated app password here, then connect.",
+      "cuts": [
+        {
+          "source": "gmail-guide/native-setup.mov",
+          "start": 14,
+          "end": 19,
+          "seconds": 4.5,
+          "crop": null
+        },
+        {
+          "source": "gmail-guide/native-setup.mov",
+          "start": 29,
+          "end": 41,
+          "seconds": 7.5,
+          "crop": null
+        }
+      ]
+    },
+    {
+      "start": 31.5,
+      "end": 42.0,
+      "title": "3 \u00b7 iPhone and Android \u00b7 For codes received by SMS text message",
+      "narration": "iPhone and Android setup is for codes received by SMS text message. iPhone forwards them to Messages on Mac. Android uses the paired companion.",
+      "cuts": [
+        {
+          "source": "gmail-guide/native-setup.mov",
+          "start": 54,
+          "end": 62,
+          "seconds": 5.5,
+          "crop": null
+        },
+        {
+          "source": "gmail-guide/native-setup.mov",
+          "start": 74,
+          "end": 82,
+          "seconds": 5,
+          "crop": null
+        }
+      ]
+    },
+    {
+      "start": 42.0,
+      "end": 55.0,
+      "title": "3 \u00b7 Google Authenticator \u00b7 Use the WEBSITE'S original setup QR/key",
+      "narration": "Google Authenticator on your phone and Account Access can use the same website setup key. Add that website's original QR or key here once. Both generate the same changing codes.",
+      "cuts": [
+        {
+          "source": "auth-final.mov",
+          "start": 0,
+          "end": 4,
+          "seconds": 2.5,
+          "crop": null
+        },
+        {
+          "source": "auth-picker.mov",
+          "start": 0,
+          "end": 14.8,
+          "seconds": 3.5,
+          "crop": null
+        },
+        {
+          "source": "auth-final.mov",
+          "start": 41,
+          "end": 51,
+          "seconds": 7,
+          "crop": null
+        }
+      ]
+    },
+    {
+      "start": 55.0,
+      "end": 62.0,
+      "title": "4 \u00b7 Ask Claude Code normally \u00b7 No command needed",
+      "narration": "Now ask Claude Code normally. It uses the connected accounts automatically, with no command each session.",
+      "cuts": [
+        {
+          "source": "claude-request.mov",
+          "start": 7.5,
+          "end": 15.5,
+          "seconds": 5,
+          "crop": "900:145:0:155"
+        },
+        {
+          "source": "claude-working.mov",
+          "start": 0,
+          "end": 3,
+          "seconds": 2,
+          "crop": null
+        }
+      ]
+    },
+    {
+      "start": 62.0,
+      "end": 65.8,
+      "title": "5 \u00b7 Atlas Membership \u00b7 Saved password",
+      "narration": "Saved usernames and passwords handle this sign-in.",
+      "cuts": [
+        {
+          "source": "page@a6a034084efa5495d16befe734ea869d.webm",
+          "start": 0.08,
+          "end": 2.5,
+          "seconds": 3.8,
+          "crop": null
+        }
+      ]
+    },
+    {
+      "start": 65.8,
+      "end": 70.5,
+      "title": "5 \u00b7 Juniper Workspace \u00b7 Authenticator code",
+      "narration": "The saved authenticator key generates and submits this code.",
+      "cuts": [
+        {
+          "source": "page@66925a9d8308a53c3e4947c5c63f1329.webm",
+          "start": 0.08,
+          "end": 2.8,
+          "seconds": 4.7,
+          "crop": null
+        }
+      ]
+    },
+    {
+      "start": 70.5,
+      "end": 75.2,
+      "title": "5 \u00b7 Beacon Rewards \u00b7 Email code",
+      "narration": "It retrieves the fresh email code and submits it.",
+      "cuts": [
+        {
+          "source": "page@9251f74fe7e797239d17f8d71647af5c.webm",
+          "start": 0.08,
+          "end": 3.3,
+          "seconds": 4.7,
+          "crop": null
+        }
+      ]
+    },
+    {
+      "start": 75.2,
+      "end": 80.0,
+      "title": "5 \u00b7 Orbit Travel \u00b7 SMS code",
+      "narration": "The incoming SMS code is handled automatically, too.",
+      "cuts": [
+        {
+          "source": "page@4071f9564b519daedc5c3568031f4471.webm",
+          "start": 0.08,
+          "end": 3.5,
+          "seconds": 4.8,
+          "crop": null
+        }
+      ]
+    },
+    {
+      "start": 80.0,
+      "end": 85.0,
+      "title": "All four results \u00b7 One request",
+      "narration": "Fewer login interruptions. Personal approvals still need you.",
+      "cuts": [
+        {
+          "source": "claude-working.mov",
+          "start": 10,
+          "end": 15.5,
+          "seconds": 5,
+          "crop": null
+        }
+      ]
+    }
+  ],
+  "source_sha256": {
+    "auth-final.mov": "29463f26aa4330ed38a8a388f104af80d40b1546197375d60a8cc3eb973b2a32",
+    "auth-picker.mov": "b32480a84afcac3fffa35e397aa1585235e11daab00aef4692c5014b22168d99",
+    "claude-request.mov": "b63878ff5c1261781b0e64c1ecc687fe670db8cf8ad83ecf739f00ac338d6735",
+    "claude-working.mov": "1a29635e3af7459753f7ca08c781ca024db729774b061c984490ba2763888a49",
+    "download-clean.mov": "79c6efc1d8acc873e8eddb6e090a2e714ea8596ac0f5ad69d6b713c27a947598",
+    "email-final.mov": "50ef143d200196074ef6e5cb09253281acda1a52257f4298b0559eabaeb3920e",
+    "gmail-guide/native-setup.mov": "71aa357f499fa7e05a5efce443f567c768b107fc5907041bfff9ab02554324aa",
+    "import-picker.mov": "2d63a1e22669d321080c2c2046a89c662f5d1575321dcd4361c596d0a0394891",
+    "install-clean.mov": "d63144b3a17395aab30bd637d090974574a78fe69debc9829272f0f09ad082a9",
+    "open-app.mov": "7ce46e9272776373d70f81fca4888741f09b3e1e821ec69f92b988e19f9485db",
+    "page@4071f9564b519daedc5c3568031f4471.webm": "17821196db8c272344d1a9a61ced65a9f427381e0b2ba18624bb040759020cc8",
+    "page@66925a9d8308a53c3e4947c5c63f1329.webm": "24ef0dce16536ce23530f444130b70f9cfc5aed3f51c930749e80f5be3331854",
+    "page@9251f74fe7e797239d17f8d71647af5c.webm": "c85f00e9497c43c8727f8b70a2d0966ddd924b0973670b6eff2f8bc8dc55a5a4",
+    "page@a6a034084efa5495d16befe734ea869d.webm": "a426b86271f11193da36c47638531cf8ad315a0dcb87a040d366b14186fdc063",
+    "setup.mov": "aa0673fcd2429b8607056cc2da64f45bf8d418a25151da879de34be931c3ca16"
+  }
+}
