@@ -46,7 +46,7 @@ def test_owner_import_and_three_verification_channels_complete_one_task():
                         if all(state["connection_jobs"][job["id"]]["status"] != "RUNNING" for job in jobs):
                             break
                         time.sleep(.1)
-                    assert all(state["connection_jobs"][job["id"]]["status"] == "CONNECTED" for job in jobs), state["connection_jobs"]
+                    assert all(state["connection_jobs"][job["id"]]["status"] == "CONNECTED" for job in jobs), json.dumps(state["connection_jobs"])
                     assert provider.totp_count == provider.email_count == provider.sms_count == 1
                     assert mailbox.fetches == 1
                     provider.sessions.clear()

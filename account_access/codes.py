@@ -7,6 +7,12 @@ import imaplib
 import re
 import sqlite3
 import ssl
+import subprocess
+import sys
+import json
+import hashlib
+import hmac
+import secrets
 import time
 from pathlib import Path
 from contextlib import contextmanager
@@ -90,7 +96,7 @@ class Codes:
         if source.kind == "mac_messages":
             if credentials.get("enabled") is not True:
                 raise AccessError("NEEDS_USER", "message_permission_required", "sms")
-            return self.messages(source, started, used)
+            return self.messages(source_id, source, started, used)
         if source.kind == "phone_relay":
             with self.store.lock("code-window:" + source_id):
                 window = self.store.get("code-window:" + source_id)
@@ -227,10 +233,42 @@ class Codes:
         except (imaplib.IMAP4.error, OSError, ssl.SSLError):
             raise AccessError("NEEDS_USER", "mailbox_connection_failed", "email") from None
 
-    def messages(self, source, started, used):
+    def messages(self, source_id, source, started, used):
         """Read only recent incoming texts from the exact owner-reviewed sender."""
-        path = Path.home() / "Library/Messages/chat.db"
-        return self.messages_at(path, source, started, used)
+        binary = Path.home() / "Applications/Account Access.app/Contents/MacOS/AccountAccess"
+        if sys.platform != "darwin" or not binary.is_file() or binary.is_symlink():
+            raise AccessError("NEEDS_USER", "mac_messages_app_required", "sms")
+        try:
+            from .storage import check_private
+            key_path = self.store.root / "native-reader.key"
+            check_private(key_path)
+            key = key_path.read_bytes()
+            if len(key) != 32:
+                raise AccessError("NEEDS_USER", "mac_messages_app_required", "sms")
+            request = json.dumps({"source": source_id, "sender": source.sender,
+                                 "template": source.template, "started": started,
+                                 "used": list(used), "nonce": secrets.token_hex(16)}, separators=(",", ":"))
+            signature = hmac.new(key, request.encode(), hashlib.sha256).hexdigest()
+            checked = subprocess.run(["/usr/bin/codesign", "--verify", "--strict", str(binary)],
+                                     capture_output=True, timeout=3)
+            if checked.returncode:
+                raise AccessError("NEEDS_USER", "mac_messages_app_required", "sms")
+            result = subprocess.run([str(binary), "--read-login-code"], input=json.dumps({
+                "request": request, "signature": signature}),
+                text=True, capture_output=True, timeout=5, check=True)
+            payload = json.loads(result.stdout)
+        except (ValueError, OSError, subprocess.SubprocessError):
+            raise AccessError("NEEDS_USER", "mac_messages_permission_required", "sms") from None
+        if payload.get("status") == "FOUND":
+            code, ident = payload.get("code", ""), payload.get("id", "")
+            if not re.fullmatch(r"[0-9]{6}", code) or not isinstance(ident, str) or ident in used:
+                raise AccessError("NEEDS_USER", "invalid_message_reader_response", "sms")
+            used.add(ident)
+            return code
+        if payload.get("status") == "WAITING":
+            return None
+        reason = "ambiguous_login_code" if payload.get("reason") == "ambiguous_login_code" else "mac_messages_permission_required"
+        raise AccessError("NEEDS_USER", reason, "sms")
 
     def messages_at(self, path, source, started, used):
         since = (started - 978307200) * 1_000_000_000

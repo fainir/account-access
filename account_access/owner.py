@@ -12,9 +12,15 @@ from urllib.parse import parse_qs, urlsplit
 
 from .errors import AccessError
 from .models import BrowserAccount, OAuthAccount
+from .storage import check_private, private_file
 
 
 def make_owner_server(broker, *, guided=False, instance_key=None):
+    reader_key = broker.store.root / "native-reader.key"
+    with broker.store.lock("native-reader-key"):
+        if not reader_key.exists():
+            private_file(reader_key, secrets.token_bytes(32))
+        check_private(reader_key)
     from .phone import PhoneRelay
     phone = PhoneRelay(broker.store)
     try:
@@ -38,7 +44,11 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
             with broker.store.lock("account:" + account, timeout=5):
                 broker.browser.read(account, next(iter(config.operations.values())), config,
                                     secret_values=set())
-            broker.tick()
+            try:
+                broker.tick()
+            except AccessError as exc:
+                if exc.status != "RETRYABLE":
+                    raise
             result = {"status": "CONNECTED", "account": account}
         except AccessError as exc:
             result = broker.error(exc, account)
@@ -63,7 +73,11 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                 connect_oauth(broker, account)
             else:
                 broker.browser.connect(account, complete=lambda page: page.locator(config.ready_selector).first.wait_for(state="visible", timeout=300000))
-            broker.tick()
+            try:
+                broker.tick()
+            except AccessError as exc:
+                if exc.status != "RETRYABLE":
+                    raise
             result = {"status": "CONNECTED", "account": account}
         except AccessError as exc:
             result = {"status": exc.status, "reason": exc.reason}

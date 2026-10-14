@@ -20,9 +20,14 @@ final class LocalRequests: NSObject, URLSessionTaskDelegate {
 // All connections and permissions go through the existing authenticated owner API.
 final class AccountAccess: NSObject, NSApplicationDelegate {
     let files = FileManager.default
-    let root = URL(fileURLWithPath: ProcessInfo.processInfo.environment["ACCOUNT_ACCESS_DATA_DIR"] ??
-        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/share/account-access").path)
-    lazy var runtime = URL(fileURLWithPath: ProcessInfo.processInfo.environment["ACCOUNT_ACCESS_INSTALL_DIR"] ?? root.appendingPathComponent("runtime").path)
+    let root: URL = {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let canonical = home.appendingPathComponent(".local/share/account-access")
+        let legacy = home.appendingPathComponent("Library/Application Support/AccountAccess")
+        let fallback = !FileManager.default.fileExists(atPath: canonical.appendingPathComponent("config.json").path) && FileManager.default.fileExists(atPath: legacy.appendingPathComponent("config.json").path) ? legacy : canonical
+        return URL(fileURLWithPath: ProcessInfo.processInfo.environment["ACCOUNT_ACCESS_DATA_DIR"] ?? (Bundle.main.object(forInfoDictionaryKey: "AccountAccessDataDirectory") as? String) ?? fallback.path)
+    }()
+    lazy var runtime = URL(fileURLWithPath: ProcessInfo.processInfo.environment["ACCOUNT_ACCESS_INSTALL_DIR"] ?? (Bundle.main.object(forInfoDictionaryKey: "AccountAccessInstallDirectory") as? String) ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/share/account-access/runtime").path)
     var window: NSWindow!
     var stack: NSStackView!
     var status: NSTextField!
@@ -638,7 +643,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
             label("Mail server: " + (source["mail_server"] as? String ?? "configured provider"), 14, .secondaryLabelColor)
             label("Uses encrypted IMAP access to the configured mailbox. Gmail may require an application password. Microsoft mail can use a configured OAuth connection.", 14, .secondaryLabelColor)
         } else if kind == "mac_messages" {
-            label("Your iPhone must forward SMS to Messages on this Mac. Allow the Account Access runtime to access Messages when macOS requests it. Only fresh incoming messages from this account’s configured sender are checked.", 15, .secondaryLabelColor)
+            label("Your iPhone must forward SMS to Messages on this Mac. Add Account Access to Full Disk Access in macOS privacy settings. macOS grants broad file access; this app’s reader checks only fresh incoming messages from this account’s configured sender and returns matching login codes to the service.", 15, .secondaryLabelColor)
             action("Open Mac privacy settings", #selector(openMessagePrivacy))
         } else if kind == "phone_relay" {
             label("Pair the Android companion on the same private Wi-Fi. It forwards matching login notifications through a certificate-pinned encrypted connection.", 15, .secondaryLabelColor)
@@ -772,7 +777,15 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
     }
 }
 
-let app = NSApplication.shared
-let delegate = AccountAccess()
-app.delegate = delegate
-app.run()
+@main struct AccountAccessMain {
+    static func main() {
+        if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--read-login-code" {
+            MessagesReader.run()
+            return
+        }
+        let app = NSApplication.shared
+        let delegate = AccountAccess()
+        app.delegate = delegate
+        app.run()
+    }
+}

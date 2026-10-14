@@ -7,9 +7,9 @@ AC_OUTPUT="$AC_SOURCE/dist/macos"
 AC_APP="$AC_OUTPUT/Account Access.app"
 mkdir -p "$AC_APP/Contents/MacOS" "$AC_APP/Contents/Resources"
 for AC_ARCH in arm64 x86_64; do
-  xcrun swiftc -O -target "$AC_ARCH-apple-macos13" \
-    -framework AppKit -framework CryptoKit \
-    "$AC_SOURCE/macos/AccountAccess.swift" -o "$AC_OUTPUT/AccountAccess-$AC_ARCH"
+  xcrun swiftc -O -parse-as-library -target "$AC_ARCH-apple-macos13" \
+    -framework AppKit -framework CryptoKit -lsqlite3 \
+    "$AC_SOURCE/macos/AccountAccess.swift" "$AC_SOURCE/macos/MessagesReader.swift" -o "$AC_OUTPUT/AccountAccess-$AC_ARCH"
 done
 lipo -create "$AC_OUTPUT/AccountAccess-arm64" "$AC_OUTPUT/AccountAccess-x86_64" \
   -output "$AC_APP/Contents/MacOS/AccountAccess"

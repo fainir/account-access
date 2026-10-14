@@ -20,9 +20,11 @@ from .models import Configuration, OAuthAccount, TaskRequest
 
 
 def default_root():
-    if sys.platform == "darwin":
-        return Path.home() / "Library/Application Support/AccountAccess"
-    return Path.home() / ".local/share/account-access"
+    canonical = Path.home() / ".local/share/account-access"
+    legacy = Path.home() / "Library/Application Support/AccountAccess"
+    if sys.platform == "darwin" and not (canonical / "config.json").exists() and (legacy / "config.json").exists():
+        return legacy
+    return canonical
 
 
 def print_json(value):
