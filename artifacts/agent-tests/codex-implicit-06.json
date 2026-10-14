@@ -1,0 +1,43 @@
+{
+  "agent": "codex",
+  "service_version": "0.6.0",
+  "passed": true,
+  "prompt": "Compare the cheapest item in my personal and work shopping accounts and get my membership welcome message. Save the results together so I can check them later. Use only those three connected public example accounts. Do not access private accounts or change settings.",
+  "explicit_skill_or_command_in_prompt": false,
+  "persistent_instructions": "Existing user profile with managed Account Access guidance",
+  "host_approval_and_hooks": "Existing modes and hooks inherited; installed exact-launcher Account Access rule applied",
+  "exit_code": 0,
+  "test_model_override": "gpt-6-astra",
+  "elapsed_seconds": 98.96,
+  "permission_denial_count": 0,
+  "account_access_permission_denials": 0,
+  "verified_tasks": [
+    {
+      "task_id": "667cd24776453f35b9fa64786219d52b",
+      "status": "COMPLETED",
+      "progress": 3,
+      "total": 3,
+      "accounts": [
+        "personal-store",
+        "work-store",
+        "member-portal"
+      ]
+    }
+  ],
+  "independently_verified_operations": [
+    {
+      "account": "member-portal",
+      "operation": "summary"
+    },
+    {
+      "account": "work-store",
+      "operation": "inventory"
+    },
+    {
+      "account": "personal-store",
+      "operation": "inventory"
+    }
+  ],
+  "saved_results": [],
+  "limits": "Public testing websites only; CLI session, not a desktop recording. Unrelated host housekeeping denials are reported separately from Account Access. The profile default model was rejected by this CLI account; this isolated test used the bundled gpt-6-astra model without changing the default."
+}

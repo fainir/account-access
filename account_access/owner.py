@@ -149,13 +149,16 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                     principals = [r[0] for r in db.execute("SELECT DISTINCT principal FROM clients WHERE revoked=0")]
                     grants = [dict(r) for r in db.execute("SELECT * FROM grants")]
                 for item in accounts:
-                    item["portable_ready"] = any(g["principal"] == "generic" and g["account"] == item["account"]
+                    approved = {g["operation"] for g in grants if g["principal"] == "generic" and g["account"] == item["account"]
                         and g["fingerprint"] == config.fingerprint(item["account"])
-                        and (g["expires"] is None or g["expires"] > time.time()) for g in grants)
+                        and (g["expires"] is None or g["expires"] > time.time())}
+                    item["portable_ready"] = bool(approved)
+                    item["approved_operations"] = [operation for operation in item["operations"] if operation["name"] in approved]
                 with guard:
                     connection_jobs = dict(jobs)
                 state = {"accounts": accounts, "principals": principals, "grants": grants,
                          "integrations": broker.store.get("agent-integrations", principals),
+                         "automatic_sessions": broker.store.get("session-integrations", {}),
                          "connection_jobs": connection_jobs,
                          "environment": "controlled-demo" if config.test_mode else "live"}
                 if guided:
@@ -272,6 +275,11 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                     self.send(200, {"status": "CONNECTING", "id": ident})
                     return
                 if guided and self.path == "/owner/stop":
+                    if data not in [{}, {"updating": True}]:
+                        raise ValueError()
+                    if not data:
+                        paused = broker.store.root / "service.paused"
+                        private_file(paused, b"paused", replace=paused.exists())
                     self.send(200, {"status": "STOPPED"})
                     threading.Thread(target=self.server.shutdown, daemon=True).start()
                     return

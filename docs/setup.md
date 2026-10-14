@@ -99,7 +99,7 @@ account-access install --agent generic \
 account-access grant generic google-drive list-files
 ```
 
-The installer creates `account-access/SKILL.md` and its executable client resources in that directory. It preserves other skills and refuses to replace an unrecognized existing `account-access` directory. The skill contains executable paths and configuration references; its private client token is stored separately. `generic` is one shared principal; this installer does not yet provide arbitrary per-host principal names.
+The installer creates `account-access/SKILL.md` and its executable client resources in that directory. Its description enables automatic selection for relevant plain-language account work. For a host with its own persistent instructions, add a reference to that skill once; no command is needed in each session. It preserves other skills and refuses to replace an unrecognized existing `account-access` directory. The skill contains executable paths and configuration references; its private client token is stored separately. `generic` is one shared principal; this installer does not yet provide arbitrary per-host principal names.
 
 For an additional client pointed at the development demo, use its explicit root/key flags instead of the real-account defaults:
 

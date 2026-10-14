@@ -7,6 +7,22 @@ import CoreImage
 
 final class FlippedView: NSView { override var isFlipped: Bool { true } }
 
+final class SurfaceView: NSView {
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        layer?.cornerRadius = 14
+        layer?.borderWidth = 1
+        updateColors()
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+    override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); updateColors() }
+    func updateColors() {
+        layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
+        layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.5).cgColor
+    }
+}
+
 final class LocalRequests: NSObject, URLSessionTaskDelegate {
     func urlSession(_ session: URLSession, task: URLSessionTask,
                     willPerformHTTPRedirection response: HTTPURLResponse,
@@ -18,7 +34,7 @@ final class LocalRequests: NSObject, URLSessionTaskDelegate {
 
 // A real native installer and owner interface. No terminal or web view is used.
 // All connections and permissions go through the existing authenticated owner API.
-final class AccountAccess: NSObject, NSApplicationDelegate {
+final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     let files = FileManager.default
     let root: URL = {
         let home = FileManager.default.homeDirectoryForCurrentUser
@@ -37,11 +53,17 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
     var username: NSTextField!
     var password: NSSecureTextField!
     var permission: NSButton!
+    var connectAction: NSButton?
+    var savedSignInAction: NSButton?
     var catalog: [[String: Any]] = []
     var accounts: [[String: Any]] = []
     var agents = ["claude"]
     var principals: [String] = []
     var sources: [[String: Any]] = []
+    var automaticSessions: [String: [String: Any]] = [:]
+    var section = "accounts"
+    var selectedAccount: String?
+    let accent = NSColor(calibratedRed: 0.36, green: 0.31, blue: 0.87, alpha: 1)
     var importID = ""
     var importRows: [(String, NSButton, NSPopUpButton, Bool)] = []
     var importFile: URL?
@@ -54,13 +76,13 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
     var busy = false
     var failedAccount: String?
     let localRequests = LocalRequests()
-    let prompt = "/account-access Find the cheapest product in my personal and work shopping accounts, and read my membership welcome message. Refresh the data and save one task. Keep the answer short. Use my three example connections."
+    let prompt = "Find the cheapest item in my personal and work shopping accounts, and show my membership welcome message."
     var preferredAgent: String { agents.contains("claude") ? "Claude Code" : agents.contains("codex") ? "Codex" : "your AI tool" }
     var requestText: String {
         let connected = Set(accounts.filter { $0["connected"] as? Bool == true }.compactMap { $0["account"] as? String })
         let text = connected == Set(["personal-store", "work-store", "member-portal"])
-            ? prompt : "/account-access Read one permitted operation from each connected account. Give me a short summary of each and save progress as a task."
-        return agents.contains("claude") ? text : text.replacingOccurrences(of: "/account-access", with: "$account-access")
+            ? prompt : "Give me a short summary of my connected accounts and save the results as one task."
+        return text
     }
     lazy var session: URLSession = {
         let config = URLSessionConfiguration.ephemeral
@@ -81,16 +103,22 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
         item.submenu = appMenu
         menu.addItem(item)
         NSApp.mainMenu = menu
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 880, height: 660),
-                          styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1040, height: 740),
+                          styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         window.title = "Account Access"
+        window.minSize = NSSize(width: 880, height: 650)
+        window.titlebarAppearsTransparent = true
         window.isReleasedWhenClosed = false
         window.center()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         if files.fileExists(atPath: root.appendingPathComponent("desktop.json").path),
            files.isExecutableFile(atPath: runtime.appendingPathComponent("bin/account-access").path) {
-            reopen()
+            let metadata = try? Data(contentsOf: root.appendingPathComponent("desktop.json"))
+            let info = metadata.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+            if info?["version"] as? String == Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
+                reopen()
+            } else { welcome() }
         } else { welcome() }
     }
 
@@ -107,10 +135,56 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
     }
 
     func page(_ title: String, _ subtitle: String) {
+        let shell = NSView()
+        window.contentView = shell
+        let haveOwner = base != nil && !token.isEmpty
         let scroll = NSScrollView()
         scroll.hasVerticalScroller = true
         scroll.autohidesScrollers = true
-        window.contentView = scroll
+        scroll.drawsBackground = false
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        shell.addSubview(scroll)
+        if haveOwner {
+            let sidebar = NSStackView()
+            sidebar.orientation = .vertical
+            sidebar.alignment = .leading
+            sidebar.spacing = 14
+            sidebar.translatesAutoresizingMaskIntoConstraints = false
+            shell.addSubview(sidebar)
+            sidebar.addArrangedSubview(makeLabel("Account Access", 20, .labelColor, .semibold))
+            sidebar.addArrangedSubview(makeLabel("Your AI. Your accounts.", 13, .secondaryLabelColor))
+            let navigation: [(String, String, Selector, String)] = [
+                ("Accounts", "rectangle.grid.2x2", #selector(showReady), "accounts"),
+                ("Verification", "checkmark.shield", #selector(showFactors), "verification"),
+                ("Import passwords", "arrow.down.doc", #selector(importPasswords), "import"),
+                ("Add account", "plus", #selector(backToConnections), "add")]
+            for (name, image, selector, key) in navigation {
+                let control = NSButton(title: name, target: self, action: selector)
+                control.image = NSImage(systemSymbolName: image, accessibilityDescription: nil)
+                control.imagePosition = .imageLeading
+                control.bezelStyle = .rounded
+                control.isBordered = false
+                control.font = .systemFont(ofSize: 14, weight: key == section ? .semibold : .regular)
+                control.contentTintColor = key == section ? accent : .secondaryLabelColor
+                control.wantsLayer = true
+                control.layer?.cornerRadius = 9
+                control.layer?.backgroundColor = key == section ? accent.withAlphaComponent(0.1).cgColor : NSColor.clear.cgColor
+                control.isEnabled = !busy
+                sidebar.addArrangedSubview(control)
+                control.widthAnchor.constraint(equalToConstant: 180).isActive = true
+                control.heightAnchor.constraint(equalToConstant: 36).isActive = true
+            }
+            sidebar.addArrangedSubview(makeLabel("Saved on this Mac\nYou approve what your AI can read.", 13, .secondaryLabelColor))
+            NSLayoutConstraint.activate([
+                sidebar.leadingAnchor.constraint(equalTo: shell.leadingAnchor, constant: 22),
+                sidebar.topAnchor.constraint(equalTo: shell.topAnchor, constant: 38),
+                sidebar.widthAnchor.constraint(equalToConstant: 180)])
+        }
+        NSLayoutConstraint.activate([
+            scroll.leadingAnchor.constraint(equalTo: shell.leadingAnchor, constant: haveOwner ? 220 : 0),
+            scroll.trailingAnchor.constraint(equalTo: shell.trailingAnchor),
+            scroll.topAnchor.constraint(equalTo: shell.topAnchor),
+            scroll.bottomAnchor.constraint(equalTo: shell.bottomAnchor)])
         let view = FlippedView()
         view.translatesAutoresizingMaskIntoConstraints = false
         scroll.documentView = view
@@ -121,36 +195,77 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
         stack.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(stack)
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 50),
-            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -50),
+            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 40),
+            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -40),
             stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 38),
             stack.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -38),
-            view.widthAnchor.constraint(equalTo: scroll.contentView.widthAnchor),
-            view.heightAnchor.constraint(greaterThanOrEqualTo: scroll.contentView.heightAnchor)
-        ])
-        label("ACCOUNT ACCESS", 13, .secondaryLabelColor)
-        label(title, 31, .labelColor, .bold)
+            view.widthAnchor.constraint(equalTo: scroll.contentView.widthAnchor)])
+        label("ACCOUNT ACCESS", 12, accent, .semibold)
+        label(title, 30, .labelColor, .semibold)
         label(subtitle, 17, .secondaryLabelColor)
+    }
+
+    func makeLabel(_ text: String, _ size: CGFloat = 16, _ color: NSColor = .labelColor,
+                   _ weight: NSFont.Weight = .regular) -> NSTextField {
+        let field = NSTextField(wrappingLabelWithString: text)
+        field.font = .systemFont(ofSize: size, weight: weight)
+        field.textColor = color
+        field.isSelectable = false
+        return field
     }
 
     @discardableResult func label(_ text: String, _ size: CGFloat = 16,
                                  _ color: NSColor = .labelColor,
                                  _ weight: NSFont.Weight = .regular) -> NSTextField {
-        let field = NSTextField(wrappingLabelWithString: text)
-        field.font = .systemFont(ofSize: size, weight: weight)
-        field.textColor = color
-        field.isSelectable = false
+        let field = makeLabel(text, size, color, weight)
         stack.addArrangedSubview(field)
         field.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         return field
+    }
+
+    @discardableResult func card(_ title: String, _ detail: String, status: String? = nil,
+                                good: Bool = true) -> NSStackView {
+        let surface = SurfaceView()
+        surface.translatesAutoresizingMaskIntoConstraints = false
+        let body = NSStackView()
+        body.orientation = .vertical
+        body.alignment = .leading
+        body.spacing = 9
+        body.translatesAutoresizingMaskIntoConstraints = false
+        surface.addSubview(body)
+        let heading = NSStackView()
+        heading.orientation = .horizontal
+        heading.addArrangedSubview(makeLabel(title, 18, .labelColor, .semibold))
+        if let status { heading.addArrangedSubview(makeLabel(status, 13, good ? .systemGreen : .systemOrange, .medium)) }
+        body.addArrangedSubview(heading)
+        let description = makeLabel(detail, 14, .secondaryLabelColor)
+        body.addArrangedSubview(description)
+        description.widthAnchor.constraint(equalTo: body.widthAnchor).isActive = true
+        stack.addArrangedSubview(surface)
+        NSLayoutConstraint.activate([
+            surface.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            body.leadingAnchor.constraint(equalTo: surface.leadingAnchor, constant: 20),
+            body.trailingAnchor.constraint(equalTo: surface.trailingAnchor, constant: -20),
+            body.topAnchor.constraint(equalTo: surface.topAnchor, constant: 18),
+            body.bottomAnchor.constraint(equalTo: surface.bottomAnchor, constant: -18)])
+        return body
     }
 
     @discardableResult func action(_ title: String, _ selector: Selector) -> NSButton {
         let control = NSButton(title: title, target: self, action: selector)
         control.bezelStyle = .rounded
         control.controlSize = .large
-        control.font = .systemFont(ofSize: 17, weight: .medium)
+        control.font = .systemFont(ofSize: 14, weight: .medium)
+        control.heightAnchor.constraint(greaterThanOrEqualToConstant: 36).isActive = true
         stack.addArrangedSubview(control)
+        return control
+    }
+
+    @discardableResult func primary(_ title: String, _ selector: Selector) -> NSButton {
+        let control = action(title, selector)
+        control.bezelColor = accent
+        control.contentTintColor = .white
+        control.font = .systemFont(ofSize: 15, weight: .semibold)
         return control
     }
 
@@ -164,10 +279,12 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
     }
 
     func welcome() {
-        page("Let your AI handle the sign-in", "Install once, connect your accounts, and give your AI a request.")
-        label("1   Install the local app\n\n2   Import or connect your accounts\n\n3   Ask your existing AI tool", 19)
-        label("Saved credentials stay in your encrypted local vault. Your AI receives the permitted results.", 16, .secondaryLabelColor)
-        button = action("Install Account Access", #selector(install))
+        let updating = files.isExecutableFile(atPath: runtime.appendingPathComponent("bin/account-access").path)
+        page(updating ? "A simpler way to use your accounts" : "Your AI can handle the sign-in", "Connect once. Ask naturally. Account Access takes care of supported sign-ins.")
+        card("1  Install", "Your existing AI tools are connected automatically.")
+        card("2  Connect your accounts", "Import saved passwords and approve the information your AI can read.")
+        card("3  Keep using your AI", "Ask in ordinary language. No special command in each session.")
+        button = primary(updating ? "Update Account Access" : "Install Account Access", #selector(install))
         label("macOS · Installs in your user folder · No administrator password needed", 13, .secondaryLabelColor)
     }
 
@@ -219,7 +336,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
                 DispatchQueue.main.async {
                     self.busy = false
                     self.accept(state)
-                    self.connections()
+                    if self.accounts.contains(where: { $0["connected"] as? Bool == true }) {
+                        self.ready()
+                    } else { self.connections() }
                 }
             } catch { self.fail(error, retry: #selector(self.install)) }
         }
@@ -249,7 +368,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
                 DispatchQueue.main.async {
                     self.busy = false
                     self.accept(state)
-                    self.connections()
+                    if self.accounts.contains(where: { $0["connected"] as? Bool == true }) {
+                        self.ready()
+                    } else { self.connections() }
                 }
             } catch { self.fail(error, retry: #selector(self.reopen)) }
         }
@@ -362,6 +483,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
         sources = state["code_sources"] as? [[String: Any]] ?? []
         principals = state["principals"] as? [String] ?? []
         agents = state["integrations"] as? [String] ?? principals
+        automaticSessions = state["automatic_sessions"] as? [String: [String: Any]] ?? [:]
     }
 
     func chooseAgents() {
@@ -382,18 +504,20 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
     }
 
     func connections() {
+        connectAction = nil
+        savedSignInAction = nil
+        section = "add"
         let connected = accounts.filter { $0["connected"] as? Bool == true && $0["portable_ready"] as? Bool != false }
-        page("Connect your accounts once", "Your AI can perform only the reads you approve here.")
-        label("Portable skill + CLI ready. Detected tools: " + agents.filter { $0 != "generic" }.joined(separator: ", "), 14, .secondaryLabelColor)
-        action("Import saved passwords", #selector(importPasswords))
-        action("Verification methods", #selector(showFactors))
-        if !connected.isEmpty {
-            label(connected.map { "✓  " + ($0["label"] as? String ?? "Account") }.joined(separator: "\n"), 17, .systemGreen)
-        }
+        page("Connect an account", "Choose a supported account and approve its reads. You only do this once.")
+        primary("Import saved passwords", #selector(importPasswords))
         let available = catalog.filter { entry in
-            !connected.contains { $0["account"] as? String == entry["id"] as? String }
+            entry["id"] as? String == selectedAccount || !connected.contains { $0["account"] as? String == entry["id"] as? String }
         }
-        if available.isEmpty { ready(); return }
+        if available.isEmpty {
+            card("All supported accounts are connected", "Your approved accounts are ready to use. Additional websites need a supported connection before Account Access can sign in.")
+            action("Back to my accounts", #selector(showReady))
+            return
+        }
         services = NSPopUpButton()
         for entry in available {
             services.addItem(withTitle: entry["label"] as? String ?? "Account")
@@ -403,37 +527,61 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
         services.action = #selector(serviceChanged)
         services.font = .systemFont(ofSize: 17)
         stack.addArrangedSubview(services)
+        label("Email or username", 14, .secondaryLabelColor)
         username = NSTextField()
         username.placeholderString = "Email or username"
         username.font = .systemFont(ofSize: 18)
-        username.heightAnchor.constraint(equalToConstant: 34).isActive = true
+        username.delegate = self
+        username.heightAnchor.constraint(equalToConstant: 40).isActive = true
         stack.addArrangedSubview(username)
         username.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        label("Password", 14, .secondaryLabelColor)
         password = NSSecureTextField()
         password.placeholderString = "Password"
         password.font = .systemFont(ofSize: 18)
-        password.heightAnchor.constraint(equalToConstant: 34).isActive = true
+        password.delegate = self
+        password.heightAnchor.constraint(equalToConstant: 40).isActive = true
         stack.addArrangedSubview(password)
         password.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         permission = NSButton(checkboxWithTitle: "", target: nil, action: nil)
         permission.font = .systemFont(ofSize: 16)
+        permission.target = self
+        permission.action = #selector(connectionInputChanged)
+        (permission.cell as? NSButtonCell)?.wraps = true
         stack.addArrangedSubview(permission)
+        permission.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        if let selectedAccount, let index = available.firstIndex(where: { $0["id"] as? String == selectedAccount }) {
+            services.selectItem(at: index)
+        }
+        selectedAccount = nil
         serviceChanged()
-        button = action("Connect account", #selector(connect))
+        button = primary("Connect account", #selector(connect))
+        connectAction = button
         if available.contains(where: { entry in accounts.contains { $0["account"] as? String == entry["id"] as? String } }) {
-            action("Approve these reads and use the saved sign-in", #selector(retrySaved))
+            savedSignInAction = action("Use saved sign-in", #selector(retrySaved))
         }
         if !connected.isEmpty { action("Start using my connected accounts", #selector(showReady)) }
         label("Included examples use public testing sites: SauceDemo and The Internet. Other websites require reviewed connectors.", 13, .secondaryLabelColor)
+        connectionInputChanged()
     }
 
     @objc func serviceChanged() {
         let entry = services.selectedItem?.representedObject as? [String: Any] ?? [:]
         let operations = entry["operations"] as? [[String: Any]] ?? []
-        permission.title = "Allow my portable client: " + operations.compactMap { $0["description"] as? String }.joined(separator: "; ")
+        permission.title = "Allow your AI to: " + operations.compactMap { $0["description"] as? String }.joined(separator: "; ")
         permission.state = .off
         username.stringValue = ""
         password.stringValue = ""
+        connectionInputChanged()
+    }
+
+    func controlTextDidChange(_ notification: Notification) { connectionInputChanged() }
+
+    @objc func connectionInputChanged() {
+        guard let permission, let username, let password else { return }
+        connectAction?.isEnabled = permission.state == .on && !username.stringValue.isEmpty && !password.stringValue.isEmpty
+        let selected = services?.selectedItem?.representedObject as? [String: Any]
+        savedSignInAction?.isEnabled = permission.state == .on && accounts.contains { $0["account"] as? String == selected?["id"] as? String }
     }
 
     @objc func connect() {
@@ -441,7 +589,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
               let entry = services.selectedItem?.representedObject as? [String: Any],
               let service = entry["id"] as? String else { return }
         let body: [String: Any] = ["service": service, "username": username.stringValue,
-                                   "password": password.stringValue]
+                                   "password": password.stringValue, "agents": ["generic"]]
         let existing = accounts.contains { $0["account"] as? String == service }
         failedAccount = service
         password.stringValue = ""
@@ -455,9 +603,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
                     _ = try self.request("owner/credential", body: ["account": service,
                         "username": body["username"]!, "password": body["password"]!])
                     let names = (entry["operations"] as? [[String: Any]] ?? []).compactMap { $0["name"] as? String }
-                    for agent in self.principals {
-                        _ = try self.request("owner/grant", body: ["account": service, "principal": agent, "operations": names])
-                    }
+                    _ = try self.request("owner/grant", body: ["account": service, "principal": "generic", "operations": names])
                     job = try self.request("owner/verify", body: ["account": service])
                 } else {
                     job = try self.request("owner/add", body: body)
@@ -486,7 +632,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
                 }
                 let reason = result["reason"] as? String ?? ""
                 if reason == "mac_messages_permission_required" {
-                    throw Failure.message("macOS has not allowed access to Messages. Enable iPhone text forwarding and grant the local Account Access runtime access in Privacy settings, then retry this saved sign-in.")
+                    throw Failure.message("macOS has not allowed access to Messages. Enable iPhone text forwarding and grant the Account Access app Full Disk Access in Privacy settings, then retry this saved sign-in.")
                 }
                 if reason.contains("authenticator") || reason.contains("mailbox") || reason.contains("code_not_received") || reason.contains("verification_source") {
                     throw Failure.message("This login needs its verification method connected. Open Verification methods to enroll the authenticator, reconnect email, or check phone access. Your imported password is already saved.")
@@ -526,9 +672,28 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
         }
     }
 
-    @objc func showReady() { ready() }
+    @objc func showReady() {
+        guard !busy else { return }
+        busy = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let state = try self.request("owner/state")
+                DispatchQueue.main.async { self.busy = false; self.accept(state); self.ready() }
+            } catch { self.fail(error, retry: #selector(self.reopen)) }
+        }
+    }
 
     @objc func importPasswords() {
+        section = "import"
+        page("Import saved passwords", "Bring your supported logins from the password manager you already use.")
+        card("1  Export your passwords", "In Chrome, open Password Manager, then Settings and Export passwords. Apple Passwords, Bitwarden and compatible 1Password CSV exports also work.")
+        card("2  Choose the export", "Select the CSV file on this Mac. You'll review matching supported accounts before anything is saved.")
+        card("3  Approve your accounts", "Choose the logins and reads you want to allow. Passwords are encrypted locally. You can move the export to Trash after importing.")
+        primary("Choose password file", #selector(choosePasswordFile))
+        action("Back to my accounts", #selector(showReady))
+    }
+
+    @objc func choosePasswordFile() {
         let picker = NSOpenPanel()
         picker.allowedContentTypes = [.commaSeparatedText]
         picker.allowsMultipleSelection = false
@@ -553,6 +718,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
     }
 
     func reviewImport(_ preview: [String: Any]) {
+        section = "import"
         importID = preview["id"] as? String ?? ""
         importRows = []
         page("Choose the logins to import", "Check an account and approve its listed reads. Existing saved logins for selected accounts will be replaced.")
@@ -576,7 +742,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
         stack.addArrangedSubview(deleteExport)
         importAuthenticators = NSButton(checkboxWithTitle: "Also enroll included authenticator keys for supported login recovery", target: nil, action: nil)
         if importRows.contains(where: { $0.3 }) { stack.addArrangedSubview(importAuthenticators) }
-        action("Import selected accounts", #selector(applyImport))
+        primary("Import selected accounts", #selector(applyImport))
         action("Back", #selector(backToConnections))
     }
 
@@ -612,15 +778,17 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
     @objc func backToConnections() { connections() }
 
     @objc func showFactors() {
-        page("Set up verification once", "Account Access uses verification only for the approved login. Passwords and codes stay out of your AI chat.")
+        section = "verification"
+        page("Verification", "Connect email, SMS or an authenticator once. Login codes stay out of your AI chat.")
         if sources.isEmpty {
-            label("Your configured accounts do not require a verification method. A reviewed connector must identify the login-code challenge before automatic code handling can be enabled.", 17)
+            card("You're all set", "Your current accounts do not need a verification code. Methods appear here when a supported account requires one.", status: "No setup needed")
             action("Back", #selector(backToConnections))
             return
         }
         factorMenu = NSPopUpButton()
         for source in sources {
-            let label = (source["accounts"] as? [String] ?? []).joined(separator: ", ") + " · " + (source["kind"] as? String ?? "Verification")
+            let linked = (source["accounts"] as? [String] ?? []).map { id in accounts.first { $0["account"] as? String == id }?["label"] as? String ?? id }
+            let label = factorName(source["kind"] as? String ?? "") + " · " + linked.joined(separator: ", ")
             factorMenu.addItem(withTitle: label)
             factorMenu.lastItem?.representedObject = source
         }
@@ -628,6 +796,11 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
         factorMenu.action = #selector(factorChanged)
         stack.addArrangedSubview(factorMenu)
         factorChanged()
+    }
+
+    func factorName(_ kind: String) -> String {
+        return ["totp": "Authenticator", "imap": "Email", "gmail": "Gmail", "twilio": "SMS gateway",
+                "mac_messages": "iPhone Messages", "phone_relay": "Android phone"][kind] ?? "Verification"
     }
 
     @objc func factorChanged() {
@@ -638,6 +811,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
         factorFields = [:]
         let source = factorMenu.selectedItem?.representedObject as? [String: Any] ?? [:]
         let kind = source["kind"] as? String ?? ""
+        label(source["enrolled"] as? Bool == true ? "● Connected" : "One-time setup", 14,
+              source["enrolled"] as? Bool == true ? .systemGreen : .secondaryLabelColor)
         let fields: [(String, String)] = kind == "totp" ? [("seed", "Authenticator setup key or otpauth link")] :
             kind == "imap" ? ((source["mailbox_account"] as? String) != nil ? [("username", "Mailbox email address")] : [("username", "Mailbox email address"), ("password", "Mailbox application password")]) :
             kind == "twilio" ? [("sid", "SMS gateway account ID"), ("auth_token", "SMS gateway token")] : []
@@ -646,7 +821,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
             let input: NSTextField = name == "username" ? NSTextField() : NSSecureTextField()
             input.placeholderString = hint
             input.font = .systemFont(ofSize: 17)
-            input.heightAnchor.constraint(equalToConstant: 34).isActive = true
+            input.heightAnchor.constraint(equalToConstant: 40).isActive = true
             stack.addArrangedSubview(input)
             input.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
             factorFields[name] = input
@@ -666,7 +841,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
         } else if kind == "gmail" {
             label("Connect the configured Gmail account through its provider consent screen in Manage permissions. The resolver reads only matching current login messages, but Gmail consent grants mailbox read access.", 15, .secondaryLabelColor)
         }
-        action("Enable this verification method", #selector(saveFactor))
+        primary(source["enrolled"] as? Bool == true ? "Save changes" : "Connect verification", #selector(saveFactor))
         if source["enrolled"] as? Bool == true { action("Disable this verification method", #selector(disableFactor)) }
         action("Back", #selector(backToConnections))
     }
@@ -761,18 +936,54 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
     }
 
     func ready() {
-        page("Your connected accounts are ready", "Ask for the work. Account Access handles the approved sign-ins and reads.")
+        section = "accounts"
+        page("Your accounts", "Keep using your AI. Account Access handles the supported sign-ins and approved reads.")
         let connected = accounts.filter { $0["connected"] as? Bool == true && $0["portable_ready"] as? Bool != false }
-        label(connected.map { "✓  " + ($0["label"] as? String ?? "Account") }.joined(separator: "\n"), 18, .systemGreen)
-        label("Try this in a fresh " + preferredAgent + " chat:", 17, .secondaryLabelColor)
-        let text = label(requestText, 17)
-        text.isSelectable = true
-        action("Copy request", #selector(copyRequest))
-        action("Open " + preferredAgent, #selector(openClaude))
-        action("Import saved passwords", #selector(importPasswords))
-        action("Verification methods", #selector(showFactors))
-        action("Manage accounts and verification", #selector(backToConnections))
-        label("The local service keeps running when you close this window. Reopen Account Access from your user Applications folder after a restart.", 14, .secondaryLabelColor)
+        let detected = agents.filter { ["codex", "claude"].contains($0) }
+        let automatic = !detected.isEmpty && detected.allSatisfy { automaticSessions[$0]?["enabled"] as? Bool == true }
+        let tools = detected.map { $0 == "claude" ? "Claude Code" : "Codex" }.joined(separator: " + ")
+        let setup = card(automatic ? "Ready in every new session" : "Connect your AI tools",
+                         automatic ? "Ask normally in " + tools + ". No special command required." : "Finish automatic setup so your AI can use connected accounts in new sessions.",
+                         status: automatic ? "Automatic" : "Setup needed", good: automatic)
+        if !automatic {
+            let fix = NSButton(title: "Finish automatic setup", target: self, action: #selector(installAgents))
+            setup.addArrangedSubview(fix)
+        }
+        if !detected.isEmpty { primary("Open " + preferredAgent, #selector(openClaude)) }
+        label(String(connected.count) + " connected · " + String(accounts.count) + " accounts", 14, .secondaryLabelColor)
+        for account in accounts {
+            let allowed = account["portable_ready"] as? Bool != false
+            let active = account["connected"] as? Bool == true
+            let pending = !(account["challenges"] as? [[String: Any]] ?? []).isEmpty
+            let status = !allowed ? "Approval needed" : pending || !active ? "Sign-in needs attention" : "Connected"
+            let reads = (account[allowed ? "approved_operations" : "operations"] as? [[String: Any]] ?? []).compactMap { $0["description"] as? String }.joined(separator: "; ")
+            let body = card(account["label"] as? String ?? "Account", (allowed ? "Approved reads: " : "Available reads: ") + reads, status: status, good: allowed && active && !pending)
+            if !allowed || !active || pending {
+                let repair = NSButton(title: allowed ? "Reconnect" : "Review access", target: self, action: #selector(reviewAccount))
+                repair.identifier = NSUserInterfaceItemIdentifier(account["account"] as? String ?? "")
+                body.addArrangedSubview(repair)
+            }
+        }
+        let example = card("Try asking your AI", requestText)
+        let row = NSStackView()
+        let copy = NSButton(title: "Copy example", target: self, action: #selector(copyRequest))
+        row.addArrangedSubview(copy)
+        for agent in detected {
+            let open = NSButton(title: "Open " + (agent == "claude" ? "Claude Code" : "Codex"), target: self, action: #selector(openAgent))
+            open.identifier = NSUserInterfaceItemIdentifier(agent)
+            row.addArrangedSubview(open)
+        }
+        example.addArrangedSubview(row)
+        label("Passwords are saved locally. Verification codes are used only for approved sign-ins.", 13, .secondaryLabelColor)
+    }
+
+    @objc func reviewAccount(_ sender: NSButton) { selectedAccount = sender.identifier?.rawValue; connections() }
+
+    @objc func openAgent(_ sender: NSButton) {
+        let identifier = sender.identifier?.rawValue == "claude" ? "com.anthropic.claudefordesktop" : "com.openai.codex"
+        if let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: identifier) {
+            NSWorkspace.shared.openApplication(at: app, configuration: NSWorkspace.OpenConfiguration())
+        }
     }
 
     @objc func copyRequest() {

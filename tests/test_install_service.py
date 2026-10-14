@@ -67,6 +67,7 @@ def test_automatic_install_is_portable_detected_and_idempotent(env, tmp_path, mo
     from account_access.install import install_detected
     _, broker, _ = env
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / ".codex"))
     monkeypatch.setattr("account_access.install.shutil.which", lambda name: None)
     (tmp_path / ".codex").mkdir()
     (tmp_path / ".claude").mkdir()

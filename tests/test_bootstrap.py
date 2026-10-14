@@ -19,7 +19,7 @@ while [ "$#" -gt 0 ]; do
   shift
 done
 case "$url" in
-  */SHA256SUMS) printf '%064d  account_access-0.5.0-py3-none-any.whl\\n' 0 > "$dest";;
+  */SHA256SUMS) printf '%064d  account_access-0.6.0-py3-none-any.whl\\n' 0 > "$dest";;
   *) printf 'modified package' > "$dest";;
 esac
 """)

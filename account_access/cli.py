@@ -117,6 +117,7 @@ def parser():
     sub.add_parser("setup")
     start = sub.add_parser("start", help="Open guided setup and run the local service in the background")
     start.add_argument("--no-open", action="store_true", help=argparse.SUPPRESS)
+    start.add_argument("--on-demand", action="store_true", help=argparse.SUPPRESS)
     sub.add_parser("stop", help="Stop the guided local app while preserving saved connections")
     sub.add_parser("desktop-host", help=argparse.SUPPRESS)
     sub.add_parser("metrics")
@@ -203,7 +204,7 @@ def main(argv=None):
             if args.key_file and not args.development:
                 raise AccessError("DENIED", "file_key_requires_development_mode")
             launch(Path(args.root), key_file=Path(args.key_file).expanduser() if args.key_file else None,
-                   open_browser=not args.no_open)
+                   open_browser=not args.no_open, on_demand=args.on_demand)
             return 0
         if args.command == "stop":
             from .desktop import stop

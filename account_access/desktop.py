@@ -18,6 +18,7 @@ import httpx2 as httpx
 from .errors import AccessError
 from .models import Configuration
 from .storage import Store, check_private, load_key, private_file
+from . import __version__
 
 
 def running(root):
@@ -49,15 +50,25 @@ def running(root):
         return None
 
 
-def launch(root, *, key_file=None, open_browser=True):
+def launch(root, *, key_file=None, open_browser=True, on_demand=False):
     root = Path(root).expanduser()
     if root.is_symlink():
         raise AccessError("DENIED", "symlink_path")
     root = root.resolve()
+    paused = root / "service.paused"
+    if on_demand and paused.exists():
+        raise AccessError("NEEDS_USER", "service_paused")
+    if not on_demand:
+        paused.unlink(missing_ok=True)
     root.mkdir(mode=0o700, parents=True, exist_ok=True)
     store = Store(root, load_key(root, key_file, create=True))
     with store.lock("desktop-launch", timeout=20):
         info = running(root)
+        if info and info.get("version") != __version__:
+            stop(root, updating=True)
+            with store.lock("service", timeout=20):
+                pass
+            info = None
         if not info:
             if not (root / "config.json").exists():
                 store.configure(Configuration(accounts={}))
@@ -93,11 +104,15 @@ def launch(root, *, key_file=None, open_browser=True):
     return info
 
 
-def stop(root):
-    info = running(Path(root).expanduser())
+def stop(root, *, updating=False):
+    root = Path(root).expanduser()
+    if not updating and (root / "config.json").is_file():
+        paused = root / "service.paused"
+        private_file(paused, b"paused", replace=paused.exists())
+    info = running(root)
     if info:
         base = info["url"].rstrip("/")
-        response = httpx.post(base + "/owner/stop", json={},
+        response = httpx.post(base + "/owner/stop", json={"updating": True} if updating else {},
                               headers={"Authorization": "Bearer " + info["token"], "Origin": base},
                               trust_env=False, follow_redirects=False, timeout=5)
         if response.status_code != 200:
@@ -126,7 +141,7 @@ def host(broker):
         instance_key = secrets.token_bytes(32)
         server, token = make_owner_server(broker, guided=True, instance_key=instance_key)
         info = {"url": f"http://127.0.0.1:{server.server_port}/", "token": token,
-                "instance_key": instance_key.hex(), "pid": os.getpid()}
+                "instance_key": instance_key.hex(), "pid": os.getpid(), "version": __version__}
         private_file(root / "desktop.json", json.dumps(info).encode(), replace=(root / "desktop.json").exists())
         try:
             with server:

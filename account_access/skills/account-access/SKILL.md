@@ -1,13 +1,13 @@
 ---
 name: account-access
-description: Use connected accounts through the Account Access service, including browser and API operations, authentication recovery, and resumable tasks. Use when the user asks to work across their connected accounts or invokes account-access. Discover the available operations before promising service coverage.
+description: Use connected accounts and saved sign-ins when a request needs information behind a login, account reads, or supported authentication recovery. Activate automatically for relevant plain-language account requests; the user need not name this skill. Discover approved operations before promising coverage.
 ---
 
-Use this service for work the user has delegated on connected accounts. Its standing grants determine which operations are available. Run the installed [scripts/access](scripts/access) launcher by its absolute path, resolving it relative to this skill's directory. It selects the installed Python interpreter and client identity, so Python does not need to be on PATH. Older installations can use `python3` with [scripts/access.py](scripts/access.py).
+Use this service automatically for relevant work the user has delegated on connected accounts. Do not require `$account-access`, `/account-access`, or a command from the user. Its standing grants determine which operations are available. Run the installed [scripts/access](scripts/access) launcher by its absolute path, resolving it relative to this skill's directory. It selects the installed Python interpreter and client identity, so Python does not need to be on PATH. Older installations can use `python3` with [scripts/access.py](scripts/access.py).
 
-Start with `scripts/access.py accounts` to discover account handles and permitted operations. Do not assume a service is connected or that arbitrary actions are supported. A response marked `controlled-demo` uses synthetic accounts; explicitly describe those results as a demo.
+When account access is needed, start with `scripts/access accounts` to discover account handles and permitted operations. Do not fetch unrelated account data at the start of ordinary conversations. Do not assume a service is connected or that arbitrary actions are supported. A response marked `controlled-demo` uses synthetic accounts; explicitly describe those results as a demo.
 
-For one operation, use `scripts/access.py run ACCOUNT OPERATION`. For work that must survive authentication interruption, submit a task using `scripts/access.py task submit --key UNIQUE_KEY --steps 'ACCOUNT:OPERATION,ACCOUNT:OPERATION'`. Save the task ID and use `scripts/access.py task wait TASK_ID --timeout 60` to wait for results or owner action. Inspect later with `scripts/access.py task get TASK_ID`. Reusing a key returns the existing task and cannot change its steps.
+For one operation, use `scripts/access run ACCOUNT OPERATION`. For work that must survive authentication interruption, submit a task using `scripts/access task submit --key UNIQUE_KEY --steps 'ACCOUNT:OPERATION,ACCOUNT:OPERATION'`. Save the task ID and use `scripts/access task wait TASK_ID --timeout 60` to wait for results or owner action. Inspect later with `scripts/access task get TASK_ID`. Reusing a key returns the existing task and cannot change its steps.
 
 Handle the returned status:
 

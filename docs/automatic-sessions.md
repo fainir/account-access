@@ -1,0 +1,23 @@
+# Automatic account access in new sessions
+
+Install once, connect supported accounts, approve their reads, then ask your AI in ordinary language. For example: “Compare prices in my shopping accounts and show my membership welcome message.” You do not need to type a skill name or a command in each session.
+
+The installer keeps one portable skill and CLI in `~/.agents/skills/account-access`, with a discovery copy for Claude Code. It explicitly allows implicit skill invocation. It also writes a short managed instruction block into the supported hosts' persistent user instructions:
+
+| Host | Persistent instructions |
+| --- | --- |
+| Codex | `AGENTS.md` in `CODEX_HOME`, normally `~/.codex`; an existing `AGENTS.override.md` also receives the block |
+| Claude Code | `~/.claude/CLAUDE.md` |
+| Other compatible local agents | Load the portable skill from the host's skills directory and reference it in persistent instructions once |
+
+These are the documented startup mechanisms for [Codex global guidance](https://learn.chatgpt.com/docs/agent-configuration/agents-md) and [Claude Code user instructions](https://code.claude.com/docs/en/memory). Skills are also eligible for automatic selection based on their descriptions: [OpenAI skill guidance](https://learn.chatgpt.com/docs/build-skills), [Claude Code skill invocation](https://code.claude.com/docs/en/skills#control-who-invokes-a-skill).
+
+Only the marked Account Access block is updated. Other instructions and file permissions are preserved. Existing valid client tokens and standing grants stay in place. The installer does not alter approval modes, disable hooks or create new account permissions. Start a fresh conversation after first-time installation so the host loads the updated instructions.
+
+For Codex, the installer also creates an owned `rules/account-access.rules` file next to the user configuration. Its allow rule matches only the exact installed launcher and its client commands: discovery, status, approved reads, tasks, audit and diagnostics. This permits that client to connect to the local service outside the command sandbox without opening general shell or network access. Owner setup commands are excluded. Existing restrictive rules and managed policies continue to apply; an unrelated file at that name is preserved and setup stops for review. This uses Codex's documented [persistent command rules](https://learn.chatgpt.com/docs/agent-configuration/rules). Claude Code's permission settings are preserved.
+
+When a relevant request arrives, the agent discovers the accounts and operations it may use and performs the requested work through the installed launcher. Ordinary coding conversations do not fetch unrelated account information at startup. The CLI is internal plumbing; the user does not run it.
+
+For an existing secure local installation, a connection failure can start its registered background service once. This does not replay an operation after a response timeout. A deliberate pause is respected until the owner reopens the app. The computer must be awake and its secure keyring available. Remote clients and controlled development fixtures do not use this local startup path.
+
+Automatic invocation depends on a host that loads local skills/instructions and permits the client to run. Project overrides, host permissions and isolated cloud sessions still apply. There is no interception of arbitrary browser tools, and an unsupported website still needs a reviewed connector. Genuine owner-presence authentication remains a human step.

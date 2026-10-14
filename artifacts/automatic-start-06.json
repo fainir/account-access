@@ -1,0 +1,8 @@
+{
+  "version": "0.6.0",
+  "automatic_cold_start": true,
+  "accounts_discovered": 3,
+  "token_and_grants_preserved": true,
+  "manual_pause_unit_test": "passed",
+  "timeout_replay_unit_test": "passed"
+}

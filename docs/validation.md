@@ -1,4 +1,18 @@
-# Validation of Account Access 0.3.1
+# Validation of Account Access
+
+## Automatic sessions and revised UX — 14 October 2026, version 0.6
+
+The native Mac app and responsive local console now show account status, actual approved reads, verification setup and password-import guidance separately. Desktop and 390-pixel mobile console layouts were rendered and checked; the native dashboard, verification empty state and password-import navigation were inspected on the Mac.
+
+Fresh CLI sessions received an ordinary-language comparison request with no skill name, slash command or launcher command in the prompt. Codex automatically selected the integration and completed a saved three-account task. Claude Code automatically selected it, completed all three reads and saved a comparison file. The service audit independently confirmed each completion. Both used only the configured public SauceDemo and The Internet accounts, with existing host hooks and general approval modes retained. Codex's installed rule permits only the exact client launcher and supported client commands; it does not allow general Python or shell commands.
+
+The installed Codex CLI rejected the profile's default model before any work. The successful isolated test used the CLI's bundled `gpt-6-astra` model without changing the user's default. Claude's unrelated stop hook attempted four blocked writes to its sensitive session-log path after the requested account work had finished. Those denials are retained in the report; Account Access had zero permission denials. These results do not establish compatibility with every host policy.
+
+A cold local service was then restarted by the installed client without opening owner setup. All three accounts were discovered and the client token and grants remained unchanged. Deliberate pause and response-timeout replay behavior are covered by regression tests. The full local suite passed 75 tests, and the universal Mac build is Developer ID signed. Apple notarization and real private account / physical-phone validation remain outstanding.
+
+Evidence: [Codex session](../artifacts/agent-tests/codex-implicit-06.json), [Claude session](../artifacts/agent-tests/claude-implicit-06.json), [automatic startup](../artifacts/automatic-start-06.json), [dashboard](account-dashboard.png). Raw traces, personal instructions and owner metadata remain excluded from Git.
+
+## Earlier 0.3.1 checks
 
 Observed on 12 October 2026 on macOS, Python 3.13 and Chromium installed through Playwright. This is a **working release candidate**, not a certification of production financial access. No private bank, insurance, Google, Meta or other personal account was connected or tested. No phone inbox was accessed.
 

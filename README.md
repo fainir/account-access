@@ -7,11 +7,13 @@
 
 Account Access is a local authentication and delegated-access service for **Codex, Claude Code and other agents**. A portable skill and CLI let an agent request approved operations while the service manages credentials, sessions, renewal and resumable tasks. There is **no MCP dependency**.
 
-**Status: 0.5 preview.** The included examples are usable today. Real websites require reviewed connectors; this is not an “add any website” consumer app or validated production access to banks, Google, Meta or insurance accounts.
+**Status: 0.6 preview.** The included examples are usable today. Real websites require reviewed connectors; this is not an “add any website” consumer app or validated production access to banks, Google, Meta or insurance accounts.
+
+![Account dashboard with approved reads and automatic session integration](docs/account-dashboard.png)
 
 ## Easy installation
 
-On a Mac, [download Account Access 0.5](https://github.com/fainir/account-access/releases/download/v0.5.0/Account-Access-Mac-preview.zip), unzip it, open **Account Access**, and click **Install Account Access**. The app prepares Python, the browser and the local service. No developer tools, terminal commands or administrator password are needed for this flow.
+On a Mac, [download Account Access 0.6](https://github.com/fainir/account-access/releases/download/v0.6.0/Account-Access-Mac-preview.zip), unzip it, open **Account Access**, and click **Install Account Access**. The app prepares Python, the browser and the local service. No developer tools, terminal commands or administrator password are needed for this flow.
 
 This is a **Developer ID signed preview**. Apple notarization is still pending, so Gatekeeper may block a fresh download. The recording verifies installation on our Mac, not a completed notarized distribution. See [Mac build and distribution notes](macos/README.md).
 
@@ -22,14 +24,16 @@ Linux developers can use the [setup guide](docs/setup.md); browser libraries and
 ## Connect and use
 
 1. Click **Import saved passwords**, select an export from your password manager, review matching supported accounts, and approve the reads you want your AI to perform. You can also enter one account's login locally.
-2. Open **Verification methods** and connect the required email, SMS or authenticator source once.
-3. When the accounts show connected, copy the request and open a fresh chat in your AI tool.
+2. Open **Verification** and connect the required email, SMS or authenticator source once.
+3. When your accounts show **Connected**, open your AI tool and ask for the work in ordinary language.
 
-In Codex:
+For example:
 
-> Use $account-access to read one permitted operation from each connected account. Give me a short summary of each and save progress as a task.
+> Find the cheapest item in my personal and work shopping accounts, and show my membership welcome message.
 
-In Claude Code, start with `/account-access`. The agent discovers available operations, starts one saved task and receives the results. Account Access reuses saved sessions and handles configured login challenges. If genuine device, passkey, biometric or administrator approval is required, it asks for that specific owner action.
+**No slash command or skill prefix is required.** New Codex and Claude Code sessions load the Account Access integration automatically. The agent discovers permitted operations and uses the saved account access when relevant. First-time installation requires a fresh session; existing conversations may already have cached their instructions. [Automatic session setup](docs/automatic-sessions.md) describes the supported hosts and limits.
+
+The local service starts on demand when the installed client needs it. It reuses saved sessions and handles configured login challenges. If you deliberately pause it, open Account Access to resume. Genuine device, passkey, biometric or administrator approval remains a specific owner action.
 
 The built-in catalog contains public SauceDemo shopping accounts and The Internet's public membership account. **Importing a password does not create a connector for an unsupported website.** An operator must supply a reviewed connector before private services can be connected. The four-factor recording uses separately configured, controlled example accounts.
 
@@ -54,15 +58,15 @@ Email support depends on the provider exposing IMAP or the configured Gmail OAut
 
 Mac Full Disk Access and Android notification access are broader OS permissions than the app's own sender/template filters. The service consumes codes only within an active login window and rejects stale, duplicated or ambiguous messages. Passwords, cookies and codes are not returned through the agent API. Code sources can be disabled in owner setup.
 
-Close the setup app when finished; the local service continues while your computer is awake. After a restart, open **Account Access** to resume. Use **Manage accounts and verification** to reconnect or revoke access.
+Close the setup app when finished; your AI can start the saved local service when needed, including after a restart. Your computer must be awake and its secure keyring available. Use **Manage accounts and verification** to reconnect or revoke access.
 
-## Screen recording
+## Screen recording from version 0.5
 
 [Watch installation, password import and automatic verification in Claude Code](https://github.com/fainir/account-access/releases/download/v0.5.0/account-access-install-import-and-verify.mp4).
 
 [![Actual installation and four-account Claude Code walkthrough](docs/video/install-import-and-verify-preview.png)](https://github.com/fainir/account-access/releases/download/v0.5.0/account-access-install-import-and-verify.mp4)
 
-The video records the native installer, owner setup, actual Claude Code session and real browser form submissions. Four configured example accounts exercise password, authenticator, email and SMS sign-in. Email uses a real local TLS IMAP server with synthetic delivery; the recorded SMS source is a Messages-format fixture. It does not claim delivery from a real carrier, Gmail mailbox or physical phone. [Captions and recording evidence](docs/video/README.md) explain the edit and limits.
+The video records the previous native installer, owner setup, actual Claude Code session and real browser form submissions. Version 0.6 has the redesigned dashboard and automatic plain-language invocation; the older video shows commands that are now optional. Four configured example accounts exercise password, authenticator, email and SMS sign-in. Email uses a real local TLS IMAP server with synthetic delivery; the recorded SMS source is a Messages-format fixture. It does not claim delivery from a real carrier, Gmail mailbox or physical phone. [Captions and recording evidence](docs/video/README.md) explain the edit and limits.
 
 <details>
 <summary>Developer installation and local test accounts</summary>
@@ -73,7 +77,7 @@ cd account-access
 uv sync --locked --python 3.13
 uv run playwright install chromium
 uv build
-uv tool install --python 3.13 --force ./dist/account_access-0.5.0-py3-none-any.whl
+uv tool install --python 3.13 --force ./dist/account_access-0.6.0-py3-none-any.whl
 account-access start
 ```
 
@@ -172,7 +176,7 @@ The worker preserves completed steps, retries temporary failures with backoff, a
 
 ## Validation and development
 
-Latest validation on 14 October 2026: **69 Python tests passed**, with lint, dependency auditing and package building covered by [Linux CI](https://github.com/fainir/account-access/actions/runs/38543728498). The [Android emulator journey](https://github.com/fainir/account-access/actions/runs/38543728385) passed separately. See [four-factor recording evidence](artifacts/video/install-import-and-verify.json).
+Version 0.6 validation on 14 October 2026: **75 Python tests passed** locally, with lint, dependency auditing and package building also covered by the [Linux CI workflow](https://github.com/fainir/account-access/actions/workflows/check.yml). Fresh ordinary-language requests activated the integration automatically: Codex completed a saved three-account task, and Claude Code completed the three approved reads and saved a comparison file. See [Codex evidence](artifacts/agent-tests/codex-implicit-06.json), [Claude evidence](artifacts/agent-tests/claude-implicit-06.json) and [automatic startup evidence](artifacts/automatic-start-06.json). The Codex test used an account-compatible model for that invocation; Claude's unrelated session-log hook encountered four permission denials after the account work succeeded. General host policies and hooks were retained. The [Android emulator journey](https://github.com/fainir/account-access/actions/runs/38543728385) passed separately. See [four-factor recording evidence](artifacts/video/install-import-and-verify.json).
 
 Earlier experiments on 12 October 2026:
 
