@@ -1,0 +1,78 @@
+{
+  "date": "2026-10-14",
+  "source_release": "0.5.0",
+  "source_commit": "abbb828fe5115721e8846d8ef1b1f2e549c6973c",
+  "claude_task": {
+    "status": "COMPLETED",
+    "task_id": "1133af469fc3e7f5ecce38a7536b2c65",
+    "progress": 4,
+    "total": 4,
+    "receipt_source": "Actual Claude Code saved tool-output UI inspected after Mac restart"
+  },
+  "codex_task": {
+    "status": "COMPLETED",
+    "task_id": "cd084e6c690a26f381acaa75b1ca9fd2",
+    "progress": 4,
+    "total": 4
+  },
+  "user_requests_in_recorded_claude_task": 1,
+  "user_login_inputs_during_recorded_claude_task": 0,
+  "recorded_logins": [
+    {
+      "account": "demo-web",
+      "source": "page@e510db10344132ce1b9577b625b4d2d5.webm",
+      "sha256": "a73f56d7ae87ea65be795f621167eb7977bbb3c25f2baee2d342b08054662b72"
+    },
+    {
+      "account": "demo-mfa",
+      "source": "page@cc03174debf584c637b6f212ea22387e.webm",
+      "sha256": "bedf60f40c65c389723a0c5f0b8ada6bf79ed3f780d9736f53f26f1c3edd568e"
+    },
+    {
+      "account": "example-email",
+      "source": "page@3229c465c77c1ffc378aed5d67c14847.webm",
+      "sha256": "5ef4d2d4ddc62de8c3aaa7f826cbfb0a51529d5c856f9f92fc364d8b9c470225"
+    },
+    {
+      "account": "example-sms",
+      "source": "page@2db60dd4cecdfd1eddce1e3065d440da.webm",
+      "sha256": "4b5e0cdb70b87856b0997590d2f3966483dce197a08b3edf0bebc997eac58b5a"
+    }
+  ],
+  "email_transport": "TLS IMAP against a local fixture with synthetic delivery",
+  "sms_transport": "Messages-format SQLite fixture; physical Messages and carrier delivery not validated",
+  "authenticator": "Explicitly opted-in TOTP seed import from synthetic CSV",
+  "installer": "Real native app, checksum-verified published 0.5.0 wheel; dependencies cached",
+  "recording_edit": "Installation, setup and Claude request are separate recorded takes; setup repeated after a Mac restart removed the temporary vault. No application or website pixels generated.",
+  "mac_distribution": "Developer ID signed; Apple notarization pending",
+  "android_ci": "https://github.com/fainir/account-access/actions/runs/38543728385",
+  "python_ci": "https://github.com/fainir/account-access/actions/runs/38543728498",
+  "python_regressions": 69,
+  "limits": [
+    "Reviewed website connectors required",
+    "No public mailbox or physical phone/carrier delivery validated",
+    "No universal passkey, fingerprint, admin or authenticator push automation",
+    "AI hosts used existing approval settings"
+  ],
+  "media": {
+    "filename": "account-access-install-import-and-verify.mp4",
+    "sha256": "f64e5188b3381659e6d2456710905e752d31cc24b8f590356a0cfb68644da143",
+    "duration_seconds": 149.354329,
+    "resolution": "1920x1080",
+    "video_codec": "H.264",
+    "audio_codec": "AAC",
+    "audio_peak_db": -4.2,
+    "decode_check": "passed on complete final file"
+  },
+  "post_restart_factor_methods_observed": [
+    "email",
+    "sms",
+    "totp"
+  ],
+  "normal_installation_restored": {
+    "version": "0.5.0",
+    "native_app": "canonical root, no recording override",
+    "skill": "shared generic client on canonical root",
+    "example_service_stopped": true
+  }
+}

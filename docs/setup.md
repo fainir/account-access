@@ -1,6 +1,6 @@
 # Setup and advanced usage
 
-Start with the [README quick start](../README.md#quick-start) for a demo that needs no private credentials. The instructions below are for reviewed real-account connectors and additional agents.
+Start with the [README quick start](../README.md#easy-installation) for a demo that needs no private credentials. The instructions below are for reviewed real-account connectors and additional agents.
 
 ## Linux sandbox setup
 
@@ -34,13 +34,12 @@ For a consumer deployment, the operator should register and provide approved OAu
 
 ```sh
 account-access init --config /absolute/path/to/reviewed-config.json
-account-access install --agent codex
-account-access install --agent claude
+account-access install
 ```
 
-The default storage location is `~/Library/Application Support/AccountAccess` on macOS and `~/.local/share/account-access` on Linux. Keep it outside the repository. The vault key uses a supported OS keyring. A locked/missing secure keyring stops setup; it does not silently fall back to a plaintext production key.
+The default storage location is `~/.local/share/account-access` on macOS and Linux. Existing Mac installations using `~/Library/Application Support/AccountAccess` are reused when the canonical location has no configuration. Keep it outside the repository. The vault key uses a supported OS keyring. A locked/missing secure keyring stops setup; it does not silently fall back to a plaintext production key.
 
-These installations create separate client identities. They start without operation grants. Installing the skill alone does not authorize access to an account.
+Automatic installation creates one shared `generic` identity for the portable skill, with discovery aliases for Codex and Claude Code. It starts without operation grants; approve specific reads in owner setup. The legacy `--agent codex` and `--agent claude` flags create separate identities when explicitly requested. Installing the skill alone does not authorize account access.
 
 ### 3. Start the service and open setup
 
@@ -65,8 +64,7 @@ The equivalent owner CLI commands are:
 ```sh
 account-access credential google-drive
 account-access connect google-drive
-account-access grant codex google-drive list-files
-account-access grant claude google-drive list-files
+account-access grant generic google-drive list-files
 account-access grants
 account-access challenges
 ```

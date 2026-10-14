@@ -7,52 +7,62 @@
 
 Account Access is a local authentication and delegated-access service for **Codex, Claude Code and other agents**. A portable skill and CLI let an agent request approved operations while the service manages credentials, sessions, renewal and resumable tasks. There is **no MCP dependency**.
 
-**Status: release candidate.** The demo is usable today. Real websites require reviewed connectors; this is not an “add any website” consumer app or validated production access to banks, Google, Meta or insurance accounts.
+**Status: 0.5 preview.** The included examples are usable today. Real websites require reviewed connectors; this is not an “add any website” consumer app or validated production access to banks, Google, Meta or insurance accounts.
 
 ## Easy installation
 
-On a Mac, [download the installer](https://github.com/fainir/account-access/releases/download/v0.4.1/Account-Access-Installer.zip), unzip it, and open **Install Account Access.command**.
+On a Mac, [download Account Access 0.5](https://github.com/fainir/account-access/releases/download/v0.5.0/Account-Access-Mac-preview.zip), unzip it, open **Account Access**, and click **Install Account Access**. The app prepares Python, the browser and the local service. No developer tools, terminal commands or administrator password are needed for this flow.
 
-The installer prepares Python, Account Access and its browser automatically, then opens a guided setup page. You do not need Git, a Python installation, a JSON configuration, or a terminal left running.
+This is a **Developer ID signed preview**. Apple notarization is still pending, so Gatekeeper may block a fresh download. The recording verifies installation on our Mac, not a completed notarized distribution. See [Mac build and distribution notes](macos/README.md).
 
-If macOS blocks the unsigned launcher, use this alternative: open Terminal, paste this one line, and press Enter.
+Have your AI tool installed and signed in. Account Access automatically installs one portable skill and CLI, with discovery folders for detected Codex and Claude Code installations. There is no agent-selection step. Other local agents can use the same CLI or load the skill from their supported folder.
 
-```sh
-curl -fsSL https://raw.githubusercontent.com/fainir/account-access/v0.4.1/install.sh | sh
-```
-
-No administrator rights are needed on macOS. Linux may need [browser system libraries and sandbox configuration](docs/setup.md#linux-sandbox-setup). Native Windows support is not implemented.
-
-A [native graphical Mac preview](macos/README.md) also installs the app, adds the AI skills, and connects supported accounts without a terminal window. Its Developer ID signature verifies; Apple notarization is pending because the configured Xcode account could not authenticate. Gatekeeper can block the preview download. The new recording uses this genuine graphical build.
+Linux developers can use the [setup guide](docs/setup.md); browser libraries and sandbox configuration may require an administrator. Native Windows support is not implemented.
 
 ## Connect and use
 
-1. Choose **Codex**, **Claude Code**, or both, and click **Set up my AI tools**. Have the selected AI tool installed and signed in already.
-2. Select a supported account, enter its username/password, check the permitted reads, and click **Connect account**.
-3. Repeat for other accounts. The included catalog provides a personal shopping account, work shopping account, and membership account using public example websites.
-4. Copy the request shown in setup into a fresh Codex chat or Claude Code session.
+1. Click **Import saved passwords**, select an export from your password manager, review matching supported accounts, and approve the reads you want your AI to perform. You can also enter one account's login locally.
+2. Open **Verification methods** and connect the required email, SMS or authenticator source once.
+3. When the accounts show connected, copy the request and open a fresh chat in your AI tool.
 
-For example:
+In Codex:
 
-> Use $account-access to read one permitted operation from each connected account. Give me a short summary of each. Save progress as a task.
+> Use $account-access to read one permitted operation from each connected account. Give me a short summary of each and save progress as a task.
 
-In Claude Code, start the request with `/account-access` instead.
+In Claude Code, start with `/account-access`. The agent discovers available operations, starts one saved task and receives the results. Account Access reuses saved sessions and handles configured login challenges. If genuine device, passkey, biometric or administrator approval is required, it asks for that specific owner action.
 
-Account Access saves accepted sessions and reuses them across requests. You can close the setup page and installer terminal; the local service continues running. Your computer must stay awake. After a restart, open **Account Access.command** in your user Applications folder to resume.
+The built-in catalog contains public SauceDemo shopping accounts and The Internet's public membership account. **Importing a password does not create a connector for an unsupported website.** An operator must supply a reviewed connector before private services can be connected. The four-factor recording uses separately configured, controlled example accounts.
 
-The built-in connections use SauceDemo's public shopping logins (`standard_user` / `secret_sauce`, or `problem_user` / `secret_sauce`) and The Internet's public membership login (`tomsmith` / `SuperSecretPassword!`). They let you try the full connection flow without a private account. Other services need reviewed connectors; setup does not automatically add support for any website.
+### Passwords from Chrome and other managers
 
-Use **Manage permissions** to reconnect or revoke access. **Stop Account Access** stops the local app while keeping saved connections.
+Export passwords as CSV, then choose that file in **Import saved passwords**. Supported layouts include Chrome, Apple Passwords, compatible 1Password CSV and Bitwarden login exports. [Google's export instructions](https://support.google.com/chrome/answer/13068232) and [Apple's export instructions](https://support.apple.com/guide/passwords/mchl35b12625/mac) describe their export flows.
+
+The app shows matching account names and usernames, hides passwords, and saves only approved selections in the encrypted vault. Unsupported entries are not retained. A compatible authenticator seed or `otpauth://` URI can be imported **only when you explicitly enable authenticator import**. Passkeys and proprietary encrypted exports are not imported.
+
+A CSV export contains plaintext passwords. The app can move that export to Trash after importing; it does not securely erase the file or empty Trash. Never send an export in chat or commit it to a repository. Account Access does not extract Chrome's encrypted password database silently.
+
+### Email, SMS and authenticator codes
+
+| Method | One-time setup | During a supported login |
+| --- | --- | --- |
+| Email | Connect a configured TLS IMAP mailbox, or a reviewed Gmail OAuth connection | Read a fresh message matching sender, recipient, subject and template; submit its login code |
+| iPhone SMS on Mac | Enable text forwarding to Messages, then grant the signed Account Access app Full Disk Access | Read incoming fresh Messages entries matching the configured sender and template |
+| Android SMS | Pair the [phone preview](android/README.md), allow notification access and use the same private Wi-Fi | Forward a matching SMS-app notification to the certificate-pinned HTTPS login endpoint |
+| Authenticator TOTP | Explicitly enroll a supported setup QR/key, or opt into a compatible seed import | Generate and submit the six-digit login code locally |
+
+Email support depends on the provider exposing IMAP or the configured Gmail OAuth API; there is no universal webmail scraper. Gmail and other providers may require an app password or approved OAuth application. Existing authenticator codes cannot be recovered from every app: standard six-digit SHA-1 TOTP with a 30-second period is supported; push approval is an owner step.
+
+Mac Full Disk Access and Android notification access are broader OS permissions than the app's own sender/template filters. The service consumes codes only within an active login window and rejects stale, duplicated or ambiguous messages. Passwords, cookies and codes are not returned through the agent API. Code sources can be disabled in owner setup.
+
+Close the setup app when finished; the local service continues while your computer is awake. After a restart, open **Account Access** to resume. Use **Manage accounts and verification** to reconnect or revoke access.
 
 ## Screen recording
 
-[Watch installation and use in the actual computer interfaces](https://github.com/fainir/account-access/releases/download/v0.4.1/account-access-install-and-use.mp4). The narrated walkthrough shows opening the graphical Mac app, installing Account Access, choosing Claude Code and Codex, connecting three example accounts once, and asking Claude Code to do the work. The actual browser footage shows three automatic password sign-ins before Claude returns the completed results.
+[Watch installation, password import and automatic verification in Claude Code](https://github.com/fainir/account-access/releases/download/v0.5.0/account-access-install-import-and-verify.mp4).
 
-[![Actual installation and Claude Code walkthrough](docs/video/install-and-use-preview.png)](https://github.com/fainir/account-access/releases/download/v0.4.1/account-access-install-and-use.mp4)
+[![Actual installation and four-account Claude Code walkthrough](docs/video/install-import-and-verify-preview.png)](https://github.com/fainir/account-access/releases/download/v0.5.0/account-access-install-import-and-verify.mp4)
 
-The recording uses the [graphical Mac preview](macos/README.md), which is signed and tested locally. Public Mac downloads still need Apple notarization; Gatekeeper can block this preview. The footage uses public example identities on two testing sites. It does not establish private-account or universal website coverage. [Captions and verification notes](docs/video/README.md) describe the captured flow and tested limits.
-
-The [previous edited overview](docs/video/legacy-guide.md) covers older manual setup.
+The video records the native installer, owner setup, actual Claude Code session and real browser form submissions. Four configured example accounts exercise password, authenticator, email and SMS sign-in. Email uses a real local TLS IMAP server with synthetic delivery; the recorded SMS source is a Messages-format fixture. It does not claim delivery from a real carrier, Gmail mailbox or physical phone. [Captions and recording evidence](docs/video/README.md) explain the edit and limits.
 
 <details>
 <summary>Developer installation and local test accounts</summary>
@@ -63,7 +73,7 @@ cd account-access
 uv sync --locked --python 3.13
 uv run playwright install chromium
 uv build
-uv tool install --python 3.13 --force ./dist/account_access-0.4.1-py3-none-any.whl
+uv tool install --python 3.13 --force ./dist/account_access-0.5.0-py3-none-any.whl
 account-access start
 ```
 
@@ -98,15 +108,16 @@ The service reuses accepted browser sessions, refreshes eligible OAuth access an
 
 | Capability | Status |
 | --- | --- |
-| Codex and Claude Code | Version 0.4.1 tested through the installed skill in this Codex desktop task and the actual Claude Code desktop interface; both completed three-account live reads. Earlier Codex CLI testing also passed |
-| Other agents | Same skill in a supported directory, or the CLI/authenticated API; other named hosts have not been executed |
+| Portable skill + CLI | One shared client identity installed automatically; Codex and Claude Code exercised |
+| Password imports | Reviewed CSV selections from supported layouts; optional explicit TOTP import |
+| Website username/email + password | Fixed reviewed forms, encrypted sessions and bounded recovery; public and controlled examples tested |
+| Authenticator TOTP | Owner enrollment, setup QR/key and controlled end-to-end login |
+| Email login codes | TLS IMAP end-to-end fixture; Gmail adapter contract tests; public mailbox delivery not validated |
+| iPhone SMS on Mac | Signed narrow Messages helper tested against fixtures; physical text-forwarding delivery not validated |
+| Android login notifications | Actual emulator notification → Keystore pairing → pinned HTTPS → browser code submission [passed CI](https://github.com/fainir/account-access/actions/runs/38543728385); physical phones not validated |
 | OAuth code + PKCE and renewal | Controlled failure tests and external Duende demo refresh-token rotation |
-| Website email/username + password | Reviewed forms, encrypted sessions and bounded recovery; controlled sites and public demos tested |
-| Authenticator TOTP | Explicitly enrolled login-only seeds; controlled end-to-end test |
-| Email/SMS login codes | Gmail/Twilio adapters with contract tests; live delivery not validated |
-| Passkey, fingerprint, device or admin approval | Genuine owner handoff; provider-required presence remains a human step |
-| Existing Chrome session | Experimental extension/native bridge; unit-tested, not live Chrome validated; no password-vault extraction |
-| iPhone/Android SMS inboxes | No native companion or universal inbox capture shipped |
+| Passkey, fingerprint, device or admin approval | Genuine owner handoff |
+| Existing Chrome session | Experimental extension/native bridge; unit-tested, not live Chrome validated |
 | Payments, filings and account-changing writes | Unsupported; configured reads only |
 
 macOS has been exercised locally. Linux is covered by the repository's CI workflow. Native Windows service transport is not implemented. A cloud agent needs a reachable HTTPS broker; installing a local skill does not expose your laptop's localhost to the cloud.
@@ -150,7 +161,7 @@ The worker preserves completed steps, retries temporary failures with backoff, a
 | Symptom | What to do |
 | --- | --- |
 | `account-access: command not found` | Run `uv tool update-shell`, then open a new terminal. |
-| `service_unavailable` | Start the demo/service and keep its terminal open; use the script for the installation you intend to reach. |
+| `service_unavailable` | Reopen Account Access, or start the configured service; use the skill for the intended installation. |
 | Agent cannot find the skill | Start a fresh chat/session. The installer uses `~/.agents/skills/account-access` for Codex and `~/.claude/skills/account-access` for Claude. |
 | Chromium is missing or cannot launch | Run `uv run playwright install chromium` in this checkout; on Linux also install its system dependencies. |
 | Ubuntu browser still cannot launch | Have the administrator review the [per-binary AppArmor setup](docs/setup.md#linux-sandbox-setup). |
@@ -161,7 +172,9 @@ The worker preserves completed steps, retries temporary failures with backoff, a
 
 ## Validation and development
 
-Recorded on 12 October 2026:
+Latest validation on 14 October 2026: **69 Python tests passed**, with lint, dependency auditing and package building covered by [Linux CI](https://github.com/fainir/account-access/actions/runs/38543728498). The [Android emulator journey](https://github.com/fainir/account-access/actions/runs/38543728385) passed separately. See [four-factor recording evidence](artifacts/video/install-import-and-verify.json).
+
+Earlier experiments on 12 October 2026:
 
 - **43 regression tests passed.**
 - **90/90 controlled repeated reads** completed unattended after programmatic demo enrollment.

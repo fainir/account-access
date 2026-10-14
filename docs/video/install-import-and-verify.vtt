@@ -1,0 +1,54 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:08.708
+Open Account Access and click Install. The app prepares the software and browser
+for you.
+
+00:00:08.708 --> 00:00:18.417
+Your existing AI tools are detected automatically. The same portable skill works
+through a command-line client. You don't choose an agent during setup.
+
+00:00:18.417 --> 00:00:30.125
+Connect your configured email mailbox once, using its email address and
+application password. This example mailbox uses encrypted IMAP.
+
+00:00:30.125 --> 00:00:39.542
+For iPhone, forward texts to Messages and allow the Account Access app in Mac
+privacy settings. Android users pair the phone companion instead.
+
+00:00:39.542 --> 00:00:52.250
+Choose a password export from Chrome or another supported manager. Review the
+matched accounts and approve their reads. Import authenticator keys only if you
+choose that option.
+
+00:00:52.250 --> 00:01:02.958
+When your accounts are connected, copy the request and open Claude Code. You can
+use the same skill from Codex or another compatible local agent.
+
+00:01:02.958 --> 00:01:09.458
+Ask Claude to read your connected accounts and save progress as one task.
+
+00:01:09.458 --> 00:01:21.667
+Claude discovers the permitted accounts and starts the task. We expired the
+example sessions so you can watch each fresh sign-in.
+
+00:01:21.667 --> 00:01:33.375
+Account Access fills the saved username and password and signs in automatically.
+
+00:01:33.375 --> 00:01:46.333
+For the authenticator account, it generates the login code from the explicitly
+imported setup key and submits it. You don't open the authenticator app.
+
+00:01:46.333 --> 00:02:00.792
+For email verification, it reads the fresh matching message from the connected
+mailbox and submits the code. You don't copy it.
+
+00:02:00.792 --> 00:02:13.625
+For SMS, it retrieves the matching fresh login message and submits the code.
+This recording uses a controlled Messages fixture; real phone delivery still
+needs validation.
+
+00:02:13.625 --> 00:02:29.333
+Claude returns all four results and the saved task ID. From the request through
+completion, the user entered no password or verification code. These are
+configured example accounts; private websites need reviewed connectors.
