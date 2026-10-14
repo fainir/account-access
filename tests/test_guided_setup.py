@@ -31,7 +31,7 @@ def test_guided_setup_connects_grants_and_never_returns_credentials(env, tmp_pat
     try:
         with httpx.Client(base_url=base, trust_env=False) as client:
             headers = {"Authorization": "Bearer " + token, "Origin": base}
-            assert "Which AI tools" in client.get("/").text
+            assert "Your existing AI tools" in client.get("/").text
             assert client.get("/owner/state").status_code == 401
             assert client.post("/owner/install", json={"agents": ["codex"]}).status_code == 403
             assert client.post("/owner/install", json={"agents": ["codex", "claude"]}, headers=headers).status_code == 200

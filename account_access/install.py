@@ -56,3 +56,41 @@ def install_skill(store, agent, destination=None):
     os.chmod(launcher, 0o700)
     return {"agent": agent, "skill_path": str(target), "principal": agent,
             "client_config": str(config_file)}
+
+
+def install_detected(store):
+    """One portable client plus host discovery; never change host approval settings."""
+    home = Path.home()
+    targets = [("generic", store.root / "skills")]
+    for agent, folder, command in [("codex", ".codex", "codex"),
+                                    ("claude", ".claude", "claude")]:
+        if (home / folder).exists() or shutil.which(command):
+            targets.append((agent, None))
+    installed = []
+    for agent, destination in targets:
+        target = (destination / "account-access" if destination else
+                  home / (".claude" if agent == "claude" else ".agents") / "skills/account-access")
+        # Reopening setup must not invalidate a running client's token.
+        current = target / "installation.json"
+        expected = store.root / "clients" / agent / "client.json"
+        valid = False
+        if current.is_file() and not current.is_symlink():
+            try:
+                from .storage import check_private
+                check_private(current)
+                valid = (json.loads(current.read_text()).get("client_config") == str(expected)
+                         and expected.is_file() and (target / ".account-access-install").is_file())
+                if valid:
+                    check_private(expected)
+                    client = json.loads(expected.read_text())
+                    token_file = Path(client["token_file"])
+                    check_private(token_file)
+                    valid = store.client(token_file.read_text()) == agent
+            except (AccessError, ValueError, KeyError, OSError):
+                valid = False
+        result = ({"agent": agent, "skill_path": str(target), "principal": agent,
+                   "client_config": str(expected)} if valid else
+                  install_skill(store, agent, destination))
+        installed.append(result)
+    return {"status": "INSTALLED", "clients": installed,
+            "portable_cli": str(store.root / "skills/account-access/scripts/access")}

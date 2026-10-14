@@ -135,7 +135,7 @@ def parser():
     revoke.add_argument("--account")
     revoke.add_argument("--principal")
     install = sub.add_parser("install")
-    install.add_argument("--agent", choices=["codex", "claude", "generic"], required=True)
+    install.add_argument("--agent", choices=["auto", "codex", "claude", "generic"], default="auto")
     install.add_argument("--skills-dir", help="Custom destination for another skills-compatible agent")
     schedule = sub.add_parser("schedule")
     schedule.add_argument("principal")
@@ -150,6 +150,7 @@ def parser():
     demo = sub.add_parser("demo")
     demo.add_argument("--install", action="store_true", help="Install test-only skill connections into Codex and Claude Code")
     demo.add_argument("--public-sites", action="store_true", help="Also enroll published SauceDemo and The Internet demo identities")
+    demo.add_argument("--verification", action="store_true", help="Empty guided examples with real TLS IMAP and a Messages-format SMS fixture")
     return p
 
 
@@ -186,6 +187,12 @@ def main(argv=None):
             print_json(result)
             return 0 if result.get("status") not in {"DENIED", "RETRYABLE", "NEEDS_USER"} else 2
         if args.command == "demo":
+            if args.verification:
+                if args.install or args.public_sites:
+                    raise AccessError("DENIED", "verification_demo_requires_owner_enrollment")
+                from .verification_demo import serve
+                serve(Path(args.root))
+                return 0
             from .demo import serve_demo
             serve_demo(Path(args.root), install=args.install, public_sites=args.public_sites)
             return 0
@@ -266,8 +273,13 @@ def main(argv=None):
             broker.revoke(args.account, args.principal)
             print_json({"status": "REVOKED", "provider_revocation": "Separate provider settings may also require revocation"})
         elif args.command == "install":
-            from .install import install_skill
-            print_json({"status": "INSTALLED", **install_skill(store, args.agent, args.skills_dir)})
+            from .install import install_detected, install_skill
+            if args.agent == "auto":
+                if args.skills_dir:
+                    raise AccessError("DENIED", "custom_directory_requires_generic")
+                print_json(install_detected(store))
+            else:
+                print_json({"status": "INSTALLED", **install_skill(store, args.agent, args.skills_dir)})
         elif args.command in {"grants", "challenges", "schedules"}:
             with store.db() as db:
                 table = {"grants": "grants", "challenges": "challenges", "schedules": "schedules"}[args.command]

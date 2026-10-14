@@ -2,7 +2,6 @@
 const capability=location.hash.slice(1);
 history.replaceState(null,"","/");
 const el=id=>document.getElementById(id);
-const selected=()=>["codex","claude"].filter(x=>el(x).checked);
 const message=text=>el("message").textContent=text;
 let state=null;
 async function call(path,body){
@@ -21,17 +20,56 @@ async function refresh(){
  for(const item of state.catalog.filter(x=>!existing.has(x.id))){const option=text("option",item.label);option.value=item.id;el("service").append(option);}
  if([...el("service").options].some(x=>x.value===previous))el("service").value=previous;
  permission();el("account-form").hidden=!el("service").options.length;
- const haveClients=state.principals.some(x=>["codex","claude"].includes(x));
+ const haveClients=state.principals.length>0;
+ el("agent-status").textContent="Portable CLI ready. Detected tools: "+state.principals.filter(x=>x!=="generic").join(", ")+". Other compatible agents can use the same CLI.";
  el("connect").hidden=!haveClients;el("connected-section").hidden=!state.accounts.length;el("use").hidden=!state.accounts.some(x=>x.connected);
  el("connected").replaceChildren();
- for(const account of state.accounts){const card=document.createElement("div");card.className="account";const detail=document.createElement("div");detail.append(text("strong",account.label));const grants=state.grants.filter(x=>x.account===account.account);detail.append(text("span","Allowed tools: "+[...new Set(grants.map(x=>x.principal==="claude"?"Claude Code":"Codex"))].join(", ")));const status=text("span",account.connected?"✓ Connected":"Connecting…");status.className="badge"+(account.connected?"":" pending");const job=Object.values(state.connection_jobs).find(x=>x.account===account.account&&x.status!=="RUNNING"&&x.status!=="CONNECTED");if(job&&!account.connected){status.textContent="Sign-in needs attention";status.className="badge pending";}card.append(detail,status);el("connected").append(card);}
+ for(const account of state.accounts){const card=document.createElement("div");card.className="account";const detail=document.createElement("div");detail.append(text("strong",account.label));const grants=state.grants.filter(x=>x.account===account.account);detail.append(text("span","Allowed tools: "+[...new Set(grants.map(x=>x.principal))].join(", ")));const status=text("span",account.connected?"✓ Connected":"Connecting…");status.className="badge"+(account.connected?"":" pending");const job=Object.values(state.connection_jobs).find(x=>x.account===account.account&&x.status!=="RUNNING"&&x.status!=="CONNECTED");if(job&&!account.connected){status.textContent="Sign-in needs attention";status.className="badge pending";}card.append(detail,status);el("connected").append(card);}
  el("prompts").replaceChildren();
  for(const agent of state.principals.filter(x=>["codex","claude"].includes(x))){const card=document.createElement("div");card.className="prompt";card.append(text("strong",agent==="claude"?"Claude Code":"Codex"));const p=text("p",prompt(agent));const b=text("button","Copy request");b.type="button";b.onclick=async()=>{try{await navigator.clipboard.writeText(p.textContent);b.textContent="Copied";}catch{message("Select the request text and copy it.");}};card.append(p,b);el("prompts").append(card);}
+ renderFactors();
  if(Object.values(state.connection_jobs).some(x=>x.status==="RUNNING"))setTimeout(()=>refresh().catch(problem),1200);
 }
 el("service").onchange=permission;
 el("stop").onclick=async()=>{if(!confirm("Stop Account Access? Your saved connections will be kept."))return;try{await call("/owner/stop",{});message("Account Access is stopped. Reopen the app to continue.");document.querySelectorAll("button,input,select").forEach(x=>x.disabled=true);}catch(e){problem(e);}};
 el("manage").onclick=e=>{e.preventDefault();location.href="/manage#"+capability;};
-el("install").onclick=async()=>{el("install").disabled=true;try{if(!selected().length)throw new Error("Choose at least one AI tool.");await call("/owner/install",{agents:selected()});message("Your AI tools are ready. Connect an account below.");await refresh();el("connect").scrollIntoView({behavior:"smooth",block:"start"});}catch(e){problem(e);}finally{el("install").disabled=false;}};
-el("account-form").onsubmit=async e=>{e.preventDefault();el("add").disabled=true;try{if(!el("allow").checked)throw new Error("Choose the reads you want to allow.");await call("/owner/add",{service:el("service").value,username:el("username").value,password:el("password").value,agents:selected()});el("username").value="";el("password").value="";el("allow").checked=false;message("Signing in. You can connect another account while this finishes.");await refresh();}catch(e){problem(e);}finally{el("add").disabled=false;}};
-if(capability)refresh().catch(problem);else message("Open Account Access from its launcher to unlock your setup page.");
+el("account-form").onsubmit=async e=>{e.preventDefault();el("add").disabled=true;try{if(!el("allow").checked)throw new Error("Choose the reads you want to allow.");await call("/owner/add",{service:el("service").value,username:el("username").value,password:el("password").value});el("username").value="";el("password").value="";el("allow").checked=false;message("Signing in. You can connect another account while this finishes.");await refresh();}catch(e){problem(e);}finally{el("add").disabled=false;}};
+if(capability)call("/owner/install",{}).then(refresh).catch(problem);else message("Open Account Access from its launcher to unlock your setup page.");
+
+let importPreview=null;
+el("import-passwords").onclick=()=>el("password-file").click();
+el("password-file").onchange=async()=>{
+ const file=el("password-file").files[0]; if(!file)return;
+ try {if(file.size>4000000)throw new Error("password_file_too_large");importPreview=await call("/owner/import/preview",{csv:await file.text()});
+ const review=el("import-review");review.replaceChildren();review.hidden=false;
+ review.append(text("p","Select logins and approved reads. Existing selected logins will be replaced. Passwords are never shown here."));
+ const inputs=[];
+ for(const row of importPreview.rows.filter(x=>x.matches.length).slice(0,200)){
+  const label=text("label",row.username+" · "+row.website);const check=document.createElement("input");check.type="checkbox";label.prepend(check);
+  const select=document.createElement("select");for(const match of row.matches){const option=text("option",match.label+" — Allow: "+match.operations.map(x=>x.description).join("; "));option.value=match.id;select.append(option);}
+  review.append(label,select);inputs.push({row,check,select});
+ }
+ review.append(text("p",importPreview.unsupported+" unsupported logins will not be saved. Delete the plaintext export after importing; this web page cannot delete your file."));
+ const submit=text("button","Import selected accounts");submit.type="button";submit.onclick=async()=>{try{
+ const selections=inputs.filter(x=>x.check.checked).map(x=>({row:x.row.id,account:x.select.value,operations:x.row.matches.find(m=>m.id===x.select.value).operations.map(o=>o.name)}));
+ await call("/owner/import/apply",{id:importPreview.id,selections});review.replaceChildren();review.hidden=true;importPreview=null;el("password-file").value="";message("Logins imported and encrypted. Enroll required verification below.");await refresh();
+ }catch(e){problem(e);}};review.append(submit);
+ }catch(e){problem(e);}
+};
+function renderFactors(){
+ const container=el("factors");container.replaceChildren();
+ for(const source of state.code_sources){
+  const card=document.createElement("div");card.className="account";card.append(text("strong",source.accounts.join(", ")+" · "+source.kind));
+  const form=document.createElement("form");const fields={};
+  const names=source.kind==="totp"?["seed"]:source.kind==="imap"?(source.mailbox_account?["username"]:["username","password"]):source.kind==="twilio"?["sid","auth_token"]:[];
+  for(const name of names){const input=document.createElement("input");input.type=name==="username"?"text":"password";input.required=true;input.placeholder=name==="seed"?"Authenticator setup key or otpauth link":name==="password"?"Mailbox application password":name;input.setAttribute("aria-label",input.placeholder);fields[name]=input;form.append(input);}
+  if(source.kind==="mac_messages")card.append(text("p","Enable iPhone text forwarding to this Mac and grant the local runtime access to Messages in macOS privacy settings."));
+  if(source.kind==="gmail")card.append(text("p","Connect the reviewed Gmail OAuth account in Manage permissions. Gmail consent grants mailbox read access."));
+  const submit=text("button",source.enrolled?"Update verification":"Enable verification");submit.type="submit";form.append(submit);
+  form.onsubmit=async event=>{event.preventDefault();try{const credential=Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,v.value]));if(source.kind==="mac_messages")credential.enabled=true;
+  await call("/owner/source",{source:source.id,credential});Object.values(fields).forEach(x=>x.value="");for(const account of source.accounts)await call("/owner/verify",{account});message("Verification saved locally.");await refresh();}catch(e){problem(e);}};
+  if(source.kind==="phone_relay"){const pair=text("button","Pair Android companion");pair.type="button";pair.onclick=async()=>{try{const result=await call("/owner/phone/pair",{source:source.id});await navigator.clipboard.writeText(JSON.stringify(result));message("Pairing copied. Paste into your Android companion on the same private Wi-Fi.");}catch(e){problem(e);}};card.append(pair);}
+  card.append(form);container.append(card);
+ }
+ if(!state.code_sources.length)container.append(text("p","No verification method is required by the configured accounts."));
+}

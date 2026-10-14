@@ -2,6 +2,10 @@ import AppKit
 import CryptoKit
 import Foundation
 import Security
+import UniformTypeIdentifiers
+import CoreImage
+
+final class FlippedView: NSView { override var isFlipped: Bool { true } }
 
 final class LocalRequests: NSObject, URLSessionTaskDelegate {
     func urlSession(_ session: URLSession, task: URLSessionTask,
@@ -16,17 +20,14 @@ final class LocalRequests: NSObject, URLSessionTaskDelegate {
 // All connections and permissions go through the existing authenticated owner API.
 final class AccountAccess: NSObject, NSApplicationDelegate {
     let files = FileManager.default
-    let root = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent(".local/share/account-access")
-    let runtime = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent(".local/share/account-access/runtime")
+    let root = URL(fileURLWithPath: ProcessInfo.processInfo.environment["ACCOUNT_ACCESS_DATA_DIR"] ??
+        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/share/account-access").path)
+    lazy var runtime = URL(fileURLWithPath: ProcessInfo.processInfo.environment["ACCOUNT_ACCESS_INSTALL_DIR"] ?? root.appendingPathComponent("runtime").path)
     var window: NSWindow!
     var stack: NSStackView!
     var status: NSTextField!
     var button: NSButton!
     var spinner: NSProgressIndicator!
-    var claude: NSButton!
-    var codex: NSButton!
     var services: NSPopUpButton!
     var username: NSTextField!
     var password: NSSecureTextField!
@@ -34,13 +35,20 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
     var catalog: [[String: Any]] = []
     var accounts: [[String: Any]] = []
     var agents = ["claude"]
+    var sources: [[String: Any]] = []
+    var importID = ""
+    var importRows: [(String, NSButton, NSPopUpButton)] = []
+    var importFile: URL?
+    var deleteExport: NSButton!
+    var factorMenu: NSPopUpButton!
+    var factorFields: [String: NSTextField] = [:]
     var base: URL!
     var token = ""
     var busy = false
     var failedAccount: String?
     let localRequests = LocalRequests()
     let prompt = "/account-access Find the cheapest product in my personal and work shopping accounts, and read my membership welcome message. Refresh the data and save one task. Keep the answer short. Use my three example connections."
-    var preferredAgent: String { agents.contains("claude") ? "Claude Code" : "Codex" }
+    var preferredAgent: String { agents.contains("claude") ? "Claude Code" : agents.contains("codex") ? "Codex" : "your AI tool" }
     var requestText: String {
         let connected = Set(accounts.filter { $0["connected"] as? Bool == true }.compactMap { $0["account"] as? String })
         let text = connected == Set(["personal-store", "work-store", "member-portal"])
@@ -92,8 +100,13 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
     }
 
     func page(_ title: String, _ subtitle: String) {
-        let view = NSView()
-        window.contentView = view
+        let scroll = NSScrollView()
+        scroll.hasVerticalScroller = true
+        scroll.autohidesScrollers = true
+        window.contentView = scroll
+        let view = FlippedView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        scroll.documentView = view
         stack = NSStackView()
         stack.orientation = .vertical
         stack.alignment = .leading
@@ -103,7 +116,10 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
         NSLayoutConstraint.activate([
             stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 50),
             stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -50),
-            stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 38)
+            stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 38),
+            stack.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -38),
+            view.widthAnchor.constraint(equalTo: scroll.contentView.widthAnchor),
+            view.heightAnchor.constraint(greaterThanOrEqualTo: scroll.contentView.heightAnchor)
         ])
         label("ACCOUNT ACCESS", 13, .secondaryLabelColor)
         label(title, 31, .labelColor, .bold)
@@ -142,7 +158,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
 
     func welcome() {
         page("Let your AI handle the sign-in", "Install once, connect your accounts, and give your AI a request.")
-        label("1   Install the local app\n\n2   Choose Claude Code or Codex\n\n3   Connect accounts and approve specific reads", 19)
+        label("1   Install the local app\n\n2   Import or connect your accounts\n\n3   Ask your existing AI tool", 19)
         label("Saved credentials stay in your encrypted local vault. Your AI receives the permitted results.", 16, .secondaryLabelColor)
         button = action("Install Account Access", #selector(install))
         label("macOS · Installs in your user folder · No administrator password needed", 13, .secondaryLabelColor)
@@ -191,11 +207,12 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
                     throw Failure.message("Installation could not finish. Check your internet connection, then try again. No account credentials were changed.")
                 }
                 try self.loadOwner()
+                _ = try self.request("owner/install", body: [:])
                 let state = try self.request("owner/state")
                 DispatchQueue.main.async {
                     self.busy = false
                     self.accept(state)
-                    self.chooseAgents()
+                    self.connections()
                 }
             } catch { self.fail(error, retry: #selector(self.install)) }
         }
@@ -220,14 +237,12 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
                     throw Failure.message("The local app could not start. Try again.")
                 }
                 try self.loadOwner()
+                _ = try self.request("owner/install", body: [:])
                 let state = try self.request("owner/state")
                 DispatchQueue.main.async {
                     self.busy = false
                     self.accept(state)
-                    let installed = state["principals"] as? [String] ?? []
-                    self.agents = installed.filter { ["claude", "codex"].contains($0) }
-                    if self.agents.isEmpty { self.chooseAgents() }
-                    else { self.connections() }
+                    self.connections()
                 }
             } catch { self.fail(error, retry: #selector(self.reopen)) }
         }
@@ -337,32 +352,21 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
     func accept(_ state: [String: Any]) {
         catalog = state["catalog"] as? [[String: Any]] ?? []
         accounts = state["accounts"] as? [[String: Any]] ?? []
+        sources = state["code_sources"] as? [[String: Any]] ?? []
+        agents = state["principals"] as? [String] ?? []
     }
 
     func chooseAgents() {
-        page("Choose your AI tools", "Account Access adds a skill to the tools you already use.")
-        claude = NSButton(checkboxWithTitle: "Claude Code", target: nil, action: nil)
-        codex = NSButton(checkboxWithTitle: "Codex", target: nil, action: nil)
-        claude.state = .on
-        for control in [claude!, codex!] {
-            control.font = .systemFont(ofSize: 19)
-            stack.addArrangedSubview(control)
-        }
-        label("Have your selected AI tool installed and signed in. Start a fresh chat after setup.", 16, .secondaryLabelColor)
-        button = action("Set up my AI tools", #selector(installAgents))
+        page("Connecting your existing AI tools", "The portable skill and CLI work with compatible agents. Installed tools are detected automatically.")
+        progress()
+        installAgents()
     }
 
     @objc func installAgents() {
-        agents = []
-        if claude.state == .on { agents.append("claude") }
-        if codex.state == .on { agents.append("codex") }
-        if agents.isEmpty { return }
-        button.isEnabled = false
         busy = true
-        let selected = agents
         DispatchQueue.global(qos: .userInitiated).async {
             do {
-                _ = try self.request("owner/install", body: ["agents": selected])
+                _ = try self.request("owner/install", body: [:])
                 let state = try self.request("owner/state")
                 DispatchQueue.main.async { self.busy = false; self.accept(state); self.connections() }
             } catch { self.fail(error, retry: #selector(self.reopen)) }
@@ -372,6 +376,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
     func connections() {
         let connected = accounts.filter { $0["connected"] as? Bool == true }
         page("Connect your accounts once", "Your AI can perform only the reads you approve here.")
+        label("Portable skill + CLI ready. Detected tools: " + agents.filter { $0 != "generic" }.joined(separator: ", "), 14, .secondaryLabelColor)
+        action("Import saved passwords", #selector(importPasswords))
+        action("Verification methods", #selector(showFactors))
         if !connected.isEmpty {
             label(connected.map { "✓  " + ($0["label"] as? String ?? "Account") }.joined(separator: "\n"), 17, .systemGreen)
         }
@@ -426,7 +433,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
               let entry = services.selectedItem?.representedObject as? [String: Any],
               let service = entry["id"] as? String else { return }
         let body: [String: Any] = ["service": service, "username": username.stringValue,
-                                   "password": password.stringValue, "agents": agents]
+                                   "password": password.stringValue]
         let existing = accounts.contains { $0["account"] as? String == service }
         failedAccount = service
         password.stringValue = ""
@@ -469,6 +476,13 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
                     DispatchQueue.main.async { self.status.stringValue = "The website is taking longer. Retrying safely…" }
                     continue
                 }
+                let reason = result["reason"] as? String ?? ""
+                if reason == "mac_messages_permission_required" {
+                    throw Failure.message("macOS has not allowed access to Messages. Enable iPhone text forwarding and grant the local Account Access runtime access in Privacy settings, then retry this saved sign-in.")
+                }
+                if reason.contains("authenticator") || reason.contains("mailbox") || reason.contains("code_not_received") || reason.contains("verification_source") {
+                    throw Failure.message("This login needs its verification method connected. Open Verification methods to enroll the authenticator, reconnect email, or check phone access. Your imported password is already saved.")
+                }
                 throw Failure.message("This account needs a sign-in check. Your other connections are preserved. Reopen the app to review the selected account or try its saved sign-in again.")
             }
             Thread.sleep(forTimeInterval: 0.8)
@@ -497,6 +511,222 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
 
     @objc func showReady() { ready() }
 
+    @objc func importPasswords() {
+        let picker = NSOpenPanel()
+        picker.allowedContentTypes = [.commaSeparatedText]
+        picker.allowsMultipleSelection = false
+        picker.message = "Select the password CSV exported by Chrome, Apple Passwords, Bitwarden, or 1Password. Only selected supported logins will be saved."
+        guard picker.runModal() == .OK, let file = picker.url else { return }
+        do {
+            let attributes = try files.attributesOfItem(atPath: file.path)
+            guard (attributes[.size] as? NSNumber)?.intValue ?? 4_000_001 <= 4_000_000 else {
+                throw Failure.message("The password export is too large. Export fewer accounts and try again.")
+            }
+            let csv = try String(contentsOf: file, encoding: .utf8)
+            busy = true
+            page("Reviewing your saved logins", "Passwords stay in the local service and never appear in your AI chat.")
+            progress()
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    let preview = try self.request("owner/import/preview", body: ["csv": csv])
+                    DispatchQueue.main.async { self.busy = false; self.importFile = file; self.reviewImport(preview) }
+                } catch { self.fail(error, retry: #selector(self.importPasswords)) }
+            }
+        } catch { fail(error, retry: #selector(importPasswords)) }
+    }
+
+    func reviewImport(_ preview: [String: Any]) {
+        importID = preview["id"] as? String ?? ""
+        importRows = []
+        page("Choose the logins to import", "Check an account and approve its listed reads. Existing saved logins for selected accounts will be replaced.")
+        for row in preview["rows"] as? [[String: Any]] ?? [] {
+            let matches = row["matches"] as? [[String: Any]] ?? []
+            guard !matches.isEmpty, let id = row["id"] as? String else { continue }
+            let check = NSButton(checkboxWithTitle: (row["username"] as? String ?? "Login") + " · " + (row["website"] as? String ?? ""), target: nil, action: nil)
+            check.font = .systemFont(ofSize: 16)
+            stack.addArrangedSubview(check)
+            let select = NSPopUpButton()
+            for match in matches {
+                let reads = (match["operations"] as? [[String: Any]] ?? []).compactMap { $0["description"] as? String }
+                select.addItem(withTitle: (match["label"] as? String ?? "Account") + " — Allow: " + reads.joined(separator: "; "))
+                select.lastItem?.representedObject = match
+            }
+            stack.addArrangedSubview(select)
+            importRows.append((id, check, select))
+        }
+        label("Unsupported logins: " + String(preview["unsupported"] as? Int ?? 0) + ". These will not be saved; importing cannot add a website connector.", 14, .secondaryLabelColor)
+        deleteExport = NSButton(checkboxWithTitle: "Move the plaintext export file to Trash after importing", target: nil, action: nil)
+        stack.addArrangedSubview(deleteExport)
+        action("Import selected accounts", #selector(applyImport))
+        action("Back", #selector(backToConnections))
+    }
+
+    @objc func applyImport() {
+        let selections: [[String: Any]] = importRows.compactMap { id, check, menu in
+            guard check.state == .on, let entry = menu.selectedItem?.representedObject as? [String: Any], let account = entry["id"] as? String else { return nil }
+            let ops = (entry["operations"] as? [[String: Any]] ?? []).compactMap { $0["name"] as? String }
+            return ["row": id, "account": account, "operations": ops]
+        }
+        guard !selections.isEmpty else { return }
+        let remove = deleteExport.state == .on
+        let file = importFile
+        busy = true
+        page("Importing your selected accounts", "Saving encrypted logins and checking the approved reads…")
+        progress()
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let result = try self.request("owner/import/apply", body: ["id": self.importID, "selections": selections])
+                if remove, let file { try self.files.trashItem(at: file, resultingItemURL: nil) }
+                var state = try self.request("owner/state")
+                for job in result["jobs"] as? [[String: Any]] ?? [] {
+                    if let account = job["account"] as? String {
+                        // Missing verification enrollment can be repaired in the next screen.
+                        do { state = try self.waitForConnection(job, account: account) } catch { }
+                    }
+                }
+                DispatchQueue.main.async { self.busy = false; self.importFile = nil; self.importRows = []; self.accept(state); self.connections() }
+            } catch { self.fail(error, retry: #selector(self.importPasswords)) }
+        }
+    }
+
+    @objc func backToConnections() { connections() }
+
+    @objc func showFactors() {
+        page("Set up verification once", "Account Access uses verification only for the approved login. Passwords and codes stay out of your AI chat.")
+        if sources.isEmpty {
+            label("Your configured accounts do not require a verification method. A reviewed connector must identify the login-code challenge before automatic code handling can be enabled.", 17)
+            action("Back", #selector(backToConnections))
+            return
+        }
+        factorMenu = NSPopUpButton()
+        for source in sources {
+            let label = (source["accounts"] as? [String] ?? []).joined(separator: ", ") + " · " + (source["kind"] as? String ?? "Verification")
+            factorMenu.addItem(withTitle: label)
+            factorMenu.lastItem?.representedObject = source
+        }
+        factorMenu.target = self
+        factorMenu.action = #selector(factorChanged)
+        stack.addArrangedSubview(factorMenu)
+        factorChanged()
+    }
+
+    @objc func factorChanged() {
+        // Rebuild below the picker to avoid keeping old secret fields around.
+        while let last = stack.arrangedSubviews.last, last !== factorMenu {
+            stack.removeArrangedSubview(last); last.removeFromSuperview()
+        }
+        factorFields = [:]
+        let source = factorMenu.selectedItem?.representedObject as? [String: Any] ?? [:]
+        let kind = source["kind"] as? String ?? ""
+        let fields: [(String, String)] = kind == "totp" ? [("seed", "Authenticator setup key or otpauth link")] :
+            kind == "imap" ? ((source["mailbox_account"] as? String) != nil ? [("username", "Mailbox email address")] : [("username", "Mailbox email address"), ("password", "Mailbox application password")]) :
+            kind == "twilio" ? [("sid", "SMS gateway account ID"), ("auth_token", "SMS gateway token")] : []
+        for (name, hint) in fields {
+            label(hint, 15)
+            let input: NSTextField = name == "username" ? NSTextField() : NSSecureTextField()
+            input.placeholderString = hint
+            input.font = .systemFont(ofSize: 17)
+            input.heightAnchor.constraint(equalToConstant: 34).isActive = true
+            stack.addArrangedSubview(input)
+            input.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+            factorFields[name] = input
+        }
+        if kind == "totp" {
+            label("Enroll a setup key you explicitly allow for login recovery. An authenticator push or fingerprint approval still needs you.", 14, .secondaryLabelColor)
+            action("Read a setup QR image", #selector(readAuthenticatorQR))
+        } else if kind == "imap" {
+            label("Mail server: " + (source["mail_server"] as? String ?? "configured provider"), 14, .secondaryLabelColor)
+            label("Uses encrypted IMAP access to the configured mailbox. Gmail may require an application password. Microsoft mail can use a configured OAuth connection.", 14, .secondaryLabelColor)
+        } else if kind == "mac_messages" {
+            label("Your iPhone must forward SMS to Messages on this Mac. Allow the Account Access runtime to access Messages when macOS requests it. Only fresh incoming messages from this account’s configured sender are checked.", 15, .secondaryLabelColor)
+            action("Open Mac privacy settings", #selector(openMessagePrivacy))
+        } else if kind == "phone_relay" {
+            label("Pair the Android companion on the same private Wi-Fi. It forwards matching login notifications through a certificate-pinned encrypted connection.", 15, .secondaryLabelColor)
+            action("Pair Android phone", #selector(pairPhone))
+        } else if kind == "gmail" {
+            label("Connect the configured Gmail account through its provider consent screen in Manage permissions. The resolver reads only matching current login messages, but Gmail consent grants mailbox read access.", 15, .secondaryLabelColor)
+        }
+        action("Enable this verification method", #selector(saveFactor))
+        action("Back", #selector(backToConnections))
+    }
+
+    @objc func readAuthenticatorQR() {
+        let picker = NSOpenPanel()
+        picker.allowedContentTypes = [.png, .jpeg]
+        guard picker.runModal() == .OK, let url = picker.url, let image = CIImage(contentsOf: url),
+              let detector = CIDetector(ofType: CIDetectorTypeQRCode, context: nil, options: [CIDetectorAccuracy: CIDetectorAccuracyHigh]),
+              let qr = detector.features(in: image).compactMap({ $0 as? CIQRCodeFeature }).first,
+              let text = qr.messageString, text.hasPrefix("otpauth://totp/") else { return }
+        factorFields["seed"]?.stringValue = text
+    }
+
+    @objc func openMessagePrivacy() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles") { NSWorkspace.shared.open(url) }
+    }
+
+    @objc func saveFactor() {
+        guard let source = factorMenu.selectedItem?.representedObject as? [String: Any], let id = source["id"] as? String else { return }
+        let kind = source["kind"] as? String ?? ""
+        var credential: [String: Any] = factorFields.mapValues { $0.stringValue }
+        if kind == "mac_messages" { credential = ["enabled": true] }
+        let linked = source["accounts"] as? [String] ?? []
+        for field in factorFields.values { field.stringValue = "" }
+        busy = true
+        page("Saving your verification method", "The secret is encrypted locally. Checking your connected accounts…")
+        progress()
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                _ = try self.request("owner/source", body: ["source": id, "credential": credential])
+                for account in linked {
+                    if let job = try? self.request("owner/verify", body: ["account": account]) {
+                        _ = try? self.waitForConnection(job, account: account)
+                    }
+                }
+                let state = try self.request("owner/state")
+                DispatchQueue.main.async { self.busy = false; self.accept(state); self.connections() }
+            } catch { self.fail(error, retry: #selector(self.showFactors)) }
+        }
+    }
+
+    @objc func pairPhone() {
+        guard let source = factorMenu.selectedItem?.representedObject as? [String: Any], let id = source["id"] as? String else { return }
+        busy = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let result = try self.request("owner/phone/pair", body: ["source": id])
+                let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
+                DispatchQueue.main.async {
+                    self.busy = false
+                    self.page("Pair your Android phone", "Scan this pairing QR with the Account Access companion. Keep both devices on the same private Wi-Fi.")
+                    if let filter = CIFilter(name: "CIQRCodeGenerator") {
+                        filter.setValue(data, forKey: "inputMessage")
+                        if let output = filter.outputImage {
+                            let image = NSImage(size: NSSize(width: 300, height: 300))
+                            let representation = NSCIImageRep(ciImage: output)
+                            image.addRepresentation(representation)
+                            let view = NSImageView()
+                            view.image = image
+                            view.widthAnchor.constraint(equalToConstant: 300).isActive = true
+                            view.heightAnchor.constraint(equalToConstant: 300).isActive = true
+                            self.stack.addArrangedSubview(view)
+                        }
+                    }
+                    let paste = NSButton(title: "Copy pairing for the companion", target: nil, action: nil)
+                    paste.target = self
+                    paste.action = #selector(self.copyPhonePairing)
+                    paste.identifier = NSUserInterfaceItemIdentifier(String(data: data, encoding: .utf8) ?? "")
+                    self.stack.addArrangedSubview(paste)
+                    self.action("Back", #selector(self.backToConnections))
+                }
+            } catch { self.fail(error, retry: #selector(self.showFactors)) }
+        }
+    }
+
+    @objc func copyPhonePairing(_ sender: NSButton) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(sender.identifier?.rawValue ?? "", forType: .string)
+    }
+
     func ready() {
         page("Your connected accounts are ready", "Ask for the work. Account Access handles the approved sign-ins and reads.")
         let connected = accounts.filter { $0["connected"] as? Bool == true }
@@ -506,6 +736,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
         text.isSelectable = true
         action("Copy request", #selector(copyRequest))
         action("Open " + preferredAgent, #selector(openClaude))
+        action("Import saved passwords", #selector(importPasswords))
+        action("Verification methods", #selector(showFactors))
+        action("Manage accounts and verification", #selector(backToConnections))
         label("The local service keeps running when you close this window. Reopen Account Access from your user Applications folder after a restart.", 14, .secondaryLabelColor)
     }
 
@@ -534,6 +767,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
             self.busy = false
             self.page("This step needs attention", explanation)
             self.action("Try again", retry)
+                    if !self.sources.isEmpty { self.action("Review verification methods", #selector(self.showFactors)) }
         }
     }
 }

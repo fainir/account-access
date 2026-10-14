@@ -1,0 +1,11 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.fainir.accountaccess.phone" android:versionCode="1" android:versionName="0.5.0-preview">
+ <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="36"/>
+ <uses-permission android:name="android.permission.INTERNET"/>
+ <uses-permission android:name="android.permission.CAMERA"/>
+ <uses-feature android:name="android.hardware.camera" android:required="false"/>
+ <application android:label="Account Access Phone" android:allowBackup="false" android:usesCleartextTraffic="false" android:theme="@android:style/Theme.Material.Light.NoActionBar">
+  <activity android:name="com.fainir.accountaccess.MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
+  <activity android:name="com.fainir.accountaccess.ScanActivity" android:exported="false"/>
+  <service android:name="com.fainir.accountaccess.LoginNotifications" android:label="Account Access login codes" android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" android:exported="true"><intent-filter><action android:name="android.service.notification.NotificationListenerService"/></intent-filter></service>
+ </application>
+</manifest>

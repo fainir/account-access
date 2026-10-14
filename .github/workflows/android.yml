@@ -1,0 +1,36 @@
+name: Android login-code journey
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
+      - run: uv sync --locked
+      - run: uv run playwright install --with-deps chromium
+      - name: Enable sandboxed browser namespaces
+        run: |
+          uv run python scripts/chromium_apparmor.py --output /tmp/account-access-browser.apparmor
+          sudo apparmor_parser -r /tmp/account-access-browser.apparmor
+      - name: Build the phone app and instrumentation
+        run: |
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0'
+          sh android/build.sh
+          sh android/test/build.sh
+      - name: Enable KVM on this ephemeral runner
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-account-access-kvm.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run actual notification-to-browser login
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: uv run python scripts/android_journey.py

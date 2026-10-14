@@ -136,6 +136,14 @@ class Browser:
             raise AccessError("RETRYABLE", "browser_execution_failed") from None
 
     def login(self, browser, account, config, state=None, *, secret_values=None):
+        source = config.login.code_source
+        if source:
+            # Two simultaneous logins must never compete for the same inbox code.
+            with self.store.lock("code-login:" + source, timeout=0):
+                return self._login(browser, account, config, state, secret_values=secret_values)
+        return self._login(browser, account, config, state, secret_values=secret_values)
+
+    def _login(self, browser, account, config, state=None, *, secret_values=None):
         credential = self.store.get("credential:" + account, {})
         if not credential.get("password") or not credential.get("username"):
             raise AccessError("NEEDS_USER", "password_not_connected")
@@ -146,6 +154,8 @@ class Browser:
             raise AccessError("RETRYABLE", "login_retry_cooldown")
         self.store.put("login-attempt:" + account, time.time())
         context = self.context(browser, config, state, login=True)
+        started = None
+        factor = None
         try:
             page = context.new_page()
             page.goto(config.login_url, timeout=15000, wait_until="domcontentloaded")
@@ -159,6 +169,8 @@ class Browser:
             page.locator(form.username_selector).fill(credential["username"])
             page.locator(form.password_selector).fill(credential["password"])
             started = time.time()
+            if form.code_source:
+                self.codes.begin(form.code_source, account, started)
             page.locator(form.submit_selector).click(timeout=10000)
             page.wait_for_load_state("domcontentloaded")
             self.wait_state(page, config, after_submit=True)
@@ -167,7 +179,9 @@ class Browser:
                 raise AccessError("NEEDS_USER", "browser_" + kind + "_required", kind)
             if kind in {"sms", "email", "totp"} and form.code_source and form.code_selector and form.code_submit_selector:
                 source = self.store.config().code_sources[form.code_source]
-                if source.kind != {"sms": "twilio", "email": "gmail", "totp": "totp"}[kind]:
+                factor = kind
+                if source.kind not in {"sms": {"twilio", "mac_messages", "phone_relay"},
+                                       "email": {"gmail", "imap"}, "totp": {"totp"}}[kind]:
                     raise AccessError("NEEDS_USER", "factor_type_changed", kind)
                 used = set()
                 code = None
@@ -190,8 +204,12 @@ class Browser:
             self.save(account, state)
             self.store.resolve_login(account)
             self.store.audit("service", account, "", "login_recovered")
+            if factor:
+                self.store.audit("service", account, "", "login_factor_completed", factor)
             return state
         finally:
+            if started and config.login.code_source:
+                self.codes.finish(config.login.code_source, started)
             context.close()
 
     def save(self, account, state):

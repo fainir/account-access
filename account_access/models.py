@@ -109,13 +109,15 @@ class BrowserAccount(StrictModel):
 
 
 class CodeSource(StrictModel):
-    kind: Literal["totp", "gmail", "twilio"]
+    kind: Literal["totp", "gmail", "twilio", "imap", "mac_messages", "phone_relay"]
     account: Handle | None = None
     sender: str | None = Field(default=None, max_length=200)
     recipient: str | None = Field(default=None, max_length=200)
     subject: str | None = Field(default=None, max_length=200)
     # Exact owner-reviewed message template; one {code}, no arbitrary regex supplied by the agent.
     template: str | None = Field(default=None, max_length=2000)
+    host: str | None = Field(default=None, pattern=r"^[a-zA-Z0-9.-]{1,253}$")
+    port: int = Field(default=993, ge=1, le=65535)
 
     @model_validator(mode="after")
     def requirements(self):
@@ -124,6 +126,8 @@ class CodeSource(StrictModel):
             raise ValueError("Message sources require sender, recipient and one {code} template")
         if self.kind == "gmail" and (not self.account or not self.subject):
             raise ValueError("Gmail code sources require an OAuth account and exact subject")
+        if self.kind == "imap" and (not self.host or not self.subject):
+            raise ValueError("IMAP requires a TLS mail server and exact subject")
         return self
 
 
@@ -148,6 +152,11 @@ class Configuration(StrictModel):
             for url in urls:
                 validate_url(url, self.test_mode)
         for source in self.code_sources.values():
+            if source.kind == "imap":
+                if not (self.test_mode and source.host == "127.0.0.1"):
+                    validate_url("https://" + source.host, self.test_mode)
+                if source.account and not isinstance(self.accounts.get(source.account), OAuthAccount):
+                    raise ValueError("IMAP OAuth source must reference an OAuth account")
             if source.kind == "gmail":
                 account = self.accounts.get(source.account)
                 if not isinstance(account, OAuthAccount):

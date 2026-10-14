@@ -62,6 +62,23 @@ def test_other_agents_install_and_preserve_unrelated_files(env, tmp_path):
     install_skill(broker.store, "generic", tmp_path)
 
 
+def test_automatic_install_is_portable_detected_and_idempotent(env, tmp_path, monkeypatch):
+    from pathlib import Path
+    from account_access.install import install_detected
+    _, broker, _ = env
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.setattr("account_access.install.shutil.which", lambda name: None)
+    (tmp_path / ".codex").mkdir()
+    (tmp_path / ".claude").mkdir()
+    result = install_detected(broker.store)
+    assert {c["principal"] for c in result["clients"]} == {"generic", "codex", "claude"}
+    assert Path(result["portable_cli"]).is_file()
+    token = (broker.store.root / "clients/generic/token").read_text()
+    install_detected(broker.store)
+    assert (broker.store.root / "clients/generic/token").read_text() == token
+    assert broker.store.client(token) == "generic"
+
+
 def test_installer_refuses_unknown_existing_skill(env, tmp_path):
     _, broker, _ = env
     (tmp_path / "account-access").mkdir()

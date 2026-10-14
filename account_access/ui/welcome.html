@@ -6,16 +6,15 @@
 <h1>Connect your accounts.<br>Keep using your AI tool.</h1>
 <p class="intro">Set up access once. Your agent can do the reads you allow, using your saved sign-in.</p>
 <p id="message" role="status"></p>
-<section id="choose-agents" class="card">
-<div class="step">1</div><div><h2>Which AI tools do you use?</h2><p>You can choose both. Open a fresh chat after setup.</p>
-<div class="choices"><label><input id="codex" type="checkbox" checked> <strong>Codex</strong><span>Desktop app or command line</span></label><label><input id="claude" type="checkbox" checked> <strong>Claude Code</strong><span>Your existing Claude Code installation</span></label></div>
-<button id="install">Set up my AI tools</button></div></section>
+<section class="card"><div class="step">1</div><div><h2>Your existing AI tools</h2><p id="agent-status">Preparing the portable skill and detecting installed tools…</p><p class="small">One local service, a portable skill and CLI. Your agent’s approval settings remain under your control.</p></div></section>
 <section id="connect" class="card" hidden>
-<div class="step">2</div><div><h2>Connect an account</h2><p>Select a supported connection, then enter the login you use for it.</p>
+<div class="step">2</div><div><h2>Import or connect an account</h2><p>Select a supported connection, then enter the login you use for it.</p>
+<button id="import-passwords" type="button">Import saved passwords</button><input id="password-file" type="file" accept=".csv,text/csv" hidden><div id="import-review" hidden></div>
 <form id="account-form"><label class="field">Account<select id="service" required></select></label>
 <div class="fields"><label class="field">Email or username<input id="username" autocomplete="username" required maxlength="4096"></label><label class="field">Password<input id="password" type="password" autocomplete="current-password" required maxlength="4096"></label></div>
-<div id="permission" class="permission"></div><label class="agree"><input id="allow" type="checkbox" required> Allow my selected AI tools to perform these reads.</label>
+<div id="permission" class="permission"></div><label class="agree"><input id="allow" type="checkbox" required> Allow my connected AI tools to perform these reads.</label>
 <button id="add" type="submit">Connect account</button></form><p class="small">The included connections use public example websites. Other services need a reviewed connector.</p></div></section>
+<section id="verification" class="card"><div><h2>Verification methods</h2><div id="factors"></div></div></section>
 <section id="connected-section" hidden><h2>Your connected accounts</h2><div id="connected"></div></section>
 <section id="use" class="card" hidden><div class="step">3</div><div><h2>Ask your AI tool</h2><p>Open a fresh session and copy a request below.</p><div id="prompts"></div><p class="small">Account Access keeps running after you close this page. Reopen the app to manage access.</p></div></section>
 <footer><a id="manage" href="/manage">Manage permissions and reconnect accounts</a><span>Saved locally · You control access</span><button id="stop" type="button">Stop Account Access</button></footer>

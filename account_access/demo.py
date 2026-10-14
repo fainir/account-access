@@ -29,6 +29,10 @@ class DemoProvider:
         self.refresh_tokens = {}
         self.sessions = set()
         self.pending_mfa = set()
+        self.pending_codes = {}
+        self.email_count = 0
+        self.sms_count = 0
+        self.delivery = None
         self.refresh_count = 0
         self.api_count = 0
         self.login_count = 0
@@ -69,9 +73,9 @@ class DemoProvider:
             def page(self, body):
                 self.send(200, "<!doctype html><html><body>" + body + "</body></html>", content_type="text/html")
 
-            def login_form(self, mfa=False):
-                path = "/mfa/login" if mfa else "/web/login"
-                return f'<form id="password-login" action="{path}" method="post"><input name="username" id="username"><input name="password" id="password" type="password"><button id="login-submit">Sign in</button></form>'
+            def login_form(self, mfa=False, prefix=None):
+                path = (prefix or ("/mfa" if mfa else "/web")) + "/login"
+                return f'<h1>Example account sign-in</h1><p>Controlled testing account</p><form id="password-login" action="{path}" method="post"><label>Email<input name="username" id="username"></label><label>Password<input name="password" id="password" type="password"></label><button id="login-submit">Sign in</button></form>'
 
             def do_GET(self):
                 parts = urlsplit(self.path)
@@ -92,16 +96,18 @@ class DemoProvider:
                     else:
                         self.send(200, {"balance": "1234.56", "currency": "ILS", "environment": "controlled-demo",
                                         "access_token": self.headers["Authorization"].removeprefix("Bearer ")})
-                elif parts.path in {"/web/summary", "/web/login", "/mfa/summary", "/mfa/login"}:
+                elif parts.path in {prefix + suffix for prefix in ["/web", "/mfa", "/email", "/sms"] for suffix in ["/summary", "/login"]}:
                     if self.authenticated():
                         challenge = '<div id="action-challenge">Confirm payment</div>' if provider.transaction_challenge else ""
                         if provider.echo_login_code:
                             challenge += '<p id="echo">' + provider.last_login_code + '</p>'
                         self.page('<div id="ready">Controlled demo account</div><p id="balance">987.65</p><p id="currency">ILS</p>' + challenge)
                     else:
-                        self.page(self.login_form(parts.path.startswith("/mfa")))
-                elif parts.path == "/mfa/code":
-                    self.page('<form id="totp-challenge" action="/mfa/code" method="post"><input name="code" id="code"><button id="code-submit">Verify login</button></form>')
+                        self.page(self.login_form(prefix=parts.path.rsplit("/", 1)[0]))
+                elif parts.path in {"/mfa/code", "/email/code", "/sms/code"}:
+                    kind = {"/mfa/code": "totp", "/email/code": "email", "/sms/code": "sms"}[parts.path]
+                    label = {"totp": "Authenticator", "email": "Email", "sms": "SMS"}[kind]
+                    self.page(f'<h1>{label} verification</h1><p>Enter the current sign-in code for this example account.</p><form id="{kind}-challenge" action="{parts.path}" method="post"><label>Verification code<input name="code" id="code" autocomplete="one-time-code"></label><button id="code-submit">Verify login</button></form>')
                 elif parts.path == "/redirect":
                     self.send(302, {}, {"Location": "https://example.org/secret"})
                 else:
@@ -135,7 +141,7 @@ class DemoProvider:
                             return
                         self.send(200, {"access_token": access, "refresh_token": refresh,
                                         "token_type": "Bearer", "expires_in": 60, "scope": scope})
-                elif self.path in {"/web/login", "/mfa/login"}:
+                elif self.path in {"/web/login", "/mfa/login", "/email/login", "/sms/login"}:
                     provider.login_count += 1
                     if provider.login_redirect:
                         self.send(307, {}, {"Location": provider.login_redirect})
@@ -143,21 +149,31 @@ class DemoProvider:
                     if data.get("username") != "demo@example.test" or data.get("password") != DEMO_PASSWORD:
                         self.page(self.login_form())
                         return
-                    if self.path.startswith("/mfa"):
+                    if not self.path.startswith("/web"):
                         token = secrets.token_urlsafe(24)
                         provider.pending_mfa.add(token)
-                        self.send(303, {}, {"Location": "/mfa/code", "Set-Cookie": f"demo_pending={token}; HttpOnly; SameSite=Strict; Path=/"})
+                        prefix = self.path.rsplit("/", 1)[0]
+                        if prefix in {"/email", "/sms"}:
+                            code = f"{secrets.randbelow(1_000_000):06d}"
+                            provider.pending_codes[token] = code
+                            if provider.delivery:
+                                provider.delivery(prefix[1:], code)
+                        self.send(303, {}, {"Location": prefix + "/code", "Set-Cookie": f"demo_pending={token}; HttpOnly; SameSite=Strict; Path=/"})
                     else:
                         self.finish_login("/web/summary")
-                elif self.path == "/mfa/code":
-                    provider.totp_count += 1
+                elif self.path in {"/mfa/code", "/email/code", "/sms/code"}:
+                    kind = self.path.split("/")[1]
+                    setattr(provider, {"mfa": "totp_count", "email": "email_count", "sms": "sms_count"}[kind], getattr(provider, {"mfa": "totp_count", "email": "email_count", "sms": "sms_count"}[kind]) + 1)
                     provider.last_login_code = data.get("code", "")
                     token = self.cookie("demo_pending")
-                    if token not in provider.pending_mfa or not pyotp.TOTP(DEMO_SEED).verify(data.get("code", ""), valid_window=1):
+                    valid = (pyotp.TOTP(DEMO_SEED).verify(data.get("code", ""), valid_window=1) if kind == "mfa"
+                             else secrets.compare_digest(provider.pending_codes.get(token, "missing"), data.get("code", "")))
+                    if token not in provider.pending_mfa or not valid:
                         self.send(403, {})
                         return
                     provider.pending_mfa.remove(token)
-                    self.finish_login("/mfa/summary")
+                    provider.pending_codes.pop(token, None)
+                    self.finish_login("/" + kind + "/summary")
                 else:
                     self.send(404, {})
 

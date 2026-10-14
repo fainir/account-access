@@ -15,12 +15,24 @@ from .models import BrowserAccount, OAuthAccount
 
 
 def make_owner_server(broker, *, guided=False, instance_key=None):
+    from .phone import PhoneRelay
+    phone = PhoneRelay(broker.store)
+    try:
+        phone.restore()
+    except (AccessError, OSError, ValueError):
+        # A changed Wi-Fi address or busy port requires re-pairing, not a failed local app.
+        phone.server = None
     token = secrets.token_urlsafe(32)
     instance_key = instance_key or secrets.token_bytes(32)
     jobs = {}
     guard = threading.Lock()
+    verification_slots = threading.BoundedSemaphore(4)
 
     def verify(account, job_id):
+        with verification_slots:
+            _verify(account, job_id)
+
+    def _verify(account, job_id):
         try:
             config = broker.store.config().accounts[account]
             with broker.store.lock("account:" + account, timeout=5):
@@ -38,7 +50,7 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
     def new_job(account):
         ident = secrets.token_hex(16)
         with guard:
-            if sum(x["status"] == "RUNNING" for x in jobs.values()) >= 4:
+            if sum(x["status"] == "RUNNING" for x in jobs.values()) >= 64:
                 raise AccessError("RETRYABLE", "connection_limit")
             jobs[ident] = {"status": "RUNNING", "account": account}
         return ident
@@ -129,6 +141,21 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                 if guided:
                     from .catalog import view
                     state["catalog"] = view()
+                    present = {item["id"] for item in state["catalog"]}
+                    state["catalog"] += [{"id": key, "label": spec.label, "url": spec.login_url,
+                                          "operations": [{"name": n, "description": op.description}
+                                                         for n, op in spec.operations.items()]}
+                                         for key, spec in config.accounts.items()
+                                         if isinstance(spec, BrowserAccount) and key not in present]
+                    state["portable_cli"] = str(broker.store.root / "skills/account-access/scripts/access")
+                state["code_sources"] = [{"id": key, "kind": source.kind,
+                                          "mailbox_account": source.account,
+                                          "mail_server": source.host,
+                                          "enrolled": bool(broker.store.get("source:" + key)) and broker.store.get("source:" + key, {}).get("enabled") is not False,
+                                          "accounts": [key2 for key2, spec in config.accounts.items()
+                                                       if isinstance(spec, BrowserAccount) and spec.login
+                                                       and spec.login.code_source == key]}
+                                         for key, source in config.code_sources.items()]
                 self.send(200, state)
             else:
                 self.send(404, {"status": "DENIED"})
@@ -139,11 +166,32 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                 return
             try:
                 length = int(self.headers.get("Content-Length", "0"))
-                if not 0 < length <= 65536:
+                limit = 8_000_000 if self.path == "/owner/import/preview" else 65536
+                if not 0 < length <= limit:
                     raise ValueError()
                 data = json.loads(self.rfile.read(length))
+                if self.path == "/owner/phone/pair":
+                    if set(data) != {"source"}:
+                        raise ValueError()
+                    self.send(200, phone.pair(data["source"]))
+                    return
+                if self.path == "/owner/source":
+                    from .factors import enroll
+                    if set(data) != {"source", "credential"}:
+                        raise ValueError()
+                    self.send(200, enroll(broker.store, data["source"], data["credential"]))
+                    return
+                if self.path == "/owner/source/revoke":
+                    from .factors import revoke
+                    if set(data) != {"source"}:
+                        raise ValueError()
+                    self.send(200, revoke(broker.store, data["source"]))
+                    return
                 if guided and self.path == "/owner/install":
-                    from .install import install_skill
+                    from .install import install_detected, install_skill
+                    if data == {}:
+                        self.send(200, install_detected(broker.store))
+                        return
                     agents = data.get("agents")
                     if (not isinstance(agents, list) or not 1 <= len(agents) <= 2
                             or any(x not in {"codex", "claude"} for x in agents)):
@@ -152,19 +200,40 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                         install_skill(broker.store, agent)
                     self.send(200, {"status": "INSTALLED"})
                     return
+                if self.path == "/owner/import/preview":
+                    from .password_import import preview
+                    if set(data) != {"csv"}:
+                        raise ValueError()
+                    self.send(200, preview(broker.store, data["csv"]))
+                    return
+                if self.path == "/owner/import/apply":
+                    from .password_import import apply
+                    if set(data) != {"id", "selections"}:
+                        raise ValueError()
+                    with broker.store.db() as db:
+                        principals = [r[0] for r in db.execute("SELECT DISTINCT principal FROM clients WHERE revoked=0")]
+                    result = apply(broker, data["id"], data["selections"], principals)
+                    result["jobs"] = []
+                    for account in result["accounts"]:
+                        ident = new_job(account)
+                        threading.Thread(target=verify, args=(account, ident), daemon=True).start()
+                        result["jobs"].append({"account": account, "id": ident})
+                    self.send(200, result)
+                    return
                 if guided and self.path == "/owner/add":
                     from .catalog import add, entries
                     service = data.get("service")
-                    agents = data.get("agents")
-                    if (set(data) != {"service", "username", "password", "agents"}
+                    with broker.store.db() as db:
+                        installed = {r[0] for r in db.execute("SELECT DISTINCT principal FROM clients WHERE revoked=0")}
+                    agents = data.get("agents", sorted(installed))
+                    if (set(data) not in [{"service", "username", "password", "agents"},
+                                         {"service", "username", "password"}]
                             or not isinstance(service, str) or service not in entries()
-                            or not isinstance(agents, list) or not 1 <= len(agents) <= 2
-                            or any(x not in {"codex", "claude"} for x in agents)
+                            or not isinstance(agents, list) or not 1 <= len(agents) <= 32
+                            or any(x not in installed for x in agents)
                             or any(not isinstance(data[x], str) or not 0 < len(data[x]) <= 4096
                                    for x in ["username", "password"])):
                         raise ValueError()
-                    with broker.store.db() as db:
-                        installed = {r[0] for r in db.execute("SELECT DISTINCT principal FROM clients WHERE revoked=0")}
                     if not set(agents) <= installed:
                         raise AccessError("DENIED", "install_your_agent_first")
                     ident = new_job(service)
@@ -232,7 +301,12 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
             except Exception:
                 self.send(400, {"status": "DENIED", "reason": "invalid_request"})
 
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    class OwnerServer(ThreadingHTTPServer):
+        def server_close(self):
+            phone.close()
+            super().server_close()
+
+    server = OwnerServer(("127.0.0.1", 0), Handler)
     return server, token
 
 

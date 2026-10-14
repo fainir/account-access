@@ -1,8 +1,15 @@
 """Purpose-specific code resolvers. No raw inbox or code retrieval API is exposed to agents."""
 
 import base64
+import email
+import email.policy
+import imaplib
 import re
+import sqlite3
+import ssl
 import time
+from pathlib import Path
+from contextlib import contextmanager
 from email.utils import parseaddr, parsedate_to_datetime
 
 import pyotp
@@ -34,7 +41,9 @@ class Codes:
         source = config.code_sources[source_id]
         if time.time() - started > 120:
             raise AccessError("NEEDS_USER", "login_code_window_expired")
-        credentials = self.store.get("source:" + source_id, {})
+        credentials = self.store.get("source:" + source_id, {}) or {}
+        if credentials.get("enabled") is False:
+            raise AccessError("NEEDS_USER", "verification_source_disabled")
         if source.kind == "totp":
             if not credentials.get("seed"):
                 raise AccessError("NEEDS_USER", "authenticator_not_enrolled", "totp")
@@ -76,6 +85,27 @@ class Codes:
                     used.add(candidate[0])
                     return candidate[1]
                 return None
+        if source.kind == "imap":
+            return self.imap(source_id, source, credentials, started, used, config)
+        if source.kind == "mac_messages":
+            if credentials.get("enabled") is not True:
+                raise AccessError("NEEDS_USER", "message_permission_required", "sms")
+            return self.messages(source, started, used)
+        if source.kind == "phone_relay":
+            with self.store.lock("code-window:" + source_id):
+                window = self.store.get("code-window:" + source_id)
+                if not window or window["started"] != started or window["expires"] < time.time():
+                    return None
+                incoming = window.get("incoming", [])
+                if len(incoming) > 1:
+                    raise AccessError("NEEDS_USER", "ambiguous_login_code", "sms")
+                if incoming:
+                    code = incoming[0]["code"]
+                    window["incoming"] = []
+                    window["consumed"] = True
+                    self.store.put("code-window:" + source_id, window)
+                    return code
+                return None
         if not credentials.get("sid") or not credentials.get("auth_token"):
             raise AccessError("NEEDS_USER", "sms_gateway_not_connected", "sms")
         sid = credentials["sid"]
@@ -99,6 +129,122 @@ class Codes:
             if code:
                 candidates.append((item["sid"], code))
         candidate = unique_code(candidates)
+        if candidate:
+            used.add(candidate[0])
+            return candidate[1]
+        return None
+
+    def begin(self, source_id, account, started):
+        window = {"account": account, "started": started,
+                  "expires": started + 120, "incoming": [], "consumed": False}
+        config = self.store.config()
+        source = config.code_sources[source_id]
+        if source.kind == "imap":
+            try:
+                with self.mailbox(source, self.store.get("source:" + source_id, {}), config) as mailbox:
+                    for name in ["UIDVALIDITY", "UIDNEXT"]:
+                        values = mailbox.response(name)[1]
+                        if not values or not values[0] or not values[0].isdigit():
+                            raise AccessError("NEEDS_USER", "mailbox_uid_tracking_unavailable", "email")
+                        window[name] = int(values[0])
+            except (imaplib.IMAP4.error, OSError):
+                raise AccessError("NEEDS_USER", "mailbox_connection_failed", "email") from None
+        self.store.put("code-window:" + source_id, window)
+
+    def finish(self, source_id, started):
+        with self.store.lock("code-window:" + source_id):
+            window = self.store.get("code-window:" + source_id)
+            if window and window["started"] == started:
+                self.store.put("code-window:" + source_id, None)
+
+    @contextmanager
+    def mailbox(self, source, credentials, config):
+        if not credentials.get("username") or (not source.account and not credentials.get("password")):
+            raise AccessError("NEEDS_USER", "mailbox_not_connected", "email")
+        with imaplib.IMAP4_SSL(source.host, source.port,
+                              ssl_context=ssl.create_default_context(), timeout=10) as mailbox:
+            if source.account:
+                with self.store.lock("account:" + source.account):
+                    token = self.oauth.token(source.account, config)
+                auth = ("user=" + credentials["username"] + "\x01auth=Bearer "
+                        + token["access_token"] + "\x01\x01").encode()
+                mailbox.authenticate("XOAUTH2", lambda _: auth)
+            else:
+                mailbox.login(credentials["username"], credentials["password"])
+            status, _ = mailbox.select("INBOX", readonly=True)
+            if status != "OK":
+                raise AccessError("NEEDS_USER", "mailbox_not_available", "email")
+            yield mailbox
+
+    def imap(self, source_id, source, credentials, started, used, config):
+        window = self.store.get("code-window:" + source_id)
+        if not window or window["started"] != started or "UIDNEXT" not in window:
+            raise AccessError("NEEDS_USER", "mailbox_login_window_missing", "email")
+        try:
+            with self.mailbox(source, credentials, config) as mailbox:
+                values = mailbox.response("UIDVALIDITY")[1]
+                if not values or not values[0] or int(values[0]) != window["UIDVALIDITY"]:
+                    raise AccessError("NEEDS_USER", "mailbox_uid_validity_changed", "email")
+                # Search values are owner-authored, but still quote IMAP metacharacters.
+                def quote(s):
+                    return '"' + s.replace('\\', '\\\\').replace('"', '\\"') + '"'
+                if any("\r" in x or "\n" in x for x in [source.sender, source.recipient, source.subject]):
+                    raise AccessError("NEEDS_USER", "invalid_mail_filter", "email")
+                status, data = mailbox.uid("SEARCH", None, "FROM", quote(source.sender),
+                                           "TO", quote(source.recipient), "SUBJECT", quote(source.subject))
+                if status != "OK":
+                    raise AccessError("RETRYABLE", "mailbox_search_failed")
+                ids = data[0].split() if data and data[0] else []
+                candidates = []
+                for ident in ids[-20:]:
+                    key = ident.decode("ascii")
+                    if not key.isdigit() or int(key) < window["UIDNEXT"] or key in used:
+                        continue
+                    status, fetched = mailbox.uid("FETCH", ident, "(INTERNALDATE BODY.PEEK[]<0.256000>)")
+                    if status != "OK":
+                        continue
+                    for item in fetched or []:
+                        if not isinstance(item, tuple) or len(item[1]) > 256_000:
+                            continue
+                        received = imaplib.Internaldate2tuple(item[0])
+                        if not received or time.mktime(received) < int(started) or time.time() > window["expires"]:
+                            continue
+                        message = email.message_from_bytes(item[1], policy=email.policy.default)
+                        if (parseaddr(str(message.get("From", "")))[1].lower() != source.sender.lower()
+                                or parseaddr(str(message.get("To", "")))[1].lower() != source.recipient.lower()
+                                or str(message.get("Subject", "")) != source.subject):
+                            continue
+                        part = message.get_body(preferencelist=("plain",))
+                        body = part.get_content() if part else ""
+                        code = match_code(source.template, body)
+                        if code:
+                            candidates.append((key, code))
+                candidate = unique_code(candidates)
+                if candidate:
+                    used.add(candidate[0])
+                    return candidate[1]
+                return None
+        except (imaplib.IMAP4.error, OSError, ssl.SSLError):
+            raise AccessError("NEEDS_USER", "mailbox_connection_failed", "email") from None
+
+    def messages(self, source, started, used):
+        """Read only recent incoming texts from the exact owner-reviewed sender."""
+        path = Path.home() / "Library/Messages/chat.db"
+        return self.messages_at(path, source, started, used)
+
+    def messages_at(self, path, source, started, used):
+        since = (started - 978307200) * 1_000_000_000
+        try:
+            with sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True, timeout=2) as db:
+                rows = db.execute("SELECT message.guid, message.text FROM message "
+                                  "JOIN handle ON handle.ROWID=message.handle_id "
+                                  "WHERE message.is_from_me=0 AND handle.id=? AND message.date>=? "
+                                  "ORDER BY message.date DESC LIMIT 20", (source.sender, since)).fetchall()
+        except (sqlite3.Error, OSError):
+            raise AccessError("NEEDS_USER", "mac_messages_permission_required", "sms") from None
+        candidates = [(ident, match_code(source.template, body)) for ident, body in rows
+                      if ident not in used and isinstance(body, str)]
+        candidate = unique_code([(ident, code) for ident, code in candidates if code])
         if candidate:
             used.add(candidate[0])
             return candidate[1]
