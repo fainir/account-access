@@ -1,0 +1,37 @@
+WEBVTT
+
+00:00:00.160 --> 00:00:06.240
+Account Access handles supported sign-ins for your AI, so you don't keep entering passwords and codes.
+
+00:00:07.160 --> 00:00:12.950
+Install it once. It connects to your existing AI tools, including Claude Code and Codex.
+
+00:00:13.160 --> 00:00:21.365
+Import saved logins from Chrome or your password manager. Passwords stay on your computer. Choose which accounts and information your AI can use.
+
+00:00:22.660 --> 00:00:27.977
+Connect your email once, so login codes can be retrieved when a website asks for them.
+
+00:00:28.660 --> 00:00:33.141
+Connect SMS too, so you don't have to find and copy each login code.
+
+00:00:34.160 --> 00:00:40.368
+Add your supported authenticator setup QR or key once, so its codes can be generated automatically.
+
+00:00:40.660 --> 00:00:47.271
+Now ask Claude Code normally: summarize my connected accounts. You don't need a special command in each session.
+
+00:00:48.660 --> 00:00:52.012
+It signs in with your saved username or email and password.
+
+00:00:53.160 --> 00:00:58.235
+For authenticator verification, it generates and enters the current six-digit code.
+
+00:00:58.660 --> 00:01:03.468
+For email verification, it retrieves the matching fresh login code and enters it.
+
+00:01:04.160 --> 00:01:08.409
+Text-message codes work the same way, without asking you to copy them.
+
+00:01:09.660 --> 00:01:13.971
+Less signing in, more getting done. Personal approvals still need you.

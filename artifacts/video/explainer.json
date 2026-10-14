@@ -1,0 +1,106 @@
+{
+  "revision": "Explainer narration; approved visuals unchanged",
+  "recording_evidence": "quickstart.json",
+  "original_media_sha256": "a08139144af5ca8316cee3419acd71fb7c672a73c90568e27f246160b7a0c8ff",
+  "media": {
+    "filename": "account-access-explainer.mp4",
+    "duration_seconds": 75.021333,
+    "width": 1920,
+    "height": 1080,
+    "sha256": "203c35f731af0625380d94e02fa72d020a4c9342d1135bd61e72e427ebcb2ebd"
+  },
+  "validation": {
+    "full_decode": "passed",
+    "original_video_stream_identical": true,
+    "video_stream_sha256": "d81bae94c3c16ba5836431f83a72a8ec0f9521e2890c0de9db2ba18cf3a31c18",
+    "video_frames": 2250,
+    "voice_fits_every_scene": true,
+    "subtitle_cues": 12,
+    "audio_peak_db": -5.0,
+    "audio_mean_db": -19.5,
+    "script_lint": "passed"
+  },
+  "narration": {
+    "voice": "macOS Samantha",
+    "words_per_minute_setting": 175,
+    "purpose": "Explain the tool, one-time setup, supported authentication for AI agents and fewer user interruptions",
+    "scenes": [
+      {
+        "start": 0.0,
+        "end": 7.0,
+        "text": "Account Access handles supported sign-ins for your AI, so you don't keep entering passwords and codes."
+      },
+      {
+        "start": 7.0,
+        "end": 13.0,
+        "text": "Install it once. It connects to your existing AI tools, including Claude Code and Codex."
+      },
+      {
+        "start": 13.0,
+        "end": 22.5,
+        "text": "Import saved logins from Chrome or your password manager. Passwords stay on your computer. Choose which accounts and information your AI can use."
+      },
+      {
+        "start": 22.5,
+        "end": 28.5,
+        "text": "Connect your email once, so login codes can be retrieved when a website asks for them."
+      },
+      {
+        "start": 28.5,
+        "end": 34.0,
+        "text": "Connect SMS too, so you don't have to find and copy each login code."
+      },
+      {
+        "start": 34.0,
+        "end": 40.5,
+        "text": "Add your supported authenticator setup QR or key once, so its codes can be generated automatically."
+      },
+      {
+        "start": 40.5,
+        "end": 48.5,
+        "text": "Now ask Claude Code normally: summarize my connected accounts. You don't need a special command in each session."
+      },
+      {
+        "start": 48.5,
+        "end": 53.0,
+        "text": "It signs in with your saved username or email and password."
+      },
+      {
+        "start": 53.0,
+        "end": 58.5,
+        "text": "For authenticator verification, it generates and enters the current six-digit code."
+      },
+      {
+        "start": 58.5,
+        "end": 64.0,
+        "text": "For email verification, it retrieves the matching fresh login code and enters it."
+      },
+      {
+        "start": 64.0,
+        "end": 69.5,
+        "text": "Text-message codes work the same way, without asking you to copy them."
+      },
+      {
+        "start": 69.5,
+        "end": 75.0,
+        "text": "Less signing in, more getting done. Personal approvals still need you."
+      }
+    ]
+  },
+  "task": {
+    "task_id": "1e13faf6ade0621229dfb2f2c4dd6ff2",
+    "status": "COMPLETED",
+    "progress": 4,
+    "total": 4
+  },
+  "user_requests": 1,
+  "user_password_or_code_inputs_after_request": 0,
+  "explicit_skill_or_command_in_prompt": false,
+  "accounts": "Four fictional accounts on distinct local website origins",
+  "email_transport": "Real TLS IMAP with synthetic delivery",
+  "sms_transport": "Messages-format fixture; no physical phone or carrier delivery",
+  "authenticator": "Explicit native QR enrollment; locally generated TOTP",
+  "owner_approval_limit": "Genuine biometric, passkey, push, device or administrator approval still needs the owner",
+  "installer": "Verified public 0.6 archive and bootstrap; isolated paths and copied browser dependency cache for recording",
+  "apple_notarization": "Pending; not proof of clean-Mac notarized installation"
+}

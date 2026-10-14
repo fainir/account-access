@@ -1,8 +1,12 @@
 # Download, install and use Account Access
 
-[Watch the 75-second computer walkthrough](https://github.com/fainir/account-access/releases/download/v0.6.0/account-access-quickstart.mp4) · [Captions](quickstart.vtt) · [Recording evidence](../../artifacts/video/quickstart.json)
+[Watch the 75-second explainer](https://github.com/fainir/account-access/releases/download/v0.6.0/account-access-explainer.mp4) · [Captions](explainer.vtt) · [Recording evidence](../../artifacts/video/explainer.json)
 
-[![Claude Code returns all four results](quickstart-preview.jpg)](https://github.com/fainir/account-access/releases/download/v0.6.0/account-access-quickstart.mp4)
+[![Claude Code returns all four results](quickstart-preview.jpg)](https://github.com/fainir/account-access/releases/download/v0.6.0/account-access-explainer.mp4)
+
+Account Access handles supported sign-ins for your existing AI tools. Connect saved logins and verification sources once, then keep asking your AI for account work in ordinary language. The software handles routine password and code challenges, reducing the need to stop and sign in manually. Personal approvals still need the owner.
+
+The explainer introduces that purpose and benefit while showing the setup and use. [Read the narration](explainer-narration.txt). The approved computer footage is unchanged from the original quickstart; only its voiceover and subtitle track were replaced.
 
 The recording follows one short sequence:
 
@@ -33,7 +37,7 @@ To reproduce the edit on macOS with ffmpeg, Pillow and these private source reco
 ```sh
 python scripts/make_quickstart_video.py \
   --work /path/to/recordings \
-  --output /path/to/account-access-quickstart.mp4
+  --output /path/to/account-access-explainer.mp4
 ```
 
-Older recordings: [0.5 installation and verification](https://github.com/fainir/account-access/releases/download/v0.5.0/account-access-install-import-and-verify.mp4), [0.4 three-account walkthrough](https://github.com/fainir/account-access/releases/download/v0.4.1/account-access-install-and-use.mp4), and [legacy overview](legacy-guide.md).
+Earlier narration: [original quickstart](https://github.com/fainir/account-access/releases/download/v0.6.0/account-access-quickstart.mp4). Older recordings: [0.5 installation and verification](https://github.com/fainir/account-access/releases/download/v0.5.0/account-access-install-import-and-verify.mp4), [0.4 three-account walkthrough](https://github.com/fainir/account-access/releases/download/v0.4.1/account-access-install-and-use.mp4), and [legacy overview](legacy-guide.md).

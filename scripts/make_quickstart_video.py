@@ -51,6 +51,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--work", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--narration-only", action="store_true",
+                        help="Replace voiceover and subtitles; reuse already rendered visuals")
+    parser.add_argument("--speech-rate", type=int, default=175)
     args = parser.parse_args()
     work = args.work.resolve()
     render = work / "quick-render"
@@ -71,59 +74,59 @@ def main():
     # Each cut is (source, source start, source end, playback seconds, crop).
     groups = [
         ("1 · Download and open Account Access",
-         "Download Account Access for Mac, then open the app.", [
+         "Account Access handles supported sign-ins for your AI, so you don't keep entering passwords and codes.", [
              ("download-clean.mov", 3, 8, 5, "1320:660:280:350"),
              ("open-app.mov", 7.8, 12, 2, "860:410:0:0"),
          ]),
         ("1 · Click Install · Your AI tools connect automatically",
-         "Click Install. Your existing AI tools are connected automatically.", [
+         "Install it once. It connects to your existing AI tools, including Claude Code and Codex.", [
              ("install-clean.mov", 0, 5, 2, None),
              ("install-clean.mov", 9, 31, 3, None),
              ("install-clean.mov", 32, 34, 1, None),
          ]),
         ("2 · Import from Chrome or your password manager",
-         "Choose your password export from Chrome or a password manager. Approve what your AI can read.", [
+         "Import saved logins from Chrome or your password manager. Passwords stay on your computer. Choose which accounts and information your AI can use.", [
              ("setup.mov", 3, 8, 2, None),
              ("import-picker.mov", 6, 13.8, 2.5, None),
              ("email-final.mov", 79, 91, 5, None),
          ]),
         ("3 · Connect email once",
-         "Connect your email once, using its application password.", [
+         "Connect your email once, so login codes can be retrieved when a website asks for them.", [
              ("email-final.mov", 0, 10.5, 6, None),
          ]),
         ("3 · Set up SMS forwarding and Mac access",
-         "For SMS, set up forwarding to Messages and the Mac permission.", [
+         "Connect SMS too, so you don't have to find and copy each login code.", [
              ("sms-retake.mov", 12, 26, 5.5, None),
          ]),
         ("3 · Add your authenticator setup QR or key",
-         "Add your authenticator's setup QR or key once.", [
+         "Add your supported authenticator setup QR or key once, so its codes can be generated automatically.", [
              ("auth-final.mov", 0, 4, 1, None),
              ("auth-picker.mov", 0, 14.8, 2.5, None),
              ("auth-final.mov", 41, 51, 3, None),
          ]),
         ("4 · Ask Claude Code normally · No command needed",
-         "In Claude Code, just ask normally. No command or skill name.", [
+         "Now ask Claude Code normally: summarize my connected accounts. You don't need a special command in each session.", [
              ("claude-request.mov", 7.5, 15.5, 6, "900:145:0:155"),
              ("claude-working.mov", 0, 3, 2, None),
          ]),
         ("5 · Atlas Membership · Saved password",
-         "The saved password signs into Atlas.", [
+         "It signs in with your saved username or email and password.", [
              (logins["demo-web"], 0.08, 2.5, 4.5, None),
          ]),
         ("5 · Juniper Workspace · Authenticator code",
-         "The authenticator code is generated and submitted.", [
+         "For authenticator verification, it generates and enters the current six-digit code.", [
              (logins["demo-mfa"], 0.08, 2.8, 5.5, None),
          ]),
         ("5 · Beacon Rewards · Email code",
-         "The email code is retrieved and entered.", [
+         "For email verification, it retrieves the matching fresh login code and enters it.", [
              (logins["example-email"], 0.08, 3.3, 5.5, None),
          ]),
         ("5 · Orbit Travel · SMS code",
-         "The SMS code is retrieved and entered.", [
+         "Text-message codes work the same way, without asking you to copy them.", [
              (logins["example-sms"], 0.08, 3.5, 5.5, None),
          ]),
         ("All four results · One request",
-         "Claude returns all four results. No more password or code entry during this task.", [
+         "Less signing in, more getting done. Personal approvals still need you.", [
              ("claude-working.mov", 10, 15.5, 5.5, None),
          ]),
     ]
@@ -133,7 +136,12 @@ def main():
         caption(overlay, title)
         clips = []
         group_seconds = sum(cut[3] for cut in cuts)
-        for number, (filename, start, end, seconds, crop) in enumerate(cuts):
+        joined = render / f"joined-{index}.mp4"
+        if args.narration_only:
+            assert joined.is_file(), "Render the source visuals before replacing narration"
+            assert abs(duration(joined) - group_seconds) < 0.05, title
+        cuts_to_render = [] if args.narration_only else cuts
+        for number, (filename, start, end, seconds, crop) in enumerate(cuts_to_render):
             source = work / filename
             assert source.is_file() and end <= duration(source) + 0.05, filename
             rate = (end - start) / seconds
@@ -155,17 +163,18 @@ def main():
                  "-c:v", "libx264", "-threads", "2", "-preset", "fast", "-crf", "19",
                  "-video_track_timescale", "30000", str(clip)])
             clips.append(clip)
-        listing = render / f"clips-{index}.txt"
-        listing.write_text("".join(f"file '{clip.name}'\n" for clip in clips))
-        joined = render / f"joined-{index}.mp4"
-        run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "concat",
-             "-safe", "0", "-i", str(listing), "-c", "copy", str(joined)])
+        if not args.narration_only:
+            listing = render / f"clips-{index}.txt"
+            listing.write_text("".join(f"file '{clip.name}'\n" for clip in clips))
+            run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "concat",
+                 "-safe", "0", "-i", str(listing), "-c", "copy", str(joined)])
         voice_text = render / f"voice-{index}.txt"
         voice = render / f"voice-{index}.aiff"
         voice_text.write_text(words)
-        run(["say", "-v", "Samantha", "-r", "185", "-f", str(voice_text), "-o", str(voice)])
+        run(["say", "-v", "Samantha", "-r", str(args.speech_rate),
+             "-f", str(voice_text), "-o", str(voice)])
         voice_seconds = duration(voice)
-        assert voice_seconds < group_seconds, (title, voice_seconds, group_seconds)
+        assert voice_seconds + .16 <= group_seconds, (title, voice_seconds, group_seconds)
         segment = render / f"scene-{index}.mp4"
         run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(joined),
              "-i", str(voice), "-map", "0:v", "-map", "1:a", "-c:v", "copy",
