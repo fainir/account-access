@@ -27,9 +27,10 @@ public final class LoginChecks extends Instrumentation {
    context.startActivity(new android.content.Intent(context,MainActivity.class).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK));
    waitForIdleSync();
    Thread.sleep(500);
-   context.getSharedPreferences("settings",0).edit().putString("sms_package",context.getPackageName()).remove("last_delivery").commit();
-   android.service.notification.NotificationListenerService.requestRebind(new android.content.ComponentName(context,LoginNotifications.class));
+   context.getSharedPreferences("settings",0).edit().putString("sms_package",context.getPackageName()).remove("last_delivery").putBoolean("listener_ready",false).commit();
+   Bundle prepared=new Bundle();prepared.putString("phase","PAIRING_AND_FILTER_READY");sendStatus(1,prepared);
    long readyDeadline=System.currentTimeMillis()+8000;while(System.currentTimeMillis()<readyDeadline&&!context.getSharedPreferences("settings",0).getBoolean("listener_ready",false))Thread.sleep(100);
+   if(!context.getSharedPreferences("settings",0).getBoolean("listener_ready",false))throw new Exception("Listener did not connect after instrumentation setup");
    NotificationManager manager=(NotificationManager)context.getSystemService(Context.NOTIFICATION_SERVICE);
    manager.createNotificationChannel(new NotificationChannel("account-access-check","Example login code",NotificationManager.IMPORTANCE_HIGH));
    String body=expected.getString("template").replace("{code}",args.getString("login_code"));

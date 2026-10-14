@@ -25,7 +25,8 @@ def main():
         return subprocess.run([str(adb), *args], capture_output=True, text=True, timeout=60, check=True)
     for name in ["Account-Access-Phone-preview.apk", "Account-Access-Phone-tests.apk"]:
         command("install", "-r", str(build / name))
-    command("shell", "cmd", "notification", "allow_listener", "com.fainir.accountaccess.phone/com.fainir.accountaccess.LoginNotifications")
+    listener = "com.fainir.accountaccess.phone/com.fainir.accountaccess.LoginNotifications"
+    command("shell", "cmd", "notification", "disallow_listener", listener)
     with tempfile.TemporaryDirectory(prefix="aa-phone-", dir="/tmp") as temporary:
         root = Path(temporary)
         with environment(root, relay=True) as (provider, broker, mailbox):
@@ -51,9 +52,19 @@ def main():
                 def deliver(kind, code):
                     assert kind == "sms"
                     def instrument():
-                        result = command("shell", "am", "instrument", "-w", "-e", "pairing_file", "/data/local/tmp/account-access-pairing.json", "-e", "login_code", code,
-                               "com.fainir.accountaccess.phone.tests/com.fainir.accountaccess.LoginChecks")
-                        results.append(result.stdout)
+                        process = subprocess.Popen([str(adb), "shell", "am", "instrument", "-w", "-e", "pairing_file", "/data/local/tmp/account-access-pairing.json", "-e", "login_code", code,
+                               "com.fainir.accountaccess.phone.tests/com.fainir.accountaccess.LoginChecks"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                        output = []
+                        try:
+                            for line in process.stdout:
+                                output.append(line)
+                                if "phase=PAIRING_AND_FILTER_READY" in line:
+                                    command("shell", "cmd", "notification", "allow_listener", listener)
+                            assert process.wait(timeout=30) == 0
+                        finally:
+                            if process.poll() is None:
+                                process.kill()
+                            results.append("".join(output))
                     worker = threading.Thread(target=instrument)
                     workers.append(worker)
                     worker.start()
@@ -75,6 +86,7 @@ def main():
                 Path("artifacts/android-journey.json").write_text(json.dumps(report, indent=2) + "\n")
                 print(json.dumps(report))
             finally:
+                command("shell", "cmd", "notification", "disallow_listener", listener)
                 command("shell", "rm", "-f", "/data/local/tmp/account-access-pairing.json")
                 server.shutdown()
                 server.server_close()
