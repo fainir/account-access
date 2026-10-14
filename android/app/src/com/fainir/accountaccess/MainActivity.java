@@ -23,7 +23,7 @@ public final class MainActivity extends Activity {
   EditText paste=new EditText(this);paste.setHint("Or paste pairing from your computer");paste.setInputType(129);view.addView(paste);
   add(view,"Use pasted pairing",()->{try{Pairing.save(this,paste.getText().toString());paste.setText("");refreshStatus();}catch(Exception e){status.setText("Pairing failed. Scan the QR from Account Access on your computer.");}});
   String defaultPackage=Telephony.Sms.getDefaultSmsPackage(this);
-  getSharedPreferences("settings",0).edit().putString("sms_package",defaultPackage==null?"com.google.android.apps.messaging":defaultPackage).apply();
+  if(!getSharedPreferences("settings",0).contains("sms_package"))getSharedPreferences("settings",0).edit().putString("sms_package",defaultPackage==null?"com.google.android.apps.messaging":defaultPackage).apply();
   TextView app=new TextView(this);app.setText("SMS app: "+getSharedPreferences("settings",0).getString("sms_package",""));view.addView(app);
   add(view,"Allow login notification access",()->startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)));
   add(view,"Disconnect phone",()->{Pairing.clear(this);refreshStatus();});

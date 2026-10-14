@@ -34,9 +34,15 @@ public final class LoginChecks extends Instrumentation {
    manager.createNotificationChannel(new NotificationChannel("account-access-check","Example login code",NotificationManager.IMPORTANCE_HIGH));
    String body=expected.getString("template").replace("{code}",args.getString("login_code"));
    manager.notify(7,new Notification.Builder(context,"account-access-check").setSmallIcon(android.R.drawable.ic_dialog_info).setContentTitle(expected.getString("sender")).setContentText(body).setStyle(new Notification.BigTextStyle().bigText(body)).build());
+   Thread.sleep(300);
+   android.service.notification.StatusBarNotification[] posted=manager.getActiveNotifications();
+   if(posted.length!=1)throw new Exception("Expected one controlled test notification");
+   context.getSharedPreferences("settings",0).edit().putString("sms_package",posted[0].getPackageName()).commit();
+   manager.cancel(7);
+   manager.notify(8,new Notification.Builder(context,"account-access-check").setSmallIcon(android.R.drawable.ic_dialog_info).setContentTitle(expected.getString("sender")).setContentText(body).setStyle(new Notification.BigTextStyle().bigText(body)).build());
    long deadline=System.currentTimeMillis()+15000;while(System.currentTimeMillis()<deadline&&context.getSharedPreferences("settings",0).getLong("last_delivery",0)==0)Thread.sleep(100);
    if(context.getSharedPreferences("settings",0).getLong("last_delivery",0)==0)throw new Exception("Notification not delivered; listener_ready="+context.getSharedPreferences("settings",0).getBoolean("listener_ready",false)+"; status="+context.getSharedPreferences("settings",0).getString("last_status","none")+"; notifications="+manager.getActiveNotifications().length+"; enabled="+manager.areNotificationsEnabled()+"; package="+context.getPackageName());
-   manager.cancel(7);result.putString("result","PASS: Keystore encryption, destination restriction, actual Android notification, and certificate-pinned HTTPS delivery");finish(-1,result);
+   manager.cancel(8);result.putString("result","PASS: Keystore encryption, destination restriction, actual Android notification, and certificate-pinned HTTPS delivery");finish(-1,result);
   }catch(Exception e){result.putString("result","FAIL: "+e.getMessage());finish(0,result);}
  }
 }
