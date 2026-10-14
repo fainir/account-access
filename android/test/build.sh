@@ -5,6 +5,9 @@ AC_SOURCE=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 AC_OUTPUT="$AC_SOURCE/dist/android"
 AC_SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/Library/Android/sdk}}"
 AC_JAVA="${ACCOUNT_ACCESS_JAVA_HOME:-${JAVA_HOME:-/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home}}"
+if [ ! -x "$AC_JAVA/bin/javac" ] && [ -x /opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home/bin/javac ]; then
+ AC_JAVA=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
+fi
 AC_TOOLS="$AC_SDK/build-tools/36.0.0"
 AC_PLATFORM="$AC_SDK/platforms/android-36/android.jar"
 export JAVA_HOME="$AC_JAVA"
