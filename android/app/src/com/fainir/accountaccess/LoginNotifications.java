@@ -23,7 +23,7 @@ public final class LoginNotifications extends NotificationListenerService {
  @Override public void onListenerConnected(){getSharedPreferences("settings",0).edit().putBoolean("listener_ready",true).apply();}
  @Override public void onListenerDisconnected(){getSharedPreferences("settings",0).edit().putBoolean("listener_ready",false).apply();}
  @Override public void onNotificationPosted(StatusBarNotification notification){
-  if(!notification.getPackageName().equals(getSharedPreferences("settings",0).getString("sms_package","")))return;
+  if(!notification.getPackageName().equals(getSharedPreferences("settings",0).getString("sms_package",""))){getSharedPreferences("settings",0).edit().putString("last_status","ignored_other_app").apply();return;}
   if(Math.abs(System.currentTimeMillis()-notification.getPostTime())>120000)return;
   try{
    getSharedPreferences("settings",0).edit().putString("last_status","notification_seen").apply();

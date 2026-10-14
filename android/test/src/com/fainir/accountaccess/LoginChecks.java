@@ -24,6 +24,9 @@ public final class LoginChecks extends Instrumentation {
    if(context.getSharedPreferences("link",0).getString("payload","").contains(expected.getString("token")))throw new Exception("Plaintext pairing persisted");
    JSONObject invalid=new JSONObject(raw);invalid.put("url","https://8.8.8.8/v1/login-code/"+expected.getString("source"));
    boolean rejected=false;try{Pairing.validate(invalid);}catch(Exception e){rejected=true;}if(!rejected)throw new Exception("Public ingress accepted");
+   context.startActivity(new android.content.Intent(context,MainActivity.class).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK));
+   waitForIdleSync();
+   Thread.sleep(500);
    context.getSharedPreferences("settings",0).edit().putString("sms_package",context.getPackageName()).remove("last_delivery").commit();
    android.service.notification.NotificationListenerService.requestRebind(new android.content.ComponentName(context,LoginNotifications.class));
    long readyDeadline=System.currentTimeMillis()+8000;while(System.currentTimeMillis()<readyDeadline&&!context.getSharedPreferences("settings",0).getBoolean("listener_ready",false))Thread.sleep(100);
@@ -32,7 +35,7 @@ public final class LoginChecks extends Instrumentation {
    String body=expected.getString("template").replace("{code}",args.getString("login_code"));
    manager.notify(7,new Notification.Builder(context,"account-access-check").setSmallIcon(android.R.drawable.ic_dialog_info).setContentTitle(expected.getString("sender")).setContentText(body).setStyle(new Notification.BigTextStyle().bigText(body)).build());
    long deadline=System.currentTimeMillis()+15000;while(System.currentTimeMillis()<deadline&&context.getSharedPreferences("settings",0).getLong("last_delivery",0)==0)Thread.sleep(100);
-   if(context.getSharedPreferences("settings",0).getLong("last_delivery",0)==0)throw new Exception("Notification not delivered; listener_ready="+context.getSharedPreferences("settings",0).getBoolean("listener_ready",false)+"; status="+context.getSharedPreferences("settings",0).getString("last_status","none"));
+   if(context.getSharedPreferences("settings",0).getLong("last_delivery",0)==0)throw new Exception("Notification not delivered; listener_ready="+context.getSharedPreferences("settings",0).getBoolean("listener_ready",false)+"; status="+context.getSharedPreferences("settings",0).getString("last_status","none")+"; notifications="+manager.getActiveNotifications().length+"; enabled="+manager.areNotificationsEnabled()+"; package="+context.getPackageName());
    manager.cancel(7);result.putString("result","PASS: Keystore encryption, destination restriction, actual Android notification, and certificate-pinned HTTPS delivery");finish(-1,result);
   }catch(Exception e){result.putString("result","FAIL: "+e.getMessage());finish(0,result);}
  }
