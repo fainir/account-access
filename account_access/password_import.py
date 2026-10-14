@@ -50,6 +50,15 @@ def parse(contents):
                 continue
             rows.append({"id": str(index), "url": url, "username": username,
                          "password": password})
+            for field in ["otpauth", "login_totp", "totp"]:
+                value = row.get(fields.get(field, ""))
+                if value:
+                    from .factors import totp_seed
+                    try:
+                        rows[-1]["totp"] = totp_seed(value)
+                    except AccessError:
+                        rows[-1]["unsupported_authenticator"] = True
+                    break
     except (csv.Error, ValueError):
         raise AccessError("DENIED", "invalid_password_export") from None
     return rows
@@ -63,12 +72,23 @@ def preview(store, contents):
     rows = parse(contents)
     public = []
     for row in rows:
+        candidates = {k: spec for k, spec in specs.items() if origin(spec.login_url) == origin(row["url"])}
+        target = urlsplit(row["url"])
+        exact = {k: spec for k, spec in candidates.items()
+                 if (urlsplit(spec.login_url).path.rstrip("/"), urlsplit(spec.login_url).query)
+                 == (target.path.rstrip("/"), target.query)}
+        paths = {k: spec for k, spec in candidates.items()
+                 if urlsplit(spec.login_url).path.rstrip("/") == target.path.rstrip("/")}
         matches = [{"id": k, "label": spec.label,
+                    "authenticator_supported": bool(spec.login and spec.login.code_source
+                        and config.code_sources[spec.login.code_source].kind == "totp"),
                     "operations": [{"name": n, "description": op.description}
                                    for n, op in spec.operations.items()]}
-                   for k, spec in specs.items() if origin(spec.login_url) == origin(row["url"])]
+                   for k, spec in (exact or paths or candidates).items()]
         public.append({"id": row["id"], "website": origin(row["url"]),
-                       "username": row["username"], "matches": matches})
+                       "username": row["username"], "matches": matches,
+                       "has_authenticator": bool(row.get("totp")),
+                       "unsupported_authenticator": bool(row.get("unsupported_authenticator"))})
     ident = secrets.token_hex(24)
     matched = {x["id"] for x in public if x["matches"]}
     # Do not retain passwords for websites this service cannot use.
@@ -105,8 +125,9 @@ def apply(broker, ident, selections, principals):
         rows = {r["id"]: r for r in staged["rows"]}
         chosen = []
         accounts = set()
+        seeds = {}
         for selection in selections:
-            if not isinstance(selection, dict) or set(selection) != {"row", "account", "operations"}:
+            if not isinstance(selection, dict) or set(selection) not in [{"row", "account", "operations"}, {"row", "account", "operations", "include_authenticator"}]:
                 raise AccessError("DENIED", "invalid_import_selection")
             row, account, ops = selection["row"], selection["account"], selection["operations"]
             if (not isinstance(row, str) or row not in rows or not isinstance(account, str)
@@ -121,6 +142,17 @@ def apply(broker, ident, selections, principals):
             fingerprint = check.fingerprint(account)
             if staged["fingerprints"].get(account) != fingerprint:
                 raise AccessError("DENIED", "import_connector_changed")
+            include = selection.get("include_authenticator", False)
+            if not isinstance(include, bool):
+                raise AccessError("DENIED", "invalid_import_selection")
+            if include:
+                source_id = spec.login.code_source if spec.login else None
+                seed = rows[row].get("totp")
+                if not seed or not source_id or config.code_sources[source_id].kind != "totp":
+                    raise AccessError("DENIED", "authenticator_import_not_supported")
+                if source_id in seeds and seeds[source_id] != seed:
+                    raise AccessError("DENIED", "conflicting_authenticator_keys")
+                seeds[source_id] = seed
             accounts.add(account)
             chosen.append((account, rows[row], ops))
             config.accounts[account] = spec
@@ -142,6 +174,8 @@ def apply(broker, ident, selections, principals):
                             db.execute("INSERT INTO grants VALUES (?,?,?,?,NULL)",
                                        (principal, account, op, current.fingerprint(account)))
                 store.put("password-import:" + ident, None, db=db)
+                for source_id, seed in seeds.items():
+                    store.put("source:" + source_id, {"seed": seed}, db=db)
         for account, _, _ in chosen:
             store.audit("owner", account, "", "password_imported")
         return {"status": "IMPORTED", "accounts": [x[0] for x in chosen]}

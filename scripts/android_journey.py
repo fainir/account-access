@@ -61,7 +61,8 @@ def main():
                 completed = broker.run("generic", "example-sms", "summary")
                 for worker in workers:
                     worker.join(timeout=30)
-                assert completed["status"] == "COMPLETED", completed
+                diagnostics = [[line for line in output.splitlines() if "INSTRUMENTATION_RESULT: result=" in line] for output in results]
+                assert completed["status"] == "COMPLETED", {"result": completed, "instrumentation": diagnostics}
                 assert provider.sms_count == 1
                 assert results and "PASS:" in results[0], results
                 assert DEMO_PASSWORD not in json.dumps(completed)

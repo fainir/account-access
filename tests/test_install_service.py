@@ -71,7 +71,8 @@ def test_automatic_install_is_portable_detected_and_idempotent(env, tmp_path, mo
     (tmp_path / ".codex").mkdir()
     (tmp_path / ".claude").mkdir()
     result = install_detected(broker.store)
-    assert {c["principal"] for c in result["clients"]} == {"generic", "codex", "claude"}
+    assert {c["agent"] for c in result["clients"]} == {"generic", "codex", "claude"}
+    assert {c["principal"] for c in result["clients"]} == {"generic"}
     assert Path(result["portable_cli"]).is_file()
     token = (broker.store.root / "clients/generic/token").read_text()
     install_detected(broker.store)

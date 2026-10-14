@@ -59,22 +59,21 @@ def install_skill(store, agent, destination=None):
 
 
 def install_detected(store):
-    """One portable client plus host discovery; never change host approval settings."""
+    """Install one shared portable identity; host folders are discovery aliases."""
     home = Path.home()
-    targets = [("generic", store.root / "skills")]
-    for agent, folder, command in [("codex", ".codex", "codex"),
-                                    ("claude", ".claude", "claude")]:
-        if (home / folder).exists() or shutil.which(command):
-            targets.append((agent, None))
+    detected = [agent for agent, folder, command in [("codex", ".codex", "codex"),
+                                                     ("claude", ".claude", "claude")]
+                if (home / folder).exists() or shutil.which(command)]
+    targets = [("generic", home / ".agents/skills")]
+    if "claude" in detected:
+        targets.append(("claude", home / ".claude/skills"))
     installed = []
-    for agent, destination in targets:
-        target = (destination / "account-access" if destination else
-                  home / (".claude" if agent == "claude" else ".agents") / "skills/account-access")
-        # Reopening setup must not invalidate a running client's token.
+    for host, destination in targets:
+        target = destination / "account-access"
         current = target / "installation.json"
-        expected = store.root / "clients" / agent / "client.json"
+        expected = store.root / "clients/generic/client.json"
         valid = False
-        if current.is_file() and not current.is_symlink():
+        if current.is_file() and not current.is_symlink() and not target.is_symlink():
             try:
                 from .storage import check_private
                 check_private(current)
@@ -85,12 +84,17 @@ def install_detected(store):
                     client = json.loads(expected.read_text())
                     token_file = Path(client["token_file"])
                     check_private(token_file)
-                    valid = store.client(token_file.read_text()) == agent
+                    valid = store.client(token_file.read_text()) == "generic"
             except (AccessError, ValueError, KeyError, OSError):
                 valid = False
-        result = ({"agent": agent, "skill_path": str(target), "principal": agent,
+        result = ({"agent": "generic", "skill_path": str(target), "principal": "generic",
                    "client_config": str(expected)} if valid else
-                  install_skill(store, agent, destination))
-        installed.append(result)
+                  install_skill(store, "generic", destination))
+        installed.append({**result, "agent": host})
+    primary = home / ".agents/skills/account-access"
+    if "codex" in detected:
+        installed.append({"agent": "codex", "skill_path": str(primary), "principal": "generic",
+                          "client_config": str(store.root / "clients/generic/client.json")})
+    store.put("agent-integrations", detected)
     return {"status": "INSTALLED", "clients": installed,
-            "portable_cli": str(store.root / "skills/account-access/scripts/access")}
+            "portable_cli": str(primary / "scripts/access")}

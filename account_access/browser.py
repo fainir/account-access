@@ -185,7 +185,7 @@ class Browser:
                     raise AccessError("NEEDS_USER", "factor_type_changed", kind)
                 used = set()
                 code = None
-                deadline = time.monotonic() + 15
+                deadline = time.monotonic() + min(form.code_wait_ms / 1000, max(0, started + 120 - time.time()))
                 while not code and time.monotonic() < deadline:
                     code = self.codes.resolve(form.code_source, started, used)
                     if not code:

@@ -40,11 +40,13 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
     var catalog: [[String: Any]] = []
     var accounts: [[String: Any]] = []
     var agents = ["claude"]
+    var principals: [String] = []
     var sources: [[String: Any]] = []
     var importID = ""
-    var importRows: [(String, NSButton, NSPopUpButton)] = []
+    var importRows: [(String, NSButton, NSPopUpButton, Bool)] = []
     var importFile: URL?
     var deleteExport: NSButton!
+    var importAuthenticators: NSButton!
     var factorMenu: NSPopUpButton!
     var factorFields: [String: NSTextField] = [:]
     var base: URL!
@@ -358,7 +360,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
         catalog = state["catalog"] as? [[String: Any]] ?? []
         accounts = state["accounts"] as? [[String: Any]] ?? []
         sources = state["code_sources"] as? [[String: Any]] ?? []
-        agents = state["principals"] as? [String] ?? []
+        principals = state["principals"] as? [String] ?? []
+        agents = state["integrations"] as? [String] ?? principals
     }
 
     func chooseAgents() {
@@ -379,7 +382,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
     }
 
     func connections() {
-        let connected = accounts.filter { $0["connected"] as? Bool == true }
+        let connected = accounts.filter { $0["connected"] as? Bool == true && $0["portable_ready"] as? Bool != false }
         page("Connect your accounts once", "Your AI can perform only the reads you approve here.")
         label("Portable skill + CLI ready. Detected tools: " + agents.filter { $0 != "generic" }.joined(separator: ", "), 14, .secondaryLabelColor)
         action("Import saved passwords", #selector(importPasswords))
@@ -418,7 +421,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
         serviceChanged()
         button = action("Connect account", #selector(connect))
         if available.contains(where: { entry in accounts.contains { $0["account"] as? String == entry["id"] as? String } }) {
-            action("Retry selected account’s saved sign-in", #selector(retrySaved))
+            action("Approve these reads and use the saved sign-in", #selector(retrySaved))
         }
         if !connected.isEmpty { action("Start using my connected accounts", #selector(showReady)) }
         label("Included examples use public testing sites: SauceDemo and The Internet. Other websites require reviewed connectors.", 13, .secondaryLabelColor)
@@ -427,7 +430,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
     @objc func serviceChanged() {
         let entry = services.selectedItem?.representedObject as? [String: Any] ?? [:]
         let operations = entry["operations"] as? [[String: Any]] ?? []
-        permission.title = "Allow: " + (operations.first?["description"] as? String ?? "the selected read")
+        permission.title = "Allow my portable client: " + operations.compactMap { $0["description"] as? String }.joined(separator: "; ")
         permission.state = .off
         username.stringValue = ""
         password.stringValue = ""
@@ -452,7 +455,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
                     _ = try self.request("owner/credential", body: ["account": service,
                         "username": body["username"]!, "password": body["password"]!])
                     let names = (entry["operations"] as? [[String: Any]] ?? []).compactMap { $0["name"] as? String }
-                    for agent in self.agents {
+                    for agent in self.principals {
                         _ = try self.request("owner/grant", body: ["account": service, "principal": agent, "operations": names])
                     }
                     job = try self.request("owner/verify", body: ["account": service])
@@ -496,8 +499,17 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
     }
 
     @objc func retrySaved() {
-        failedAccount = (services.selectedItem?.representedObject as? [String: Any])?["id"] as? String
-        retryConnection()
+        guard permission.state == .on, let entry = services.selectedItem?.representedObject as? [String: Any],
+              let account = entry["id"] as? String else { return }
+        failedAccount = account
+        let names = (entry["operations"] as? [[String: Any]] ?? []).compactMap { $0["name"] as? String }
+        busy = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                _ = try self.request("owner/grant", body: ["account": account, "principal": "generic", "operations": names])
+                DispatchQueue.main.async { self.busy = false; self.retryConnection() }
+            } catch { self.fail(error, retry: #selector(self.backToConnections)) }
+        }
     }
 
     @objc func retryConnection() {
@@ -557,20 +569,23 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
                 select.lastItem?.representedObject = match
             }
             stack.addArrangedSubview(select)
-            importRows.append((id, check, select))
+            importRows.append((id, check, select, row["has_authenticator"] as? Bool == true))
         }
         label("Unsupported logins: " + String(preview["unsupported"] as? Int ?? 0) + ". These will not be saved; importing cannot add a website connector.", 14, .secondaryLabelColor)
         deleteExport = NSButton(checkboxWithTitle: "Move the plaintext export file to Trash after importing", target: nil, action: nil)
         stack.addArrangedSubview(deleteExport)
+        importAuthenticators = NSButton(checkboxWithTitle: "Also enroll included authenticator keys for supported login recovery", target: nil, action: nil)
+        if importRows.contains(where: { $0.3 }) { stack.addArrangedSubview(importAuthenticators) }
         action("Import selected accounts", #selector(applyImport))
         action("Back", #selector(backToConnections))
     }
 
     @objc func applyImport() {
-        let selections: [[String: Any]] = importRows.compactMap { id, check, menu in
+        let selections: [[String: Any]] = importRows.compactMap { id, check, menu, hasAuthenticator in
             guard check.state == .on, let entry = menu.selectedItem?.representedObject as? [String: Any], let account = entry["id"] as? String else { return nil }
             let ops = (entry["operations"] as? [[String: Any]] ?? []).compactMap { $0["name"] as? String }
-            return ["row": id, "account": account, "operations": ops]
+            return ["row": id, "account": account, "operations": ops,
+                    "include_authenticator": hasAuthenticator && importAuthenticators.state == .on && entry["authenticator_supported"] as? Bool == true]
         }
         guard !selections.isEmpty else { return }
         let remove = deleteExport.state == .on
@@ -652,6 +667,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
             label("Connect the configured Gmail account through its provider consent screen in Manage permissions. The resolver reads only matching current login messages, but Gmail consent grants mailbox read access.", 15, .secondaryLabelColor)
         }
         action("Enable this verification method", #selector(saveFactor))
+        if source["enrolled"] as? Bool == true { action("Disable this verification method", #selector(disableFactor)) }
         action("Back", #selector(backToConnections))
     }
 
@@ -689,6 +705,18 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
                 }
                 let state = try self.request("owner/state")
                 DispatchQueue.main.async { self.busy = false; self.accept(state); self.connections() }
+            } catch { self.fail(error, retry: #selector(self.showFactors)) }
+        }
+    }
+
+    @objc func disableFactor() {
+        guard let source = factorMenu.selectedItem?.representedObject as? [String: Any], let id = source["id"] as? String else { return }
+        busy = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                _ = try self.request("owner/source/revoke", body: ["source": id])
+                let state = try self.request("owner/state")
+                DispatchQueue.main.async { self.busy = false; self.accept(state); self.showFactors() }
             } catch { self.fail(error, retry: #selector(self.showFactors)) }
         }
     }
@@ -734,7 +762,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate {
 
     func ready() {
         page("Your connected accounts are ready", "Ask for the work. Account Access handles the approved sign-ins and reads.")
-        let connected = accounts.filter { $0["connected"] as? Bool == true }
+        let connected = accounts.filter { $0["connected"] as? Bool == true && $0["portable_ready"] as? Bool != false }
         label(connected.map { "✓  " + ($0["label"] as? String ?? "Account") }.joined(separator: "\n"), 18, .systemGreen)
         label("Try this in a fresh " + preferredAgent + " chat:", 17, .secondaryLabelColor)
         let text = label(requestText, 17)

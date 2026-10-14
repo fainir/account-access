@@ -66,3 +66,23 @@ def test_import_rejects_expired_duplicate_and_changed_connector(env):
 def test_invalid_exports_fail_without_credential_echo(csv):
     with pytest.raises(AccessError):
         parse(csv)
+
+
+def test_authenticator_export_requires_opt_in_and_matching_login_factor(env):
+    provider, broker, _ = env
+    from account_access.demo import DEMO_SEED
+    spec = broker.store.config().accounts["demo-mfa"]
+    csv = f'URL,Username,Password,OTPAuth\n{spec.login_url},demo@example.test,{DEMO_PASSWORD},otpauth://totp/Example?secret={DEMO_SEED}\n'
+    broker.store.put("source:demo-totp", None)
+    staged = preview(broker.store, csv)
+    assert staged["rows"][0]["has_authenticator"] is True
+    assert DEMO_SEED not in json.dumps(staged)
+    item = {"row": "0", "account": "demo-mfa", "operations": ["summary"]}
+    apply(broker, staged["id"], [item], ["test"])
+    assert broker.store.get("source:demo-totp") is None
+    staged = preview(broker.store, csv)
+    with pytest.raises(AccessError, match="authenticator_import_not_supported"):
+        apply(broker, staged["id"], [{**item, "account": "demo-web", "include_authenticator": True}], ["test"])
+    apply(broker, staged["id"], [{**item, "include_authenticator": True}], ["test"])
+    assert broker.run("test", "demo-mfa", "summary")["status"] == "COMPLETED"
+    assert provider.totp_count == 1

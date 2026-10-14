@@ -176,9 +176,10 @@ def write_password_export(root, config):
     path = root / "example-password-export.csv"
     with path.open("w") as output:
         writer = csv.writer(output)
-        writer.writerow(["name", "url", "username", "password"])
+        writer.writerow(["name", "url", "username", "password", "OTPAuth"])
         for account, spec in config.accounts.items():
-            writer.writerow([account, spec.login_url, "demo@example.test", DEMO_PASSWORD])
+            writer.writerow([account, spec.login_url, "demo@example.test", DEMO_PASSWORD,
+                             "otpauth://totp/Example?secret=JBSWY3DPEHPK3PXP" if account == "demo-mfa" else ""])
     os.chmod(path, 0o600)
     return path
 

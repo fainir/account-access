@@ -21,12 +21,12 @@ async function refresh(){
  if([...el("service").options].some(x=>x.value===previous))el("service").value=previous;
  permission();el("account-form").hidden=!el("service").options.length;
  const haveClients=state.principals.length>0;
- el("agent-status").textContent="Portable CLI ready. Detected tools: "+state.principals.filter(x=>x!=="generic").join(", ")+". Other compatible agents can use the same CLI.";
+ el("agent-status").textContent="Portable CLI ready. Detected tools: "+(state.integrations||[]).join(", ")+". Other compatible agents can use the same CLI.";
  el("connect").hidden=!haveClients;el("connected-section").hidden=!state.accounts.length;el("use").hidden=!state.accounts.some(x=>x.connected);
  el("connected").replaceChildren();
  for(const account of state.accounts){const card=document.createElement("div");card.className="account";const detail=document.createElement("div");detail.append(text("strong",account.label));const grants=state.grants.filter(x=>x.account===account.account);detail.append(text("span","Allowed tools: "+[...new Set(grants.map(x=>x.principal))].join(", ")));const status=text("span",account.connected?"✓ Connected":"Connecting…");status.className="badge"+(account.connected?"":" pending");const job=Object.values(state.connection_jobs).find(x=>x.account===account.account&&x.status!=="RUNNING"&&x.status!=="CONNECTED");if(job&&!account.connected){status.textContent="Sign-in needs attention";status.className="badge pending";}card.append(detail,status);el("connected").append(card);}
  el("prompts").replaceChildren();
- for(const agent of state.principals.filter(x=>["codex","claude"].includes(x))){const card=document.createElement("div");card.className="prompt";card.append(text("strong",agent==="claude"?"Claude Code":"Codex"));const p=text("p",prompt(agent));const b=text("button","Copy request");b.type="button";b.onclick=async()=>{try{await navigator.clipboard.writeText(p.textContent);b.textContent="Copied";}catch{message("Select the request text and copy it.");}};card.append(p,b);el("prompts").append(card);}
+ for(const agent of (state.integrations||state.principals).filter(x=>["codex","claude"].includes(x))){const card=document.createElement("div");card.className="prompt";card.append(text("strong",agent==="claude"?"Claude Code":"Codex"));const p=text("p",prompt(agent));const b=text("button","Copy request");b.type="button";b.onclick=async()=>{try{await navigator.clipboard.writeText(p.textContent);b.textContent="Copied";}catch{message("Select the request text and copy it.");}};card.append(p,b);el("prompts").append(card);}
  renderFactors();
  if(Object.values(state.connection_jobs).some(x=>x.status==="RUNNING"))setTimeout(()=>refresh().catch(problem),1200);
 }
@@ -43,7 +43,7 @@ el("password-file").onchange=async()=>{
  try {if(file.size>4000000)throw new Error("password_file_too_large");importPreview=await call("/owner/import/preview",{csv:await file.text()});
  const review=el("import-review");review.replaceChildren();review.hidden=false;
  review.append(text("p","Select logins and approved reads. Existing selected logins will be replaced. Passwords are never shown here."));
- const inputs=[];
+ const inputs=[];const importAuth=document.createElement("input");importAuth.type="checkbox";const authLabel=text("label","Also enroll included authenticator keys for supported login recovery");authLabel.prepend(importAuth);if(importPreview.rows.some(x=>x.has_authenticator))review.append(authLabel);
  for(const row of importPreview.rows.filter(x=>x.matches.length).slice(0,200)){
   const label=text("label",row.username+" · "+row.website);const check=document.createElement("input");check.type="checkbox";label.prepend(check);
   const select=document.createElement("select");for(const match of row.matches){const option=text("option",match.label+" — Allow: "+match.operations.map(x=>x.description).join("; "));option.value=match.id;select.append(option);}
@@ -51,7 +51,7 @@ el("password-file").onchange=async()=>{
  }
  review.append(text("p",importPreview.unsupported+" unsupported logins will not be saved. Delete the plaintext export after importing; this web page cannot delete your file."));
  const submit=text("button","Import selected accounts");submit.type="button";submit.onclick=async()=>{try{
- const selections=inputs.filter(x=>x.check.checked).map(x=>({row:x.row.id,account:x.select.value,operations:x.row.matches.find(m=>m.id===x.select.value).operations.map(o=>o.name)}));
+ const selections=inputs.filter(x=>x.check.checked).map(x=>({row:x.row.id,account:x.select.value,operations:x.row.matches.find(m=>m.id===x.select.value).operations.map(o=>o.name),include_authenticator:importAuth.checked&&x.row.has_authenticator&&x.row.matches.find(m=>m.id===x.select.value).authenticator_supported}));
  await call("/owner/import/apply",{id:importPreview.id,selections});review.replaceChildren();review.hidden=true;importPreview=null;el("password-file").value="";message("Logins imported and encrypted. Enroll required verification below.");await refresh();
  }catch(e){problem(e);}};review.append(submit);
  }catch(e){problem(e);}
@@ -69,6 +69,7 @@ function renderFactors(){
   form.onsubmit=async event=>{event.preventDefault();try{const credential=Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,v.value]));if(source.kind==="mac_messages")credential.enabled=true;
   await call("/owner/source",{source:source.id,credential});Object.values(fields).forEach(x=>x.value="");for(const account of source.accounts)await call("/owner/verify",{account});message("Verification saved locally.");await refresh();}catch(e){problem(e);}};
   if(source.kind==="phone_relay"){const pair=text("button","Pair Android companion");pair.type="button";pair.onclick=async()=>{try{const result=await call("/owner/phone/pair",{source:source.id});await navigator.clipboard.writeText(JSON.stringify(result));message("Pairing copied. Paste into your Android companion on the same private Wi-Fi.");}catch(e){problem(e);}};card.append(pair);}
+  if(source.enrolled){const disable=text("button","Disable verification");disable.type="button";disable.onclick=async()=>{try{await call("/owner/source/revoke",{source:source.id});await refresh();}catch(e){problem(e);}};card.append(disable);}
   card.append(form);container.append(card);
  }
  if(!state.code_sources.length)container.append(text("p","No verification method is required by the configured accounts."));

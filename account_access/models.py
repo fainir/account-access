@@ -88,6 +88,7 @@ class LoginForm(StrictModel):
     code_selector: str | None = None
     code_submit_selector: str | None = None
     code_source: Handle | None = None
+    code_wait_ms: int = Field(default=60000, ge=5000, le=120000)
     login_only: Literal[True] = True
 
 
@@ -167,10 +168,16 @@ class Configuration(StrictModel):
 
     def fingerprint(self, account: str) -> str:
         data = self.accounts[account].model_dump()
+        if isinstance(self.accounts[account], BrowserAccount) and data.get("login"):
+            if data["login"].get("code_wait_ms") == 60000:
+                data["login"].pop("code_wait_ms", None)
         if isinstance(self.accounts[account], BrowserAccount):
             form = self.accounts[account].login
             if form and form.code_source:
                 data["code_source_config"] = self.code_sources[form.code_source].model_dump()
+                if self.code_sources[form.code_source].kind != "imap":
+                    data["code_source_config"].pop("host", None)
+                    data["code_source_config"].pop("port", None)
         data["test_mode"] = self.test_mode
         return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
 

@@ -5,6 +5,7 @@ import hashlib
 import hmac
 import secrets
 import threading
+import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -147,9 +148,14 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                 with broker.store.db() as db:
                     principals = [r[0] for r in db.execute("SELECT DISTINCT principal FROM clients WHERE revoked=0")]
                     grants = [dict(r) for r in db.execute("SELECT * FROM grants")]
+                for item in accounts:
+                    item["portable_ready"] = any(g["principal"] == "generic" and g["account"] == item["account"]
+                        and g["fingerprint"] == config.fingerprint(item["account"])
+                        and (g["expires"] is None or g["expires"] > time.time()) for g in grants)
                 with guard:
                     connection_jobs = dict(jobs)
                 state = {"accounts": accounts, "principals": principals, "grants": grants,
+                         "integrations": broker.store.get("agent-integrations", principals),
                          "connection_jobs": connection_jobs,
                          "environment": "controlled-demo" if config.test_mode else "live"}
                 if guided:
@@ -161,7 +167,7 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                                                          for n, op in spec.operations.items()]}
                                          for key, spec in config.accounts.items()
                                          if isinstance(spec, BrowserAccount) and key not in present]
-                    state["portable_cli"] = str(broker.store.root / "skills/account-access/scripts/access")
+                    state["portable_cli"] = str(Path.home() / ".agents/skills/account-access/scripts/access")
                 state["code_sources"] = [{"id": key, "kind": source.kind,
                                           "mailbox_account": source.account,
                                           "mail_server": source.host,

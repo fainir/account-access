@@ -26,13 +26,14 @@ public final class LoginNotifications extends NotificationListenerService {
   if(!notification.getPackageName().equals(getSharedPreferences("settings",0).getString("sms_package","")))return;
   if(Math.abs(System.currentTimeMillis()-notification.getPostTime())>120000)return;
   try{
-   JSONObject pair=Pairing.load(this);if(pair==null)return;
+   getSharedPreferences("settings",0).edit().putString("last_status","notification_seen").apply();
+   JSONObject pair=Pairing.load(this);if(pair==null){getSharedPreferences("settings",0).edit().putString("last_status","pairing_unavailable").apply();return;}
    Bundle extras=notification.getNotification().extras;
    String sender=String.valueOf(extras.getCharSequence(Notification.EXTRA_TITLE,""));
    String body=String.valueOf(extras.getCharSequence(Notification.EXTRA_BIG_TEXT,extras.getCharSequence(Notification.EXTRA_TEXT,""))).trim();
    String template=pair.getString("template");int split=template.indexOf("{code}");
    String regex=Pattern.quote(template.substring(0,split))+"[0-9]{6}"+Pattern.quote(template.substring(split+6));
-   if(!sender.equals(pair.getString("sender")) || !body.matches(regex))return;
+   if(!sender.equals(pair.getString("sender")) || !body.matches(regex)){getSharedPreferences("settings",0).edit().putString("last_status","filter_mismatch").apply();return;}
    JSONObject payload=new JSONObject();payload.put("id",hex(MessageDigest.getInstance("SHA-256").digest((notification.getKey()+body).getBytes("UTF-8"))));payload.put("sender",sender);payload.put("recipient",pair.getString("recipient"));payload.put("body",body);payload.put("received_at",notification.getPostTime()/1000.0);
    worker.execute(()->send(pair,payload));
   }catch(Exception ignored){}
@@ -53,10 +54,10 @@ public final class LoginNotifications extends NotificationListenerService {
     if(System.currentTimeMillis()/1000.0-payload.getDouble("received_at")>120)return;
     HttpsURLConnection connection=(HttpsURLConnection)new URL(pair.getString("url")).openConnection();
     connection.setSSLSocketFactory(context.getSocketFactory());connection.setConnectTimeout(3000);connection.setReadTimeout(3000);connection.setInstanceFollowRedirects(false);connection.setRequestMethod("POST");connection.setDoOutput(true);connection.setFixedLengthStreamingMode(data.length);connection.setRequestProperty("Authorization","Bearer "+pair.getString("token"));connection.setRequestProperty("Content-Type","application/json");
-    try{try(java.io.OutputStream output=connection.getOutputStream()){output.write(data);}int status=connection.getResponseCode();if(status==200){getSharedPreferences("settings",0).edit().putLong("last_delivery",System.currentTimeMillis()).apply();return;}if(status!=403)return;}finally{connection.disconnect();}
+    try{try(java.io.OutputStream output=connection.getOutputStream()){output.write(data);}int status=connection.getResponseCode();if(status==200){getSharedPreferences("settings",0).edit().putLong("last_delivery",System.currentTimeMillis()).putString("last_status","delivered").apply();return;}getSharedPreferences("settings",0).edit().putString("last_status","http_"+status).apply();if(status!=403)return;}finally{connection.disconnect();}
     Thread.sleep(1000);
    }
-  }catch(Exception ignored){}
+  }catch(Exception ignored){getSharedPreferences("settings",0).edit().putString("last_status","link_error_"+ignored.getClass().getSimpleName()).apply();}
  }
  @Override public void onDestroy(){worker.shutdownNow();super.onDestroy();}
 }
