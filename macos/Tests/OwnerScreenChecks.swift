@@ -45,5 +45,15 @@ import Foundation
         precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("Connected"))
         precondition(!views.compactMap { ($0 as? NSButton)?.title }.contains("Show sign-in problem"))
         print("PASS: import summary distinguishes saved credentials from verified sign-in and exposes repair without blank credential fields")
+        owner.accounts = [["account": "fixture", "label": "Fixture account", "route": "browser",
+                           "portable_ready": true, "connected": false,
+                           "challenges": [["kind": "unknown"]]]]
+        owner.navigationFailures = [["account": "fixture", "reason": "redirect:destination:configured_path_1:query"]]
+        owner.ready()
+        views = descendants(owner.stack)
+        precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains(owner.navigationFailureMessage("redirect:destination:configured_path_1:query")))
+        precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Show technical details"))
+        precondition(!views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("redirect:destination:configured_path_1:query"))
+        print("PASS: stopped sign-ins show a plain-language failure and an optional owner-only technical detail action")
     }
 }

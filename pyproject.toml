@@ -1,6 +1,6 @@
 [project]
 name = "account-access"
-version = "0.7.3"
+version = "0.7.4"
 description = "Scoped, resumable account access through a portable skill, CLI, and private service"
 readme = "README.md"
 license = "MIT"

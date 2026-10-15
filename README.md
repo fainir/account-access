@@ -7,13 +7,13 @@
 
 Account Access is a local authentication and delegated-access service for **Codex, Claude Code and other agents**. A portable skill and CLI let an agent request approved operations while the service manages credentials, sessions, renewal and resumable tasks. There is **no MCP dependency**.
 
-**Status: 0.7.3 preview.** The included examples are usable today. Real websites require reviewed connectors; this is not an “add any website” consumer app or validated production access to banks, Google, Meta or insurance accounts.
+**Status: 0.7.4 preview.** The included examples are usable today. Real websites require reviewed connectors; this is not an “add any website” consumer app or validated production access to banks, Google, Meta or insurance accounts.
 
 ![Account dashboard with approved reads and automatic session integration](docs/account-dashboard.png)
 
 ## Easy installation
 
-On a Mac, [download Account Access 0.7.3](https://github.com/fainir/account-access/releases/download/v0.7.3/Account-Access-Mac-preview.zip), unzip it, open **Account Access**, and click **Install Account Access**. The app prepares Python, the browser and the local service. No developer tools, terminal commands or administrator password are needed for this flow.
+On a Mac, [download Account Access 0.7.4](https://github.com/fainir/account-access/releases/download/v0.7.4/Account-Access-Mac-preview.zip), unzip it, open **Account Access**, and click **Install Account Access**. The app prepares Python, the browser and the local service. No developer tools, terminal commands or administrator password are needed for this flow.
 
 This is a **Developer ID signed preview**. Apple notarization is still pending, so Gatekeeper may block a fresh download. The recording verifies installation on our Mac, not a completed notarized distribution. See [Mac build and distribution notes](macos/README.md).
 
@@ -81,7 +81,7 @@ cd account-access
 uv sync --locked --python 3.13
 uv run playwright install chromium
 uv build
-uv tool install --python 3.13 --force ./dist/account_access-0.7.3-py3-none-any.whl
+uv tool install --python 3.13 --force ./dist/account_access-0.7.4-py3-none-any.whl
 account-access start
 ```
 
@@ -181,6 +181,8 @@ The worker preserves completed steps, retries temporary failures with backoff, a
 | Keyring unavailable/locked | Configure or unlock the supported OS keyring. File-key mode is for development demos, not production credentials. |
 
 ## Validation and development
+
+Version 0.7.4 exposes those redacted navigation diagnostics in the authenticated owner app. A stopped account gets a plain-language explanation and an optional technical-details action. Only the fixed diagnostic format is returned; arbitrary audit text is excluded, and service diagnostics remain outside agent audit responses.
 
 Version 0.7.3 adds bounded navigation-failure diagnostics for troubleshooting. The audit identifies a transport/HTTP failure or a blocked redirect and whether it matches an already configured resource path. It records a numeric resource index and query-presence flag, with no raw URL, query value, page text, headers, cookies or credentials. The destination allowlist remains enforced.
 

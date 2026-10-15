@@ -98,6 +98,9 @@ def test_visible_sign_in_diagnostics_require_owner_and_keep_permissions(env, mon
         raise AccessError("NEEDS_USER", "browser_state_unrecognized", "unknown")
     monkeypatch.setattr(broker.browser, "read", inspect)
     before = broker.store.config().model_dump()
+    broker.store.audit("service", "demo-web", "", "browser_navigation_failed",
+                       "redirect:destination:configured_path_1:query")
+    broker.store.audit("service", "demo-web", "", "browser_navigation_failed", "fictional-secret-to-exclude")
     with broker.store.db() as db:
         grants = [dict(row) for row in db.execute("SELECT * FROM grants")]
     server, token = make_owner_server(broker, guided=True)
@@ -121,9 +124,12 @@ def test_visible_sign_in_diagnostics_require_owner_and_keep_permissions(env, mon
                     break
                 time.sleep(.05)
             assert result["status"] == "NEEDS_USER"
+            assert state["navigation_failures"][0]["reason"] == "redirect:destination:configured_path_1:query"
+            assert "fictional-secret-to-exclude" not in json.dumps(state)
             assert observed == [("demo-web", True)]
             assert "page" not in result and "html" not in result
             assert broker.store.config().model_dump() == before
+            assert not any(row["event"] == "browser_navigation_failed" for row in broker.audit("test")["events"])
             with broker.store.db() as db:
                 assert [dict(row) for row in db.execute("SELECT * FROM grants")] == grants
     finally:

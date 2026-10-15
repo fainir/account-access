@@ -4,6 +4,7 @@ import json
 import hashlib
 import hmac
 import secrets
+import re
 import threading
 import time
 import webbrowser
@@ -148,6 +149,15 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                 with broker.store.db() as db:
                     principals = [r[0] for r in db.execute("SELECT DISTINCT principal FROM clients WHERE revoked=0")]
                     grants = [dict(r) for r in db.execute("SELECT * FROM grants")]
+                    failures = db.execute("SELECT account,at,reason FROM audit WHERE principal='service' AND event='browser_navigation_failed' ORDER BY id DESC LIMIT 100").fetchall()
+                navigation_failures = []
+                seen_failures = set()
+                pattern = r"(?:request|redirect):(?:destination|method|http_[1-5][0-9]{2}|missing_location|response_size|redirect_limit|transport):(?:configured_path_[0-9]{1,3}|unreviewed_destination):(?:query|no_query)"
+                for failure in failures:
+                    if (failure["account"] in config.accounts and failure["account"] not in seen_failures
+                            and re.fullmatch(pattern, failure["reason"])):
+                        navigation_failures.append(dict(failure))
+                        seen_failures.add(failure["account"])
                 for item in accounts:
                     approved = {g["operation"] for g in grants if g["principal"] == "generic" and g["account"] == item["account"]
                         and g["fingerprint"] == config.fingerprint(item["account"])
@@ -160,6 +170,7 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                          "integrations": broker.store.get("agent-integrations", principals),
                          "automatic_sessions": broker.store.get("session-integrations", {}),
                          "connection_jobs": connection_jobs,
+                         "navigation_failures": navigation_failures,
                          "environment": "controlled-demo" if config.test_mode else "live"}
                 from .password_sync import view
                 state["password_sync"] = view(broker.store)

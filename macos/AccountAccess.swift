@@ -61,6 +61,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     var principals: [String] = []
     var sources: [[String: Any]] = []
     var passwordSync: [[String: Any]] = []
+    var navigationFailures: [[String: Any]] = []
     var syncAccounts: NSPopUpButton!
     var syncFields: [String: NSTextField] = [:]
     var automaticSessions: [String: [String: Any]] = [:]
@@ -497,6 +498,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
 
     func accept(_ state: [String: Any]) {
+        navigationFailures = state["navigation_failures"] as? [[String: Any]] ?? []
         passwordSync = state["password_sync"] as? [[String: Any]] ?? []
         catalog = state["catalog"] as? [[String: Any]] ?? []
         accounts = state["accounts"] as? [[String: Any]] ?? []
@@ -1085,6 +1087,15 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             let status = !allowed ? "Approval needed" : pending || !active ? "Sign-in needs attention" : "Connected"
             let reads = (account[allowed ? "approved_operations" : "operations"] as? [[String: Any]] ?? []).compactMap { $0["description"] as? String }.joined(separator: "; ")
             let body = card(account["label"] as? String ?? "Account", (allowed ? "Approved reads: " : "Available reads: ") + reads, status: status, good: allowed && active && !pending)
+            if pending, let failure = navigationFailures.first(where: { $0["account"] as? String == account["account"] as? String }),
+               let reason = failure["reason"] as? String {
+                let message = NSTextField(wrappingLabelWithString: navigationFailureMessage(reason))
+                message.font = .systemFont(ofSize: 14)
+                body.addArrangedSubview(message)
+                let details = NSButton(title: "Show technical details", target: self, action: #selector(showNavigationDetails))
+                details.identifier = NSUserInterfaceItemIdentifier(reason)
+                body.addArrangedSubview(details)
+            }
             if !allowed || !active || pending {
                 let repair = NSButton(title: allowed ? "Reconnect" : "Review access", target: self, action: #selector(reviewAccount))
                 repair.identifier = NSUserInterfaceItemIdentifier(account["account"] as? String ?? "")
@@ -1110,6 +1121,27 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
 
     @objc func reviewAccount(_ sender: NSButton) { selectedAccount = sender.identifier?.rawValue; connections() }
+
+    func navigationFailureMessage(_ reason: String) -> String {
+        let fields = reason.components(separatedBy: ":")
+        guard fields.count == 4 else { return "The sign-in check could not finish." }
+        switch fields[1] {
+        case "destination": return "The website sent this sign-in outside its reviewed login flow. Your saved password is preserved."
+        case "method": return "The website requested a sign-in action that this connection does not permit."
+        case "transport": return "The sign-in request could not reach the website."
+        case "response_size": return "The website returned a response larger than this connection permits."
+        case "redirect_limit", "missing_location": return "The website's sign-in redirects could not finish."
+        default: return fields[1].hasPrefix("http_") ? "The website returned an error while signing in (HTTP " + String(fields[1].dropFirst(5)) + ")." : "The sign-in check could not finish."
+        }
+    }
+
+    @objc func showNavigationDetails(_ sender: NSButton) {
+        let alert = NSAlert()
+        alert.messageText = "Sign-in check details"
+        alert.informativeText = (sender.identifier?.rawValue ?? "No detail available") + "\n\nOnly a failure category, configured resource index and query-presence flag are recorded. No URL, query value, password, code or page contents are included."
+        alert.addButton(withTitle: "Done")
+        alert.runModal()
+    }
 
     @objc func openAgent(_ sender: NSButton) {
         let identifier = sender.identifier?.rawValue == "claude" ? "com.anthropic.claudefordesktop" : "com.openai.codex"
