@@ -35,16 +35,16 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
     guard = threading.Lock()
     verification_slots = threading.BoundedSemaphore(4)
 
-    def verify(account, job_id):
+    def verify(account, job_id, visible=False):
         with verification_slots:
-            _verify(account, job_id)
+            _verify(account, job_id, visible)
 
-    def _verify(account, job_id):
+    def _verify(account, job_id, visible=False):
         try:
             config = broker.store.config().accounts[account]
             with broker.store.lock("account:" + account, timeout=5):
                 broker.browser.read(account, next(iter(config.operations.values())), config,
-                                    secret_values=set())
+                                    secret_values=set(), visible=visible)
             try:
                 broker.tick()
             except AccessError as exc:
@@ -302,10 +302,12 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                 if account not in config.accounts:
                     raise AccessError("DENIED", "unknown_account")
                 if guided and self.path == "/owner/verify":
-                    if set(data) != {"account"} or not isinstance(config.accounts[account], BrowserAccount):
+                    if (set(data) not in ({"account"}, {"account", "visible"})
+                            or not isinstance(data.get("visible", False), bool)
+                            or not isinstance(config.accounts[account], BrowserAccount)):
                         raise ValueError()
                     ident = new_job(account)
-                    threading.Thread(target=verify, args=(account, ident), daemon=True).start()
+                    threading.Thread(target=verify, args=(account, ident, data.get("visible", False)), daemon=True).start()
                     self.send(200, {"status": "CONNECTING", "id": ident})
                 elif self.path == "/owner/credential":
                     if isinstance(config.accounts[account], OAuthAccount):

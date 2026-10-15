@@ -27,6 +27,8 @@ Version 0.7 adds **Password sync** for exact approved items on an existing 1Pass
 
 Version 0.7.1 fixes the sync screen's field constraints. The native owner-screen regression check runs the actual screen construction, checks the four inputs and masked token, and verifies the narrow window layout:
 
+Version 0.7.2 also verifies the import summary: a saved password with an unfinished sign-in shows a repair action, while a successful verification shows Connected. **Show sign-in problem** runs a bounded visible check through the authenticated owner session; it never expands the account's grants or exports page HTML to the agent API.
+
 ```sh
 xcrun swiftc -O -parse-as-library -D ACCOUNT_ACCESS_UI_CHECKS \
   -framework AppKit -framework CryptoKit -lsqlite3 \

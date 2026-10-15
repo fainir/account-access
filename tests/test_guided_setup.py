@@ -90,6 +90,48 @@ def test_catalog_rejects_unreviewed_destinations_and_preserves_existing(env):
     assert broker.store.config().model_dump() == before
 
 
+def test_visible_sign_in_diagnostics_require_owner_and_keep_permissions(env, monkeypatch):
+    _, broker, _ = env
+    observed = []
+    def inspect(account, operation, config, **kwargs):
+        observed.append((account, kwargs.get("visible")))
+        raise AccessError("NEEDS_USER", "browser_state_unrecognized", "unknown")
+    monkeypatch.setattr(broker.browser, "read", inspect)
+    before = broker.store.config().model_dump()
+    with broker.store.db() as db:
+        grants = [dict(row) for row in db.execute("SELECT * FROM grants")]
+    server, token = make_owner_server(broker, guided=True)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{server.server_port}"
+    headers = {"Authorization": "Bearer " + token, "Origin": base}
+    try:
+        with httpx.Client(base_url=base, trust_env=False) as client:
+            payload = {"account": "demo-web", "visible": True}
+            assert client.post("/owner/verify", json=payload).status_code == 403
+            assert client.post("/owner/verify", json={**payload, "visible": "true"}, headers=headers).status_code == 400
+            assert client.post("/owner/verify", json={**payload, "url": "https://attacker.example"}, headers=headers).status_code == 400
+            response = client.post("/owner/verify", json=payload, headers=headers)
+            ident = response.json()["id"]
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                state = client.get("/owner/state", headers=headers).json()
+                result = state["connection_jobs"][ident]
+                if result["status"] != "RUNNING":
+                    break
+                time.sleep(.05)
+            assert result["status"] == "NEEDS_USER"
+            assert observed == [("demo-web", True)]
+            assert "page" not in result and "html" not in result
+            assert broker.store.config().model_dump() == before
+            with broker.store.db() as db:
+                assert [dict(row) for row in db.execute("SELECT * FROM grants")] == grants
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
 def test_generated_agent_launcher_does_not_need_python_on_path(env, tmp_path):
     _, broker, _ = env
     install_skill(broker.store, "generic", tmp_path)

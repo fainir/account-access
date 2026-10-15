@@ -5,9 +5,9 @@ set -eu
 AC_SOURCE=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 AC_OUTPUT="$AC_SOURCE/dist/macos"
 AC_APP="$AC_OUTPUT/Account Access.app"
-AC_WHEEL="$AC_SOURCE/dist/account_access-0.7.1-py3-none-any.whl"
+AC_WHEEL="$AC_SOURCE/dist/account_access-0.7.2-py3-none-any.whl"
 if [ ! -f "$AC_WHEEL" ]; then
-  echo "Build the 0.7.1 wheel with uv build before building the Mac installer." >&2
+  echo "Build the 0.7.2 wheel with uv build before building the Mac installer." >&2
   exit 1
 fi
 AC_WHEEL_HASH=$(shasum -a 256 "$AC_WHEEL" | awk '{ print $1 }')
@@ -29,8 +29,8 @@ cat > "$AC_APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleDisplayName</key><string>Account Access</string>
 <key>CFBundleExecutable</key><string>AccountAccess</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.7.1</string>
-<key>CFBundleVersion</key><string>9</string>
+<key>CFBundleShortVersionString</key><string>0.7.2</string>
+<key>CFBundleVersion</key><string>10</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>

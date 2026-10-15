@@ -7,13 +7,13 @@
 
 Account Access is a local authentication and delegated-access service for **Codex, Claude Code and other agents**. A portable skill and CLI let an agent request approved operations while the service manages credentials, sessions, renewal and resumable tasks. There is **no MCP dependency**.
 
-**Status: 0.7.1 preview.** The included examples are usable today. Real websites require reviewed connectors; this is not an “add any website” consumer app or validated production access to banks, Google, Meta or insurance accounts.
+**Status: 0.7.2 preview.** The included examples are usable today. Real websites require reviewed connectors; this is not an “add any website” consumer app or validated production access to banks, Google, Meta or insurance accounts.
 
 ![Account dashboard with approved reads and automatic session integration](docs/account-dashboard.png)
 
 ## Easy installation
 
-On a Mac, [download Account Access 0.7.1](https://github.com/fainir/account-access/releases/download/v0.7.1/Account-Access-Mac-preview.zip), unzip it, open **Account Access**, and click **Install Account Access**. The app prepares Python, the browser and the local service. No developer tools, terminal commands or administrator password are needed for this flow.
+On a Mac, [download Account Access 0.7.2](https://github.com/fainir/account-access/releases/download/v0.7.2/Account-Access-Mac-preview.zip), unzip it, open **Account Access**, and click **Install Account Access**. The app prepares Python, the browser and the local service. No developer tools, terminal commands or administrator password are needed for this flow.
 
 This is a **Developer ID signed preview**. Apple notarization is still pending, so Gatekeeper may block a fresh download. The recording verifies installation on our Mac, not a completed notarized distribution. See [Mac build and distribution notes](macos/README.md).
 
@@ -81,7 +81,7 @@ cd account-access
 uv sync --locked --python 3.13
 uv run playwright install chromium
 uv build
-uv tool install --python 3.13 --force ./dist/account_access-0.7.1-py3-none-any.whl
+uv tool install --python 3.13 --force ./dist/account_access-0.7.2-py3-none-any.whl
 account-access start
 ```
 
@@ -176,10 +176,13 @@ The worker preserves completed steps, retries temporary failures with backoff, a
 | Ubuntu browser still cannot launch | Have the administrator review the [per-binary AppArmor setup](docs/setup.md#linux-sandbox-setup). |
 | `existing_skill_would_be_overwritten` | An unrelated directory already has that name. Review it or choose a custom supported skills directory; the installer does not overwrite unknown skills. |
 | `NEEDS_USER` | Complete the specified step in owner setup. Preserve the same task ID. |
+| Imported password saved, but sign-in is unfinished | The import summary preserves the saved login and explains the remaining check. Use **Show sign-in problem** in the owner app to display the actual website; a stopped page remains visible for up to two minutes. This does not change grants or send page HTML to the agent. |
 | `DENIED` | Review the owner grant/configuration. The agent should not try another login path to bypass it. |
 | Keyring unavailable/locked | Configure or unlock the supported OS keyring. File-key mode is for development demos, not production credentials. |
 
 ## Validation and development
+
+Version 0.7.2 keeps the import result visible when a website check fails instead of silently returning to an empty connection form. It refreshes the account state after verification, distinguishes a saved password from a verified connection, and adds an owner-only visible sign-in check. Normal agent reads remain headless, and the same destination and credential-entry protections apply in the visible check.
 
 Version 0.7.1 fixes an AppKit constraint-order error that hid the new password-sync fields. A native regression check constructs the actual owner screen, verifies all four fields and the masked token control, and checks the minimum window size. The Python authentication and sync implementation is unchanged from 0.7.
 

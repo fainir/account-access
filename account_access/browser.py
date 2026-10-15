@@ -96,7 +96,7 @@ class Browser:
                 return
             page.wait_for_timeout(50)
 
-    def read(self, account, op, config, *, secret_values=None):
+    def read(self, account, op, config, *, secret_values=None, visible=False):
         connection = self.store.get("connection:" + account)
         if connection and connection.get("revoked"):
             raise AccessError("DENIED", "connection_revoked")
@@ -105,7 +105,20 @@ class Browser:
         state = connection.get("state") if connection else None
         try:
             with sync_playwright() as pw:
-                browser = pw.chromium.launch(headless=True, chromium_sandbox=True)
+                browser = pw.chromium.launch(headless=not visible, chromium_sandbox=True)
+                reviewed = False
+
+                def review_failure(page):
+                    nonlocal reviewed
+                    if not visible or reviewed:
+                        return
+                    reviewed = True
+                    # Owner-only troubleshooting: keep the actual failed page
+                    # visible briefly, without exporting its HTML or secrets.
+                    try:
+                        page.wait_for_event("close", timeout=120000)
+                    except PlaywrightError:
+                        pass
                 try:
                     context = self.context(browser, config, state)
                     page = context.new_page()
@@ -120,7 +133,8 @@ class Browser:
                         if self.challenge(page, config) != "login":
                             raise
                         context.close()
-                        state = self.login(browser, account, config, state, secret_values=secret_values)
+                        state = self.login(browser, account, config, state, secret_values=secret_values,
+                                           review_failure=review_failure)
                         context = self.context(browser, config, state)
                         page = context.new_page()
                         page.goto(op.url, timeout=15000, wait_until="domcontentloaded")
@@ -130,20 +144,25 @@ class Browser:
                             for name, selector in op.fields.items()}
                     self.save(account, context.storage_state(indexed_db=True))
                     return data
+                except AccessError:
+                    review_failure(page)
+                    raise
                 finally:
                     browser.close()
         except PlaywrightError:
             raise AccessError("RETRYABLE", "browser_execution_failed") from None
 
-    def login(self, browser, account, config, state=None, *, secret_values=None):
+    def login(self, browser, account, config, state=None, *, secret_values=None, review_failure=None):
         source = config.login.code_source
         if source:
             # Two simultaneous logins must never compete for the same inbox code.
             with self.store.lock("code-login:" + source, timeout=0):
-                return self._login(browser, account, config, state, secret_values=secret_values)
-        return self._login(browser, account, config, state, secret_values=secret_values)
+                return self._login(browser, account, config, state, secret_values=secret_values,
+                                   review_failure=review_failure)
+        return self._login(browser, account, config, state, secret_values=secret_values,
+                           review_failure=review_failure)
 
-    def _login(self, browser, account, config, state=None, *, secret_values=None):
+    def _login(self, browser, account, config, state=None, *, secret_values=None, review_failure=None):
         from .password_sync import refresh
         refresh(self.store, account, force=True)
         credential = self.store.get("credential:" + account, {})
@@ -218,6 +237,10 @@ class Browser:
             if factor:
                 self.store.audit("service", account, "", "login_factor_completed", factor)
             return state
+        except AccessError:
+            if review_failure:
+                review_failure(page)
+            raise
         finally:
             if started and config.login.code_source:
                 self.codes.finish(config.login.code_source, started)

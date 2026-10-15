@@ -634,9 +634,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         }
     }
 
-    func waitForConnection(_ initial: [String: Any], account: String) throws -> [String: Any] {
+    func waitForConnection(_ initial: [String: Any], account: String, timeout: TimeInterval = 150) throws -> [String: Any] {
         guard var id = initial["id"] as? String else { throw Failure.message("The connection could not start.") }
-        let deadline = Date().addingTimeInterval(150)
+        let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
             let state = try request("owner/state")
             let jobs = state["connection_jobs"] as? [String: [String: Any]] ?? [:]
@@ -786,15 +786,53 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             do {
                 let result = try self.request("owner/import/apply", body: ["id": self.importID, "selections": selections])
                 if remove, let file { try self.files.trashItem(at: file, resultingItemURL: nil) }
-                var state = try self.request("owner/state")
+                var issues: [(String, String)] = []
                 for job in result["jobs"] as? [[String: Any]] ?? [] {
                     if let account = job["account"] as? String {
-                        // Missing verification enrollment can be repaired in the next screen.
-                        do { state = try self.waitForConnection(job, account: account) } catch { }
+                        do { _ = try self.waitForConnection(job, account: account) }
+                        catch Failure.message(let message) { issues.append((account, message)) }
+                        catch { issues.append((account, "The sign-in check could not finish. Your imported password is saved.")) }
                     }
                 }
-                DispatchQueue.main.async { self.busy = false; self.importFile = nil; self.importRows = []; self.accept(state); self.connections() }
+                let state = try self.request("owner/state")
+                let imported = selections.compactMap { $0["account"] as? String }
+                DispatchQueue.main.async {
+                    self.busy = false; self.importFile = nil; self.importRows = []
+                    self.accept(state); self.showImportSummary(imported, issues: issues)
+                }
             } catch { self.fail(error, retry: #selector(self.importPasswords)) }
+        }
+    }
+
+    func showImportSummary(_ imported: [String], issues: [(String, String)]) {
+        section = "import"
+        page("Passwords imported", "Your selected logins are encrypted locally. Review the sign-in checks below.")
+        for account in imported {
+            let issue = issues.first { $0.0 == account }?.1
+            let name = accounts.first { $0["account"] as? String == account }?["label"] as? String ?? account
+            let body = card(name, issue ?? "Sign-in verified. This approved account is ready for your AI.",
+                            status: issue == nil ? "Connected" : "Saved · Sign-in needs attention", good: issue == nil)
+            if issue != nil {
+                let inspect = NSButton(title: "Show sign-in problem", target: self, action: #selector(inspectSavedSignIn))
+                inspect.identifier = NSUserInterfaceItemIdentifier(account)
+                body.addArrangedSubview(inspect)
+            }
+        }
+        if !issues.isEmpty && !sources.isEmpty { action("Review verification methods", #selector(showFactors)) }
+        primary("Go to my accounts", #selector(showReady))
+    }
+
+    @objc func inspectSavedSignIn(_ sender: NSButton) {
+        guard let account = sender.identifier?.rawValue else { return }
+        busy = true
+        page("Checking your saved sign-in", "The website opens on this Mac. If the sign-in stops, its page stays open for up to two minutes so you can review the problem. Close that browser window when finished. Your permissions stay the same.")
+        progress()
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let job = try self.request("owner/verify", body: ["account": account, "visible": true])
+                let state = try self.waitForConnection(job, account: account, timeout: 300)
+                DispatchQueue.main.async { self.busy = false; self.accept(state); self.ready() }
+            } catch { self.fail(error, retry: #selector(self.showReady)) }
         }
     }
 
@@ -1051,6 +1089,11 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 let repair = NSButton(title: allowed ? "Reconnect" : "Review access", target: self, action: #selector(reviewAccount))
                 repair.identifier = NSUserInterfaceItemIdentifier(account["account"] as? String ?? "")
                 body.addArrangedSubview(repair)
+                if allowed && pending {
+                    let inspect = NSButton(title: "Show sign-in problem", target: self, action: #selector(inspectSavedSignIn))
+                    inspect.identifier = NSUserInterfaceItemIdentifier(account["account"] as? String ?? "")
+                    body.addArrangedSubview(inspect)
+                }
             }
         }
         let example = card("Try asking your AI", requestText)
