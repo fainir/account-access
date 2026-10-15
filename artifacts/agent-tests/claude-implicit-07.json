@@ -1,0 +1,43 @@
+{
+  "agent": "claude",
+  "service_version": "0.7.0",
+  "passed": true,
+  "prompt": "Compare the cheapest item in my personal and work shopping accounts and get my membership welcome message. Save the results together so I can check them later. Use only those three connected public example accounts. Do not access private accounts or change settings.",
+  "explicit_skill_or_command_in_prompt": false,
+  "persistent_instructions": "Existing user profile with managed Account Access guidance",
+  "host_approval_and_hooks": "Existing modes and hooks inherited; installed client integration applied",
+  "exit_code": 0,
+  "test_model_override": null,
+  "elapsed_seconds": 125.91,
+  "permission_denial_count": 4,
+  "account_access_permission_denials": 0,
+  "verified_tasks": [
+    {
+      "task_id": "ff92fbc1b1899eecb2ac574811eb7c83",
+      "status": "COMPLETED",
+      "progress": 3,
+      "total": 3,
+      "accounts": [
+        "personal-store",
+        "work-store",
+        "member-portal"
+      ]
+    }
+  ],
+  "independently_verified_operations": [
+    {
+      "account": "member-portal",
+      "operation": "summary"
+    },
+    {
+      "account": "work-store",
+      "operation": "inventory"
+    },
+    {
+      "account": "personal-store",
+      "operation": "inventory"
+    }
+  ],
+  "saved_results": [],
+  "limits": "Public testing websites only; CLI session, not a desktop recording. Unrelated host housekeeping denials are reported separately from Account Access."
+}

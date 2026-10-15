@@ -1,6 +1,6 @@
 # Security policy
 
-Account Access is a release candidate. Private financial-account coverage, isolated deployment, native phone integrations and signed consumer distribution are not established by the demo tests.
+Account Access is a preview. Private financial-account coverage, isolated deployment, physical-phone delivery and notarized consumer distribution are not established by the demo tests.
 
 ## Reporting a vulnerability
 

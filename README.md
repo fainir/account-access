@@ -7,13 +7,13 @@
 
 Account Access is a local authentication and delegated-access service for **Codex, Claude Code and other agents**. A portable skill and CLI let an agent request approved operations while the service manages credentials, sessions, renewal and resumable tasks. There is **no MCP dependency**.
 
-**Status: 0.7 preview.** The included examples are usable today. Real websites require reviewed connectors; this is not an “add any website” consumer app or validated production access to banks, Google, Meta or insurance accounts.
+**Status: 0.7.1 preview.** The included examples are usable today. Real websites require reviewed connectors; this is not an “add any website” consumer app or validated production access to banks, Google, Meta or insurance accounts.
 
 ![Account dashboard with approved reads and automatic session integration](docs/account-dashboard.png)
 
 ## Easy installation
 
-On a Mac, [download Account Access 0.7](https://github.com/fainir/account-access/releases/download/v0.7.0/Account-Access-Mac-preview.zip), unzip it, open **Account Access**, and click **Install Account Access**. The app prepares Python, the browser and the local service. No developer tools, terminal commands or administrator password are needed for this flow.
+On a Mac, [download Account Access 0.7.1](https://github.com/fainir/account-access/releases/download/v0.7.1/Account-Access-Mac-preview.zip), unzip it, open **Account Access**, and click **Install Account Access**. The app prepares Python, the browser and the local service. No developer tools, terminal commands or administrator password are needed for this flow.
 
 This is a **Developer ID signed preview**. Apple notarization is still pending, so Gatekeeper may block a fresh download. The recording verifies installation on our Mac, not a completed notarized distribution. See [Mac build and distribution notes](macos/README.md).
 
@@ -81,7 +81,7 @@ cd account-access
 uv sync --locked --python 3.13
 uv run playwright install chromium
 uv build
-uv tool install --python 3.13 --force ./dist/account_access-0.7.0-py3-none-any.whl
+uv tool install --python 3.13 --force ./dist/account_access-0.7.1-py3-none-any.whl
 account-access start
 ```
 
@@ -180,6 +180,8 @@ The worker preserves completed steps, retries temporary failures with backoff, a
 | Keyring unavailable/locked | Configure or unlock the supported OS keyring. File-key mode is for development demos, not production credentials. |
 
 ## Validation and development
+
+Version 0.7.1 fixes an AppKit constraint-order error that hid the new password-sync fields. A native regression check constructs the actual owner screen, verifies all four fields and the masked token control, and checks the minimum window size. The Python authentication and sync implementation is unchanged from 0.7.
 
 Version 0.7 checks on 15 October 2026: **91 Python tests passed**, including automatic password rotation with unchanged grants, blocked identity/destination changes, active code-window enforcement, safe file replacement and the four-factor controlled journey. Five external public-demo reads, their negative cases and session recovery also passed. Lint, the third-party dependency audit, package builds, strict verification of the signed universal Mac app and the revised video decode passed. Private-account enrollment, live Gmail/phone delivery and protection from unrestricted same-user processes remain unvalidated. See [0.7 evidence](artifacts/security-07.json), [public-site evidence](artifacts/public-demos-07.json) and [security/sync limits](docs/security-and-password-sync.md).
 

@@ -830,8 +830,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             let field: NSTextField = key == "token" ? NSSecureTextField() : NSTextField()
             field.placeholderString = title
             field.setAccessibilityLabel(title)
-            field.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
             stack.addArrangedSubview(field)
+            field.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
             syncFields[key] = field
         }
         primary("Connect automatic updates", #selector(connectPasswordSync))
@@ -1105,6 +1105,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
 }
 
+#if !ACCOUNT_ACCESS_UI_CHECKS
 @main struct AccountAccessMain {
     static func main() {
         if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--read-login-code" {
@@ -1117,3 +1118,4 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         app.run()
     }
 }
+#endif

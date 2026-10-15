@@ -1,0 +1,19 @@
+{
+  "release": "0.7.0",
+  "source_revision": "2862d687a22059dae042fde47e5ceef9a5f3233b",
+  "graphical_update": "Completed through actual Update Account Access button",
+  "post_update_checks": {
+    "client_token_preserved": true,
+    "standing_grants_preserved": true,
+    "configuration_preserved": true,
+    "app_version": "0.7.0",
+    "bundle_identifier": "com.fainir.accountaccess",
+    "signed_package_pin_matches": true
+  },
+  "visible_dashboard": "Three public example accounts connected; automatic Codex and Claude Code integration",
+  "claude_test_evidence": "agent-tests/claude-implicit-07.json",
+  "core_ci": "https://github.com/fainir/account-access/actions/runs/38715611302",
+  "private_accounts_validated": 0,
+  "follow_up": "Actual UI check found a sync-screen constraint exception; fixed in 0.7.1 with native regression coverage",
+  "sensitive_user_data_in_report": false
+}

@@ -24,3 +24,13 @@ The signed Messages helper reads only configured incoming, recent login messages
 Version 0.6 adds an account dashboard, persistent navigation, connection/approval badges, password-export guidance, friendly verification labels and ordinary-language examples. The installer adds a small managed instruction block to Codex and Claude Code profiles for new sessions, refreshes owned skill resources without rotating valid client tokens, and starts the saved local service on demand. Codex receives an allow rule for only the installed client's supported commands. Personal instructions, general approval modes, other command rules and Claude permission settings are preserved. See [automatic session setup](../docs/automatic-sessions.md).
 
 Version 0.7 adds **Password sync** for exact approved items on an existing 1Password Connect server, defaults password-export cleanup to Trash, and adds clearer security copy. Chrome/CSV imports remain snapshots. New backend checks bind code resolution to an active unchanged source, recheck the verification page, validate native form destinations, and harden private file writes. These preserve automatic routine logins; they do not establish isolation from an unrestricted same-user process. See [security and sync](../docs/security-and-password-sync.md).
+
+Version 0.7.1 fixes the sync screen's field constraints. The native owner-screen regression check runs the actual screen construction, checks the four inputs and masked token, and verifies the narrow window layout:
+
+```sh
+xcrun swiftc -O -parse-as-library -D ACCOUNT_ACCESS_UI_CHECKS \
+  -framework AppKit -framework CryptoKit -lsqlite3 \
+  macos/AccountAccess.swift macos/MessagesReader.swift macos/Tests/OwnerScreenChecks.swift \
+  -o /tmp/account-access-owner-checks
+/tmp/account-access-owner-checks
+```
