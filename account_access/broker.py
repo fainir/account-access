@@ -7,7 +7,7 @@ from . import __version__
 from .browser import Browser
 from .codes import Codes
 from .errors import AccessError
-from .models import BrowserAccount, GitHubCLIAccount, OAuthAccount, TaskRequest
+from .models import BrowserAccount, OAuthAccount, TaskRequest
 from .providers import OAuth, credential_values, redact
 
 MESSAGES = {
@@ -15,6 +15,7 @@ MESSAGES = {
     "email": "Complete the email login challenge or reconnect its approved mailbox source.",
     "sms": "Complete the SMS login challenge or reconnect its approved SMS source.",
     "totp": "Complete the authenticator login challenge or enroll its approved code source.",
+    "method": "Connect one of this website's approved email, SMS or authenticator methods locally.",
     "device": "Approve the provider's sign-in request on your genuine device.",
     "passkey": "Complete the provider's passkey or biometric verification on your device.",
     "admin": "An administrator must approve the required access through the provider.",
@@ -154,19 +155,16 @@ class Broker:
                             "challenge": self.challenge_view(pending[0])}
                 op = spec.operations[operation]
                 secrets_seen = credential_values(self.store.get("credential:" + account, {}))
-                if isinstance(spec, BrowserAccount) and spec.login and spec.login.code_source:
-                    source_id = spec.login.code_source
-                    secrets_seen |= credential_values(self.store.get("source:" + source_id, {}))
-                    source_account = config.code_sources[source_id].account
-                    if source_account:
-                        secrets_seen |= credential_values(self.store.get("connection:" + source_account, {}))
+                if isinstance(spec, BrowserAccount) and spec.login:
+                    for source_id in spec.login.sources():
+                        secrets_seen |= credential_values(self.store.get("source:" + source_id, {}))
+                        source_account = config.code_sources[source_id].account
+                        if source_account:
+                            secrets_seen |= credential_values(self.store.get("connection:" + source_account, {}))
                 if isinstance(spec, OAuthAccount):
                     data = self.oauth.read(account, op, config)
                 elif isinstance(spec, BrowserAccount):
                     data = self.browser.read(account, op, spec, secret_values=secrets_seen)
-                elif isinstance(spec, GitHubCLIAccount):
-                    from .github_cli import read
-                    data = read(self.store, account, spec)
                 else:
                     raise AccessError("DENIED", "unsupported_connector")
                 # Catch permission revocation that occurred concurrently during an in-flight request.

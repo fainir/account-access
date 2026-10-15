@@ -1,0 +1,23 @@
+{
+  "version": "0.8.0-candidate",
+  "date": "2026-10-15",
+  "authentication_scope": "Browser email/username and password, followed by connected email/SMS/TOTP verification",
+  "provider_cli_authentication_route_removed": true,
+  "installed_unrelated_connection_removed": true,
+  "automated_tests_passed": 135,
+  "native_owner_screen_checks_passed": 5,
+  "same_account_email_sms_totp_chain": "passed with fictional sources",
+  "offered_method_selection": "passed with fictional sources; changed links and mandatory presence stop",
+  "codex_four_account_browser_task": "passed with fictional sources",
+  "claude_four_account_browser_task": "passed with fictional sources",
+  "private_browser_authentication_completed": false,
+  "physical_sms_delivery_validated": false,
+  "private_mailbox_delivery_validated": false,
+  "production_ready": false,
+  "limits": [
+    "Real verification-source enrollment remains required",
+    "Physical phone and private mailbox validation remains outstanding",
+    "Same-user unrestricted agents are not isolated from owner credentials",
+    "Mac notarization remains pending"
+  ]
+}

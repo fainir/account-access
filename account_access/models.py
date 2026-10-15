@@ -81,6 +81,18 @@ class OAuthAccount(StrictModel):
         return self
 
 
+class LoginFactor(StrictModel):
+    code_selector: str = Field(min_length=1)
+    code_submit_selector: str = Field(min_length=1)
+    code_source: Handle
+
+
+class LoginChoice(StrictModel):
+    kind: Literal["email", "sms", "totp"]
+    selector: str = Field(min_length=1)
+    url: str
+
+
 class LoginForm(StrictModel):
     username_selector: str
     password_selector: str
@@ -90,6 +102,32 @@ class LoginForm(StrictModel):
     code_source: Handle | None = None
     code_wait_ms: int = Field(default=60000, ge=5000, le=120000)
     login_only: Literal[True] = True
+    factors: dict[Literal["email", "sms", "totp"], LoginFactor] = Field(default_factory=dict)
+    choices: list[LoginChoice] = Field(default_factory=list, max_length=3)
+
+    @model_validator(mode="after")
+    def one_factor_configuration(self):
+        if self.factors and any([self.code_source, self.code_selector, self.code_submit_selector]):
+            raise ValueError("Use per-method factors or the legacy single source, never both")
+        if len({choice.kind for choice in self.choices}) != len(self.choices):
+            raise ValueError("Configure each verification choice once")
+        return self
+
+    def sources(self):
+        return ({factor.code_source for factor in self.factors.values()} if self.factors
+                else {self.code_source} if self.code_source else set())
+
+    def factor(self, kind):
+        if self.factors:
+            return self.factors.get(kind)
+        if self.code_source and self.code_selector and self.code_submit_selector:
+            return LoginFactor(code_source=self.code_source, code_selector=self.code_selector,
+                               code_submit_selector=self.code_submit_selector)
+        return None
+
+    def authenticator_source(self, config):
+        factor = self.factor("totp")
+        return factor.code_source if factor and config.code_sources[factor.code_source].kind == "totp" else None
 
 
 class BrowserAccount(StrictModel):
@@ -99,7 +137,7 @@ class BrowserAccount(StrictModel):
     ready_selector: str
     login: LoginForm | None = None
     challenge_selectors: dict[Literal["login", "sms", "email", "totp", "device", "passkey",
-                                     "admin", "action", "unknown"], str] = Field(default_factory=dict)
+                                     "admin", "action", "unknown", "method"], str] = Field(default_factory=dict)
     # Exact URLs, including query strings. GET alone does not prove a URL is read-only.
     read_resources: list[str] = Field(default_factory=list, max_length=100)
     login_resources: list[str] = Field(default_factory=list, max_length=100)
@@ -107,21 +145,6 @@ class BrowserAccount(StrictModel):
     javascript: bool = False
     state_timeout_ms: int = Field(default=5000, ge=0, le=15000)
     operations: dict[Handle, BrowserOperation] = Field(min_length=1)
-
-
-class GitHubIdentityOperation(StrictModel):
-    kind: Literal["github_identity"] = "github_identity"
-    description: Literal["Confirm the signed-in GitHub username"] = "Confirm the signed-in GitHub username"
-
-
-class GitHubCLIAccount(StrictModel):
-    kind: Literal["github_cli"] = "github_cli"
-    label: str = Field(min_length=1, max_length=100)
-    executable: str = Field(min_length=1, max_length=1024)
-    executable_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    user_id: int = Field(gt=0)
-    login: str = Field(pattern=r"^[a-zA-Z0-9][a-zA-Z0-9-]{0,38}$")
-    operations: dict[Literal["status"], GitHubIdentityOperation] = Field(min_length=1, max_length=1)
 
 
 class CodeSource(StrictModel):
@@ -150,7 +173,7 @@ class CodeSource(StrictModel):
 class Configuration(StrictModel):
     version: Literal[1] = 1
     test_mode: bool = False
-    accounts: dict[Handle, Annotated[OAuthAccount | BrowserAccount | GitHubCLIAccount, Field(discriminator="kind")]]
+    accounts: dict[Handle, Annotated[OAuthAccount | BrowserAccount, Field(discriminator="kind")]]
     code_sources: dict[Handle, CodeSource] = Field(default_factory=dict)
 
     @model_validator(mode="after")
@@ -160,13 +183,23 @@ class Configuration(StrictModel):
                 urls = [account.authorization_url, account.token_url, *account.api_origins]
                 if account.revoke_url:
                     urls.append(account.revoke_url)
-            elif isinstance(account, BrowserAccount):
-                urls = [account.login_url, *account.read_resources, *account.login_resources, *account.login_post_urls]
-                if account.login and account.login.code_source not in self.code_sources and account.login.code_source:
-                    raise ValueError("Unknown login code source")
             else:
-                urls = []
-            urls.extend(op.url for op in account.operations.values() if hasattr(op, "url"))
+                urls = [account.login_url, *account.read_resources, *account.login_resources, *account.login_post_urls]
+                if account.login:
+                    if not account.login.sources() <= self.code_sources.keys():
+                        raise ValueError("Unknown login code source")
+                    kinds = {"totp": {"totp"}, "email": {"imap", "gmail"},
+                             "sms": {"twilio", "mac_messages", "phone_relay"}}
+                    for kind, factor in account.login.factors.items():
+                        if self.code_sources[factor.code_source].kind not in kinds[kind]:
+                            raise ValueError("Verification method and source kind must match")
+                    for choice in account.login.choices:
+                        factor = account.login.factor(choice.kind)
+                        if (not factor or choice.url not in account.login_resources
+                                or origin(choice.url) != origin(account.login_url)
+                                or self.code_sources[factor.code_source].kind not in kinds[choice.kind]):
+                            raise ValueError("Verification choices require a matching source and reviewed login URL")
+            urls.extend(op.url for op in account.operations.values())
             for url in urls:
                 validate_url(url, self.test_mode)
         for source in self.code_sources.values():
@@ -186,6 +219,10 @@ class Configuration(StrictModel):
     def fingerprint(self, account: str) -> str:
         data = self.accounts[account].model_dump()
         if isinstance(self.accounts[account], BrowserAccount) and data.get("login"):
+            if not data["login"].get("factors"):
+                data["login"].pop("factors", None)
+            if not data["login"].get("choices"):
+                data["login"].pop("choices", None)
             if data["login"].get("code_wait_ms") == 60000:
                 data["login"].pop("code_wait_ms", None)
         if isinstance(self.accounts[account], BrowserAccount):
@@ -195,6 +232,9 @@ class Configuration(StrictModel):
                 if self.code_sources[form.code_source].kind != "imap":
                     data["code_source_config"].pop("host", None)
                     data["code_source_config"].pop("port", None)
+            if form and form.factors:
+                data["code_source_configs"] = {key: self.code_sources[key].model_dump()
+                                               for key in sorted(form.sources())}
         data["test_mode"] = self.test_mode
         return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
 

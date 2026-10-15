@@ -19,13 +19,15 @@ or physical-device coverage.
   connection to Authenticator cloud sync.
 - Verification setup reports the result of the website sign-in check. Saving a
   password or key alone does not mark the website connected.
-- An optional GitHub connection reuses the installed, already signed-in GitHub
-  CLI for one fixed identity read. The owner reviews the account and read before
-  connecting. The adapter checks the executable checksum and expected GitHub
-  identity on use, drops inherited token/debug/host settings, bounds execution
-  time and output, and never invokes a token-export command. A changed binary
-  or identity requires review. This does not establish a browser session or
-  support arbitrary GitHub operations.
+- Browser connectors can bind separate email, SMS and authenticator sources to
+  the same account. A browser regression completes all three after one password
+  submission, checks session reuse, and confirms that a repeated code challenge
+  or payment approval stops safely. Those message sources are fictional TLS
+  IMAP and Messages fixtures; real delivery remains a separate gate.
+- Optional verification-method pickers use exact reviewed GET links to enrolled
+  sources. Changed links, missing enrollment and mandatory presence stop safely.
+  The owner can review a GitHub sign-in-routing repair without importing its
+  password again or expanding the approved operations or login POST destinations.
 - Owner troubleshooting records fixed public route words and masks every other
   path segment. It does not record hostnames, query values, credentials or page
   contents, and it does not broaden network allowlists.
@@ -41,7 +43,7 @@ or physical-device coverage.
 | iPhone SMS | Narrow signed Messages helper and message-selection fixtures | Owner-granted Mac privacy permission and real forwarded SMS delivery QA |
 | Android SMS | Emulator notification → pinned relay → browser verification | Physical Android pairing, notification delivery and reconnect QA |
 | Authenticator app | Setup-key and transfer-import browser recovery tests | Owner-approved real authenticator export and provider login QA |
-| Passkey/security key | Real private browser sign-in identified the WebAuthn route; existing GitHub CLI authorization works independently | Trusted browser-session path or approved provider authorization for the requested operation; genuine device presence when required |
+| Passkey/security key | Real private browser sign-in identified a WebAuthn route | A reviewed browser route to an available email/SMS/authenticator method, or genuine owner presence when the provider requires it |
 | Automatic agent discovery | Installed skill/CLI used in Codex and Claude Code sessions | Re-run both against each completed private connection; broader host matrix |
 | Credential isolation | Separate owner/agent APIs, encryption, scoped operations and fail-closed routing | Broker under a separate OS identity/host with a trusted enrollment channel; unrestricted same-user agents are not isolated |
 | Open-source trust | Public MIT repository, CI, contribution guide, private vulnerability reporting enabled | Independent security review, release provenance and published production acceptance results |
@@ -53,6 +55,10 @@ cookies out of public artifacts. Publish sanitized coverage and failure classes.
 Use read-only account checks. Preserve blocked task IDs rather than repeatedly
 creating new sign-ins. Test revocation, session expiry, account switching and
 recovery as well as the successful path.
+
+Use the website's email/username and password followed by its actual login
+verification methods. Another application's existing authorization is not proof
+that these browser authentication flows work.
 
 A provider-requested passkey, phone unlock, biometric or administrator approval
 must be completed through its genuine owner flow. Initial enrollment can require

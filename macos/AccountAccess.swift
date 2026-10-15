@@ -62,6 +62,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     var sources: [[String: Any]] = []
     var passwordSync: [[String: Any]] = []
     var navigationFailures: [[String: Any]] = []
+    var browserUpdates: [[String: Any]] = []
     var syncAccounts: NSPopUpButton!
     var syncFields: [String: NSTextField] = [:]
     var automaticSessions: [String: [String: Any]] = [:]
@@ -498,11 +499,6 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                         "unsupported_authenticator_settings": "This authenticator uses settings that are not supported yet. Six-digit SHA-1 TOTP is required.",
                         "authenticator_preview_expired": "The import preview expired. Choose the QR image again.",
                         "authenticator_selection_changed": "The connected account changed during the preview. Choose the QR image again and review the account.",
-                        "github_cli_not_installed": "GitHub CLI is not installed in a supported location. Install it from cli.github.com, sign in once, then return here.",
-                        "github_cli_login_required": "GitHub CLI needs its own sign-in first. Complete that vendor sign-in, then return here. Account Access will reuse its authorization without copying its token.",
-                        "github_cli_account_changed": "GitHub CLI is now signed into a different account. Review the existing GitHub connection before continuing.",
-                        "github_cli_installation_changed": "GitHub CLI was updated or replaced. Reconnect it here to review the installed tool and account.",
-                        "github_cli_preview_expired": "The GitHub connection preview expired. Choose the existing GitHub sign-in again.",
                         "password_sync_requires_https_origin": "Enter only the HTTPS server address, without a path or query.",
                         "invalid_password_sync_link": "Check the connection details. Vault and item IDs must be the exact 26-character IDs from 1Password."
                     ]
@@ -519,6 +515,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
 
     func accept(_ state: [String: Any]) {
         navigationFailures = state["navigation_failures"] as? [[String: Any]] ?? []
+        browserUpdates = state["browser_updates"] as? [[String: Any]] ?? []
         passwordSync = state["password_sync"] as? [[String: Any]] ?? []
         catalog = state["catalog"] as? [[String: Any]] ?? []
         accounts = state["accounts"] as? [[String: Any]] ?? []
@@ -552,7 +549,6 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         let connected = accounts.filter { $0["connected"] as? Bool == true && $0["portable_ready"] as? Bool != false }
         page("Connect an account", "Choose a supported account and approve its reads. You only do this once.")
         primary("Import saved passwords", #selector(importPasswords))
-        action("Use existing GitHub CLI sign-in", #selector(previewGitHubCLI))
         let available = catalog.filter { entry in
             entry["id"] as? String == selectedAccount || !connected.contains { $0["account"] as? String == entry["id"] as? String }
         }
@@ -606,42 +602,6 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         if !connected.isEmpty { action("Start using my connected accounts", #selector(showReady)) }
         label("Included examples use public testing sites: SauceDemo and The Internet. Other websites require reviewed connectors.", 13, .secondaryLabelColor)
         connectionInputChanged()
-    }
-
-    @objc func previewGitHubCLI() {
-        guard !busy else { return }
-        busy = true
-        page("Checking your existing GitHub sign-in", "Uses GitHub's installed CLI for a read-only identity check. No token is copied. You will review the account before connecting it to your AI.")
-        progress()
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                let preview = try self.request("owner/github-cli/preview", body: [:])
-                DispatchQueue.main.async {
-                    self.busy = false
-                    self.reviewGitHubCLI(preview)
-                }
-            } catch { self.fail(error, retry: #selector(self.previewGitHubCLI)) }
-        }
-    }
-
-    func reviewGitHubCLI(_ preview: [String: Any]) {
-        guard let ident = preview["id"] as? String, let login = preview["login"] as? String else { return }
-        let alert = NSAlert()
-        alert.messageText = "Connect GitHub · " + login + "?"
-        alert.informativeText = "Allow your AI tools to confirm this signed-in GitHub username. Account Access uses the already authorized GitHub CLI for that fixed read only. It cannot choose another command through this connection. No token is imported, and this does not sign a web browser in."
-        alert.addButton(withTitle: "Connect and approve this read")
-        alert.addButton(withTitle: "Cancel")
-        guard alert.runModal() == .alertFirstButtonReturn else { connections(); return }
-        busy = true
-        page("Connecting GitHub", "Checking that the tool and GitHub account still match your approval…")
-        progress()
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                _ = try self.request("owner/github-cli/apply", body: ["id": ident])
-                let state = try self.request("owner/state")
-                DispatchQueue.main.async { self.busy = false; self.accept(state); self.ready() }
-            } catch { self.fail(error, retry: #selector(self.previewGitHubCLI)) }
-        }
     }
 
     @objc func serviceChanged() {
@@ -1224,6 +1184,11 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 body.addArrangedSubview(details)
             }
             if !allowed || !active || pending {
+                if browserUpdates.contains(where: { $0["account"] as? String == account["account"] as? String }) {
+                    let update = NSButton(title: "Update sign-in connection", target: self, action: #selector(updateBrowserConnection))
+                    update.identifier = NSUserInterfaceItemIdentifier(account["account"] as? String ?? "")
+                    body.addArrangedSubview(update)
+                }
                 let repair = NSButton(title: allowed ? "Reconnect" : "Review access", target: self, action: #selector(reviewAccount))
                 repair.identifier = NSUserInterfaceItemIdentifier(account["account"] as? String ?? "")
                 body.addArrangedSubview(repair)
@@ -1248,6 +1213,26 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
 
     @objc func reviewAccount(_ sender: NSButton) { selectedAccount = sender.identifier?.rawValue; connections() }
+
+    @objc func updateBrowserConnection(_ sender: NSButton) {
+        guard let account = sender.identifier?.rawValue,
+              let update = browserUpdates.first(where: { $0["account"] as? String == account }),
+              let fingerprint = update["fingerprint"] as? String else { return }
+        let alert = NSAlert()
+        alert.messageText = "Update this website's sign-in connection?"
+        alert.informativeText = "Add GitHub's verification-method page so Account Access can select its offered authenticator-app link. The approved reads, login POST destinations, connected verification source and agent permissions stay the same."
+        alert.addButton(withTitle: "Update connection")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        busy = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                _ = try self.request("owner/browser-update", body: ["account": account, "fingerprint": fingerprint])
+                let state = try self.request("owner/state")
+                DispatchQueue.main.async { self.busy = false; self.accept(state); self.ready() }
+            } catch { self.fail(error, retry: #selector(self.showReady)) }
+        }
+    }
 
     func navigationFailureMessage(_ reason: String) -> String {
         let fields = reason.components(separatedBy: ":")

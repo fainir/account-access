@@ -18,7 +18,7 @@ from .models import BrowserAccount
 
 def _bindings(config, source_id):
     return {key: config.fingerprint(key) for key, spec in config.accounts.items()
-            if isinstance(spec, BrowserAccount) and spec.login and spec.login.code_source == source_id}
+            if isinstance(spec, BrowserAccount) and spec.login and source_id in spec.login.sources()}
 
 
 def _fields(data):

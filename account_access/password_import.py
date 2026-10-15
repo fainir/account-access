@@ -81,8 +81,7 @@ def preview(store, contents):
         paths = {k: spec for k, spec in candidates.items()
                  if urlsplit(spec.login_url).path.rstrip("/") == target.path.rstrip("/")}
         matches = [{"id": k, "label": spec.label,
-                    "authenticator_supported": bool(spec.login and spec.login.code_source
-                        and config.code_sources[spec.login.code_source].kind == "totp"),
+                    "authenticator_supported": bool(spec.login and spec.login.authenticator_source(config)),
                     "operations": [{"name": n, "description": op.description}
                                    for n, op in spec.operations.items()]}
                    for k, spec in (exact or paths or candidates).items()]
@@ -147,7 +146,7 @@ def apply(broker, ident, selections, principals):
             if not isinstance(include, bool):
                 raise AccessError("DENIED", "invalid_import_selection")
             if include:
-                source_id = spec.login.code_source if spec.login else None
+                source_id = spec.login.authenticator_source(config) if spec.login else None
                 seed = rows[row].get("totp")
                 if not seed or not source_id or config.code_sources[source_id].kind != "totp":
                     raise AccessError("DENIED", "authenticator_import_not_supported")

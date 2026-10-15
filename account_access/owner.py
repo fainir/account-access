@@ -73,10 +73,8 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
             if isinstance(config, OAuthAccount):
                 from .cli import connect_oauth
                 connect_oauth(broker, account)
-            elif isinstance(config, BrowserAccount):
-                broker.browser.connect(account, complete=lambda page: page.locator(config.ready_selector).first.wait_for(state="visible", timeout=300000))
             else:
-                raise AccessError("NEEDS_USER", "github_cli_reconnect_in_owner", "login")
+                broker.browser.connect(account, complete=lambda page: page.locator(config.ready_selector).first.wait_for(state="visible", timeout=300000))
             try:
                 broker.tick()
             except AccessError as exc:
@@ -185,6 +183,8 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                          "environment": "controlled-demo" if config.test_mode else "live"}
                 from .password_sync import view
                 state["password_sync"] = view(broker.store)
+                from .browser_updates import view as browser_updates
+                state["browser_updates"] = browser_updates(broker.store)
                 if guided:
                     from .catalog import view
                     state["catalog"] = view()
@@ -201,7 +201,7 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                                           "enrolled": bool(broker.store.get("source:" + key)) and broker.store.get("source:" + key, {}).get("enabled") is not False,
                                           "accounts": [key2 for key2, spec in config.accounts.items()
                                                        if isinstance(spec, BrowserAccount) and spec.login
-                                                       and spec.login.code_source == key]}
+                                                       and key in spec.login.sources()]}
                                          for key, source in config.code_sources.items()]
                 self.send(200, state)
             else:
@@ -217,17 +217,11 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                 if not 0 < length <= limit:
                     raise ValueError()
                 data = json.loads(self.rfile.read(length))
-                if guided and self.path == "/owner/github-cli/preview":
-                    from .github_cli import preview
-                    if data != {}:
+                if guided and self.path == "/owner/browser-update":
+                    from .browser_updates import apply
+                    if set(data) != {"account", "fingerprint"}:
                         raise ValueError()
-                    self.send(200, preview(broker.store))
-                    return
-                if guided and self.path == "/owner/github-cli/apply":
-                    from .github_cli import apply
-                    if set(data) != {"id"}:
-                        raise ValueError()
-                    self.send(200, apply(broker, data["id"]))
+                    self.send(200, apply(broker, data["account"], data["fingerprint"]))
                     return
                 if self.path == "/owner/authenticator/preview":
                     from .authenticator_import import preview

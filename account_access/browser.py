@@ -1,6 +1,7 @@
 """Bounded browser reads and owner-authorized login, using Playwright instead of a raw agent browser."""
 
 import time
+from contextlib import ExitStack
 from urllib.parse import urljoin, urlsplit
 
 from playwright.sync_api import Error as PlaywrightError
@@ -100,7 +101,7 @@ class Browser:
 
     def challenge(self, page, config):
         # Action/presence challenges take priority, even if the page also has a ready marker.
-        for kind in ["action", "passkey", "device", "admin", "sms", "email", "totp", "unknown", "login"]:
+        for kind in ["action", "passkey", "device", "admin", "sms", "email", "totp", "method", "unknown", "login"]:
             selector = config.challenge_selectors.get(kind)
             if selector and page.locator(selector).first.is_visible():
                 return kind
@@ -113,12 +114,13 @@ class Browser:
         if not page.locator(config.ready_selector).first.is_visible():
             raise AccessError("NEEDS_USER", "browser_state_unrecognized", "unknown")
 
-    def wait_state(self, page, config, *, after_submit=False):
+    def wait_state(self, page, config, *, after_submit=False, previous_kind=None):
         """Wait for configured markers, including asynchronously rendered login responses."""
         deadline = time.monotonic() + config.state_timeout_ms / 1000
         while True:
             kind = self.challenge(page, config)
-            if kind and (not after_submit or kind != "login"):
+            prior = previous_kind or ("login" if after_submit else None)
+            if kind and kind != prior:
                 return
             if page.locator(config.ready_selector).first.is_visible():
                 return
@@ -183,14 +185,13 @@ class Browser:
             raise AccessError("RETRYABLE", "browser_execution_failed") from None
 
     def login(self, browser, account, config, state=None, *, secret_values=None, review_failure=None):
-        source = config.login.code_source
-        if source:
-            # Two simultaneous logins must never compete for the same inbox code.
-            with self.store.lock("code-login:" + source, timeout=0):
-                return self._login(browser, account, config, state, secret_values=secret_values,
-                                   review_failure=review_failure)
-        return self._login(browser, account, config, state, secret_values=secret_values,
-                           review_failure=review_failure)
+        # Lock in a stable order: accounts with several verification methods must
+        # not compete for a shared inbox/SMS delivery, or deadlock each other.
+        with ExitStack() as held:
+            for source in sorted(config.login.sources()):
+                held.enter_context(self.store.lock("code-login:" + source, timeout=0))
+            return self._login(browser, account, config, state, secret_values=secret_values,
+                               review_failure=review_failure)
 
     def _login(self, browser, account, config, state=None, *, secret_values=None, review_failure=None):
         from .password_sync import refresh
@@ -209,7 +210,8 @@ class Browser:
         self.store.put("login-attempt:" + account, time.time())
         context = self.context(browser, config, state, login=True, account=account)
         started = None
-        factor = None
+        completed = []
+        source_errors = {}
         try:
             page = context.new_page()
             page.goto(config.login_url, timeout=15000, wait_until="domcontentloaded")
@@ -224,25 +226,47 @@ class Browser:
             page.locator(form.username_selector).fill(credential["username"])
             page.locator(form.password_selector).fill(credential["password"])
             started = time.time()
-            if form.code_source:
-                self.codes.begin(form.code_source, account, started)
+            for source_id in sorted(form.sources()):
+                try:
+                    # Establish freshness before the password can trigger code
+                    # delivery. An unused alternative being offline must not
+                    # prevent a different, enrolled method from completing.
+                    self.codes.begin(source_id, account, started)
+                except AccessError as exc:
+                    if not form.factors:
+                        raise
+                    source_errors[source_id] = exc
             page.locator(form.submit_selector).click(timeout=10000)
             page.wait_for_load_state("domcontentloaded")
             self.wait_state(page, config, after_submit=True)
             kind = self.challenge(page, config)
-            if kind in {"action", "passkey", "device", "admin", "unknown"}:
-                raise AccessError("NEEDS_USER", "browser_" + kind + "_required", kind)
-            if kind in {"sms", "email", "totp"} and form.code_source and form.code_selector and form.code_submit_selector:
-                source = self.store.config().code_sources[form.code_source]
-                factor = kind
+            used_by_source = {}
+            choices_used = set()
+            while kind in {"sms", "email", "totp", "method"}:
+                if kind == "method":
+                    selected = self.choose_method(page, config, source_errors, set(completed) | choices_used)
+                    choices_used.add(selected)
+                    kind = self.challenge(page, config)
+                    if kind not in {selected, None, "action", "passkey", "device", "admin"}:
+                        raise AccessError("NEEDS_USER", "verification_method_changed", "unknown")
+                    continue
+                if kind in completed:
+                    raise AccessError("NEEDS_USER", "verification_code_rejected", kind)
+                factor = form.factor(kind)
+                if not factor:
+                    raise AccessError("NEEDS_USER", "browser_" + kind + "_required", kind)
+                source_id = factor.code_source
+                if source_id in source_errors:
+                    raise source_errors[source_id]
+                source = self.store.config().code_sources[source_id]
                 if source.kind not in {"sms": {"twilio", "mac_messages", "phone_relay"},
                                        "email": {"gmail", "imap"}, "totp": {"totp"}}[kind]:
                     raise AccessError("NEEDS_USER", "factor_type_changed", kind)
-                used = set()
+                used = used_by_source.setdefault(source_id, set())
                 code = None
                 deadline = time.monotonic() + min(form.code_wait_ms / 1000, max(0, started + 120 - time.time()))
                 while not code and time.monotonic() < deadline:
-                    code = self.codes.resolve(form.code_source, started, used)
+                    code = self.codes.resolve(source_id, started, used)
                     if not code:
                         time.sleep(1)
                 if not code:
@@ -251,20 +275,22 @@ class Browser:
                     secret_values.add(code)
                 # The page can change while an email/SMS delivery is pending.
                 # Recheck presence/action markers before putting a code into it.
-                if self.challenge(page, config) != factor:
+                if self.challenge(page, config) != kind:
                     raise AccessError("NEEDS_USER", "verification_page_changed", "unknown")
-                self.check_form(page, form.code_selector, config)
+                self.check_form(page, factor.code_selector, config)
                 # In-memory only, one submission, never put in logs or task state.
-                page.locator(form.code_selector).fill(code)
-                page.locator(form.code_submit_selector).click(timeout=10000)
+                page.locator(factor.code_selector).fill(code)
+                page.locator(factor.code_submit_selector).click(timeout=10000)
                 page.wait_for_load_state("domcontentloaded")
-                self.wait_state(page, config, after_submit=True)
+                self.wait_state(page, config, previous_kind=kind)
+                completed.append(kind)
+                kind = self.challenge(page, config)
             self.check(page, config)
             state = context.storage_state(indexed_db=True)
             self.save(account, state)
             self.store.resolve_login(account)
             self.store.audit("service", account, "", "login_recovered")
-            if factor:
+            for factor in completed:
                 self.store.audit("service", account, "", "login_factor_completed", factor)
             return state
         except AccessError:
@@ -272,9 +298,45 @@ class Browser:
                 review_failure(page)
             raise
         finally:
-            if started and config.login.code_source:
-                self.codes.finish(config.login.code_source, started)
+            if started:
+                for source_id in config.login.sources():
+                    self.codes.finish(source_id, started)
             context.close()
+
+    def choose_method(self, page, config, source_errors, excluded):
+        """Select only an offered, reviewed GET link to an enrolled login factor.
+
+        A connector marks an optional method picker explicitly. Presence and
+        transaction markers take priority over it in challenge(); mandatory
+        passkey/device/admin pages never enter this method.
+        """
+        setup = None
+        for choice in config.login.choices:
+            if choice.kind in excluded or not page.locator(choice.selector).first.is_visible():
+                continue
+            factor = config.login.factor(choice.kind)
+            source = self.store.config().code_sources[factor.code_source]
+            enrolled = self.store.get("source:" + factor.code_source) or {}
+            unavailable = source_errors.get(factor.code_source)
+            if unavailable:
+                setup = setup or unavailable
+                continue
+            if not enrolled or enrolled.get("enabled") is False or (source.kind == "totp" and not enrolled.get("seed")):
+                setup = setup or AccessError("NEEDS_USER", "authenticator_not_enrolled" if source.kind == "totp"
+                                            else "verification_source_not_connected", choice.kind)
+                continue
+            if page.url not in {config.login_url, *config.login_resources}:
+                raise AccessError("NEEDS_USER", "login_destination_changed", "unknown")
+            actual = page.locator(choice.selector).first.evaluate("el => el.tagName === 'A' ? el.href : null")
+            if actual != choice.url or self.challenge(page, config) != "method":
+                raise AccessError("NEEDS_USER", "verification_method_destination_changed", "unknown")
+            page.locator(choice.selector).first.click(timeout=10000)
+            page.wait_for_load_state("domcontentloaded")
+            self.wait_state(page, config, previous_kind="method")
+            return choice.kind
+        if setup:
+            raise setup
+        raise AccessError("NEEDS_USER", "verification_method_unavailable", "unknown")
 
     def check_form(self, page, selector, config):
         if page.url not in {config.login_url, *config.login_resources}:

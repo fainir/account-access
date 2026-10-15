@@ -70,6 +70,8 @@ def launch(root, *, key_file=None, open_browser=True, on_demand=False):
                 pass
             info = None
         if not info:
+            from .upgrade import retire_development_routes
+            retire_development_routes(store)
             if not (root / "config.json").exists():
                 store.configure(Configuration(accounts={}))
             if len(str(root / "service.sock").encode()) >= 104:

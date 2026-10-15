@@ -13,7 +13,9 @@ sh macos/build.sh
 
 For Developer ID signing, set `ACCOUNT_ACCESS_SIGNING_IDENTITY` to your own certificate name before building. The app and ZIP are written to `dist/macos/`.
 
-Build the wheel first: its SHA-256 is embedded in the app's signed bundle. Installation verifies that pin as well as the downloaded manifest before executing the package. Rebuild the app if the wheel changes. This pin covers the Account Access wheel; runtime dependency installation still relies on the configured package registry.
+Build the wheel first: the wheel and its SHA-256 are embedded in the app's signed bundle. Installation verifies that pin before installing the bundled package. The standalone shell path downloads the package and checks its manifest; when a signed-app pin is supplied, it checks that too. Rebuild the app if the wheel changes. This pin covers the Account Access wheel; Python, runtime dependencies and Chromium can still require network downloads, and dependency installation relies on the configured package registry.
+
+The 0.8 candidate adds **Repair installation…** to the app menu. Installation explicitly stops and restarts the background service after replacing the package, including a repair with an unchanged version number. Credentials, grants and task checkpoints are preserved. The candidate also includes local Authenticator transfer-QR selection for browser verification. These are not evidence of completed physical-device or private mailbox QA; see [production acceptance](../docs/production-gates.md).
 
 Public Mac distribution needs Apple notarization as well as signing. The current recorded build is Developer ID signed and works locally; notarization remains pending because the configured Xcode account could not authenticate. A public preview download can therefore be blocked by Gatekeeper. The recording demonstrates the actual graphical build, rather than the older `.command` launcher.
 

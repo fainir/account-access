@@ -65,5 +65,10 @@ import Foundation
         precondition(owner.factorFields["seed"] is NSSecureTextField)
         precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Import authenticator QR image"))
         print("PASS: authenticator setup masks keys and accepts only a single setup or transfer QR")
+        owner.browserUpdates = [["account": "fixture", "fingerprint": "fictional"]]
+        owner.ready()
+        views = descendants(owner.stack)
+        precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Update sign-in connection"))
+        print("PASS: reviewed sign-in repairs are available without entering the password again")
     }
 }

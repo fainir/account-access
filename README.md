@@ -9,7 +9,9 @@ Account Access is a local authentication and delegated-access service for **Code
 
 **Status: 0.7.4 preview.** The included examples are usable today. Real websites require reviewed connectors; this is not an “add any website” consumer app or validated production access to banks, Google, Meta or insurance accounts.
 
-This development branch contains the **0.8 candidate**: local Google Authenticator transfer import, an optional existing GitHub CLI sign-in connection, and a bundled-package installer with explicit service restart on repair. These changes are under validation; the download below remains the published 0.7.4 preview. See [production acceptance and remaining gates](docs/production-gates.md).
+This development branch contains the **0.8 candidate**: local Google Authenticator transfer import and a bundled-package installer with explicit service restart on repair. These changes are under validation; the download below remains the published 0.7.4 preview. See [production acceptance and remaining gates](docs/production-gates.md).
+
+The browser sign-in flow uses the imported email/username and password, then supplies the website's email, SMS or authenticator login code from its connected source. A reviewed connector can configure all three methods for one website, including successive verification steps. This is the authentication flow being tested; using another application's existing login is not browser-authentication evidence.
 
 ![Account dashboard with approved reads and automatic session integration](docs/account-dashboard.png)
 
@@ -66,13 +68,11 @@ Email support depends on the provider exposing IMAP or the configured Gmail OAut
 
 Mac Full Disk Access and Android notification access are broader OS permissions than the app's own sender/template filters. The service consumes codes only within an active login window and rejects stale, duplicated or ambiguous messages. Passwords, cookies and codes are not returned through the agent API. Code sources can be disabled in owner setup.
 
+The 0.8 candidate supports separate reviewed sources and form selectors for email, SMS and authenticator verification on the same account. It handles the methods actually presented by the website and can complete successive distinct challenges. A repeated challenge stops after one code submission; a payment, device, passkey or administrator requirement is not treated as another login-code form. See the [connector configuration example](examples/browser-verification.json).
+
+When a website offers a choice, its connector can select a reviewed link to an enrolled verification method automatically. It checks the exact link before following it. A mandatory device approval still pauses. The owner app also offers a narrow sign-in-routing repair for the existing GitHub pilot, preserving its approved reads and login POST destinations.
+
 Close the setup app when finished; your AI can start the saved local service when needed, including after a restart. Your computer must be awake and its secure keyring available. Use **Manage accounts and verification** to reconnect or revoke access.
-
-### Reuse an existing GitHub CLI sign-in (0.8 candidate)
-
-If [GitHub CLI](https://cli.github.com/) is already installed and signed in, open **Add account → Use existing GitHub CLI sign-in**. Review the displayed GitHub account and approve **Confirm the signed-in GitHub username**. Then ask your agent to check the connected GitHub identity. The same portable skill handles this route in Codex, Claude Code and other compatible agents.
-
-Account Access uses one fixed read command. It never extracts or saves the CLI token, changes the active CLI account, or signs a browser in. A changed CLI executable or account pauses this connection for owner review. This is useful when the existing vendor authorization can satisfy the task without another browser passkey prompt; it does not bypass a required passkey or add repository access.
 
 ## Watch the 85-second explainer
 

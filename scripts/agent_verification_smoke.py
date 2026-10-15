@@ -88,7 +88,14 @@ def check(agent, workspace, codex_model=None):
                                    "--no-session-persistence", "--", prompt]
                     else:
                         command = [shutil.which("codex"), "exec", "--ephemeral", "--skip-git-repo-check", "--json",
-                                   "-C", str(workspace)]
+                                   "--strict-config", "-C", str(workspace),
+                                   "-c", 'default_permissions="account_access_qa"',
+                                   "-c", 'permissions.account_access_qa.extends=":workspace"',
+                                   "-c", "features.network_proxy=true",
+                                   "-c", "permissions.account_access_qa.network.enabled=true",
+                                   "-c", "permissions.account_access_qa.network.domains={}",
+                                   "-c", "permissions.account_access_qa.network.unix_sockets={"
+                                   + json.dumps(str(root / "service.sock")) + '="allow"}']
                         if codex_model:
                             command += ["--model", codex_model]
                         command.append(prompt)
@@ -104,7 +111,9 @@ def check(agent, workspace, codex_model=None):
                     expected = set(broker.store.config().accounts)
                     complete = any(task["status"] == "COMPLETED" and
                                    {row["account"] for row in task["results"]} == expected for task in tasks)
-                    used_project_launcher = str(destination / "account-access/scripts/access") in result.stdout
+                    skill = str(destination / "account-access")
+                    used_project_launcher = (skill + "/scripts/access" in result.stdout or
+                                             (skill in result.stdout and "./scripts/access " in result.stdout))
                     passed = (result.returncode == 0 and complete and used_project_launcher
                               and provider.login_count == 4 and provider.email_count == 1
                               and provider.sms_count == 1 and provider.totp_count == 1 and mailbox.fetches >= 1)
@@ -113,10 +122,12 @@ def check(agent, workspace, codex_model=None):
                               "elapsed_seconds": round(time.monotonic() - started, 2),
                               "ordinary_prompt_without_skill_or_command": True,
                               "used_project_launcher": used_project_launcher,
+                              "launcher_verification": "absolute launcher path, or project skill directory with relative launcher",
                               "completed_four_account_task": complete,
                               "password_logins": provider.login_count, "email_verifications": provider.email_count,
                               "sms_verifications": provider.sms_count, "totp_verifications": provider.totp_count,
                               "mailbox_fetches": mailbox.fetches,
+                              "codex_fixture_socket_only_profile": agent == "codex",
                               "limits": ["Fictional accounts only", "TLS IMAP fixture, Messages database fixture",
                                          "Authenticator transfer import uses a fictional key", "No physical phone or private mailbox validation"]}
                     destination = Path("artifacts/agent-tests") / (agent + "-verification-080.json")
