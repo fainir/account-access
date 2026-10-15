@@ -184,6 +184,8 @@ The worker preserves completed steps, retries temporary failures with backoff, a
 
 Version 0.7.4 exposes those redacted navigation diagnostics in the authenticated owner app. A stopped account gets a plain-language explanation and an optional technical-details action. Only the fixed diagnostic format is returned; arbitrary audit text is excluded, and service diagnostics remain outside agent audit responses.
 
+For 0.7.4, **93 Python tests**, native macOS UI checks and the Android emulator journey passed in CI. The signed update was installed through the graphical updater, and the actual owner diagnostic screen and detail dialog were checked. Both installed agent CLIs preserved an existing blocked private task using ordinary requests. A private provider redirect remained outside the reviewed flow; private sign-in and live mailbox/physical-phone delivery are still unvalidated. See the [sanitized installation and test evidence](artifacts/reinstall-074.json).
+
 Version 0.7.3 adds bounded navigation-failure diagnostics for troubleshooting. The audit identifies a transport/HTTP failure or a blocked redirect and whether it matches an already configured resource path. It records a numeric resource index and query-presence flag, with no raw URL, query value, page text, headers, cookies or credentials. The destination allowlist remains enforced.
 
 Version 0.7.2 keeps the import result visible when a website check fails instead of silently returning to an empty connection form. It refreshes the account state after verification, distinguishes a saved password from a verified connection, and adds an owner-only visible sign-in check. Normal agent reads remain headless, and the same destination and credential-entry protections apply in the visible check.

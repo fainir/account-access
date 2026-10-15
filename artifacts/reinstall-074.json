@@ -1,0 +1,20 @@
+{
+  "release": "0.7.4",
+  "date": "2026-10-15",
+  "source_revision": "5c93e8eb60dbc8dc22effe51936c55b0e483e33d",
+  "python_tests_passed": 93,
+  "native_ui_checks": "passed locally and in macOS CI",
+  "core_and_native_ci": "https://github.com/fainir/account-access/actions/runs/38724142878",
+  "android_emulator_ci": "https://github.com/fainir/account-access/actions/runs/38724142755",
+  "dependency_audit": "No known third-party vulnerabilities; local project not on PyPI is skipped",
+  "release_assets": "All five assets matched local SHA-256 and size; private work and raw traces excluded from source archive",
+  "mac_app": "Universal Developer ID signed; strict installed signature verification and signed wheel pin passed; notarization pending",
+  "graphical_update": "Installed through the actual Update Account Access button",
+  "owner_diagnostics": "Stopped account dashboard and optional redacted detail dialog visually verified",
+  "agent_integration": "Both installed CLIs used the launcher and preserved an existing blocked private task; this is not private sign-in success",
+  "private_login_validated": false,
+  "private_mailbox_or_physical_phone_validated": false,
+  "coverage_limit": "An imported password does not establish authenticated access. A provider redirect outside reviewed destinations remains blocked.",
+  "os_isolation": "Not established against unrestricted same-user processes",
+  "private_account_identifiers_or_content_in_report": false
+}
