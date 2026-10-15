@@ -195,10 +195,10 @@ class Configuration(StrictModel):
                             raise ValueError("Verification method and source kind must match")
                     for choice in account.login.choices:
                         factor = account.login.factor(choice.kind)
-                        if (not factor or choice.url not in account.login_resources
+                        if (choice.url not in account.login_resources
                                 or origin(choice.url) != origin(account.login_url)
-                                or self.code_sources[factor.code_source].kind not in kinds[choice.kind]):
-                            raise ValueError("Verification choices require a matching source and reviewed login URL")
+                                or (factor and self.code_sources[factor.code_source].kind not in kinds[choice.kind])):
+                            raise ValueError("Verification choices require a reviewed login URL and any configured source must match")
             urls.extend(op.url for op in account.operations.values())
             for url in urls:
                 validate_url(url, self.test_mode)

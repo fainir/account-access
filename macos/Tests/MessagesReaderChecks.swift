@@ -20,6 +20,10 @@ import CryptoKit
   precondition(sqlite3_open(path, &db) == SQLITE_OK)
   defer { sqlite3_close(db) }
   precondition(sqlite3_exec(db, "CREATE TABLE handle(id TEXT); INSERT INTO handle VALUES('Example'); INSERT INTO handle VALUES('Other'); CREATE TABLE message(guid TEXT, text TEXT, attributedBody BLOB, handle_id INTEGER, is_from_me INTEGER, date INTEGER);", nil, nil, nil) == SQLITE_OK)
+  precondition(MessagesReader.hasAccess(path: path))
+  let missing = root.appendingPathComponent("missing.db").path
+  precondition(!MessagesReader.hasAccess(path: missing))
+  precondition(!FileManager.default.fileExists(atPath: missing))
   let now = Date().timeIntervalSince1970
   let date = Int64((now - 978307200) * 1_000_000_000)
   let rows = "INSERT INTO message VALUES('valid','Example [login]: 123456',NULL,1,0,\(date)); INSERT INTO message VALUES('payment','Payment: 654321',NULL,1,0,\(date)); INSERT INTO message VALUES('outgoing','Example [login]: 654321',NULL,1,1,\(date)); INSERT INTO message VALUES('wrong-sender','Example [login]: 654321',NULL,2,0,\(date)); INSERT INTO message VALUES('old','Example [login]: 654321',NULL,1,0,\(date - 300_000_000_000));"
@@ -46,6 +50,6 @@ import CryptoKit
   request["used"] = []
   let ambiguous = MessagesReader.read(try payload(), path: path)
   precondition(ambiguous["reason"] as? String == "ambiguous_login_code" && ambiguous["code"] == nil)
-  print("PASS: signed request authentication, literal template, sender/time/incoming filters, used-message exclusion, attributed SMS text, ambiguity protection")
+  print("PASS: no-row permission probe, signed request authentication, literal template, sender/time/incoming filters, used-message exclusion, attributed SMS text, ambiguity protection")
  }
 }

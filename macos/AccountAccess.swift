@@ -673,6 +673,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 if reason == "mac_messages_permission_required" {
                     throw Failure.message("macOS has not allowed access to Messages. Enable iPhone text forwarding and grant the Account Access app Full Disk Access in Privacy settings, then retry this saved sign-in.")
                 }
+                if reason.contains("verification_method_unavailable") {
+                    throw Failure.message("This website did not offer a connected verification method. Connect a method that is available on its sign-in page. Your imported password is already saved.")
+                }
                 if reason.contains("authenticator") || reason.contains("mailbox") || reason.contains("code_not_received") || reason.contains("verification_source") {
                     throw Failure.message("This login needs its verification method connected. Open Verification methods to enroll the authenticator, reconnect email, or check phone access. Your imported password is already saved.")
                 }
@@ -1066,6 +1069,15 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     @objc func saveFactor() {
         guard let source = factorMenu.selectedItem?.representedObject as? [String: Any], let id = source["id"] as? String else { return }
         let kind = source["kind"] as? String ?? ""
+        if kind == "mac_messages" && !MessagesReader.hasAccess() {
+            let alert = NSAlert()
+            alert.messageText = "Allow Messages access first"
+            alert.informativeText = "Open Full Disk Access, turn on Account Access, and approve the macOS prompt with Touch ID or your Mac login password. Return here and connect verification again. No website sign-in has been started."
+            alert.addButton(withTitle: "Open privacy settings")
+            alert.addButton(withTitle: "Cancel")
+            if alert.runModal() == .alertFirstButtonReturn { openMessagePrivacy() }
+            return
+        }
         var credential: [String: Any] = factorFields.mapValues { $0.stringValue }
         if kind == "mac_messages" { credential = ["enabled": true] }
         let linked = source["accounts"] as? [String] ?? []
@@ -1220,7 +1232,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
               let fingerprint = update["fingerprint"] as? String else { return }
         let alert = NSAlert()
         alert.messageText = "Update this website's sign-in connection?"
-        alert.informativeText = "Add GitHub's verification-method page so Account Access can select its offered authenticator-app link. The approved reads, login POST destinations, connected verification source and agent permissions stay the same."
+        alert.informativeText = "Recognize GitHub's offered SMS and authenticator choices and allow its SMS confirmation page to be viewed. Only an already-connected method can be selected automatically. The approved reads, login POST destinations, connected verification sources and agent permissions stay the same."
         alert.addButton(withTitle: "Update connection")
         alert.addButton(withTitle: "Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else { return }

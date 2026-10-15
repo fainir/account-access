@@ -240,3 +240,18 @@ def test_unenrolled_choice_requests_local_setup_without_reading_a_code(chain):
     result = broker.run("test", "demo-mfa", "summary")
     assert result["reason"] == "authenticator_not_enrolled"
     assert provider.totp_count == 0
+
+
+def test_offered_method_without_a_configured_source_requests_its_own_setup(chain):
+    provider, broker, _, stages = chain
+    stages[:] = ["choose", "totp"]
+    choices(broker, provider)
+    config = broker.store.config()
+    del config.accounts["demo-mfa"].login.factors["totp"]
+    broker.store.configure(Configuration.model_validate(config.model_dump()))
+    broker.grant("test", "demo-mfa", ["summary"])
+    result = broker.run("test", "demo-mfa", "summary")
+    assert result["status"] == "NEEDS_USER"
+    assert result["reason"] == "verification_source_not_connected"
+    assert result["challenge"]["kind"] == "totp"
+    assert provider.totp_count == provider.sms_count == provider.email_count == 0

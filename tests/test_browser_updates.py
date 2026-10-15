@@ -39,8 +39,12 @@ def test_reviewed_login_repair_preserves_read_scope_recipients_and_expiry(env):
     spec = updated.accounts["github-pilot"]
     assert spec.operations == before.operations and spec.read_resources == before.read_resources
     assert spec.login_post_urls == before.login_post_urls and spec.login.sources() == before.login.sources()
-    assert set(spec.login_resources) - set(before.login_resources) == {browser_updates.METHOD_PAGE}
+    assert set(spec.login_resources) - set(before.login_resources) == {browser_updates.METHOD_PAGE, browser_updates.SMS_PAGE}
+    assert browser_updates.SMS_LINK in spec.challenge_selectors["method"]
+    assert browser_updates.SMS_PAGE not in spec.login_post_urls
     assert spec.login.choices[0].url == browser_updates.APP_PAGE
+    assert spec.login.choices[1].kind == "sms" and spec.login.factor("sms") is None
+    assert spec.login.factor("totp").code_source == before.login.code_source
     assert broker.store.get("credential:github-pilot")["password"] == "fictional-password"
     assert broker.store.get("connection:github-pilot")["fingerprint"] == updated.fingerprint("github-pilot")
     with broker.store.db() as db:

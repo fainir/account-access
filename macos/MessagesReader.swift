@@ -4,6 +4,34 @@ import SQLite3
 import CryptoKit
 
 struct MessagesReader {
+    static func messagesPath() -> String? {
+        guard let user = getpwuid(getuid()) else { return nil }
+        return URL(fileURLWithPath: String(cString: user.pointee.pw_dir))
+            .appendingPathComponent("Library/Messages/chat.db").path
+    }
+
+    static func hasAccess(path: String) -> Bool {
+        // Probe the required schema without reading any message row, sender,
+        // body or code. SQLITE_OPEN_READONLY also prevents creating a missing DB.
+        var db: OpaquePointer?
+        guard sqlite3_open_v2(path, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else {
+            if db != nil { sqlite3_close(db) }
+            return false
+        }
+        defer { sqlite3_close(db) }
+        sqlite3_busy_timeout(db, 1000)
+        var statement: OpaquePointer?
+        let sql = "SELECT message.guid, message.text, message.attributedBody, handle.id FROM message JOIN handle ON handle.ROWID=message.handle_id WHERE message.is_from_me=0 AND message.date>=0 LIMIT 0"
+        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else { return false }
+        defer { sqlite3_finalize(statement) }
+        return sqlite3_step(statement) == SQLITE_DONE
+    }
+
+    static func hasAccess() -> Bool {
+        guard let path = messagesPath() else { return false }
+        return hasAccess(path: path)
+    }
+
     static func read(_ data: Data, path: String) -> [String: Any] {
         guard data.count <= 8192,
               let request = try? JSONSerialization.jsonObject(with: data) as? [String: Any],

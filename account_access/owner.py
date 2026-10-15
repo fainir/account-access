@@ -148,7 +148,18 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                 with broker.store.db() as db:
                     principals = [r[0] for r in db.execute("SELECT DISTINCT principal FROM clients WHERE revoked=0")]
                     grants = [dict(r) for r in db.execute("SELECT * FROM grants")]
-                    failures = db.execute("SELECT account,at,reason FROM audit WHERE principal='service' AND event='browser_navigation_failed' ORDER BY id DESC LIMIT 100").fetchall()
+                    failures = db.execute("""
+                        WITH checks AS (
+                            SELECT account, MAX(id) AS id FROM audit
+                            WHERE principal='service' AND event='browser_check_started'
+                            GROUP BY account
+                        )
+                        SELECT failure.account,failure.at,failure.reason FROM audit AS failure
+                        LEFT JOIN checks ON checks.account=failure.account
+                        WHERE failure.principal='service' AND failure.event='browser_navigation_failed'
+                          AND failure.id > COALESCE(checks.id,0)
+                        ORDER BY failure.id DESC LIMIT 100
+                    """).fetchall()
                     routes = db.execute("SELECT account,at,reason FROM audit WHERE principal='service' AND event='browser_navigation_route' ORDER BY id DESC LIMIT 100").fetchall()
                 from .navigation import valid_hint
                 route_views = {}

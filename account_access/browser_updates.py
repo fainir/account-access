@@ -3,11 +3,13 @@
 from urllib.parse import urlsplit
 
 from .errors import AccessError
-from .models import BrowserAccount, LoginChoice, origin
+from .models import BrowserAccount, LoginChoice, LoginFactor, origin
 
 METHOD_PAGE = "https://github.com/sessions/two-factor/webauthn"
 APP_PAGE = "https://github.com/sessions/two-factor/app"
 APP_LINK = 'a[href="/sessions/two-factor/app"]'
+SMS_PAGE = "https://github.com/sessions/two-factor/sms/confirm"
+SMS_LINK = 'a[href="/sessions/two-factor/sms/confirm"]'
 
 
 def proposal(config, account):
@@ -23,17 +25,30 @@ def proposal(config, account):
                                           for op in spec.operations.values())):
         return None
     updated = spec.model_copy(deep=True)
-    if METHOD_PAGE not in updated.login_resources:
-        updated.login_resources.append(METHOD_PAGE)
-    updated.challenge_selectors["method"] = APP_LINK
-    updated.login.choices = [LoginChoice(kind="totp", selector=APP_LINK, url=APP_PAGE)]
+    for url in [METHOD_PAGE, SMS_PAGE]:
+        if url not in updated.login_resources:
+            updated.login_resources.append(url)
+    # Recognize the offered SMS method even before its source is enrolled. The
+    # browser must report local setup instead of an unrecognized page. Reading
+    # this confirmation page does not authorize its form POST or a new source.
+    updated.challenge_selectors["method"] = APP_LINK + ", " + SMS_LINK
+    # Legacy single-source forms match every kind at lookup time. Normalize the
+    # existing authenticator factor so an offered, unenrolled SMS source cannot
+    # accidentally resolve to that key.
+    if not updated.login.factors:
+        updated.login.factors["totp"] = LoginFactor(
+            code_source=updated.login.code_source, code_selector=updated.login.code_selector,
+            code_submit_selector=updated.login.code_submit_selector)
+        updated.login.code_source = updated.login.code_selector = updated.login.code_submit_selector = None
+    updated.login.choices = [LoginChoice(kind="totp", selector=APP_LINK, url=APP_PAGE),
+                             LoginChoice(kind="sms", selector=SMS_LINK, url=SMS_PAGE)]
     return updated if updated.model_dump() != spec.model_dump() else None
 
 
 def view(store):
     config = store.config()
     return [{"account": account, "fingerprint": config.fingerprint(account),
-             "summary": "Support GitHub's offered authenticator-app choice"}
+             "summary": "Recognize GitHub's offered SMS and authenticator choices"}
             for account in config.accounts if proposal(config, account)]
 
 

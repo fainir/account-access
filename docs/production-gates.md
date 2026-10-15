@@ -26,11 +26,17 @@ or physical-device coverage.
   IMAP and Messages fixtures; real delivery remains a separate gate.
 - Optional verification-method pickers use exact reviewed GET links to enrolled
   sources. Changed links, missing enrollment and mandatory presence stop safely.
+  A connector can also declare an offered method before its source is configured;
+  that choice requests local setup and never reads a different method's code.
   The owner can review a GitHub sign-in-routing repair without importing its
   password again or expanding the approved operations or login POST destinations.
 - Owner troubleshooting records fixed public route words and masks every other
   path segment. It does not record hostnames, query values, credentials or page
-  contents, and it does not broaden network allowlists.
+  contents, and it does not broaden network allowlists. A new check retires the
+  previous check's routing error so a later verification stop is not mislabeled.
+- Native iPhone SMS enrollment checks the Messages schema without reading message
+  rows before starting a website sign-in. Missing Mac privacy permission is
+  explained locally with exact Touch ID/password instructions.
 
 ## Acceptance matrix
 

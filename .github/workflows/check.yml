@@ -14,6 +14,13 @@ jobs:
             macos/AccountAccess.swift macos/MessagesReader.swift macos/Tests/OwnerScreenChecks.swift \
             -o /tmp/account-access-owner-checks
           /tmp/account-access-owner-checks
+      - name: Check the narrow native Messages reader
+        run: |
+          xcrun swiftc -O -parse-as-library \
+            -framework AppKit -framework CryptoKit -lsqlite3 \
+            macos/MessagesReader.swift macos/Tests/MessagesReaderChecks.swift \
+            -o /tmp/account-access-messages-checks
+          /tmp/account-access-messages-checks
   test:
     runs-on: ubuntu-latest
     steps:

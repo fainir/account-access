@@ -129,6 +129,9 @@ class Browser:
             page.wait_for_timeout(50)
 
     def read(self, account, op, config, *, secret_values=None, visible=False):
+        # Owner troubleshooting must describe this check, not an earlier routing
+        # problem after the account has reached a different verification step.
+        self.store.audit("service", account, "", "browser_check_started")
         connection = self.store.get("connection:" + account)
         if connection and connection.get("revoked"):
             raise AccessError("DENIED", "connection_revoked")
@@ -315,6 +318,9 @@ class Browser:
             if choice.kind in excluded or not page.locator(choice.selector).first.is_visible():
                 continue
             factor = config.login.factor(choice.kind)
+            if not factor:
+                setup = setup or AccessError("NEEDS_USER", "verification_source_not_connected", choice.kind)
+                continue
             source = self.store.config().code_sources[factor.code_source]
             enrolled = self.store.get("source:" + factor.code_source) or {}
             unavailable = source_errors.get(factor.code_source)
@@ -336,7 +342,7 @@ class Browser:
             return choice.kind
         if setup:
             raise setup
-        raise AccessError("NEEDS_USER", "verification_method_unavailable", "unknown")
+        raise AccessError("NEEDS_USER", "verification_method_unavailable", "method")
 
     def check_form(self, page, selector, config):
         if page.url not in {config.login_url, *config.login_resources}:

@@ -135,6 +135,13 @@ def test_visible_sign_in_diagnostics_require_owner_and_keep_permissions(env, mon
             assert not any(row["event"] == "browser_navigation_failed" for row in broker.audit("test")["events"])
             with broker.store.db() as db:
                 assert [dict(row) for row in db.execute("SELECT * FROM grants")] == grants
+            # A later check of another account must not hide this problem. A
+            # later check of this account must retire it, even if the new check
+            # stops at an entirely different verification step.
+            broker.store.audit("service", "demo-mfa", "", "browser_check_started")
+            assert client.get("/owner/state", headers=headers).json()["navigation_failures"]
+            broker.store.audit("service", "demo-web", "", "browser_check_started")
+            assert client.get("/owner/state", headers=headers).json()["navigation_failures"] == []
     finally:
         server.shutdown()
         server.server_close()
