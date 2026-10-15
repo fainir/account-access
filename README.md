@@ -9,6 +9,8 @@ Account Access is a local authentication and delegated-access service for **Code
 
 **Status: 0.7.4 preview.** The included examples are usable today. Real websites require reviewed connectors; this is not an “add any website” consumer app or validated production access to banks, Google, Meta or insurance accounts.
 
+This development branch contains the **0.8 candidate**: local Google Authenticator transfer import, an optional existing GitHub CLI sign-in connection, and a bundled-package installer with explicit service restart on repair. These changes are under validation; the download below remains the published 0.7.4 preview. See [production acceptance and remaining gates](docs/production-gates.md).
+
 ![Account dashboard with approved reads and automatic session integration](docs/account-dashboard.png)
 
 ## Easy installation
@@ -51,6 +53,8 @@ A CSV export contains plaintext passwords. The app can move that export to Trash
 
 Follow the [Gmail, Google Authenticator and SMS setup guide](docs/gmail-authenticator-and-sms.md). It explains the current Gmail app-password route, the configured Google OAuth option, and why phone SMS pairing is separate from authenticator keys. The public preview does not bundle a ready-to-use Google OAuth application or import Google Authenticator's Transfer/Export QR format.
 
+The 0.8 candidate adds local **Google Authenticator transfer QR import**. In **Verification**, choose an existing authenticator source, click **Import authenticator QR image**, select a complete export QR image, review the matching account, and import that entry. No key belongs in chat. Phone unlocking and export authorization remain a one-time owner step. Multi-QR batches and nonstandard TOTP settings are rejected.
+
 | Method | One-time setup | During a supported login |
 | --- | --- | --- |
 | Email | Connect a configured TLS IMAP mailbox, or a reviewed Gmail OAuth connection | Read a fresh message matching sender, recipient, subject and template; submit its login code |
@@ -63,6 +67,12 @@ Email support depends on the provider exposing IMAP or the configured Gmail OAut
 Mac Full Disk Access and Android notification access are broader OS permissions than the app's own sender/template filters. The service consumes codes only within an active login window and rejects stale, duplicated or ambiguous messages. Passwords, cookies and codes are not returned through the agent API. Code sources can be disabled in owner setup.
 
 Close the setup app when finished; your AI can start the saved local service when needed, including after a restart. Your computer must be awake and its secure keyring available. Use **Manage accounts and verification** to reconnect or revoke access.
+
+### Reuse an existing GitHub CLI sign-in (0.8 candidate)
+
+If [GitHub CLI](https://cli.github.com/) is already installed and signed in, open **Add account → Use existing GitHub CLI sign-in**. Review the displayed GitHub account and approve **Confirm the signed-in GitHub username**. Then ask your agent to check the connected GitHub identity. The same portable skill handles this route in Codex, Claude Code and other compatible agents.
+
+Account Access uses one fixed read command. It never extracts or saves the CLI token, changes the active CLI account, or signs a browser in. A changed CLI executable or account pauses this connection for owner review. This is useful when the existing vendor authorization can satisfy the task without another browser passkey prompt; it does not bypass a required passkey or add repository access.
 
 ## Watch the 85-second explainer
 
@@ -81,7 +91,7 @@ cd account-access
 uv sync --locked --python 3.13
 uv run playwright install chromium
 uv build
-uv tool install --python 3.13 --force ./dist/account_access-0.7.4-py3-none-any.whl
+uv tool install --python 3.13 --force ./dist/account_access-0.8.0-py3-none-any.whl
 account-access start
 ```
 

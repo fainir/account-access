@@ -2,7 +2,7 @@
 # Official Account Access bootstrap. No Git, Python, uv, or admin rights needed on macOS.
 set -eu
 umask 077
-AC_VERSION=0.7.4
+AC_VERSION=0.8.0
 AC_RELEASE="https://github.com/fainir/account-access/releases/download/v$AC_VERSION"
 AC_RUNTIME="${ACCOUNT_ACCESS_INSTALL_DIR:-$HOME/.local/share/account-access/runtime}"
 AC_SCRATCH=$(mktemp -d "${TMPDIR:-/tmp}/account-access-install.XXXXXX")
@@ -24,10 +24,21 @@ else
   AC_UV="$AC_RUNTIME/uv/uv"
 fi
 AC_WHEEL="account_access-$AC_VERSION-py3-none-any.whl"
+AC_PINNED="${ACCOUNT_ACCESS_EXPECTED_WHEEL_SHA256:-}"
 printf '2/4 Downloading Account Access…\n'
-curl --proto '=https' --proto-redir '=https' -fsSL --retry 2 "$AC_RELEASE/$AC_WHEEL" -o "$AC_SCRATCH/$AC_WHEEL"
-curl --proto '=https' --proto-redir '=https' -fsSL --retry 2 "$AC_RELEASE/SHA256SUMS" -o "$AC_SCRATCH/SHA256SUMS"
-AC_EXPECTED=$(awk -v file="$AC_WHEEL" '$2 == file { print $1 }' "$AC_SCRATCH/SHA256SUMS")
+if [ -n "${ACCOUNT_ACCESS_BUNDLED_WHEEL:-}" ]; then
+  # The native app supplies the resource from its signed bundle and its pinned
+  # hash. Refuse a missing pin; a path alone is never a trust decision.
+  if [ ${#AC_PINNED} -ne 64 ]; then
+    echo "Bundled package verification failed. Installation stopped."; exit 1
+  fi
+  cp "$ACCOUNT_ACCESS_BUNDLED_WHEEL" "$AC_SCRATCH/$AC_WHEEL"
+  AC_EXPECTED="$AC_PINNED"
+else
+  curl --proto '=https' --proto-redir '=https' -fsSL --retry 2 "$AC_RELEASE/$AC_WHEEL" -o "$AC_SCRATCH/$AC_WHEEL"
+  curl --proto '=https' --proto-redir '=https' -fsSL --retry 2 "$AC_RELEASE/SHA256SUMS" -o "$AC_SCRATCH/SHA256SUMS"
+  AC_EXPECTED=$(awk -v file="$AC_WHEEL" '$2 == file { print $1 }' "$AC_SCRATCH/SHA256SUMS")
+fi
 if command -v shasum >/dev/null 2>&1; then
   AC_ACTUAL=$(shasum -a 256 "$AC_SCRATCH/$AC_WHEEL" | awk '{ print $1 }')
 elif command -v sha256sum >/dev/null 2>&1; then
@@ -35,7 +46,6 @@ elif command -v sha256sum >/dev/null 2>&1; then
 else
   echo "A SHA-256 verification tool is required. Installation stopped."; exit 1
 fi
-AC_PINNED="${ACCOUNT_ACCESS_EXPECTED_WHEEL_SHA256:-}"
 if [ ${#AC_EXPECTED} -ne 64 ] || [ "$AC_EXPECTED" != "$AC_ACTUAL" ] || \
    { [ -n "$AC_PINNED" ] && [ "$AC_PINNED" != "$AC_ACTUAL" ]; }; then
   echo "Download verification failed. Installation stopped."; exit 1
@@ -76,6 +86,10 @@ set -- "$AC_RUNTIME/bin/account-access"
 if [ -n "${ACCOUNT_ACCESS_DATA_DIR:-}" ]; then
   set -- "$@" --root "$ACCOUNT_ACCESS_DATA_DIR"
 fi
+# A repair can install a different build with the same version. Restart the
+# service explicitly instead of relying on version comparison in start. This
+# preserves the vault/grants and lets the new process load the installed code.
+"$@" stop
 set -- "$@" start
 if [ "${ACCOUNT_ACCESS_NO_OPEN:-0}" = 1 ]; then
   set -- "$@" --no-open

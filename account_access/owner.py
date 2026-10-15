@@ -73,8 +73,10 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
             if isinstance(config, OAuthAccount):
                 from .cli import connect_oauth
                 connect_oauth(broker, account)
-            else:
+            elif isinstance(config, BrowserAccount):
                 broker.browser.connect(account, complete=lambda page: page.locator(config.ready_selector).first.wait_for(state="visible", timeout=300000))
+            else:
+                raise AccessError("NEEDS_USER", "github_cli_reconnect_in_owner", "login")
             try:
                 broker.tick()
             except AccessError as exc:
@@ -141,22 +143,31 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                 config = broker.store.config()
                 accounts = []
                 for account, spec in config.accounts.items():
-                    state = broker.store.get("connection:" + account)
                     accounts.append({"account": account, "label": spec.label, "route": spec.kind,
-                                     "connected": bool(state and not state.get("revoked")),
+                                     **broker.connection_view(account, config),
                                      "operations": [{"name": name, "description": op.description} for name, op in spec.operations.items()],
                                      "challenges": [broker.challenge_view(x) for x in broker.store.pending(account)]})
                 with broker.store.db() as db:
                     principals = [r[0] for r in db.execute("SELECT DISTINCT principal FROM clients WHERE revoked=0")]
                     grants = [dict(r) for r in db.execute("SELECT * FROM grants")]
                     failures = db.execute("SELECT account,at,reason FROM audit WHERE principal='service' AND event='browser_navigation_failed' ORDER BY id DESC LIMIT 100").fetchall()
+                    routes = db.execute("SELECT account,at,reason FROM audit WHERE principal='service' AND event='browser_navigation_route' ORDER BY id DESC LIMIT 100").fetchall()
+                from .navigation import valid_hint
+                route_views = {}
+                for route in routes:
+                    if route["account"] not in route_views and valid_hint(route["reason"]):
+                        route_views[route["account"]] = route
                 navigation_failures = []
                 seen_failures = set()
                 pattern = r"(?:request|redirect):(?:destination|method|http_[1-5][0-9]{2}|missing_location|response_size|redirect_limit|transport):(?:configured_path_[0-9]{1,3}|unreviewed_destination):(?:query|no_query)"
                 for failure in failures:
                     if (failure["account"] in config.accounts and failure["account"] not in seen_failures
                             and re.fullmatch(pattern, failure["reason"])):
-                        navigation_failures.append(dict(failure))
+                        item = dict(failure)
+                        route = route_views.get(failure["account"])
+                        if route and abs(route["at"] - failure["at"]) < 1:
+                            item["route"] = route["reason"]
+                        navigation_failures.append(item)
                         seen_failures.add(failure["account"])
                 for item in accounts:
                     approved = {g["operation"] for g in grants if g["principal"] == "generic" and g["account"] == item["account"]
@@ -206,6 +217,36 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                 if not 0 < length <= limit:
                     raise ValueError()
                 data = json.loads(self.rfile.read(length))
+                if guided and self.path == "/owner/github-cli/preview":
+                    from .github_cli import preview
+                    if data != {}:
+                        raise ValueError()
+                    self.send(200, preview(broker.store))
+                    return
+                if guided and self.path == "/owner/github-cli/apply":
+                    from .github_cli import apply
+                    if set(data) != {"id"}:
+                        raise ValueError()
+                    self.send(200, apply(broker, data["id"]))
+                    return
+                if self.path == "/owner/authenticator/preview":
+                    from .authenticator_import import preview
+                    if set(data) != {"source", "uri"}:
+                        raise ValueError()
+                    self.send(200, preview(broker.store, data["source"], data["uri"]))
+                    return
+                if self.path == "/owner/authenticator/apply":
+                    from .authenticator_import import apply
+                    if set(data) != {"id", "index"}:
+                        raise ValueError()
+                    self.send(200, apply(broker.store, data["id"], data["index"]))
+                    return
+                if self.path == "/owner/authenticator/discard":
+                    from .authenticator_import import discard
+                    if set(data) != {"id"}:
+                        raise ValueError()
+                    self.send(200, discard(broker.store, data["id"]))
+                    return
                 if self.path == "/owner/password-sync":
                     from .password_sync import enroll
                     if set(data) != {"account", "connection"}:

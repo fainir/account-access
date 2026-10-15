@@ -109,6 +109,21 @@ class BrowserAccount(StrictModel):
     operations: dict[Handle, BrowserOperation] = Field(min_length=1)
 
 
+class GitHubIdentityOperation(StrictModel):
+    kind: Literal["github_identity"] = "github_identity"
+    description: Literal["Confirm the signed-in GitHub username"] = "Confirm the signed-in GitHub username"
+
+
+class GitHubCLIAccount(StrictModel):
+    kind: Literal["github_cli"] = "github_cli"
+    label: str = Field(min_length=1, max_length=100)
+    executable: str = Field(min_length=1, max_length=1024)
+    executable_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    user_id: int = Field(gt=0)
+    login: str = Field(pattern=r"^[a-zA-Z0-9][a-zA-Z0-9-]{0,38}$")
+    operations: dict[Literal["status"], GitHubIdentityOperation] = Field(min_length=1, max_length=1)
+
+
 class CodeSource(StrictModel):
     kind: Literal["totp", "gmail", "twilio", "imap", "mac_messages", "phone_relay"]
     account: Handle | None = None
@@ -135,7 +150,7 @@ class CodeSource(StrictModel):
 class Configuration(StrictModel):
     version: Literal[1] = 1
     test_mode: bool = False
-    accounts: dict[Handle, Annotated[OAuthAccount | BrowserAccount, Field(discriminator="kind")]]
+    accounts: dict[Handle, Annotated[OAuthAccount | BrowserAccount | GitHubCLIAccount, Field(discriminator="kind")]]
     code_sources: dict[Handle, CodeSource] = Field(default_factory=dict)
 
     @model_validator(mode="after")
@@ -145,11 +160,13 @@ class Configuration(StrictModel):
                 urls = [account.authorization_url, account.token_url, *account.api_origins]
                 if account.revoke_url:
                     urls.append(account.revoke_url)
-            else:
+            elif isinstance(account, BrowserAccount):
                 urls = [account.login_url, *account.read_resources, *account.login_resources, *account.login_post_urls]
                 if account.login and account.login.code_source not in self.code_sources and account.login.code_source:
                     raise ValueError("Unknown login code source")
-            urls.extend(op.url for op in account.operations.values())
+            else:
+                urls = []
+            urls.extend(op.url for op in account.operations.values() if hasattr(op, "url"))
             for url in urls:
                 validate_url(url, self.test_mode)
         for source in self.code_sources.values():

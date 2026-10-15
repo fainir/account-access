@@ -5,9 +5,9 @@ set -eu
 AC_SOURCE=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 AC_OUTPUT="$AC_SOURCE/dist/macos"
 AC_APP="$AC_OUTPUT/Account Access.app"
-AC_WHEEL="$AC_SOURCE/dist/account_access-0.7.4-py3-none-any.whl"
+AC_WHEEL="$AC_SOURCE/dist/account_access-0.8.0-py3-none-any.whl"
 if [ ! -f "$AC_WHEEL" ]; then
-  echo "Build the 0.7.4 wheel with uv build before building the Mac installer." >&2
+  echo "Build the 0.8.0 wheel with uv build before building the Mac installer." >&2
   exit 1
 fi
 AC_WHEEL_HASH=$(shasum -a 256 "$AC_WHEEL" | awk '{ print $1 }')
@@ -20,6 +20,7 @@ done
 lipo -create "$AC_OUTPUT/AccountAccess-arm64" "$AC_OUTPUT/AccountAccess-x86_64" \
   -output "$AC_APP/Contents/MacOS/AccountAccess"
 cp "$AC_SOURCE/install.sh" "$AC_APP/Contents/Resources/install.sh"
+cp "$AC_WHEEL" "$AC_APP/Contents/Resources/account_access.whl"
 cat > "$AC_APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -29,8 +30,8 @@ cat > "$AC_APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleDisplayName</key><string>Account Access</string>
 <key>CFBundleExecutable</key><string>AccountAccess</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.7.4</string>
-<key>CFBundleVersion</key><string>12</string>
+<key>CFBundleShortVersionString</key><string>0.8.0</string>
+<key>CFBundleVersion</key><string>13</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>

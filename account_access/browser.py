@@ -8,6 +8,7 @@ from playwright.sync_api import sync_playwright
 
 from .errors import AccessError
 from .models import origin
+from .navigation import route_hint
 
 
 class Browser:
@@ -41,6 +42,8 @@ class Browser:
                 detail = ":".join(["redirect" if redirected else "request", reason,
                                    resource, "query" if urlsplit(url).query else "no_query"])
                 self.store.audit("service", account, "", "browser_navigation_failed", detail)
+                self.store.audit("service", account, "", "browser_navigation_route",
+                                 route_hint(url, (item[0] for item in known_paths)))
             except Exception:
                 pass  # Diagnostics must not change the routing or credential policy.
 

@@ -7,7 +7,7 @@ from . import __version__
 from .browser import Browser
 from .codes import Codes
 from .errors import AccessError
-from .models import BrowserAccount, OAuthAccount, TaskRequest
+from .models import BrowserAccount, GitHubCLIAccount, OAuthAccount, TaskRequest
 from .providers import OAuth, credential_values, redact
 
 MESSAGES = {
@@ -100,16 +100,32 @@ class Broker:
                 except AccessError:
                     pass
             if operations:
-                saved = self.store.get("connection:" + account)
-                credential = self.store.get("credential:" + account) or {}
-                login_ready = isinstance(spec, BrowserAccount) and spec.login and bool(credential.get("username") and credential.get("password"))
-                connected = bool(saved or login_ready)
                 result.append({"account": account, "label": spec.label, "route": spec.kind,
-                               "connected": connected, "verified_now": False,
-                               "connection_state": "saved_access" if saved else "login_recovery_ready" if login_ready else "needs_setup",
+                               **self.connection_view(account, config),
                                "operations": operations})
         return {"status": "OK", "accounts": result, "service_version": __version__,
                 "environment": "controlled-demo" if config.test_mode else "live"}
+
+    def connection_view(self, account, config):
+        """Saved credentials alone are not evidence of a successful sign-in."""
+        spec = config.accounts[account]
+        saved = self.store.get("connection:" + account) or {}
+        credential = self.store.get("credential:" + account) or {}
+        ready = bool(isinstance(spec, BrowserAccount) and spec.login
+                     and credential.get("username") and credential.get("password"))
+        if saved.get("revoked"):
+            state = "revoked"
+        elif saved and saved.get("fingerprint") != config.fingerprint(account):
+            state = "needs_review"
+        elif self.store.pending(account):
+            state = "needs_attention"
+        elif saved:
+            state = "saved_access"
+        else:
+            state = "login_recovery_ready" if ready else "needs_setup"
+        return {"connected": state == "saved_access", "verified_now": False,
+                "connection_state": state,
+                "automatic_recovery_available": ready and state in {"saved_access", "login_recovery_ready"}}
 
     def status(self, principal, account, operation):
         try:
@@ -118,8 +134,8 @@ class Broker:
             if pending:
                 return {"status": "NEEDS_USER", "account": account,
                         "challenge": self.challenge_view(pending[0])}
-            connected = self.store.get("connection:" + account)
-            return {"status": "AVAILABLE" if connected else "UNCONNECTED", "account": account,
+            view = self.connection_view(account, self.store.config())
+            return {"status": "AVAILABLE" if view["connected"] else "RECOVERABLE" if view["automatic_recovery_available"] else "UNCONNECTED", "account": account,
                     "verified_now": False}
         except AccessError as exc:
             return self.error(exc, account, challenge=False)
@@ -148,6 +164,9 @@ class Broker:
                     data = self.oauth.read(account, op, config)
                 elif isinstance(spec, BrowserAccount):
                     data = self.browser.read(account, op, spec, secret_values=secrets_seen)
+                elif isinstance(spec, GitHubCLIAccount):
+                    from .github_cli import read
+                    data = read(self.store, account, spec)
                 else:
                     raise AccessError("DENIED", "unsupported_connector")
                 # Catch permission revocation that occurred concurrently during an in-flight request.

@@ -27,6 +27,15 @@ Add meaningful coverage for repeated use, expired/revoked access, transient fail
 
 Update the README/setup guide when usage changes. Keep version fields in `pyproject.toml` and `account_access/__init__.py` consistent; update the documented wheel filename for a new release.
 
+Vendor CLI adapters must expose fixed operations with fixed hosts and arguments.
+Never add a token-export or arbitrary-command API. Bind the approved executable
+and account identity, bound subprocess time/output, discard stderr, and test
+identity drift, revocation and inherited environment overrides. The same-user
+isolation limitation still applies; an executable checksum is not an OS sandbox.
+
+Review the [production acceptance matrix](docs/production-gates.md) before making
+release claims. Fixture success and private-account success are separate results.
+
 ## External experiments
 
 `scripts/public_demos.py` uses intentionally published testing identities and makes network requests to those demo providers. Run it only when you intend that experiment. `scripts/agent_smoke.py` invokes an existing logged-in Codex or Claude CLI and can consume account usage; no AI key is required or provisioned.

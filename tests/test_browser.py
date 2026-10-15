@@ -1,6 +1,21 @@
 from account_access.broker import Broker
 
 
+def test_account_discovery_does_not_claim_saved_password_is_verified_access(env):
+    provider, broker, _ = env
+    def account():
+        return next(item for item in broker.accounts("test")["accounts"] if item["account"] == "demo-web")
+    before = account()
+    assert not before["connected"] and before["automatic_recovery_available"]
+    assert before["connection_state"] == "login_recovery_ready" and provider.login_count == 0
+    assert broker.run("test", "demo-web", "summary")["status"] == "COMPLETED"
+    assert account()["connected"] and account()["connection_state"] == "saved_access"
+    challenge = broker.store.challenge("demo-web", "device", "browser_device_required")
+    assert not account()["connected"] and account()["connection_state"] == "needs_attention"
+    assert broker.run("test", "demo-web", "summary")["challenge"]["id"] == challenge["id"]
+    assert provider.login_count == 1
+
+
 def test_login_cooldown_waits_without_owner_challenge_and_task_resumes(env):
     import time
     from account_access.models import TaskRequest
@@ -148,9 +163,12 @@ def test_navigation_diagnostic_does_not_expose_unreviewed_url_or_query(env):
     assert result["status"] != "COMPLETED"
     with broker.store.db() as db:
         events = [dict(row) for row in db.execute("SELECT * FROM audit WHERE event='browser_navigation_failed'")]
+        routes = [dict(row) for row in db.execute("SELECT * FROM audit WHERE event='browser_navigation_route'")]
     assert events
     assert any(row["reason"] == "redirect:destination:unreviewed_destination:query" for row in events)
     assert sensitive not in str(events) and "123456" not in str(events)
+    assert routes and routes[-1]["reason"] == "origin_0:/?/?"
+    assert sensitive not in str(routes) and "123456" not in str(routes)
     assert provider.password not in str(events) and provider.base not in str(events)
     assert not any(path.startswith("/not-reviewed/") for path in provider.posted_paths)
 

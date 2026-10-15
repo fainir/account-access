@@ -55,5 +55,15 @@ import Foundation
         precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Show technical details"))
         precondition(!views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("redirect:destination:configured_path_1:query"))
         print("PASS: stopped sign-ins show a plain-language failure and an optional owner-only technical detail action")
+        precondition(AccountAccess.authenticatorQRText(["otpauth://totp/Example?secret=FICTIONAL"]) != nil)
+        precondition(AccountAccess.authenticatorQRText(["otpauth-migration://offline?data=FICTIONAL"]) != nil)
+        precondition(AccountAccess.authenticatorQRText(["https://example.com"]) == nil)
+        precondition(AccountAccess.authenticatorQRText(["otpauth://totp/A", "otpauth://totp/B"]) == nil)
+        owner.sources = [["id": "fixture-factor", "kind": "totp", "accounts": ["fixture"]]]
+        owner.showFactors()
+        views = descendants(owner.stack)
+        precondition(owner.factorFields["seed"] is NSSecureTextField)
+        precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Import authenticator QR image"))
+        print("PASS: authenticator setup masks keys and accepts only a single setup or transfer QR")
     }
 }

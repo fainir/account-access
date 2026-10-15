@@ -103,6 +103,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         let menu = NSMenu()
         let item = NSMenuItem()
         let appMenu = NSMenu()
+        let repair = appMenu.addItem(withTitle: "Repair installation…", action: #selector(install), keyEquivalent: "")
+        repair.target = self
+        appMenu.addItem(NSMenuItem.separator())
         appMenu.addItem(withTitle: "Quit Account Access", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         item.submenu = appMenu
         menu.addItem(item)
@@ -294,6 +297,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
 
     @objc func install() {
+        guard !busy else { return }
         busy = true
         page("Installing Account Access", "The app prepares everything needed for secure website access.")
         progress()
@@ -315,6 +319,12 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                     throw Failure.message("The installer is missing its signed package checksum. Download the complete app from the official release.")
                 }
                 environment["ACCOUNT_ACCESS_EXPECTED_WHEEL_SHA256"] = expectedHash
+                // The package is part of the signed app. Ignore inherited paths;
+                // the bootstrap also checks it against the signed checksum.
+                environment.removeValue(forKey: "ACCOUNT_ACCESS_BUNDLED_WHEEL")
+                if let wheel = Bundle.main.url(forResource: "account_access", withExtension: "whl") {
+                    environment["ACCOUNT_ACCESS_BUNDLED_WHEEL"] = wheel.path
+                }
                 process.environment = environment
                 let pipe = Pipe()
                 process.standardOutput = pipe
@@ -483,6 +493,16 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                         "password_source_item_changed": "This item must be an active login for the approved website, with one username and password.",
                         "password_source_access_removed": "The password source rejected access. Check its read-only token and the selected vault and item.",
                         "password_source_unavailable": "The password source is temporarily unavailable. Try again when it is online.",
+                        "invalid_authenticator_export": "This image is not a supported Authenticator transfer QR. Choose a complete export or the website's original setup QR.",
+                        "authenticator_multiple_batches": "This export spans multiple QR codes. In Google Authenticator, export only the account you want to connect and choose its QR image.",
+                        "unsupported_authenticator_settings": "This authenticator uses settings that are not supported yet. Six-digit SHA-1 TOTP is required.",
+                        "authenticator_preview_expired": "The import preview expired. Choose the QR image again.",
+                        "authenticator_selection_changed": "The connected account changed during the preview. Choose the QR image again and review the account.",
+                        "github_cli_not_installed": "GitHub CLI is not installed in a supported location. Install it from cli.github.com, sign in once, then return here.",
+                        "github_cli_login_required": "GitHub CLI needs its own sign-in first. Complete that vendor sign-in, then return here. Account Access will reuse its authorization without copying its token.",
+                        "github_cli_account_changed": "GitHub CLI is now signed into a different account. Review the existing GitHub connection before continuing.",
+                        "github_cli_installation_changed": "GitHub CLI was updated or replaced. Reconnect it here to review the installed tool and account.",
+                        "github_cli_preview_expired": "The GitHub connection preview expired. Choose the existing GitHub sign-in again.",
                         "password_sync_requires_https_origin": "Enter only the HTTPS server address, without a path or query.",
                         "invalid_password_sync_link": "Check the connection details. Vault and item IDs must be the exact 26-character IDs from 1Password."
                     ]
@@ -532,6 +552,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         let connected = accounts.filter { $0["connected"] as? Bool == true && $0["portable_ready"] as? Bool != false }
         page("Connect an account", "Choose a supported account and approve its reads. You only do this once.")
         primary("Import saved passwords", #selector(importPasswords))
+        action("Use existing GitHub CLI sign-in", #selector(previewGitHubCLI))
         let available = catalog.filter { entry in
             entry["id"] as? String == selectedAccount || !connected.contains { $0["account"] as? String == entry["id"] as? String }
         }
@@ -585,6 +606,42 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         if !connected.isEmpty { action("Start using my connected accounts", #selector(showReady)) }
         label("Included examples use public testing sites: SauceDemo and The Internet. Other websites require reviewed connectors.", 13, .secondaryLabelColor)
         connectionInputChanged()
+    }
+
+    @objc func previewGitHubCLI() {
+        guard !busy else { return }
+        busy = true
+        page("Checking your existing GitHub sign-in", "Uses GitHub's installed CLI for a read-only identity check. No token is copied. You will review the account before connecting it to your AI.")
+        progress()
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let preview = try self.request("owner/github-cli/preview", body: [:])
+                DispatchQueue.main.async {
+                    self.busy = false
+                    self.reviewGitHubCLI(preview)
+                }
+            } catch { self.fail(error, retry: #selector(self.previewGitHubCLI)) }
+        }
+    }
+
+    func reviewGitHubCLI(_ preview: [String: Any]) {
+        guard let ident = preview["id"] as? String, let login = preview["login"] as? String else { return }
+        let alert = NSAlert()
+        alert.messageText = "Connect GitHub · " + login + "?"
+        alert.informativeText = "Allow your AI tools to confirm this signed-in GitHub username. Account Access uses the already authorized GitHub CLI for that fixed read only. It cannot choose another command through this connection. No token is imported, and this does not sign a web browser in."
+        alert.addButton(withTitle: "Connect and approve this read")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { connections(); return }
+        busy = true
+        page("Connecting GitHub", "Checking that the tool and GitHub account still match your approval…")
+        progress()
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                _ = try self.request("owner/github-cli/apply", body: ["id": ident])
+                let state = try self.request("owner/state")
+                DispatchQueue.main.async { self.busy = false; self.accept(state); self.ready() }
+            } catch { self.fail(error, retry: #selector(self.previewGitHubCLI)) }
+        }
     }
 
     @objc func serviceChanged() {
@@ -806,9 +863,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         }
     }
 
-    func showImportSummary(_ imported: [String], issues: [(String, String)]) {
-        section = "import"
-        page("Passwords imported", "Your selected logins are encrypted locally. Review the sign-in checks below.")
+    func showImportSummary(_ imported: [String], issues: [(String, String)], verification: Bool = false) {
+        section = verification ? "verification" : "import"
+        page(verification ? "Verification saved" : "Passwords imported", "Your selected " + (verification ? "verification method is" : "logins are") + " encrypted locally. Review the sign-in checks below.")
         for account in imported {
             let issue = issues.first { $0.0 == account }?.1
             let name = accounts.first { $0["account"] as? String == account }?["label"] as? String ?? account
@@ -956,8 +1013,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             factorFields[name] = input
         }
         if kind == "totp" {
-            label("Enroll a setup key you explicitly allow for login recovery. An authenticator push or fingerprint approval still needs you.", 14, .secondaryLabelColor)
-            action("Read a setup QR image", #selector(readAuthenticatorQR))
+            label("Use the website's setup key, or Google Authenticator → Transfer codes → Export codes. Unlock your phone and export the account you want to connect. Choose its QR image below and review the account before importing. Your phone keeps generating codes.", 14, .secondaryLabelColor)
+            label("Importing copies the authenticator key to this Mac for unattended login. The key stays encrypted locally. A push, passkey or fingerprint approval still needs you.", 14, .secondaryLabelColor)
+            action("Import authenticator QR image", #selector(readAuthenticatorQR))
         } else if kind == "imap" {
             label("Mail server: " + (source["mail_server"] as? String ?? "configured provider"), 14, .secondaryLabelColor)
             label("Uses encrypted IMAP access to the configured mailbox. Gmail may require an application password. Microsoft mail can use a configured OAuth connection.", 14, .secondaryLabelColor)
@@ -978,11 +1036,67 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     @objc func readAuthenticatorQR() {
         let picker = NSOpenPanel()
         picker.allowedContentTypes = [.png, .jpeg]
-        guard picker.runModal() == .OK, let url = picker.url, let image = CIImage(contentsOf: url),
+        guard picker.runModal() == .OK, let url = picker.url else { return }
+        guard let image = CIImage(contentsOf: url),
               let detector = CIDetector(ofType: CIDetectorTypeQRCode, context: nil, options: [CIDetectorAccuracy: CIDetectorAccuracyHigh]),
-              let qr = detector.features(in: image).compactMap({ $0 as? CIQRCodeFeature }).first,
-              let text = qr.messageString, text.hasPrefix("otpauth://totp/") else { return }
-        factorFields["seed"]?.stringValue = text
+              let text = Self.authenticatorQRText(detector.features(in: image).compactMap { ($0 as? CIQRCodeFeature)?.messageString }) else {
+            let alert = NSAlert()
+            alert.messageText = "Choose one authenticator QR"
+            alert.informativeText = "The image must contain exactly one website setup QR or Google Authenticator transfer QR. No account was changed."
+            alert.runModal()
+            return
+        }
+        if text.hasPrefix("otpauth://totp/") { factorFields["seed"]?.stringValue = text; return }
+        guard let source = factorMenu.selectedItem?.representedObject as? [String: Any], let id = source["id"] as? String else { return }
+        busy = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let preview = try self.request("owner/authenticator/preview", body: ["source": id, "uri": text])
+                DispatchQueue.main.async { self.busy = false; self.chooseAuthenticator(preview, source: source) }
+            } catch { self.fail(error, retry: #selector(self.showFactors)) }
+        }
+    }
+
+    static func authenticatorQRText(_ messages: [String]) -> String? {
+        guard messages.count == 1, let text = messages.first, text.utf8.count <= 32000,
+              text.hasPrefix("otpauth://totp/") || text.hasPrefix("otpauth-migration://offline?") else { return nil }
+        return text
+    }
+
+    func chooseAuthenticator(_ preview: [String: Any], source: [String: Any]) {
+        guard let ident = preview["id"] as? String, let entries = preview["accounts"] as? [[String: Any]], !entries.isEmpty else { return }
+        let picker = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 420, height: 30))
+        for entry in entries {
+            picker.addItem(withTitle: entry["label"] as? String ?? "Authenticator account")
+            picker.lastItem?.representedObject = entry["index"]
+        }
+        let linked = (source["accounts"] as? [String] ?? []).map { id in accounts.first { $0["account"] as? String == id }?["label"] as? String ?? id }.joined(separator: ", ")
+        let alert = NSAlert()
+        alert.messageText = "Choose the matching authenticator"
+        alert.informativeText = "Connect only the selected key to " + linked + ". Check that the website and account match. Other keys in this QR will be discarded."
+        alert.accessoryView = picker
+        alert.addButton(withTitle: "Import selected authenticator")
+        alert.addButton(withTitle: "Cancel")
+        let accepted = alert.runModal() == .alertFirstButtonReturn
+        let index = picker.selectedItem?.representedObject as? Int ?? -1
+        busy = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                if accepted {
+                    _ = try self.request("owner/authenticator/apply", body: ["id": ident, "index": index])
+                } else {
+                    _ = try self.request("owner/authenticator/discard", body: ["id": ident])
+                }
+                let linked = source["accounts"] as? [String] ?? []
+                let issues = accepted ? self.verifyLinkedAccounts(linked) : []
+                let state = try self.request("owner/state")
+                DispatchQueue.main.async {
+                    self.busy = false; self.accept(state)
+                    if accepted { self.showImportSummary(linked, issues: issues, verification: true) }
+                    else { self.showFactors() }
+                }
+            } catch { self.fail(error, retry: #selector(self.showFactors)) }
+        }
     }
 
     @objc func openMessagePrivacy() {
@@ -1002,15 +1116,23 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 _ = try self.request("owner/source", body: ["source": id, "credential": credential])
-                for account in linked {
-                    if let job = try? self.request("owner/verify", body: ["account": account]) {
-                        _ = try? self.waitForConnection(job, account: account)
-                    }
-                }
+                let issues = self.verifyLinkedAccounts(linked)
                 let state = try self.request("owner/state")
-                DispatchQueue.main.async { self.busy = false; self.accept(state); self.connections() }
+                DispatchQueue.main.async { self.busy = false; self.accept(state); self.showImportSummary(linked, issues: issues, verification: true) }
             } catch { self.fail(error, retry: #selector(self.showFactors)) }
         }
+    }
+
+    func verifyLinkedAccounts(_ linked: [String]) -> [(String, String)] {
+        var issues: [(String, String)] = []
+        for account in linked {
+            do {
+                let job = try request("owner/verify", body: ["account": account])
+                _ = try waitForConnection(job, account: account)
+            } catch Failure.message(let message) { issues.append((account, message)) }
+            catch { issues.append((account, "The verification method is saved. The website sign-in still needs attention.")) }
+        }
+        return issues
     }
 
     @objc func disableFactor() {
@@ -1089,11 +1211,16 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             let body = card(account["label"] as? String ?? "Account", (allowed ? "Approved reads: " : "Available reads: ") + reads, status: status, good: allowed && active && !pending)
             if pending, let failure = navigationFailures.first(where: { $0["account"] as? String == account["account"] as? String }),
                let reason = failure["reason"] as? String {
-                let message = NSTextField(wrappingLabelWithString: navigationFailureMessage(reason))
+                let route = failure["route"] as? String ?? ""
+                let explanation = route.hasSuffix("/two-factor/webauthn")
+                    ? "The website sent this sign-in to its security-key or passkey step. Approve it on your device, or connect a supported authenticator method."
+                    : navigationFailureMessage(reason)
+                let message = NSTextField(wrappingLabelWithString: explanation)
                 message.font = .systemFont(ofSize: 14)
                 body.addArrangedSubview(message)
                 let details = NSButton(title: "Show technical details", target: self, action: #selector(showNavigationDetails))
-                details.identifier = NSUserInterfaceItemIdentifier(reason)
+                let hint = failure["route"] as? String
+                details.identifier = NSUserInterfaceItemIdentifier(reason + (hint.map { "\nRoute: " + $0 } ?? ""))
                 body.addArrangedSubview(details)
             }
             if !allowed || !active || pending {
@@ -1138,7 +1265,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     @objc func showNavigationDetails(_ sender: NSButton) {
         let alert = NSAlert()
         alert.messageText = "Sign-in check details"
-        alert.informativeText = (sender.identifier?.rawValue ?? "No detail available") + "\n\nOnly a failure category, configured resource index and query-presence flag are recorded. No URL, query value, password, code or page contents are included."
+        alert.informativeText = (sender.identifier?.rawValue ?? "No detail available") + "\n\nRoute words come from a fixed public vocabulary; ? replaces all other segments. No hostname, query value, password, code or page contents are recorded."
         alert.addButton(withTitle: "Done")
         alert.runModal()
     }
