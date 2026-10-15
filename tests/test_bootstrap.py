@@ -61,7 +61,8 @@ def test_bundled_package_requires_matching_signed_pin(tmp_path, pin):
     assert not marker.exists()
 
 
-def test_successful_repair_restarts_service_even_when_version_is_unchanged(tmp_path):
+@pytest.mark.parametrize("cached_uv", [False, True])
+def test_successful_repair_restarts_service_even_when_version_is_unchanged(tmp_path, cached_uv):
     tools = tmp_path / "bin"
     tools.mkdir()
     uv = tools / "uv"
@@ -71,6 +72,10 @@ cp "$TEST_FAKE_PYTHON" "$UV_TOOL_DIR/account-access/bin/python"
 cp "$TEST_FAKE_APP" "$UV_TOOL_BIN_DIR/account-access"
 ''')
     uv.chmod(0o700)
+    if cached_uv:
+        cache = tmp_path / "runtime/uv"
+        cache.mkdir(parents=True)
+        uv.rename(cache / "uv")
     fake_python = tmp_path / "fake-python"
     # Keep the installer smoke test from writing a real launcher or installing
     # browsers. The service's stop/start entrypoints are the behavior under test.

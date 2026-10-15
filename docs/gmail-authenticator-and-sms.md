@@ -43,7 +43,7 @@ Google Authenticator generates codes using a setup key originally supplied by th
 
 If the website already uses Google Authenticator and you no longer have the original QR/key, follow that website's owner flow to obtain or re-enroll it. If it supplies a new key, update both your phone app and Account Access with the new key yourself.
 
-The current preview accepts a website's standard `otpauth://totp/` setup QR/key: six digits, a 30-second period and SHA-1. **Google Authenticator's “Transfer codes / Export codes” QR is a different format and is not supported by this preview.** The app does not read your phone screen or retrieve keys from Google's Authenticator cloud sync. Never send a private setup QR/key in chat.
+The published 0.7.4 preview accepts a website's standard `otpauth://totp/` setup QR/key: six digits, a 30-second period and SHA-1. Its importer does not accept Google Authenticator's different “Transfer codes / Export codes” format. **The 0.8 candidate adds local transfer-QR import:** choose **Import authenticator QR image**, select one complete export image, and review the matching account. It supports one complete batch of six-digit SHA-1 TOTP entries. The app does not read your phone screen or retrieve keys from Google's Authenticator cloud sync. Never send a private setup QR/key in chat.
 
 Fingerprint, passkey, push, device and administrator approvals remain owner actions; they cannot be replaced by generating an authenticator code.
 

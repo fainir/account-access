@@ -101,7 +101,12 @@ class Browser:
 
     def challenge(self, page, config):
         # Action/presence challenges take priority, even if the page also has a ready marker.
-        for kind in ["action", "passkey", "device", "admin", "sms", "email", "totp", "method", "unknown", "login"]:
+        for kind in ["action", "passkey", "device", "admin", "sms", "email", "totp",
+                     "sms_request", "email_request", "method", "unknown", "login"]:
+            if kind.endswith("_request") and config.login:
+                delivery = next((item for item in config.login.code_requests if item.kind + "_request" == kind), None)
+                if delivery and page.url == delivery.url and page.locator(delivery.selector).first.is_visible():
+                    return kind
             selector = config.challenge_selectors.get(kind)
             if selector and page.locator(selector).first.is_visible():
                 return kind
@@ -128,7 +133,8 @@ class Browser:
                 return
             page.wait_for_timeout(50)
 
-    def read(self, account, op, config, *, secret_values=None, visible=False):
+    def read(self, account, op, config, *, secret_values=None, visible=False,
+             setup_method=None, review_stop=None, on_code_request=None):
         # Owner troubleshooting must describe this check, not an earlier routing
         # problem after the account has reached a different verification step.
         self.store.audit("service", account, "", "browser_check_started")
@@ -151,7 +157,11 @@ class Browser:
                     # Owner-only troubleshooting: keep the actual failed page
                     # visible briefly, without exporting its HTML or secrets.
                     try:
-                        page.wait_for_event("close", timeout=120000)
+                        deadline = time.monotonic() + 300
+                        while not page.is_closed() and time.monotonic() < deadline:
+                            if review_stop and review_stop.is_set():
+                                break
+                            page.wait_for_timeout(100)
                     except PlaywrightError:
                         pass
                 try:
@@ -169,7 +179,8 @@ class Browser:
                             raise
                         context.close()
                         state = self.login(browser, account, config, state, secret_values=secret_values,
-                                           review_failure=review_failure)
+                                           review_failure=review_failure, setup_method=setup_method,
+                                           on_code_request=on_code_request, review_stop=review_stop)
                         context = self.context(browser, config, state, account=account)
                         page = context.new_page()
                         page.goto(op.url, timeout=15000, wait_until="domcontentloaded")
@@ -187,16 +198,21 @@ class Browser:
         except PlaywrightError:
             raise AccessError("RETRYABLE", "browser_execution_failed") from None
 
-    def login(self, browser, account, config, state=None, *, secret_values=None, review_failure=None):
+    def login(self, browser, account, config, state=None, *, secret_values=None, review_failure=None,
+              setup_method=None, on_code_request=None, review_stop=None):
         # Lock in a stable order: accounts with several verification methods must
         # not compete for a shared inbox/SMS delivery, or deadlock each other.
         with ExitStack() as held:
             for source in sorted(config.login.sources()):
                 held.enter_context(self.store.lock("code-login:" + source, timeout=0))
             return self._login(browser, account, config, state, secret_values=secret_values,
-                               review_failure=review_failure)
+                               review_failure=review_failure, setup_method=setup_method,
+                               on_code_request=on_code_request, review_stop=review_stop)
 
-    def _login(self, browser, account, config, state=None, *, secret_values=None, review_failure=None):
+    def _login(self, browser, account, config, state=None, *, secret_values=None, review_failure=None,
+               setup_method=None, on_code_request=None, review_stop=None):
+        if review_stop and review_stop.is_set():
+            raise AccessError("NEEDS_USER", "sms_setup_cancelled", "sms")
         from .password_sync import refresh
         refresh(self.store, account, force=True)
         credential = self.store.get("credential:" + account, {})
@@ -226,6 +242,8 @@ class Browser:
                 raise AccessError("NEEDS_USER", "login_destination_changed", "unknown")
             form = config.login
             self.check_form(page, form.password_selector, config)
+            if review_stop and review_stop.is_set():
+                raise AccessError("NEEDS_USER", "sms_setup_cancelled", "sms")
             page.locator(form.username_selector).fill(credential["username"])
             page.locator(form.password_selector).fill(credential["password"])
             started = time.time()
@@ -239,18 +257,52 @@ class Browser:
                     if not form.factors:
                         raise
                     source_errors[source_id] = exc
+            if review_stop and review_stop.is_set():
+                raise AccessError("NEEDS_USER", "sms_setup_cancelled", "sms")
             page.locator(form.submit_selector).click(timeout=10000)
             page.wait_for_load_state("domcontentloaded")
             self.wait_state(page, config, after_submit=True)
             kind = self.challenge(page, config)
             used_by_source = {}
             choices_used = set()
-            while kind in {"sms", "email", "totp", "method"}:
+            requested = set()
+            while kind in {"sms", "email", "totp", "method", "sms_request", "email_request"}:
+                if kind.endswith("_request"):
+                    method = kind.removesuffix("_request")
+                    if method in requested or method in completed:
+                        raise AccessError("NEEDS_USER", "verification_code_request_repeated", method)
+                    factor = form.factor(method)
+                    if not factor and setup_method != method:
+                        raise AccessError("NEEDS_USER", "verification_source_not_connected", method)
+                    if factor and factor.code_source in source_errors:
+                        raise source_errors[factor.code_source]
+                    source = self.store.config().code_sources[factor.code_source] if factor else None
+                    enrolled = self.store.get("source:" + factor.code_source) or {} if factor else {}
+                    if factor and (source.kind not in {"sms": {"twilio", "mac_messages", "phone_relay"},
+                                           "email": {"imap", "gmail"}}[method]
+                            or not enrolled or enrolled.get("enabled") is False):
+                        raise AccessError("NEEDS_USER", "verification_source_not_connected", method)
+                    delivery = next(item for item in form.code_requests if item.kind == method)
+                    self.check_form(page, delivery.selector, config)
+                    if review_stop and review_stop.is_set():
+                        raise AccessError("NEEDS_USER", "sms_setup_cancelled", method)
+                    requested.add(method)
+                    requested_at = time.time()
+                    page.locator(delivery.selector).first.click(timeout=10000)
+                    page.wait_for_load_state("domcontentloaded")
+                    if on_code_request:
+                        on_code_request(method, requested_at)
+                    self.wait_state(page, config, previous_kind=kind)
+                    kind = self.challenge(page, config)
+                    if kind not in {method, None, "action", "passkey", "device", "admin", method + "_request"}:
+                        raise AccessError("NEEDS_USER", "verification_method_changed", "unknown")
+                    continue
                 if kind == "method":
-                    selected = self.choose_method(page, config, source_errors, set(completed) | choices_used)
+                    selected = self.choose_method(page, config, source_errors, set(completed) | choices_used,
+                                                  setup_method=setup_method)
                     choices_used.add(selected)
                     kind = self.challenge(page, config)
-                    if kind not in {selected, None, "action", "passkey", "device", "admin"}:
+                    if kind not in {selected, selected + "_request", None, "action", "passkey", "device", "admin"}:
                         raise AccessError("NEEDS_USER", "verification_method_changed", "unknown")
                     continue
                 if kind in completed:
@@ -306,7 +358,7 @@ class Browser:
                     self.codes.finish(source_id, started)
             context.close()
 
-    def choose_method(self, page, config, source_errors, excluded):
+    def choose_method(self, page, config, source_errors, excluded, *, setup_method=None):
         """Select only an offered, reviewed GET link to an enrolled login factor.
 
         A connector marks an optional method picker explicitly. Presence and
@@ -315,19 +367,21 @@ class Browser:
         """
         setup = None
         for choice in config.login.choices:
+            if setup_method and choice.kind != setup_method:
+                continue
             if choice.kind in excluded or not page.locator(choice.selector).first.is_visible():
                 continue
             factor = config.login.factor(choice.kind)
-            if not factor:
+            if not factor and setup_method != choice.kind:
                 setup = setup or AccessError("NEEDS_USER", "verification_source_not_connected", choice.kind)
                 continue
-            source = self.store.config().code_sources[factor.code_source]
-            enrolled = self.store.get("source:" + factor.code_source) or {}
-            unavailable = source_errors.get(factor.code_source)
+            source = self.store.config().code_sources[factor.code_source] if factor else None
+            enrolled = self.store.get("source:" + factor.code_source) or {} if factor else {}
+            unavailable = source_errors.get(factor.code_source) if factor else None
             if unavailable:
                 setup = setup or unavailable
                 continue
-            if not enrolled or enrolled.get("enabled") is False or (source.kind == "totp" and not enrolled.get("seed")):
+            if factor and (not enrolled or enrolled.get("enabled") is False or (source.kind == "totp" and not enrolled.get("seed"))):
                 setup = setup or AccessError("NEEDS_USER", "authenticator_not_enrolled" if source.kind == "totp"
                                             else "verification_source_not_connected", choice.kind)
                 continue

@@ -33,19 +33,29 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
     token = secrets.token_urlsafe(32)
     instance_key = instance_key or secrets.token_bytes(32)
     jobs = {}
+    sms_setups = {}
     guard = threading.Lock()
     verification_slots = threading.BoundedSemaphore(4)
 
-    def verify(account, job_id, visible=False):
+    def verify(account, job_id, visible=False, setup_method=None, review_stop=None):
         with verification_slots:
-            _verify(account, job_id, visible)
+            if review_stop and review_stop.is_set():
+                with guard:
+                    jobs[job_id] = {"status": "CANCELLED", "account": account}
+                return
+            _verify(account, job_id, visible, setup_method, review_stop)
 
-    def _verify(account, job_id, visible=False):
+    def _verify(account, job_id, visible=False, setup_method=None, review_stop=None):
         try:
             config = broker.store.config().accounts[account]
+            def requested(kind, at):
+                with guard:
+                    jobs[job_id]["code_requested"] = {"kind": kind, "at": at}
             with broker.store.lock("account:" + account, timeout=5):
                 broker.browser.read(account, next(iter(config.operations.values())), config,
-                                    secret_values=set(), visible=visible)
+                                    secret_values=set(), visible=visible, setup_method=setup_method,
+                                    review_stop=review_stop,
+                                    on_code_request=requested if setup_method else None)
             try:
                 broker.tick()
             except AccessError as exc:
@@ -57,6 +67,8 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
         except Exception:
             result = {"status": "NEEDS_USER", "reason": "connection_not_completed", "account": account}
         with guard:
+            if "code_requested" in jobs[job_id]:
+                result["code_requested"] = jobs[job_id]["code_requested"]
             jobs[job_id] = result
 
     def new_job(account):
@@ -196,6 +208,8 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                 state["password_sync"] = view(broker.store)
                 from .browser_updates import view as browser_updates
                 state["browser_updates"] = browser_updates(broker.store)
+                from .sms_setup import view as sms_setup
+                state["sms_setups"] = sms_setup(broker.store)
                 if guided:
                     from .catalog import view
                     state["catalog"] = view()
@@ -228,6 +242,44 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                 if not 0 < length <= limit:
                     raise ValueError()
                 data = json.loads(self.rfile.read(length))
+                if guided and self.path == "/owner/sms/setup-start":
+                    from .sms_setup import prepare
+                    if set(data) != {"account", "fingerprint"}:
+                        raise ValueError()
+                    now = time.time()
+                    with guard:
+                        for key, setup in list(sms_setups.items()):
+                            if setup["expires"] < now:
+                                setup["stop"].set()
+                                del sms_setups[key]
+                        if len(sms_setups) >= 8:
+                            raise AccessError("RETRYABLE", "sms_setup_limit")
+                    fingerprint = prepare(broker.store, data["account"], data["fingerprint"])
+                    ident = new_job(data["account"])
+                    with guard:
+                        stop_review = threading.Event()
+                        sms_setups[ident] = {"account": data["account"], "fingerprint": fingerprint,
+                                              "expires": now + 600, "stop": stop_review}
+                    threading.Thread(target=verify, args=(data["account"], ident, True, "sms", stop_review), daemon=True).start()
+                    self.send(200, {"status": "CONNECTING", "id": ident, "expires": now + 600})
+                    return
+                if guided and self.path in {"/owner/sms/setup-apply", "/owner/sms/setup-discard"}:
+                    expected = {"id", "sender", "template"} if self.path.endswith("apply") else {"id"}
+                    if set(data) != expected or not isinstance(data.get("id"), str):
+                        raise ValueError()
+                    with guard:
+                        setup = sms_setups.pop(data["id"], None)
+                    if not setup:
+                        raise AccessError("DENIED", "sms_setup_expired")
+                    setup["stop"].set()
+                    if self.path.endswith("discard"):
+                        self.send(200, {"status": "DISCARDED"})
+                        return
+                    if setup["expires"] < time.time():
+                        raise AccessError("DENIED", "sms_setup_expired")
+                    from .sms_setup import apply
+                    self.send(200, apply(broker.store, setup["account"], setup["fingerprint"], data["sender"], data["template"]))
+                    return
                 if guided and self.path == "/owner/browser-update":
                     from .browser_updates import apply
                     if set(data) != {"account", "fingerprint"}:
@@ -404,6 +456,9 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
 
     class OwnerServer(ThreadingHTTPServer):
         def server_close(self):
+            with guard:
+                for setup in sms_setups.values():
+                    setup["stop"].set()
             phone.close()
             super().server_close()
 

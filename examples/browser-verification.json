@@ -12,8 +12,11 @@
         "submit_selector": "#sign-in",
         "choices": [
           {"kind": "totp", "selector": "a#use-authenticator", "url": "https://account.example/verify/authenticator"},
-          {"kind": "sms", "selector": "a#use-sms", "url": "https://account.example/verify/sms"},
+          {"kind": "sms", "selector": "a#use-sms", "url": "https://account.example/verify/sms/confirm"},
           {"kind": "email", "selector": "a#use-email", "url": "https://account.example/verify/email"}
+        ],
+        "code_requests": [
+          {"kind": "sms", "selector": "form#request-sms button", "url": "https://account.example/verify/sms/confirm"}
         ],
         "factors": {
           "email": {
@@ -48,6 +51,7 @@
         "https://account.example/verify/method",
         "https://account.example/verify/email",
         "https://account.example/verify/sms",
+        "https://account.example/verify/sms/confirm",
         "https://account.example/verify/authenticator",
         "https://account.example/summary"
       ],
@@ -55,6 +59,7 @@
         "https://account.example/login",
         "https://account.example/verify/email",
         "https://account.example/verify/sms",
+        "https://account.example/verify/sms/confirm",
         "https://account.example/verify/authenticator"
       ],
       "operations": {

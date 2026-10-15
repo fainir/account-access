@@ -63,6 +63,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     var passwordSync: [[String: Any]] = []
     var navigationFailures: [[String: Any]] = []
     var browserUpdates: [[String: Any]] = []
+    var smsSetups: [[String: Any]] = []
+    var smsProgress: Progress?
     var syncAccounts: NSPopUpButton!
     var syncFields: [String: NSTextField] = [:]
     var automaticSessions: [String: [String: Any]] = [:]
@@ -516,6 +518,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     func accept(_ state: [String: Any]) {
         navigationFailures = state["navigation_failures"] as? [[String: Any]] ?? []
         browserUpdates = state["browser_updates"] as? [[String: Any]] ?? []
+        smsSetups = state["sms_setups"] as? [[String: Any]] ?? []
         passwordSync = state["password_sync"] as? [[String: Any]] ?? []
         catalog = state["catalog"] as? [[String: Any]] ?? []
         accounts = state["accounts"] as? [[String: Any]] ?? []
@@ -653,7 +656,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         }
     }
 
-    func waitForConnection(_ initial: [String: Any], account: String, timeout: TimeInterval = 150) throws -> [String: Any] {
+    func waitForConnection(_ initial: [String: Any], account: String, timeout: TimeInterval = 150, visible: Bool = false) throws -> [String: Any] {
         guard var id = initial["id"] as? String else { throw Failure.message("The connection could not start.") }
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
@@ -663,7 +666,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 if outcome == "CONNECTED" { return state }
                 if outcome == "RETRYABLE" {
                     Thread.sleep(forTimeInterval: 3)
-                    let retry = try request("owner/verify", body: ["account": account])
+                    let retry = try request("owner/verify", body: ["account": account, "visible": visible])
                     guard let next = retry["id"] as? String else { break }
                     id = next
                     DispatchQueue.main.async { self.status.stringValue = "The website is taking longer. Retrying safely…" }
@@ -847,12 +850,12 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     @objc func inspectSavedSignIn(_ sender: NSButton) {
         guard let account = sender.identifier?.rawValue else { return }
         busy = true
-        page("Checking your saved sign-in", "The website opens on this Mac. If the sign-in stops, its page stays open for up to two minutes so you can review the problem. Close that browser window when finished. Your permissions stay the same.")
+        page("Checking your saved sign-in", "The website opens on this Mac. If the sign-in stops, its page stays open for up to five minutes so you can review the problem. Close that browser window when finished. Your permissions stay the same.")
         progress()
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 let job = try self.request("owner/verify", body: ["account": account, "visible": true])
-                let state = try self.waitForConnection(job, account: account, timeout: 300)
+                let state = try self.waitForConnection(job, account: account, timeout: 360, visible: true)
                 DispatchQueue.main.async { self.busy = false; self.accept(state); self.ready() }
             } catch { self.fail(error, retry: #selector(self.showReady)) }
         }
@@ -929,11 +932,20 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     @objc func showFactors() {
         section = "verification"
         page("Verification", "Connect email, SMS or an authenticator once. Login codes stay out of your AI chat.")
-        if sources.isEmpty {
+        if sources.isEmpty && smsSetups.isEmpty {
             card("You're all set", "Your current accounts do not need a verification code. Methods appear here when a supported account requires one.", status: "No setup needed")
             action("Back", #selector(backToConnections))
             return
         }
+        for setup in smsSetups {
+            guard let account = setup["account"] as? String else { continue }
+            let name = accounts.first { $0["account"] as? String == account }?["label"] as? String ?? "GitHub"
+            let panel = card("iPhone SMS · " + name, "Connect the login messages already forwarded to this Mac. Account Access detects the sender during one sign-in and asks you to review it.", status: "One-time setup", good: false)
+            let start = NSButton(title: "Connect iPhone SMS", target: self, action: #selector(startSMSSetup))
+            start.identifier = NSUserInterfaceItemIdentifier(account)
+            panel.addArrangedSubview(start)
+        }
+        if sources.isEmpty { action("Back", #selector(backToConnections)); return }
         factorMenu = NSPopUpButton()
         for source in sources {
             let linked = (source["accounts"] as? [String] ?? []).map { id in accounts.first { $0["account"] as? String == id }?["label"] as? String ?? id }
@@ -950,6 +962,119 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     func factorName(_ kind: String) -> String {
         return ["totp": "Authenticator", "imap": "Email", "gmail": "Gmail", "twilio": "SMS gateway",
                 "mac_messages": "iPhone Messages", "phone_relay": "Android phone"][kind] ?? "Verification"
+    }
+
+    @objc func cancelSMSSetup() { smsProgress?.cancel() }
+
+    @objc func startSMSSetup(_ sender: NSButton) {
+        guard !busy, let account = sender.identifier?.rawValue,
+              let setup = smsSetups.first(where: { $0["account"] as? String == account }),
+              let fingerprint = setup["fingerprint"] as? String else { return }
+        guard MessagesReader.hasAccess(), let path = MessagesReader.messagesPath() else {
+            let alert = NSAlert()
+            alert.messageText = "Allow Messages access first"
+            alert.informativeText = "In Full Disk Access, turn on Account Access and approve the macOS prompt. Return here and try connecting SMS again."
+            alert.addButton(withTitle: "Open privacy settings"); alert.addButton(withTitle: "Cancel")
+            if alert.runModal() == .alertFirstButtonReturn { openMessagePrivacy() }
+            return
+        }
+        let review = NSAlert()
+        review.messageText = "Connect GitHub login SMS?"
+        review.informativeText = "Account Access will use your saved GitHub sign-in and request one login SMS. During this setup it checks at most 20 fresh incoming texts for a recognized GitHub login message. You'll review the sender before enabling its exact filter. Codes stay outside your AI chat. Your approved website reads stay the same."
+        review.addButton(withTitle: "Start SMS setup"); review.addButton(withTitle: "Cancel")
+        guard review.runModal() == .alertFirstButtonReturn else { return }
+        guard let afterRow = MessagesReader.incomingBaseline(path: path) else {
+            fail(Failure.message("Messages could not prepare a fresh delivery window. No website sign-in was started."), retry: #selector(showFactors))
+            return
+        }
+        busy = true
+        let waiting = Progress(totalUnitCount: 110)
+        smsProgress = waiting
+        page("Connecting your login SMS", "Requesting one GitHub login SMS and checking its delivery on this Mac. You do not need to copy a code.")
+        progress()
+        let cancel = action("Cancel SMS setup", #selector(cancelSMSSetup))
+        cancel.isEnabled = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            var id: String?
+            do {
+                let started = try self.request("owner/sms/setup-start", body: ["account": account, "fingerprint": fingerprint])
+                guard let jobID = started["id"] as? String else { throw Failure.message("SMS setup could not start.") }
+                id = jobID
+                let deadline = Date().addingTimeInterval(110)
+                var incoming = 0
+                var unreadable = 0
+                while Date() < deadline && !waiting.isCancelled {
+                    let state = try self.request("owner/state")
+                    let job = (state["connection_jobs"] as? [String: [String: Any]])?[jobID] ?? [:]
+                    if let delivery = job["code_requested"] as? [String: Any], delivery["kind"] as? String == "sms",
+                       let at = delivery["at"] as? Double {
+                        let preview = MessagesReader.previewGitHubSMS(path: path, started: at, afterRow: afterRow)
+                        incoming = Int(preview["incoming"] ?? "0") ?? 0
+                        unreadable = Int(preview["unreadable"] ?? "0") ?? 0
+                        if preview["status"] == "WAITING" {
+                            let message = unreadable > 0 ? "Some incoming messages could not be read."
+                                : incoming > 0 ? "New messages arrived; waiting for the GitHub login text…"
+                                : "Waiting for the login SMS to reach Messages on this Mac…"
+                            DispatchQueue.main.async { self.status.stringValue = message }
+                        }
+                        if preview["status"] == "FOUND" {
+                            DispatchQueue.main.async {
+                                self.busy = false; self.smsProgress = nil; self.accept(state)
+                                self.confirmSMSSetup(jobID, account: account, preview: preview)
+                            }
+                            return
+                        }
+                        if preview["status"] == "NEEDS_USER" {
+                            throw Failure.message(preview["reason"] == "ambiguous_login_code"
+                                ? "More than one GitHub login SMS arrived. No filter was connected. Wait for those attempts to finish before trying again."
+                                : "Messages access or this setup window is unavailable. Check Mac privacy settings and try again.")
+                        }
+                    } else if let outcome = job["status"] as? String, outcome != "RUNNING" {
+                        throw Failure.message(job["reason"] as? String == "login_retry_cooldown"
+                            ? "The website's sign-in cooldown is active. Wait one minute and connect SMS again."
+                            : "The website did not complete its reviewed SMS request. Your saved password is preserved.")
+                    }
+                    Thread.sleep(forTimeInterval: 1)
+                }
+                let explanation = unreadable > 0 ? "New texts arrived, but some messages could not be decoded. No SMS filter was enabled. Update Account Access before trying again."
+                    : incoming > 0 ? "New texts arrived, but none matched a supported GitHub login message. No SMS filter was enabled."
+                    : "No new incoming text reached Messages during this setup. Check iPhone text forwarding and SMS delivery, then try again."
+                throw Failure.message(waiting.isCancelled ? "SMS setup was cancelled. No SMS filter was enabled." : explanation)
+            } catch {
+                if let id { _ = try? self.request("owner/sms/setup-discard", body: ["id": id]) }
+                let state = try? self.request("owner/state")
+                DispatchQueue.main.async { if let state { self.accept(state) }; self.smsProgress = nil }
+                self.fail(error, retry: #selector(self.showFactors))
+            }
+        }
+    }
+
+    func confirmSMSSetup(_ id: String, account: String, preview: [String: String]) {
+        guard let sender = preview["sender"], let template = preview["template"] else { return }
+        let review = NSAlert()
+        review.messageText = "GitHub login SMS found"
+        review.informativeText = "Enable this sender ending in “" + String(sender.suffix(4)) + "” for GitHub login codes? Later sign-ins will check only fresh incoming messages from that exact sender and matching this login template. Your approved reads stay the same.\n\nLogin message pattern:\n" + template
+        review.addButton(withTitle: "Connect SMS"); review.addButton(withTitle: "Cancel")
+        let accepted = review.runModal() == .alertFirstButtonReturn
+        busy = true
+        page(accepted ? "Checking automatic SMS sign-in" : "Cancelling SMS setup", accepted
+             ? "Your SMS filter is saved locally. Checking the website sign-in without copying a code. A short website cooldown may apply."
+             : "No SMS filter will be enabled.")
+        progress()
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                if accepted {
+                    _ = try self.request("owner/sms/setup-apply", body: ["id": id, "sender": sender, "template": template])
+                    let issues = self.verifyLinkedAccounts([account])
+                    let state = try self.request("owner/state")
+                    DispatchQueue.main.async { self.busy = false; self.accept(state); self.showImportSummary([account], issues: issues, verification: true) }
+                } else {
+                    _ = try self.request("owner/sms/setup-discard", body: ["id": id])
+                    let state = try self.request("owner/state")
+                    DispatchQueue.main.async { self.busy = false; self.accept(state); self.showFactors() }
+                }
+            } catch { self.fail(error, retry: #selector(self.showFactors)) }
+        }
     }
 
     @objc func factorChanged() {
@@ -1196,6 +1321,11 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 body.addArrangedSubview(details)
             }
             if !allowed || !active || pending {
+                if smsSetups.contains(where: { $0["account"] as? String == account["account"] as? String }) {
+                    let sms = NSButton(title: "Connect iPhone SMS", target: self, action: #selector(startSMSSetup))
+                    sms.identifier = NSUserInterfaceItemIdentifier(account["account"] as? String ?? "")
+                    body.addArrangedSubview(sms)
+                }
                 if browserUpdates.contains(where: { $0["account"] as? String == account["account"] as? String }) {
                     let update = NSButton(title: "Update sign-in connection", target: self, action: #selector(updateBrowserConnection))
                     update.identifier = NSUserInterfaceItemIdentifier(account["account"] as? String ?? "")

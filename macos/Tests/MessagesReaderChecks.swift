@@ -50,6 +50,61 @@ import CryptoKit
   request["used"] = []
   let ambiguous = MessagesReader.read(try payload(), path: path)
   precondition(ambiguous["reason"] as? String == "ambiguous_login_code" && ambiguous["code"] == nil)
+  precondition(MessagesReader.githubTemplate("123456 is your GitHub authentication code.") == "{code} is your GitHub authentication code.")
+  precondition(MessagesReader.githubTemplate("GitHub authentication code: 123456. Approve payment") == nil)
+  precondition(MessagesReader.githubTemplate("GitHub authentication code: 123456; 654321") == nil)
+  precondition(MessagesReader.githubTemplate("GitHub password reset verification code: 123456") == nil)
+  precondition(MessagesReader.githubTemplate("123456 is your GitHub authentication code. Private unrelated text") == nil)
+  precondition(sqlite3_exec(db, "INSERT INTO message VALUES('github','123456 is your GitHub authentication code.',NULL,1,0,\(date))", nil, nil, nil) == SQLITE_OK)
+  let preview = MessagesReader.previewGitHubSMS(path: path, started: now - 1)
+  precondition(preview["status"] == "FOUND" && preview["template"] == "{code} is your GitHub authentication code.")
+  let previewJSON = String(data: try JSONSerialization.data(withJSONObject: preview), encoding: .utf8)!
+  precondition(!previewJSON.contains("123456"))
+  precondition(MessagesReader.previewGitHubSMS(path: path, started: now - 121)["reason"] == "sms_preview_expired")
+  precondition(sqlite3_exec(db, "INSERT INTO message VALUES('github-second','654321 is your GitHub authentication code.',NULL,1,0,\(date))", nil, nil, nil) == SQLITE_OK)
+  precondition(MessagesReader.previewGitHubSMS(path: path, started: now - 1)["reason"] == "ambiguous_login_code")
+  let fixtureURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/messages-typedstream.json")
+  let fixture = try JSONSerialization.jsonObject(with: Data(contentsOf: fixtureURL)) as! [String: Any]
+  let cases = fixture["cases"] as! [[String: Any]]
+  func hex(_ value: String) -> Data {
+    var result = Data(); var index = value.startIndex
+    while index < value.endIndex {
+      let end = value.index(index, offsetBy: 2)
+      result.append(UInt8(value[index..<end], radix: 16)!); index = end
+    }
+    return result
+  }
+  for test in cases {
+    let data = hex(test["hex"] as! String)
+    let expected = test["text"] as? String
+    guard MessageText.decode(data) == expected else { fatalError("Foundation fixture failed: " + (test["name"] as! String)) }
+  }
+  let short = hex(cases.first { $0["name"] as? String == "short" }!["hex"] as! String)
+  let text = Data("Example [login]: 121212".utf8)
+  let content = short.range(of: text)!
+  for count in 0..<content.upperBound { precondition(MessageText.decode(short.prefix(count)) == nil) }
+  var invalidUTF8 = short; invalidUTF8[content.lowerBound] = 0xff
+  precondition(MessageText.decode(invalidUTF8) == nil)
+  var invalidLength = short; invalidLength[content.lowerBound - 1] = 0x83
+  precondition(MessageText.decode(invalidLength) == nil)
+  precondition(MessageText.decode(Data(repeating: 0x84, count: 65537)) == nil)
+  let github = hex(cases.first { $0["name"] as? String == "github" }!["hex"] as! String)
+  precondition(sqlite3_exec(db, "DELETE FROM message", nil, nil, nil) == SQLITE_OK)
+  var typedInsert: OpaquePointer?
+  precondition(sqlite3_prepare_v2(db, "INSERT INTO message VALUES('typedstream',NULL,?,1,0,\(date))", -1, &typedInsert, nil) == SQLITE_OK)
+  github.withUnsafeBytes { pointer in _ = sqlite3_bind_blob(typedInsert, 1, pointer.baseAddress, Int32(github.count), unsafeBitCast(-1, to: sqlite3_destructor_type.self)) }
+  precondition(sqlite3_step(typedInsert) == SQLITE_DONE); sqlite3_finalize(typedInsert)
+  request["used"] = []; request["template"] = "{code} is your GitHub authentication code."
+  let typedRequest = try payload()
+  precondition(MessagesReader.read(typedRequest, path: path)["code"] as? String == "121212")
+  precondition(MessagesReader.previewGitHubSMS(path: path, started: now - 1)["status"] == "FOUND")
+  let baseline = MessagesReader.incomingBaseline(path: path)!
+  precondition(MessagesReader.previewGitHubSMS(path: path, started: now - 1, afterRow: baseline)["status"] == "WAITING")
+  precondition(sqlite3_exec(db, "INSERT INTO message VALUES('rounded-phone-time','343434 is your GitHub authentication code.',NULL,1,0,\(date - 2_000_000_000))", nil, nil, nil) == SQLITE_OK)
+  precondition(MessagesReader.previewGitHubSMS(path: path, started: now - 1, afterRow: baseline)["status"] == "FOUND")
+  print("PASS: SMS setup ignores existing rows while allowing a small clock offset on a newly delivered text")
+  print("PASS: Foundation-generated typedstream text, Unicode lengths, mutable strings, metadata exclusion, malformed archives and the native SMS paths")
+  print("PASS: owner SMS template preview excludes codes, unrelated messages, expired requests and ambiguous deliveries")
   print("PASS: no-row permission probe, signed request authentication, literal template, sender/time/incoming filters, used-message exclusion, attributed SMS text, ambiguity protection")
  }
 }

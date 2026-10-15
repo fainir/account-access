@@ -1,6 +1,38 @@
 import AppKit
 import Foundation
 
+final class VerificationRetryFixture: URLProtocol {
+    static var retriedVisible = false
+    static var retried = false
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        let payload: [String: Any]
+        if request.url?.path == "/owner/verify" {
+            var body = request.httpBody
+            if body == nil, let stream = request.httpBodyStream {
+                stream.open(); defer { stream.close() }
+                var bytes = [UInt8](repeating: 0, count: 1024)
+                let count = stream.read(&bytes, maxLength: bytes.count)
+                if count > 0 { body = Data(bytes.prefix(count)) }
+            }
+            let input = body.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+            Self.retriedVisible = input?["visible"] as? Bool == true && input?["account"] as? String == "fixture"
+            Self.retried = true
+            payload = ["id": "second"]
+        } else {
+            payload = ["connection_jobs": Self.retried
+                ? ["second": ["status": "CONNECTED"]] : ["first": ["status": "RETRYABLE"]]]
+        }
+        let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil,
+                                       headerFields: ["Content-Type": "application/json"])!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: try! JSONSerialization.data(withJSONObject: payload))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
+}
+
 @main struct OwnerScreenChecks {
     static func main() {
         _ = NSApplication.shared
@@ -70,5 +102,19 @@ import Foundation
         views = descendants(owner.stack)
         precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Update sign-in connection"))
         print("PASS: reviewed sign-in repairs are available without entering the password again")
+        let sessionConfig = URLSessionConfiguration.ephemeral
+        sessionConfig.protocolClasses = [VerificationRetryFixture.self]
+        owner.session = URLSession(configuration: sessionConfig)
+        owner.status = NSTextField(labelWithString: "Checking")
+        _ = try! owner.waitForConnection(["id": "first"], account: "fixture", timeout: 10, visible: true)
+        precondition(VerificationRetryFixture.retriedVisible)
+        print("PASS: owner-visible troubleshooting stays visible after a transient retry")
+        owner.sources = []
+        owner.smsSetups = [["account": "fixture", "fingerprint": "fictional"]]
+        owner.showFactors()
+        views = descendants(owner.stack)
+        precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Connect iPhone SMS"))
+        precondition(!views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("You're all set"))
+        print("PASS: an offered SMS method has a setup action before any SMS source exists")
     }
 }

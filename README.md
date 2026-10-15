@@ -72,6 +72,18 @@ The 0.8 candidate supports separate reviewed sources and form selectors for emai
 
 When a website offers a choice, its connector can select a reviewed link to an enrolled verification method automatically. It checks the exact link before following it. A mandatory device approval still pauses. The owner app also offers a narrow sign-in-routing repair for the existing GitHub pilot, preserving its approved reads and login POST destinations.
 
+For the existing GitHub browser pilot, the candidate adds **Connect iPhone SMS**.
+After Messages forwarding and Mac privacy approval, the app requests one login
+SMS and detects a recognized message locally. Review the sender and code-free
+message pattern before connecting it. This one-time discovery checks at most 20
+fresh incoming texts; later logins use the saved exact sender and template.
+Sender changes or unsupported message formats require review. Live delivery
+validation is separate from the fictional regression tests.
+
+Connectors can also configure a separate **Send code** confirmation form. The
+broker checks its reviewed POST destination and requests a code once before
+waiting for delivery. It stops for repeated requests or changed forms.
+
 Close the setup app when finished; your AI can start the saved local service when needed, including after a restart. Your computer must be awake and its secure keyring available. Use **Manage accounts and verification** to reconnect or revoke access.
 
 ## Watch the 85-second explainer

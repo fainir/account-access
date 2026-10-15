@@ -93,6 +93,12 @@ class LoginChoice(StrictModel):
     url: str
 
 
+class LoginCodeRequest(StrictModel):
+    kind: Literal["email", "sms"]
+    selector: str = Field(min_length=1)
+    url: str
+
+
 class LoginForm(StrictModel):
     username_selector: str
     password_selector: str
@@ -104,6 +110,7 @@ class LoginForm(StrictModel):
     login_only: Literal[True] = True
     factors: dict[Literal["email", "sms", "totp"], LoginFactor] = Field(default_factory=dict)
     choices: list[LoginChoice] = Field(default_factory=list, max_length=3)
+    code_requests: list[LoginCodeRequest] = Field(default_factory=list, max_length=2)
 
     @model_validator(mode="after")
     def one_factor_configuration(self):
@@ -111,6 +118,8 @@ class LoginForm(StrictModel):
             raise ValueError("Use per-method factors or the legacy single source, never both")
         if len({choice.kind for choice in self.choices}) != len(self.choices):
             raise ValueError("Configure each verification choice once")
+        if len({item.kind for item in self.code_requests}) != len(self.code_requests):
+            raise ValueError("Configure each code request once")
         return self
 
     def sources(self):
@@ -199,6 +208,10 @@ class Configuration(StrictModel):
                                 or origin(choice.url) != origin(account.login_url)
                                 or (factor and self.code_sources[factor.code_source].kind not in kinds[choice.kind])):
                             raise ValueError("Verification choices require a reviewed login URL and any configured source must match")
+                    for delivery in account.login.code_requests:
+                        if (delivery.url not in account.login_resources
+                                or origin(delivery.url) != origin(account.login_url)):
+                            raise ValueError("Code requests require a reviewed same-origin login page")
             urls.extend(op.url for op in account.operations.values())
             for url in urls:
                 validate_url(url, self.test_mode)
@@ -223,6 +236,8 @@ class Configuration(StrictModel):
                 data["login"].pop("factors", None)
             if not data["login"].get("choices"):
                 data["login"].pop("choices", None)
+            if not data["login"].get("code_requests"):
+                data["login"].pop("code_requests", None)
             if data["login"].get("code_wait_ms") == 60000:
                 data["login"].pop("code_wait_ms", None)
         if isinstance(self.accounts[account], BrowserAccount):

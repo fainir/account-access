@@ -15,7 +15,7 @@ mkdir -p "$AC_APP/Contents/MacOS" "$AC_APP/Contents/Resources"
 for AC_ARCH in arm64 x86_64; do
   xcrun swiftc -O -parse-as-library -target "$AC_ARCH-apple-macos13" \
     -framework AppKit -framework CryptoKit -lsqlite3 \
-    "$AC_SOURCE/macos/AccountAccess.swift" "$AC_SOURCE/macos/MessagesReader.swift" -o "$AC_OUTPUT/AccountAccess-$AC_ARCH"
+    "$AC_SOURCE/macos/AccountAccess.swift" "$AC_SOURCE/macos/MessageText.swift" "$AC_SOURCE/macos/MessagesReader.swift" -o "$AC_OUTPUT/AccountAccess-$AC_ARCH"
 done
 lipo -create "$AC_OUTPUT/AccountAccess-arm64" "$AC_OUTPUT/AccountAccess-x86_64" \
   -output "$AC_APP/Contents/MacOS/AccountAccess"
@@ -31,7 +31,7 @@ cat > "$AC_APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleExecutable</key><string>AccountAccess</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>0.8.0</string>
-<key>CFBundleVersion</key><string>14</string>
+<key>CFBundleVersion</key><string>19</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>

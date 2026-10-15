@@ -13,7 +13,11 @@ case "$(uname -s)" in
 esac
 printf '\nAccount Access\nInstalling what you need. No developer setup required.\n\n'
 mkdir -p "$AC_RUNTIME"
-if command -v uv >/dev/null 2>&1; then
+if [ -x "$AC_RUNTIME/uv/uv" ]; then
+  # Finder-launched apps have a smaller PATH than a terminal. Reuse the
+  # bootstrap installed by the earlier setup instead of downloading it again.
+  AC_UV="$AC_RUNTIME/uv/uv"
+elif command -v uv >/dev/null 2>&1; then
   AC_UV=$(command -v uv)
 elif [ -x "$HOME/.local/bin/uv" ]; then
   AC_UV="$HOME/.local/bin/uv"

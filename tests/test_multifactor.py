@@ -11,7 +11,7 @@ from pydantic import ValidationError
 from account_access.demo import DEMO_PASSWORD, DEMO_SEED
 from account_access.errors import AccessError
 from account_access.factors import enroll
-from account_access.models import Configuration, LoginFactor, LoginChoice
+from account_access.models import Configuration, LoginFactor, LoginChoice, LoginCodeRequest
 from account_access.verification_demo import environment
 
 
@@ -41,7 +41,7 @@ def chain(tmp_path):
                 if self.path.startswith("/verify/"):
                     _, current = self.current()
                     kind = self.path.removeprefix("/verify/")
-                    if current and current[0] == "choose" and kind == "totp":
+                    if current and current[0] == "choose" and kind in {"totp", "request"}:
                         current.pop(0)
                     if not current or current[0] != kind:
                         self.send(403, {})
@@ -51,6 +51,9 @@ def chain(tmp_path):
                         self.page('<div id="method-choice"><a id="use-totp" href="' + target + '">Use authenticator app</a></div>' + presence)
                     elif kind == "action":
                         self.page('<div id="action-challenge">Approve a payment</div>')
+                    elif kind == "request":
+                        action = getattr(provider, "request_action", "/verify/request")
+                        self.page('<form action="' + action + '" method="post"><button id="send-sms">Send SMS</button></form>')
                     else:
                         self.page(f'<form id="{kind}-challenge" action="/verify/{kind}" method="post">'
                                   f'<input id="{kind}-code" name="code">'
@@ -76,6 +79,11 @@ def chain(tmp_path):
                 else:
                     token, current = self.current()
                     kind = self.path.removeprefix("/verify/")
+                    if kind == "request" and current and current[0] == "request":
+                        provider.sms_request_count = getattr(provider, "sms_request_count", 0) + 1
+                        current.pop(0)
+                        self.send(303, {}, {"Location": self.stage(token)})
+                        return
                     if not current or current[0] != kind or kind not in {"email", "sms", "totp"}:
                         self.send(403, {})
                         return
@@ -102,7 +110,7 @@ def chain(tmp_path):
             spec.login.factors[kind] = LoginFactor(code_source=source, code_selector="#" + kind + "-code",
                                                    code_submit_selector="#" + kind + "-submit")
             spec.challenge_selectors[kind] = "#" + kind + "-challenge"
-        spec.login_resources += [provider.base + "/verify/" + kind for kind in ["email", "sms", "totp", "action", "choose"]]
+        spec.login_resources += [provider.base + "/verify/" + kind for kind in ["email", "sms", "totp", "action", "choose", "request"]]
         spec.login_post_urls += [provider.base + "/verify/" + kind for kind in ["email", "sms", "totp"]]
         broker.store.configure(Configuration.model_validate(config.model_dump()))
         broker.store.new_client("test")
@@ -184,6 +192,7 @@ def test_legacy_connector_fingerprint_survives_new_factor_schema(env):
     old = config.accounts["demo-mfa"].model_dump()
     old["login"].pop("factors")
     old["login"].pop("choices")
+    old["login"].pop("code_requests")
     old["login"].pop("code_wait_ms")
     old["code_source_config"] = config.code_sources["demo-totp"].model_dump()
     old["code_source_config"].pop("host")
@@ -255,3 +264,62 @@ def test_offered_method_without_a_configured_source_requests_its_own_setup(chain
     assert result["reason"] == "verification_source_not_connected"
     assert result["challenge"]["kind"] == "totp"
     assert provider.totp_count == provider.sms_count == provider.email_count == 0
+
+
+def configure_code_request(broker, provider):
+    config = broker.store.config()
+    spec = config.accounts["demo-mfa"]
+    spec.login.code_requests = [LoginCodeRequest(kind="sms", selector="#send-sms", url=provider.base + "/verify/request")]
+    spec.login_post_urls.append(provider.base + "/verify/request")
+    spec.challenge_selectors["method"] = "#method-choice"
+    spec.login.choices = [LoginChoice(kind="sms", selector="#use-totp", url=provider.base + "/verify/request")]
+    provider.choice_target = "/verify/request"
+    broker.store.configure(Configuration.model_validate(config.model_dump()))
+    broker.grant("test", "demo-mfa", ["summary"])
+
+
+def test_offered_sms_request_then_fresh_code_completes_without_owner(chain):
+    provider, broker, _, stages = chain
+    stages[:] = ["choose", "request", "sms"]
+    configure_code_request(broker, provider)
+    assert broker.run("test", "demo-mfa", "summary")["status"] == "COMPLETED"
+    assert provider.sms_request_count == provider.sms_count == provider.login_count == 1
+
+
+@pytest.mark.parametrize("case", ["changed_action", "repeated_request", "source_disabled"])
+def test_sms_request_stops_before_unreviewed_duplicate_or_unusable_delivery(chain, case):
+    provider, broker, _, stages = chain
+    stages[:] = ["choose", "request", "request", "sms"] if case == "repeated_request" else ["choose", "request", "sms"]
+    configure_code_request(broker, provider)
+    if case == "changed_action":
+        provider.request_action = "/verify/sms"
+        config = broker.store.config()
+        config.accounts["demo-mfa"].login_post_urls.remove(provider.base + "/verify/sms")
+        broker.store.configure(config)
+        broker.grant("test", "demo-mfa", ["summary"])
+    elif case == "source_disabled":
+        broker.store.put("source:example-sms", {"enabled": False})
+    result = broker.run("test", "demo-mfa", "summary")
+    assert result["status"] == "NEEDS_USER"
+    assert provider.sms_count == 0
+    assert getattr(provider, "sms_request_count", 0) == (1 if case == "repeated_request" else 0)
+
+
+@pytest.mark.parametrize("presence", [False, True])
+def test_owner_sms_setup_requests_delivery_without_retrieving_or_submitting_codes(chain, presence):
+    provider, broker, _, stages = chain
+    stages[:] = ["choose", "request", "sms"]
+    configure_code_request(broker, provider)
+    config = broker.store.config()
+    spec = config.accounts["demo-mfa"]
+    del spec.login.factors["sms"]
+    spec.challenge_selectors["passkey"] = "#passkey-required"
+    provider.choice_presence = presence
+    broker.store.configure(config)
+    requested = []
+    with pytest.raises(AccessError) as stopped:
+        broker.browser.read("demo-mfa", spec.operations["summary"], spec, setup_method="sms",
+                            on_code_request=lambda kind, at: requested.append((kind, at)))
+    assert stopped.value.kind == ("passkey" if presence else "sms")
+    assert len(requested) == getattr(provider, "sms_request_count", 0) == (0 if presence else 1)
+    assert provider.sms_count == 0

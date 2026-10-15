@@ -32,6 +32,91 @@ struct MessagesReader {
         return hasAccess(path: path)
     }
 
+    static func githubTemplate(_ body: String) -> String? {
+        let text = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text.utf8.count <= 2000 else { return nil }
+        let patterns = [
+            "^([0-9]{6}) is your GitHub authentication code\\.$",
+            "^Your GitHub authentication code is ([0-9]{6})\\.$",
+            "^GitHub authentication code: ([0-9]{6})\\.?$",
+            "^([0-9]{6}) is your GitHub verification code\\.$"
+        ]
+        for pattern in patterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+               let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+               let range = Range(match.range(at: 1), in: text) {
+                return text.replacingCharacters(in: range, with: "{code}")
+            }
+        }
+        return nil
+    }
+
+    static func incomingBaseline(path: String) -> Int64? {
+        var db: OpaquePointer?
+        guard sqlite3_open_v2(path, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else {
+            if db != nil { sqlite3_close(db) }
+            return nil
+        }
+        defer { sqlite3_close(db) }
+        sqlite3_busy_timeout(db, 1000)
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, "SELECT COALESCE(MAX(ROWID),0) FROM message", -1, &statement, nil) == SQLITE_OK else { return nil }
+        defer { sqlite3_finalize(statement) }
+        guard sqlite3_step(statement) == SQLITE_ROW else { return nil }
+        return sqlite3_column_int64(statement, 0)
+    }
+
+    static func previewGitHubSMS(path: String, started: Double, afterRow: Int64? = nil) -> [String: String] {
+        // One-time owner setup only. Inspect at most 20 fresh incoming texts,
+        // accept only an identifiable GitHub login-code message, and return its
+        // literal filter with the code removed. No message or code API is added.
+        guard started.isFinite, started <= Date().timeIntervalSince1970,
+              Date().timeIntervalSince1970 - started <= 120 else {
+            return ["status": "NEEDS_USER", "reason": "sms_preview_expired"]
+        }
+        var db: OpaquePointer?
+        guard sqlite3_open_v2(path, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else {
+            if db != nil { sqlite3_close(db) }
+            return ["status": "NEEDS_USER", "reason": "mac_messages_permission_required"]
+        }
+        defer { sqlite3_close(db) }
+        sqlite3_busy_timeout(db, 1000)
+        var statement: OpaquePointer?
+        let sql = "SELECT handle.id,message.text,message.attributedBody FROM message JOIN handle ON handle.ROWID=message.handle_id WHERE message.is_from_me=0 AND message.date>=?" + (afterRow != nil ? " AND message.ROWID>?" : "") + " ORDER BY message.date DESC LIMIT 20"
+        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
+            return ["status": "NEEDS_USER", "reason": "mac_messages_permission_required"]
+        }
+        defer { sqlite3_finalize(statement) }
+        // A pre-request row boundary excludes every existing text. With that
+        // boundary, tolerate small phone/carrier clock rounding without ever
+        // considering the previous login's already-stored message.
+        sqlite3_bind_double(statement, 1, (started - (afterRow != nil ? 5 : 0) - 978307200) * 1_000_000_000)
+        if let afterRow { sqlite3_bind_int64(statement, 2, afterRow) }
+        var candidates: [[String: String]] = []
+        var incoming = 0
+        var unreadable = 0
+        var status = sqlite3_step(statement)
+        while status == SQLITE_ROW {
+            incoming += 1
+            if let handle = sqlite3_column_text(statement, 0) {
+                let sender = String(cString: handle)
+                var body = sqlite3_column_text(statement, 1).map { String(cString: $0) }
+                if body?.isEmpty != false, sqlite3_column_bytes(statement, 2) <= 65536, let bytes = sqlite3_column_blob(statement, 2) {
+                    let blob = Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 2)))
+                    body = MessageText.decode(blob)
+                }
+                if body == nil { unreadable += 1 }
+                if !sender.isEmpty, sender.count <= 200, let body, let template = githubTemplate(body) {
+                    candidates.append(["status": "FOUND", "sender": sender, "template": template])
+                }
+            }
+            status = sqlite3_step(statement)
+        }
+        guard status == SQLITE_DONE else { return ["status": "NEEDS_USER", "reason": "mac_messages_permission_required"] }
+        if candidates.count > 1 { return ["status": "NEEDS_USER", "reason": "ambiguous_login_code"] }
+        return candidates.first ?? ["status": "WAITING", "incoming": String(incoming), "unreadable": String(unreadable)]
+    }
+
     static func read(_ data: Data, path: String) -> [String: Any] {
         guard data.count <= 8192,
               let request = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -71,9 +156,9 @@ struct MessagesReader {
             guard let guid = sqlite3_column_text(statement, 0) else { status = sqlite3_step(statement); continue }
             let id = String(cString: guid)
             var body = sqlite3_column_text(statement, 1).map { String(cString: $0) }
-            if body == nil, sqlite3_column_bytes(statement, 2) <= 65536, let bytes = sqlite3_column_blob(statement, 2) {
+            if body?.isEmpty != false, sqlite3_column_bytes(statement, 2) <= 65536, let bytes = sqlite3_column_blob(statement, 2) {
                 let blob = Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 2)))
-                body = (try? NSKeyedUnarchiver.unarchivedObject(ofClass: NSAttributedString.self, from: blob))?.string
+                body = MessageText.decode(blob)
             }
             if !used.contains(id), let text = body?.trimmingCharacters(in: .whitespacesAndNewlines), text.utf8.count <= 65536,
                let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
