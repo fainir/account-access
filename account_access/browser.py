@@ -15,7 +15,7 @@ class Browser:
         self.store = store
         self.codes = codes
 
-    def context(self, browser, config, state=None, *, login=False):
+    def context(self, browser, config, state=None, *, login=False, account=None):
         context = browser.new_context(storage_state=state, java_script_enabled=config.javascript,
                                       service_workers="block", accept_downloads=False)
         allowed = set(config.login_resources if login else config.read_resources)
@@ -23,6 +23,26 @@ class Browser:
             allowed.add(config.login_url)
         else:
             allowed.update(op.url for op in config.operations.values())
+
+        known_paths = sorted({(origin(url), urlsplit(url).path) for url in {
+            config.login_url, *config.login_resources, *config.read_resources,
+            *(op.url for op in config.operations.values())}})
+
+        def record_failure(request, url, reason, redirected=False):
+            if account is None or not request.is_navigation_request():
+                return
+            # Resource indices distinguish a changed query on an already reviewed
+            # path from a wholly new destination. Never log URLs, query values,
+            # bodies, response text, cookies or credential-bearing error strings.
+            try:
+                target = (origin(url), urlsplit(url).path)
+                resource = ("configured_path_" + str(known_paths.index(target))
+                            if target in known_paths else "unreviewed_destination")
+                detail = ":".join(["redirect" if redirected else "request", reason,
+                                   resource, "query" if urlsplit(url).query else "no_query"])
+                self.store.audit("service", account, "", "browser_navigation_failed", detail)
+            except Exception:
+                pass  # Diagnostics must not change the routing or credential policy.
 
         def guard(route):
             request = route.request
@@ -34,18 +54,22 @@ class Browser:
             # to a destination that was never checked. Fulfill the final response
             # at the requested URL; adapters must accommodate that document base.
             try:
-                for _ in range(6):
+                for hop in range(6):
                     allowed_method = method in {"GET", "HEAD"} or (
                         login and method == "POST" and url in config.login_post_urls)
                     if url not in allowed or not allowed_method:
+                        record_failure(request, url, "destination" if url not in allowed else "method", hop > 0)
                         route.abort("blockedbyclient")
                         return
                     response = route.fetch(url=url, method=method, headers=headers,
                                            post_data=body if method == "POST" else "",
                                            max_redirects=0, max_retries=0, timeout=15000)
+                    if response.status >= 400:
+                        record_failure(request, url, "http_" + str(response.status), hop > 0)
                     if response.status in {301, 302, 303, 307, 308}:
                         location = response.headers.get("location")
                         if not location:
+                            record_failure(request, url, "missing_location", hop > 0)
                             route.abort("blockedbyclient")
                             return
                         target = urljoin(url, location)
@@ -57,12 +81,15 @@ class Browser:
                         url = target
                     else:
                         if len(response.body()) > 8_000_000:
+                            record_failure(request, url, "response_size", hop > 0)
                             route.abort("blockedbyclient")
                         else:
                             route.fulfill(response=response)
                         return
+                record_failure(request, url, "redirect_limit", True)
                 route.abort("blockedbyclient")
             except PlaywrightError:
+                record_failure(request, url, "transport")
                 route.abort("failed")
         context.route("**/*", guard)
         context.route_web_socket("**/*", lambda ws: ws.close())
@@ -120,7 +147,7 @@ class Browser:
                     except PlaywrightError:
                         pass
                 try:
-                    context = self.context(browser, config, state)
+                    context = self.context(browser, config, state, account=account)
                     page = context.new_page()
                     page.goto(op.url, timeout=15000, wait_until="domcontentloaded")
                     self.wait_state(page, config)
@@ -135,7 +162,7 @@ class Browser:
                         context.close()
                         state = self.login(browser, account, config, state, secret_values=secret_values,
                                            review_failure=review_failure)
-                        context = self.context(browser, config, state)
+                        context = self.context(browser, config, state, account=account)
                         page = context.new_page()
                         page.goto(op.url, timeout=15000, wait_until="domcontentloaded")
                         self.wait_state(page, config)
@@ -177,7 +204,7 @@ class Browser:
             # rate limit while letting durable tasks retry without a false prompt.
             raise AccessError("RETRYABLE", "login_retry_cooldown")
         self.store.put("login-attempt:" + account, time.time())
-        context = self.context(browser, config, state, login=True)
+        context = self.context(browser, config, state, login=True, account=account)
         started = None
         factor = None
         try:
@@ -280,7 +307,7 @@ class Browser:
             with sync_playwright() as pw:
                 browser = pw.chromium.launch(headless=headless, chromium_sandbox=True)
                 try:
-                    context = self.context(browser, config, existing.get("state"), login=True)
+                    context = self.context(browser, config, existing.get("state"), login=True, account=account)
                     page = context.new_page()
                     page.goto(config.login_url, timeout=15000, wait_until="domcontentloaded")
                     if complete:

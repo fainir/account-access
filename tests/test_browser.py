@@ -140,6 +140,21 @@ def test_307_login_redirect_cannot_forward_password_to_unapproved_destination(en
     assert "/api/summary" not in provider.posted_paths
 
 
+def test_navigation_diagnostic_does_not_expose_unreviewed_url_or_query(env):
+    provider, broker, _ = env
+    sensitive = "fictional-private-verification-token"
+    provider.login_redirect = provider.base + "/not-reviewed/" + sensitive + "?code=123456"
+    result = broker.run("test", "demo-web", "summary")
+    assert result["status"] != "COMPLETED"
+    with broker.store.db() as db:
+        events = [dict(row) for row in db.execute("SELECT * FROM audit WHERE event='browser_navigation_failed'")]
+    assert events
+    assert any(row["reason"] == "redirect:destination:unreviewed_destination:query" for row in events)
+    assert sensitive not in str(events) and "123456" not in str(events)
+    assert provider.password not in str(events) and provider.base not in str(events)
+    assert not any(path.startswith("/not-reviewed/") for path in provider.posted_paths)
+
+
 def test_read_redirect_cannot_leave_exact_resource_allowlist(env):
     provider, broker, _ = env
     config = broker.store.config()
