@@ -55,7 +55,11 @@ def main():
     parser.add_argument("--speech-rate", type=int, default=175)
     parser.add_argument("--verification-guide", action="store_true",
                         help="Include Gmail-specific setup and explain Authenticator and SMS phone roles")
+    parser.add_argument("--security-copy", action="store_true",
+                        help="Add brief, bounded security claims to the verification guide")
     args = parser.parse_args()
+    if args.security_copy and not args.verification_guide:
+        parser.error("--security-copy requires --verification-guide")
     work = args.work.resolve()
     render = work / ("verification-render" if args.verification_guide else "quick-render")
     render.mkdir(exist_ok=True)
@@ -175,6 +179,9 @@ def main():
             title, _, cuts = groups[index]
             source, start, end, _, crop = cuts[0]
             groups[index] = (title, words, [(source, start, end, seconds, crop)])
+    if args.security_copy:
+        title, _, cuts = groups[2]
+        groups[2] = (title, "Import from Chrome or your password manager. You approve the accounts. Passwords are encrypted locally, outside AI chat.", cuts)
     segments, timeline, narration, cursor = [], [], [], 0.0
     for index, (title, words, cuts) in enumerate(groups):
         overlay = render / f"caption-{index}.png"
@@ -242,7 +249,7 @@ def main():
     run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "concat", "-safe", "0",
          "-i", str(listing), "-c", "copy", "-movflags", "+faststart", str(args.output)])
     args.output.with_suffix(".vtt").write_text("WEBVTT\n\n" + "\n".join(narration))
-    timeline_name = "verification-timeline.json" if args.verification_guide else "quick-timeline.json"
+    timeline_name = "security-timeline.json" if args.security_copy else "verification-timeline.json" if args.verification_guide else "quick-timeline.json"
     (work / timeline_name).write_text(json.dumps(timeline, indent=2))
     print(f"Saved {args.output.resolve()} ({duration(args.output):.2f}s)")
 

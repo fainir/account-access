@@ -128,11 +128,14 @@ class Broker:
         try:
             with self.store.lock("account:" + account):
                 config = self.permit(principal, account, operation)
+                spec = config.accounts[account]
+                if isinstance(spec, BrowserAccount):
+                    from .password_sync import refresh
+                    refresh(self.store, account)
                 pending = self.store.pending(account)
                 if pending:
                     return {"status": "NEEDS_USER", "account": account,
                             "challenge": self.challenge_view(pending[0])}
-                spec = config.accounts[account]
                 op = spec.operations[operation]
                 secrets_seen = credential_values(self.store.get("credential:" + account, {}))
                 if isinstance(spec, BrowserAccount) and spec.login and spec.login.code_source:
@@ -225,6 +228,8 @@ class Broker:
             self.save_job(job)
 
     def tick(self):
+        from .password_sync import due
+        due(self.store)
         self.tick_schedules()
         with self.store.db() as db:
             ids = [r[0] for r in db.execute("SELECT id FROM jobs WHERE status IN ('QUEUED','RUNNING','NEEDS_USER','RETRYABLE') AND next_at<=? ORDER BY rowid LIMIT 20", (time.time(),))]

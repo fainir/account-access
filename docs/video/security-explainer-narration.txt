@@ -1,0 +1,23 @@
+Account Access handles supported sign-ins for your AI, reducing login interruptions.
+
+Install it once. It connects to your existing AI tools, including Claude Code and Codex.
+
+Import from Chrome or your password manager. You approve the accounts. Passwords are encrypted locally, outside AI chat.
+
+For Gmail, enable two-step verification in your Google Account, then open App passwords and create one. Enter your Gmail address and the generated app password here, then connect.
+
+iPhone and Android setup is for codes received by SMS text message. iPhone forwards them to Messages on Mac. Android uses the paired companion.
+
+Google Authenticator on your phone and Account Access can use the same website setup key. Add that website's original QR or key here once. Both generate the same changing codes.
+
+Now ask Claude Code normally. It uses the connected accounts automatically, with no command each session.
+
+Saved usernames and passwords handle this sign-in.
+
+The saved authenticator key generates and submits this code.
+
+It retrieves the fresh email code and submits it.
+
+The incoming SMS code is handled automatically, too.
+
+Fewer login interruptions. Personal approvals still need you.

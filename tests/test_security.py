@@ -80,3 +80,44 @@ def test_client_token_never_stored_plaintext(env):
     assert token.encode() not in broker.store.path.read_bytes()
     assert broker.store.client(token) == "test"
     assert token not in json.dumps(broker.metrics())
+
+
+def test_private_replacement_breaks_hardlinks_and_restricts_permissions(tmp_path):
+    from account_access.storage import private_file
+
+    outside = tmp_path / "outside"
+    outside.write_bytes(b"preserve")
+    target = tmp_path / "private"
+    os.link(outside, target)
+    private_file(target, b"new-private-value", replace=True)
+    assert outside.read_bytes() == b"preserve"
+    assert target.read_bytes() == b"new-private-value"
+    assert target.stat().st_mode & 0o077 == 0
+
+
+def test_sqlite_sidecar_symlink_cannot_touch_another_file(env, tmp_path):
+    _, broker, _ = env
+    outside = tmp_path / "outside"
+    outside.write_bytes(b"preserve")
+    sidecar = broker.store.path.with_name("state.db-wal")
+    sidecar.symlink_to(outside)
+    try:
+        with pytest.raises(AccessError, match="symlink_path"):
+            broker.store.get("anything")
+        assert outside.read_bytes() == b"preserve"
+    finally:
+        sidecar.unlink()
+
+
+def test_verification_requires_pending_window_and_unchanged_source(env):
+    import time
+    _, broker, _ = env
+    started = time.time()
+    with pytest.raises(AccessError, match="login_code_window_missing"):
+        broker.codes.resolve("demo-totp", started, set())
+    broker.codes.begin("demo-totp", "demo-mfa", started)
+    config = broker.store.config()
+    config.code_sources["demo-totp"].template = "Changed source"
+    broker.store.configure(config)
+    with pytest.raises(AccessError, match="login_code_source_changed"):
+        broker.codes.resolve("demo-totp", started, set())

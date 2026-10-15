@@ -150,3 +150,16 @@ def test_read_redirect_cannot_leave_exact_resource_allowlist(env):
     result = broker.run("test", "demo-web", "summary")
     assert result["status"] != "COMPLETED"
     assert not broker.store.get("connection:demo-web")
+
+
+def test_changed_login_form_cannot_put_password_in_get_or_wrong_post(env, monkeypatch):
+    provider, broker, _ = env
+    original = broker.browser.check_form
+    def changed(page, selector, config):
+        page.locator(selector).evaluate("el => el.form.method = 'get'")
+        original(page, selector, config)
+    monkeypatch.setattr(broker.browser, "check_form", changed)
+    result = broker.run("test", "demo-web", "summary")
+    assert result["status"] == "NEEDS_USER"
+    assert result["reason"] == "login_form_destination_changed"
+    assert provider.login_count == 0

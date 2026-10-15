@@ -47,6 +47,11 @@ class Codes:
         source = config.code_sources[source_id]
         if time.time() - started > 120:
             raise AccessError("NEEDS_USER", "login_code_window_expired")
+        window = self.store.get("code-window:" + source_id)
+        if not window or window["started"] != started or window["expires"] < time.time():
+            raise AccessError("DENIED", "login_code_window_missing")
+        if window.get("source_config") != source.model_dump():
+            raise AccessError("DENIED", "login_code_source_changed")
         credentials = self.store.get("source:" + source_id, {}) or {}
         if credentials.get("enabled") is False:
             raise AccessError("NEEDS_USER", "verification_source_disabled")
@@ -145,6 +150,7 @@ class Codes:
                   "expires": started + 120, "incoming": [], "consumed": False}
         config = self.store.config()
         source = config.code_sources[source_id]
+        window["source_config"] = source.model_dump()
         if source.kind == "imap":
             try:
                 with self.mailbox(source, self.store.get("source:" + source_id, {}), config) as mailbox:

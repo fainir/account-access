@@ -161,6 +161,8 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                          "automatic_sessions": broker.store.get("session-integrations", {}),
                          "connection_jobs": connection_jobs,
                          "environment": "controlled-demo" if config.test_mode else "live"}
+                from .password_sync import view
+                state["password_sync"] = view(broker.store)
                 if guided:
                     from .catalog import view
                     state["catalog"] = view()
@@ -193,6 +195,18 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                 if not 0 < length <= limit:
                     raise ValueError()
                 data = json.loads(self.rfile.read(length))
+                if self.path == "/owner/password-sync":
+                    from .password_sync import enroll
+                    if set(data) != {"account", "connection"}:
+                        raise ValueError()
+                    self.send(200, enroll(broker.store, data["account"], data["connection"]))
+                    return
+                if self.path == "/owner/password-sync/disconnect":
+                    from .password_sync import unlink
+                    if set(data) != {"account"}:
+                        raise ValueError()
+                    self.send(200, unlink(broker.store, data["account"]))
+                    return
                 if self.path == "/owner/phone/pair":
                     if set(data) != {"source"}:
                         raise ValueError()

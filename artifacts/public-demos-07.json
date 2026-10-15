@@ -1,0 +1,167 @@
+{
+  "observed_date": "2026-10-15",
+  "package_version": "0.7.0",
+  "environment": "external-public-demo",
+  "private_accounts_tested": 0,
+  "repeated_access": [
+    {
+      "account": "sauce-standard",
+      "runs": 1,
+      "completed": 1,
+      "human_interventions": 0,
+      "automatic_refreshes": 0,
+      "rotating_refreshes": 0,
+      "outcomes": [
+        {
+          "status": "COMPLETED",
+          "reason": null
+        }
+      ],
+      "last_data": {
+        "heading": "Products",
+        "items": "Sauce Labs Backpack\ncarry.allTheThings() with the sleek, streamlined Sly Pack that melds uncompromising style with unequaled laptop and tablet protection.\n$29.99\nAdd to cart\nSauce Labs Bike Light\nA red light isn't the desired state in testing but it sure helps when riding your bike at night. Water-resistant with 3 lighting modes, 1 AAA battery included.\n$9.99\nAdd to cart\nSauce Labs Bolt T-Shirt\nGet your testing superhero on with the Sauce Labs bolt T-shirt. From American Apparel, 100% ringspun combed cotton, heather gray with red bolt.\n$15.99\nAdd to cart\nSauce Labs Fleece Jacket\nIt's not every day that you come across a midweight quarter-zip fleece jacket capable of handling everything from a relaxing day outdoors to a busy day at the office.\n$49.99\nAdd to cart\nSauce Labs Onesie\nRib snap infant onesie for the junior automation engineer in development. Reinforced 3-snap bottom closure, two-needle hemmed sleeved and bottom won't unravel.\n$7.99\nAdd to cart\nTest.allTheThings() T-Shirt (Red)\nThis classic Sauce Labs t-shirt is perfect to wear when cozying up to your keyboard to automate a few tests. Super-soft and comfy ringspun combed cotton.\n$15.99\nAdd to cart"
+      },
+      "automatic_password_attempts": 1,
+      "unique_challenges": 0,
+      "unattended_completion_fraction": 1.0
+    },
+    {
+      "account": "sauce-problem",
+      "runs": 1,
+      "completed": 1,
+      "human_interventions": 0,
+      "automatic_refreshes": 0,
+      "rotating_refreshes": 0,
+      "outcomes": [
+        {
+          "status": "COMPLETED",
+          "reason": null
+        }
+      ],
+      "last_data": {
+        "heading": "Products",
+        "items": "Sauce Labs Backpack\ncarry.allTheThings() with the sleek, streamlined Sly Pack that melds uncompromising style with unequaled laptop and tablet protection.\n$29.99\nAdd to cart\nSauce Labs Bike Light\nA red light isn't the desired state in testing but it sure helps when riding your bike at night. Water-resistant with 3 lighting modes, 1 AAA battery included.\n$9.99\nAdd to cart\nSauce Labs Bolt T-Shirt\nGet your testing superhero on with the Sauce Labs bolt T-shirt. From American Apparel, 100% ringspun combed cotton, heather gray with red bolt.\n$15.99\nAdd to cart\nSauce Labs Fleece Jacket\nIt's not every day that you come across a midweight quarter-zip fleece jacket capable of handling everything from a relaxing day outdoors to a busy day at the office.\n$49.99\nAdd to cart\nSauce Labs Onesie\nRib snap infant onesie for the junior automation engineer in development. Reinforced 3-snap bottom closure, two-needle hemmed sleeved and bottom won't unravel.\n$7.99\nAdd to cart\nTest.allTheThings() T-Shirt (Red)\nThis classic Sauce Labs t-shirt is perfect to wear when cozying up to your keyboard to automate a few tests. Super-soft and comfy ringspun combed cotton.\n$15.99\nAdd to cart"
+      },
+      "automatic_password_attempts": 1,
+      "unique_challenges": 0,
+      "unattended_completion_fraction": 1.0
+    },
+    {
+      "account": "internet-valid",
+      "runs": 1,
+      "completed": 1,
+      "human_interventions": 0,
+      "automatic_refreshes": 0,
+      "rotating_refreshes": 0,
+      "outcomes": [
+        {
+          "status": "COMPLETED",
+          "reason": null
+        }
+      ],
+      "last_data": {
+        "heading": "Secure Area",
+        "message": "Welcome to the Secure Area. When you are done click logout below."
+      },
+      "automatic_password_attempts": 1,
+      "unique_challenges": 0,
+      "unattended_completion_fraction": 1.0
+    },
+    {
+      "account": "duende-alice",
+      "runs": 1,
+      "completed": 1,
+      "human_interventions": 0,
+      "automatic_refreshes": 1,
+      "rotating_refreshes": 1,
+      "outcomes": [
+        {
+          "status": "COMPLETED",
+          "reason": null
+        }
+      ],
+      "last_data": {
+        "sub": "1",
+        "name": "Alice Smith",
+        "email": "AliceSmith@email.com"
+      },
+      "automatic_password_attempts": 0,
+      "unique_challenges": 0,
+      "unattended_completion_fraction": 1.0
+    },
+    {
+      "account": "duende-bob",
+      "runs": 1,
+      "completed": 1,
+      "human_interventions": 0,
+      "automatic_refreshes": 1,
+      "rotating_refreshes": 1,
+      "outcomes": [
+        {
+          "status": "COMPLETED",
+          "reason": null
+        }
+      ],
+      "last_data": {
+        "sub": "2",
+        "name": "Bob Smith",
+        "email": "BobSmith@email.com"
+      },
+      "automatic_password_attempts": 0,
+      "unique_challenges": 0,
+      "unattended_completion_fraction": 1.0
+    }
+  ],
+  "negative_cases": [
+    {
+      "case": "sauce-locked",
+      "first_status": "NEEDS_USER",
+      "second_status": "NEEDS_USER",
+      "shared_challenge": true,
+      "automatic_password_attempts": 1,
+      "reason": "browser_login_required"
+    },
+    {
+      "case": "internet-rejected",
+      "first_status": "NEEDS_USER",
+      "second_status": "NEEDS_USER",
+      "shared_challenge": true,
+      "automatic_password_attempts": 1,
+      "reason": "browser_login_required"
+    },
+    {
+      "case": "client-revocation",
+      "status": "DENIED",
+      "reason": "client_revoked"
+    }
+  ],
+  "session_recovery": [
+    {
+      "account": "sauce-standard",
+      "status": "COMPLETED",
+      "automatic_password_attempts": 1,
+      "reason": null
+    },
+    {
+      "account": "internet-valid",
+      "status": "COMPLETED",
+      "automatic_password_attempts": 1,
+      "reason": null
+    }
+  ],
+  "setup": "Owner harness enrolls intentionally published demo identities; human setup effort not measured",
+  "sources": [
+    "https://docs.saucelabs.com/web-apps/automated-testing/selenium/sample-scripts/",
+    "https://the-internet.herokuapp.com/login",
+    "https://demo.duendesoftware.com/",
+    "https://github.com/DuendeSoftware/demo.duendesoftware.com/blob/main/src/Config.cs"
+  ],
+  "limits": [
+    "Accelerated runs, not a multi-day pilot",
+    "Public demo accounts, no real bank/insurance/Google/Meta accounts",
+    "OAuth enrollment uses an intercepted published demo redirect; ordinary loopback enrollment is tested locally",
+    "Public JavaScript demo login does not establish server-side session security",
+    "No live SMS, Gmail, mobile or genuine biometric approval tested"
+  ],
+  "elapsed_seconds": 63.567
+}

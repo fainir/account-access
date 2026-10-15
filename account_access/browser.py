@@ -144,7 +144,12 @@ class Browser:
         return self._login(browser, account, config, state, secret_values=secret_values)
 
     def _login(self, browser, account, config, state=None, *, secret_values=None):
+        from .password_sync import refresh
+        refresh(self.store, account, force=True)
         credential = self.store.get("credential:" + account, {})
+        credential = credential or {}
+        if secret_values is not None:
+            secret_values.add(credential.get("password", ""))
         if not credential.get("password") or not credential.get("username"):
             raise AccessError("NEEDS_USER", "password_not_connected")
         last = self.store.get("login-attempt:" + account, 0)
@@ -166,6 +171,7 @@ class Browser:
             if page.url != config.login_url:
                 raise AccessError("NEEDS_USER", "login_destination_changed", "unknown")
             form = config.login
+            self.check_form(page, form.password_selector, config)
             page.locator(form.username_selector).fill(credential["username"])
             page.locator(form.password_selector).fill(credential["password"])
             started = time.time()
@@ -194,6 +200,11 @@ class Browser:
                     raise AccessError("NEEDS_USER", "login_code_not_received", kind)
                 if secret_values is not None:
                     secret_values.add(code)
+                # The page can change while an email/SMS delivery is pending.
+                # Recheck presence/action markers before putting a code into it.
+                if self.challenge(page, config) != factor:
+                    raise AccessError("NEEDS_USER", "verification_page_changed", "unknown")
+                self.check_form(page, form.code_selector, config)
                 # In-memory only, one submission, never put in logs or task state.
                 page.locator(form.code_selector).fill(code)
                 page.locator(form.code_submit_selector).click(timeout=10000)
@@ -211,6 +222,27 @@ class Browser:
             if started and config.login.code_source:
                 self.codes.finish(config.login.code_source, started)
             context.close()
+
+    def check_form(self, page, selector, config):
+        if page.url not in {config.login_url, *config.login_resources}:
+            raise AccessError("NEEDS_USER", "login_destination_changed", "unknown")
+        destination = page.locator(selector).evaluate("""el => {
+            const form = el.form;
+            return form ? {method: form.method.toUpperCase(), action: form.action} : null;
+        }""")
+        # JavaScript connectors can submit without a native form; their exact
+        # request allowlist is still enforced. Native forms must never encode a
+        # password/code in a GET URL, history entry or Referer header.
+        if destination is None and config.javascript:
+            return
+        if config.javascript and not config.login_post_urls:
+            # Reviewed client-side applications can preventDefault on a form
+            # whose HTML method is GET. No POST or credential-bearing query is
+            # allowed by the network guard in this connector mode.
+            return
+        if (not destination or destination["method"] != "POST"
+                or destination["action"] not in config.login_post_urls):
+            raise AccessError("NEEDS_USER", "login_form_destination_changed", "unknown")
 
     def save(self, account, state):
         config = self.store.config()

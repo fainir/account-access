@@ -1,0 +1,281 @@
+{
+  "revision": "Brief security narration: approved accounts and locally encrypted passwords outside AI chat",
+  "describes_security_release": "0.7.0",
+  "recorded_ui_release": "0.6.0",
+  "source_recording_evidence": "gmail-authenticator-sms.json",
+  "media": {
+    "filename": "account-access-security-explainer.mp4",
+    "duration_seconds": 85.021333,
+    "width": 1920,
+    "height": 1080,
+    "sha256": "8d60788d0804e411f73e62d15136ed0f852c2eb4211753fa23a77e8f8f72cf52"
+  },
+  "validation": {
+    "full_audio_and_video_decode": "passed",
+    "voice_fits_all_12_scenes": true,
+    "audio_mean_db": -19.6,
+    "audio_peak_db": -4.9,
+    "video_stream_identical_to_approved_previous_cut": true,
+    "video_stream_sha256": "88c98e9f5bd37125c30f81915f4ccaa729f9d4d1e707d6399660429d829713c5",
+    "import_frame_visual_review": "passed"
+  },
+  "limits": [
+    "Narration update reuses the approved actual computer recording; not a new 0.7 installation recording",
+    "Fictional accounts; TLS IMAP synthetic email and Messages-format SMS fixture",
+    "Gmail setup fields were not submitted; no live Gmail or physical-phone validation",
+    "Chrome CSV is a snapshot; 1Password Connect sync is not shown",
+    "Same-user unrestricted shell is outside the local credential custody boundary"
+  ],
+  "timeline": [
+    {
+      "start": 0.0,
+      "end": 5.5,
+      "title": "1 \u00b7 Download and open Account Access",
+      "narration": "Account Access handles supported sign-ins for your AI, reducing login interruptions.",
+      "cuts": [
+        {
+          "source": "download-clean.mov",
+          "start": 3,
+          "end": 8,
+          "seconds": 4,
+          "crop": "1320:660:280:350"
+        },
+        {
+          "source": "open-app.mov",
+          "start": 7.8,
+          "end": 12,
+          "seconds": 1.5,
+          "crop": "860:410:0:0"
+        }
+      ]
+    },
+    {
+      "start": 5.5,
+      "end": 11.5,
+      "title": "1 \u00b7 Click Install \u00b7 Your AI tools connect automatically",
+      "narration": "Install it once. It connects to your existing AI tools, including Claude Code and Codex.",
+      "cuts": [
+        {
+          "source": "install-clean.mov",
+          "start": 0,
+          "end": 5,
+          "seconds": 2,
+          "crop": null
+        },
+        {
+          "source": "install-clean.mov",
+          "start": 9,
+          "end": 31,
+          "seconds": 3,
+          "crop": null
+        },
+        {
+          "source": "install-clean.mov",
+          "start": 32,
+          "end": 34,
+          "seconds": 1,
+          "crop": null
+        }
+      ]
+    },
+    {
+      "start": 11.5,
+      "end": 19.5,
+      "title": "2 \u00b7 Import from Chrome or your password manager",
+      "narration": "Import from Chrome or your password manager. You approve the accounts. Passwords are encrypted locally, outside AI chat.",
+      "cuts": [
+        {
+          "source": "setup.mov",
+          "start": 3,
+          "end": 8,
+          "seconds": 1.5,
+          "crop": null
+        },
+        {
+          "source": "import-picker.mov",
+          "start": 6,
+          "end": 13.8,
+          "seconds": 2,
+          "crop": null
+        },
+        {
+          "source": "email-final.mov",
+          "start": 79,
+          "end": 91,
+          "seconds": 4.5,
+          "crop": null
+        }
+      ]
+    },
+    {
+      "start": 19.5,
+      "end": 31.5,
+      "title": "3 \u00b7 Gmail \u00b7 Google app password \u2192 Enter it locally",
+      "narration": "For Gmail, enable two-step verification in your Google Account, then open App passwords and create one. Enter your Gmail address and the generated app password here, then connect.",
+      "cuts": [
+        {
+          "source": "gmail-guide/native-setup.mov",
+          "start": 14,
+          "end": 19,
+          "seconds": 4.5,
+          "crop": null
+        },
+        {
+          "source": "gmail-guide/native-setup.mov",
+          "start": 29,
+          "end": 41,
+          "seconds": 7.5,
+          "crop": null
+        }
+      ]
+    },
+    {
+      "start": 31.5,
+      "end": 42.0,
+      "title": "3 \u00b7 iPhone and Android \u00b7 For codes received by SMS text message",
+      "narration": "iPhone and Android setup is for codes received by SMS text message. iPhone forwards them to Messages on Mac. Android uses the paired companion.",
+      "cuts": [
+        {
+          "source": "gmail-guide/native-setup.mov",
+          "start": 54,
+          "end": 62,
+          "seconds": 5.5,
+          "crop": null
+        },
+        {
+          "source": "gmail-guide/native-setup.mov",
+          "start": 74,
+          "end": 82,
+          "seconds": 5,
+          "crop": null
+        }
+      ]
+    },
+    {
+      "start": 42.0,
+      "end": 55.0,
+      "title": "3 \u00b7 Google Authenticator \u00b7 Use the WEBSITE'S original setup QR/key",
+      "narration": "Google Authenticator on your phone and Account Access can use the same website setup key. Add that website's original QR or key here once. Both generate the same changing codes.",
+      "cuts": [
+        {
+          "source": "auth-final.mov",
+          "start": 0,
+          "end": 4,
+          "seconds": 2.5,
+          "crop": null
+        },
+        {
+          "source": "auth-picker.mov",
+          "start": 0,
+          "end": 14.8,
+          "seconds": 3.5,
+          "crop": null
+        },
+        {
+          "source": "auth-final.mov",
+          "start": 41,
+          "end": 51,
+          "seconds": 7,
+          "crop": null
+        }
+      ]
+    },
+    {
+      "start": 55.0,
+      "end": 62.0,
+      "title": "4 \u00b7 Ask Claude Code normally \u00b7 No command needed",
+      "narration": "Now ask Claude Code normally. It uses the connected accounts automatically, with no command each session.",
+      "cuts": [
+        {
+          "source": "claude-request.mov",
+          "start": 7.5,
+          "end": 15.5,
+          "seconds": 5,
+          "crop": "900:145:0:155"
+        },
+        {
+          "source": "claude-working.mov",
+          "start": 0,
+          "end": 3,
+          "seconds": 2,
+          "crop": null
+        }
+      ]
+    },
+    {
+      "start": 62.0,
+      "end": 65.8,
+      "title": "5 \u00b7 Atlas Membership \u00b7 Saved password",
+      "narration": "Saved usernames and passwords handle this sign-in.",
+      "cuts": [
+        {
+          "source": "page@a6a034084efa5495d16befe734ea869d.webm",
+          "start": 0.08,
+          "end": 2.5,
+          "seconds": 3.8,
+          "crop": null
+        }
+      ]
+    },
+    {
+      "start": 65.8,
+      "end": 70.5,
+      "title": "5 \u00b7 Juniper Workspace \u00b7 Authenticator code",
+      "narration": "The saved authenticator key generates and submits this code.",
+      "cuts": [
+        {
+          "source": "page@66925a9d8308a53c3e4947c5c63f1329.webm",
+          "start": 0.08,
+          "end": 2.8,
+          "seconds": 4.7,
+          "crop": null
+        }
+      ]
+    },
+    {
+      "start": 70.5,
+      "end": 75.2,
+      "title": "5 \u00b7 Beacon Rewards \u00b7 Email code",
+      "narration": "It retrieves the fresh email code and submits it.",
+      "cuts": [
+        {
+          "source": "page@9251f74fe7e797239d17f8d71647af5c.webm",
+          "start": 0.08,
+          "end": 3.3,
+          "seconds": 4.7,
+          "crop": null
+        }
+      ]
+    },
+    {
+      "start": 75.2,
+      "end": 80.0,
+      "title": "5 \u00b7 Orbit Travel \u00b7 SMS code",
+      "narration": "The incoming SMS code is handled automatically, too.",
+      "cuts": [
+        {
+          "source": "page@4071f9564b519daedc5c3568031f4471.webm",
+          "start": 0.08,
+          "end": 3.5,
+          "seconds": 4.8,
+          "crop": null
+        }
+      ]
+    },
+    {
+      "start": 80.0,
+      "end": 85.0,
+      "title": "All four results \u00b7 One request",
+      "narration": "Fewer login interruptions. Personal approvals still need you.",
+      "cuts": [
+        {
+          "source": "claude-working.mov",
+          "start": 10,
+          "end": 15.5,
+          "seconds": 5,
+          "crop": null
+        }
+      ]
+    }
+  ]
+}

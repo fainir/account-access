@@ -7,13 +7,13 @@
 
 Account Access is a local authentication and delegated-access service for **Codex, Claude Code and other agents**. A portable skill and CLI let an agent request approved operations while the service manages credentials, sessions, renewal and resumable tasks. There is **no MCP dependency**.
 
-**Status: 0.6 preview.** The included examples are usable today. Real websites require reviewed connectors; this is not an “add any website” consumer app or validated production access to banks, Google, Meta or insurance accounts.
+**Status: 0.7 preview.** The included examples are usable today. Real websites require reviewed connectors; this is not an “add any website” consumer app or validated production access to banks, Google, Meta or insurance accounts.
 
 ![Account dashboard with approved reads and automatic session integration](docs/account-dashboard.png)
 
 ## Easy installation
 
-On a Mac, [download Account Access 0.6](https://github.com/fainir/account-access/releases/download/v0.6.0/Account-Access-Mac-preview.zip), unzip it, open **Account Access**, and click **Install Account Access**. The app prepares Python, the browser and the local service. No developer tools, terminal commands or administrator password are needed for this flow.
+On a Mac, [download Account Access 0.7](https://github.com/fainir/account-access/releases/download/v0.7.0/Account-Access-Mac-preview.zip), unzip it, open **Account Access**, and click **Install Account Access**. The app prepares Python, the browser and the local service. No developer tools, terminal commands or administrator password are needed for this flow.
 
 This is a **Developer ID signed preview**. Apple notarization is still pending, so Gatekeeper may block a fresh download. The recording verifies installation on our Mac, not a completed notarized distribution. See [Mac build and distribution notes](macos/README.md).
 
@@ -45,6 +45,8 @@ The app shows matching account names and usernames, hides passwords, and saves o
 
 A CSV export contains plaintext passwords. The app can move that export to Trash after importing; it does not securely erase the file or empty Trash. Never send an export in chat or commit it to a repository. Account Access does not extract Chrome's encrypted password database silently.
 
+**Keep passwords current:** CSV imports, including Chrome, are snapshots and need a fresh import after changes. An optional **Password sync** connection to an existing **1Password Connect** deployment checks exact approved items every five minutes and before password login. It updates only passwords; changed usernames, websites or connectors require review, and sync cannot add account permissions. The token stays encrypted locally. This requires an administrator-provisioned Connect server and read-only vault token; universal Chrome/other-manager live sync is not shipped. See [security and password sync](docs/security-and-password-sync.md).
+
 ### Email, SMS and authenticator codes
 
 Follow the [Gmail, Google Authenticator and SMS setup guide](docs/gmail-authenticator-and-sms.md). It explains the current Gmail app-password route, the configured Google OAuth option, and why phone SMS pairing is separate from authenticator keys. The public preview does not bundle a ready-to-use Google OAuth application or import Google Authenticator's Transfer/Export QR format.
@@ -64,9 +66,9 @@ Close the setup app when finished; your AI can start the saved local service whe
 
 ## Watch the 85-second explainer
 
-[Watch what Account Access does and how to use it](https://github.com/fainir/account-access/releases/download/v0.6.0/account-access-gmail-authenticator-sms.mp4).
+[Watch what Account Access does, how to use it, and its security basics](https://github.com/fainir/account-access/releases/download/v0.7.0/account-access-security-explainer.mp4).
 
-[![Claude Code returns four account results after automatic sign-ins](docs/video/gmail-authenticator-sms-preview.jpg)](https://github.com/fainir/account-access/releases/download/v0.6.0/account-access-gmail-authenticator-sms.mp4)
+[![Claude Code returns four account results after automatic sign-ins](docs/video/gmail-authenticator-sms-preview.jpg)](https://github.com/fainir/account-access/releases/download/v0.7.0/account-access-security-explainer.mp4)
 
 The narration explains how one-time setup reduces repeated login interruptions when your AI needs account access. The Gmail section shows its app-password setup fields; Google Authenticator uses the website's original setup QR/key, while the iPhone and Android options are for SMS text-message codes. Actual computer recordings show the public download, native 0.6 installer, password-export import, email/SMS/authenticator setup, and an ordinary request in Claude Code with no command or skill name. Four websites then sign in with saved passwords and configured verification codes; Claude returns all four results. Waiting periods are shortened. The accounts are fictional, email uses real local TLS IMAP with synthetic delivery, and SMS uses a Messages-format fixture. [Captions and recording evidence](docs/video/README.md) explain the setup and edit.
 
@@ -79,7 +81,7 @@ cd account-access
 uv sync --locked --python 3.13
 uv run playwright install chromium
 uv build
-uv tool install --python 3.13 --force ./dist/account_access-0.6.0-py3-none-any.whl
+uv tool install --python 3.13 --force ./dist/account_access-0.7.0-py3-none-any.whl
 account-access start
 ```
 
@@ -116,6 +118,7 @@ The service reuses accepted browser sessions, refreshes eligible OAuth access an
 | --- | --- |
 | Portable skill + CLI | One shared client identity installed automatically; Codex and Claude Code exercised |
 | Password imports | Reviewed CSV selections from supported layouts; optional explicit TOTP import |
+| Password-source sync | Optional 1Password Connect exact-item password updates; contract and unattended rotation tests; Chrome/CSV remains a snapshot |
 | Website username/email + password | Fixed reviewed forms, encrypted sessions and bounded recovery; public and controlled examples tested |
 | Authenticator TOTP | Owner enrollment, setup QR/key and controlled end-to-end login |
 | Email login codes | TLS IMAP end-to-end fixture; Gmail adapter contract tests; public mailbox delivery not validated |
@@ -178,6 +181,8 @@ The worker preserves completed steps, retries temporary failures with backoff, a
 
 ## Validation and development
 
+Version 0.7 checks on 15 October 2026: **90 Python tests passed**, including automatic password rotation with unchanged grants, blocked identity/destination changes, active code-window enforcement, safe file replacement and the four-factor controlled journey. Five external public-demo reads, their negative cases and session recovery also passed. Lint, the third-party dependency audit, package builds, strict verification of the signed universal Mac app and the revised video decode passed. Private-account enrollment, live Gmail/phone delivery and protection from unrestricted same-user processes remain unvalidated. See [0.7 evidence](artifacts/security-07.json), [public-site evidence](artifacts/public-demos-07.json) and [security/sync limits](docs/security-and-password-sync.md).
+
 Version 0.6 validation on 14 October 2026: **75 Python tests passed** locally, with lint, dependency auditing and package building also covered by the [Linux CI workflow](https://github.com/fainir/account-access/actions/workflows/check.yml). Fresh ordinary-language requests activated the integration automatically: Codex completed a saved three-account task, and Claude Code completed the three approved reads and saved a comparison file. See [Codex evidence](artifacts/agent-tests/codex-implicit-06.json), [Claude evidence](artifacts/agent-tests/claude-implicit-06.json) and [automatic startup evidence](artifacts/automatic-start-06.json). The Codex test used an account-compatible model for that invocation; Claude's unrelated session-log hook encountered four permission denials after the account work succeeded. General host policies and hooks were retained. The [Android emulator journey](https://github.com/fainir/account-access/actions/runs/38543728385) passed separately. The [four-factor explainer recording](artifacts/video/gmail-authenticator-sms.json) verifies a completed Claude task at 4/4 with one plain-language request and zero password or code inputs during the task.
 
 Earlier experiments on 12 October 2026:
@@ -206,6 +211,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) to add reviewed connectors and tests.
 ## Security and documentation
 
 Credentials, sessions and task outputs are encrypted. Agent clients receive scoped identities, and every operation/result access rechecks standing permissions. Website content is untrusted. These controls do not isolate secrets from an agent with unrestricted shell access under the same OS user: strong credential custody requires a separate OS identity or host.
+
+Version 0.7 strengthens private file replacement, rejects vault-sidecar symlinks, requires an active matching window for every code resolver, and rechecks the verification page before filling its code. Native forms must POST to an approved destination. These checks run silently for supported normal logins. [Security and sync details](docs/security-and-password-sync.md) describe what is enforced and what remains outside the local preview's boundary.
 
 - [Architecture and trust boundaries](docs/architecture.md)
 - [Research and design choices](docs/research.md)

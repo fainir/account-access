@@ -60,6 +60,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     var agents = ["claude"]
     var principals: [String] = []
     var sources: [[String: Any]] = []
+    var passwordSync: [[String: Any]] = []
+    var syncAccounts: NSPopUpButton!
+    var syncFields: [String: NSTextField] = [:]
     var automaticSessions: [String: [String: Any]] = [:]
     var section = "accounts"
     var selectedAccount: String?
@@ -157,6 +160,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 ("Accounts", "rectangle.grid.2x2", #selector(showReady), "accounts"),
                 ("Verification", "checkmark.shield", #selector(showFactors), "verification"),
                 ("Import passwords", "arrow.down.doc", #selector(importPasswords), "import"),
+                ("Password sync", "arrow.triangle.2.circlepath", #selector(showPasswordSync), "sync"),
                 ("Add account", "plus", #selector(backToConnections), "add")]
             for (name, image, selector, key) in navigation {
                 let control = NSButton(title: name, target: self, action: selector)
@@ -463,10 +467,20 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             defer { done.signal() }
             do {
                 if let error = error { throw error }
-                guard let response = response as? HTTPURLResponse, response.statusCode == 200,
-                      let data = data,
+                guard let response = response as? HTTPURLResponse, let data = data,
                       let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
                     throw Failure.message("The local app could not complete this step. Your existing connections are preserved.")
+                }
+                if response.statusCode != 200 {
+                    let reasons = [
+                        "password_sync_identity_mismatch": "This password-manager item belongs to a different username. Select the item for the account you imported.",
+                        "password_source_item_changed": "This item must be an active login for the approved website, with one username and password.",
+                        "password_source_access_removed": "The password source rejected access. Check its read-only token and the selected vault and item.",
+                        "password_source_unavailable": "The password source is temporarily unavailable. Try again when it is online.",
+                        "password_sync_requires_https_origin": "Enter only the HTTPS server address, without a path or query.",
+                        "invalid_password_sync_link": "Check the connection details. Vault and item IDs must be the exact 26-character IDs from 1Password."
+                    ]
+                    throw Failure.message(reasons[payload["reason"] as? String ?? ""] ?? "The local app could not complete this step. Your existing connections are preserved.")
                 }
                 result = .success(payload)
             } catch { result = .failure(error) }
@@ -478,6 +492,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
 
     func accept(_ state: [String: Any]) {
+        passwordSync = state["password_sync"] as? [[String: Any]] ?? []
         catalog = state["catalog"] as? [[String: Any]] ?? []
         accounts = state["accounts"] as? [[String: Any]] ?? []
         sources = state["code_sources"] as? [[String: Any]] ?? []
@@ -690,6 +705,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         card("2  Choose the export", "Select the CSV file on this Mac. You'll review matching supported accounts before anything is saved.")
         card("3  Approve your accounts", "Choose the logins and reads you want to allow. Passwords are encrypted locally. You can move the export to Trash after importing.")
         primary("Choose password file", #selector(choosePasswordFile))
+        card("Keeping passwords current", "Chrome and CSV exports are snapshots. Import a fresh export when those passwords change. A configured 1Password Connect source can update already-approved passwords automatically.")
+        action("Connect a live password source", #selector(showPasswordSync))
         action("Back to my accounts", #selector(showReady))
     }
 
@@ -739,6 +756,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         }
         label("Unsupported logins: " + String(preview["unsupported"] as? Int ?? 0) + ". These will not be saved; importing cannot add a website connector.", 14, .secondaryLabelColor)
         deleteExport = NSButton(checkboxWithTitle: "Move the plaintext export file to Trash after importing", target: nil, action: nil)
+        deleteExport.state = .on
         stack.addArrangedSubview(deleteExport)
         importAuthenticators = NSButton(checkboxWithTitle: "Also enroll included authenticator keys for supported login recovery", target: nil, action: nil)
         if importRows.contains(where: { $0.3 }) { stack.addArrangedSubview(importAuthenticators) }
@@ -776,6 +794,72 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
 
     @objc func backToConnections() { connections() }
+
+    @objc func showPasswordSync() {
+        section = "sync"
+        page("Keep passwords up to date", "Approved logins stay automatic when your connected password source changes.")
+        card("Chrome and other CSV imports", "An export is a one-time snapshot. Chrome does not offer this app a public password-sync API. Re-import after a password change; this app never leaves a plaintext export running in the background.")
+        for link in passwordSync {
+            let account = link["account"] as? String ?? ""
+            let name = accounts.first { $0["account"] as? String == account }?["label"] as? String ?? account
+            let body = card(name, "1Password Connect · checks every five minutes while the service is running. Only the password can update; account identity and permissions stay fixed.", status: link["status"] as? String ?? "", good: link["status"] as? String == "SYNCED")
+            let disconnect = NSButton(title: "Disconnect and remove saved login", target: self, action: #selector(disconnectPasswordSync))
+            disconnect.identifier = NSUserInterfaceItemIdentifier(account)
+            body.addArrangedSubview(disconnect)
+        }
+        card("Connect 1Password", "Requires an existing 1Password Connect server and a read-only token for a dedicated vault. Your administrator supplies the connection details once. Tokens stay in the encrypted local vault.")
+        syncAccounts = NSPopUpButton()
+        for account in accounts where account["route"] as? String == "browser" && account["portable_ready"] as? Bool == true {
+            syncAccounts.addItem(withTitle: account["label"] as? String ?? "Account")
+            syncAccounts.lastItem?.representedObject = account["account"]
+        }
+        guard syncAccounts.numberOfItems > 0 else {
+            label("Import and approve an account first.")
+            action("Import passwords", #selector(importPasswords))
+            return
+        }
+        stack.addArrangedSubview(syncAccounts)
+        syncFields = [:]
+        for (key, title) in [("endpoint", "Connect server HTTPS address"), ("vault", "Vault ID"), ("item", "Login item ID"), ("token", "Read-only Connect token")] {
+            label(title, 14, .secondaryLabelColor)
+            let field: NSTextField = key == "token" ? NSSecureTextField() : NSTextField()
+            field.placeholderString = title
+            field.setAccessibilityLabel(title)
+            field.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+            stack.addArrangedSubview(field)
+            syncFields[key] = field
+        }
+        primary("Connect automatic updates", #selector(connectPasswordSync))
+    }
+
+    @objc func connectPasswordSync() {
+        guard let account = syncAccounts.selectedItem?.representedObject as? String else { return }
+        let connection = syncFields.mapValues { $0.stringValue }
+        guard connection.values.allSatisfy({ !$0.isEmpty }) else { return }
+        syncFields.values.forEach { $0.stringValue = "" }
+        busy = true
+        page("Connecting your password source", "Checking the selected account and website. Your approved reads stay the same.")
+        progress()
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                _ = try self.request("owner/password-sync", body: ["account": account, "connection": connection])
+                let state = try self.request("owner/state")
+                DispatchQueue.main.async { self.busy = false; self.accept(state); self.showPasswordSync() }
+            } catch { self.fail(error, retry: #selector(self.showPasswordSync)) }
+        }
+    }
+
+    @objc func disconnectPasswordSync(_ sender: NSButton) {
+        guard let account = sender.identifier?.rawValue else { return }
+        busy = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                _ = try self.request("owner/password-sync/disconnect", body: ["account": account])
+                let state = try self.request("owner/state")
+                DispatchQueue.main.async { self.busy = false; self.accept(state); self.showPasswordSync() }
+            } catch { self.fail(error, retry: #selector(self.showPasswordSync)) }
+        }
+    }
 
     @objc func showFactors() {
         section = "verification"
@@ -974,7 +1058,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             row.addArrangedSubview(open)
         }
         example.addArrangedSubview(row)
-        label("Passwords are saved locally. Verification codes are used only for approved sign-ins.", 13, .secondaryLabelColor)
+        label("Passwords are encrypted locally and stay out of AI chat. Only approved accounts and reads are available. Login codes are bound to the pending sign-in.", 13, .secondaryLabelColor)
     }
 
     @objc func reviewAccount(_ sender: NSButton) { selectedAccount = sender.identifier?.rawValue; connections() }

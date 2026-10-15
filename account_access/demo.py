@@ -45,6 +45,7 @@ class DemoProvider:
         self.posted_paths = []
         self.echo_login_code = False
         self.last_login_code = ""
+        self.password = DEMO_PASSWORD
         self.login_redirect = None
         self.lock = threading.Lock()
         provider = self
@@ -146,7 +147,7 @@ class DemoProvider:
                     if provider.login_redirect:
                         self.send(307, {}, {"Location": provider.login_redirect})
                         return
-                    if data.get("username") != "demo@example.test" or data.get("password") != DEMO_PASSWORD:
+                    if data.get("username") != "demo@example.test" or data.get("password") != provider.password:
                         self.page(self.login_form())
                         return
                     if not self.path.startswith("/web"):

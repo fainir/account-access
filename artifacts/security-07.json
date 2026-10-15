@@ -1,0 +1,18 @@
+{
+  "release": "0.7.0",
+  "date": "2026-10-15",
+  "python_regression_tests": {
+    "passed": 90,
+    "failed": 0
+  },
+  "lint": "passed",
+  "third_party_dependency_audit": "No known vulnerabilities found; project itself is not a PyPI package and is not audited by pip-audit",
+  "wheel_and_sdist": "built",
+  "mac_app": "Universal Developer ID signed; strict signature verification passed; notarization remains pending",
+  "password_sync": "1Password Connect exact-item HTTP contract and automatic password rotation/browser reauthentication; synthetic dedicated source",
+  "verification": "Controlled password, TOTP, TLS IMAP email and Messages-format SMS journey passes; no physical-phone or private Gmail validation",
+  "external_public_site_test": "public-demos-07.json",
+  "video": "video/security-explainer.json",
+  "private_account_test": "Pending local enrollment and reviewed website selection",
+  "os_isolation": "Not established against unrestricted same-user processes"
+}

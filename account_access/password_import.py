@@ -4,6 +4,7 @@ import csv
 import io
 import secrets
 import time
+from contextlib import ExitStack
 from urllib.parse import urlsplit
 
 from .errors import AccessError
@@ -157,7 +158,10 @@ def apply(broker, ident, selections, principals):
             chosen.append((account, rows[row], ops))
             config.accounts[account] = spec
         config = Configuration.model_validate(config.model_dump())
-        with store.lock("catalog"):
+        with ExitStack() as held:
+            for account in sorted(accounts):
+                held.enter_context(store.lock("account:" + account))
+            held.enter_context(store.lock("catalog"))
             # All input/connector validation precedes any persistent change.
             current = store.config()
             for account, _, _ in chosen:
@@ -168,6 +172,9 @@ def apply(broker, ident, selections, principals):
                     store.put("credential:" + account,
                               {"username": row["username"], "password": row["password"]}, db=db)
                     store.put("connection:" + account, None, db=db)
+                    # A new explicit import replaces an older manager link; it
+                    # must not later overwrite the owner's selected password.
+                    store.put("password-link:" + account, None, db=db)
                     for principal in principals:
                         db.execute("DELETE FROM grants WHERE principal=? AND account=?", (principal, account))
                         for op in set(ops):

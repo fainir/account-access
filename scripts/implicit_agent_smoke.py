@@ -4,6 +4,7 @@ import argparse
 import json
 import subprocess
 import time
+import re
 from pathlib import Path
 
 from agent_smoke import task_ids
@@ -15,7 +16,10 @@ def main():
     parser.add_argument("agent", choices=["codex", "claude"])
     parser.add_argument("--workspace", type=Path, required=True)
     parser.add_argument("--model", help="Optional Codex model for this isolated compatibility test; never changes user settings")
+    parser.add_argument("--report-tag", default="06", help="Separate evidence files for this test revision")
     args = parser.parse_args()
+    if not re.fullmatch(r"[a-z0-9-]{1,32}", args.report_tag):
+        parser.error("report-tag must use lowercase letters, digits and hyphens")
     root = Path.home() / ".local/share/account-access"
     client = Client(root / "clients/generic/client.json")
     expected = {"personal-store", "work-store", "member-portal"}
@@ -39,10 +43,10 @@ def main():
     result = subprocess.run(command, cwd=args.workspace, capture_output=True, text=True, timeout=240)
     directory = Path("artifacts/agent-tests")
     directory.mkdir(exist_ok=True)
-    raw = directory / (args.agent + "-implicit-06.jsonl")
+    raw = directory / (args.agent + "-implicit-" + args.report_tag + ".jsonl")
     raw.write_text(result.stdout)
     raw.chmod(0o600)
-    error = directory / (args.agent + "-implicit-06.stderr.txt")
+    error = directory / (args.agent + "-implicit-" + args.report_tag + ".stderr.txt")
     error.write_text(result.stderr)
     error.chmod(0o600)
     ids, denied = set(), []
@@ -79,7 +83,7 @@ def main():
               "saved_results": saved,
               "limits": "Public testing websites only; CLI session, not a desktop recording. "
                         "Unrelated host housekeeping denials are reported separately from Account Access."}
-    (directory / (args.agent + "-implicit-06.json")).write_text(json.dumps(report, indent=2) + "\n")
+    (directory / (args.agent + "-implicit-" + args.report_tag + ".json")).write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report, indent=2))
     return 0 if passed else 1
 

@@ -103,7 +103,10 @@ def test_owner_console_auth_csrf_and_scope_reduction(env):
             headers = {"Authorization": "Bearer " + token, "Origin": base}
             state = client.get("/owner/state", headers=headers).json()
             assert state["environment"] == "controlled-demo"
-            assert "password" not in json.dumps(state)
+            from account_access.demo import DEMO_PASSWORD, DEMO_SEED
+            public_state = json.dumps(state)
+            assert DEMO_PASSWORD not in public_state and DEMO_SEED not in public_state
+            assert '"password":' not in public_state
             assert client.post("/owner/revoke", json={"account": "demo-api"}, headers={"Authorization": "Bearer " + token}).status_code == 403
             result = client.post("/owner/grant", json={"account": "demo-api", "principal": "test", "operations": ["summary"]}, headers=headers)
             assert result.status_code == 200

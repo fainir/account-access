@@ -1,12 +1,14 @@
 # Download, connect and use Account Access
 
-[Watch the 85-second explainer](https://github.com/fainir/account-access/releases/download/v0.6.0/account-access-gmail-authenticator-sms.mp4) · [Captions](gmail-authenticator-sms.vtt) · [Setup guide](../gmail-authenticator-and-sms.md) · [Recording evidence](../../artifacts/video/gmail-authenticator-sms.json)
+[Watch the 85-second explainer](https://github.com/fainir/account-access/releases/download/v0.7.0/account-access-security-explainer.mp4) · [Captions](security-explainer.vtt) · [Setup guide](../gmail-authenticator-and-sms.md) · [Recording evidence](../../artifacts/video/security-explainer.json)
 
-[![Claude Code returns the four completed account results](gmail-authenticator-sms-preview.jpg)](https://github.com/fainir/account-access/releases/download/v0.6.0/account-access-gmail-authenticator-sms.mp4)
+[![Claude Code returns the four completed account results](gmail-authenticator-sms-preview.jpg)](https://github.com/fainir/account-access/releases/download/v0.7.0/account-access-security-explainer.mp4)
 
 Account Access handles supported sign-ins for existing AI tools. Connect saved logins and verification sources once, then ask your AI for account work in ordinary language. The software handles routine password and code challenges, reducing repeated login interruptions. Personal approvals still need the owner.
 
-The new narration explains the Gmail app-password route, how a website's original authenticator key can generate the same codes as Google Authenticator on your phone, and that iPhone/Android pairing is for codes arriving by **SMS text message**. [Read the narration](gmail-authenticator-sms-narration.txt).
+The narration explains the Gmail app-password route, how a website's original authenticator key can generate the same codes as Google Authenticator on your phone, and that iPhone/Android pairing is for codes arriving by **SMS text message**. The 0.7 revision adds a short security explanation: the owner approves accounts, and passwords are encrypted locally, outside AI chat. [Read the narration](security-explainer-narration.txt).
+
+This revision changes narration and captions only; the video stream is identical to the approved 0.6 recording. It does not depict a new 0.7 installation or live password sync. The [security and sync guide](../security-and-password-sync.md) explains the current 1Password Connect integration, Chrome snapshot limitation and remaining OS isolation work.
 
 | Time | Action |
 | --- | --- |
@@ -42,7 +44,7 @@ Reproduce the edit on macOS with ffmpeg, Pillow and the private source recording
 python scripts/make_quickstart_video.py \
   --work /path/to/recordings \
   --output /path/to/account-access-gmail-authenticator-sms.mp4 \
-  --verification-guide
+  --verification-guide --security-copy
 ```
 
 Earlier recordings: [75-second explainer](https://github.com/fainir/account-access/releases/download/v0.6.0/account-access-explainer.mp4), [original quickstart](https://github.com/fainir/account-access/releases/download/v0.6.0/account-access-quickstart.mp4), and [0.5 walkthrough](https://github.com/fainir/account-access/releases/download/v0.5.0/account-access-install-import-and-verify.mp4).

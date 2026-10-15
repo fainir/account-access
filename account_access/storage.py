@@ -8,6 +8,7 @@ import secrets
 import sqlite3
 import stat
 import time
+import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -19,10 +20,25 @@ from .models import Configuration
 
 
 def private_file(path: Path, contents: bytes, *, replace: bool = False):
+    path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     if path.is_symlink():
         raise AccessError("DENIED", "symlink_path")
-    flags = os.O_WRONLY | os.O_CREAT | (os.O_TRUNC if replace else os.O_EXCL)
+    # Never truncate an existing inode (it may be a hard link or have unsafe
+    # permissions). A replacement is fully written privately before publication.
+    if replace:
+        fd, name = tempfile.mkstemp(prefix=".access-", dir=path.parent)
+        temporary = Path(name)
+        try:
+            with os.fdopen(fd, "wb") as stream:
+                stream.write(contents)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, path)
+        finally:
+            temporary.unlink(missing_ok=True)
+        return
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
     flags |= getattr(os, "O_NOFOLLOW", 0)
     fd = os.open(path, flags, 0o600)
     with os.fdopen(fd, "wb") as f:
@@ -83,6 +99,7 @@ class Store:
         else:
             private_file(self.path, b"")
         (self.root / "locks").mkdir(mode=0o700, exist_ok=True)
+        check_private(self.root / "locks")
         with self.db() as db:
             db.executescript("""
                 CREATE TABLE IF NOT EXISTS records (id TEXT PRIMARY KEY, value BLOB NOT NULL);
@@ -108,6 +125,10 @@ class Store:
 
     @contextmanager
     def db(self):
+        for path in (self.path, Path(str(self.path) + "-wal"), Path(str(self.path) + "-shm")):
+            if path.is_symlink():
+                raise AccessError("DENIED", "symlink_path")
+        check_private(self.path)
         db = sqlite3.connect(self.path, timeout=20)
         db.row_factory = sqlite3.Row
         db.execute("PRAGMA foreign_keys=ON")
@@ -120,14 +141,17 @@ class Store:
             db.close()
             for path in (self.path, Path(str(self.path) + "-wal"), Path(str(self.path) + "-shm")):
                 try:
-                    os.chmod(path, stat.S_IRUSR | stat.S_IWUSR)
+                    os.chmod(path, stat.S_IRUSR | stat.S_IWUSR, follow_symlinks=False)
                 except FileNotFoundError:
                     # SQLite removes WAL/SHM when the last other connection closes.
                     pass
 
     @contextmanager
     def lock(self, key: str, timeout=10):
+        check_private(self.root / "locks")
         path = self.root / "locks" / (hashlib.sha256(key.encode()).hexdigest() + ".lock")
+        if path.is_symlink():
+            raise AccessError("DENIED", "symlink_path")
         try:
             with FileLock(path, timeout=timeout, mode=0o600):
                 yield

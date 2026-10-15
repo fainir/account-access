@@ -10,6 +10,7 @@ import secrets
 import shutil
 import tempfile
 import time
+from datetime import datetime, timezone
 from importlib.metadata import version
 from pathlib import Path
 from urllib.parse import urljoin, urlsplit
@@ -109,7 +110,7 @@ def main():
         parser.error("runs must be between 1 and 30")
     root = Path(tempfile.mkdtemp(prefix="aap-", dir="/tmp"))
     started = time.monotonic()
-    report = {"observed_date": "2026-10-12", "package_version": version("account-access"),
+    report = {"observed_date": datetime.now(timezone.utc).date().isoformat(), "package_version": version("account-access"),
               "environment": "external-public-demo", "private_accounts_tested": 0,
               "repeated_access": [], "negative_cases": [], "session_recovery": [],
               "setup": "Owner harness enrolls intentionally published demo identities; human setup effort not measured",
