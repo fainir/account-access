@@ -5,6 +5,12 @@ set -eu
 AC_SOURCE=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 AC_OUTPUT="$AC_SOURCE/dist/macos"
 AC_APP="$AC_OUTPUT/Account Access.app"
+AC_WHEEL="$AC_SOURCE/dist/account_access-0.7.0-py3-none-any.whl"
+if [ ! -f "$AC_WHEEL" ]; then
+  echo "Build the 0.7.0 wheel with uv build before building the Mac installer." >&2
+  exit 1
+fi
+AC_WHEEL_HASH=$(shasum -a 256 "$AC_WHEEL" | awk '{ print $1 }')
 mkdir -p "$AC_APP/Contents/MacOS" "$AC_APP/Contents/Resources"
 for AC_ARCH in arm64 x86_64; do
   xcrun swiftc -O -parse-as-library -target "$AC_ARCH-apple-macos13" \
@@ -29,6 +35,7 @@ cat > "$AC_APP/Contents/Info.plist" <<'PLIST'
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 PLIST
+/usr/libexec/PlistBuddy -c "Add :AccountAccessWheelSHA256 string $AC_WHEEL_HASH" "$AC_APP/Contents/Info.plist"
 if [ -n "${ACCOUNT_ACCESS_SIGNING_IDENTITY:-}" ]; then
   codesign --force --options runtime --timestamp \
     --sign "$ACCOUNT_ACCESS_SIGNING_IDENTITY" "$AC_APP"

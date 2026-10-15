@@ -35,7 +35,9 @@ elif command -v sha256sum >/dev/null 2>&1; then
 else
   echo "A SHA-256 verification tool is required. Installation stopped."; exit 1
 fi
-if [ ${#AC_EXPECTED} -ne 64 ] || [ "$AC_EXPECTED" != "$AC_ACTUAL" ]; then
+AC_PINNED="${ACCOUNT_ACCESS_EXPECTED_WHEEL_SHA256:-}"
+if [ ${#AC_EXPECTED} -ne 64 ] || [ "$AC_EXPECTED" != "$AC_ACTUAL" ] || \
+   { [ -n "$AC_PINNED" ] && [ "$AC_PINNED" != "$AC_ACTUAL" ]; }; then
   echo "Download verification failed. Installation stopped."; exit 1
 fi
 printf '3/4 Preparing Python and the secure local app…\n'

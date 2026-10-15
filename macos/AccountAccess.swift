@@ -309,6 +309,11 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 environment["ACCOUNT_ACCESS_NO_OPEN"] = "1"
                 environment["ACCOUNT_ACCESS_DATA_DIR"] = self.root.path
                 environment["ACCOUNT_ACCESS_INSTALL_DIR"] = self.runtime.path
+                guard let expectedHash = Bundle.main.object(forInfoDictionaryKey: "AccountAccessWheelSHA256") as? String,
+                      expectedHash.count == 64 else {
+                    throw Failure.message("The installer is missing its signed package checksum. Download the complete app from the official release.")
+                }
+                environment["ACCOUNT_ACCESS_EXPECTED_WHEEL_SHA256"] = expectedHash
                 process.environment = environment
                 let pipe = Pipe()
                 process.standardOutput = pipe

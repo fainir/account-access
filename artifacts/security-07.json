@@ -2,7 +2,7 @@
   "release": "0.7.0",
   "date": "2026-10-15",
   "python_regression_tests": {
-    "passed": 90,
+    "passed": 91,
     "failed": 0
   },
   "lint": "passed",
@@ -14,5 +14,8 @@
   "external_public_site_test": "public-demos-07.json",
   "video": "video/security-explainer.json",
   "private_account_test": "Pending local enrollment and reviewed website selection",
-  "os_isolation": "Not established against unrestricted same-user processes"
+  "os_isolation": "Not established against unrestricted same-user processes",
+  "signed_installer_package_pin": "Passed: modified wheel rejected even when download checksum manifest is also replaced",
+  "prior_core_ci": "https://github.com/fainir/account-access/actions/runs/38714984702",
+  "android_emulator_journey": "https://github.com/fainir/account-access/actions/runs/38714984680"
 }

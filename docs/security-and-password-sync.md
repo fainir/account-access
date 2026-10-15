@@ -7,6 +7,7 @@ The agent interface returns approved results, never passwords or verification co
 
 Version 0.7 adds:
 
+- The signed Mac app pins the exact Python package checksum inside its signed bundle. A replaced package is rejected even if a replaced download manifest claims it is valid. The standalone shell installer still relies on HTTPS and the downloaded manifest; dependency installation also relies on the configured package registry.
 - Private file replacements publish a new 0600 inode instead of truncating an existing file. Replacing a hard link cannot overwrite its other target. Vault database sidecar and lock symlinks are refused.
 - Every code resolver requires the matching, unexpired pending login window and unchanged verification-source configuration. A code cannot be requested outside that window.
 - Before entering a code, the service checks the page again for the expected factor. Changed pages and payment, passkey, device or administrator challenges stop the login.
@@ -38,6 +39,8 @@ Sync does not rotate passwords at the website. It follows changes the owner make
 Initial Chrome export authorization, Google consent or app-password enrollment, OS privacy permissions, phone pairing and authenticator-key enrollment belong to the owner. Once connected, supported password, email, SMS and TOTP login recovery can run without repeated input. A provider can still demand a genuine device, passkey, biometric, CAPTCHA or administrator approval. The service does not bypass that requirement or treat payment-approval codes as login codes.
 
 Gmail access and phone permissions can be broader than the app's matching-code filter. Google Authenticator requires the website's original supported QR/key; this app does not read the phone app or its cloud storage. See the [verification guide](gmail-authenticator-and-sms.md).
+
+Enrolling the TOTP key on the same computer as the password trades factor separation for unattended recovery: compromise of that device can expose both. Keeping the second factor exclusively on the phone preserves that separation but may require an owner approval. The preview does not claim both guarantees at once.
 
 ## Isolation limit
 

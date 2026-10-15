@@ -7,10 +7,13 @@ The included account catalog contains public SauceDemo and The Internet examples
 Build with Xcode's command-line tools:
 
 ```sh
+uv build
 sh macos/build.sh
 ```
 
 For Developer ID signing, set `ACCOUNT_ACCESS_SIGNING_IDENTITY` to your own certificate name before building. The app and ZIP are written to `dist/macos/`.
+
+Build the wheel first: its SHA-256 is embedded in the app's signed bundle. Installation verifies that pin as well as the downloaded manifest before executing the package. Rebuild the app if the wheel changes. This pin covers the Account Access wheel; runtime dependency installation still relies on the configured package registry.
 
 Public Mac distribution needs Apple notarization as well as signing. The current recorded build is Developer ID signed and works locally; notarization remains pending because the configured Xcode account could not authenticate. A public preview download can therefore be blocked by Gatekeeper. The recording demonstrates the actual graphical build, rather than the older `.command` launcher.
 
