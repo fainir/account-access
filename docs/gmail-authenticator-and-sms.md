@@ -10,7 +10,7 @@ These are three separate ways a website can verify a sign-in:
 
 ## Gmail
 
-Google recommends **Sign in with Google**. Account Access supports an operator-configured Gmail OAuth connection, but the public 0.6 download does not include a registered, ready-to-use Google OAuth application. A generic “Connect verification” button is not evidence that this setup has been completed. [Google's Gmail connection guidance](https://support.google.com/mail/answer/7126229).
+Google recommends **Sign in with Google**. Account Access supports an operator-configured Gmail OAuth connection, but the public preview does not include a registered, ready-to-use Google OAuth application. A generic “Connect verification” button is not evidence that this setup has been completed. [Google's Gmail connection guidance](https://support.google.com/mail/answer/7126229).
 
 The video shows the **Gmail app-password option**, for accounts where Google permits it. A reviewed connector must already configure its email-code source with Gmail's mail server, `imap.gmail.com`, port `993`. That makes the source appear in **Verification**; importing a website password alone does not create a mailbox connection.
 

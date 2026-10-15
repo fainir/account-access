@@ -1,0 +1,26 @@
+{
+  "release": "0.7.1",
+  "date": "2026-10-15",
+  "source_revision": "1b397c40bff0371fe7e6406c1faab68d2b204365",
+  "graphical_update": "Completed through the actual Update Account Access button using the published release",
+  "post_update_checks": {
+    "client_token_preserved": true,
+    "standing_grants_preserved": true,
+    "configuration_preserved_during_patch": true,
+    "app_version": "0.7.1",
+    "bundle_identifier": "com.fainir.accountaccess",
+    "signed_package_pin_matches": true,
+    "native_sync_screen_visual_check": "all four fields and final action visible; token is a secure field"
+  },
+  "core_and_native_ci": "https://github.com/fainir/account-access/actions/runs/38718055497",
+  "android_emulator_ci": "https://github.com/fainir/account-access/actions/runs/38718055404",
+  "installed_runtime_dependency_audit": "No known third-party vulnerabilities; local project is not on PyPI and was skipped",
+  "claude_code": "agent-tests/claude-implicit-071.json",
+  "private_accounts_validated": 0,
+  "live_gmail_or_physical_sms_validated": false,
+  "limits": "Public-account agent tests; real private enrollment still requires owner review. Apple notarization and separate-OS-identity isolation remain pending.",
+  "sensitive_user_data_in_report": false,
+  "codex": "agent-tests/codex-implicit-071.json",
+  "codex_default_model_failure": "agent-tests/codex-implicit-071-default.json",
+  "codex_model_test": "Configured model was rejected before tool use; isolated test used gpt-6-astra without changing saved settings"
+}
