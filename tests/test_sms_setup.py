@@ -25,6 +25,7 @@ def test_owner_sms_diagnostics_exclude_input_values_queries_and_unknown_route_pa
             <script src="https://github.githubassets.com/assets/sessions-fictional.js"></script>
             <script src="https://example.test/private-token.js"></script>
             <script src="https://github.githubassets.com/assets/unknown.js?token=private-query"></script></body>''')
+        page.locator("body").evaluate("el => { const note=document.createElement('div'); note.className='flash-error'; note.textContent='Unable to send SMS to private-phone. Too many requests; try again later. Invalid request private-token.'; el.append(note); }")
         result = sms_setup.diagnostics(page)
         browser.close()
     encoded = json.dumps(result)
@@ -32,6 +33,8 @@ def test_owner_sms_diagnostics_exclude_input_values_queries_and_unknown_route_pa
     assert result["forms"] == [{"route": "origin_0:/sessions/two-factor/?", "method": "POST", "dispatch": True, "auto": False}]
     assert result["fields"]["otp_id"] and result["fields"]["otp_name"]
     assert result["dispatch_state"]["sent"] is True
+    assert result["notices"] == {"delivery_failed": True, "rate_limited": True,
+                                  "unavailable": False, "invalid_request": True}
     assert result["controls"] == {"sms": {"count": 1, "visible": False},
                                   "totp": {"count": 0, "visible": False},
                                   "toggle": {"count": 1, "visible": True}}

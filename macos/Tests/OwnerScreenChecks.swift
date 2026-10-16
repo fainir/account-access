@@ -4,11 +4,14 @@ import Foundation
 final class VerificationRetryFixture: URLProtocol {
     static var retriedVisible = false
     static var retried = false
+    static var stopped = false
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
         let payload: [String: Any]
-        if request.url?.path == "/owner/verify" {
+        if Self.stopped {
+            payload = ["connection_jobs": ["first": ["status": "NEEDS_USER", "attention": ["reason": "browser_action_required"]]]]
+        } else if request.url?.path == "/owner/verify" {
             var body = request.httpBody
             if body == nil, let stream = request.httpBodyStream {
                 stream.open(); defer { stream.close() }
@@ -109,6 +112,12 @@ final class VerificationRetryFixture: URLProtocol {
         _ = try! owner.waitForConnection(["id": "first"], account: "fixture", timeout: 10, visible: true)
         precondition(VerificationRetryFixture.retriedVisible)
         print("PASS: owner-visible troubleshooting stays visible after a transient retry")
+        VerificationRetryFixture.stopped = true
+        let stopped = try! owner.waitForConnection(["id": "first"], account: "fixture", timeout: 10, visible: true)
+        let stoppedJobs = stopped["connection_jobs"] as! [String: [String: Any]]
+        precondition(stoppedJobs["first"]?["status"] as? String == "NEEDS_USER")
+        VerificationRetryFixture.stopped = false
+        print("PASS: finishing a stopped review returns the failed account state without claiming connection")
         owner.sources = []
         owner.smsSetups = [["account": "fixture", "fingerprint": "fictional"]]
         owner.showFactors()

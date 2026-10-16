@@ -184,6 +184,33 @@ def test_unused_offline_alternative_does_not_block_enrolled_authenticator(chain,
     assert provider.totp_count == 1 and provider.email_count == provider.sms_count == 0
 
 
+def test_unenrolled_authenticator_cannot_mask_an_offline_sms_source_before_password(chain, monkeypatch):
+    provider, broker, _, stages = chain
+    stages[:] = ["choose"]
+    config = broker.store.config()
+    spec = config.accounts["demo-mfa"]
+    del spec.login.factors["email"]
+    config.code_sources["example-sms"].kind = "google_messages"
+    config.code_sources["example-sms"].sender = "github-login-rotating-senders"
+    config.code_sources["example-sms"].recipient = "paired-google-messages"
+    config.code_sources["example-sms"].template = "{code} is your GitHub authentication code."
+    broker.store.configure(config)
+    broker.store.put("source:demo-totp", None)
+    begin = broker.codes.begin
+
+    def offline(source, *args):
+        if source == "example-sms":
+            raise AccessError("RETRYABLE", "google_messages_tab_unavailable", "sms")
+        return begin(source, *args)
+
+    monkeypatch.setattr(broker.codes, "begin", offline)
+    broker.grant("test", "demo-mfa", ["summary"])
+    result = broker.run("test", "demo-mfa", "summary")
+    assert result["status"] == "RETRYABLE" and result["reason"] == "google_messages_tab_unavailable"
+    assert provider.login_count == 0
+    assert broker.store.get("code-window:demo-totp") is None
+
+
 @pytest.mark.parametrize("change,reason", [
     ("disable", "verification_source_disabled"),
     ("cancel", "login_code_window_missing"),

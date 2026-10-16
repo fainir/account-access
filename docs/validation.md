@@ -2,9 +2,12 @@
 
 ## Browser verification and repair candidate — 16 October 2026, version 0.8
 
-The current local candidate passed **262 tests** in 233.04 seconds. A further
-delivery-diagnostic regression and 11 related browser checks passed after the
-response metadata change. Follow-up `1f6f7df` passed all 237 tests, native owner,
+The current local candidate passed **265 tests** in 224.01 seconds. Follow-up
+`0431688` passed **263 tests**, native owner,
+Messages and startup/reopen checks, lint, audit and build in
+[CI](https://github.com/fainir/account-access/actions/runs/38907392229), plus the
+[Android journey](https://github.com/fainir/account-access/actions/runs/38907392302).
+Follow-up `1f6f7df` passed all 237 tests, native owner,
 Messages and optimized startup/reopen checks, lint, dependency audit and build in
 [CI](https://github.com/fainir/account-access/actions/runs/38903426784), plus the
 [Android journey](https://github.com/fainir/account-access/actions/runs/38903426763).
@@ -21,7 +24,7 @@ Chrome check loaded the current public login page in 5.84 seconds with 77 asset
 downloads and no failures; it submitted no credentials. See
 [public asset results](../artifacts/github-public-assets-080.json).
 
-Native builds 33–35 restored owner-window control and were installed through
+Native builds 33–37 restored owner-window control and were installed through
 graphical repair while preserving account reads and the connected SMS source.
 The latest real GitHub check selected SMS and received an accepted HTTP response
 to its request, then reached a recovery-code page before receiving/filling a
@@ -29,6 +32,21 @@ fresh code. Automatic sign-in stopped there. Additional owner diagnostics now
 show only the request's HTTP status, transport and closed-vocabulary redirect
 route, to distinguish a normal form submission from the site's JavaScript flow.
 Private sign-in and physical delivery remain unverified.
+
+Signed build 37 adds **Finish review** when a website check has already
+stopped, so the owner can close that review immediately without waiting five
+minutes or finding the isolated browser window. Its owner-only endpoint cannot
+cancel a running sign-in before an attention state, does not mark an account
+connected, and rejects agent tokens and cross-origin requests. An unenrolled
+authenticator also no longer counts as a usable alternative when the SMS source
+is offline; the browser stops before submitting the password if every source is
+unavailable. Regression cases cover both boundaries. Clicking Finish review on
+the pilot Mac ended the stopped review in about two seconds. Build 38 returns
+that review to the account card with its failed status and diagnostics, rather
+than asking the owner to restart the app. The last confirmation form had only
+hidden fields and its send button; the response showed no recognized delivery,
+rate-limit or invalid-request notice. The cause of the recovery redirect remains
+unresolved; this is not evidence of successful SMS delivery.
 
 Follow-up `6db076d` fixes the reviewed SMS-request guard for a connected Google
 Messages source and adds nine exact public GitHub assets used by the passkey

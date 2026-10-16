@@ -91,8 +91,8 @@ def apply(broker, account, fingerprint):
         if updated is None:
             raise AccessError("DENIED", "browser_update_unavailable")
         previous = config.accounts[account]
-        # This repair can only add reviewed login GETs, optional choices and
-        # the signed package's exact public vendor script/stylesheet manifest.
+        # This repair only adds reviewed login GETs, optional choices and
+        # GitHub's bounded, anonymous public script/stylesheet loader.
         # It cannot widen reads, POST destinations, credentials or recipients.
         if (updated.operations != previous.operations or updated.read_resources != previous.read_resources
                 or updated.login_post_urls != previous.login_post_urls

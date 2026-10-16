@@ -591,6 +591,11 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 lines.append(name + " controls: " + String(count) + (visible ? " visible" : " hidden"))
             }
         }
+        if let notices = diagnostic["notices"] as? [String: Any] {
+            for name in ["delivery_failed", "rate_limited", "unavailable", "invalid_request"] {
+                if notices[name] as? Bool == true { lines.append("Provider notice: " + name) }
+            }
+        }
         if let progress = diagnostic["progress"] as? [String: Any] {
             if let method = progress["method"] as? String, ["sms", "email", "totp"].contains(method) {
                 lines.append("Selected method: " + method)
@@ -806,6 +811,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 let detail = Self.verificationDetailText(attention["diagnostics"] as? [String: Any] ?? [:])
                 let addDetail = !detail.isEmpty && shownDetails != detail
                 shownDetails = detail
+                let reviewID = id
                 DispatchQueue.main.async {
                     self.status.stringValue = explanation
                     if addDetail {
@@ -813,6 +819,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                         let inspect = NSButton(title: "Show verification details", target: self, action: #selector(self.showVerificationDetails))
                         inspect.identifier = NSUserInterfaceItemIdentifier(detail)
                         self.stack.addArrangedSubview(inspect)
+                        let finish = NSButton(title: "Finish review", target: self, action: #selector(self.finishSignInReview))
+                        finish.identifier = NSUserInterfaceItemIdentifier(reviewID)
+                        self.stack.addArrangedSubview(finish)
                     }
                 }
             }
@@ -826,6 +835,11 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                     DispatchQueue.main.async { self.status.stringValue = "The website is taking longer. Retrying safely…" }
                     continue
                 }
+                if visible, outcome == "NEEDS_USER", result["attention"] != nil {
+                    // Return to the account card with its failed status and
+                    // diagnostics after review; this never marks it connected.
+                    return state
+                }
                 let reason = result["reason"] as? String ?? ""
                 if reason == "mac_messages_permission_required" {
                     throw Failure.message("macOS has not allowed access to Messages. Enable iPhone text forwarding and grant the Account Access app Full Disk Access in Privacy settings, then retry this saved sign-in.")
@@ -836,7 +850,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 if reason.contains("authenticator") || reason.contains("mailbox") || reason.contains("code_not_received") || reason.contains("verification_source") {
                     throw Failure.message("This login needs its verification method connected. Open Verification methods to enroll the authenticator, reconnect email, or check phone access. Your imported password is already saved.")
                 }
-                throw Failure.message("This account needs a sign-in check. Your other connections are preserved. Reopen the app to review the selected account or try its saved sign-in again.")
+                throw Failure.message("This account needs a sign-in check. Open Accounts to review this account or try its saved sign-in again. Your other connections are preserved.")
             }
             Thread.sleep(forTimeInterval: 0.8)
         }
@@ -1022,6 +1036,14 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         alert.informativeText = detail
         alert.addButton(withTitle: "Close")
         alert.runModal()
+    }
+
+    @objc func finishSignInReview(_ sender: NSButton) {
+        guard let id = sender.identifier?.rawValue else { return }
+        sender.isEnabled = false
+        DispatchQueue.global(qos: .userInitiated).async {
+            _ = try? self.request("owner/verify/finish-review", body: ["id": id])
+        }
     }
 
     @objc func backToConnections() { connections() }

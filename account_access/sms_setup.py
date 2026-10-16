@@ -50,6 +50,16 @@ def diagnostics(page):
         "dispatch_state": page.locator("body").evaluate("""body => ({
             sending: body.classList.contains('is-sending'), sent: body.classList.contains('is-sent'),
             failed: body.classList.contains('is-not-sent')})"""),
+        "notices": page.locator("body").evaluate("""body => {
+            const text = Array.from(body.querySelectorAll('.flash-error, .flash-warn, [role="alert"], .js-sms-error'))
+                .slice(0, 8).map(el => el.innerText).join(' ').slice(0, 8000).toLowerCase();
+            return {
+                delivery_failed: /(?:unable|failed|could not|couldn't|cannot|can't).{0,50}(?:send|deliver).{0,50}(?:sms|text|message|code)/s.test(text),
+                rate_limited: /too many.{0,50}(?:sms|text|code|request|attempt)|rate limit|try again later/s.test(text),
+                unavailable: /sms.{0,50}(?:unavailable|not available|not enabled|not configured)/s.test(text),
+                invalid_request: /csrf|authenticity token|invalid request|request.{0,30}(?:expired|invalid)/s.test(text)
+            };
+        }"""),
     }
 
 

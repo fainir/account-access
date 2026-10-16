@@ -33,6 +33,7 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
     token = secrets.token_urlsafe(32)
     instance_key = instance_key or secrets.token_bytes(32)
     jobs = {}
+    reviews = {}
     sms_setups = {}
     guard = threading.Lock()
     verification_slots = threading.BoundedSemaphore(4)
@@ -77,6 +78,7 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                 if key in jobs[job_id]:
                     result[key] = jobs[job_id][key]
             jobs[job_id] = result
+            reviews.pop(job_id, None)
 
     def new_job(account):
         ident = secrets.token_hex(16)
@@ -419,6 +421,17 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                     self.send(200, {"status": "STOPPED"})
                     threading.Thread(target=self.server.shutdown, daemon=True).start()
                     return
+                if guided and self.path == "/owner/verify/finish-review":
+                    if set(data) != {"id"} or not isinstance(data["id"], str):
+                        raise ValueError()
+                    with guard:
+                        job = jobs.get(data["id"], {})
+                        stop = reviews.get(data["id"])
+                        if not stop or job.get("status") != "RUNNING" or not job.get("attention"):
+                            raise AccessError("DENIED", "verification_review_not_active")
+                        stop.set()
+                    self.send(200, {"status": "REVIEW_FINISHED"})
+                    return
                 account = data.get("account")
                 config = broker.store.config()
                 if account not in config.accounts:
@@ -429,7 +442,12 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                             or not isinstance(config.accounts[account], BrowserAccount)):
                         raise ValueError()
                     ident = new_job(account)
-                    threading.Thread(target=verify, args=(account, ident, data.get("visible", False)), daemon=True).start()
+                    visible = data.get("visible", False)
+                    stop = threading.Event() if visible else None
+                    if stop:
+                        with guard:
+                            reviews[ident] = stop
+                    threading.Thread(target=verify, args=(account, ident, visible, None, stop), daemon=True).start()
                     self.send(200, {"status": "CONNECTING", "id": ident})
                 elif self.path == "/owner/credential":
                     if isinstance(config.accounts[account], OAuthAccount):
@@ -472,6 +490,8 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
             with guard:
                 for setup in sms_setups.values():
                     setup["stop"].set()
+                for stop in reviews.values():
+                    stop.set()
             phone.close()
             super().server_close()
 

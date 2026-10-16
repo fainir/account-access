@@ -356,6 +356,7 @@ class Browser:
                     # Do not submit a password when the paired SMS tab is
                     # offline and no other enrolled method is usable.
                     raise google_error
+                raise source_errors[sorted(form.sources())[0]]
             if review_stop and review_stop.is_set():
                 raise AccessError("NEEDS_USER", "sms_setup_cancelled", "sms")
             page.locator(form.submit_selector).click(timeout=10000)

@@ -163,6 +163,11 @@ class Codes:
         source = config.code_sources[source_id]
         window["source_config"] = source.model_dump()
         credentials = self.store.get("source:" + source_id, {}) or {}
+        if source.kind == "totp":
+            if credentials.get("enabled") is False:
+                raise AccessError("NEEDS_USER", "verification_source_disabled", "totp")
+            if not credentials.get("seed"):
+                raise AccessError("NEEDS_USER", "authenticator_not_enrolled", "totp")
         window["source_enrollment"] = hashlib.sha256(
             json.dumps(credentials, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         if source.kind == "imap":
