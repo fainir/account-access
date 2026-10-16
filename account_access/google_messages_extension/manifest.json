@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Account Access \u2014 Browser Connections",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "Connect approved GitHub sign-ins and fresh login texts locally. Cookies and codes stay outside AI chat.",
   "permissions": [
     "nativeMessaging",

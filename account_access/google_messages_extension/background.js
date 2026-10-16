@@ -47,7 +47,9 @@ chrome.runtime.onMessage.addListener((message,sender,respond)=>{
   (async()=>{
     if(message.method==="session-status" && Object.keys(message).length===1){
       const result=await native({method:"session-accounts"});
-      return {...result,outcome:(await chrome.storage.session.get("sessionOutcome")).sessionOutcome};
+      return {...result,outcome:(await chrome.storage.session.get("sessionOutcome")).sessionOutcome,
+        temporaryAccess:{cookies:await chrome.permissions.contains({permissions:["cookies"]}),
+          github:await chrome.permissions.contains({origins:["https://github.com/*"]})}};
     }
     if(message.method==="session-prepare") return prepareBrowserSession(message);
     if(message.method==="session-connect") return resumeBrowserSession(message);

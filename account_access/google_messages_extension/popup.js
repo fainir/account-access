@@ -22,6 +22,12 @@ button.onclick=async()=>{
 const sessionAccount=document.querySelector("#session-account"),sessionButton=document.querySelector("#session-connect");
 const sessionStatus=document.querySelector("#session-status"),sessionIdentity=document.querySelector("#session-identity");
 const sessionEntries=new Map();
+function showSessionAccess(result){
+ const access=result.temporaryAccess;
+ if(access && typeof access.cookies==="boolean" && typeof access.github==="boolean")
+  document.querySelector("#session-access").textContent="Temporary cookie access: "+(access.cookies?"on":"off")+
+    " · GitHub site access: "+(access.github?"on":"off");
+}
 function sessionResult(result){
  const reasons={
   browser_session_identity_mismatch:"This tab is signed in to a different GitHub username. Review the account in Account Access.",
@@ -43,6 +49,7 @@ function showIdentity(){
 sessionAccount.onchange=showIdentity;
 (async()=>{
  const result=await chrome.runtime.sendMessage({method:"session-status"});
+ showSessionAccess(result);
  for(const item of result.accounts||[]){
   sessionEntries.set(item.account,item);const option=document.createElement("option");
   option.value=item.account;option.textContent=item.label;sessionAccount.append(option);
@@ -69,6 +76,7 @@ sessionButton.onclick=async()=>{
   const result=await chrome.runtime.sendMessage({method:"session-connect",...request});
   connected=result.status==="SESSION_CONNECTED";
   sessionStatus.textContent=sessionResult(result);
+  showSessionAccess(await chrome.runtime.sendMessage({method:"session-status"}));
  }catch{sessionStatus.textContent="The connection could not finish. Review it in Account Access.";}
  finally{sessionButton.disabled=connected;}
 };

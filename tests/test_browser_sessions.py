@@ -331,7 +331,7 @@ def test_browser_helper_captures_only_the_requested_github_cookie_store_and_remo
           window.scenario=scenario;window.fixtureCalls={cookies:[],native:[],removed:[]};
           window.fixtureGranted=!['permission_missing','popup_closed','approval_early','expired_intent'].includes(scenario);
           const memory={};
-          let nativeReply;
+          let nativeReply,earlyApproval=false;
           const request={account:'github',id:'a'.repeat(32),fingerprint:'b'.repeat(64),origin:'https://github.com',username:'fixture-owner'};
           window.chrome={
             runtime:{
@@ -342,7 +342,7 @@ def test_browser_helper_captures_only_the_requested_github_cookie_store_and_remo
               connectNative:()=>({
                 onMessage:{addListener:handler=>nativeReply=handler},onDisconnect:{addListener:()=>{}},
                 postMessage:msg=>{
-                  if(scenario==='approval_early'){fixtureGranted=true;fixturePermissionAdded();}
+                  if(scenario==='approval_early' && !earlyApproval){earlyApproval=true;fixtureGranted=true;fixturePermissionAdded();}
                   queueMicrotask(()=>nativeReply({id:msg.id,result:{accounts:scenario==='unapproved'?[]:[request]}}));
                 }
               }),
@@ -357,7 +357,7 @@ def test_browser_helper_captures_only_the_requested_github_cookie_store_and_remo
               remove:async keys=>{for(const key of [].concat(keys))delete memory[key];}}},
             permissions:{contains:async()=>fixtureGranted,
               onAdded:{addListener:handler=>window.fixturePermissionAdded=handler},
-              remove:async value=>{fixtureCalls.removed.push(value);return true;}},
+              remove:async value=>{fixtureCalls.removed.push(value);fixtureGranted=false;return true;}},
             alarms:{create:()=>{},onAlarm:{addListener:()=>{}}},
             tabs:{query:async()=>[{id:7,url:scenario==='wrong_origin'?'https://other.example/':'https://github.com/settings/profile'}],
                   get:async()=>({id:7,url:scenario==='changed_tab'||scenario==='wrong_origin'?'https://other.example/':'https://github.com/settings/profile'})},
@@ -420,4 +420,9 @@ def test_browser_helper_captures_only_the_requested_github_cookie_store_and_remo
         else:
             assert result["status"] in {"DENIED", "NEEDS_USER"}
         assert page.evaluate("fixtureHandler({method:'session-status'}, {id:'fixture',url:'https://github.com'}, ()=>{})") is False
+        if case in {"success", "popup_closed", "approval_early", "native_failure"}:
+            metadata = page.evaluate("""() => new Promise(resolve=>fixtureHandler({method:'session-status'},
+                {id:'fixture',url:'chrome-extension://fixture/popup.html'},resolve))""")
+            assert metadata["temporaryAccess"] == {"cookies": False, "github": False}
+            assert "fictional-session-cookie" not in json.dumps(metadata)
         browser.close()
