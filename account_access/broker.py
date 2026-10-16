@@ -9,6 +9,7 @@ from .codes import Codes
 from .errors import AccessError
 from .models import BrowserAccount, OAuthAccount, TaskRequest
 from .providers import OAuth, credential_values, redact
+from .account_context import aggregate, describe, environment, result_view
 
 MESSAGES = {
     "login": "Complete sign-in for this account in the local owner setup flow.",
@@ -108,12 +109,12 @@ class Broker:
                 except AccessError:
                     pass
             if operations:
-                result.append({"account": account, "label": spec.label, "route": spec.kind,
+                result.append({"account": account, **describe(spec, test_mode=config.test_mode), "route": spec.kind,
                                **self.connection_view(account, config),
                                "operations": operations})
         return {"status": "OK", "accounts": result, "service_version": __version__,
                 "background_recovery": self.worker_health.view(),
-                "environment": "controlled-demo" if config.test_mode else "live"}
+                "environment": aggregate(result, test_mode=config.test_mode)}
 
     def connection_view(self, account, config):
         """Saved credentials alone are not evidence of a successful sign-in."""
@@ -188,7 +189,8 @@ class Broker:
                 secrets_seen |= credential_values(self.store.get("connection:" + account, {}))
                 self.store.audit(principal, account, operation, "operation_completed")
                 return {"status": "COMPLETED", "account": account, "operation": operation,
-                        "environment": "controlled-demo" if config.test_mode else "live",
+                        "environment": environment(spec, test_mode=config.test_mode),
+                        "environment_source": "connector-configuration",
                         "data": redact(data, secrets_seen), "untrusted_data": True}
         except AccessError as exc:
             self.store.audit(principal, account, operation, "operation_blocked", exc.reason)
@@ -239,7 +241,7 @@ class Broker:
                 if "reason" in blocked:
                     blocked["reason"] = current["reason"]
         result = {"status": job["status"], "task_id": job_id, "progress": len(job["completed"]),
-                "total": len(job["steps"]), "results": job["completed"],
+                "total": len(job["steps"]), "results": [result_view(row) for row in job["completed"]],
                 "blocked": blocked, "untrusted_data": True}
         health = self.worker_health.view()
         if job["status"] in {"QUEUED", "RUNNING", "RETRYABLE"} and health["status"] in {"RETRYING", "STOPPED"}:

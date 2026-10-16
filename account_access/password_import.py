@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 
 from .errors import AccessError
 from .models import BrowserAccount, Configuration, origin
+from .account_context import describe
 
 MAX_BYTES = 4_000_000
 MAX_ROWS = 10_000
@@ -84,7 +85,7 @@ def preview(store, contents):
                  == (target.path.rstrip("/"), target.query)}
         paths = {k: spec for k, spec in candidates.items()
                  if urlsplit(spec.login_url).path.rstrip("/") == target.path.rstrip("/")}
-        matches = [{"id": k, "label": spec.label,
+        matches = [{"id": k, **describe(spec, test_mode=config.test_mode),
                     "authenticator_supported": bool(spec.login and spec.login.authenticator_source(config)),
                     "operations": [{"name": n, "description": op.description}
                                    for n, op in spec.operations.items()]}

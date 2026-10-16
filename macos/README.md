@@ -35,6 +35,13 @@ the next successful check. Messages are fixed text, with no exception or provide
 details. All twenty native owner checks pass. The signed candidate is prepared
 separately while installed build 53 remains open for owner Gmail enrollment.
 
+Candidate build **56** identifies public example accounts in the catalog,
+import review and Accounts screen. Example readiness is counted separately, and
+an example-only setup offers a test prompt. Import summaries require the saved
+connection to be ready before showing Connected; an empty error list alone is
+insufficient. The change derives presentation metadata without changing account
+fingerprints, grants or saved task steps. All twenty-one native checks pass.
+
 Build with Xcode's command-line tools:
 
 ```sh

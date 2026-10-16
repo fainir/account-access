@@ -97,13 +97,22 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     var backgroundRecovery: [String: Any] = [:]
     var failedAccount: String?
     let localRequests = LocalRequests()
-    let prompt = "Find the cheapest item in my personal and work shopping accounts, and show my membership welcome message."
+    static func isExample(_ account: [String: Any]) -> Bool {
+        ["controlled-demo", "public-example"].contains(account["environment"] as? String ?? "")
+    }
+    static func isReady(_ account: [String: Any]) -> Bool {
+        account["connected"] as? Bool == true && account["portable_ready"] as? Bool != false
+            && (account["challenges"] as? [[String: Any]] ?? []).isEmpty
+    }
     var preferredAgent: String { agents.contains("claude") ? "Claude Code" : agents.contains("codex") ? "Codex" : "your AI tool" }
     var requestText: String {
-        let connected = Set(accounts.filter { $0["connected"] as? Bool == true }.compactMap { $0["account"] as? String })
-        let text = connected == Set(["personal-store", "work-store", "member-portal"])
-            ? prompt : "Give me a short summary of my connected accounts and save the results as one task."
-        return text
+        if accounts.contains(where: { !Self.isExample($0) && Self.isReady($0) }) {
+            return "Summarize the approved information from my connected services and save the results as one task."
+        }
+        if accounts.contains(where: { Self.isExample($0) && Self.isReady($0) }) {
+            return "Try my connected example accounts and save the results as one task. Label the results as examples."
+        }
+        return "Check which of my configured services are available and tell me what needs attention."
     }
     lazy var session: URLSession = {
         let config = URLSessionConfiguration.ephemeral
@@ -1056,10 +1065,13 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         page(verification ? "Verification saved" : "Passwords imported", "Your selected " + (verification ? "verification method is" : "logins are") + " encrypted locally. Review the sign-in checks below.")
         for account in imported {
             let issue = issues.first { $0.0 == account }?.1
-            let name = accounts.first { $0["account"] as? String == account }?["label"] as? String ?? account
-            let body = card(name, issue ?? "Sign-in verified. This approved account is ready for your AI.",
-                            status: issue == nil ? "Connected" : "Saved · Sign-in needs attention", good: issue == nil)
-            if issue != nil {
+            let saved = accounts.first { $0["account"] as? String == account } ?? [:]
+            let name = saved["label"] as? String ?? account
+            let ready = issue == nil && Self.isReady(saved)
+            let explanation = ready ? (Self.isExample(saved) ? "Example sign-in verified. These results do not validate a personal account." : "Sign-in verified. This approved account is ready for your AI.") : "Your login is saved. Review the sign-in status before using this connection."
+            let body = card(name, issue ?? explanation,
+                            status: ready ? (Self.isExample(saved) ? "Example connected" : "Connected") : "Saved · Sign-in needs attention", good: ready)
+            if !ready {
                 let inspect = NSButton(title: "Show sign-in problem", target: self, action: #selector(inspectSavedSignIn))
                 inspect.identifier = NSUserInterfaceItemIdentifier(account)
                 body.addArrangedSubview(inspect)
@@ -1918,7 +1930,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         } else if backgroundRecovery["status"] as? String == "STOPPED" {
             card("Background recovery stopped", "Use Repair installation in the app menu to restart it. Your saved connections are preserved.", status: "Stopped", good: false)
         }
-        let connected = accounts.filter { $0["connected"] as? Bool == true && $0["portable_ready"] as? Bool != false }
+        let serviceAccounts = accounts.filter { !Self.isExample($0) }
+        let examples = accounts.filter(Self.isExample)
+        let connected = serviceAccounts.filter(Self.isReady)
         let detected = agents.filter { ["codex", "claude"].contains($0) }
         let automatic = !detected.isEmpty && detected.allSatisfy { automaticSessions[$0]?["enabled"] as? Bool == true }
         let tools = detected.map { $0 == "claude" ? "Claude Code" : "Codex" }.joined(separator: " + ")
@@ -1930,14 +1944,22 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             setup.addArrangedSubview(fix)
         }
         if !detected.isEmpty { primary("Open " + preferredAgent, #selector(openClaude)) }
-        label(String(connected.count) + " connected · " + String(accounts.count) + " accounts", 14, .secondaryLabelColor)
+        label(String(connected.count) + " ready · " + String(serviceAccounts.count) + " service connections", 14, .secondaryLabelColor)
+        if !examples.isEmpty {
+            label(String(examples.filter(Self.isReady).count) + " ready · " + String(examples.count) + " example connections", 14, .secondaryLabelColor)
+        }
         for account in accounts {
             let allowed = account["portable_ready"] as? Bool != false
             let active = account["connected"] as? Bool == true
             let pending = !(account["challenges"] as? [[String: Any]] ?? []).isEmpty
-            let status = !allowed ? "Approval needed" : pending || !active ? "Sign-in needs attention" : "Connected"
+            let status = !allowed ? "Approval needed" : pending || !active ? "Sign-in needs attention" : Self.isExample(account) ? "Example connected" : "Connected"
             let reads = (account[allowed ? "approved_operations" : "operations"] as? [[String: Any]] ?? []).compactMap { $0["description"] as? String }.joined(separator: "; ")
             let body = card(account["label"] as? String ?? "Account", (allowed ? "Approved reads: " : "Available reads: ") + reads, status: status, good: allowed && active && !pending)
+            if Self.isExample(account) {
+                let note = NSTextField(wrappingLabelWithString: "Example connection. These results do not validate access to a personal account.")
+                note.font = .systemFont(ofSize: 14)
+                body.addArrangedSubview(note)
+            }
             let browserCheck = (account["challenges"] as? [[String: Any]] ?? []).contains { $0["kind"] as? String == "captcha" }
             if browserCheck {
                 let message = NSTextField(wrappingLabelWithString: verificationMessage(["reason": "browser_captcha_required"]))

@@ -1,5 +1,43 @@
 # Validation of Account Access
 
+## Account source classification — 16 October 2026
+
+The installed preview's discovery response labeled public test-site aliases as
+live Personal/Work accounts. Build 56 derives per-account source labels and a
+mixed-list environment without modifying the owner configuration. Exact reviewed
+origins identify SauceDemo, The Internet and Duende examples. All configured
+connector destinations must be examples; look-alike hosts, unreviewed ports and
+connections spanning other origins do not receive that label. A test-mode flag
+alone cannot label an external service as a local fixture.
+
+The reviewed destinations are documented as testing/demo services in
+[Sauce Labs' example](https://docs.saucelabs.com/visual-testing/integrations/nightwatch/),
+[The Internet's login page](https://the-internet.herokuapp.com/login) and
+[Duende's demo server](https://demo.duendesoftware.com/). Direct extraction of
+SauceDemo's page was unavailable to the browsing tool; the official Sauce Labs
+example supplies the supporting reference. This review starts no private login.
+
+The catalog, CSV review and owner/agent discovery show the derived classification.
+Ready examples are counted separately in native and web screens. New results
+record the classification at read time; old results lacking it are projected as
+unclassified without rewriting checkpoints or repeating completed steps. Labels
+describe configured sources, not verified account ownership or fresh sign-in.
+The portable skill tells agents to label examples and use them for example/test
+requests instead of substituting them for personal/work accounts.
+
+The import summary also requires current saved readiness before showing
+Connected. All 21 native UI checks passed, including separate source counts,
+example prompts, verified imports and pending challenges. All 30 focused
+classification/catalog/import cases passed in 16.66 seconds, and 43 companion
+catalog/import/access/worker cases passed in 39.68 seconds. Lint, package build
+and skill validation passed. Full CI, signed staging and fresh agent checks are
+in progress.
+
+The metadata tests use local providers and mocked public result bodies; the web
+test uses stored-state projections only. They are not real website or private
+account sign-in acceptance. Installed build 53 remains open for the pending
+owner Gmail enrollment. No further GitHub or Namecheap sign-in is requested.
+
 ## Visible background recovery health — 16 October 2026
 
 Build 55 addresses silent background-loop failures identified by the internal

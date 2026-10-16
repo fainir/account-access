@@ -29,7 +29,9 @@ function permission(){const choice=state.catalog.find(x=>x.id===el("service").va
 let view="accounts";
 let adding=false;
 const labels={codex:"Codex",claude:"Claude Code"};
-function prompt(){return "Give me a short summary of my connected accounts and save the results as one task.";}
+const isExample=account=>["controlled-demo","public-example"].includes(account.environment);
+const isReady=account=>account.connected&&account.portable_ready&&!account.challenges?.length;
+function prompt(){return state.accounts.some(x=>!isExample(x)&&isReady(x))?"Summarize the approved information from my connected services and save the results as one task.":state.accounts.some(x=>isExample(x)&&isReady(x))?"Try my connected example accounts and save the results as one task. Label the results as examples.":"Check which of my configured services are available and tell me what needs attention.";}
 function navigate(next){
  view=next;
  el("accounts-view").hidden=view!=="accounts";
@@ -59,14 +61,15 @@ async function refresh(){
  renderRecoveryHealth(state.background_recovery);
  el("connect").hidden=!haveClients||(!adding&&state.accounts.length>0);
  el("connected-section").hidden=!state.accounts.length;
- const ready=state.accounts.filter(x=>x.connected&&x.portable_ready&&!x.challenges?.length);
- el("account-count").textContent=ready.length+" ready · "+state.accounts.length+" accounts";
+ const ready=state.accounts.filter(isReady),services=state.accounts.filter(x=>!isExample(x)),examples=state.accounts.filter(isExample);
+ el("account-count").textContent=services.filter(isReady).length+" ready · "+services.length+" service connections"+(examples.length?" · "+examples.filter(isReady).length+" ready / "+examples.length+" examples":"");
  el("use").hidden=!ready.length;
  el("connected").replaceChildren();
  for(const account of state.accounts){
   const card=text("div","");card.className="account";const heading=text("div","");heading.className="account-heading";heading.append(text("strong",account.label));
-  const available=account.connected&&account.portable_ready&&!account.challenges?.length;
-  const status=text("span",!account.portable_ready?"Approval needed":available?"Connected":"Sign-in needs attention");status.className="badge"+(available?"":" pending");heading.append(status);card.append(heading);
+  const available=isReady(account);
+  const status=text("span",!account.portable_ready?"Approval needed":available?(isExample(account)?"Example connected":"Connected"):"Sign-in needs attention");status.className="badge"+(available?"":" pending");heading.append(status);card.append(heading);
+  if(isExample(account))card.append(text("p",account.environment==="public-example"?"Public testing website. These results do not validate access to a personal account.":"Local test connection. These results do not validate access to a personal account."));
   const operations=account.portable_ready?(account.approved_operations||[]):account.operations;
   card.append(text("p",(account.portable_ready?"Approved reads: ":"Available reads: ")+operations.map(x=>x.description).join("; ")));
   if(!available){const repair=text("a","Review access");repair.href="/manage";repair.onclick=e=>{e.preventDefault();location.href="/manage#"+capability;};card.append(repair);}

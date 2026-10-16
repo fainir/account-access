@@ -165,10 +165,11 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                 self.send(200, broker.worker_health.view())
                 return
             if self.path == "/owner/state":
+                from .account_context import aggregate, describe
                 config = broker.store.config()
                 accounts = []
                 for account, spec in config.accounts.items():
-                    accounts.append({"account": account, "label": spec.label, "route": spec.kind,
+                    accounts.append({"account": account, **describe(spec, test_mode=config.test_mode), "route": spec.kind,
                                      **broker.connection_view(account, config),
                                      "operations": [{"name": name, "description": op.description} for name, op in spec.operations.items()],
                                      "challenges": [broker.challenge_view(x) for x in broker.store.pending(account)]})
@@ -219,7 +220,7 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                          "automatic_sessions": broker.store.get("session-integrations", {}),
                          "connection_jobs": connection_jobs,
                          "navigation_failures": navigation_failures,
-                         "environment": "controlled-demo" if config.test_mode else "live"}
+                         "environment": aggregate(accounts, test_mode=config.test_mode)}
                 from .password_sync import view
                 state["password_sync"] = view(broker.store)
                 from .browser_updates import view as browser_updates
@@ -233,7 +234,7 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                     from .catalog import view
                     state["catalog"] = view()
                     present = {item["id"] for item in state["catalog"]}
-                    state["catalog"] += [{"id": key, "label": spec.label, "url": spec.login_url,
+                    state["catalog"] += [{"id": key, **describe(spec, test_mode=config.test_mode), "url": spec.login_url,
                                           "operations": [{"name": n, "description": op.description}
                                                          for n, op in spec.operations.items()]}
                                          for key, spec in config.accounts.items()

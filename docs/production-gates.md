@@ -140,6 +140,12 @@ or physical-device coverage.
 
 ## Private QA rules
 
+Classify each account and result from its recorded source environment. Known
+public examples and local fixtures do not count as personal/work account
+acceptance, including in a mixed list. Legacy task results without recorded
+classification are unclassified. Configuration labels and a test-mode flag alone
+are not evidence of private ownership, a fresh sign-in or completed delivery.
+
 Agent CLI fixture runs must enforce their client boundary. The current harness
 uses a fixture-socket permission profile for Codex and a uniquely named temporary
 skill plus invocation-only tool gate for Claude. Successful trace tools are

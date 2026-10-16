@@ -1,0 +1,42 @@
+{
+  "version": "0.8.0-candidate",
+  "date": "2026-10-16",
+  "candidate_mac_build": 56,
+  "production_ready": false,
+  "changes": [
+    "Per-account and result source classification from exact configured origins",
+    "Mixed discovery preserves per-account context; public examples are explicitly labeled",
+    "Example readiness and request prompts are separate from service connections",
+    "Catalog and CSV preview show source context without changing permission fingerprints",
+    "Historical results without source metadata are unclassified without rewriting or replaying saved steps",
+    "Import summary requires saved readiness rather than an empty error list",
+    "Portable skill preserves automatic discovery and prevents substituting examples for personal/work accounts"
+  ],
+  "controlled_validation": {
+    "classification_catalog_import_cases_passed": 30,
+    "classification_catalog_import_seconds": 16.66,
+    "companion_access_worker_catalog_import_cases_passed": 43,
+    "companion_seconds": 39.68,
+    "native_ui_checks_passed": 21,
+    "lint": "passed",
+    "skill_validation": "passed",
+    "package_build": "passed",
+    "limits": [
+      "Classification derives from configured origins, not proof of account ownership or fresh sign-in",
+      "Metadata tests use local providers and mocked result bodies",
+      "Web readiness tests project stored state and make no private website request",
+      "No private email, SMS or authenticator acceptance"
+    ]
+  },
+  "distribution": {
+    "installed_build": 53,
+    "candidate_status": "Build 56 signing and final CI in progress; owner credential form left untouched"
+  },
+  "private_validation": {
+    "new_private_website_sign_in_requests": 0,
+    "gmail_enrollment": "pending through owner form",
+    "namecheap_task": "preserved at unresolved browser gate",
+    "further_github_testing": "stopped"
+  },
+  "privacy": "No credentials, codes, cookies, personal identifiers, private paths or raw traces in this public record"
+}

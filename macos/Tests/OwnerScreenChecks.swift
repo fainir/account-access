@@ -79,6 +79,10 @@ final class VerificationRetryFixture: URLProtocol {
         precondition(!views.contains { $0 is NSSecureTextField })
         owner.showImportSummary(["fixture"], issues: [])
         views = descendants(owner.stack)
+        precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("Saved · Sign-in needs attention"))
+        owner.accounts[0]["connected"] = true
+        owner.showImportSummary(["fixture"], issues: [])
+        views = descendants(owner.stack)
         precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("Connected"))
         precondition(!views.compactMap { ($0 as? NSButton)?.title }.contains("Show sign-in problem"))
         print("PASS: import summary distinguishes saved credentials from verified sign-in and exposes repair without blank credential fields")
@@ -267,5 +271,24 @@ final class VerificationRetryFixture: URLProtocol {
         views = descendants(owner.stack)
         precondition(!views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("Background recovery is retrying"))
         print("PASS: background recovery health shows fixed retry/stopped messages and clears after recovery without exception details")
+        owner.accounts = [["account": "example", "label": "Public example", "environment": "public-example", "connected": true, "portable_ready": true],
+                          ["account": "service", "label": "Service", "environment": "live", "connected": false, "portable_ready": true]]
+        owner.ready()
+        views = descendants(owner.stack)
+        let exampleText = views.compactMap { ($0 as? NSTextField)?.stringValue }
+        precondition(exampleText.contains("0 ready · 1 service connections"))
+        precondition(exampleText.contains("1 ready · 1 example connections"))
+        precondition(exampleText.contains("Example connected"))
+        precondition(owner.requestText.contains("example accounts"))
+        owner.accounts[1]["connected"] = true
+        precondition(owner.requestText.contains("connected services") && !owner.requestText.contains("example accounts"))
+        owner.accounts[1]["challenges"] = [["kind": "unknown"]]
+        precondition(owner.requestText.contains("example accounts"))
+        owner.showImportSummary(["example"], issues: [])
+        views = descendants(owner.stack)
+        precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("Example connected"))
+        owner.accounts = []
+        precondition(owner.requestText.contains("what needs attention"))
+        print("PASS: public examples have separate readiness counts, explicit statuses and example-only prompts; unverified imports never claim Connected")
     }
 }

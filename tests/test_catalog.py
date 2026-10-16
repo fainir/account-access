@@ -14,6 +14,7 @@ def test_namecheap_import_is_reviewed_and_does_not_approve_other_reads(env):
                      + "https://www.namecheap.com.attacker.example/,wrong,not-retained\n")
     assert staged["rows"][0]["matches"] == [{
         "id": "personal-namecheap", "label": "Namecheap", "authenticator_supported": False,
+        "environment": "live", "environment_source": "connector-configuration",
         "operations": [{"name": "status", "description": "Confirm your signed-in Namecheap username"}]}]
     assert not staged["rows"][1]["matches"]
     assert "fictional-password" not in json.dumps(staged)

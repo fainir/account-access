@@ -2,6 +2,7 @@
 
 from .models import BrowserAccount, BrowserOperation, Configuration, LoginForm
 from .public_demo import configuration
+from .account_context import describe
 
 NAMECHEAP_LOGIN = "https://www.namecheap.com/myaccount/login/"
 NAMECHEAP_LANDING = "https://ap.www.namecheap.com/"
@@ -66,7 +67,7 @@ def add(store, handle):
 
 
 def view():
-    return [{"id": key, "label": spec.label, "url": spec.login_url,
+    return [{"id": key, **describe(spec), "url": spec.login_url,
              "operations": [{"name": name, "description": operation.description}
                             for name, operation in spec.operations.items()]}
             for key, spec in entries().items()]
