@@ -63,6 +63,9 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                                     review_stop=review_stop,
                                     on_attention=attention,
                                     on_code_request=requested if setup_method else None)
+                # A confirmed cached session can repair a historical method
+                # picker too. Keep independent action approvals unresolved.
+                broker.store.resolve_login(account)
             try:
                 broker.tick()
             except AccessError as exc:

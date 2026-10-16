@@ -42,9 +42,10 @@ def request(broker, state):
             "origin": next(item["origin"] for item in requests(broker)), "state": state}
 
 
-def test_verified_chrome_session_resumes_original_task_without_password_or_factor_access(chrome_session, monkeypatch):
+@pytest.mark.parametrize("kind", ["passkey", "method"])
+def test_verified_chrome_session_resumes_original_task_without_password_or_factor_access(chrome_session, monkeypatch, kind):
     provider, broker, state = chrome_session
-    challenge = broker.store.challenge("demo-web", "passkey", "browser_passkey_required")
+    challenge = broker.store.challenge("demo-web", kind, "browser_" + kind + "_required")
     task = broker.submit("generic", TaskRequest(key="original-chrome-task", steps=[{"account": "demo-web", "operation": "summary"}]))
     broker.tick()
     assert broker.task("generic", task["task_id"])["status"] == "NEEDS_USER"
@@ -107,6 +108,50 @@ def test_verified_session_does_not_clear_an_independent_transaction_approval(chr
     broker.store.challenge("demo-web", "action", "owner_action_required")
     assert accept(broker, request(broker, state))["status"] == "SESSION_CONNECTED"
     assert broker.run("generic", "demo-web", "summary")["challenge"]["kind"] == "action"
+
+
+@pytest.mark.parametrize("kind", ["method", "action"])
+def test_owner_recheck_of_saved_session_resumes_login_task_but_keeps_transaction_approval(chrome_session, monkeypatch, kind):
+    import threading
+    import httpx2 as httpx
+    from account_access.owner import make_owner_server
+
+    provider, broker, state = chrome_session
+    accept(broker, request(broker, state))
+    broker.store.challenge("demo-web", kind, "owner_action_required" if kind == "action" else "verification_method_unavailable")
+    task = broker.submit("generic", TaskRequest(key="saved-session-recheck", steps=[{"account": "demo-web", "operation": "summary"}]))
+    broker.tick()
+    assert broker.task("generic", task["task_id"])["status"] == "NEEDS_USER"
+    monkeypatch.setattr(broker.codes, "begin", lambda *a: pytest.fail("Cached session requested a code"))
+    server, token = make_owner_server(broker, guided=True)
+    worker = threading.Thread(target=server.serve_forever, daemon=True)
+    worker.start()
+    base = f"http://127.0.0.1:{server.server_port}"
+    try:
+        with httpx.Client(base_url=base, headers={"Authorization": "Bearer " + token, "Origin": base}, trust_env=False) as client:
+            result = client.post("/owner/verify", json={"account": "demo-web"})
+            assert result.status_code == 200
+            ident = result.json()["id"]
+            deadline = time.monotonic() + 15
+            while time.monotonic() < deadline:
+                job = client.get("/owner/state").json()["connection_jobs"][ident]
+                if job["status"] != "RUNNING":
+                    break
+                time.sleep(.05)
+            assert job["status"] == "CONNECTED", job
+        assert bool(broker.store.pending("demo-web")) == (kind == "action")
+        deadline = time.monotonic() + 5
+        while kind == "method" and time.monotonic() < deadline:
+            broker.tick()
+            if broker.task("generic", task["task_id"])["status"] == "COMPLETED":
+                break
+            time.sleep(.05)
+        assert broker.task("generic", task["task_id"])["status"] == ("NEEDS_USER" if kind == "action" else "COMPLETED")
+        assert provider.login_count == provider.totp_count == 0
+    finally:
+        server.shutdown()
+        server.server_close()
+        worker.join(timeout=5)
 
 
 @pytest.mark.parametrize("change", ["expired", "request", "fingerprint", "origin", "grant", "configuration", "no_request"])

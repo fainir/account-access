@@ -219,7 +219,7 @@ class Store:
             with self.db() as connection:
                 self.resolve_login(account, db=connection)
         else:
-            db.execute("UPDATE challenges SET resolved=? WHERE account=? AND resolved IS NULL AND kind IN ('login','sms','email','totp','device','passkey','admin','recovery','unknown')",
+            db.execute("UPDATE challenges SET resolved=? WHERE account=? AND resolved IS NULL AND kind IN ('login','sms','email','totp','method','device','passkey','admin','recovery','unknown')",
                        (time.time(), account))
 
     def client(self, token):
