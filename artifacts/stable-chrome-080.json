@@ -1,0 +1,14 @@
+{
+  "environment": "controlled-demo",
+  "browser": "installed Google Chrome 155",
+  "results": {
+    "demo-web": "COMPLETED",
+    "demo-mfa": "COMPLETED"
+  },
+  "password_logins_before_redirect_test": 2,
+  "totp_verifications": 1,
+  "unapproved_307_post_blocked": true,
+  "evidence_revision": "2cc965f",
+  "personal_profile_used": false,
+  "real_account_test": false
+}

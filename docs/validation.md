@@ -2,6 +2,34 @@
 
 ## Browser verification and repair candidate — 16 October 2026, version 0.8
 
+The latest follow-up preserves Chromium's native main-frame transport and final
+redirect URL while checking every redirect response before it is followed. Tests
+cover credential-bearing 307/308 redirects and requests from pages, fetches,
+iframes, workers and popups. Candidate `81e3ec7` passed all **233 tests**, eight
+native owner-screen checks, native Messages checks, Ruff, dependency audit and
+package build in [CI](https://github.com/fainir/account-access/actions/runs/38895850906).
+Its [Android emulator journey](https://github.com/fainir/account-access/actions/runs/38895850882)
+also passed. The local full run passed 229 tests before four additional targeted
+cases covered extension identity/permissions, revocation and an offline paired tab.
+
+The optional [Google Messages connection](google-messages.md) has 26 passing
+synthetic tests, including password → paired-page DOM reader → framed native host
+→ browser SMS verification. A real extension load used a separate temporary
+Chromium profile and verified that message-site access was absent initially.
+Only structural metadata and fresh-message indicators were inspected on the
+owner's paired Google Messages tab; no code was returned to the agent. The private
+extension connection has not yet been enabled. The owner approved installation
+and GitHub SMS access, and the local native host was prepared. Chrome's protected
+extension-management page requires the owner to load the unpacked folder; browser
+automation was blocked by policy. This is not completed private SMS QA.
+
+Native checks now also distinguish a timeout before confirmed SMS dispatch from
+unconfirmed delivery after dispatch. A provider-required owner action or unknown
+sign-in page is reported before the owner review window ends. Graphical repair
+to signed build 28 preserved saved accounts and permissions and installed the
+optional Google Messages setup screen. Chrome Web Store distribution remains
+outstanding.
+
 The functional candidate at `9fbcad0` passed 173 tests, native owner/reader checks,
 Ruff, dependency audit and build in [CI](https://github.com/fainir/account-access/actions/runs/38886257072).
 Its [Android emulator journey](https://github.com/fainir/account-access/actions/runs/38886257119)
