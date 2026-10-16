@@ -25,6 +25,7 @@ import keyring
 
 from account_access.demo import environment
 from account_access.desktop import running, stop
+from account_access.errors import AccessError
 from account_access.models import TaskRequest
 from account_access.storage import private_file
 from account_access.supervisor import lease
@@ -145,6 +146,7 @@ def check(source, team, report_path):
                 raise ProbeFailure("fixture_keyring_namespace_occupied")
             created_key = True
             keyring.set_password(service, "master", base64.b64encode((root / "demo.key").read_bytes()).decode())
+            broker.store.new_client("fixture")
             broker.grant("fixture", "demo-api", ["summary"])
             private_file(root / "supervisor.json", json.dumps({"generation": uuid.uuid4().hex * 2,
                 "runtime": str(python), "version": "0.8.0"}).encode())
@@ -155,6 +157,7 @@ def check(source, team, report_path):
                 if registration["status"] != "enabled":
                     raise ProbeFailure("background_approval_or_registration_required")
                 initial = wait_for(lambda: running(root))
+                result["initial_fixture_service_ready"] = True
                 guardian_pid = wait_for(job_pid)
                 frozen = initial["pid"]
                 os.kill(frozen, signal.SIGSTOP)
@@ -199,7 +202,8 @@ def check(source, team, report_path):
                 with lease(root, "service", timeout=20):
                     pass
     except Exception as exc:
-        result["failure"] = str(exc) if isinstance(exc, ProbeFailure) else "unexpected_background_probe_error"
+        result["failure"] = (str(exc) if isinstance(exc, ProbeFailure) else
+                             exc.reason if isinstance(exc, AccessError) else "unexpected_background_probe_error")
     finally:
         if created_key:
             try:
