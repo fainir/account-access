@@ -10,7 +10,8 @@
     "Catalog and CSV preview show source context without changing permission fingerprints",
     "Historical results without source metadata are unclassified without rewriting or replaying saved steps",
     "Import summary requires saved readiness rather than an empty error list",
-    "Portable skill preserves automatic discovery and prevents substituting examples for personal/work accounts"
+    "Portable skill preserves automatic discovery and prevents substituting examples for personal/work accounts",
+    "Malformed legacy destination URLs are unclassified rather than breaking discovery"
   ],
   "controlled_validation": {
     "classification_catalog_import_cases_passed": 30,
@@ -26,7 +27,13 @@
       "Metadata tests use local providers and mocked result bodies",
       "Web readiness tests project stored state and make no private website request",
       "No private email, SMS or authenticator acceptance"
-    ]
+    ],
+    "final_classification_cases_passed": 10,
+    "final_classification_seconds": 3.23,
+    "codex_cli": "Passed four-account controlled fixture in 31.08 seconds",
+    "claude_cli": "Passed four-account controlled fixture in 63.75 seconds; successful trace tools satisfy fixture policy; 13 guarded calls, 3 denials",
+    "host_test_revision": "24a5253561d1864b52c5238ede9028faa02803d5",
+    "post_host_test_change": "Malformed legacy URL fallback and clearer outer-metadata guidance; separately covered by focused tests and skill validation"
   },
   "distribution": {
     "installed_build": 53,

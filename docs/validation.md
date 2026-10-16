@@ -33,6 +33,16 @@ catalog/import/access/worker cases passed in 39.68 seconds. Lint, package build
 and skill validation passed. Full CI, signed staging and fresh agent checks are
 in progress.
 
+Fresh ordinary-language host checks on the main classification implementation
+`24a5253` passed: Codex CLI **31.08 seconds**, guarded Claude Code **63.75 seconds**.
+Each completed four password logins and one email, SMS and TOTP verification
+using the controlled fixture. Successful Claude trace tools satisfied the
+fixture policy; thirteen guard decisions included three denials. A final
+malformed-legacy-URL fallback then passed all **10 classification cases** in
+3.23 seconds; it preserves discovery instead of inferring a source label from
+an invalid URL. The skill guidance now explicitly uses outer metadata rather
+than provider-supplied labels inside data.
+
 The metadata tests use local providers and mocked public result bodies; the web
 test uses stored-state projections only. They are not real website or private
 account sign-in acceptance. Installed build 53 remains open for the pending

@@ -67,6 +67,19 @@ def test_all_connector_destinations_must_be_testing_sites_and_test_flag_is_not_p
     assert aggregate([describe(namecheap()), describe(entries()["personal-store"])]) == "mixed"
 
 
+def test_malformed_legacy_url_cannot_break_other_account_discovery(env):
+    _, broker, _ = env
+    config = broker.store.config()
+    config.accounts["demo-web"].login_url = "https://www.saucedemo.com:invalid/"
+    broker.store.configure(config)
+    broker.grant("test", "demo-web", ["summary"])
+    result = broker.accounts("test")
+    assert result["status"] == "OK"
+    rows = {row["account"]: row for row in result["accounts"]}
+    assert rows["demo-web"]["environment"] == "unclassified"
+    assert rows["demo-api"]["environment"] == "controlled-demo"
+
+
 def test_import_review_and_catalog_label_examples_without_altering_permission_fingerprints(env):
     _, broker, _ = env
     staged = preview(broker.store, "url,username,password\n"

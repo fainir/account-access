@@ -21,7 +21,12 @@ def environment(spec, *, test_mode=False):
         urls += [spec.authorization_url, spec.token_url, *spec.api_origins]
         if spec.revoke_url:
             urls.append(spec.revoke_url)
-    origins = {origin(url) for url in urls}
+    try:
+        origins = {origin(url) for url in urls}
+    except ValueError:
+        # A malformed legacy URL must not break discovery for other accounts
+        # or receive an inferred public/private source label.
+        return "unclassified"
     if origins and origins <= PUBLIC_EXAMPLES:
         return "public-example"
     if test_mode and urls and all(urlsplit(url).hostname == "127.0.0.1" for url in urls):
