@@ -75,6 +75,7 @@ or physical-device coverage.
 | Gmail and other email codes | TLS IMAP browser recovery and Gmail API contract tests | Registered consumer OAuth application, owner consent, real mailbox delivery QA |
 | iPhone SMS | Narrow signed Messages helper, message-selection fixtures and owner-granted Mac privacy permission | Real forwarded SMS delivery and completed private sign-in QA; the latest bounded attempt detected no new incoming text |
 | Android SMS | Emulator notification → pinned relay → browser verification | Physical Android pairing, notification delivery and reconnect QA |
+| Google Messages Web | SMS-only extension, exact native origin, pre-password baseline and synthetic password → reader → native host → browser verification | Owner-approved local extension installation, completed private sign-in, broader language coverage and Chrome Web Store distribution |
 | Authenticator app | Setup-key and transfer-import browser recovery tests | Owner-approved real authenticator export and provider login QA |
 | Passkey/security key | Real private browser sign-in identified a WebAuthn route | A reviewed browser route to an available email/SMS/authenticator method, or genuine owner presence when the provider requires it |
 | Automatic agent discovery | Installed skill/CLI used in Codex and Claude Code sessions | Re-run both against each completed private connection; broader host matrix |

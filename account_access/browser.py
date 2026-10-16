@@ -320,6 +320,13 @@ class Browser:
                     if not form.factors:
                         raise
                     source_errors[source_id] = exc
+            if not setup_method and form.sources() and form.sources() <= source_errors.keys():
+                google_error = next((source_errors[source_id] for source_id in form.sources()
+                                     if self.store.config().code_sources[source_id].kind == "google_messages"), None)
+                if google_error:
+                    # Do not submit a password when the paired SMS tab is
+                    # offline and no other enrolled method is usable.
+                    raise google_error
             if review_stop and review_stop.is_set():
                 raise AccessError("NEEDS_USER", "sms_setup_cancelled", "sms")
             page.locator(form.submit_selector).click(timeout=10000)
@@ -391,7 +398,7 @@ class Browser:
                 if source_id in source_errors:
                     raise source_errors[source_id]
                 source = self.store.config().code_sources[source_id]
-                if source.kind not in {"sms": {"twilio", "mac_messages", "phone_relay"},
+                if source.kind not in {"sms": {"twilio", "mac_messages", "phone_relay", "google_messages"},
                                        "email": {"gmail", "imap"}, "totp": {"totp"}}[kind]:
                     raise AccessError("NEEDS_USER", "factor_type_changed", kind)
                 used = used_by_source.setdefault(source_id, set())

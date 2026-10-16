@@ -114,6 +114,7 @@ final class VerificationRetryFixture: URLProtocol {
         owner.showFactors()
         views = descendants(owner.stack)
         precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Connect iPhone SMS"))
+        precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Set up Google Messages"))
         precondition(!views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("You're all set"))
         print("PASS: an offered SMS method has a setup action before any SMS source exists")
         precondition(AccountAccess.smsTimeoutMessage(deliveryStarted: false, incoming: 0, unreadable: 0).contains("did not reach a confirmed SMS request"))

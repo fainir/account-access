@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Account Access \u2014 Login SMS",
+  "version": "0.8.0",
+  "description": "Pass fresh approved GitHub login texts from your paired Google Messages tab to Account Access locally.",
+  "permissions": [
+    "nativeMessaging",
+    "storage",
+    "alarms",
+    "scripting"
+  ],
+  "optional_host_permissions": [
+    "https://messages.google.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzwHhnmInZI9FtTDEpw9yNX35W48JCylnVbc2F8jz/MV04gADPmjISN8HbLxdMVYIzcZMu9eTguq2j5rsf+yEBAN44ppVwlRnGyK7bbDlH1gEshtJE1RdkDKkthpwa8OcSzNg5z4RESkC31Hddp4FhC2i9ByUIs3dafwsczaJK/I5wYHGx8+n25e4snDUHNPkxhIX533lQiZOyphQ/A0x06z0eRmMc+azTwL3+R81xtR7kQ8myohgUPGlw7f24N44ANzl7g9qPyBvzT3BvBTGf9t0m1pcBR9sh/y/eysEdES0585OuyxJqjEtscXBAA42uC6Qr97hmw+0PlDbzEor5QIDAQAB"
+}

@@ -128,6 +128,10 @@ def host(broker):
     from .service import create_app
     root = broker.store.root
     with broker.store.lock("service", timeout=0):
+        if (broker.store.get("google-messages-extension-origin")
+                and not broker.store.config().test_mode):
+            from .google_messages_host import prepare
+            prepare(broker.store)
         socket = root / "service.sock"
         if socket.exists():
             socket.unlink()

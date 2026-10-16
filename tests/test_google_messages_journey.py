@@ -1,0 +1,108 @@
+import io
+import json
+import queue
+import struct
+import threading
+import time
+
+import pytest
+
+from playwright.sync_api import sync_playwright
+
+from account_access.google_messages_host import RESOURCES, extension_id, run_host
+from account_access.models import LoginFactor
+from account_access.errors import AccessError
+from test_google_messages import source
+
+
+@pytest.mark.parametrize("tab_available", [True, False])
+def test_password_to_messages_reader_to_native_host_to_browser(env, monkeypatch, tab_available):
+    provider, broker, _ = env
+    source(broker)
+    config = broker.store.config()
+    spec = config.accounts["demo-mfa"].model_copy(deep=True)
+    spec.login_url = spec.login_url.replace("/mfa/", "/sms/")
+    for name in ["login_resources", "login_post_urls", "read_resources"]:
+        setattr(spec, name, [url.replace("/mfa/", "/sms/") for url in getattr(spec, name)])
+    for operation in spec.operations.values():
+        operation.url = operation.url.replace("/mfa/", "/sms/")
+    spec.login.code_source = spec.login.code_selector = spec.login.code_submit_selector = None
+    spec.login.factors = {
+        "sms": LoginFactor(
+            code_source="google-sms", code_selector="#code", code_submit_selector="#code-submit"
+        )
+    }
+    spec.challenge_selectors.pop("totp")
+    spec.challenge_selectors["sms"] = "#sms-challenge"
+    config.accounts["google-login"] = spec
+    broker.store.configure(config)
+    broker.store.put("credential:google-login", broker.store.get("credential:demo-mfa"))
+    broker.grant("test", "google-login", ["summary"])
+    if not tab_available:
+
+        def unavailable(*args):
+            raise AccessError("RETRYABLE", "google_messages_tab_unavailable", "sms")
+
+        monkeypatch.setattr(broker.codes, "begin", unavailable)
+        result = broker.run("test", "google-login", "summary")
+        assert result["status"] == "RETRYABLE" and provider.login_count == 0
+        return
+    origin = "chrome-extension://" + extension_id() + "/"
+    broker.store.put("google-messages-extension-origin", origin)
+    mailbox = queue.Queue()
+    provider.delivery = lambda kind, code: mailbox.put(code) if kind == "sms" else None
+
+    def exchange(body):
+        raw = json.dumps({"id": 1, "body": body}).encode()
+        outgoing = io.BytesIO()
+        assert (
+            run_host(broker.store, io.BytesIO(struct.pack("=I", len(raw)) + raw), outgoing, origin)
+            == 0
+        )
+        return json.loads(outgoing.getvalue()[4:])["result"]
+
+    fixture = """<mws-conversations-list><nav><mws-conversation-list-item><a data-e2e-conversation href="/web/conversations/cached"></a>
+        <mws-conversation-snippet>111111 is your GitHub authentication code.</mws-conversation-snippet>
+        <mws-relative-timestamp><div aria-label="Now"></div></mws-relative-timestamp></mws-conversation-list-item></nav></mws-conversations-list>"""
+    result = []
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(chromium_sandbox=True)
+        context = browser.new_context()
+        context.route("**/*", lambda route: route.fulfill(body=fixture, content_type="text/html"))
+        page = context.new_page()
+        page.goto("https://messages.google.com/web/conversations")
+        page.evaluate("""() => {window.chrome={runtime:{id:'fixture',onMessage:{addListener:handler=>window.receive=handler}}};
+            window.pollSMS=request=>new Promise(resolve=>window.receive({method:'poll',request},{id:'fixture'},resolve));}""")
+        page.add_script_tag(path=RESOURCES / "reader.js")
+        worker = threading.Thread(
+            target=lambda: result.append(broker.run("test", "google-login", "summary"))
+        )
+        worker.start()
+        deadline = time.monotonic() + 25
+        while worker.is_alive() and time.monotonic() < deadline:
+            try:
+                incoming = mailbox.get_nowait()
+                page.evaluate(
+                    """code=>{const row=document.querySelector('mws-conversation-list-item').cloneNode(true);
+                    row.querySelector('a').setAttribute('href','/web/conversations/current');
+                    row.querySelector('mws-conversation-snippet').textContent=code+' is your GitHub authentication code.';
+                    document.querySelector('nav').prepend(row);}""",
+                    incoming,
+                )
+            except queue.Empty:
+                pass
+            for request in exchange({"method": "pending"}).get("pending", []):
+                snapshot = page.evaluate("request=>window.pollSMS(request)", request)
+                base = {"source": request["source"], "window": request["window"]}
+                if snapshot.get("armed"):
+                    assert provider.login_count == 0
+                    exchange({"method": "armed", **base})
+                if snapshot.get("candidates"):
+                    exchange({"method": "deliver", **base, "messages": snapshot["candidates"]})
+            page.wait_for_timeout(50)
+        worker.join(timeout=5)
+        browser.close()
+    assert not worker.is_alive()
+    assert result and result[0]["status"] == "COMPLETED"
+    assert provider.login_count == 1 and provider.sms_count == 1
+    assert provider.last_login_code not in json.dumps(result)

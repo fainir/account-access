@@ -980,6 +980,10 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             start.identifier = NSUserInterfaceItemIdentifier(account)
             panel.addArrangedSubview(start)
         }
+        if !smsSetups.isEmpty || sources.contains(where: { $0["kind"] as? String == "google_messages" }) {
+            let panel = card("Android SMS · Google Messages", "Use the Google Messages tab already paired to your phone. A browser connection passes only fresh GitHub login codes to this Mac during an active sign-in.", status: "One-time browser connection", good: false)
+            panel.addArrangedSubview(NSButton(title: "Set up Google Messages", target: self, action: #selector(prepareGoogleMessages)))
+        }
         if sources.isEmpty { action("Back", #selector(backToConnections)); return }
         factorMenu = NSPopUpButton()
         for source in sources {
@@ -996,7 +1000,41 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
 
     func factorName(_ kind: String) -> String {
         return ["totp": "Authenticator", "imap": "Email", "gmail": "Gmail", "twilio": "SMS gateway",
-                "mac_messages": "iPhone Messages", "phone_relay": "Android phone"][kind] ?? "Verification"
+                "mac_messages": "iPhone Messages", "phone_relay": "Android phone", "google_messages": "Google Messages"][kind] ?? "Verification"
+    }
+
+    @objc func prepareGoogleMessages() {
+        let review = NSAlert()
+        review.messageText = "Prepare the Google Messages connection?"
+        review.informativeText = "This installs a local bridge for the Account Access SMS-only Chrome extension. Chrome will separately ask for access to messages.google.com. During a pending GitHub sign-in, it matches the exact login text and passes fresh codes locally. GitHub rotates sender numbers, so sender identity is not independently verified. Your AI receives no codes or message contents."
+        review.addButton(withTitle: "Prepare browser connection"); review.addButton(withTitle: "Cancel")
+        guard review.runModal() == .alertFirstButtonReturn else { return }
+        busy = true
+        page("Preparing Google Messages", "Setting up the local SMS bridge. No browser permission has been granted yet.")
+        progress()
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let result = try self.request("owner/google-messages/prepare", body: [:])
+                guard let path = result["extension_path"] as? String,
+                      path == self.root.appendingPathComponent("GoogleMessagesExtension").path else {
+                    throw Failure.message("The browser connection could not be prepared.")
+                }
+                DispatchQueue.main.async {
+                    self.busy = false
+                    self.page("Add the SMS browser connection", "This preview uses a local Chrome extension. The folder is open in Finder. In Chrome Extensions, enable Developer mode, choose Load unpacked and select GoogleMessagesExtension. Open Account Access — Login SMS in Chrome, select your reviewed GitHub account, and click Connect GitHub login texts.")
+                    self.label("Keep one paired Google Messages conversations tab open. Your usual Chrome session stays on this computer.", 15, .secondaryLabelColor)
+                    self.action("Open Chrome Extensions", #selector(self.openChromeExtensions))
+                    self.action("Back to verification", #selector(self.showFactors))
+                    NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: path)
+                }
+            } catch { self.fail(error, retry: #selector(self.showFactors)) }
+        }
+    }
+
+    @objc func openChromeExtensions() {
+        NSWorkspace.shared.open([URL(string: "chrome://extensions")!],
+            withApplicationAt: URL(fileURLWithPath: "/Applications/Google Chrome.app"),
+            configuration: NSWorkspace.OpenConfiguration())
     }
 
     @objc func cancelSMSSetup() { smsProgress?.cancel() }
@@ -1152,6 +1190,13 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         let kind = source["kind"] as? String ?? ""
         label(source["enrolled"] as? Bool == true ? "● Connected" : "One-time setup", 14,
               source["enrolled"] as? Bool == true ? .systemGreen : .secondaryLabelColor)
+        if kind == "google_messages" {
+            label("Keep one paired Google Messages conversations tab open in Chrome. Only new matching GitHub login texts during a pending sign-in are eligible. Cached texts, changed pages and ambiguous codes stop safely.", 15, .secondaryLabelColor)
+            action("Set up Google Messages", #selector(prepareGoogleMessages))
+            if source["enrolled"] as? Bool == true { action("Disable this verification method", #selector(disableFactor)) }
+            action("Back", #selector(backToConnections))
+            return
+        }
         let fields: [(String, String)] = kind == "totp" ? [("seed", "Authenticator setup key or otpauth link")] :
             kind == "imap" ? ((source["mailbox_account"] as? String) != nil ? [("username", "Mailbox email address")] : [("username", "Mailbox email address"), ("password", "Mailbox application password")]) :
             kind == "twilio" ? [("sid", "SMS gateway account ID"), ("auth_token", "SMS gateway token")] : []

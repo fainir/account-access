@@ -160,7 +160,7 @@ class BrowserAccount(StrictModel):
 
 
 class CodeSource(StrictModel):
-    kind: Literal["totp", "gmail", "twilio", "imap", "mac_messages", "phone_relay"]
+    kind: Literal["totp", "gmail", "twilio", "imap", "mac_messages", "phone_relay", "google_messages"]
     account: Handle | None = None
     sender: str | None = Field(default=None, max_length=200)
     recipient: str | None = Field(default=None, max_length=200)
@@ -172,6 +172,10 @@ class CodeSource(StrictModel):
 
     @model_validator(mode="after")
     def requirements(self):
+        if self.kind == "google_messages" and (
+                self.sender != "github-login-rotating-senders" or self.recipient != "paired-google-messages"
+                or self.template != "{code} is your GitHub authentication code."):
+            raise ValueError("Google Messages currently supports only the reviewed GitHub login template")
         if self.kind != "totp" and (not self.sender or not self.recipient or not self.template
                                     or self.template.count("{code}") != 1):
             raise ValueError("Message sources require sender, recipient and one {code} template")
@@ -202,7 +206,7 @@ class Configuration(StrictModel):
                     if not account.login.sources() <= self.code_sources.keys():
                         raise ValueError("Unknown login code source")
                     kinds = {"totp": {"totp"}, "email": {"imap", "gmail"},
-                             "sms": {"twilio", "mac_messages", "phone_relay"}}
+                             "sms": {"twilio", "mac_messages", "phone_relay", "google_messages"}}
                     for kind, factor in account.login.factors.items():
                         if self.code_sources[factor.code_source].kind not in kinds[kind]:
                             raise ValueError("Verification method and source kind must match")

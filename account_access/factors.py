@@ -35,6 +35,8 @@ def enroll(store, source_id, data):
     if not isinstance(source_id, str) or source_id not in config.code_sources:
         raise AccessError("DENIED", "unknown_code_source")
     kind = config.code_sources[source_id].kind
+    if kind == "google_messages":
+        raise AccessError("NEEDS_USER", "google_messages_extension_setup_required", "sms")
     required = {"totp": {"seed"}, "imap": ({"username"} if config.code_sources[source_id].account else {"username", "password"}),
                 "twilio": {"sid", "auth_token"}, "mac_messages": {"enabled"},
                 "gmail": set(), "phone_relay": set()}[kind]

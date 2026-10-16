@@ -111,11 +111,13 @@ class Codes:
             if credentials.get("enabled") is not True:
                 raise AccessError("NEEDS_USER", "message_permission_required", "sms")
             return self.messages(source_id, source, started, used)
-        if source.kind == "phone_relay":
+        if source.kind in {"phone_relay", "google_messages"}:
             with self.store.lock("code-window:" + source_id):
                 window = self.store.get("code-window:" + source_id)
                 if not window or window["started"] != started or window["expires"] < time.time():
                     return None
+                if window.get("lost"):
+                    raise AccessError("RETRYABLE", "google_messages_tab_reloaded", "sms")
                 incoming = window.get("incoming", [])
                 if len(incoming) > 1:
                     raise AccessError("NEEDS_USER", "ambiguous_login_code", "sms")
@@ -178,7 +180,20 @@ class Codes:
             if credentials.get("enabled") is not True:
                 raise AccessError("NEEDS_USER", "message_permission_required", "sms")
             window["after_row"] = self.messages_baseline(source_id, source, started)
+        if source.kind == "google_messages":
+            if credentials.get("enabled") is not True:
+                raise AccessError("NEEDS_USER", "google_messages_not_connected", "sms")
+            window["google_window"] = secrets.token_hex(16)
         self.store.put("code-window:" + source_id, window)
+        if source.kind == "google_messages":
+            deadline = time.monotonic() + 15
+            while time.monotonic() < deadline:
+                _, current, _ = self.check_window(source_id, started)
+                if current.get("armed"):
+                    return
+                time.sleep(.1)
+            self.finish(source_id, started)
+            raise AccessError("RETRYABLE", "google_messages_tab_unavailable", "sms")
 
     def finish(self, source_id, started):
         with self.store.lock("code-window:" + source_id):

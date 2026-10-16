@@ -249,6 +249,12 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                 if not 0 < length <= limit:
                     raise ValueError()
                 data = json.loads(self.rfile.read(length))
+                if guided and self.path == "/owner/google-messages/prepare":
+                    if data != {}:
+                        raise ValueError()
+                    from .google_messages_host import prepare
+                    self.send(200, prepare(broker.store))
+                    return
                 if guided and self.path == "/owner/sms/setup-start":
                     from .sms_setup import prepare
                     if set(data) != {"account", "fingerprint"}:

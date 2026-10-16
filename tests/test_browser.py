@@ -144,10 +144,16 @@ def test_unrecognized_page_does_not_fill_credentials(env):
     assert provider.login_count == 0
 
 
-def test_visible_review_reports_attention_before_waiting_for_owner(env):
+def test_visible_review_reports_attention_before_waiting_for_owner(env, monkeypatch):
     import threading
     import pytest
     from account_access.errors import AccessError
+    from playwright.sync_api import BrowserType
+
+    original_launch = BrowserType.launch
+    def headless_fixture(browser_type, **kwargs):
+        return original_launch(browser_type, **{**kwargs, "headless": True})
+    monkeypatch.setattr(BrowserType, "launch", headless_fixture)
 
     provider, broker, _ = env
     config = broker.store.config().accounts["demo-web"]

@@ -11,6 +11,8 @@ Account Access is a local authentication and delegated-access service for **Code
 
 This development branch contains the **0.8 candidate**: local Google Authenticator transfer import, reviewed SMS enrollment, and an installer that requires tested dependency hashes and can roll back a failed repair. These changes are under validation; the download below remains the published 0.7.4 preview. See [production acceptance and remaining gates](docs/production-gates.md).
 
+The development candidate also includes a [Google Messages browser connection](docs/google-messages.md) for fresh GitHub login texts from an already-paired Android inbox. It uses an optional SMS-only Chrome extension and a local native messaging bridge. The unpacked-extension setup and private delivery are still under validation.
+
 The browser sign-in flow uses the imported email/username and password, then supplies the website's email, SMS or authenticator login code from its connected source. A reviewed connector can configure all three methods for one website, including successive verification steps. This is the authentication flow being tested; using another application's existing login is not browser-authentication evidence.
 
 ![Account dashboard with approved reads and automatic session integration](docs/account-dashboard.png)
