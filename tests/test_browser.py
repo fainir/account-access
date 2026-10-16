@@ -185,12 +185,19 @@ def test_headless_authentication_failure_reports_its_live_page_once(env):
     assert reports[0][:3] == ("NEEDS_USER", "authenticator_not_enrolled", "totp")
 
 
-def test_session_import_filters_foreign_origins(env):
+def test_legacy_unverified_session_import_cannot_save_or_clear_a_login_challenge(env):
+    import pytest
+    from account_access.errors import AccessError
+
     _, broker, _ = env
-    broker.browser.import_state("demo-web", {"cookies": [
-        {"domain": "evil.example", "name": "secret", "value": "should-not-store"}],
-        "origins": [{"origin": "https://evil.example", "localStorage": []}]})
-    assert broker.store.get("connection:demo-web")["state"] == {"cookies": [], "origins": []}
+    broker.store.challenge("demo-web", "passkey", "browser_passkey_required")
+    previous = broker.store.get("connection:demo-web")
+    with pytest.raises(AccessError, match="browser_session_owner_request_required"):
+        broker.browser.import_state("demo-web", {"cookies": [
+            {"domain": "evil.example", "name": "secret", "value": "should-not-store"}],
+            "origins": [{"origin": "https://evil.example", "localStorage": []}]})
+    assert broker.store.get("connection:demo-web") == previous
+    assert broker.store.pending("demo-web")[0]["kind"] == "passkey"
 
 
 def test_login_cannot_post_to_a_read_resource(env):

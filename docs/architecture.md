@@ -70,6 +70,14 @@ Schedules retain an immutable reviewed step list, principal and interval. Invali
 
 Add provider adapters with explicit operations and recorded challenge contracts. Evaluate managed OAuth infrastructure such as Nango/Composio/Pipedream behind this interface for a larger catalog. Evaluate agent-browser as a browser runtime, but do not expose its unrestricted credential/browser commands to the model or treat its opt-in policy features as a substitute for operation grants. The initial implementation reuses Playwright directly because the experiment needs fixed operation-level control.
 
-The Chrome native session bridge is an experimental owner convenience, with exact extension registration and account origin filtering. It exports no password vault, passkey or authenticator. The extension/native host is not a publicly distributed signed consumer installer and has not been exercised with live Chrome accounts.
+The Chrome session bridge requires a five-minute request from the local owner
+app and an existing approved GitHub profile read. Its optional cookie permission
+is absent by default and removed after transfer. The selected cookie store,
+origin, provider readiness and expected username are checked; changed grants,
+expiry or cancellation prevent adoption. Saving the encrypted connection,
+resolving login challenges and recording success share one transaction. The
+old unverified import path is refused. Cookies never return through the agent
+API. Device binding, private acceptance and marketplace distribution remain
+limits; see [browser session reuse](browser-sessions.md).
 
 Production release requires named live-service pilots, the intended isolated custody deployment, provider app registrations and conditions, mobile channel validation, installer/update signing and operational monitoring. See validation.md for what was actually tested.

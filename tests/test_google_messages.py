@@ -30,7 +30,8 @@ def source(broker):
 def test_sms_extension_has_no_site_access_until_owner_connects():
     manifest = json.loads((RESOURCES / "manifest.json").read_text())
     assert set(manifest["permissions"]) == {"nativeMessaging", "storage", "alarms", "scripting"}
-    assert manifest["optional_host_permissions"] == ["https://messages.google.com/*"]
+    assert set(manifest["optional_host_permissions"]) == {"https://messages.google.com/*", "https://github.com/*"}
+    assert manifest["optional_permissions"] == ["cookies"]
     assert not manifest.get("host_permissions") and not manifest.get("content_scripts")
 
 
@@ -53,6 +54,7 @@ def test_sms_extension_loads_with_its_registered_identity_without_site_access(tm
         )
         assert worker.evaluate("chrome.runtime.id") == extension_id()
         assert not worker.evaluate("chrome.permissions.getAll()").get("origins")
+        assert "cookies" not in worker.evaluate("chrome.permissions.getAll()")["permissions"]
         context.close()
 
 

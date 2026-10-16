@@ -11,7 +11,7 @@ Account Access is a local authentication and delegated-access service for **Code
 
 This development branch contains the **0.8 candidate**: local Google Authenticator transfer import, reviewed SMS enrollment, and an installer that requires tested dependency hashes and can roll back a failed repair. These changes are under validation; the download below remains the published 0.7.4 preview. See [production acceptance and remaining gates](docs/production-gates.md).
 
-The development candidate also includes a [Google Messages browser connection](docs/google-messages.md) for fresh GitHub login texts from an already-paired Android inbox. It uses an optional SMS-only Chrome extension and a local native messaging bridge. The unpacked-extension setup and private delivery are still under validation.
+The development candidate also includes a [Google Messages browser connection](docs/google-messages.md) for fresh GitHub login texts from an already-paired Android inbox. Its optional browser helper now also offers [verified GitHub session reuse](docs/browser-sessions.md): confirm the username locally and connect an existing Chrome sign-in. Cookie/site permission is optional and temporary. The unpacked-extension setup and private acceptance are still under validation.
 
 The current personal GitHub pilot reaches the SMS request but redirects to account recovery. Completed personal-account SMS, email and authenticator sign-ins remain unverified. The [validation report](docs/validation.md) separates fixture results from real account QA.
 
@@ -152,7 +152,7 @@ The service reuses accepted browser sessions, refreshes eligible OAuth access an
 | Android login notifications | Actual emulator notification → Keystore pairing → pinned HTTPS → browser code submission [passed CI](https://github.com/fainir/account-access/actions/runs/38543728385); physical phones not validated |
 | OAuth code + PKCE and renewal | Controlled failure tests and external Duende demo refresh-token rotation |
 | Passkey, fingerprint, device or admin approval | Genuine owner handoff |
-| Existing Chrome session | Experimental extension/native bridge; unit-tested, not live Chrome validated |
+| Existing Chrome session | Owner-requested GitHub session transfer; username/readiness verified before atomic save; controlled browser/native/helper tests; private acceptance pending |
 | Payments, filings and account-changing writes | Unsupported; configured reads only |
 
 macOS has been exercised locally. Linux is covered by the repository's CI workflow. Native Windows service transport is not implemented. A cloud agent needs a reachable HTTPS broker; installing a local skill does not expose your laptop's localhost to the cloud.

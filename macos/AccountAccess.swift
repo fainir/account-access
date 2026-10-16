@@ -64,6 +64,10 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     var navigationFailures: [[String: Any]] = []
     var browserUpdates: [[String: Any]] = []
     var smsSetups: [[String: Any]] = []
+    var browserSessionAccounts: [[String: Any]] = []
+    var browserSessionChoice: [String: Any]?
+    var browserSessionWatch: String?
+    var browserSessionUsername: NSTextField!
     var smsProgress: Progress?
     var smsDiagnostics: String?
     var verificationDetails: [String: String] = [:]
@@ -544,6 +548,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         navigationFailures = state["navigation_failures"] as? [[String: Any]] ?? []
         browserUpdates = state["browser_updates"] as? [[String: Any]] ?? []
         smsSetups = state["sms_setups"] as? [[String: Any]] ?? []
+        browserSessionAccounts = state["browser_session_accounts"] as? [[String: Any]] ?? []
         passwordSync = state["password_sync"] as? [[String: Any]] ?? []
         catalog = state["catalog"] as? [[String: Any]] ?? []
         accounts = state["accounts"] as? [[String: Any]] ?? []
@@ -1043,6 +1048,104 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         }
     }
 
+    @objc func showBrowserSession(_ sender: NSButton) {
+        guard let account = sender.identifier?.rawValue,
+              let choice = browserSessionAccounts.first(where: { $0["account"] as? String == account }) else { return }
+        browserSessionChoice = choice
+        page("Use your signed-in Chrome account", "Connect an existing GitHub sign-in once, then let your AI reuse it for your approved reads.")
+        card(choice["label"] as? String ?? "GitHub", "Your GitHub session cookies will be copied directly into this Mac's encrypted store. Account Access checks the signed-in username before saving. Cookies stay out of AI chat. Chrome will ask for temporary cookie and GitHub site access; the cookie permission can also cover sites already granted to this helper. The helper reads only GitHub cookies for this transfer and removes the temporary permissions afterward.")
+        label("Expected GitHub username", 14, .secondaryLabelColor)
+        browserSessionUsername = NSTextField(string: choice["username_hint"] as? String ?? "")
+        browserSessionUsername.placeholderString = "Your GitHub username, not your email address"
+        browserSessionUsername.setAccessibilityLabel("Expected GitHub username")
+        stack.addArrangedSubview(browserSessionUsername)
+        browserSessionUsername.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        primary("Prepare Chrome connection", #selector(startBrowserSession))
+        action("Back to my accounts", #selector(showReady))
+    }
+
+    @objc func startBrowserSession() {
+        guard let choice = browserSessionChoice, let account = choice["account"] as? String,
+              let fingerprint = choice["fingerprint"] as? String else { return }
+        let expected = browserSessionUsername.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard expected.range(of: "^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$", options: .regularExpression) != nil else {
+            status.stringValue = "Enter the GitHub username shown on your signed-in account."
+            return
+        }
+        busy = true
+        page("Preparing your Chrome connection", "Setting up a five-minute request for this approved account.")
+        progress()
+        DispatchQueue.global(qos: .userInitiated).async {
+            var observedRequest: String?
+            do {
+                let result = try self.request("owner/browser-session/start", body: ["account": account, "fingerprint": fingerprint, "username": expected])
+                guard let id = result["id"] as? String, let path = result["extension_path"] as? String,
+                      path == self.root.appendingPathComponent("GoogleMessagesExtension").path else {
+                    throw Failure.message("The browser connection could not be prepared.")
+                }
+                observedRequest = id
+                DispatchQueue.main.async {
+                    self.busy = false
+                    self.browserSessionWatch = id
+                    self.page("Connect your open GitHub tab", "Open the Account Access browser helper on your signed-in GitHub tab, choose this account, and click Connect this GitHub sign-in. This page updates automatically after verification.")
+                    self.card("One-time helper update", "If the helper is already installed, open Chrome Extensions and click Reload for Account Access. Otherwise choose Load unpacked and select the open GoogleMessagesExtension folder. The helper is now named Account Access — Browser Connections.")
+                    self.label("Expected GitHub username: " + expected, 15, .secondaryLabelColor)
+                    self.action("Open Chrome Extensions", #selector(self.openChromeExtensions))
+                    self.action("Open GitHub in Chrome", #selector(self.openGitHubInChrome))
+                    self.action("Cancel this connection", #selector(self.cancelBrowserSession))
+                    NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: path)
+                }
+                let deadline = Date().addingTimeInterval(300)
+                while Date() < deadline {
+                    Thread.sleep(forTimeInterval: 0.8)
+                    let state = try self.request("owner/state")
+                    guard let pending = (state["browser_session_requests"] as? [[String: Any]])?.first(where: { $0["id"] as? String == id }) else { break }
+                    let outcome = pending["status"] as? String ?? ""
+                    if outcome == "CONNECTED" {
+                        DispatchQueue.main.async {
+                            guard self.browserSessionWatch == id else { return }
+                            self.browserSessionWatch = nil; self.accept(state); self.ready()
+                        }
+                        return
+                    }
+                    if !["AWAITING_BROWSER", "VERIFYING"].contains(outcome) {
+                        let reason = pending["reason"] as? String ?? ""
+                        throw Failure.message(reason == "browser_session_identity_mismatch"
+                            ? "Chrome is signed in to a different GitHub username. The previous connection is preserved. Start again with the correct tab and username."
+                            : "This Chrome session could not be verified. The previous connection is preserved. Start a new connection after reviewing your GitHub tab.")
+                    }
+                }
+                DispatchQueue.main.async {
+                    guard self.browserSessionWatch == id else { return }
+                    self.browserSessionWatch = nil
+                    self.fail(Failure.message("This browser connection expired or was cancelled. Your existing connections are preserved."), retry: #selector(self.showReady))
+                }
+            } catch {
+                let failedRequest = observedRequest
+                DispatchQueue.main.async {
+                    guard failedRequest.map({ self.browserSessionWatch == $0 }) ?? self.busy else { return }
+                    self.browserSessionWatch = nil
+                    self.fail(error, retry: #selector(self.showReady))
+                }
+            }
+        }
+    }
+
+    @objc func openGitHubInChrome() {
+        NSWorkspace.shared.open([URL(string: "https://github.com/settings/profile")!],
+            withApplicationAt: URL(fileURLWithPath: "/Applications/Google Chrome.app"),
+            configuration: NSWorkspace.OpenConfiguration())
+    }
+
+    @objc func cancelBrowserSession() {
+        guard let id = browserSessionWatch, let account = browserSessionChoice?["account"] as? String else { return }
+        browserSessionWatch = nil
+        DispatchQueue.global(qos: .userInitiated).async {
+            _ = try? self.request("owner/browser-session/cancel", body: ["account": account, "id": id])
+            DispatchQueue.main.async { self.showReady() }
+        }
+    }
+
     @objc func showVerificationDetails(_ sender: NSButton) {
         guard let detail = sender.identifier?.rawValue else { return }
         let alert = NSAlert()
@@ -1185,7 +1288,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 }
                 DispatchQueue.main.async {
                     self.busy = false
-                    self.page("Add the SMS browser connection", "This preview uses a local Chrome extension. The folder is open in Finder. In Chrome Extensions, enable Developer mode, choose Load unpacked and select GoogleMessagesExtension. Open Account Access — Login SMS in Chrome, select your reviewed GitHub account, and click Connect GitHub login texts.")
+                    self.page("Add the SMS browser connection", "This preview uses a local Chrome extension. The folder is open in Finder. In Chrome Extensions, enable Developer mode, choose Load unpacked and select GoogleMessagesExtension. Open Account Access — Browser Connections in Chrome, select your reviewed GitHub account, and click Connect GitHub login texts.")
                     self.label("Keep one paired Google Messages conversations tab open. Your usual Chrome session stays on this computer.", 15, .secondaryLabelColor)
                     self.action("Open Chrome Extensions", #selector(self.openChromeExtensions))
                     self.action("Back to verification", #selector(self.showFactors))
@@ -1580,6 +1683,11 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             let status = !allowed ? "Approval needed" : pending || !active ? "Sign-in needs attention" : "Connected"
             let reads = (account[allowed ? "approved_operations" : "operations"] as? [[String: Any]] ?? []).compactMap { $0["description"] as? String }.joined(separator: "; ")
             let body = card(account["label"] as? String ?? "Account", (allowed ? "Approved reads: " : "Available reads: ") + reads, status: status, good: allowed && active && !pending)
+            if allowed && browserSessionAccounts.contains(where: { $0["account"] as? String == account["account"] as? String }) {
+                let chrome = NSButton(title: "Use signed-in Chrome", target: self, action: #selector(showBrowserSession))
+                chrome.identifier = NSUserInterfaceItemIdentifier(account["account"] as? String ?? "")
+                body.addArrangedSubview(chrome)
+            }
             if (pending || !active), let id = account["account"] as? String, let detail = verificationDetails[id] {
                 let inspect = NSButton(title: "Show verification details", target: self, action: #selector(showVerificationDetails))
                 inspect.identifier = NSUserInterfaceItemIdentifier(detail)

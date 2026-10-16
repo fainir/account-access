@@ -43,8 +43,10 @@ async function poll() {
   finally {polling=false;}
 }
 chrome.runtime.onMessage.addListener((message,sender,respond)=>{
-  if(sender.id!==chrome.runtime.id || sender.tab || !sender.url?.startsWith(chrome.runtime.getURL("popup.html"))) return false;
+  if(sender.id!==chrome.runtime.id || sender.tab || sender.url!==chrome.runtime.getURL("popup.html")) return false;
   (async()=>{
+    if(message.method==="session-status" && Object.keys(message).length===1) return native({method:"session-accounts"});
+    if(message.method==="session-connect") return connectBrowserSession(message);
     if(message.method==="status") return native({method:"accounts"});
     if(message.method!=="connect") throw new Error("Unsupported action.");
     const paired=await tabs();
@@ -60,6 +62,46 @@ chrome.runtime.onMessage.addListener((message,sender,respond)=>{
 });
 chrome.alarms.create("sms-reconnect",{periodInMinutes:0.5});
 chrome.alarms.onAlarm.addListener(poll);
-chrome.runtime.onStartup.addListener(poll);
+chrome.runtime.onStartup.addListener(()=>{clearSessionPermission();poll();});
+chrome.alarms.create("session-cleanup",{periodInMinutes:0.5});
+chrome.alarms.onAlarm.addListener(alarm=>{if(alarm.name==="session-cleanup" && !sessionBusy) clearSessionPermission();});
 setInterval(poll,1000);
 poll();
+
+let sessionBusy=false;
+async function clearSessionPermission(){
+  await chrome.permissions.remove({permissions:["cookies"],origins:["https://github.com/*"]});
+}
+async function connectBrowserSession(message){
+  if(sessionBusy || Object.keys(message).sort().join(",")!=="account,fingerprint,method,request")
+    return {status:"DENIED",reason:"browser_session_not_available"};
+  sessionBusy=true;
+  // A separate native process keeps session verification from blocking fresh
+  // SMS delivery on the persistent SMS port. Raw cookies are never logged.
+  try{
+    const pending=await native({method:"session-accounts"});
+    const selected=(pending.accounts||[]).find(item=>item.account===message.account && item.id===message.request
+      && item.fingerprint===message.fingerprint && item.origin==="https://github.com");
+    if(!selected || !(await chrome.permissions.contains({permissions:["cookies"],origins:["https://github.com/*"]})))
+      return {status:"DENIED",reason:"browser_session_request_expired_or_changed"};
+    const [tab]=await chrome.tabs.query({active:true,currentWindow:true});
+    if(!tab?.url || new URL(tab.url).origin!==selected.origin)
+      return {status:"NEEDS_USER",reason:"open_github_signed_in_tab"};
+    const stores=await chrome.cookies.getAllCookieStores();
+    const store=stores.find(item=>item.tabIds.includes(tab.id));
+    if(!store) return {status:"NEEDS_USER",reason:"browser_session_store_unavailable"};
+    const cookies=await chrome.cookies.getAll({url:"https://github.com/",storeId:store.id});
+    if(cookies.some(item=>item.partitionKey)) return {status:"NEEDS_USER",reason:"browser_session_partition_unsupported"};
+    const state={cookies:cookies.map(item=>({name:item.name,value:item.value,domain:item.domain,path:item.path,
+      expires:item.expirationDate??-1,httpOnly:item.httpOnly,secure:item.secure,
+      sameSite:({no_restriction:"None",lax:"Lax",strict:"Strict"})[item.sameSite]||"Lax"})),origins:[]};
+    if(new TextEncoder().encode(JSON.stringify(state)).length>48000)
+      return {status:"NEEDS_USER",reason:"invalid_browser_session_state"};
+    const current=await chrome.tabs.get(tab.id);
+    if(!current.url || new URL(current.url).origin!==selected.origin)
+      return {status:"NEEDS_USER",reason:"browser_session_tab_changed"};
+    return await chrome.runtime.sendNativeMessage(host,{id:0,body:{method:"session-import",account:selected.account,
+      request:selected.id,fingerprint:selected.fingerprint,origin:selected.origin,state}}).then(reply=>reply.result);
+  }catch{return {status:"NEEDS_USER",reason:"browser_session_verification_failed"};}
+  finally{try{await clearSessionPermission();}finally{sessionBusy=false;}}
+}

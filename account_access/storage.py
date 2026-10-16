@@ -214,8 +214,11 @@ class Store:
             return [dict(r) for r in db.execute("SELECT * FROM challenges WHERE account=? AND resolved IS NULL",
                                                (account,))]
 
-    def resolve_login(self, account):
-        with self.db() as db:
+    def resolve_login(self, account, db=None):
+        if db is None:
+            with self.db() as connection:
+                self.resolve_login(account, db=connection)
+        else:
             db.execute("UPDATE challenges SET resolved=? WHERE account=? AND resolved IS NULL AND kind IN ('login','sms','email','totp','device','passkey','admin','recovery','unknown')",
                        (time.time(), account))
 

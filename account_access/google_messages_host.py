@@ -113,7 +113,20 @@ def run_host(store, incoming, outgoing, presented_origin):
             ident = message["id"]
             connecting = isinstance(message["body"], dict) and message["body"].get("method") == "connect"
             service = verification_service(store) if connecting and not store.config().test_mode else None
-            result = handle(store, message["body"])
+            method = message["body"].get("method") if isinstance(message["body"], dict) else None
+            if method in {"session-accounts", "session-import"}:
+                from .broker import Broker
+                from .browser_sessions import accept, requests
+                if method == "session-accounts" and set(message["body"]) == {"method"}:
+                    result = {"accounts": requests(Broker(store))}
+                elif method == "session-import":
+                    if not store.config().test_mode:
+                        verification_service(store)
+                    result = accept(Broker(store), message["body"])
+                else:
+                    raise AccessError("DENIED", "invalid_browser_session_request")
+            else:
+                result = handle(store, message["body"])
             if service and result.get("status") == "CONNECTED":
                 start_verification(service, result["account"])
                 result["verification_started"] = True

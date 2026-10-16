@@ -126,22 +126,14 @@ account-access disable-schedule SCHEDULE_ID
 
 The service must run and the machine must be awake. Missed intervals coalesce instead of producing a burst of catch-up runs. Schedules resume supported service operations, not a stopped agent conversation. Email/SMS/push notifications are not configured by these commands.
 
-## Experimental Chrome session adoption
+## Verified Chrome session reuse
 
-The bridge transfers a specifically selected account's browser session; it does not read Chrome's saved-password vault, passkeys or authenticator apps.
-
-1. Configure the reviewed browser account first.
-2. Open Chrome's extensions page, enable developer mode, and load the repository's `extensions/chrome` directory as an unpacked extension.
-3. Copy that exact extension ID and register it from this checkout:
-
-   ```sh
-   uv run python scripts/register_chrome.py \
-     --root /absolute/path/to/initialized/service-data EXTENSION_ID
-   ```
-
-4. Open the configured account's signed-in tab, choose the account in the extension, and click Connect. Chrome requests permission for that origin.
-
-The native host transfers filtered cookies/localStorage directly to the owner store. Parent-domain cookies, IndexedDB, sessionStorage and device bindings may prevent reuse. The bridge has unit tests but has not been exercised with live Chrome accounts or distributed as a signed extension.
+Use **Accounts → Use signed-in Chrome** for the already approved GitHub profile
+read. Confirm the expected username and follow the app's one-time browser-helper
+setup. The broker checks sign-in and username before committing any session.
+There is no registration command. The former unverified `extensions/chrome`
+prototype is retired and direct imports are refused. See the [Chrome session
+guide](browser-sessions.md) for scope, temporary permissions and acceptance limits.
 
 ## Remote and isolated deployment
 

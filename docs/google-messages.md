@@ -1,6 +1,6 @@
 # Google Messages login SMS
 
-The 0.8 development candidate includes an optional **Account Access — Login SMS**
+The 0.8 development candidate includes an optional **Account Access — Browser Connections**
 Chrome extension for a Google Messages conversations tab already paired to an
 Android phone. This first adapter supports the reviewed GitHub login message
 template only. It is not a Google API or a general inbox connector.
@@ -18,7 +18,7 @@ template only. It is not a Google API or a general inbox connector.
 4. This preview requires a local extension installation: in Chrome Extensions,
    enable Developer mode, choose **Load unpacked**, and select the
    `GoogleMessagesExtension` folder opened by Account Access.
-5. Open **Account Access — Login SMS** in Chrome, select the reviewed GitHub
+5. Open **Account Access — Browser Connections** in Chrome, select the reviewed GitHub
    account, click **Connect GitHub login texts**, and approve access to
    `messages.google.com` in Chrome's permission prompt.
 
@@ -34,11 +34,15 @@ pairing use Google's genuine owner flow. [Google's setup and device limits](http
 
 ## What stays local
 
-The extension requests only optional access to `https://messages.google.com/*`,
+The SMS feature requests optional access to `https://messages.google.com/*`,
 plus Chrome storage, scripting, alarms and native messaging. Chrome's site
 permission technically permits reading and changing that site's pages; this
 connector implements only reading and has no send, delete or mark-read operation.
-It has no cookie, debugger or arbitrary-website permission. It registers its reader
+Cookie permission is absent by default and is not required for SMS. A separate
+[GitHub session-transfer action](browser-sessions.md) can request temporary cookie
+and GitHub site access; it removes both after the transfer. Chrome's cookie
+permission can also cover sites already granted to the helper while enabled.
+The helper has no debugger or arbitrary-website permission. It registers its reader
 only after the owner connects it. No website scripts or AI instructions can change
 its template, destinations or approved account reads.
 

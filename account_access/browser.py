@@ -605,10 +605,10 @@ class Browser:
                 or destination["action"] not in config.login_post_urls):
             raise AccessError("NEEDS_USER", "login_form_destination_changed", "unknown")
 
-    def save(self, account, state):
+    def save(self, account, state, db=None):
         config = self.store.config()
         self.store.put("connection:" + account, {"state": state,
-                       "fingerprint": config.fingerprint(account), "generation": str(time.time_ns())})
+                       "fingerprint": config.fingerprint(account), "generation": str(time.time_ns())}, db=db)
 
     def connect(self, account, *, headless=False, complete=None):
         """Owner interactive connection. Login resources remain allowlisted; no screenshots/logs."""
@@ -632,18 +632,29 @@ class Browser:
                 finally:
                     browser.close()
 
-    def import_state(self, account, state):
-        """Owner-only session adoption; filter every cookie and origin to configured service origins."""
+    def verify_imported_state(self, account, state, username, operation):
+        """Check a transferred session without password entry or changing saved access."""
         config = self.store.config().accounts[account]
-        origins = {origin(config.login_url), *(origin(op.url) for op in config.operations.values())}
-        hosts = {urlsplit(url).hostname for url in origins}
-        filtered = {"cookies": [], "origins": []}
-        for cookie in state.get("cookies", []):
-            domain = cookie.get("domain", "").lstrip(".")
-            if domain in hosts:
-                filtered["cookies"].append(cookie)
-        for item in state.get("origins", []):
-            if item.get("origin") in origins:
-                filtered["origins"].append(item)
-        self.save(account, filtered)
-        self.store.resolve_login(account)
+        try:
+            with sync_playwright() as pw:
+                browser = pw.chromium.launch(headless=True, chromium_sandbox=True,
+                                             channel=config.browser_channel)
+                try:
+                    context = self.context(browser, config, state, account=account)
+                    page = self.page(context)
+                    page.goto(config.operations[operation].url, timeout=15000, wait_until="domcontentloaded")
+                    self.wait_state(page, config)
+                    self.check(page, config)
+                    identity = page.locator('meta[name="user-login"]')
+                    if identity.count() != 1 or (identity.get_attribute("content") or "").lower() != username.lower():
+                        raise AccessError("NEEDS_USER", "browser_session_identity_mismatch")
+                    return context.storage_state(indexed_db=True)
+                finally:
+                    browser.close()
+        except PlaywrightError:
+            raise AccessError("RETRYABLE", "browser_session_verification_failed") from None
+
+    def import_state(self, account, state):
+        # Legacy direct imports never verified identity/readiness. Only the
+        # short-lived owner request may adopt a verified browser session now.
+        raise AccessError("DENIED", "browser_session_owner_request_required")

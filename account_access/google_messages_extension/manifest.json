@@ -1,16 +1,18 @@
 {
   "manifest_version": 3,
-  "name": "Account Access \u2014 Login SMS",
-  "version": "0.8.0",
-  "description": "Pass fresh approved GitHub login texts from your paired Google Messages tab to Account Access locally.",
+  "name": "Account Access \u2014 Browser Connections",
+  "version": "0.8.1",
+  "description": "Connect approved GitHub sign-ins and fresh login texts locally. Cookies and codes stay outside AI chat.",
   "permissions": [
     "nativeMessaging",
     "storage",
     "alarms",
     "scripting"
   ],
+  "optional_permissions": ["cookies"],
   "optional_host_permissions": [
-    "https://messages.google.com/*"
+    "https://messages.google.com/*",
+    "https://github.com/*"
   ],
   "background": {
     "service_worker": "background.js"

@@ -219,6 +219,9 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                 state["browser_updates"] = browser_updates(broker.store)
                 from .sms_setup import view as sms_setup
                 state["sms_setups"] = sms_setup(broker.store)
+                from .browser_sessions import candidates, requests
+                state["browser_session_accounts"] = candidates(broker)
+                state["browser_session_requests"] = requests(broker, owner=True)
                 if guided:
                     from .catalog import view
                     state["catalog"] = view()
@@ -436,7 +439,22 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                 config = broker.store.config()
                 if account not in config.accounts:
                     raise AccessError("DENIED", "unknown_account")
-                if guided and self.path == "/owner/verify":
+                if guided and self.path == "/owner/browser-session/start":
+                    if set(data) != {"account", "fingerprint", "username"}:
+                        raise ValueError()
+                    from .browser_sessions import begin
+                    from .google_messages_host import prepare
+                    # Stage the existing helper update; site/cookie access is
+                    # optional and is granted only by the Chrome owner action.
+                    result = begin(broker, account, data["fingerprint"], data["username"])
+                    staged = prepare(broker.store)
+                    self.send(200, {**staged, **result})
+                elif guided and self.path == "/owner/browser-session/cancel":
+                    if set(data) != {"account", "id"}:
+                        raise ValueError()
+                    from .browser_sessions import cancel
+                    self.send(200, cancel(broker.store, account, data["id"]))
+                elif guided and self.path == "/owner/verify":
                     if (set(data) not in ({"account"}, {"account", "visible"})
                             or not isinstance(data.get("visible", False), bool)
                             or not isinstance(config.accounts[account], BrowserAccount)):

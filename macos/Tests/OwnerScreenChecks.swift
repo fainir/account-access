@@ -163,5 +163,23 @@ final class VerificationRetryFixture: URLProtocol {
         let afterSMS = owner.verificationMessage(["reason": "browser_action_required", "diagnostics": ["progress": ["sms_code_filled": true]]])
         precondition(afterSMS.contains("SMS code was received") && !afterSMS.contains("No SMS"))
         print("PASS: verification detail view excludes arbitrary data and admits only closed routes and known control names")
+        owner.browserSessionAccounts = [["account": "fixture", "label": "GitHub fixture", "fingerprint": "fictional", "username_hint": "fixture-owner"]]
+        owner.ready()
+        views = descendants(owner.stack)
+        precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Use signed-in Chrome"))
+        let chrome = NSButton()
+        chrome.identifier = NSUserInterfaceItemIdentifier("fixture")
+        owner.showBrowserSession(chrome)
+        views = descendants(owner.stack)
+        precondition(owner.browserSessionUsername.stringValue == "fixture-owner")
+        precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Prepare Chrome connection"))
+        precondition(!views.contains { $0 is NSSecureTextField })
+        precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains { $0.contains("checks the signed-in username") && $0.contains("temporary cookie") })
+        print("PASS: Chrome session setup shows expected username and temporary cookie access before preparing; it never asks for a password")
+        owner.browserSessionAccounts = []
+        owner.ready()
+        views = descendants(owner.stack)
+        precondition(!views.compactMap { ($0 as? NSButton)?.title }.contains("Use signed-in Chrome"))
+        print("PASS: unsupported or unapproved accounts have no Chrome session-transfer action")
     }
 }
