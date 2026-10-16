@@ -1,5 +1,53 @@
 # Validation of Account Access
 
+## Email recovery and shared verification channels — 16 October 2026
+
+Candidate `2a7cf4b` passed **340 tests** locally in 272.11 seconds, eleven native
+owner-screen checks, Ruff, the dependency audit and package build. Signed
+universal Mac build **43** passed strict/deep signature verification and was
+installed through graphical repair. The app and installed client retained the
+four account entries, their existing approved reads, and the enrolled Google
+Messages source. The saved private GitHub task remains blocked; no new private
+sign-in request was made during these checks.
+
+The same implementation passed **340 tests** in 292.95 seconds in
+[CI](https://github.com/fainir/account-access/actions/runs/38919671268), plus all
+eleven native owner checks, the native Messages reader, optimized startup/reopen,
+lint, dependency audit and package build. Its
+[Android emulator journey](https://github.com/fainir/account-access/actions/runs/38919671276)
+also passed. See the [sanitized validation record](../artifacts/email-code-hardening-080.json).
+
+Both fresh agent sessions independently completed the four fictional-account
+task through their installed project launchers, from an ordinary prompt:
+
+- [Claude Code 2.1.112](../artifacts/agent-tests/claude-verification-080.json):
+  50.25 seconds, four password logins and one email, SMS and authenticator check.
+- [Codex CLI 0.162.0-alpha.17.2](../artifacts/agent-tests/codex-verification-080.json),
+  bundled with the desktop app: 32.02 seconds, the same completed factor counts.
+  The older CLI 0.155.1 on PATH rejected its configured model before any launcher
+  or website request. The successful rerun used the bundled CLI for that
+  invocation only; no global model, path or approval settings changed.
+
+These are real CLI/browser runs against fictional TLS IMAP, Messages and
+authenticator fixtures. They do not establish personal mailbox, physical SMS or
+private authenticator delivery. The host failure is retained in the Codex report
+instead of being counted as a successful Account Access run.
+
+New browser cases complete password → HTML email → SMS → authenticator, and a
+Gmail API-contract → HTML email → browser sign-in with later session reuse.
+Existing message IDs, stale/future dates, duplicate headers, attachments,
+forwarded messages, malformed or oversized MIME, incomplete mailbox results and
+multiple matching codes cannot supply a login code. Gmail access can renew once
+after rejection; lost rotating-token responses and removed scope stop safely.
+Near-expiry TOTP waits for a fresh interval without extending its login window.
+
+Two concurrent accounts with different source names now share the email/SMS
+channel lock. Tests keep the first account waiting for its message, confirm the
+second makes no password request or owner challenge, then complete both in
+sequence using their own fresh boundaries. Pairing and disabled-source checks
+also stop before password submission. These checks reduce interruptions; they
+do not prove that an enrolled phone is online.
+
 ## Browser verification and repair candidate — 16 October 2026, version 0.8
 
 The current local candidate passed **274 tests** in 247.80 seconds; four owner

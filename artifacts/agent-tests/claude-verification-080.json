@@ -4,11 +4,11 @@
   "passed": true,
   "environment": "controlled-demo",
   "exit_code": 0,
-  "elapsed_seconds": 145.94,
+  "elapsed_seconds": 50.25,
   "ordinary_prompt_without_skill_or_command": true,
   "used_project_launcher": true,
   "launcher_verification": "successful tool command resolves to the installed project launcher",
-  "evidence_revision": "7fce303e486342af9ccfc8b3ed63596c6916c470",
+  "evidence_revision": "2a7cf4b5f51c6b7cced4b8af57c52670f46fdf30",
   "completed_four_account_task": true,
   "password_logins": 4,
   "email_verifications": 1,
@@ -21,5 +21,8 @@
     "TLS IMAP fixture, Messages database fixture",
     "Authenticator transfer import uses a fictional key",
     "No physical phone or private mailbox validation"
-  ]
+  ],
+  "host_cli_version": "2.1.112",
+  "host_distribution": "existing CLI on PATH",
+  "test_model_override": null
 }

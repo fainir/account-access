@@ -21,3 +21,13 @@ When a relevant request arrives, the agent discovers the accounts and operations
 For an existing secure local installation, a connection failure can start its registered background service once. This does not replay an operation after a response timeout. A deliberate pause is respected until the owner reopens the app. The computer must be awake and its secure keyring available. Remote clients and controlled development fixtures do not use this local startup path.
 
 Automatic invocation depends on a host that loads local skills/instructions and permits the client to run. Project overrides, host permissions and isolated cloud sessions still apply. There is no interception of arbitrary browser tools, and an unsupported website still needs a reviewed connector. Genuine owner-presence authentication remains a human step.
+
+The latest candidate was checked with Claude Code 2.1.112 and the desktop app's
+bundled Codex CLI 0.162.0-alpha.17.2. A separate older CLI 0.155.1 on PATH rejected
+its configured model before reaching Account Access. A host-model error needs
+that host's supported client/model setup; reinstalling Account Access cannot
+grant model access. See the official [Codex model availability guidance](https://learn.chatgpt.com/docs/models)
+and [invocation-only CLI overrides](https://learn.chatgpt.com/docs/cli/reference).
+The compatibility test used the bundled CLI for one invocation and preserved
+the user's global settings. These two host versions are tested coverage, not a
+minimum-version guarantee for every other version or agent.
