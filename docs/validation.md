@@ -1,5 +1,26 @@
 # Validation of Account Access
 
+## Update rollback after an uncertain stop — 17 October 2026
+
+The next candidate fixes two additional installer failures reproduced by new
+regressions. If starting a replacement fails and stopping it also fails, its
+environment is retained and the previous service is not restarted concurrently.
+The previous runtime launcher is restored so a later repair can recover safely.
+If payload publication fails after changing the desktop launcher, that launcher
+is restored too, including its previous data-directory arguments; a newly
+created launcher is removed instead.
+
+The CLI's stop command now waits for both the supervisor and service leases
+before reporting success. Accepting an HTTP stop request alone is insufficient
+evidence that removing a runtime is safe. Waiting does not load the vault key,
+and a failed stop cannot authorize deleting a possibly running environment.
+
+All **48 bootstrap, supervision, automatic-session and guided-setup cases**
+passed in 41.62 seconds. Three added regressions first failed on the prior
+implementation. Real subprocess cleanup now verifies that both leases can be
+acquired immediately after stop returns. Lint passed. This is controlled local
+testing; private account/MFA acceptance and installed owner upgrade remain open.
+
 ## Mac service-manager recovery — 17 October 2026
 
 Build 58 embeds a universal, separately signed background helper and a fixed

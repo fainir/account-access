@@ -71,6 +71,11 @@ or physical-device coverage.
   concurrent repairs stop before changing installed files. Previous environments
   are retained for rollback and existing client launchers. Python and Chromium
   still use their vendors' download mechanisms.
+- Failed updates restore both runtime and desktop launchers. Stopping waits for
+  actual supervisor/service leases; if a replacement cannot confirm shutdown,
+  its environment is retained and the previous service is not restarted beside
+  it. Controlled failure tests cover these cases; installed owner upgrade remains
+  a separate acceptance gate.
 - Google Authenticator transfer QR images can be imported locally. The owner
   selects one entry for an existing authenticator source; other entries are
   discarded. Previews are encrypted, expire after ten minutes, and do not return

@@ -134,6 +134,58 @@ def test_failed_repair_keeps_previous_payload_digest_and_launcher(setup):
     assert launcher.read_text() == old and record.read_bytes() == content
 
 
+def test_failed_start_and_stop_retains_the_possibly_running_environment(setup):
+    runtime, launcher, old, wheel, requirements = setup
+    commands = []
+    start_attempted = False
+    def run(command, **_kwargs):
+        nonlocal start_attempted
+        commands.append(command)
+        if command[1] == "venv":
+            folder = Path(command[-1]) / "bin"
+            folder.mkdir()
+            (folder / "python").touch()
+        if "start" in command:
+            assert not start_attempted, "The previous service must not start before the replacement stops"
+            start_attempted = True
+            raise subprocess.CalledProcessError(1, command)
+        if command[-1] == "stop" and start_attempted:
+            raise subprocess.CalledProcessError(1, command)
+    with pytest.raises(subprocess.CalledProcessError):
+        install("uv", wheel, runtime, requirements, data_dir="fixture data", no_open=True, run=run)
+    assert launcher.read_text() == old
+    environments = list((runtime / "environments").iterdir())
+    assert len(environments) == 1 and (environments[0] / "bin/python").is_file()
+    assert commands[-1][-1] == "stop"
+    assert not (runtime / "installed-wheel.json").exists()
+
+
+@pytest.mark.parametrize("existing_desktop", [False, True])
+def test_failed_payload_publication_restores_the_desktop_launcher(setup, monkeypatch, existing_desktop):
+    runtime, launcher, old, wheel, requirements = setup
+    from account_access.runtime_bootstrap import DESKTOP_MARKER
+    desktop = Path.home() / "Applications/Account Access.command"
+    previous_desktop = "#!/bin/sh\n" + DESKTOP_MARKER + "\n# previous data directory\n"
+    if existing_desktop:
+        desktop.parent.mkdir(parents=True)
+        desktop.write_text(previous_desktop)
+        desktop.chmod(0o700)
+    def run(command, **_kwargs):
+        if command[1] == "venv":
+            folder = Path(command[-1]) / "bin"
+            folder.mkdir()
+            (folder / "python").touch()
+    def fail_record(*_args):
+        assert desktop.exists() and desktop.read_text() != previous_desktop
+        raise OSError("fixture disk publication failure")
+    monkeypatch.setattr("account_access.runtime_bootstrap.write_installation", fail_record)
+    with pytest.raises(OSError, match="publication"):
+        install("uv", wheel, runtime, requirements, data_dir="new fixture data", no_open=True, run=run)
+    assert launcher.read_text() == old
+    assert desktop.read_text() == previous_desktop if existing_desktop else not desktop.exists()
+    assert list((runtime / "environments").iterdir()) == []
+
+
 def test_only_the_owned_legacy_uv_link_can_be_migrated(setup):
     runtime, launcher, _, _, _ = setup
     from account_access.runtime_bootstrap import launcher_snapshot

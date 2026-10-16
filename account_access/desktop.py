@@ -112,7 +112,7 @@ def launch(root, *, key_file=None, open_browser=True, on_demand=False):
 
 
 def stop(root, *, updating=False):
-    from .supervisor import disable
+    from .supervisor import disable, lease
     root = Path(root).expanduser()
     if not updating and (root / "config.json").is_file():
         paused = root / "service.paused"
@@ -126,6 +126,14 @@ def stop(root, *, updating=False):
                               trust_env=False, follow_redirects=False, timeout=5)
         if response.status_code != 200:
             raise AccessError("DENIED", "could_not_stop_local_app")
+    if root.exists():
+        # A successful HTTP response only accepts the stop request. Wait for
+        # both process leases before installers may remove a runtime or switch
+        # back to its predecessor. This does not require loading the vault key.
+        with lease(root, timeout=20):
+            pass
+        with lease(root, "service", timeout=20):
+            pass
     print("Account Access is stopped. Your saved connections are preserved.")
 
 

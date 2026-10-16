@@ -132,11 +132,14 @@ def _install(uv, wheel, runtime, requirements, *, data_dir, no_open, run):
     desktop = Path.home() / "Applications/Account Access.command"
     if desktop.is_symlink() or (desktop.exists() and DESKTOP_MARKER not in desktop.read_text()):
         raise RuntimeError("Another file owns the desktop launcher. Installation stopped.")
+    previous_desktop = ("file", desktop.read_bytes()) if desktop.exists() else None
     environment = Path(tempfile.mkdtemp(prefix="account-access-", dir=runtime / "environments"))
     activated = False
     switched = False
     stopped = False
     payload_recorded = False
+    desktop_switched = False
+    replacement_stopped = True
     env = {k: v for k, v in os.environ.items()
            if k not in {"PYTHONPATH", "PYTHONHOME", "UV_NO_VERIFY_HASHES", "UV_INSECURE_HOST",
                         "UV_OVERRIDE", "UV_EXCLUDE", "UV_CONSTRAINT", "UV_BUILD_CONSTRAINT"}}
@@ -164,10 +167,12 @@ def _install(uv, wheel, runtime, requirements, *, data_dir, no_open, run):
             stopped = True
         write_launcher(launcher, command, MARKER)
         switched = True
+        replacement_stopped = False
         run([str(launcher), *root_args, "start", *(["--no-open"] if no_open else [])],
             check=True, env=env)
         desktop.parent.mkdir(parents=True, exist_ok=True)
         write_launcher(desktop, [str(launcher), *root_args, "start"], DESKTOP_MARKER)
+        desktop_switched = True
         write_installation(installation, json.dumps({"managed_by": INSTALLATION_MARKER, "schema": 1,
             "wheel_sha256": hashlib.sha256(wheel.read_bytes()).hexdigest()}).encode())
         payload_recorded = True
@@ -184,17 +189,23 @@ def _install(uv, wheel, runtime, requirements, *, data_dir, no_open, run):
             # before the old installation is restarted.
             try:
                 run([str(launcher), *root_args, "stop"], check=True, env=env)
+                replacement_stopped = True
             except Exception:
-                pass
+                print("The replacement could not confirm that it stopped. Its runtime was kept. "
+                      "Reopen Account Access to repair.", flush=True)
             restore_launcher(launcher, previous)
-        if stopped and previous is not None:
+        if desktop_switched:
+            restore_launcher(desktop, previous_desktop)
+        if stopped and previous is not None and replacement_stopped:
             try:
                 run([str(launcher), *root_args, "start", "--no-open"], check=True, env=env)
             except Exception:
                 print("The previous installation is preserved. Reopen Account Access to resume.", flush=True)
         raise
     finally:
-        if not activated:
+        # A failed start may still have launched the service. Never remove its
+        # executable/dependencies or start a second runtime until stop succeeds.
+        if not activated and replacement_stopped:
             shutil.rmtree(environment)
 
 

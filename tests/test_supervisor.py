@@ -27,9 +27,10 @@ def wait_for(check, timeout=15):
 
 def finish(root):
     stop(root)
-    with lease(root, timeout=20):
+    # Returning from stop must establish quiescence, not only HTTP acceptance.
+    with lease(root):
         pass
-    with lease(root, "service", timeout=20):
+    with lease(root, "service"):
         pass
 
 
