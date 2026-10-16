@@ -90,6 +90,15 @@ final class VerificationRetryFixture: URLProtocol {
         precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Show technical details"))
         precondition(!views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("redirect:destination:configured_path_1:query"))
         print("PASS: stopped sign-ins show a plain-language failure and an optional owner-only technical detail action")
+        let previousAccounts = owner.accounts
+        owner.accounts[0]["challenges"] = [["kind": "captcha"]]
+        owner.navigationFailures = [["account": "fixture", "reason": "request:http_403:configured_path_0:no_query"]]
+        owner.ready()
+        views = descendants(owner.stack)
+        precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains(owner.verificationMessage(["reason": "browser_captcha_required"])))
+        precondition(!views.compactMap { ($0 as? NSButton)?.title }.contains("Show technical details"))
+        owner.accounts = previousAccounts
+        print("PASS: browser security checks have a specific explanation without a misleading transport error")
         precondition(AccountAccess.authenticatorQRText(["otpauth://totp/Example?secret=FICTIONAL"]) != nil)
         precondition(AccountAccess.authenticatorQRText(["otpauth-migration://offline?data=FICTIONAL"]) != nil)
         precondition(AccountAccess.authenticatorQRText(["https://example.com"]) == nil)
@@ -131,6 +140,8 @@ final class VerificationRetryFixture: URLProtocol {
         precondition(owner.verificationMessage(["reason": "browser_state_unrecognized"]).contains("does not recognize"))
         precondition(owner.verificationMessage(["reason": "browser_passkey_required"]).contains("requires owner approval"))
         precondition(owner.verificationMessage(["reason": "browser_recovery_required"]).contains("opened account recovery"))
+        let browserCheck = owner.verificationMessage(["reason": "browser_captcha_required"])
+        precondition(browserCheck.contains("cannot complete automatically") && browserCheck.contains("password is preserved"))
         print("PASS: pre-request failures cannot claim SMS delivery was tested; owner attention distinguishes unknown pages and required presence")
         let mailboxLimit = owner.verificationMessage(["kind": "email", "reason": "mailbox_result_limit"])
         precondition(mailboxLimit.contains("instead of guessing") && !mailboxLimit.contains("SMS"))

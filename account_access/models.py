@@ -149,7 +149,7 @@ class BrowserAccount(StrictModel):
     # Explicit reviewed aliases for password-manager exports, never a hostname
     # suffix match. This does not grant browser network access to an alias.
     password_import_origins: list[str] = Field(default_factory=list, max_length=8)
-    challenge_selectors: dict[Literal["login", "sms", "email", "totp", "device", "passkey",
+    challenge_selectors: dict[Literal["login", "sms", "email", "totp", "device", "passkey", "captcha",
                                      "admin", "action", "recovery", "unknown", "method"], str] = Field(default_factory=dict)
     # Exact URLs, including query strings. GET alone does not prove a URL is read-only.
     read_resources: list[str] = Field(default_factory=list, max_length=100)

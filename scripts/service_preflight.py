@@ -14,6 +14,7 @@ from playwright.sync_api import sync_playwright
 
 from account_access.broker import Broker
 from account_access.catalog import namecheap
+from account_access.errors import AccessError
 from account_access.models import Configuration
 from account_access.storage import Store
 
@@ -31,11 +32,19 @@ def main():
                 page = broker.browser.page(context)
                 response = page.goto(spec.login_url, timeout=15000, wait_until="domcontentloaded")
                 broker.browser.wait_state(page, spec)
-                broker.browser.check_form(page, spec.login.password_selector, spec)
+                challenge = broker.browser.challenge(page, spec)
+                form_reviewed = False
+                if challenge == "login":
+                    try:
+                        broker.browser.check_form(page, spec.login.password_selector, spec)
+                        form_reviewed = True
+                    except AccessError:
+                        pass  # Report a failed preflight, never a credential attempt.
                 checks = {
                     "http_ok": response.status == 200,
                     "exact_login_url": page.url == spec.login_url,
-                    "login_recognized": broker.browser.challenge(page, spec) == "login",
+                    "login_recognized": challenge == "login",
+                    "form_destination_reviewed": form_reviewed,
                     "one_visible_username": page.locator(spec.login.username_selector).count() == 1
                         and page.locator(spec.login.username_selector).is_visible(),
                     "one_visible_password": page.locator(spec.login.password_selector).count() == 1
@@ -50,6 +59,7 @@ def main():
         "service": "namecheap", "checked_at": datetime.now(timezone.utc).isoformat(),
         "scope": "anonymous_form_preflight", "personal_login_tested": False,
         "credentials_submitted": False, "verification_delivery_tested": False,
+        "browser_verification_required": challenge == "captcha",
         "checks": checks, "passed": all(checks.values()),
     }, indent=2))
     return 0 if all(checks.values()) else 1

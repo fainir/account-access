@@ -4,6 +4,7 @@
   "implementation_revision": "8466af1fdb0240434b8e0a61da6ebc46c4248ea5",
   "production_ready": false,
   "github_account_testing": "stopped at owner's request",
+  "private_follow_up_report": "site-verification-080.json",
   "namecheap": {
     "operation": "confirm signed-in username only",
     "native_catalog_available": true,
@@ -11,10 +12,16 @@
     "anonymous_form_preflight": "passed",
     "preflight_report": "namecheap-preflight-080.json",
     "local_provider_shaped_fixtures": "selected encrypted import, password submission, session reuse and unknown-verification stop passed",
-    "personal_password_submitted": false,
+    "personal_credential_imported": true,
+    "selected_private_entries_imported": 1,
+    "personal_password_submission": "not confirmed; visible review stopped before a recognized login form",
     "private_login_validated": false,
     "provider_email_totp_routes_implemented": false,
-    "enrollment": "pending owner grant and local password-file selection"
+    "enrollment": "owner approved; selected Chrome credential imported through native UI",
+    "private_check": "blocked at website browser verification; HTTP 429 recorded",
+    "further_website_requests": "stopped",
+    "original_task_retained": true,
+    "plaintext_export_cleanup": "normal native Trash flow completed"
   },
   "railway": {
     "anonymous_login_page_inspected": true,

@@ -1,0 +1,45 @@
+{
+  "version": "0.8.0-candidate",
+  "date": "2026-10-16",
+  "production_ready": false,
+  "personal_namecheap": {
+    "owner_approved": true,
+    "selected_private_credentials_imported": 1,
+    "import_path": "native Chrome CSV review; passwords excluded from chat",
+    "plaintext_export_cleanup": "normal native Trash flow completed",
+    "operation": "confirm signed-in username only",
+    "private_login_completed": false,
+    "observed_gate": "website JavaScript/cookie browser verification; HTTP 429 also recorded",
+    "password_validity_established": false,
+    "email_sms_authenticator_delivery_validated": false,
+    "original_task_and_challenge_retained": true,
+    "further_website_requests": "stopped; no request after the diagnostic update"
+  },
+  "diagnostic_changes": [
+    "recognize the documented cf-mitigated challenge header on main-document navigation only",
+    "stop before password entry or code retrieval when that browser verification gate appears",
+    "ignore subresource/iframe challenge headers and keep signals isolated per page",
+    "clear only the page signal on a normal later navigation; normal authentication still required",
+    "refine an unknown challenge without changing its ID, granting access or retrying the provider",
+    "show the current challenge explanation on the original durable task",
+    "always provide a finish-review action when diagnostic details are empty"
+  ],
+  "local_validation": {
+    "full_suite_passed": 412,
+    "full_suite_seconds": 335.80,
+    "new_browser_gate_cases_passed": 7,
+    "final_original_task_recovery_case_passed": true,
+    "native_owner_ui_checks_passed": 15,
+    "lint": "passed",
+    "package_build": "passed"
+  },
+  "mac": {
+    "signed_universal_build": 51,
+    "strict_deep_signature_check": "passed",
+    "graphical_repair": "completed",
+    "namecheap_permission_and_original_task_preserved": true
+  },
+  "limits": "The diagnostic fix does not solve browser verification, validate the private password, implement Namecheap email/TOTP routes or establish unattended login",
+  "github_account_testing": "stopped at owner's request",
+  "privacy": "No account identifiers, file locations, task/challenge IDs, credentials, cookies, codes, message content or raw traces in public evidence"
+}

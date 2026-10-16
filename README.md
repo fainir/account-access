@@ -17,8 +17,10 @@ The personal GitHub pilot now reuses an owner-approved Chrome session: its ident
 
 Further GitHub testing has stopped at the owner's request. The current candidate
 adds a limited **Namecheap** password connection and exact password-export
-aliases. Its anonymous form preflight passed; private enrollment and email/TOTP
-verification are still pending. Railway's email sign-in was inspected but is
+aliases. Its anonymous form preflight passed, and one owner-approved private
+credential was imported locally. The private check stopped at browser
+verification/HTTP 429; password and email/TOTP sign-in remain unverified.
+Railway's email sign-in was inspected but is
 not yet a supported connector. See [other-service validation](docs/other-service-validation.md).
 
 The browser sign-in flow uses the imported email/username and password, then supplies the website's email, SMS or authenticator login code from its connected source. A reviewed connector can configure all three methods for one website, including successive verification steps. This is the authentication flow being tested; using another application's existing login is not browser-authentication evidence.

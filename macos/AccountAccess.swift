@@ -779,6 +779,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 : isSMS ? "No SMS delivery was tested. Your saved password is preserved."
                     : "Your saved password is preserved."
         switch attention["reason"] as? String ?? "" {
+        case "browser_captcha_required":
+            return "The website requires a browser security check that this connector cannot complete automatically. Your saved password is preserved."
         case "browser_recovery_required":
             return "The website opened account recovery. Use an available sign-in method in its window. " + delivery
         case "browser_passkey_required", "browser_device_required", "browser_admin_required", "browser_action_required":
@@ -819,6 +821,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         guard var id = initial["id"] as? String else { throw Failure.message("The connection could not start.") }
         let deadline = Date().addingTimeInterval(timeout)
         var shownDetails = ""
+        var shownReviewID = ""
         while Date() < deadline {
             let state = try request("owner/state")
             let jobs = state["connection_jobs"] as? [String: [String: Any]] ?? [:]
@@ -828,6 +831,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 let addDetail = !detail.isEmpty && shownDetails != detail
                 shownDetails = detail
                 let reviewID = id
+                let addFinish = shownReviewID != reviewID
+                shownReviewID = reviewID
                 DispatchQueue.main.async {
                     self.status.stringValue = explanation
                     if addDetail {
@@ -835,6 +840,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                         let inspect = NSButton(title: "Show verification details", target: self, action: #selector(self.showVerificationDetails))
                         inspect.identifier = NSUserInterfaceItemIdentifier(detail)
                         self.stack.addArrangedSubview(inspect)
+                    }
+                    if addFinish {
                         let finish = NSButton(title: "Finish review", target: self, action: #selector(self.finishSignInReview))
                         finish.identifier = NSUserInterfaceItemIdentifier(reviewID)
                         self.stack.addArrangedSubview(finish)
@@ -857,6 +864,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                     return state
                 }
                 let reason = result["reason"] as? String ?? ""
+                if reason == "browser_captcha_required" {
+                    throw Failure.message("The website requires a browser security check that this connector cannot complete automatically. Your saved password is preserved; this sign-in remains unverified.")
+                }
                 if ["mailbox_result_limit", "mailbox_scope_missing", "phone_not_paired"].contains(reason) {
                     throw Failure.message(verificationMessage(["reason": reason]))
                 }
@@ -1696,6 +1706,12 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             let status = !allowed ? "Approval needed" : pending || !active ? "Sign-in needs attention" : "Connected"
             let reads = (account[allowed ? "approved_operations" : "operations"] as? [[String: Any]] ?? []).compactMap { $0["description"] as? String }.joined(separator: "; ")
             let body = card(account["label"] as? String ?? "Account", (allowed ? "Approved reads: " : "Available reads: ") + reads, status: status, good: allowed && active && !pending)
+            let browserCheck = (account["challenges"] as? [[String: Any]] ?? []).contains { $0["kind"] as? String == "captcha" }
+            if browserCheck {
+                let message = NSTextField(wrappingLabelWithString: verificationMessage(["reason": "browser_captcha_required"]))
+                message.font = .systemFont(ofSize: 14)
+                body.addArrangedSubview(message)
+            }
             if allowed && browserSessionAccounts.contains(where: { $0["account"] as? String == account["account"] as? String }) {
                 let chrome = NSButton(title: "Use signed-in Chrome", target: self, action: #selector(showBrowserSession))
                 chrome.identifier = NSUserInterfaceItemIdentifier(account["account"] as? String ?? "")
@@ -1706,7 +1722,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 inspect.identifier = NSUserInterfaceItemIdentifier(detail)
                 body.addArrangedSubview(inspect)
             }
-            if pending, let failure = navigationFailures.first(where: { $0["account"] as? String == account["account"] as? String }),
+            if pending && !browserCheck, let failure = navigationFailures.first(where: { $0["account"] as? String == account["account"] as? String }),
                let reason = failure["reason"] as? String {
                 let route = failure["route"] as? String ?? ""
                 let explanation = route.hasSuffix("/two-factor/webauthn")

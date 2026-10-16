@@ -18,6 +18,7 @@ MESSAGES = {
     "method": "Connect one of this website's approved email, SMS or authenticator methods locally.",
     "device": "Approve the provider's sign-in request on your genuine device.",
     "passkey": "Complete the provider's passkey or biometric verification on your device.",
+    "captcha": "Review the website's browser security check in the local owner flow. This connector cannot complete that verification automatically.",
     "admin": "An administrator must approve the required access through the provider.",
     "action": "This is an action authorization challenge. Review it directly with the provider.",
     "recovery": "The provider opened account recovery. Complete a supported sign-in method in the local website window.",
@@ -212,9 +213,20 @@ class Broker:
             raise AccessError("DENIED", "unknown_task")
         for step in job["steps"]:
             self.permit(principal, step["account"], step["operation"])
+        blocked = job.get("blocked")
+        if job["status"] == "NEEDS_USER" and blocked and blocked.get("challenge"):
+            # Owner diagnostics can refine a pending challenge without clearing
+            # it. Show its current explanation without retrying the website or
+            # rewriting the durable task's progress.
+            current = next((item for item in self.store.pending(blocked["account"])
+                            if item["id"] == blocked["challenge"]["id"]), None)
+            if current:
+                blocked = {**blocked, "challenge": self.challenge_view(current)}
+                if "reason" in blocked:
+                    blocked["reason"] = current["reason"]
         return {"status": job["status"], "task_id": job_id, "progress": len(job["completed"]),
                 "total": len(job["steps"]), "results": job["completed"],
-                "blocked": job.get("blocked"), "untrusted_data": True}
+                "blocked": blocked, "untrusted_data": True}
 
     def save_job(self, job, next_at=0):
         with self.store.db() as db:

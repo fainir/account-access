@@ -167,6 +167,17 @@ class Browser:
 
     def page(self, context):
         page = context.new_page()
+        page._site_verification_required = False
+
+        def response_received(response):
+            # Cloudflare documents this closed header as the challenge-page
+            # signal. Keep only a boolean for this page's main document, never
+            # response contents, tokens, challenge URLs or cookies. A later
+            # normal main-document response clears it; scripts/iframes cannot.
+            if response.request.is_navigation_request() and response.frame == page.main_frame:
+                page._site_verification_required = response.headers.get("cf-mitigated") == "challenge"
+
+        page.on("response", response_received)
         # Await attachment before initiating any network request. Attaching
         # during a route callback is too late for that request's response;
         # context page events are also not a synchronous attachment barrier.
@@ -177,7 +188,9 @@ class Browser:
 
     def challenge(self, page, config):
         # Action/presence challenges take priority, even if the page also has a ready marker.
-        for kind in ["action", "recovery", "passkey", "device", "admin", "sms", "email", "totp",
+        if getattr(page, "_site_verification_required", False):
+            return "captcha"
+        for kind in ["action", "recovery", "passkey", "device", "admin", "captcha", "sms", "email", "totp",
                      "sms_request", "email_request", "method", "unknown", "login"]:
             if (kind == "method" and config.login and config.login.choice_toggle_selector
                     and page.locator(config.login.choice_toggle_selector).first.is_visible()

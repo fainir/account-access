@@ -1,5 +1,36 @@
 # Validation of Account Access
 
+## Private Namecheap import and browser-verification stop — 16 October 2026
+
+The owner approved a Namecheap username check and selected a real Chrome
+password export locally. The native app imported only one matching Namecheap
+entry and completed its normal Trash cleanup. The installed launcher discovers
+the new approved operation, and its original durable task remains pending.
+No further GitHub account test was performed.
+
+The private Namecheap sign-in **did not pass**. Its visible browser review
+showed a JavaScript/cookie verification page; the owner console also recorded
+HTTP 429. This does not establish password validity or email/SMS/authenticator
+delivery. Further website requests stopped. The diagnostic update preserves
+the original imported credential, permission, task and unresolved challenge.
+
+Signed universal Mac build **51** was installed by graphical repair and passed
+strict/deep signature verification. It recognizes Cloudflare's documented
+main-document challenge header, explains the unsupported browser gate, and
+always exposes a finish action during a visible review, including when detailed
+diagnostics are empty. A more specific challenge explanation can retain the
+original ID without clearing the gate or retrying the site. A confirmed owner
+repair is still required before the saved task can resume.
+
+The full local suite passed **412 tests** in 335.80 seconds, all **15 native UI
+checks** passed, and lint/build/signature checks passed. A final focused case
+also verified that the same fictional task resumes after a successful owner
+repair with one password login and preserved session reuse. The seven new
+browser-gate cases use local fixtures, not real CAPTCHA solving. No further
+private Namecheap request was made after installation because of the recorded
+rate limit. See [provider scope](other-service-validation.md) and the
+[sanitized record](../artifacts/site-verification-080.json).
+
 ## Other services — 16 October 2026
 
 GitHub account testing stopped at the owner's request. The next native candidate

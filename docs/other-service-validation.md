@@ -36,9 +36,32 @@ verification step. These are fictional local fixtures, not private acceptance.
 
 Signed universal Mac build **50** was installed through graphical repair. The
 native picker shows Namecheap and its exact proposed read permission. Existing
-connections remain present. Private Namecheap enrollment and a fresh password
-login remain pending; no personal password, email code or authenticator was
-used for this pilot yet.
+connections remain present. In a subsequent owner-approved private test, one
+selected Namecheap credential was imported from a real Chrome export through
+the native UI. Other entries were not imported; the app moved the plaintext
+export to Trash through its normal cleanup flow.
+
+The private sign-in did **not complete**. The visible review reached a browser
+verification page saying to enable JavaScript and cookies; the owner console
+also recorded HTTP 429. The connector has JavaScript disabled, and this gate
+does not establish password validity or email/SMS/TOTP coverage. Further
+Namecheap requests were stopped. Its original task is retained, not resubmitted.
+
+The next candidate identifies Cloudflare Challenge Page responses using the
+documented `cf-mitigated: challenge` header. It keeps a per-page boolean for
+main-document responses, stops before password/code entry or retry, and ignores
+challenge headers from scripts and child frames. A normal later navigation can
+clear the signal; authentication must still pass the usual readiness checks.
+The app gives a specific explanation and an accessible review-finish action.
+An earlier unknown challenge can be refined without changing its ID, granting
+access, clearing it or retrying the website. These changes are fixture-tested;
+they do not solve a CAPTCHA or make Namecheap unattended login pass.
+
+[Cloudflare's detection documentation](https://developers.cloudflare.com/cloudflare-challenges/challenge-types/challenge-pages/detect-response/)
+defines the response header. Its [supported-browser guidance](https://developers.cloudflare.com/cloudflare-challenges/reference/supported-browsers/)
+states that production challenges do not support automated browsers. Do not
+label an anonymous form preflight or challenge detection as successful private
+authentication.
 
 The final functional revision passed **405 tests**, fourteen native owner UI
 checks, Messages/startup checks, lint, audit and build in
