@@ -45,8 +45,12 @@ async function poll() {
 chrome.runtime.onMessage.addListener((message,sender,respond)=>{
   if(sender.id!==chrome.runtime.id || sender.tab || sender.url!==chrome.runtime.getURL("popup.html")) return false;
   (async()=>{
-    if(message.method==="session-status" && Object.keys(message).length===1) return native({method:"session-accounts"});
-    if(message.method==="session-connect") return connectBrowserSession(message);
+    if(message.method==="session-status" && Object.keys(message).length===1){
+      const result=await native({method:"session-accounts"});
+      return {...result,outcome:(await chrome.storage.session.get("sessionOutcome")).sessionOutcome};
+    }
+    if(message.method==="session-prepare") return prepareBrowserSession(message);
+    if(message.method==="session-connect") return resumeBrowserSession(message);
     if(message.method==="status") return native({method:"accounts"});
     if(message.method!=="connect") throw new Error("Unsupported action.");
     const paired=await tabs();
@@ -62,18 +66,69 @@ chrome.runtime.onMessage.addListener((message,sender,respond)=>{
 });
 chrome.alarms.create("sms-reconnect",{periodInMinutes:0.5});
 chrome.alarms.onAlarm.addListener(poll);
-chrome.runtime.onStartup.addListener(()=>{clearSessionPermission();poll();});
+chrome.runtime.onStartup.addListener(()=>{chrome.storage.session.remove(["sessionIntent","sessionOutcome"]);clearSessionPermission();poll();});
 chrome.alarms.create("session-cleanup",{periodInMinutes:0.5});
-chrome.alarms.onAlarm.addListener(alarm=>{if(alarm.name==="session-cleanup" && !sessionBusy) clearSessionPermission();});
+chrome.alarms.onAlarm.addListener(alarm=>{if(alarm.name==="session-cleanup" && !sessionBusy && !sessionFlow) clearSessionPermission();});
 setInterval(poll,1000);
 poll();
 
-let sessionBusy=false;
+let sessionBusy=false,sessionFlow;
+const sessionFields="account,fingerprint,method,request";
+async function prepareBrowserSession(message){
+  if(sessionBusy || sessionFlow || Object.keys(message).sort().join(",")!==sessionFields)
+    return {status:"DENIED",reason:"browser_session_not_available"};
+  const pending=await native({method:"session-accounts"});
+  const selected=(pending.accounts||[]).find(item=>item.account===message.account && item.id===message.request
+    && item.fingerprint===message.fingerprint && item.origin==="https://github.com");
+  if(!selected) return {status:"DENIED",reason:"browser_session_request_expired_or_changed"};
+  const [tab]=await chrome.tabs.query({active:true,currentWindow:true});
+  if(!Number.isInteger(tab?.id)) return {status:"NEEDS_USER",reason:"open_github_signed_in_tab"};
+  // Chrome can close its popup while presenting a permission prompt. Keep only
+  // the explicit click's bounded, code-free intent so the background can finish
+  // after approval. No cookies or account credentials enter extension storage.
+  await chrome.storage.session.remove("sessionOutcome");
+  await chrome.storage.session.set({sessionIntent:{...message,method:"session-connect",tab:tab.id,expires:Date.now()+60000}});
+  // Approval can win the race with native request validation. Resume here as
+  // well as in onAdded; the shared promise makes both paths single-use.
+  if(await chrome.permissions.contains({permissions:["cookies"],origins:["https://github.com/*"]}))
+    resumeBrowserSession().catch(()=>clearSessionPermission());
+  return {status:"AWAITING_PERMISSION"};
+}
+function resumeBrowserSession(message){
+  if(message && Object.keys(message).sort().join(",")!==sessionFields)
+    return Promise.resolve({status:"DENIED",reason:"browser_session_not_available"});
+  if(sessionFlow) return sessionFlow;
+  sessionFlow=(async()=>{
+    const intent=(await chrome.storage.session.get("sessionIntent")).sessionIntent;
+    if(!intent && message){
+      const outcome=(await chrome.storage.session.get("sessionOutcome")).sessionOutcome;
+      if(outcome && outcome.expires>Date.now() && outcome.account===message.account && outcome.request===message.request)
+        return {status:outcome.status,reason:outcome.reason};
+    }
+    if(!intent || intent.expires<Date.now() || intent.expires>Date.now()+60000 ||
+        (message && ["account","request","fingerprint"].some(key=>message[key]!==intent[key])))
+      return {status:"DENIED",reason:"browser_session_request_expired_or_changed"};
+    if(!(await chrome.permissions.contains({permissions:["cookies"],origins:["https://github.com/*"]})))
+      return {status:"AWAITING_PERMISSION"};
+    await chrome.storage.session.remove("sessionIntent");
+    const {tab,expires,...request}=intent;
+    const result=await connectBrowserSession(request,tab);
+    await chrome.storage.session.set({sessionOutcome:{account:request.account,request:request.request,
+      status:result.status,reason:result.reason,expires}});
+    return result;
+  })().finally(()=>{sessionFlow=undefined;});
+  return sessionFlow;
+}
+chrome.permissions.onAdded.addListener(()=>{
+  (async()=>{
+    if((await chrome.storage.session.get("sessionIntent")).sessionIntent) await resumeBrowserSession();
+  })().catch(()=>clearSessionPermission());
+});
 async function clearSessionPermission(){
   await chrome.permissions.remove({permissions:["cookies"],origins:["https://github.com/*"]});
 }
-async function connectBrowserSession(message){
-  if(sessionBusy || Object.keys(message).sort().join(",")!=="account,fingerprint,method,request")
+async function connectBrowserSession(message,tabId){
+  if(sessionBusy || Object.keys(message).sort().join(",")!==sessionFields)
     return {status:"DENIED",reason:"browser_session_not_available"};
   sessionBusy=true;
   // A separate native process keeps session verification from blocking fresh
@@ -84,7 +139,7 @@ async function connectBrowserSession(message){
       && item.fingerprint===message.fingerprint && item.origin==="https://github.com");
     if(!selected || !(await chrome.permissions.contains({permissions:["cookies"],origins:["https://github.com/*"]})))
       return {status:"DENIED",reason:"browser_session_request_expired_or_changed"};
-    const [tab]=await chrome.tabs.query({active:true,currentWindow:true});
+    const tab=await chrome.tabs.get(tabId);
     if(!tab?.url || new URL(tab.url).origin!==selected.origin)
       return {status:"NEEDS_USER",reason:"open_github_signed_in_tab"};
     const stores=await chrome.cookies.getAllCookieStores();

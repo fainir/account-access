@@ -16,6 +16,24 @@ SMS_PAGE = "https://github.com/sessions/two-factor/sms/confirm"
 SMS_LINK = 'a[href="/sessions/two-factor/sms/confirm"]'
 RECOVERY_PAGE = "https://github.com/sessions/two-factor/recovery"
 RECOVERY_SELECTOR = '#recovery_code, input[name="recovery_code"]'
+PROFILE_HEADING = "main #public-profile-heading"
+LEGACY_PROFILE_HEADINGS = {"h1", "main h1", "#settings-frame h1", "#settings-frame h2", PROFILE_HEADING}
+
+
+def profile_marker_repair(previous, updated):
+    """A fixed public heading remains the same approved field and destination."""
+    if previous.operations.keys() != updated.operations.keys():
+        return False
+    for name, old in previous.operations.items():
+        new = updated.operations[name]
+        if old == new:
+            continue
+        if (old.url != "https://github.com/settings/profile" or set(old.fields) != {"heading"}
+                or old.fields["heading"] not in LEGACY_PROFILE_HEADINGS
+                or new.fields != {"heading": PROFILE_HEADING}
+                or old.model_copy(update={"fields": new.fields}) != new):
+            return False
+    return True
 
 
 def github_assets():
@@ -41,6 +59,13 @@ def proposal(config, account):
                                           for op in spec.operations.values())):
         return None
     updated = spec.model_copy(deep=True)
+    if all(set(op.fields) == {"heading"} and op.fields["heading"] in LEGACY_PROFILE_HEADINGS
+           for op in spec.operations.values()):
+        # The current server-rendered profile title is an h2 with this stable
+        # ID. Never replace arbitrary fields or read a form/profile value.
+        updated.ready_selector = PROFILE_HEADING
+        for op in updated.operations.values():
+            op.fields["heading"] = PROFILE_HEADING
     if spec.javascript and spec.login_assets:
         # A signed connector update may refresh exact public vendor assets, but
         # never activate JavaScript or add an arbitrary CDN URL through this path.
@@ -78,7 +103,7 @@ def proposal(config, account):
 def view(store):
     config = store.config()
     return [{"account": account, "fingerprint": config.fingerprint(account),
-             "summary": "Update reviewed GitHub sign-in controls and public assets"}
+             "summary": "Update reviewed GitHub sign-in controls, public profile heading and assets"}
             for account in config.accounts if proposal(config, account)]
 
 
@@ -94,10 +119,10 @@ def apply(broker, account, fingerprint):
         if updated is None:
             raise AccessError("DENIED", "browser_update_unavailable")
         previous = config.accounts[account]
-        # This repair only adds reviewed login GETs, optional choices and
-        # GitHub's bounded, anonymous public script/stylesheet loader.
+        # This repair adds reviewed login GETs, optional choices, the stable
+        # public profile heading marker and the bounded anonymous asset loader.
         # It cannot widen reads, POST destinations, credentials or recipients.
-        if (updated.operations != previous.operations or updated.read_resources != previous.read_resources
+        if (not profile_marker_repair(previous, updated) or updated.read_resources != previous.read_resources
                 or updated.login_post_urls != previous.login_post_urls
                 or updated.login.sources() != previous.login.sources()):
             raise AccessError("DENIED", "invalid_browser_update")

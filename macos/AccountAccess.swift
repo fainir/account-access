@@ -1110,9 +1110,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                     }
                     if !["AWAITING_BROWSER", "VERIFYING"].contains(outcome) {
                         let reason = pending["reason"] as? String ?? ""
-                        throw Failure.message(reason == "browser_session_identity_mismatch"
-                            ? "Chrome is signed in to a different GitHub username. The previous connection is preserved. Start again with the correct tab and username."
-                            : "This Chrome session could not be verified. The previous connection is preserved. Start a new connection after reviewing your GitHub tab.")
+                        throw Failure.message(Self.browserSessionFailureMessage(reason))
                     }
                 }
                 DispatchQueue.main.async {
@@ -1129,6 +1127,21 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 }
             }
         }
+    }
+
+    static func browserSessionFailureMessage(_ reason: String) -> String {
+        let detail: String
+        switch reason {
+        case "browser_session_identity_mismatch": detail = "Chrome is signed in to a different GitHub username. Start again with the correct tab and username."
+        case "browser_login_required": detail = "GitHub did not accept the copied sign-in. Sign in normally in Chrome before connecting again."
+        case "browser_state_unrecognized": detail = "GitHub's signed-in page did not match the reviewed connection. Its connector needs review."
+        case "invalid_browser_session_state": detail = "Chrome returned an unsupported session format."
+        case "browser_session_verification_failed": detail = "The local verification browser could not finish."
+        case "browser_session_cancelled", "browser_session_request_expired_or_changed": detail = "This browser connection expired, was cancelled, or its approved permissions changed."
+        case "browser_action_required": detail = "GitHub requires a separate account action. Complete its genuine owner flow."
+        default: detail = "This Chrome session could not be verified. Start a new connection after reviewing your GitHub tab."
+        }
+        return detail + " Your previous connection is preserved."
     }
 
     @objc func openGitHubInChrome() {
@@ -1749,7 +1762,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
               let fingerprint = update["fingerprint"] as? String else { return }
         let alert = NSAlert()
         alert.messageText = "Update this website's sign-in connection?"
-        alert.informativeText = "Follow exact versioned scripts and styles declared by GitHub's HTTPS login response, with anonymous downloads from GitHub's asset host. Other destinations, queries, asset POSTs and page-driven discovery stay blocked. The recovery page can be viewed for diagnosis; a recovery-code field stops automatic sign-in. Approved account reads and connected verification sources stay the same."
+        alert.informativeText = "Use GitHub's current public profile heading for an existing heading-only read. Follow exact versioned scripts and styles declared by GitHub's HTTPS login response, with anonymous downloads from GitHub's asset host. Other destinations, queries, asset POSTs and page-driven discovery stay blocked. The recovery page can be viewed for diagnosis; a recovery-code field stops automatic sign-in. Approved account reads and connected verification sources stay the same."
         alert.addButton(withTitle: "Update connection")
         alert.addButton(withTitle: "Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else { return }

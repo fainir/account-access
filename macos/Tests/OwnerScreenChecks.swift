@@ -181,5 +181,10 @@ final class VerificationRetryFixture: URLProtocol {
         views = descendants(owner.stack)
         precondition(!views.compactMap { ($0 as? NSButton)?.title }.contains("Use signed-in Chrome"))
         print("PASS: unsupported or unapproved accounts have no Chrome session-transfer action")
+        precondition(AccountAccess.browserSessionFailureMessage("browser_login_required").contains("did not accept"))
+        precondition(AccountAccess.browserSessionFailureMessage("browser_state_unrecognized").contains("connector needs review"))
+        precondition(AccountAccess.browserSessionFailureMessage("invalid_browser_session_state").contains("unsupported session format"))
+        precondition(!AccountAccess.browserSessionFailureMessage("fictional-private-cookie").contains("fictional-private-cookie"))
+        print("PASS: Chrome failures explain known repair cases without displaying arbitrary backend data")
     }
 }

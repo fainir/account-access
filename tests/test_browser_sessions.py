@@ -273,7 +273,7 @@ def test_late_cancel_revocation_expiry_or_failed_commit_cannot_replace_a_connect
     assert not requests(broker)
 
 
-@pytest.mark.parametrize("case", ["success", "wrong_origin", "changed_tab", "permission_missing", "unapproved", "partitioned", "too_large", "native_failure"])
+@pytest.mark.parametrize("case", ["success", "popup_closed", "approval_early", "expired_intent", "wrong_origin", "changed_tab", "permission_missing", "unapproved", "partitioned", "too_large", "native_failure"])
 def test_browser_helper_captures_only_the_requested_github_cookie_store_and_removes_temporary_permissions(case):
     from playwright.sync_api import sync_playwright
     from account_access.google_messages_host import RESOURCES
@@ -284,6 +284,8 @@ def test_browser_helper_captures_only_the_requested_github_cookie_store_and_remo
         page.set_content("<p>Isolated browser-helper contract fixture</p>")
         page.evaluate("""scenario => {
           window.scenario=scenario;window.fixtureCalls={cookies:[],native:[],removed:[]};
+          window.fixtureGranted=!['permission_missing','popup_closed','approval_early','expired_intent'].includes(scenario);
+          const memory={};
           let nativeReply;
           const request={account:'github',id:'a'.repeat(32),fingerprint:'b'.repeat(64),origin:'https://github.com',username:'fixture-owner'};
           window.chrome={
@@ -294,7 +296,10 @@ def test_browser_helper_captures_only_the_requested_github_cookie_store_and_remo
               onStartup:{addListener:()=>{}},
               connectNative:()=>({
                 onMessage:{addListener:handler=>nativeReply=handler},onDisconnect:{addListener:()=>{}},
-                postMessage:msg=>queueMicrotask(()=>nativeReply({id:msg.id,result:{accounts:scenario==='unapproved'?[]:[request]}}))
+                postMessage:msg=>{
+                  if(scenario==='approval_early'){fixtureGranted=true;fixturePermissionAdded();}
+                  queueMicrotask(()=>nativeReply({id:msg.id,result:{accounts:scenario==='unapproved'?[]:[request]}}));
+                }
               }),
               sendNativeMessage:async(host,message)=>{
                 fixtureCalls.native.push(message);
@@ -302,11 +307,15 @@ def test_browser_helper_captures_only_the_requested_github_cookie_store_and_remo
                 return {id:0,result:{status:'SESSION_CONNECTED'}};
               }
             },
-            storage:{local:{get:async()=>({enabled:false})}},
-            permissions:{contains:async()=>scenario!=='permission_missing',remove:async value=>{fixtureCalls.removed.push(value);return true;}},
+            storage:{local:{get:async()=>({enabled:false})},session:{
+              get:async key=>({[key]:memory[key]}),set:async value=>Object.assign(memory,value),
+              remove:async keys=>{for(const key of [].concat(keys))delete memory[key];}}},
+            permissions:{contains:async()=>fixtureGranted,
+              onAdded:{addListener:handler=>window.fixturePermissionAdded=handler},
+              remove:async value=>{fixtureCalls.removed.push(value);return true;}},
             alarms:{create:()=>{},onAlarm:{addListener:()=>{}}},
             tabs:{query:async()=>[{id:7,url:scenario==='wrong_origin'?'https://other.example/':'https://github.com/settings/profile'}],
-                  get:async()=>({url:scenario==='changed_tab'?'https://other.example/':'https://github.com/settings/profile'})},
+                  get:async()=>({id:7,url:scenario==='changed_tab'||scenario==='wrong_origin'?'https://other.example/':'https://github.com/settings/profile'})},
             cookies:{getAllCookieStores:async()=>[{id:'wrong-store',tabIds:[8]},{id:'selected-store',tabIds:[7]}],
               getAll:async details=>{
                 fixtureCalls.cookies.push(details);
@@ -316,18 +325,41 @@ def test_browser_helper_captures_only_the_requested_github_cookie_store_and_remo
           };
         }""", case)
         page.add_script_tag(path=RESOURCES / "background.js")
-        result = page.evaluate("""() => new Promise((resolve,reject)=>{
-          setTimeout(()=>reject(new Error('Fixture callback timed out')),3000);
-          const accepted=fixtureHandler(
-            {method:'session-connect',account:'github',request:'a'.repeat(32),fingerprint:'b'.repeat(64)},
-            {id:'fixture',url:'chrome-extension://fixture/popup.html'},resolve);
-          if(accepted!==true)reject(new Error('Fixture sender was rejected'));
-        })""")
+        result = page.evaluate("""async() => {
+          const message={account:'github',request:'a'.repeat(32),fingerprint:'b'.repeat(64)};
+          const send=method=>new Promise((resolve,reject)=>{
+            setTimeout(()=>reject(new Error('Fixture callback timed out')),3000);
+            const accepted=fixtureHandler({method,...message},
+              {id:'fixture',url:'chrome-extension://fixture/popup.html'},resolve);
+            if(accepted!==true)reject(new Error('Fixture sender was rejected'));
+          });
+          const prepared=await send('session-prepare');
+          if(prepared.status!=='AWAITING_PERMISSION')return prepared;
+          if(scenario==='expired_intent'){
+            const intent=(await chrome.storage.session.get('sessionIntent')).sessionIntent;
+            intent.expires=Date.now()-1;await chrome.storage.session.set({sessionIntent:intent});
+            fixtureGranted=true;fixturePermissionAdded();
+            return await send('session-connect');
+          }
+          if(scenario==='popup_closed'||scenario==='approval_early'){
+            if(scenario==='popup_closed'){fixtureGranted=true;fixturePermissionAdded();}
+            // Never call session-connect or its implementation again. Only the
+            // approval event or the finishing preparation can complete this.
+            const deadline=Date.now()+2500;
+            while(Date.now()<deadline){
+              const outcome=(await chrome.storage.session.get('sessionOutcome')).sessionOutcome;
+              if(outcome)return outcome;
+              await new Promise(resolve=>setTimeout(resolve,10));
+            }
+            throw new Error('Approval did not resume the closed popup');
+          }
+          return await send('session-connect');
+        }""")
         calls = page.evaluate("fixtureCalls")
-        assert len(calls["removed"]) == 1
-        assert calls["removed"][0] == {"permissions": ["cookies"], "origins": ["https://github.com/*"]}
+        if case not in {"unapproved", "permission_missing", "expired_intent"}:
+            assert calls["removed"] == [{"permissions": ["cookies"], "origins": ["https://github.com/*"]}]
         assert "fictional-session-cookie" not in json.dumps(result)
-        if case in {"success", "native_failure"}:
+        if case in {"success", "popup_closed", "approval_early", "native_failure"}:
             assert calls["cookies"] == [{"url": "https://github.com/", "storeId": "selected-store"}]
             assert len(calls["native"]) == 1
             body = calls["native"][0]["body"]
@@ -336,8 +368,10 @@ def test_browser_helper_captures_only_the_requested_github_cookie_store_and_remo
             assert body["state"]["cookies"][0]["value"] == "fictional-session-cookie"
         else:
             assert not calls["native"]
-        if case == "success":
+        if case in {"success", "popup_closed", "approval_early"}:
             assert result["status"] == "SESSION_CONNECTED"
+        elif case == "permission_missing":
+            assert result["status"] == "AWAITING_PERMISSION"
         else:
             assert result["status"] in {"DENIED", "NEEDS_USER"}
         assert page.evaluate("fixtureHandler({method:'session-status'}, {id:'fixture',url:'https://github.com'}, ()=>{})") is False

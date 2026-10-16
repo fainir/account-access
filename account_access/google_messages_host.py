@@ -1,4 +1,4 @@
-"""Separate, SMS-only Chrome native messaging host and owner registration."""
+"""Exact-origin Chrome native messaging for approved SMS and session connections."""
 
 import argparse
 import base64
@@ -79,7 +79,7 @@ def prepare(store, *, home=None, key_file=None):
     manifest = folder / (HOST + ".json")
     if manifest.exists() or manifest.is_symlink():
         check_private(manifest)
-    private_file(manifest, json.dumps({"name": HOST, "description": "Account Access login SMS only",
+    private_file(manifest, json.dumps({"name": HOST, "description": "Account Access approved browser connections",
                  "path": str(launcher), "type": "stdio", "allowed_origins": [origin]}).encode(), replace=manifest.exists())
     store.put("google-messages-extension-origin", origin)
     store.put("google-messages-host-runtime", sys.executable)

@@ -134,3 +134,49 @@ def test_signed_asset_refresh_preserves_enrolled_sms_and_read_grants(env):
     assert broker.store.get("source:" + source) == enrollment
     assert not browser_updates.view(broker.store)
     broker.permit("test", "github-pilot", "summary")
+
+
+@pytest.mark.parametrize("selector", ["h1", "main h1", "#settings-frame h1", "#settings-frame h2"])
+def test_reviewed_profile_marker_repair_keeps_only_the_existing_heading_read(env, selector):
+    _, broker, _ = env
+    config = github_config(broker)
+    spec = config.accounts["github-pilot"]
+    spec.operations["summary"].fields = {"heading": selector}
+    broker.store.configure(config)
+    broker.grant("test", "github-pilot", ["summary"], expires=time.time() + 300)
+    before = spec.model_copy(deep=True)
+    broker.store.challenge("github-pilot", "action", "owner_action_required")
+    with broker.store.db() as db:
+        grants = [dict(row) for row in db.execute("SELECT * FROM grants WHERE account='github-pilot'")]
+    browser_updates.apply(broker, "github-pilot", config.fingerprint("github-pilot"))
+    current = broker.store.config()
+    updated = current.accounts["github-pilot"]
+    assert updated.ready_selector == browser_updates.PROFILE_HEADING
+    assert updated.operations["summary"] == before.operations["summary"].model_copy(
+        update={"fields": {"heading": browser_updates.PROFILE_HEADING}})
+    assert updated.read_resources == before.read_resources
+    assert updated.login_post_urls == before.login_post_urls
+    assert broker.store.pending("github-pilot")[0]["kind"] == "action"
+    with broker.store.db() as db:
+        assert [dict(row) for row in db.execute("SELECT * FROM grants WHERE account='github-pilot'")] == [
+            {**row, "fingerprint": current.fingerprint("github-pilot")} for row in grants]
+
+
+@pytest.mark.parametrize("change", ["field", "url", "selector", "description"])
+def test_profile_marker_guard_refuses_any_expanded_or_reinterpreted_read(env, change):
+    _, broker, _ = env
+    config = github_config(broker)
+    old = config.accounts["github-pilot"]
+    old.operations["summary"].fields = {"heading": "h1"}
+    updated = old.model_copy(deep=True)
+    updated.operations["summary"].fields = {"heading": browser_updates.PROFILE_HEADING}
+    operation = updated.operations["summary"]
+    if change == "field":
+        operation.fields["email"] = "input[type=email]"
+    elif change == "url":
+        operation.url = "https://github.com/settings/emails"
+    elif change == "selector":
+        operation.fields["heading"] = "body"
+    else:
+        operation.description = "Read all private profile settings"
+    assert not browser_updates.profile_marker_repair(old, updated)
