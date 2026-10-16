@@ -26,7 +26,25 @@ fictional password remains typed in its input. One initial browser test failed
 because its fixture had not opened the Add an account panel; the fixture was
 corrected before acceptance. The first 31 companion cases passed, followed by
 all five then-existing health cases in 15.29 seconds. All **20 native UI checks**
-passed. Final lifecycle/regression checks, build signing and CI are in progress.
+passed. The final health/access/installation run passed **27 cases** in 31.23
+seconds, including the lifespan failure-cleanup case. Lint and package build
+passed. The staged signed universal build passed strict/deep verification;
+all **59 bundled application files** match source and the embedded wheel hash.
+
+Fresh build 55 ordinary-language fixture runs passed on the desktop-bundled
+**Codex CLI** in **26.83 seconds** and guarded **Claude Code** in **141.91 seconds**.
+Each used its project launcher and completed four password logins with one
+email, SMS and TOTP verification. All successful Claude trace tools satisfied
+the fixture policy; 29 guard decisions included eight denials. Its code-free
+audit is retained privately. These are controlled accounts, not private-source
+acceptance or proof of global-skill precedence.
+See the [build 55 evidence](../artifacts/worker-health-080.json).
+
+Final implementation `557f166` passed **556 tests** in 461.64 seconds in
+[CI](https://github.com/fainir/account-access/actions/runs/38961805399), native
+owner UI, Messages/startup checks, lint, dependency audit and package build. The
+[Android emulator journey](https://github.com/fainir/account-access/actions/runs/38961805393)
+also passed.
 
 Installed build 53 remains untouched with the owner Gmail enrollment pending.
 This phase makes no new private website sign-in request. Physical-device and
