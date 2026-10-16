@@ -33,17 +33,52 @@
     "codex_cli": "Passed four-account controlled fixture in 31.08 seconds",
     "claude_cli": "Passed four-account controlled fixture in 63.75 seconds; successful trace tools satisfy fixture policy; 13 guarded calls, 3 denials",
     "host_test_revision": "24a5253561d1864b52c5238ede9028faa02803d5",
-    "post_host_test_change": "Malformed legacy URL fallback and clearer outer-metadata guidance; separately covered by focused tests and skill validation"
+    "post_host_test_change": "Malformed legacy URL fallback and clearer outer-metadata guidance; separately covered by focused tests and skill validation",
+    "main_ci": {
+      "revision": "24a5253561d1864b52c5238ede9028faa02803d5",
+      "tests_passed": 565,
+      "seconds": 437.01,
+      "url": "https://github.com/fainir/account-access/actions/runs/38964320295"
+    },
+    "final_ci": {
+      "revision": "5c98d6716299fb62ab4250d9df1f7cdc5cb4ba86",
+      "tests_passed": 566,
+      "seconds": 424.1,
+      "url": "https://github.com/fainir/account-access/actions/runs/38964735661",
+      "native_owner_messages_startup": "passed",
+      "lint": "passed",
+      "dependency_audit": "no known vulnerabilities found",
+      "package_build": "passed",
+      "android_journey": "passed",
+      "android_url": "https://github.com/fainir/account-access/actions/runs/38964735811"
+    }
   },
   "distribution": {
     "installed_build": 53,
-    "candidate_status": "Build 56 signing and final CI in progress; owner credential form left untouched"
+    "candidate_status": "Signed universal build 56 staged separately; installed owner credential form left untouched",
+    "strict_deep_signature": "passed",
+    "wheel_pin_matches": true,
+    "source_files_compared": 60,
+    "package_matches_source": true,
+    "wheel_sha256": "e306bb5e1df75cc63c4cd9ea637c8dc6a702b7eb1a7ad6918a151c1081f6746a",
+    "repository_notarization_setup": {
+      "repository_secret_count": 0,
+      "matching_notarization_secret_names": [],
+      "scope": "Repository-level secret metadata only; no secret values read"
+    }
   },
   "private_validation": {
     "new_private_website_sign_in_requests": 0,
     "gmail_enrollment": "pending through owner form",
     "namecheap_task": "preserved at unresolved browser gate",
-    "further_github_testing": "stopped"
+    "further_github_testing": "stopped",
+    "owner_status_rechecked": "Native setup still offered Connect mailbox; no checked/saved confirmation visible. Enrollment remains unconfirmed; no fields or form actions changed."
   },
-  "privacy": "No credentials, codes, cookies, personal identifiers, private paths or raw traces in this public record"
+  "privacy": "No credentials, codes, cookies, personal identifiers, private paths or raw traces in this public record",
+  "security_boundary_review": {
+    "smappservice_admin_approval": "required for a LaunchDaemon",
+    "notarization": "required by installed Apple SDK for an app containing these daemons",
+    "signed_peer_requirements": "NSXPC connection/listener APIs available on macOS 13 in installed SDK",
+    "implementation_status": "No privileged service or credential migration installed; full broker isolation remains open"
+  }
 }

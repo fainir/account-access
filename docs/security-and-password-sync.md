@@ -122,3 +122,25 @@ Enrolling the TOTP key on the same computer as the password trades factor separa
 The local preview is for a trusted-agent pilot. An unrestricted agent running under the same OS user can potentially access owner files, alter local code or use that user's keychain. Encryption, a CLI and a separate process do not establish an OS isolation boundary. These changes reduce specific attack paths; they do not make the local app safe against a compromised process with all of the owner's privileges.
 
 Protecting credentials from that threat requires a broker under a separate OS identity or on a separate host, with a trusted owner enrollment channel. General isolated consumer installation and an independent security assessment remain production work. The video describes encryption, approved reads and automatic supported sign-ins; it does not claim protection against every local process or unattended access to every website.
+
+### Verified Mac service prerequisites
+
+Apple's [SMAppService registration](https://developer.apple.com/documentation/servicemanagement/smappservice/register%28%29)
+requires an administrator to approve a LaunchDaemon before it can run. The
+installed Xcode SDK's `SMAppService.h` additionally requires apps containing
+these daemons to be notarized and recommends `/Applications` for availability
+before login. The current user-space preview does not satisfy that deployment
+gate. Legacy service installation is not an approval workaround.
+
+The installed SDK exposes both
+[connection peer requirements](https://developer.apple.com/documentation/foundation/nsxpcconnection/setcodesigningrequirement%28_%3A%29)
+and [incoming listener requirements](https://developer.apple.com/documentation/foundation/nsxpclistener/setconnectioncodesigningrequirement%28_%3A%29)
+on macOS 13. These can authenticate native enrollment IPC peers without relying
+only on a process ID. They do not move the Python broker or vault to another
+identity automatically.
+
+The engineering consequence is that isolation needs the complete broker runtime,
+vault and trusted owner-enrollment channel behind the boundary. Keeping only a
+key in a helper while an unrestricted same-user process can replace broker code
+or read an owner capability is insufficient. No privileged service, owner
+credential migration or broader OS permission was installed during this review.

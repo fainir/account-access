@@ -30,8 +30,7 @@ Connected. All 21 native UI checks passed, including separate source counts,
 example prompts, verified imports and pending challenges. All 30 focused
 classification/catalog/import cases passed in 16.66 seconds, and 43 companion
 catalog/import/access/worker cases passed in 39.68 seconds. Lint, package build
-and skill validation passed. Full CI, signed staging and fresh agent checks are
-in progress.
+and skill validation passed. The signed candidate is staged separately.
 
 Fresh ordinary-language host checks on the main classification implementation
 `24a5253` passed: Codex CLI **31.08 seconds**, guarded Claude Code **63.75 seconds**.
@@ -43,10 +42,26 @@ malformed-legacy-URL fallback then passed all **10 classification cases** in
 an invalid URL. The skill guidance now explicitly uses outer metadata rather
 than provider-supplied labels inside data.
 
+The main classification revision passed **565 tests** in 437.01 seconds in
+[CI](https://github.com/fainir/account-access/actions/runs/38964320295). Final
+revision `5c98d67` passed **566 tests** in 424.10 seconds in
+[CI](https://github.com/fainir/account-access/actions/runs/38964735661), native
+owner UI, Messages/startup checks, lint, dependency audit and package build. The
+[Android emulator journey](https://github.com/fainir/account-access/actions/runs/38964735811)
+also passed. Strict/deep signature verification passed for the staged universal
+build; all **60 bundled application files** match source and the embedded wheel
+pin. See the [sanitized build record](../artifacts/account-classification-080.json).
+
 The metadata tests use local providers and mocked public result bodies; the web
 test uses stored-state projections only. They are not real website or private
 account sign-in acceptance. Installed build 53 remains open for the pending
 owner Gmail enrollment. No further GitHub or Namecheap sign-in is requested.
+The installed native form was rechecked without emitting or changing field
+values: Connect mailbox remained available, with no checked/saved confirmation
+visible. Enrollment remains unconfirmed. Repository-level secret metadata also
+shows no configured secrets for a notarization workflow; no secret values were
+read. The [Mac isolation prerequisites](security-and-password-sync.md#verified-mac-service-prerequisites)
+remain separate from the preview's passing tests.
 
 ## Visible background recovery health — 16 October 2026
 
