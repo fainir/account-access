@@ -40,6 +40,12 @@ connections remain present. Private Namecheap enrollment and a fresh password
 login remain pending; no personal password, email code or authenticator was
 used for this pilot yet.
 
+The final functional revision passed **405 tests**, fourteen native owner UI
+checks, Messages/startup checks, lint, audit and build in
+[CI](https://github.com/fainir/account-access/actions/runs/38941709228).
+Its [Android emulator journey](https://github.com/fainir/account-access/actions/runs/38941709131)
+also passed. See the [sanitized validation record](../artifacts/other-services-080.json).
+
 Namecheap documents [email verification for a new device](https://www.namecheap.com/support/knowledgebase/article.aspx/10333/45/marking-a-device-as-trusted/)
 and [TOTP authentication](https://www.namecheap.com/support/knowledgebase/article.aspx/10073/45/how-can-i-use-the-totp-method-for-twofactor-authentication/).
 Those provider-specific verification routes are **not implemented or validated

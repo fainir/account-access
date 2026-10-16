@@ -15,8 +15,15 @@ Namecheap permission, and existing connections remain present. All fourteen
 native UI checks and twelve focused catalog/import-alias cases passed. The full
 local run passed 404 cases and failed one historical-format test fixture, which
 still included the newly added empty alias field in its legacy expected hash.
-After correcting that fixture, both legacy-compatibility checks passed. CI on
-the final revision is recorded separately when complete.
+After correcting that fixture, both legacy-compatibility checks passed.
+
+Functional revision `8466af1` passed **405 tests** in 324.69 seconds in
+[CI](https://github.com/fainir/account-access/actions/runs/38941709228), all
+fourteen native UI checks, native Messages/startup checks, lint, dependency
+audit and package build. The
+[Android emulator journey](https://github.com/fainir/account-access/actions/runs/38941709131)
+also passed. See the [sanitized record](../artifacts/other-services-080.json).
+These checks do not establish private Namecheap password or code delivery.
 
 ## Private GitHub session reuse and original-task recovery — 16 October 2026
 
