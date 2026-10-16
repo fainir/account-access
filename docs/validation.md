@@ -21,7 +21,18 @@ Apple tools and cover rejected/unknown jobs, incorrect digests and IDs,
 interrupted uploads and state writes, stapling recovery, modified app/archive,
 policy failure, a lost packaged ticket, changed packaged code, archive traversal,
 redaction, private paths and concurrent publishers. Fixed system
-tool paths avoid PATH-based tool replacement. Lint passed; full CI is pending.
+tool paths avoid PATH-based tool replacement. Lint passed. A helper-only
+Bandit 1.9.4 scan reported two low subprocess warnings, no medium/high warnings
+and no scanner errors. The reviewed call uses fixed executable paths and an
+argument array without a shell; no suppressions were added. This is an internal
+review, not an independent audit.
+
+Final helper revision `62517dc` passed **601 tests in 405.04 seconds** in
+[CI](https://github.com/fainir/account-access/actions/runs/38969904248), along
+with lint, dependency audit, package build, native owner UI, Messages reader and
+startup checks. The [Android emulator journey](https://github.com/fainir/account-access/actions/runs/38969904185)
+also passed. These are automated/controlled results, not physical-phone or
+private-account acceptance. The earlier release-helper revision passed 598 tests.
 
 Real local preparation of signed universal build 56 passed, including the exact
 certificate requirement and both architecture code hashes. The first real run
@@ -32,7 +43,9 @@ profile was denied before upload, and the job ID remains absent. No Apple
 notarization submission or credential lookup was performed. A real extraction of
 the prepared ZIP also passed both staged/extracted signature checks and then
 correctly failed ticket validation. It left the state and submission archive
-unchanged and produced no release artifact.
+unchanged and produced no release artifact. The actual codesign requirement
+also rejected a deliberately wrong expected publisher team before any Apple
+service request; the prepared state remained unchanged.
 
 Live Apple acceptance, ticket stapling and a clean downloaded-install test remain
 open. These results do not validate private email/SMS/authenticator delivery or

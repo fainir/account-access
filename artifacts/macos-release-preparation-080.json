@@ -39,7 +39,8 @@
     "extracted_app_signature_checks": "passed",
     "extracted_ticket_check": "rejected missing ticket as expected",
     "extracted_check_modified_state": false,
-    "release_artifact_created": false
+    "release_artifact_created": false,
+    "wrong_expected_team": "rejected by actual codesign requirement"
   },
   "owner_state": {
     "installed_build": 53,
@@ -47,5 +48,34 @@
     "new_private_website_sign_in_requests": 0,
     "keychain_credential_values_read": false
   },
-  "privacy": "Public record excludes credentials, profile labels, personal identifiers, private paths and raw diagnostic logs"
+  "privacy": "Public record excludes credentials, profile labels, personal identifiers, private paths and raw diagnostic logs",
+  "static_review": {
+    "tool": "Bandit 1.9.4",
+    "scope": "macos/notarize.py only",
+    "errors": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 2,
+    "rules": [
+      "B404",
+      "B603"
+    ],
+    "assessment": "Reviewed subprocess import and fixed-path argument-array execution; no shell or user-selected executable",
+    "independent_audit": false
+  },
+  "ci": {
+    "source_revision": "62517dc8ad7ca0c3906069eaa02c8c2ae12ee1ea",
+    "main_status": "passed",
+    "main_url": "https://github.com/fainir/account-access/actions/runs/38969904248",
+    "android_status": "passed",
+    "android_url": "https://github.com/fainir/account-access/actions/runs/38969904185",
+    "android_scope": "emulator, not private physical-phone delivery",
+    "tests_passed": 601,
+    "seconds": 405.04,
+    "native_owner_ui": "passed",
+    "messages_reader_and_startup": "passed",
+    "lint": "passed",
+    "dependency_audit": "no known vulnerabilities found",
+    "package_build": "passed"
+  }
 }
