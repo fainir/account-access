@@ -4,6 +4,7 @@ import Foundation
 import Security
 import UniformTypeIdentifiers
 import CoreImage
+import ServiceManagement
 
 final class FlippedView: NSView { override var isFlipped: Bool { true } }
 
@@ -96,6 +97,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     let ownerConnectionLock = NSRecursiveLock()
     var busy = false
     var backgroundRecovery: [String: Any] = [:]
+    var backgroundServiceStatus = "unknown"
     var failedAccount: String?
     let localRequests = LocalRequests()
     static func isExample(_ account: [String: Any]) -> Bool {
@@ -132,6 +134,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         let appMenu = NSMenu()
         let repair = appMenu.addItem(withTitle: "Repair installation…", action: #selector(install), keyEquivalent: "")
         repair.target = self
+        let pause = appMenu.addItem(withTitle: "Pause Account Access", action: #selector(pauseAccess), keyEquivalent: "")
+        pause.target = self
         appMenu.addItem(NSMenuItem.separator())
         appMenu.addItem(withTitle: "Quit Account Access", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         item.submenu = appMenu
@@ -384,10 +388,12 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                     throw Failure.message("Installation could not finish. Check your internet connection, then try again. No account credentials were changed.")
                 }
                 try self.loadOwner()
+                let backgroundStatus = self.prepareBackgroundRecovery()
                 _ = try self.request("owner/install", body: [:])
                 let state = try self.request("owner/state")
                 DispatchQueue.main.async {
                     self.busy = false
+                    self.backgroundServiceStatus = backgroundStatus
                     self.accept(state)
                     if self.accounts.contains(where: { $0["connected"] as? Bool == true }) {
                         self.ready()
@@ -416,10 +422,12 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                     throw Failure.message("The local app could not start. Try again.")
                 }
                 try self.loadOwner()
+                let backgroundStatus = self.prepareBackgroundRecovery()
                 _ = try self.request("owner/install", body: [:])
                 let state = try self.request("owner/state")
                 DispatchQueue.main.async {
                     self.busy = false
+                    self.backgroundServiceStatus = backgroundStatus
                     self.accept(state)
                     if self.accounts.contains(where: { $0["connected"] as? Bool == true }) {
                         self.ready()
@@ -471,6 +479,59 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
 
     enum Failure: Error { case message(String) }
+
+    func prepareBackgroundRecovery() -> String {
+        // ServiceManagement must be called by the saved app, rather than the
+        // original download that the installer copied into Applications.
+        do {
+            let layout = try BackgroundRecovery.Layout(bundle: .main)
+            guard layout.root.standardizedFileURL == root.standardizedFileURL,
+                  layout.runtime.standardizedFileURL == runtime.standardizedFileURL else { return "custom_configuration" }
+            let saved = files.homeDirectoryForCurrentUser.appendingPathComponent("Applications/Account Access.app/Contents/MacOS/AccountAccess")
+            let process = Process()
+            process.executableURL = saved
+            process.arguments = ["--background-enable"]
+            process.standardInput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+            let output = Pipe()
+            process.standardOutput = output
+            var environment = ProcessInfo.processInfo.environment
+            for key in ["ACCOUNT_ACCESS_DATA_DIR", "ACCOUNT_ACCESS_INSTALL_DIR", "PYTHONPATH", "PYTHONHOME"] { environment.removeValue(forKey: key) }
+            process.environment = environment
+            try process.run()
+            let deadline = Date().addingTimeInterval(20)
+            while process.isRunning && Date() < deadline { Thread.sleep(forTimeInterval: 0.02) }
+            if process.isRunning { process.terminate(); return "unavailable" }
+            let data = output.fileHandleForReading.readDataToEndOfFile()
+            guard process.terminationStatus == 0, data.count <= 4096,
+                  let result = try JSONSerialization.jsonObject(with: data) as? [String: String],
+                  let status = result["status"], ["enabled", "requires_approval", "unavailable"].contains(status) else { return "unavailable" }
+            return status
+        } catch { return "unavailable" }
+    }
+
+    @objc func openBackgroundSettings() { SMAppService.openSystemSettingsLoginItems() }
+
+    @objc func pauseAccess() {
+        guard !busy else { return }
+        busy = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                _ = try self.request("owner/stop", body: [:])
+                DispatchQueue.main.async {
+                    self.busy = false
+                    self.token = ""
+                    self.base = nil
+                    for field in self.mailboxFields.values where field is NSSecureTextField { field.stringValue = "" }
+                    for field in self.factorFields.values where field is NSSecureTextField { field.stringValue = "" }
+                    for field in self.syncFields.values where field is NSSecureTextField { field.stringValue = "" }
+                    self.password?.stringValue = ""
+                    self.page("Account Access is paused", "Saved connections are preserved. Background recovery stays paused after login until you resume it.")
+                    self.primary("Resume Account Access", #selector(self.reopen))
+                }
+            } catch { self.fail(error, retry: #selector(self.reopen)) }
+        }
+    }
 
     func loadOwner() throws {
         ownerConnectionLock.lock()
@@ -1934,6 +1995,13 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     func ready() {
         section = "accounts"
         page("Your accounts", "Keep using your AI. Account Access handles the supported sign-ins and approved reads.")
+        if backgroundServiceStatus == "requires_approval" {
+            let notice = card("Allow background recovery", "macOS has disabled this background item. Allow Account Access in Login Items to restore automatic recovery after login or a crash.", status: "Needs approval", good: false)
+            let settings = NSButton(title: "Open Login Items", target: self, action: #selector(openBackgroundSettings))
+            notice.addArrangedSubview(settings)
+        } else if backgroundServiceStatus == "unavailable" {
+            card("Background recovery needs attention", "The macOS background service could not be prepared. Your current account service can still handle approved requests. Use Repair installation to check it.", status: "Needs attention", good: false)
+        }
         if backgroundRecovery["status"] as? String == "RETRYING" {
             card("Background recovery is retrying", "Background recovery hit an internal problem and is retrying automatically. Your saved connections and completed task steps are preserved.", status: "Retrying", good: false)
         } else if backgroundRecovery["status"] as? String == "STOPPED" {
@@ -2116,6 +2184,12 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
 #if !ACCOUNT_ACCESS_UI_CHECKS
 @main struct AccountAccessMain {
     static func main() {
+        if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--background-enable" {
+            let payload = ["status": BackgroundRecovery.manage()]
+            let data = try! JSONSerialization.data(withJSONObject: payload)
+            print(String(decoding: data, as: UTF8.self))
+            return
+        }
         if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--read-login-code" {
             MessagesReader.run()
             return

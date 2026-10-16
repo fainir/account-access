@@ -1,5 +1,42 @@
 # Validation of Account Access
 
+## Mac service-manager recovery candidate — 17 October 2026
+
+Build 58 embeds a universal, separately signed background helper and a fixed
+LaunchAgent policy. The saved Applications copy uses Apple's SMAppService API;
+no legacy plist installation, approval reset or force-enable fallback is added.
+Revoked approval remains an owner action in Login Items. Updating a changed helper
+uses the framework's asynchronous unregister completion before re-registering.
+The helper validates private generation/runtime metadata, executes only the
+managed interpreter with isolated imports, and replaces its process to preserve
+the OS-tracked PID. Its guardian waits for the active process lease and can take
+over after supervisor loss. Setup failures and Pause exit normally so the job's
+abnormal-exit restart policy cannot turn them into prompt loops.
+
+All **16 supervisor/guardian cases** passed in 23.27 seconds, including killing
+both fixture processes and completing the original queued task without another
+client request, and Pause during standby. All **46 release-helper cases** passed
+in 0.94 seconds: the new format pins the helper's expected Developer ID identity,
+hardened runtime, timestamp, both architectures and exact stop-safe LaunchAgent
+policy through archive extraction. Legacy single-executable candidate layouts
+remain supported. These signing/notary protocol tests use simulated Apple tools.
+
+All **26 native owner UI checks** and **five background policy/path checks**
+passed. Native Pause sends one stop request, clears local setup secrets, and
+offers explicit Resume. Approval-required status has a Login Items action.
+The helper and main app build successfully for both CPU architectures. Lint and
+skill validation passed. Live service-manager, package verification and final CI
+are pending; no private account or physical-device acceptance is implied.
+
+The opt-in `scripts/mac_background_smoke.py` uses a unique QA app identity, fresh
+synthetic account store and one fixture Keychain namespace. It checks actual
+OS-managed process-loss recovery and a paused fresh job invocation, then
+unregisters that job and removes only its fixture key. Cleanup failures retain
+only that private fixture for recovery. It never registers the installed
+production app, approves an OS prompt, resets Login Items, or accesses personal
+accounts. Real logout/reboot, notarized distribution, independent security review
+and separate-OS-identity credential custody remain production gates.
+
 ## Supervised local task recovery — 17 October 2026
 
 Build 57 starts a separate user-space supervisor for the desktop service. A

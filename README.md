@@ -110,7 +110,9 @@ another agent command. Pause stops recovery; locked-keyring or invalid-setup
 errors stop retries instead of repeating prompts. The native app verifies the
 restarted connection before sending setup data and preserves idle forms. This
 adds local process recovery, with the remaining [production gates](docs/production-gates.md)
-still open.
+still open. The build 58 candidate adds a Mac background helper registered
+through Apple's service manager, with native Pause and approval-status guidance.
+Its live registration and restart checks are under validation.
 
 | Method | One-time setup | During a supported login |
 | --- | --- | --- |

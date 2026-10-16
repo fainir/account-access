@@ -12,6 +12,7 @@ final class VerificationRetryFixture: URLProtocol {
     static var invalidProof = false
     static var loseNextSetupResponse = false
     static var ownerRequests = 0
+    static var pauseRequests = 0
     static let instanceKey = Data(repeating: 0xaa, count: 32)
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
@@ -25,6 +26,10 @@ final class VerificationRetryFixture: URLProtocol {
             let proof = HMAC<SHA256>.authenticationCode(for: Data(challenge.utf8), using: SymmetricKey(data: Self.instanceKey))
                 .map { String(format: "%02x", $0) }.joined()
             payload = ["proof": Self.invalidProof ? "unverified" : proof]
+        } else if request.url?.path == "/owner/stop" {
+            Self.ownerRequests += 1
+            Self.pauseRequests += 1
+            payload = ["status": "STOPPED"]
         } else if Self.stopped {
             Self.ownerRequests += 1
             payload = ["connection_jobs": ["first": ["status": "NEEDS_USER", "attention": ["reason": "browser_action_required"]]]]
@@ -358,5 +363,24 @@ final class VerificationRetryFixture: URLProtocol {
         owner.accounts = []
         precondition(owner.requestText.contains("what needs attention"))
         print("PASS: public examples have separate readiness counts, explicit statuses and example-only prompts; unverified imports never claim Connected")
+        owner.backgroundServiceStatus = "requires_approval"
+        owner.ready()
+        views = descendants(owner.stack)
+        precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Open Login Items"))
+        owner.backgroundServiceStatus = "enabled"
+        owner.ready()
+        views = descendants(owner.stack)
+        precondition(!views.compactMap { ($0 as? NSButton)?.title }.contains("Open Login Items"))
+        print("PASS: macOS background approval has a specific settings action and does not claim the current service is unavailable")
+        owner.showEmailSetup()
+        owner.mailboxFields["password"]!.stringValue = "fictional-unsaved-value"
+        owner.pauseAccess()
+        let pauseDeadline = Date().addingTimeInterval(5)
+        while owner.busy && Date() < pauseDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
+        precondition(!owner.busy && VerificationRetryFixture.pauseRequests == 1)
+        precondition(owner.token.isEmpty && owner.base == nil && owner.mailboxFields["password"]!.stringValue.isEmpty)
+        views = descendants(owner.stack)
+        precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Resume Account Access"))
+        print("PASS: native Pause sends one stop request, clears local setup secrets and offers explicit Resume")
     }
 }

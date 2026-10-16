@@ -183,3 +183,23 @@ def supervise(root, generation, *, key_file=None):
                 child.wait(timeout=5)
         for sig, handler in previous.items():
             signal.signal(sig, handler)
+
+
+def guard_desktop(root, generation, *, key_file=None):
+    """OS-managed standby: take over only after the existing supervisor exits.
+
+    A normal exit tells the OS not to restart a paused or owner-blocked job.
+    Waiting for the actual lease avoids adopting/signalling a guessed PID.
+    """
+    root = Path(root).expanduser()
+    check_private(root)
+    root = root.resolve()
+    while active(root, generation):
+        try:
+            supervise(root, generation, key_file=key_file)
+        except AccessError as exc:
+            if exc.reason != "account_busy":
+                raise
+            time.sleep(0.5)
+        else:
+            return

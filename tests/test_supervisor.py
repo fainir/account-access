@@ -12,7 +12,7 @@ from account_access.desktop import launch, running, stop
 from account_access.errors import AccessError
 from account_access.models import TaskRequest
 from account_access.storage import private_file
-from account_access.supervisor import active, attached, disable, enable, lease, registration, supervise
+from account_access.supervisor import active, attached, disable, enable, guard_desktop, lease, registration, supervise
 
 
 def wait_for(check, timeout=15):
@@ -130,13 +130,14 @@ def test_pause_stops_supervision_and_reopen_reuses_saved_access(env):
         finish(root)
 
 
-def test_owner_setup_failure_stops_instead_of_repeating_keyring_prompts(env):
+@pytest.mark.parametrize("runner", [supervise, guard_desktop])
+def test_owner_setup_failure_stops_instead_of_repeating_keyring_prompts(env, runner):
     _, broker, _ = env
     root = broker.store.root
     generation = enable(root)
     invalid_key = root / "invalid-development.key"
     private_file(invalid_key, b"invalid")
-    supervise(root, generation, key_file=invalid_key)
+    runner(root, generation, key_file=invalid_key)
     assert not attached(root) and registration(root) is None
     # The real child reports a fixed setup error once, with no secret material.
     log = (root / "desktop.log").read_text()
@@ -218,18 +219,87 @@ def test_dead_api_thread_closes_owner_server_instead_of_claiming_readiness(env, 
         pass
 
 
-def test_supervisor_command_does_not_load_owner_store(env, monkeypatch):
+@pytest.mark.parametrize("command, runner", [("desktop-supervisor", "supervise"), ("desktop-guardian", "guard_desktop")])
+def test_supervisor_command_does_not_load_owner_store(env, monkeypatch, command, runner):
     from account_access.cli import main
     _, broker, _ = env
     called = []
     def forbidden(*_a, **_k):
         raise AssertionError("Supervisor must not load the vault key")
     monkeypatch.setattr("account_access.cli.owner_store", forbidden)
-    monkeypatch.setattr("account_access.supervisor.supervise", lambda *a, **k: called.append((a, k)))
+    monkeypatch.setattr("account_access.supervisor." + runner, lambda *a, **k: called.append((a, k)))
     previous_mask = os.umask(0o077)
     try:
-        assert main(["--root", str(broker.store.root), "desktop-supervisor", "--generation", "a" * 64]) == 0
+        assert main(["--root", str(broker.store.root), command, "--generation", "a" * 64]) == 0
         assert len(called) == 1
         assert json.dumps(registration(broker.store.root)) == "null"
     finally:
         os.umask(previous_mask)
+
+
+def test_standby_guardian_takes_over_after_both_processes_die_without_agent_reconnect(env):
+    _, broker, _ = env
+    root = broker.store.root
+    generation = enable(root)
+    command = [sys.executable, "-I", "-m", "account_access.cli", "--root", str(root),
+               "--development", "--key-file", str(root / "demo.key")]
+    first = subprocess.Popen([*command, "desktop-supervisor", "--generation", generation],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    guardian = None
+    frozen = None
+    try:
+        initial = wait_for(lambda: running(root))
+        guardian = subprocess.Popen([*command, "desktop-guardian", "--generation", generation],
+                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(0.6)
+        assert guardian.poll() is None and running(root)["pid"] == initial["pid"]
+        frozen = initial["pid"]
+        os.kill(frozen, signal.SIGSTOP)
+        job = broker.submit("test", TaskRequest(key="survive-both-processes", steps=[
+            {"account": "demo-api", "operation": "summary"}]))
+        assert job["status"] == "QUEUED"
+        first.kill()
+        first.wait(timeout=5)
+        os.kill(frozen, signal.SIGKILL)
+        frozen = None
+        def completed():
+            result = broker.task("test", job["task_id"])
+            return result if result["status"] == "COMPLETED" else None
+        result = wait_for(completed)
+        replacement = wait_for(lambda: running(root))
+        assert result["task_id"] == job["task_id"] and result["progress"] == 1
+        assert replacement["pid"] != initial["pid"] and guardian.poll() is None
+    finally:
+        if frozen:
+            try:
+                os.kill(frozen, signal.SIGCONT)
+            except ProcessLookupError:
+                pass
+        finish(root)
+        if first.poll() is None:
+            first.terminate()
+        first.wait(timeout=15)
+        if guardian is not None:
+            guardian.wait(timeout=15)
+
+
+def test_pause_ends_an_os_guardian_waiting_for_the_active_supervisor(env):
+    _, broker, _ = env
+    root = broker.store.root
+    launch(root, key_file=root / "demo.key", open_browser=False)
+    generation = registration(root)["generation"]
+    guardian = subprocess.Popen([sys.executable, "-I", "-m", "account_access.cli", "--root", str(root),
+                                 "--development", "--key-file", str(root / "demo.key"),
+                                 "desktop-guardian", "--generation", generation],
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        time.sleep(0.6)
+        assert guardian.poll() is None
+        finish(root)
+        assert guardian.wait(timeout=5) == 0
+        assert (root / "service.paused").exists() and registration(root) is None
+    finally:
+        finish(root)
+        if guardian.poll() is None:
+            guardian.terminate()
+            guardian.wait(timeout=10)

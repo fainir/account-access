@@ -33,6 +33,9 @@ class AppleTools:
         self.timestamp = True
         self.staple_error_after_ticket = False
         self.release_corruption = None
+        self.background_team = None
+        self.background_hardened = True
+        self.background_timestamp = True
 
     def __call__(self, argv, timeout=60):
         self.calls.append(argv)
@@ -40,13 +43,17 @@ class AppleTools:
         if argv[0] == "codesign" and "--verify" not in argv:
             app = Path(argv[-1])
             arch = argv[argv.index("--arch") + 1]
-            content = b"".join(path.read_bytes() for path in sorted(app.rglob("*"))
-                               if path.is_file() and path.name != "fixture-notary-ticket")
+            background = app.name == "AccountAccessBackground"
+            identifier = APP_ID + ".background" if background else APP_ID
+            team = self.background_team if background and self.background_team else self.signature_team
+            content = app.read_bytes() if app.is_file() else b"".join(
+                path.read_bytes() for path in sorted(app.rglob("*"))
+                if path.is_file() and path.name != "fixture-notary-ticket")
             digest = hashlib.sha256(content + arch.encode()).hexdigest()[:40]
-            error = (f"Identifier={APP_ID}\nTeamIdentifier={self.signature_team}\n"
+            error = (f"Identifier={identifier}\nTeamIdentifier={team}\n"
                      f"Authority=Developer ID Application: Fixture\nCDHash={digest}\n"
-                     + ("CodeDirectory flags=0x10000(runtime)\n" if self.hardened else "CodeDirectory flags=0x0\n")
-                     + ("Timestamp=fixture timestamp\n" if self.timestamp else ""))
+                     + ("CodeDirectory flags=0x10000(runtime)\n" if self.hardened and (not background or self.background_hardened) else "CodeDirectory flags=0x0\n")
+                     + ("Timestamp=fixture timestamp\n" if self.timestamp and (not background or self.background_timestamp) else ""))
         elif argv[0] == "lipo":
             text = "x86_64 arm64\n"
         elif argv[0] == "ditto" and "-x" in argv:
@@ -367,3 +374,69 @@ def test_packaged_app_must_retain_accepted_code_ticket_and_expected_paths(releas
     assert not task.output.exists()
     assert not (task.root.parent / "outside.txt").exists()
     assert tools.uploads == 1
+
+
+def background_package(release):
+    _, tools, app = release
+    info_path = app / "Contents/Info.plist"
+    info = plistlib.loads(info_path.read_bytes())
+    info.update(AccountAccessBackgroundFormat=1, CFBundleVersion="58")
+    info_path.write_bytes(plistlib.dumps(info))
+    helper = app / "Contents/MacOS/AccountAccessBackground"
+    helper.write_bytes(b"fictional signed background helper")
+    helper.chmod(0o755)
+    agents = app / "Contents/Library/LaunchAgents"
+    agents.mkdir(parents=True)
+    (agents / "com.fainir.accountaccess.background.plist").write_bytes(
+        (Path(__file__).resolve().parents[1] / "macos/com.fainir.accountaccess.background.plist").read_bytes())
+    return Notarization(release[0].root.parent / "background-release", tools), tools, app
+
+
+def test_background_helper_and_restart_policy_are_pinned_through_final_archive(release):
+    task, tools, app = background_package(release)
+    prepared = task.prepare(app, TEAM)
+    assert set(prepared["bundle"]["background_helper"]["cdhashes"]) == {"arm64", "x86_64"}
+    task.submit(PROFILE)
+    tools.apple_status = "Accepted"
+    assert task.finalize(PROFILE)["status"] == "READY_FOR_RELEASE_REVIEW"
+    assert any(call[0] == "codesign" and "--verify" in call
+               and str(app / "Contents/MacOS/AccountAccessBackground") == call[-1] for call in tools.calls)
+
+
+@pytest.mark.parametrize("change", [
+    {"KeepAlive": True}, {"KeepAlive": {"SuccessfulExit": True}},
+    {"WatchPaths": ["/tmp/unreviewed"]}, {"BundleProgram": "/usr/bin/python3"},
+])
+def test_release_refuses_background_policy_that_can_bypass_normal_stop(release, change):
+    task, tools, app = background_package(release)
+    path = app / "Contents/Library/LaunchAgents/com.fainir.accountaccess.background.plist"
+    policy = plistlib.loads(path.read_bytes())
+    policy.update(change)
+    path.write_bytes(plistlib.dumps(policy))
+    with pytest.raises(ReleaseError, match="unsafe_background_restart_policy"):
+        task.prepare(app, TEAM)
+    assert tools.uploads == 0
+
+
+@pytest.mark.parametrize("damage", ["permission", "format", "missing", "team", "runtime", "timestamp"])
+def test_release_refuses_incomplete_or_untrusted_background_helper(release, damage):
+    task, tools, app = background_package(release)
+    helper = app / "Contents/MacOS/AccountAccessBackground"
+    if damage == "permission":
+        helper.chmod(0o644)
+    elif damage == "missing":
+        helper.unlink()
+    elif damage == "format":
+        path = app / "Contents/Info.plist"
+        info = plistlib.loads(path.read_bytes())
+        info["AccountAccessBackgroundFormat"] = 2
+        path.write_bytes(plistlib.dumps(info))
+    elif damage == "team":
+        tools.background_team = "OTHERTEAM1"
+    elif damage == "runtime":
+        tools.background_hardened = False
+    else:
+        tools.background_timestamp = False
+    with pytest.raises(ReleaseError):
+        task.prepare(app, TEAM)
+    assert tools.uploads == 0

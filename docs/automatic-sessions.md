@@ -41,6 +41,17 @@ not survive every simultaneous process failure or computer shutdown: the next
 client/app launch restores it. It adds no privileged service or separate-OS-
 identity credential boundary.
 
+Build 58 adds a signed, embedded Mac LaunchAgent through Apple's
+[SMAppService API](https://developer.apple.com/documentation/servicemanagement/smappservice).
+The service runs after user login, waits for an existing supervisor lease and
+takes over if that supervisor exits. macOS owns abnormal-exit restart. The native
+app registers the saved Applications copy, respects revoked approval, and offers
+Login Items when approval is required. Native Pause removes the active generation
+and remains effective on a fresh job launch; Resume prepares a new generation.
+Registration means eligible to run, not proof that account authentication works.
+Live service-manager and reboot acceptance remain under validation. This remains
+a per-user process, with the same separate-identity security gate.
+
 Automatic invocation depends on a host that loads local skills/instructions and permits the client to run. Project overrides, host permissions and isolated cloud sessions still apply. There is no interception of arbitrary browser tools, and an unsupported website still needs a reviewed connector. Genuine owner-presence authentication remains a human step.
 
 The latest candidate was checked with Claude Code 2.1.112 and the desktop app's

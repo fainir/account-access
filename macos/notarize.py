@@ -23,6 +23,8 @@ from pathlib import Path, PurePosixPath
 
 APP_ID = "com.fainir.accountaccess"
 ARCHES = {"arm64", "x86_64"}
+BACKGROUND = "AccountAccessBackground"
+AGENT_PLIST = "com.fainir.accountaccess.background.plist"
 HEX256 = re.compile(r"[a-f0-9]{64}")
 TOOLS = {name: "/usr/bin/" + name for name in ["codesign", "lipo", "ditto", "xcrun", "syspolicy_check"]}
 
@@ -165,41 +167,68 @@ class Notarization:
                 or not re.fullmatch(r"[0-9]+(?:\.[0-9]+){0,2}", info["CFBundleVersion"])):
             raise ReleaseError("invalid_bundle_version")
         resources = app / "Contents/Resources"
+        background = info.get("AccountAccessBackgroundFormat")
+        if background is not None and (type(background) is not int or background != 1):
+            raise ReleaseError("unsupported_background_format")
+        executables = {"AccountAccess", BACKGROUND} if background == 1 else {"AccountAccess"}
         if (info.get("CFBundleIdentifier") != APP_ID or info.get("CFBundleExecutable") != "AccountAccess"
                 or {path.name for path in resources.iterdir()} != {"account_access.whl", "install.sh"}
-                or {path.name for path in (app / "Contents/MacOS").iterdir()} != {"AccountAccess"}):
+                or {path.name for path in (app / "Contents/MacOS").iterdir()} != executables):
             raise ReleaseError("unexpected_app_contents")
         if not os.access(app / "Contents/MacOS/AccountAccess", os.X_OK):
             raise ReleaseError("app_executable_permission_missing")
         wheel = info.get("AccountAccessWheelSHA256", "")
         if not isinstance(wheel, str) or not HEX256.fullmatch(wheel) or sha256(resources / "account_access.whl") != wheel:
             raise ReleaseError("wheel_pin_mismatch")
-        requirement = ('identifier "' + APP_ID + '" and anchor apple generic and '
+        hashes = self.code_info(app, app / "Contents/MacOS/AccountAccess", APP_ID, team)
+        result = {"identifier": APP_ID, "version": info.get("CFBundleShortVersionString"),
+                  "build": info.get("CFBundleVersion"), "team": team, "wheel_sha256": wheel, "cdhashes": hashes}
+        library = app / "Contents/Library"
+        if background == 1:
+            agents = library / "LaunchAgents"
+            if ({path.name for path in library.iterdir()} != {"LaunchAgents"}
+                    or {path.name for path in agents.iterdir()} != {AGENT_PLIST}):
+                raise ReleaseError("unexpected_background_contents")
+            policy = plistlib.loads((agents / AGENT_PLIST).read_bytes())
+            if policy != {"Label": APP_ID + ".background", "BundleProgram": "Contents/MacOS/" + BACKGROUND,
+                          "RunAtLoad": True, "KeepAlive": {"SuccessfulExit": False},
+                          "ThrottleInterval": 10, "ProcessType": "Background"}:
+                raise ReleaseError("unsafe_background_restart_policy")
+            helper = app / "Contents/MacOS" / BACKGROUND
+            if not os.access(helper, os.X_OK):
+                raise ReleaseError("background_executable_permission_missing")
+            result["background_helper"] = {"cdhashes": self.code_info(helper, helper, APP_ID + ".background", team),
+                                           "launch_agent_sha256": sha256(agents / AGENT_PLIST)}
+        elif library.exists():
+            raise ReleaseError("unexpected_background_contents")
+        return result
+
+    def code_info(self, target, executable, identifier, team):
+        requirement = ('identifier "' + identifier + '" and anchor apple generic and '
                        'certificate 1[field.1.2.840.113635.100.6.2.6] exists and '
                        'certificate leaf[field.1.2.840.113635.100.6.1.13] exists and '
                        'certificate leaf[subject.OU] = "' + team + '"')
         self.tool(["codesign", "--verify", "--deep", "--strict", "--all-architectures",
-                   "-R=" + requirement, str(app)])
-        architectures = self.tool(["lipo", "-archs", str(app / "Contents/MacOS/AccountAccess")]).stdout.split()
+                   "-R=" + requirement, str(target)])
+        architectures = self.tool(["lipo", "-archs", str(executable)]).stdout.split()
         if set(architectures) != ARCHES:
             raise ReleaseError("universal_app_required")
         hashes = {}
         for arch in sorted(ARCHES):
-            signature = self.tool(["codesign", "-d", "--verbose=4", "--arch", arch, str(app)])
+            signature = self.tool(["codesign", "-d", "--verbose=4", "--arch", arch, str(target)])
             metadata = signature.stdout + signature.stderr
             def field(name):
                 match = re.search(r"^" + re.escape(name) + r"=(.+)$", metadata, re.MULTILINE)
                 return match[1].strip() if match else ""
             flags = re.search(r"\bflags=0x([0-9a-fA-F]+)", metadata)
             code_hash = field("CDHash")
-            if (field("Identifier") != APP_ID or field("TeamIdentifier") != team
+            if (field("Identifier") != identifier or field("TeamIdentifier") != team
                     or not re.search(r"^Authority=Developer ID Application:", metadata, re.MULTILINE)
                     or not flags or not int(flags[1], 16) & 0x10000
                     or field("Timestamp") in {"", "none"} or not re.fullmatch(r"[a-f0-9]{40}", code_hash)):
                 raise ReleaseError("developer_id_runtime_timestamp_required")
             hashes[arch] = code_hash
-        return {"identifier": APP_ID, "version": info.get("CFBundleShortVersionString"),
-                "build": info.get("CFBundleVersion"), "team": team, "wheel_sha256": wheel, "cdhashes": hashes}
+        return hashes
 
     def verify(self, state):
         if self.app_info(self.app, state["app"]["team"]) != state["app"]:
