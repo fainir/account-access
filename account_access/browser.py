@@ -8,6 +8,7 @@ from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
 
 from .errors import AccessError
+from .browser_network import ResponseGuard
 from .models import origin
 from .navigation import route_hint
 
@@ -22,6 +23,8 @@ class Browser:
                                       service_workers="block", accept_downloads=False)
         context._login_code_request = None
         allowed = set(config.login_resources if login else config.read_resources)
+        assets = set(config.login_assets) if login else set()
+        allowed.update(assets)
         if login:
             allowed.add(config.login_url)
         else:
@@ -31,8 +34,9 @@ class Browser:
             config.login_url, *config.login_resources, *config.read_resources,
             *(op.url for op in config.operations.values())}})
 
-        def record_failure(request, url, reason, redirected=False):
-            if account is None or not request.is_navigation_request():
+        def record_metadata(url, method, reason, resource_type, redirected=False):
+            if account is None or (resource_type != "document" and not (
+                    login and method == "POST" and origin(url) == origin(config.login_url))):
                 return
             # Resource indices distinguish a changed query on an already reviewed
             # path from a wholly new destination. Never log URLs, query values,
@@ -49,21 +53,51 @@ class Browser:
             except Exception:
                 pass  # Diagnostics must not change the routing or credential policy.
 
+        def record_failure(request, url, reason, redirected=False):
+            record_metadata(url, request.method, reason, request.resource_type, redirected)
+
+        def permitted(url, method, resource_type):
+            if url not in allowed:
+                return "destination"
+            if method not in {"GET", "HEAD"} and not (
+                    login and method == "POST" and url in config.login_post_urls):
+                return "method"
+            if url in assets and resource_type not in {"script", "stylesheet"}:
+                return "resource_type"
+            return None
+
+        def response_metadata(url, method, status):
+            pending = context._login_code_request
+            if method == "POST" and pending is not None and url == pending["url"]:
+                pending["http_status"] = status
+
+        native = ResponseGuard(context, permitted, record_metadata, response_metadata)
+        context._response_guard = native
+
         def guard(route):
             request = route.request
             url, method = request.url, request.method
+            reason = permitted(url, method, request.resource_type)
+            if reason:
+                record_failure(request, url, reason)
+                route.abort("blockedbyclient")
+                return
+            if native.native(request):
+                # The attached response guard checks every redirect before
+                # Chromium follows it. Preserve real URLs, cookies, TLS and
+                # browser-generated headers throughout the login transaction.
+                route.continue_()
+                return
             headers = {k: v for k, v in request.all_headers().items() if k not in {"cookie", "host", "content-length"}}
             body = request.post_data_buffer
-            # Playwright's route handler runs only for the first request in a redirect
-            # chain. Fetch each hop ourselves so 307/308 cannot forward passwords
-            # to a destination that was never checked. Fulfill the final response
-            # at the requested URL; adapters must accommodate that document base.
+            # Child frames and workers have no attached native response guard.
+            # Fetch each hop separately rather than permitting an unchecked
+            # native redirect in a different Chromium target.
             try:
                 for hop in range(6):
-                    allowed_method = method in {"GET", "HEAD"} or (
-                        login and method == "POST" and url in config.login_post_urls)
-                    if url not in allowed or not allowed_method:
-                        record_failure(request, url, "destination" if url not in allowed else "method", hop > 0)
+                    reason = permitted(url, method, request.resource_type)
+                    if reason:
+                        record_failure(request, url, reason, hop > 0)
                         route.abort("blockedbyclient")
                         return
                     response = route.fetch(url=url, method=method, headers=headers,
@@ -106,10 +140,24 @@ class Browser:
         context.route_web_socket("**/*", lambda ws: ws.close())
         return context
 
+    def page(self, context):
+        page = context.new_page()
+        # Await attachment before initiating any network request. Attaching
+        # during a route callback is too late for that request's response;
+        # context page events are also not a synchronous attachment barrier.
+        context._response_guard.attach(page)
+        if page.is_closed():
+            raise AccessError("RETRYABLE", "browser_guard_unavailable")
+        return page
+
     def challenge(self, page, config):
         # Action/presence challenges take priority, even if the page also has a ready marker.
         for kind in ["action", "passkey", "device", "admin", "sms", "email", "totp",
                      "sms_request", "email_request", "method", "unknown", "login"]:
+            if (kind == "method" and config.login and config.login.choice_toggle_selector
+                    and page.locator(config.login.choice_toggle_selector).first.is_visible()
+                    and any(page.locator(choice.selector).count() for choice in config.login.choices)):
+                return kind
             if kind.endswith("_request") and config.login:
                 delivery = next((item for item in config.login.code_requests if item.kind + "_request" == kind), None)
                 if delivery and page.url == delivery.url and page.locator(delivery.selector).first.is_visible():
@@ -173,7 +221,7 @@ class Browser:
                         pass
                 try:
                     context = self.context(browser, config, state, account=account)
-                    page = context.new_page()
+                    page = self.page(context)
                     page.goto(op.url, timeout=15000, wait_until="domcontentloaded")
                     self.wait_state(page, config)
                     try:
@@ -189,7 +237,7 @@ class Browser:
                                            review_failure=review_failure, setup_method=setup_method,
                                            on_code_request=on_code_request, review_stop=review_stop)
                         context = self.context(browser, config, state, account=account)
-                        page = context.new_page()
+                        page = self.page(context)
                         page.goto(op.url, timeout=15000, wait_until="domcontentloaded")
                         self.wait_state(page, config)
                         self.check(page, config)
@@ -239,7 +287,7 @@ class Browser:
         completed = []
         source_errors = {}
         try:
-            page = context.new_page()
+            page = self.page(context)
             page.goto(config.login_url, timeout=15000, wait_until="domcontentloaded")
             self.wait_state(page, config)
             kind = self.challenge(page, config)
@@ -307,9 +355,13 @@ class Browser:
                                      method + ":http_" + str(http_status))
                     if not 200 <= http_status < 400:
                         raise AccessError("NEEDS_USER", "verification_code_request_rejected", method)
-                    if on_code_request:
-                        on_code_request(method, requested_at, http_status)
                     self.wait_state(page, config, previous_kind=kind)
+                    if on_code_request:
+                        details = {}
+                        if setup_method == "sms" and origin(config.login_url) == "https://github.com":
+                            from .sms_setup import diagnostics
+                            details = diagnostics(page)
+                        on_code_request(method, requested_at, http_status, details)
                     kind = self.challenge(page, config)
                     if kind not in {method, None, "action", "passkey", "device", "admin", method + "_request"}:
                         raise AccessError("NEEDS_USER", "verification_method_changed", "unknown")
@@ -387,6 +439,20 @@ class Browser:
         transaction markers take priority over it in challenge(); mandatory
         passkey/device/admin pages never enter this method.
         """
+        toggle = config.login.choice_toggle_selector
+        if toggle and not any(page.locator(choice.selector).first.is_visible() for choice in config.login.choices):
+            if (page.url not in {config.login_url, *config.login_resources}
+                    or self.challenge(page, config) != "method"):
+                raise AccessError("NEEDS_USER", "verification_method_changed", "unknown")
+            button = page.locator(toggle).first
+            safe = button.evaluate("el => el.tagName === 'BUTTON' && (!el.form || el.type === 'button')")
+            if not safe:
+                raise AccessError("NEEDS_USER", "verification_method_destination_changed", "unknown")
+            button.click(timeout=10000)
+            deadline = time.monotonic() + config.state_timeout_ms / 1000
+            while (time.monotonic() < deadline
+                   and not any(page.locator(choice.selector).first.is_visible() for choice in config.login.choices)):
+                page.wait_for_timeout(50)
         setup = None
         for choice in config.login.choices:
             if setup_method and choice.kind != setup_method:
@@ -455,7 +521,7 @@ class Browser:
                 browser = pw.chromium.launch(headless=headless, chromium_sandbox=True)
                 try:
                     context = self.context(browser, config, existing.get("state"), login=True, account=account)
-                    page = context.new_page()
+                    page = self.page(context)
                     page.goto(config.login_url, timeout=15000, wait_until="domcontentloaded")
                     if complete:
                         complete(page)

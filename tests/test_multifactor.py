@@ -48,7 +48,12 @@ def chain(tmp_path):
                     elif kind == "choose":
                         target = getattr(provider, "choice_target", "/verify/totp")
                         presence = '<div id="passkey-required">Use security key</div>' if getattr(provider, "choice_presence", False) else ""
-                        self.page('<div id="method-choice"><a id="use-totp" href="' + target + '">Use authenticator app</a></div>' + presence)
+                        hidden = getattr(provider, "hidden_choices", False)
+                        button_type = getattr(provider, "choice_toggle_type", "button")
+                        toggle = '<button id="show-methods" type="' + button_type + '" onclick="document.querySelector(\'#method-choice\').style.display=\'block\'">More options</button>' if hidden else ""
+                        if getattr(provider, "toggle_in_form", False):
+                            toggle = '<form method="post" action="/verify/request">' + toggle + '</form>'
+                        self.page(toggle + '<div id="method-choice"' + (' style="display:none"' if hidden else '') + '><a id="use-totp" href="' + target + '">Use authenticator app</a></div>' + presence)
                     elif kind == "action":
                         self.page('<div id="action-challenge">Approve a payment</div>')
                     elif kind == "request":
@@ -228,9 +233,11 @@ def test_legacy_connector_fingerprint_survives_new_factor_schema(env):
     _, broker, _ = env
     config = broker.store.config()
     old = config.accounts["demo-mfa"].model_dump()
+    old.pop("login_assets")
     old["login"].pop("factors")
     old["login"].pop("choices")
     old["login"].pop("code_requests")
+    old["login"].pop("choice_toggle_selector")
     old["login"].pop("code_wait_ms")
     old["code_source_config"] = config.code_sources["demo-totp"].model_dump()
     old["code_source_config"].pop("host")
@@ -248,6 +255,30 @@ def choices(broker, provider):
     spec.login.choices = [LoginChoice(kind="totp", selector="#use-totp", url=provider.base + "/verify/totp")]
     broker.store.configure(config)
     broker.grant("test", "demo-mfa", ["summary"])
+
+
+@pytest.mark.parametrize("case", ["visible_choice", "mandatory_presence", "submit_button"])
+def test_optional_methods_can_expand_a_reviewed_non_submitting_toggle(chain, case):
+    provider, broker, _, stages = chain
+    stages[:] = ["choose", "totp"]
+    choices(broker, provider)
+    provider.hidden_choices = True
+    provider.choice_presence = case == "mandatory_presence"
+    provider.toggle_in_form = case == "submit_button"
+    provider.choice_toggle_type = "submit" if case == "submit_button" else "button"
+    config = broker.store.config()
+    spec = config.accounts["demo-mfa"]
+    spec.javascript = True
+    spec.login.choice_toggle_selector = "#show-methods"
+    broker.store.configure(config)
+    broker.grant("test", "demo-mfa", ["summary"])
+    result = broker.run("test", "demo-mfa", "summary")
+    if case == "visible_choice":
+        assert result["status"] == "COMPLETED" and provider.totp_count == 1
+    else:
+        assert result["status"] == "NEEDS_USER" and provider.totp_count == 0
+        assert result["reason"] == ("browser_passkey_required" if case == "mandatory_presence"
+                                      else "verification_method_destination_changed")
 
 
 def test_offered_authenticator_choice_completes_without_owner_intervention(chain):
@@ -335,7 +366,7 @@ def test_sms_setup_does_not_claim_delivery_request_without_a_successful_post(cha
     requested = []
     with pytest.raises(AccessError) as error:
         broker.browser.read("demo-mfa", spec.operations["summary"], spec, setup_method="sms",
-                            on_code_request=lambda kind, at, status: requested.append((kind, at, status)))
+                            on_code_request=lambda kind, at, status, diagnostics: requested.append((kind, at, status)))
     assert error.value.reason == reason
     assert not requested and provider.sms_count == 0
     if case == "request_rejected":
@@ -377,7 +408,7 @@ def test_owner_sms_setup_requests_delivery_without_retrieving_or_submitting_code
     requested = []
     with pytest.raises(AccessError) as stopped:
         broker.browser.read("demo-mfa", spec.operations["summary"], spec, setup_method="sms",
-                            on_code_request=lambda kind, at, status: requested.append((kind, at, status)))
+                            on_code_request=lambda kind, at, status, diagnostics: requested.append((kind, at, status)))
     assert stopped.value.kind == ("passkey" if presence else "sms")
     assert len(requested) == getattr(provider, "sms_request_count", 0) == (0 if presence else 1)
     assert provider.sms_count == 0

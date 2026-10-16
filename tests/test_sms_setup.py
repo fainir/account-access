@@ -9,6 +9,25 @@ from account_access.errors import AccessError
 from account_access.owner import make_owner_server
 
 
+def test_owner_sms_diagnostics_exclude_input_values_queries_and_unknown_route_parts():
+    import json
+    from playwright.sync_api import sync_playwright
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(headless=True, chromium_sandbox=True)
+        page = browser.new_page()
+        page.set_content('''<body class="is-sent"><form class="js-send-auth-code private-class"
+            method="post" action="https://github.com/sessions/two-factor/private-segment?token=private-query">
+            <input id="otp" name="otp" autocomplete="one-time-code" value="123456">
+            <input type="password" value="private-password"></form></body>''')
+        result = sms_setup.diagnostics(page)
+        browser.close()
+    encoded = json.dumps(result)
+    assert not any(value in encoded for value in ["private", "123456", "token=", "github.com"])
+    assert result["forms"] == [{"route": "origin_0:/sessions/two-factor/?", "method": "POST", "dispatch": True, "auto": False}]
+    assert result["fields"]["otp_id"] and result["fields"]["otp_name"]
+    assert result["dispatch_state"]["sent"] is True
+
+
 def pilot(broker):
     config = broker.store.config()
     spec = config.accounts["demo-mfa"].model_copy(deep=True)
@@ -35,6 +54,8 @@ def test_sms_filter_enrollment_preserves_credentials_read_scope_and_expiry(env):
     fingerprint = sms_setup.prepare(broker.store, "github-pilot", config.fingerprint("github-pilot"))
     prepared = broker.store.config().accounts["github-pilot"]
     assert set(prepared.login_post_urls) - set(original.login_post_urls) == {sms_setup.SMS_PAGE}
+    assert prepared.javascript and len(prepared.login_assets) > 0
+    assert all(url.startswith("https://github.githubassets.com/assets/") for url in prepared.login_assets)
     assert prepared.operations == original.operations and prepared.read_resources == original.read_resources
     assert prepared.login.factor("sms") is None
     for template in ["Payment: {code}", "{code} is your GitHub authentication code. Private extra text"]:
@@ -62,7 +83,7 @@ def test_sms_setup_endpoints_require_owner_origin_and_single_use(env, monkeypatc
     config = pilot(broker)
     def inspect(account, operation, spec, **kwargs):
         assert kwargs["setup_method"] == "sms" and kwargs["visible"] is True
-        kwargs["on_code_request"]("sms", time.time(), 302)
+        kwargs["on_code_request"]("sms", time.time(), 302, {})
         raise AccessError("NEEDS_USER", "browser_sms_required", "sms")
     monkeypatch.setattr(broker.browser, "read", inspect)
     server, token = make_owner_server(broker, guided=True)

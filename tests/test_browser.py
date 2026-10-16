@@ -1,6 +1,49 @@
 from account_access.broker import Broker
 
 
+def test_login_assets_run_only_as_scripts_or_styles_during_login(env):
+    import pytest
+    from playwright.sync_api import Error, sync_playwright
+    provider, broker, _ = env
+    parent = provider.server.RequestHandlerClass
+    requests = []
+    class Handler(parent):
+        def do_GET(self):
+            if self.path == "/approved.js":
+                requests.append(self.path)
+                self.send(200, "window.reviewedAssetLoaded = true", content_type="application/javascript")
+            else:
+                super().do_GET()
+    provider.server.RequestHandlerClass = Handler
+    spec = broker.store.config().accounts["demo-web"]
+    spec.javascript = True
+    asset = provider.base + "/approved.js"
+    spec.login_assets = [asset]
+    load = """url => new Promise(resolve => {
+        const script = document.createElement('script'); script.src = url;
+        script.onload = () => resolve(true); script.onerror = () => resolve(false);
+        document.head.append(script);
+    })"""
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(headless=True, chromium_sandbox=True)
+        context = broker.browser.context(browser, spec, login=True)
+        page = broker.browser.page(context)
+        page.goto(spec.login_url)
+        assert page.evaluate(load, asset)
+        assert page.evaluate("window.reviewedAssetLoaded") is True
+        assert page.evaluate("async url => {try {await fetch(url); return false} catch {return true}}", asset)
+        with pytest.raises(Error):
+            page.goto(asset)
+        context.close()
+        spec.read_resources.append(spec.login_url)
+        context = broker.browser.context(browser, spec)
+        page = broker.browser.page(context)
+        page.goto(spec.login_url)
+        assert not page.evaluate(load, asset)
+        browser.close()
+    assert requests == ["/approved.js"]
+
+
 def test_account_discovery_does_not_claim_saved_password_is_verified_access(env):
     provider, broker, _ = env
     def account():
@@ -102,7 +145,7 @@ def test_login_cannot_post_to_a_read_resource(env):
     with sync_playwright() as pw:
         browser = pw.chromium.launch()
         context = broker.browser.context(browser, config, login=True)
-        page = context.new_page()
+        page = broker.browser.page(context)
         page.goto(config.login_url)
         result = page.evaluate("async url => {try {await fetch(url, {method:'POST'}); return 'sent'} catch {return 'blocked'}}", provider.base + "/api/summary")
         assert result == "blocked"

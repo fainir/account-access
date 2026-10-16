@@ -65,6 +65,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     var browserUpdates: [[String: Any]] = []
     var smsSetups: [[String: Any]] = []
     var smsProgress: Progress?
+    var smsDiagnostics: String?
     var syncAccounts: NSPopUpButton!
     var syncFields: [String: NSTextField] = [:]
     var automaticSessions: [String: [String: Any]] = [:]
@@ -966,6 +967,14 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
 
     @objc func cancelSMSSetup() { smsProgress?.cancel() }
 
+    @objc func showSMSDiagnostics() {
+        let alert = NSAlert()
+        alert.messageText = "Sign-in delivery details"
+        alert.informativeText = smsDiagnostics ?? "The website has not returned structural delivery details yet. No credentials or message contents are included."
+        alert.addButton(withTitle: "Close")
+        alert.runModal()
+    }
+
     @objc func startSMSSetup(_ sender: NSButton) {
         guard !busy, let account = sender.identifier?.rawValue,
               let setup = smsSetups.first(where: { $0["account"] as? String == account }),
@@ -988,12 +997,15 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             return
         }
         busy = true
+        smsDiagnostics = nil
         let waiting = Progress(totalUnitCount: 110)
         smsProgress = waiting
         page("Connecting your login SMS", "Requesting one GitHub login SMS and checking its delivery on this Mac. You do not need to copy a code.")
         progress()
         let cancel = action("Cancel SMS setup", #selector(cancelSMSSetup))
         cancel.isEnabled = true
+        let details = action("Show sign-in details", #selector(showSMSDiagnostics))
+        details.isEnabled = true
         DispatchQueue.global(qos: .userInitiated).async {
             var id: String?
             do {
@@ -1009,13 +1021,18 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                     if let delivery = job["code_requested"] as? [String: Any], delivery["kind"] as? String == "sms",
                        let httpStatus = delivery["http_status"] as? Int, (200..<400).contains(httpStatus),
                        let at = delivery["at"] as? Double {
+                        if let details = delivery["diagnostics"] as? [String: Any],
+                           let bytes = try? JSONSerialization.data(withJSONObject: details, options: [.prettyPrinted, .sortedKeys]),
+                           let text = String(data: bytes, encoding: .utf8) {
+                            DispatchQueue.main.async { self.smsDiagnostics = text }
+                        }
                         let preview = MessagesReader.previewGitHubSMS(path: path, started: at, afterRow: afterRow)
                         incoming = Int(preview["incoming"] ?? "0") ?? 0
                         unreadable = Int(preview["unreadable"] ?? "0") ?? 0
                         if preview["status"] == "WAITING" {
                             let message = unreadable > 0 ? "Some incoming messages could not be read."
                                 : incoming > 0 ? "New messages arrived; waiting for the GitHub login text…"
-                                : "The website accepted the SMS request. Waiting for it to reach Messages on this Mac…"
+                                : "The website opened SMS code entry. Waiting for a new GitHub text in Messages on this Mac…"
                             DispatchQueue.main.async { self.status.stringValue = message }
                         }
                         if preview["status"] == "FOUND" {
@@ -1039,7 +1056,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 }
                 let explanation = unreadable > 0 ? "New texts arrived, but some messages could not be decoded. No SMS filter was enabled. Update Account Access before trying again."
                     : incoming > 0 ? "New texts arrived, but none matched a supported GitHub login message. No SMS filter was enabled."
-                    : "The website accepted the SMS request, but no new text reached this Mac. Check whether it arrived on your phone first. If it did, check text forwarding. No SMS filter was enabled."
+                    : "The website opened SMS code entry, but delivery was not confirmed. No new text reached Messages on this Mac. No SMS filter was enabled."
                 throw Failure.message(waiting.isCancelled ? "SMS setup was cancelled. No SMS filter was enabled." : explanation)
             } catch {
                 if let id { _ = try? self.request("owner/sms/setup-discard", body: ["id": id]) }

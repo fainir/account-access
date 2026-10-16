@@ -48,9 +48,10 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
     def _verify(account, job_id, visible=False, setup_method=None, review_stop=None):
         try:
             config = broker.store.config().accounts[account]
-            def requested(kind, at, http_status):
+            def requested(kind, at, http_status, diagnostics):
                 with guard:
-                    jobs[job_id]["code_requested"] = {"kind": kind, "at": at, "http_status": http_status}
+                    jobs[job_id]["code_requested"] = {"kind": kind, "at": at, "http_status": http_status,
+                                                     "diagnostics": diagnostics}
             with broker.store.lock("account:" + account, timeout=5):
                 broker.browser.read(account, next(iter(config.operations.values())), config,
                                     secret_values=set(), visible=visible, setup_method=setup_method,

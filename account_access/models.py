@@ -111,6 +111,7 @@ class LoginForm(StrictModel):
     factors: dict[Literal["email", "sms", "totp"], LoginFactor] = Field(default_factory=dict)
     choices: list[LoginChoice] = Field(default_factory=list, max_length=3)
     code_requests: list[LoginCodeRequest] = Field(default_factory=list, max_length=2)
+    choice_toggle_selector: str | None = Field(default=None, min_length=1, max_length=500)
 
     @model_validator(mode="after")
     def one_factor_configuration(self):
@@ -150,6 +151,7 @@ class BrowserAccount(StrictModel):
     # Exact URLs, including query strings. GET alone does not prove a URL is read-only.
     read_resources: list[str] = Field(default_factory=list, max_length=100)
     login_resources: list[str] = Field(default_factory=list, max_length=100)
+    login_assets: list[str] = Field(default_factory=list, max_length=150)
     login_post_urls: list[str] = Field(default_factory=list, max_length=32)
     javascript: bool = False
     state_timeout_ms: int = Field(default=5000, ge=0, le=15000)
@@ -193,7 +195,8 @@ class Configuration(StrictModel):
                 if account.revoke_url:
                     urls.append(account.revoke_url)
             else:
-                urls = [account.login_url, *account.read_resources, *account.login_resources, *account.login_post_urls]
+                urls = [account.login_url, *account.read_resources, *account.login_resources,
+                        *account.login_assets, *account.login_post_urls]
                 if account.login:
                     if not account.login.sources() <= self.code_sources.keys():
                         raise ValueError("Unknown login code source")
@@ -231,6 +234,8 @@ class Configuration(StrictModel):
 
     def fingerprint(self, account: str) -> str:
         data = self.accounts[account].model_dump()
+        if isinstance(self.accounts[account], BrowserAccount) and not data.get("login_assets"):
+            data.pop("login_assets", None)
         if isinstance(self.accounts[account], BrowserAccount) and data.get("login"):
             if not data["login"].get("factors"):
                 data["login"].pop("factors", None)
@@ -238,6 +243,8 @@ class Configuration(StrictModel):
                 data["login"].pop("choices", None)
             if not data["login"].get("code_requests"):
                 data["login"].pop("code_requests", None)
+            if data["login"].get("choice_toggle_selector") is None:
+                data["login"].pop("choice_toggle_selector", None)
             if data["login"].get("code_wait_ms") == 60000:
                 data["login"].pop("code_wait_ms", None)
         if isinstance(self.accounts[account], BrowserAccount):

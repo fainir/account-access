@@ -1,6 +1,9 @@
 """Owner-only enrollment of a forwarded SMS filter for the reviewed GitHub pilot."""
 
 import hashlib
+import json
+import re
+from pathlib import Path
 from urllib.parse import urlsplit
 
 from .browser_updates import APP_LINK, APP_PAGE, METHOD_PAGE, SMS_LINK, SMS_PAGE
@@ -14,6 +17,28 @@ TEMPLATES = {
     "github authentication code: {code}.",
     "{code} is your github verification code.",
 }
+
+
+def diagnostics(page):
+    """Closed structural metadata for owner troubleshooting; never input values."""
+    from .navigation import route_hint
+    forms = page.locator("form").evaluate_all("""forms => forms.slice(0, 8).map(form => ({
+        action: form.action, method: form.method,
+        dispatch: form.classList.contains('js-send-auth-code'),
+        auto: form.hasAttribute('data-autosubmit')
+    }))""")
+    return {
+        "forms": [{"route": route_hint(form["action"], ["https://github.com"]),
+                   "method": form["method"].upper() if form["method"].upper() in {"GET", "POST"} else "other",
+                   "dispatch": form["dispatch"] is True, "auto": form["auto"] is True}
+                  for form in forms],
+        "fields": {name: page.locator(selector).count() > 0 for name, selector in {
+            "sms_totp": "#sms_totp", "app_totp": "#app_totp", "otp_id": "#otp",
+            "otp_name": 'input[name="otp"]', "one_time_code": 'input[autocomplete="one-time-code"]'}.items()},
+        "dispatch_state": page.locator("body").evaluate("""body => ({
+            sending: body.classList.contains('is-sending'), sent: body.classList.contains('is-sent'),
+            failed: body.classList.contains('is-not-sent')})"""),
+    }
 
 
 def eligible(config, account):
@@ -58,6 +83,16 @@ def prepare(store, account, fingerprint):
         if not eligible(config, account) or config.fingerprint(account) != fingerprint:
             raise AccessError("DENIED", "sms_setup_changed")
         spec = config.accounts[account]
+        manifest = json.loads(Path(__file__).with_name("github_login_assets.json").read_text())
+        assets = manifest["resources"]
+        if (not isinstance(assets, list) or not 1 <= len(assets) <= 150
+                or any(not isinstance(url, str) or not re.fullmatch(
+                    r"https://github\.githubassets\.com/assets/[A-Za-z0-9_.-]+\.(?:js|css)", url)
+                       for url in assets)):
+            raise AccessError("DENIED", "invalid_github_login_assets")
+        spec.javascript = True
+        spec.login_assets = assets
+        spec.login.choice_toggle_selector = ".more-options-two-factor"
         if not spec.login.factors:
             factor = spec.login.factor("totp")
             spec.login.code_source = spec.login.code_selector = spec.login.code_submit_selector = None
