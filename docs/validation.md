@@ -1,5 +1,33 @@
 # Validation of Account Access
 
+## Verified mailbox repair and authorization binding — 16 October 2026
+
+The next candidate repairs a missing step after mailbox enrollment: a task
+paused for rejected mailbox credentials used to need another website-check
+click after the owner fixed the password. New internal source/fingerprint
+context allows only recognized mailbox-access prerequisites to clear after a
+fresh successful check, unchanged account/mailbox configuration and active
+standing permissions. Ordinary authentication and permission checks then run
+for the remaining steps of the original task. There is no new agent secret API.
+
+Real local TLS IMAP/browser cases repair reusable and inline mailbox passwords,
+resume the original task and retain its already-completed step. Negative cases
+retain disabled sources, changed connectors, revoked grants, stale/unverified
+checks, historical unbound failures, delivery problems, wrong source identities
+and independent presence/action challenges. A 21-account case verifies fairness
+of the bounded scan without contacting website providers.
+
+Configured Gmail health checks now bind to their OAuth provider configuration,
+authorization identity and revoked/uncertain-refresh state. A real local OAuth
+renewal preserves the identity, including a legacy migration; a new owner
+authorization invalidates the previous check. Gmail profile contracts require
+the correct current mailbox identity. Reusable mailbox passwords are included
+in result redaction, with an adversarial provider-echo regression.
+
+Build 53 remains installed with the owner Gmail form left untouched. No new
+private website, mailbox or phone test is claimed in this phase. The new build
+is prepared separately while one-time Google credential enrollment is pending.
+
 ## Reusable mailbox setup — 16 October 2026
 
 The next candidate makes Gmail/TLS IMAP setup available before a website

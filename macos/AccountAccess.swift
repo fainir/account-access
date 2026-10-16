@@ -1351,9 +1351,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             if ["host", "port"].contains(name) { mailboxServerViews.append(field) }
         }
         mailboxKindChanged()
-        label("For Gmail, create a Google app password with 2-Step Verification enabled. Your account must allow app passwords. Account Access does not include a registered consumer Google OAuth app yet.", 13, .secondaryLabelColor)
+        label("Create a Google app password for Account Access with 2-Step Verification enabled. If Google does not offer app passwords for your account, this connection is not supported yet.", 13, .secondaryLabelColor)
         action("Open Google App passwords", #selector(openGoogleAppPasswords))
-        label("Mailbox access is encrypted locally. Checking it reads no messages and starts no website login. Website code delivery is checked separately.", 13, .secondaryLabelColor)
+        label("Your app password grants mailbox access and is encrypted on this Mac. Account Access uses read-only checks and matching login messages for approved sign-ins. Website code delivery is checked separately.", 13, .secondaryLabelColor)
         primary("Connect mailbox", #selector(saveMailbox))
         action("Back", #selector(showFactors))
     }

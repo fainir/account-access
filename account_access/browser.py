@@ -389,6 +389,7 @@ class Browser:
                     # prevent a different, enrolled method from completing.
                     self.codes.begin(source_id, account, started)
                 except AccessError as exc:
+                    exc.source_id = source_id
                     if not form.factors:
                         raise
                     source_errors[source_id] = exc
@@ -501,7 +502,11 @@ class Browser:
                 code = None
                 deadline = time.monotonic() + min(form.code_wait_ms / 1000, max(0, started + 120 - time.time()))
                 while not code and time.monotonic() < deadline:
-                    code = self.codes.resolve(source_id, started, used)
+                    try:
+                        code = self.codes.resolve(source_id, started, used)
+                    except AccessError as exc:
+                        exc.source_id = source_id
+                        raise
                     if not code:
                         time.sleep(1)
                 if not code:

@@ -88,7 +88,10 @@ class Broker:
     def error(self, exc, account, *, challenge=True):
         result = {"status": exc.status, "reason": exc.reason, "account": account}
         if exc.status == "NEEDS_USER" and challenge:
-            result["challenge"] = self.challenge_view(self.store.challenge(account, exc.kind, exc.reason))
+            saved = self.store.challenge(account, exc.kind, exc.reason)
+            from .verification_recovery import remember
+            remember(self.store, saved, exc.source_id, exc.reason)
+            result["challenge"] = self.challenge_view(saved)
         return result
 
     def accounts(self, principal):
@@ -160,6 +163,14 @@ class Broker:
                 if isinstance(spec, BrowserAccount) and spec.login:
                     for source_id in spec.login.sources():
                         secrets_seen |= credential_values(self.store.get("source:" + source_id, {}))
+                        from .mailboxes import enrollment
+                        try:
+                            secrets_seen |= credential_values(enrollment(self.store, source_id))
+                        except AccessError:
+                            # An existing website session can still be read
+                            # after its mailbox is disconnected. Recovery will
+                            # stop before password submission if it is needed.
+                            pass
                         source_account = config.code_sources[source_id].account
                         if source_account:
                             secrets_seen |= credential_values(self.store.get("connection:" + source_account, {}))
@@ -260,6 +271,8 @@ class Broker:
     def tick(self):
         from .password_sync import due
         due(self.store)
+        from .verification_recovery import recover
+        recover(self.store)
         self.tick_schedules()
         with self.store.db() as db:
             ids = [r[0] for r in db.execute("SELECT id FROM jobs WHERE status IN ('QUEUED','RUNNING','NEEDS_USER','RETRYABLE') AND next_at<=? ORDER BY rowid LIMIT 20", (time.time(),))]

@@ -38,6 +38,14 @@ Google-issued app password at Google or revoke independent website permissions.
 Temporary mailbox outages retry automatically during delegated work; rejected
 credentials or a certificate-verification failure require local repair.
 
+In the newest development candidate, a verified repair of a recognized mailbox
+access problem can resume its original queued task automatically. The service
+requires its saved source context, unchanged permissions/configuration and a
+fresh mailbox check. A delivery timeout, ambiguous code or website security/
+device/action challenge still needs its specific repair; checking the mailbox
+does not clear it or mark website sign-in successful. Historical challenges
+without a bound source remain available for explicit owner review.
+
 The following source-specific steps also apply to the published 0.7.4 preview:
 
 1. Open your [Google Account's App passwords page](https://myaccount.google.com/apppasswords). Sign in yourself. This option requires Google's 2-Step Verification.

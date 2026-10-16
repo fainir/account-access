@@ -11,6 +11,7 @@ import pytest
 import httpx2 as httpx
 
 from account_access.codes import imap_number
+from account_access.demo import connect_demo
 from account_access.errors import AccessError
 from account_access.factors import enroll, revoke
 from account_access.mailbox_health import GMAIL_PROFILE, check, view
@@ -210,6 +211,48 @@ def test_gmail_connection_check_reads_only_profile_and_checks_mailbox_identity(e
         assert view(broker.store, "email")["status"] != "VERIFIED"
     assert calls == [GMAIL_PROFILE] * (0 if case == "revoked_scope" else 2 if case in {"renew", "reject_again"} else 1)
     assert provider.login_count == 0
+
+
+@pytest.mark.parametrize("case", ["refresh", "legacy_refresh", "reconnect", "configuration", "revoked", "uncertain"])
+def test_gmail_health_follows_the_authorization_without_repeated_refresh_setup(env, monkeypatch, case):
+    _, broker, _ = env
+    gmail_source(broker)
+    enroll(broker.store, "email", {})
+    if case == "legacy_refresh":
+        saved = broker.store.get("connection:demo-api")
+        saved.pop("authorization_id", None)
+        broker.store.put("connection:demo-api", saved)
+    calls = []
+
+    def profile(*args, **kwargs):
+        calls.append(True)
+        return {"emailAddress": "demo@example.test"}
+
+    monkeypatch.setattr("account_access.mailbox_health.get_json", profile)
+    check(broker, "email")
+    before = broker.store.get("connection:demo-api")
+    if case in {"refresh", "legacy_refresh"}:
+        with broker.store.lock("account:demo-api"):
+            broker.oauth.token("demo-api", broker.store.config(), force=True)
+        after = broker.store.get("connection:demo-api")
+        assert after["generation"] != before["generation"]
+        assert after["authorization_id"] == before.get("authorization_id", before["generation"])
+        assert view(broker.store, "email")["status"] == "VERIFIED"
+    else:
+        if case == "reconnect":
+            connect_demo(broker)
+            assert broker.store.get("connection:demo-api")["authorization_id"] != before["authorization_id"]
+        elif case == "configuration":
+            config = broker.store.config()
+            config.accounts["demo-api"].authorization_params["prompt"] = "consent"
+            broker.store.configure(config)
+        elif case == "revoked":
+            broker.revoke(account="demo-api")
+        else:
+            before["refresh_in_flight"] = True
+            broker.store.put("connection:demo-api", before)
+        assert view(broker.store, "email")["status"] == "UNTESTED"
+    assert calls == [True]  # Cache inspection never fetches messages or probes providers.
 
 
 def test_real_tls_mailbox_probe_verifies_connection_without_reading_mail(tmp_path):

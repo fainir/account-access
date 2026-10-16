@@ -68,6 +68,20 @@ mailbox invalidates pending code reads, while a connection recheck alone does
 not. Temporary IMAP outages use ordinary task retry; invalid certificates and
 rejected credentials still require repair. No unverified TLS fallback exists.
 
+The newest candidate can resume the original task after a verified mailbox
+repair. It retains private source/configuration context when a recognized
+mailbox-access problem occurs, requires a fresh successful check and active
+standing grants, and clears only that specific prerequisite. It does not mark
+website authentication successful, change permissions or clear delivery,
+ambiguity, device, browser or action challenges. Old challenges without proven
+source context stay pending. A bounded rotating scan prevents other blocked
+accounts from starving a repaired task.
+
+OAuth mailbox checks bind to their provider configuration and authorization
+identity. Token refresh preserves that identity; a new owner connection, changed
+provider settings, revocation or uncertain refresh invalidates the cached check.
+Reusable mailbox passwords also participate in the broker's result redaction.
+
 The candidate installer ships the tested dependency versions and their SHA-256
 hashes inside the verified wheel. It requires those hashes and prohibits source
 builds. It prepares a separate environment and browser before switching the

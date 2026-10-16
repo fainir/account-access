@@ -145,12 +145,17 @@ class OAuth:
         if not math.isfinite(float(expires)):
             raise AccessError("NEEDS_USER", "invalid_provider_token")
         scope = token.get("scope", previous.get("scope", " ".join(config.accounts[account].scopes)))
+        existing = (self.store.get("connection:" + account) or {}) if previous else {}
+        authorization_id = (existing.get("authorization_id") or existing.get("generation")) if previous else None
         self.store.put("connection:" + account, {
             "token": {"access_token": token["access_token"], "token_type": "Bearer",
                       "refresh_token": token.get("refresh_token", previous.get("refresh_token")),
                       "expires_at": float(expires), "scope": scope},
             "fingerprint": config.fingerprint(account), "refresh_in_flight": False,
             "generation": secrets.token_hex(8),
+            # Stable through refresh, replaced by a new owner authorization.
+            # Legacy connections retain their old generation on first renewal.
+            "authorization_id": authorization_id or secrets.token_hex(16),
         })
 
     def token(self, account, config, *, force=False):

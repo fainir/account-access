@@ -7,6 +7,17 @@ or physical-device coverage.
 
 ## Candidate 0.8 changes
 
+- A verified mailbox repair can resume an original blocked task without a
+  separate website-check click. The service stores internal source/fingerprint
+  context on recognized mailbox-access challenges and requires a fresh verified
+  check, unchanged account/mailbox configuration and active standing grants.
+  It clears only that prerequisite; ordinary website authentication still runs.
+  Delivery failures, ambiguous codes, historical unbound challenges, browser
+  checks and independent presence/action requirements remain pending.
+- Configured OAuth mailbox checks are bound to their authorization identity,
+  provider configuration and revocation/uncertain-refresh state. Normal token
+  refresh preserves that identity; a new owner authorization invalidates the
+  old check. Reusable mailbox passwords join the service's output-redaction set.
 - Reusable TLS IMAP mailbox setup is available before a website is added. Gmail
   supplies its server/port preset; other providers require their TLS settings.
   Approved website sources can reuse only an exact matching server, port and

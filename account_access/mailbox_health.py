@@ -14,11 +14,18 @@ GMAIL_PROFILE = "https://gmail.googleapis.com/gmail/v1/users/me/profile"
 
 
 def binding(store, source_id):
-    source = store.config().code_sources.get(source_id)
+    config = store.config()
+    source = config.code_sources.get(source_id)
     if source is None or source.kind not in {"imap", "gmail"}:
         raise AccessError("DENIED", "mailbox_check_unsupported", "email")
     credential = enrollment(store, source_id)
     value = {"source": source.model_dump(), "credential": credential}
+    if source.account:
+        connection = store.get("connection:" + source.account) or {}
+        value["mailbox_account"] = {"fingerprint": config.fingerprint(source.account),
+            "authorization": connection.get("authorization_id") or connection.get("generation"),
+            "connected": bool(connection), "revoked": bool(connection.get("revoked")),
+            "invalid": bool(connection.get("invalid")), "refresh_in_flight": bool(connection.get("refresh_in_flight"))}
     digest = hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()
     return source, credential, digest
 
