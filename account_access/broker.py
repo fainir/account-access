@@ -20,6 +20,7 @@ MESSAGES = {
     "passkey": "Complete the provider's passkey or biometric verification on your device.",
     "admin": "An administrator must approve the required access through the provider.",
     "action": "This is an action authorization challenge. Review it directly with the provider.",
+    "recovery": "The provider opened account recovery. Complete a supported sign-in method in the local website window.",
     "unknown": "The page needs review because its authentication state was not recognized.",
     "vault": "Unlock or repair the credential store locally.",
 }

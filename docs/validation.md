@@ -2,7 +2,31 @@
 
 ## Browser verification and repair candidate — 16 October 2026, version 0.8
 
-The current local candidate passed **265 tests** in 224.01 seconds. Follow-up
+The current local candidate passed **274 tests** in 247.80 seconds; four owner
+review cases also passed after adding best-effort website-window focus. Signed
+build 41 passed ten native owner-screen checks and strict/deep signature
+verification. Follow-up
+`eb27c05` passed **265 tests**, ten native owner-screen checks, Messages and
+startup/reopen checks, lint, audit and build in
+[CI](https://github.com/fainir/account-access/actions/runs/38909036249), plus the
+[Android journey](https://github.com/fainir/account-access/actions/runs/38909036547).
+The latest follow-up exercises owner completion, cancellation, a denied check and
+a separate transaction authorization. Only a
+confirmed ready page after permitted owner review saves the session and clears
+the challenge; subsequent reads reuse that session. Cancellation and denied
+checks preserve the block, and completed sign-in never clears a transaction
+authorization. This closes a gap where the troubleshooting window
+waited for the owner but failed to retain a completed sign-in. This is fixture
+evidence, not a physical passkey or personal-account success.
+
+GitHub's recovery-code marker now has its own login-recovery classification.
+The connector repair can reclassify a historical action challenge only when its
+entire old action selector was the exact recovery marker and its reason was the
+browser login gate. Mixed selectors and independently created action challenges
+remain blocked. A duplicate recovery gate remains pending during the repair.
+Recovery codes are never retrieved or submitted by this adapter.
+
+Follow-up
 `0431688` passed **263 tests**, native owner,
 Messages and startup/reopen checks, lint, audit and build in
 [CI](https://github.com/fainir/account-access/actions/runs/38907392229), plus the
@@ -24,7 +48,7 @@ Chrome check loaded the current public login page in 5.84 seconds with 77 asset
 downloads and no failures; it submitted no credentials. See
 [public asset results](../artifacts/github-public-assets-080.json).
 
-Native builds 33–37 restored owner-window control and were installed through
+Native builds 33–41 restored owner-window control and were installed through
 graphical repair while preserving account reads and the connected SMS source.
 The latest real GitHub check selected SMS and received an accepted HTTP response
 to its request, then reached a recovery-code page before receiving/filling a
@@ -32,6 +56,9 @@ fresh code. Automatic sign-in stopped there. Additional owner diagnostics now
 show only the request's HTTP status, transport and closed-vocabulary redirect
 route, to distinguish a normal form submission from the site's JavaScript flow.
 Private sign-in and physical delivery remain unverified.
+The owner will complete genuine local GitHub verification later. The original
+blocked task remains saved; no additional account access or phone-code disclosure
+was requested.
 
 Signed build 37 adds **Finish review** when a website check has already
 stopped, so the owner can close that review immediately without waiting five

@@ -41,7 +41,8 @@ def test_reviewed_login_repair_preserves_read_scope_recipients_and_expiry(env):
     assert spec.login_post_urls == before.login_post_urls and spec.login.sources() == before.login.sources()
     assert set(spec.login_resources) - set(before.login_resources) == {browser_updates.METHOD_PAGE, browser_updates.SMS_PAGE, browser_updates.RECOVERY_PAGE}
     assert browser_updates.RECOVERY_PAGE not in spec.login_post_urls
-    assert 'input[name="recovery_code"]' in spec.challenge_selectors["action"]
+    assert 'input[name="recovery_code"]' in spec.challenge_selectors["recovery"]
+    assert spec.challenge_selectors["action"] == before.challenge_selectors["action"]
     assert browser_updates.SMS_LINK in spec.challenge_selectors["method"]
     assert browser_updates.SMS_PAGE not in spec.login_post_urls
     assert spec.login.choices[0].url == browser_updates.APP_PAGE
@@ -55,6 +56,31 @@ def test_reviewed_login_repair_preserves_read_scope_recipients_and_expiry(env):
     assert browser_updates.view(broker.store) == []
     with pytest.raises(AccessError, match="browser_update_changed"):
         browser_updates.apply(broker, "github-pilot", fingerprint)
+
+
+@pytest.mark.parametrize("case", ["recovery_only", "mixed", "independent", "duplicate"])
+def test_recovery_marker_repair_never_resolves_transaction_authorizations(env, case):
+    _, broker, _ = env
+    config = github_config(broker)
+    selector = browser_updates.RECOVERY_SELECTOR
+    spec = config.accounts["github-pilot"]
+    spec.challenge_selectors["action"] = "#transaction, " + selector if case == "mixed" else selector
+    broker.store.configure(config)
+    reason = "owner_action_required" if case == "independent" else "browser_action_required"
+    original = broker.store.challenge("github-pilot", "action", reason)
+    if case == "duplicate":
+        broker.store.challenge("github-pilot", "recovery", "browser_recovery_required")
+    browser_updates.apply(broker, "github-pilot", config.fingerprint("github-pilot"))
+    pending = broker.store.pending("github-pilot")
+    assert len(pending) == 1
+    expected = "action" if case in {"mixed", "independent"} else "recovery"
+    assert pending[0]["kind"] == expected
+    if expected == "action":
+        assert pending[0]["id"] == original["id"]
+    if case == "mixed":
+        assert broker.store.config().accounts["github-pilot"].challenge_selectors["action"] == "#transaction"
+    broker.store.resolve_login("github-pilot")
+    assert bool(broker.store.pending("github-pilot")) == (expected == "action")
 
 
 def test_update_requires_authenticated_owner_and_matching_preview(env):

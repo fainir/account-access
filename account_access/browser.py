@@ -177,7 +177,7 @@ class Browser:
 
     def challenge(self, page, config):
         # Action/presence challenges take priority, even if the page also has a ready marker.
-        for kind in ["action", "passkey", "device", "admin", "sms", "email", "totp",
+        for kind in ["action", "recovery", "passkey", "device", "admin", "sms", "email", "totp",
                      "sms_request", "email_request", "method", "unknown", "login"]:
             if (kind == "method" and config.login and config.login.choice_toggle_selector
                     and page.locator(config.login.choice_toggle_selector).first.is_visible()
@@ -233,7 +233,7 @@ class Browser:
                 def review_failure(page, error):
                     nonlocal reviewed
                     if reviewed:
-                        return
+                        return False
                     reviewed = True
                     if on_attention:
                         details = {}
@@ -243,18 +243,35 @@ class Browser:
                             details["page"] = route_hint(page.url, ["https://github.com"])
                             details["progress"] = dict(getattr(page.context, "_login_progress", {}))
                         on_attention(error.status, error.reason, error.kind, details)
-                    if not visible:
-                        return
+                    if not visible or error.status != "NEEDS_USER":
+                        return False
                     # Owner-only troubleshooting: keep the actual failed page
                     # visible briefly, without exporting its HTML or secrets.
+                    try:
+                        page.bring_to_front()
+                    except PlaywrightError:
+                        pass  # Window focus cannot change the authentication result.
                     try:
                         deadline = time.monotonic() + 300
                         while not page.is_closed() and time.monotonic() < deadline:
                             if review_stop and review_stop.is_set():
                                 break
+                            # Owner approval can complete on this exact reviewed
+                            # page. Verify its normal success markers before
+                            # saving; an attention window alone grants nothing.
+                            try:
+                                self.check(page, config)
+                            except AccessError:
+                                pass
+                            else:
+                                self.save(account, page.context.storage_state(indexed_db=True))
+                                self.store.resolve_login(account)
+                                self.store.audit("owner", account, "", "login_recovered_after_review")
+                                return True
                             page.wait_for_timeout(100)
                     except PlaywrightError:
                         pass
+                    return False
                 try:
                     context = self.context(browser, config, state, account=account)
                     page = self.page(context)
@@ -282,7 +299,12 @@ class Browser:
                     self.save(account, context.storage_state(indexed_db=True))
                     return data
                 except AccessError as exc:
-                    review_failure(page, exc)
+                    if review_failure(page, exc):
+                        page.goto(op.url, timeout=15000, wait_until="domcontentloaded")
+                        self.wait_state(page, config)
+                        self.check(page, config)
+                        return {name: page.locator(selector).first.inner_text(timeout=5000)[:100_000]
+                                for name, selector in op.fields.items()}
                     raise
                 finally:
                     browser.close()
@@ -426,7 +448,7 @@ class Browser:
                             details = diagnostics(page)
                         on_code_request(method, requested_at, http_status, details)
                     kind = self.challenge(page, config)
-                    if kind not in {method, None, "action", "passkey", "device", "admin", method + "_request"}:
+                    if kind not in {method, None, "action", "recovery", "passkey", "device", "admin", method + "_request"}:
                         raise AccessError("NEEDS_USER", "verification_method_changed", "unknown")
                     continue
                 if kind == "method":
@@ -435,7 +457,7 @@ class Browser:
                     context._login_progress["method"] = selected
                     choices_used.add(selected)
                     kind = self.challenge(page, config)
-                    if kind not in {selected, selected + "_request", None, "action", "passkey", "device", "admin"}:
+                    if kind not in {selected, selected + "_request", None, "action", "recovery", "passkey", "device", "admin"}:
                         raise AccessError("NEEDS_USER", "verification_method_changed", "unknown")
                     continue
                 if kind in completed:
@@ -489,8 +511,9 @@ class Browser:
                 self.store.audit("service", account, "", "login_factor_completed", factor)
             return state
         except AccessError as exc:
-            if review_failure:
-                review_failure(page, exc)
+            if review_failure and review_failure(page, exc):
+                self.check(page, config)
+                return context.storage_state(indexed_db=True)
             raise
         finally:
             if started:

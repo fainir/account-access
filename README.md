@@ -13,6 +13,8 @@ This development branch contains the **0.8 candidate**: local Google Authenticat
 
 The development candidate also includes a [Google Messages browser connection](docs/google-messages.md) for fresh GitHub login texts from an already-paired Android inbox. It uses an optional SMS-only Chrome extension and a local native messaging bridge. The unpacked-extension setup and private delivery are still under validation.
 
+The current personal GitHub pilot reaches the SMS request but redirects to account recovery. Completed personal-account SMS, email and authenticator sign-ins remain unverified. The [validation report](docs/validation.md) separates fixture results from real account QA.
+
 The browser sign-in flow uses the imported email/username and password, then supplies the website's email, SMS or authenticator login code from its connected source. A reviewed connector can configure all three methods for one website, including successive verification steps. This is the authentication flow being tested; using another application's existing login is not browser-authentication evidence.
 
 ![Account dashboard with approved reads and automatic session integration](docs/account-dashboard.png)

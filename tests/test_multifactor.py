@@ -55,7 +55,12 @@ def chain(tmp_path):
                             toggle = '<form method="post" action="/verify/request">' + toggle + '</form>'
                         self.page(toggle + '<div id="method-choice"' + (' style="display:none"' if hidden else '') + '><a id="use-totp" href="' + target + '">Use authenticator app</a></div>' + presence)
                     elif kind == "action":
-                        self.page('<div id="action-challenge">Approve a payment</div>')
+                        if getattr(provider, "owner_approved", False):
+                            self.finish_login("/mfa/summary")
+                        else:
+                            polling = '<script>setTimeout(() => location.reload(), 50)</script>' if getattr(provider, "review_polling", False) else ""
+                            label = "Owner approval required" if polling else "Approve a payment"
+                            self.page('<div id="action-challenge">' + label + '</div>' + polling)
                     elif kind == "request":
                         action = getattr(provider, "request_action", "/verify/request")
                         button_type = ' type="button"' if getattr(provider, "request_inert", False) else ""
@@ -151,13 +156,14 @@ def test_password_then_email_sms_and_authenticator_complete_one_browser_login(ch
     assert provider.login_count == 1
 
 
-def test_recovery_page_stops_before_resolving_or_submitting_any_login_code(chain, monkeypatch):
+@pytest.mark.parametrize("kind", ["action", "recovery"])
+def test_recovery_page_stops_before_resolving_or_submitting_any_login_code(chain, monkeypatch, kind):
     provider, broker, _, stages = chain
     stages[:] = ["recovery"]
     config = broker.store.config()
     spec = config.accounts["demo-mfa"]
     spec.login_resources.append(provider.base + "/verify/recovery")
-    spec.challenge_selectors["action"] = '#recovery_code, input[name="recovery_code"]'
+    spec.challenge_selectors[kind] = '#recovery_code, input[name="recovery_code"]'
     broker.store.configure(config)
     broker.grant("test", "demo-mfa", ["summary"])
 
@@ -166,9 +172,83 @@ def test_recovery_page_stops_before_resolving_or_submitting_any_login_code(chain
 
     monkeypatch.setattr(broker.codes, "resolve", forbidden_code)
     result = broker.run("test", "demo-mfa", "summary")
-    assert result["status"] == "NEEDS_USER" and result["challenge"]["kind"] == "action"
+    assert result["status"] == "NEEDS_USER" and result["challenge"]["kind"] == kind
     assert provider.login_count == 1 and provider.sms_count == 0
     assert "/verify/recovery" not in provider.posted_paths
+    broker.store.resolve_login("demo-mfa")
+    assert bool(broker.store.pending("demo-mfa")) == (kind == "action")
+
+
+@pytest.mark.parametrize("case", ["approve", "cancel", "denied", "transaction"])
+def test_owner_review_saves_only_confirmed_success_and_reuses_the_session(chain, monkeypatch, case):
+    import threading
+    from contextlib import contextmanager
+    from types import SimpleNamespace
+    from playwright.sync_api import sync_playwright
+
+    provider, broker, _, stages = chain
+    stages[:] = ["action"]
+    provider.review_polling = True
+    config = broker.store.config()
+    spec = config.accounts["demo-mfa"]
+    spec.javascript = True
+    spec.challenge_selectors["passkey"] = "#action-challenge"
+    spec.challenge_selectors["action"] = "#transaction-challenge"
+    broker.store.configure(config)
+    broker.grant("test", "demo-mfa", ["summary"])
+    broker.store.challenge("demo-mfa", "action" if case == "transaction" else "passkey",
+                           "owner_action_required" if case == "transaction" else "browser_passkey_required")
+    stop = threading.Event()
+    attention = []
+
+    @contextmanager
+    def fixture_browser():
+        # Exercise the real visible-review code under headless CI. The fixture
+        # server's approval flag stands for the owner's external action.
+        with sync_playwright() as pw:
+            yield SimpleNamespace(chromium=SimpleNamespace(launch=lambda **kwargs:
+                pw.chromium.launch(**{**kwargs, "headless": True})))
+
+    monkeypatch.setattr("account_access.browser.sync_playwright", fixture_browser)
+    if case == "denied":
+        check = broker.browser.check
+
+        def denied(page, config):
+            try:
+                check(page, config)
+            except AccessError as error:
+                if error.kind == "passkey":
+                    raise AccessError("DENIED", "review_denied", "passkey") from None
+                raise
+
+        monkeypatch.setattr(broker.browser, "check", denied)
+
+    def approve(status, reason, kind, diagnostics):
+        attention.append(kind)
+        if case == "cancel":
+            stop.set()
+        else:
+            provider.owner_approved = True
+
+    if case in {"cancel", "denied"}:
+        with pytest.raises(AccessError, match="review_denied" if case == "denied" else "browser_passkey_required"):
+            broker.browser.read("demo-mfa", spec.operations["summary"], spec, visible=True,
+                                review_stop=stop, on_attention=approve)
+        assert not broker.store.get("connection:demo-mfa")
+        assert broker.store.pending("demo-mfa")
+    else:
+        data = broker.browser.read("demo-mfa", spec.operations["summary"], spec, visible=True,
+                                   review_stop=stop, on_attention=approve)
+        assert data == {"balance": "987.65", "currency": "ILS"}
+        result = broker.run("test", "demo-mfa", "summary")
+        if case == "transaction":
+            assert result["status"] == "NEEDS_USER" and result["challenge"]["kind"] == "action"
+        else:
+            assert not broker.store.pending("demo-mfa")
+            assert result["status"] == "COMPLETED"
+        assert provider.login_count == 1
+    assert attention == ["passkey"]
+    assert provider.sms_count == provider.totp_count == provider.email_count == 0
 
 
 def test_unused_offline_alternative_does_not_block_enrolled_authenticator(chain, monkeypatch):

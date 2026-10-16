@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from .browser_updates import APP_LINK, APP_PAGE, METHOD_PAGE, SMS_LINK, SMS_PAGE, github_assets
+from .browser_updates import APP_LINK, APP_PAGE, METHOD_PAGE, SMS_LINK, SMS_PAGE, RECOVERY_PAGE, RECOVERY_SELECTOR, github_assets
 from .errors import AccessError
 from .models import BrowserAccount, CodeSource, LoginChoice, LoginCodeRequest, LoginFactor, origin
 
@@ -118,12 +118,13 @@ def prepare(store, account, fingerprint):
             factor = spec.login.factor("totp")
             spec.login.code_source = spec.login.code_selector = spec.login.code_submit_selector = None
             spec.login.factors = {"totp": factor}
-        for url in [METHOD_PAGE, APP_PAGE, SMS_PAGE, "https://github.com/sessions/two-factor/sms"]:
+        for url in [METHOD_PAGE, APP_PAGE, SMS_PAGE, RECOVERY_PAGE, "https://github.com/sessions/two-factor/sms"]:
             if url not in spec.login_resources:
                 spec.login_resources.append(url)
         if SMS_PAGE not in spec.login_post_urls:
             spec.login_post_urls.append(SMS_PAGE)
         spec.challenge_selectors["method"] = APP_LINK + ", " + SMS_LINK
+        spec.challenge_selectors["recovery"] = RECOVERY_SELECTOR
         spec.login.choices = [LoginChoice(kind="totp", selector=APP_LINK, url=APP_PAGE),
                               LoginChoice(kind="sms", selector=SMS_LINK, url=SMS_PAGE)]
         spec.login.code_requests = [LoginCodeRequest(kind="sms", url=SMS_PAGE,

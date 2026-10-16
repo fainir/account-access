@@ -130,6 +130,7 @@ final class VerificationRetryFixture: URLProtocol {
         precondition(AccountAccess.smsTimeoutMessage(deliveryStarted: true, incoming: 0, unreadable: 0).contains("delivery was not confirmed"))
         precondition(owner.verificationMessage(["reason": "browser_state_unrecognized"]).contains("does not recognize"))
         precondition(owner.verificationMessage(["reason": "browser_passkey_required"]).contains("requires owner approval"))
+        precondition(owner.verificationMessage(["reason": "browser_recovery_required"]).contains("opened account recovery"))
         print("PASS: pre-request failures cannot claim SMS delivery was tested; owner attention distinguishes unknown pages and required presence")
         let detail = AccountAccess.verificationDetailText([
             "page": "origin_0:/sessions/two-factor/sms",

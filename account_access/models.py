@@ -147,7 +147,7 @@ class BrowserAccount(StrictModel):
     ready_selector: str
     login: LoginForm | None = None
     challenge_selectors: dict[Literal["login", "sms", "email", "totp", "device", "passkey",
-                                     "admin", "action", "unknown", "method"], str] = Field(default_factory=dict)
+                                     "admin", "action", "recovery", "unknown", "method"], str] = Field(default_factory=dict)
     # Exact URLs, including query strings. GET alone does not prove a URL is read-only.
     read_resources: list[str] = Field(default_factory=list, max_length=100)
     login_resources: list[str] = Field(default_factory=list, max_length=100)

@@ -216,7 +216,7 @@ class Store:
 
     def resolve_login(self, account):
         with self.db() as db:
-            db.execute("UPDATE challenges SET resolved=? WHERE account=? AND resolved IS NULL AND kind IN ('login','sms','email','totp','device','passkey','admin','unknown')",
+            db.execute("UPDATE challenges SET resolved=? WHERE account=? AND resolved IS NULL AND kind IN ('login','sms','email','totp','device','passkey','admin','recovery','unknown')",
                        (time.time(), account))
 
     def client(self, token):

@@ -771,6 +771,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 ? "The website accepted the SMS request, but delivery is unconfirmed. Your saved password is preserved."
                 : "No SMS delivery was tested. Your saved password is preserved."
         switch attention["reason"] as? String ?? "" {
+        case "browser_recovery_required":
+            return "The website opened account recovery. Use an available sign-in method in its window. " + delivery
         case "browser_passkey_required", "browser_device_required", "browser_admin_required", "browser_action_required":
             return "The website requires owner approval before continuing. " + delivery
         case "browser_state_unrecognized":

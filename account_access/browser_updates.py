@@ -2,6 +2,7 @@
 
 import json
 import re
+import time
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -14,6 +15,7 @@ APP_LINK = 'a[href="/sessions/two-factor/app"]'
 SMS_PAGE = "https://github.com/sessions/two-factor/sms/confirm"
 SMS_LINK = 'a[href="/sessions/two-factor/sms/confirm"]'
 RECOVERY_PAGE = "https://github.com/sessions/two-factor/recovery"
+RECOVERY_SELECTOR = '#recovery_code, input[name="recovery_code"]'
 
 
 def github_assets():
@@ -49,12 +51,13 @@ def proposal(config, account):
     for url in [METHOD_PAGE, SMS_PAGE, RECOVERY_PAGE]:
         if url not in updated.login_resources:
             updated.login_resources.append(url)
-    recovery = '#recovery_code, input[name="recovery_code"]'
+    recovery = RECOVERY_SELECTOR
     existing_action = updated.challenge_selectors.get("action")
-    if not existing_action:
-        updated.challenge_selectors["action"] = recovery
-    elif recovery not in existing_action:
-        updated.challenge_selectors["action"] = existing_action + ", " + recovery
+    if existing_action == recovery:
+        updated.challenge_selectors.pop("action")
+    elif existing_action and existing_action.endswith(", " + recovery):
+        updated.challenge_selectors["action"] = existing_action.removesuffix(", " + recovery)
+    updated.challenge_selectors["recovery"] = recovery
     # Recognize the offered SMS method even before its source is enrolled. The
     # browser must report local setup instead of an unrecognized page. Reading
     # this confirmation page does not authorize its form POST or a new source.
@@ -108,5 +111,14 @@ def apply(broker, account, fingerprint):
             if connection and connection.get("fingerprint") == fingerprint:
                 connection["fingerprint"] = current
                 store.put("connection:" + account, connection, db=db)
+            if previous.challenge_selectors.get("action") == RECOVERY_SELECTOR:
+                # Only this exact historical recovery-only marker proves the
+                # old action was a login gate. Preserve all mixed/transaction
+                # markers and independently created action authorizations.
+                pending = db.execute("SELECT 1 FROM challenges WHERE account=? AND kind='recovery' AND resolved IS NULL", (account,)).fetchone()
+                if pending:
+                    db.execute("UPDATE challenges SET resolved=? WHERE account=? AND kind='action' AND reason='browser_action_required' AND resolved IS NULL", (time.time(), account))
+                else:
+                    db.execute("UPDATE challenges SET kind='recovery', reason='browser_recovery_required' WHERE account=? AND kind='action' AND reason='browser_action_required' AND resolved IS NULL", (account,))
         store.audit("owner", account, "", "login_connector_updated", "authenticator_choice")
     return {"status": "UPDATED", "account": account}
