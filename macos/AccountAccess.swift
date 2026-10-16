@@ -765,11 +765,14 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     func verificationMessage(_ attention: [String: Any]) -> String {
         let diagnostic = attention["diagnostics"] as? [String: Any] ?? [:]
         let progress = diagnostic["progress"] as? [String: Any] ?? [:]
+        let isSMS = attention["kind"] as? String == "sms"
+            || (diagnostic["page"] as? String ?? "").contains("/two-factor/sms")
         let delivery = progress["sms_code_filled"] as? Bool == true
             ? "A fresh matching SMS code was received locally. Your saved password is preserved."
             : progress["sms_requested"] as? Bool == true
                 ? "The website accepted the SMS request, but delivery is unconfirmed. Your saved password is preserved."
-                : "No SMS delivery was tested. Your saved password is preserved."
+                : isSMS ? "No SMS delivery was tested. Your saved password is preserved."
+                    : "Your saved password is preserved."
         switch attention["reason"] as? String ?? "" {
         case "browser_recovery_required":
             return "The website opened account recovery. Use an available sign-in method in its window. " + delivery
@@ -783,6 +786,12 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             return "The website needs an available verification method connected. " + delivery
         case "verification_code_request_rejected", "verification_code_request_not_submitted":
             return "The website did not confirm the reviewed SMS request. " + delivery
+        case "mailbox_result_limit":
+            return "Too many recent emails match this sign-in. Account Access stopped instead of guessing a code. Review the mailbox and try again. " + delivery
+        case "mailbox_scope_missing":
+            return "The email connection is missing permission to read login messages. Reconnect that mailbox in Verification. " + delivery
+        case "phone_not_paired":
+            return "Pair your Android phone in Verification before checking this sign-in. " + delivery
         default:
             return "Sign-in stopped. " + delivery + " Review this website's sign-in connection."
         }
@@ -843,6 +852,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                     return state
                 }
                 let reason = result["reason"] as? String ?? ""
+                if ["mailbox_result_limit", "mailbox_scope_missing", "phone_not_paired"].contains(reason) {
+                    throw Failure.message(verificationMessage(["reason": reason]))
+                }
                 if reason == "mac_messages_permission_required" {
                     throw Failure.message("macOS has not allowed access to Messages. Enable iPhone text forwarding and grant the Account Access app Full Disk Access in Privacy settings, then retry this saved sign-in.")
                 }

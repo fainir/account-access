@@ -23,6 +23,15 @@ Some work/school accounts, Advanced Protection accounts and security-key-only se
 
 During a supported website login, Account Access retrieves a fresh email matching that website's approved sender, recipient, subject and message template. It submits the login code to the website. It does not expose the inbox or code through the agent's account API.
 
+The 0.8 candidate supports plain-text and HTML-only login messages. Formatting
+can vary, but the approved words and login purpose must match; Account Access
+does not guess a six-digit number from an arbitrary email. It never opens email
+attachments, executes message HTML or loads remote images. Existing messages,
+ambiguous matches and incomplete mailbox results cannot supply a code. A Gmail
+OAuth connection is checked before password submission and can renew expired
+access through its existing authorization. These parser and renewal checks have
+controlled tests; a real connected Gmail mailbox remains a separate QA gate.
+
 The new recording explains Google's app-password prerequisite and shows the real native form configured for Gmail. It uses an example address and masked example app password without submitting them. It does not record the creation of a real Google credential or a completed Gmail connection. The later email-code login remains the independently verified TLS IMAP test delivery from the four-account task.
 
 ## Google Authenticator on your phone
@@ -40,6 +49,9 @@ Google Authenticator generates codes using a setup key originally supplied by th
 1. Get the website's original authenticator setup QR or setup key from its two-step verification settings. When first enrolling, this is the QR you scan with Google Authenticator on your phone.
 2. In Account Access, open **Verification**, select that website's authenticator source, and choose **Read a setup QR image**, or enter the setup key locally.
 3. Click **Connect verification**. During later supported sign-ins, Account Access generates and submits the code using its saved key.
+
+If the current code is about to expire, the 0.8 candidate waits a few seconds for
+the next code before submitting it. This does not require an owner prompt.
 
 If the website already uses Google Authenticator and you no longer have the original QR/key, follow that website's owner flow to obtain or re-enroll it. If it supplies a new key, update both your phone app and Account Access with the new key yourself.
 

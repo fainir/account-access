@@ -21,6 +21,31 @@ a source while delivery is pending stops submission. Mac SMS reads record a
 message-row boundary before the password can trigger delivery; only newly
 inserted rows are eligible, with a bounded allowance for phone-clock rounding.
 
+Email codes now share a bounded MIME parser for IMAP and Gmail. Plain text takes
+priority over an HTML alternative. HTML-only messages are converted to text
+without execution or network access; attachments and forwarded messages cannot
+supply codes. The entire text must match the reviewed login template. Duplicate
+identity headers, multiple candidate bodies, unsupported active markup, excessive
+nesting and messages over 256 KB are rejected. Header matching is a filter, not
+cryptographic sender authentication.
+
+Gmail access is checked before password submission, and a baseline excludes
+existing matching message IDs even when an imported message has a future date.
+Pagination stops instead of choosing from an incomplete set. A rejected access
+token can renew once per resolver call with a fresh scope check. An uncertain
+rotating-token response is never replayed. These checks add no routine owner
+prompt; genuine consent or revoked access still requires local repair.
+
+Authenticator generation leaves at least five seconds for submission or waits
+briefly for the next code interval. Missing Android pairing, SMS gateway
+configuration and disabled sources stop before sending the website password.
+
+Message delivery is serialized by channel as well as enrollment name. Two
+different account connections may still share the same physical inbox or phone;
+their email/SMS login windows cannot compete for a message. Contention returns a
+temporary retry, so the existing task waits without a new owner approval. Owner
+setup that can request an SMS before enrollment uses the same channel lock.
+
 The candidate installer ships the tested dependency versions and their SHA-256
 hashes inside the verified wheel. It requires those hashes and prohibits source
 builds. It prepares a separate environment and browser before switching the

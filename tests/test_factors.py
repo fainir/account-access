@@ -60,6 +60,8 @@ def test_android_ingress_binds_code_to_active_login_window_and_consumes_once(env
     config = broker.store.config()
     config.code_sources["phone"] = CodeSource(kind="phone_relay", sender="Example", recipient="owner", template="Sign in: {code}")
     broker.store.configure(config)
+    broker.store.put("source:phone", {"enabled": True})
+    broker.store.put("phone-pair:phone", {"token": "fictional-paired-phone-token"})
     now = time.time()
     payload = {"id": "one", "sender": "Example", "recipient": "owner", "body": "Sign in: 123456", "received_at": now}
     with pytest.raises(AccessError, match="no_current_login_window"):

@@ -1,8 +1,6 @@
 """Purpose-specific code resolvers. No raw inbox or code retrieval API is exposed to agents."""
 
 import base64
-import email
-import email.policy
 import imaplib
 import re
 import sqlite3
@@ -16,12 +14,17 @@ import secrets
 import time
 from pathlib import Path
 from contextlib import contextmanager
-from email.utils import parseaddr, parsedate_to_datetime
+from email.utils import parsedate_to_datetime
 
 import pyotp
 
 from .errors import AccessError
+from .email_codes import MAX_MESSAGE_BYTES, login_code as email_login_code
 from .providers import get_json
+
+GMAIL_MESSAGES = "https://gmail.googleapis.com/gmail/v1/users/me/messages"
+GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly"
+GMAIL_ID = re.compile(r"[a-zA-Z0-9_-]{1,100}")
 
 
 def match_code(template, message):
@@ -68,38 +71,45 @@ class Codes:
             if not credentials.get("seed"):
                 raise AccessError("NEEDS_USER", "authenticator_not_enrolled", "totp")
             try:
-                return pyotp.TOTP(credentials["seed"]).now()
+                otp = pyotp.TOTP(credentials["seed"])
+                now = time.time()
+                if otp.interval - now % otp.interval < 5:
+                    # Leave enough time to fill and submit a code. Normal
+                    # polling waits for the next interval without asking the
+                    # owner or retrying a rejected code at the website.
+                    return None
+                return otp.at(now)
             except Exception:
                 raise AccessError("NEEDS_USER", "invalid_authenticator_seed", "totp") from None
         if source.kind == "gmail":
             with self.store.lock("account:" + source.account):
-                token = self.oauth.token(source.account, config)
-                if "https://www.googleapis.com/auth/gmail.readonly" not in token["scope"].split():
-                    raise AccessError("NEEDS_USER", "mailbox_scope_missing", "email")
-                headers = {"Authorization": "Bearer " + token["access_token"]}
-                base = "https://gmail.googleapis.com/gmail/v1/users/me/messages"
-                listing = get_json(base, headers=headers, params={
-                    "q": f"from:{source.sender} to:{source.recipient} after:{int(started) - 1}",
-                    "maxResults": 10,
-                })
+                get = self.gmail_reader(source, config)
+                ids = self.gmail_ids(source, started, get)
                 candidates = []
-                for item in listing.get("messages", []):
-                    ident = item.get("id", "")
-                    if not re.fullmatch(r"[a-zA-Z0-9_-]{1,100}", ident) or ident in used:
+                for ident in ids:
+                    self.check_window(source_id, started)
+                    if ident in used or ident in window["gmail_baseline"]:
                         continue
-                    message = get_json(base + "/" + ident, headers=headers, params={"format": "full"})
-                    if float(message.get("internalDate", 0)) / 1000 < started:
+                    message = get(GMAIL_MESSAGES + "/" + ident, {"format": "raw"})
+                    if not isinstance(message, dict) or message.get("id") != ident:
+                        raise AccessError("RETRYABLE", "invalid_mailbox_response", "email")
+                    received = message.get("internalDate", "")
+                    if (not isinstance(received, str) or not re.fullmatch(r"[0-9]{1,16}", received)
+                            or not started <= int(received) / 1000 <= time.time() + 5):
                         continue
-                    payload = message.get("payload", {})
-                    meta = {h["name"].lower(): h["value"] for h in payload.get("headers", [])}
-                    if (parseaddr(meta.get("from", ""))[1].lower() != source.sender.lower()
-                        or parseaddr(meta.get("to", ""))[1].lower() != source.recipient.lower()
-                        or meta.get("subject") != source.subject):
+                    value = message.get("raw", "")
+                    if (not isinstance(value, str) or not 0 < len(value) <= 4 * ((MAX_MESSAGE_BYTES + 2) // 3)
+                            or not re.fullmatch(r"[a-zA-Z0-9_-]+={0,2}", value)):
                         continue
-                    body = self.plaintext(payload)
-                    code = match_code(source.template, body)
+                    try:
+                        raw = base64.b64decode(value + "=" * (-len(value) % 4),
+                                               altchars=b"-_", validate=True)
+                    except ValueError:
+                        continue
+                    code = email_login_code(raw, source)
                     if code:
                         candidates.append((ident, code))
+                self.check_window(source_id, started)
                 candidate = unique_code(candidates)
                 if candidate:
                     used.add(candidate[0])
@@ -163,13 +173,29 @@ class Codes:
         source = config.code_sources[source_id]
         window["source_config"] = source.model_dump()
         credentials = self.store.get("source:" + source_id, {}) or {}
+        if credentials.get("enabled") is False:
+            kind = "email" if source.kind in {"imap", "gmail"} else "totp" if source.kind == "totp" else "sms"
+            raise AccessError("NEEDS_USER", "verification_source_disabled", kind)
         if source.kind == "totp":
-            if credentials.get("enabled") is False:
-                raise AccessError("NEEDS_USER", "verification_source_disabled", "totp")
             if not credentials.get("seed"):
                 raise AccessError("NEEDS_USER", "authenticator_not_enrolled", "totp")
         window["source_enrollment"] = hashlib.sha256(
             json.dumps(credentials, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        if source.kind == "gmail":
+            # Check consent/access and remember current message IDs before the
+            # password can trigger delivery. A pre-existing imported message
+            # with a future internalDate must never become a fresh login code.
+            with self.store.lock("account:" + source.account):
+                window["gmail_baseline"] = self.gmail_ids(source, started, self.gmail_reader(source, config))
+        if source.kind == "phone_relay":
+            pair = self.store.get("phone-pair:" + source_id) or {}
+            if credentials.get("enabled") is not True or not pair.get("token"):
+                raise AccessError("NEEDS_USER", "phone_not_paired", "sms")
+        if source.kind == "twilio":
+            if not credentials.get("sid") or not credentials.get("auth_token"):
+                raise AccessError("NEEDS_USER", "sms_gateway_not_connected", "sms")
+            if not re.fullmatch(r"AC[0-9a-fA-F]{32}", credentials["sid"]):
+                raise AccessError("NEEDS_USER", "invalid_sms_gateway", "sms")
         if source.kind == "imap":
             try:
                 with self.mailbox(source, self.store.get("source:" + source_id, {}), config) as mailbox:
@@ -205,6 +231,57 @@ class Codes:
             window = self.store.get("code-window:" + source_id)
             if window and window["started"] == started:
                 self.store.put("code-window:" + source_id, None)
+
+    def gmail_headers(self, source, config, *, force=False):
+        try:
+            token = self.oauth.token(source.account, config, force=force)
+        except AccessError as exc:
+            raise AccessError(exc.status, exc.reason, "email") from None
+        if GMAIL_SCOPE not in token["scope"].split():
+            raise AccessError("NEEDS_USER", "mailbox_scope_missing", "email")
+        return {"Authorization": "Bearer " + token["access_token"]}
+
+    def gmail_reader(self, source, config):
+        # Caller holds the mailbox account lock. Share one renewal budget
+        # across a listing and all its message reads, including scope rechecks.
+        headers = self.gmail_headers(source, config)
+        renewed = False
+
+        def get(url, params):
+            nonlocal headers, renewed
+            try:
+                return get_json(url, headers=headers, params=params)
+            except AccessError as exc:
+                if exc.reason != "provider_rejected_access" or renewed:
+                    raise AccessError(exc.status, exc.reason, "email") from None
+            renewed = True
+            headers = self.gmail_headers(source, config, force=True)
+            try:
+                return get_json(url, headers=headers, params=params)
+            except AccessError as exc:
+                raise AccessError(exc.status, exc.reason, "email") from None
+
+        return get
+
+    def gmail_ids(self, source, started, get):
+        listing = get(GMAIL_MESSAGES, {
+            "q": f"from:{source.sender} to:{source.recipient} after:{int(started) - 1}",
+            "maxResults": 20,
+        })
+        if not isinstance(listing, dict) or not isinstance(listing.get("messages", []), list):
+            raise AccessError("RETRYABLE", "invalid_mailbox_response", "email")
+        if listing.get("nextPageToken") or len(listing.get("messages", [])) > 20:
+            # Choosing a code from only part of the matching result set would
+            # hide ambiguity. Do not follow unbounded mailbox pagination.
+            raise AccessError("NEEDS_USER", "mailbox_result_limit", "email")
+        ids = []
+        for item in listing.get("messages", []):
+            if (not isinstance(item, dict) or not isinstance(item.get("id"), str)
+                    or not GMAIL_ID.fullmatch(item["id"])):
+                raise AccessError("RETRYABLE", "invalid_mailbox_response", "email")
+            if item["id"] not in ids:
+                ids.append(item["id"])
+        return ids
 
     @contextmanager
     def mailbox(self, source, credentials, config):
@@ -249,23 +326,17 @@ class Codes:
                     key = ident.decode("ascii")
                     if not key.isdigit() or int(key) < window["UIDNEXT"] or key in used:
                         continue
-                    status, fetched = mailbox.uid("FETCH", ident, "(INTERNALDATE BODY.PEEK[]<0.256000>)")
+                    status, fetched = mailbox.uid("FETCH", ident, "(INTERNALDATE BODY.PEEK[]<0.256001>)")
                     if status != "OK":
                         continue
                     for item in fetched or []:
-                        if not isinstance(item, tuple) or len(item[1]) > 256_000:
+                        if (not isinstance(item, tuple) or len(item) != 2
+                                or not isinstance(item[1], bytes) or len(item[1]) > MAX_MESSAGE_BYTES):
                             continue
                         received = imaplib.Internaldate2tuple(item[0])
                         if not received or time.mktime(received) < int(started) or time.time() > window["expires"]:
                             continue
-                        message = email.message_from_bytes(item[1], policy=email.policy.default)
-                        if (parseaddr(str(message.get("From", "")))[1].lower() != source.sender.lower()
-                                or parseaddr(str(message.get("To", "")))[1].lower() != source.recipient.lower()
-                                or str(message.get("Subject", "")) != source.subject):
-                            continue
-                        part = message.get_body(preferencelist=("plain",))
-                        body = part.get_content() if part else ""
-                        code = match_code(source.template, body)
+                        code = email_login_code(item[1], source)
                         if code:
                             candidates.append((key, code))
                 candidate = unique_code(candidates)
@@ -353,14 +424,3 @@ class Codes:
             used.add(candidate[0])
             return candidate[1]
         return None
-
-    def plaintext(self, payload, depth=0):
-        if depth > 6:
-            return ""
-        if payload.get("mimeType") == "text/plain":
-            value = payload.get("body", {}).get("data", "")
-            try:
-                return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4)).decode()
-            except Exception:
-                return ""
-        return "\n".join(self.plaintext(p, depth + 1) for p in payload.get("parts", [])[:20])

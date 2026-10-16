@@ -138,8 +138,24 @@ def chain(tmp_path):
         yield provider, broker, mailbox, stages
 
 
-def test_password_then_email_sms_and_authenticator_complete_one_browser_login(chain):
+@pytest.mark.parametrize("mail_format", ["plain", "html"])
+def test_password_then_email_sms_and_authenticator_complete_one_browser_login(chain, monkeypatch, mail_format):
     provider, broker, mailbox, _ = chain
+    if mail_format == "html":
+        from email import policy
+        from email.parser import BytesParser
+        deliver = mailbox.deliver
+
+        def html_delivery(code):
+            deliver(code)
+            with mailbox.lock:
+                saved = mailbox.messages[-1]
+                message = BytesParser(policy=policy.default).parsebytes(saved["raw"])
+                message.set_content("<html><body><p>Example sign-in: <strong>" + code
+                                    + "</strong></p></body></html>", subtype="html")
+                saved["raw"] = message.as_bytes()
+
+        monkeypatch.setattr(mailbox, "deliver", html_delivery)
     result = broker.run("test", "demo-mfa", "summary")
     assert result["status"] == "COMPLETED"
     assert provider.login_count == provider.email_count == provider.sms_count == provider.totp_count == 1
@@ -154,6 +170,102 @@ def test_password_then_email_sms_and_authenticator_complete_one_browser_login(ch
         assert broker.store.get("code-window:" + source) is None
     assert broker.run("test", "demo-mfa", "summary")["status"] == "COMPLETED"
     assert provider.login_count == 1
+
+
+def test_gmail_html_code_completes_browser_login_and_reuses_session(chain, monkeypatch):
+    import base64
+    import time
+    from email.message import EmailMessage
+    from account_access.demo import configuration, connect_demo
+    from account_access.models import CodeSource
+
+    provider, broker, mailbox, stages = chain
+    stages[:] = ["email"]
+    config = broker.store.config()
+    config.accounts["mailbox"] = configuration(provider.base).accounts["demo-api"]
+    config.accounts["mailbox"].scopes.append("https://www.googleapis.com/auth/gmail.readonly")
+    config.code_sources["example-email"] = CodeSource(
+        kind="gmail", account="mailbox", sender="login@example.test", recipient="demo@example.test",
+        subject="Your example sign-in code", template="Example sign-in: {code}")
+    broker.store.configure(config)
+    broker.grant("test", "demo-mfa", ["summary"])
+    connect_demo(broker, "mailbox")
+    messages = {}
+    calls = []
+
+    def delivered(kind, code):
+        assert kind == "email"
+        message = EmailMessage()
+        message["From"], message["To"] = "login@example.test", "demo@example.test"
+        message["Subject"] = "Your example sign-in code"
+        message.set_content("<p>Example sign-in: <strong>" + code + "</strong></p>", subtype="html")
+        messages["fresh"] = {"id": "fresh", "internalDate": str(int(time.time() * 1000)),
+                             "raw": base64.urlsafe_b64encode(message.as_bytes()).decode()}
+
+    def gmail(url, **kwargs):
+        calls.append(url)
+        if url.endswith("/messages"):
+            return {"messages": [{"id": ident} for ident in messages]}
+        assert kwargs["params"] == {"format": "raw"}
+        return messages[url.rsplit("/", 1)[1]]
+
+    monkeypatch.setattr(provider, "delivery", delivered)
+    monkeypatch.setattr("account_access.codes.get_json", gmail)
+    result = broker.run("test", "demo-mfa", "summary")
+    assert result["status"] == "COMPLETED", result
+    assert provider.login_count == provider.email_count == 1
+    assert mailbox.fetches == 0
+    assert len(calls) == 3  # Pre-password list, fresh list, one raw message.
+    assert provider.last_login_code not in json.dumps(result)
+    assert broker.run("test", "demo-mfa", "summary")["status"] == "COMPLETED"
+    assert provider.login_count == 1 and len(calls) == 3
+
+
+@pytest.mark.parametrize("kind", ["email", "sms"])
+def test_two_enrollment_names_cannot_compete_for_the_same_message_channel(chain, monkeypatch, kind):
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+
+    provider, broker, _, stages = chain
+    stages[:] = [kind]
+    config = broker.store.config()
+    first = config.accounts["demo-mfa"]
+    first.login.factors = {kind: first.login.factors[kind]}
+    second = first.model_copy(deep=True)
+    config.code_sources["other-source"] = config.code_sources["example-" + kind].model_copy(deep=True)
+    second.login.factors[kind].code_source = "other-source"
+    config.accounts["other-account"] = second
+    broker.store.configure(config)
+    broker.grant("test", "demo-mfa", ["summary"])
+    broker.grant("test", "other-account", ["summary"])
+    broker.store.put("credential:other-account", broker.store.get("credential:demo-mfa"))
+    credential = {"enabled": True} if kind == "sms" else {"username": "demo@example.test", "password": DEMO_PASSWORD}
+    enroll(broker.store, "other-source", credential)
+    waiting, release = threading.Event(), threading.Event()
+    resolve = broker.codes.resolve
+
+    def hold_first(source, *args):
+        if source == "example-" + kind:
+            waiting.set()
+            assert release.wait(15)
+        return resolve(source, *args)
+
+    monkeypatch.setattr(broker.codes, "resolve", hold_first)
+    with ThreadPoolExecutor(max_workers=1) as workers:
+        first_run = workers.submit(broker.run, "test", "demo-mfa", "summary")
+        try:
+            assert waiting.wait(15)
+            competing = broker.run("test", "other-account", "summary")
+            assert competing["status"] == "RETRYABLE", competing
+            assert provider.login_count == 1
+            assert broker.store.pending("other-account") == []
+        finally:
+            release.set()
+        assert first_run.result(timeout=15)["status"] == "COMPLETED"
+    # The temporary contention needs no owner prompt or new grant. The second
+    # account's later attempt baselines out the first account's old message.
+    assert broker.run("test", "other-account", "summary")["status"] == "COMPLETED"
+    assert provider.login_count == getattr(provider, kind + "_count") == 2
 
 
 @pytest.mark.parametrize("kind", ["action", "recovery"])

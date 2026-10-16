@@ -132,6 +132,12 @@ final class VerificationRetryFixture: URLProtocol {
         precondition(owner.verificationMessage(["reason": "browser_passkey_required"]).contains("requires owner approval"))
         precondition(owner.verificationMessage(["reason": "browser_recovery_required"]).contains("opened account recovery"))
         print("PASS: pre-request failures cannot claim SMS delivery was tested; owner attention distinguishes unknown pages and required presence")
+        let mailboxLimit = owner.verificationMessage(["kind": "email", "reason": "mailbox_result_limit"])
+        precondition(mailboxLimit.contains("instead of guessing") && !mailboxLimit.contains("SMS"))
+        precondition(owner.verificationMessage(["reason": "mailbox_scope_missing"]).contains("Reconnect that mailbox"))
+        precondition(owner.verificationMessage(["reason": "phone_not_paired"]).contains("Pair your Android phone"))
+        precondition(owner.verificationMessage(["kind": "sms", "reason": "verification_source_not_connected"]).contains("No SMS delivery was tested"))
+        print("PASS: email and unpaired-phone failures explain their repair without claiming an SMS test")
         let detail = AccountAccess.verificationDetailText([
             "page": "origin_0:/sessions/two-factor/sms",
             "forms": [["route": "origin_0:/sessions/two-factor", "method": "POST"],

@@ -313,11 +313,20 @@ class Browser:
 
     def login(self, browser, account, config, state=None, *, secret_values=None, review_failure=None,
               setup_method=None, on_code_request=None, review_stop=None):
-        # Lock in a stable order: accounts with several verification methods must
-        # not compete for a shared inbox/SMS delivery, or deadlock each other.
+        # Source IDs are enrollment names, not proof of separate physical
+        # inboxes/phones. Conservatively serialize each message channel too,
+        # including owner setup that can request a text before enrollment.
         with ExitStack() as held:
-            for source in sorted(config.login.sources()):
-                held.enter_context(self.store.lock("code-login:" + source, timeout=0))
+            sources = self.store.config().code_sources
+            locks = {"code-login:" + source for source in config.login.sources()}
+            for source in config.login.sources():
+                kind = sources[source].kind
+                if kind != "totp":
+                    locks.add("code-delivery:" + ("email" if kind in {"imap", "gmail"} else "sms"))
+            if setup_method in {"email", "sms"}:
+                locks.add("code-delivery:" + setup_method)
+            for key in sorted(locks):
+                held.enter_context(self.store.lock(key, timeout=0))
             return self._login(browser, account, config, state, secret_values=secret_values,
                                review_failure=review_failure, setup_method=setup_method,
                                on_code_request=on_code_request, review_stop=review_stop)

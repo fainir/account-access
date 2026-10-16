@@ -7,6 +7,25 @@ or physical-device coverage.
 
 ## Candidate 0.8 changes
 
+- Email recovery parses bounded plain-text and HTML MIME messages through the
+  same exact sender, recipient, subject and login-template check. It does not
+  render HTML, fetch images/links, read attached or forwarded messages, or scan
+  arbitrary text for six-digit numbers. Duplicate identity headers, ambiguous
+  bodies, malformed MIME and oversized messages cannot supply a code.
+- Gmail checks its approved OAuth access and records existing matching message
+  IDs before the password is submitted. Existing messages cannot become fresh
+  codes through a future import timestamp. Incomplete/paginated result sets stop
+  instead of hiding ambiguity. Rejected access can renew once per resolver call;
+  removed scope and uncertain refresh rotation stop safely. This is contract and
+  browser-fixture coverage, not a completed consumer Google connection.
+- Authenticator recovery waits for the next interval when a code has less than
+  five seconds remaining. Unpaired Android relays, missing SMS gateway details
+  and disabled sources stop before password submission. These checks do not
+  prove a phone is online or a carrier delivered a message.
+- Distinct enrollment names cannot start competing email/SMS login windows.
+  Each message channel is serialized; temporary contention waits through normal
+  task retry without a new owner approval. Browser tests cover two accounts
+  sharing TLS IMAP or the Messages fixture, followed by successful later reuse.
 - The signed Mac app includes the Python wheel and pins its SHA-256. A repair
   reinstalls the package and restarts the background service even when the
   version number is unchanged. Python, dependencies and Chromium can still
@@ -72,10 +91,10 @@ or physical-device coverage.
 | Simple Mac installation | Signed universal app, local update/repair flow, checksum-tamper rejection | Apple notarization and a clean downloaded-install test on a separate Mac |
 | Chrome/password-manager import | Reviewed CSV imports; one selected personal entry imported in the native app | More real export formats and representative private website connectors |
 | Continuous password updates | Exact-item 1Password Connect contract and password-rotation recovery tests | Private Connect deployment QA; Chrome exports remain snapshots |
-| Gmail and other email codes | TLS IMAP browser recovery and Gmail API contract tests | Registered consumer OAuth application, owner consent, real mailbox delivery QA |
+| Gmail and other email codes | Plain-text/HTML TLS IMAP browser recovery; Gmail API → browser contract, freshness, bounded renewal and ambiguity tests | Registered consumer OAuth application, owner consent, real mailbox delivery QA |
 | iPhone SMS | Narrow signed Messages helper, message-selection fixtures and owner-granted Mac privacy permission | Real forwarded SMS delivery and completed private sign-in QA; the latest bounded attempt detected no new incoming text |
 | Android SMS | Emulator notification → pinned relay → browser verification | Physical Android pairing, notification delivery and reconnect QA |
-| Google Messages Web | SMS-only extension, exact native origin, pre-password baseline and synthetic password → reader → native host → browser verification | Owner-approved local extension installation, completed private sign-in, broader language coverage and Chrome Web Store distribution |
+| Google Messages Web | Owner-approved local extension installed and GitHub SMS source enabled; exact native origin, pre-password baseline and synthetic password → reader → native host → browser verification | Completed private sign-in, broader language coverage and Chrome Web Store distribution |
 | Authenticator app | Setup-key and transfer-import browser recovery tests | Owner-approved real authenticator export and provider login QA |
 | Passkey/security key | Real private browser sign-in identified a WebAuthn route | A reviewed browser route to an available email/SMS/authenticator method, or genuine owner presence when the provider requires it |
 | Automatic agent discovery | Installed skill/CLI used in Codex and Claude Code sessions | Re-run both against each completed private connection; broader host matrix |
