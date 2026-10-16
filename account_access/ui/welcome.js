@@ -4,6 +4,7 @@ history.replaceState(null,"","/");
 const el=id=>document.getElementById(id);
 const message=text=>el("message").textContent=text;
 let state=null;
+let healthTimer=null,healthBusy=false,locallyPaused=false;
 async function call(path,body){
  const r=await fetch(path,{method:body?"POST":"GET",headers:{Authorization:"Bearer "+capability,...(body?{"Content-Type":"application/json"}:{})},...(body?{body:JSON.stringify(body)}:{})});
  const value=await r.json();if(!r.ok)throw new Error(value.reason||"Please try again.");return value;
@@ -12,6 +13,18 @@ const friendly={account_already_added:"This account is already added. Use Manage
 Object.assign(friendly,{mailbox_connection_failed:"The mail server did not accept this connection. Check the email address and application password.",mailbox_not_connected:"Reconnect this mailbox in Verification.",invalid_mailbox_setup:"Check the email address, TLS IMAP server, port and application password.",mailbox_already_connected:"This mailbox is already saved. Use Update app password or Check connection.",mailbox_source_mismatch:"Choose the mailbox for this website's approved email address and server."});
 function problem(e){message(friendly[e.message]||"Setup needs attention: "+e.message);}
 function text(tag,value){const n=document.createElement(tag);n.textContent=value;return n;}
+function renderRecoveryHealth(health){
+ if(locallyPaused)return;
+ const recovery=health?.status;
+ el("service-status").textContent=recovery==="RETRYING"?"Retrying background recovery":recovery==="STOPPED"?"Background recovery stopped":recovery==="UNAVAILABLE"?"Local app unavailable":recovery==="RUNNING"?"Running on your computer":"Local setup is open";
+ const notice=el("recovery-health");notice.hidden=!["RETRYING","STOPPED","UNAVAILABLE"].includes(recovery);
+ notice.textContent=recovery==="RETRYING"?"Background recovery hit an internal problem and is retrying automatically. Your saved connections and completed task steps are preserved.":recovery==="STOPPED"?"Background recovery stopped. Use Repair installation in the app menu to restart it. Your saved connections are preserved.":recovery==="UNAVAILABLE"?"Account Access is not responding. Open the app to reconnect.":"";
+}
+async function checkRecoveryHealth(){
+ if(healthBusy||document.hidden||locallyPaused)return;
+ healthBusy=true;
+ try{renderRecoveryHealth(await call("/owner/health"));}catch{renderRecoveryHealth({status:"UNAVAILABLE"});}finally{healthBusy=false;}
+}
 function permission(){const choice=state.catalog.find(x=>x.id===el("service").value);el("permission").textContent=choice?"Allowed: "+choice.operations.map(x=>x.description).join("; "):"";}
 let view="accounts";
 let adding=false;
@@ -43,7 +56,7 @@ async function refresh(){
  el("agent-status").textContent=automatic?"Ask normally in "+tools.map(x=>labels[x]).join(" or ")+". No special command needed.":"The portable integration is installed. Open a new compatible AI session to use connected accounts.";
  el("automatic-status").textContent=automatic?"Automatic":"Portable skill ready";
  el("automatic-status").classList.toggle("pending",!automatic);
- el("service-status").textContent="Running on your computer";
+ renderRecoveryHealth(state.background_recovery);
  el("connect").hidden=!haveClients||(!adding&&state.accounts.length>0);
  el("connected-section").hidden=!state.accounts.length;
  const ready=state.accounts.filter(x=>x.connected&&x.portable_ready&&!x.challenges?.length);
@@ -64,10 +77,10 @@ async function refresh(){
  if(Object.values(state.connection_jobs).some(x=>x.status==="RUNNING"))setTimeout(()=>refresh().catch(problem),1200);
 }
 el("service").onchange=()=>{permission();el("allow").checked=false;el("username").value="";el("password").value="";};
-el("stop").onclick=async()=>{if(!confirm("Stop Account Access? Your saved connections will be kept."))return;try{await call("/owner/stop",{});message("Account Access is paused. Open the app to resume it.");el("service-status").textContent="Paused";document.querySelectorAll("button,input,select").forEach(x=>x.disabled=true);}catch(e){problem(e);}};
+el("stop").onclick=async()=>{if(!confirm("Stop Account Access? Your saved connections will be kept."))return;try{await call("/owner/stop",{});locallyPaused=true;clearInterval(healthTimer);message("Account Access is paused. Open the app to resume it.");el("service-status").textContent="Paused";el("recovery-health").hidden=true;document.querySelectorAll("button,input,select").forEach(x=>x.disabled=true);}catch(e){problem(e);}};
 el("manage").onclick=e=>{e.preventDefault();location.href="/manage#"+capability;};
 el("account-form").onsubmit=async e=>{e.preventDefault();el("add").disabled=true;try{if(!el("allow").checked)throw new Error("Choose the reads you want to allow.");await call("/owner/add",{service:el("service").value,username:el("username").value,password:el("password").value,agents:["generic"]});el("username").value="";el("password").value="";el("allow").checked=false;message("Signing in. You can connect another account while this finishes.");await refresh();}catch(e){problem(e);}finally{el("add").disabled=false;}};
-if(capability)call("/owner/install",{}).then(refresh).catch(problem);else message("Open Account Access from its launcher to unlock your setup page.");
+if(capability)call("/owner/install",{}).then(refresh).then(()=>{healthTimer=setInterval(checkRecoveryHealth,5000);document.addEventListener("visibilitychange",checkRecoveryHealth);}).catch(problem);else message("Open Account Access from its launcher to unlock your setup page.");
 
 let importPreview=null;
 el("import-passwords").onclick=()=>{adding=true;el("password-file").click();};

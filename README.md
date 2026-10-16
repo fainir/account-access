@@ -91,6 +91,13 @@ continuing. OAuth reconnection invalidates old mailbox checks. Build 54 is
 staged separately; installed build 53 remains available for owner enrollment.
 See [current validation and remaining private-account tests](docs/validation.md).
 
+Build **55** adds visible background-recovery health. Internal worker faults
+retry automatically with bounded backoff while keeping the original task.
+Agent discovery and waiting tasks report the fixed failure class; owner screens
+show the recovery state without displaying exception text. Web health updates
+leave password forms untouched. These checks describe the worker loop, not
+successful website authentication or message delivery.
+
 | Method | One-time setup | During a supported login |
 | --- | --- | --- |
 | Email | Connect a configured TLS IMAP mailbox, or a reviewed Gmail OAuth connection | Read a fresh message matching sender, recipient, subject and template; submit its login code |

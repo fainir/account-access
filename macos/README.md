@@ -29,6 +29,12 @@ renewal needs a new check. This signed universal build is staged separately;
 build 53 remains installed while the owner Gmail form is awaiting enrollment.
 No private mailbox or physical-device acceptance is implied.
 
+Candidate build **55** adds background recovery health on **Your accounts**.
+Internal worker errors retry automatically with backoff; the banner clears on
+the next successful check. Messages are fixed text, with no exception or provider
+details. All twenty native owner checks pass. The signed candidate is prepared
+separately while installed build 53 remains open for owner Gmail enrollment.
+
 Build with Xcode's command-line tools:
 
 ```sh

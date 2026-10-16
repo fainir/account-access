@@ -253,5 +253,19 @@ final class VerificationRetryFixture: URLProtocol {
         precondition(AccountAccess.browserSessionFailureMessage("invalid_browser_session_state").contains("unsupported session format"))
         precondition(!AccountAccess.browserSessionFailureMessage("fictional-private-cookie").contains("fictional-private-cookie"))
         print("PASS: Chrome failures explain known repair cases without displaying arbitrary backend data")
+        owner.backgroundRecovery = ["status": "RETRYING", "reason": "fictional-private-exception"]
+        owner.ready()
+        views = descendants(owner.stack)
+        precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("Background recovery is retrying"))
+        precondition(!views.compactMap { ($0 as? NSTextField)?.stringValue }.contains { $0.contains("fictional-private-exception") })
+        owner.backgroundRecovery = ["status": "STOPPED"]
+        owner.ready()
+        views = descendants(owner.stack)
+        precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("Background recovery stopped"))
+        owner.backgroundRecovery = ["status": "RUNNING"]
+        owner.ready()
+        views = descendants(owner.stack)
+        precondition(!views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("Background recovery is retrying"))
+        print("PASS: background recovery health shows fixed retry/stopped messages and clears after recovery without exception details")
     }
 }

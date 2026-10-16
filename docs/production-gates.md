@@ -136,7 +136,7 @@ or physical-device coverage.
 | Automatic agent discovery | Installed skill/CLI used from ordinary prompts in Codex and Claude Code; both completed the approved private GitHub profile read | Broader private connections and host matrix |
 | Credential isolation | Separate owner/agent APIs, encryption, scoped operations and fail-closed routing | Broker under a separate OS identity/host with a trusted enrollment channel; unrestricted same-user agents are not isolated |
 | Open-source trust | Public MIT repository, CI, contribution guide, private vulnerability reporting enabled | Independent security review, release provenance and published production acceptance results |
-| Operational health | Durable tasks, bounded retries and private diagnostic classes | Owner-visible background-worker health and unexpected-failure reporting; exceptions currently retry without exposing details |
+| Operational health | Same-process worker state in native/owner screens and agent responses; fixed failure class, bounded retries, original-task recovery and lifecycle cleanup tests | Cross-process/host monitoring, stopped-worker restart and operational alerting; an unattached owner process reports Unknown |
 
 ## Private QA rules
 

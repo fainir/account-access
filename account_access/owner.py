@@ -161,6 +161,9 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                     return
                 self.send(200, {"proof": hmac.new(instance_key, challenge.encode(), hashlib.sha256).hexdigest()})
                 return
+            if self.path == "/owner/health":
+                self.send(200, broker.worker_health.view())
+                return
             if self.path == "/owner/state":
                 config = broker.store.config()
                 accounts = []
@@ -211,6 +214,7 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                 with guard:
                     connection_jobs = dict(jobs)
                 state = {"accounts": accounts, "principals": principals, "grants": grants,
+                         "background_recovery": broker.worker_health.view(),
                          "integrations": broker.store.get("agent-integrations", principals),
                          "automatic_sessions": broker.store.get("session-integrations", {}),
                          "connection_jobs": connection_jobs,

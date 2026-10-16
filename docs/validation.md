@@ -1,5 +1,37 @@
 # Validation of Account Access
 
+## Visible background recovery health — 16 October 2026
+
+Build 55 addresses silent background-loop failures identified by the internal
+review below. The service tracks fixed status/counter/timestamp fields in memory;
+no exception object, message, traceback, account identifier or provider payload
+enters that health state. Internal failures retry with interruptible backoff
+from one to thirty seconds. Success clears the active failure state. Shutdown
+cleanup runs even if the lifespan raises, and another lifespan cannot start a
+second worker while the previous one is still stopping.
+
+Agent discovery and nonterminal tasks expose the recovery state without changing
+task IDs, status, completed steps or account challenges. The native Accounts
+screen shows fixed retry/stopped messages when refreshed. The web owner UI polls
+a separate authenticated health endpoint without rebuilding credential forms;
+pausing the app stops that polling. A standalone owner process without an
+attached worker reports Unknown rather than claiming a separate service is
+running. Worker health does not establish website authentication or code delivery.
+
+Tests inject a private-looking exception, confirm it stays out of owner/agent
+responses and logs, then let the same queued task complete through a real local
+OAuth provider. They cover backoff, shutdown/restart, unauthenticated health
+access, native fixed-message rendering and real-browser health updates while a
+fictional password remains typed in its input. One initial browser test failed
+because its fixture had not opened the Add an account panel; the fixture was
+corrected before acceptance. The first 31 companion cases passed, followed by
+all five then-existing health cases in 15.29 seconds. All **20 native UI checks**
+passed. Final lifecycle/regression checks, build signing and CI are in progress.
+
+Installed build 53 remains untouched with the owner Gmail enrollment pending.
+This phase makes no new private website sign-in request. Physical-device and
+private-source acceptance remain open.
+
 ## Verified mailbox repair and authorization binding — 16 October 2026
 
 The next candidate repairs a missing step after mailbox enrollment: a task

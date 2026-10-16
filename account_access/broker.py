@@ -29,6 +29,8 @@ MESSAGES = {
 
 class Broker:
     def __init__(self, store):
+        from .worker_health import WorkerHealth
+        self.worker_health = WorkerHealth()
         self.store = store
         self.oauth = OAuth(store)
         self.codes = Codes(store, self.oauth)
@@ -110,6 +112,7 @@ class Broker:
                                **self.connection_view(account, config),
                                "operations": operations})
         return {"status": "OK", "accounts": result, "service_version": __version__,
+                "background_recovery": self.worker_health.view(),
                 "environment": "controlled-demo" if config.test_mode else "live"}
 
     def connection_view(self, account, config):
@@ -235,9 +238,13 @@ class Broker:
                 blocked = {**blocked, "challenge": self.challenge_view(current)}
                 if "reason" in blocked:
                     blocked["reason"] = current["reason"]
-        return {"status": job["status"], "task_id": job_id, "progress": len(job["completed"]),
+        result = {"status": job["status"], "task_id": job_id, "progress": len(job["completed"]),
                 "total": len(job["steps"]), "results": job["completed"],
                 "blocked": blocked, "untrusted_data": True}
+        health = self.worker_health.view()
+        if job["status"] in {"QUEUED", "RUNNING", "RETRYABLE"} and health["status"] in {"RETRYING", "STOPPED"}:
+            result["background_recovery"] = health
+        return result
 
     def save_job(self, job, next_at=0):
         with self.store.db() as db:

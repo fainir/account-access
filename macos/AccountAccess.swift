@@ -94,6 +94,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     var base: URL!
     var token = ""
     var busy = false
+    var backgroundRecovery: [String: Any] = [:]
     var failedAccount: String?
     let localRequests = LocalRequests()
     let prompt = "Find the cheapest item in my personal and work shopping accounts, and show my membership welcome message."
@@ -565,6 +566,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
 
     func accept(_ state: [String: Any]) {
+        backgroundRecovery = state["background_recovery"] as? [String: Any] ?? [:]
         navigationFailures = state["navigation_failures"] as? [[String: Any]] ?? []
         browserUpdates = state["browser_updates"] as? [[String: Any]] ?? []
         smsSetups = state["sms_setups"] as? [[String: Any]] ?? []
@@ -1911,6 +1913,11 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     func ready() {
         section = "accounts"
         page("Your accounts", "Keep using your AI. Account Access handles the supported sign-ins and approved reads.")
+        if backgroundRecovery["status"] as? String == "RETRYING" {
+            card("Background recovery is retrying", "Background recovery hit an internal problem and is retrying automatically. Your saved connections and completed task steps are preserved.", status: "Retrying", good: false)
+        } else if backgroundRecovery["status"] as? String == "STOPPED" {
+            card("Background recovery stopped", "Use Repair installation in the app menu to restart it. Your saved connections are preserved.", status: "Stopped", good: false)
+        }
         let connected = accounts.filter { $0["connected"] as? Bool == true && $0["portable_ready"] as? Bool != false }
         let detected = agents.filter { ["codex", "claude"].contains($0) }
         let automatic = !detected.isEmpty && detected.allSatisfy { automaticSessions[$0]?["enabled"] as? Bool == true }

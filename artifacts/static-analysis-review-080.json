@@ -38,5 +38,7 @@
     "No claim that the application is vulnerability-free",
     "QA guard scripts were outside this application-only scan",
     "Private mailbox and physical-device acceptance remain incomplete"
-  ]
+  ],
+  "evidence_revision": "9afb0218ed02728c2f22cb16e63ebc6bd68f4691",
+  "followup": "Build 55 replaces silent worker suppression with fixed-field health; see artifacts/worker-health-080.json for its separate scan and tests."
 }
