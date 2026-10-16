@@ -37,6 +37,37 @@ Google app-password creation still belongs to the owner, and a consumer Google
 OAuth application is not bundled. This phase adds no private mailbox or carrier
 delivery acceptance and makes no further private Namecheap/GitHub request.
 
+The local full run passed **475 tests** in 384.69 seconds before the final five
+outage cases were added. All **31 focused mailbox-health/browser cases** then
+passed in 17.70 seconds, and the original-task outage recovery case passed in
+4.07 seconds. All **19 native UI checks**, lint and package build passed. Signed
+universal Mac build **53** was installed through graphical repair; staged and
+installed signatures passed strict/deep verification, and bundled mailbox/auth
+files matched source. The actual installed Gmail screen shows the email field
+and masked app-password field with server details hidden. The original private
+Namecheap task/challenge survived and remains blocked.
+
+Fresh ordinary-language CLI tests used the new reusable-mailbox owner API and
+independently confirmed the four fictional account results:
+
+- [Desktop-bundled Codex CLI](../artifacts/agent-tests/codex-verification-080-reusable-mailbox-53.json):
+  **24.90 seconds**, four password logins and one email, SMS and TOTP verification.
+- [Claude Code](../artifacts/agent-tests/claude-verification-080-reusable-mailbox-53.json):
+  **73.54 seconds**, the same completed task and verification counts.
+
+Both used their installed project launcher without a command/skill prefix in
+the prompt. Global host settings and model defaults were preserved. These are
+controlled fixture results; private Gmail/carrier/authenticator acceptance is
+still open. See the [sanitized record](../artifacts/reusable-mailboxes-080.json).
+
+Final implementation `b71c831` passed **480 tests** in 402.66 seconds in
+[CI](https://github.com/fainir/account-access/actions/runs/38953515321), all
+nineteen native UI checks, Messages/startup checks, lint, dependency audit and
+package build. The
+[Android emulator journey](https://github.com/fainir/account-access/actions/runs/38953515196)
+also passed. These results do not close private provider, physical-phone,
+notarization, isolated-custody or independent-review gates.
+
 ## Mailbox readiness and credential repair — 16 October 2026
 
 The next candidate adds an owner-only mailbox connection check. Real TLS IMAP

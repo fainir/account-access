@@ -21,6 +21,8 @@ IMAP settings. A read-only connection check fetches no messages and starts no
 website login. **Other email · TLS IMAP** accepts your provider's server and port.
 This is mailbox setup, not universal access to every webmail service.
 
+![Actual candidate Gmail setup; app password stays in the local form](gmail-mailbox-setup.png)
+
 The encrypted mailbox is reusable: a website's existing approved email source
 can select it when its exact recipient, server and port match. A single checked
 match is preselected for a new source, so you do not enter the app password again.

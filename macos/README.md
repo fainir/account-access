@@ -12,6 +12,15 @@ the old saved session when changed and preserves unrelated challenges. All 17
 native owner checks passed, and graphical repair preserved the existing accounts
 and original blocked task. See [validation](../docs/validation.md).
 
+Candidate build **53** adds **Verification → Connect Gmail or email**, available
+before a website is connected. Gmail requires only an email address and masked
+Google app password; other providers expose their TLS IMAP server and port.
+One encrypted mailbox can be selected by exact matching approved website
+sources. The owner can check, update or disconnect it without initiating a
+website login. All nineteen native owner checks passed, and the signed build
+was installed and visually checked locally. Private Google app-password
+enrollment and code delivery remain separate acceptance gates.
+
 Build with Xcode's command-line tools:
 
 ```sh

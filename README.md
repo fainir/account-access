@@ -81,6 +81,8 @@ is available before a website is added. Save your Gmail app password once, or
 enter another provider's TLS IMAP settings. Matching approved website sources
 can reuse that encrypted mailbox. This does not add an unsupported website or
 bundle a consumer Google OAuth application.
+See the [installed setup screen and steps](docs/gmail-authenticator-and-sms.md)
+and [reusable-mailbox validation](artifacts/reusable-mailboxes-080.json).
 
 | Method | One-time setup | During a supported login |
 | --- | --- | --- |
