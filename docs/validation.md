@@ -1,5 +1,40 @@
 # Validation of Account Access
 
+## Resumable Mac release preparation — 17 October 2026
+
+The new maintainer helper verifies an Apple-anchored Developer ID signature and
+expected team on both CPU architectures, hardened runtime, timestamp, executable
+permissions and the wheel pin before preparing a copied app. It does not change
+the signed input, installed app, owner credentials or OS security settings.
+
+The upload boundary is persisted before contacting Apple. A known submission ID
+or archive-bound receipt survives interruption; uncertain outcomes do not cause
+automatic reuploads. Apple's accepted log must match the job, archive and full
+SHA-256. Only ticket stapling/validation, unchanged code hashes and a successful
+`syspolicy_check distribution` allow creation of the final ZIP. Cached state
+cannot report a newly verified release. The helper never publishes to GitHub.
+
+All **32 protocol/security cases** passed in 0.71 seconds. They use simulated
+Apple tools and cover rejected/unknown jobs, incorrect digests and IDs,
+interrupted uploads and state writes, stapling recovery, modified app/archive,
+policy failure, redaction, private paths and concurrent publishers. Fixed system
+tool paths avoid PATH-based tool replacement. Lint passed; full CI is pending.
+
+Real local preparation of signed universal build 56 passed, including the exact
+certificate requirement and both architecture code hashes. The first real run
+caught an inline codesign-requirement argument-format error; it was corrected
+before acceptance. The actual distribution tool returned exit 70 and reported a
+missing notarization ticket, with no signature error. Calling submit without a
+profile was denied before upload, and the job ID remains absent. No Apple
+notarization submission or credential lookup was performed.
+
+Live Apple acceptance, ticket stapling and a clean downloaded-install test remain
+open. These results do not validate private email/SMS/authenticator delivery or
+separate-identity credential custody. The installed owner Gmail form remains
+preserved and enrollment unconfirmed. The current app runtime is unchanged, so
+the previous build 56 agent checks are retained rather than rerun for this
+maintainer-only tool. See [maintainer steps](../macos/README.md#maintainer-notarization).
+
 ## Account source classification — 16 October 2026
 
 The installed preview's discovery response labeled public test-site aliases as

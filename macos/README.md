@@ -75,6 +75,73 @@ The 0.8 candidate adds **Repair installation…** to the app menu. Installation 
 
 Public Mac distribution needs Apple notarization as well as signing. The current recorded build is Developer ID signed and works locally; notarization remains pending because the configured Xcode account could not authenticate. A public preview download can therefore be blocked by Gatekeeper. The recording demonstrates the actual graphical build, rather than the older `.command` launcher.
 
+## Maintainer notarization
+
+This is release engineering, not an end-user installation step. Users still
+download, unzip and open the app. The maintainer uses a Mac running macOS 14 or
+later with Xcode tools, a Developer ID certificate and a valid Notary service
+Keychain profile. This helper requires `syspolicy_check`; it never disables
+Gatekeeper or removes quarantine to obtain a passing result.
+
+Create the Keychain profile interactively if one does not already exist:
+
+```sh
+xcrun notarytool store-credentials AccountAccessPublisher
+```
+
+The account owner completes Apple's credential creation and the local prompts.
+Leave credentials out of command arguments, chat, source files and ordinary
+logs. The helper accepts only the existing profile **label**, not a password or
+API key. Apple's tool validates credentials before storing them by default.
+
+After building and signing, use a new private work directory outside the app:
+
+```sh
+uv run python macos/notarize.py prepare \
+  --app 'dist/macos/Account Access.app' \
+  --workdir dist/notarization-current --team-id YOURTEAMID
+uv run python macos/notarize.py submit \
+  --workdir dist/notarization-current --profile AccountAccessPublisher
+uv run python macos/notarize.py check \
+  --workdir dist/notarization-current --profile AccountAccessPublisher
+uv run python macos/notarize.py finalize \
+  --workdir dist/notarization-current --profile AccountAccessPublisher
+```
+
+`prepare` is local-only. It validates the Apple-anchored Developer ID signature,
+expected team, hardened runtime, timestamp, executable permissions, both CPU
+architectures and bundled-wheel pin. It copies the app, so the input app is
+preserved. Unknown nonempty work directories, symlinks and conflicting release
+processes are refused. Work files and tool diagnostics are private; do not
+publish the work directory.
+
+`submit` records the upload boundary before contacting Apple and saves its job
+ID and an archive-bound receipt. Repeating it checks the same job instead of
+uploading again. A captured receipt can recover an interrupted state write.
+If an upload's outcome is unknown and no receipt exists, inspect Apple's
+submission history through the authenticated tool; do not blindly resubmit.
+For a known job use `adopt --submission-id UUID --workdir ... --profile ...`.
+Final acceptance still requires its log's job ID, archive name and SHA-256 to
+match this prepared archive. If no job exists after a credential failure, repair
+the profile and explicitly start a new work directory after that review.
+
+`check` makes one status request; an observation failure preserves the existing
+handle. `status` reports cached state only. `finalize` rechecks Apple's acceptance
+and archive digest, staples and validates the ticket, revalidates signatures and
+the wheel pin, and runs the system distribution check. Only then can it create
+`Account-Access-Mac-notarized.zip` and report `READY_FOR_RELEASE_REVIEW` with its
+checksum. It does not publish a release or certify private-account production
+coverage. A rejected, unknown or mismatched result cannot produce that artifact.
+
+The protocol/interruption tests use simulated Apple responses. Real build 56
+passes the local preparation checks, while the actual distribution check
+correctly reports its missing ticket. Live submission, stapling, acceptance and
+clean downloaded installation remain unverified until the publisher connects
+valid Notary service credentials. See [validation](../docs/validation.md).
+
+Apple documents [notarization](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)
+and [system distribution checks](https://developer.apple.com/forums/thread/706442).
+
 The app hides saved passwords and owner/client tokens. Authenticator setup keys and Android pairing are intentionally visible only during owner enrollment; never record private enrollment secrets. Owner metadata is checked for file ownership and private permissions, the local server identity is verified with a fresh HMAC challenge, and HTTP redirects are refused. Connection retries retain the service's login throttle and stop for genuine owner-presence challenges.
 
 The signed Messages helper reads only configured incoming, recent login messages. Its private IPC is bound to owner enrollment and authenticated with an owner-only key. macOS Full Disk Access remains a broad OS permission; the application filter is narrower. Do not grant broad disk access to Python for this reader. Same-user unrestricted shell access remains outside the local custody boundary.

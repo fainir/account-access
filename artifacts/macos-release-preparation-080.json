@@ -1,0 +1,46 @@
+{
+  "version": "0.8.0-candidate",
+  "date": "2026-10-17",
+  "application_build": 56,
+  "production_ready": false,
+  "changes": [
+    "Maintainer-only resumable notarization helper using an existing Keychain profile label",
+    "Apple-anchored certificate requirement, expected team, hardened runtime, timestamp, executable permissions, universal architectures and wheel pin",
+    "Private copied app; input app and installed owner setup preserved",
+    "Submission boundary and archive-bound receipt prevent blind reuploads after interruption",
+    "Accepted Apple log must match exact job, archive and SHA-256",
+    "Ticket validation, unchanged code hashes and system distribution check required before final ZIP",
+    "Cached state cannot masquerade as fresh release validation; no automatic GitHub publication"
+  ],
+  "controlled_validation": {
+    "protocol_security_cases_passed": 32,
+    "seconds": 0.71,
+    "lint": "passed",
+    "apple_responses": "simulated in tests",
+    "limits": [
+      "Protocol tests are not live Apple acceptance",
+      "No private account authentication or physical-device acceptance",
+      "Publisher process remains a trusted local process; this is not broker OS isolation"
+    ]
+  },
+  "local_real_validation": {
+    "signed_universal_app_preparation": "passed",
+    "bundle_wheel_sha256": "e306bb5e1df75cc63c4cd9ea637c8dc6a702b7eb1a7ad6918a151c1081f6746a",
+    "prepared_archive_sha256": "9ea1b931e8d9589f9f9ffc5f1b3bf2169a5176bfabedec0b743b99ad832d4f3c",
+    "distribution_check_exit_code": 70,
+    "distribution_missing_ticket": true,
+    "distribution_signature_error": false,
+    "submit_without_profile": "denied before upload",
+    "apple_submission_created": false,
+    "apple_acceptance_verified": false,
+    "ticket_stapled": false,
+    "clean_downloaded_install_verified": false
+  },
+  "owner_state": {
+    "installed_build": 53,
+    "gmail_setup": "preserved; enrollment unconfirmed",
+    "new_private_website_sign_in_requests": 0,
+    "keychain_credential_values_read": false
+  },
+  "privacy": "Public record excludes credentials, profile labels, personal identifiers, private paths and raw diagnostic logs"
+}

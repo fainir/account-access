@@ -122,7 +122,7 @@ or physical-device coverage.
 
 | Requirement | Verified evidence | Remaining gate |
 | --- | --- | --- |
-| Simple Mac installation | Signed universal app, local update/repair flow, checksum-tamper rejection | Apple notarization and a clean downloaded-install test on a separate Mac |
+| Simple Mac installation | Signed universal app, local update/repair flow, checksum-tamper rejection; resumable maintainer notary helper with real local preflight and protocol failure tests | Valid publisher Notary credentials, live Apple acceptance/stapling and a clean downloaded-install test on a separate Mac |
 | Chrome/password-manager import | Reviewed CSV imports; one selected personal entry imported in the native app | More real export formats and representative private website connectors |
 | Other website providers | Namecheap username-only pilot and exact export aliases; one selected real Chrome credential imported locally; anonymous preflight and local import/session fixtures passed | Private Namecheap login stopped at browser verification/HTTP 429; password/email/TOTP acceptance remains open. Railway email-first login is not implemented. See [provider scope](other-service-validation.md) |
 | Continuous password updates | Exact-item 1Password Connect contract and password-rotation recovery tests | Private Connect deployment QA; Chrome exports remain snapshots |
