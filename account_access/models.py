@@ -152,6 +152,7 @@ class BrowserAccount(StrictModel):
     read_resources: list[str] = Field(default_factory=list, max_length=100)
     login_resources: list[str] = Field(default_factory=list, max_length=100)
     login_assets: list[str] = Field(default_factory=list, max_length=150)
+    login_asset_discovery: Literal["github"] | None = None
     browser_channel: Literal["chrome"] | None = None
     login_post_urls: list[str] = Field(default_factory=list, max_length=32)
     javascript: bool = False
@@ -200,6 +201,12 @@ class Configuration(StrictModel):
                 if account.revoke_url:
                     urls.append(account.revoke_url)
             else:
+                if account.login_asset_discovery and (
+                        not account.javascript or origin(account.login_url) != "https://github.com"
+                        or urlsplit(account.login_url).path != "/login"
+                        or not account.login or account.login.username_selector != "#login_field"
+                        or account.login.password_selector != "#password"):
+                    raise ValueError("GitHub asset discovery requires the reviewed GitHub login form")
                 urls = [account.login_url, *account.read_resources, *account.login_resources,
                         *account.login_assets, *account.login_post_urls]
                 if account.login:
@@ -243,6 +250,8 @@ class Configuration(StrictModel):
             data.pop("login_assets", None)
         if isinstance(self.accounts[account], BrowserAccount) and data.get("browser_channel") is None:
             data.pop("browser_channel", None)
+        if isinstance(self.accounts[account], BrowserAccount) and data.get("login_asset_discovery") is None:
+            data.pop("login_asset_discovery", None)
         if isinstance(self.accounts[account], BrowserAccount) and data.get("login"):
             if not data["login"].get("factors"):
                 data["login"].pop("factors", None)

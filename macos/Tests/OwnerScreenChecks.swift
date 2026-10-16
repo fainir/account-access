@@ -128,7 +128,10 @@ final class VerificationRetryFixture: URLProtocol {
                       ["route": "https://example.com/?secret=fictional", "method": "GET"]],
             "fields": ["sms_totp": true, "password": "fictional-secret"],
             "controls": ["sms": ["count": 1, "visible": false]],
-            "progress": ["method": "sms", "sms_code_filled": true, "code": "fictional-secret"],
+            "progress": ["method": "sms", "sms_code_filled": true, "code": "fictional-secret",
+                         "code_request": ["page": "origin_0:/sessions/two-factor/sms", "http_status": 302,
+                                          "transport": "document", "ajax": true, "auto": false,
+                                          "redirect": "https://example.com/?secret=fictional", "code": "fictional-secret"]],
             "assets": ["https://github.githubassets.com/assets/sessions-test.js", "https://example.com/?secret=fictional"],
             "arbitrary": "fictional-secret"])
         precondition(detail.contains("origin_0:/sessions/two-factor/sms"))
@@ -136,6 +139,8 @@ final class VerificationRetryFixture: URLProtocol {
         precondition(detail.contains("Code fields present: sms_totp"))
         precondition(detail.contains("sms controls: 1 hidden"))
         precondition(detail.contains("Selected method: sms") && detail.contains("Login stage: sms_code_filled"))
+        precondition(detail.contains("Code request HTTP: 302") && detail.contains("Code request transport: document"))
+        precondition(detail.contains("Code request ajax: true") && !detail.contains("Code request redirect:"))
         precondition(detail.contains("Asset: https://github.githubassets.com/assets/sessions-test.js"))
         precondition(!detail.contains("fictional") && !detail.contains("example.com"))
         precondition(AccountAccess.verificationDetailText(["page": "origin_0:/sessions/private-value"]).isEmpty)

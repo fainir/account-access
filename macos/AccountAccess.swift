@@ -598,6 +598,28 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             for phase in ["password_submit_attempted", "sms_requested", "email_requested", "sms_code_filled", "email_code_filled", "totp_code_filled", "sms_submit_attempted", "email_submit_attempted", "totp_submit_attempted"] {
                 if progress[phase] as? Bool == true { lines.append("Login stage: " + phase) }
             }
+            if let request = progress["code_request"] as? [String: Any] {
+                if let page = route(request["page"]) { lines.append("Code request page: " + page) }
+                if let status = request["http_status"] as? Int, (100...599).contains(status) {
+                    lines.append("Code request HTTP: " + String(status))
+                }
+                if let transport = request["transport"] as? String, ["document", "xhr", "fetch", "other"].contains(transport) {
+                    lines.append("Code request transport: " + transport)
+                }
+                if let destination = route(request["redirect"]) { lines.append("Code request redirect: " + destination) }
+                for flag in ["ajax", "auto"] {
+                    if let value = request[flag] as? Bool { lines.append("Code request " + flag + ": " + String(value)) }
+                }
+                if let button = request["button"] as? String, ["recovery", "cancel", "send", "confirm", "continue", "other"].contains(button) {
+                    lines.append("Code request button: " + button)
+                }
+                for field in (request["fields"] as? [[String: Any]] ?? []).prefix(32) {
+                    guard let type = field["type"] as? String,
+                          ["hidden", "text", "tel", "number", "checkbox", "radio", "select-one", "submit", "button", "other"].contains(type) else { continue }
+                    let flags = ["required", "checked", "invalid"].filter { field[$0] as? Bool == true }
+                    lines.append("Code request field: " + type + (flags.isEmpty ? "" : " (" + flags.joined(separator: ", ") + ")"))
+                }
+            }
         }
         for asset in (diagnostic["assets"] as? [String] ?? []).prefix(150) {
             if asset.count <= 240 && asset.range(of: "^https://github\\.githubassets\\.com/assets/[A-Za-z0-9_.-]+\\.(js|css)$", options: .regularExpression) != nil {
@@ -1583,7 +1605,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
               let fingerprint = update["fingerprint"] as? String else { return }
         let alert = NSAlert()
         alert.messageText = "Update this website's sign-in connection?"
-        alert.informativeText = "Update GitHub's reviewed sign-in controls and the exact public scripts and styles included in this signed app. The recovery page can be viewed for diagnosis; a recovery-code field stops automatic sign-in. The approved reads, login POST destinations, connected verification sources and agent permissions stay the same."
+        alert.informativeText = "Follow exact versioned scripts and styles declared by GitHub's HTTPS login response, with anonymous downloads from GitHub's asset host. Other destinations, queries, asset POSTs and page-driven discovery stay blocked. The recovery page can be viewed for diagnosis; a recovery-code field stops automatic sign-in. Approved account reads and connected verification sources stay the same."
         alert.addButton(withTitle: "Update connection")
         alert.addButton(withTitle: "Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else { return }

@@ -2,6 +2,45 @@ import pytest
 from playwright.sync_api import Error, sync_playwright
 
 
+def test_native_response_payload_is_reviewed_before_declared_script_executes(env):
+    provider, broker, _ = env
+    parent = provider.server.RequestHandlerClass
+    document_seen = []
+    script_requests = []
+
+    class Handler(parent):
+        def do_GET(self):
+            if self.path == "/asset-document":
+                self.page('<script src="/asset-script.js"></script><h1>Asset ordering</h1>')
+            elif self.path == "/asset-script.js":
+                script_requests.append(bool(document_seen))
+                self.send(200, "window.declaredScriptExecuted=true", content_type="application/javascript")
+            else:
+                super().do_GET()
+
+    provider.server.RequestHandlerClass = Handler
+    spec = broker.store.config().accounts["demo-web"]
+    spec.javascript = True
+    spec.login_resources.append(provider.base + "/asset-document")
+    spec.login_assets.append(provider.base + "/asset-script.js")
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(chromium_sandbox=True)
+        context = broker.browser.context(browser, spec, login=True)
+
+        def inspect(url, kind, body, headers, main_frame):
+            if kind == "document":
+                assert main_frame and headers["content-type"].startswith("text/html")
+                assert b"/asset-script.js" in body
+                document_seen.append(url)
+
+        context._response_guard.payload = inspect
+        page = broker.browser.page(context)
+        page.goto(provider.base + "/asset-document")
+        assert page.evaluate("window.declaredScriptExecuted") is True
+        browser.close()
+    assert script_requests == [True]
+
+
 def test_native_redirect_preserves_final_document_url_relative_links_and_cookie(env):
     provider, broker, _ = env
     parent = provider.server.RequestHandlerClass

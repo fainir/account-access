@@ -45,6 +45,7 @@ def proposal(config, account):
         updated.login_assets = sorted(set(spec.login_assets) | set(github_assets()))
         if len(updated.login_assets) > 150:
             return None
+        updated.login_asset_discovery = "github"
     for url in [METHOD_PAGE, SMS_PAGE, RECOVERY_PAGE]:
         if url not in updated.login_resources:
             updated.login_resources.append(url)

@@ -102,6 +102,7 @@ def prepare(store, account, fingerprint):
         if sys.platform == "darwin" and Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome").is_file():
             spec.browser_channel = "chrome"
         spec.login_assets = assets
+        spec.login_asset_discovery = "github"
         spec.login.choice_toggle_selector = ".more-options-two-factor"
         if not spec.login.factors:
             factor = spec.login.factor("totp")

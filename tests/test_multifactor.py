@@ -257,6 +257,7 @@ def test_legacy_connector_fingerprint_survives_new_factor_schema(env):
     old = config.accounts["demo-mfa"].model_dump()
     old.pop("login_assets")
     old.pop("browser_channel")
+    old.pop("login_asset_discovery")
     old["login"].pop("factors")
     old["login"].pop("choices")
     old["login"].pop("code_requests")
@@ -376,6 +377,38 @@ def test_offered_sms_request_then_fresh_code_completes_without_owner(chain):
     configure_code_request(broker, provider)
     assert broker.run("test", "demo-mfa", "summary")["status"] == "COMPLETED"
     assert provider.sms_request_count == provider.sms_count == provider.login_count == 1
+
+
+def test_delivery_redirect_diagnostics_exclude_page_content_and_code_values(chain, monkeypatch):
+    provider, broker, _, stages = chain
+    stages[:] = ["choose", "request", "recovery"]
+    configure_code_request(broker, provider)
+    config = broker.store.config()
+    spec = config.accounts["demo-mfa"]
+    spec.login_resources.append(provider.base + "/verify/recovery")
+    spec.challenge_selectors["action"] = "#recovery_code"
+    broker.store.configure(config)
+    broker.grant("test", "demo-mfa", ["summary"])
+    contexts = []
+    original = broker.browser.context
+
+    def capture(*args, **kwargs):
+        context = original(*args, **kwargs)
+        contexts.append(context)
+        return context
+
+    monkeypatch.setattr(broker.browser, "context", capture)
+    result = broker.run("test", "demo-mfa", "summary")
+    assert result["status"] == "NEEDS_USER"
+    progress = contexts[-1]._login_progress
+    assert progress["sms_requested"] is True
+    assert progress["code_request"] == {"page": "origin_0:/verify/?", "ajax": False, "auto": False,
+                                        "button": "send", "fields": [{"type": "submit", "required": False,
+                                                                      "checked": False, "invalid": False}],
+                                        "http_status": 303, "transport": "document",
+                                        "redirect": "origin_0:/verify/recovery"}
+    assert DEMO_PASSWORD not in json.dumps(progress) and DEMO_SEED not in json.dumps(progress)
+    assert provider.sms_count == 0 and provider.sms_request_count == 1
 
 
 def test_google_messages_source_can_request_reviewed_sms_delivery(chain):

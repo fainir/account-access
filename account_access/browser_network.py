@@ -5,6 +5,8 @@ from urllib.parse import urljoin
 
 from playwright.sync_api import Error as PlaywrightError
 
+from .errors import AccessError
+
 
 class ResponseGuard:
     """Private CDP pipe only; no debugging port or agent-visible browser handle.
@@ -16,18 +18,20 @@ class ResponseGuard:
     native transport.
     """
 
-    def __init__(self, context, permitted, failure, response):
+    def __init__(self, context, permitted, failure, response, payload=None):
         self.context = context
         self.permitted = permitted
         self.failure = failure
         self.response = response
+        self.payload = payload
         self.sessions = {}
 
     def attach(self, page):
         try:
             session = self.context.new_cdp_session(page)
             hops = {}
-            session.on("Fetch.requestPaused", lambda event: self.paused(session, hops, event))
+            main_frame = session.send("Page.getFrameTree")["frameTree"]["frame"]["id"] if self.payload else None
+            session.on("Fetch.requestPaused", lambda event: self.paused(session, hops, event, main_frame))
             session.send("Fetch.enable", {"patterns": [{"urlPattern": "*", "requestStage": "Response"}]})
             self.sessions[page] = session
             page.on("close", lambda: self.sessions.pop(page, None))
@@ -43,7 +47,7 @@ class ResponseGuard:
         except PlaywrightError:
             return False  # Dedicated-worker requests do not have a frame.
 
-    def paused(self, session, hops, event):
+    def paused(self, session, hops, event, main_frame=None):
         request_id = event["requestId"]
         chain = event.get("networkId", request_id)
         request = event["request"]
@@ -65,12 +69,12 @@ class ResponseGuard:
             if status is None:
                 abort("transport")
                 return
-            self.response(url, method, status)
+            location = next((item["value"] for item in event.get("responseHeaders", [])
+                             if item["name"].lower() == "location"), None)
+            self.response(url, method, status, kind, urljoin(url, location) if location else None)
             if status >= 400:
                 self.failure(url, method, "http_" + str(status), kind, hop > 0)
             if status in {301, 302, 303, 307, 308}:
-                location = next((item["value"] for item in event.get("responseHeaders", [])
-                                 if item["name"].lower() == "location"), None)
                 if not location:
                     abort("missing_location")
                     return
@@ -99,8 +103,11 @@ class ResponseGuard:
                     if len(payload) > 8_000_000:
                         abort("response_size")
                         return
+                    if self.payload:
+                        headers = {item["name"].lower(): item["value"] for item in event.get("responseHeaders", [])}
+                        self.payload(url, kind, payload, headers, event.get("frameId") == main_frame)
             session.send("Fetch.continueResponse", {"requestId": request_id})
-        except (PlaywrightError, ValueError):
+        except (PlaywrightError, ValueError, AccessError):
             try:
                 abort("transport")
             except PlaywrightError:

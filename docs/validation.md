@@ -2,6 +2,34 @@
 
 ## Browser verification and repair candidate — 16 October 2026, version 0.8
 
+The current local candidate passed **262 tests** in 233.04 seconds. A further
+delivery-diagnostic regression and 11 related browser checks passed after the
+response metadata change. Follow-up `1f6f7df` passed all 237 tests, native owner,
+Messages and optimized startup/reopen checks, lint, dependency audit and build in
+[CI](https://github.com/fainir/account-access/actions/runs/38903426784), plus the
+[Android journey](https://github.com/fainir/account-access/actions/runs/38903426763).
+
+GitHub changed its asset versions again during private QA. The connector now
+learns exact hashed script/style URLs only from reviewed HTTPS main-frame login
+responses and their public scripts' literal imports. Downloads are anonymous,
+redirect-free GETs to GitHub's exact asset directory, with eight workers, transfer
+and request limits, and an in-memory cache. They cannot receive browser cookies,
+credentials, request bodies or a Referer. Queries, asset POSTs, unrelated page
+discovery and arbitrary destinations stay blocked. Tests cover these boundaries
+and prove declaration processing precedes browser script requests. An anonymous
+Chrome check loaded the current public login page in 5.84 seconds with 77 asset
+downloads and no failures; it submitted no credentials. See
+[public asset results](../artifacts/github-public-assets-080.json).
+
+Native builds 33–35 restored owner-window control and were installed through
+graphical repair while preserving account reads and the connected SMS source.
+The latest real GitHub check selected SMS and received an accepted HTTP response
+to its request, then reached a recovery-code page before receiving/filling a
+fresh code. Automatic sign-in stopped there. Additional owner diagnostics now
+show only the request's HTTP status, transport and closed-vocabulary redirect
+route, to distinguish a normal form submission from the site's JavaScript flow.
+Private sign-in and physical delivery remain unverified.
+
 Follow-up `6db076d` fixes the reviewed SMS-request guard for a connected Google
 Messages source and adds nine exact public GitHub assets used by the passkey
 page's alternative-method control. An owner-reviewed connector update preserves
@@ -41,13 +69,14 @@ excluding credentials, code values, arbitrary page text and URL queries. Chrome
 Web Store distribution remains outstanding.
 
 After the build 30 live attempt, desktop control could reach Chrome but could
-not attach to Account Access while two app instances were running. The owner was
-asked to close and reopen the app. A build 31 source follow-up now asks the prior
-canonical owner window to terminate normally before replacing its bundle, waits
-up to eight seconds, and refuses replacement if that window remains open. It
-does not force-terminate an active owner step or stop the independent account
-service. Compilation and all nine native screen checks passed locally; the
-guard's real update recovery remains to be verified.
+not attach to Account Access while two app instances were running. Signed repair
+now asks older same-bundle owner windows to terminate normally before replacing
+the bundle, waits up to fifteen seconds, and refuses replacement if a window
+remains busy or unresponsive. It does not force-terminate an owner step or stop
+the independent account service. A fresh signed build restored control and
+normally closed the older native instances. Explicit delegate lifetime and reopen
+handling also passed optimized native launch checks; the lifetime change alone
+has not been established as the original fault's cause.
 
 The functional candidate at `9fbcad0` passed 173 tests, native owner/reader checks,
 Ruff, dependency audit and build in [CI](https://github.com/fainir/account-access/actions/runs/38886257072).

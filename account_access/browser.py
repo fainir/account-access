@@ -24,6 +24,11 @@ class Browser:
         context._login_code_request = None
         allowed = set(config.login_resources if login else config.read_resources)
         assets = set(config.login_assets) if login else set()
+        asset_policy = None
+        if login and config.login_asset_discovery == "github":
+            from .login_assets import GithubLoginAssets
+            asset_policy = GithubLoginAssets([config.login_url, *config.login_resources], assets)
+        context._login_asset_policy = asset_policy
         allowed.update(assets)
         if login:
             allowed.add(config.login_url)
@@ -66,12 +71,22 @@ class Browser:
                 return "resource_type"
             return None
 
-        def response_metadata(url, method, status):
+        def response_metadata(url, method, status, resource_type, redirect=None):
             pending = context._login_code_request
             if method == "POST" and pending is not None and url == pending["url"]:
                 pending["http_status"] = status
+                pending["transport"] = resource_type if resource_type in {"document", "xhr", "fetch"} else "other"
+                if redirect:
+                    pending["redirect"] = route_hint(redirect, [origin(config.login_url)])
 
-        native = ResponseGuard(context, permitted, record_metadata, response_metadata)
+        def declared_assets(url, kind, body, headers, main_frame):
+            declarations = asset_policy.document(url, kind, body, headers, main_frame)
+            asset_policy.prefetch(declarations)
+            assets.update(asset_policy.urls)
+            allowed.update(asset_policy.urls)
+
+        native = ResponseGuard(context, permitted, record_metadata, response_metadata,
+                               declared_assets if asset_policy else None)
         context._response_guard = native
 
         def guard(route):
@@ -81,6 +96,16 @@ class Browser:
             if reason:
                 record_failure(request, url, reason)
                 route.abort("blockedbyclient")
+                return
+            if asset_policy and url in assets:
+                try:
+                    body, public_headers = asset_policy.fetch(url)
+                    assets.update(asset_policy.urls)
+                    allowed.update(asset_policy.urls)
+                    route.fulfill(status=200, headers=public_headers,
+                                  body=body if method != "HEAD" else b"")
+                except AccessError:
+                    route.abort("blockedbyclient")
                 return
             if native.native(request):
                 # The attached response guard checks every redirect before
@@ -103,12 +128,12 @@ class Browser:
                     response = route.fetch(url=url, method=method, headers=headers,
                                            post_data=body if method == "POST" else "",
                                            max_redirects=0, max_retries=0, timeout=15000)
-                    pending_request = context._login_code_request
-                    if (hop == 0 and method == "POST" and pending_request is not None
-                            and url == pending_request["url"]):
+                    if hop == 0:
                         # Only fixed HTTP metadata, never response content or
                         # hidden page banners, establishes that a request ran.
-                        pending_request["http_status"] = response.status
+                        location = response.headers.get("location")
+                        response_metadata(url, method, response.status, request.resource_type,
+                                          urljoin(url, location) if location else None)
                     if response.status >= 400:
                         record_failure(request, url, "http_" + str(response.status), hop > 0)
                     if response.status in {301, 302, 303, 307, 308}:
@@ -365,10 +390,26 @@ class Browser:
                     requested_at = time.time()
                     confirmation = {"url": delivery.url, "http_status": None}
                     context._login_code_request = confirmation
+                    dispatch = page.locator(delivery.selector).first.evaluate("""el => ({
+                        ajax: !!el.form?.classList.contains('js-send-auth-code'),
+                        auto: !!el.form?.hasAttribute('data-autosubmit'),
+                        button: (() => {
+                            const text = (el.innerText || el.value || '').toLowerCase();
+                            return ['recovery', 'cancel', 'send', 'confirm', 'continue'].find(word => text.includes(word)) || 'other';
+                        })(),
+                        fields: Array.from(el.form?.elements || []).slice(0, 32).map(field => ({
+                            type: ['hidden', 'text', 'tel', 'number', 'checkbox', 'radio', 'select-one', 'submit', 'button'].includes(field.type) ? field.type : 'other',
+                            required: !!field.required, checked: !!field.checked, invalid: field.matches(':invalid')
+                        }))
+                    })""")
+                    details = {"page": route_hint(page.url, [origin(config.login_url)]), **dispatch}
+                    context._login_progress["code_request"] = details
                     page.locator(delivery.selector).first.click(timeout=10000)
                     page.wait_for_load_state("domcontentloaded")
                     context._login_code_request = None
                     http_status = confirmation["http_status"]
+                    details.update({key: confirmation[key] for key in ["http_status", "transport", "redirect"]
+                                    if key in confirmation})
                     if http_status is None:
                         raise AccessError("NEEDS_USER", "verification_code_request_not_submitted", method)
                     self.store.audit("service", account, "", "login_code_request_result",
