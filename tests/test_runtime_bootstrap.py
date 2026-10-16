@@ -6,10 +6,11 @@ import hashlib
 import shutil
 import sys
 import zipfile
+import json
 
 import pytest
 
-from account_access.runtime_bootstrap import MARKER, install
+from account_access.runtime_bootstrap import INSTALLATION_MARKER, MARKER, install, installation_snapshot, write_installation
 
 
 @pytest.fixture
@@ -65,6 +66,7 @@ def test_prepare_then_switch_and_rollback_failed_runtime(setup, failure, monkeyp
         with pytest.raises(subprocess.CalledProcessError):
             install("uv", wheel, runtime, requirements, data_dir="private data", no_open=True, run=run)
         assert launcher.read_text() == old
+        assert not (runtime / "installed-wheel.json").exists()
         assert list((runtime / "environments").iterdir()) == []
         if failure == "start":
             assert calls[-1] == [str(launcher), "--root", "private data", "start", "--no-open"]
@@ -79,6 +81,9 @@ def test_prepare_then_switch_and_rollback_failed_runtime(setup, failure, monkeyp
         assert calls[-2:] == [[str(launcher), "--root", "private data", "stop"],
                               [str(launcher), "--root", "private data", "start", "--no-open"]]
         assert (Path.home() / "Applications/Account Access.command").is_file()
+        record = json.loads(installation_snapshot(runtime / "installed-wheel.json"))
+        assert record == {"managed_by": INSTALLATION_MARKER, "schema": 1,
+                          "wheel_sha256": hashlib.sha256(wheel.read_bytes()).hexdigest()}
 
 
 def test_unowned_runtime_launcher_is_not_replaced(setup):
@@ -87,6 +92,46 @@ def test_unowned_runtime_launcher_is_not_replaced(setup):
     with pytest.raises(RuntimeError, match="Another application"):
         install("uv", wheel, runtime, requirements)
     assert launcher.read_text() == "another application"
+
+
+@pytest.mark.parametrize("damage", ["unknown", "public", "symlink", "hardlink"])
+def test_untrusted_payload_record_cannot_change_existing_installation(setup, damage):
+    runtime, launcher, old, wheel, requirements = setup
+    path = runtime / "installed-wheel.json"
+    content = json.dumps({"managed_by": INSTALLATION_MARKER, "schema": 1, "wheel_sha256": "a" * 64}).encode()
+    write_installation(path, content if damage != "unknown" else b"unrelated existing file")
+    outside = runtime.parent / "outside-record"
+    if damage == "public":
+        path.chmod(0o644)
+    elif damage in {"symlink", "hardlink"}:
+        path.replace(outside)
+        if damage == "symlink":
+            path.symlink_to(outside)
+        else:
+            os.link(outside, path)
+    commands = []
+    with pytest.raises(RuntimeError, match="payload record"):
+        install("uv", wheel, runtime, requirements, run=lambda *a, **k: commands.append(a))
+    assert not commands and launcher.read_text() == old
+    if outside.exists():
+        assert outside.read_bytes() == content
+
+
+def test_failed_repair_keeps_previous_payload_digest_and_launcher(setup):
+    runtime, launcher, old, wheel, requirements = setup
+    record = runtime / "installed-wheel.json"
+    content = json.dumps({"managed_by": INSTALLATION_MARKER, "schema": 1, "wheel_sha256": "a" * 64}).encode()
+    write_installation(record, content)
+    def run(command, **_kwargs):
+        if command[1] == "venv":
+            folder = Path(command[-1]) / "bin"
+            folder.mkdir()
+            (folder / "python").touch()
+        if "start" in command:
+            raise subprocess.CalledProcessError(1, command)
+    with pytest.raises(subprocess.CalledProcessError):
+        install("uv", wheel, runtime, requirements, data_dir="fixture data", no_open=True, run=run)
+    assert launcher.read_text() == old and record.read_bytes() == content
 
 
 def test_only_the_owned_legacy_uv_link_can_be_migrated(setup):

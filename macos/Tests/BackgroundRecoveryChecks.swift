@@ -32,10 +32,15 @@ final class BackgroundControlFixture: BackgroundRecovery.Control {
         let info: [String: Any] = ["CFBundleIdentifier": "com.fainir.accountaccess.qa.fixture",
             "CFBundleShortVersionString": "0.8.0", "CFBundleExecutable": "Fixture",
             "AccountAccessBackgroundFormat": 1, "AccountAccessDataDirectory": root.path,
+            "AccountAccessWheelSHA256": String(repeating: "b", count: 64),
             "AccountAccessInstallDirectory": runtime.path]
         try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0)
             .write(to: app.appendingPathComponent("Contents/Info.plist"))
         let layout = try BackgroundRecovery.Layout(bundle: Bundle(url: app)!)
+        let installed = runtime.appendingPathComponent("installed-wheel.json")
+        try BackgroundRecovery.writePrivate(JSONSerialization.data(withJSONObject: [
+            "managed_by": "account-access-runtime-v1", "schema": 1,
+            "wheel_sha256": String(repeating: "b", count: 64)]), to: installed)
         let python = bin.appendingPathComponent("python")
         precondition(files.createFile(atPath: python.path, contents: Data("fixture".utf8), attributes: [.posixPermissions: 0o700]))
         let registration = root.appendingPathComponent("supervisor.json")
@@ -50,6 +55,19 @@ final class BackgroundControlFixture: BackgroundRecovery.Control {
         precondition(command == [python.path, "-I", "-m", "account_access.cli", "--root", root.path,
                                  "desktop-guardian", "--generation", generation])
         print("PASS: helper selects only the approved managed runtime and isolated guardian command")
+        precondition(BackgroundRecovery.installationMatches(runtime: runtime, expected: String(repeating: "b", count: 64)))
+        precondition(!BackgroundRecovery.installationMatches(runtime: runtime, expected: String(repeating: "c", count: 64)))
+        let installedRecord = try BackgroundRecovery.readPrivate(installed)
+        try BackgroundRecovery.writePrivate(JSONSerialization.data(withJSONObject: [
+            "managed_by": "account-access-runtime-v1", "schema": 1,
+            "wheel_sha256": String(repeating: "c", count: 64)]), to: installed)
+        do { _ = try BackgroundRecovery.command(layout: layout); preconditionFailure("Stale same-version runtime was accepted") }
+        catch { }
+        try BackgroundRecovery.writePrivate(installedRecord, to: installed)
+        try files.setAttributes([.posixPermissions: 0o644], ofItemAtPath: installed.path)
+        precondition(!BackgroundRecovery.installationMatches(runtime: runtime, expected: String(repeating: "b", count: 64)))
+        try files.setAttributes([.posixPermissions: 0o600], ofItemAtPath: installed.path)
+        print("PASS: same-version stale or unsafe runtime records cannot satisfy the signed app's payload pin")
         let pause = root.appendingPathComponent("service.paused")
         try BackgroundRecovery.writePrivate(Data("paused".utf8), to: pause)
         let pausedCommand = try BackgroundRecovery.command(layout: layout)

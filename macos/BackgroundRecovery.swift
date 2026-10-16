@@ -14,6 +14,7 @@ enum BackgroundRecovery {
         let root: URL
         let runtime: URL
         let version: String
+        let wheelSHA256: String
         var label: String { identifier + ".background" }
         var helper: URL { bundle.appendingPathComponent("Contents/MacOS/" + helperName) }
         var plist: URL { bundle.appendingPathComponent("Contents/Library/LaunchAgents/" + plistName) }
@@ -22,6 +23,8 @@ enum BackgroundRecovery {
             guard let id = bundle.bundleIdentifier,
                   id == "com.fainir.accountaccess" || id.range(of: "^com\\.fainir\\.accountaccess\\.qa\\.[a-z0-9]+$", options: .regularExpression) != nil,
                   let version = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
+                  let wheel = bundle.object(forInfoDictionaryKey: "AccountAccessWheelSHA256") as? String,
+                  wheel.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil,
                   (bundle.object(forInfoDictionaryKey: "AccountAccessBackgroundFormat") as? NSNumber)?.intValue == 1 else {
                 throw Failure.invalidSetup
             }
@@ -39,6 +42,7 @@ enum BackgroundRecovery {
             self.bundle = bundle.bundleURL
             self.identifier = id
             self.version = version
+            self.wheelSHA256 = wheel
             self.root = try path("AccountAccessDataDirectory", fallback)
             self.runtime = try path("AccountAccessInstallDirectory", home.appendingPathComponent(".local/share/account-access/runtime"))
         }
@@ -101,11 +105,23 @@ enum BackgroundRecovery {
               python.lastPathComponent.range(of: "^python(?:3(?:\\.[0-9]+)?)?$", options: .regularExpression) != nil,
               files.isExecutableFile(atPath: python.path) else { throw Failure.invalidSetup }
         try directory(layout.runtime)
+        guard installationMatches(runtime: layout.runtime, expected: layout.wheelSHA256) else { throw Failure.invalidSetup }
         try directory(layout.runtime.appendingPathComponent("environments"))
         try directory(environment)
         try directory(bin, privateOnly: false)
         return [python.path, "-I", "-m", "account_access.cli", "--root", layout.root.path,
                 "desktop-guardian", "--generation", generation]
+    }
+
+    static func installationMatches(runtime: URL, expected: String) -> Bool {
+        do {
+            try directory(runtime)
+            guard let record = try JSONSerialization.jsonObject(with: readPrivate(runtime.appendingPathComponent("installed-wheel.json"))) as? [String: Any],
+                  Set(record.keys) == Set(["managed_by", "schema", "wheel_sha256"]),
+                  record["managed_by"] as? String == "account-access-runtime-v1",
+                  record["schema"] as? Int == 1, record["wheel_sha256"] as? String == expected else { return false }
+            return true
+        } catch { return false }
     }
 
     static func kickstart(label: String) throws {

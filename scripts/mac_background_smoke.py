@@ -27,6 +27,7 @@ from account_access.demo import environment
 from account_access.desktop import running, stop
 from account_access.errors import AccessError
 from account_access.models import TaskRequest
+from account_access.runtime_bootstrap import INSTALLATION_MARKER, write_installation
 from account_access.storage import private_file
 from account_access.supervisor import lease
 from macos.notarize import Notarization
@@ -139,6 +140,8 @@ def check(source, team, report_path):
                                 + " --hash=sha256:" + hashlib.sha256(wheel.read_bytes()).hexdigest() + "\n")
         run([uv, "pip", "sync", "--no-config", "--python", python, "--require-hashes", "--no-build",
              "--strict", requirements], timeout=120)
+        write_installation(runtime / "installed-wheel.json", json.dumps({"managed_by": INSTALLATION_MARKER,
+            "schema": 1, "wheel_sha256": hashlib.sha256(wheel.read_bytes()).hexdigest()}).encode())
         with environment(root) as (_, broker, _):
             if not type(keyring.get_keyring()).__module__.startswith("keyring.backends.macOS"):
                 raise ProbeFailure("secure_macos_keyring_required")

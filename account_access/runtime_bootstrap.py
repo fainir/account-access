@@ -6,10 +6,13 @@ the previous environment is retained so existing clients and rollback still work
 
 import hashlib
 import fcntl
+import json
 import os
 from pathlib import Path
 import shlex
 import shutil
+import re
+import stat
 import subprocess
 import sys
 import tempfile
@@ -17,6 +20,39 @@ import tempfile
 
 MARKER = "# account-access-runtime-launcher-v1"
 DESKTOP_MARKER = "# account-access-launcher-v1"
+INSTALLATION_MARKER = "account-access-runtime-v1"
+
+
+def installation_snapshot(path):
+    if not path.exists() and not path.is_symlink():
+        return None
+    info = path.lstat()
+    if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077
+            or info.st_nlink != 1 or info.st_size > 1024):
+        raise RuntimeError("The installed payload record is not private.")
+    data = path.read_bytes()
+    try:
+        value = json.loads(data)
+        if (not isinstance(value, dict) or set(value) != {"managed_by", "schema", "wheel_sha256"}
+                or value["managed_by"] != INSTALLATION_MARKER or type(value["schema"]) is not int
+                or value["schema"] != 1 or not isinstance(value["wheel_sha256"], str)
+                or not re.fullmatch(r"[a-f0-9]{64}", value["wheel_sha256"])):
+            raise ValueError()
+    except (ValueError, TypeError, KeyError):
+        raise RuntimeError("Another file owns the installed payload record.") from None
+    return data
+
+
+def write_installation(path, data):
+    descriptor, name = tempfile.mkstemp(prefix=".account-access-payload-", dir=path.parent)
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(name, path)
+    finally:
+        Path(name).unlink(missing_ok=True)
 
 
 def launcher_snapshot(path, runtime):
@@ -91,6 +127,8 @@ def _install(uv, wheel, runtime, requirements, *, data_dir, no_open, run):
             raise RuntimeError("Refusing a linked installation directory.")
         directory.mkdir(parents=True, exist_ok=True, mode=0o700)
     previous = launcher_snapshot(launcher, runtime)
+    installation = runtime / "installed-wheel.json"
+    previous_installation = installation_snapshot(installation)
     desktop = Path.home() / "Applications/Account Access.command"
     if desktop.is_symlink() or (desktop.exists() and DESKTOP_MARKER not in desktop.read_text()):
         raise RuntimeError("Another file owns the desktop launcher. Installation stopped.")
@@ -98,6 +136,7 @@ def _install(uv, wheel, runtime, requirements, *, data_dir, no_open, run):
     activated = False
     switched = False
     stopped = False
+    payload_recorded = False
     env = {k: v for k, v in os.environ.items()
            if k not in {"PYTHONPATH", "PYTHONHOME", "UV_NO_VERIFY_HASHES", "UV_INSECURE_HOST",
                         "UV_OVERRIDE", "UV_EXCLUDE", "UV_CONSTRAINT", "UV_BUILD_CONSTRAINT"}}
@@ -127,11 +166,19 @@ def _install(uv, wheel, runtime, requirements, *, data_dir, no_open, run):
         switched = True
         run([str(launcher), *root_args, "start", *(["--no-open"] if no_open else [])],
             check=True, env=env)
-        activated = True
         desktop.parent.mkdir(parents=True, exist_ok=True)
         write_launcher(desktop, [str(launcher), *root_args, "start"], DESKTOP_MARKER)
+        write_installation(installation, json.dumps({"managed_by": INSTALLATION_MARKER, "schema": 1,
+            "wheel_sha256": hashlib.sha256(wheel.read_bytes()).hexdigest()}).encode())
+        payload_recorded = True
+        activated = True
         print("Installation complete. Your saved accounts are preserved.", flush=True)
     except Exception:
+        if payload_recorded:
+            if previous_installation is None:
+                installation.unlink(missing_ok=True)
+            else:
+                write_installation(installation, previous_installation)
         if switched:
             # A partially started replacement must release the saved service
             # before the old installation is restarted.

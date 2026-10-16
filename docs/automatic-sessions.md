@@ -49,7 +49,11 @@ app registers the saved Applications copy, respects revoked approval, and offers
 Login Items when approval is required. Native Pause removes the active generation
 and remains effective on a fresh job launch; Resume prepares a new generation.
 Registration means eligible to run, not proof that account authentication works.
-Live service-manager and reboot acceptance remain under validation. This remains
+A uniquely identified QA app verified registered-job recovery and Pause, then
+removed its job and fixture Keychain item. Actual logout/reboot acceptance
+remains open. The native app and helper also compare the installed payload
+record against the signed bundle wheel, so same-version candidates require the
+current runtime rather than reusing an older package. This remains
 a per-user process, with the same separate-identity security gate.
 
 Automatic invocation depends on a host that loads local skills/instructions and permits the client to run. Project overrides, host permissions and isolated cloud sessions still apply. There is no interception of arbitrary browser tools, and an unsupported website still needs a reviewed connector. Genuine owner-presence authentication remains a human step.

@@ -151,7 +151,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         if files.fileExists(atPath: root.appendingPathComponent("desktop.json").path),
-           files.isExecutableFile(atPath: runtime.appendingPathComponent("bin/account-access").path) {
+           files.isExecutableFile(atPath: runtime.appendingPathComponent("bin/account-access").path), installedPayloadMatches() {
             let metadata = try? Data(contentsOf: root.appendingPathComponent("desktop.json"))
             let info = metadata.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
             if info?["version"] as? String == Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
@@ -404,6 +404,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
 
     @objc func reopen() {
+        if !installedPayloadMatches() { install(); return }
         busy = true
         page("Opening Account Access", "Reconnecting to your secure local app…")
         progress()
@@ -479,6 +480,11 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
 
     enum Failure: Error { case message(String) }
+
+    func installedPayloadMatches() -> Bool {
+        guard let expected = Bundle.main.object(forInfoDictionaryKey: "AccountAccessWheelSHA256") as? String else { return false }
+        return BackgroundRecovery.installationMatches(runtime: runtime, expected: expected)
+    }
 
     func prepareBackgroundRecovery() -> String {
         // ServiceManagement must be called by the saved app, rather than the

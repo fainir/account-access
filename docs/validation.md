@@ -25,8 +25,22 @@ All **26 native owner UI checks** and **five background policy/path checks**
 passed. Native Pause sends one stop request, clears local setup secrets, and
 offers explicit Resume. Approval-required status has a Login Items action.
 The helper and main app build successfully for both CPU architectures. Lint and
-skill validation passed. Live service-manager, package verification and final CI
-are pending; no private account or physical-device acceptance is implied.
+skill validation passed. An initial real Mac probe registered and started the
+service but failed because its fixture principal was inactive; cleanup removed
+its job and fixture key. After correcting setup, the real registered QA app
+recovered its original task after both processes were killed, honored Pause
+through a fresh invocation, and removed its job and fixture Keychain item.
+No existing owner settings or approvals were reset. The exact scoped result is
+recorded separately from private-account acceptance.
+
+A subsequent same-version update check found that old 0.8 runtimes could be
+reused despite a changed signed wheel. The installer now publishes a private
+payload digest only after successful startup; rollback preserves the preceding
+record. The native app requires that digest before reopening, and the helper
+refuses a stale payload. **77 bootstrap/supervision/release cases** passed in
+24.43 seconds, including five new record/rollback cases. Six native background
+policy/path checks passed. Rebuilt package, repeat service-manager acceptance
+and final CI are pending; no private account or physical-device acceptance is implied.
 
 The opt-in `scripts/mac_background_smoke.py` uses a unique QA app identity, fresh
 synthetic account store and one fixture Keychain namespace. It checks actual

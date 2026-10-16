@@ -54,8 +54,9 @@ Candidate build **58** adds an embedded, signed LaunchAgent registered through
 Apple's ServiceManagement API. Its guardian waits for the active supervisor and
 can take over after process loss. A disabled item stays disabled; Login Items is
 the owner action when macOS requires approval. Pause is available in the native
-app menu and stops recovery across subsequent job launches. This candidate is
-under registration/crash validation; it does not establish OS credential
+app menu and stops recovery across subsequent job launches. A local QA app verified registered-job crash recovery and Pause, with its
+fixture job and Keychain item removed afterward. The new payload-digest
+handshake forces same-version runtime updates and is undergoing final validation; it does not establish OS credential
 isolation, pre-login availability or private account acceptance.
 
 Build with Xcode's command-line tools:
