@@ -21,6 +21,15 @@ jobs:
             macos/MessageText.swift macos/MessagesReader.swift macos/Tests/MessagesReaderChecks.swift \
             -o /tmp/account-access-messages-checks
           /tmp/account-access-messages-checks
+      - name: Check optimized app startup and reopening
+        run: |
+          xcrun swiftc -O -parse-as-library -D ACCOUNT_ACCESS_LAUNCH_CHECKS \
+            -framework AppKit -framework CryptoKit -lsqlite3 \
+            macos/AccountAccess.swift macos/MessageText.swift macos/MessagesReader.swift \
+            -o /tmp/account-access-launch-checks
+          AC_QA_ROOT=$(mktemp -d)
+          ACCOUNT_ACCESS_DATA_DIR="$AC_QA_ROOT/data" ACCOUNT_ACCESS_INSTALL_DIR="$AC_QA_ROOT/runtime" \
+            /tmp/account-access-launch-checks
   test:
     runs-on: ubuntu-latest
     steps:

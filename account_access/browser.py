@@ -207,16 +207,19 @@ class Browser:
 
                 def review_failure(page, error):
                     nonlocal reviewed
-                    if on_attention and not reviewed:
+                    if reviewed:
+                        return
+                    reviewed = True
+                    if on_attention:
                         details = {}
                         if origin(config.login_url) == "https://github.com":
                             from .sms_setup import diagnostics
                             details = diagnostics(page)
                             details["page"] = route_hint(page.url, ["https://github.com"])
+                            details["progress"] = dict(getattr(page.context, "_login_progress", {}))
                         on_attention(error.status, error.reason, error.kind, details)
-                    if not visible or reviewed:
+                    if not visible:
                         return
-                    reviewed = True
                     # Owner-only troubleshooting: keep the actual failed page
                     # visible briefly, without exporting its HTML or secrets.
                     try:
@@ -291,6 +294,7 @@ class Browser:
             raise AccessError("RETRYABLE", "login_retry_cooldown")
         self.store.put("login-attempt:" + account, time.time())
         context = self.context(browser, config, state, login=True, account=account)
+        context._login_progress = {}
         started = None
         completed = []
         source_errors = {}
@@ -330,6 +334,7 @@ class Browser:
             if review_stop and review_stop.is_set():
                 raise AccessError("NEEDS_USER", "sms_setup_cancelled", "sms")
             page.locator(form.submit_selector).click(timeout=10000)
+            context._login_progress["password_submit_attempted"] = True
             page.wait_for_load_state("domcontentloaded")
             self.wait_state(page, config, after_submit=True)
             kind = self.challenge(page, config)
@@ -370,6 +375,7 @@ class Browser:
                                      method + ":http_" + str(http_status))
                     if not 200 <= http_status < 400:
                         raise AccessError("NEEDS_USER", "verification_code_request_rejected", method)
+                    context._login_progress[method + "_requested"] = True
                     self.wait_state(page, config, previous_kind=kind)
                     if on_code_request:
                         details = {}
@@ -384,6 +390,7 @@ class Browser:
                 if kind == "method":
                     selected = self.choose_method(page, config, source_errors, set(completed) | choices_used,
                                                   setup_method=setup_method)
+                    context._login_progress["method"] = selected
                     choices_used.add(selected)
                     kind = self.challenge(page, config)
                     if kind not in {selected, selected + "_request", None, "action", "passkey", "device", "admin"}:
@@ -424,6 +431,8 @@ class Browser:
                     raise AccessError("NEEDS_USER", "sms_setup_cancelled", kind)
                 # In-memory only, one submission, never put in logs or task state.
                 page.locator(factor.code_selector).fill(code)
+                context._login_progress[kind + "_code_filled"] = True
+                context._login_progress[kind + "_submit_attempted"] = True
                 page.locator(factor.code_submit_selector).click(timeout=10000)
                 page.wait_for_load_state("domcontentloaded")
                 self.wait_state(page, config, previous_kind=kind)

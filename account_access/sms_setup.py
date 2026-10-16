@@ -45,7 +45,8 @@ def diagnostics(page):
                   for form in forms],
         "fields": {name: page.locator(selector).count() > 0 for name, selector in {
             "sms_totp": "#sms_totp", "app_totp": "#app_totp", "otp_id": "#otp",
-            "otp_name": 'input[name="otp"]', "one_time_code": 'input[autocomplete="one-time-code"]'}.items()},
+            "otp_name": 'input[name="otp"]', "one_time_code": 'input[autocomplete="one-time-code"]',
+            "recovery_code": '#recovery_code, input[name="recovery_code"]'}.items()},
         "dispatch_state": page.locator("body").evaluate("""body => ({
             sending: body.classList.contains('is-sending'), sent: body.classList.contains('is-sent'),
             failed: body.classList.contains('is-not-sent')})"""),

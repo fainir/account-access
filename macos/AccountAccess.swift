@@ -135,6 +135,12 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        guard let window else { return true }
+        window.makeKeyAndOrderFront(nil)
+        sender.activate(ignoringOtherApps: true)
+        return true
+    }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         if busy {
             let alert = NSAlert()
@@ -416,16 +422,20 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             }
         }
         // Replacing an app bundle does not replace an already-running process.
-        // Ask the prior owner UI to close normally; its busy-step guard can
+        // Ask prior owner UIs to close normally; their busy-step guards can
         // refuse. The independent local account service remains running.
         let peers = NSRunningApplication.runningApplications(withBundleIdentifier: "com.fainir.accountaccess")
-            .filter { $0.processIdentifier != getpid() && $0.bundleURL?.standardizedFileURL == target.standardizedFileURL }
+            .filter { $0.processIdentifier != getpid() }
         for peer in peers where !peer.isTerminated { _ = peer.terminate() }
-        let closeDeadline = Date().addingTimeInterval(8)
-        while peers.contains(where: { !$0.isTerminated }) && Date() < closeDeadline {
+        func stillRunning(_ peer: NSRunningApplication) -> Bool {
+            guard let current = NSRunningApplication(processIdentifier: peer.processIdentifier) else { return false }
+            return !current.isTerminated && current.bundleIdentifier == "com.fainir.accountaccess"
+        }
+        let closeDeadline = Date().addingTimeInterval(15)
+        while peers.contains(where: stillRunning) && Date() < closeDeadline {
             Thread.sleep(forTimeInterval: 0.1)
         }
-        guard peers.allSatisfy({ $0.isTerminated }) else {
+        guard !peers.contains(where: stillRunning) else {
             throw Failure.message("The previous Account Access window is still open. Finish its current step and quit it, then retry this update. Your accounts are preserved.")
         }
         let temporary = directory.appendingPathComponent(".account-access-" + UUID().uuidString + ".app")
@@ -571,7 +581,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             lines.append("Form: " + method + " " + destination)
         }
         if let fields = diagnostic["fields"] as? [String: Any] {
-            let present = ["sms_totp", "app_totp", "otp_id", "otp_name", "one_time_code"].filter { (fields[$0] as? NSNumber)?.boolValue == true }
+            let present = ["sms_totp", "app_totp", "otp_id", "otp_name", "one_time_code", "recovery_code"].filter { (fields[$0] as? NSNumber)?.boolValue == true }
             lines.append("Code fields present: " + (present.isEmpty ? "none" : present.joined(separator: ", ")))
         }
         if let controls = diagnostic["controls"] as? [String: [String: Any]] {
@@ -579,6 +589,14 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 guard let control = controls[name], let count = control["count"] as? Int,
                       (0...8).contains(count), let visible = control["visible"] as? Bool else { continue }
                 lines.append(name + " controls: " + String(count) + (visible ? " visible" : " hidden"))
+            }
+        }
+        if let progress = diagnostic["progress"] as? [String: Any] {
+            if let method = progress["method"] as? String, ["sms", "email", "totp"].contains(method) {
+                lines.append("Selected method: " + method)
+            }
+            for phase in ["password_submit_attempted", "sms_requested", "email_requested", "sms_code_filled", "email_code_filled", "totp_code_filled", "sms_submit_attempted", "email_submit_attempted", "totp_submit_attempted"] {
+                if progress[phase] as? Bool == true { lines.append("Login stage: " + phase) }
             }
         }
         for asset in (diagnostic["assets"] as? [String] ?? []).prefix(150) {
@@ -718,19 +736,26 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
 
     func verificationMessage(_ attention: [String: Any]) -> String {
+        let diagnostic = attention["diagnostics"] as? [String: Any] ?? [:]
+        let progress = diagnostic["progress"] as? [String: Any] ?? [:]
+        let delivery = progress["sms_code_filled"] as? Bool == true
+            ? "A fresh matching SMS code was received locally. Your saved password is preserved."
+            : progress["sms_requested"] as? Bool == true
+                ? "The website accepted the SMS request, but delivery is unconfirmed. Your saved password is preserved."
+                : "No SMS delivery was tested. Your saved password is preserved."
         switch attention["reason"] as? String ?? "" {
         case "browser_passkey_required", "browser_device_required", "browser_admin_required", "browser_action_required":
-            return "The website requires owner approval before continuing. No SMS delivery was tested. Your saved password is preserved."
+            return "The website requires owner approval before continuing. " + delivery
         case "browser_state_unrecognized":
-            return "The website returned a sign-in page this connector does not recognize. No SMS delivery was tested. Your saved password is preserved."
+            return "The website returned a sign-in page this connector does not recognize. " + delivery
         case "browser_login_required":
-            return "The website returned to password entry before confirming an SMS request. Your saved password is preserved."
+            return "The website returned to password entry. " + delivery
         case "verification_method_unavailable", "verification_source_not_connected", "authenticator_not_enrolled":
-            return "The website needs an available verification method connected. No SMS delivery was tested. Your saved password is preserved."
+            return "The website needs an available verification method connected. " + delivery
         case "verification_code_request_rejected", "verification_code_request_not_submitted":
-            return "The website did not confirm the reviewed SMS request. No SMS delivery was tested. Your saved password is preserved."
+            return "The website did not confirm the reviewed SMS request. " + delivery
         default:
-            return "Sign-in stopped before a confirmed SMS request. No SMS delivery was tested. Review this website's sign-in connection."
+            return "Sign-in stopped. " + delivery + " Review this website's sign-in connection."
         }
     }
 
@@ -1558,7 +1583,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
               let fingerprint = update["fingerprint"] as? String else { return }
         let alert = NSAlert()
         alert.messageText = "Update this website's sign-in connection?"
-        alert.informativeText = "Update GitHub's reviewed sign-in controls and the exact public scripts and styles included in this signed app. Only an already-connected verification method can be selected automatically. The approved reads, login POST destinations, connected verification sources and agent permissions stay the same."
+        alert.informativeText = "Update GitHub's reviewed sign-in controls and the exact public scripts and styles included in this signed app. The recovery page can be viewed for diagnosis; a recovery-code field stops automatic sign-in. The approved reads, login POST destinations, connected verification sources and agent permissions stay the same."
         alert.addButton(withTitle: "Update connection")
         alert.addButton(withTitle: "Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else { return }
@@ -1640,7 +1665,26 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         let app = NSApplication.shared
         let delegate = AccountAccess()
         app.delegate = delegate
-        app.run()
+        #if ACCOUNT_ACCESS_LAUNCH_CHECKS
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            guard let owner = NSApplication.shared.delegate as? AccountAccess,
+                  let window = owner.window, window.isVisible else {
+                fputs("FAIL: the optimized app lost its delegate or startup window\n", stderr)
+                exit(1)
+            }
+            window.orderOut(nil)
+            _ = owner.applicationShouldHandleReopen(NSApplication.shared, hasVisibleWindows: false)
+            guard window.isVisible else {
+                fputs("FAIL: reopening did not restore the owner window\n", stderr)
+                exit(1)
+            }
+            print("PASS: optimized entrypoint retains its owner delegate and restores the window on reopen")
+            NSApplication.shared.terminate(nil)
+        }
+        #endif
+        // NSApplication's delegate is weak. Keep the owner alive for the whole
+        // event loop, including after asynchronous startup callbacks finish.
+        withExtendedLifetime(delegate) { app.run() }
     }
 }
 #endif

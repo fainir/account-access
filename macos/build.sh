@@ -3,7 +3,7 @@
 # for local development; public distribution requires signing and notarization.
 set -eu
 AC_SOURCE=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-AC_OUTPUT="$AC_SOURCE/dist/macos"
+AC_OUTPUT=${ACCOUNT_ACCESS_MAC_OUTPUT:-"$AC_SOURCE/dist/macos"}
 AC_APP="$AC_OUTPUT/Account Access.app"
 AC_WHEEL="$AC_SOURCE/dist/account_access-0.8.0-py3-none-any.whl"
 if [ ! -f "$AC_WHEEL" ]; then
@@ -41,7 +41,7 @@ cat > "$AC_APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleExecutable</key><string>AccountAccess</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>0.8.0</string>
-<key>CFBundleVersion</key><string>31</string>
+<key>CFBundleVersion</key><string>33</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>

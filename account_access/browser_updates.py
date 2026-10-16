@@ -13,6 +13,7 @@ APP_PAGE = "https://github.com/sessions/two-factor/app"
 APP_LINK = 'a[href="/sessions/two-factor/app"]'
 SMS_PAGE = "https://github.com/sessions/two-factor/sms/confirm"
 SMS_LINK = 'a[href="/sessions/two-factor/sms/confirm"]'
+RECOVERY_PAGE = "https://github.com/sessions/two-factor/recovery"
 
 
 def github_assets():
@@ -44,9 +45,15 @@ def proposal(config, account):
         updated.login_assets = sorted(set(spec.login_assets) | set(github_assets()))
         if len(updated.login_assets) > 150:
             return None
-    for url in [METHOD_PAGE, SMS_PAGE]:
+    for url in [METHOD_PAGE, SMS_PAGE, RECOVERY_PAGE]:
         if url not in updated.login_resources:
             updated.login_resources.append(url)
+    recovery = '#recovery_code, input[name="recovery_code"]'
+    existing_action = updated.challenge_selectors.get("action")
+    if not existing_action:
+        updated.challenge_selectors["action"] = recovery
+    elif recovery not in existing_action:
+        updated.challenge_selectors["action"] = existing_action + ", " + recovery
     # Recognize the offered SMS method even before its source is enrolled. The
     # browser must report local setup instead of an unrecognized page. Reading
     # this confirmation page does not authorize its form POST or a new source.

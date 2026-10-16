@@ -60,6 +60,8 @@ def chain(tmp_path):
                         action = getattr(provider, "request_action", "/verify/request")
                         button_type = ' type="button"' if getattr(provider, "request_inert", False) else ""
                         self.page('<form action="' + action + '" method="post"><button id="send-sms"' + button_type + '>Send SMS</button></form>')
+                    elif kind == "recovery":
+                        self.page('<form action="/verify/recovery" method="post"><input id="recovery_code" name="recovery_code"><button>Verify</button></form><div id="sms-challenge"></div>')
                     else:
                         self.page(f'<form id="{kind}-challenge" action="/verify/{kind}" method="post">'
                                   f'<input id="{kind}-code" name="code">'
@@ -147,6 +149,26 @@ def test_password_then_email_sms_and_authenticator_complete_one_browser_login(ch
         assert broker.store.get("code-window:" + source) is None
     assert broker.run("test", "demo-mfa", "summary")["status"] == "COMPLETED"
     assert provider.login_count == 1
+
+
+def test_recovery_page_stops_before_resolving_or_submitting_any_login_code(chain, monkeypatch):
+    provider, broker, _, stages = chain
+    stages[:] = ["recovery"]
+    config = broker.store.config()
+    spec = config.accounts["demo-mfa"]
+    spec.login_resources.append(provider.base + "/verify/recovery")
+    spec.challenge_selectors["action"] = '#recovery_code, input[name="recovery_code"]'
+    broker.store.configure(config)
+    broker.grant("test", "demo-mfa", ["summary"])
+
+    def forbidden_code(*args):
+        raise AssertionError("Recovery pages must not request a login code")
+
+    monkeypatch.setattr(broker.codes, "resolve", forbidden_code)
+    result = broker.run("test", "demo-mfa", "summary")
+    assert result["status"] == "NEEDS_USER" and result["challenge"]["kind"] == "action"
+    assert provider.login_count == 1 and provider.sms_count == 0
+    assert "/verify/recovery" not in provider.posted_paths
 
 
 def test_unused_offline_alternative_does_not_block_enrolled_authenticator(chain, monkeypatch):

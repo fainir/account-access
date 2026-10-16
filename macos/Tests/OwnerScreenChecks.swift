@@ -128,15 +128,19 @@ final class VerificationRetryFixture: URLProtocol {
                       ["route": "https://example.com/?secret=fictional", "method": "GET"]],
             "fields": ["sms_totp": true, "password": "fictional-secret"],
             "controls": ["sms": ["count": 1, "visible": false]],
+            "progress": ["method": "sms", "sms_code_filled": true, "code": "fictional-secret"],
             "assets": ["https://github.githubassets.com/assets/sessions-test.js", "https://example.com/?secret=fictional"],
             "arbitrary": "fictional-secret"])
         precondition(detail.contains("origin_0:/sessions/two-factor/sms"))
         precondition(detail.contains("Form: POST origin_0:/sessions/two-factor"))
         precondition(detail.contains("Code fields present: sms_totp"))
         precondition(detail.contains("sms controls: 1 hidden"))
+        precondition(detail.contains("Selected method: sms") && detail.contains("Login stage: sms_code_filled"))
         precondition(detail.contains("Asset: https://github.githubassets.com/assets/sessions-test.js"))
         precondition(!detail.contains("fictional") && !detail.contains("example.com"))
         precondition(AccountAccess.verificationDetailText(["page": "origin_0:/sessions/private-value"]).isEmpty)
+        let afterSMS = owner.verificationMessage(["reason": "browser_action_required", "diagnostics": ["progress": ["sms_code_filled": true]]])
+        precondition(afterSMS.contains("SMS code was received") && !afterSMS.contains("No SMS"))
         print("PASS: verification detail view excludes arbitrary data and admits only closed routes and known control names")
     }
 }

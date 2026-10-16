@@ -170,6 +170,21 @@ def test_visible_review_reports_attention_before_waiting_for_owner(env, monkeypa
     assert provider.login_count == 0
 
 
+def test_headless_authentication_failure_reports_its_live_page_once(env):
+    import pytest
+    from account_access.errors import AccessError
+
+    _, broker, _ = env
+    config = broker.store.config().accounts["demo-mfa"]
+    broker.store.put("source:demo-totp", None)
+    reports = []
+    with pytest.raises(AccessError, match="authenticator_not_enrolled"):
+        broker.browser.read("demo-mfa", config.operations["summary"], config,
+                            on_attention=lambda *metadata: reports.append(metadata))
+    assert len(reports) == 1
+    assert reports[0][:3] == ("NEEDS_USER", "authenticator_not_enrolled", "totp")
+
+
 def test_session_import_filters_foreign_origins(env):
     _, broker, _ = env
     broker.browser.import_state("demo-web", {"cookies": [
