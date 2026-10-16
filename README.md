@@ -13,7 +13,7 @@ This development branch contains the **0.8 candidate**: local Google Authenticat
 
 The development candidate also includes a [Google Messages browser connection](docs/google-messages.md) for fresh GitHub login texts from an already-paired Android inbox. Its optional browser helper now also offers [verified GitHub session reuse](docs/browser-sessions.md): confirm the username locally and connect an existing Chrome sign-in. Cookie/site permission is optional and temporary. The unpacked-extension setup and private acceptance are still under validation.
 
-The current personal GitHub pilot reaches the SMS request but redirects to account recovery. Completed personal-account SMS, email and authenticator sign-ins remain unverified. The [validation report](docs/validation.md) separates fixture results from real account QA.
+The personal GitHub pilot now reuses an owner-approved Chrome session: its identity was checked locally, its original blocked task resumed, and fresh Claude Code and Codex sessions completed the approved profile-heading read without authentication input. A fresh password/SMS login still redirects to account recovery; personal email and authenticator sign-ins remain unverified. See the [private-session evidence](artifacts/private-github-session-080.json) and [validation report](docs/validation.md).
 
 The browser sign-in flow uses the imported email/username and password, then supplies the website's email, SMS or authenticator login code from its connected source. A reviewed connector can configure all three methods for one website, including successive verification steps. This is the authentication flow being tested; using another application's existing login is not browser-authentication evidence.
 

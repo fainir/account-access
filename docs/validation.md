@@ -1,5 +1,86 @@
 # Validation of Account Access
 
+## Private GitHub session reuse and original-task recovery — 16 October 2026
+
+The owner approved the new Chrome session connection. Real use then found and
+fixed a popup permission handoff, a changed GitHub profile-heading marker and a
+historical verification-method challenge that remained pending after verified
+session adoption. The heading repair preserves the existing result label,
+approved URL and single heading read. Confirmed login can now clear that method
+challenge; independent transaction approvals remain pending.
+
+Implementation `95e3358` passed **393 tests** in 326.16 seconds in
+[CI](https://github.com/fainir/account-access/actions/runs/38930850399), fourteen
+native owner checks, Messages/startup checks, lint, audit and package build. The
+[Android journey](https://github.com/fainir/account-access/actions/runs/38930849847)
+also passed. The preceding full local run passed 390 tests in 351.49 seconds;
+focused tests then covered the three added method-challenge cases.
+
+The private Chrome session passed exact website/username verification, and the
+original saved task completed with **Public profile**. Fresh ordinary-language
+agent requests independently exercised the installed global connection:
+
+- [Claude Code 2.1.112](../artifacts/agent-tests/claude-private-session-080.json):
+  47.01 seconds, successful launcher use and one independently audited read.
+- [Codex CLI 0.162.0-alpha.17.2](../artifacts/agent-tests/codex-private-session-080.json):
+  118.15 seconds, successful launcher use and two independently audited reads.
+
+No global host settings changed. Passwords, cookies, codes, account identifiers,
+task IDs and raw agent traces are excluded from the public evidence. This is one
+personal GitHub connection; the other three app entries are public test accounts.
+The agents reused a real verified browser session. These runs do not validate
+fresh password/SMS sign-in or a personal mailbox/authenticator source.
+
+Signed universal Mac build **49** and helper **0.8.2** add a visible check of
+Chrome's temporary cookie/site permission state. Build 49 was installed through
+graphical repair and passed strict/deep signature verification. The verified
+account and original completed task survived repair; a further approved live
+profile read also completed after repair. Final implementation `d58b15c` passed
+**393 tests** in 317.59 seconds in
+[CI](https://github.com/fainir/account-access/actions/runs/38933505085), fourteen
+native owner checks, Messages/startup, lint, audit and build, plus the
+[Android journey](https://github.com/fainir/account-access/actions/runs/38933505107).
+Live confirmation of the
+helper's permission-status display is awaiting the owner because browser policy
+rejected automating its extension page. Controlled cleanup contracts passed.
+See the [sanitized record](../artifacts/private-github-session-080.json).
+
+## Verified Chrome session candidate — 16 October 2026
+
+Implementation `9e34b6c` passed **379 tests** in 319.82 seconds in
+[CI](https://github.com/fainir/account-access/actions/runs/38927298081), plus
+thirteen native owner-screen checks, the native Messages reader, optimized
+startup/reopen, Ruff, dependency audit and package build. The
+[Android emulator journey](https://github.com/fainir/account-access/actions/runs/38927298067)
+also passed. Signed universal Mac build **44** was installed through graphical
+repair and passed strict/deep signature verification.
+
+Fresh [Claude Code 2.1.112](../artifacts/agent-tests/claude-verification-080.json)
+and [desktop-bundled Codex CLI 0.162.0-alpha.17.2](../artifacts/agent-tests/codex-verification-080.json)
+runs each completed a four-account durable task through the installed project
+launcher from an ordinary prompt. Claude took 67.01 seconds and Codex 26.87
+seconds; each independently recorded four password logins and one email, SMS
+and authenticator verification. These use fictional accounts, TLS IMAP and
+Messages fixtures, and a fictional authenticator export. No global host settings
+changed. They are not real mailbox, phone or private-account acceptance.
+
+The new owner-requested Chrome session path verifies the exact approved website
+and expected GitHub username before adopting a session. Tests cover original-task
+resume, wrong-user rejection, expired/replayed requests, cancelled or changed
+grants, atomic rollback, exact native framing, selected Chrome cookie stores and
+temporary-permission cleanup. The browser-helper cookie API behavior is contract
+tested; a separate real extension load checks the initial absence of cookie and
+site permission. The retired unverified import path cannot save a session or
+clear a challenge. See the [sanitized record](../artifacts/browser-session-hardening-080.json).
+
+At this earlier revision, private transfer was awaiting new cookie permission and
+the original task was blocked. The later follow-up above records its completion.
+No new private password/SMS request was made during these session checks. Session
+reuse does not establish that the unresolved fresh GitHub SMS flow works.
+Real email and authenticator enrollment/delivery, continuous Chrome password
+sync, broader private connectors, consumer distribution and OS-isolated custody
+remain separate production gates.
+
 ## Email recovery and shared verification channels — 16 October 2026
 
 Candidate `2a7cf4b` passed **340 tests** locally in 272.11 seconds, eleven native
@@ -20,9 +101,9 @@ also passed. See the [sanitized validation record](../artifacts/email-code-harde
 Both fresh agent sessions independently completed the four fictional-account
 task through their installed project launchers, from an ordinary prompt:
 
-- [Claude Code 2.1.112](../artifacts/agent-tests/claude-verification-080.json):
+- [Claude Code 2.1.112](../artifacts/agent-tests/claude-verification-email-080.json):
   50.25 seconds, four password logins and one email, SMS and authenticator check.
-- [Codex CLI 0.162.0-alpha.17.2](../artifacts/agent-tests/codex-verification-080.json),
+- [Codex CLI 0.162.0-alpha.17.2](../artifacts/agent-tests/codex-verification-email-080.json),
   bundled with the desktop app: 32.02 seconds, the same completed factor counts.
   The older CLI 0.155.1 on PATH rejected its configured model before any launcher
   or website request. The successful rerun used the bundled CLI for that

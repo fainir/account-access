@@ -42,6 +42,14 @@ popup or interrupted helper. The existing Google Messages permission is preserve
 for the separately approved SMS connection. This limits the access window, not
 the scope of Chrome's underlying permission while it is granted.
 
+Helper 0.8.2 displays its current cookie and GitHub site permission state. It
+reads those booleans from Chrome's permission API; this does not read a cookie
+value or a website. Chrome can close the popup while showing its permission
+prompt. The explicit click's request and tab ID are held in memory for at most
+sixty seconds so the background can finish after approval. Approval arriving
+before preparation finishes and a closed popup share one transfer. Cookies never
+enter that temporary extension storage.
+
 The broker accepts a bounded cookie state for the exact GitHub origin only after
 a local owner request. Its check uses the existing fixed read destinations and
 performs no automatic password login or code request. Identity/readiness,
@@ -58,10 +66,18 @@ Controlled tests cover the actual browser verification, original-task resume,
 native framing, wrong-user rejection, stale grants, late cancellation/expiry,
 atomic rollback and the browser-helper cookie-store/permission contract. A real
 extension load checks that site and cookie permissions are absent initially.
-These tests are not private GitHub acceptance or a Chrome Web Store release.
+One owner-approved private GitHub session has also completed identity/readiness
+verification, resumed the original blocked task and supplied the approved public
+profile heading to fresh Claude Code and Codex sessions without authentication
+input. The stable public-heading repair preserves the existing field name and
+read destination; a historical verification-method challenge is cleared only
+after confirmed sign-in. Independent transaction authorization stays blocked.
+See the [sanitized private-session evidence](../artifacts/private-github-session-080.json).
+
+This does not establish a Chrome Web Store release or fresh SMS delivery.
 Cookies can be device-bound or expire, and a provider can require fresh genuine
-verification later. Private-account validation and consumer extension distribution
-remain release gates.
+verification later. Wider private-account validation and consumer extension
+distribution remain release gates.
 
 See Chrome's official [cookie API](https://developer.chrome.com/docs/extensions/reference/api/cookies)
 and [native messaging protocol](https://developer.chrome.com/docs/extensions/develop/concepts/native-messaging).

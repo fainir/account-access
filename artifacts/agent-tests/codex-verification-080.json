@@ -4,11 +4,11 @@
   "passed": true,
   "environment": "controlled-demo",
   "exit_code": 0,
-  "elapsed_seconds": 32.02,
+  "elapsed_seconds": 26.87,
   "ordinary_prompt_without_skill_or_command": true,
   "used_project_launcher": true,
   "launcher_verification": "successful tool command resolves to the installed project launcher",
-  "evidence_revision": "2a7cf4b5f51c6b7cced4b8af57c52670f46fdf30",
+  "evidence_revision": "9e34b6cb81f553867e87b45d3ef41a04feb1bd59",
   "completed_four_account_task": true,
   "password_logins": 4,
   "email_verifications": 1,
@@ -25,10 +25,6 @@
   "host_cli_version": "0.162.0-alpha.17.2",
   "host_distribution": "desktop-bundled CLI",
   "test_model_override": null,
-  "initial_host_failure": {
-    "version": "0.155.1",
-    "reason": "Configured model rejected before launcher invocation",
-    "password_logins": 0
-  },
-  "host_settings_changed": false
+  "host_settings_changed": false,
+  "earlier_host_failure_record": "codex-verification-email-080.json"
 }
