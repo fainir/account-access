@@ -24,9 +24,40 @@ authorization invalidates the previous check. Gmail profile contracts require
 the correct current mailbox identity. Reusable mailbox passwords are included
 in result redaction, with an adversarial provider-echo regression.
 
-Build 53 remains installed with the owner Gmail form left untouched. No new
-private website, mailbox or phone test is claimed in this phase. The new build
-is prepared separately while one-time Google credential enrollment is pending.
+Revision `9afb021` passed **503 tests** in 386.31 seconds in
+[CI](https://github.com/fainir/account-access/actions/runs/38956897845), all
+nineteen native UI checks, lint, dependency audit and package build. The
+[Android emulator journey](https://github.com/fainir/account-access/actions/runs/38956897897)
+also passed. Cold-restart tests now reconstruct the service after the owner
+repair and resume both reusable and inline mailbox tasks (2 cases, 8.25 seconds).
+
+Build 54 is signed and staged separately. Build 53 remains installed with the
+owner Gmail form left untouched while one-time Google credential enrollment is
+pending. Private mailbox and physical-phone acceptance remain incomplete.
+
+### CLI test isolation failure and remediation
+
+The fresh Codex fixture run passed in 25.43 seconds. A Claude retry exited
+successfully but **failed acceptance**: it selected the global skill/client
+instead of the temporary project client and read four global connection results,
+including one private-service profile after testing that service had been
+stopped. This was a test-isolation mistake, not proof of private-account success.
+An earlier timeout retained no trace and cannot be counted as a pass.
+
+The harness now uses a distinct temporary Claude skill, binds the fixture client
+environment, exposes only Read/Skill/Bash with no external MCP/browser tools,
+and installs an invocation-only tool guard. The guard permits only the pinned
+fixture launcher, declared fixture operations and instruction-file reads. It
+denies global clients, shell expansion/compound commands, writes, background
+execution and other tools; changed launcher/client files fail closed. Global
+host permissions and hooks are preserved. This is a narrow QA boundary, not a
+sandbox for arbitrary same-user programs.
+
+All **43 guard cases** passed, including the generated hook's real subprocess
+contract. The combined guard/evidence/recovery run passed **78 cases** in 22.16
+seconds. A fresh guarded Claude acceptance run is still required. The
+[sanitized record](../artifacts/verified-mailbox-repair-080.json) retains the
+failed-run evidence without personal identifiers or raw traces.
 
 ## Reusable mailbox setup — 16 October 2026
 

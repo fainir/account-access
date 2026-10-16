@@ -5,11 +5,13 @@ import pytest
 
 from account_access.demo import DEMO_PASSWORD
 from account_access.demo import connect_demo
+from account_access.broker import Broker
 from account_access.errors import AccessError
 from account_access.factors import enroll, revoke
 from account_access.mailboxes import check, connect, link, update_password
 from account_access.mailbox_health import check as check_source
 from account_access.models import TaskRequest
+from account_access.storage import Store
 from account_access.verification_demo import environment
 from account_access.verification_recovery import PREFIX, recover
 from test_codes import gmail_source
@@ -57,6 +59,9 @@ def test_verified_mailbox_repair_resumes_original_task_and_preserves_completed_s
         else:
             enroll(broker.store, "example-email", {"username": "demo@example.test", "password": DEMO_PASSWORD})
             check_source(broker, "example-email")
+        # Simulate reopening the broker after the owner repair. The original
+        # task, private source context and fresh verification must survive.
+        broker = Broker(Store(tmp_path, (tmp_path / "demo.key").read_bytes()))
         deadline = time.monotonic() + 10
         while time.monotonic() < deadline:
             broker.tick()

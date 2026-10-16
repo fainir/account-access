@@ -17,18 +17,32 @@
     "initial_seconds": 41.77,
     "final_recovery_cases_passed": 17,
     "final_recovery_seconds": 21.38,
-    "limits": "Fictional accounts, real local TLS IMAP/browser and local OAuth provider, mocked Gmail profile; no private provider or physical device acceptance"
+    "limits": "Fictional accounts, real local TLS IMAP/browser and local OAuth provider, mocked Gmail profile; no private provider or physical device acceptance",
+    "local_full_suite_passed_before_final_binding_case": 502,
+    "local_full_seconds": 398.01,
+    "ci_suite_passed": 503,
+    "ci_seconds": 386.31,
+    "ci_url": "https://github.com/fainir/account-access/actions/runs/38956897845",
+    "android_ci_url": "https://github.com/fainir/account-access/actions/runs/38956897897",
+    "native_ui_cases_passed": 19,
+    "cold_restart_recovery_cases_passed": 2,
+    "cold_restart_seconds": 8.25,
+    "fixture_guard_and_evidence_and_recovery_cases_passed": 78,
+    "fixture_guard_and_evidence_and_recovery_seconds": 22.16,
+    "cli_codex": "passed; four fictional accounts in 25.43 seconds",
+    "cli_claude": "failed isolation; guard remediation awaiting a fresh guarded run"
   },
   "private_validation": {
     "additional_namecheap_requests": 0,
-    "additional_github_requests": 0,
+    "additional_github_requests": 1,
     "private_mailbox_or_carrier_test_completed": false,
-    "owner_gmail_enrollment": "pending; installed form left untouched"
+    "owner_gmail_enrollment": "pending; installed form left untouched",
+    "unintended_global_read": "Failed Claude fixture run selected global connection and read one stopped-service profile; excluded from acceptance. Guard remediation added."
   },
   "distribution": {
     "candidate_mac_build": 54,
     "installed_build": 53,
-    "candidate_status": "separate signing and validation in progress; not installed over pending owner credential entry"
+    "candidate_status": "Signed universal build 54 staged separately and strict/deep signature verified; not installed over pending owner credential entry"
   },
   "privacy": "Public evidence excludes personal identifiers, local file locations, credentials, cookies, codes and raw traces"
 }
