@@ -237,7 +237,10 @@ def test_unsafe_existing_installation_never_executes_a_launcher(setup, damage):
     elif damage == "writable-bin":
         launcher.parent.chmod(0o777)
     elif damage == "public-environments":
-        (runtime / "environments").mkdir(mode=0o755)
+        directory = runtime / "environments"
+        directory.mkdir(mode=0o755)
+        directory.chmod(0o755)  # An earlier CLI check may have set umask 077.
+        assert directory.stat().st_mode & 0o777 == 0o755
     elif damage == "public-launcher":
         launcher.chmod(0o744)
     elif damage == "linked-launcher":

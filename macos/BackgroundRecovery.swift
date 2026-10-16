@@ -94,7 +94,9 @@ enum BackgroundRecovery {
         guard let info = try JSONSerialization.jsonObject(with: readPrivate(registration)) as? [String: String],
               Set(info.keys) == Set(["generation", "runtime", "version"]),
               let generation = info["generation"], generation.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil,
-              info["version"] == layout.version, let executable = info["runtime"], executable.hasPrefix("/") else {
+              info["version"] == layout.version, let executable = info["runtime"], executable.hasPrefix("/"),
+              !executable.contains("\0"), executable.split(separator: "/", omittingEmptySubsequences: false).dropFirst()
+                .allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." }) else {
             throw Failure.invalidSetup
         }
         let python = URL(fileURLWithPath: executable).standardizedFileURL
@@ -109,14 +111,17 @@ enum BackgroundRecovery {
         try directory(layout.runtime.appendingPathComponent("environments"))
         try directory(environment)
         try directory(bin, privateOnly: false)
-        return [python.path, "-I", "-m", "account_access.cli", "--root", layout.root.path,
+        return [executable, "-I", "-m", "account_access.cli", "--root", layout.root.path,
                 "desktop-guardian", "--generation", generation]
     }
 
     static func activatedLauncher(python: URL) -> Data {
+        activatedLauncher(path: python.path)
+    }
+
+    static func activatedLauncher(path: String) -> Data {
         // Match shlex.join for the installer's fixed command. Paths requiring
         // quoting are enclosed in single quotes, with embedded quotes split.
-        let path = python.path
         let quoted = path.range(of: "^[A-Za-z0-9_@%+=:,./-]+$", options: .regularExpression) != nil
             ? path : "'" + path.replacingOccurrences(of: "'", with: "'\"'\"'") + "'"
         return Data(("#!/bin/sh\n# account-access-runtime-launcher-v1\nexec " + quoted
@@ -125,9 +130,10 @@ enum BackgroundRecovery {
 
     static func installationMatches(runtime: URL, expected: String, executable: URL? = nil) -> Bool {
         do {
-            try directory(runtime)
+            let managedRuntime = runtime.standardizedFileURL
+            try directory(managedRuntime)
             guard expected.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil else { return false }
-            guard let record = try JSONSerialization.jsonObject(with: readPrivate(runtime.appendingPathComponent("installed-wheel.json"), limit: 1024)) as? [String: Any],
+            guard let record = try JSONSerialization.jsonObject(with: readPrivate(managedRuntime.appendingPathComponent("installed-wheel.json"), limit: 1024)) as? [String: Any],
                   Set(record.keys) == Set(["managed_by", "schema", "wheel_sha256", "runtime", "launcher_sha256"]),
                   record["managed_by"] as? String == "account-access-runtime-v1",
                   let schema = record["schema"] as? NSNumber, ["i", "q"].contains(String(cString: schema.objCType)),
@@ -138,18 +144,22 @@ enum BackgroundRecovery {
             let python = URL(fileURLWithPath: path).standardizedFileURL
             let bin = python.deletingLastPathComponent()
             let environment = bin.deletingLastPathComponent()
-            guard python.path == path,
-                  executable == nil || executable == python,
-                  environment.deletingLastPathComponent() == runtime.appendingPathComponent("environments"),
+            let components = path.split(separator: "/", omittingEmptySubsequences: false).dropFirst()
+            guard components.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." }),
+                  executable == nil || executable?.standardizedFileURL == python,
+                  environment.deletingLastPathComponent() == managedRuntime.appendingPathComponent("environments"),
                   bin.lastPathComponent == "bin",
                   python.lastPathComponent.range(of: "^python(?:3(?:\\.[0-9]+)?)?$", options: .regularExpression) != nil,
                   FileManager.default.isExecutableFile(atPath: python.path) else { return false }
-            try directory(runtime.appendingPathComponent("environments"))
+            try directory(managedRuntime.appendingPathComponent("environments"))
             try directory(environment)
             try directory(bin, privateOnly: false)
-            let launcher = try readPrivate(runtime.appendingPathComponent("bin/account-access"), limit: 8192, mode: 0o700)
+            let launcher = try readPrivate(managedRuntime.appendingPathComponent("bin/account-access"), limit: 8192, mode: 0o700)
             let actualHash = SHA256.hash(data: launcher).map { String(format: "%02x", $0) }.joined()
-            guard actualHash == launcherHash, launcher == activatedLauncher(python: python) else { return false }
+            // Foundation may normalize an existing /private/tmp alias to /tmp.
+            // Compare managed locations after normalization, but bind the
+            // launcher to the exact path bytes the installer actually wrote.
+            guard actualHash == launcherHash, launcher == activatedLauncher(path: path) else { return false }
             return true
         } catch { return false }
     }

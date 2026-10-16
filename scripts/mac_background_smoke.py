@@ -169,6 +169,11 @@ def check(source, team, report_path):
             private_file(root / "supervisor.json", json.dumps({"generation": uuid.uuid4().hex * 2,
                 "runtime": str(python), "version": "0.8.0"}).encode())
             try:
+                preflight = control("validate")
+                if preflight["status"] != "valid":
+                    result["activation_preflight"] = preflight["checks"]
+                    raise ProbeFailure("activation_preflight_failed")
+                result["native_activation_preflight"] = "passed"
                 registered = True  # Even an uncertain registration needs scoped cleanup.
                 processes_quiesced = False
                 registration = control("register")

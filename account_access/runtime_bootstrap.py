@@ -46,7 +46,7 @@ def installation_snapshot(path):
                     or "\0" in executable or ".." in Path(executable).parts
                     or str(Path(executable)) != executable
                     or Path(executable).parent.name != "bin"
-                    or Path(executable).parent.parent.parent != path.absolute().parent / "environments"
+                    or Path(executable).parent.parent.parent.resolve() != (path.absolute().parent / "environments").resolve()
                     or not re.fullmatch(r"python(?:3(?:\.[0-9]+)?)?", Path(executable).name)
                     or not isinstance(value.get("launcher_sha256"), str)
                     or not re.fullmatch(r"[a-f0-9]{64}", value["launcher_sha256"])):

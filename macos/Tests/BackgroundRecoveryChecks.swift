@@ -19,7 +19,8 @@ final class BackgroundControlFixture: BackgroundRecovery.Control {
 @main struct BackgroundRecoveryChecks {
     static func main() throws {
         let files = FileManager.default
-        let temporary = files.temporaryDirectory.appendingPathComponent("account-access-background-" + UUID().uuidString)
+        let temporary = URL(fileURLWithPath: "/private/tmp", isDirectory: true)
+            .appendingPathComponent("account-access-background-" + UUID().uuidString)
         let app = temporary.appendingPathComponent("Fixture.app")
         let root = temporary.appendingPathComponent("data")
         let runtime = temporary.appendingPathComponent("runtime's folder")
@@ -64,7 +65,7 @@ final class BackgroundControlFixture: BackgroundRecovery.Control {
         }
         try save()
         let command = try BackgroundRecovery.command(layout: layout)!
-        precondition(command == [python.path, "-I", "-m", "account_access.cli", "--root", root.path,
+        precondition(command == [python.path, "-I", "-m", "account_access.cli", "--root", layout.root.path,
                                  "desktop-guardian", "--generation", generation])
         print("PASS: helper selects only the approved managed runtime and isolated guardian command")
         precondition(BackgroundRecovery.installationMatches(runtime: runtime, expected: String(repeating: "b", count: 64)))
@@ -109,7 +110,8 @@ final class BackgroundControlFixture: BackgroundRecovery.Control {
         let pausedCommand = try BackgroundRecovery.command(layout: layout)
         precondition(pausedCommand == nil)
         try files.removeItem(at: pause)
-        for change in [["generation": "invalid"], ["version": "old"], ["runtime": "/usr/bin/python3"], ["extra": "unrecognized"]] {
+        for change in [["generation": "invalid"], ["version": "old"], ["runtime": "/usr/bin/python3"],
+                       ["runtime": bin.path + "/../bin/python"], ["extra": "unrecognized"]] {
             try save(change)
             do { _ = try BackgroundRecovery.command(layout: layout); preconditionFailure("Invalid setup was accepted") }
             catch { }

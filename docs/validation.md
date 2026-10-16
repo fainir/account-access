@@ -35,6 +35,17 @@ preflight protection, not independent code attestation or a separate OS
 credential identity. Complete broker/runtime isolation and a trusted owner
 enrollment channel remain production work.
 
+Initial Mac acceptance stopped before service startup because Foundation
+normalizes an existing `/private/tmp` directory to its `/tmp` alias. The verifier
+had compared those path strings literally. Managed locations are now compared
+after normalization, while launcher bytes remain bound to the original recorded
+path and traversal components remain forbidden. The native regression now uses
+that actual system alias. The rejected fixture's job and key were cleaned up.
+An added preflight check reports only fixed metadata checks before registering
+another QA job. A separate CI failure came from a negative-test directory being
+made private by an earlier restrictive umask; the fixture now explicitly sets
+and checks its intended unsafe mode. Product checks were not relaxed for it.
+
 ## Update rollback after an uncertain stop — 17 October 2026
 
 The next candidate fixes two additional installer failures reproduced by new
