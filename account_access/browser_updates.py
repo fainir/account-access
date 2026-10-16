@@ -28,9 +28,9 @@ def profile_marker_repair(previous, updated):
         new = updated.operations[name]
         if old == new:
             continue
-        if (old.url != "https://github.com/settings/profile" or set(old.fields) != {"heading"}
-                or old.fields["heading"] not in LEGACY_PROFILE_HEADINGS
-                or new.fields != {"heading": PROFILE_HEADING}
+        if (old.url != "https://github.com/settings/profile" or len(old.fields) != 1
+                or next(iter(old.fields.values())) not in LEGACY_PROFILE_HEADINGS
+                or new.fields != {next(iter(old.fields)): PROFILE_HEADING}
                 or old.model_copy(update={"fields": new.fields}) != new):
             return False
     return True
@@ -59,13 +59,13 @@ def proposal(config, account):
                                           for op in spec.operations.values())):
         return None
     updated = spec.model_copy(deep=True)
-    if all(set(op.fields) == {"heading"} and op.fields["heading"] in LEGACY_PROFILE_HEADINGS
+    if all(len(op.fields) == 1 and next(iter(op.fields.values())) in LEGACY_PROFILE_HEADINGS
            for op in spec.operations.values()):
         # The current server-rendered profile title is an h2 with this stable
         # ID. Never replace arbitrary fields or read a form/profile value.
         updated.ready_selector = PROFILE_HEADING
         for op in updated.operations.values():
-            op.fields["heading"] = PROFILE_HEADING
+            op.fields[next(iter(op.fields))] = PROFILE_HEADING
     if spec.javascript and spec.login_assets:
         # A signed connector update may refresh exact public vendor assets, but
         # never activate JavaScript or add an arbitrary CDN URL through this path.
