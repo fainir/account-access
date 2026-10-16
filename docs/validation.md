@@ -1,55 +1,68 @@
 # Validation of Account Access
 
-## Mac service-manager recovery candidate — 17 October 2026
+## Mac service-manager recovery — 17 October 2026
 
 Build 58 embeds a universal, separately signed background helper and a fixed
 LaunchAgent policy. The saved Applications copy uses Apple's SMAppService API;
 no legacy plist installation, approval reset or force-enable fallback is added.
-Revoked approval remains an owner action in Login Items. Updating a changed helper
-uses the framework's asynchronous unregister completion before re-registering.
-The helper validates private generation/runtime metadata, executes only the
-managed interpreter with isolated imports, and replaces its process to preserve
-the OS-tracked PID. Its guardian waits for the active process lease and can take
-over after supervisor loss. Setup failures and Pause exit normally so the job's
-abnormal-exit restart policy cannot turn them into prompt loops.
+Changed helpers use asynchronous unregister completion before re-registration.
+The helper validates private generation/runtime metadata and the installed wheel
+record, then executes the managed interpreter with isolated imports. Replacing
+its process preserves the OS-tracked PID. Its guardian waits for the active
+process lease and can take over after supervisor loss. Setup failures and Pause
+exit normally so abnormal-exit restart cannot create an owner-prompt loop.
 
-All **16 supervisor/guardian cases** passed in 23.27 seconds, including killing
-both fixture processes and completing the original queued task without another
-client request, and Pause during standby. All **46 release-helper cases** passed
-in 0.94 seconds: the new format pins the helper's expected Developer ID identity,
-hardened runtime, timestamp, both architectures and exact stop-safe LaunchAgent
-policy through archive extraction. Legacy single-executable candidate layouts
-remain supported. These signing/notary protocol tests use simulated Apple tools.
+A real, uniquely identified QA app registered through ServiceManagement and
+started a service backed by an isolated fixture Keychain item. After both its
+service and guardian were killed, macOS restored the original queued task
+without client reconnection. Pause held through the restart throttle and a fresh
+job invocation. The job was unregistered, confirmed absent in launchd, and its
+fixture Keychain item removed. This passed again on final revision `b66dd43` after
+the payload-handshake update. No installed production app or existing approval
+was changed. An earlier probe correctly failed because its fixture principal was
+inactive; its job/key cleanup also passed, and that setup was corrected.
 
-All **26 native owner UI checks** and **five background policy/path checks**
-passed. Native Pause sends one stop request, clears local setup secrets, and
-offers explicit Resume. Approval-required status has a Login Items action.
-The helper and main app build successfully for both CPU architectures. Lint and
-skill validation passed. An initial real Mac probe registered and started the
-service but failed because its fixture principal was inactive; cleanup removed
-its job and fixture key. After correcting setup, the real registered QA app
-recovered its original task after both processes were killed, honored Pause
-through a fresh invocation, and removed its job and fixture Keychain item.
-No existing owner settings or approvals were reset. The exact scoped result is
-recorded separately from private-account acceptance.
+The same-version update review found that old 0.8 runtimes could be reused despite
+a changed signed wheel. The installer now publishes a private payload digest
+only after successful startup; failed repair preserves the preceding digest and
+launcher. The native app requires the signed bundle's digest before reopening,
+and its helper refuses a stale runtime. This record supports the update decision;
+it is not independent runtime attestation or separate-OS-identity protection.
 
-A subsequent same-version update check found that old 0.8 runtimes could be
-reused despite a changed signed wheel. The installer now publishes a private
-payload digest only after successful startup; rollback preserves the preceding
-record. The native app requires that digest before reopening, and the helper
-refuses a stale payload. **77 bootstrap/supervision/release cases** passed in
-24.43 seconds, including five new record/rollback cases. Six native background
-policy/path checks passed. Rebuilt package, repeat service-manager acceptance
-and final CI are pending; no private account or physical-device acceptance is implied.
+All **77 bootstrap/supervision/release cases** passed in 24.43 seconds, including
+actual two-process loss, standby Pause, five payload-record/rollback cases and
+46 simulated signing/notary cases. All **26 native UI checks** and **six background
+policy/path checks** passed. Native Pause sends one stop request, clears local
+setup secrets, and offers Resume. Approval-required status has a Login Items
+action; that revoked-approval path is contract-tested, not a live settings toggle.
 
-The opt-in `scripts/mac_background_smoke.py` uses a unique QA app identity, fresh
-synthetic account store and one fixture Keychain namespace. It checks actual
-OS-managed process-loss recovery and a paused fresh job invocation, then
-unregisters that job and removes only its fixture key. Cleanup failures retain
-only that private fixture for recovery. It never registers the installed
-production app, approves an OS prompt, resets Login Items, or accesses personal
-accounts. Real logout/reboot, notarized distribution, independent security review
-and separate-OS-identity credential custody remain production gates.
+Final revision `b66dd43` passed **633 tests in 442.89 seconds** in
+[CI](https://github.com/fainir/account-access/actions/runs/38977626518), plus lint,
+dependency audit, package build, native UI/policy, inert helper entrypoint,
+Messages reader and startup checks. Its [Android emulator journey](https://github.com/fainir/account-access/actions/runs/38977626521)
+also passed. Fresh ordinary-language fixtures passed on bundled Codex CLI
+**30.40 seconds** and guarded Claude Code **33.91 seconds**. Each completed four
+fictional password logins and one email/SMS/TOTP verification. Claude's six guard
+decisions included two denials; all successful trace tools passed the policy.
+Codex's four successful commands stayed within the fixture skill/discovery/task
+flow. These host fixtures and actual OS-job tests are separate controlled tests.
+
+Both main and helper executables passed real Developer ID/team, hardened-runtime,
+timestamp and universal-architecture checks. The final staged wheel pin and all
+**61 application files** match source. Its exact LaunchAgent policy is pinned;
+notarization preparation is local-only and creates no Apple submission.
+
+Installed build 53 was preserved. A status-only native check still showed Connect
+mailbox with no checked/saved confirmation; enrollment remains unconfirmed. No
+credential field values were emitted and no private website login was requested.
+Real logout/reboot, consumer upgrade of that installation, notarized distribution,
+private email/SMS/authenticator delivery, independent review and separate-identity
+custody remain gates. See the [sanitized Mac evidence](../artifacts/mac-background-recovery-080.json).
+
+The opt-in `scripts/mac_background_smoke.py` uses a unique QA app identity,
+synthetic store and fixture Keychain namespace. Cleanup failure retains only
+that private fixture for recovery. It never registers the production app,
+approves a prompt, resets Login Items or accesses personal accounts.
 
 ## Supervised local task recovery — 17 October 2026
 

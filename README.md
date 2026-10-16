@@ -112,7 +112,10 @@ restarted connection before sending setup data and preserves idle forms. This
 adds local process recovery, with the remaining [production gates](docs/production-gates.md)
 still open. The build 58 candidate adds a Mac background helper registered
 through Apple's service manager, with native Pause and approval-status guidance.
-Its live registration and restart checks are under validation.
+A separate QA app verified actual registered-job crash recovery and Pause, then
+removed its job and fixture Keychain item. A payload digest also prevents older
+same-version runtimes from being reused. The installed owner upgrade, real
+logout/reboot and private account tests remain open.
 
 | Method | One-time setup | During a supported login |
 | --- | --- | --- |

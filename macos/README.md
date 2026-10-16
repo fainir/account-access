@@ -54,10 +54,13 @@ Candidate build **58** adds an embedded, signed LaunchAgent registered through
 Apple's ServiceManagement API. Its guardian waits for the active supervisor and
 can take over after process loss. A disabled item stays disabled; Login Items is
 the owner action when macOS requires approval. Pause is available in the native
-app menu and stops recovery across subsequent job launches. A local QA app verified registered-job crash recovery and Pause, with its
-fixture job and Keychain item removed afterward. The new payload-digest
-handshake forces same-version runtime updates and is undergoing final validation; it does not establish OS credential
-isolation, pre-login availability or private account acceptance.
+app menu and stops recovery across subsequent job launches. A real QA app
+verified registered-job crash recovery and Pause, then removed its fixture job
+and Keychain item. A private payload record enforces the signed wheel digest
+for same-version updates; stale records are rejected and failed repairs preserve
+the old digest. All 633 regression tests passed. Actual logout/reboot, the
+installed owner upgrade, notarization and private account acceptance remain open.
+This adds no separate-OS-identity credential boundary.
 
 Build with Xcode's command-line tools:
 

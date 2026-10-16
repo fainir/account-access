@@ -136,7 +136,7 @@ or physical-device coverage.
 | Automatic agent discovery | Installed skill/CLI used from ordinary prompts in Codex and Claude Code; both completed the approved private GitHub profile read | Broader private connections and host matrix |
 | Credential isolation | Separate owner/agent APIs, encryption, scoped operations and fail-closed routing | Broker under a separate OS identity/host with a trusted enrollment channel; unrestricted same-user agents are not isolated |
 | Open-source trust | Public MIT repository, CI, contribution guide, private vulnerability reporting enabled | Independent security review, release provenance and published production acceptance results |
-| Operational health | Worker health, fixed failure classes, bounded retries and lifecycle cleanup; separate desktop supervisor with actual child-crash/task-continuation tests, pause/update controls and verified native reconnection | Build 58 adds a signed, Apple-registered per-user guardian; registered-job crash/Pause/cleanup passed on a synthetic QA app. The payload handshake and actual login/reboot/consumer-upgrade acceptance remain under validation. External monitoring/alerting and separate-identity custody remain open |
+| Operational health | Worker health and bounded retries; process leases, native reconnection and same-version payload handshake; signed Apple-registered per-user guardian with real synthetic-job crash/Pause/cleanup acceptance | Actual logout/reboot and installed owner upgrade, external monitoring/alerting and separate-identity custody remain open |
 
 ## Private QA rules
 
