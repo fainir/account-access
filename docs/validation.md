@@ -18,11 +18,38 @@ The supervisor also holds its lease until its owned child has finished cleanup,
 including a child that has not yet acquired the service lease. A deterministic
 cleanup-barrier regression reproduced the preceding lock-release race.
 
-All **48 bootstrap, supervision, automatic-session and guided-setup cases**
-passed in 41.62 seconds. Three added regressions first failed on the prior
-implementation. Real subprocess cleanup now verifies that both leases can be
+All **49 bootstrap, supervision, automatic-session and guided-setup cases**
+passed in 41.60 seconds on revision `6dc9600`. Four added regressions first
+failed on the prior implementation. Real subprocess cleanup now verifies that both leases can be
 acquired immediately after stop returns. Lint passed. This is controlled local
 testing; private account/MFA acceptance and installed owner upgrade remain open.
+
+Ordinary-language agent fixture checks on `321d143` passed with bundled Codex
+CLI 0.162.0-alpha.17.2 in **22.91 seconds** and guarded Claude Code 2.1.112 in
+**73.24 seconds**. Each completed four fictional password logins and one
+email/SMS/TOTP verification. Claude recorded 16 guard decisions, six denied;
+every successful tool stayed within the fixture policy. Codex's four successful
+commands were the fixture skill read, discovery, task submission and wait.
+An earlier attempt using Codex CLI 0.155.1 failed because that CLI login did not
+support its configured model; it made no account login attempts. Host settings
+were not changed. The subsequent supervisor cleanup change was tested separately.
+
+Final runtime revision `6dc9600` passed **637 tests in 515.14 seconds** in
+[CI](https://github.com/fainir/account-access/actions/runs/38979943215), along
+with lint, dependency audit (no known vulnerabilities), package build, 26 native
+UI checks, six background-policy checks, Messages-reader and startup checks.
+Its [Android emulator journey](https://github.com/fainir/account-access/actions/runs/38979943214)
+also passed. Build 59 was rebuilt with the child-cleanup fix; its signed main
+and helper passed Developer ID/team, hardened-runtime, timestamp and universal
+architecture checks. Its wheel pin and all 61 application files match source.
+Local notarization preparation passed without submitting anything to Apple.
+
+A unique Mac QA app then passed actual registered-job crash recovery and Pause
+again on this final revision, with its job and fixture Keychain item removed.
+The installed owner app and enrollment form were not changed. Real private
+email/SMS/authenticator acceptance, installed owner upgrade and actual
+logout/reboot remain open. See the [sanitized build 59 record](../artifacts/mac-background-update-080.json).
+
 
 ## Mac service-manager recovery — 17 October 2026
 

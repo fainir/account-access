@@ -62,6 +62,18 @@ the old digest. All 633 regression tests passed. Actual logout/reboot, the
 installed owner upgrade, notarization and private account acceptance remain open.
 This adds no separate-OS-identity credential boundary.
 
+Candidate build **59** fixes failed-update rollback. The stop command waits for
+the supervisor and service leases, and the supervisor holds its lease until its
+owned child is reaped. If stopping a replacement fails, its runtime is retained
+and the previous service is not restarted concurrently. Failed payload
+publication restores the preceding desktop launcher as well as the runtime
+launcher. Four new regressions reproduced the previous failures; all 49 focused
+installation/supervision/setup cases pass. Final CI passed 637 tests, native
+checks and the Android emulator journey. A separately signed QA app again passed
+actual registered-job recovery/Pause and removed its job and fixture key. The
+installed owner app and enrollment form were not changed; private authentication
+and notarized distribution acceptance remain open.
+
 Build with Xcode's command-line tools:
 
 ```sh
@@ -85,8 +97,10 @@ uv export --locked --no-dev --no-emit-project --no-annotate --no-header --format
 
 Repairs prepare a separate runtime under `runtime/environments/`, install its
 browser, and check imports before stopping the saved service. Only an owned
-launcher is replaced. Startup failure restores it and attempts to restart the
-previous service. Previous environments remain available for rollback and
+launcher is replaced. Startup failure restores it and restarts the
+previous service only after replacement shutdown is confirmed. An uncertain stop
+keeps the replacement environment for a later repair. Failed publication also
+restores the desktop launcher's previous data-directory arguments. Previous environments remain available for rollback and
 existing agent launchers; no automatic pruning is shipped. Python and Chromium
 can still require vendor downloads. Notarization and clean-Mac installation
 remain separate acceptance gates.

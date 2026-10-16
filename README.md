@@ -84,38 +84,14 @@ bundle a consumer Google OAuth application.
 See the [installed setup screen and steps](docs/gmail-authenticator-and-sms.md)
 and [reusable-mailbox validation](artifacts/reusable-mailboxes-080.json).
 
-Candidate Mac build **54** also resumes the original task after a verified
-mailbox repair, including after the service restarts. It preserves completed
-work and checks unchanged account configuration and standing permissions before
-continuing. OAuth reconnection invalidates old mailbox checks. Build 54 is
-staged separately; installed build 53 remains available for owner enrollment.
-See [current validation and remaining private-account tests](docs/validation.md).
-
-Build **55** adds visible background-recovery health. Internal worker faults
-retry automatically with bounded backoff while keeping the original task.
-Agent discovery and waiting tasks report the fixed failure class; owner screens
-show the recovery state without displaying exception text. Web health updates
-leave password forms untouched. These checks describe the worker loop, not
-successful website authentication or message delivery.
-
-Build **56** labels public testing accounts explicitly, including older catalog
-aliases such as “Personal shopping account.” Example readiness is counted
-separately from service connections, and example-only setups suggest an explicit
-test request. Each account/result records its source environment; a mixed list
-does not establish personal-account coverage. Older task results without that
-record show an unclassified source while retaining their data and progress.
-
-Build **57** restarts a crashed local service and continues saved tasks without
-another agent command. Pause stops recovery; locked-keyring or invalid-setup
-errors stop retries instead of repeating prompts. The native app verifies the
-restarted connection before sending setup data and preserves idle forms. This
-adds local process recovery, with the remaining [production gates](docs/production-gates.md)
-still open. The build 58 candidate adds a Mac background helper registered
-through Apple's service manager, with native Pause and approval-status guidance.
-A separate QA app verified actual registered-job crash recovery and Pause, then
-removed its job and fixture Keychain item. A payload digest also prevents older
-same-version runtimes from being reused. The installed owner upgrade, real
-logout/reboot and private account tests remain open.
+The current development candidate resumes saved work after a verified mailbox
+repair or a local service crash. Pause stops recovery. Installation repairs keep
+the previous runtime available and restore the launchers if an update fails.
+Signed build **59** adds shutdown and rollback fixes to the background recovery
+verified with a separate Mac QA app. It is staged for testing; private-account
+acceptance, installed owner upgrade, logout/reboot and notarized distribution
+remain open. See [validation](docs/validation.md) and
+[production acceptance](docs/production-gates.md).
 
 | Method | One-time setup | During a supported login |
 | --- | --- | --- |
