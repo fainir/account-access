@@ -5,8 +5,9 @@ import imaplib
 import json
 import time
 
-from .codes import imap_number
+from .codes import imap_number, mailbox_error
 from .errors import AccessError
+from .mailboxes import enrollment
 from .providers import get_json
 
 GMAIL_PROFILE = "https://gmail.googleapis.com/gmail/v1/users/me/profile"
@@ -16,7 +17,7 @@ def binding(store, source_id):
     source = store.config().code_sources.get(source_id)
     if source is None or source.kind not in {"imap", "gmail"}:
         raise AccessError("DENIED", "mailbox_check_unsupported", "email")
-    credential = store.get("source:" + source_id) or {}
+    credential = enrollment(store, source_id)
     value = {"source": source.model_dump(), "credential": credential}
     digest = hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()
     return source, credential, digest
@@ -26,7 +27,10 @@ def view(store, source_id):
     source = store.config().code_sources[source_id]
     if source.kind not in {"imap", "gmail"}:
         return None
-    _, credential, digest = binding(store, source_id)
+    try:
+        _, credential, digest = binding(store, source_id)
+    except AccessError:
+        return {"status": "UNTESTED"}
     saved = store.get("mailbox-health:" + source_id) or {}
     if credential.get("enabled") is False or saved.get("binding") != digest:
         return {"status": "UNTESTED"}
@@ -62,8 +66,8 @@ def check(broker, source_id):
                     raise AccessError("NEEDS_USER", "mailbox_identity_mismatch", "email")
             if binding(store, source_id)[2] != digest:
                 raise AccessError("DENIED", "verification_source_enrollment_changed", "email")
-        except (imaplib.IMAP4.error, OSError):
-            error = AccessError("NEEDS_USER", "mailbox_connection_failed", "email")
+        except (imaplib.IMAP4.error, OSError) as exc:
+            error = mailbox_error(exc)
         except AccessError as exc:
             error = AccessError(exc.status, exc.reason, "email")
         else:

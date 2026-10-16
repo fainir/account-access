@@ -7,6 +7,12 @@ or physical-device coverage.
 
 ## Candidate 0.8 changes
 
+- Reusable TLS IMAP mailbox setup is available before a website is added. Gmail
+  supplies its server/port preset; other providers require their TLS settings.
+  Approved website sources can reuse only an exact matching server, port and
+  recipient. Stored secrets are not returned to the agent or owner state API.
+  Changing/removing a mailbox invalidates pending code reads; a health recheck
+  alone does not interrupt them. Existing website permissions are unchanged.
 - Owner email setup has a separate connection check. It authenticates to a
   read-only IMAP inbox and checks its UID tracking, or verifies the approved
   Gmail address through the configured OAuth account's profile. It does not

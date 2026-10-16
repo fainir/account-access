@@ -128,7 +128,13 @@ def check(agent, workspace, codex_model=None, report_suffix=""):
             try:
                 with httpx.Client(base_url=base, trust_env=False,
                                   headers={"Authorization": "Bearer " + token, "Origin": base}) as client:
-                    for source, credential in [("example-email", {"username": "demo@example.test", "password": DEMO_PASSWORD}),
+                    saved_mailbox = client.post("/owner/mailbox/connect", json={
+                        "label": "Example email", "host": "127.0.0.1", "port": mailbox.port,
+                        "username": "demo@example.test", "password": DEMO_PASSWORD})
+                    saved_mailbox.raise_for_status()
+                    if saved_mailbox.json().get("connection_check", {}).get("status") != "VERIFIED":
+                        raise RuntimeError("Example reusable mailbox did not connect")
+                    for source, credential in [("example-email", {"mailbox": saved_mailbox.json()["id"]}),
                                                ("example-sms", {"enabled": True})]:
                         client.post("/owner/source", json={"source": source, "credential": credential}).raise_for_status()
                     checked = client.post("/owner/source/check", json={"source": "example-email"})
@@ -202,6 +208,7 @@ def check(agent, workspace, codex_model=None, report_suffix=""):
                               "sms_verifications": provider.sms_count, "totp_verifications": provider.totp_count,
                               "mailbox_fetches": mailbox.fetches,
                               "mailbox_connection_checked_without_messages_or_website_login": True,
+                              "reusable_mailbox_connected_and_linked_through_owner_api": True,
                               "codex_fixture_socket_only_profile": agent == "codex",
                               "limits": ["Fictional accounts only", "TLS IMAP fixture, Messages database fixture",
                                          "Authenticator transfer import uses a fictional key", "No physical phone or private mailbox validation"]}

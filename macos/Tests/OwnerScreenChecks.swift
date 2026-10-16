@@ -123,6 +123,37 @@ final class VerificationRetryFixture: URLProtocol {
         precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("● Mailbox connection checked"))
         precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains { $0.contains("sign-in is still needed to verify code delivery") })
         print("PASS: saved mailbox credentials and a checked connection cannot claim completed website code delivery")
+        owner.sources = []
+        owner.smsSetups = []
+        owner.showFactors()
+        views = descendants(owner.stack)
+        precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Connect Gmail or email"))
+        precondition(!views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("You're all set"))
+        owner.showEmailSetup()
+        precondition(owner.mailboxFields["password"] is NSSecureTextField)
+        precondition(owner.mailboxFields["host"]?.stringValue == "imap.gmail.com")
+        precondition(owner.mailboxFields["port"]?.stringValue == "993")
+        precondition(owner.mailboxFields["host"]?.isEnabled == false)
+        precondition(owner.mailboxFields["host"]?.isHidden == true && owner.mailboxFields["port"]?.isHidden == true)
+        owner.mailboxKind.selectItem(at: 1)
+        owner.mailboxKindChanged()
+        precondition(owner.mailboxFields["host"]?.isEnabled == true && owner.mailboxFields["host"]?.stringValue == "")
+        precondition(owner.mailboxFields["host"]?.isHidden == false)
+        print("PASS: Gmail setup is available before any website source and masks its app password; other providers require explicit TLS settings")
+        let mailboxID = "mailbox-" + String(repeating: "a", count: 24)
+        owner.mailboxes = [["id": mailboxID, "label": "Example email", "username": "owner@example.test",
+                            "host": "imap.example.test", "port": 993, "connection_check": ["status": "VERIFIED"]]]
+        owner.sources = [["id": "fixture-mail", "kind": "imap", "accounts": ["fixture"],
+                          "mail_server": "imap.example.test", "mail_port": 993, "recipient": "owner@example.test"]]
+        owner.showFactors()
+        precondition(owner.factorMailboxMenu?.selectedItem?.representedObject as? String == mailboxID)
+        precondition(owner.factorFields.values.allSatisfy { !$0.isEnabled && $0.isHidden && $0.stringValue.isEmpty })
+        owner.sources[0]["recipient"] = "different@example.test"
+        owner.showFactors()
+        precondition(owner.factorMailboxMenu == nil)
+        precondition(owner.factorFields.values.allSatisfy { $0.isEnabled })
+        owner.mailboxes = []
+        print("PASS: a checked matching mailbox is reusable without another password entry; another recipient is never offered")
         owner.browserUpdates = [["account": "fixture", "fingerprint": "fictional"]]
         owner.ready()
         views = descendants(owner.stack)

@@ -21,6 +21,7 @@ import pyotp
 
 from .errors import AccessError
 from .email_codes import MAX_MESSAGE_BYTES, login_code as email_login_code
+from .mailboxes import enrollment
 from .providers import get_json
 
 GMAIL_MESSAGES = "https://gmail.googleapis.com/gmail/v1/users/me/messages"
@@ -35,6 +36,14 @@ def imap_number(values):
             or int(values[0]) > 2**32 - 1):
         raise AccessError("NEEDS_USER", "mailbox_uid_tracking_unavailable", "email")
     return int(values[0])
+
+
+def mailbox_error(error):
+    if isinstance(error, ssl.SSLCertVerificationError):
+        return AccessError("NEEDS_USER", "mailbox_tls_verification_failed", "email")
+    if isinstance(error, (imaplib.IMAP4.abort, OSError)):
+        return AccessError("RETRYABLE", "mailbox_temporarily_unavailable", "email")
+    return AccessError("NEEDS_USER", "mailbox_connection_failed", "email")
 
 
 def match_code(template, message):
@@ -66,7 +75,7 @@ class Codes:
             raise AccessError("DENIED", "login_code_window_missing")
         if source is None or window.get("source_config") != source.model_dump():
             raise AccessError("DENIED", "login_code_source_changed")
-        credentials = self.store.get("source:" + source_id, {}) or {}
+        credentials = enrollment(self.store, source_id)
         if credentials.get("enabled") is False:
             raise AccessError("NEEDS_USER", "verification_source_disabled")
         current = hashlib.sha256(json.dumps(credentials, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
@@ -212,7 +221,7 @@ class Codes:
         config = self.store.config()
         source = config.code_sources[source_id]
         window["source_config"] = source.model_dump()
-        credentials = self.store.get("source:" + source_id, {}) or {}
+        credentials = enrollment(self.store, source_id)
         if credentials.get("enabled") is False:
             kind = "email" if source.kind in {"imap", "gmail"} else "totp" if source.kind == "totp" else "sms"
             raise AccessError("NEEDS_USER", "verification_source_disabled", kind)
@@ -235,11 +244,11 @@ class Codes:
             window["gateway_baseline"] = [item["sid"] for item in self.gateway_messages(source, credentials, started)]
         if source.kind == "imap":
             try:
-                with self.mailbox(source, self.store.get("source:" + source_id, {}), config) as mailbox:
+                with self.mailbox(source, credentials, config) as mailbox:
                     for name in ["UIDVALIDITY", "UIDNEXT"]:
                         window[name] = imap_number(mailbox.response(name)[1])
-            except (imaplib.IMAP4.error, OSError):
-                raise AccessError("NEEDS_USER", "mailbox_connection_failed", "email") from None
+            except (imaplib.IMAP4.error, OSError) as exc:
+                raise mailbox_error(exc) from None
         if source.kind == "mac_messages":
             credentials = self.store.get("source:" + source_id, {}) or {}
             if credentials.get("enabled") is not True:
@@ -407,8 +416,8 @@ class Codes:
                     used.add(candidate[0])
                     return candidate[1]
                 return None
-        except (imaplib.IMAP4.error, OSError, ssl.SSLError):
-            raise AccessError("NEEDS_USER", "mailbox_connection_failed", "email") from None
+        except (imaplib.IMAP4.error, OSError) as exc:
+            raise mailbox_error(exc) from None
 
     def native_messages(self, source_id, source, started, **fields):
         """Authenticated transport to the signed app; never exposed to agents."""

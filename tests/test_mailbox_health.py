@@ -1,5 +1,6 @@
 import datetime
 import imaplib
+import ssl
 import json
 import time
 import threading
@@ -113,6 +114,30 @@ def test_mailbox_failure_is_a_fixed_reason_and_never_marks_access_verified(env, 
     state = view(broker.store, "mail")
     assert state["status"] == "NEEDS_USER" and state["reason"] == "mailbox_connection_failed"
     assert "fictional-private" not in json.dumps(state)
+
+
+@pytest.mark.parametrize("exception,status,reason", [
+    (OSError, "RETRYABLE", "mailbox_temporarily_unavailable"),
+    (TimeoutError, "RETRYABLE", "mailbox_temporarily_unavailable"),
+    (imaplib.IMAP4.abort, "RETRYABLE", "mailbox_temporarily_unavailable"),
+    (ssl.SSLCertVerificationError, "NEEDS_USER", "mailbox_tls_verification_failed"),
+])
+def test_mailbox_outages_retry_but_certificate_failures_require_repair(env, monkeypatch, exception, status, reason):
+    _, broker, _ = env
+    setup(broker, monkeypatch)
+
+    def unavailable(*args):
+        raise exception("fictional-private-server-detail")
+
+    monkeypatch.setattr(broker.codes, "mailbox", unavailable)
+    with pytest.raises(AccessError) as error:
+        check(broker, "mail")
+    assert error.value.status == status and error.value.reason == reason
+    assert "fictional-private" not in json.dumps(view(broker.store, "mail"))
+    with pytest.raises(AccessError) as error:
+        broker.codes.begin("mail", "demo-web", time.time())
+    assert error.value.status == status and error.value.reason == reason
+    assert broker.store.get("code-window:mail") is None
 
 
 @pytest.mark.parametrize("case,reason", [

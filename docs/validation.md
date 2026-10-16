@@ -1,5 +1,42 @@
 # Validation of Account Access
 
+## Reusable mailbox setup — 16 October 2026
+
+The next candidate makes Gmail/TLS IMAP setup available before a website
+connector has an email source. The owner can save one encrypted mailbox, check
+its access, update its application password or disconnect it. Approved website
+sources can reuse only an exact matching server, port and recipient. Neither
+mailbox connection nor linking creates a connector or grants account operations.
+The agent API has no mailbox-list or mailbox-secret endpoint.
+
+Tests connect a real local TLS IMAP fixture without fetching mail or starting
+website login, share it across exact approved sources, recover website access
+and reuse the saved session. They reject mismatched servers/ports/recipients,
+invalid setup and agent/cross-origin owner requests. Removing or changing a
+mailbox prevents pending code retrieval; a health recheck alone does not
+interrupt an active window. A changed application password can be repaired
+locally without changing the mailbox identity or destination.
+
+The actual owner web UI test imports a fictional password, connects its mailbox,
+uses the preselected matching mailbox for the website email source, completes
+email-code login and confirms session reuse. That test found and fixed a real
+delay: failed source preflight used to charge the password cooldown even though
+no password was submitted. The cooldown now begins immediately before an actual
+submission attempt, while the existing account lock and retry throttle remain.
+
+Transient IMAP timeouts/socket resets return a normal retry instead of an owner
+challenge. A TLS certificate-verification failure still requires repair and
+never permits an unverified connection. A real TLS fixture test loses access
+before password submission, then recovers the original queued task through the
+ordinary scheduler with one password login and one delivered email code.
+
+Gmail setup shows only the email address and masked application-password field;
+server/port are supplied by the preset. Other providers require explicit TLS
+settings. A selected saved mailbox hides redundant credential fields. Initial
+Google app-password creation still belongs to the owner, and a consumer Google
+OAuth application is not bundled. This phase adds no private mailbox or carrier
+delivery acceptance and makes no further private Namecheap/GitHub request.
+
 ## Mailbox readiness and credential repair — 16 October 2026
 
 The next candidate adds an owner-only mailbox connection check. Real TLS IMAP

@@ -14,6 +14,30 @@ Google recommends **Sign in with Google**. Account Access supports an operator-c
 
 The video shows the **Gmail app-password option**, for accounts where Google permits it. A reviewed connector must already configure its email-code source with Gmail's mail server, `imap.gmail.com`, port `993`. That makes the source appear in **Verification**; importing a website password alone does not create a mailbox connection.
 
+**Current 0.8 candidate:** you can now connect a mailbox before adding a website.
+Open **Verification → Connect Gmail or email**, keep **Gmail** selected, and enter
+your email address and Google app password locally. The app supplies Gmail's TLS
+IMAP settings. A read-only connection check fetches no messages and starts no
+website login. **Other email · TLS IMAP** accepts your provider's server and port.
+This is mailbox setup, not universal access to every webmail service.
+
+The encrypted mailbox is reusable: a website's existing approved email source
+can select it when its exact recipient, server and port match. A single checked
+match is preselected for a new source, so you do not enter the app password again.
+Click **Connect verification** to check that website's sign-in. A mailbox cannot
+create a website connector, change its message filter, or grant more account reads.
+Disconnecting it stops future email-code recovery; an existing website session
+can continue under its existing permissions.
+
+**Update app password** changes only the encrypted local mailbox password;
+the email address and server stay fixed. **Disconnect mailbox** removes that
+local connection and stops future/pending code reads. It does not revoke the
+Google-issued app password at Google or revoke independent website permissions.
+Temporary mailbox outages retry automatically during delegated work; rejected
+credentials or a certificate-verification failure require local repair.
+
+The following source-specific steps also apply to the published 0.7.4 preview:
+
 1. Open your [Google Account's App passwords page](https://myaccount.google.com/apppasswords). Sign in yourself. This option requires Google's 2-Step Verification.
 2. Create an app password for **Account Access**. Google generates this separately from your normal Google password.
 3. In Account Access, open **Verification**, select the configured Gmail email source, and check that its mail server is `imap.gmail.com`.

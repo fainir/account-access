@@ -76,6 +76,12 @@ successful **Connected** state. Code delivery still needs its own website test.
 See the [verification guide](docs/gmail-authenticator-and-sms.md) and
 [candidate QA evidence](artifacts/mailbox-readiness-080.json).
 
+In the latest development candidate, **Verification → Connect Gmail or email**
+is available before a website is added. Save your Gmail app password once, or
+enter another provider's TLS IMAP settings. Matching approved website sources
+can reuse that encrypted mailbox. This does not add an unsupported website or
+bundle a consumer Google OAuth application.
+
 | Method | One-time setup | During a supported login |
 | --- | --- | --- |
 | Email | Connect a configured TLS IMAP mailbox, or a reviewed Gmail OAuth connection | Read a fresh message matching sender, recipient, subject and template; submit its login code |

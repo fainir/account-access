@@ -361,7 +361,6 @@ class Browser:
             # A timed throttle needs waiting, not owner authentication. Keep the
             # rate limit while letting durable tasks retry without a false prompt.
             raise AccessError("RETRYABLE", "login_retry_cooldown")
-        self.store.put("login-attempt:" + account, time.time())
         context = self.context(browser, config, state, login=True, account=account)
         context._login_progress = {}
         started = None
@@ -403,6 +402,10 @@ class Browser:
                 raise source_errors[sorted(form.sources())[0]]
             if review_stop and review_stop.is_set():
                 raise AccessError("NEEDS_USER", "sms_setup_cancelled", "sms")
+            # Charge the password-attempt cooldown only when submission is
+            # attempted. Connecting a missing mailbox/phone after preflight
+            # stopped must not require another minute or user retry.
+            self.store.put("login-attempt:" + account, time.time())
             page.locator(form.submit_selector).click(timeout=10000)
             context._login_progress["password_submit_attempted"] = True
             page.wait_for_load_state("domcontentloaded")

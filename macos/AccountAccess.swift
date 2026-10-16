@@ -60,6 +60,13 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     var agents = ["claude"]
     var principals: [String] = []
     var sources: [[String: Any]] = []
+    var mailboxes: [[String: Any]] = []
+    var mailboxFields: [String: NSTextField] = [:]
+    var mailboxServerViews: [NSView] = []
+    var mailboxKind: NSPopUpButton!
+    var factorMailboxMenu: NSPopUpButton?
+    var factorEntryViews: [NSView] = []
+    var editingMailbox: String?
     var passwordSync: [[String: Any]] = []
     var navigationFailures: [[String: Any]] = []
     var browserUpdates: [[String: Any]] = []
@@ -526,9 +533,14 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                         "password_source_access_removed": "The password source rejected access. Check its read-only token and the selected vault and item.",
                         "password_source_unavailable": "The password source is temporarily unavailable. Try again when it is online.",
                         "mailbox_connection_failed": "The email server did not accept this connection. Check the email address and application password in Verification. No website sign-in was started.",
+                        "mailbox_temporarily_unavailable": "The mailbox is temporarily unreachable. Your saved setup is preserved; Account Access can retry without another login approval.",
+                        "mailbox_tls_verification_failed": "The mailbox's secure connection could not be verified. Check the server settings; Account Access will not use an unverified connection.",
                         "mailbox_not_connected": "Connect this email account in Verification first. No website sign-in was started.",
                         "mailbox_identity_mismatch": "The connected Gmail account does not match the mailbox approved for these login messages. Connect the correct Gmail account.",
                         "mailbox_uid_tracking_unavailable": "This mail server did not provide the message tracking needed to exclude old codes. No website sign-in was started.",
+                        "invalid_mailbox_setup": "Check the email address, mail server and application password. Other email providers require their TLS IMAP server and port.",
+                        "mailbox_already_connected": "This mailbox is already saved. Use Update app password or Check connection on its card.",
+                        "mailbox_source_mismatch": "Choose the mailbox for the email address and mail server already approved for this website.",
                         "mailbox_scope_missing": "Reconnect the configured Gmail account with permission to read login messages.",
                         "account_not_connected": "Connect the configured Gmail account through Manage permissions first.",
                         "provider_rejected_access": "The email provider rejected this connection. Reconnect the mailbox in Verification.",
@@ -561,6 +573,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         catalog = state["catalog"] as? [[String: Any]] ?? []
         accounts = state["accounts"] as? [[String: Any]] ?? []
         sources = state["code_sources"] as? [[String: Any]] ?? []
+        mailboxes = state["mailboxes"] as? [[String: Any]] ?? []
         principals = state["principals"] as? [String] ?? []
         agents = state["integrations"] as? [String] ?? principals
         automaticSessions = state["automatic_sessions"] as? [String: [String: Any]] ?? [:]
@@ -1267,8 +1280,25 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     @objc func showFactors() {
         section = "verification"
         page("Verification", "Connect email, SMS or an authenticator once. Login codes stay out of your AI chat.")
+        for mailbox in mailboxes {
+            guard let id = mailbox["id"] as? String else { continue }
+            let check = mailbox["connection_check"] as? [String: Any] ?? [:]
+            let checked = check["status"] as? String == "VERIFIED"
+            let panel = card((mailbox["label"] as? String ?? "Email") + " · " + (mailbox["username"] as? String ?? ""),
+                             checked ? "Email access passed its last check. Connect a supported website to use its login codes."
+                             : "Setup is saved. Check the address and app password, then check this connection.",
+                             status: checked ? "Mailbox connection checked" : "Setup saved", good: checked)
+            for (title, selector) in [("Check connection", #selector(checkSavedMailbox(_:))),
+                                      ("Update app password", #selector(editMailboxPassword(_:))),
+                                      ("Disconnect mailbox", #selector(disconnectMailbox(_:)))] {
+                let button = NSButton(title: title, target: self, action: selector)
+                button.identifier = NSUserInterfaceItemIdentifier(id)
+                panel.addArrangedSubview(button)
+            }
+        }
+        action("Connect Gmail or email", #selector(showEmailSetup))
         if sources.isEmpty && smsSetups.isEmpty {
-            card("You're all set", "Your current accounts do not need a verification code. Methods appear here when a supported account requires one.", status: "No setup needed")
+            card("Connect a website", "You can save your mailbox now. Website verification methods appear after you connect a supported account.", status: "One-time setup", good: false)
             action("Back", #selector(backToConnections))
             return
         }
@@ -1296,6 +1326,108 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         factorMenu.action = #selector(factorChanged)
         stack.addArrangedSubview(factorMenu)
         factorChanged()
+    }
+
+    @objc func showEmailSetup() {
+        editingMailbox = nil
+        page("Connect your email", "Save your mailbox once. Only supported websites with approved login-message filters can use it.")
+        mailboxKind = NSPopUpButton()
+        mailboxKind.addItems(withTitles: ["Gmail", "Other email · TLS IMAP"])
+        mailboxKind.target = self
+        mailboxKind.action = #selector(mailboxKindChanged)
+        stack.addArrangedSubview(mailboxKind)
+        mailboxFields = [:]
+        mailboxServerViews = []
+        for (name, title) in [("username", "Email address"), ("password", "Application password"),
+                              ("host", "IMAP server"), ("port", "TLS port")] {
+            label(title, 14)
+            if ["host", "port"].contains(name), let title = stack.arrangedSubviews.last { mailboxServerViews.append(title) }
+            let field: NSTextField = name == "password" ? NSSecureTextField() : NSTextField()
+            field.placeholderString = title
+            field.heightAnchor.constraint(equalToConstant: 38).isActive = true
+            stack.addArrangedSubview(field)
+            field.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+            mailboxFields[name] = field
+            if ["host", "port"].contains(name) { mailboxServerViews.append(field) }
+        }
+        mailboxKindChanged()
+        label("For Gmail, create a Google app password with 2-Step Verification enabled. Your account must allow app passwords. Account Access does not include a registered consumer Google OAuth app yet.", 13, .secondaryLabelColor)
+        action("Open Google App passwords", #selector(openGoogleAppPasswords))
+        label("Mailbox access is encrypted locally. Checking it reads no messages and starts no website login. Website code delivery is checked separately.", 13, .secondaryLabelColor)
+        primary("Connect mailbox", #selector(saveMailbox))
+        action("Back", #selector(showFactors))
+    }
+
+    @objc func mailboxKindChanged() {
+        let gmail = mailboxKind.indexOfSelectedItem == 0
+        mailboxFields["host"]?.isEnabled = !gmail
+        mailboxFields["port"]?.isEnabled = !gmail
+        mailboxFields["host"]?.stringValue = gmail ? "imap.gmail.com" : ""
+        mailboxFields["port"]?.stringValue = "993"
+        for view in mailboxServerViews { view.isHidden = gmail }
+    }
+
+    @objc func openGoogleAppPasswords() {
+        NSWorkspace.shared.open(URL(string: "https://myaccount.google.com/apppasswords")!)
+    }
+
+    @objc func saveMailbox() {
+        let data: [String: Any]
+        if let id = editingMailbox {
+            data = ["id": id, "password": mailboxFields["password"]?.stringValue ?? ""]
+        } else {
+            data = ["label": mailboxKind.indexOfSelectedItem == 0 ? "Gmail" : "Email",
+                    "host": mailboxFields["host"]?.stringValue ?? "",
+                    "port": Int(mailboxFields["port"]?.stringValue ?? "") ?? 0,
+                    "username": mailboxFields["username"]?.stringValue ?? "",
+                    "password": mailboxFields["password"]?.stringValue ?? ""]
+        }
+        let route = editingMailbox == nil ? "owner/mailbox/connect" : "owner/mailbox/password"
+        for field in mailboxFields.values { field.stringValue = "" }
+        mailboxRequest(route, data)
+    }
+
+    func mailboxRequest(_ route: String, _ body: [String: Any]) {
+        busy = true
+        page("Checking your mailbox", "Checking encrypted email access without fetching messages or starting a website sign-in.")
+        progress()
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                _ = try self.request(route, body: body)
+                let state = try self.request("owner/state")
+                DispatchQueue.main.async { self.busy = false; self.accept(state); self.showFactors() }
+            } catch { self.fail(error, retry: #selector(self.backToConnections)) }
+        }
+    }
+
+    @objc func checkSavedMailbox(_ sender: NSButton) {
+        guard let id = sender.identifier?.rawValue else { return }
+        mailboxRequest("owner/mailbox/check", ["id": id])
+    }
+
+    @objc func editMailboxPassword(_ sender: NSButton) {
+        guard let id = sender.identifier?.rawValue else { return }
+        editingMailbox = id
+        page("Update email access", "Replace the saved application password. The email address and mail server stay fixed.")
+        let field = NSSecureTextField()
+        field.placeholderString = "Application password"
+        field.heightAnchor.constraint(equalToConstant: 38).isActive = true
+        stack.addArrangedSubview(field)
+        field.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        mailboxFields = ["password": field]
+        primary("Save and check", #selector(saveMailbox))
+        action("Back", #selector(showFactors))
+    }
+
+    @objc func disconnectMailbox(_ sender: NSButton) {
+        guard let id = sender.identifier?.rawValue else { return }
+        let alert = NSAlert()
+        alert.messageText = "Disconnect this mailbox?"
+        alert.informativeText = "The saved mailbox password is removed locally. Websites using it will pause when they next need an email code. Other account permissions stay the same."
+        alert.addButton(withTitle: "Disconnect")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        mailboxRequest("owner/mailbox/remove", ["id": id])
     }
 
     func factorName(_ kind: String) -> String {
@@ -1486,6 +1618,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             stack.removeArrangedSubview(last); last.removeFromSuperview()
         }
         factorFields = [:]
+        factorEntryViews = []
+        factorMailboxMenu = nil
         let source = factorMenu.selectedItem?.representedObject as? [String: Any] ?? [:]
         let kind = source["kind"] as? String ?? ""
         let email = ["imap", "gmail"].contains(kind)
@@ -1509,8 +1643,32 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         let fields: [(String, String)] = kind == "totp" ? [("seed", "Authenticator setup key or otpauth link")] :
             kind == "imap" ? ((source["mailbox_account"] as? String) != nil ? [("username", "Mailbox email address")] : [("username", "Mailbox email address"), ("password", "Mailbox application password")]) :
             kind == "twilio" ? [("sid", "SMS gateway account ID"), ("auth_token", "SMS gateway token")] : []
+        if kind == "imap" && source["mailbox_account"] as? String == nil {
+            let matching = mailboxes.filter {
+                ($0["host"] as? String)?.lowercased() == (source["mail_server"] as? String)?.lowercased()
+                && $0["port"] as? Int == source["mail_port"] as? Int
+                && ($0["username"] as? String)?.lowercased() == (source["recipient"] as? String)?.lowercased()
+            }
+            if !matching.isEmpty {
+                label("Use a connected mailbox or enter separate details", 14)
+                let menu = NSPopUpButton()
+                menu.addItem(withTitle: "Enter mailbox details")
+                for mailbox in matching {
+                    menu.addItem(withTitle: mailbox["username"] as? String ?? "Email")
+                    menu.lastItem?.representedObject = mailbox["id"]
+                    let checked = (mailbox["connection_check"] as? [String: Any])?["status"] as? String == "VERIFIED"
+                    if mailbox["id"] as? String == source["linked_mailbox"] as? String
+                        || (matching.count == 1 && checked && source["enrolled"] as? Bool != true) { menu.select(menu.lastItem) }
+                }
+                menu.target = self
+                menu.action = #selector(factorMailboxChanged)
+                factorMailboxMenu = menu
+                stack.addArrangedSubview(menu)
+            }
+        }
         for (name, hint) in fields {
             label(hint, 15)
+            if let title = stack.arrangedSubviews.last { factorEntryViews.append(title) }
             let input: NSTextField = name == "username" ? NSTextField() : NSSecureTextField()
             input.placeholderString = hint
             input.font = .systemFont(ofSize: 17)
@@ -1518,7 +1676,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             stack.addArrangedSubview(input)
             input.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
             factorFields[name] = input
+            factorEntryViews.append(input)
         }
+        factorMailboxChanged()
         if kind == "totp" {
             label("Use the website's setup key, or Google Authenticator → Transfer codes → Export codes. Unlock your phone and export the account you want to connect. Choose its QR image below and review the account before importing. Your phone keeps generating codes.", 14, .secondaryLabelColor)
             label("Importing copies the authenticator key to this Mac for unattended login. The key stays encrypted locally. A push, passkey or fingerprint approval still needs you.", 14, .secondaryLabelColor)
@@ -1538,6 +1698,15 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         primary(source["enrolled"] as? Bool == true ? "Save changes" : "Connect verification", #selector(saveFactor))
         if source["enrolled"] as? Bool == true { action("Disable this verification method", #selector(disableFactor)) }
         action("Back", #selector(backToConnections))
+    }
+
+    @objc func factorMailboxChanged() {
+        let linked = factorMailboxMenu?.selectedItem?.representedObject as? String != nil
+        for view in factorEntryViews { view.isHidden = linked }
+        for field in factorFields.values {
+            field.isEnabled = !linked
+            if linked { field.stringValue = "" }
+        }
     }
 
     @objc func readAuthenticatorQR() {
@@ -1623,6 +1792,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             return
         }
         var credential: [String: Any] = factorFields.mapValues { $0.stringValue }
+        if let mailbox = factorMailboxMenu?.selectedItem?.representedObject as? String {
+            credential = ["mailbox": mailbox]
+        }
         if kind == "mac_messages" { credential = ["enabled": true] }
         let linked = source["accounts"] as? [String] ?? []
         for field in factorFields.values { field.stringValue = "" }

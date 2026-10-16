@@ -236,9 +236,14 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                                          if isinstance(spec, BrowserAccount) and key not in present]
                     state["portable_cli"] = str(Path.home() / ".agents/skills/account-access/scripts/access")
                 from .mailbox_health import view as mailbox_health
+                from .mailboxes import view as mailboxes
+                state["mailboxes"] = mailboxes(broker.store)
                 state["code_sources"] = [{"id": key, "kind": source.kind,
                                           "mailbox_account": source.account,
                                           "mail_server": source.host,
+                                          "mail_port": source.port,
+                                          "recipient": source.recipient if source.kind in {"imap", "gmail"} else None,
+                                          "linked_mailbox": (broker.store.get("source:" + key) or {}).get("mailbox"),
                                           "connection_check": mailbox_health(broker.store, key),
                                           "enrolled": bool(broker.store.get("source:" + key)) and broker.store.get("source:" + key, {}).get("enabled") is not False,
                                           "accounts": [key2 for key2, spec in config.accounts.items()
@@ -355,6 +360,22 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                     if set(data) != {"source"}:
                         raise ValueError()
                     self.send(200, check(broker, data["source"]))
+                    return
+                if self.path == "/owner/mailbox/connect":
+                    from .mailboxes import connect
+                    self.send(200, connect(broker, data))
+                    return
+                if self.path in {"/owner/mailbox/check", "/owner/mailbox/remove"}:
+                    from .mailboxes import check, remove
+                    if set(data) != {"id"}:
+                        raise ValueError()
+                    self.send(200, check(broker, data["id"]) if self.path.endswith("/check") else remove(broker.store, data["id"]))
+                    return
+                if self.path == "/owner/mailbox/password":
+                    from .mailboxes import update_password
+                    if set(data) != {"id", "password"}:
+                        raise ValueError()
+                    self.send(200, update_password(broker, data["id"], data["password"]))
                     return
                 if self.path == "/owner/source/revoke":
                     from .factors import revoke

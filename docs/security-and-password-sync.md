@@ -60,6 +60,14 @@ credential invalidates the old saved session when the value changes; it cannot
 clear CAPTCHA, unknown-page, device, passkey, administrator, recovery or action
 challenges. Only a verified sign-in can clear those login gates.
 
+Reusable mailbox connections keep one encrypted IMAP credential. A website can
+link only its existing reviewed source's exact recipient, server and port;
+linking changes neither message filters nor account grants. The agent interface
+cannot list mailboxes or retrieve credentials. Changing or disconnecting the
+mailbox invalidates pending code reads, while a connection recheck alone does
+not. Temporary IMAP outages use ordinary task retry; invalid certificates and
+rejected credentials still require repair. No unverified TLS fallback exists.
+
 The candidate installer ships the tested dependency versions and their SHA-256
 hashes inside the verified wheel. It requires those hashes and prohibits source
 builds. It prepares a separate environment and browser before switching the
