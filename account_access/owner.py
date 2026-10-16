@@ -458,6 +458,8 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                     if not data:
                         paused = broker.store.root / "service.paused"
                         private_file(paused, b"paused", replace=paused.exists())
+                    from .supervisor import disable
+                    disable(broker.store.root)
                     self.send(200, {"status": "STOPPED"})
                     threading.Thread(target=self.server.shutdown, daemon=True).start()
                     return

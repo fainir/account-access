@@ -1,5 +1,40 @@
 # Validation of Account Access
 
+## Supervised local task recovery — 17 October 2026
+
+Build 57 starts a separate user-space supervisor for the desktop service. A
+child crash restarts the host with bounded interruptible backoff, allowing saved
+tasks to continue without another agent request. A generation marker and actual
+process lock prevent competing supervisors; stale markers and PIDs do not prove
+liveness. Pause/update disables the current generation. Setup/keyring errors
+stop retries, and only an owned child can be signalled. The supervisor loads no
+vault key. A dead API or recovery thread closes the owner endpoint for restart.
+
+The native app verifies current owner metadata and its HMAC proof before each
+setup request, under a serialized connection lock. Endpoint rotation preserves
+idle form controls. A failed proof sends no setup action, and a lost response is
+not retried. The native checks use an isolated temporary root and fictional
+credentials; they never read or change the installed owner setup.
+
+All **22 supervision, worker-health and install/service cases** passed in 37.09
+seconds, including actual child termination, continuation of the same queued
+task without client reconnection, a second crash without replaying its completed
+read, pause/reopen, observation of an existing unowned host, dead API-thread
+cleanup, private control files and a single rejected setup attempt. The separate
+**14 startup/upgrade checks** passed in 15.70 seconds. All **24 native UI checks**
+passed. Lint and package build passed; full regression/agent checks are pending.
+
+The separately staged universal build has a matching wheel pin and all **61
+application files** match current source. Strict/deep/all-architecture signature
+verification passed. Installed build 53 and the pending owner Gmail form remain
+preserved. No private website login was requested by these tests.
+
+This is user-space process recovery, not separate-OS-identity credential custody,
+OS-managed startup after simultaneous supervisor/host loss or shutdown, or proof
+of private mailbox/physical-phone authentication. Existing Namecheap browser
+verification, owner enrollment, Apple notarization and other production gates
+remain open. An already-open web owner tab must be reopened after a host restart.
+
 ## Resumable Mac release preparation — 17 October 2026
 
 The new maintainer helper verifies an Apple-anchored Developer ID signature and

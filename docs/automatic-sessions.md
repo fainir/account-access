@@ -20,6 +20,25 @@ When a relevant request arrives, the agent discovers the accounts and operations
 
 For an existing secure local installation, a connection failure can start its registered background service once. This does not replay an operation after a response timeout. A deliberate pause is respected until the owner reopens the app. The computer must be awake and its secure keyring available. Remote clients and controlled development fixtures do not use this local startup path.
 
+The 0.8 candidate also supervises the desktop service in a separate local
+process. If its child crashes, it restarts with a one-to-thirty-second backoff
+and continues saved tasks without waiting for another agent request. Completed
+steps stay completed; existing browser and owner-presence challenges still
+require their recorded resolution. Pause stops supervision, and a repair stops
+the old generation before starting its replacement. A locked keyring or invalid
+setup ends automatic startup attempts rather than repeating owner prompts.
+
+A held process lock establishes supervisor attachment; a saved marker or PID
+alone is insufficient. The supervisor loads no vault key and signals only a
+child it created. The host also exits if its API/recovery thread stops, so the
+owner endpoint cannot keep advertising a dead service. Native setup requests
+verify the current local endpoint before sending data, preserving idle forms
+when its port changes; a lost response is never replayed. An already-open web
+setup tab needs reopening after a host restart. This user-space supervisor does
+not survive every simultaneous process failure or computer shutdown: the next
+client/app launch restores it. It adds no privileged service or separate-OS-
+identity credential boundary.
+
 Automatic invocation depends on a host that loads local skills/instructions and permits the client to run. Project overrides, host permissions and isolated cloud sessions still apply. There is no interception of arbitrary browser tools, and an unsupported website still needs a reviewed connector. Genuine owner-presence authentication remains a human step.
 
 The latest candidate was checked with Claude Code 2.1.112 and the desktop app's

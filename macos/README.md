@@ -42,6 +42,14 @@ connection to be ready before showing Connected; an empty error list alone is
 insufficient. The change derives presentation metadata without changing account
 fingerprints, grants or saved task steps. All twenty-one native checks pass.
 
+Candidate build **57** adds a separate local supervisor. A crashed service
+restarts and continues saved tasks without another agent command; Pause and
+updates stop its current generation. Locked-keyring/setup failures stop retries
+instead of repeating prompts. The native window verifies the restarted endpoint
+before sending setup data, preserving idle forms and never replaying a request
+after a lost response. This remains user-space process recovery, with the same
+pending notarization and private-account gates. Installed build 53 is preserved.
+
 Build with Xcode's command-line tools:
 
 ```sh

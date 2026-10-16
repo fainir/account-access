@@ -4,8 +4,8 @@ import json
 import hashlib
 import hmac
 import os
-import subprocess
 import secrets
+import signal
 import sys
 import threading
 import time
@@ -51,6 +51,7 @@ def running(root):
 
 
 def launch(root, *, key_file=None, open_browser=True, on_demand=False):
+    from .supervisor import active, attached, disable, enable, lease, registration, spawn
     root = Path(root).expanduser()
     if root.is_symlink():
         raise AccessError("DENIED", "symlink_path")
@@ -58,45 +59,49 @@ def launch(root, *, key_file=None, open_browser=True, on_demand=False):
     paused = root / "service.paused"
     if on_demand and paused.exists():
         raise AccessError("NEEDS_USER", "service_paused")
-    if not on_demand:
-        paused.unlink(missing_ok=True)
     root.mkdir(mode=0o700, parents=True, exist_ok=True)
     store = Store(root, load_key(root, key_file, create=True))
     with store.lock("desktop-launch", timeout=20):
+        if on_demand and paused.exists():
+            raise AccessError("NEEDS_USER", "service_paused")
+        if not on_demand:
+            paused.unlink(missing_ok=True)
         info = running(root)
-        if info and (info.get("version") != __version__ or info.get("runtime") != sys.executable):
+        saved = registration(root)
+        supervised = attached(root)
+        stale = ((info and (info.get("version") != __version__ or info.get("runtime") != sys.executable))
+                 or (saved and (saved["version"] != __version__ or saved["runtime"] != sys.executable))
+                 or (supervised and not (saved and active(root, saved["generation"]))))
+        if stale:
+            disable(root)
             stop(root, updating=True)
+            with lease(root, timeout=20):
+                pass
             with store.lock("service", timeout=20):
                 pass
             info = None
-        if not info:
+            supervised = False
+        process = None
+        if not supervised:
             from .upgrade import retire_development_routes
-            retire_development_routes(store)
+            if not info:
+                retire_development_routes(store)
             if not (root / "config.json").exists():
                 store.configure(Configuration(accounts={}))
             if len(str(root / "service.sock").encode()) >= 104:
                 raise AccessError("DENIED", "socket_path_too_long")
-            command = [sys.executable, "-m", "account_access.cli", "--root", str(root)]
-            if key_file:
-                command += ["--development", "--key-file", str(key_file)]
-            command += ["desktop-host"]
-            log_path = root / "desktop.log"
-            if not log_path.exists():
-                private_file(log_path, b"")
-            check_private(log_path)
-            with log_path.open("ab") as log:
-                process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=log, stderr=log,
-                                           start_new_session=True)
-            deadline = time.monotonic() + 20
-            while time.monotonic() < deadline:
-                info = running(root)
-                if info:
-                    break
-                if process.poll() is not None:
-                    raise AccessError("NEEDS_USER", "local_app_could_not_start")
-                time.sleep(0.2)
-            if not info:
-                raise AccessError("RETRYABLE", "local_app_start_timed_out")
+            generation = enable(root)
+            process = spawn(root, "desktop-supervisor", key_file=key_file, generation=generation, detached=True)
+        deadline = time.monotonic() + 20
+        while time.monotonic() < deadline:
+            info = running(root)
+            if info and attached(root):
+                break
+            if process is not None and process.poll() is not None:
+                raise AccessError("NEEDS_USER", "local_app_could_not_start")
+            time.sleep(0.2)
+        if not info or not attached(root):
+            raise AccessError("RETRYABLE", "local_app_start_timed_out")
     if open_browser:
         webbrowser.open(info["url"] + "#" + info["token"])
         print("Account Access is ready. Setup opens in your browser.")
@@ -107,10 +112,12 @@ def launch(root, *, key_file=None, open_browser=True, on_demand=False):
 
 
 def stop(root, *, updating=False):
+    from .supervisor import disable
     root = Path(root).expanduser()
     if not updating and (root / "config.json").is_file():
         paused = root / "service.paused"
         private_file(paused, b"paused", replace=paused.exists())
+    disable(root)
     info = running(root)
     if info:
         base = info["url"].rstrip("/")
@@ -122,12 +129,15 @@ def stop(root, *, updating=False):
     print("Account Access is stopped. Your saved connections are preserved.")
 
 
-def host(broker):
+def host(broker, *, generation=None):
     import uvicorn
     from .owner import make_owner_server
     from .service import create_app
+    from .supervisor import active
     root = broker.store.root
     with broker.store.lock("service", timeout=0):
+        if (root / "service.paused").exists() or (generation is not None and not active(root, generation)):
+            raise AccessError("NEEDS_USER", "service_paused")
         if (broker.store.get("google-messages-extension-origin")
                 and not broker.store.config().test_mode):
             from .google_messages_host import prepare
@@ -150,9 +160,28 @@ def host(broker):
                 "instance_key": instance_key.hex(), "pid": os.getpid(), "version": __version__,
                 "runtime": sys.executable}
         private_file(root / "desktop.json", json.dumps(info).encode(), replace=(root / "desktop.json").exists())
-        try:
-            with server:
-                server.serve_forever()
-        finally:
+        closing = threading.Event()
+        previous = {}
+        def shutdown(*_):
             app.should_exit = True
+            threading.Thread(target=server.shutdown, daemon=True).start()
+        def monitor():
+            while not closing.wait(0.25):
+                if not worker.is_alive() or broker.worker_health.view()["status"] == "STOPPED":
+                    shutdown()
+                    return
+        observer = threading.Thread(target=monitor, daemon=True)
+        try:
+            if generation is not None and not active(root, generation):
+                raise AccessError("NEEDS_USER", "service_paused")
+            for sig in [signal.SIGTERM, signal.SIGINT]:
+                previous[sig] = signal.signal(sig, shutdown)
+            observer.start()
+            server.serve_forever()
+        finally:
+            closing.set()
+            app.should_exit = True
+            server.server_close()
             worker.join(timeout=10)
+            for sig, handler in previous.items():
+                signal.signal(sig, handler)

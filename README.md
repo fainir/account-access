@@ -105,6 +105,13 @@ test request. Each account/result records its source environment; a mixed list
 does not establish personal-account coverage. Older task results without that
 record show an unclassified source while retaining their data and progress.
 
+Build **57** restarts a crashed local service and continues saved tasks without
+another agent command. Pause stops recovery; locked-keyring or invalid-setup
+errors stop retries instead of repeating prompts. The native app verifies the
+restarted connection before sending setup data and preserves idle forms. This
+adds local process recovery, with the remaining [production gates](docs/production-gates.md)
+still open.
+
 | Method | One-time setup | During a supported login |
 | --- | --- | --- |
 | Email | Connect a configured TLS IMAP mailbox, or a reviewed Gmail OAuth connection | Read a fresh message matching sender, recipient, subject and template; submit its login code |

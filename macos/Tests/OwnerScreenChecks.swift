@@ -1,19 +1,41 @@
 import AppKit
 import Foundation
+import CryptoKit
 
 final class VerificationRetryFixture: URLProtocol {
     static var verificationRequests = 0
     static var retriedVisible = false
     static var retried = false
     static var stopped = false
+    static var ownerPort = 1
+    static var ownerToken = "synthetic-ui-session"
+    static var invalidProof = false
+    static var loseNextSetupResponse = false
+    static var ownerRequests = 0
+    static let instanceKey = Data(repeating: 0xaa, count: 32)
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
         let payload: [String: Any]
-        if Self.stopped {
+        precondition(request.url?.port == Self.ownerPort)
+        precondition(request.value(forHTTPHeaderField: "Authorization") == "Bearer " + Self.ownerToken)
+        if request.url?.path == "/owner/ready" {
+            let challenge = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!
+                .queryItems!.first(where: { $0.name == "challenge" })!.value!
+            let proof = HMAC<SHA256>.authenticationCode(for: Data(challenge.utf8), using: SymmetricKey(data: Self.instanceKey))
+                .map { String(format: "%02x", $0) }.joined()
+            payload = ["proof": Self.invalidProof ? "unverified" : proof]
+        } else if Self.stopped {
+            Self.ownerRequests += 1
             payload = ["connection_jobs": ["first": ["status": "NEEDS_USER", "attention": ["reason": "browser_action_required"]]]]
         } else if request.url?.path == "/owner/verify" {
+            Self.ownerRequests += 1
             Self.verificationRequests += 1
+            if Self.loseNextSetupResponse {
+                Self.loseNextSetupResponse = false
+                client?.urlProtocol(self, didFailWithError: URLError(.networkConnectionLost))
+                return
+            }
             var body = request.httpBody
             if body == nil, let stream = request.httpBodyStream {
                 stream.open(); defer { stream.close() }
@@ -26,6 +48,7 @@ final class VerificationRetryFixture: URLProtocol {
             Self.retried = true
             payload = ["id": "second"]
         } else {
+            Self.ownerRequests += 1
             payload = ["connection_jobs": Self.retried
                 ? ["second": ["status": "CONNECTED"]] : ["first": ["status": "RETRYABLE"]]]
         }
@@ -41,6 +64,19 @@ final class VerificationRetryFixture: URLProtocol {
 @main struct OwnerScreenChecks {
     static func main() {
         _ = NSApplication.shared
+        let fixtureRoot = FileManager.default.temporaryDirectory.appendingPathComponent("account-access-native-" + UUID().uuidString)
+        try! FileManager.default.createDirectory(at: fixtureRoot, withIntermediateDirectories: false,
+                                                attributes: [.posixPermissions: 0o700])
+        setenv("ACCOUNT_ACCESS_DATA_DIR", fixtureRoot.path, 1)
+        defer { try? FileManager.default.removeItem(at: fixtureRoot) }
+        func saveOwner(port: Int, token: String) {
+            let metadata: [String: Any] = ["url": "http://127.0.0.1:\(port)/", "token": token,
+                "instance_key": String(repeating: "aa", count: 32)]
+            let file = fixtureRoot.appendingPathComponent("desktop.json")
+            try! JSONSerialization.data(withJSONObject: metadata).write(to: file, options: .atomic)
+            try! FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
+        }
+        saveOwner(port: 1, token: VerificationRetryFixture.ownerToken)
         let owner = AccountAccess()
         owner.window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1040, height: 740),
                                 styleMask: [.titled, .resizable], backing: .buffered, defer: false)
@@ -166,6 +202,38 @@ final class VerificationRetryFixture: URLProtocol {
         let sessionConfig = URLSessionConfiguration.ephemeral
         sessionConfig.protocolClasses = [VerificationRetryFixture.self]
         owner.session = URLSession(configuration: sessionConfig)
+        // Simulate the endpoint/capability rotation after a service crash. The
+        // real request method must verify the new owner before using it, while
+        // leaving an unsaved native credential form intact.
+        owner.showEmailSetup()
+        owner.mailboxFields["password"]!.stringValue = "fictional-unsaved-value"
+        let unsavedField = owner.mailboxFields["password"]!
+        VerificationRetryFixture.ownerPort = 2
+        VerificationRetryFixture.ownerToken = "synthetic-restarted-session"
+        saveOwner(port: 2, token: VerificationRetryFixture.ownerToken)
+        _ = try! owner.request("owner/state")
+        precondition(owner.base.port == 2 && owner.token == VerificationRetryFixture.ownerToken)
+        precondition(owner.mailboxFields["password"] === unsavedField && unsavedField.stringValue == "fictional-unsaved-value")
+        print("PASS: native requests verify a restarted local service without rebuilding or clearing an unsaved form")
+        let callsBeforeInvalidProof = VerificationRetryFixture.ownerRequests
+        VerificationRetryFixture.invalidProof = true
+        do {
+            _ = try owner.request("owner/verify", body: ["account": "fixture"])
+            preconditionFailure("Unverified owner accepted setup data")
+        } catch { }
+        precondition(VerificationRetryFixture.ownerRequests == callsBeforeInvalidProof)
+        precondition(unsavedField.stringValue == "fictional-unsaved-value")
+        VerificationRetryFixture.invalidProof = false
+        print("PASS: failed owner identity verification sends no setup request and preserves the unsaved form")
+        let callsBeforeLostResponse = VerificationRetryFixture.ownerRequests
+        VerificationRetryFixture.loseNextSetupResponse = true
+        do {
+            _ = try owner.request("owner/verify", body: ["account": "fixture"])
+            preconditionFailure("Lost setup response unexpectedly succeeded")
+        } catch { }
+        precondition(VerificationRetryFixture.ownerRequests == callsBeforeLostResponse + 1)
+        precondition(unsavedField.stringValue == "fictional-unsaved-value")
+        print("PASS: a lost setup response is surfaced without replaying the request or clearing an idle form")
         let checksBefore = VerificationRetryFixture.verificationRequests
         for kind in ["captcha", "passkey", "device", "admin", "action", "recovery", "unknown"] {
             owner.accounts[0]["challenges"] = [["kind": kind]]

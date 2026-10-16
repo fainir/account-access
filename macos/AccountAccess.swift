@@ -93,6 +93,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     var factorFields: [String: NSTextField] = [:]
     var base: URL!
     var token = ""
+    let ownerConnectionLock = NSRecursiveLock()
     var busy = false
     var backgroundRecovery: [String: Any] = [:]
     var failedAccount: String?
@@ -472,6 +473,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     enum Failure: Error { case message(String) }
 
     func loadOwner() throws {
+        ownerConnectionLock.lock()
+        defer { ownerConnectionLock.unlock() }
         let metadata = root.appendingPathComponent("desktop.json")
         let attributes = try files.attributesOfItem(atPath: metadata.path)
         guard attributes[.type] as? FileAttributeType == .typeRegular,
@@ -513,6 +516,12 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
 
     func request(_ route: String, body: [String: Any]? = nil) throws -> [String: Any] {
+        ownerConnectionLock.lock()
+        defer { ownerConnectionLock.unlock() }
+        // A supervised restart changes the port and capability. Verify the
+        // current registration before sending any setup data. This does not
+        // replay an operation whose response was lost or rebuild its form.
+        if !route.hasPrefix("owner/ready?") { try loadOwner() }
         guard let url = URL(string: route, relativeTo: base)?.absoluteURL,
               url.scheme == "http", url.host == "127.0.0.1", url.port == base.port,
               url.user == nil, url.password == nil else {
