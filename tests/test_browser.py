@@ -1,6 +1,22 @@
 from account_access.broker import Broker
 
 
+def test_browser_channel_is_explicit_reviewed_configuration(env):
+    import pytest
+    from pydantic import ValidationError
+    from account_access.models import BrowserAccount
+
+    _, broker, _ = env
+    config = broker.store.config()
+    original = config.fingerprint("demo-web")
+    config.accounts["demo-web"].browser_channel = "chrome"
+    assert config.fingerprint("demo-web") != original
+    data = config.accounts["demo-web"].model_dump()
+    data["browser_channel"] = "/tmp/untrusted-browser"
+    with pytest.raises(ValidationError):
+        BrowserAccount.model_validate(data)
+
+
 def test_login_assets_run_only_as_scripts_or_styles_during_login(env):
     import pytest
     from playwright.sync_api import Error, sync_playwright

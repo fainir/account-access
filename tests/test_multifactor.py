@@ -234,6 +234,7 @@ def test_legacy_connector_fingerprint_survives_new_factor_schema(env):
     config = broker.store.config()
     old = config.accounts["demo-mfa"].model_dump()
     old.pop("login_assets")
+    old.pop("browser_channel")
     old["login"].pop("factors")
     old["login"].pop("choices")
     old["login"].pop("code_requests")

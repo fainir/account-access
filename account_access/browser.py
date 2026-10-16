@@ -201,7 +201,8 @@ class Browser:
         state = connection.get("state") if connection else None
         try:
             with sync_playwright() as pw:
-                browser = pw.chromium.launch(headless=not visible, chromium_sandbox=True)
+                browser = pw.chromium.launch(headless=not visible, chromium_sandbox=True,
+                                             channel=config.browser_channel)
                 reviewed = False
 
                 def review_failure(page):
@@ -518,7 +519,8 @@ class Browser:
         with self.store.lock("account:" + account, timeout=5):
             existing = self.store.get("connection:" + account) or {}
             with sync_playwright() as pw:
-                browser = pw.chromium.launch(headless=headless, chromium_sandbox=True)
+                browser = pw.chromium.launch(headless=headless, chromium_sandbox=True,
+                                             channel=config.browser_channel)
                 try:
                     context = self.context(browser, config, existing.get("state"), login=True, account=account)
                     page = self.page(context)

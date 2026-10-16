@@ -3,6 +3,7 @@
 import hashlib
 import json
 import re
+import sys
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -91,6 +92,10 @@ def prepare(store, account, fingerprint):
                        for url in assets)):
             raise AccessError("DENIED", "invalid_github_login_assets")
         spec.javascript = True
+        # Use the owner's current stable vendor build in an isolated temporary
+        # profile, never the personal Chrome profile or its saved credentials.
+        if sys.platform == "darwin" and Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome").is_file():
+            spec.browser_channel = "chrome"
         spec.login_assets = assets
         spec.login.choice_toggle_selector = ".more-options-two-factor"
         if not spec.login.factors:

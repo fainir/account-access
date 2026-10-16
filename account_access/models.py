@@ -152,6 +152,7 @@ class BrowserAccount(StrictModel):
     read_resources: list[str] = Field(default_factory=list, max_length=100)
     login_resources: list[str] = Field(default_factory=list, max_length=100)
     login_assets: list[str] = Field(default_factory=list, max_length=150)
+    browser_channel: Literal["chrome"] | None = None
     login_post_urls: list[str] = Field(default_factory=list, max_length=32)
     javascript: bool = False
     state_timeout_ms: int = Field(default=5000, ge=0, le=15000)
@@ -236,6 +237,8 @@ class Configuration(StrictModel):
         data = self.accounts[account].model_dump()
         if isinstance(self.accounts[account], BrowserAccount) and not data.get("login_assets"):
             data.pop("login_assets", None)
+        if isinstance(self.accounts[account], BrowserAccount) and data.get("browser_channel") is None:
+            data.pop("browser_channel", None)
         if isinstance(self.accounts[account], BrowserAccount) and data.get("login"):
             if not data["login"].get("factors"):
                 data["login"].pop("factors", None)

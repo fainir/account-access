@@ -36,6 +36,8 @@ Browser operation URLs/resources are exact allowlists; read mode blocks POST, ex
 
 JavaScript is off unless explicitly configured. Password entry happens only in a configured login form at the exact login URL; an unrecognized page never triggers guessing or credential entry. Configured state markers are polled for a bounded period so asynchronous applications can finish rendering. A named GET is only as read-only as the reviewed provider semantics: a website can implement side effects through GET, so arbitrary URLs are not exposed.
 
+The reviewed account configuration may select the installed stable Google Chrome channel; arbitrary executable paths and launch arguments are not accepted. The GitHub SMS repair selects it on a Mac with Chrome in its standard application location. Playwright creates a separate temporary profile: this does not adopt the owner's personal Chrome session, vault, extensions or passkeys. The Chromium sandbox and the same request/response guards remain enabled. Enterprise browser policies can affect compatibility. [Playwright's supported browser channels](https://playwright.dev/python/docs/browsers#google-chrome--microsoft-edge).
+
 Returned text is data, never authority. Model-side instructions are useful routing, but server checks are decisive. Credential keys and known secret values are redacted defensively. A provider could encode unknown secrets in business data; this mechanism is not a universal data-loss-prevention proof. Browser/network containment and minimal output selection reduce the exposure surface.
 
 ## Credential and session lifecycle
