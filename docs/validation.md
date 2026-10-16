@@ -28,7 +28,21 @@ These launch real subprocesses from a hostile working directory with fake
 package, JSON and startup modules on `PYTHONPATH`; no hostile code ran. Generated
 launchers, client startup and supervisor children use isolated Python imports.
 The skill fallback also specifies isolated Python. Lint and skill validation
-passed. A rebuilt signed candidate and final regression/agent checks are pending.
+passed. Final revision `5fbeaef` passed **613 tests in 468.16 seconds** in
+[CI](https://github.com/fainir/account-access/actions/runs/38972780892), along
+with lint, dependency audit, package build, native UI, Messages reader and startup
+checks. Its [Android emulator journey](https://github.com/fainir/account-access/actions/runs/38972780993)
+also passed. The preceding supervision revision passed **612 tests in 464.17
+seconds**. The final signed candidate was rebuilt and checked against source.
+
+Fresh ordinary-language fixture checks on final revision `5fbeaef` passed:
+Codex CLI **32.93 seconds**, guarded Claude Code **41.05 seconds**. Each completed
+four password logins and one email/SMS/TOTP verification with fictional sources.
+Claude's six guard decisions included two denials; every successful trace tool
+satisfied the fixture policy. Codex's four successful command calls were reviewed:
+one skill read, fixture discovery, task submission and task wait. These agent
+checks and the process-crash tests are separate controlled checks; neither
+validates private mailbox or physical-phone delivery.
 
 The separately staged universal build has a matching wheel pin and all **61
 application files** match current source. Strict/deep/all-architecture signature
@@ -40,6 +54,7 @@ OS-managed startup after simultaneous supervisor/host loss or shutdown, or proof
 of private mailbox/physical-phone authentication. Existing Namecheap browser
 verification, owner enrollment, Apple notarization and other production gates
 remain open. An already-open web owner tab must be reopened after a host restart.
+See the [sanitized supervision evidence](../artifacts/supervised-recovery-080.json).
 
 ## Resumable Mac release preparation — 17 October 2026
 
