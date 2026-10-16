@@ -108,6 +108,7 @@ def test_connection_failure_wakes_service_and_keeps_agent_output_clean(env, tmp_
     commands = []
     def start(command, **kwargs):
         commands.append(command)
+        assert command[1:3] == ["-I", "-m"]
         assert "ACCESS_CLIENT_CONFIG" not in kwargs["env"]
         thread.start()
         deadline = time.monotonic() + 10

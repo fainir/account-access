@@ -21,7 +21,9 @@ When a relevant request arrives, the agent discovers the accounts and operations
 For an existing secure local installation, a connection failure can start its registered background service once. This does not replay an operation after a response timeout. A deliberate pause is respected until the owner reopens the app. The computer must be awake and its secure keyring available. Remote clients and controlled development fixtures do not use this local startup path.
 
 The 0.8 candidate also supervises the desktop service in a separate local
-process. If its child crashes, it restarts with a one-to-thirty-second backoff
+process. Generated skill launchers, client startup and supervised subprocesses
+use isolated Python imports, excluding the working directory, `PYTHONPATH` and
+user site packages. If its child crashes, it restarts with a one-to-thirty-second backoff
 and continues saved tasks without waiting for another agent request. Completed
 steps stay completed; existing browser and owner-presence challenges still
 require their recorded resolution. Pause stops supervision, and a repair stops

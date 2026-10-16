@@ -145,6 +145,26 @@ def test_owner_setup_failure_stops_instead_of_repeating_keyring_prompts(env):
     assert not running(root)
 
 
+def test_project_modules_and_pythonpath_cannot_hijack_supervised_startup(env, tmp_path, monkeypatch):
+    _, broker, _ = env
+    root = broker.store.root
+    project = tmp_path / "untrusted-project"
+    module = project / "account_access"
+    module.mkdir(parents=True)
+    marker = project / "project-code-ran"
+    (module / "__init__.py").write_text(
+        "from pathlib import Path\nPath(" + repr(str(marker)) + ").write_text('unexpected import')\n"
+        "raise RuntimeError('Untrusted project module was imported')\n")
+    monkeypatch.chdir(project)
+    monkeypatch.setenv("PYTHONPATH", str(project))
+    try:
+        info = launch(root, key_file=root / "demo.key", open_browser=False)
+        assert running(root)["pid"] == info["pid"] and attached(root)
+        assert not marker.exists()
+    finally:
+        finish(root)
+
+
 def test_supervisor_observes_an_existing_host_without_signalling_its_pid(env):
     _, broker, _ = env
     root = broker.store.root

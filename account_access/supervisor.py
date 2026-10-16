@@ -108,7 +108,7 @@ def active(root, generation):
 def spawn(root, action, *, key_file=None, generation=None, detached=False):
     if action not in {"desktop-host", "desktop-supervisor"} or generation is None:
         raise AccessError("DENIED", "invalid_service_process")
-    command = [sys.executable, "-m", "account_access.cli", "--root", str(root)]
+    command = [sys.executable, "-I", "-m", "account_access.cli", "--root", str(root)]
     if key_file:
         command += ["--development", "--key-file", str(key_file)]
     command += [action, "--generation", generation]

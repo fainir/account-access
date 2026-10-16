@@ -63,7 +63,7 @@ class Client:
                 environment = dict(os.environ)
                 environment.pop("ACCESS_CLIENT_CONFIG", None)
                 try:
-                    result = subprocess.run([sys.executable, "-m", "account_access.cli",
+                    result = subprocess.run([sys.executable, "-I", "-m", "account_access.cli",
                         "--root", str(root), "start", "--no-open", "--on-demand"], capture_output=True,
                         timeout=35, env=environment)
                 except (subprocess.TimeoutExpired, OSError):

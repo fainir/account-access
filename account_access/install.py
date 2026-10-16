@@ -27,7 +27,7 @@ def sync_skill(target, config_file):
             shutil.copy2(entry, dest)
     # A generated launcher avoids requiring python3 on the agent's PATH.
     launcher = target / "scripts/access"
-    launcher.write_text("#!/bin/sh\nexec " + shlex.quote(sys.executable) + " "
+    launcher.write_text("#!/bin/sh\nexec " + shlex.quote(sys.executable) + " -I "
                         + shlex.quote(str(target / "scripts/access.py")) + ' "$@"\n')
     install_config = {"client_config": str(config_file), "python": sys.executable}
     private_file(target / "installation.json", json.dumps(install_config).encode(),

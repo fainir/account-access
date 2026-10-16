@@ -22,7 +22,13 @@ task without client reconnection, a second crash without replaying its completed
 read, pause/reopen, observation of an existing unowned host, dead API-thread
 cleanup, private control files and a single rejected setup attempt. The separate
 **14 startup/upgrade checks** passed in 15.70 seconds. All **24 native UI checks**
-passed. Lint and package build passed; full regression/agent checks are pending.
+passed. A further import-path check then passed **19 supervision/automatic-session
+cases in 24.43 seconds**, and **12 installer/guided cases in 14.14 seconds**.
+These launch real subprocesses from a hostile working directory with fake
+package, JSON and startup modules on `PYTHONPATH`; no hostile code ran. Generated
+launchers, client startup and supervisor children use isolated Python imports.
+The skill fallback also specifies isolated Python. Lint and skill validation
+passed. A rebuilt signed candidate and final regression/agent checks are pending.
 
 The separately staged universal build has a matching wheel pin and all **61
 application files** match current source. Strict/deep/all-architecture signature

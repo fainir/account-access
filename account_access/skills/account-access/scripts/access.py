@@ -17,4 +17,4 @@ allowed = {"accounts", "status", "run", "task", "audit", "doctor"}
 if len(sys.argv) < 2 or sys.argv[1] not in allowed:
     print(json.dumps({"status": "DENIED", "reason": "agent_command_not_supported"}))
     sys.exit(3)
-sys.exit(subprocess.call([config["python"], "-m", "account_access.cli", *sys.argv[1:]], env=env))
+sys.exit(subprocess.call([config["python"], "-I", "-m", "account_access.cli", *sys.argv[1:]], env=env))
