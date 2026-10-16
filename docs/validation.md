@@ -37,6 +37,14 @@ one-second resume interval had elapsed. The regression now waits for the normal
 scheduled resume, with a five-second bound. No application or installer change
 was needed for that test correction.
 
+Final revision `16d87ae` passed **412 tests** in 324.22 seconds in
+[CI](https://github.com/fainir/account-access/actions/runs/38947177682), all
+fifteen native UI checks, native Messages/startup checks, lint, dependency audit
+and package build. The
+[Android emulator journey](https://github.com/fainir/account-access/actions/runs/38947177564)
+also passed. These passing checks do not establish private Namecheap sign-in or
+production readiness.
+
 ## Other services — 16 October 2026
 
 GitHub account testing stopped at the owner's request. The next native candidate

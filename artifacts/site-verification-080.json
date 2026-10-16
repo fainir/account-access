@@ -47,6 +47,19 @@
     "failure": "test asserted original-task completion before the scheduler resume time",
     "correction": "bounded polling through the ordinary task scheduler; no application change"
   },
+  "final_ci": {
+    "revision": "16d87ae65ffe477e34cd4617f6fd06323a72a19b",
+    "checks": "https://github.com/fainir/account-access/actions/runs/38947177682",
+    "conclusion": "success",
+    "tests_passed": 412,
+    "tests_seconds": 324.22,
+    "native_owner_ui_checks_passed": 15,
+    "lint": "passed",
+    "dependency_audit": "no known vulnerabilities found",
+    "package_build": "passed",
+    "android_journey": "https://github.com/fainir/account-access/actions/runs/38947177564",
+    "android_conclusion": "success"
+  },
   "limits": "The diagnostic fix does not solve browser verification, validate the private password, implement Namecheap email/TOTP routes or establish unattended login",
   "github_account_testing": "stopped at owner's request",
   "privacy": "No account identifiers, file locations, task/challenge IDs, credentials, cookies, codes, message content or raw traces in public evidence"
