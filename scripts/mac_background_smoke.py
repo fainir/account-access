@@ -63,9 +63,10 @@ def check(source, team, report_path):
     root = temporary / "data"
     runtime = temporary / "runtime"
     app = temporary / "Fixture.app"
-    log_path = Path("artifacts/video/work/private-pilot/background-service-58-tools.txt")
+    probe_name = "background-service-" + identifier.rsplit(".", 1)[1]
+    log_path = Path("artifacts/video/work/private-pilot") / (probe_name + "-tools.txt")
     log_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    result = {"version": "0.8.0-candidate", "application_build": 58,
+    result = {"version": "0.8.0-candidate", "application_build": None,
               "environment": "controlled-demo", "production_ready": False,
               "registration": "not_attempted", "os_managed_crash_recovery": False,
               "pause_prevents_restart": False, "keyring_namespace_cleaned": False,
@@ -106,6 +107,9 @@ def check(source, team, report_path):
         shutil.copytree(source, app)
         info_path = app / "Contents/Info.plist"
         info = plistlib.loads(info_path.read_bytes())
+        if not re.fullmatch(r"[0-9]+", str(info.get("CFBundleVersion", ""))):
+            raise ProbeFailure("candidate_build_required")
+        result["application_build"] = int(info["CFBundleVersion"])
         wheel = app / "Contents/Resources/account_access.whl"
         if (info.get("AccountAccessBackgroundFormat") != 1
                 or hashlib.sha256(wheel.read_bytes()).hexdigest() != info.get("AccountAccessWheelSHA256")):
@@ -221,7 +225,7 @@ def check(source, team, report_path):
         else:
             # Keep only this fixture for cleanup; never delete a still-registered
             # app and leave an unexplained broken Login Item behind.
-            private_file(Path("artifacts/video/work/private-pilot/background-service-58-cleanup.json"),
+            private_file(Path("artifacts/video/work/private-pilot") / (probe_name + "-cleanup.json"),
                          json.dumps({"app": str(app), "root": str(root), "label": identifier + ".background",
                                      "keyring_service": service}).encode(), replace=True)
         result["passed"] = all(result.get(key) for key in ["os_managed_crash_recovery", "pause_prevents_restart",
