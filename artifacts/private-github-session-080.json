@@ -50,7 +50,7 @@
     "display Chrome's current temporary-permission booleans"
   ],
   "temporary_permission_contract_tests": "passed",
-  "live_permission_status_confirmation": "awaiting owner; browser policy blocked extension-page automation",
+  "live_permission_status_confirmation": "unconfirmed; further GitHub testing stopped at owner's request",
   "fresh_private_password_sms_login_validated": false,
   "private_email_code_login_validated": false,
   "private_authenticator_login_validated": false,

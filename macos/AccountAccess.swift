@@ -714,7 +714,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             savedSignInAction = action("Use saved sign-in", #selector(retrySaved))
         }
         if !connected.isEmpty { action("Start using my connected accounts", #selector(showReady)) }
-        label("Included examples use public testing sites: SauceDemo and The Internet. Other websites require reviewed connectors.", 13, .secondaryLabelColor)
+        label("Namecheap has a limited sign-in check. Email, authenticator or security-key steps still need provider validation. SauceDemo and The Internet are public testing examples. Other websites require reviewed connectors.", 13, .secondaryLabelColor)
         connectionInputChanged()
     }
 

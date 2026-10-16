@@ -15,6 +15,12 @@ The development candidate also includes a [Google Messages browser connection](d
 
 The personal GitHub pilot now reuses an owner-approved Chrome session: its identity was checked locally, its original blocked task resumed, and fresh Claude Code and Codex sessions completed the approved profile-heading read without authentication input. A fresh password/SMS login still redirects to account recovery; personal email and authenticator sign-ins remain unverified. See the [private-session evidence](artifacts/private-github-session-080.json) and [validation report](docs/validation.md).
 
+Further GitHub testing has stopped at the owner's request. The current candidate
+adds a limited **Namecheap** password connection and exact password-export
+aliases. Its anonymous form preflight passed; private enrollment and email/TOTP
+verification are still pending. Railway's email sign-in was inspected but is
+not yet a supported connector. See [other-service validation](docs/other-service-validation.md).
+
 The browser sign-in flow uses the imported email/username and password, then supplies the website's email, SMS or authenticator login code from its connected source. A reviewed connector can configure all three methods for one website, including successive verification steps. This is the authentication flow being tested; using another application's existing login is not browser-authentication evidence.
 
 ![Account dashboard with approved reads and automatic session integration](docs/account-dashboard.png)

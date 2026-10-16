@@ -20,6 +20,10 @@ def available(store):
                            if isinstance(v, BrowserAccount)}}
 
 
+def matching_origin(spec, url):
+    return origin(url) in {origin(spec.login_url), *spec.password_import_origins}
+
+
 def parse(contents):
     if not isinstance(contents, str) or len(contents.encode()) > MAX_BYTES:
         raise AccessError("DENIED", "password_file_too_large")
@@ -73,7 +77,7 @@ def preview(store, contents):
     rows = parse(contents)
     public = []
     for row in rows:
-        candidates = {k: spec for k, spec in specs.items() if origin(spec.login_url) == origin(row["url"])}
+        candidates = {k: spec for k, spec in specs.items() if matching_origin(spec, row["url"])}
         target = urlsplit(row["url"])
         exact = {k: spec for k, spec in candidates.items()
                  if (urlsplit(spec.login_url).path.rstrip("/"), urlsplit(spec.login_url).query)
@@ -134,7 +138,7 @@ def apply(broker, ident, selections, principals):
                     or account not in specs or account in accounts or not isinstance(ops, list)
                     or not ops or any(not isinstance(x, str) or x not in specs[account].operations for x in ops)):
                 raise AccessError("DENIED", "invalid_import_selection")
-            if origin(rows[row]["url"]) != origin(specs[account].login_url):
+            if not matching_origin(specs[account], rows[row]["url"]):
                 raise AccessError("DENIED", "password_origin_mismatch")
             spec = specs[account]
             check = config.model_copy(deep=True)

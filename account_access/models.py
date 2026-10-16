@@ -146,6 +146,9 @@ class BrowserAccount(StrictModel):
     login_url: str
     ready_selector: str
     login: LoginForm | None = None
+    # Explicit reviewed aliases for password-manager exports, never a hostname
+    # suffix match. This does not grant browser network access to an alias.
+    password_import_origins: list[str] = Field(default_factory=list, max_length=8)
     challenge_selectors: dict[Literal["login", "sms", "email", "totp", "device", "passkey",
                                      "admin", "action", "recovery", "unknown", "method"], str] = Field(default_factory=dict)
     # Exact URLs, including query strings. GET alone does not prove a URL is read-only.
@@ -201,6 +204,10 @@ class Configuration(StrictModel):
                 if account.revoke_url:
                     urls.append(account.revoke_url)
             else:
+                for alias in account.password_import_origins:
+                    validate_url(alias, self.test_mode)
+                    if alias != origin(alias):
+                        raise ValueError("Password import aliases must be exact origins")
                 if account.login_asset_discovery and (
                         not account.javascript or origin(account.login_url) != "https://github.com"
                         or urlsplit(account.login_url).path != "/login"
@@ -252,6 +259,10 @@ class Configuration(StrictModel):
             data.pop("browser_channel", None)
         if isinstance(self.accounts[account], BrowserAccount) and data.get("login_asset_discovery") is None:
             data.pop("login_asset_discovery", None)
+        if isinstance(self.accounts[account], BrowserAccount) and not data.get("password_import_origins"):
+            # Existing grants and saved sessions must survive an upgrade when
+            # no alias was added. A nonempty alias is still permission-bound.
+            data.pop("password_import_origins", None)
         if isinstance(self.accounts[account], BrowserAccount) and data.get("login"):
             if not data["login"].get("factors"):
                 data["login"].pop("factors", None)

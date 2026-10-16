@@ -1,5 +1,23 @@
 # Validation of Account Access
 
+## Other services — 16 October 2026
+
+GitHub account testing stopped at the owner's request. The next native candidate
+adds a Namecheap username-only read and explicit exact-origin password-export
+aliases. Its anonymous form preflight passed through the production browser
+guard; no personal credentials or verification codes were submitted. Railway's
+email option was inspected without entering an address; it is not a connector.
+See [the scope and remaining private gates](other-service-validation.md).
+
+Signed universal Mac build **50** passed strict/deep signature verification and
+was installed through graphical repair. The native picker shows the new
+Namecheap permission, and existing connections remain present. All fourteen
+native UI checks and twelve focused catalog/import-alias cases passed. The full
+local run passed 404 cases and failed one historical-format test fixture, which
+still included the newly added empty alias field in its legacy expected hash.
+After correcting that fixture, both legacy-compatibility checks passed. CI on
+the final revision is recorded separately when complete.
+
 ## Private GitHub session reuse and original-task recovery — 16 October 2026
 
 The owner approved the new Chrome session connection. Real use then found and
@@ -41,8 +59,10 @@ profile read also completed after repair. Final implementation `d58b15c` passed
 native owner checks, Messages/startup, lint, audit and build, plus the
 [Android journey](https://github.com/fainir/account-access/actions/runs/38933505107).
 Live confirmation of the
-helper's permission-status display is awaiting the owner because browser policy
-rejected automating its extension page. Controlled cleanup contracts passed.
+helper's permission-status display remains unconfirmed because browser policy
+rejected automating its extension page. The owner subsequently stopped GitHub
+testing and requested other services; no further GitHub check is pending.
+Controlled cleanup contracts passed.
 See the [sanitized record](../artifacts/private-github-session-080.json).
 
 ## Verified Chrome session candidate — 16 October 2026

@@ -39,6 +39,11 @@ release claims. Fixture success and private-account success are separate results
 
 `scripts/public_demos.py` uses intentionally published testing identities and makes network requests to those demo providers. Run it only when you intend that experiment. `scripts/agent_smoke.py` invokes an existing logged-in Codex or Claude CLI and can consume account usage; no AI key is required or provisioned.
 
+`scripts/service_preflight.py` checks the reviewed Namecheap public login form
+through the application's network guard, without submitting credentials or using
+an existing browser profile. Run it explicitly; an anonymous form check does not
+establish successful private authentication or verification-code delivery.
+
 `scripts/agent_verification_smoke.py` runs an ordinary-language request against
 four isolated fictional websites: password, TLS IMAP email, Messages-format SMS
 and an authenticator imported through the owner transfer-QR endpoints. It uses
