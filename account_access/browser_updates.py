@@ -1,5 +1,8 @@
 """Owner-reviewed, narrowly scoped repairs to a known browser login connector."""
 
+import json
+import re
+from pathlib import Path
 from urllib.parse import urlsplit
 
 from .errors import AccessError
@@ -10,6 +13,16 @@ APP_PAGE = "https://github.com/sessions/two-factor/app"
 APP_LINK = 'a[href="/sessions/two-factor/app"]'
 SMS_PAGE = "https://github.com/sessions/two-factor/sms/confirm"
 SMS_LINK = 'a[href="/sessions/two-factor/sms/confirm"]'
+
+
+def github_assets():
+    assets = json.loads(Path(__file__).with_name("github_login_assets.json").read_text())["resources"]
+    if (not isinstance(assets, list) or not 1 <= len(assets) <= 150
+            or any(not isinstance(url, str) or not re.fullmatch(
+                r"https://github\.githubassets\.com/assets/[A-Za-z0-9_.-]+\.(?:js|css)", url)
+                   for url in assets)):
+        raise AccessError("DENIED", "invalid_github_login_assets")
+    return assets
 
 
 def proposal(config, account):
@@ -25,6 +38,12 @@ def proposal(config, account):
                                           for op in spec.operations.values())):
         return None
     updated = spec.model_copy(deep=True)
+    if spec.javascript and spec.login_assets:
+        # A signed connector update may refresh exact public vendor assets, but
+        # never activate JavaScript or add an arbitrary CDN URL through this path.
+        updated.login_assets = sorted(set(spec.login_assets) | set(github_assets()))
+        if len(updated.login_assets) > 150:
+            return None
     for url in [METHOD_PAGE, SMS_PAGE]:
         if url not in updated.login_resources:
             updated.login_resources.append(url)
@@ -48,7 +67,7 @@ def proposal(config, account):
 def view(store):
     config = store.config()
     return [{"account": account, "fingerprint": config.fingerprint(account),
-             "summary": "Recognize GitHub's offered SMS and authenticator choices"}
+             "summary": "Update reviewed GitHub sign-in controls and public assets"}
             for account in config.accounts if proposal(config, account)]
 
 
@@ -64,7 +83,8 @@ def apply(broker, account, fingerprint):
         if updated is None:
             raise AccessError("DENIED", "browser_update_unavailable")
         previous = config.accounts[account]
-        # This repair can only add the reviewed login GET and optional choice.
+        # This repair can only add reviewed login GETs, optional choices and
+        # the signed package's exact public vendor script/stylesheet manifest.
         # It cannot widen reads, POST destinations, credentials or recipients.
         if (updated.operations != previous.operations or updated.read_resources != previous.read_resources
                 or updated.login_post_urls != previous.login_post_urls

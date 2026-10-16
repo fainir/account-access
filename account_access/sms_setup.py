@@ -1,13 +1,12 @@
 """Owner-only enrollment of a forwarded SMS filter for the reviewed GitHub pilot."""
 
 import hashlib
-import json
 import re
 import sys
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from .browser_updates import APP_LINK, APP_PAGE, METHOD_PAGE, SMS_LINK, SMS_PAGE
+from .browser_updates import APP_LINK, APP_PAGE, METHOD_PAGE, SMS_LINK, SMS_PAGE, github_assets
 from .errors import AccessError
 from .models import BrowserAccount, CodeSource, LoginChoice, LoginCodeRequest, LoginFactor, origin
 
@@ -28,7 +27,18 @@ def diagnostics(page):
         dispatch: form.classList.contains('js-send-auth-code'),
         auto: form.hasAttribute('data-autosubmit')
     }))""")
+    controls = {}
+    for name, selector in {"sms": SMS_LINK, "totp": APP_LINK, "toggle": ".more-options-two-factor"}.items():
+        control = page.locator(selector)
+        controls[name] = {"count": min(control.count(), 8), "visible": control.first.is_visible()}
+    # These filenames are public vendor assets, not page text or user data.
+    assets = page.locator("script[src], link[rel='stylesheet'][href]").evaluate_all(
+        "elements => elements.map(el => el.src || el.href)")
+    assets = sorted({url for url in assets if re.fullmatch(
+        r"https://github\.githubassets\.com/assets/[A-Za-z0-9_.-]+\.(?:js|css)", url)})[:150]
     return {
+        "controls": controls,
+        "assets": assets,
         "forms": [{"route": route_hint(form["action"], ["https://github.com"]),
                    "method": form["method"].upper() if form["method"].upper() in {"GET", "POST"} else "other",
                    "dispatch": form["dispatch"] is True, "auto": form["auto"] is True}
@@ -84,13 +94,7 @@ def prepare(store, account, fingerprint):
         if not eligible(config, account) or config.fingerprint(account) != fingerprint:
             raise AccessError("DENIED", "sms_setup_changed")
         spec = config.accounts[account]
-        manifest = json.loads(Path(__file__).with_name("github_login_assets.json").read_text())
-        assets = manifest["resources"]
-        if (not isinstance(assets, list) or not 1 <= len(assets) <= 150
-                or any(not isinstance(url, str) or not re.fullmatch(
-                    r"https://github\.githubassets\.com/assets/[A-Za-z0-9_.-]+\.(?:js|css)", url)
-                       for url in assets)):
-            raise AccessError("DENIED", "invalid_github_login_assets")
+        assets = github_assets()
         spec.javascript = True
         # Use the owner's current stable vendor build in an isolated temporary
         # profile, never the personal Chrome profile or its saved credentials.

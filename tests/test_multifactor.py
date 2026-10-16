@@ -356,6 +356,47 @@ def test_offered_sms_request_then_fresh_code_completes_without_owner(chain):
     assert provider.sms_request_count == provider.sms_count == provider.login_count == 1
 
 
+def test_google_messages_source_can_request_reviewed_sms_delivery(chain):
+    import threading
+    import time
+    from account_access.google_messages import handle
+    from test_google_messages import source, delivery
+
+    provider, broker, _, stages = chain
+    stages[:] = ["choose", "request", "sms"]
+    configure_code_request(broker, provider)
+    source(broker)
+    config = broker.store.config()
+    config.accounts["demo-mfa"].login.factors = {
+        "sms": config.accounts["demo-mfa"].login.factors["sms"].model_copy(
+            update={"code_source": "google-sms"})}
+    broker.store.configure(config)
+    broker.grant("test", "demo-mfa", ["summary"])
+    baseline = {}
+
+    def deliver(kind, code):
+        assert kind == "sms" and provider.sms_request_count == 1
+        handle(broker.store, delivery(baseline, code=code))
+
+    provider.delivery = deliver
+    results = []
+    worker = threading.Thread(target=lambda: results.append(broker.run("test", "demo-mfa", "summary")))
+    worker.start()
+    deadline = time.monotonic() + 25
+    while worker.is_alive() and time.monotonic() < deadline:
+        for request in handle(broker.store, {"method": "pending"})["pending"]:
+            if request["phase"] == "baseline":
+                assert provider.login_count == 0
+                baseline.update(source=request["source"], window=request["window"])
+                handle(broker.store, {"method": "armed", **baseline})
+        time.sleep(0.02)
+    worker.join(timeout=3)
+    assert not worker.is_alive()
+    assert results and results[0]["status"] == "COMPLETED", results
+    assert provider.sms_request_count == provider.sms_count == provider.login_count == 1
+    assert provider.last_login_code not in json.dumps(results)
+
+
 @pytest.mark.parametrize("case,reason", [("request_rejected", "verification_code_request_rejected"),
                                        ("request_inert", "verification_code_request_not_submitted")])
 def test_sms_setup_does_not_claim_delivery_request_without_a_successful_post(chain, case, reason):

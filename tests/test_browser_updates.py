@@ -77,3 +77,32 @@ def test_update_requires_authenticated_owner_and_matching_preview(env):
         server.shutdown()
         server.server_close()
         worker.join(timeout=5)
+
+
+def test_signed_asset_refresh_preserves_enrolled_sms_and_read_grants(env):
+    from account_access import sms_setup
+    from account_access.google_messages import connect
+
+    _, broker, _ = env
+    config = github_config(broker)
+    connect(broker.store, "github-pilot", config.fingerprint("github-pilot"))
+    config = broker.store.config()
+    spec = config.accounts["github-pilot"]
+    spec.login_assets = spec.login_assets[:1]
+    broker.store.configure(config)
+    broker.grant("test", "github-pilot", ["summary"])
+    before = spec.model_copy(deep=True)
+    source = before.login.factor("sms").code_source
+    enrollment = broker.store.get("source:" + source)
+    assert not sms_setup.eligible(config, "github-pilot")
+    assert browser_updates.view(broker.store)
+    browser_updates.apply(broker, "github-pilot", config.fingerprint("github-pilot"))
+    current = broker.store.config()
+    updated = current.accounts["github-pilot"]
+    assert set(updated.login_assets) == set(browser_updates.github_assets())
+    assert updated.operations == before.operations and updated.read_resources == before.read_resources
+    assert updated.login_post_urls == before.login_post_urls
+    assert updated.login.factors == before.login.factors
+    assert broker.store.get("source:" + source) == enrollment
+    assert not browser_updates.view(broker.store)
+    broker.permit("test", "github-pilot", "summary")

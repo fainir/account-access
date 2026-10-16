@@ -348,7 +348,7 @@ class Browser:
                         raise source_errors[factor.code_source]
                     source = self.store.config().code_sources[factor.code_source] if factor else None
                     enrolled = self.store.get("source:" + factor.code_source) or {} if factor else {}
-                    if factor and (source.kind not in {"sms": {"twilio", "mac_messages", "phone_relay"},
+                    if factor and (source.kind not in {"sms": {"twilio", "mac_messages", "phone_relay", "google_messages"},
                                            "email": {"imap", "gmail"}}[method]
                             or not enrolled or enrolled.get("enabled") is False):
                         raise AccessError("NEEDS_USER", "verification_source_not_connected", method)

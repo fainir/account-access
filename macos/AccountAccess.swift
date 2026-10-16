@@ -66,6 +66,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     var smsSetups: [[String: Any]] = []
     var smsProgress: Progress?
     var smsDiagnostics: String?
+    var verificationDetails: [String: String] = [:]
     var syncAccounts: NSPopUpButton!
     var syncFields: [String: NSTextField] = [:]
     var automaticSessions: [String: [String: Any]] = [:]
@@ -527,6 +528,52 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         principals = state["principals"] as? [String] ?? []
         agents = state["integrations"] as? [String] ?? principals
         automaticSessions = state["automatic_sessions"] as? [String: [String: Any]] ?? [:]
+        verificationDetails = [:]
+        let jobs = state["connection_jobs"] as? [String: [String: Any]] ?? [:]
+        for job in jobs.values.sorted(by: { ($0["status"] as? String == "RUNNING") && ($1["status"] as? String != "RUNNING") }) {
+            guard let account = job["account"] as? String, verificationDetails[account] == nil,
+                  let attention = job["attention"] as? [String: Any] else { continue }
+            let detail = Self.verificationDetailText(attention["diagnostics"] as? [String: Any] ?? [:])
+            if !detail.isEmpty { verificationDetails[account] = detail }
+        }
+    }
+
+    static func verificationDetailText(_ diagnostic: [String: Any]) -> String {
+        // Only a closed route vocabulary and structural booleans reach this owner view.
+        let words = Set("account account_verifications accounts app auth authenticate authentication callback challenge check compromised_password device email error flow github login mobile new notification oauth otp password password_reset profile recovery required reset security session sessions settings setup sms sso sudo totp two-factor two_factor trusted-device trusted_device verification verified-device verified_device verify webauthn".split(separator: " ").map(String.init))
+        func route(_ raw: Any?) -> String? {
+            guard let value = raw as? String, value.count <= 240,
+                  let separator = value.range(of: ":/") else { return nil }
+            let host = String(value[..<separator.lowerBound])
+            guard host == "external" || host.range(of: "^origin_[0-9]{1,3}$", options: .regularExpression) != nil else { return nil }
+            let parts = value[separator.upperBound...].split(separator: "/", omittingEmptySubsequences: false)
+            guard parts.count <= 9, parts.allSatisfy({ $0.isEmpty || $0 == "?" || words.contains(String($0)) }) else { return nil }
+            return value
+        }
+        var lines: [String] = []
+        if let page = route(diagnostic["page"]) { lines.append("Page: " + page) }
+        for form in (diagnostic["forms"] as? [[String: Any]] ?? []).prefix(8) {
+            guard let destination = route(form["route"]), let method = form["method"] as? String,
+                  ["GET", "POST", "other"].contains(method) else { continue }
+            lines.append("Form: " + method + " " + destination)
+        }
+        if let fields = diagnostic["fields"] as? [String: Any] {
+            let present = ["sms_totp", "app_totp", "otp_id", "otp_name", "one_time_code"].filter { (fields[$0] as? NSNumber)?.boolValue == true }
+            lines.append("Code fields present: " + (present.isEmpty ? "none" : present.joined(separator: ", ")))
+        }
+        if let controls = diagnostic["controls"] as? [String: [String: Any]] {
+            for name in ["sms", "totp", "toggle"] {
+                guard let control = controls[name], let count = control["count"] as? Int,
+                      (0...8).contains(count), let visible = control["visible"] as? Bool else { continue }
+                lines.append(name + " controls: " + String(count) + (visible ? " visible" : " hidden"))
+            }
+        }
+        for asset in (diagnostic["assets"] as? [String] ?? []).prefix(150) {
+            if asset.count <= 240 && asset.range(of: "^https://github\\.githubassets\\.com/assets/[A-Za-z0-9_.-]+\\.(js|css)$", options: .regularExpression) != nil {
+                lines.append("Asset: " + asset)
+            }
+        }
+        return lines.joined(separator: "\n")
     }
 
     func chooseAgents() {
@@ -690,12 +737,24 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     func waitForConnection(_ initial: [String: Any], account: String, timeout: TimeInterval = 150, visible: Bool = false) throws -> [String: Any] {
         guard var id = initial["id"] as? String else { throw Failure.message("The connection could not start.") }
         let deadline = Date().addingTimeInterval(timeout)
+        var shownDetails = ""
         while Date() < deadline {
             let state = try request("owner/state")
             let jobs = state["connection_jobs"] as? [String: [String: Any]] ?? [:]
             if visible, let attention = jobs[id]?["attention"] as? [String: Any] {
                 let explanation = verificationMessage(attention)
-                DispatchQueue.main.async { self.status.stringValue = explanation }
+                let detail = Self.verificationDetailText(attention["diagnostics"] as? [String: Any] ?? [:])
+                let addDetail = !detail.isEmpty && shownDetails != detail
+                shownDetails = detail
+                DispatchQueue.main.async {
+                    self.status.stringValue = explanation
+                    if addDetail {
+                        self.verificationDetails[account] = detail
+                        let inspect = NSButton(title: "Show verification details", target: self, action: #selector(self.showVerificationDetails))
+                        inspect.identifier = NSUserInterfaceItemIdentifier(detail)
+                        self.stack.addArrangedSubview(inspect)
+                    }
+                }
             }
             if let result = jobs[id], let outcome = result["status"] as? String, outcome != "RUNNING" {
                 if outcome == "CONNECTED" { return state }
@@ -894,6 +953,15 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 DispatchQueue.main.async { self.busy = false; self.accept(state); self.ready() }
             } catch { self.fail(error, retry: #selector(self.showReady)) }
         }
+    }
+
+    @objc func showVerificationDetails(_ sender: NSButton) {
+        guard let detail = sender.identifier?.rawValue else { return }
+        let alert = NSAlert()
+        alert.messageText = "Verification controls"
+        alert.informativeText = detail
+        alert.addButton(withTitle: "Close")
+        alert.runModal()
     }
 
     @objc func backToConnections() { connections() }
@@ -1416,6 +1484,11 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             let status = !allowed ? "Approval needed" : pending || !active ? "Sign-in needs attention" : "Connected"
             let reads = (account[allowed ? "approved_operations" : "operations"] as? [[String: Any]] ?? []).compactMap { $0["description"] as? String }.joined(separator: "; ")
             let body = card(account["label"] as? String ?? "Account", (allowed ? "Approved reads: " : "Available reads: ") + reads, status: status, good: allowed && active && !pending)
+            if (pending || !active), let id = account["account"] as? String, let detail = verificationDetails[id] {
+                let inspect = NSButton(title: "Show verification details", target: self, action: #selector(showVerificationDetails))
+                inspect.identifier = NSUserInterfaceItemIdentifier(detail)
+                body.addArrangedSubview(inspect)
+            }
             if pending, let failure = navigationFailures.first(where: { $0["account"] as? String == account["account"] as? String }),
                let reason = failure["reason"] as? String {
                 let route = failure["route"] as? String ?? ""
@@ -1472,7 +1545,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
               let fingerprint = update["fingerprint"] as? String else { return }
         let alert = NSAlert()
         alert.messageText = "Update this website's sign-in connection?"
-        alert.informativeText = "Recognize GitHub's offered SMS and authenticator choices and allow its SMS confirmation page to be viewed. Only an already-connected method can be selected automatically. The approved reads, login POST destinations, connected verification sources and agent permissions stay the same."
+        alert.informativeText = "Update GitHub's reviewed sign-in controls and the exact public scripts and styles included in this signed app. Only an already-connected verification method can be selected automatically. The approved reads, login POST destinations, connected verification sources and agent permissions stay the same."
         alert.addButton(withTitle: "Update connection")
         alert.addButton(withTitle: "Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else { return }

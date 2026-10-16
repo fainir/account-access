@@ -15,17 +15,27 @@ def test_owner_sms_diagnostics_exclude_input_values_queries_and_unknown_route_pa
     with sync_playwright() as pw:
         browser = pw.chromium.launch(headless=True, chromium_sandbox=True)
         page = browser.new_page()
+        page.route("**/*", lambda route: route.abort())
         page.set_content('''<body class="is-sent"><form class="js-send-auth-code private-class"
             method="post" action="https://github.com/sessions/two-factor/private-segment?token=private-query">
             <input id="otp" name="otp" autocomplete="one-time-code" value="123456">
-            <input type="password" value="private-password"></form></body>''')
+            <input type="password" value="private-password"></form>
+            <button class="more-options-two-factor">Options</button>
+            <a href="/sessions/two-factor/sms/confirm" style="display:none">SMS</a>
+            <script src="https://github.githubassets.com/assets/sessions-fictional.js"></script>
+            <script src="https://example.test/private-token.js"></script>
+            <script src="https://github.githubassets.com/assets/unknown.js?token=private-query"></script></body>''')
         result = sms_setup.diagnostics(page)
         browser.close()
     encoded = json.dumps(result)
-    assert not any(value in encoded for value in ["private", "123456", "token=", "github.com"])
+    assert not any(value in encoded for value in ["private", "123456", "token=", "github.com", "example.test"])
     assert result["forms"] == [{"route": "origin_0:/sessions/two-factor/?", "method": "POST", "dispatch": True, "auto": False}]
     assert result["fields"]["otp_id"] and result["fields"]["otp_name"]
     assert result["dispatch_state"]["sent"] is True
+    assert result["controls"] == {"sms": {"count": 1, "visible": False},
+                                  "totp": {"count": 0, "visible": False},
+                                  "toggle": {"count": 1, "visible": True}}
+    assert result["assets"] == ["https://github.githubassets.com/assets/sessions-fictional.js"]
 
 
 def pilot(broker):

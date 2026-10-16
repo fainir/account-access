@@ -122,5 +122,21 @@ final class VerificationRetryFixture: URLProtocol {
         precondition(owner.verificationMessage(["reason": "browser_state_unrecognized"]).contains("does not recognize"))
         precondition(owner.verificationMessage(["reason": "browser_passkey_required"]).contains("requires owner approval"))
         print("PASS: pre-request failures cannot claim SMS delivery was tested; owner attention distinguishes unknown pages and required presence")
+        let detail = AccountAccess.verificationDetailText([
+            "page": "origin_0:/sessions/two-factor/sms",
+            "forms": [["route": "origin_0:/sessions/two-factor", "method": "POST"],
+                      ["route": "https://example.com/?secret=fictional", "method": "GET"]],
+            "fields": ["sms_totp": true, "password": "fictional-secret"],
+            "controls": ["sms": ["count": 1, "visible": false]],
+            "assets": ["https://github.githubassets.com/assets/sessions-test.js", "https://example.com/?secret=fictional"],
+            "arbitrary": "fictional-secret"])
+        precondition(detail.contains("origin_0:/sessions/two-factor/sms"))
+        precondition(detail.contains("Form: POST origin_0:/sessions/two-factor"))
+        precondition(detail.contains("Code fields present: sms_totp"))
+        precondition(detail.contains("sms controls: 1 hidden"))
+        precondition(detail.contains("Asset: https://github.githubassets.com/assets/sessions-test.js"))
+        precondition(!detail.contains("fictional") && !detail.contains("example.com"))
+        precondition(AccountAccess.verificationDetailText(["page": "origin_0:/sessions/private-value"]).isEmpty)
+        print("PASS: verification detail view excludes arbitrary data and admits only closed routes and known control names")
     }
 }
