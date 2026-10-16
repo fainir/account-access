@@ -116,5 +116,10 @@ final class VerificationRetryFixture: URLProtocol {
         precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Connect iPhone SMS"))
         precondition(!views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("You're all set"))
         print("PASS: an offered SMS method has a setup action before any SMS source exists")
+        precondition(AccountAccess.smsTimeoutMessage(deliveryStarted: false, incoming: 0, unreadable: 0).contains("did not reach a confirmed SMS request"))
+        precondition(AccountAccess.smsTimeoutMessage(deliveryStarted: true, incoming: 0, unreadable: 0).contains("delivery was not confirmed"))
+        precondition(owner.verificationMessage(["reason": "browser_state_unrecognized"]).contains("does not recognize"))
+        precondition(owner.verificationMessage(["reason": "browser_passkey_required"]).contains("requires owner approval"))
+        print("PASS: pre-request failures cannot claim SMS delivery was tested; owner attention distinguishes unknown pages and required presence")
     }
 }

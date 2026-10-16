@@ -144,6 +144,26 @@ def test_unrecognized_page_does_not_fill_credentials(env):
     assert provider.login_count == 0
 
 
+def test_visible_review_reports_attention_before_waiting_for_owner(env):
+    import threading
+    import pytest
+    from account_access.errors import AccessError
+
+    provider, broker, _ = env
+    config = broker.store.config().accounts["demo-web"]
+    config.challenge_selectors = {}
+    stopped = threading.Event()
+    reports = []
+    def attention(*metadata):
+        reports.append(metadata)
+        stopped.set()
+    with pytest.raises(AccessError, match="browser_state_unrecognized"):
+        broker.browser.read("demo-web", config.operations["summary"], config,
+                            visible=True, review_stop=stopped, on_attention=attention)
+    assert reports == [("NEEDS_USER", "browser_state_unrecognized", "unknown", {})]
+    assert provider.login_count == 0
+
+
 def test_session_import_filters_foreign_origins(env):
     _, broker, _ = env
     broker.browser.import_state("demo-web", {"cookies": [

@@ -189,7 +189,7 @@ class Browser:
             page.wait_for_timeout(50)
 
     def read(self, account, op, config, *, secret_values=None, visible=False,
-             setup_method=None, review_stop=None, on_code_request=None):
+             setup_method=None, review_stop=None, on_code_request=None, on_attention=None):
         # Owner troubleshooting must describe this check, not an earlier routing
         # problem after the account has reached a different verification step.
         self.store.audit("service", account, "", "browser_check_started")
@@ -205,8 +205,15 @@ class Browser:
                                              channel=config.browser_channel)
                 reviewed = False
 
-                def review_failure(page):
+                def review_failure(page, error):
                     nonlocal reviewed
+                    if on_attention and not reviewed:
+                        details = {}
+                        if origin(config.login_url) == "https://github.com":
+                            from .sms_setup import diagnostics
+                            details = diagnostics(page)
+                            details["page"] = route_hint(page.url, ["https://github.com"])
+                        on_attention(error.status, error.reason, error.kind, details)
                     if not visible or reviewed:
                         return
                     reviewed = True
@@ -246,8 +253,8 @@ class Browser:
                             for name, selector in op.fields.items()}
                     self.save(account, context.storage_state(indexed_db=True))
                     return data
-                except AccessError:
-                    review_failure(page)
+                except AccessError as exc:
+                    review_failure(page, exc)
                     raise
                 finally:
                     browser.close()
@@ -423,9 +430,9 @@ class Browser:
             for factor in completed:
                 self.store.audit("service", account, "", "login_factor_completed", factor)
             return state
-        except AccessError:
+        except AccessError as exc:
             if review_failure:
-                review_failure(page)
+                review_failure(page, exc)
             raise
         finally:
             if started:

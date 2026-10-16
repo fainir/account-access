@@ -657,12 +657,46 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         }
     }
 
+    func verificationMessage(_ attention: [String: Any]) -> String {
+        switch attention["reason"] as? String ?? "" {
+        case "browser_passkey_required", "browser_device_required", "browser_admin_required", "browser_action_required":
+            return "The website requires owner approval before continuing. No SMS delivery was tested. Your saved password is preserved."
+        case "browser_state_unrecognized":
+            return "The website returned a sign-in page this connector does not recognize. No SMS delivery was tested. Your saved password is preserved."
+        case "browser_login_required":
+            return "The website returned to password entry before confirming an SMS request. Your saved password is preserved."
+        case "verification_method_unavailable", "verification_source_not_connected", "authenticator_not_enrolled":
+            return "The website needs an available verification method connected. No SMS delivery was tested. Your saved password is preserved."
+        case "verification_code_request_rejected", "verification_code_request_not_submitted":
+            return "The website did not confirm the reviewed SMS request. No SMS delivery was tested. Your saved password is preserved."
+        default:
+            return "Sign-in stopped before a confirmed SMS request. No SMS delivery was tested. Review this website's sign-in connection."
+        }
+    }
+
+    static func smsTimeoutMessage(deliveryStarted: Bool, incoming: Int, unreadable: Int) -> String {
+        if !deliveryStarted {
+            return "The sign-in did not reach a confirmed SMS request. No SMS delivery was tested and no filter was enabled. Your saved password is preserved."
+        }
+        if unreadable > 0 {
+            return "New texts arrived, but some messages could not be decoded. No SMS filter was enabled. Update Account Access before trying again."
+        }
+        if incoming > 0 {
+            return "New texts arrived, but none matched a supported GitHub login message. No SMS filter was enabled."
+        }
+        return "The website opened SMS code entry, but delivery was not confirmed. No new text reached Messages on this Mac. No SMS filter was enabled."
+    }
+
     func waitForConnection(_ initial: [String: Any], account: String, timeout: TimeInterval = 150, visible: Bool = false) throws -> [String: Any] {
         guard var id = initial["id"] as? String else { throw Failure.message("The connection could not start.") }
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
             let state = try request("owner/state")
             let jobs = state["connection_jobs"] as? [String: [String: Any]] ?? [:]
+            if visible, let attention = jobs[id]?["attention"] as? [String: Any] {
+                let explanation = verificationMessage(attention)
+                DispatchQueue.main.async { self.status.stringValue = explanation }
+            }
             if let result = jobs[id], let outcome = result["status"] as? String, outcome != "RUNNING" {
                 if outcome == "CONNECTED" { return state }
                 if outcome == "RETRYABLE" {
@@ -1012,7 +1046,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 let started = try self.request("owner/sms/setup-start", body: ["account": account, "fingerprint": fingerprint])
                 guard let jobID = started["id"] as? String else { throw Failure.message("SMS setup could not start.") }
                 id = jobID
-                let deadline = Date().addingTimeInterval(110)
+                var deadline = Date().addingTimeInterval(120)
+                var deliveryStarted = false
                 var incoming = 0
                 var unreadable = 0
                 while Date() < deadline && !waiting.isCancelled {
@@ -1021,6 +1056,10 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                     if let delivery = job["code_requested"] as? [String: Any], delivery["kind"] as? String == "sms",
                        let httpStatus = delivery["http_status"] as? Int, (200..<400).contains(httpStatus),
                        let at = delivery["at"] as? Double {
+                        if !deliveryStarted {
+                            deliveryStarted = true
+                            deadline = Date().addingTimeInterval(110)
+                        }
                         if let details = delivery["diagnostics"] as? [String: Any],
                            let bytes = try? JSONSerialization.data(withJSONObject: details, options: [.prettyPrinted, .sortedKeys]),
                            let text = String(data: bytes, encoding: .utf8) {
@@ -1047,6 +1086,13 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                                 ? "More than one GitHub login SMS arrived. No filter was connected. Wait for those attempts to finish before trying again."
                                 : "Messages access or this setup window is unavailable. Check Mac privacy settings and try again.")
                         }
+                    } else if let attention = job["attention"] as? [String: Any] {
+                        if let details = attention["diagnostics"] as? [String: Any],
+                           let bytes = try? JSONSerialization.data(withJSONObject: details, options: [.prettyPrinted, .sortedKeys]),
+                           let text = String(data: bytes, encoding: .utf8) {
+                            DispatchQueue.main.async { self.smsDiagnostics = text }
+                        }
+                        throw Failure.message(self.verificationMessage(attention))
                     } else if let outcome = job["status"] as? String, outcome != "RUNNING" {
                         throw Failure.message(job["reason"] as? String == "login_retry_cooldown"
                             ? "The website's sign-in cooldown is active. Wait one minute and connect SMS again."
@@ -1054,15 +1100,16 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                     }
                     Thread.sleep(forTimeInterval: 1)
                 }
-                let explanation = unreadable > 0 ? "New texts arrived, but some messages could not be decoded. No SMS filter was enabled. Update Account Access before trying again."
-                    : incoming > 0 ? "New texts arrived, but none matched a supported GitHub login message. No SMS filter was enabled."
-                    : "The website opened SMS code entry, but delivery was not confirmed. No new text reached Messages on this Mac. No SMS filter was enabled."
+                let explanation = Self.smsTimeoutMessage(deliveryStarted: deliveryStarted, incoming: incoming, unreadable: unreadable)
                 throw Failure.message(waiting.isCancelled ? "SMS setup was cancelled. No SMS filter was enabled." : explanation)
             } catch {
                 if let id { _ = try? self.request("owner/sms/setup-discard", body: ["id": id]) }
                 let state = try? self.request("owner/state")
                 DispatchQueue.main.async { if let state { self.accept(state) }; self.smsProgress = nil }
                 self.fail(error, retry: #selector(self.showFactors))
+                DispatchQueue.main.async {
+                    if self.smsDiagnostics != nil { self.action("Show sign-in details", #selector(self.showSMSDiagnostics)) }
+                }
             }
         }
     }

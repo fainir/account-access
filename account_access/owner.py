@@ -52,10 +52,15 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                 with guard:
                     jobs[job_id]["code_requested"] = {"kind": kind, "at": at, "http_status": http_status,
                                                      "diagnostics": diagnostics}
+            def attention(status, reason, kind, diagnostics):
+                with guard:
+                    jobs[job_id]["attention"] = {"status": status, "reason": reason, "kind": kind,
+                                                 "diagnostics": diagnostics}
             with broker.store.lock("account:" + account, timeout=5):
                 broker.browser.read(account, next(iter(config.operations.values())), config,
                                     secret_values=set(), visible=visible, setup_method=setup_method,
                                     review_stop=review_stop,
+                                    on_attention=attention,
                                     on_code_request=requested if setup_method else None)
             try:
                 broker.tick()
@@ -68,8 +73,9 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
         except Exception:
             result = {"status": "NEEDS_USER", "reason": "connection_not_completed", "account": account}
         with guard:
-            if "code_requested" in jobs[job_id]:
-                result["code_requested"] = jobs[job_id]["code_requested"]
+            for key in ["code_requested", "attention"]:
+                if key in jobs[job_id]:
+                    result[key] = jobs[job_id][key]
             jobs[job_id] = result
 
     def new_job(account):
