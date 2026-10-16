@@ -82,6 +82,10 @@ or physical-device coverage.
   for cold startup, preserving Pause. This does not attest every runtime file or
   protect against an unrestricted same-user process; unchanged legacy clients
   need their integration refreshed and long-running processes restarted.
+- Installer preflight rejects unsafe existing runtime directories, launchers
+  and lock files before executing an old installation. An ownership marker
+  alone is insufficient. This does not make user-writable runtime code an
+  isolated credential boundary.
 - Google Authenticator transfer QR images can be imported locally. The owner
   selects one entry for an existing authenticator source; other entries are
   discarded. Previews are encrypted, expire after ten minutes, and do not return

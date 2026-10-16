@@ -20,13 +20,20 @@ standalone/developer installations retain their existing startup path. Unmodifie
 pre-60 clients do not gain this behavior retroactively; known host integrations
 are refreshed by installation, and long-running old clients need a restart.
 
-All **40 bootstrap and automatic-session cases** passed in 9.36 seconds. Eight
-native policy/path checks passed, including paths with spaces and apostrophes.
-The new managed-client and activation cases supplement the preceding supervision
-and setup coverage; full candidate/package validation is recorded below when
-complete. This is update consistency, not independent code attestation or a
-separate OS credential identity. Complete broker/runtime isolation and a trusted
-owner enrollment channel remain production work.
+Installer preflight also checks private runtime/environments directories,
+non-writable shared bin directories, and an owned regular single-link 0700
+launcher before executing an existing installation. A marker alone cannot
+authorize that execution. Unsafe modes, hard links, FIFOs and non-regular lock
+files stop before any installer subprocess runs. A readable but non-writable
+bin directory remains valid. An unsafe existing runtime needs owner maintenance;
+the app does not loosen permissions or execute it to repair itself.
+
+The focused bootstrap/automatic-session and native policy/path checks exercise
+these cases, including paths with spaces and apostrophes. Full candidate/package
+validation is recorded below when complete. This is update consistency and
+preflight protection, not independent code attestation or a separate OS
+credential identity. Complete broker/runtime isolation and a trusted owner
+enrollment channel remain production work.
 
 ## Update rollback after an uncertain stop — 17 October 2026
 

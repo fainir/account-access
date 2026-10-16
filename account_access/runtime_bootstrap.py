@@ -70,6 +70,13 @@ def write_installation(path, data):
         Path(name).unlink(missing_ok=True)
 
 
+def installation_directory(path, *, private=True):
+    info = path.lstat()
+    if (not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid()
+            or info.st_mode & (0o077 if private else 0o022)):
+        raise RuntimeError("The installation directory is not private or owned by this user.")
+
+
 def active_runtime_launcher(executable):
     """Use the activated runtime when an older managed client needs startup.
 
@@ -84,20 +91,16 @@ def active_runtime_launcher(executable):
         return None  # Ordinary developer/standalone installations keep their path.
     runtime = environment.parent.parent
     try:
-        def directory(path, *, private=True):
-            info = path.lstat()
-            if (not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid()
-                    or info.st_mode & (0o077 if private else 0o022)):
-                raise ValueError()
-        directory(runtime)
+        installation_directory(runtime)
         snapshot = installation_snapshot(runtime / "installed-wheel.json")
         value = json.loads(snapshot) if snapshot else {}
         if value.get("schema") != 2:
             raise ValueError()
         activated = Path(value["runtime"])
-        for path in [runtime / "environments", activated.parent.parent, runtime / "bin"]:
-            directory(path)
-        directory(activated.parent, private=False)
+        for path in [runtime / "environments", activated.parent.parent]:
+            installation_directory(path)
+        for path in [activated.parent, runtime / "bin"]:
+            installation_directory(path, private=False)
         if not activated.is_file() or not os.access(activated, os.X_OK):
             raise ValueError()
         launcher = runtime / "bin/account-access"
@@ -116,12 +119,18 @@ def active_runtime_launcher(executable):
 
 def launcher_snapshot(path, runtime):
     if path.is_symlink():
+        if path.lstat().st_uid != os.getuid():
+            raise RuntimeError("The runtime launcher is not owned by this user.")
         target = os.readlink(path)
         expected = runtime / "tools/account-access/bin/account-access"
         if (path.parent / target).resolve() != expected.resolve():
             raise RuntimeError("Another application owns the runtime launcher. Installation stopped.")
         return ("symlink", target)
     if path.exists():
+        info = path.lstat()
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
+                or stat.S_IMODE(info.st_mode) != 0o700 or info.st_nlink != 1 or info.st_size > 8192):
+            raise RuntimeError("The runtime launcher is not private.")
         data = path.read_bytes()
         if MARKER.encode() not in data.splitlines()[:3]:
             raise RuntimeError("Another application owns the runtime launcher. Installation stopped.")
@@ -167,10 +176,12 @@ def install(uv, wheel, runtime, requirements, *, data_dir="", no_open=False, run
     if runtime.is_symlink():
         raise RuntimeError("Refusing a linked installation directory.")
     runtime.mkdir(parents=True, exist_ok=True, mode=0o700)
+    installation_directory(runtime)
     descriptor = os.open(runtime / ".install.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
     try:
         info = os.fstat(descriptor)
-        if info.st_uid != os.getuid() or info.st_mode & 0o077 or info.st_nlink != 1:
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
+                or info.st_mode & 0o077 or info.st_nlink != 1):
             raise RuntimeError("The installation lock is not private.")
         try:
             fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -189,6 +200,7 @@ def _install(uv, wheel, runtime, requirements, *, data_dir, no_open, run):
         if directory.is_symlink():
             raise RuntimeError("Refusing a linked installation directory.")
         directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+        installation_directory(directory, private=directory != launcher.parent)
     previous = launcher_snapshot(launcher, runtime)
     installation = runtime / "installed-wheel.json"
     previous_installation = installation_snapshot(installation)

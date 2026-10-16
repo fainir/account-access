@@ -21,6 +21,7 @@ def setup(tmp_path, monkeypatch):
     runtime = tmp_path / "runtime's folder"
     launcher = runtime / "bin/account-access"
     launcher.parent.mkdir(parents=True)
+    runtime.chmod(0o700)
     old = "#!/bin/sh\n" + MARKER + "\n# previous runtime\n"
     launcher.write_text(old)
     launcher.chmod(0o700)
@@ -180,7 +181,7 @@ def test_failed_repair_preserves_an_activated_version_two_record(setup):
     assert launcher.read_text() == old and record.read_bytes() == content
 
 
-@pytest.mark.parametrize("damage", [None, "legacy", "launcher", "wrong-runtime", "public-directory", "missing"])
+@pytest.mark.parametrize("damage", [None, "readable-bin", "legacy", "launcher", "wrong-runtime", "public-directory", "missing"])
 def test_older_managed_client_selects_only_the_activated_launcher(setup, damage):
     runtime, launcher, _, _, _ = setup
     runtime.chmod(0o700)
@@ -211,7 +212,9 @@ def test_older_managed_client_selects_only_the_activated_launcher(setup, damage)
         activated.parent.parent.chmod(0o755)
     if damage != "missing":
         write_installation(runtime / "installed-wheel.json", json.dumps(value).encode())
-    if damage:
+    if damage == "readable-bin":
+        launcher.parent.chmod(0o755)
+    if damage not in {None, "readable-bin"}:
         with pytest.raises(RuntimeError, match="installation repair"):
             active_runtime_launcher(str(previous))
     else:
@@ -220,6 +223,38 @@ def test_older_managed_client_selects_only_the_activated_launcher(setup, damage)
 
 def test_standalone_interpreter_does_not_claim_managed_runtime_authority():
     assert active_runtime_launcher("/opt/developer-venv/bin/python") is None
+
+
+@pytest.mark.parametrize("damage", ["public-root", "writable-root", "writable-bin", "public-environments",
+                                    "public-launcher", "linked-launcher", "pipe-launcher", "pipe-lock"])
+def test_unsafe_existing_installation_never_executes_a_launcher(setup, damage):
+    runtime, launcher, old, wheel, requirements = setup
+    outside = runtime.parent / "outside-launcher"
+    if damage == "public-root":
+        runtime.chmod(0o755)
+    elif damage == "writable-root":
+        runtime.chmod(0o777)
+    elif damage == "writable-bin":
+        launcher.parent.chmod(0o777)
+    elif damage == "public-environments":
+        (runtime / "environments").mkdir(mode=0o755)
+    elif damage == "public-launcher":
+        launcher.chmod(0o744)
+    elif damage == "linked-launcher":
+        os.link(launcher, outside)
+    elif damage == "pipe-launcher":
+        launcher.unlink()
+        os.mkfifo(launcher, 0o600)
+    else:
+        os.mkfifo(runtime / ".install.lock", 0o600)
+    commands = []
+    with pytest.raises(RuntimeError, match="private"):
+        install("uv", wheel, runtime, requirements, run=lambda *a, **k: commands.append(a))
+    assert not commands
+    if damage != "pipe-launcher":
+        assert launcher.read_text() == old
+    if outside.exists():
+        assert outside.read_text() == old
 
 
 def test_failed_start_and_stop_retains_the_possibly_running_environment(setup):
