@@ -131,12 +131,12 @@ def supervise(root, generation, *, key_file=None):
     for name in ["config.json", "state.db"]:
         private_regular(root / name)
     stopped = threading.Event()
-    previous = {}
-    for sig in [signal.SIGTERM, signal.SIGINT]:
-        previous[sig] = signal.signal(sig, lambda *_: stopped.set())
-    child = None
-    try:
-        with lease(root):
+    with lease(root):
+        previous = {}
+        child = None
+        try:
+            for sig in [signal.SIGTERM, signal.SIGINT]:
+                previous[sig] = signal.signal(sig, lambda *_: stopped.set())
             failures = 0
             while not stopped.is_set() and active(root, generation):
                 # Adopt no PID and terminate no unrelated process. If the
@@ -173,16 +173,21 @@ def supervise(root, generation, *, key_file=None):
                 deadline = time.monotonic() + min(30, 2 ** (failures - 1))
                 while time.monotonic() < deadline and not stopped.is_set() and active(root, generation):
                     stopped.wait(min(0.25, max(0, deadline - time.monotonic())))
-    finally:
-        if child is not None and child.poll() is None:
-            child.terminate()
+        finally:
+            # Holding the lease through child reaping makes stop/rollback's
+            # quiescence check meaningful even before a new host acquired its
+            # own service lease. A pending child must not outlive this lease.
             try:
-                child.wait(timeout=12)
-            except subprocess.TimeoutExpired:
-                child.kill()
-                child.wait(timeout=5)
-        for sig, handler in previous.items():
-            signal.signal(sig, handler)
+                if child is not None and child.poll() is None:
+                    child.terminate()
+                    try:
+                        child.wait(timeout=12)
+                    except subprocess.TimeoutExpired:
+                        child.kill()
+                        child.wait(timeout=5)
+            finally:
+                for sig, handler in previous.items():
+                    signal.signal(sig, handler)
 
 
 def guard_desktop(root, generation, *, key_file=None):

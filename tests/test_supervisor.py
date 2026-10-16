@@ -49,6 +49,52 @@ def test_marker_is_not_liveness_and_stale_generation_cannot_start_a_host(env, mo
     disable(root)
 
 
+def test_supervisor_holds_its_lease_until_owned_child_cleanup_finishes(env, monkeypatch):
+    _, broker, _ = env
+    root = broker.store.root
+    generation = enable(root)
+    spawned = threading.Event()
+    cleaning = threading.Event()
+    finish_cleanup = threading.Event()
+    failures = []
+    class Child:
+        returncode = None
+        def poll(self):
+            return self.returncode
+        def terminate(self):
+            cleaning.set()
+            assert finish_cleanup.wait(5)
+            self.returncode = 0
+        def wait(self, timeout):
+            return self.returncode
+    def spawn(*_args, **_kwargs):
+        spawned.set()
+        return Child()
+    monkeypatch.setattr("account_access.supervisor.spawn", spawn)
+    monkeypatch.setattr("account_access.desktop.running", lambda _root: None)
+    monkeypatch.setattr("account_access.supervisor.signal.signal", lambda *_args: signal.SIG_DFL)
+    def run():
+        try:
+            supervise(root, generation)
+        except BaseException as exc:
+            failures.append(exc)
+    worker = threading.Thread(target=run)
+    worker.start()
+    try:
+        assert spawned.wait(5)
+        disable(root)
+        assert cleaning.wait(5)
+        with pytest.raises(AccessError, match="account_busy"):
+            with lease(root):
+                pass
+    finally:
+        finish_cleanup.set()
+        worker.join(timeout=5)
+    assert not worker.is_alive() and not failures
+    with lease(root):
+        pass
+
+
 @pytest.mark.parametrize("kind", ["symlink", "hardlink", "public", "malformed"])
 def test_untrusted_supervision_control_is_refused(env, tmp_path, kind):
     _, broker, _ = env

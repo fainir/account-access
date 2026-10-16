@@ -14,6 +14,9 @@ The CLI's stop command now waits for both the supervisor and service leases
 before reporting success. Accepting an HTTP stop request alone is insufficient
 evidence that removing a runtime is safe. Waiting does not load the vault key,
 and a failed stop cannot authorize deleting a possibly running environment.
+The supervisor also holds its lease until its owned child has finished cleanup,
+including a child that has not yet acquired the service lease. A deterministic
+cleanup-barrier regression reproduced the preceding lock-release race.
 
 All **48 bootstrap, supervision, automatic-session and guided-setup cases**
 passed in 41.62 seconds. Three added regressions first failed on the prior
