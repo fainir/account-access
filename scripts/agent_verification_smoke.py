@@ -9,6 +9,7 @@ import argparse
 import base64
 import json
 import os
+import re
 import shutil
 import shlex
 import subprocess
@@ -95,7 +96,10 @@ def used_installed_launcher(trace, skill, workspace):
     return False
 
 
-def check(agent, workspace, codex_model=None):
+def check(agent, workspace, codex_model=None, report_suffix=""):
+    if report_suffix and not re.fullmatch(r"[a-z0-9-]{1,32}", report_suffix):
+        raise ValueError("Use a short lowercase report suffix")
+    suffix = "-" + report_suffix if report_suffix else ""
     workspace.mkdir(parents=True, exist_ok=True, mode=0o700)
     root = Path(tempfile.mkdtemp(prefix="aav-", dir="/tmp"))
     child_environment = dict(os.environ)
@@ -127,6 +131,11 @@ def check(agent, workspace, codex_model=None):
                     for source, credential in [("example-email", {"username": "demo@example.test", "password": DEMO_PASSWORD}),
                                                ("example-sms", {"enabled": True})]:
                         client.post("/owner/source", json={"source": source, "credential": credential}).raise_for_status()
+                    checked = client.post("/owner/source/check", json={"source": "example-email"})
+                    checked.raise_for_status()
+                    if (checked.json().get("status") != "VERIFIED" or checked.json().get("login_delivery_verified") is not False
+                            or mailbox.fetches or provider.login_count):
+                        raise RuntimeError("Mailbox connection check fetched mail or attempted website login")
                     # Complete one-entry Google Authenticator transfer payload:
                     # secret Hello!deadbeef, SHA1, six digits, TOTP, version/batch 1.
                     parameter = b"\x0a\x0aHello!\xde\xad\xbe\xef\x12\x07Example\x20\x01\x28\x01\x30\x02"
@@ -168,8 +177,8 @@ def check(agent, workspace, codex_model=None):
                                             capture_output=True, text=True, timeout=240)
                     raw = Path("artifacts/video/work/candidate-080")
                     raw.mkdir(parents=True, exist_ok=True, mode=0o700)
-                    private_file(raw / (agent + "-verification.jsonl"), result.stdout.encode(), replace=True)
-                    private_file(raw / (agent + "-verification.stderr.txt"), result.stderr.encode(), replace=True)
+                    private_file(raw / (agent + "-verification" + suffix + ".jsonl"), result.stdout.encode(), replace=True)
+                    private_file(raw / (agent + "-verification" + suffix + ".stderr.txt"), result.stderr.encode(), replace=True)
                     with broker.store.db() as db:
                         ids = [row[0] for row in db.execute("SELECT id FROM jobs WHERE principal=?", (agent,))]
                     tasks = [broker.task(agent, ident) for ident in ids]
@@ -192,10 +201,11 @@ def check(agent, workspace, codex_model=None):
                               "password_logins": provider.login_count, "email_verifications": provider.email_count,
                               "sms_verifications": provider.sms_count, "totp_verifications": provider.totp_count,
                               "mailbox_fetches": mailbox.fetches,
+                              "mailbox_connection_checked_without_messages_or_website_login": True,
                               "codex_fixture_socket_only_profile": agent == "codex",
                               "limits": ["Fictional accounts only", "TLS IMAP fixture, Messages database fixture",
                                          "Authenticator transfer import uses a fictional key", "No physical phone or private mailbox validation"]}
-                    destination = Path("artifacts/agent-tests") / (agent + "-verification-080.json")
+                    destination = Path("artifacts/agent-tests") / (agent + "-verification-080" + suffix + ".json")
                     destination.parent.mkdir(parents=True, exist_ok=True)
                     destination.write_text(json.dumps(report, indent=2) + "\n")
                     print(json.dumps(report, indent=2), flush=True)
@@ -216,5 +226,6 @@ if __name__ == "__main__":
     parser.add_argument("agent", choices=["codex", "claude"])
     parser.add_argument("--workspace", type=Path, required=True)
     parser.add_argument("--codex-model", help="Optional invocation-only model compatible with the existing CLI login")
+    parser.add_argument("--report-suffix", default="", help="Keep a separate evidence record for this candidate")
     args = parser.parse_args()
-    raise SystemExit(0 if check(args.agent, args.workspace.resolve(), args.codex_model) else 1)
+    raise SystemExit(0 if check(args.agent, args.workspace.resolve(), args.codex_model, args.report_suffix) else 1)

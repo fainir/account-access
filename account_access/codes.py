@@ -12,6 +12,7 @@ import hashlib
 import hmac
 import secrets
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import contextmanager
 from email.utils import parsedate_to_datetime
@@ -25,6 +26,15 @@ from .providers import get_json
 GMAIL_MESSAGES = "https://gmail.googleapis.com/gmail/v1/users/me/messages"
 GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly"
 GMAIL_ID = re.compile(r"[a-zA-Z0-9_-]{1,100}")
+
+
+def imap_number(values):
+    """A mailbox UID/validity response is one non-zero unsigned 32-bit value."""
+    if (not isinstance(values, list) or len(values) != 1 or not isinstance(values[0], bytes)
+            or not re.fullmatch(rb"[1-9][0-9]{0,9}", values[0])
+            or int(values[0]) > 2**32 - 1):
+        raise AccessError("NEEDS_USER", "mailbox_uid_tracking_unavailable", "email")
+    return int(values[0])
 
 
 def match_code(template, message):
@@ -138,33 +148,63 @@ class Codes:
                     self.store.put("code-window:" + source_id, window)
                     return code
                 return None
-        if not credentials.get("sid") or not credentials.get("auth_token"):
-            raise AccessError("NEEDS_USER", "sms_gateway_not_connected", "sms")
-        sid = credentials["sid"]
-        if not re.fullmatch(r"AC[0-9a-fA-F]{32}", sid):
-            raise AccessError("NEEDS_USER", "invalid_sms_gateway", "sms")
-        data = get_json(f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json",
-                        auth=(sid, credentials["auth_token"]),
-                        params={"To": source.recipient, "From": source.sender, "PageSize": 20})
+        if not isinstance(window.get("gateway_baseline"), list):
+            raise AccessError("NEEDS_USER", "sms_gateway_login_window_missing", "sms")
+        messages = self.gateway_messages(source, credentials, started)
         candidates = []
-        for item in data.get("messages", []):
-            if (item.get("sid") in used or item.get("direction") != "inbound"
+        for item in messages:
+            if (item["sid"] in used or item["sid"] in window["gateway_baseline"] or item.get("direction") != "inbound"
                 or item.get("from") != source.sender or item.get("to") != source.recipient):
                 continue
+            if not isinstance(item.get("date_sent"), str) or len(item["date_sent"]) > 128:
+                continue
             try:
-                sent = parsedate_to_datetime(item["date_sent"]).timestamp()
-            except Exception:
+                sent_date = parsedate_to_datetime(item["date_sent"])
+                if sent_date.tzinfo is None:
+                    continue
+                sent = sent_date.timestamp()
+            except (KeyError, TypeError, ValueError, OverflowError):
                 continue
-            if sent < started:
+            if not started <= sent <= min(window["expires"], time.time() + 5):
                 continue
-            code = match_code(source.template, item.get("body", ""))
+            body = item.get("body")
+            code = match_code(source.template, body) if isinstance(body, str) and len(body) <= 2000 else None
             if code:
                 candidates.append((item["sid"], code))
+        self.check_window(source_id, started)
         candidate = unique_code(candidates)
         if candidate:
             used.add(candidate[0])
             return candidate[1]
         return None
+
+    def gateway_messages(self, source, credentials, started):
+        sid = credentials.get("sid")
+        if not sid or not credentials.get("auth_token"):
+            raise AccessError("NEEDS_USER", "sms_gateway_not_connected", "sms")
+        if not isinstance(sid, str) or not re.fullmatch(r"AC[0-9a-fA-F]{32}", sid):
+            raise AccessError("NEEDS_USER", "invalid_sms_gateway", "sms")
+        try:
+            data = get_json(f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json",
+                            auth=(sid, credentials["auth_token"]),
+                            params={"To": source.recipient, "From": source.sender, "PageSize": 20,
+                                    "DateSent>": datetime.fromtimestamp(started, timezone.utc).strftime("%Y-%m-%d")})
+        except AccessError as exc:
+            raise AccessError(exc.status, exc.reason, "sms") from None
+        if not isinstance(data, dict) or not isinstance(data.get("messages"), list):
+            raise AccessError("RETRYABLE", "invalid_sms_gateway_response", "sms")
+        if data.get("next_page_uri") or len(data["messages"]) > 20:
+            # Never choose from only part of the matching result set or follow
+            # a provider-supplied URI with gateway credentials.
+            raise AccessError("NEEDS_USER", "sms_gateway_result_limit", "sms")
+        seen = set()
+        for item in data["messages"]:
+            if (not isinstance(item, dict) or not isinstance(item.get("sid"), str)
+                    or not re.fullmatch(r"(?:SM|MM)[0-9a-fA-F]{32}", item["sid"])
+                    or item["sid"] in seen):
+                raise AccessError("RETRYABLE", "invalid_sms_gateway_response", "sms")
+            seen.add(item["sid"])
+        return data["messages"]
 
     def begin(self, source_id, account, started):
         window = {"account": account, "started": started,
@@ -192,18 +232,12 @@ class Codes:
             if credentials.get("enabled") is not True or not pair.get("token"):
                 raise AccessError("NEEDS_USER", "phone_not_paired", "sms")
         if source.kind == "twilio":
-            if not credentials.get("sid") or not credentials.get("auth_token"):
-                raise AccessError("NEEDS_USER", "sms_gateway_not_connected", "sms")
-            if not re.fullmatch(r"AC[0-9a-fA-F]{32}", credentials["sid"]):
-                raise AccessError("NEEDS_USER", "invalid_sms_gateway", "sms")
+            window["gateway_baseline"] = [item["sid"] for item in self.gateway_messages(source, credentials, started)]
         if source.kind == "imap":
             try:
                 with self.mailbox(source, self.store.get("source:" + source_id, {}), config) as mailbox:
                     for name in ["UIDVALIDITY", "UIDNEXT"]:
-                        values = mailbox.response(name)[1]
-                        if not values or not values[0] or not values[0].isdigit():
-                            raise AccessError("NEEDS_USER", "mailbox_uid_tracking_unavailable", "email")
-                        window[name] = int(values[0])
+                        window[name] = imap_number(mailbox.response(name)[1])
             except (imaplib.IMAP4.error, OSError):
                 raise AccessError("NEEDS_USER", "mailbox_connection_failed", "email") from None
         if source.kind == "mac_messages":
@@ -308,37 +342,66 @@ class Codes:
             raise AccessError("NEEDS_USER", "mailbox_login_window_missing", "email")
         try:
             with self.mailbox(source, credentials, config) as mailbox:
-                values = mailbox.response("UIDVALIDITY")[1]
-                if not values or not values[0] or int(values[0]) != window["UIDVALIDITY"]:
+                if imap_number(mailbox.response("UIDVALIDITY")[1]) != window["UIDVALIDITY"]:
                     raise AccessError("NEEDS_USER", "mailbox_uid_validity_changed", "email")
                 # Search values are owner-authored, but still quote IMAP metacharacters.
                 def quote(s):
                     return '"' + s.replace('\\', '\\\\').replace('"', '\\"') + '"'
                 if any("\r" in x or "\n" in x for x in [source.sender, source.recipient, source.subject]):
                     raise AccessError("NEEDS_USER", "invalid_mail_filter", "email")
-                status, data = mailbox.uid("SEARCH", None, "FROM", quote(source.sender),
+                status, data = mailbox.uid("SEARCH", None, "UID", str(window["UIDNEXT"]) + ":*", "FROM", quote(source.sender),
                                            "TO", quote(source.recipient), "SUBJECT", quote(source.subject))
                 if status != "OK":
-                    raise AccessError("RETRYABLE", "mailbox_search_failed")
-                ids = data[0].split() if data and data[0] else []
+                    raise AccessError("RETRYABLE", "mailbox_search_failed", "email")
+                if (not isinstance(data, list) or len(data) != 1 or not isinstance(data[0], bytes)):
+                    raise AccessError("RETRYABLE", "invalid_mailbox_response", "email")
+                if len(data[0]) > 4096:
+                    raise AccessError("NEEDS_USER", "mailbox_result_limit", "email")
+                ids = []
+                for value in data[0].split():
+                    number = imap_number([value])
+                    # A UID sequence range ending in * can include the last
+                    # old message when UIDNEXT exceeds the highest current UID.
+                    if number >= window["UIDNEXT"] and value not in ids:
+                        ids.append(value)
+                if len(ids) > 20:
+                    raise AccessError("NEEDS_USER", "mailbox_result_limit", "email")
                 candidates = []
-                for ident in ids[-20:]:
+                for ident in ids:
+                    self.check_window(source_id, started)
                     key = ident.decode("ascii")
-                    if not key.isdigit() or int(key) < window["UIDNEXT"] or key in used:
+                    if key in used:
                         continue
-                    status, fetched = mailbox.uid("FETCH", ident, "(INTERNALDATE BODY.PEEK[]<0.256001>)")
+                    status, fetched = mailbox.uid("FETCH", ident, "(UID INTERNALDATE BODY.PEEK[]<0.256001>)")
                     if status != "OK":
-                        continue
-                    for item in fetched or []:
-                        if (not isinstance(item, tuple) or len(item) != 2
-                                or not isinstance(item[1], bytes) or len(item[1]) > MAX_MESSAGE_BYTES):
+                        raise AccessError("RETRYABLE", "mailbox_fetch_failed", "email")
+                    if not isinstance(fetched, list):
+                        raise AccessError("RETRYABLE", "invalid_mailbox_response", "email")
+                    bodies = [item for item in fetched if isinstance(item, tuple)]
+                    if len(bodies) != 1:
+                        # Do not choose another candidate from a partial result.
+                        raise AccessError("RETRYABLE", "invalid_mailbox_response", "email")
+                    for item in bodies:
+                        if (len(item) != 2 or not isinstance(item[0], bytes) or len(item[0]) > 4096
+                                or not isinstance(item[1], bytes)):
+                            raise AccessError("RETRYABLE", "invalid_mailbox_response", "email")
+                        uids = re.findall(rb"(?:^|[ (])UID ([0-9]+)(?=[ )])", item[0])
+                        if uids != [ident]:
+                            raise AccessError("RETRYABLE", "invalid_mailbox_response", "email")
+                        if len(item[1]) > MAX_MESSAGE_BYTES:
                             continue
-                        received = imaplib.Internaldate2tuple(item[0])
-                        if not received or time.mktime(received) < int(started) or time.time() > window["expires"]:
+                        try:
+                            received = imaplib.Internaldate2tuple(item[0])
+                            received_at = time.mktime(received) if received else None
+                        except (TypeError, ValueError, OverflowError):
+                            received_at = None
+                        if (received_at is None or not int(started) <= received_at <= time.time() + 5
+                                or time.time() > window["expires"]):
                             continue
                         code = email_login_code(item[1], source)
                         if code:
                             candidates.append((key, code))
+                self.check_window(source_id, started)
                 candidate = unique_code(candidates)
                 if candidate:
                     used.add(candidate[0])

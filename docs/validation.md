@@ -1,5 +1,29 @@
 # Validation of Account Access
 
+## Mailbox readiness and credential repair — 16 October 2026
+
+The next candidate adds an owner-only mailbox connection check. Real TLS IMAP
+fixtures verify correct and rejected application passwords without fetching
+messages or starting website login. Gmail profile contracts verify the approved
+mailbox identity, missing scope and bounded token renewal. Native/web setup
+distinguishes a saved source, a checked mailbox and completed website code
+delivery. Saving verification setup cannot retry an unrelated browser gate.
+
+IMAP recovery now searches from its pre-password UID boundary and rejects
+excessive/partial results, invalid tracking numbers and mismatched fetched UIDs.
+Gateway SMS recovery records existing message IDs before password submission,
+rejects pagination/duplicate identities and excludes future, stale, outgoing and
+different-purpose texts. Revocation during retrieval prevents code return.
+
+Editing a browser credential invalidates the old session when its value changes.
+It only clears explicit password/client-secret setup challenges; browser checks,
+unknown pages, device/passkey/admin/recovery and independent action challenges
+stay pending, with the original task preserved. Focused tests cover that boundary.
+
+These are controlled tests. No additional private Namecheap or GitHub request
+was made for this change. Private password/email/SMS/authenticator acceptance
+and the remaining distribution/security gates remain open.
+
 ## Private Namecheap import and browser-verification stop — 16 October 2026
 
 The owner approved a Namecheap username check and selected a real Chrome

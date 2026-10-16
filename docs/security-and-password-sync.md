@@ -46,6 +46,20 @@ their email/SMS login windows cannot compete for a message. Contention returns a
 temporary retry, so the existing task waits without a new owner approval. Owner
 setup that can request an SMS before enrollment uses the same channel lock.
 
+The candidate also rejects excessive or partial IMAP results and verifies each
+fetched message's UID. The SMS gateway checks its approved sender/recipient,
+remembers existing message IDs before password submission, and rejects
+pagination, duplicate identities and future-dated texts. Gateway pagination
+links are never followed with credentials. These behaviors are protocol-tested;
+they do not establish delivery from a personal carrier.
+
+An owner can check saved mailbox access without fetching messages or starting a
+website login. The result is bound to the source configuration and enrollment.
+It does not clear a website challenge or claim code delivery. Editing a browser
+credential invalidates the old saved session when the value changes; it cannot
+clear CAPTCHA, unknown-page, device, passkey, administrator, recovery or action
+challenges. Only a verified sign-in can clear those login gates.
+
 The candidate installer ships the tested dependency versions and their SHA-256
 hashes inside the verified wheel. It requires those hashes and prohibits source
 builds. It prepares a separate environment and browser before switching the

@@ -1,0 +1,45 @@
+{
+  "version": "0.8.0-candidate",
+  "date": "2026-10-16",
+  "production_ready": false,
+  "changes": [
+    "Owner-only mailbox connection check without fetching messages or starting website login",
+    "TLS IMAP authentication, read-only inbox selection and UID tracking checks",
+    "Configured Gmail OAuth profile and exact mailbox identity check with bounded renewal",
+    "Saved setup distinguished from checked mailbox access and completed website login",
+    "Bounded complete IMAP results and matching fetched UID verification",
+    "SMS gateway pre-password message-ID baseline and rejection of incomplete pages, duplicate IDs, future dates and changed enrollment",
+    "Saving verification setup cannot automatically retry presence or browser gates",
+    "Changed browser credentials invalidate the previous session without clearing unrelated challenges or resuming their blocked task"
+  ],
+  "private_accounts": {
+    "additional_namecheap_requests": 0,
+    "additional_github_requests": 0,
+    "private_mailbox_or_carrier_delivery_verified": false,
+    "namecheap_original_task": "retained; website verification and HTTP 429 unresolved"
+  },
+  "local_validation": {
+    "mailbox_sms_and_owner_boundary_cases_passed": 45,
+    "focused_seconds": 24.52,
+    "native_owner_ui_checks_passed": 17,
+    "lint": "passed",
+    "dependency_audit": "no known vulnerabilities found; project itself not audited against PyPI",
+    "package_build": "passed"
+  },
+  "mac": {
+    "signed_universal_build": 52,
+    "strict_deep_signature_check": "passed",
+    "bundled_authentication_files_match_source": true,
+    "graphical_repair": "completed; installed signature and bundle version verified",
+    "original_private_task_and_challenge_preserved": true
+  },
+  "limits": [
+    "Protocol and browser tests use fictional credentials and delivery sources",
+    "Consumer Gmail OAuth registration and real mailbox enrollment are not completed",
+    "Google Messages currently supports the reviewed GitHub login template only",
+    "Private authenticator-key enrollment and physical phone delivery remain unverified",
+    "Chrome CSV imports remain snapshots; continuous Chrome sync is not shipped",
+    "General service coverage, clean-machine notarized distribution and OS-isolated custody remain open"
+  ],
+  "privacy": "Public evidence excludes personal identifiers, local export locations, task/challenge IDs, credentials, cookies, codes and raw traces"
+}

@@ -7,6 +7,23 @@ or physical-device coverage.
 
 ## Candidate 0.8 changes
 
+- Owner email setup has a separate connection check. It authenticates to a
+  read-only IMAP inbox and checks its UID tracking, or verifies the approved
+  Gmail address through the configured OAuth account's profile. It does not
+  fetch messages, start a website sign-in, resolve challenges or prove delivery.
+  Changing enrollment/filter settings invalidates its result. Saved setup is
+  distinguished from a checked mailbox and from completed website login.
+- IMAP retrieval searches from its pre-password UID boundary, validates returned
+  identifiers and fetched message identity, and stops on excessive/partial
+  results rather than inspecting only the last twenty. SMS gateway retrieval
+  establishes a pre-password message-ID baseline and rejects incomplete result
+  pages, duplicate identities, future dates and changed enrollment. These are
+  controlled protocol tests; private provider/carrier QA remains open.
+- Saving verification details does not automatically retry a linked website
+  blocked by an unknown page, browser verification or mandatory presence.
+- Editing a browser credential invalidates the previous saved session when the
+  value changes. It cannot clear independent presence, browser-verification,
+  unknown-page, recovery or transaction challenges or resume their blocked task.
 - Email recovery parses bounded plain-text and HTML MIME messages through the
   same exact sender, recipient, subject and login-template check. It does not
   render HTML, fetch images/links, read attached or forwarded messages, or scan
@@ -92,7 +109,7 @@ or physical-device coverage.
 | Chrome/password-manager import | Reviewed CSV imports; one selected personal entry imported in the native app | More real export formats and representative private website connectors |
 | Other website providers | Namecheap username-only pilot and exact export aliases; one selected real Chrome credential imported locally; anonymous preflight and local import/session fixtures passed | Private Namecheap login stopped at browser verification/HTTP 429; password/email/TOTP acceptance remains open. Railway email-first login is not implemented. See [provider scope](other-service-validation.md) |
 | Continuous password updates | Exact-item 1Password Connect contract and password-rotation recovery tests | Private Connect deployment QA; Chrome exports remain snapshots |
-| Gmail and other email codes | Plain-text/HTML TLS IMAP browser recovery; Gmail API → browser contract, freshness, bounded renewal and ambiguity tests | Registered consumer OAuth application, owner consent, real mailbox delivery QA |
+| Gmail and other email codes | Separate owner mailbox check; plain-text/HTML TLS IMAP browser recovery; Gmail API → browser contract, freshness, bounded renewal and complete-result checks | Registered consumer OAuth application, owner consent, real mailbox delivery QA |
 | iPhone SMS | Narrow signed Messages helper, message-selection fixtures and owner-granted Mac privacy permission | Real forwarded SMS delivery and completed private sign-in QA; the latest bounded attempt detected no new incoming text |
 | Android SMS | Emulator notification → pinned relay → browser verification | Physical Android pairing, notification delivery and reconnect QA |
 | Google Messages Web | Owner-approved local extension installed and GitHub SMS source enabled; exact native origin, pre-password baseline and synthetic password → reader → native host → browser verification | Completed private sign-in, broader language coverage and Chrome Web Store distribution |

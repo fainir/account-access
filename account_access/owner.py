@@ -235,9 +235,11 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                                          for key, spec in config.accounts.items()
                                          if isinstance(spec, BrowserAccount) and key not in present]
                     state["portable_cli"] = str(Path.home() / ".agents/skills/account-access/scripts/access")
+                from .mailbox_health import view as mailbox_health
                 state["code_sources"] = [{"id": key, "kind": source.kind,
                                           "mailbox_account": source.account,
                                           "mail_server": source.host,
+                                          "connection_check": mailbox_health(broker.store, key),
                                           "enrolled": bool(broker.store.get("source:" + key)) and broker.store.get("source:" + key, {}).get("enabled") is not False,
                                           "accounts": [key2 for key2, spec in config.accounts.items()
                                                        if isinstance(spec, BrowserAccount) and spec.login
@@ -347,6 +349,12 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                     if set(data) != {"source", "credential"}:
                         raise ValueError()
                     self.send(200, enroll(broker.store, data["source"], data["credential"]))
+                    return
+                if self.path == "/owner/source/check":
+                    from .mailbox_health import check
+                    if set(data) != {"source"}:
+                        raise ValueError()
+                    self.send(200, check(broker, data["source"]))
                     return
                 if self.path == "/owner/source/revoke":
                     from .factors import revoke
@@ -478,8 +486,18 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                     if not all(isinstance(v, str) and 0 < len(v) <= 4096 for v in value.values()):
                         raise ValueError()
                     with broker.store.lock("account:" + account):
-                        broker.store.put("credential:" + account, value)
-                        broker.store.resolve_login(account)
+                        with broker.store.db() as db:
+                            previous = broker.store.get("credential:" + account)
+                            broker.store.put("credential:" + account, value, db=db)
+                            if isinstance(config.accounts[account], BrowserAccount) and previous != value:
+                                # A session for the old identity must not be
+                                # reported as the edited account's connection.
+                                broker.store.put("connection:" + account, None, db=db)
+                            # Saving a credential is not verified login and
+                            # cannot clear presence, CAPTCHA, unknown-page or
+                            # transaction challenges or restart their tasks.
+                            db.execute("UPDATE challenges SET resolved=? WHERE account=? AND resolved IS NULL AND kind='login' AND reason IN ('password_not_connected','browser_login_required','client_secret_not_configured')",
+                                       (time.time(), account))
                     self.send(200, {"status": "SAVED"})
                 elif self.path == "/owner/connect":
                     ident = secrets.token_hex(16)

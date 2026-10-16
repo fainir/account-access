@@ -23,6 +23,21 @@ Some work/school accounts, Advanced Protection accounts and security-key-only se
 
 During a supported website login, Account Access retrieves a fresh email matching that website's approved sender, recipient, subject and message template. It submits the login code to the website. It does not expose the inbox or code through the agent's account API.
 
+The current 0.8 candidate checks the mailbox connection when saving email setup.
+You can also select **Check email connection** to test the saved setup without
+starting a website sign-in. TLS IMAP checks authentication, read-only inbox
+selection and message tracking; the configured Gmail OAuth route reads the
+[Gmail profile](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users/getProfile)
+and verifies the approved mailbox address. Neither check fetches messages.
+**Mailbox connection checked** means email access passed that check; it does
+not mean a website has delivered a code or completed sign-in. Other saved
+verification sources display **Setup saved** until the website check succeeds.
+
+The IMAP reader searches from the pre-login UID boundary, rejects excessive or
+incomplete results, and verifies each fetched message's UID. It cannot silently
+choose from the last twenty messages while hiding other matches. Changing or
+disabling the source invalidates the saved connection-check result.
+
 The 0.8 candidate supports plain-text and HTML-only login messages. Formatting
 can vary, but the approved words and login purpose must match; Account Access
 does not guess a six-digit number from an arbitrary email. It never opens email

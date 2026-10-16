@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 
 final class VerificationRetryFixture: URLProtocol {
+    static var verificationRequests = 0
     static var retriedVisible = false
     static var retried = false
     static var stopped = false
@@ -12,6 +13,7 @@ final class VerificationRetryFixture: URLProtocol {
         if Self.stopped {
             payload = ["connection_jobs": ["first": ["status": "NEEDS_USER", "attention": ["reason": "browser_action_required"]]]]
         } else if request.url?.path == "/owner/verify" {
+            Self.verificationRequests += 1
             var body = request.httpBody
             if body == nil, let stream = request.httpBodyStream {
                 stream.open(); defer { stream.close() }
@@ -109,6 +111,18 @@ final class VerificationRetryFixture: URLProtocol {
         precondition(owner.factorFields["seed"] is NSSecureTextField)
         precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Import authenticator QR image"))
         print("PASS: authenticator setup masks keys and accepts only a single setup or transfer QR")
+        owner.sources = [["id": "fixture-mail", "kind": "imap", "accounts": ["fixture"], "enrolled": true]]
+        owner.showFactors()
+        views = descendants(owner.stack)
+        precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("Setup saved"))
+        precondition(!views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("● Connected"))
+        precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Check email connection"))
+        owner.sources[0]["connection_check"] = ["status": "VERIFIED"]
+        owner.showFactors()
+        views = descendants(owner.stack)
+        precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("● Mailbox connection checked"))
+        precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains { $0.contains("sign-in is still needed to verify code delivery") })
+        print("PASS: saved mailbox credentials and a checked connection cannot claim completed website code delivery")
         owner.browserUpdates = [["account": "fixture", "fingerprint": "fictional"]]
         owner.ready()
         views = descendants(owner.stack)
@@ -117,6 +131,17 @@ final class VerificationRetryFixture: URLProtocol {
         let sessionConfig = URLSessionConfiguration.ephemeral
         sessionConfig.protocolClasses = [VerificationRetryFixture.self]
         owner.session = URLSession(configuration: sessionConfig)
+        let checksBefore = VerificationRetryFixture.verificationRequests
+        for kind in ["captcha", "passkey", "device", "admin", "action", "recovery", "unknown"] {
+            owner.accounts[0]["challenges"] = [["kind": kind]]
+            precondition(owner.verificationRetryBlock("fixture") != nil)
+            precondition(owner.verifyLinkedAccounts(["fixture"]).count == 1)
+        }
+        precondition(VerificationRetryFixture.verificationRequests == checksBefore)
+        owner.accounts[0]["challenges"] = [["kind": "email"]]
+        precondition(owner.verificationRetryBlock("fixture") == nil)
+        owner.accounts[0]["challenges"] = []
+        print("PASS: saving verification setup cannot retry blocked website checks or presence challenges")
         owner.status = NSTextField(labelWithString: "Checking")
         _ = try! owner.waitForConnection(["id": "first"], account: "fixture", timeout: 10, visible: true)
         precondition(VerificationRetryFixture.retriedVisible)

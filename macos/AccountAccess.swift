@@ -525,6 +525,14 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                         "password_source_item_changed": "This item must be an active login for the approved website, with one username and password.",
                         "password_source_access_removed": "The password source rejected access. Check its read-only token and the selected vault and item.",
                         "password_source_unavailable": "The password source is temporarily unavailable. Try again when it is online.",
+                        "mailbox_connection_failed": "The email server did not accept this connection. Check the email address and application password in Verification. No website sign-in was started.",
+                        "mailbox_not_connected": "Connect this email account in Verification first. No website sign-in was started.",
+                        "mailbox_identity_mismatch": "The connected Gmail account does not match the mailbox approved for these login messages. Connect the correct Gmail account.",
+                        "mailbox_uid_tracking_unavailable": "This mail server did not provide the message tracking needed to exclude old codes. No website sign-in was started.",
+                        "mailbox_scope_missing": "Reconnect the configured Gmail account with permission to read login messages.",
+                        "account_not_connected": "Connect the configured Gmail account through Manage permissions first.",
+                        "provider_rejected_access": "The email provider rejected this connection. Reconnect the mailbox in Verification.",
+                        "network_unavailable": "The email provider could not be reached. Your saved setup is preserved; try Check email connection when it is online.",
                         "invalid_authenticator_export": "This image is not a supported Authenticator transfer QR. Choose a complete export or the website's original setup QR.",
                         "authenticator_multiple_batches": "This export spans multiple QR codes. In Google Authenticator, export only the account you want to connect and choose its QR image.",
                         "unsupported_authenticator_settings": "This authenticator uses settings that are not supported yet. Six-digit SHA-1 TOTP is required.",
@@ -795,6 +803,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             return "The website did not confirm the reviewed SMS request. " + delivery
         case "mailbox_result_limit":
             return "Too many recent emails match this sign-in. Account Access stopped instead of guessing a code. Review the mailbox and try again. " + delivery
+        case "sms_gateway_result_limit":
+            return "Too many messages match this SMS gateway connection. Account Access stopped instead of choosing from an incomplete list. " + delivery
         case "mailbox_scope_missing":
             return "The email connection is missing permission to read login messages. Reconnect that mailbox in Verification. " + delivery
         case "phone_not_paired":
@@ -1478,8 +1488,17 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         factorFields = [:]
         let source = factorMenu.selectedItem?.representedObject as? [String: Any] ?? [:]
         let kind = source["kind"] as? String ?? ""
-        label(source["enrolled"] as? Bool == true ? "● Connected" : "One-time setup", 14,
-              source["enrolled"] as? Bool == true ? .systemGreen : .secondaryLabelColor)
+        let email = ["imap", "gmail"].contains(kind)
+        let connectionCheck = source["connection_check"] as? [String: Any] ?? [:]
+        let checked = connectionCheck["status"] as? String == "VERIFIED"
+        label(source["enrolled"] as? Bool == true
+              ? (email && checked ? "● Mailbox connection checked" : "Setup saved") : "One-time setup", 14,
+              email && checked ? .systemGreen : .secondaryLabelColor)
+        if email && source["enrolled"] as? Bool == true {
+            label(checked ? "Email access passed its last check. A website sign-in is still needed to verify code delivery."
+                  : "Saving these details does not verify email access or code delivery.", 14, .secondaryLabelColor)
+            action("Check email connection", #selector(checkEmailConnection))
+        }
         if kind == "google_messages" {
             label("Keep one paired Google Messages conversations tab open in Chrome. Only new matching GitHub login texts during a pending sign-in are eligible. Cached texts, changed pages and ambiguous codes stop safely.", 15, .secondaryLabelColor)
             action("Set up Google Messages", #selector(prepareGoogleMessages))
@@ -1613,6 +1632,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 _ = try self.request("owner/source", body: ["source": id, "credential": credential])
+                if ["imap", "gmail"].contains(kind) {
+                    _ = try self.request("owner/source/check", body: ["source": id])
+                }
                 let issues = self.verifyLinkedAccounts(linked)
                 let state = try self.request("owner/state")
                 DispatchQueue.main.async { self.busy = false; self.accept(state); self.showImportSummary(linked, issues: issues, verification: true) }
@@ -1623,6 +1645,10 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     func verifyLinkedAccounts(_ linked: [String]) -> [(String, String)] {
         var issues: [(String, String)] = []
         for account in linked {
+            if let explanation = verificationRetryBlock(account) {
+                issues.append((account, explanation))
+                continue
+            }
             do {
                 let job = try request("owner/verify", body: ["account": account])
                 _ = try waitForConnection(job, account: account)
@@ -1630,6 +1656,33 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             catch { issues.append((account, "The verification method is saved. The website sign-in still needs attention.")) }
         }
         return issues
+    }
+
+    func verificationRetryBlock(_ account: String) -> String? {
+        let current = accounts.first { $0["account"] as? String == account }
+        let challenges = current?["challenges"] as? [[String: Any]] ?? []
+        for challenge in challenges {
+            let kind = challenge["kind"] as? String ?? ""
+            if ["captcha", "passkey", "device", "admin", "action", "recovery", "unknown"].contains(kind) {
+                return verificationMessage(["reason": "browser_" + (kind == "unknown" ? "state_unrecognized" : kind + "_required")])
+            }
+        }
+        return nil
+    }
+
+    @objc func checkEmailConnection() {
+        guard let source = factorMenu.selectedItem?.representedObject as? [String: Any],
+              let id = source["id"] as? String else { return }
+        busy = true
+        page("Checking email access", "Checking your saved mailbox connection without fetching messages or starting a website sign-in.")
+        progress()
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                _ = try self.request("owner/source/check", body: ["source": id])
+                let state = try self.request("owner/state")
+                DispatchQueue.main.async { self.busy = false; self.accept(state); self.showFactors() }
+            } catch { self.fail(error, retry: #selector(self.backToConnections)) }
+        }
     }
 
     @objc func disableFactor() {

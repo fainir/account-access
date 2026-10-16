@@ -239,12 +239,13 @@ def test_sms_gateway_contract_is_bound_to_login_recipient_sender_and_time(env, m
     broker.store.configure(config)
     broker.store.put("source:sms", {"sid": "AC" + "0" * 32, "auth_token": "private-gateway-token"})
     started = time.time() - 2
-    broker.codes.begin("sms", "demo-web", started)
-    messages = [{"sid": "current", "direction": "inbound", "from": "+15550000001", "to": "+15550000002",
-                 "date_sent": formatdate(time.time(), usegmt=True), "body": "Example sign-in: 123456"},
-                {"sid": "old", "direction": "inbound", "from": "+15550000001", "to": "+15550000002",
-                 "date_sent": formatdate(started - 10, usegmt=True), "body": "Example sign-in: 654321"}]
+    messages = []
     monkeypatch.setattr("account_access.codes.get_json", lambda *a, **k: {"messages": messages})
+    broker.codes.begin("sms", "demo-web", started)
+    messages.extend([{"sid": "SM" + "1" * 32, "direction": "inbound", "from": "+15550000001", "to": "+15550000002",
+                 "date_sent": formatdate(time.time(), usegmt=True), "body": "Example sign-in: 123456"},
+                {"sid": "SM" + "2" * 32, "direction": "inbound", "from": "+15550000001", "to": "+15550000002",
+                 "date_sent": formatdate(started - 10, usegmt=True), "body": "Example sign-in: 654321"}])
     used = set()
     assert broker.codes.resolve("sms", started, used) == "123456"
     assert broker.codes.resolve("sms", started, used) is None

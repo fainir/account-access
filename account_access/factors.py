@@ -56,6 +56,7 @@ def enroll(store, source_id, data):
         value = data
     with store.lock("source:" + source_id):
         store.put("source:" + source_id, value)
+        store.put("mailbox-health:" + source_id, None)
     store.audit("owner", "", "", "factor_enrolled", kind)
     return {"status": "ENROLLED", "source": source_id, "kind": kind}
 
@@ -67,4 +68,5 @@ def revoke(store, source_id):
         store.put("source:" + source_id, {"enabled": False})
         store.put("phone-pair:" + source_id, None)
         store.put("code-window:" + source_id, None)
+        store.put("mailbox-health:" + source_id, None)
     return {"status": "REVOKED", "source": source_id}
