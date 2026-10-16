@@ -31,6 +31,12 @@ private Namecheap request was made after installation because of the recorded
 rate limit. See [provider scope](other-service-validation.md) and the
 [sanitized record](../artifacts/site-verification-080.json).
 
+The first Linux CI run passed 411 cases and exposed a timing assumption in the
+extended task-recovery test: it asserted completion before the scheduler's
+one-second resume interval had elapsed. The regression now waits for the normal
+scheduled resume, with a five-second bound. No application or installer change
+was needed for that test correction.
+
 ## Other services — 16 October 2026
 
 GitHub account testing stopped at the owner's request. The next native candidate

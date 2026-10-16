@@ -39,6 +39,14 @@
     "graphical_repair": "completed",
     "namecheap_permission_and_original_task_preserved": true
   },
+  "initial_ci": {
+    "revision": "d6c0502dec5de3df176f796c3e98119046463e19",
+    "checks": "https://github.com/fainir/account-access/actions/runs/38946131906",
+    "tests_passed": 411,
+    "tests_failed": 1,
+    "failure": "test asserted original-task completion before the scheduler resume time",
+    "correction": "bounded polling through the ordinary task scheduler; no application change"
+  },
   "limits": "The diagnostic fix does not solve browser verification, validate the private password, implement Namecheap email/TOTP routes or establish unattended login",
   "github_account_testing": "stopped at owner's request",
   "privacy": "No account identifiers, file locations, task/challenge IDs, credentials, cookies, codes, message content or raw traces in public evidence"

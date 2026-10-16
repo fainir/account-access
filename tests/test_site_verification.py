@@ -1,3 +1,5 @@
+import time
+
 import pytest
 from playwright.sync_api import sync_playwright
 
@@ -145,8 +147,13 @@ def test_recognized_browser_gate_updates_the_existing_task_without_a_login_retry
     # Only then can the original durable task resume using the saved session.
     spec = broker.store.config().accounts["demo-web"]
     broker.browser.read("demo-web", spec.operations["summary"], spec)
-    broker.tick()
-    completed = broker.task("test", task["task_id"])
+    deadline = time.monotonic() + 5
+    while True:
+        broker.tick()
+        completed = broker.task("test", task["task_id"])
+        if completed["status"] == "COMPLETED" or time.monotonic() >= deadline:
+            break
+        time.sleep(.05)
     assert completed["status"] == "COMPLETED" and completed["progress"] == 1
     assert completed["task_id"] == task["task_id"]
     assert not broker.store.pending("demo-web")
