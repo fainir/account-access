@@ -10,7 +10,7 @@ import json
 
 import pytest
 
-from account_access.runtime_bootstrap import INSTALLATION_MARKER, MARKER, install, installation_snapshot, write_installation
+from account_access.runtime_bootstrap import INSTALLATION_MARKER, MARKER, active_runtime_launcher, install, installation_snapshot, write_installation, write_launcher
 
 
 @pytest.fixture
@@ -82,8 +82,10 @@ def test_prepare_then_switch_and_rollback_failed_runtime(setup, failure, monkeyp
                               [str(launcher), "--root", "private data", "start", "--no-open"]]
         assert (Path.home() / "Applications/Account Access.command").is_file()
         record = json.loads(installation_snapshot(runtime / "installed-wheel.json"))
-        assert record == {"managed_by": INSTALLATION_MARKER, "schema": 1,
-                          "wheel_sha256": hashlib.sha256(wheel.read_bytes()).hexdigest()}
+        assert record == {"managed_by": INSTALLATION_MARKER, "schema": 2,
+                          "wheel_sha256": hashlib.sha256(wheel.read_bytes()).hexdigest(),
+                          "runtime": str(next((runtime / "environments").iterdir()) / "bin/python"),
+                          "launcher_sha256": hashlib.sha256(launcher.read_bytes()).hexdigest()}
 
 
 def test_unowned_runtime_launcher_is_not_replaced(setup):
@@ -132,6 +134,92 @@ def test_failed_repair_keeps_previous_payload_digest_and_launcher(setup):
     with pytest.raises(subprocess.CalledProcessError):
         install("uv", wheel, runtime, requirements, data_dir="fixture data", no_open=True, run=run)
     assert launcher.read_text() == old and record.read_bytes() == content
+
+
+@pytest.mark.parametrize("damage", ["outside", "traversal", "relative", "bad-launcher-digest", "extra"])
+def test_unbound_version_two_record_stops_before_any_installation_change(setup, damage):
+    runtime, launcher, old, wheel, requirements = setup
+    record = {"managed_by": INSTALLATION_MARKER, "schema": 2,
+              "wheel_sha256": "a" * 64, "launcher_sha256": "b" * 64,
+              "runtime": str(runtime / "environments/previous/bin/python")}
+    if damage == "outside":
+        record["runtime"] = "/usr/bin/python3"
+    elif damage == "traversal":
+        record["runtime"] = str(runtime / "environments/previous/bin/../bin/python")
+    elif damage == "relative":
+        record["runtime"] = "environments/previous/bin/python"
+    elif damage == "bad-launcher-digest":
+        record["launcher_sha256"] = "invalid"
+    else:
+        record["unexpected"] = True
+    path = runtime / "installed-wheel.json"
+    write_installation(path, json.dumps(record).encode())
+    commands = []
+    with pytest.raises(RuntimeError, match="payload record"):
+        install("uv", wheel, runtime, requirements, run=lambda *a, **k: commands.append(a))
+    assert not commands and launcher.read_text() == old
+    assert json.loads(path.read_text()) == record
+
+
+def test_failed_repair_preserves_an_activated_version_two_record(setup):
+    runtime, launcher, old, wheel, requirements = setup
+    content = json.dumps({"managed_by": INSTALLATION_MARKER, "schema": 2,
+        "wheel_sha256": "a" * 64, "launcher_sha256": hashlib.sha256(old.encode()).hexdigest(),
+        "runtime": str(runtime / "environments/previous/bin/python")}).encode()
+    record = runtime / "installed-wheel.json"
+    write_installation(record, content)
+    def run(command, **_kwargs):
+        if command[1] == "venv":
+            folder = Path(command[-1]) / "bin"
+            folder.mkdir()
+            (folder / "python").touch()
+        if "start" in command:
+            raise subprocess.CalledProcessError(1, command)
+    with pytest.raises(subprocess.CalledProcessError):
+        install("uv", wheel, runtime, requirements, data_dir="fixture data", no_open=True, run=run)
+    assert launcher.read_text() == old and record.read_bytes() == content
+
+
+@pytest.mark.parametrize("damage", [None, "legacy", "launcher", "wrong-runtime", "public-directory", "missing"])
+def test_older_managed_client_selects_only_the_activated_launcher(setup, damage):
+    runtime, launcher, _, _, _ = setup
+    runtime.chmod(0o700)
+    launcher.parent.chmod(0o700)
+    environments = runtime / "environments"
+    environments.mkdir(mode=0o700)
+    interpreters = []
+    for name in ["previous", "activated"]:
+        folder = environments / ("account-access-" + name)
+        folder.mkdir(mode=0o700)
+        (folder / "bin").mkdir(mode=0o755)
+        executable = folder / "bin/python"
+        executable.write_text("#!/bin/sh\nexit 0\n")
+        executable.chmod(0o700)
+        interpreters.append(executable)
+    previous, activated = interpreters
+    write_launcher(launcher, [str(activated), "-I", "-m", "account_access.cli"], MARKER)
+    value = {"managed_by": INSTALLATION_MARKER, "schema": 2, "wheel_sha256": "a" * 64,
+             "runtime": str(activated), "launcher_sha256": hashlib.sha256(launcher.read_bytes()).hexdigest()}
+    if damage == "legacy":
+        value = {key: value[key] for key in ["managed_by", "schema", "wheel_sha256"]}
+        value["schema"] = 1
+    elif damage == "launcher":
+        write_launcher(launcher, [str(previous), "-I", "-m", "account_access.cli"], MARKER)
+    elif damage == "wrong-runtime":
+        value["runtime"] = str(previous)
+    elif damage == "public-directory":
+        activated.parent.parent.chmod(0o755)
+    if damage != "missing":
+        write_installation(runtime / "installed-wheel.json", json.dumps(value).encode())
+    if damage:
+        with pytest.raises(RuntimeError, match="installation repair"):
+            active_runtime_launcher(str(previous))
+    else:
+        assert active_runtime_launcher(str(previous)) == launcher
+
+
+def test_standalone_interpreter_does_not_claim_managed_runtime_authority():
+    assert active_runtime_launcher("/opt/developer-venv/bin/python") is None
 
 
 def test_failed_start_and_stop_retains_the_possibly_running_environment(setup):

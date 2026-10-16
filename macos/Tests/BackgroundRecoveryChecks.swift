@@ -1,5 +1,6 @@
 import Foundation
 import ServiceManagement
+import CryptoKit
 
 final class BackgroundControlFixture: BackgroundRecovery.Control {
     var status: SMAppService.Status
@@ -21,7 +22,7 @@ final class BackgroundControlFixture: BackgroundRecovery.Control {
         let temporary = files.temporaryDirectory.appendingPathComponent("account-access-background-" + UUID().uuidString)
         let app = temporary.appendingPathComponent("Fixture.app")
         let root = temporary.appendingPathComponent("data")
-        let runtime = temporary.appendingPathComponent("runtime")
+        let runtime = temporary.appendingPathComponent("runtime's folder")
         let environment = runtime.appendingPathComponent("environments/account-access-fixture")
         let bin = environment.appendingPathComponent("bin")
         for path in [temporary, app.appendingPathComponent("Contents"), root, runtime,
@@ -38,11 +39,22 @@ final class BackgroundControlFixture: BackgroundRecovery.Control {
             .write(to: app.appendingPathComponent("Contents/Info.plist"))
         let layout = try BackgroundRecovery.Layout(bundle: Bundle(url: app)!)
         let installed = runtime.appendingPathComponent("installed-wheel.json")
-        try BackgroundRecovery.writePrivate(JSONSerialization.data(withJSONObject: [
-            "managed_by": "account-access-runtime-v1", "schema": 1,
-            "wheel_sha256": String(repeating: "b", count: 64)]), to: installed)
         let python = bin.appendingPathComponent("python")
         precondition(files.createFile(atPath: python.path, contents: Data("fixture".utf8), attributes: [.posixPermissions: 0o700]))
+        let launcher = runtime.appendingPathComponent("bin/account-access")
+        try files.createDirectory(at: launcher.deletingLastPathComponent(), withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        let launcherBytes = BackgroundRecovery.activatedLauncher(python: python)
+        precondition(String(data: launcherBytes, encoding: .utf8)!.contains("runtime'\"'\"'s folder"))
+        precondition(files.createFile(atPath: launcher.path, contents: launcherBytes, attributes: [.posixPermissions: 0o700]))
+        let launcherHash = SHA256.hash(data: launcherBytes).map { String(format: "%02x", $0) }.joined()
+        func saveInstalled(_ change: [String: Any] = [:]) throws {
+            var data: [String: Any] = ["managed_by": "account-access-runtime-v1", "schema": 2,
+                "wheel_sha256": String(repeating: "b", count: 64), "runtime": python.path,
+                "launcher_sha256": launcherHash]
+            data.merge(change) { _, new in new }
+            try BackgroundRecovery.writePrivate(JSONSerialization.data(withJSONObject: data), to: installed)
+        }
+        try saveInstalled()
         let registration = root.appendingPathComponent("supervisor.json")
         let generation = String(repeating: "a", count: 64)
         func save(_ change: [String: String] = [:]) throws {
@@ -58,9 +70,7 @@ final class BackgroundControlFixture: BackgroundRecovery.Control {
         precondition(BackgroundRecovery.installationMatches(runtime: runtime, expected: String(repeating: "b", count: 64)))
         precondition(!BackgroundRecovery.installationMatches(runtime: runtime, expected: String(repeating: "c", count: 64)))
         let installedRecord = try BackgroundRecovery.readPrivate(installed)
-        try BackgroundRecovery.writePrivate(JSONSerialization.data(withJSONObject: [
-            "managed_by": "account-access-runtime-v1", "schema": 1,
-            "wheel_sha256": String(repeating: "c", count: 64)]), to: installed)
+        try saveInstalled(["wheel_sha256": String(repeating: "c", count: 64)])
         do { _ = try BackgroundRecovery.command(layout: layout); preconditionFailure("Stale same-version runtime was accepted") }
         catch { }
         try BackgroundRecovery.writePrivate(installedRecord, to: installed)
@@ -68,6 +78,32 @@ final class BackgroundControlFixture: BackgroundRecovery.Control {
         precondition(!BackgroundRecovery.installationMatches(runtime: runtime, expected: String(repeating: "b", count: 64)))
         try files.setAttributes([.posixPermissions: 0o600], ofItemAtPath: installed.path)
         print("PASS: same-version stale or unsafe runtime records cannot satisfy the signed app's payload pin")
+        let alternateEnvironment = runtime.appendingPathComponent("environments/account-access-uncommitted")
+        let alternateBin = alternateEnvironment.appendingPathComponent("bin")
+        try files.createDirectory(at: alternateBin, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        let alternatePython = alternateBin.appendingPathComponent("python")
+        precondition(files.createFile(atPath: alternatePython.path, contents: Data("uncommitted fixture".utf8), attributes: [.posixPermissions: 0o700]))
+        try save(["runtime": alternatePython.path])
+        do { _ = try BackgroundRecovery.command(layout: layout); preconditionFailure("An uncommitted environment borrowed the active wheel pin") }
+        catch { }
+        try save()
+        print("PASS: an uncommitted managed environment cannot borrow the activated runtime's payload record")
+        try saveInstalled(["runtime": alternatePython.path])
+        precondition(!BackgroundRecovery.installationMatches(runtime: runtime, expected: String(repeating: "b", count: 64)))
+        try saveInstalled()
+        try launcherBytes.advanced(by: 1).write(to: launcher)
+        try files.setAttributes([.posixPermissions: 0o700], ofItemAtPath: launcher.path)
+        precondition(!BackgroundRecovery.installationMatches(runtime: runtime, expected: String(repeating: "b", count: 64)))
+        try launcherBytes.write(to: launcher)
+        try files.setAttributes([.posixPermissions: 0o700], ofItemAtPath: launcher.path)
+        try BackgroundRecovery.writePrivate(JSONSerialization.data(withJSONObject: [
+            "managed_by": "account-access-runtime-v1", "schema": 1,
+            "wheel_sha256": String(repeating: "b", count: 64)]), to: installed)
+        precondition(!BackgroundRecovery.installationMatches(runtime: runtime, expected: String(repeating: "b", count: 64)))
+        try saveInstalled(["schema": 2.5])
+        precondition(!BackgroundRecovery.installationMatches(runtime: runtime, expected: String(repeating: "b", count: 64)))
+        try saveInstalled()
+        print("PASS: changed launcher bytes and legacy or invalid payload schemas require repair before reopening")
         let pause = root.appendingPathComponent("service.paused")
         try BackgroundRecovery.writePrivate(Data("paused".utf8), to: pause)
         let pausedCommand = try BackgroundRecovery.command(layout: layout)

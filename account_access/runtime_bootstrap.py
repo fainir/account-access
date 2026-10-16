@@ -33,10 +33,25 @@ def installation_snapshot(path):
     data = path.read_bytes()
     try:
         value = json.loads(data)
-        if (not isinstance(value, dict) or set(value) != {"managed_by", "schema", "wheel_sha256"}
-                or value["managed_by"] != INSTALLATION_MARKER or type(value["schema"]) is not int
-                or value["schema"] != 1 or not isinstance(value["wheel_sha256"], str)
+        if (not isinstance(value, dict)
+                or value.get("managed_by") != INSTALLATION_MARKER or type(value.get("schema")) is not int
+                or value["schema"] not in {1, 2} or not isinstance(value.get("wheel_sha256"), str)
                 or not re.fullmatch(r"[a-f0-9]{64}", value["wheel_sha256"])):
+            raise ValueError()
+        keys = {"managed_by", "schema", "wheel_sha256"}
+        if value["schema"] == 2:
+            keys |= {"runtime", "launcher_sha256"}
+            executable = value.get("runtime")
+            if (not isinstance(executable, str) or not executable.startswith("/")
+                    or "\0" in executable or ".." in Path(executable).parts
+                    or str(Path(executable)) != executable
+                    or Path(executable).parent.name != "bin"
+                    or Path(executable).parent.parent.parent != path.absolute().parent / "environments"
+                    or not re.fullmatch(r"python(?:3(?:\.[0-9]+)?)?", Path(executable).name)
+                    or not isinstance(value.get("launcher_sha256"), str)
+                    or not re.fullmatch(r"[a-f0-9]{64}", value["launcher_sha256"])):
+                raise ValueError()
+        if set(value) != keys:
             raise ValueError()
     except (ValueError, TypeError, KeyError):
         raise RuntimeError("Another file owns the installed payload record.") from None
@@ -55,6 +70,50 @@ def write_installation(path, data):
         Path(name).unlink(missing_ok=True)
 
 
+def active_runtime_launcher(executable):
+    """Use the activated runtime when an older managed client needs startup.
+
+    This validates the installer transaction, not all installed code. OS identity
+    separation is still required against an unrestricted same-user process.
+    """
+    python = Path(executable)
+    environment = python.parent.parent
+    if (python.parent.name != "bin" or environment.parent.name != "environments"
+            or not environment.name.startswith("account-access-")
+            or not re.fullmatch(r"python(?:3(?:\.[0-9]+)?)?", python.name)):
+        return None  # Ordinary developer/standalone installations keep their path.
+    runtime = environment.parent.parent
+    try:
+        def directory(path, *, private=True):
+            info = path.lstat()
+            if (not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid()
+                    or info.st_mode & (0o077 if private else 0o022)):
+                raise ValueError()
+        directory(runtime)
+        snapshot = installation_snapshot(runtime / "installed-wheel.json")
+        value = json.loads(snapshot) if snapshot else {}
+        if value.get("schema") != 2:
+            raise ValueError()
+        activated = Path(value["runtime"])
+        for path in [runtime / "environments", activated.parent.parent, runtime / "bin"]:
+            directory(path)
+        directory(activated.parent, private=False)
+        if not activated.is_file() or not os.access(activated, os.X_OK):
+            raise ValueError()
+        launcher = runtime / "bin/account-access"
+        info = launcher.lstat()
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_nlink != 1
+                or stat.S_IMODE(info.st_mode) != 0o700 or info.st_size > 8192):
+            raise ValueError()
+        data = launcher.read_bytes()
+        expected = launcher_content([str(activated), "-I", "-m", "account_access.cli"], MARKER)
+        if (data != expected or hashlib.sha256(data).hexdigest() != value["launcher_sha256"]):
+            raise ValueError()
+        return launcher
+    except (OSError, ValueError, TypeError, KeyError, RuntimeError):
+        raise RuntimeError("The activated runtime needs installation repair.") from None
+
+
 def launcher_snapshot(path, runtime):
     if path.is_symlink():
         target = os.readlink(path)
@@ -70,8 +129,12 @@ def launcher_snapshot(path, runtime):
     return None
 
 
+def launcher_content(command, marker):
+    return ("#!/bin/sh\n" + marker + "\nexec " + shlex.join(command) + ' "$@"\n').encode()
+
+
 def write_launcher(path, command, marker):
-    data = ("#!/bin/sh\n" + marker + "\nexec " + shlex.join(command) + ' "$@"\n').encode()
+    data = launcher_content(command, marker)
     descriptor, name = tempfile.mkstemp(prefix=".account-access-", dir=path.parent)
     try:
         with os.fdopen(descriptor, "wb") as stream:
@@ -100,7 +163,7 @@ def restore_launcher(path, snapshot):
 
 
 def install(uv, wheel, runtime, requirements, *, data_dir="", no_open=False, run=subprocess.run):
-    runtime = Path(runtime).absolute()
+    runtime = Path(os.path.abspath(runtime))
     if runtime.is_symlink():
         raise RuntimeError("Refusing a linked installation directory.")
     runtime.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -173,8 +236,9 @@ def _install(uv, wheel, runtime, requirements, *, data_dir, no_open, run):
         desktop.parent.mkdir(parents=True, exist_ok=True)
         write_launcher(desktop, [str(launcher), *root_args, "start"], DESKTOP_MARKER)
         desktop_switched = True
-        write_installation(installation, json.dumps({"managed_by": INSTALLATION_MARKER, "schema": 1,
-            "wheel_sha256": hashlib.sha256(wheel.read_bytes()).hexdigest()}).encode())
+        write_installation(installation, json.dumps({"managed_by": INSTALLATION_MARKER, "schema": 2,
+            "wheel_sha256": hashlib.sha256(wheel.read_bytes()).hexdigest(), "runtime": str(python),
+            "launcher_sha256": hashlib.sha256(launcher.read_bytes()).hexdigest()}).encode())
         payload_recorded = True
         activated = True
         print("Installation complete. Your saved accounts are preserved.", flush=True)

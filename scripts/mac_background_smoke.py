@@ -27,7 +27,7 @@ from account_access.demo import environment
 from account_access.desktop import running, stop
 from account_access.errors import AccessError
 from account_access.models import TaskRequest
-from account_access.runtime_bootstrap import INSTALLATION_MARKER, write_installation
+from account_access.runtime_bootstrap import INSTALLATION_MARKER, MARKER, write_installation, write_launcher
 from account_access.storage import private_file
 from account_access.supervisor import lease
 from macos.notarize import Notarization
@@ -76,17 +76,18 @@ def check(source, team, report_path):
                          "No actual logout or reboot", "No OS credential isolation or Apple notarization acceptance"]}
     created_key = False
     registered = False
+    processes_quiesced = True
     frozen = None
     service = "account-access:" + hashlib.sha256(str(root).encode()).hexdigest()[:24]
     helper = app / "Contents/MacOS/AccountAccess"
     logs = log_path.open("w")
-    def run(command, *, timeout=90):
-        completed = subprocess.run([str(item) for item in command], capture_output=True, timeout=timeout)
+    def run(command, *, timeout=90, env=None, expected_exit=0):
+        completed = subprocess.run([str(item) for item in command], capture_output=True, timeout=timeout, env=env)
         # Tool output stays in an ignored private diagnostic, never the report.
         logs.write(completed.stdout.decode(errors="replace"))
         logs.write(completed.stderr.decode(errors="replace"))
         logs.flush()
-        if completed.returncode:
+        if completed.returncode != expected_exit:
             raise ProbeFailure("background_probe_tool_failed")
         return completed.stdout
     def control(action):
@@ -144,8 +145,12 @@ def check(source, team, report_path):
                                 + " --hash=sha256:" + hashlib.sha256(wheel.read_bytes()).hexdigest() + "\n")
         run([uv, "pip", "sync", "--no-config", "--python", python, "--require-hashes", "--no-build",
              "--strict", requirements], timeout=120)
+        launcher = runtime / "bin/account-access"
+        launcher.parent.mkdir(mode=0o700)
+        write_launcher(launcher, [str(python), "-I", "-m", "account_access.cli"], MARKER)
         write_installation(runtime / "installed-wheel.json", json.dumps({"managed_by": INSTALLATION_MARKER,
-            "schema": 1, "wheel_sha256": hashlib.sha256(wheel.read_bytes()).hexdigest()}).encode())
+            "schema": 2, "wheel_sha256": hashlib.sha256(wheel.read_bytes()).hexdigest(),
+            "runtime": str(python), "launcher_sha256": hashlib.sha256(launcher.read_bytes()).hexdigest()}).encode())
         with environment(root) as (_, broker, _):
             if not type(keyring.get_keyring()).__module__.startswith("keyring.backends.macOS"):
                 raise ProbeFailure("secure_macos_keyring_required")
@@ -153,12 +158,19 @@ def check(source, team, report_path):
                 raise ProbeFailure("fixture_keyring_namespace_occupied")
             created_key = True
             keyring.set_password(service, "master", base64.b64encode((root / "demo.key").read_bytes()).decode())
-            broker.store.new_client("fixture")
+            client_token = broker.store.new_client("fixture")
             broker.grant("fixture", "demo-api", ["summary"])
+            client_directory = root / "clients/fixture"
+            client_directory.mkdir(mode=0o700, parents=True)
+            private_file(client_directory / "token", client_token.encode())
+            client_config = client_directory / "client.json"
+            private_file(client_config, json.dumps({"socket": str(root / "service.sock"),
+                "token_file": str(client_directory / "token"), "auto_start": True}).encode())
             private_file(root / "supervisor.json", json.dumps({"generation": uuid.uuid4().hex * 2,
                 "runtime": str(python), "version": "0.8.0"}).encode())
             try:
                 registered = True  # Even an uncertain registration needs scoped cleanup.
+                processes_quiesced = False
                 registration = control("register")
                 result["registration"] = registration["status"]
                 if registration["status"] != "enabled":
@@ -191,6 +203,34 @@ def check(source, team, report_path):
                 control("register")
                 time.sleep(2)
                 result["paused_new_job_invocation_stays_stopped"] = running(root) is None and (root / "service.paused").exists()
+                # Run the same candidate client from a retained environment,
+                # separately from the activated interpreter. No old release's
+                # behavior is claimed, and no global agent settings are used.
+                retained = runtime / "environments/account-access-retained"
+                shutil.copytree(environment_path, retained, symlinks=True)
+                retained_python = retained / "bin/python"
+                client_environment = dict(os.environ)
+                client_environment["ACCESS_CLIENT_CONFIG"] = str(client_config)
+                client_command = [retained_python, "-I", "-m", "account_access.cli", "accounts"]
+                paused_result = json.loads(run(client_command, env=client_environment, expected_exit=2))
+                result["paused_managed_client_stays_stopped"] = (paused_result.get("reason") == "service_paused"
+                    and running(root) is None and job_pid() is None)
+                if control("unregister")["status"] != "not_registered":
+                    raise ProbeFailure("fixture_job_unregister_required")
+                wait_for(job_absent, timeout=10)
+                result["service_unregistered"] = True
+                registered = False
+                # Fixture owner explicitly resumes, then maintenance shutdown
+                # leaves an unpaused cold service for the retained client.
+                run([launcher, "--root", root, "start", "--no-open"])
+                stop(root, updating=True)
+                if (root / "service.paused").exists():
+                    raise ProbeFailure("fixture_maintenance_shutdown_was_paused")
+                cold_result = json.loads(run(client_command, env=client_environment))
+                cold_service = wait_for(lambda: running(root))
+                result["retained_managed_client_uses_activated_runtime"] = (cold_result.get("status") == "OK"
+                    and cold_service.get("runtime") == str(python) and cold_service.get("runtime") != str(retained_python))
+                result["retained_client_scope"] = "Same candidate code in a second managed environment; not an unmodified pre-60 client"
             finally:
                 if frozen:
                     try:
@@ -208,19 +248,23 @@ def check(source, team, report_path):
                     pass
                 with lease(root, "service", timeout=20):
                     pass
+                processes_quiesced = True
     except Exception as exc:
         result["failure"] = (str(exc) if isinstance(exc, ProbeFailure) else
                              exc.reason if isinstance(exc, AccessError) else "unexpected_background_probe_error")
     finally:
-        if created_key:
+        if created_key and processes_quiesced:
             try:
                 if keyring.get_password(service, "master") is not None:
                     keyring.delete_password(service, "master")
                 result["keyring_namespace_cleaned"] = keyring.get_password(service, "master") is None
             except Exception:
                 result["failure"] = "fixture_keyring_cleanup_required"
+        elif created_key:
+            result["failure"] = "fixture_process_cleanup_required"
+        result["service_processes_quiesced"] = processes_quiesced
         logs.close()
-        if (not registered or result["service_unregistered"]) and (not created_key or result["keyring_namespace_cleaned"]):
+        if processes_quiesced and (not registered or result["service_unregistered"]) and (not created_key or result["keyring_namespace_cleaned"]):
             shutil.rmtree(temporary)
         else:
             # Keep only this fixture for cleanup; never delete a still-registered
@@ -229,7 +273,8 @@ def check(source, team, report_path):
                          json.dumps({"app": str(app), "root": str(root), "label": identifier + ".background",
                                      "keyring_service": service}).encode(), replace=True)
         result["passed"] = all(result.get(key) for key in ["os_managed_crash_recovery", "pause_prevents_restart",
-            "paused_new_job_invocation_stays_stopped", "keyring_namespace_cleaned", "service_unregistered"])
+            "paused_new_job_invocation_stays_stopped", "paused_managed_client_stays_stopped",
+            "retained_managed_client_uses_activated_runtime", "service_processes_quiesced", "keyring_namespace_cleaned", "service_unregistered"])
         result["source_revision"] = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
         report_path.parent.mkdir(parents=True, exist_ok=True)
         report_path.write_text(json.dumps(result, indent=2) + "\n")

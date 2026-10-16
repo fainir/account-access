@@ -100,15 +100,21 @@ def local_client(broker, tmp_path):
     return Client(path)
 
 
-def test_connection_failure_wakes_service_and_keeps_agent_output_clean(env, tmp_path, monkeypatch):
+@pytest.mark.parametrize("managed", [False, True])
+def test_connection_failure_wakes_service_and_keeps_agent_output_clean(env, tmp_path, monkeypatch, managed):
     _, broker, _ = env
     client = local_client(broker, tmp_path)
     server = uvicorn.Server(uvicorn.Config(create_app(broker), uds=str(broker.store.root / "service.sock"), log_level="critical", access_log=False))
     thread = threading.Thread(target=server.run, daemon=True)
     commands = []
+    stable = tmp_path / "runtime/bin/account-access"
+    monkeypatch.setattr("account_access.runtime_bootstrap.active_runtime_launcher", lambda _python: stable if managed else None)
     def start(command, **kwargs):
         commands.append(command)
-        assert command[1:3] == ["-I", "-m"]
+        if managed:
+            assert command[0] == str(stable)
+        else:
+            assert command[1:3] == ["-I", "-m"]
         assert "ACCESS_CLIENT_CONFIG" not in kwargs["env"]
         thread.start()
         deadline = time.monotonic() + 10
@@ -127,6 +133,20 @@ def test_connection_failure_wakes_service_and_keeps_agent_output_clean(env, tmp_
         server.should_exit = True
         if thread.is_alive():
             thread.join(timeout=10)
+
+
+def test_invalid_managed_activation_cannot_fall_back_to_an_older_client_runtime(env, tmp_path, monkeypatch):
+    _, broker, _ = env
+    client = local_client(broker, tmp_path)
+    def invalid(_python):
+        raise RuntimeError("Controlled invalid activation")
+    monkeypatch.setattr("account_access.runtime_bootstrap.active_runtime_launcher", invalid)
+    called = []
+    monkeypatch.setattr("account_access.client.subprocess.run", lambda *a, **k: called.append(a))
+    with pytest.raises(AccessError) as error:
+        client.request("GET", "/v1/accounts")
+    assert error.value.status == "NEEDS_USER" and error.value.reason == "installation_repair_required"
+    assert not called
 
 
 def test_manual_pause_is_respected_and_timeouts_do_not_replay_operations(env, tmp_path, monkeypatch):

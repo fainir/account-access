@@ -56,12 +56,12 @@ enum BackgroundRecovery {
               mode & (privateOnly ? 0o077 : 0o022) == 0 else { throw Failure.invalidSetup }
     }
 
-    static func readPrivate(_ url: URL, limit: Int = 4096) throws -> Data {
+    static func readPrivate(_ url: URL, limit: Int = 4096, mode: Int = 0o600) throws -> Data {
         let info = try FileManager.default.attributesOfItem(atPath: url.path)
         guard info[.type] as? FileAttributeType == .typeRegular,
               (info[.ownerAccountID] as? NSNumber)?.uint32Value == getuid(),
               (info[.referenceCount] as? NSNumber)?.intValue == 1,
-              (info[.posixPermissions] as? NSNumber)?.intValue == 0o600,
+              (info[.posixPermissions] as? NSNumber)?.intValue == mode,
               let length = (info[.size] as? NSNumber)?.intValue, length <= limit else { throw Failure.invalidSetup }
         let data = try Data(contentsOf: url)
         guard data.count <= limit else { throw Failure.invalidSetup }
@@ -105,7 +105,7 @@ enum BackgroundRecovery {
               python.lastPathComponent.range(of: "^python(?:3(?:\\.[0-9]+)?)?$", options: .regularExpression) != nil,
               files.isExecutableFile(atPath: python.path) else { throw Failure.invalidSetup }
         try directory(layout.runtime)
-        guard installationMatches(runtime: layout.runtime, expected: layout.wheelSHA256) else { throw Failure.invalidSetup }
+        guard installationMatches(runtime: layout.runtime, expected: layout.wheelSHA256, executable: python) else { throw Failure.invalidSetup }
         try directory(layout.runtime.appendingPathComponent("environments"))
         try directory(environment)
         try directory(bin, privateOnly: false)
@@ -113,13 +113,43 @@ enum BackgroundRecovery {
                 "desktop-guardian", "--generation", generation]
     }
 
-    static func installationMatches(runtime: URL, expected: String) -> Bool {
+    static func activatedLauncher(python: URL) -> Data {
+        // Match shlex.join for the installer's fixed command. Paths requiring
+        // quoting are enclosed in single quotes, with embedded quotes split.
+        let path = python.path
+        let quoted = path.range(of: "^[A-Za-z0-9_@%+=:,./-]+$", options: .regularExpression) != nil
+            ? path : "'" + path.replacingOccurrences(of: "'", with: "'\"'\"'") + "'"
+        return Data(("#!/bin/sh\n# account-access-runtime-launcher-v1\nexec " + quoted
+            + " -I -m account_access.cli \"$@\"\n").utf8)
+    }
+
+    static func installationMatches(runtime: URL, expected: String, executable: URL? = nil) -> Bool {
         do {
             try directory(runtime)
-            guard let record = try JSONSerialization.jsonObject(with: readPrivate(runtime.appendingPathComponent("installed-wheel.json"))) as? [String: Any],
-                  Set(record.keys) == Set(["managed_by", "schema", "wheel_sha256"]),
+            guard expected.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil else { return false }
+            guard let record = try JSONSerialization.jsonObject(with: readPrivate(runtime.appendingPathComponent("installed-wheel.json"), limit: 1024)) as? [String: Any],
+                  Set(record.keys) == Set(["managed_by", "schema", "wheel_sha256", "runtime", "launcher_sha256"]),
                   record["managed_by"] as? String == "account-access-runtime-v1",
-                  record["schema"] as? Int == 1, record["wheel_sha256"] as? String == expected else { return false }
+                  let schema = record["schema"] as? NSNumber, ["i", "q"].contains(String(cString: schema.objCType)),
+                  schema.intValue == 2, record["wheel_sha256"] as? String == expected,
+                  let path = record["runtime"] as? String, path.hasPrefix("/"), !path.contains("\0"),
+                  let launcherHash = record["launcher_sha256"] as? String,
+                  launcherHash.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil else { return false }
+            let python = URL(fileURLWithPath: path).standardizedFileURL
+            let bin = python.deletingLastPathComponent()
+            let environment = bin.deletingLastPathComponent()
+            guard python.path == path,
+                  executable == nil || executable == python,
+                  environment.deletingLastPathComponent() == runtime.appendingPathComponent("environments"),
+                  bin.lastPathComponent == "bin",
+                  python.lastPathComponent.range(of: "^python(?:3(?:\\.[0-9]+)?)?$", options: .regularExpression) != nil,
+                  FileManager.default.isExecutableFile(atPath: python.path) else { return false }
+            try directory(runtime.appendingPathComponent("environments"))
+            try directory(environment)
+            try directory(bin, privateOnly: false)
+            let launcher = try readPrivate(runtime.appendingPathComponent("bin/account-access"), limit: 8192, mode: 0o700)
+            let actualHash = SHA256.hash(data: launcher).map { String(format: "%02x", $0) }.joined()
+            guard actualHash == launcherHash, launcher == activatedLauncher(python: python) else { return false }
             return true
         } catch { return false }
     }

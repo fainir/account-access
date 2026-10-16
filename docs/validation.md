@@ -1,5 +1,33 @@
 # Validation of Account Access
 
+## Bound runtime activation — 17 October 2026
+
+Candidate build 60 binds the installed wheel record to the activated interpreter,
+launcher digest and fixed isolated-import command. The native app and background
+helper require that complete binding before reopening or executing the runtime.
+A native regression demonstrated that the preceding verifier accepted a different
+managed environment using the active wheel's digest. That environment is now
+rejected. Changed launcher bytes, a launcher pointing to a different interpreter,
+invalid metadata and legacy unbound records also require repair.
+
+The installer recognizes a private legacy record for backup/rollback, then
+publishes schema 2 only after successful startup and launcher installation.
+Failed repair preserves the preceding record. A managed client using the new
+logic starts the activated launcher when its service is cold, even if that client
+runs from a retained environment. Invalid activation cannot fall back to the
+retained interpreter; Pause still stops on-demand startup first. Ordinary
+standalone/developer installations retain their existing startup path. Unmodified
+pre-60 clients do not gain this behavior retroactively; known host integrations
+are refreshed by installation, and long-running old clients need a restart.
+
+All **40 bootstrap and automatic-session cases** passed in 9.36 seconds. Eight
+native policy/path checks passed, including paths with spaces and apostrophes.
+The new managed-client and activation cases supplement the preceding supervision
+and setup coverage; full candidate/package validation is recorded below when
+complete. This is update consistency, not independent code attestation or a
+separate OS credential identity. Complete broker/runtime isolation and a trusted
+owner enrollment channel remain production work.
+
 ## Update rollback after an uncertain stop — 17 October 2026
 
 The next candidate fixes two additional installer failures reproduced by new

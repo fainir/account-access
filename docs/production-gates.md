@@ -76,6 +76,12 @@ or physical-device coverage.
   its environment is retained and the previous service is not restarted beside
   it. Controlled failure tests cover these cases; installed owner upgrade remains
   a separate acceptance gate.
+- Runtime activation records bind the wheel, managed interpreter, launcher
+  digest and exact isolated command. Native reopening and the OS helper reject
+  stale/unbound activation. Updated managed clients use the activated launcher
+  for cold startup, preserving Pause. This does not attest every runtime file or
+  protect against an unrestricted same-user process; unchanged legacy clients
+  need their integration refreshed and long-running processes restarted.
 - Google Authenticator transfer QR images can be imported locally. The owner
   selects one entry for an existing authenticator source; other entries are
   discarded. Previews are encrypted, expire after ten minutes, and do not return
