@@ -415,6 +415,19 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 throw Failure.message("Another file already uses the Account Access app name. Your existing file has been preserved.")
             }
         }
+        // Replacing an app bundle does not replace an already-running process.
+        // Ask the prior owner UI to close normally; its busy-step guard can
+        // refuse. The independent local account service remains running.
+        let peers = NSRunningApplication.runningApplications(withBundleIdentifier: "com.fainir.accountaccess")
+            .filter { $0.processIdentifier != getpid() && $0.bundleURL?.standardizedFileURL == target.standardizedFileURL }
+        for peer in peers where !peer.isTerminated { _ = peer.terminate() }
+        let closeDeadline = Date().addingTimeInterval(8)
+        while peers.contains(where: { !$0.isTerminated }) && Date() < closeDeadline {
+            Thread.sleep(forTimeInterval: 0.1)
+        }
+        guard peers.allSatisfy({ $0.isTerminated }) else {
+            throw Failure.message("The previous Account Access window is still open. Finish its current step and quit it, then retry this update. Your accounts are preserved.")
+        }
         let temporary = directory.appendingPathComponent(".account-access-" + UUID().uuidString + ".app")
         try files.copyItem(at: source, to: temporary)
         defer { try? files.removeItem(at: temporary) }

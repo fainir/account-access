@@ -2,6 +2,16 @@
 
 ## Browser verification and repair candidate — 16 October 2026, version 0.8
 
+Follow-up `6db076d` fixes the reviewed SMS-request guard for a connected Google
+Messages source and adds nine exact public GitHub assets used by the passkey
+page's alternative-method control. An owner-reviewed connector update preserves
+the enrolled SMS source and read grants. All **235 tests**, nine native
+owner-screen checks, native Messages checks, Ruff, dependency audit and build
+passed in [CI](https://github.com/fainir/account-access/actions/runs/38899053403).
+The [Android emulator journey](https://github.com/fainir/account-access/actions/runs/38899053946)
+also passed. The preceding local full suite passed 234 tests; the asset-refresh
+grant-preservation test and eight related cases then passed locally.
+
 The latest follow-up preserves Chromium's native main-frame transport and final
 redirect URL while checking every redirect response before it is followed. Tests
 cover credential-bearing 307/308 redirects and requests from pages, fetches,
@@ -17,18 +27,27 @@ synthetic tests, including password → paired-page DOM reader → framed native
 → browser SMS verification. A real extension load used a separate temporary
 Chromium profile and verified that message-site access was absent initially.
 Only structural metadata and fresh-message indicators were inspected on the
-owner's paired Google Messages tab; no code was returned to the agent. The private
-extension connection has not yet been enabled. The owner approved installation
-and GitHub SMS access, and the local native host was prepared. Chrome's protected
-extension-management page requires the owner to load the unpacked folder; browser
-automation was blocked by policy. This is not completed private SMS QA.
+owner's paired Google Messages tab; no code was returned to the agent. The owner
+loaded the extension and its approved GitHub SMS connection is enabled. Private
+sign-in validation is still in progress; connection enrollment is not completed
+SMS-delivery or website-login QA.
 
 Native checks now also distinguish a timeout before confirmed SMS dispatch from
 unconfirmed delivery after dispatch. A provider-required owner action or unknown
 sign-in page is reported before the owner review window ends. Graphical repair
-to signed build 28 preserved saved accounts and permissions and installed the
-optional Google Messages setup screen. Chrome Web Store distribution remains
-outstanding.
+to signed build 30 preserved saved accounts and permissions. The owner view now
+exposes closed route/control diagnostics and exact public vendor asset names,
+excluding credentials, code values, arbitrary page text and URL queries. Chrome
+Web Store distribution remains outstanding.
+
+After the build 30 live attempt, desktop control could reach Chrome but could
+not attach to Account Access while two app instances were running. The owner was
+asked to close and reopen the app. A build 31 source follow-up now asks the prior
+canonical owner window to terminate normally before replacing its bundle, waits
+up to eight seconds, and refuses replacement if that window remains open. It
+does not force-terminate an active owner step or stop the independent account
+service. Compilation and all nine native screen checks passed locally; the
+guard's real update recovery remains to be verified.
 
 The functional candidate at `9fbcad0` passed 173 tests, native owner/reader checks,
 Ruff, dependency audit and build in [CI](https://github.com/fainir/account-access/actions/runs/38886257072).
