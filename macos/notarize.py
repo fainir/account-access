@@ -17,8 +17,9 @@ import subprocess
 import sys
 import tempfile
 import uuid
+import zipfile
 from contextlib import contextmanager
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 APP_ID = "com.fainir.accountaccess"
 ARCHES = {"arm64", "x86_64"}
@@ -336,22 +337,51 @@ class Notarization:
             private_check(self.output)
             if not state.get("output_sha256") or sha256(self.output) != state["output_sha256"]:
                 raise ReleaseError("release_archive_already_exists")
+            self.verify_archive(self.output, state)
         else:
             temporary = self.root / "release.tmp.zip"
             if temporary.exists() or temporary.is_symlink():
                 private_check(temporary)
-                if not state.get("output_sha256") or sha256(temporary) != state["output_sha256"]:
+                if state.get("output_sha256") and sha256(temporary) != state["output_sha256"]:
                     raise ReleaseError("incomplete_release_archive_needs_review", "NEEDS_REVIEW")
             else:
                 self.tool(["ditto", "-c", "-k", "--keepParent", str(self.app), str(temporary)])
                 os.chmod(temporary, 0o600)
-                state["output_sha256"] = sha256(temporary)
-                state["phase"] = "PACKAGED"
-                self.save(state)
+            self.verify_archive(temporary, state)
+            state["output_sha256"] = sha256(temporary)
+            state["phase"] = "PACKAGED"
+            self.save(state)
             os.replace(temporary, self.output)
         state["phase"] = "READY_FOR_RELEASE_REVIEW"
         self.save(state)
         return self.report(state)
+
+    def verify_archive(self, archive, state):
+        """Verify the bytes recipients unpack, including ticket preservation."""
+        with zipfile.ZipFile(archive) as source:
+            entries = source.infolist()
+            if len(entries) > 5000 or sum(entry.file_size for entry in entries) > 512 * 1024 * 1024:
+                raise ReleaseError("release_archive_too_large")
+            names = set()
+            for entry in entries:
+                parts = PurePosixPath(entry.filename).parts
+                allowed = bool(parts) and (parts[0] == self.app.name or
+                    (parts[0] == "__MACOSX" and (len(parts) == 1 or parts[1] in {self.app.name, "._" + self.app.name})))
+                if (not allowed or ".." in parts or "\\" in entry.filename or "\x00" in entry.orig_filename
+                        or entry.filename in names or stat.S_ISLNK(entry.external_attr >> 16)):
+                    raise ReleaseError("unexpected_release_archive_contents")
+                names.add(entry.filename)
+            if source.testzip() is not None:
+                raise ReleaseError("release_archive_crc_failed")
+        with tempfile.TemporaryDirectory(prefix=".unpack-", dir=self.root) as location:
+            self.tool(["ditto", "-x", "-k", str(archive), location])
+            if {path.name for path in Path(location).iterdir()} - {self.app.name, "__MACOSX"}:
+                raise ReleaseError("unexpected_release_archive_contents")
+            unpacked = Path(location) / self.app.name
+            if self.app_info(unpacked, state["app"]["team"]) != state["app"]:
+                raise ReleaseError("packaged_app_changed")
+            self.tool(["xcrun", "stapler", "validate", "-q", str(unpacked)])
+            self.tool(["syspolicy_check", "distribution", str(unpacked)])
 
     def report(self, state, *, cached=False):
         result = {"status": "CACHED_STATE" if cached else state["phase"], "submission_id": state.get("submission_id"),
@@ -404,7 +434,7 @@ def main():
     except ReleaseError as exc:
         print(json.dumps({"status": exc.status, "reason": exc.reason}))
         return 1
-    except (OSError, ValueError, KeyError, TypeError):
+    except (OSError, ValueError, KeyError, TypeError, zipfile.BadZipFile):
         print(json.dumps({"status": "DENIED", "reason": "invalid_or_incomplete_release_state"}))
         return 1
 

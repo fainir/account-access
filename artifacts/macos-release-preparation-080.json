@@ -10,11 +10,12 @@
     "Submission boundary and archive-bound receipt prevent blind reuploads after interruption",
     "Accepted Apple log must match exact job, archive and SHA-256",
     "Ticket validation, unchanged code hashes and system distribution check required before final ZIP",
+    "Final ZIP is privately extracted; signatures, wheel, ticket and distribution checks repeat on the unpacked app",
     "Cached state cannot masquerade as fresh release validation; no automatic GitHub publication"
   ],
   "controlled_validation": {
-    "protocol_security_cases_passed": 32,
-    "seconds": 0.71,
+    "protocol_security_cases_passed": 35,
+    "seconds": 0.72,
     "lint": "passed",
     "apple_responses": "simulated in tests",
     "limits": [
@@ -34,7 +35,11 @@
     "apple_submission_created": false,
     "apple_acceptance_verified": false,
     "ticket_stapled": false,
-    "clean_downloaded_install_verified": false
+    "clean_downloaded_install_verified": false,
+    "extracted_app_signature_checks": "passed",
+    "extracted_ticket_check": "rejected missing ticket as expected",
+    "extracted_check_modified_state": false,
+    "release_artifact_created": false
   },
   "owner_state": {
     "installed_build": 53,

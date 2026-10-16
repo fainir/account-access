@@ -128,14 +128,18 @@ the profile and explicitly start a new work directory after that review.
 `check` makes one status request; an observation failure preserves the existing
 handle. `status` reports cached state only. `finalize` rechecks Apple's acceptance
 and archive digest, staples and validates the ticket, revalidates signatures and
-the wheel pin, and runs the system distribution check. Only then can it create
-`Account-Access-Mac-notarized.zip` and report `READY_FOR_RELEASE_REVIEW` with its
+the wheel pin, and runs the system distribution check. It then unpacks the ZIP
+in a private temporary directory and repeats the signature, wheel, ticket and
+distribution checks on the extracted app. Unexpected archive paths, symlinks,
+oversized archives and changed executable permissions are refused. Only then
+can it finalize `Account-Access-Mac-notarized.zip` and report `READY_FOR_RELEASE_REVIEW` with its
 checksum. It does not publish a release or certify private-account production
 coverage. A rejected, unknown or mismatched result cannot produce that artifact.
 
 The protocol/interruption tests use simulated Apple responses. Real build 56
-passes the local preparation checks, while the actual distribution check
-correctly reports its missing ticket. Live submission, stapling, acceptance and
+passes the local preparation and extracted signature checks, while the actual
+distribution and extracted-ticket checks correctly reject its missing ticket.
+Live submission, stapling, acceptance and
 clean downloaded installation remain unverified until the publisher connects
 valid Notary service credentials. See [validation](../docs/validation.md).
 

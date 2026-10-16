@@ -32,6 +32,7 @@ class AppleTools:
         self.hardened = True
         self.timestamp = True
         self.staple_error_after_ticket = False
+        self.release_corruption = None
 
     def __call__(self, argv, timeout=60):
         self.calls.append(argv)
@@ -48,12 +49,25 @@ class AppleTools:
                      + ("Timestamp=fixture timestamp\n" if self.timestamp else ""))
         elif argv[0] == "lipo":
             text = "x86_64 arm64\n"
+        elif argv[0] == "ditto" and "-x" in argv:
+            with zipfile.ZipFile(argv[-2]) as archive:
+                archive.extractall(argv[-1])
+                for entry in archive.infolist():
+                    Path(argv[-1], entry.filename).chmod((entry.external_attr >> 16) & 0o777)
         elif argv[0] == "ditto":
             app, target = Path(argv[-2]), Path(argv[-1])
             with zipfile.ZipFile(target, "w") as archive:
                 for path in sorted(app.rglob("*")):
                     if path.is_file():
-                        archive.write(path, str(Path(app.name) / path.relative_to(app)))
+                        if target.name == "release.tmp.zip" and self.release_corruption == "missing-ticket" and path.name == "fixture-notary-ticket":
+                            continue
+                        if target.name == "release.tmp.zip" and self.release_corruption == "code" and path.name == "AccountAccess":
+                            entry = zipfile.ZipInfo.from_file(path, str(Path(app.name) / path.relative_to(app)))
+                            archive.writestr(entry, b"changed code")
+                        else:
+                            archive.write(path, str(Path(app.name) / path.relative_to(app)))
+                if target.name == "release.tmp.zip" and self.release_corruption == "outside-file":
+                    archive.writestr("../outside.txt", "unrelated")
         elif argv[:3] == ["xcrun", "notarytool", "submit"]:
             self.uploads += 1
             self.submitted_sha = sha256(argv[3])
@@ -338,3 +352,18 @@ def test_unrecognized_existing_directory_is_preserved(tmp_path):
         Notarization(root)
     assert unrelated.read_text() == "unrelated private data"
     assert sorted(path.name for path in root.iterdir()) == ["last-tool.stderr"]
+
+
+@pytest.mark.parametrize("damage, reason", [
+    ("missing-ticket", "ticket_check_failed"),
+    ("code", "packaged_app_changed"),
+    ("outside-file", "unexpected_release_archive_contents"),
+])
+def test_packaged_app_must_retain_accepted_code_ticket_and_expected_paths(release, damage, reason):
+    task, tools = accepted(release)
+    tools.release_corruption = damage
+    with pytest.raises(ReleaseError, match=reason):
+        task.finalize(PROFILE)
+    assert not task.output.exists()
+    assert not (task.root.parent / "outside.txt").exists()
+    assert tools.uploads == 1
