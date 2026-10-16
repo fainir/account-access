@@ -4,10 +4,10 @@
   "passed": true,
   "environment": "controlled-demo",
   "exit_code": 0,
-  "elapsed_seconds": 41.62,
+  "elapsed_seconds": 43.89,
   "ordinary_prompt_without_skill_or_command": true,
   "used_project_launcher": true,
-  "launcher_verification": "absolute launcher path, or project skill directory with relative launcher",
+  "launcher_verification": "successful tool command resolves to the installed project launcher",
   "completed_four_account_task": true,
   "password_logins": 4,
   "email_verifications": 1,
@@ -20,5 +20,7 @@
     "TLS IMAP fixture, Messages database fixture",
     "Authenticator transfer import uses a fictional key",
     "No physical phone or private mailbox validation"
-  ]
+  ],
+  "evidence_revision": "9fbcad0256845d0ced1affc89dae481fc3c92b43",
+  "launcher_evidence_rechecked": true
 }

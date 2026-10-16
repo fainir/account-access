@@ -1,5 +1,38 @@
 # Validation of Account Access
 
+## Browser verification and repair candidate — 16 October 2026, version 0.8
+
+The functional candidate at `9fbcad0` passed 173 tests, native owner/reader checks,
+Ruff, dependency audit and build in [CI](https://github.com/fainir/account-access/actions/runs/38886257072).
+Its [Android emulator journey](https://github.com/fainir/account-access/actions/runs/38886257119)
+also passed. Eighteen additional evidence-checker cases cover successful absolute
+and relative launcher execution and reject merely echoed/read paths, failed
+commands and unrelated launchers.
+
+Native build 21 was installed through graphical repair on the pilot Mac. Its
+bundled wheel matched the signed checksum, its installed dependency lock matched
+the tested source, and existing account/grant state was preserved. The installed
+skill then completed a public SauceDemo inventory read. This is local repair
+evidence, not a clean notarized installation on a separate Mac.
+
+Fresh ordinary-language Codex and Claude Code sessions each completed one durable
+task across four fictional browser accounts, with four password submissions and
+one email, SMS and authenticator verification. Independent provider counters and
+task results confirm completion. Claude used `cd` into the project skill followed
+by `scripts/access`; the checker was corrected to recognize that successful form
+and the actual trace was rechecked. These fixtures do not establish private
+mailbox or physical-phone delivery. Evidence: [Codex](../artifacts/agent-tests/codex-verification-080.json),
+[Claude](../artifacts/agent-tests/claude-verification-080.json).
+
+The personal browser pilot used its imported website password and reached the SMS
+request form. An instrumented reviewed POST received an HTTP-accepted response,
+but no new incoming text appeared on the Mac in the bounded window. The owner
+reported no phone delivery for the preceding attempt. No SMS source was enabled,
+no private verification code was submitted, and the original blocked task was
+preserved. Real mailbox/authenticator enrollment and private sign-in completion
+remain outstanding. [Production acceptance](production-gates.md) records the
+remaining isolation, distribution and service-coverage gates.
+
 ## Automatic sessions and revised UX — 14 October 2026, version 0.6
 
 The native Mac app and responsive local console now show account status, actual approved reads, verification setup and password-import guidance separately. Desktop and 390-pixel mobile console layouts were rendered and checked; the native dashboard, verification empty state and password-import navigation were inspected on the Mac.

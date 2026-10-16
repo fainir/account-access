@@ -10,6 +10,7 @@ import base64
 import json
 import os
 import shutil
+import shlex
 import subprocess
 import tempfile
 import threading
@@ -28,6 +29,70 @@ from account_access.password_import import apply, preview
 from account_access.service import create_app
 from account_access.storage import private_file
 from account_access.verification_demo import environment, write_password_export
+
+
+def used_installed_launcher(trace, skill, workspace):
+    """Recognize successful invocations, not paths merely mentioned in prose."""
+    commands = []
+    pending = {}
+    succeeded = set()
+    for line in trace.splitlines():
+        try:
+            event = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(event, dict):
+            continue
+        item = event.get("item")
+        if (event.get("type") == "item.completed" and isinstance(item, dict)
+                and item.get("type") == "command_execution" and item.get("exit_code") == 0):
+            commands.append(item.get("command", ""))
+        message = event.get("message", {})
+        blocks = message.get("content", []) if isinstance(message, dict) else []
+        for block in blocks if isinstance(blocks, list) else []:
+            if not isinstance(block, dict):
+                continue
+            if block.get("type") == "tool_use" and block.get("name") == "Bash":
+                arguments = block.get("input")
+                if isinstance(block.get("id"), str) and isinstance(arguments, dict):
+                    pending[block["id"]] = arguments.get("command", "")
+            elif block.get("type") == "tool_result" and not block.get("is_error", False):
+                if isinstance(block.get("tool_use_id"), str):
+                    succeeded.add(block["tool_use_id"])
+    commands += [command for ident, command in pending.items() if ident in succeeded]
+    target = (Path(skill) / "scripts/access").resolve()
+    for command in commands:
+        if not isinstance(command, str):
+            continue
+        try:
+            wrapper = shlex.split(command)
+            if (len(wrapper) == 3 and Path(wrapper[0]).name in {"sh", "bash", "zsh"}
+                    and wrapper[1] in {"-c", "-lc"}):
+                command = wrapper[2]
+            # Preserve quotes while recognizing operators: an echoed '&&'
+            # must not turn the following path into fake execution evidence.
+            lexer = shlex.shlex(command, posix=False, punctuation_chars=";&|")
+            lexer.whitespace_split = True
+            segments = [[]]
+            for token in lexer:
+                if token in {"&&", ";"}:
+                    segments.append([])
+                else:
+                    word = shlex.split(token)
+                    if len(word) != 1:
+                        raise ValueError("unsupported shell word")
+                    segments[-1].append(word[0])
+            cwd = Path(workspace)
+            for segment in segments:
+                if len(segment) == 2 and segment[0] == "cd":
+                    cwd = (cwd / segment[1]).resolve()
+                elif (len(segment) >= 2 and "/" in segment[0]
+                      and (cwd / segment[0]).resolve() == target
+                      and segment[1] in {"accounts", "run", "status", "task", "audit"}):
+                    return True
+        except (ValueError, OSError):
+            continue
+    return False
 
 
 def check(agent, workspace, codex_model=None):
@@ -112,8 +177,7 @@ def check(agent, workspace, codex_model=None):
                     complete = any(task["status"] == "COMPLETED" and
                                    {row["account"] for row in task["results"]} == expected for task in tasks)
                     skill = str(destination / "account-access")
-                    used_project_launcher = (skill + "/scripts/access" in result.stdout or
-                                             (skill in result.stdout and "./scripts/access " in result.stdout))
+                    used_project_launcher = used_installed_launcher(result.stdout, skill, workspace)
                     passed = (result.returncode == 0 and complete and used_project_launcher
                               and provider.login_count == 4 and provider.email_count == 1
                               and provider.sms_count == 1 and provider.totp_count == 1 and mailbox.fetches >= 1)
@@ -122,7 +186,8 @@ def check(agent, workspace, codex_model=None):
                               "elapsed_seconds": round(time.monotonic() - started, 2),
                               "ordinary_prompt_without_skill_or_command": True,
                               "used_project_launcher": used_project_launcher,
-                              "launcher_verification": "absolute launcher path, or project skill directory with relative launcher",
+                              "launcher_verification": "successful tool command resolves to the installed project launcher",
+                              "evidence_revision": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
                               "completed_four_account_task": complete,
                               "password_logins": provider.login_count, "email_verifications": provider.email_count,
                               "sms_verifications": provider.sms_count, "totp_verifications": provider.totp_count,

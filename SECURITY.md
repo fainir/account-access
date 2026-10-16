@@ -14,6 +14,11 @@ Describe the affected version, trust boundary, expected behavior and minimal rep
 - The owner console and owner CLI are privileged interfaces.
 - A skill and file permissions do not isolate credentials from an agent with unrestricted shell access under the same OS user. Use a separate OS identity or host for that threat model.
 - Demo file-key custody is for fictional data. Real vaults use supported OS keyrings.
+- The 0.8 candidate installer requires the dependency hashes shipped in its
+  verified wheel and refuses source builds. Staged repairs and launcher rollback
+  preserve the previous installation on failure. Python/Chromium vendor downloads,
+  trusted local bootstrap tooling and the same-user isolation limit remain part
+  of the trust model.
 - Provider-required presence and transaction approval are not automated as login codes.
 - After enrollment, the Mac SMS reader uses an active login window, an exact
   sender and a literal template. Candidate GitHub SMS setup checks at most 20

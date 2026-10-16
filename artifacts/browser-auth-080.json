@@ -4,7 +4,7 @@
   "authentication_scope": "Browser email/username and password, followed by connected email/SMS/TOTP verification",
   "provider_cli_authentication_route_removed": true,
   "installed_unrelated_connection_removed": true,
-  "automated_tests_passed": 173,
+  "automated_tests_passed": 191,
   "native_owner_screen_checks_passed": 7,
   "native_sms_reader_checks": "passed, including pre-password row boundaries and invalid-boundary rejection",
   "unenrolled_offered_method": "requests the matching local setup without using another factor",
@@ -14,7 +14,7 @@
   "native_message_text": "plaintext, keyed archives and bounded typedstream; Foundation-generated fictional fixtures",
   "sms_setup_delivery_boundary": "setup and normal sign-ins reject existing rows while tolerating a small clock offset on newly inserted messages",
   "private_sms_attempt": "reviewed POST received an HTTP-accepted response; no new text reached the Mac in the bounded window; owner reported no phone delivery for the preceding attempt",
-  "agent_checks_evidence_revision": "9b3510700b0134843e52b8988199b5e1e8b710cd",
+  "agent_checks_evidence_revision": "9fbcad0256845d0ced1affc89dae481fc3c92b43",
   "same_account_email_sms_totp_chain": "passed with fictional sources",
   "offered_method_selection": "passed with fictional sources; changed links and mandatory presence stop",
   "codex_four_account_browser_task": "passed with fictional sources",
@@ -33,5 +33,7 @@
   "additional_offline_hash_checks_passed": 2,
   "late_verification_response": "expired, cancelled, disabled or changed source/enrollment prevents code submission",
   "installer": "tested dependency hashes enforced; source builds refused; staged environment, owned launcher rollback and concurrent-repair exclusion",
-  "local_graphical_repair": "build 21 completed; saved accounts and grants preserved; installed public-site read completed"
+  "local_graphical_repair": "build 21 completed; saved accounts and grants preserved; installed public-site read completed",
+  "ci_full_suite_passed": 173,
+  "additional_agent_evidence_checks_passed": 18
 }

@@ -27,6 +27,11 @@ Add meaningful coverage for repeated use, expired/revoked access, transient fail
 
 Update the README/setup guide when usage changes. Keep version fields in `pyproject.toml` and `account_access/__init__.py` consistent; update the documented wheel filename for a new release.
 
+When runtime dependencies change, regenerate `account_access/runtime-requirements.txt`
+from the locked graph before building the wheel. The [Mac build guide](macos/README.md)
+has the export command. CI rejects drift; the installer requires those dependency
+hashes and refuses source builds.
+
 Review the [production acceptance matrix](docs/production-gates.md) before making
 release claims. Fixture success and private-account success are separate results.
 
