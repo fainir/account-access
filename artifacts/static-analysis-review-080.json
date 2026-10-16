@@ -1,0 +1,42 @@
+{
+  "version": "0.8.0-candidate",
+  "date": "2026-10-16",
+  "scope": "Bandit 1.9.4 over account_access application source only",
+  "tool_exit_code": 1,
+  "scan_errors": 0,
+  "findings": {
+    "high": 0,
+    "medium": 2,
+    "low": 25
+  },
+  "review": [
+    {
+      "rule": "B608",
+      "count": 2,
+      "assessment": "The two flagged SQL strings choose a table from a closed literal map or add a fixed predicate; runtime values are bound parameters. No arbitrary user SQL observed."
+    },
+    {
+      "rule": "B105",
+      "count": 12,
+      "assessment": "Reviewed matches are published fictional credentials, a CSS password selector and protocol/status literals. This is not a complete secret scan."
+    },
+    {
+      "rule": "B404/B603",
+      "count": 10,
+      "assessment": "Reviewed subprocess sites use argument arrays without shell execution. Configuration/runtime paths are trusted local operator inputs; same-user OS isolation is not established."
+    },
+    {
+      "rule": "B110",
+      "count": 3,
+      "assessment": "Reviewed suppression avoids leaking diagnostic/provider text or performs best-effort rollback. Unexpected worker failures still lack owner-visible operational health; this remains release work."
+    }
+  ],
+  "no_blanket_suppressions_added": true,
+  "production_ready": false,
+  "limits": [
+    "Review is internal and manual, not an independent security audit",
+    "No claim that the application is vulnerability-free",
+    "QA guard scripts were outside this application-only scan",
+    "Private mailbox and physical-device acceptance remain incomplete"
+  ]
+}

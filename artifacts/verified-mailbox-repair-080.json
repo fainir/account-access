@@ -32,19 +32,52 @@
     "cli_codex": "passed; four fictional accounts in 25.43 seconds",
     "cli_claude": "Guarded fixture passed in 74.18 seconds with four password logins and one email, SMS and TOTP verification; failed global-selection run retained separately",
     "guard_evidence_cases_passed_after_legacy_retirement": 65,
-    "guard_evidence_seconds_after_legacy_retirement": 0.51
+    "guard_evidence_seconds_after_legacy_retirement": 0.51,
+    "cli_claude_final": "Passed in 102.33 seconds; all successful trace tools satisfy the fixture policy, 19 guarded calls and 6 denials, audit retained privately",
+    "cli_claude_final_evidence_revision": "773568e9bda3676ae2d10753ab410eefb8dd0fa6",
+    "first_guard_revision_ci": {
+      "revision": "2ce1c9ca5f1fa6f1809c5251d4c6911d38af68ff",
+      "tests_passed": 546,
+      "seconds": 427.67,
+      "url": "https://github.com/fainir/account-access/actions/runs/38959218904"
+    },
+    "final_ci": {
+      "revision": "773568e9bda3676ae2d10753ab410eefb8dd0fa6",
+      "tests_passed": 550,
+      "seconds": 431.92,
+      "url": "https://github.com/fainir/account-access/actions/runs/38959629461",
+      "native_owner_messages_and_startup": "passed",
+      "lint": "passed",
+      "dependency_audit": "no known vulnerabilities found",
+      "package_build": "passed",
+      "android_journey": "passed",
+      "android_url": "https://github.com/fainir/account-access/actions/runs/38959629189"
+    }
   },
   "private_validation": {
     "additional_namecheap_requests": 0,
-    "additional_github_requests": 1,
     "private_mailbox_or_carrier_test_completed": false,
     "owner_gmail_enrollment": "pending; installed form left untouched",
-    "unintended_global_read": "Failed Claude fixture run selected global connection and read one stopped-service profile; excluded from acceptance. Guard remediation added."
+    "unintended_global_read": "Local service audit confirms two completed stopped-service profile reads during the unguarded attempts; excluded from acceptance. Guard remediation added.",
+    "confirmed_unintended_stopped_service_profile_reads": 2,
+    "uncaptured_timeout_scope": "No raw trace retained; local audit confirms one stopped-service profile read in its window. No acceptance claimed.",
+    "stopped_service_profile_reads_after_guard_began": 0
   },
   "distribution": {
     "candidate_mac_build": 54,
     "installed_build": 53,
-    "candidate_status": "Signed universal build 54 staged separately and strict/deep signature verified; not installed over pending owner credential entry"
+    "candidate_status": "Signed universal build 54 staged separately and strict/deep signature verified; not installed over pending owner credential entry",
+    "bundled_wheel_sha256": "b5a6680db531d7c160337bbd2d56d73b693d7e2652a6165220e40c59feafe86a",
+    "source_files_compared": 58,
+    "package_matches_source": true,
+    "staged_signature_check": "strict/deep passed"
   },
-  "privacy": "Public evidence excludes personal identifiers, local file locations, credentials, cookies, codes and raw traces"
+  "privacy": "Public evidence excludes personal identifiers, local file locations, credentials, cookies, codes and raw traces",
+  "static_analysis": {
+    "record": "artifacts/static-analysis-review-080.json",
+    "medium_findings_reviewed": 2,
+    "low_findings_reviewed": 25,
+    "high_findings": 0,
+    "independent_review_complete": false
+  }
 }

@@ -43,6 +43,11 @@ instead of the temporary project client and read four global connection results,
 including one private-service profile after testing that service had been
 stopped. This was a test-isolation mistake, not proof of private-account success.
 An earlier timeout retained no trace and cannot be counted as a pass.
+The installed service's local audit subsequently confirmed another completed
+stopped-service profile read during that earlier attempt: **two reads total**
+in the unguarded QA windows, and none after the guarded runs began. Reading that
+local audit did not start another website login. Both unguarded runs remain
+excluded from acceptance.
 
 The harness now uses a distinct temporary Claude skill, binds the fixture client
 environment, exposes only Read/Skill/Bash with no external MCP/browser tools,
@@ -68,6 +73,35 @@ successful out-of-policy tool in the trace. The guard/evidence run passed
 privately alongside the trace. The
 [sanitized record](../artifacts/verified-mailbox-repair-080.json) retains the
 failed-run evidence without personal identifiers or raw traces.
+
+The final harness revision `773568e` was exercised again: Claude passed in
+**102.33 seconds**, with all successful trace tools independently checked
+against the fixture policy. Nineteen guard decisions included six denials; the
+code-free audit was retained privately with mode 0600. Four password logins and
+one email, SMS and TOTP verification completed. This validates the new trace
+acceptance check and audit retention as well as the underlying controlled flow.
+The first guard revision `2ce1c9c` also passed **546 tests** in 427.67 seconds in
+[CI](https://github.com/fainir/account-access/actions/runs/38959218904), along
+with native checks, lint, dependency audit and package build.
+
+Final revision `773568e` passed **550 tests** in 431.92 seconds in
+[CI](https://github.com/fainir/account-access/actions/runs/38959629461), native
+owner UI, Messages/startup checks, lint, dependency audit and package build. The
+[Android emulator journey](https://github.com/fainir/account-access/actions/runs/38959629189)
+also passed. These checks do not close the private mailbox, physical-device,
+distribution or credential-isolation release gates.
+
+### Internal static-analysis review
+
+Bandit 1.9.4 scanned the application package with no scanner errors and reported
+two medium and 25 low warnings (exit 1), with no high warnings. Both SQL warnings
+use constrained literal choices and bound values. Reviewed hardcoded-password
+matches are fictional credentials, a selector and protocol/status literals;
+subprocess sites use argument arrays. No blanket suppressions were added.
+The review also records missing owner-visible health for unexpected background
+worker errors as release work. The
+[sanitized review](../artifacts/static-analysis-review-080.json) is internal,
+application-only analysis, not an independent audit or proof of security.
 
 ## Reusable mailbox setup — 16 October 2026
 

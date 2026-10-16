@@ -22,7 +22,7 @@
   "limits": [
     "Failed acceptance run; agent selected a global connection instead of the fixture",
     "One stopped-service profile read occurred; no credential or code is included in this public record",
-    "A previous timeout retained no trace and cannot count as a pass",
+    "A previous timeout retained no trace; a later local audit confirmed another stopped-service profile read during that window. Neither run counts as a pass",
     "No private mailbox or physical device acceptance"
   ],
   "test_isolation_failure": {
