@@ -62,7 +62,7 @@ def test_sms_setup_endpoints_require_owner_origin_and_single_use(env, monkeypatc
     config = pilot(broker)
     def inspect(account, operation, spec, **kwargs):
         assert kwargs["setup_method"] == "sms" and kwargs["visible"] is True
-        kwargs["on_code_request"]("sms", time.time())
+        kwargs["on_code_request"]("sms", time.time(), 302)
         raise AccessError("NEEDS_USER", "browser_sms_required", "sms")
     monkeypatch.setattr(broker.browser, "read", inspect)
     server, token = make_owner_server(broker, guided=True)
@@ -87,6 +87,7 @@ def test_sms_setup_endpoints_require_owner_origin_and_single_use(env, monkeypatc
                     break
                 time.sleep(.01)
             assert state["connection_jobs"][ident]["code_requested"]["kind"] == "sms"
+            assert state["connection_jobs"][ident]["code_requested"]["http_status"] == 302
             payload = {"id": ident, "sender": "Example", "template": "{code} is your GitHub authentication code."}
             assert client.post("/owner/sms/setup-apply", json=payload).status_code == 403
             assert client.post("/owner/sms/setup-apply", json=payload, headers=owner).status_code == 200

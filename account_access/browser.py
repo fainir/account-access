@@ -20,6 +20,7 @@ class Browser:
     def context(self, browser, config, state=None, *, login=False, account=None):
         context = browser.new_context(storage_state=state, java_script_enabled=config.javascript,
                                       service_workers="block", accept_downloads=False)
+        context._login_code_request = None
         allowed = set(config.login_resources if login else config.read_resources)
         if login:
             allowed.add(config.login_url)
@@ -68,6 +69,12 @@ class Browser:
                     response = route.fetch(url=url, method=method, headers=headers,
                                            post_data=body if method == "POST" else "",
                                            max_redirects=0, max_retries=0, timeout=15000)
+                    pending_request = context._login_code_request
+                    if (hop == 0 and method == "POST" and pending_request is not None
+                            and url == pending_request["url"]):
+                        # Only fixed HTTP metadata, never response content or
+                        # hidden page banners, establishes that a request ran.
+                        pending_request["http_status"] = response.status
                     if response.status >= 400:
                         record_failure(request, url, "http_" + str(response.status), hop > 0)
                     if response.status in {301, 302, 303, 307, 308}:
@@ -288,10 +295,20 @@ class Browser:
                         raise AccessError("NEEDS_USER", "sms_setup_cancelled", method)
                     requested.add(method)
                     requested_at = time.time()
+                    confirmation = {"url": delivery.url, "http_status": None}
+                    context._login_code_request = confirmation
                     page.locator(delivery.selector).first.click(timeout=10000)
                     page.wait_for_load_state("domcontentloaded")
+                    context._login_code_request = None
+                    http_status = confirmation["http_status"]
+                    if http_status is None:
+                        raise AccessError("NEEDS_USER", "verification_code_request_not_submitted", method)
+                    self.store.audit("service", account, "", "login_code_request_result",
+                                     method + ":http_" + str(http_status))
+                    if not 200 <= http_status < 400:
+                        raise AccessError("NEEDS_USER", "verification_code_request_rejected", method)
                     if on_code_request:
-                        on_code_request(method, requested_at)
+                        on_code_request(method, requested_at, http_status)
                     self.wait_state(page, config, previous_kind=kind)
                     kind = self.challenge(page, config)
                     if kind not in {method, None, "action", "passkey", "device", "admin", method + "_request"}:
@@ -333,6 +350,11 @@ class Browser:
                 if self.challenge(page, config) != kind:
                     raise AccessError("NEEDS_USER", "verification_page_changed", "unknown")
                 self.check_form(page, factor.code_selector, config)
+                # Delivery can block while the owner revokes a source or the
+                # login window expires. Do not submit its late response.
+                self.codes.check_window(source_id, started)
+                if review_stop and review_stop.is_set():
+                    raise AccessError("NEEDS_USER", "sms_setup_cancelled", kind)
                 # In-memory only, one submission, never put in logs or task state.
                 page.locator(factor.code_selector).fill(code)
                 page.locator(factor.code_submit_selector).click(timeout=10000)

@@ -1007,6 +1007,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                     let state = try self.request("owner/state")
                     let job = (state["connection_jobs"] as? [String: [String: Any]])?[jobID] ?? [:]
                     if let delivery = job["code_requested"] as? [String: Any], delivery["kind"] as? String == "sms",
+                       let httpStatus = delivery["http_status"] as? Int, (200..<400).contains(httpStatus),
                        let at = delivery["at"] as? Double {
                         let preview = MessagesReader.previewGitHubSMS(path: path, started: at, afterRow: afterRow)
                         incoming = Int(preview["incoming"] ?? "0") ?? 0
@@ -1014,7 +1015,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                         if preview["status"] == "WAITING" {
                             let message = unreadable > 0 ? "Some incoming messages could not be read."
                                 : incoming > 0 ? "New messages arrived; waiting for the GitHub login text…"
-                                : "Waiting for the login SMS to reach Messages on this Mac…"
+                                : "The website accepted the SMS request. Waiting for it to reach Messages on this Mac…"
                             DispatchQueue.main.async { self.status.stringValue = message }
                         }
                         if preview["status"] == "FOUND" {
@@ -1032,13 +1033,13 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                     } else if let outcome = job["status"] as? String, outcome != "RUNNING" {
                         throw Failure.message(job["reason"] as? String == "login_retry_cooldown"
                             ? "The website's sign-in cooldown is active. Wait one minute and connect SMS again."
-                            : "The website did not complete its reviewed SMS request. Your saved password is preserved.")
+                            : "The website did not accept its reviewed SMS request. No delivery was confirmed. Your saved password is preserved.")
                     }
                     Thread.sleep(forTimeInterval: 1)
                 }
                 let explanation = unreadable > 0 ? "New texts arrived, but some messages could not be decoded. No SMS filter was enabled. Update Account Access before trying again."
                     : incoming > 0 ? "New texts arrived, but none matched a supported GitHub login message. No SMS filter was enabled."
-                    : "No new incoming text reached Messages during this setup. Check iPhone text forwarding and SMS delivery, then try again."
+                    : "The website accepted the SMS request, but no new text reached this Mac. Check whether it arrived on your phone first. If it did, check text forwarding. No SMS filter was enabled."
                 throw Failure.message(waiting.isCancelled ? "SMS setup was cancelled. No SMS filter was enabled." : explanation)
             } catch {
                 if let id { _ = try? self.request("owner/sms/setup-discard", body: ["id": id]) }

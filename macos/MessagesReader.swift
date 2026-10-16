@@ -2,6 +2,7 @@ import Foundation
 import AppKit
 import SQLite3
 import CryptoKit
+import CoreFoundation
 
 struct MessagesReader {
     static func messagesPath() -> String? {
@@ -120,10 +121,15 @@ struct MessagesReader {
     static func read(_ data: Data, path: String) -> [String: Any] {
         guard data.count <= 8192,
               let request = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              request["action"] as? String == "read",
+              let rowNumber = request["after_row"] as? NSNumber,
+              CFGetTypeID(rowNumber) != CFBooleanGetTypeID(),
+              let afterRow = Int64(rowNumber.stringValue), afterRow >= 0,
               let sender = request["sender"] as? String, sender.count <= 200,
               let template = request["template"] as? String, template.count <= 2000,
               let started = request["started"] as? Double,
-              started.isFinite, abs(Date().timeIntervalSince1970 - started) <= 120 else {
+              started.isFinite, started <= Date().timeIntervalSince1970,
+              Date().timeIntervalSince1970 - started <= 120 else {
             return ["status": "NEEDS_USER", "reason": "invalid_message_request"]
         }
         let parts = template.components(separatedBy: "{code}")
@@ -141,14 +147,15 @@ struct MessagesReader {
         defer { sqlite3_close(db) }
         sqlite3_busy_timeout(db, 2000)
         var statement: OpaquePointer?
-        let sql = "SELECT message.guid, message.text, message.attributedBody FROM message JOIN handle ON handle.ROWID=message.handle_id WHERE message.is_from_me=0 AND handle.id=? AND message.date>=? ORDER BY message.date DESC LIMIT 20"
+        let sql = "SELECT message.guid, message.text, message.attributedBody FROM message JOIN handle ON handle.ROWID=message.handle_id WHERE message.is_from_me=0 AND handle.id=? AND message.date>=? AND message.ROWID>? ORDER BY message.date DESC LIMIT 20"
         guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
             return ["status": "NEEDS_USER", "reason": "mac_messages_permission_required"]
         }
         defer { sqlite3_finalize(statement) }
         let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
         sqlite3_bind_text(statement, 1, sender, -1, transient)
-        sqlite3_bind_double(statement, 2, (started - 978307200) * 1_000_000_000)
+        sqlite3_bind_double(statement, 2, (started - 5 - 978307200) * 1_000_000_000)
+        sqlite3_bind_int64(statement, 3, afterRow)
         let used = Set(request["used"] as? [String] ?? [])
         var matches: [[String: Any]] = []
         var status = sqlite3_step(statement)
@@ -172,6 +179,20 @@ struct MessagesReader {
         return matches.first.map { ["status": "FOUND", "id": $0["id"]!, "code": $0["code"]!] } ?? ["status": "WAITING"]
     }
 
+    static func begin(_ data: Data, path: String) -> [String: Any] {
+        guard data.count <= 8192,
+              let request = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              request["action"] as? String == "begin",
+              let started = request["started"] as? Double, started.isFinite,
+              started <= Date().timeIntervalSince1970,
+              Date().timeIntervalSince1970 - started <= 120,
+              let baseline = incomingBaseline(path: path) else {
+            return ["status": "NEEDS_USER", "reason": "mac_messages_permission_required"]
+        }
+        // Metadata only, before password submission can trigger a login text.
+        return ["status": "READY", "after_row": baseline]
+    }
+
     static func run() {
         let data = (try? FileHandle.standardInput.read(upToCount: 8193)) ?? Data()
         guard let user = getpwuid(getuid()) else { return }
@@ -187,7 +208,8 @@ struct MessagesReader {
             return
         }
         let path = home.appendingPathComponent("Library/Messages/chat.db").path
-        let result = read(request, path: path)
+        let fields = (try? JSONSerialization.jsonObject(with: request)) as? [String: Any]
+        let result = fields?["action"] as? String == "begin" ? begin(request, path: path) : read(request, path: path)
         if let output = try? JSONSerialization.data(withJSONObject: result) { FileHandle.standardOutput.write(output) }
     }
 

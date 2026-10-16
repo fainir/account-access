@@ -64,7 +64,7 @@ def launch(root, *, key_file=None, open_browser=True, on_demand=False):
     store = Store(root, load_key(root, key_file, create=True))
     with store.lock("desktop-launch", timeout=20):
         info = running(root)
-        if info and info.get("version") != __version__:
+        if info and (info.get("version") != __version__ or info.get("runtime") != sys.executable):
             stop(root, updating=True)
             with store.lock("service", timeout=20):
                 pass
@@ -143,7 +143,8 @@ def host(broker):
         instance_key = secrets.token_bytes(32)
         server, token = make_owner_server(broker, guided=True, instance_key=instance_key)
         info = {"url": f"http://127.0.0.1:{server.server_port}/", "token": token,
-                "instance_key": instance_key.hex(), "pid": os.getpid(), "version": __version__}
+                "instance_key": instance_key.hex(), "pid": os.getpid(), "version": __version__,
+                "runtime": sys.executable}
         private_file(root / "desktop.json", json.dumps(info).encode(), replace=(root / "desktop.json").exists())
         try:
             with server:

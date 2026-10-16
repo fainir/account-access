@@ -28,7 +28,7 @@ import CryptoKit
   let date = Int64((now - 978307200) * 1_000_000_000)
   let rows = "INSERT INTO message VALUES('valid','Example [login]: 123456',NULL,1,0,\(date)); INSERT INTO message VALUES('payment','Payment: 654321',NULL,1,0,\(date)); INSERT INTO message VALUES('outgoing','Example [login]: 654321',NULL,1,1,\(date)); INSERT INTO message VALUES('wrong-sender','Example [login]: 654321',NULL,2,0,\(date)); INSERT INTO message VALUES('old','Example [login]: 654321',NULL,1,0,\(date - 300_000_000_000));"
   precondition(sqlite3_exec(db, rows, nil, nil, nil) == SQLITE_OK)
-  var request: [String: Any] = ["source": "phone", "sender": "Example", "template": template, "started": now - 1, "used": [], "nonce": "example-request"]
+  var request: [String: Any] = ["action": "read", "after_row": 0, "source": "phone", "sender": "Example", "template": template, "started": now - 1, "used": [], "nonce": "example-request"]
   func payload() throws -> Data { try JSONSerialization.data(withJSONObject: request) }
   let bytes = try payload()
   let signature = HMAC<SHA256>.authenticationCode(for: bytes, using: SymmetricKey(data: key)).map { String(format: "%02x", $0) }.joined()
@@ -102,7 +102,24 @@ import CryptoKit
   precondition(MessagesReader.previewGitHubSMS(path: path, started: now - 1, afterRow: baseline)["status"] == "WAITING")
   precondition(sqlite3_exec(db, "INSERT INTO message VALUES('rounded-phone-time','343434 is your GitHub authentication code.',NULL,1,0,\(date - 2_000_000_000))", nil, nil, nil) == SQLITE_OK)
   precondition(MessagesReader.previewGitHubSMS(path: path, started: now - 1, afterRow: baseline)["status"] == "FOUND")
-  print("PASS: SMS setup ignores existing rows while allowing a small clock offset on a newly delivered text")
+  request["after_row"] = baseline
+  let roundedRead = MessagesReader.read(try payload(), path: path)
+  precondition(roundedRead["code"] as? String == "343434")
+  var beginRequest = request; beginRequest["action"] = "begin"
+  let boundary = MessagesReader.begin(try JSONSerialization.data(withJSONObject: beginRequest), path: path)
+  precondition(boundary["status"] as? String == "READY" && boundary["code"] == nil)
+  request["after_row"] = boundary["after_row"]
+  let oldRead = MessagesReader.read(try payload(), path: path)
+  precondition(oldRead["status"] as? String == "WAITING")
+  for invalid: Any in [true, -1, 0.5, "0", NSNull()] {
+    request["after_row"] = invalid
+    let invalidRead = MessagesReader.read(try payload(), path: path)
+    precondition(invalidRead["reason"] as? String == "invalid_message_request")
+  }
+  request["after_row"] = baseline; request["started"] = now + 60
+  let futureRead = MessagesReader.read(try payload(), path: path)
+  precondition(futureRead["reason"] as? String == "invalid_message_request")
+  print("PASS: setup and normal SMS login ignore existing rows while allowing a small clock offset on a newly delivered text; invalid boundaries stop safely")
   print("PASS: Foundation-generated typedstream text, Unicode lengths, mutable strings, metadata exclusion, malformed archives and the native SMS paths")
   print("PASS: owner SMS template preview excludes codes, unrelated messages, expired requests and ambiguous deliveries")
   print("PASS: no-row permission probe, signed request authentication, literal template, sender/time/incoming filters, used-message exclusion, attributed SMS text, ambiguity protection")

@@ -146,12 +146,14 @@ def test_manual_pause_is_respected_and_timeouts_do_not_replay_operations(env, tm
     assert error.value.reason == "service_unavailable" and not called
 
 
-def test_service_upgrade_preserves_vault_grants_and_pause_intent(env):
+@pytest.mark.parametrize("changed", [{"version": "older-installed-version"},
+                                     {"runtime": "/previous/installation/bin/python"}])
+def test_service_upgrade_preserves_vault_grants_and_pause_intent(env, changed):
     _, broker, _ = env
     root = broker.store.root
     first = launch(root, key_file=root / "demo.key", open_browser=False)
     try:
-        metadata = {**first, "version": "older-installed-version"}
+        metadata = {**first, **changed}
         private_file(root / "desktop.json", json.dumps(metadata).encode(), replace=True)
         second = launch(root, key_file=root / "demo.key", open_browser=False)
         assert second["pid"] != first["pid"]

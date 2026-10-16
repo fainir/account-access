@@ -15,6 +15,20 @@ Version 0.7 adds:
 - Password imports default to moving the plaintext export to Trash. This is not secure deletion; Trash and backups can still contain it.
 - Optional 1Password Connect links update only the password of the exact approved item. Username, website, connector, authenticator keys and operation permissions cannot change through sync.
 
+The 0.8 candidate also checks the verification window and its enrollment again
+immediately before entering a delivered code. Disabling, replacing or cancelling
+a source while delivery is pending stops submission. Mac SMS reads record a
+message-row boundary before the password can trigger delivery; only newly
+inserted rows are eligible, with a bounded allowance for phone-clock rounding.
+
+The candidate installer ships the tested dependency versions and their SHA-256
+hashes inside the verified wheel. It requires those hashes and prohibits source
+builds. It prepares a separate environment and browser before switching the
+launcher, restores the previous launcher after a failed startup, and prevents
+concurrent repairs. The previous environment is retained. Python and Chromium
+downloads still rely on their vendor distribution mechanisms; this does not
+claim an independently reproducible or fully offline installation.
+
 ## Password-source updates
 
 **Chrome, Apple Passwords and CSV exports are snapshots.** Import a fresh export when a password changes. A file export is not a live connection to the original manager. Account Access does not keep a plaintext CSV watcher or extract Chrome's encrypted password database.

@@ -53,7 +53,8 @@ def chain(tmp_path):
                         self.page('<div id="action-challenge">Approve a payment</div>')
                     elif kind == "request":
                         action = getattr(provider, "request_action", "/verify/request")
-                        self.page('<form action="' + action + '" method="post"><button id="send-sms">Send SMS</button></form>')
+                        button_type = ' type="button"' if getattr(provider, "request_inert", False) else ""
+                        self.page('<form action="' + action + '" method="post"><button id="send-sms"' + button_type + '>Send SMS</button></form>')
                     else:
                         self.page(f'<form id="{kind}-challenge" action="/verify/{kind}" method="post">'
                                   f'<input id="{kind}-code" name="code">'
@@ -80,6 +81,9 @@ def chain(tmp_path):
                     token, current = self.current()
                     kind = self.path.removeprefix("/verify/")
                     if kind == "request" and current and current[0] == "request":
+                        if getattr(provider, "request_rejected", False):
+                            self.send(429, {})
+                            return
                         provider.sms_request_count = getattr(provider, "sms_request_count", 0) + 1
                         current.pop(0)
                         self.send(303, {}, {"Location": self.stage(token)})
@@ -151,6 +155,40 @@ def test_unused_offline_alternative_does_not_block_enrolled_authenticator(chain,
     monkeypatch.setattr(broker.codes, "begin", optional)
     assert broker.run("test", "demo-mfa", "summary")["status"] == "COMPLETED"
     assert provider.totp_count == 1 and provider.email_count == provider.sms_count == 0
+
+
+@pytest.mark.parametrize("change,reason", [
+    ("disable", "verification_source_disabled"),
+    ("cancel", "login_code_window_missing"),
+    ("expire", "login_code_window_missing"),
+    ("source", "login_code_source_changed"),
+    ("enrollment", "verification_source_enrollment_changed"),
+])
+def test_late_code_is_not_submitted_after_source_or_window_changes(chain, monkeypatch, change, reason):
+    provider, broker, _, stages = chain
+    stages[:] = ["totp"]
+    resolve = broker.codes.resolve
+    def changed(source, started, used):
+        code = resolve(source, started, used)
+        if change == "disable":
+            broker.store.put("source:" + source, {"enabled": False})
+        elif change == "cancel":
+            broker.codes.finish(source, started)
+        elif change == "expire":
+            window = broker.store.get("code-window:" + source)
+            window["expires"] = 0
+            broker.store.put("code-window:" + source, window)
+        elif change == "enrollment":
+            broker.store.put("source:" + source, {"seed": pyotp.random_base32()})
+        else:
+            config = broker.store.config()
+            config.code_sources[source].template = "Changed login: {code}"
+            broker.store.configure(config)
+        return code
+    monkeypatch.setattr(broker.codes, "resolve", changed)
+    result = broker.run("test", "demo-mfa", "summary")
+    assert result["status"] in {"NEEDS_USER", "DENIED"} and result["reason"] == reason
+    assert provider.login_count == 1 and provider.totp_count == 0
 
 
 def test_repeated_factor_stops_after_one_submission(chain):
@@ -286,6 +324,26 @@ def test_offered_sms_request_then_fresh_code_completes_without_owner(chain):
     assert provider.sms_request_count == provider.sms_count == provider.login_count == 1
 
 
+@pytest.mark.parametrize("case,reason", [("request_rejected", "verification_code_request_rejected"),
+                                       ("request_inert", "verification_code_request_not_submitted")])
+def test_sms_setup_does_not_claim_delivery_request_without_a_successful_post(chain, case, reason):
+    provider, broker, _, stages = chain
+    stages[:] = ["choose", "request", "sms"]
+    configure_code_request(broker, provider)
+    setattr(provider, case, True)
+    spec = broker.store.config().accounts["demo-mfa"]
+    requested = []
+    with pytest.raises(AccessError) as error:
+        broker.browser.read("demo-mfa", spec.operations["summary"], spec, setup_method="sms",
+                            on_code_request=lambda kind, at, status: requested.append((kind, at, status)))
+    assert error.value.reason == reason
+    assert not requested and provider.sms_count == 0
+    if case == "request_rejected":
+        with broker.store.db() as db:
+            events = list(db.execute("SELECT reason FROM audit WHERE event='login_code_request_result'"))
+        assert [row[0] for row in events] == ["sms:http_429"]
+
+
 @pytest.mark.parametrize("case", ["changed_action", "repeated_request", "source_disabled"])
 def test_sms_request_stops_before_unreviewed_duplicate_or_unusable_delivery(chain, case):
     provider, broker, _, stages = chain
@@ -319,7 +377,7 @@ def test_owner_sms_setup_requests_delivery_without_retrieving_or_submitting_code
     requested = []
     with pytest.raises(AccessError) as stopped:
         broker.browser.read("demo-mfa", spec.operations["summary"], spec, setup_method="sms",
-                            on_code_request=lambda kind, at: requested.append((kind, at)))
+                            on_code_request=lambda kind, at, status: requested.append((kind, at, status)))
     assert stopped.value.kind == ("passkey" if presence else "sms")
     assert len(requested) == getattr(provider, "sms_request_count", 0) == (0 if presence else 1)
     assert provider.sms_count == 0

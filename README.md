@@ -9,7 +9,7 @@ Account Access is a local authentication and delegated-access service for **Code
 
 **Status: 0.7.4 preview.** The included examples are usable today. Real websites require reviewed connectors; this is not an “add any website” consumer app or validated production access to banks, Google, Meta or insurance accounts.
 
-This development branch contains the **0.8 candidate**: local Google Authenticator transfer import and a bundled-package installer with explicit service restart on repair. These changes are under validation; the download below remains the published 0.7.4 preview. See [production acceptance and remaining gates](docs/production-gates.md).
+This development branch contains the **0.8 candidate**: local Google Authenticator transfer import, reviewed SMS enrollment, and an installer that requires tested dependency hashes and can roll back a failed repair. These changes are under validation; the download below remains the published 0.7.4 preview. See [production acceptance and remaining gates](docs/production-gates.md).
 
 The browser sign-in flow uses the imported email/username and password, then supplies the website's email, SMS or authenticator login code from its connected source. A reviewed connector can configure all three methods for one website, including successive verification steps. This is the authentication flow being tested; using another application's existing login is not browser-authentication evidence.
 

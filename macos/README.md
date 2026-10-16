@@ -13,7 +13,25 @@ sh macos/build.sh
 
 For Developer ID signing, set `ACCOUNT_ACCESS_SIGNING_IDENTITY` to your own certificate name before building. The app and ZIP are written to `dist/macos/`.
 
-Build the wheel first: the wheel and its SHA-256 are embedded in the app's signed bundle. Installation verifies that pin before installing the bundled package. The standalone shell path downloads the package and checks its manifest; when a signed-app pin is supplied, it checks that too. Rebuild the app if the wheel changes. This pin covers the Account Access wheel; Python, runtime dependencies and Chromium can still require network downloads, and dependency installation relies on the configured package registry.
+Build the wheel first: the wheel and its SHA-256 are embedded in the app's signed bundle. Installation verifies that pin before installing the bundled package. The standalone shell path downloads the package and checks its manifest; when a signed-app pin is supplied, it checks that too. Rebuild the app if the wheel changes.
+
+The candidate wheel also contains `account_access/runtime-requirements.txt`,
+exported from `uv.lock`. CI and the Mac build check that it matches the tested
+graph. Installation enforces every package's hash and refuses source builds,
+including when using a configured alternate registry. When intentionally updating
+dependencies, regenerate that file before building:
+
+```sh
+uv export --locked --no-dev --no-emit-project --no-annotate --no-header --format requirements.txt --output-file account_access/runtime-requirements.txt
+```
+
+Repairs prepare a separate runtime under `runtime/environments/`, install its
+browser, and check imports before stopping the saved service. Only an owned
+launcher is replaced. Startup failure restores it and attempts to restart the
+previous service. Previous environments remain available for rollback and
+existing agent launchers; no automatic pruning is shipped. Python and Chromium
+can still require vendor downloads. Notarization and clean-Mac installation
+remain separate acceptance gates.
 
 The 0.8 candidate adds **Repair installation…** to the app menu. Installation explicitly stops and restarts the background service after replacing the package, including a repair with an unchanged version number. Credentials, grants and task checkpoints are preserved. The candidate also includes local Authenticator transfer-QR selection for browser verification. These are not evidence of completed physical-device or private mailbox QA; see [production acceptance](../docs/production-gates.md).
 

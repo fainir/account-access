@@ -10,6 +10,16 @@ if [ ! -f "$AC_WHEEL" ]; then
   echo "Build the 0.8.0 wheel with uv build before building the Mac installer." >&2
   exit 1
 fi
+# The runtime lock is shipped inside the signed wheel. Refuse a source lock that
+# differs from the dependency graph exercised in CI.
+AC_LOCK_CHECK=$(mktemp)
+trap 'rm -f "$AC_LOCK_CHECK"' EXIT HUP INT TERM
+uv export --project "$AC_SOURCE" --locked --no-dev --no-emit-project --no-annotate --no-header \
+  --format requirements.txt --output-file "$AC_LOCK_CHECK" > /dev/null
+if ! cmp -s "$AC_SOURCE/account_access/runtime-requirements.txt" "$AC_LOCK_CHECK"; then
+  echo "Refresh the runtime dependency export from uv.lock and rebuild the wheel first." >&2
+  exit 1
+fi
 AC_WHEEL_HASH=$(shasum -a 256 "$AC_WHEEL" | awk '{ print $1 }')
 mkdir -p "$AC_APP/Contents/MacOS" "$AC_APP/Contents/Resources"
 for AC_ARCH in arm64 x86_64; do
@@ -31,7 +41,7 @@ cat > "$AC_APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleExecutable</key><string>AccountAccess</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>0.8.0</string>
-<key>CFBundleVersion</key><string>19</string>
+<key>CFBundleVersion</key><string>21</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>

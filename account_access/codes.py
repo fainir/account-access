@@ -42,19 +42,28 @@ class Codes:
         self.store = store
         self.oauth = oauth
 
-    def resolve(self, source_id, started, used):
+    def check_window(self, source_id, started):
+        """Recheck after delivery as well as before it; network calls can block."""
         config = self.store.config()
-        source = config.code_sources[source_id]
-        if time.time() - started > 120:
+        source = config.code_sources.get(source_id)
+        if time.time() - started > 120 or started > time.time():
             raise AccessError("NEEDS_USER", "login_code_window_expired")
         window = self.store.get("code-window:" + source_id)
         if not window or window["started"] != started or window["expires"] < time.time():
             raise AccessError("DENIED", "login_code_window_missing")
-        if window.get("source_config") != source.model_dump():
+        if source is None or window.get("source_config") != source.model_dump():
             raise AccessError("DENIED", "login_code_source_changed")
         credentials = self.store.get("source:" + source_id, {}) or {}
         if credentials.get("enabled") is False:
             raise AccessError("NEEDS_USER", "verification_source_disabled")
+        current = hashlib.sha256(json.dumps(credentials, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        if window.get("source_enrollment") != current:
+            raise AccessError("DENIED", "verification_source_enrollment_changed")
+        return source, window, credentials
+
+    def resolve(self, source_id, started, used):
+        source, window, credentials = self.check_window(source_id, started)
+        config = self.store.config()
         if source.kind == "totp":
             if not credentials.get("seed"):
                 raise AccessError("NEEDS_USER", "authenticator_not_enrolled", "totp")
@@ -151,6 +160,9 @@ class Codes:
         config = self.store.config()
         source = config.code_sources[source_id]
         window["source_config"] = source.model_dump()
+        credentials = self.store.get("source:" + source_id, {}) or {}
+        window["source_enrollment"] = hashlib.sha256(
+            json.dumps(credentials, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         if source.kind == "imap":
             try:
                 with self.mailbox(source, self.store.get("source:" + source_id, {}), config) as mailbox:
@@ -161,6 +173,11 @@ class Codes:
                         window[name] = int(values[0])
             except (imaplib.IMAP4.error, OSError):
                 raise AccessError("NEEDS_USER", "mailbox_connection_failed", "email") from None
+        if source.kind == "mac_messages":
+            credentials = self.store.get("source:" + source_id, {}) or {}
+            if credentials.get("enabled") is not True:
+                raise AccessError("NEEDS_USER", "message_permission_required", "sms")
+            window["after_row"] = self.messages_baseline(source_id, source, started)
         self.store.put("code-window:" + source_id, window)
 
     def finish(self, source_id, started):
@@ -239,8 +256,8 @@ class Codes:
         except (imaplib.IMAP4.error, OSError, ssl.SSLError):
             raise AccessError("NEEDS_USER", "mailbox_connection_failed", "email") from None
 
-    def messages(self, source_id, source, started, used):
-        """Read only recent incoming texts from the exact owner-reviewed sender."""
+    def native_messages(self, source_id, source, started, **fields):
+        """Authenticated transport to the signed app; never exposed to agents."""
         binary = Path.home() / "Applications/Account Access.app/Contents/MacOS/AccountAccess"
         if sys.platform != "darwin" or not binary.is_file() or binary.is_symlink():
             raise AccessError("NEEDS_USER", "mac_messages_app_required", "sms")
@@ -253,7 +270,7 @@ class Codes:
                 raise AccessError("NEEDS_USER", "mac_messages_app_required", "sms")
             request = json.dumps({"source": source_id, "sender": source.sender,
                                  "template": source.template, "started": started,
-                                 "used": list(used), "nonce": secrets.token_hex(16)}, separators=(",", ":"))
+                                 "nonce": secrets.token_hex(16), **fields}, separators=(",", ":"))
             signature = hmac.new(key, request.encode(), hashlib.sha256).hexdigest()
             checked = subprocess.run(["/usr/bin/codesign", "--verify", "--strict", str(binary)],
                                      capture_output=True, timeout=3)
@@ -265,6 +282,26 @@ class Codes:
             payload = json.loads(result.stdout)
         except (ValueError, OSError, subprocess.SubprocessError):
             raise AccessError("NEEDS_USER", "mac_messages_permission_required", "sms") from None
+        if not isinstance(payload, dict):
+            raise AccessError("NEEDS_USER", "invalid_message_reader_response", "sms")
+        return payload
+
+    def messages_baseline(self, source_id, source, started):
+        payload = self.native_messages(source_id, source, started, action="begin")
+        baseline = payload.get("after_row")
+        if (payload.get("status") != "READY" or type(baseline) is not int
+                or not 0 <= baseline <= 2**63 - 1):
+            raise AccessError("NEEDS_USER", "mac_messages_permission_required", "sms")
+        return baseline
+
+    def messages(self, source_id, source, started, used):
+        """Read only new incoming texts from the exact owner-reviewed sender."""
+        window = self.store.get("code-window:" + source_id) or {}
+        baseline = window.get("after_row")
+        if window.get("started") != started or type(baseline) is not int or baseline < 0:
+            raise AccessError("DENIED", "message_login_window_missing", "sms")
+        payload = self.native_messages(source_id, source, started, action="read",
+                                       after_row=baseline, used=list(used))
         if payload.get("status") == "FOUND":
             code, ident = payload.get("code", ""), payload.get("id", "")
             if not re.fullmatch(r"[0-9]{6}", code) or not isinstance(ident, str) or ident in used:
@@ -276,14 +313,17 @@ class Codes:
         reason = "ambiguous_login_code" if payload.get("reason") == "ambiguous_login_code" else "mac_messages_permission_required"
         raise AccessError("NEEDS_USER", reason, "sms")
 
-    def messages_at(self, path, source, started, used):
-        since = (started - 978307200) * 1_000_000_000
+    def messages_at(self, path, source, started, used, *, after_row=None):
+        # Fictional Messages database adapter used by the end-to-end fixtures.
+        since = (started - (5 if after_row is not None else 0) - 978307200) * 1_000_000_000
         try:
             with sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True, timeout=2) as db:
                 rows = db.execute("SELECT message.guid, message.text FROM message "
                                   "JOIN handle ON handle.ROWID=message.handle_id "
                                   "WHERE message.is_from_me=0 AND handle.id=? AND message.date>=? "
-                                  "ORDER BY message.date DESC LIMIT 20", (source.sender, since)).fetchall()
+                                  + ("AND message.ROWID>? " if after_row is not None else "")
+                                  + "ORDER BY message.date DESC LIMIT 20",
+                                  (source.sender, since, after_row) if after_row is not None else (source.sender, since)).fetchall()
         except (sqlite3.Error, OSError):
             raise AccessError("NEEDS_USER", "mac_messages_permission_required", "sms") from None
         candidates = [(ident, match_code(source.template, body)) for ident, body in rows

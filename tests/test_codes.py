@@ -64,3 +64,45 @@ def test_code_window_expiry_requires_owner(env):
     _, broker, _ = env
     with pytest.raises(AccessError, match="login_code_window_expired"):
         broker.codes.resolve("demo-totp", time.time() - 121, set())
+
+
+def test_mac_sms_boundary_precedes_login_and_is_bound_to_same_window(env, monkeypatch):
+    _, broker, _ = env
+    config = broker.store.config()
+    config.code_sources["sms"] = CodeSource(kind="mac_messages", sender="Example", recipient="owner",
+                                           template="Example sign-in: {code}")
+    broker.store.configure(config)
+    broker.store.put("source:sms", {"enabled": True})
+    calls = []
+    def native(source_id, source, started, **fields):
+        calls.append((source_id, started, fields))
+        if fields["action"] == "begin":
+            return {"status": "READY", "after_row": 42}
+        return {"status": "FOUND", "id": "new-text", "code": "123456"}
+    monkeypatch.setattr(broker.codes, "native_messages", native)
+    started = time.time() - 1
+    broker.codes.begin("sms", "demo-web", started)
+    assert broker.store.get("code-window:sms")["after_row"] == 42
+    used = set()
+    assert broker.codes.resolve("sms", started, used) == "123456"
+    assert used == {"new-text"}
+    assert calls == [("sms", started, {"action": "begin"}),
+                     ("sms", started, {"action": "read", "after_row": 42, "used": []})]
+    broker.codes.finish("sms", started)
+    with pytest.raises(AccessError, match="message_login_window_missing"):
+        broker.codes.messages("sms", config.code_sources["sms"], started, set())
+    assert len(calls) == 2
+
+
+@pytest.mark.parametrize("baseline", [True, -1, 2**63, 0.5, "42", None])
+def test_invalid_native_sms_boundary_never_opens_login_window(env, monkeypatch, baseline):
+    _, broker, _ = env
+    config = broker.store.config()
+    config.code_sources["sms"] = CodeSource(kind="mac_messages", sender="Example", recipient="owner",
+                                           template="Example sign-in: {code}")
+    broker.store.configure(config)
+    broker.store.put("source:sms", {"enabled": True})
+    monkeypatch.setattr(broker.codes, "native_messages", lambda *a, **k: {"status": "READY", "after_row": baseline})
+    with pytest.raises(AccessError, match="mac_messages_permission_required"):
+        broker.codes.begin("sms", "demo-web", time.time())
+    assert broker.store.get("code-window:sms") is None
