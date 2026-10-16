@@ -21,6 +21,14 @@ website login. All nineteen native owner checks passed, and the signed build
 was installed and visually checked locally. Private Google app-password
 enrollment and code delivery remain separate acceptance gates.
 
+Candidate build **54** resumes recognized mailbox-access interruptions after a
+fresh successful owner check, with active permissions and unchanged connection
+configuration. Completed steps survive a service restart. Gmail OAuth health
+is bound to the authorization identity, so a new authorization or uncertain
+renewal needs a new check. This signed universal build is staged separately;
+build 53 remains installed while the owner Gmail form is awaiting enrollment.
+No private mailbox or physical-device acceptance is implied.
+
 Build with Xcode's command-line tools:
 
 ```sh

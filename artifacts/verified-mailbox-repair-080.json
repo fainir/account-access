@@ -30,7 +30,9 @@
     "fixture_guard_and_evidence_and_recovery_cases_passed": 78,
     "fixture_guard_and_evidence_and_recovery_seconds": 22.16,
     "cli_codex": "passed; four fictional accounts in 25.43 seconds",
-    "cli_claude": "failed isolation; guard remediation awaiting a fresh guarded run"
+    "cli_claude": "Guarded fixture passed in 74.18 seconds with four password logins and one email, SMS and TOTP verification; failed global-selection run retained separately",
+    "guard_evidence_cases_passed_after_legacy_retirement": 65,
+    "guard_evidence_seconds_after_legacy_retirement": 0.51
   },
   "private_validation": {
     "additional_namecheap_requests": 0,

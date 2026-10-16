@@ -139,6 +139,14 @@ or physical-device coverage.
 
 ## Private QA rules
 
+Agent CLI fixture runs must enforce their client boundary. The current harness
+uses a fixture-socket permission profile for Codex and a uniquely named temporary
+skill plus invocation-only tool gate for Claude. Successful trace tools are
+checked against the same policy. Older unrestricted smoke entry points refuse
+before making account requests. A failed Claude global-selection incident is
+retained in [validation](validation.md); it is excluded from acceptance. This
+test guard is not the separate-OS-identity production custody boundary.
+
 Keep account identifiers, raw agent traces, exports, QR images, messages and
 cookies out of public artifacts. Publish sanitized coverage and failure classes.
 Use read-only account checks. Preserve blocked task IDs rather than repeatedly

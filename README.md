@@ -84,6 +84,13 @@ bundle a consumer Google OAuth application.
 See the [installed setup screen and steps](docs/gmail-authenticator-and-sms.md)
 and [reusable-mailbox validation](artifacts/reusable-mailboxes-080.json).
 
+Candidate Mac build **54** also resumes the original task after a verified
+mailbox repair, including after the service restarts. It preserves completed
+work and checks unchanged account configuration and standing permissions before
+continuing. OAuth reconnection invalidates old mailbox checks. Build 54 is
+staged separately; installed build 53 remains available for owner enrollment.
+See [current validation and remaining private-account tests](docs/validation.md).
+
 | Method | One-time setup | During a supported login |
 | --- | --- | --- |
 | Email | Connect a configured TLS IMAP mailbox, or a reviewed Gmail OAuth connection | Read a fresh message matching sender, recipient, subject and template; submit its login code |

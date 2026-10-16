@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from scripts.agent_qa_guard import digest, permitted
-from scripts.agent_verification_smoke import claude_fixture_guard
+from scripts.agent_verification_smoke import claude_fixture_guard, fixture_trace_boundary
 
 
 @pytest.fixture
@@ -117,3 +117,27 @@ def test_generated_hook_denies_without_executing_global_launcher_and_fails_close
                             input=json.dumps(bash(shlex.quote(policy["launcher"]) + " accounts")),
                             text=True, capture_output=True)
     assert json.loads(result.stdout)["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+
+@pytest.mark.parametrize("global_succeeded", [False, True])
+def test_trace_acceptance_rejects_any_successful_tool_outside_fixture_policy(policy, global_succeeded):
+    fixture = shlex.quote(policy["launcher"]) + " accounts"
+    calls = [{"type": "tool_use", "name": "Bash", "id": name, "input": {"command": command}}
+             for name, command in [("fixture", fixture), ("global", "access accounts")]]
+    results = [{"type": "tool_result", "tool_use_id": name, "is_error": failed}
+               for name, failed in [("fixture", False), ("global", not global_succeeded)]]
+    trace = "\n".join(json.dumps({"message": {"content": [block]}}) for block in [*calls, *results])
+    assert fixture_trace_boundary(trace, policy) == (not global_succeeded)
+    missing_result = "\n".join(trace.splitlines()[:-1])
+    assert not fixture_trace_boundary(missing_result, policy)
+
+
+@pytest.mark.parametrize("script", ["agent_smoke.py", "implicit_agent_smoke.py"])
+def test_legacy_qa_entry_points_refuse_before_any_account_connection(tmp_path, script):
+    path = Path(__file__).resolve().parents[1] / "scripts" / script
+    result = subprocess.run([sys.executable, str(path), "claude", "--workspace", str(tmp_path)],
+                            capture_output=True, text=True)
+    assert result.returncode != 0
+    assert "legacy harness is retired" in result.stderr
+    assert "agent_verification_smoke.py" in result.stderr
+    assert not list(tmp_path.iterdir())

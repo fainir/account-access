@@ -53,9 +53,19 @@ execution and other tools; changed launcher/client files fail closed. Global
 host permissions and hooks are preserved. This is a narrow QA boundary, not a
 sandbox for arbitrary same-user programs.
 
-All **43 guard cases** passed, including the generated hook's real subprocess
-contract. The combined guard/evidence/recovery run passed **78 cases** in 22.16
-seconds. A fresh guarded Claude acceptance run is still required. The
+The initial **43 guard cases** passed, including the generated hook's real
+subprocess contract. The combined guard/evidence/recovery run passed **78 cases**
+in 22.16 seconds. A fresh guarded Claude run then passed in **74.18 seconds**:
+four password logins and one email, SMS and TOTP verification. Its thirteen
+guard decisions included four denials, and all seven successful Bash calls used
+the fixture launcher. This uses a uniquely named temporary project skill; it
+does not establish global-skill precedence or private website acceptance.
+
+The legacy `agent_smoke.py` and `implicit_agent_smoke.py` entry points now refuse
+before connecting to accounts. Additional tests check retirement and reject any
+successful out-of-policy tool in the trace. The guard/evidence run passed
+**65 cases** in 0.51 seconds. Future runs also retain the code-free guard audit
+privately alongside the trace. The
 [sanitized record](../artifacts/verified-mailbox-repair-080.json) retains the
 failed-run evidence without personal identifiers or raw traces.
 
@@ -636,14 +646,20 @@ uv tool install ./dist/account_access-0.3.1-py3-none-any.whl
 account-access --root "$HOME/.local/share/account-access-demo" demo --install --public-sites
 ```
 
-Keep the final process running. In separate terminals, after choosing an isolated workspace and satisfying any existing host instructions/hooks, the opt-in CLI tests are:
+The current opt-in CLI acceptance harness creates its own fictional providers,
+private fixture service and client. Use a **new empty workspace** for each run,
+and satisfy existing host instructions/hooks:
 
 ```sh
-uv run python scripts/agent_smoke.py codex --workspace /absolute/path/to/test-workspace
-uv run python scripts/agent_smoke.py claude --workspace /absolute/path/to/test-workspace
+uv run python scripts/agent_verification_smoke.py codex --workspace /absolute/path/to/new-codex-test
+uv run python scripts/agent_verification_smoke.py claude --workspace /absolute/path/to/new-claude-test
 ```
 
-These use the user's existing CLI login and can consume agent usage. They create no API keys. For normal user testing, use the short prompts in README.md; no test harness is necessary.
+These use the user's existing CLI login and can consume agent usage. They create
+no API keys and do not use private website accounts. Codex uses a fixture-socket
+permission profile; Claude uses the tool gate described above. The older smoke
+scripts have been retired. For normal user testing, use the short prompts in
+README.md; no test harness is necessary.
 
 ## Remaining production work
 

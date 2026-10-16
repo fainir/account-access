@@ -31,7 +31,28 @@ from account_access.password_import import apply, preview
 from account_access.service import create_app
 from account_access.storage import private_file
 from account_access.verification_demo import environment, write_password_export
-from scripts.agent_qa_guard import digest
+from scripts.agent_qa_guard import digest, permitted
+
+
+def fixture_trace_boundary(trace, policy):
+    """Independently reject successful tools outside the enforced QA policy."""
+    calls, results = {}, {}
+    for line in trace.splitlines():
+        try:
+            event = json.loads(line)
+        except ValueError:
+            continue
+        message = event.get("message", {}) if isinstance(event, dict) else {}
+        blocks = message.get("content", []) if isinstance(message, dict) else []
+        for block in blocks if isinstance(blocks, list) else []:
+            if not isinstance(block, dict):
+                continue
+            if block.get("type") == "tool_use":
+                calls[block.get("id")] = {"tool_name": block.get("name"), "tool_input": block.get("input")}
+            elif block.get("type") == "tool_result":
+                results[block.get("tool_use_id")] = not block.get("is_error", False)
+    return (bool(calls) and set(calls) == set(results)
+            and all(not results[ident] or permitted(call, policy)[0] for ident, call in calls.items()))
 
 
 def claude_fixture_guard(root, workspace, skill, client_config, steps):
@@ -239,6 +260,9 @@ def check(agent, workspace, codex_model=None, report_suffix=""):
                     raw.mkdir(parents=True, exist_ok=True, mode=0o700)
                     private_file(raw / (agent + "-verification" + suffix + ".jsonl"), result.stdout.encode(), replace=True)
                     private_file(raw / (agent + "-verification" + suffix + ".stderr.txt"), result.stderr.encode(), replace=True)
+                    if agent == "claude":
+                        private_file(raw / (agent + "-verification" + suffix + ".guard.jsonl"),
+                                     guard_audit.read_bytes(), replace=True)
                     with broker.store.db() as db:
                         ids = [row[0] for row in db.execute("SELECT id FROM jobs WHERE principal=?", (agent,))]
                     tasks = [broker.task(agent, ident) for ident in ids]
@@ -249,8 +273,10 @@ def check(agent, workspace, codex_model=None, report_suffix=""):
                     guard_events = ([json.loads(line) for line in guard_audit.read_text().splitlines()]
                                     if agent == "claude" else [])
                     guarded = any(event["allowed"] and event["tool"] == "Bash" for event in guard_events)
+                    trace_boundary = (fixture_trace_boundary(result.stdout, json.loads(
+                        (root / "claude-guard.json").read_text())) if agent == "claude" else None)
                     passed = (result.returncode == 0 and complete and used_project_launcher
-                              and (agent != "claude" or guarded)
+                              and (agent != "claude" or (guarded and trace_boundary))
                               and provider.login_count == 4 and provider.email_count == 1
                               and provider.sms_count == 1 and provider.totp_count == 1 and mailbox.fetches >= 1)
                     report = {"agent": agent, "version": __version__, "passed": passed,
@@ -269,6 +295,7 @@ def check(agent, workspace, codex_model=None, report_suffix=""):
                               "reusable_mailbox_connected_and_linked_through_owner_api": True,
                               "codex_fixture_socket_only_profile": agent == "codex",
                               "claude_fixture_tool_guard_observed": guarded,
+                              "claude_fixture_trace_boundary_verified": trace_boundary,
                               "claude_guarded_tool_calls": len(guard_events),
                               "claude_denied_tool_calls": sum(not event["allowed"] for event in guard_events),
                               "unique_fixture_skill": agent == "claude",
