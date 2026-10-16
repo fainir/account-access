@@ -24,6 +24,35 @@ These are controlled tests. No additional private Namecheap or GitHub request
 was made for this change. Private password/email/SMS/authenticator acceptance
 and the remaining distribution/security gates remain open.
 
+The local full suite passed **454 tests** in 350.09 seconds before the final
+credential-edit cases were added. All **45 focused mailbox, SMS gateway and owner
+boundary cases** then passed in 24.52 seconds, including the two added credential
+cases. All **17 native UI checks**, lint, package build and strict/deep signature
+verification passed; the dependency audit reported no known dependency
+vulnerabilities. Signed universal Mac build **52** was installed through graphical
+repair. The original private Namecheap task and challenge are still pending.
+
+Fresh ordinary-language agent tests independently confirmed all four fictional
+account results and actual installed-project-launcher execution:
+
+- [Claude Code 2.1.112](../artifacts/agent-tests/claude-verification-080-mailbox-52.json):
+  58.32 seconds, four password logins, one email, one SMS and one TOTP verification.
+- [Desktop-bundled Codex CLI 0.162.0-alpha.17.2](../artifacts/agent-tests/codex-verification-080-mailbox-52.json):
+  25.34 seconds, the same four login and verification results.
+
+Both checked the TLS IMAP connection before the agent ran, with no mailbox
+message fetch or website login during that check. They used fictional credentials,
+a TLS IMAP fixture, a Messages database fixture and a fictional Authenticator
+transfer key. Model defaults and global host settings were preserved. These runs
+do not establish a private Gmail connection or physical phone delivery.
+
+Final implementation `e1c5fac` passed **456 tests** in 394.71 seconds in
+[CI](https://github.com/fainir/account-access/actions/runs/38950534510), all
+seventeen native UI checks, Messages/startup checks, lint, dependency audit and
+package build. The
+[Android emulator journey](https://github.com/fainir/account-access/actions/runs/38950534522)
+also passed. See the [sanitized record](../artifacts/mailbox-readiness-080.json).
+
 ## Private Namecheap import and browser-verification stop — 16 October 2026
 
 The owner approved a Namecheap username check and selected a real Chrome

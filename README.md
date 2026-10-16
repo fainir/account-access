@@ -69,6 +69,13 @@ Follow the [Gmail, Google Authenticator and SMS setup guide](docs/gmail-authenti
 
 The 0.8 candidate adds local **Google Authenticator transfer QR import**. In **Verification**, choose an existing authenticator source, click **Import authenticator QR image**, select a complete export QR image, review the matching account, and import that entry. No key belongs in chat. Phone unlocking and export authorization remain a one-time owner step. Multi-QR batches and nonstandard TOTP settings are rejected.
 
+The current candidate also offers **Check email connection**. It checks saved
+mailbox access without fetching messages or starting a website sign-in. Setup
+distinguishes **Setup saved**, **Mailbox connection checked**, and an account's
+successful **Connected** state. Code delivery still needs its own website test.
+See the [verification guide](docs/gmail-authenticator-and-sms.md) and
+[candidate QA evidence](artifacts/mailbox-readiness-080.json).
+
 | Method | One-time setup | During a supported login |
 | --- | --- | --- |
 | Email | Connect a configured TLS IMAP mailbox, or a reviewed Gmail OAuth connection | Read a fresh message matching sender, recipient, subject and template; submit its login code |

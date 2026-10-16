@@ -4,6 +4,14 @@ This is a genuine native installer and owner interface for macOS 13 or later, on
 
 The candidate account catalog contains a limited Namecheap password pilot as well as public SauceDemo and The Internet examples. The Namecheap operation confirms only the signed-in username. A private Chrome credential was imported, but sign-in stopped at browser verification/HTTP 429; password and email/TOTP acceptance remain open. See [other-service validation](../docs/other-service-validation.md). The app includes reviewed password-export import, explicit authenticator enrollment, TLS IMAP/Gmail source setup, an iPhone Messages reader and Android pairing. Imports do not add support for arbitrary websites. Real provider delivery and physical-phone validation remain outstanding.
 
+Candidate build **52** separates saved verification setup from a checked mailbox
+connection and completed website login. **Check email connection** fetches no
+messages and starts no website sign-in. Saving verification setup cannot retry
+an unrelated browser or owner-presence gate; editing a browser credential drops
+the old saved session when changed and preserves unrelated challenges. All 17
+native owner checks passed, and graphical repair preserved the existing accounts
+and original blocked task. See [validation](../docs/validation.md).
+
 Build with Xcode's command-line tools:
 
 ```sh

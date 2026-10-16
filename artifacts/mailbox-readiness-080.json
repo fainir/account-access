@@ -19,12 +19,36 @@
     "namecheap_original_task": "retained; website verification and HTTP 429 unresolved"
   },
   "local_validation": {
+    "full_suite_passed_before_final_credential_edit_cases": 454,
+    "full_suite_seconds": 350.09,
     "mailbox_sms_and_owner_boundary_cases_passed": 45,
     "focused_seconds": 24.52,
     "native_owner_ui_checks_passed": 17,
     "lint": "passed",
     "dependency_audit": "no known vulnerabilities found; project itself not audited against PyPI",
     "package_build": "passed"
+  },
+  "agent_validation": {
+    "revision": "e1c5facdd2e25041e44ecdc7dd380edbd37bb25e",
+    "claude": "agent-tests/claude-verification-080-mailbox-52.json",
+    "codex": "agent-tests/codex-verification-080-mailbox-52.json",
+    "both_passed": true,
+    "per_agent_password_logins": 4,
+    "per_agent_email_sms_totp_verifications": [1, 1, 1],
+    "ordinary_prompt_without_skill_or_command": true,
+    "personal_accounts_used": false,
+    "global_settings_changed": false
+  },
+  "ci": {
+    "revision": "e1c5facdd2e25041e44ecdc7dd380edbd37bb25e",
+    "checks": "https://github.com/fainir/account-access/actions/runs/38950534510",
+    "conclusion": "success",
+    "tests_passed": 456,
+    "tests_seconds": 394.71,
+    "native_owner_ui_checks_passed": 17,
+    "lint_audit_and_package_build": "passed",
+    "android_journey": "https://github.com/fainir/account-access/actions/runs/38950534522",
+    "android_conclusion": "success"
   },
   "mac": {
     "signed_universal_build": 52,
