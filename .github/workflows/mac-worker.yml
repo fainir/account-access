@@ -15,7 +15,7 @@ jobs:
       - name: Check Darwin pipe handoff and reject filesystem FIFO bootstrap
         run: |
           uv sync --locked
-          uv run pytest -q tests/test_worker_signals.py tests/test_worker_boundary.py tests/test_worker_enroll.py tests/test_worker_evidence.py tests/test_mac_root_owner_evidence.py tests/test_mac_key_custody_evidence.py tests/test_mac_owner_policy_evidence.py tests/test_mac_key_handoff_evidence.py tests/test_mac_root_supervisor_evidence.py tests/test_mac_root_coordinator_evidence.py tests/test_mac_staged_enrollment_evidence.py tests/test_mac_initial_setup_evidence.py
+          uv run pytest -q tests/test_worker_signals.py tests/test_worker_boundary.py tests/test_worker_enroll.py tests/test_worker_evidence.py tests/test_mac_root_owner_evidence.py tests/test_mac_key_custody_evidence.py tests/test_mac_owner_policy_evidence.py tests/test_mac_key_handoff_evidence.py tests/test_mac_root_supervisor_evidence.py tests/test_mac_root_coordinator_evidence.py tests/test_mac_staged_enrollment_evidence.py tests/test_mac_initial_setup_evidence.py tests/test_mac_initial_gateway_evidence.py
       - name: Compile and check the permanent identity-drop launcher
         run: |
           for AC_BOOTSTRAP_ARCH in arm64 x86_64; do
@@ -28,7 +28,7 @@ jobs:
               -target "$AC_BOOTSTRAP_ARCH-apple-macos13" -framework Foundation -framework Security -framework CryptoKit \
               -import-objc-header macos/NativeBroker.h macos/RootVaultKeyStore.swift macos/RootWorkerChannel.swift \
               macos/WorkerBootstrap.swift macos/OwnerGateway.swift macos/OwnerGatewayHost.swift macos/OwnerAuthorizationPolicy.swift \
-              macos/RootActivatedListeners.swift macos/RootWorkerProcess.swift macos/RootWorkerSupervisor.swift macos/RootBrokerHost.swift macos/RootStoreInitializer.swift macos/RootStorePublication.swift macos/RootInitialEnrollment.swift
+              macos/RootActivatedListeners.swift macos/RootWorkerProcess.swift macos/RootWorkerSupervisor.swift macos/RootBrokerHost.swift macos/RootStoreInitializer.swift macos/RootStorePublication.swift macos/RootInitialEnrollment.swift macos/SystemBroker.swift
           done
           xcrun swiftc -O -parse-as-library -framework Foundation \
             macos/WorkerBootstrap.swift macos/Tests/WorkerBootstrapChecks.swift -o /tmp/ac-worker-bootstrap-checks
@@ -63,6 +63,23 @@ jobs:
             macos/Tests/RootCoordinatorChecks.swift macos/Tests/RootSupervisorChecks.swift \
             macos/Tests/RootKeyHandoffChecks.swift macos/Tests/RootVaultKeyChecks.swift \
             /tmp/ac-keychain-interaction.o /tmp/ac-native-broker.o -o /tmp/ac-root-key-checks
+          bash macos/build-broker.sh /tmp/ac-system-broker-production
+          uv run python - <<'PY'
+          import json, subprocess
+          result = subprocess.run(['/tmp/ac-system-broker-production/AccountAccess-broker'], capture_output=True)
+          assert result.returncode == 78 and json.loads(result.stdout) == {'status': 'FAILED', 'reason': 'system_daemon_context_required'}
+          for name in ['broker', 'bootstrap']:
+              output = subprocess.check_output(['xcrun', 'lipo', '-archs', '/tmp/ac-system-broker-production/AccountAccess-' + name])
+              assert set(output.decode().split()) == {'arm64', 'x86_64'}
+          PY
+          xcrun swiftc -O -parse-as-library -warnings-as-errors -D ACCOUNT_ACCESS_SYSTEM_BROKER_MAIN \
+            -D ACCOUNT_ACCESS_ROOT_KEY_CHECKS -D ACCOUNT_ACCESS_GATEWAY_CHECKS \
+            -framework Foundation -framework Security -framework CryptoKit -import-objc-header macos/NativeBroker.h \
+            macos/WorkerBootstrap.swift macos/RootVaultKeyStore.swift macos/RootWorkerChannel.swift macos/OwnerGateway.swift \
+            macos/RootWorkerProcess.swift macos/RootActivatedListeners.swift macos/RootWorkerSupervisor.swift macos/RootBrokerHost.swift \
+            macos/OwnerGatewayHost.swift macos/OwnerAuthorizationPolicy.swift macos/RootStoreInitializer.swift \
+            macos/RootStorePublication.swift macos/RootInitialEnrollment.swift macos/SystemBroker.swift \
+            /tmp/ac-keychain-interaction.o /tmp/ac-native-broker.o -o /tmp/ac-system-broker-ci
       - name: Prepare root-owned runtime in this disposable Mac VM
         run: |
           uv build --wheel --out-dir /tmp/account-access-mac-worker-wheel
@@ -94,6 +111,9 @@ jobs:
           done
           sudo install -m 755 /tmp/ac-root-key-checks "$AC_MAC_WORKER_PREFIX/root-key-checks"
           sudo install -m 755 /tmp/ac-root-key-checks "$AC_MAC_WORKER_PREFIX/root-key-checks-denied"
+          sudo install -m 755 /tmp/ac-system-broker-ci "$AC_MAC_WORKER_PREFIX/system-broker"
+          sudo codesign --force --options runtime --identifier com.fainir.accountaccess.qa.system-broker \
+            --sign - "$AC_MAC_WORKER_PREFIX/system-broker"
           for AC_KEY_BINARY in root-key-checks root-key-checks-denied; do
             sudo codesign --force --options runtime --identifier "com.fainir.accountaccess.qa.$AC_KEY_BINARY" \
               --sign - "$AC_MAC_WORKER_PREFIX/$AC_KEY_BINARY"
@@ -121,6 +141,7 @@ jobs:
           uv run python scripts/check_mac_root_coordinator_report.py /tmp/account-access-mac-root-coordinator.json
           uv run python scripts/check_mac_staged_enrollment_report.py /tmp/account-access-mac-staged-enrollment.json
           uv run python scripts/check_mac_initial_setup_report.py /tmp/account-access-mac-initial-setup.json
+          uv run python scripts/check_mac_initial_gateway_report.py /tmp/account-access-mac-initial-gateway.json
           cat /tmp/account-access-mac-worker.json
           cat /tmp/account-access-mac-root-owner.json
           cat /tmp/account-access-mac-key-custody.json
@@ -130,6 +151,7 @@ jobs:
           cat /tmp/account-access-mac-root-coordinator.json
           cat /tmp/account-access-mac-staged-enrollment.json
           cat /tmp/account-access-mac-initial-setup.json
+          cat /tmp/account-access-mac-initial-gateway.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
@@ -144,6 +166,7 @@ jobs:
             /tmp/account-access-mac-root-coordinator.json
             /tmp/account-access-mac-staged-enrollment.json
             /tmp/account-access-mac-initial-setup.json
+            /tmp/account-access-mac-initial-gateway.json
           if-no-files-found: ignore
       - name: Remove the ephemeral runtime
         if: always()

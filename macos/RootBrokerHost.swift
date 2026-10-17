@@ -29,6 +29,7 @@ final class RootBrokerHost {
     }
     var workerPID: pid_t? { worker.pid }
     var state: RootWorkerState { worker.state }
+    var enrollmentState: RootEnrollmentState? { enrollment?.state }
     // Run off the GUI thread. Provisioning must run in this same hosting binary
     // so authd's registrar pin matches the process that verifies owner proofs.
     func start() throws {

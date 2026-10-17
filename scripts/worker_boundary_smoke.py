@@ -354,6 +354,126 @@ def root_owner_gateway(prefix, roles, policy, capability, worker):
             source_path.unlink(missing_ok=True)
 
 
+def system_broker_waiting(prefix, roles):
+    """Use the shipping entrypoint with its gated CI policy, real XPC and no key."""
+    if sys.platform != "darwin" or os.getuid() != 0 or os.environ.get("GITHUB_ACTIONS") != "true":
+        raise RuntimeError("system_broker_requires_disposable_mac_ci")
+    binary, client = prefix / "system-broker", prefix / "root-owner-client"
+    for path in [binary, client]:
+        root_managed_path(path)
+    def signature(path):
+        result = subprocess.run(["/usr/bin/codesign", "-d", "--verbose=4", str(path)], capture_output=True, timeout=10)
+        hashes = re.findall(rb"^CDHash=([a-f0-9]{40})$", result.stderr, re.MULTILINE)
+        assert result.returncode == 0 and len(hashes) == 1
+        return hashes[0].decode()
+    enrollment = json.loads((prefix / "entry-enrollment-launch.json").read_bytes())
+    worker_path = prefix / "entry-enrollment-base-launcher.json"
+    plan = json.loads((prefix / "entry-enrollment-base.json").read_bytes())
+    settings = prefix / "system-broker.json"
+    private_file(settings, json.dumps({"managed_by": "account-access-system-host-v1", "schema": 1,
+        "worker_launcher": str(worker_path), "enrollment_policy": str(prefix / "entry-enrollment-launch.json"),
+        "bootstrap": str(prefix / "mac-worker-bootstrap"), "vault_id": enrollment["vault_id"],
+        "owner_uid": roles["agent"].pw_uid, "publisher_team": "fixture",
+        "owner_identifier": "fixture.owner", "owner_hashes": [signature(client)],
+        "bootstrap_identifier": "fixture.bootstrap", "bootstrap_hashes": [signature(prefix / "mac-worker-bootstrap")]}).encode())
+    public = prefix / "system-broker-client.json"
+    private_file(public, json.dumps({"fixture": "account-access-root-owner-ci-v1", "owner_uid": roles["agent"].pw_uid,
+        "owner_hash": signature(client), "server_hash": signature(binary), "owner_socket": plan["owner_socket"],
+        "owner_port": plan["owner_port"], "bootstrap_socket": str(prefix / "control/entry-unused.sock")}).encode())
+    public.chmod(0o644)
+    label = "com.fainir.accountaccess.qa.system-broker"
+    target = "system/" + label
+    assert subprocess.run(["/bin/launchctl", "print", target], capture_output=True).returncode != 0
+    ready = prefix / "system-broker-ready.json"
+    cleanup_output = prefix / "system-broker-cleanup.json"
+    assert not ready.exists() and not cleanup_output.exists()
+    launch = prefix / (label + ".plist")
+    launch.write_bytes(plistlib.dumps({"Label": label, "ProgramArguments": [str(binary), "--fixture-policy", str(settings)],
+        "UserName": "root", "GroupName": "wheel", "RunAtLoad": True, "KeepAlive": False,
+        "AbandonProcessGroup": False, "ExitTimeOut": 20, "Umask": 0o077, "ProcessType": "Background",
+        "StandardOutPath": "/dev/null", "StandardErrorPath": "/dev/null",
+        "MachServices": {"com.fainir.accountaccess.broker.owner": True},
+        "Sockets": {"AccountAccessAgent": {"SockPathName": plan["agent_socket"], "SockPathOwner": 0,
+            "SockPathGroup": roles["agent"].pw_gid, "SockPathMode": 0o660},
+            "AccountAccessOwner": {"SockPathName": plan["owner_socket"], "SockPathOwner": 0,
+                "SockPathGroup": 0, "SockPathMode": 0o600}}}))
+    launch.chmod(0o644)
+    checks, booted = {}, False
+    def snapshot(after=0):
+        deadline = time.monotonic() + 55
+        while time.monotonic() < deadline:
+            try:
+                value = json.loads(ready.read_bytes())
+            except (OSError, ValueError):
+                value = {}
+            if value.get("status") == "READY" and value.get("probe_sequence", 0) > after:
+                assert set(value) == {"status", "probe_sequence", "pid", "uid", "group", "worker_pid", "worker_state", "enrollment_state", "setup_policy_registered", "fixture_key_absent"}
+                assert value["uid"] == 0 and value["group"] == value["pid"]
+                assert value["worker_pid"] == 0 and value["worker_state"] == "idle"
+                assert value["enrollment_state"] == "needs_owner" and value["fixture_key_absent"] is True
+                assert value["setup_policy_registered"] is True
+                return value
+            time.sleep(0.1)
+        raise RuntimeError("system_broker_ready_timed_out")
+    def run_client(role, executable, mode, policy=public):
+        result = subprocess.run([*dropped(role), str(executable), "--policy", str(policy), mode],
+            capture_output=True, timeout=50, env={"PATH": "/usr/bin:/bin", "LANG": "en_US.UTF-8"})
+        value = json.loads(result.stdout)
+        assert result.returncode == 0 and value.get("status") == "PASSED" and value.get("checks")
+        assert all(item is True for item in value["checks"].values())
+        return value["checks"]
+    def denied(role, executable, policy=public):
+        return run_client(role, executable, "denied", policy) == {
+            "prepare_refused": True, "failed_prepare_refuses_setup": True, "failed_prepare_refuses_credential_input": True}
+    try:
+        stage("system_broker_waiting_bootstrap")
+        command(["/bin/launchctl", "bootstrap", "system", str(launch)])
+        booted = True
+        snapshot()
+        checks["system_entrypoint_hosts_initial_owner_gateway"] = True
+        checks["no_initial_worker_or_key_created"] = True
+        checks.update(run_client(roles["agent"], client, "first-enrollment"))
+        checks["unapproved_initial_owner_code_refused"] = denied(roles["agent"], prefix / "root-owner-client-denied")
+        checks["wrong_initial_owner_uid_refused"] = denied(roles["broker"], client)
+        wrong = prefix / "system-broker-wrong-server.json"
+        wrong_value = json.loads(public.read_bytes())
+        wrong_value["server_hash"] = "0" * 40
+        private_file(wrong, json.dumps(wrong_value).encode())
+        wrong.chmod(0o644)
+        checks["wrong_initial_server_code_refused"] = denied(roles["agent"], client, wrong)
+        latest = snapshot()
+        snapshot(after=latest["probe_sequence"])
+        checks["rejected_setup_never_creates_a_key"] = True
+    finally:
+        if booted:
+            command(["/bin/launchctl", "bootout", target])
+        cleanup_label = label + ".cleanup"
+        cleanup_target = "system/" + cleanup_label
+        cleanup = prefix / (cleanup_label + ".plist")
+        cleanup.write_bytes(plistlib.dumps({"Label": cleanup_label, "ProgramArguments": [str(binary), "--fixture-policy", str(settings), "--cleanup-fixture-policy"],
+            "UserName": "root", "GroupName": "wheel", "RunAtLoad": True, "KeepAlive": False,
+            "StandardOutPath": "/dev/null", "StandardErrorPath": "/dev/null"}))
+        cleanup.chmod(0o644)
+        command(["/bin/launchctl", "bootstrap", "system", str(cleanup)])
+        try:
+            deadline = time.monotonic() + 45
+            while time.monotonic() < deadline:
+                state = command(["/bin/launchctl", "print", cleanup_target])
+                exited = re.findall(rb"last exit code = ([0-9]+)", state)
+                if cleanup_output.exists() and exited:
+                    assert exited == [b"0"] and json.loads(cleanup_output.read_bytes()) == {"status": "PASSED", "fixture_right_removed": True}
+                    checks["entrypoint_fixture_setup_policy_removed"] = True
+                    break
+                time.sleep(0.1)
+            else:
+                raise RuntimeError("system_broker_cleanup_timed_out")
+        finally:
+            command(["/bin/launchctl", "bootout", cleanup_target])
+    checks["entrypoint_system_jobs_removed"] = subprocess.run(["/bin/launchctl", "print", target], capture_output=True).returncode != 0
+    assert checks and all(item is True for item in checks.values())
+    return checks
+
+
 def root_coordinator(prefix, roles, key_policy, phase):
     """Crash the actual composed host, using launchd-owned listeners and groups."""
     if sys.platform != "darwin" or os.getuid() != 0 or os.environ.get("GITHUB_ACTIONS") != "true":
@@ -580,6 +700,7 @@ def root_key_custody(prefix, roles):
             path.chmod(0o644)
     prepare_enrollment("enrollment", identity)
     prepare_enrollment("first-enrollment", str(uuid.uuid4()))
+    prepare_enrollment("entry-enrollment", str(uuid.uuid4()))
     def phase(mode, *, collect=True):
         stage("key_custody_" + mode)
         launch = prefix / "root-key.plist"
@@ -648,6 +769,7 @@ def root_key_custody(prefix, roles):
         supervisor = phase("supervisor", collect=False)
         initializer = phase("initializer", collect=False)
         initial_setup = phase("initial-setup", collect=False)
+        initial_gateway = system_broker_waiting(prefix, roles)
         coordinator = root_coordinator(prefix, roles, policy, phase)
         stage("key_custody_unprivileged_direct_read")
         result = subprocess.run([*dropped(roles["agent"]), str(denied), "--policy", str(policy), "unprivileged"],
@@ -679,6 +801,14 @@ def root_key_custody(prefix, roles):
         "fixture_key_removed": True, "checks": handoff}
     evidence = Path("/tmp/account-access-mac-key-handoff.json")
     private_file(evidence, (json.dumps(handoff_report, indent=2) + "\n").encode())
+    evidence.chmod(0o644)
+    initial_gateway_report = {"status": "PASSED", "platform": "macos", "environment": "controlled-demo", "production_ready": False,
+        "private_signins": 0, "actual_system_entrypoint_used": True, "actual_native_xpc_used": True,
+        "consumer_deployment_verified": False, "genuine_owner_approval_verified": False,
+        "positive_enrollment_verified": False, "authorization_database_changed": True,
+        "fixture_policy_removed": True, "publisher_signed_peers": False, "checks": initial_gateway}
+    evidence = Path("/tmp/account-access-mac-initial-gateway.json")
+    private_file(evidence, (json.dumps(initial_gateway_report, indent=2) + "\n").encode())
     evidence.chmod(0o644)
     initial_setup_report = {"status": "PASSED", "platform": "macos", "environment": "controlled-demo", "production_ready": False,
         "private_signins": 0, "system_key_used": True, "actual_initial_setup_used": True,

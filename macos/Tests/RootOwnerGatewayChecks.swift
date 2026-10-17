@@ -131,6 +131,23 @@ enum RootGatewayFixture {
                 checks["coordinator_paused_state_refused"] = state.0 == 503 && state.1["reason"] as? String == "broker_worker_paused"
                 let authorized: Bool = try RootGatewayFixture.wait { channel.authorizeSetup(Data(repeating: 0x41, count: 32), reply: $0) }
                 checks["coordinator_paused_ungranted_setup_refused"] = !authorized
+            } else if mode == "first-enrollment" {
+                checks["first_enrollment_root_peer_prepared"] = ready
+                guard ready else { throw OwnerGatewayError.unavailable }
+                let state = try RootGatewayFixture.request(channel, "owner/state")
+                let setup = state.1["vault_setup"] as? [String: Any]
+                checks["first_enrollment_state_available_without_vault"] = state.0 == 200
+                    && setup?["status"] as? String == "needs_owner"
+                    && (state.1["accounts"] as? [Any])?.isEmpty == true
+                let health = try RootGatewayFixture.request(channel, "owner/health")
+                checks["first_enrollment_health_available"] = health.0 == 200
+                    && (health.1["vault_setup"] as? [String: Any])?["status"] as? String == "needs_owner"
+                let enroll = try RootGatewayFixture.request(channel, "owner/vault/enroll", [:])
+                checks["first_enrollment_without_approval_refused"] = enroll.0 == 403
+                let authorized: Bool = try RootGatewayFixture.wait { channel.authorizeSetup(Data(repeating: 0x41, count: 32), reply: $0) }
+                checks["first_enrollment_invalid_os_proof_refused"] = !authorized
+                checks["first_enrollment_invalid_proof_cannot_create_key"] = try RootGatewayFixture.request(channel, "owner/vault/enroll", [:]).0 == 403
+                checks["first_enrollment_caller_configuration_refused"] = try RootGatewayFixture.request(channel, "owner/vault/enroll", ["vault_id": "untrusted"]).0 == 403
             } else if mode == "coordinator" {
                 checks["coordinator_privileged_peer_prepared"] = ready
                 guard ready else { throw OwnerGatewayError.unavailable }
