@@ -14,7 +14,9 @@ final class OwnerGatewayHost {
 
     init(owner: OwnerGatewayPeer, backend: OwnerUnixBackend) throws {
         guard getuid() == 0, geteuid() == 0, owner.uid != 0 else { throw OwnerGatewayError.invalidPolicy }
-        delegate = OwnerGatewayListener(peer: owner) { OwnerGatewaySession(backend: backend) }
+        delegate = OwnerGatewayListener(peer: owner) {
+            OwnerGatewaySession(backend: backend, verifier: RootOwnerSetupProofVerifier())
+        }
         listener = NSXPCListener(machServiceName: Self.serviceName)
         listener.delegate = delegate
     }

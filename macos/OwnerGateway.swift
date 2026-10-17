@@ -66,7 +66,22 @@ enum OwnerSetupAuthorization {
         "authenticate-user": true, "allow-root": false, "shared": false, "timeout": 30, "tries": 3]
 
     static func validDefinition(_ value: [String: Any]) -> Bool {
-        let metadata: Set<String> = ["comment", "created", "modified", "version", "description"]
+        // authd emits registrar identity and localized prompt metadata. These
+        // do not replace authentication settings. The root host separately
+        // pins the registrar before accepting any setup proof.
+        let metadata: Set<String> = ["comment", "created", "modified", "version", "description",
+                                     "default-prompt", "identifier", "requirement"]
+        if value["identifier"] != nil || value["requirement"] != nil {
+            guard let identifier = value["identifier"] as? String,
+                  identifier.range(of: "^[A-Za-z0-9][A-Za-z0-9.-]{1,199}$", options: .regularExpression) != nil,
+                  let text = value["requirement"] as? String, text.utf8.count <= 8192 else { return false }
+            var requirement: SecRequirement?
+            guard SecRequirementCreateWithString(text as CFString, [], &requirement) == errSecSuccess, requirement != nil else { return false }
+        }
+        if let prompt = value["default-prompt"] {
+            guard let localized = prompt as? [String: String], localized.count <= 32,
+                  localized.allSatisfy({ $0.key.utf8.count <= 128 && $0.value.utf8.count <= 4096 }) else { return false }
+        }
         let security = value.filter { !metadata.contains($0.key) }
         guard Set(security.keys) == Set(definition.keys), security["class"] as? String == "user" else { return false }
         for name in ["session-owner", "authenticate-user", "allow-root", "shared"] {
@@ -192,6 +207,10 @@ protocol OwnerGatewayBackend {
     func request(_ route: OwnerGatewayRoute) throws -> (Int, Data)
 }
 
+protocol OwnerSetupProofVerifying {
+    func check(_ data: Data) -> Bool
+}
+
 final class OwnerGatewaySession: NSObject, OwnerGatewayRPC {
     private let backend: OwnerGatewayBackend
     private let authorize: (Data) -> Bool
@@ -204,6 +223,10 @@ final class OwnerGatewaySession: NSObject, OwnerGatewayRPC {
 
     convenience init(backend: OwnerGatewayBackend) {
         self.init(backend: backend, authorize: OwnerSetupAuthorization.check,
+                  clock: { ProcessInfo.processInfo.systemUptime })
+    }
+    convenience init(backend: OwnerGatewayBackend, verifier: OwnerSetupProofVerifying) {
+        self.init(backend: backend, authorize: verifier.check,
                   clock: { ProcessInfo.processInfo.systemUptime })
     }
     private init(backend: OwnerGatewayBackend, authorize: @escaping (Data) -> Bool,

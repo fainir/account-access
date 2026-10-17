@@ -1,5 +1,6 @@
-// Called only by the trusted system provisioner after approved service setup.
-// Installs policy, never grants a setup authorization or displays owner UI.
+// Called by the trusted system daemon hosting OwnerGateway, after approved
+// service setup. Its own signature owns the rule. Never grants setup authority
+// or displays owner UI; an external installer cannot stand in as its registrar.
 import Foundation
 import Security
 import Darwin
@@ -14,6 +15,29 @@ enum OwnerPolicyFailure: String, Error {
 enum OwnerPolicyInstallation { case created, alreadyInstalled }
 
 enum OwnerAuthorizationPolicy {
+    static func currentRegistrarMatches(_ definition: [String: Any]) -> Bool {
+        guard let identifier = definition["identifier"] as? String,
+              let text = definition["requirement"] as? String else { return false }
+        var code: SecCode?
+        var staticCode: SecStaticCode?
+        var info: CFDictionary?
+        var requirement: SecRequirement?
+        var expected: CFString?
+        guard SecCodeCopySelf([], &code) == errSecSuccess, let code,
+              SecCodeCheckValidity(code, [], nil) == errSecSuccess,
+              SecCodeCopyStaticCode(code, [], &staticCode) == errSecSuccess, let staticCode,
+              SecCodeCopySigningInformation(staticCode, SecCSFlags(rawValue: kSecCSRequirementInformation), &info) == errSecSuccess,
+              let values = info as? [String: Any], values[kSecCodeInfoIdentifier as String] as? String == identifier,
+              SecCodeCopyDesignatedRequirement(staticCode, [], &requirement) == errSecSuccess, let requirement,
+              SecRequirementCopyString(requirement, [], &expected) == errSecSuccess, let expected else { return false }
+        return text == expected as String
+    }
+    static func trustedDefinition() -> Bool {
+        var value: CFDictionary?
+        guard AuthorizationRightGet(OwnerSetupAuthorization.right, &value) == errAuthorizationSuccess,
+              let value = value as? [String: Any] else { return false }
+        return OwnerSetupAuthorization.validDefinition(value) && currentRegistrarMatches(value)
+    }
     static func requireDaemon() throws {
         guard getuid() == 0, geteuid() == 0 else { throw OwnerPolicyFailure.daemonRequired }
         var attributes: SessionAttributeBits = []
@@ -26,7 +50,8 @@ enum OwnerAuthorizationPolicy {
         var existing: CFDictionary?
         let status = AuthorizationRightGet(OwnerSetupAuthorization.right, &existing)
         if status == errAuthorizationSuccess {
-            guard let value = existing as? [String: Any], OwnerSetupAuthorization.validDefinition(value) else {
+            guard let value = existing as? [String: Any], OwnerSetupAuthorization.validDefinition(value),
+                  currentRegistrarMatches(value) else {
                 throw OwnerPolicyFailure.changed
             }
             return .alreadyInstalled
@@ -42,7 +67,17 @@ enum OwnerAuthorizationPolicy {
         guard AuthorizationRightSet(reference, OwnerSetupAuthorization.right,
                 OwnerSetupAuthorization.definition as CFDictionary, "Authorize Account Access setup" as CFString,
                 nil, nil) == errAuthorizationSuccess else { throw OwnerPolicyFailure.unavailable }
-        guard OwnerSetupAuthorization.installed() else { throw OwnerPolicyFailure.readback }
+        guard trustedDefinition() else { throw OwnerPolicyFailure.readback }
         return .created
+    }
+}
+
+struct RootOwnerSetupProofVerifier: OwnerSetupProofVerifying {
+    func check(_ data: Data) -> Bool {
+        guard (try? OwnerAuthorizationPolicy.requireDaemon()) != nil,
+              OwnerAuthorizationPolicy.trustedDefinition(), OwnerSetupAuthorization.check(data) else { return false }
+        // The registrar's designated requirement is pinned independently of
+        // the rule's authentication flags, including after OS verification.
+        return OwnerAuthorizationPolicy.trustedDefinition()
     }
 }

@@ -57,7 +57,7 @@ import Darwin
                     // The opaque proof never leaves this native process.
                     var data = withUnsafeBytes(of: &form) { Data($0) }
                     defer { data.resetBytes(in: 0..<data.count) }
-                    return !OwnerSetupAuthorization.check(data)
+                    return !RootOwnerSetupProofVerifier().check(data)
                 }
             }
         }
@@ -94,6 +94,14 @@ import Darwin
             checkpoint = "install"
             checks["strict_rule_created"] = try OwnerAuthorizationPolicy.installIfAbsent() == .created
             checks["strict_rule_readback_verified"] = OwnerSetupAuthorization.installed()
+            checks["registrar_identity_verified"] = OwnerAuthorizationPolicy.trustedDefinition()
+            guard let registered = definition() else { throw OwnerPolicyFailure.unavailable }
+            var foreign = registered
+            foreign["identifier"] = "com.fainir.accountaccess.qa.foreign"
+            checks["foreign_registrar_identifier_refused"] = !OwnerAuthorizationPolicy.currentRegistrarMatches(foreign)
+            foreign = registered
+            foreign["requirement"] = "true"
+            checks["foreign_registrar_requirement_refused"] = !OwnerAuthorizationPolicy.currentRegistrarMatches(foreign)
             checks["matching_rule_preserved"] = try OwnerAuthorizationPolicy.installIfAbsent() == .alreadyInstalled
             checkpoint = "root_shortcut"
             checks["root_shortcut_refused"] = try authorization { !OwnerSetupAuthorization.granted($0, flags: [.extendRights]) }

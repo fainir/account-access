@@ -8,7 +8,8 @@ CHECKS = {"system_daemon_context_verified", "namespace_initially_absent", "stric
           "strict_rule_readback_verified", "matching_rule_preserved", "root_shortcut_refused",
           "changed_policy_detected", "changed_policy_refused", "changed_policy_preserved",
           "changed_policy_granted_proof_refused", "strict_rule_restored", "fixture_rule_removed",
-          "unprivileged_policy_install_refused"}
+          "unprivileged_policy_install_refused", "registrar_identity_verified",
+          "foreign_registrar_identifier_refused", "foreign_registrar_requirement_refused"}
 
 
 def validate(value):

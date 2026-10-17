@@ -15,7 +15,7 @@ def report():
 
 
 def test_policy_evidence_requires_each_provisioning_and_fail_closed_check(tmp_path):
-    assert len(CHECKS) == 13 and validate(report())
+    assert len(CHECKS) == 16 and validate(report())
     for check in CHECKS:
         for replacement in [False, 1, None]:
             value = report()

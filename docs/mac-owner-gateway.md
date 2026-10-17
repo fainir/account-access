@@ -49,7 +49,11 @@ and [external authorization references](https://developer.apple.com/documentatio
 
 `OwnerAuthorizationPolicy.swift` adds the internal system-only provisioner. It
 creates the exact dedicated right only when absent, preserves an already-matching
-rule and refuses a changed definition. It grants no setup authorization and
+rule and refuses a changed definition. The hosting daemon registers its own
+identifier/designated requirement; the root proof verifier checks that registrar
+as well as the strict rule before and after OS verification. Apple adds prompt
+and creator metadata on readback, which does not replace any authentication flag.
+An external installer cannot register on the daemon's behalf. It grants no setup authorization and
 accepts no caller-selected name or policy. Its new disposable-VM harness uses
 only the separate QA right, including a temporary permissive rule to test proof
 rejection, then removes it. This provisioning journey is under validation;
