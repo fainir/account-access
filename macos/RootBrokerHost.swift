@@ -14,21 +14,35 @@ final class RootBrokerHost {
     private var started = false
     private var stopped = false
 
-    init(policy: String, bootstrap: String, bootstrapPeer: OwnerGatewayPeer,
+    convenience init(policy: String, bootstrap: String, bootstrapPeer: OwnerGatewayPeer,
          vault: String, owner: OwnerGatewayPeer, enrollmentPolicy: String? = nil) throws {
+        try self.init(policy: policy, bootstrap: bootstrap, bootstrapPeer: bootstrapPeer,
+            vault: vault, owner: owner, enrollmentPolicy: enrollmentPolicy, collector: nil)
+    }
+    private init(policy: String, bootstrap: String, bootstrapPeer: OwnerGatewayPeer,
+         vault: String, owner: OwnerGatewayPeer, enrollmentPolicy: String?, collector: RootMessagesCollector?) throws {
         try RootVaultKeyStore.requireDaemon()
         let reference = GatewayReference()
         let listeners = try RootActivatedListeners(plan: MacWorkerPlan(policy: policy))
         let managedWorker = try RootWorkerSupervisor(policy: policy, bootstrap: bootstrap, peer: bootstrapPeer,
             vault: vault, listeners: listeners, invalidateOwners: { reference.host?.invalidateSessions() })
         worker = managedWorker
-        messages = try RootMessagesCollector(owner: owner)
+        messages = try collector ?? RootMessagesCollector(owner: owner)
         let initialSetup = try enrollmentPolicy.map { try RootInitialEnrollment(worker: managedWorker, policy: $0,
             bootstrap: bootstrap, peer: bootstrapPeer, owner: owner.uid, workerPolicy: policy, vault: vault) }
         enrollment = initialSetup
         gateway = try OwnerGatewayHost(owner: owner, backend: initialSetup ?? managedWorker)
         reference.host = gateway
     }
+    #if ACCOUNT_ACCESS_GATEWAY_CHECKS
+    // Only the fixture database/reader differs. Activation, supervision, key
+    // custody, native gateway and collector scheduling use the production host.
+    static func fixture(policy: String, bootstrap: String, bootstrapPeer: OwnerGatewayPeer,
+                        vault: String, owner: OwnerGatewayPeer, collector: RootMessagesCollector) throws -> RootBrokerHost {
+        try RootBrokerHost(policy: policy, bootstrap: bootstrap, bootstrapPeer: bootstrapPeer,
+            vault: vault, owner: owner, enrollmentPolicy: nil, collector: collector)
+    }
+    #endif
     var workerPID: pid_t? { worker.pid }
     var state: RootWorkerState { worker.state }
     var enrollmentState: RootEnrollmentState? { enrollment?.state }

@@ -192,10 +192,10 @@ def owner_request(path, token, route, body):
         return result
 
 
-def probe(prefix, roles, worker, policy, phase):
+def probe(prefix, roles, worker, policy, phase, *, client_config=None):
     module = __import__("account_access.worker_host", fromlist=["__file__"]).__file__
     arguments = [*dropped(roles["agent"]), sys.executable, "-I", "-B", str(prefix / "probe.py"),
-        "--phase", phase, "--config", str(prefix / "agent-client/client.json"),
+        "--phase", phase, "--config", str(client_config or prefix / "agent-client/client.json"),
         "--state", policy["root"], "--worker-module", module, "--policy", str(prefix / "policy.json"),
         "--owner-socket", policy["owner_socket"], "--agent-socket", policy["agent_socket"],
         "--worker-pid", str(worker.pid), "--worker-uid", str(roles["broker"].pw_uid)]
@@ -840,7 +840,7 @@ def root_coordinator(prefix, roles, key_policy, phase):
     return checks
 
 
-def root_key_custody(prefix, roles):
+def root_key_custody(prefix, roles, client_token):
     """Touch only a new fixture UUID in the disposable VM's System keychain."""
     if sys.platform != "darwin" or os.getuid() != 0 or os.environ.get("GITHUB_ACTIONS") != "true":
         raise RuntimeError("key_custody_requires_disposable_mac_ci")
@@ -860,6 +860,7 @@ def root_key_custody(prefix, roles):
     if subprocess.run(["/bin/launchctl", "print", "system/" + label], capture_output=True).returncode == 0:
         raise RuntimeError("key_custody_namespace_already_occupied")
     checks, pids = {}, []
+    native_system_report = None
     handoff_state = prefix / "key-handoff-state"
     handoff_state.mkdir(mode=0o700)
     os.chown(handoff_state, roles["broker"].pw_uid, roles["broker"].pw_gid)
@@ -940,7 +941,7 @@ def root_key_custody(prefix, roles):
                             stage(reason)
                         if result.get("checkpoint") in {"policy", "context", "invalid_identity", "initial_missing", "enrollment",
                             "encryption", "duplicate_enrollment", "other_vault", "restart_recovery", "fixture_removal", "system_location",
-                            "native_handoff", "native_worker_service", "native_worker_supervisor", "native_staged_initializer", "native_initial_enrollment", "native_messages"}:
+                            "native_handoff", "native_worker_service", "native_worker_supervisor", "native_staged_initializer", "native_initial_enrollment", "native_messages", "native_host_initialization", "native_system_browser"}:
                             stage("key_checkpoint_" + result["checkpoint"])
                         failed_checks = result.get("failed_checks")
                         if (isinstance(failed_checks, list) and len(failed_checks) <= 100
@@ -991,6 +992,14 @@ def root_key_custody(prefix, roles):
             "full_worker_browser_sms_journey_verified": False, "genuine_full_disk_access_verified": False,
             "checks": native_checks}, indent=2).encode())
         native_evidence.chmod(0o644)
+        stage("native_system_host_browser_journey")
+        controller = prefix / "native-system-fixture.py"
+        native_fixture = prefix / "native-sms-fixture.py"
+        root_managed_path(controller)
+        root_managed_path(native_fixture)
+        native_system_report = runpy.run_path(str(controller))["exercise_native_system"](
+            prefix, roles, policy, phase, client_token, probe, command,
+            runpy.run_path(str(native_fixture))["NativeSMSFixture"])
         handoff = phase("handoff", collect=False)
         supervisor = phase("supervisor", collect=False)
         initializer = phase("initializer", collect=False)
@@ -1014,6 +1023,11 @@ def root_key_custody(prefix, roles):
             phase("initial-setup-cleanup", collect=False)
         finally:
             phase("remove")
+    if native_system_report is not None:
+        native_system_report["checks"]["fixture_system_key_removed"] = checks["remove_fixture_key_removed_and_not_recreated"]
+        evidence = Path("/tmp/account-access-mac-native-system-browser.json")
+        private_file(evidence, json.dumps(native_system_report, indent=2).encode())
+        evidence.chmod(0o644)
     checks["separate_daemon_processes_used"] = len(set(pids)) == 3
     def signature(path):
         signed = subprocess.run(["/usr/bin/codesign", "-d", "--verbose=4", str(path)], capture_output=True, timeout=10)
@@ -1364,7 +1378,7 @@ def exercise(prefix, roles):
                 if sys.platform == "darwin":
                     owner_report = root_owner_gateway(prefix, roles, policy, owner_token, worker)
                     owner_report["checks"].update(probe(prefix, roles, worker, policy, "after-owner-stop"))
-                    key_report = root_key_custody(prefix, roles)
+                    key_report = root_key_custody(prefix, roles, token)
                     policy_report = root_owner_policy(prefix, roles)
                 else:
                     owner_request(owner_path, owner_token, "/owner/revoke", {"account": "demo-api"})

@@ -48,7 +48,7 @@ import Darwin
                   let identity = value["vault_id"] as? String else { throw RootVaultKeyFailure.invalidIdentity }
             let root = try WorkerLaunchPaths.protected(WorkerLaunchPaths.lexical(value["root"]))
             let mode = CommandLine.arguments[3]
-            guard ["create", "reopen", "unprivileged", "remove", "handoff", "supervisor", "receive", "coordinator", "coordinator-cleanup", "initializer", "initial-setup", "initial-setup-cleanup", "native-messages"].contains(mode) else { throw RootVaultKeyFailure.invalidIdentity }
+            guard ["create", "reopen", "unprivileged", "remove", "handoff", "supervisor", "receive", "coordinator", "coordinator-cleanup", "initializer", "initial-setup", "initial-setup-cleanup", "native-messages", "native-host-init", "native-host"].contains(mode) else { throw RootVaultKeyFailure.invalidIdentity }
             if mode == "receive" {
                 guard CommandLine.arguments.count == 5 else { throw RootVaultKeyFailure.invalidIdentity }
                 try RootKeyHandoffChecks.receive(value, stage: CommandLine.arguments[4])
@@ -75,7 +75,15 @@ import Darwin
             checks["system_daemon_context_verified"] = true
             var limit = rlimit()
             checks["provider_disabled_core_dumps"] = getrlimit(RLIMIT_CORE, &limit) == 0 && limit.rlim_cur == 0 && limit.rlim_max == 0
-            if mode == "native-messages" {
+            if mode == "native-host-init" {
+                checkpoint = "native_host_initialization"
+                var settings = value
+                settings["launcher"] = root.appendingPathComponent("native-host-launcher.json").path
+                checks = try RootKeyHandoffChecks.run(settings, policy: path, store: store, identity: identity, stage: "native-host").checks
+            } else if mode == "native-host" {
+                checkpoint = "native_system_browser"
+                try RootNativeHostChecks.run(value, identity: identity)
+            } else if mode == "native-messages" {
                 checkpoint = "native_messages"
                 checks = try RootMessagesChecks.run(value)
             } else if mode == "initial-setup" {

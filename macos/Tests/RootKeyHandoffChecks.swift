@@ -73,9 +73,11 @@ enum RootKeyHandoffChecks {
     }
 
     static func receive(_ value: [String: Any], stage: String) throws -> Never {
-        guard getuid() == 0, geteuid() == 0, ["create", "reopen"].contains(stage) else { throw RootWorkerChannelFailure.unavailable }
-        let plan = try MacWorkerPlan(policy: WorkerLaunchPaths.lexical(value["launcher"]))
+        guard getuid() == 0, geteuid() == 0, ["create", "reopen", "native-host"].contains(stage) else { throw RootWorkerChannelFailure.unavailable }
         let root = try WorkerLaunchPaths.protected(WorkerLaunchPaths.lexical(value["root"]))
+        let launcher = stage == "native-host" ? root.appendingPathComponent("native-host-launcher.json").path
+            : try WorkerLaunchPaths.lexical(value["launcher"])
+        let plan = try MacWorkerPlan(policy: launcher)
         let script = try WorkerLaunchPaths.protected(root.appendingPathComponent("key-handoff-probe.py").path)
         try MacWorkerBootstrap.checkFD(3, type: S_IFIFO)
         try MacWorkerBootstrap.checkFD(5, type: S_IFSOCK)

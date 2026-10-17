@@ -42,7 +42,7 @@ def native_account(base):
 class NativeSMSFixture:
     label = "com.fainir.accountaccess.qa.native-browser"
 
-    def __init__(self, prefix, owner):
+    def __init__(self, prefix, owner, *, tag="native-browser"):
         if (
             sys.platform != "darwin"
             or os.getuid() != 0
@@ -56,9 +56,11 @@ class NativeSMSFixture:
             or not owner.pw_dir.startswith(str(prefix) + "/")
         ):
             raise RuntimeError("native_browser_requires_fixture_identity")
+        if tag not in {"native-browser", "native-host"}:
+            raise RuntimeError("invalid_native_fixture_tag")
         root_managed_path(prefix)
         self.prefix, self.owner = prefix, owner
-        folder = prefix / "native-browser-owner"
+        folder = prefix / (tag + "-owner")
         folder.mkdir(mode=0o700)
         os.chown(folder, owner.pw_uid, owner.pw_gid)
         self.database = folder / "messages.sqlite"
@@ -86,8 +88,8 @@ class NativeSMSFixture:
         assert kind == "sms"
         with sqlite3.connect(self.database) as db:
             db.execute(
-                "INSERT INTO message VALUES('new-login',?,NULL,1,0,?)",
-                ("Example login: " + code, self.date()),
+                "INSERT INTO message VALUES(?,?,NULL,1,0,?)",
+                ("new-login-" + str(self.delivered + 1), "Example login: " + code, self.date()),
             )
         self.delivered += 1
 
