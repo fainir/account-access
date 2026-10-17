@@ -17,14 +17,17 @@ CHECKS = {
     "worker_output_has_no_credentials",
     "agent_cannot_impersonate_worker",
 }
+MAC_CHECKS = (CHECKS - {"worker_memory_read_denied", "worker_environment_read_denied", "worker_descriptors_denied"}) | {
+    "worker_task_port_denied", "native_launcher_requires_root", "native_broker_identity_drop_verified"}
 
 
 def validate(value):
     return (isinstance(value, dict) and value.get("status") == "PASSED"
-            and value.get("environment") == "controlled-demo" and value.get("platform") == "linux"
+            and value.get("environment") == "controlled-demo" and value.get("platform") in ("linux", "macos")
             and value.get("production_ready") is False and type(value.get("private_signins")) is int
             and value["private_signins"] == 0 and value.get("real_distinct_uids") is True
-            and isinstance(value.get("checks"), dict) and set(value["checks"]) == CHECKS
+            and isinstance(value.get("checks"), dict)
+            and set(value["checks"]) == (MAC_CHECKS if value["platform"] == "macos" else CHECKS)
             and all(item is True for item in value["checks"].values()))
 
 

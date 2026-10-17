@@ -1,7 +1,7 @@
 """Root-only CI harness for a real cross-UID broker boundary, using fake accounts.
 
-Run only in a disposable Linux CI VM. The runtime must already be installed in
-a root-owned /var/lib/account-access-worker-qa-* directory. Two new, non-sudo system
+Run only in a disposable CI VM. The runtime must already be installed in a
+protected root-owned prefix. Two new, non-sudo system
 identities are created and removed; no existing user or account is enrolled.
 This is not a production supervisor, installer or owner enrollment gateway.
 """
@@ -16,6 +16,7 @@ import json
 import os
 from pathlib import Path
 import pwd
+import resource
 import secrets
 import shutil
 import signal
@@ -75,6 +76,10 @@ def fixture_mailbox(prefix):
 
 @contextmanager
 def identities(prefix):
+    if sys.platform == "darwin":
+        with mac_identities(prefix) as roles:
+            yield roles
+        return
     created = []
     try:
         roles = {}
@@ -103,7 +108,54 @@ def identities(prefix):
             command(["/usr/sbin/groupdel", name])
 
 
+@contextmanager
+def mac_identities(prefix):
+    # Never create Directory Services records on the operator's Mac. This path
+    # runs only in disposable hosted CI, under its already-authorized root role.
+    if os.environ.get("GITHUB_ACTIONS") != "true":
+        raise RuntimeError("mac_worker_qa_requires_disposable_ci")
+    created_users, created_groups = [], []
+    try:
+        roles = {}
+        for role in ["broker", "agent"]:
+            while True:
+                candidate = 50000 + secrets.randbelow(10000)
+                try:
+                    pwd.getpwuid(candidate)
+                except KeyError:
+                    try:
+                        grp.getgrgid(candidate)
+                    except KeyError:
+                        break
+            name = "aaw" + role[0] + secrets.token_hex(4)
+            group_path, user_path = "/Groups/" + name, "/Users/" + name
+            home = prefix / (role + "-home")
+            command(["/usr/bin/dscl", ".", "-create", group_path])
+            created_groups.append(group_path)
+            command(["/usr/bin/dscl", ".", "-create", group_path, "PrimaryGroupID", str(candidate)])
+            command(["/usr/bin/dscl", ".", "-create", user_path])
+            created_users.append(user_path)
+            for field, value in {"UniqueID": str(candidate), "PrimaryGroupID": str(candidate),
+                "NFSHomeDirectory": str(home), "UserShell": "/usr/bin/false", "IsHidden": "1", "Password": "*"}.items():
+                command(["/usr/bin/dscl", ".", "-create", user_path, field, value])
+            command(["/usr/bin/dscacheutil", "-flushcache"])
+            user = pwd.getpwnam(name)
+            assert user.pw_uid == candidate and user.pw_gid == candidate
+            home.mkdir(mode=0o700)
+            os.chown(home, user.pw_uid, user.pw_gid)
+            roles[role] = user
+        yield roles
+    finally:
+        for record in reversed(created_users):
+            command(["/usr/bin/dscl", ".", "-delete", record])
+        for record in reversed(created_groups):
+            command(["/usr/bin/dscl", ".", "-delete", record])
+        command(["/usr/bin/dscacheutil", "-flushcache"])
+
+
 def dropped(user):
+    if sys.platform == "darwin":
+        return ["/usr/bin/sudo", "-n", "-H", "-u", "#" + str(user.pw_uid), "-g", "#" + str(user.pw_gid), "--"]
     return ["/usr/bin/setpriv", "--reuid=" + str(user.pw_uid), "--regid=" + str(user.pw_gid),
             "--clear-groups", "--no-new-privs", "--bounding-set=-all", "--inh-caps=-all",
             "--ambient-caps=-all", "--reset-env"]
@@ -133,6 +185,8 @@ def probe(prefix, roles, worker, policy, phase):
         "--state", policy["root"], "--worker-module", module, "--policy", str(prefix / "policy.json"),
         "--owner-socket", policy["owner_socket"], "--agent-socket", policy["agent_socket"],
         "--worker-pid", str(worker.pid), "--worker-uid", str(roles["broker"].pw_uid)]
+    if sys.platform == "darwin":
+        arguments += ["--mac-bootstrap", str(prefix / "mac-worker-bootstrap")]
     result = json.loads(command(arguments, timeout=240))
     assert result["status"] == "PASSED", "fixture_boundary_probe_failed"
     return result["checks"]
@@ -164,7 +218,8 @@ def exercise(prefix, roles):
         broker.store.put("source:example-email", {"username": "demo@example.test", "password": DEMO_PASSWORD})
         # Only the public test CA crosses into the worker. Mail credentials are
         # encrypted in its private store, never environment/argv/bootstrap logs.
-        private_file(state / "fixture-mail-ca.pem", mailbox.cert_path.read_bytes())
+        private_file(prefix / "fixture-mail-ca.pem", mailbox.cert_path.read_bytes())
+        (prefix / "fixture-mail-ca.pem").chmod(0o644)
         phone = {}
         delivered_sms = []
         def deliver(kind, code):
@@ -212,11 +267,23 @@ def exercise(prefix, roles):
             try:
                 arguments = [*dropped(roles["broker"]), "/usr/bin/env",
                     "PLAYWRIGHT_BROWSERS_PATH=" + str(prefix / "browsers"),
-                    "SSL_CERT_FILE=" + str(state / "fixture-mail-ca.pem"),
+                    "SSL_CERT_FILE=" + str(prefix / "fixture-mail-ca.pem"),
                     sys.executable, "-I", "-B", "-m", "account_access.worker_host",
                     "--policy", str(prefix / "policy.json"), "--bootstrap-fd", str(reader),
                     "--agent-fd", str(agent_socket.fileno()), "--owner-fd", str(owner_socket.fileno()),
                     "--controlled-fixture"]
+                if sys.platform == "darwin":
+                    launcher = {"managed_by": "account-access-mac-worker-v1", "schema": 1,
+                        "python": sys.executable, "runtime": sys.prefix, "worker_policy": str(prefix / "policy.json"),
+                        "broker_gid": roles["broker"].pw_gid, "broker_home": roles["broker"].pw_dir,
+                        "browsers": str(prefix / "browsers"), "fixture": True,
+                        "fixture_ca": str(prefix / "fixture-mail-ca.pem")}
+                    private_file(prefix / "mac-launcher.json", json.dumps(launcher).encode())
+                    (prefix / "mac-launcher.json").chmod(0o644)
+                    root_managed_path(prefix / "mac-worker-bootstrap")
+                    arguments = [str(prefix / "mac-worker-bootstrap"), "--policy", str(prefix / "mac-launcher.json"),
+                        "--bootstrap-fd", str(reader), "--agent-fd", str(agent_socket.fileno()),
+                        "--owner-fd", str(owner_socket.fileno())]
                 worker = subprocess.Popen(arguments, pass_fds=(reader, agent_socket.fileno(), owner_socket.fileno()),
                     stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                     start_new_session=True, env={"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"})
@@ -238,7 +305,10 @@ def exercise(prefix, roles):
                         allowed = {"invalid_worker_bootstrap", "worker_bootstrap_timed_out", "invalid_worker_listener",
                             "untrusted_worker_runtime", "invalid_worker_policy", "invalid_worker_identity",
                             "worker_requires_isolated_python", "unsafe_worker_privileges", "unsafe_worker_state",
-                            "invalid_worker_descriptors", "invalid_worker_configuration_mode", "worker_unavailable"}
+                            "invalid_worker_descriptors", "invalid_worker_configuration_mode", "worker_unavailable",
+                            "worker_launcher_requires_root", "invalid_worker_launcher_arguments", "invalid_worker_launcher_policy",
+                            "unsafe_worker_launcher_runtime", "invalid_worker_launcher_identity", "invalid_worker_launcher_descriptors",
+                            "worker_identity_drop_failed", "worker_execution_failed"}
                         stage(reason if reason in allowed else "no_worker_startup_report")
                         print(json.dumps({"worker_exit_code": worker.returncode}), file=sys.stderr)
                         raise RuntimeError("fixture_worker_exited_before_ready")
@@ -271,12 +341,14 @@ def exercise(prefix, roles):
                 stdout, stderr = worker.communicate(timeout=15)
                 checks["graceful_worker_exit"] = worker.returncode == 0
                 checks["worker_output_has_no_credentials"] = not stdout and not stderr
+                if sys.platform == "darwin":
+                    checks["native_broker_identity_drop_verified"] = True
                 assert all(checks.values()), "fixture_worker_final_checks_failed"
                 return {"status": "PASSED", "environment": "controlled-demo", "production_ready": False,
-                        "private_signins": 0, "platform": "linux", "real_distinct_uids": True,
+                        "private_signins": 0, "platform": "macos" if sys.platform == "darwin" else "linux", "real_distinct_uids": True,
                         "checks": checks,
                         "remaining": ["trusted production supervisor and lifecycle", "trusted owner enrollment gateway",
-                                      "consumer installer integration", "macOS and private-account acceptance"]}
+                                      "consumer installer integration", "private-account and physical-phone acceptance"]}
             finally:
                 for fd in [reader, writer]:
                     if fd is not None:
@@ -296,11 +368,16 @@ def main():
     parser.add_argument("--prefix", type=Path, required=True)
     args = parser.parse_args()
     prefix = args.prefix.resolve(strict=True)
-    if (sys.platform != "linux" or os.getuid() != 0 or prefix.parent != Path("/var/lib")
+    expected_parent = Path("/Library/PrivilegedHelperTools") if sys.platform == "darwin" else Path("/var/lib")
+    if (sys.platform not in {"linux", "darwin"} or os.getuid() != 0 or prefix.parent != expected_parent
             or not prefix.name.startswith("account-access-worker-qa-") or not sys.flags.isolated):
-        parser.error("Requires a disposable root-owned Linux CI runtime under /var/lib")
+        parser.error("Requires a disposable root-owned CI runtime in the platform's protected prefix")
     os.umask(0o077)
     try:
+        if sys.platform == "darwin":
+            current, maximum = resource.getrlimit(resource.RLIMIT_NOFILE)
+            resource.setrlimit(resource.RLIMIT_NOFILE,
+                (10240 if current == resource.RLIM_INFINITY else min(current, 10240), maximum))
         stage("validate_immutable_runtime")
         for label, path in [("prefix", prefix), ("environment", sys.prefix), ("interpreter", sys.executable),
                             ("harness", __file__), ("probe", prefix / "probe.py")]:

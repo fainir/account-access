@@ -8,7 +8,7 @@ import threading
 
 import pytest
 
-from scripts.check_worker_boundary_report import CHECKS, main, validate
+from scripts.check_worker_boundary_report import CHECKS, MAC_CHECKS, main, validate
 from scripts.worker_boundary_probe import UnixHTTP as AgentWire
 from scripts.worker_boundary_smoke import UnixHTTP as OwnerWire
 
@@ -49,6 +49,20 @@ def test_fictional_acceptance_cannot_claim_a_production_or_private_result(name, 
     changed = report()
     changed[name] = value
     assert not validate(changed)
+
+
+def test_mac_boundary_requires_its_actual_platform_checks():
+    value = report()
+    value["platform"] = "macos"
+    assert not validate(value)
+    value["checks"] = dict.fromkeys(MAC_CHECKS, True)
+    assert validate(value)
+    for name in MAC_CHECKS:
+        changed = copy.deepcopy(value)
+        del changed["checks"][name]
+        assert not validate(changed)
+    value["platform"] = []
+    assert not validate(value)
 
 
 @pytest.mark.parametrize("wire", [AgentWire, OwnerWire])

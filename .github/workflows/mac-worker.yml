@@ -1,0 +1,67 @@
+name: Mac separate-user worker acceptance
+on: [push, pull_request]
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  mac-cross-user:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      - name: Compile and check the permanent identity-drop launcher
+        run: |
+          for AC_BOOTSTRAP_ARCH in arm64 x86_64; do
+            xcrun swiftc -parse-as-library -warnings-as-errors -typecheck \
+              -target "$AC_BOOTSTRAP_ARCH-apple-macos13" -framework Foundation macos/WorkerBootstrap.swift
+          done
+          xcrun swiftc -O -parse-as-library -framework Foundation \
+            macos/WorkerBootstrap.swift macos/Tests/WorkerBootstrapChecks.swift -o /tmp/ac-worker-bootstrap-checks
+          /tmp/ac-worker-bootstrap-checks
+          xcrun swiftc -O -parse-as-library -D ACCOUNT_ACCESS_WORKER_BOOTSTRAP_MAIN -framework Foundation \
+            macos/WorkerBootstrap.swift -o /tmp/ac-mac-worker-bootstrap
+      - name: Prepare root-owned runtime in this disposable Mac VM
+        run: |
+          uv build --wheel --out-dir /tmp/account-access-mac-worker-wheel
+          sudo mkdir -p /Library/PrivilegedHelperTools
+          AC_MAC_WORKER_PREFIX=$(sudo mktemp -d /Library/PrivilegedHelperTools/account-access-worker-qa-XXXXXXXX)
+          echo "AC_MAC_WORKER_PREFIX=$AC_MAC_WORKER_PREFIX" >> "$GITHUB_ENV"
+          sudo chmod 755 "$AC_MAC_WORKER_PREFIX"
+          AC_MAC_UV=$(command -v uv)
+          sudo env UV_CACHE_DIR="$AC_MAC_WORKER_PREFIX/cache" "$AC_MAC_UV" python install \
+            --no-bin --install-dir "$AC_MAC_WORKER_PREFIX/python" 3.12
+          sudo env UV_CACHE_DIR="$AC_MAC_WORKER_PREFIX/cache" UV_PYTHON_INSTALL_DIR="$AC_MAC_WORKER_PREFIX/python" \
+            "$AC_MAC_UV" venv --managed-python --python 3.12 "$AC_MAC_WORKER_PREFIX/runtime"
+          sudo env UV_CACHE_DIR="$AC_MAC_WORKER_PREFIX/cache" "$AC_MAC_UV" pip install \
+            --python "$AC_MAC_WORKER_PREFIX/runtime/bin/python" --require-hashes -r account_access/runtime-requirements.txt
+          sudo env UV_CACHE_DIR="$AC_MAC_WORKER_PREFIX/cache" "$AC_MAC_UV" pip install \
+            --python "$AC_MAC_WORKER_PREFIX/runtime/bin/python" --no-deps /tmp/account-access-mac-worker-wheel/account_access-*.whl
+          sudo install -m 644 scripts/worker_boundary_smoke.py "$AC_MAC_WORKER_PREFIX/acceptance.py"
+          sudo install -m 644 scripts/worker_boundary_probe.py "$AC_MAC_WORKER_PREFIX/probe.py"
+          sudo install -m 755 /tmp/ac-mac-worker-bootstrap "$AC_MAC_WORKER_PREFIX/mac-worker-bootstrap"
+          sudo codesign --force --options runtime --sign - "$AC_MAC_WORKER_PREFIX/mac-worker-bootstrap"
+          sudo env PLAYWRIGHT_BROWSERS_PATH="$AC_MAC_WORKER_PREFIX/browsers" \
+            "$AC_MAC_WORKER_PREFIX/runtime/bin/python" -I -B -m playwright install chromium
+          sudo chmod -R a+rX "$AC_MAC_WORKER_PREFIX/browsers"
+      - name: Verify real cross-user password, email, SMS and authenticator recovery
+        run: |
+          ulimit -n 10240
+          sudo env GITHUB_ACTIONS=true "$AC_MAC_WORKER_PREFIX/runtime/bin/python" -I -B \
+            "$AC_MAC_WORKER_PREFIX/acceptance.py" --prefix "$AC_MAC_WORKER_PREFIX" > /tmp/account-access-mac-worker.json
+          uv run python scripts/check_worker_boundary_report.py /tmp/account-access-mac-worker.json
+          cat /tmp/account-access-mac-worker.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: mac-worker-boundary-acceptance
+          path: /tmp/account-access-mac-worker.json
+          if-no-files-found: ignore
+      - name: Remove the ephemeral runtime
+        if: always()
+        run: |
+          if [[ "$AC_MAC_WORKER_PREFIX" == /Library/PrivilegedHelperTools/account-access-worker-qa-* ]]; then
+            sudo rm -rf -- "$AC_MAC_WORKER_PREFIX"
+          fi

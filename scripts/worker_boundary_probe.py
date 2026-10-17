@@ -1,4 +1,4 @@
-"""Unprivileged adversarial probe for the ephemeral, synthetic Linux CI service.
+"""Unprivileged adversarial probe for the ephemeral, synthetic CI service.
 
 The root test harness starts this script under a new, non-sudo agent identity.
 It does not open any installed user's Account Access store or browser account.
@@ -56,6 +56,23 @@ def write_existing(path):
         pass
 
 
+def mac_task_port_denied(pid):
+    # A task port would permit memory inspection/control. Request it, never
+    # read process memory, and release it if the platform unexpectedly grants it.
+    import ctypes
+    system = ctypes.CDLL("/usr/lib/libSystem.B.dylib", use_errno=True)
+    own = ctypes.c_uint.in_dll(system, "mach_task_self_").value
+    target = ctypes.c_uint(0)
+    system.task_for_pid.argtypes = [ctypes.c_uint, ctypes.c_int, ctypes.POINTER(ctypes.c_uint)]
+    system.task_for_pid.restype = ctypes.c_int
+    status = system.task_for_pid(own, pid, ctypes.byref(target))
+    if status == 0 and target.value:
+        system.mach_port_deallocate.argtypes = [ctypes.c_uint, ctypes.c_uint]
+        system.mach_port_deallocate(own, target.value)
+        return False
+    return status != 0
+
+
 def run(args):
     if os.getuid() == 0 or os.getuid() == args.worker_uid:
         raise RuntimeError("probe_requires_distinct_unprivileged_identity")
@@ -83,11 +100,20 @@ def run(args):
         "runtime_write_denied": denied(lambda: write_existing(args.worker_module)),
         "runtime_replacement_denied": denied(lambda: Path(args.worker_module).rename(args.worker_module + ".moved")),
         "policy_write_denied": denied(lambda: write_existing(args.policy)),
-        "worker_memory_read_denied": denied(lambda: Path(f"/proc/{args.worker_pid}/mem").open("rb")),
-        "worker_environment_read_denied": denied(lambda: Path(f"/proc/{args.worker_pid}/environ").read_bytes()),
-        "worker_descriptors_denied": denied(lambda: list(Path(f"/proc/{args.worker_pid}/fd").iterdir())),
         "worker_signal_denied": denied(lambda: os.kill(args.worker_pid, 0)),
     }
+    if sys.platform == "darwin":
+        checks["worker_task_port_denied"] = mac_task_port_denied(args.worker_pid)
+        refused = subprocess.run([args.mac_bootstrap, "--policy", str(Path(args.policy).with_name("mac-launcher.json")),
+            "--bootstrap-fd", "9", "--agent-fd", "10", "--owner-fd", "11"], capture_output=True, timeout=10)
+        checks["native_launcher_requires_root"] = (refused.returncode == 78
+            and json.loads(refused.stdout).get("reason") == "worker_launcher_requires_root")
+    else:
+        checks.update({
+            "worker_memory_read_denied": denied(lambda: Path(f"/proc/{args.worker_pid}/mem").open("rb")),
+            "worker_environment_read_denied": denied(lambda: Path(f"/proc/{args.worker_pid}/environ").read_bytes()),
+            "worker_descriptors_denied": denied(lambda: list(Path(f"/proc/{args.worker_pid}/fd").iterdir())),
+        })
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as channel:
         checks["private_owner_channel_denied"] = denied(lambda: channel.connect(args.owner_socket))
     with UnixHTTP(args.agent_socket) as channel:
@@ -115,6 +141,7 @@ def main():
         parser.add_argument("--" + name, required=True)
     parser.add_argument("--worker-pid", type=int, required=True)
     parser.add_argument("--worker-uid", type=int, required=True)
+    parser.add_argument("--mac-bootstrap")
     args = parser.parse_args()
     try:
         result = run(args)
