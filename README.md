@@ -289,6 +289,11 @@ fictional password/email/SMS/authenticator sign-ins and denied agent access to
 the vault and owner controls. It still needs a production supervisor, trusted
 enrollment and installer integration; it is not enabled in the consumer Mac app.
 
+The [native Mac owner-channel component](docs/mac-owner-gateway.md) also passed
+[54 checks](artifacts/mac-owner-gateway-080.json) with separate helper processes.
+It is under integration; those fixtures do not validate root installation or
+genuine owner approval.
+
 Version 0.7 strengthens private file replacement, rejects vault-sidecar symlinks, requires an active matching window for every code resolver, and rechecks the verification page before filling its code. Native forms must POST to an approved destination. These checks run silently for supported normal logins. [Security and sync details](docs/security-and-password-sync.md) describe what is enforced and what remains outside the local preview's boundary.
 
 - [Architecture and trust boundaries](docs/architecture.md)

@@ -34,6 +34,11 @@ descriptors. It is not connected to the consumer installer or a production
 owner enrollment gateway. Its cross-user CI acceptance uses fictional accounts;
 it does not validate isolation in the installed Mac app.
 
+The [Mac owner-channel component](mac-owner-gateway.md) adds native peer code/user
+checks, a dedicated setup authorization and bounded private owner routing. Its
+signed-process fixtures verify that layer under one OS user. Root deployment,
+genuine owner approval and wiring into the consumer UI remain required.
+
 ## Authority and operations
 
 Standing grants bind principal, account, named operation, owner configuration fingerprint and optional expiry. The owner chooses them once. Every operation and task result access rechecks them. Provider OAuth scopes are also checked before an API read. Configuration drift fails closed until reviewed, granted and reconnected. A revoked principal cannot read its earlier results. A local account revocation stops new operations but cannot retract an already issued HTTP request or invalidate a provider token by itself.

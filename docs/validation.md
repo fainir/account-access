@@ -1,5 +1,42 @@
 # Validation of Account Access
 
+## Native Mac owner channel — 17 October 2026
+
+Revision `712f1a1` passed **54 native owner-channel checks** locally with actual
+Developer ID signed helper processes, and on
+[Mac CI](https://github.com/fainir/account-access/actions/runs/38991224960/job/117273831671)
+with ad-hoc hash-pinned peers. Both architectures type-check against macOS 13.
+The accepted peer reached the Python owner server over Unix IPC for a grant,
+authenticator enrollment, CSV preview and revocation. Wrong code identities,
+wrong expected OS users, unauthorized/expired setup and disconnected sessions
+were rejected. The owner capability and known fictional secrets were absent
+from returned data; helper processes exited.
+
+One initial CI host allowed an undefined authorization right through its default
+policy, invalidating the test's blanket expectation of OS denial. The product's
+dedicated-rule preflight already rejected that situation. The corrected checker
+also requires the exact granted right and flags, and the tests now verify an OS
+reference round-trip plus rejection without the dedicated rule. QA uses a
+separate authorization-right name and never changes the database. The dedicated
+production rule requires an unshared session-owner authorization, a short
+handoff and no root shortcut. Setup sessions expire and do not apply to routine
+agent operations.
+
+The matching earlier baseline `17effe0` passed **710 Python tests in 481.59
+seconds**, lint, dependency audit (no known vulnerabilities), package and native
+checks in [CI](https://github.com/fainir/account-access/actions/runs/38990597823).
+Later native permission fixes are tested by the separate 54-check evidence;
+full current-head CI is recorded when complete.
+
+See [sanitized evidence](../artifacts/mac-owner-gateway-080.json) and the
+[channel contract](mac-owner-gateway.md). These are ordinary-user fixtures with
+separate native processes. Positive setup authorization uses a QA-only verifier;
+genuine owner approval, root deployment and consumer wiring remain unverified.
+No installed app, owner form, privacy permission or real account was changed.
+This is not a Mac cross-user installation claim. The production supervisor,
+protected installation/key custody, migration/client issuance, notarization and
+private email/SMS/authenticator acceptance remain open.
+
 ## Separate-user worker acceptance — 17 October 2026
 
 Internal worker revision `60e34d2` passed **24 cross-user checks** in a
