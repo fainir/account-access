@@ -16,8 +16,10 @@ import re
 import stat
 import subprocess
 import sys
+import tempfile
 import zipfile
 
+from account_access.package_manifest import MAX_MANIFEST_BYTES, build as build_manifest
 from account_access.worker_bootstrap import root_managed_path
 
 
@@ -61,6 +63,31 @@ print('PREPARED_NATIVE_OK')
 def sha256(path):
     with path.open("rb") as source:
         return hashlib.file_digest(source, "sha256").hexdigest()
+
+
+def verify_package_manifest(package, metadata):
+    """Bind the recovery inventory to all actual public bytes in this package."""
+    expected = metadata.get("payload_manifest_sha256")
+    if type(expected) is not str or re.fullmatch(r"[a-f0-9]{64}", expected) is None:
+        raise ValueError("package_recovery_manifest_pin_required")
+    with tempfile.TemporaryDirectory(prefix="account-access-package-manifest-") as temporary:
+        expanded = Path(temporary) / "expanded"
+        subprocess.run(
+            ["/usr/sbin/pkgutil", "--expand-full", str(package), str(expanded)],
+            check=True, capture_output=True, timeout=120,
+        )
+        component = expanded / "payload.pkg"
+        path = component / "Scripts/RecoveryManifest.json"
+        info = path.lstat()
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or not 0 < info.st_size <= MAX_MANIFEST_BYTES:
+            raise ValueError("unsafe_package_recovery_manifest")
+        encoded = path.read_bytes()
+        if hashlib.sha256(encoded).hexdigest() != expected:
+            raise ValueError("package_recovery_manifest_changed")
+        actual = build_manifest(component / "Payload", metadata["version"], metadata["architecture"])
+        if actual != encoded:
+            raise ValueError("package_recovery_payload_changed")
+    return True
 
 
 def prepared_checks(base, app, metadata):
@@ -221,7 +248,7 @@ def main():
         parser.error("Requires the exact development package from this build")
     if args.prepared_runtime and type(metadata.get("runtime_preparation")) is not dict:
         parser.error("Requires a package with explicit runtime preparation")
-    checks = {}
+    checks = {"recovery_manifest_matches_complete_public_package_payload": verify_package_manifest(package, metadata)}
     parents = [Path("/Library"), Path("/Library/Application Support"), Path("/Applications")]
 
     def ownership(path):

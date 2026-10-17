@@ -74,9 +74,9 @@ def test_protected_owner_app_required_before_signatures_or_payload_copy(tmp_path
 
 
 @pytest.mark.parametrize("development", [False, True])
-@pytest.mark.parametrize("native_python", [False, True])
+@pytest.mark.parametrize("native_python,writable", [(False, False), (True, False), (True, True)])
 def test_supplied_python_cannot_run_before_private_payload_inventory(
-    tmp_path, monkeypatch, development, native_python
+    tmp_path, monkeypatch, development, native_python, writable
 ):
     from test_payload_audit import thin
 
@@ -87,6 +87,8 @@ def test_supplied_python_cannot_run_before_private_payload_inventory(
         path.mkdir(parents=True)
     executable = python / "bin/python3.12"
     executable.write_bytes(thin() if native_python else b"#!/bin/sh\nexit 0\n")
+    if writable:
+        executable.chmod(0o666)
     (python / "lib/python3.12/os.py").write_text("# synthetic fixture")
     (browsers / "browser").write_bytes(thin())
     for name in ["broker", "bootstrap"]:
@@ -115,11 +117,13 @@ def test_supplied_python_cannot_run_before_private_payload_inventory(
         inventories.append((roots, archives, development))
         assert architecture == "arm64"
         assert all(not str(path).startswith(str(tmp_path)) for path in [*roots, *archives])
+        if writable:
+            return {}  # The subsequent real inventory must stop unsafe modes.
         raise ValueError("fixture_inventory_stopped_before_execution")
 
     monkeypatch.setattr(package, "audit_payload", audit)
     expected = (
-        "fixture_inventory_stopped_before_execution"
+        "unsafe_install_manifest_object" if writable else "fixture_inventory_stopped_before_execution"
         if native_python
         else "native_python_and_browser_executables_required"
     )
@@ -141,4 +145,6 @@ def test_supplied_python_cannot_run_before_private_payload_inventory(
     if inventories:
         assert inventories[0][2] is development
     assert executable.read_bytes() == (thin() if native_python else b"#!/bin/sh\nexit 0\n")
+    if writable:
+        assert executable.stat().st_mode & 0o777 == 0o666
     assert not list((tmp_path / "output").iterdir())

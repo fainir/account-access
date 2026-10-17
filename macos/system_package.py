@@ -255,6 +255,11 @@ def assemble(args):
             command,
             development=args.development,
         )
+        from account_access.package_manifest import build as install_manifest
+
+        # Refuse writable/special payload objects before the supplied
+        # interpreter runs; preparation receipts retain their exact tree modes.
+        manifest = install_manifest(root, version, args.architecture)
         found = json.loads(
             command(
                 [
@@ -269,6 +274,7 @@ def assemble(args):
         if found != [[3, 12], args.architecture, True]:
             raise ValueError("matching_standalone_python_required")
         scripts.mkdir()
+        (scripts / "RecoveryManifest.json").write_bytes(manifest)
         for name, contents in [("preinstall", PREINSTALL), ("postinstall", POSTINSTALL)]:
             target = scripts / name
             target.write_text(contents)
@@ -331,6 +337,7 @@ def assemble(args):
             "installed": False,
             "native_payload_audit": runtime_audit,
             "runtime_preparation": runtime_preparation,
+            "payload_manifest_sha256": hashlib.sha256(manifest).hexdigest(),
             "sha256": hashlib.sha256(result.read_bytes()).hexdigest(),
         }
         (output / "package.json").write_text(json.dumps(report, indent=2) + "\n")

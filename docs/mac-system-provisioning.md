@@ -210,3 +210,20 @@ runs passed 1,235 tests with seven skips. See the
 [exact source, workflow links and sanitized reports](../artifacts/prepared-runtime-install-080.json).
 The successful fixture does not establish that its explicit ad-hoc permission
 exceptions are needed by, or sufficient for, a real publisher's runtime.
+
+## Unfinished-install recovery work
+
+The next package candidate includes a bounded public payload inventory in its
+installer scripts and pins its SHA-256 in build metadata. It binds the fixed
+support/app roots, every file's bytes and permissions, directory permissions and
+internal aliases. Ambiguous names, external/intermediate alias escapes, shared
+file inodes, privileged/writable modes, special objects and changed file
+snapshots stop inventory generation before the supplied interpreter runs.
+Source inputs and preparation receipts' exact permission modes are preserved.
+
+The disposable package check now expands the actual archive and rebuilds that
+inventory before invoking Installer. This is the identity foundation for a
+subsequent protected recovery transaction. Retrying an existing installation is
+still refused: the transaction and retry behavior are not yet implemented, and
+this inventory alone grants no overwrite or deletion permission. The owner
+installation is unchanged. Exact acceptance of this next candidate is pending.
