@@ -53,6 +53,7 @@ cat > "$AC_APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleShortVersionString</key><string>0.8.0</string>
 <key>CFBundleVersion</key><string>61</string>
 <key>AccountAccessBackgroundFormat</key><integer>1</integer>
+<key>AccountAccessBrowserExtensionFormat</key><integer>1</integer>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>

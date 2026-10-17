@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from macos.notarize import APP_ID, Notarization, ReleaseError, run_tool, sha256
+from macos.notarize import APP_ID, BROWSER_FILES, Notarization, ReleaseError, run_tool, sha256
 
 TEAM = "EXAMPLE123"
 PROFILE = "fixture publisher profile"
@@ -440,3 +440,80 @@ def test_release_refuses_incomplete_or_untrusted_background_helper(release, dama
     with pytest.raises(ReleaseError):
         task.prepare(app, TEAM)
     assert tools.uploads == 0
+
+
+def browser_package(release):
+    task, tools, app = background_package(release)
+    info_path = app / "Contents/Info.plist"
+    info = plistlib.loads(info_path.read_bytes())
+    info.update(AccountAccessBrowserExtensionFormat=1, CFBundleVersion="61")
+    info_path.write_bytes(plistlib.dumps(info))
+    browser = app / "Contents/Resources/GoogleMessagesExtension"
+    browser.mkdir()
+    source = Path(__file__).resolve().parents[1] / "account_access/google_messages_extension"
+    for name in BROWSER_FILES:
+        (browser / name).write_bytes((source / name).read_bytes())
+    return task, tools, app, browser
+
+
+def test_current_sms_helper_is_verified_through_final_release_archive(release):
+    task, tools, app, browser = browser_package(release)
+    prepared = task.prepare(app, TEAM)
+    assert prepared["bundle"]["browser_extension"] == {
+        "format": 1, "sha256": {name: sha256(browser / name) for name in BROWSER_FILES}}
+    task.submit(PROFILE)
+    tools.apple_status = "Accepted"
+    assert task.finalize(PROFILE)["status"] == "READY_FOR_RELEASE_REVIEW"
+    assert task.load()["app"]["browser_extension"] == prepared["bundle"]["browser_extension"]
+
+
+@pytest.mark.parametrize("damage", ["missing", "extra", "directory", "symlink", "no-marker"])
+def test_unexpected_browser_helper_contents_never_reach_upload(release, damage):
+    task, tools, app, browser = browser_package(release)
+    if damage == "missing":
+        (browser / "reader.js").unlink()
+    elif damage == "extra":
+        (browser / "passwords.csv").write_text("fictional export")
+    elif damage == "directory":
+        (browser / "reader.js").unlink()
+        (browser / "reader.js").mkdir()
+    elif damage == "symlink":
+        (browser / "reader.js").unlink()
+        (browser / "reader.js").symlink_to(browser / "popup.js")
+    else:
+        path = app / "Contents/Info.plist"
+        info = plistlib.loads(path.read_bytes())
+        del info["AccountAccessBrowserExtensionFormat"]
+        path.write_bytes(plistlib.dumps(info))
+    with pytest.raises(ReleaseError):
+        task.prepare(app, TEAM)
+    assert tools.uploads == 0
+    assert not task.archive.exists()
+
+
+@pytest.mark.parametrize("version", [True, 0, 2, "1"])
+def test_unsupported_browser_helper_format_never_reaches_upload(release, version):
+    task, tools, app, _ = browser_package(release)
+    path = app / "Contents/Info.plist"
+    info = plistlib.loads(path.read_bytes())
+    info["AccountAccessBrowserExtensionFormat"] = version
+    path.write_bytes(plistlib.dumps(info))
+    with pytest.raises(ReleaseError, match="unsupported_browser_extension_format"):
+        task.prepare(app, TEAM)
+    assert tools.uploads == 0
+
+
+def test_changed_prepared_browser_helper_never_reaches_upload(release):
+    task, tools, app, _ = browser_package(release)
+    task.prepare(app, TEAM)
+    (task.app / "Contents/Resources/GoogleMessagesExtension/reader.js").write_text("changed")
+    with pytest.raises(ReleaseError, match="prepared_app_changed"):
+        task.submit(PROFILE)
+    assert tools.uploads == 0
+
+
+def test_build_declares_and_copies_the_exact_reviewed_browser_helper_files():
+    source = (Path(__file__).resolve().parents[1] / "macos/build.sh").read_text()
+    assert "<key>AccountAccessBrowserExtensionFormat</key><integer>1</integer>" in source
+    declared = source.split("for AC_BROWSER_FILE in ", 1)[1].split("; do", 1)[0].split()
+    assert set(declared) == BROWSER_FILES and len(declared) == len(BROWSER_FILES)

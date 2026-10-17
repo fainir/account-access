@@ -25,6 +25,8 @@ APP_ID = "com.fainir.accountaccess"
 ARCHES = {"arm64", "x86_64"}
 BACKGROUND = "AccountAccessBackground"
 AGENT_PLIST = "com.fainir.accountaccess.background.plist"
+BROWSER_EXTENSION = "GoogleMessagesExtension"
+BROWSER_FILES = {"manifest.json", "background.js", "reader.js", "popup.js", "popup.html", "popup.css"}
 HEX256 = re.compile(r"[a-f0-9]{64}")
 TOOLS = {name: "/usr/bin/" + name for name in ["codesign", "lipo", "ditto", "xcrun", "syspolicy_check"]}
 
@@ -170,11 +172,25 @@ class Notarization:
         background = info.get("AccountAccessBackgroundFormat")
         if background is not None and (type(background) is not int or background != 1):
             raise ReleaseError("unsupported_background_format")
+        browser_format = info.get("AccountAccessBrowserExtensionFormat")
+        if ("AccountAccessBrowserExtensionFormat" in info
+                and (type(browser_format) is not int or browser_format != 1)):
+            raise ReleaseError("unsupported_browser_extension_format")
+        expected_resources = {"account_access.whl", "install.sh"}
+        if browser_format == 1:
+            expected_resources.add(BROWSER_EXTENSION)
         executables = {"AccountAccess", BACKGROUND} if background == 1 else {"AccountAccess"}
         if (info.get("CFBundleIdentifier") != APP_ID or info.get("CFBundleExecutable") != "AccountAccess"
-                or {path.name for path in resources.iterdir()} != {"account_access.whl", "install.sh"}
+                or {path.name for path in resources.iterdir()} != expected_resources
                 or {path.name for path in (app / "Contents/MacOS").iterdir()} != executables):
             raise ReleaseError("unexpected_app_contents")
+        browser_hashes = None
+        if browser_format == 1:
+            browser = resources / BROWSER_EXTENSION
+            if (not browser.is_dir() or {path.name for path in browser.iterdir()} != BROWSER_FILES
+                    or any(not path.is_file() for path in browser.iterdir())):
+                raise ReleaseError("unexpected_browser_extension_contents")
+            browser_hashes = {name: sha256(browser / name) for name in sorted(BROWSER_FILES)}
         if not os.access(app / "Contents/MacOS/AccountAccess", os.X_OK):
             raise ReleaseError("app_executable_permission_missing")
         wheel = info.get("AccountAccessWheelSHA256", "")
@@ -183,6 +199,8 @@ class Notarization:
         hashes = self.code_info(app, app / "Contents/MacOS/AccountAccess", APP_ID, team)
         result = {"identifier": APP_ID, "version": info.get("CFBundleShortVersionString"),
                   "build": info.get("CFBundleVersion"), "team": team, "wheel_sha256": wheel, "cdhashes": hashes}
+        if browser_hashes is not None:
+            result["browser_extension"] = {"format": 1, "sha256": browser_hashes}
         library = app / "Contents/Library"
         if background == 1:
             agents = library / "LaunchAgents"
