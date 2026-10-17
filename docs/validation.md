@@ -1,5 +1,51 @@
 # Validation of Account Access
 
+## Resumable source-image installation — 17 October 2026
+
+Revision `a777168` passed all eight push/PR workflows. Both complete regressions
+passed **1,445 tests with 74 platform skips**, in 598.26 and 582.19 seconds.
+Lint, package builds and dependency auditing passed. Both disposable Macs
+produced identical sets of sixteen complete worker reports, including the
+**16-check original** and **23-check prepared** package installations.
+
+The package now contains its public image in protected script resources and
+has no automatic PackageKit target payload. Native code verifies the complete
+source before replacing itself with the isolated source interpreter. Only
+public descriptors 3 and 4 cross this boundary; unrelated handles are closed,
+stdin is `/dev/null` and caller environment variables are removed. An actual
+Installer fixture checks those properties independently of the Python runtime.
+The complete-package journey separately executes the real runtime and copies
+the image into its final protected locations.
+
+An exclusive lease and immutable journal bind the exact image, interactive
+owner and published directory identities. Matching partial files can resume;
+unknown or conflicting data is preserved and refused. In each package journey,
+CI kills the actual coordinator after its protected intent, reinstalls the same
+package, then retries again and verifies that the public roots and verification
+receipt keep their device/inode identities. Native code rechecks the installed
+image before provisioning. Package-bound peer identities are checked before
+provisioning writes, and existing private branches remain opaque.
+
+The original image contains 5,260 files, 927 directories and 25 aliases;
+the prepared image contains 5,271 files, 937 directories and 25 aliases.
+Both retain CPython 3.12.15 and 33 runtime distributions. Native byte/signature
+checks, dependency imports, prepared callbacks/crypto and sandboxed browsing
+pass after recovery. The two 744-case focused Mac suites passed with one
+platform skip each. Their nine warnings came from the test runner's use of
+`fork`; a follow-up switches those child checks to fresh interpreters. All 34
+recovery cases pass locally with deprecation warnings treated as errors.
+
+These are controlled development packages. Unsigned owner setup deliberately
+refuses before vault creation, service identity or registration; the actual
+package test therefore does not exercise completed consumer registration or
+interrupted positive provisioning. Same-image/same-owner recovery does not
+provide different-image updates, migration or physical power-loss guarantees.
+Genuine publisher/notary acceptance, genuine owner setup, private login-code
+delivery, physical phones and protected installed real-agent sessions remain
+open. Chrome CSV imports remain snapshots. The installed owner app and deferred
+Gmail form remain untouched. The candidate remains **not production ready**.
+See [exact source and sanitized recovery evidence](../artifacts/resumable-installer-080.json).
+
 ## Native verification before privileged Python — 17 October 2026
 
 Revision `5802fde` passed all eight push/PR workflows. Both full regressions
@@ -37,7 +83,7 @@ as do Linux's 24-check and Android's six-check reports.
 
 These are controlled development fixtures. They do not validate genuine owner
 approval, positive consumer installation, private code delivery or physical
-phones. Protected interrupted-install retry is still unimplemented. Owner
+phones. At that revision, protected interrupted-install retry was unimplemented. Owner
 build 53 and the unfinished Gmail form remain untouched; Gmail is deferred,
 GitHub personal QA remains stopped and Namecheap was not retried. Chrome CSV
 imports remain snapshots. The candidate remains **not production ready**.

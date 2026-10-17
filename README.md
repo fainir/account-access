@@ -179,7 +179,7 @@ private authentication or physical phone delivery.
 
 - [Validation and production gates](docs/production-gates.md)
 - [Detailed test evidence](docs/validation.md) and [machine-readable reports](artifacts/)
-- [Native installation verification results](artifacts/native-install-verification-080.json)
+- [Resumable installer verification results](artifacts/resumable-installer-080.json)
 - [Preview validation history](docs/preview-validation-history.md)
 - [Advanced setup and other agents](docs/setup.md)
 - [Contributor guide](CONTRIBUTING.md) and [security reporting](SECURITY.md)

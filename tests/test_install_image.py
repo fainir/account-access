@@ -18,6 +18,55 @@ class Crash(BaseException):
     pass
 
 
+def image_process(base, encoded, event):
+    """Open only synthetic fixture handles in a fresh child interpreter.
+
+    Forking the threaded test runner is unsafe on macOS. Reopening these
+    directories also ensures that the contender inherits no installer lease.
+    """
+    paths = [
+        base / "source" / package_manifest.SUPPORT,
+        base / "source" / package_manifest.OWNER_APP,
+        base / "journal",
+        base / "library",
+        base / "applications",
+    ]
+    descriptors = []
+    try:
+        for path in paths:
+            descriptors.append(os.open(path, image.DIRECTORY))
+
+        def checkpoint(observed):
+            if observed == event:
+                os.kill(os.getpid(), signal.SIGKILL)
+
+        engine = image.ImageRecovery(
+            {image.SUPPORT: descriptors[0], image.APPLICATION: descriptors[1]},
+            descriptors[2],
+            {
+                image.SUPPORT: (descriptors[3], "Account Access"),
+                image.APPLICATION: (descriptors[4], "Account Access.app"),
+            },
+            image.ImageManifest(encoded, hashlib.sha256(encoded).hexdigest()),
+            501,
+            object_uid=os.getuid(),
+            checkpoint=checkpoint,
+        )
+        if event is None:
+            try:
+                with engine:
+                    raise AssertionError("Another process acquired the held lease")
+            except BlockingIOError:
+                return
+        with engine:
+            engine.materialize()
+            engine.mark_complete()
+        raise AssertionError("The requested SIGKILL checkpoint was not reached")
+    finally:
+        for descriptor in descriptors:
+            os.close(descriptor)
+
+
 @contextmanager
 def fixture(base, checkpoint=None, owner=501, readonly=False):
     source = base / "source"
@@ -162,39 +211,36 @@ def test_resume_after_every_mutation_checkpoint(tmp_path):
 )
 def test_actual_sigkill_releases_lease_and_resumes_image(tmp_path, event):
     with fixture(tmp_path) as value:
-
-        def child():
-            def stop(observed):
-                if observed == event:
-                    os.kill(os.getpid(), signal.SIGKILL)
-
-            with value["engine"](hook=stop) as engine:
-                engine.materialize()
-                engine.mark_complete()
-            os._exit(91)
-
-        process = multiprocessing.get_context("fork").Process(target=child)
+        process = multiprocessing.get_context("spawn").Process(
+            target=image_process, args=(tmp_path, value["encoded"], event)
+        )
         process.start()
-        process.join(20)
-        assert not process.is_alive() and process.exitcode == -signal.SIGKILL
+        try:
+            process.join(20)
+            assert not process.is_alive() and process.exitcode == -signal.SIGKILL
+        finally:
+            if process.is_alive():
+                process.kill()
+                process.join(10)
+            process.close()
         completed(value)
 
 
 def test_another_process_cannot_enter_during_the_transaction(tmp_path):
     with fixture(tmp_path) as value:
         with value["engine"]() as engine:
-
-            def child():
-                try:
-                    with value["engine"]():
-                        os._exit(92)
-                except BlockingIOError:
-                    os._exit(0)
-
-            process = multiprocessing.get_context("fork").Process(target=child)
+            process = multiprocessing.get_context("spawn").Process(
+                target=image_process, args=(tmp_path, value["encoded"], None)
+            )
             process.start()
-            process.join(10)
-            assert not process.is_alive() and process.exitcode == 0
+            try:
+                process.join(10)
+                assert not process.is_alive() and process.exitcode == 0
+            finally:
+                if process.is_alive():
+                    process.kill()
+                    process.join(10)
+                process.close()
             engine.materialize()
         completed(value)
 

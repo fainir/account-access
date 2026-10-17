@@ -322,13 +322,13 @@ verification receipt before privileged Python runs. Both regression runs passed
 64 native files, 23 executables, eleven bundles and 33 wheels. See
 [exact-source evidence](../artifacts/native-install-verification-080.json).
 These are development signatures and controlled inputs; positive consumer
-installation and genuine owner approval remain unverified. The package still
-refuses existing installations; interrupted-install retry is not implemented.
+installation and genuine owner approval remain unverified. That package refused
+existing installations; the subsequent recovery implementation is described below.
 The installed owner app and deferred Gmail form remain untouched.
 
-## Resumable source-image candidate
+## Resumable source-image installation
 
-The next candidate is a script-only package. PackageKit archives the public
+The candidate is a script-only package. PackageKit archives the public
 image under its script resources and writes no automatic target payload. A
 native guard verifies that immutable source before replacing itself with its
 isolated interpreter. Only two verified public descriptors and a clean
@@ -354,12 +354,25 @@ Synchronous privileged command children retain the install lease; the ordinary
 owner app inherits no privileged handles. A completed same-image retry verifies
 the image and reopens setup without repeating provisioning.
 
-Local focused checks passed 226 cases, including every mutation checkpoint,
-eight actual SIGKILL scenarios, cross-process lock exclusion, conflicting
-records/files, namespace replacement, read-only temporaries, receipt recovery,
-native opaque-branch boundaries and changed signed-peer refusal. Both native
-architectures type-check. Actual package acceptance is pending: disposable CI
-will kill the real package coordinator after its durable intent, reinstall the
-same package, and recheck the published image without replacing it. No such
-experiment runs on the owner's Mac. Positive consumer setup, physical power
-loss/reboot and different-image updates/migration remain unverified.
+Revision `a777168` passed all eight push/PR workflows, including two complete
+regressions with 1,445 passes and 74 platform skips each. The focused Mac suites
+passed 744 cases with one platform skip each. Recovery checks include every
+mutation checkpoint, eight actual SIGKILL scenarios, cross-process lock
+exclusion, conflicting records/files, namespace replacement, read-only
+temporaries, receipt recovery, native opaque-branch boundaries and changed
+signed-peer refusal. Both native architectures type-check.
+
+Actual Installer acceptance passed on two disposable Macs. Both produced
+identical sixteen-report worker sets, including original 16-check and prepared
+23-check package journeys. Each kills the actual coordinator after its protected
+intent, reinstalls the same package and rechecks the published image without
+replacing the public roots or receipt. A separate eight-check native handoff
+fixture verifies process identity, public descriptors, clean environment and
+unrelated-descriptor closure; it does not execute Python. The full-package
+journey separately executes the real source runtime and materializes the image.
+See [exact-source evidence](../artifacts/resumable-installer-080.json).
+
+No such experiment runs on the owner's Mac. The unsigned development package
+stops before owner setup, so actual completed consumer registration and
+interrupted positive provisioning remain unverified. Positive consumer setup,
+physical power loss/reboot and different-image updates/migration remain open.
