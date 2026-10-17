@@ -1,5 +1,26 @@
 # Validation of Account Access
 
+## Public package inventory acceptance — 17 October 2026
+
+Revision `e5c09ae` passed all eight push/PR workflows. The two full regression
+runs passed **1,276 tests with seven platform skips**, in 586.09 and 576.30
+seconds. Lint, package builds and dependency auditing passed. Both disposable
+Macs produced identical sets of sixteen complete worker reports. The actual
+package archive is expanded and its complete public payload inventory rebuilt
+before Installer runs; both the original **11-check** package and the prepared
+**18-check** package passed. Native desktop and Chrome-bridge reports also match;
+Linux isolation and both six-check Android emulator journeys passed.
+
+The inventory binds file bytes and permissions, directory modes and confined
+aliases under the two fixed public roots. It grants no retry, overwrite or
+deletion authority. The protected interrupted-install transaction remains
+unimplemented. Newer source adds build-time complete runtime assembly; its
+actual Installer validation is pending and is not covered by these results.
+No new private sign-in or physical phone was validated. Owner build 53 and the
+unfinished Gmail form remain intact; Gmail connection is deferred. The candidate
+remains **not production ready**. See the
+[exact source, workflow links and sanitized reports](../artifacts/package-recovery-inventory-080.json).
+
 ## Complete prepared Mac runtime installation — 17 October 2026
 
 Code revision `3c59a87` passed all eight push/PR workflows. Both regression runs
