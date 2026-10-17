@@ -99,6 +99,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     var systemOwnerSelected = false
     var systemOwnerReady = false
     var systemSetupGeneration = 0
+    var managedAgents = ManagedAgentSetup()
+    var systemAgentClientID: String?
+    var connectAgentsAfterSetup = false
     #if ACCOUNT_ACCESS_UI_CHECKS
     var fixtureSystemOwnerSelected = false
     #endif
@@ -701,6 +704,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
 
     func openSystemOwner() {
         guard !busy else { return }
+        systemAgentClientID = nil
+        connectAgentsAfterSetup = false
         systemSetupGeneration += 1
         let generation = systemSetupGeneration
         busy = true
@@ -723,6 +728,15 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         systemOwnerReady = false
         switch DesktopVaultScreen(state) {
         case .ready:
+            if state["local_host_actions"] as? Bool == false {
+                let client = state["managed_client"] as? [String: Any] ?? [:]
+                guard client["status"] as? String == "INSTALLED", let identity = client["client_id"] as? String,
+                      identity.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil,
+                      identity == systemAgentClientID else {
+                    checkSystemAgentSetup(state)
+                    return
+                }
+            }
             systemOwnerReady = true
             accept(state)
             if accounts.contains(where: { $0["connected"] as? Bool == true }) { ready() }
@@ -748,6 +762,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
 
     @objc func enrollSystemVault() {
         guard !busy else { return }
+        connectAgentsAfterSetup = true
         systemSetupGeneration += 1
         busy = true
         page("Approve setup on this Mac", "Use the macOS approval window to continue. Your AI tools never receive this approval or your credentials.")
@@ -761,6 +776,55 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                     else { self.openSystemOwner() }
                 }
             } catch { self.fail(error, retry: #selector(self.reopen)) }
+        }
+    }
+
+    func showSystemAgentSetup() {
+        page("Connect your AI tools", "One shared connection works with your existing agents. You do not need to choose a tool or type a command in each session.")
+        card("Use your AI as usual", "Account Access adds its skill and automatic session instructions for supported tools. Your existing preferences are preserved.")
+        primary("Connect automatically", #selector(connectSystemAgents))
+    }
+
+    func checkSystemAgentSetup(_ state: [String: Any]) {
+        if connectAgentsAfterSetup { connectSystemAgents(); return }
+        busy = true
+        page("Checking your AI connection", "Verifying the installed portable skill…")
+        progress()
+        DispatchQueue.global(qos: .userInitiated).async {
+            let local = try? self.managedAgents.status()
+            DispatchQueue.main.async {
+                self.busy = false
+                let server = state["managed_client"] as? [String: Any] ?? [:]
+                if local?["status"] as? String == "INSTALLED", server["status"] as? String == "INSTALLED",
+                   let identity = local?["client_id"] as? String, identity == server["client_id"] as? String {
+                    self.systemAgentClientID = identity
+                    self.presentSystemState(state)
+                } else { self.showSystemAgentSetup() }
+            }
+        }
+    }
+
+    @objc func connectSystemAgents() {
+        guard !busy else { return }
+        connectAgentsAfterSetup = false
+        systemSetupGeneration += 1
+        busy = true
+        page("Connecting your AI tools", "Preparing one private connection and automatic skill discovery. macOS may ask you to approve this setup action.")
+        progress()
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                try self.managedAgents.connect { route, body in try self.request(route, body: body) }
+                let state = try self.request("owner/state")
+                guard let client = state["managed_client"] as? [String: Any], client["status"] as? String == "INSTALLED",
+                      let identity = client["client_id"] as? String else { throw ManagedAgentSetupFailure.invalidResponse }
+                DispatchQueue.main.async {
+                    self.busy = false
+                    self.systemAgentClientID = identity
+                    self.presentSystemState(state)
+                }
+            } catch {
+                self.fail(Failure.message("Automatic AI setup could not finish. Your saved accounts and existing tool preferences are preserved. Check the protected installation, then reopen Account Access. A previous installation may need migration before it can be replaced."), retry: #selector(self.reopen))
+            }
         }
     }
 

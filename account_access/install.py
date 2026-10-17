@@ -11,7 +11,13 @@ from .errors import AccessError
 from .storage import private_file
 
 
-def sync_skill(target, config_file):
+def launcher_text(target, python):
+    return ("#!/bin/sh\nexec " + shlex.quote(str(python)) + " -I "
+            + shlex.quote(str(target / "scripts/access.py")) + ' "$@"\n')
+
+
+def sync_skill(target, config_file, *, python=None):
+    python = str(python or sys.executable)
     source = Path(__file__).resolve().parent / "skills/account-access"
     marker = target / ".account-access-install"
     if target.is_symlink() or (target.exists() and not marker.exists()):
@@ -27,9 +33,8 @@ def sync_skill(target, config_file):
             shutil.copy2(entry, dest)
     # A generated launcher avoids requiring python3 on the agent's PATH.
     launcher = target / "scripts/access"
-    launcher.write_text("#!/bin/sh\nexec " + shlex.quote(sys.executable) + " -I "
-                        + shlex.quote(str(target / "scripts/access.py")) + ' "$@"\n')
-    install_config = {"client_config": str(config_file), "python": sys.executable}
+    launcher.write_text(launcher_text(target, python))
+    install_config = {"client_config": str(config_file), "python": python}
     private_file(target / "installation.json", json.dumps(install_config).encode(),
                  replace=(target / "installation.json").exists())
     private_file(marker, b"account-access-v1", replace=marker.exists())

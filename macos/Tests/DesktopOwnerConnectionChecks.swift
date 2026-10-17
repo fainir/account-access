@@ -110,6 +110,31 @@ final class DesktopChannelFixture: DesktopOwnerChannel {
         checks["incomplete_ready_response_not_account_ready"] = DesktopVaultScreen(["vault_setup": ["status": "ready"]]) == .initializing
         checks["published_worker_state_ready"] = DesktopVaultScreen(["accounts": [], "catalog": []]) == .ready
         checks["empty_state_not_account_ready"] = DesktopVaultScreen([:]) == .repair
+        let clientBody = try JSONSerialization.data(withJSONObject: ["token": String(repeating: "F", count: 43)])
+        let receiptBody = try JSONSerialization.data(withJSONObject: ["client_id": String(repeating: "a", count: 64), "hosts": ["codex", "claude"]])
+        checks["client_enrollment_requires_setup"] = try OwnerGatewayRoute("owner/client/enroll", body: clientBody).requiresSetup
+        checks["client_enrollment_rejects_caller_principal"] = fails {
+            _ = try OwnerGatewayRoute("owner/client/enroll", body: JSONSerialization.data(withJSONObject: ["token": String(repeating: "F", count: 43), "principal": "admin"]))
+        }
+        checks["client_enrollment_refuses_malformed_capability"] = fails {
+            _ = try OwnerGatewayRoute("owner/client/enroll", body: Data("{\"token\":\"short\"}".utf8))
+        }
+        checks["client_install_receipt_requires_setup"] = try OwnerGatewayRoute("owner/client/installed", body: receiptBody).requiresSetup
+        checks["client_install_receipt_refuses_unknown_host"] = fails {
+            _ = try OwnerGatewayRoute("owner/client/installed", body: JSONSerialization.data(withJSONObject: ["client_id": String(repeating: "a", count: 64), "hosts": ["shell"]]))
+        }
+        final class NoClientBackend: OwnerGatewayBackend {
+            var calls = 0
+            func request(_ route: OwnerGatewayRoute) throws -> (Int, Data) { calls += 1; return (200, Data("{}".utf8)) }
+        }
+        let noClientBackend = NoClientBackend()
+        let noClientSession = OwnerGatewaySession.fixture(backend: noClientBackend, authorize: { _ in false })
+        var clientRejected = false
+        noClientSession.request("owner/client/enroll", body: clientBody) { clientRejected = $0 == 403; _ = $1 }
+        checks["unapproved_session_cannot_enroll_client"] = clientRejected && noClientBackend.calls == 0
+        noClientSession.request("owner/client/installed", body: receiptBody) { clientRejected = $0 == 403; _ = $1 }
+        checks["unapproved_session_cannot_confirm_client_install"] = clientRejected && noClientBackend.calls == 0
+        noClientSession.close()
         let report: [String: Any] = ["status": checks.values.allSatisfy({ $0 }) ? "PASSED" : "FAILED", "checks": checks,
             "environment": "controlled-demo", "production_ready": false, "private_signins": 0,
             "actual_native_xpc_used": false, "genuine_owner_approval_verified": false]

@@ -93,6 +93,54 @@ enum RootInitialEnrollmentChecks {
         checks["new_vault_key_confirmed_in_system_keychain"] = try RootVaultKeyChecks.confirmSystemRecord(provider.load(plan.vault), identity: plan.vault)
         checks["enrolled_owner_state_reaches_published_store"] = request(approved, "owner/state").0 == 200
         checks["completed_enrollment_is_idempotent"] = request(approved, "owner/vault/enroll", body: body).0 == 200
+        // An ordinary fixture owner prepares its own client files. Only the
+        // authenticated native session can enroll the chosen digest in the worker.
+        guard let agent = getpwuid(plan.base.agentUID) else { throw RootPublicationFailure.notVerified }
+        let agentGroup = agent.pointee.pw_gid
+        let agentHome = root.appendingPathComponent("portable-owner-home")
+        try FileManager.default.createDirectory(at: agentHome, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
+        guard chown(agentHome.path, plan.base.agentUID, agentGroup) == 0 else { throw RootPublicationFailure.notVerified }
+        let probe = try WorkerLaunchPaths.protected(root.appendingPathComponent("agent-setup-probe.py").path)
+        let python = try WorkerLaunchPaths.protected(root.appendingPathComponent("runtime/bin/python").path)
+        func ownerProbe(_ phase: String) throws -> [String: Any] {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/sudo")
+            process.arguments = ["-n", "-u", "#" + String(plan.base.agentUID), "-g", "#" + String(agentGroup), "--",
+                python.path, "-I", "-B", probe.path, "--prefix", root.path, "--socket", plan.base.agentSocket, phase]
+            process.environment = ["PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "GITHUB_ACTIONS": "true", "HOME": agentHome.path]
+            let pipe = Pipe(); process.standardOutput = pipe
+            process.standardError = FileHandle.nullDevice; process.standardInput = FileHandle.nullDevice
+            try process.run()
+            let limit = Date().addingTimeInterval(50)
+            while process.isRunning && Date() < limit { Thread.sleep(forTimeInterval: 0.02) }
+            guard !process.isRunning else { process.terminate(); throw RootPublicationFailure.notVerified }
+            let output = pipe.fileHandleForReading.readDataToEndOfFile()
+            guard process.terminationStatus == 0, output.count < 8192,
+                  let result = try JSONSerialization.jsonObject(with: output) as? [String: Any] else { throw RootPublicationFailure.notVerified }
+            return result
+        }
+        let prepared = try ownerProbe("prepare")
+        guard prepared["status"] as? String == "PREPARED", let clientID = prepared["client_id"] as? String else { throw RootPublicationFailure.notVerified }
+        let tokenPath = agentHome.appendingPathComponent("Library/Application Support/Account Access/client-v1/token")
+        let token = try String(contentsOf: tokenPath, encoding: .ascii)
+        let clientBody = try JSONSerialization.data(withJSONObject: ["token": token])
+        checks["unapproved_native_client_enrollment_refused"] = request(pausing, "owner/client/enroll", body: clientBody).0 == 403
+        let enrolled = request(approved, "owner/client/enroll", body: clientBody)
+        let enrollmentResult = try JSONSerialization.jsonObject(with: enrolled.1) as? [String: Any]
+        checks["approved_owner_client_enrollment_reaches_worker"] = enrolled.0 == 200 && enrollmentResult?["client_id"] as? String == clientID
+        checks["owner_client_enrollment_is_idempotent"] = request(approved, "owner/client/enroll", body: clientBody).1 == enrolled.1
+        checks["client_enrollment_reply_omits_capability"] = !String(decoding: enrolled.1, as: UTF8.self).contains(token)
+        let changedClient = try JSONSerialization.data(withJSONObject: ["token": String(repeating: "Z", count: 43)])
+        checks["different_client_cannot_replace_existing_enrollment"] = request(approved, "owner/client/enroll", body: changedClient).0 == 403
+        let clientInstalled = try ownerProbe("install")
+        guard clientInstalled["status"] as? String == "PASSED", let clientChecks = clientInstalled["checks"] as? [String: Bool] else {
+            throw RootPublicationFailure.notVerified
+        }
+        checks.merge(clientChecks) { _, new in new }
+        let receipt = try JSONSerialization.data(withJSONObject: ["client_id": clientID, "hosts": ["codex", "claude"]])
+        let confirmed = request(approved, "owner/client/installed", body: receipt)
+        checks["owner_client_installation_receipt_accepted"] = confirmed.0 == 200
+
         checks["initialized_pause_keeps_owner_state_available"] = request(pausing, "owner/stop", body: body).0 == 200
             && setup.state == .paused && request(pausing, "owner/state").0 == 200
         checks["initialized_resume_requires_owner_approval"] = request(pausing, "owner/vault/enroll", body: body).0 == 403
@@ -107,6 +155,10 @@ enum RootInitialEnrollmentChecks {
         try wait(reopened)
         checks["authorized_published_setup_reopens_without_new_approval"] = reopened.state == .ready
             && reopenedWorker.state == .running && reopenedWorker.pid != nil
+        let reopenedState = try JSONSerialization.jsonObject(with: reopened.request(OwnerGatewayRoute("owner/state", body: nil)).1) as? [String: Any]
+        let restoredClient = reopenedState?["managed_client"] as? [String: Any]
+        checks["enrolled_client_survives_worker_reopening"] = restoredClient?["status"] as? String == "INSTALLED"
+            && restoredClient?["client_id"] as? String == clientID
         try reopened.stop()
         try provider.removeFixture(plan.vault)
         removed = true

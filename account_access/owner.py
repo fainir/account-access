@@ -246,6 +246,9 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                          "connection_jobs": connection_jobs,
                          "navigation_failures": navigation_failures,
                          "environment": aggregate(accounts, test_mode=config.test_mode)}
+                if not local_host_actions:
+                    from .managed_client import view as managed_client
+                    state["managed_client"] = managed_client(broker.store)
                 from .password_sync import view
                 state["password_sync"] = view(broker.store)
                 from .browser_updates import view as browser_updates
@@ -300,6 +303,20 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                 if not 0 < length <= limit:
                     raise ValueError()
                 data = json.loads(self.rfile.read(length))
+                if self.path in {"/owner/client/enroll", "/owner/client/installed"}:
+                    if local_host_actions or server_socket is None:
+                        raise AccessError("DENIED", "trusted_owner_route_required")
+                    from .managed_client import enroll, installed
+                    if self.path.endswith("/enroll"):
+                        if type(data) is not dict or set(data) != {"token"}:
+                            raise ValueError()
+                        result = enroll(broker.store, data["token"])
+                    else:
+                        if type(data) is not dict or set(data) != {"client_id", "hosts"}:
+                            raise ValueError()
+                        result = installed(broker.store, data["client_id"], data["hosts"])
+                    self.send(200, result)
+                    return
                 if guided and self.path == "/owner/google-messages/prepare":
                     if data != {}:
                         raise ValueError()

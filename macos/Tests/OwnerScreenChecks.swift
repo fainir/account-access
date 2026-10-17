@@ -70,6 +70,9 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
     var isAvailable = false
     var enrollments = 0
     var lostNextEnrollment = false
+    var clientEnrollments = 0
+    let clientToken = String(repeating: "F", count: 43)
+    var clientID: String { SHA256.hash(data: Data(clientToken.utf8)).map { String(format: "%02x", $0) }.joined() }
     var state: [String: Any] = ["accounts": [], "catalog": []]
     func prepare(reply: @escaping (Bool) -> Void) { isAvailable = true; reply(true) }
     func authorizeSetup(_ form: Data, reply: @escaping (Bool) -> Void) { reply(form.count == 32) }
@@ -81,6 +84,17 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
                 reply(503, OwnerGatewaySession.failure("owner_channel_unavailable")); return
             }
             reply(202, Data("{\"vault_setup\":{\"status\":\"initializing\"}}".utf8)); return
+        }
+        if route == "owner/client/enroll" {
+            clientEnrollments += 1
+            reply(200, try! JSONSerialization.data(withJSONObject: ["status": "ENROLLED", "client_id": clientID, "principal": "generic"]))
+            return
+        }
+        if route == "owner/client/installed" {
+            state["managed_client"] = ["status": "INSTALLED", "client_id": clientID, "principal": "generic"]
+            state["principals"] = ["generic"]
+            reply(200, try! JSONSerialization.data(withJSONObject: ["status": "INSTALLED", "client_id": clientID, "principal": "generic"]))
+            return
         }
         reply(200, try! JSONSerialization.data(withJSONObject: state))
     }
@@ -441,6 +455,40 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         while owner.busy && Date() < readDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
         precondition(owner.systemOwnerReady && !owner.busy && nativeChannel.enrollments == 2 && nativePrompts == 1)
         print("PASS: lost native enrollment response is never replayed; reopening reconnects with a read and no new OS prompt")
+        var localClientInstalled = false
+        var preparedClients = 0
+        owner.managedAgents = ManagedAgentSetup(helper: { action in
+            if action == "prepare" { preparedClients += 1; return ["status": "PREPARED", "client_id": nativeChannel.clientID] }
+            if action == "install" { localClientInstalled = true; return ["status": "INSTALLED", "client_id": nativeChannel.clientID, "hosts": ["codex", "claude"]] }
+            return ["status": localClientInstalled ? "INSTALLED" : "NOT_INSTALLED", "client_id": nativeChannel.clientID]
+        }, readToken: { nativeChannel.clientToken })
+        nativeChannel.state["local_host_actions"] = false
+        nativeChannel.state["managed_client"] = ["status": "NOT_CONNECTED"]
+        owner.systemOwnerReady = false
+        owner.presentSystemState(nativeChannel.state)
+        let checkDeadline = Date().addingTimeInterval(5)
+        while owner.busy && Date() < checkDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
+        views = descendants(owner.stack)
+        precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Connect automatically"))
+        precondition(preparedClients == 0 && nativeChannel.clientEnrollments == 0 && !owner.systemOwnerReady)
+        owner.connectSystemAgents()
+        let clientDeadline = Date().addingTimeInterval(5)
+        while owner.busy && Date() < clientDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
+        precondition(owner.systemOwnerReady && localClientInstalled && preparedClients == 1 && nativeChannel.clientEnrollments == 1)
+        let promptsAfterConnection = nativePrompts
+        owner.reopen()
+        let reopenDeadline = Date().addingTimeInterval(5)
+        while owner.busy && Date() < reopenDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
+        precondition(owner.systemOwnerReady && preparedClients == 1 && nativeChannel.clientEnrollments == 1 && nativePrompts == promptsAfterConnection)
+        print("PASS: a fresh isolated account view waits for portable client setup; both hosts connect without a selector, and reopening verifies without another enrollment or approval")
+        var mismatchedRequests = 0
+        let mismatched = ManagedAgentSetup(helper: { _ in ["status": "PREPARED", "client_id": String(repeating: "0", count: 64)] }, readToken: { nativeChannel.clientToken })
+        do {
+            try mismatched.connect { _, _ in mismatchedRequests += 1; return [:] }
+            preconditionFailure("Mismatched local capability must not be enrolled")
+        } catch { precondition(mismatchedRequests == 0) }
+        print("PASS: changed local capability identity is refused before any native enrollment request")
+
 
     }
 }

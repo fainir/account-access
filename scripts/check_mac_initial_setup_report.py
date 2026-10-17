@@ -5,6 +5,13 @@ import sys
 
 
 CHECKS = {
+    "unapproved_native_client_enrollment_refused", "approved_owner_client_enrollment_reaches_worker",
+    "owner_client_enrollment_is_idempotent", "client_enrollment_reply_omits_capability",
+    "different_client_cannot_replace_existing_enrollment", "owner_client_installation_receipt_accepted",
+    "enrolled_client_survives_worker_reopening", "portable_launcher_discovers_empty_approved_account_set",
+    "portable_launcher_omits_client_capability", "claude_launcher_discovers_empty_approved_account_set",
+    "claude_launcher_omits_client_capability", "both_host_session_instructions_preserved",
+    "owner_user_client_install_has_no_broker_store_access",
     "initialized_pause_keeps_owner_state_available", "initialized_resume_requires_owner_approval",
     "immediate_initialized_resume_preserves_worker",
     "fresh_start_waits_for_owner_without_worker", "fresh_start_does_not_create_system_key",

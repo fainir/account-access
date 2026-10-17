@@ -179,7 +179,7 @@ struct OwnerGatewayRoute {
         "owner/authenticator/apply", "owner/authenticator/discard", "owner/source",
         "owner/source/check", "owner/source/revoke", "owner/mailbox/connect", "owner/mailbox/check",
         "owner/mailbox/password", "owner/mailbox/remove", "owner/password-sync",
-        "owner/password-sync/disconnect", "owner/phone/pair", "owner/stop", "owner/vault/enroll"
+        "owner/password-sync/disconnect", "owner/phone/pair", "owner/stop", "owner/vault/enroll", "owner/client/enroll", "owner/client/installed"
     ]
     static let restrictions: Set<String> = ["owner/stop", "owner/revoke", "owner/source/revoke",
         "owner/mailbox/remove", "owner/password-sync/disconnect", "owner/authenticator/discard"]
@@ -197,6 +197,17 @@ struct OwnerGatewayRoute {
                 throw OwnerGatewayError.invalidPolicy // Requires a future trusted host handoff.
             }
             if route == "owner/vault/enroll", !value.isEmpty { throw OwnerGatewayError.invalidPolicy }
+            if route == "owner/client/enroll" {
+                guard Set(value.keys) == ["token"], let token = value["token"] as? String,
+                      token.range(of: "^[A-Za-z0-9_-]{43}$", options: .regularExpression) != nil else { throw OwnerGatewayError.invalidPolicy }
+            }
+            if route == "owner/client/installed" {
+                guard Set(value.keys) == ["client_id", "hosts"], let identity = value["client_id"] as? String,
+                      identity.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil,
+                      let hosts = value["hosts"] as? [String], hosts.count <= 2, Set(hosts).count == hosts.count,
+                      hosts.allSatisfy({ ["codex", "claude"].contains($0) }) else { throw OwnerGatewayError.invalidPolicy }
+            }
+
         }
         self.path = "/" + route
         self.body = body

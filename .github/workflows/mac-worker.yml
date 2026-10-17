@@ -99,6 +99,7 @@ jobs:
           sudo install -m 644 scripts/worker_boundary_smoke.py "$AC_MAC_WORKER_PREFIX/acceptance.py"
           sudo install -m 644 scripts/worker_boundary_probe.py "$AC_MAC_WORKER_PREFIX/probe.py"
           sudo install -m 644 scripts/mac_browser_probe.py "$AC_MAC_WORKER_PREFIX/browser-probe.py"
+          sudo install -m 644 scripts/mac_agent_setup_probe.py "$AC_MAC_WORKER_PREFIX/agent-setup-probe.py"
           sudo install -m 644 scripts/mac_key_handoff_probe.py "$AC_MAC_WORKER_PREFIX/key-handoff-probe.py"
           sudo install -m 755 /tmp/ac-mac-worker-bootstrap "$AC_MAC_WORKER_PREFIX/mac-worker-bootstrap"
           sudo codesign --force --options runtime --sign - "$AC_MAC_WORKER_PREFIX/mac-worker-bootstrap"
