@@ -1,3 +1,4 @@
+from contextlib import ExitStack
 import io
 import json
 import queue
@@ -13,10 +14,11 @@ from account_access.google_messages_host import RESOURCES, extension_id, run_hos
 from account_access.models import LoginFactor
 from account_access.errors import AccessError
 from test_google_messages import source
+from test_google_messages_bridge import private_bridge
 
 
-@pytest.mark.parametrize("tab_available", [True, False])
-def test_password_to_messages_reader_to_native_host_to_browser(env, monkeypatch, tab_available):
+@pytest.mark.parametrize("tab_available,protected", [(True, False), (False, False), (True, True)])
+def test_password_to_messages_reader_to_native_host_to_browser(env, monkeypatch, request, tab_available, protected):
     provider, broker, _ = env
     source(broker)
     config = broker.store.config()
@@ -52,7 +54,14 @@ def test_password_to_messages_reader_to_native_host_to_browser(env, monkeypatch,
     mailbox = queue.Queue()
     provider.delivery = lambda kind, code: mailbox.put(code) if kind == "sms" else None
 
+    cleanup = ExitStack()
+    request.addfinalizer(cleanup.close)
+    bridge = cleanup.enter_context(private_bridge(broker)) if protected else None
     def exchange(body):
+        if bridge is not None:
+            response = bridge.post("/owner/browser-message", json={"message": body})
+            assert response.status_code == 200
+            return response.json()
         raw = json.dumps({"id": 1, "body": body}).encode()
         outgoing = io.BytesIO()
         assert (
@@ -91,9 +100,9 @@ def test_password_to_messages_reader_to_native_host_to_browser(env, monkeypatch,
                 )
             except queue.Empty:
                 pass
-            for request in exchange({"method": "pending"}).get("pending", []):
-                snapshot = page.evaluate("request=>window.pollSMS(request)", request)
-                base = {"source": request["source"], "window": request["window"]}
+            for pending in exchange({"method": "pending"}).get("pending", []):
+                snapshot = page.evaluate("request=>window.pollSMS(request)", pending)
+                base = {"source": pending["source"], "window": pending["window"]}
                 if snapshot.get("armed"):
                     assert provider.login_count == 0
                     exchange({"method": "armed", **base})
@@ -106,3 +115,4 @@ def test_password_to_messages_reader_to_native_host_to_browser(env, monkeypatch,
     assert result and result[0]["status"] == "COMPLETED"
     assert provider.login_count == 1 and provider.sms_count == 1
     assert provider.last_login_code not in json.dumps(result)
+    cleanup.close()

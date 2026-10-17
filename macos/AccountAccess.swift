@@ -1733,9 +1733,12 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         progress()
         DispatchQueue.global(qos: .userInitiated).async {
             do {
-                let result = try self.request("owner/google-messages/prepare", body: [:])
+                let result = try self.systemOwnerConfigured ? ManagedAgentSetup.prepareBrowser()
+                    : self.request("owner/google-messages/prepare", body: [:])
                 guard let path = result["extension_path"] as? String,
-                      path == self.root.appendingPathComponent("GoogleMessagesExtension").path else {
+                      path == (self.systemOwnerConfigured
+                        ? "/Applications/Account Access.app/Contents/Resources/GoogleMessagesExtension"
+                        : self.root.appendingPathComponent("GoogleMessagesExtension").path) else {
                     throw Failure.message("The browser connection could not be prepared.")
                 }
                 DispatchQueue.main.async {
@@ -2387,6 +2390,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
 #if !ACCOUNT_ACCESS_UI_CHECKS
 @main struct AccountAccessMain {
     static func main() {
+        if CommandLine.arguments.count >= 2 && CommandLine.arguments[1] == "--browser-native-host" {
+            exit(BrowserNativeHost.run(arguments: Array(CommandLine.arguments.dropFirst(2))))
+        }
         if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--system-read-login-code" {
             SystemMessagesReader.run()
             return

@@ -10,7 +10,7 @@ function native(body) {
       port.onDisconnect.addListener(()=>{port=null;for(const pending of replies.values()){clearTimeout(pending.timer);pending.reject(new Error("Open Account Access and prepare the SMS connection first."));}replies.clear();});
     }
     const id=++sequence;
-    const timer=setTimeout(()=>{replies.delete(id);reject(new Error("The local SMS connection timed out."));},15000);
+    const timer=setTimeout(()=>{replies.delete(id);reject(new Error("The local SMS connection timed out."));},body.method==="connect"?120000:15000);
     replies.set(id,{resolve,reject,timer}); port.postMessage({id,body});
   });
 }

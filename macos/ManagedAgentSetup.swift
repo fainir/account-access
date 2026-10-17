@@ -20,6 +20,7 @@ final class ManagedAgentSetup {
     }
     #endif
     func status() throws -> [String: Any] { try helper("status") }
+    static func prepareBrowser() throws -> [String: Any] { try runHelper("browser") }
     func connect(request: (String, [String: Any]) throws -> [String: Any]) throws {
         let prepared = try helper("prepare")
         guard prepared["status"] as? String == "PREPARED", let expected = prepared["client_id"] as? String else {
@@ -64,7 +65,7 @@ final class ManagedAgentSetup {
         return token
     }
     private static func runHelper(_ action: String) throws -> [String: Any] {
-        guard ["status", "prepare", "install"].contains(action) else { throw ManagedAgentSetupFailure.unavailable }
+        guard ["status", "prepare", "install", "browser"].contains(action) else { throw ManagedAgentSetupFailure.unavailable }
         let ownerHome = try home()
         let runtime = base.appendingPathComponent("runtime")
         _ = try WorkerLaunchPaths.protectedTree(runtime.path)
@@ -74,7 +75,8 @@ final class ManagedAgentSetup {
         // its resolved base binary would discard the installed package context.
         let process = Process()
         process.executableURL = python
-        process.arguments = ["-I", "-B", "-m", "account_access.agent_setup", action]
+        process.arguments = action == "browser" ? ["-I", "-B", "-m", "account_access.browser_setup"]
+            : ["-I", "-B", "-m", "account_access.agent_setup", action]
         process.environment = ["PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "HOME": ownerHome.path, "LANG": "en_US.UTF-8"]
         process.currentDirectoryURL = base
         process.standardInput = FileHandle.nullDevice

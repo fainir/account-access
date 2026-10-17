@@ -33,7 +33,7 @@ jobs:
         run: |
           xcrun swiftc -O -parse-as-library -D ACCOUNT_ACCESS_UI_CHECKS \
             -framework AppKit -framework CryptoKit -framework ServiceManagement -lsqlite3 -lbsm \
-            macos/AccountAccess.swift macos/OwnerGateway.swift macos/DesktopOwnerConnection.swift macos/ManagedAgentSetup.swift macos/WorkerBootstrap.swift macos/BackgroundRecovery.swift macos/MessageText.swift macos/MessagesReader.swift macos/SystemMessagesReader.swift macos/Tests/OwnerScreenChecks.swift \
+            macos/AccountAccess.swift macos/OwnerGateway.swift macos/DesktopOwnerConnection.swift macos/BrowserNativeHost.swift macos/ManagedAgentSetup.swift macos/WorkerBootstrap.swift macos/BackgroundRecovery.swift macos/MessageText.swift macos/MessagesReader.swift macos/SystemMessagesReader.swift macos/Tests/OwnerScreenChecks.swift \
             -o /tmp/account-access-owner-checks
           /tmp/account-access-owner-checks
       - name: Check protected desktop registration and reconnect behavior
@@ -42,11 +42,19 @@ jobs:
             -framework Foundation -framework Security macos/OwnerGateway.swift macos/DesktopOwnerConnection.swift \
             macos/Tests/DesktopOwnerConnectionChecks.swift -o /tmp/account-access-desktop-owner-checks
           /tmp/account-access-desktop-owner-checks > /tmp/account-access-desktop-owner.json
+      - name: Check the protected Chrome bridge without owner credentials
+        run: |
+          xcrun swiftc -O -parse-as-library -warnings-as-errors -D ACCOUNT_ACCESS_GATEWAY_CHECKS \
+            -framework Foundation -framework Security macos/OwnerGateway.swift macos/DesktopOwnerConnection.swift \
+            macos/BrowserNativeHost.swift macos/Tests/BrowserNativeHostChecks.swift -o /tmp/account-access-browser-native-checks
+          /tmp/account-access-browser-native-checks > /tmp/account-access-browser-native.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: native-desktop-owner
-          path: /tmp/account-access-desktop-owner.json
+          path: |
+            /tmp/account-access-desktop-owner.json
+            /tmp/account-access-browser-native.json
           if-no-files-found: ignore
       - name: Check the narrow native Messages reader
         run: |
@@ -73,7 +81,7 @@ jobs:
         run: |
           xcrun swiftc -O -parse-as-library -D ACCOUNT_ACCESS_LAUNCH_CHECKS \
             -framework AppKit -framework CryptoKit -framework ServiceManagement -lsqlite3 -lbsm \
-            macos/AccountAccess.swift macos/OwnerGateway.swift macos/DesktopOwnerConnection.swift macos/ManagedAgentSetup.swift macos/WorkerBootstrap.swift macos/BackgroundRecovery.swift macos/MessageText.swift macos/MessagesReader.swift macos/SystemMessagesReader.swift \
+            macos/AccountAccess.swift macos/OwnerGateway.swift macos/DesktopOwnerConnection.swift macos/BrowserNativeHost.swift macos/ManagedAgentSetup.swift macos/WorkerBootstrap.swift macos/BackgroundRecovery.swift macos/MessageText.swift macos/MessagesReader.swift macos/SystemMessagesReader.swift \
             -o /tmp/account-access-launch-checks
           AC_QA_ROOT=$(mktemp -d)
           ACCOUNT_ACCESS_DATA_DIR="$AC_QA_ROOT/data" ACCOUNT_ACCESS_INSTALL_DIR="$AC_QA_ROOT/runtime" \

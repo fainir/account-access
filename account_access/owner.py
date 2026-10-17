@@ -313,6 +313,19 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                 if not 0 < length <= limit:
                     raise ValueError()
                 data = json.loads(self.rfile.read(length))
+                if self.path == "/owner/browser-message":
+                    if local_host_actions or server_socket is None or not guided:
+                        raise AccessError("DENIED", "trusted_owner_route_required")
+                    if type(data) is not dict or set(data) != {"message"}:
+                        raise ValueError()
+                    from .google_messages import handle
+                    result = handle(broker.store, data["message"])
+                    if result.get("status") == "CONNECTED":
+                        ident = new_job(result["account"])
+                        threading.Thread(target=verify, args=(result["account"], ident), daemon=True).start()
+                        result["verification_started"] = True
+                    self.send(200, result)
+                    return
                 if self.path == "/owner/native-messages/respond":
                     if native_messages is None:
                         raise AccessError("DENIED", "trusted_owner_route_required")

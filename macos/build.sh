@@ -25,7 +25,7 @@ mkdir -p "$AC_APP/Contents/MacOS" "$AC_APP/Contents/Resources" "$AC_APP/Contents
 for AC_ARCH in arm64 x86_64; do
   xcrun swiftc -O -parse-as-library -target "$AC_ARCH-apple-macos14" \
     -framework AppKit -framework CryptoKit -framework ServiceManagement -lsqlite3 -lbsm \
-    "$AC_SOURCE/macos/AccountAccess.swift" "$AC_SOURCE/macos/OwnerGateway.swift" "$AC_SOURCE/macos/DesktopOwnerConnection.swift" "$AC_SOURCE/macos/ManagedAgentSetup.swift" "$AC_SOURCE/macos/WorkerBootstrap.swift" "$AC_SOURCE/macos/BackgroundRecovery.swift" "$AC_SOURCE/macos/MessageText.swift" "$AC_SOURCE/macos/MessagesReader.swift" "$AC_SOURCE/macos/SystemMessagesReader.swift" -o "$AC_OUTPUT/AccountAccess-$AC_ARCH"
+    "$AC_SOURCE/macos/AccountAccess.swift" "$AC_SOURCE/macos/OwnerGateway.swift" "$AC_SOURCE/macos/DesktopOwnerConnection.swift" "$AC_SOURCE/macos/BrowserNativeHost.swift" "$AC_SOURCE/macos/ManagedAgentSetup.swift" "$AC_SOURCE/macos/WorkerBootstrap.swift" "$AC_SOURCE/macos/BackgroundRecovery.swift" "$AC_SOURCE/macos/MessageText.swift" "$AC_SOURCE/macos/MessagesReader.swift" "$AC_SOURCE/macos/SystemMessagesReader.swift" -o "$AC_OUTPUT/AccountAccess-$AC_ARCH"
   xcrun swiftc -O -parse-as-library -target "$AC_ARCH-apple-macos14" \
     -framework Foundation -framework CryptoKit -framework ServiceManagement \
     "$AC_SOURCE/macos/BackgroundRecovery.swift" "$AC_SOURCE/macos/BackgroundHost.swift" -o "$AC_OUTPUT/AccountAccessBackground-$AC_ARCH"
@@ -37,6 +37,10 @@ lipo -create "$AC_OUTPUT/AccountAccessBackground-arm64" "$AC_OUTPUT/AccountAcces
 cp "$AC_SOURCE/macos/com.fainir.accountaccess.background.plist" "$AC_APP/Contents/Library/LaunchAgents/"
 cp "$AC_SOURCE/install.sh" "$AC_APP/Contents/Resources/install.sh"
 cp "$AC_WHEEL" "$AC_APP/Contents/Resources/account_access.whl"
+mkdir -p "$AC_APP/Contents/Resources/GoogleMessagesExtension"
+for AC_BROWSER_FILE in manifest.json background.js reader.js popup.js popup.html popup.css; do
+  cp "$AC_SOURCE/account_access/google_messages_extension/$AC_BROWSER_FILE" "$AC_APP/Contents/Resources/GoogleMessagesExtension/"
+done
 cat > "$AC_APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

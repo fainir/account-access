@@ -179,12 +179,13 @@ struct OwnerGatewayRoute {
         "owner/authenticator/apply", "owner/authenticator/discard", "owner/source",
         "owner/source/check", "owner/source/revoke", "owner/mailbox/connect", "owner/mailbox/check",
         "owner/mailbox/password", "owner/mailbox/remove", "owner/password-sync",
-        "owner/password-sync/disconnect", "owner/phone/pair", "owner/stop", "owner/vault/enroll", "owner/client/enroll", "owner/client/installed"
+        "owner/password-sync/disconnect", "owner/phone/pair", "owner/stop", "owner/vault/enroll", "owner/client/enroll", "owner/client/installed", "owner/browser-message"
     ]
     static let restrictions: Set<String> = ["owner/stop", "owner/revoke", "owner/source/revoke",
         "owner/mailbox/remove", "owner/password-sync/disconnect", "owner/authenticator/discard"]
 
     init(_ route: String, body: Data?) throws {
+        var browserNeedsSetup: Bool?
         if body == nil {
             guard ["owner/state", "owner/health"].contains(route) else { throw OwnerGatewayError.invalidPolicy }
         } else {
@@ -197,6 +198,41 @@ struct OwnerGatewayRoute {
                 throw OwnerGatewayError.invalidPolicy // Requires a future trusted host handoff.
             }
             if route == "owner/vault/enroll", !value.isEmpty { throw OwnerGatewayError.invalidPolicy }
+            if route == "owner/browser-message" {
+                guard Set(value.keys) == ["message"], let message = value["message"] as? [String: Any],
+                      let method = message["method"] as? String else { throw OwnerGatewayError.invalidPolicy }
+                let keys: Set<String>
+                switch method {
+                case "accounts", "pending": keys = ["method"]
+                case "connect": keys = ["method", "account", "fingerprint"]
+                case "armed", "lost": keys = ["method", "source", "window"]
+                case "deliver": keys = ["method", "source", "window", "messages"]
+                default: throw OwnerGatewayError.invalidPolicy
+                }
+                guard Set(message.keys) == keys else { throw OwnerGatewayError.invalidPolicy }
+                for (key, pattern) in [("account", "^[a-z][a-z0-9_-]{0,63}$"),
+                                       ("source", "^[a-z][a-z0-9_-]{0,63}$"),
+                                       ("fingerprint", "^[a-f0-9]{64}$"), ("window", "^[a-f0-9]{32}$")] where keys.contains(key) {
+                    guard let text = message[key] as? String, text.range(of: pattern, options: .regularExpression) != nil else {
+                        throw OwnerGatewayError.invalidPolicy
+                    }
+                }
+                if method == "deliver" {
+                    guard let batch = message["messages"] as? [[String: Any]], (1...8).contains(batch.count) else {
+                        throw OwnerGatewayError.invalidPolicy
+                    }
+                    for item in batch {
+                        guard Set(item.keys) == ["id", "code", "observed_at"],
+                              let id = item["id"] as? String, id.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil,
+                              let code = item["code"] as? String, code.range(of: "^[0-9]{6}$", options: .regularExpression) != nil,
+                              let at = item["observed_at"] as? NSNumber, CFGetTypeID(at) != CFBooleanGetTypeID(),
+                              at.doubleValue.isFinite, at.doubleValue >= 0 else { throw OwnerGatewayError.invalidPolicy }
+                    }
+                }
+                // Polls and replies concern an already-enrolled, active login
+                // window. Adding/enabling a source still requires OS approval.
+                browserNeedsSetup = method == "connect"
+            }
             if route == "owner/client/enroll" {
                 guard Set(value.keys) == ["token"], let token = value["token"] as? String,
                       token.range(of: "^[A-Za-z0-9_-]{43}$", options: .regularExpression) != nil else { throw OwnerGatewayError.invalidPolicy }
@@ -211,7 +247,7 @@ struct OwnerGatewayRoute {
         }
         self.path = "/" + route
         self.body = body
-        self.requiresSetup = body != nil && !Self.restrictions.contains(route)
+        self.requiresSetup = browserNeedsSetup ?? (body != nil && !Self.restrictions.contains(route))
     }
 }
 
