@@ -9,17 +9,21 @@ import hashlib
 import hmac
 import json
 import os
+from pathlib import Path
 import socket
 import struct
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from account_access.worker_bootstrap import read_bootstrap, read_policy, require_worker_identity
+from account_access.storage import Store, check_private
+from account_access.models import Configuration
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--policy", required=True)
+    parser.add_argument("--store-mode", choices=["create", "reopen"], required=True)
     args = parser.parse_args()
     report = {"status": "FAILED", "reason": "key_handoff_probe_failed"}
     with socket.socket(fileno=5) as receipt:
@@ -33,6 +37,20 @@ def main():
             assert 28 < len(sealed) <= 256
             marker = AESGCM(material.vault_key).decrypt(sealed[:12], sealed[12:], None)
             assert marker == b"account-access-system-key-canary-v1"
+            state = Path(args.policy).parent / "key-handoff-state"
+            check_private(state)
+            if args.store_mode == "create":
+                assert not list(state.iterdir())
+                store = Store(state, material.vault_key)
+                store.configure(Configuration(accounts={}, test_mode=True))
+                store.put("handoff-canary", {"marker": marker.decode()})
+            else:
+                for name in ["state.db", "config.json"]:
+                    check_private(state / name)
+                    assert (state / name).is_file() and (state / name).stat().st_nlink == 1
+                store = Store(state, material.vault_key)
+                assert store.config().test_mode is True
+                assert store.get("handoff-canary") == {"marker": marker.decode()}
             try:
                 os.fstat(128)
             except OSError as exc:
@@ -42,9 +60,10 @@ def main():
             else:
                 closed = False
             assert closed
-            proof = hmac.digest(material.owner_proof_key, b"account-access-key-handoff-ci-v1" + sealed, hashlib.sha256)
+            proof = hmac.digest(material.owner_proof_key,
+                                b"account-access-key-handoff-ci-v1" + args.store_mode.encode() + sealed, hashlib.sha256)
             report = {"status": "PASSED", "uid": os.getuid(), "gid": os.getgid(), "pid": os.getpid(),
-                      "proof": proof.hex(), "fd128_closed": closed}
+                      "proof": proof.hex(), "fd128_closed": closed, "storage_checked": True, "store_mode": args.store_mode}
         except Exception:
             pass  # Never return traceback, bytes, configuration or key material.
         data = json.dumps(report).encode()

@@ -34,7 +34,8 @@ import Darwin
         var output: URL?
         var checkpoint = "policy"
         do {
-            guard CommandLine.arguments.count == 4, CommandLine.arguments[1] == "--policy" else {
+            guard (CommandLine.arguments.count == 4 || (CommandLine.arguments.count == 5 && CommandLine.arguments[3] == "receive")),
+                  CommandLine.arguments[1] == "--policy" else {
                 throw RootVaultKeyFailure.invalidIdentity
             }
             let path = CommandLine.arguments[2]
@@ -48,7 +49,10 @@ import Darwin
             let root = try WorkerLaunchPaths.protected(WorkerLaunchPaths.lexical(value["root"]))
             let mode = CommandLine.arguments[3]
             guard ["create", "reopen", "unprivileged", "remove", "handoff", "receive"].contains(mode) else { throw RootVaultKeyFailure.invalidIdentity }
-            if mode == "receive" { try RootKeyHandoffChecks.receive(value) }
+            if mode == "receive" {
+                guard CommandLine.arguments.count == 5 else { throw RootVaultKeyFailure.invalidIdentity }
+                try RootKeyHandoffChecks.receive(value, stage: CommandLine.arguments[4])
+            }
             output = root.appendingPathComponent("key-" + mode + ".json")
             var checks: [String: Bool] = [:]
             let marker = Data("account-access-system-key-canary-v1".utf8)
@@ -73,7 +77,11 @@ import Darwin
             checks["provider_disabled_core_dumps"] = getrlimit(RLIMIT_CORE, &limit) == 0 && limit.rlim_cur == 0 && limit.rlim_max == 0
             if mode == "handoff" {
                 checkpoint = "native_handoff"
-                checks = try RootKeyHandoffChecks.run(value, policy: path, store: store, identity: identity)
+                let created = try RootKeyHandoffChecks.run(value, policy: path, store: store, identity: identity, stage: "create")
+                let reopened = try RootKeyHandoffChecks.run(value, policy: path, store: store, identity: identity, stage: "reopen")
+                checks = ["separate_receiver_processes_used": created.pid != reopened.pid]
+                for (name, value) in created.checks { checks["create_" + name] = value }
+                for (name, value) in reopened.checks { checks["reopen_" + name] = value }
             } else if mode == "create" {
                 checkpoint = "invalid_identity"
                 do { _ = try store.load("not-a-vault-uuid"); throw RootVaultKeyFailure.invalidRecord }

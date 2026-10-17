@@ -8,8 +8,8 @@ import Darwin
 #endif
 
 enum RootKeyHandoffChecks {
-    static func receive(_ value: [String: Any]) throws -> Never {
-        guard getuid() == 0, geteuid() == 0 else { throw RootWorkerChannelFailure.unavailable }
+    static func receive(_ value: [String: Any], stage: String) throws -> Never {
+        guard getuid() == 0, geteuid() == 0, ["create", "reopen"].contains(stage) else { throw RootWorkerChannelFailure.unavailable }
         let plan = try MacWorkerPlan(policy: WorkerLaunchPaths.lexical(value["launcher"]))
         let root = try WorkerLaunchPaths.protected(WorkerLaunchPaths.lexical(value["root"]))
         let script = try WorkerLaunchPaths.protected(root.appendingPathComponent("key-handoff-probe.py").path)
@@ -20,7 +20,7 @@ enum RootKeyHandoffChecks {
               info.st_nlink == 1, info.st_size > 28, info.st_size <= 256 else { throw RootWorkerChannelFailure.unavailable }
         try MacWorkerBootstrap.dropIdentity(plan)
         try MacWorkerBootstrap.replaceImage(plan.python,
-            arguments: [plan.python, "-I", "-B", script.path, "--policy", plan.workerPolicy], environment: plan.environment)
+            arguments: [plan.python, "-I", "-B", script.path, "--policy", plan.workerPolicy, "--store-mode", stage], environment: plan.environment)
     }
 
     static func frame(_ fd: Int32, count: Int) throws -> Data {
@@ -37,7 +37,7 @@ enum RootKeyHandoffChecks {
         return value
     }
 
-    static func spawn(_ sources: [Int32], plan: MacWorkerPlan, policy: String, binary: String) throws -> pid_t {
+    static func spawn(_ sources: [Int32], plan: MacWorkerPlan, policy: String, binary: String, stage: String) throws -> pid_t {
         var copies: [Int32] = []
         defer { copies.forEach { Darwin.close($0) } }
         for source in sources {
@@ -45,7 +45,7 @@ enum RootKeyHandoffChecks {
             guard copy >= 10 else { throw RootWorkerChannelFailure.unavailable }
             copies.append(copy)
         }
-        let values = ["/bin/launchctl", "asuser", String(plan.uid), binary, "--policy", policy, "receive"]
+        let values = ["/bin/launchctl", "asuser", String(plan.uid), binary, "--policy", policy, "receive", stage]
         var arguments = values.map { strdup($0) }; arguments.append(nil)
         var environment = plan.environment.map { strdup($0) }; environment.append(nil)
         defer { arguments.forEach { free($0) }; environment.forEach { free($0) } }
@@ -78,7 +78,8 @@ enum RootKeyHandoffChecks {
         return child
     }
 
-    static func run(_ value: [String: Any], policy: String, store: RootVaultKeyStore, identity: String) throws -> [String: Bool] {
+    static func run(_ value: [String: Any], policy: String, store: RootVaultKeyStore, identity: String,
+                    stage: String) throws -> (checks: [String: Bool], pid: pid_t) {
         let plan = try MacWorkerPlan(policy: WorkerLaunchPaths.lexical(value["launcher"]))
         let root = try WorkerLaunchPaths.protected(WorkerLaunchPaths.lexical(value["root"]))
         let binary = try WorkerLaunchPaths.protected(root.appendingPathComponent("root-key-checks").path)
@@ -105,7 +106,8 @@ enum RootKeyHandoffChecks {
         guard fcntl(128, F_GETFD) == -1, errno == EBADF, dup2(cipher, 128) == 128,
               fcntl(128, F_SETFD, 0) == 0 else { throw RootWorkerChannelFailure.unavailable }
         defer { Darwin.close(128) }
-        var child: pid_t? = try spawn([channel.readDescriptor(), cipher, pair[1]], plan: plan, policy: policy, binary: binary.path)
+        var child: pid_t? = try spawn([channel.readDescriptor(), cipher, pair[1]], plan: plan, policy: policy, binary: binary.path, stage: stage)
+        let createdPID = child!
         defer {
             if let pid = child {
                 var status: Int32 = 0
@@ -122,10 +124,11 @@ enum RootKeyHandoffChecks {
         let size = try frame(pair[0], count: 4).reduce(UInt32(0)) { ($0 << 8) | UInt32($1) }
         guard (1...512).contains(size),
               let receipt = try JSONSerialization.jsonObject(with: frame(pair[0], count: Int(size))) as? [String: Any],
-              Set(receipt.keys) == ["status", "uid", "gid", "pid", "proof", "fd128_closed"],
+              Set(receipt.keys) == ["status", "uid", "gid", "pid", "proof", "fd128_closed", "storage_checked", "store_mode"],
               receipt["status"] as? String == "PASSED", receipt["uid"] as? Int == Int(plan.uid),
               receipt["gid"] as? Int == Int(plan.gid), receipt["pid"] as? Int == Int(child!),
               receipt["fd128_closed"] as? Bool == true,
+              receipt["storage_checked"] as? Bool == true, receipt["store_mode"] as? String == stage,
               let proof = receipt["proof"] as? String, proof.range(of: "^[0-9a-f]{64}$", options: .regularExpression) != nil else {
             throw RootWorkerChannelFailure.unavailable
         }
@@ -138,7 +141,7 @@ enum RootKeyHandoffChecks {
         }
         let verified = try channel.withOwnerSecret { bytes -> Bool in
             let derived = HMAC<SHA256>.authenticationCode(for: Data("account-access-owner-channel-v1".utf8), using: SymmetricKey(data: Data(bytes)))
-            var message = Data("account-access-key-handoff-ci-v1".utf8); message.append(sealed)
+            var message = Data(("account-access-key-handoff-ci-v1" + stage).utf8); message.append(sealed)
             return HMAC<SHA256>.isValidAuthenticationCode(receivedProof, authenticating: message, using: SymmetricKey(data: Data(derived)))
         }
         guard verified else { throw RootWorkerChannelFailure.unavailable }
@@ -160,6 +163,7 @@ enum RootKeyHandoffChecks {
         var checks = ["system_key_decrypted_by_python_reader": true, "owner_entropy_receipt_verified": true,
                       "kernel_dedicated_identity_verified": true, "descriptor_allowlist_verified": true,
                       "exact_envelope_and_eof_verified": true,
+                      "encrypted_store_checked": true,
                       "channel_description_redacted": String(reflecting: channel) == "<RootWorkerChannel redacted>"]
         do { try channel.transmit(); throw RootWorkerChannelFailure.unavailable }
         catch RootWorkerChannelFailure.consumed { checks["successful_channel_cannot_replay"] = true }
@@ -171,6 +175,6 @@ enum RootKeyHandoffChecks {
         channel.cancel()
         do { _ = try channel.withOwnerSecret { $0.count }; throw RootWorkerChannelFailure.unavailable }
         catch RootWorkerChannelFailure.consumed { checks["cancelled_channel_refuses_owner_material"] = true }
-        return checks
+        return (checks, createdPID)
     }
 }

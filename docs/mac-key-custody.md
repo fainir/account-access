@@ -81,5 +81,8 @@ The new CI receiver uses the launcher's permanent UID drop and the production
 Python `read_bootstrap` parser. It decrypts the existing encrypted canary and
 returns a domain-separated HMAC receipt only over inherited private IPC. The
 parent checks kernel UID/GID while the child waits, then confirms its exit.
-No key or receipt is printed. This journey is under validation; it does not yet
-open an enrolled worker Store or establish production supervision, enrollment,+migration or consumer installation.
+The expanded journey creates an encrypted fixture Store in one receiver and
+reopens it in a second process with a fresh System-key load and envelope. Both
+use production storage code. No key or receipt is printed. This expanded journey
+is under validation; it does not start an enrolled worker service or establish
+production supervision, owner enrollment, migration or consumer installation.

@@ -4,10 +4,11 @@ from pathlib import Path
 import sys
 
 
-CHECKS = {"system_key_decrypted_by_python_reader", "owner_entropy_receipt_verified", "kernel_dedicated_identity_verified",
+PHASE_CHECKS = {"system_key_decrypted_by_python_reader", "owner_entropy_receipt_verified", "kernel_dedicated_identity_verified",
           "descriptor_allowlist_verified", "exact_envelope_and_eof_verified", "channel_description_redacted",
           "successful_channel_cannot_replay", "missing_reader_fails_without_signal_or_fallback",
-          "failed_channel_cannot_replay", "cancelled_channel_refuses_owner_material"}
+          "failed_channel_cannot_replay", "cancelled_channel_refuses_owner_material", "encrypted_store_checked"}
+CHECKS = {phase + "_" + name for phase in ("create", "reopen") for name in PHASE_CHECKS} | {"separate_receiver_processes_used"}
 
 
 def validate(value):
@@ -15,6 +16,7 @@ def validate(value):
             and value.get("environment") == "controlled-demo" and value.get("production_ready") is False
             and type(value.get("private_signins")) is int and value["private_signins"] == 0
             and value.get("system_key_used") is True and value.get("production_python_reader_used") is True
+            and value.get("production_storage_used") is True
             and value.get("consumer_deployment_verified") is False and value.get("production_supervision_verified") is False
             and value.get("actual_worker_store_handoff_verified") is False and value.get("fixture_key_removed") is True
             and isinstance(value.get("checks"), dict) and set(value["checks"]) == CHECKS

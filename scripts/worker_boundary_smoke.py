@@ -370,6 +370,9 @@ def root_key_custody(prefix, roles):
     if subprocess.run(["/bin/launchctl", "print", "system/" + label], capture_output=True).returncode == 0:
         raise RuntimeError("key_custody_namespace_already_occupied")
     checks, pids = {}, []
+    handoff_state = prefix / "key-handoff-state"
+    handoff_state.mkdir(mode=0o700)
+    os.chown(handoff_state, roles["broker"].pw_uid, roles["broker"].pw_gid)
     def phase(mode, *, collect=True):
         stage("key_custody_" + mode)
         launch = prefix / "root-key.plist"
@@ -445,7 +448,7 @@ def root_key_custody(prefix, roles):
     checks["unprivileged_probe_has_different_code_signature"] = signature(binary) != signature(denied)
     assert checks and all(item is True for item in checks.values())
     handoff_report = {"status": "PASSED", "platform": "macos", "environment": "controlled-demo", "production_ready": False,
-        "private_signins": 0, "system_key_used": True, "production_python_reader_used": True,
+        "private_signins": 0, "system_key_used": True, "production_python_reader_used": True, "production_storage_used": True,
         "consumer_deployment_verified": False, "production_supervision_verified": False, "actual_worker_store_handoff_verified": False,
         "fixture_key_removed": True, "checks": handoff}
     evidence = Path("/tmp/account-access-mac-key-handoff.json")
