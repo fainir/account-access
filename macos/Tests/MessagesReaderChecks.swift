@@ -119,6 +119,20 @@ import CryptoKit
   request["after_row"] = baseline; request["started"] = now + 60
   let futureRead = MessagesReader.read(try payload(), path: path)
   precondition(futureRead["reason"] as? String == "invalid_message_request")
+  request["started"] = now - 1; request["after_row"] = 0
+  precondition(sqlite3_exec(db, "DELETE FROM message; INSERT INTO message VALUES('future-code','565656 is your GitHub authentication code.',NULL,1,0,\(date + 60_000_000_000));", nil, nil, nil) == SQLITE_OK)
+  let futureMessage = MessagesReader.read(try payload(), path: path)
+  precondition(futureMessage["status"] as? String == "WAITING")
+  precondition(MessagesReader.previewGitHubSMS(path: path, started: now - 1)["status"] == "WAITING")
+  precondition(sqlite3_exec(db, "DELETE FROM message; INSERT INTO message VALUES('hidden-second','787878 is your GitHub authentication code.',NULL,1,0,\(date - 500_000_000)); INSERT INTO message VALUES('visible-first','909090 is your GitHub authentication code.',NULL,1,0,\(date));", nil, nil, nil) == SQLITE_OK)
+  for index in 0..<19 {
+    precondition(sqlite3_exec(db, "INSERT INTO message VALUES('nonmatching-\(index)','Ordinary sender text',NULL,1,0,\(date));", nil, nil, nil) == SQLITE_OK)
+  }
+  let limited = MessagesReader.read(try payload(), path: path)
+  precondition(limited["reason"] as? String == "ambiguous_login_code" && limited["code"] == nil)
+  let previewLimited = MessagesReader.previewGitHubSMS(path: path, started: now - 1)
+  precondition(previewLimited["reason"] == "ambiguous_login_code" && previewLimited["template"] == nil)
+  print("PASS: future-dated messages are excluded and a truncated result set cannot hide a second login code")
   print("PASS: setup and normal SMS login ignore existing rows while allowing a small clock offset on a newly delivered text; invalid boundaries stop safely")
   print("PASS: Foundation-generated typedstream text, Unicode lengths, mutable strings, metadata exclusion, malformed archives and the native SMS paths")
   print("PASS: owner SMS template preview excludes codes, unrelated messages, expired requests and ambiguous deliveries")

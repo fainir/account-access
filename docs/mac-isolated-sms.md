@@ -49,7 +49,8 @@ mailbox password, account password or legacy reader key is copied to the owner.
 The first query returns only a row baseline. Later queries read incoming texts
 from the exact sender after that baseline and within the active time window,
 match the literal configured login template and exclude used message IDs.
-Multiple matching messages are refused. Both the reader and worker recheck
+Multiple matching messages and truncated result sets are refused. Messages dated
+beyond the small allowed clock offset or beyond the login window are excluded. Both the reader and worker recheck
 freshness; the worker rechecks enrollment, cancellation and source changes after
 delivery and before using a code. A late, replaced or revoked request cannot
 supply a code to the login flow.
@@ -70,10 +71,13 @@ an owner's device inaccessible to other software the owner has authorized.
 
 Python checks cover private Unix authorization, absent agent routes, revocation,
 cancellation, timeouts, bounded requests and replies, queue capacity and baseline
-failure cleanup. The disposable Mac journey uses a newly created synthetic
+failure cleanup. A synthetic browser journey completes password/SMS login through
+the private Unix collector transport, reuses its session and stops code submission
+after source revocation. It does not run the native reader or change OS users. The disposable Mac journey uses a newly created synthetic
 Messages database and hash-pinned ad-hoc peers. It checks a real owner-UID switch,
 private socket delivery, stale/used/ambiguous messages, wrong parent/reader code,
-forged PID announcements and an untrusted invoker. It never accesses a personal
+forged PID announcements, future-dated texts, incomplete result sets and an
+untrusted invoker. It never accesses a personal
 Messages database or imports a phone code into AI chat.
 
 A successful process test does not prove Full Disk Access attribution when

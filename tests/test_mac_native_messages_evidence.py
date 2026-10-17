@@ -18,7 +18,7 @@ def report():
 
 
 def test_all_native_process_checks_are_required():
-    assert len(CHECKS) == 11 and validate(report())
+    assert len(CHECKS) == 13 and validate(report())
     for key in CHECKS:
         for replacement in [False, None, 1]:
             value = report()

@@ -83,7 +83,7 @@ struct MessagesReader {
         defer { sqlite3_close(db) }
         sqlite3_busy_timeout(db, 1000)
         var statement: OpaquePointer?
-        let sql = "SELECT handle.id,message.text,message.attributedBody FROM message JOIN handle ON handle.ROWID=message.handle_id WHERE message.is_from_me=0 AND message.date>=?" + (afterRow != nil ? " AND message.ROWID>?" : "") + " ORDER BY message.date DESC LIMIT 20"
+        let sql = "SELECT handle.id,message.text,message.attributedBody FROM message JOIN handle ON handle.ROWID=message.handle_id WHERE message.is_from_me=0 AND message.date>=? AND message.date<=?" + (afterRow != nil ? " AND message.ROWID>?" : "") + " ORDER BY message.date DESC LIMIT 21"
         guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
             return ["status": "NEEDS_USER", "reason": "mac_messages_permission_required"]
         }
@@ -92,13 +92,15 @@ struct MessagesReader {
         // boundary, tolerate small phone/carrier clock rounding without ever
         // considering the previous login's already-stored message.
         sqlite3_bind_double(statement, 1, (started - (afterRow != nil ? 5 : 0) - 978307200) * 1_000_000_000)
-        if let afterRow { sqlite3_bind_int64(statement, 2, afterRow) }
+        sqlite3_bind_double(statement, 2, (min(started + 120, Date().timeIntervalSince1970 + 5) - 978307200) * 1_000_000_000)
+        if let afterRow { sqlite3_bind_int64(statement, 3, afterRow) }
         var candidates: [[String: String]] = []
         var incoming = 0
         var unreadable = 0
         var status = sqlite3_step(statement)
         while status == SQLITE_ROW {
             incoming += 1
+            guard incoming <= 20 else { return ["status": "NEEDS_USER", "reason": "ambiguous_login_code"] }
             if let handle = sqlite3_column_text(statement, 0) {
                 let sender = String(cString: handle)
                 var body = sqlite3_column_text(statement, 1).map { String(cString: $0) }
@@ -147,7 +149,7 @@ struct MessagesReader {
         defer { sqlite3_close(db) }
         sqlite3_busy_timeout(db, 2000)
         var statement: OpaquePointer?
-        let sql = "SELECT message.guid, message.text, message.attributedBody FROM message JOIN handle ON handle.ROWID=message.handle_id WHERE message.is_from_me=0 AND handle.id=? AND message.date>=? AND message.ROWID>? ORDER BY message.date DESC LIMIT 20"
+        let sql = "SELECT message.guid, message.text, message.attributedBody FROM message JOIN handle ON handle.ROWID=message.handle_id WHERE message.is_from_me=0 AND handle.id=? AND message.date>=? AND message.date<=? AND message.ROWID>? ORDER BY message.date DESC LIMIT 21"
         guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
             return ["status": "NEEDS_USER", "reason": "mac_messages_permission_required"]
         }
@@ -155,11 +157,17 @@ struct MessagesReader {
         let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
         sqlite3_bind_text(statement, 1, sender, -1, transient)
         sqlite3_bind_double(statement, 2, (started - 5 - 978307200) * 1_000_000_000)
-        sqlite3_bind_int64(statement, 3, afterRow)
+        sqlite3_bind_double(statement, 3, (min(started + 120, Date().timeIntervalSince1970 + 5) - 978307200) * 1_000_000_000)
+        sqlite3_bind_int64(statement, 4, afterRow)
         let used = Set(request["used"] as? [String] ?? [])
         var matches: [[String: Any]] = []
+        var incoming = 0
         var status = sqlite3_step(statement)
         while status == SQLITE_ROW {
+            incoming += 1
+            // Reading the extra row detects a truncated result set. It must
+            // never hide another matching code outside the first twenty rows.
+            guard incoming <= 20 else { return ["status": "NEEDS_USER", "reason": "ambiguous_login_code"] }
             guard let guid = sqlite3_column_text(statement, 0) else { status = sqlite3_step(statement); continue }
             let id = String(cString: guid)
             var body = sqlite3_column_text(statement, 1).map { String(cString: $0) }

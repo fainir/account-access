@@ -16,6 +16,8 @@ CHECKS = {
     "wrong_reader_code_refused_before_launch",
     "forged_reader_pid_refused_before_request",
     "untrusted_invoker_cannot_read_codes",
+    "future_dated_message_excluded",
+    "truncated_result_set_cannot_supply_code",
 }
 
 

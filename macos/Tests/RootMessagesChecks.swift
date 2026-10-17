@@ -72,6 +72,12 @@ enum RootMessagesChecks {
             arguments: [profile.path, path, "--wrong-pid"])
         do { _ = try forged.read(JSONSerialization.data(withJSONObject: request)); checks["forged_reader_pid_refused_before_request"] = false }
         catch { checks["forged_reader_pid_refused_before_request"] = true }
+        try sql("DELETE FROM message; INSERT INTO message VALUES('future','Example login: 123456',NULL,1,0,\(date + 60_000_000_000));")
+        checks["future_dated_message_excluded"] = try call()["status"] as? String == "WAITING"
+        try sql("DELETE FROM message; INSERT INTO message VALUES('hidden','Example login: 654321',NULL,1,0,\(date - 500_000_000)); INSERT INTO message VALUES('visible','Example login: 123456',NULL,1,0,\(date));")
+        for index in 0..<19 { try sql("INSERT INTO message VALUES('other-\(index)','Other text',NULL,1,0,\(date));") }
+        let limited = try call()
+        checks["truncated_result_set_cannot_supply_code"] = limited["reason"] as? String == "ambiguous_login_code" && limited["code"] == nil
         return checks
     }
 }
