@@ -15,6 +15,27 @@ import subprocess
 import sys
 
 
+ACCOUNTS = ("demo-api", "demo-web", "demo-mfa", "example-email", "example-sms")
+DIAGNOSTIC_STAGES = {"account_discovery", "revoked_read", "ungranted_read", "boundary_checks", *ACCOUNTS}
+SAFE_REASONS = {"browser_guard_unavailable", "internal_error", "service_unavailable", "worker_unavailable",
+                "login_failed", "verification_code_unavailable", "invalid_credentials", "request_failed",
+                "browser_execution_failed", "login_code_not_received", "verification_code_rejected",
+                "verification_source_not_connected", "browser_state_unrecognized", "login_retry_cooldown"}
+
+
+class ProbeFailure(Exception):
+    def __init__(self, stage, result=None):
+        self.stage = stage if stage in DIAGNOSTIC_STAGES else "boundary_checks"
+        self.status = result.get("status") if isinstance(result, dict) else None
+        reason = result.get("reason") if isinstance(result, dict) else None
+        self.reason = reason if reason in SAFE_REASONS else "not_reported"
+
+
+def require_result(condition, stage, result):
+    if not condition:
+        raise ProbeFailure(stage, result)
+
+
 class UnixHTTP(http.client.HTTPConnection):
     def __init__(self, path):
         super().__init__("localhost", timeout=10)
@@ -79,16 +100,16 @@ def run(args):
     config = Path(args.config)
     if args.phase == "revoked":
         result = cli(config, "run", "demo-api", "summary")
-        assert result["status"] == "DENIED"
+        require_result(result["status"] == "DENIED", "revoked_read", result)
         return {"revoked_operation_denied": True}
 
     accounts = cli(config, "accounts")
-    assert accounts["status"] == "OK"
-    for account in ["demo-api", "demo-web", "demo-mfa", "example-email", "example-sms"]:
+    require_result(accounts["status"] == "OK", "account_discovery", accounts)
+    for account in ACCOUNTS:
         result = cli(config, "run", account, "summary")
-        assert result["status"] == "COMPLETED" and "balance" in result["data"]
+        require_result(result["status"] == "COMPLETED" and "balance" in result.get("data", {}), account, result)
     result = cli(config, "run", "demo-api", "details")
-    assert result["status"] == "DENIED"
+    require_result(result["status"] == "DENIED", "ungranted_read", result)
 
     checks = {
         "different_nonroot_uid": True,
@@ -145,6 +166,13 @@ def main():
     args = parser.parse_args()
     try:
         result = run(args)
+    except ProbeFailure as exc:
+        report = {"status": "FAILED", "reason": "worker_boundary_probe_failed", "stage": exc.stage,
+                  "operation_reason": exc.reason}
+        if exc.status in {"COMPLETED", "DENIED", "NEEDS_USER", "RETRYABLE", "OK"}:
+            report["operation_status"] = exc.status
+        print(json.dumps(report))
+        return 1
     except Exception:
         print(json.dumps({"status": "FAILED", "reason": "worker_boundary_probe_failed"}))
         return 1

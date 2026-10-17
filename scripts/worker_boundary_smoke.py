@@ -187,7 +187,26 @@ def probe(prefix, roles, worker, policy, phase):
         "--worker-pid", str(worker.pid), "--worker-uid", str(roles["broker"].pw_uid)]
     if sys.platform == "darwin":
         arguments += ["--mac-bootstrap", str(prefix / "mac-worker-bootstrap")]
-    result = json.loads(command(arguments, timeout=240))
+    completed = subprocess.run(arguments, capture_output=True, timeout=240,
+        env={"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LANG": "C.UTF-8"})
+    result = json.loads(completed.stdout)
+    if completed.returncode:
+        # This harness is also executed as an isolated standalone script; it
+        # cannot import a sibling script through a user-controlled search path.
+        diagnostic_stages = {"account_discovery", "revoked_read", "ungranted_read", "boundary_checks",
+                             "demo-api", "demo-web", "demo-mfa", "example-email", "example-sms"}
+        safe_reasons = {"browser_guard_unavailable", "internal_error", "service_unavailable", "worker_unavailable",
+                       "login_failed", "verification_code_unavailable", "invalid_credentials", "request_failed",
+                       "browser_execution_failed", "login_code_not_received", "verification_code_rejected",
+                       "verification_source_not_connected", "browser_state_unrecognized", "login_retry_cooldown"}
+        # Closed fixture labels only. Never copy raw CLI/provider output.
+        if result.get("stage") in diagnostic_stages:
+            stage("probe_" + result["stage"])
+        if result.get("operation_status") in {"COMPLETED", "DENIED", "NEEDS_USER", "RETRYABLE", "OK"}:
+            stage("operation_" + result["operation_status"])
+        if result.get("operation_reason") in safe_reasons:
+            stage(result["operation_reason"])
+        raise RuntimeError("fixture_boundary_probe_failed")
     assert result["status"] == "PASSED", "fixture_boundary_probe_failed"
     return result["checks"]
 
