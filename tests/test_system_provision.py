@@ -2,6 +2,8 @@ import json
 import os
 from pathlib import Path
 import plistlib
+import subprocess
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -32,6 +34,45 @@ def signatures():
         }
         for key, suffix in [("owner", ""), ("broker", ".broker"), ("bootstrap", ".bootstrap")]
     }
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Uses Apple's actual requirement parser")
+def test_production_requirement_is_parsed_and_rejects_an_untrusted_publisher(
+    tmp_path, monkeypatch
+):
+    source = tmp_path / "fixture.c"
+    binary = tmp_path / "fixture"
+    source.write_text("int main(void) { return 0; }\n")
+    subprocess.run(["/usr/bin/xcrun", "clang", str(source), "-o", str(binary)],
+                   check=True, capture_output=True)
+    subprocess.run(["/usr/bin/codesign", "--force", "--sign", "-", "--identifier",
+                    "com.fainir.accountaccess.qa.requirement", str(binary)],
+                   check=True, capture_output=True)
+    checked = []
+
+    def command(arguments):
+        result = subprocess.run(arguments, capture_output=True, timeout=20)
+        if "-d" in arguments:
+            # Synthetic team metadata reaches the production requirement call;
+            # the actual ad-hoc binary must still fail Apple's publisher check.
+            assert result.stderr.count(b"TeamIdentifier=not set") == 1
+            result.stderr = result.stderr.replace(
+                b"TeamIdentifier=not set", b"TeamIdentifier=ABCDEFGHIJ"
+            )
+        elif any(value.startswith("-R") for value in arguments):
+            assert result.returncode != 0
+            assert b"code failed to satisfy" in result.stderr
+            assert b"invalid requirement specification" not in result.stderr
+            assert b"No such file or directory" not in result.stderr
+            checked.append(True)
+            raise provision.ProvisionError("publisher_requirement_not_satisfied")
+        assert result.returncode == 0
+        return result
+
+    monkeypatch.setattr(provision, "command", command)
+    with pytest.raises(provision.ProvisionError, match="publisher_requirement_not_satisfied"):
+        provision.signature(binary, "com.fainir.accountaccess.qa.requirement")
+    assert checked == [True]
 
 
 def test_fixed_production_layout_has_no_owner_path_or_command_override():

@@ -172,8 +172,7 @@ def signature(path, identifier, *, fixture=False):
             "--verify",
             "--strict",
             "--all-architectures",
-            "-R",
-            requirement,
+            "-R=" + requirement,
             str(path),
         ]
     )
