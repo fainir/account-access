@@ -1,7 +1,7 @@
 """Root-only CI harness for a real cross-UID broker boundary, using fake accounts.
 
 Run only in a disposable Linux CI VM. The runtime must already be installed in
-a root-owned /opt/account-access-worker-qa-* directory. Two new, non-sudo system
+a root-owned /var/lib/account-access-worker-qa-* directory. Two new, non-sudo system
 identities are created and removed; no existing user or account is enrolled.
 This is not a production supervisor, installer or owner enrollment gateway.
 """
@@ -226,13 +226,17 @@ def main():
     parser.add_argument("--prefix", type=Path, required=True)
     args = parser.parse_args()
     prefix = args.prefix.resolve(strict=True)
-    if (sys.platform != "linux" or os.getuid() != 0 or prefix.parent != Path("/opt")
+    if (sys.platform != "linux" or os.getuid() != 0 or prefix.parent != Path("/var/lib")
             or not prefix.name.startswith("account-access-worker-qa-") or not sys.flags.isolated):
-        parser.error("Requires a disposable root-owned Linux CI runtime under /opt")
-    for path in [prefix, sys.prefix, sys.executable, __file__, prefix / "probe.py"]:
-        root_managed_path(path)
+        parser.error("Requires a disposable root-owned Linux CI runtime under /var/lib")
     os.umask(0o077)
     try:
+        stage("validate_immutable_runtime")
+        for label, path in [("prefix", prefix), ("environment", sys.prefix), ("interpreter", sys.executable),
+                            ("harness", __file__), ("probe", prefix / "probe.py")]:
+            stage("validate_" + label)
+            root_managed_path(path)
+        os.chdir(prefix)
         with identities(prefix) as roles:
             report = exercise(prefix, roles)
     except Exception as exc:
