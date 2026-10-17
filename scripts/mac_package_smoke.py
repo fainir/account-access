@@ -125,7 +125,7 @@ def interrupt_installer(package, metadata):
     try:
         deadline = time.monotonic() + 180
         while child.poll() is None and time.monotonic() < deadline:
-            observed = subprocess.run(["/bin/ps", "-axo", "pid=,uid=,args="], capture_output=True, text=True,
+            observed = subprocess.run(["/bin/ps", "-ww", "-axo", "pid=,uid=,args="], capture_output=True, text=True,
                                       check=True, timeout=10).stdout
             matches = []
             for line in observed.splitlines():

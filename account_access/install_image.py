@@ -278,6 +278,19 @@ def _identity(info):
     return [info.st_dev, info.st_ino]
 
 
+def _names(fd):
+    # An independent directory description prevents repeated inspections from
+    # sharing a directory position with another descriptor or Python version.
+    independent = os.open(".", DIRECTORY, dir_fd=fd)
+    try:
+        result = set(os.listdir(independent))
+        if len(result) > MAX_ENTRIES:
+            raise ImageConflict("unlisted_image_object")
+        return result
+    finally:
+        os.close(independent)
+
+
 def _same_record(left, right):
     return json.dumps(left, sort_keys=True, separators=(",", ":")) == json.dumps(
         right, sort_keys=True, separators=(",", ":")
@@ -371,7 +384,7 @@ class ImageRecovery:
                 ".pending-" + name
                 for name in ["intent.json", "ready.json", "published.json", "complete.json"]
             }
-            if set(os.listdir(self.journal)) - allowed:
+            if _names(self.journal) - allowed:
                 raise ImageConflict("unknown_install_state")
             return self
         except BaseException:
@@ -584,7 +597,7 @@ class ImageRecovery:
         if stat.S_IMODE(before.st_mode) not in allowed_modes:
             raise ImageConflict("image_mode_conflict")
         expected = children.get(relative, set())
-        actual = set(os.listdir(destination))
+        actual = _names(destination)
         extra = EXTRAS if allow_extras and root == SUPPORT and not relative else set()
         if actual - expected - extra or not copy and expected - actual:
             raise ImageConflict("unlisted_image_object")
@@ -648,7 +661,7 @@ class ImageRecovery:
         }
         existing = self._read_record("intent.json")
         if existing is None:
-            if set(os.listdir(self.journal)) - {"lock", ".pending-intent.json"}:
+            if _names(self.journal) - {"lock", ".pending-intent.json"}:
                 raise ImageConflict("unknown_install_state")
             if any(self._exists(parent, name) for parent, name in self.targets.values()):
                 raise ImageConflict("existing_installation_requires_repair")
@@ -683,7 +696,7 @@ class ImageRecovery:
                     for name, node in nodes.items()
                     if node["kind"] == "file"
                 }
-                if set(os.listdir(temporary)) - expected_keys:
+                if _names(temporary) - expected_keys:
                     raise ImageConflict("unknown_install_state")
                 roots = {}
                 for root, stage in ROOTS.items():
@@ -696,7 +709,7 @@ class ImageRecovery:
                         self._tree(root, self.source[root], destination, temporary, copy=True)
                         self._tree(root, self.source[root], destination, temporary)
                         roots[root] = _identity(os.fstat(destination))
-                if os.listdir(temporary):
+                if _names(temporary):
                     raise ImageConflict("unknown_install_state")
             self._record("ready.json", {"manifest_sha256": self.manifest.digest, "roots": roots})
             ready = self._read_record("ready.json")
