@@ -58,6 +58,13 @@ umask 022
 AC_PACKAGE_BASE="/Library/Application Support/Account Access"
 [ -d "$AC_PACKAGE_BASE/runtime" ] && [ ! -L "$AC_PACKAGE_BASE/runtime" ] || exit 1
 [ -x "$AC_PACKAGE_BASE/runtime/bin/python" ] || exit 1
+AC_PACKAGE_SCRIPTS=$(CDPATH= cd "$(/usr/bin/dirname "$0")" && /bin/pwd -P)
+AC_PACKAGE_VERIFIER_STATUS=0
+AC_PACKAGE_VERIFICATION=$("$AC_PACKAGE_SCRIPTS/AccountAccess-installerverify") || AC_PACKAGE_VERIFIER_STATUS=$?
+# Public integrity evidence only. The native verifier has finished walking the
+# exact fresh image before this extra file is created. Never overwrite a file.
+(set -C; /usr/bin/printf '%s\\n' "$AC_PACKAGE_VERIFICATION" > "$AC_PACKAGE_BASE/install-verification.json")
+[ "$AC_PACKAGE_VERIFIER_STATUS" = 0 ] || exit "$AC_PACKAGE_VERIFIER_STATUS"
 "$AC_PACKAGE_BASE/runtime/bin/python" -I -B -m account_access.system_provision
 AC_PACKAGE_OWNER=$(/usr/bin/stat -f %u /dev/console)
 [ "$AC_PACKAGE_OWNER" -gt 0 ] || exit 1
@@ -150,6 +157,7 @@ def assemble(args):
     for name, identifier in [
         ("broker", "com.fainir.accountaccess.broker"),
         ("bootstrap", "com.fainir.accountaccess.bootstrap"),
+        ("installerverify", "com.fainir.accountaccess.installerverify"),
     ]:
         signed = signature(native / ("AccountAccess-" + name), identifier, fixture=args.development)
         if signed["team"] != team:
@@ -180,7 +188,7 @@ def assemble(args):
         shutil.copytree(python, payload / "python", symlinks=True)
         shutil.copytree(browsers, payload / "browsers", symlinks=True)
         (payload / "bin").mkdir()
-        for name in ["broker", "bootstrap"]:
+        for name in ["broker", "bootstrap", "installerverify"]:
             shutil.copy2(
                 native / ("AccountAccess-" + name), payload / "bin" / ("AccountAccess-" + name)
             )
@@ -307,6 +315,8 @@ def assemble(args):
         verify_source_inventory(source_manifest, manifest)
         scripts.mkdir()
         (scripts / "RecoveryManifest.json").write_bytes(manifest)
+        verifier = payload / "bin/AccountAccess-installerverify"
+        shutil.copy2(verifier, scripts / verifier.name)
         for name, contents in [("preinstall", PREINSTALL), ("postinstall", POSTINSTALL)]:
             target = scripts / name
             target.write_text(contents)
@@ -371,6 +381,11 @@ def assemble(args):
             "runtime_preparation": runtime_preparation,
             "runtime_image": image,
             "payload_manifest_sha256": hashlib.sha256(manifest).hexdigest(),
+            "installer_verifier_sha256": hashlib.sha256(verifier.read_bytes()).hexdigest(),
+            "payload_manifest_counts": {
+                kind: sum(row["kind"] == word for tree in json.loads(manifest)["roots"].values() for row in tree.values())
+                for kind, word in [("files", "file"), ("directories", "directory"), ("aliases", "symlink")]
+            },
             "sha256": hashlib.sha256(result.read_bytes()).hexdigest(),
         }
         (output / "package.json").write_text(json.dumps(report, indent=2) + "\n")

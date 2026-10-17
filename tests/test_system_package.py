@@ -114,7 +114,7 @@ def test_supplied_python_cannot_run_before_private_payload_inventory(
         executable.chmod(0o666)
     (python / "lib/python3.12/os.py").write_text("# synthetic fixture")
     (browsers / "browser").write_bytes(thin())
-    for name in ["broker", "bootstrap"]:
+    for name in ["broker", "bootstrap", "installerverify"]:
         (native / ("AccountAccess-" + name)).write_bytes(thin())
     wheel = app / "project.whl"
     with zipfile.ZipFile(wheel, "w") as archive:

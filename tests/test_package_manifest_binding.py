@@ -19,9 +19,14 @@ def package(tmp_path, monkeypatch):
         (path / "public-resource").write_bytes(b"public fixture")
     for path in [root, *root.rglob("*")]:
         path.chmod(path.stat().st_mode & 0o777 & ~0o022)
+    verifier = root / manifest.SUPPORT / "bin/AccountAccess-installerverify"
+    verifier.parent.mkdir()
+    verifier.write_bytes(b"synthetic native verifier; never executed")
+    verifier.chmod(0o755)
     encoded = manifest.build(root, "0.8.0", "arm64")
     metadata = {"payload_manifest_sha256": hashlib.sha256(encoded).hexdigest(),
-                "version": "0.8.0", "architecture": "arm64"}
+                "version": "0.8.0", "architecture": "arm64",
+                "installer_verifier_sha256": hashlib.sha256(verifier.read_bytes()).hexdigest()}
     calls = []
 
     def expand(args, **kwargs):
@@ -32,6 +37,7 @@ def package(tmp_path, monkeypatch):
         shutil.copytree(root, component / "Payload")
         (component / "Scripts").mkdir()
         (component / "Scripts/RecoveryManifest.json").write_bytes(encoded)
+        shutil.copy2(verifier, component / "Scripts/AccountAccess-installerverify")
         return SimpleNamespace(returncode=0, stdout=b"", stderr=b"")
 
     monkeypatch.setattr(smoke.subprocess, "run", expand)
@@ -45,7 +51,8 @@ def test_recovery_manifest_is_verified_against_the_entire_expanded_package(packa
     assert not Path(calls[0][-1]).exists()
 
 
-@pytest.mark.parametrize("damage", ["pin", "payload", "manifest", "missing", "alias", "mode"])
+@pytest.mark.parametrize("damage", ["pin", "payload", "manifest", "missing", "alias", "mode",
+                                  "verifier-bytes", "verifier-alias", "verifier-missing", "verifier-mode"])
 def test_recovery_manifest_cannot_hide_changed_code_metadata_or_paths(package, monkeypatch, damage):
     _, metadata, calls, original = package
     if damage == "pin":
@@ -71,6 +78,16 @@ def test_recovery_manifest_cannot_hide_changed_code_metadata_or_paths(package, m
             path.symlink_to(resource)
         elif damage == "mode":
             resource.chmod(0o755)
+        elif damage.startswith("verifier-"):
+            verifier = component / "Scripts/AccountAccess-installerverify"
+            if damage == "verifier-bytes":
+                verifier.write_bytes(b"changed executable")
+            elif damage == "verifier-mode":
+                verifier.chmod(0o644)
+            else:
+                verifier.unlink()
+                if damage == "verifier-alias":
+                    verifier.symlink_to(component / "Payload" / manifest.SUPPORT / "bin/AccountAccess-installerverify")
         return result
 
     monkeypatch.setattr(smoke.subprocess, "run", expand)

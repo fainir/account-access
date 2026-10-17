@@ -87,6 +87,59 @@ def verify_package_manifest(package, metadata):
         actual = build_manifest(component / "Payload", metadata["version"], metadata["architecture"])
         if actual != encoded:
             raise ValueError("package_recovery_payload_changed")
+        verifier = component / "Scripts/AccountAccess-installerverify"
+        info = verifier.lstat()
+        if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1
+                or info.st_mode & 0o6022 or not info.st_mode & 0o111
+                or not 0 < info.st_size <= 64 * 1024 * 1024):
+            raise ValueError("unsafe_package_native_verifier")
+        checksum = sha256(verifier)
+        if (checksum != metadata.get("installer_verifier_sha256")
+                or checksum != sha256(component / "Payload/Library/Application Support/Account Access/bin/AccountAccess-installerverify")):
+            raise ValueError("package_native_verifier_changed")
+    return True
+
+
+def verify_install_receipt(base, metadata, *, owner_uid=0):
+    """Read public evidence below an already validated installed directory.
+
+    owner_uid is a read-only fixture selector; main always requires root. No
+    status here grants account access, installer retry or overwrite authority.
+    """
+    if type(owner_uid) is not int or owner_uid < 0:
+        raise ValueError("invalid_native_installer_receipt_owner")
+    directory = os.open(base, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        parent = os.fstat(directory)
+        if parent.st_uid != owner_uid or parent.st_mode & 0o6022:
+            raise ValueError("unsafe_native_installer_receipt_parent")
+        descriptor = os.open("install-verification.json", os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK,
+                             dir_fd=directory)
+    finally:
+        os.close(directory)
+    with os.fdopen(descriptor, "rb") as stream:
+        before = os.fstat(stream.fileno())
+        if (not stat.S_ISREG(before.st_mode) or before.st_uid != owner_uid or before.st_nlink != 1
+                or stat.S_IMODE(before.st_mode) != 0o644 or not 0 < before.st_size <= 4096):
+            raise ValueError("unsafe_native_installer_receipt")
+        encoded = stream.read(4097)
+        after = os.fstat(stream.fileno())
+        if (len(encoded) != before.st_size or any(getattr(before, key) != getattr(after, key) for key in
+                ["st_dev", "st_ino", "st_size", "st_uid", "st_mode", "st_nlink", "st_mtime_ns", "st_ctime_ns"])):
+            raise ValueError("native_installer_receipt_changed")
+    value = json.loads(encoded)
+    if type(value) is dict and value.get("status") == "FAILED":
+        allowed = {"installer_verifier_context_required", "invalid_installer_payload_manifest", "unsafe_installer_payload_path",
+                   "unsafe_installer_payload_object", "installer_payload_changed", "installer_payload_limit"}
+        reason = value.get("reason")
+        raise ValueError("native_installer_payload_not_verified:" + (
+            reason if type(reason) is str and reason in allowed else "unrecognized_reason"))
+    if (type(value) is not dict or set(value) != {"schema", "status", "manifest_sha256", "files", "directories", "aliases"}
+            or type(value["schema"]) is not int or value["schema"] != 1 or value["status"] != "VERIFIED"
+            or value["manifest_sha256"] != metadata["payload_manifest_sha256"]
+            or any(type(value[key]) is not int or not 0 <= value[key] <= 100_000
+                   or value[key] != metadata["payload_manifest_counts"][key] for key in ["files", "directories", "aliases"])):
+        raise ValueError("native_installer_payload_not_verified")
     return True
 
 
@@ -263,6 +316,8 @@ def main():
             timeout=360,
         )
         checks["actual_development_package_refused_before_owner_setup"] = result.returncode != 0
+        root_managed_path(BASE)
+        checks["native_verifier_binds_installed_image_before_privileged_python"] = verify_install_receipt(BASE, metadata)
         python = BASE / "runtime/bin/python"
         checks["offline_runtime_installed_at_final_path"] = python.is_file()
         image = metadata["runtime_image"]

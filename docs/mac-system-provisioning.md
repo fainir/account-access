@@ -263,3 +263,33 @@ native/browser probes. Both full regression runs passed 1,342 tests with seven
 platform skips. See [exact evidence](../artifacts/complete-runtime-image-080.json).
 Interrupted-install retry, genuine publisher compatibility and positive consumer
 setup remain separate work.
+
+## Native public-image verification candidate
+
+The next package candidate also carries a universal native verifier. After
+Installer writes the fresh image, it verifies the fixed public support/app roots
+against the package's bounded inventory before Python provisioning can run.
+The package builder verifies the helper's publisher alongside the broker and
+bootstrap. Archive acceptance additionally binds the helper in the scripts to
+the exact executable in the public payload.
+
+The verifier opens directory/file descriptors without following aliases, checks
+ownership, permissions and ACLs, hashes regular files with stable metadata, and
+requires the exact listed children. Alias text must match and resolve within
+the inventoried root. It checks the app through a pinned descriptor and reopens
+its namespace after hashing. The standard root:admin writable `/Applications`
+parent is allowed for this read-only app check; privileged Python runs only from
+the separate protected support tree. Shared system-parent permissions are not
+changed. Ordinary invocation stops before reading installed paths.
+
+The script records only the resulting public manifest digest and object counts,
+after verification finishes and before Python runs. It creates that receipt
+without overwriting an existing file. Disposable acceptance requires a matching
+successful receipt; a failed or absent native check cannot count as installation
+acceptance. The receipt grants no account access, retry or deletion authority.
+
+Local checks cover 100 native, receipt, archive-binding and package cases, both
+native architectures and a signed universal helper's ordinary-user refusal.
+Real Installer acceptance of this next candidate is pending. The package still
+refuses existing installations; interrupted-install retry is not implemented.
+The installed owner app and deferred Gmail form remain untouched.

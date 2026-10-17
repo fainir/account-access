@@ -20,7 +20,7 @@ def package_inputs(tmp_path, monkeypatch):
     (paths["python"] / "lib/python3.12").mkdir(parents=True)
     (paths["python"] / "lib/python3.12/os.py").write_text("# fixture")
     (paths["browsers"] / "browser").write_bytes(thin())
-    for name in ["broker", "bootstrap"]:
+    for name in ["broker", "bootstrap", "installerverify"]:
         (paths["native"] / ("AccountAccess-" + name)).write_bytes(thin())
     project = paths["app"] / "project.whl"
     for path in [project, paths["wheels"] / "dependency.whl"]:

@@ -21,8 +21,11 @@ for AC_BROKER_ARCH in arm64 x86_64; do
   xcrun swiftc -O -parse-as-library -warnings-as-errors -D ACCOUNT_ACCESS_WORKER_BOOTSTRAP_MAIN \
     -target "$AC_BROKER_ARCH-apple-macos14" -framework Foundation "$AC_BROKER_SOURCE/macos/WorkerBootstrap.swift" \
     -o "$AC_BROKER_TEMP/bootstrap-$AC_BROKER_ARCH"
+  xcrun swiftc -O -parse-as-library -warnings-as-errors -D ACCOUNT_ACCESS_INSTALL_VERIFIER_MAIN \
+    -target "$AC_BROKER_ARCH-apple-macos14" -framework Foundation -framework CryptoKit \
+    "$AC_BROKER_SOURCE/macos/InstallerPayload.swift" -o "$AC_BROKER_TEMP/installerverify-$AC_BROKER_ARCH"
 done
-for AC_BROKER_KIND in broker bootstrap; do
+for AC_BROKER_KIND in broker bootstrap installerverify; do
   xcrun lipo -create "$AC_BROKER_TEMP/$AC_BROKER_KIND-arm64" "$AC_BROKER_TEMP/$AC_BROKER_KIND-x86_64" \
     -output "$AC_BROKER_OUTPUT/AccountAccess-$AC_BROKER_KIND"
   if [[ -n "${ACCOUNT_ACCESS_SIGNING_IDENTITY:-}" ]]; then
