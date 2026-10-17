@@ -311,6 +311,13 @@ for parent-service crash recovery, cold service reopening and paused native acce
 Machine reboot and active-operation/browser-descendant recovery remain unverified;
 consumer installation is not enabled.
 
+The candidate's [staged vault setup](docs/mac-staged-setup.md) also passed
+[28 native checks](artifacts/mac-staged-enrollment-080.json). Initialization
+verifies the encrypted key before readiness. Publication preserves both
+directories, binds their identities in a protected journal and refuses existing
+data or an unverified stage. This component does not complete the consumer
+owner-enrollment, client-issuance or migration flow.
+
 The same Mac VM passed [16 setup-policy checks](artifacts/mac-owner-policy-080.json):
 strict rule provisioning, registrar binding, changed-rule rejection and fixture
 cleanup. The proof test deliberately uses a synthetic permissive rule and does

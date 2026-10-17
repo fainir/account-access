@@ -1,5 +1,64 @@
 # Validation of Account Access
 
+## Staged vault setup and publication — 17 October 2026
+
+Revision `a0c6cd9` passed **28 native setup/publication checks** in
+[Mac CI](https://github.com/fainir/account-access/actions/runs/39008738855/job/117326487756)
+and an [independent repeat](https://github.com/fainir/account-access/actions/runs/39008741585/job/117326495917).
+All eight raw reports agree between those runs: 28 setup/publication, 31
+composed host, 21 supervisor, 33 handoff, 20 System-key, 24 root owner-host,
+16 setup-policy and 25 worker assertions. The System key and fictional accounts
+remain separate from private-account or genuine owner-approval acceptance.
+
+The actual initializer reads its inherited key only after permanent identity
+drop. The native parent checks the child's kernel identity and private
+authenticated receipt and requires a normal child exit. The initializer
+atomically claims an empty stage and writes an
+encrypted enrollment marker. The ordinary worker authenticates encrypted data
+before readiness; wrong-key and record-free stores cannot report a verified
+key. Parsing the plaintext configuration or returning an empty account list
+alone does not establish that the key works.
+
+The publisher keeps a private root-owned journal and exclusive parent lock.
+It accepts only the completed initializer receipt, binds both original
+directory identities and atomically swaps the verified stage with the empty
+destination. A competing publisher, nonempty destination, replacement directory
+or missing verification is refused without deleting data. Journal reopening
+and repeated publication preserve the completed orientation. The original
+files retain their inodes, and the ordinary worker opens the published store.
+A populated destination prevents another initialization. These journal reopen
+checks occur in the same hosting process; killing the publication process and
+power-loss durability are not covered.
+
+Matching source passed **875 tests, one platform skip, in 489.12 seconds**,
+lint, a dependency audit with no known vulnerabilities, packaging and native
+checks in [regression CI](https://github.com/fainir/account-access/actions/runs/39008738987).
+The [Linux 24-check worker](https://github.com/fainir/account-access/actions/runs/39008738818),
+[Android emulator journey](https://github.com/fainir/account-access/actions/runs/39008738862)
+and [58 native owner XPC checks](https://github.com/fainir/account-access/actions/runs/39008738987/job/117326488304)
+also passed. All eight push/PR workflows passed. Focused local groups passed
+57 shutdown/health/boundary cases and 39 initializer/signal/evidence cases;
+these groups overlap and are not added together.
+
+Earlier revision `c4fd001` is excluded: one run failed the existing
+`worker_graceful_shutdown_verified` check, and another reached initialization
+but failed `initialized_store_worker_stops_cleanly`. Inspection found server
+signal replay and a health watcher that could classify intentional shutdown as
+failure. Managed signal ownership now lasts through private cleanup, and the
+watcher distinguishes stopping from a failed background loop. A real-server
+regression delivers a second SIGTERM during cleanup and requires exit zero.
+Both later Mac runs passed; failure links remain in the
+[sanitized evidence](../artifacts/mac-staged-enrollment-080.json).
+
+Consumer setup still needs genuinely authorized initial System-key creation,
+native UI/source integration, client issuance and migration. Full setup crash
+recovery, publisher update continuity, notarized clean installation, private
+email/SMS/authenticator delivery and physical phones remain open. Installed
+build 53 and its unfinished mailbox form were preserved. Read-only discovery
+found no additional private service; the original Namecheap task still reports
+its existing browser-state challenge and was not resubmitted. Private GitHub
+testing remains stopped.
+
 ## Composed Mac system-host recovery — 17 October 2026
 
 Revision `e756d18` passed **31 composed-host checks** in

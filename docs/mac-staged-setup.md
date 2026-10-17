@@ -78,9 +78,9 @@ account list by itself cannot establish that the encrypted vault key works.
 
 ## Remaining work
 
-These production components are under CI validation, not consumer setup
-acceptance. The fixture uses an explicitly created temporary System key; the
-new fixture journey exercises publication and reopening the published store.
+These components passed [28 checks in a disposable Mac VM](../artifacts/mac-staged-enrollment-080.json),
+not consumer setup acceptance. The fixture uses an explicitly created temporary
+System key and exercises publication and reopening the published store.
 The approved first-install flow still needs its owner-authorized key creation,
 full setup crash recovery, native UI integration, client issuance and installed migration.
 Genuine owner approval, publisher update continuity, notarized clean installation
