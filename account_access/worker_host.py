@@ -54,7 +54,8 @@ def serve(args):
             broker = Broker(store)
             owner, _ = make_owner_server(broker, guided=True, instance_key=secrets.owner_proof_key,
                                          owner_token=secrets.owner_token, server_socket=owner_socket,
-                                         origin_port=policy["owner_port"], local_host_actions=False)
+                                         origin_port=policy["owner_port"], local_host_actions=False,
+                                         ready=lambda: server is not None and server.started and not server.should_exit)
             owner_socket = None  # The owner server now owns this descriptor.
             server = uvicorn.Server(uvicorn.Config(create_app(broker), log_level="critical",
                                                    access_log=False, log_config=None))

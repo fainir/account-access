@@ -46,6 +46,20 @@ final class RootActivatedListeners {
         try MacWorkerBootstrap.requireListening(fd)
         return info
     }
+    private static func configure(_ fd: Int32, path: String, group: gid_t, mode: mode_t) throws {
+        // launchd's initial filesystem mode can reflect its creation mask.
+        // Only the owning job may normalize its freshly activated root socket.
+        // Acquiring it for a later worker never repairs changed metadata.
+        _ = try WorkerLaunchPaths.protected(URL(fileURLWithPath: path).deletingLastPathComponent().path)
+        try MacWorkerBootstrap.checkFD(fd, type: S_IFSOCK, socketPath: path)
+        var before = stat(), after = stat()
+        guard lstat(path, &before) == 0, before.st_mode & S_IFMT == S_IFSOCK, before.st_uid == 0,
+              chown(path, 0, group) == 0, chmod(path, mode) == 0,
+              lstat(path, &after) == 0, after.st_uid == 0, after.st_mode & S_IFMT == S_IFSOCK,
+              after.st_dev == before.st_dev, after.st_ino == before.st_ino else {
+            throw RootListenerFailure.metadata
+        }
+    }
     init(plan: MacWorkerPlan) throws {
         try RootVaultKeyStore.requireDaemon()
         // Parent crash cleanup belongs to this launchd job's process group.
@@ -59,6 +73,7 @@ final class RootActivatedListeners {
                                               (Self.ownerName, plan.ownerSocket, gid_t(0), mode_t(0o600))] {
                 let fd = try Self.activate(name)
                 do {
+                    try Self.configure(fd, path: path, group: group, mode: mode)
                     let info = try Self.metadata(fd, path: path, group: group, mode: mode)
                     acquired.append(Entry(fd: fd, path: path, group: group, mode: mode, device: info.st_dev, inode: info.st_ino))
                 } catch { Darwin.close(fd); throw error }

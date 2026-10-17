@@ -590,6 +590,10 @@ def root_key_custody(prefix, roles):
                             "encryption", "duplicate_enrollment", "other_vault", "restart_recovery", "fixture_removal", "system_location",
                             "native_handoff", "native_worker_service", "native_worker_supervisor"}:
                             stage("key_checkpoint_" + result["checkpoint"])
+                        failed_checks = result.get("failed_checks")
+                        if (isinstance(failed_checks, list) and len(failed_checks) <= 100
+                                and all(isinstance(name, str) and re.fullmatch(r"[a-z_]{1,100}", name) for name in failed_checks)):
+                            print(json.dumps({"failed_native_checks": failed_checks}), file=sys.stderr, flush=True)
                         if result.get("record_shape") in {"array", "data", "dictionary", "absent", "other"}:
                             stage("key_record_shape_" + result["record_shape"])
                         if type(result.get("record_count")) is int and 0 <= result["record_count"] <= 10_000:

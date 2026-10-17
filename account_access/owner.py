@@ -19,7 +19,9 @@ from .storage import check_private, private_file
 
 
 def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=None,
-                      server_socket=None, origin_port=None, local_host_actions=True):
+                      server_socket=None, origin_port=None, local_host_actions=True, ready=None):
+    if ready is not None and not callable(ready):
+        raise AccessError("DENIED", "invalid_owner_readiness")
     if owner_token is not None and (not isinstance(owner_token, str)
             or not re.fullmatch(r"[A-Za-z0-9_-]{43}", owner_token)):
         raise AccessError("DENIED", "invalid_owner_bootstrap")
@@ -176,6 +178,14 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                 self.send(200, {"proof": hmac.new(instance_key, challenge.encode(), hashlib.sha256).hexdigest()})
                 return
             if self.path == "/owner/health":
+                if ready is not None:
+                    try:
+                        available = ready() is True
+                    except Exception:
+                        available = False
+                    if not available:
+                        self.send(503, {"status": "STARTING", "reason": "worker_not_ready"})
+                        return
                 self.send(200, broker.worker_health.view())
                 return
             if self.path == "/owner/state":

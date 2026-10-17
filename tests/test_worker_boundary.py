@@ -184,3 +184,49 @@ def test_incomplete_private_transport_never_falls_back_to_tcp(env):
         make_owner_server(broker, origin_port=8765)
     with pytest.raises(AccessError, match="invalid_owner_bootstrap"):
         make_owner_server(broker, owner_token="invalid")
+
+
+def test_managed_owner_health_waits_for_agent_server_readiness(env):
+    _, broker, _ = env
+    path = str(broker.store.root / 'startup-owner.sock')
+    listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    listener.bind(path)
+    listener.listen(8)
+    running = threading.Event()
+    server, token = make_owner_server(broker, guided=True, server_socket=listener, origin_port=8765,
+        local_host_actions=False, ready=running.is_set)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        with httpx.Client(transport=httpx.HTTPTransport(uds=path), base_url='http://127.0.0.1:8765', trust_env=False) as client:
+            assert client.get('/owner/health').status_code == 401
+            headers = {'Authorization': 'Bearer ' + token}
+            pending = client.get('/owner/health', headers=headers)
+            assert pending.status_code == 503 and pending.json() == {'status': 'STARTING', 'reason': 'worker_not_ready'}
+            running.set()
+            assert client.get('/owner/health', headers=headers).status_code == 200
+            running.clear()
+            assert client.get('/owner/health', headers=headers).status_code == 503
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+@pytest.mark.parametrize('state', [1, 'true', None, RuntimeError('fixture-private-detail')])
+def test_managed_readiness_errors_and_non_boolean_values_never_report_ready(env, state):
+    _, broker, _ = env
+    def ready():
+        if isinstance(state, Exception):
+            raise state
+        return state
+    server, token = make_owner_server(broker, ready=ready)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        result = httpx.get(f'http://127.0.0.1:{server.server_port}/owner/health', headers={'Authorization': 'Bearer ' + token}, trust_env=False)
+        assert result.status_code == 503 and result.json() == {'status': 'STARTING', 'reason': 'worker_not_ready'}
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)

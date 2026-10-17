@@ -135,6 +135,7 @@ import Darwin
                 catch RootVaultKeyFailure.missing { checks["fixture_key_removed_and_not_recreated"] = true }
                 if FileManager.default.fileExists(atPath: canary.path) { try FileManager.default.removeItem(at: canary) }
             }
+            report["failed_checks"] = checks.filter { !$0.value }.keys.sorted()
             guard !checks.isEmpty, checks.values.allSatisfy({ $0 }) else { throw RootVaultKeyFailure.invalidRecord }
             report = ["status": "PASSED", "checks": checks, "pid": Int(getpid()), "uid": Int(getuid())]
         } catch {
