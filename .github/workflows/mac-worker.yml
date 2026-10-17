@@ -40,7 +40,7 @@ jobs:
             macos/OwnerAuthorizationPolicy.swift macos/OwnerGatewayHost.swift macos/Tests/RootOwnerGatewayChecks.swift -o /tmp/ac-root-owner-gateway
           xcrun swiftc -O -parse-as-library -D ACCOUNT_ACCESS_GATEWAY_CHECKS -D ACCOUNT_ACCESS_ROOT_GATEWAY_CLIENT \
             -framework Foundation -framework Security macos/WorkerBootstrap.swift macos/OwnerGateway.swift \
-            macos/OwnerAuthorizationPolicy.swift macos/OwnerGatewayHost.swift macos/Tests/RootOwnerGatewayChecks.swift -o /tmp/ac-root-owner-client
+            macos/OwnerAuthorizationPolicy.swift macos/OwnerGatewayHost.swift macos/DesktopOwnerConnection.swift macos/Tests/RootOwnerGatewayChecks.swift -o /tmp/ac-root-owner-client
           xcrun clang -O2 -Wall -Wextra -Werror -c macos/KeychainInteraction.c -o /tmp/ac-keychain-interaction.o
           xcrun clang -O2 -Wall -Wextra -Werror -c macos/NativeBroker.c -o /tmp/ac-native-broker.o
           xcrun swiftc -O -parse-as-library -warnings-as-errors -framework Foundation -framework Security \

@@ -142,7 +142,7 @@ final class RootInitialEnrollment: OwnerVaultEnrollmentBackend {
             if worker.state == .paused {
                 guard let approval else { throw RootPublicationFailure.notVerified }
                 try worker.resumeEnrollment(approval)
-            } else {
+            } else if worker.state != .running {
                 try worker.start()
             }
             let journalPaused = try record.isPaused()
@@ -189,7 +189,7 @@ final class RootInitialEnrollment: OwnerVaultEnrollmentBackend {
         }
         lock.lock()
         let snapshot = current
-        if route.path == "/owner/stop" && !stopped && current != .ready && current != .needsRepair {
+        if route.path == "/owner/stop" && !stopped && current != .needsRepair {
             defer { lock.unlock() }
             guard let body = route.body, let data = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
                   data.isEmpty else { return (403, OwnerGatewaySession.failure("invalid_stop_request")) }

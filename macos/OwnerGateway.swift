@@ -38,7 +38,7 @@ struct OwnerGatewayPeer {
               requirement != nil else { throw OwnerGatewayError.invalidPolicy }
     }
 
-    #if ACCOUNT_ACCESS_GATEWAY_CHECKS
+    #if ACCOUNT_ACCESS_GATEWAY_CHECKS || ACCOUNT_ACCESS_UI_CHECKS
     // Ad-hoc CI fixtures exercise kernel CDHash enforcement, not publisher trust.
     static func fixture(uid: uid_t, codeHash: String) throws -> OwnerGatewayPeer {
         guard codeHash.range(of: "^[a-fA-F0-9]{40}$", options: .regularExpression) != nil else {
@@ -410,6 +410,7 @@ final class OwnerGatewayConnection {
     }
     private var peerIdentityMatches: Bool { connection.effectiveUserIdentifier == peer.uid }
     private var isReady: Bool { lock.lock(); defer { lock.unlock() }; return ready }
+    var isAvailable: Bool { lock.lock(); defer { lock.unlock() }; return ready && !closed }
     // The initial health request contains no enrollment data. Verify the peer's
     // kernel identity before releasing an external authorization or credentials.
     func prepare(reply: @escaping (Bool) -> Void) {

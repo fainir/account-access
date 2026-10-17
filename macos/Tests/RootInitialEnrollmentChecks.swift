@@ -93,6 +93,13 @@ enum RootInitialEnrollmentChecks {
         checks["new_vault_key_confirmed_in_system_keychain"] = try RootVaultKeyChecks.confirmSystemRecord(provider.load(plan.vault), identity: plan.vault)
         checks["enrolled_owner_state_reaches_published_store"] = request(approved, "owner/state").0 == 200
         checks["completed_enrollment_is_idempotent"] = request(approved, "owner/vault/enroll", body: body).0 == 200
+        checks["initialized_pause_keeps_owner_state_available"] = request(pausing, "owner/stop", body: body).0 == 200
+            && setup.state == .paused && request(pausing, "owner/state").0 == 200
+        checks["initialized_resume_requires_owner_approval"] = request(pausing, "owner/vault/enroll", body: body).0 == 403
+        guard request(approved, "owner/vault/enroll", body: body).0 == 202 else { throw RootPublicationFailure.notVerified }
+        try wait(setup)
+        checks["immediate_initialized_resume_preserves_worker"] = setup.state == .ready && worker.state == .running
+            && worker.pid != nil && setup.completedPipelinesForChecks == 2
         try setup.stop()
         let (reopenedWorker, reopened) = try make()
         defer { try? reopened.stop() }

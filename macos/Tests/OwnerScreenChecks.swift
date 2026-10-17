@@ -66,6 +66,27 @@ final class VerificationRetryFixture: URLProtocol {
     override func stopLoading() {}
 }
 
+final class NativeOwnerScreenFixture: DesktopOwnerChannel {
+    var isAvailable = false
+    var enrollments = 0
+    var lostNextEnrollment = false
+    var state: [String: Any] = ["accounts": [], "catalog": []]
+    func prepare(reply: @escaping (Bool) -> Void) { isAvailable = true; reply(true) }
+    func authorizeSetup(_ form: Data, reply: @escaping (Bool) -> Void) { reply(form.count == 32) }
+    func request(_ route: String, body: Data?, reply: @escaping (Int, Data) -> Void) {
+        if route == "owner/vault/enroll" {
+            enrollments += 1
+            if lostNextEnrollment {
+                lostNextEnrollment = false
+                reply(503, OwnerGatewaySession.failure("owner_channel_unavailable")); return
+            }
+            reply(202, Data("{\"vault_setup\":{\"status\":\"initializing\"}}".utf8)); return
+        }
+        reply(200, try! JSONSerialization.data(withJSONObject: state))
+    }
+    func invalidate() { isAvailable = false }
+}
+
 @main struct OwnerScreenChecks {
     static func main() {
         _ = NSApplication.shared
@@ -382,5 +403,44 @@ final class VerificationRetryFixture: URLProtocol {
         views = descendants(owner.stack)
         precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Resume Account Access"))
         print("PASS: native Pause sends one stop request, clears local setup secrets and offers explicit Resume")
+        owner.fixtureSystemOwnerSelected = true
+        let nativeChannel = NativeOwnerScreenFixture()
+        var nativePrompts = 0
+        owner.systemOwner = DesktopOwnerConnection(makeChannel: { nativeChannel }, acquire: {
+            nativePrompts += 1; return Data(repeating: 0x46, count: 32)
+        })
+        owner.presentSystemState(["vault_setup": ["status": "needs_owner"]])
+        views = descendants(owner.window.contentView!)
+        precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Set up Account Access"))
+        precondition(!views.compactMap { ($0 as? NSButton)?.title }.contains("Import passwords"))
+        precondition(!views.contains { $0 is NSSecureTextField } && nativePrompts == 0)
+        owner.presentSystemState(["vault_setup": ["status": "paused"]])
+        views = descendants(owner.stack)
+        precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Resume Account Access"))
+        owner.presentSystemState(["vault_setup": ["status": "fictional-private-error"]])
+        views = descendants(owner.stack)
+        precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Check again"))
+        precondition(!views.compactMap { ($0 as? NSTextField)?.stringValue }.contains { $0.contains("fictional-private-error") })
+        print("PASS: isolated first setup and durable pause have explicit owner actions; repair never exposes raw errors or offers reset")
+        try! FileManager.default.removeItem(at: fixtureRoot.appendingPathComponent("desktop.json"))
+        owner.enrollSystemVault()
+        let nativeDeadline = Date().addingTimeInterval(8)
+        while (!owner.systemOwnerReady || owner.busy) && Date() < nativeDeadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+        }
+        precondition(owner.systemOwnerReady && !owner.busy && nativePrompts == 1 && nativeChannel.enrollments == 1)
+        precondition(owner.base == nil && owner.token.isEmpty)
+        print("PASS: native setup accepts pending enrollment and automatically reads worker state without the legacy capability file")
+        nativeChannel.lostNextEnrollment = true
+        owner.enrollSystemVault()
+        let lostDeadline = Date().addingTimeInterval(5)
+        while owner.busy && Date() < lostDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
+        precondition(nativeChannel.enrollments == 2 && !owner.busy)
+        owner.reopen()
+        let readDeadline = Date().addingTimeInterval(5)
+        while owner.busy && Date() < readDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
+        precondition(owner.systemOwnerReady && !owner.busy && nativeChannel.enrollments == 2 && nativePrompts == 1)
+        print("PASS: lost native enrollment response is never replayed; reopening reconnects with a read and no new OS prompt")
+
     }
 }

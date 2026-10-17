@@ -5,6 +5,8 @@ import sys
 
 
 CHECKS = {
+    "initialized_pause_keeps_owner_state_available", "initialized_resume_requires_owner_approval",
+    "immediate_initialized_resume_preserves_worker",
     "fresh_start_waits_for_owner_without_worker", "fresh_start_does_not_create_system_key",
     "unenrolled_owner_state_available", "unenrolled_health_available", "ordinary_route_cannot_enroll",
     "unapproved_session_cannot_enroll", "real_setup_verifier_rejects_invalid_owner_proof",

@@ -381,6 +381,11 @@ def system_broker_waiting(prefix, roles):
         "owner_hash": signature(client), "server_hash": signature(binary), "owner_socket": plan["owner_socket"],
         "owner_port": plan["owner_port"], "bootstrap_socket": str(prefix / "control/entry-unused.sock")}).encode())
     public.chmod(0o644)
+    desktop = prefix / "desktop-owner.json"
+    private_file(desktop, json.dumps({"managed_by": "account-access-desktop-owner-v1", "schema": 1,
+        "owner_uid": roles["agent"].pw_uid, "publisher_team": "fixture",
+        "server_identifier": "com.fainir.accountaccess.broker", "server_hashes": [signature(binary)]}).encode())
+    desktop.chmod(0o644)
     label = "com.fainir.accountaccess.qa.system-broker"
     target = "system/" + label
     assert subprocess.run(["/bin/launchctl", "print", target], capture_output=True).returncode != 0

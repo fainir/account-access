@@ -95,6 +95,29 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     var base: URL!
     var token = ""
     let ownerConnectionLock = NSRecursiveLock()
+    var systemOwner: DesktopOwnerConnection?
+    var systemOwnerSelected = false
+    var systemOwnerReady = false
+    var systemSetupGeneration = 0
+    #if ACCOUNT_ACCESS_UI_CHECKS
+    var fixtureSystemOwnerSelected = false
+    #endif
+    var systemOwnerConfigured: Bool {
+        #if ACCOUNT_ACCESS_UI_CHECKS
+        if fixtureSystemOwnerSelected { return true }
+        #endif
+        return systemOwnerSelected || DesktopOwnerProfile.isInstalled
+    }
+    func nativeOwner() throws -> DesktopOwnerConnection? {
+        guard systemOwnerConfigured else { return nil }
+        systemOwnerSelected = true // Never fall back after selecting a protected registration.
+        if let systemOwner { return systemOwner }
+        do {
+            let connection = try DesktopOwnerConnection(profile: DesktopOwnerProfile())
+            systemOwner = connection
+            return connection
+        } catch { throw Failure.message("The protected installation could not be verified. Check the Account Access installation before connecting an account.") }
+    }
     var busy = false
     var backgroundRecovery: [String: Any] = [:]
     var backgroundServiceStatus = "unknown"
@@ -150,6 +173,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         window.center()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        if systemOwnerConfigured { openSystemOwner(); return }
         if files.fileExists(atPath: root.appendingPathComponent("desktop.json").path),
            files.isExecutableFile(atPath: runtime.appendingPathComponent("bin/account-access").path), installedPayloadMatches() {
             let metadata = try? Data(contentsOf: root.appendingPathComponent("desktop.json"))
@@ -181,7 +205,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     func page(_ title: String, _ subtitle: String) {
         let shell = NSView()
         window.contentView = shell
-        let haveOwner = base != nil && !token.isEmpty
+        let haveOwner = systemOwnerReady || (!systemOwnerConfigured && base != nil && !token.isEmpty)
         let scroll = NSScrollView()
         scroll.hasVerticalScroller = true
         scroll.autohidesScrollers = true
@@ -334,6 +358,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
 
     @objc func install() {
+        if systemOwnerConfigured { openSystemOwner(); return }
         guard !busy else { return }
         busy = true
         page("Installing Account Access", "The app prepares everything needed for secure website access.")
@@ -404,6 +429,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
 
     @objc func reopen() {
+        if systemOwnerConfigured { openSystemOwner(); return }
         if !installedPayloadMatches() { install(); return }
         busy = true
         page("Opening Account Access", "Reconnecting to your secure local app…")
@@ -526,6 +552,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 _ = try self.request("owner/stop", body: [:])
                 DispatchQueue.main.async {
                     self.busy = false
+                    self.systemSetupGeneration += 1
+                    self.systemOwner?.close()
+                    self.systemOwnerReady = false
                     self.token = ""
                     self.base = nil
                     for field in self.mailboxFields.values where field is NSSecureTextField { field.stringValue = "" }
@@ -542,6 +571,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     func loadOwner() throws {
         ownerConnectionLock.lock()
         defer { ownerConnectionLock.unlock() }
+        if let native = try nativeOwner() { try native.prepare(); return }
         let metadata = root.appendingPathComponent("desktop.json")
         let attributes = try files.attributesOfItem(atPath: metadata.path)
         guard attributes[.type] as? FileAttributeType == .typeRegular,
@@ -585,6 +615,18 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     func request(_ route: String, body: [String: Any]? = nil) throws -> [String: Any] {
         ownerConnectionLock.lock()
         defer { ownerConnectionLock.unlock() }
+        if let native = try nativeOwner() {
+            do {
+                let response = try native.request(route, body: body)
+                return try checkedOwnerResponse(response.0, response.1, pending: route == "owner/vault/enroll")
+            } catch DesktopOwnerFailure.approval {
+                throw Failure.message("Setup was not approved. Your saved connections are preserved. Try the setup action again when you are ready to approve it on this Mac.")
+            } catch is DesktopOwnerFailure {
+                throw Failure.message("The protected app did not respond. Check setup progress before trying the action again. Your saved connections are preserved.")
+            } catch is OwnerGatewayError {
+                throw Failure.message("This action is not available through the protected connection yet. Your saved connections are preserved.")
+            }
+        }
         // A supervised restart changes the port and capability. Verify the
         // current registration before sending any setup data. This does not
         // replay an operation whose response was lost or rebuild its form.
@@ -612,42 +654,132 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                       let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
                     throw Failure.message("The local app could not complete this step. Your existing connections are preserved.")
                 }
-                if response.statusCode != 200 {
-                    let reasons = [
-                        "password_sync_identity_mismatch": "This password-manager item belongs to a different username. Select the item for the account you imported.",
-                        "password_source_item_changed": "This item must be an active login for the approved website, with one username and password.",
-                        "password_source_access_removed": "The password source rejected access. Check its read-only token and the selected vault and item.",
-                        "password_source_unavailable": "The password source is temporarily unavailable. Try again when it is online.",
-                        "mailbox_connection_failed": "The email server did not accept this connection. Check the email address and application password in Verification. No website sign-in was started.",
-                        "mailbox_temporarily_unavailable": "The mailbox is temporarily unreachable. Your saved setup is preserved; Account Access can retry without another login approval.",
-                        "mailbox_tls_verification_failed": "The mailbox's secure connection could not be verified. Check the server settings; Account Access will not use an unverified connection.",
-                        "mailbox_not_connected": "Connect this email account in Verification first. No website sign-in was started.",
-                        "mailbox_identity_mismatch": "The connected Gmail account does not match the mailbox approved for these login messages. Connect the correct Gmail account.",
-                        "mailbox_uid_tracking_unavailable": "This mail server did not provide the message tracking needed to exclude old codes. No website sign-in was started.",
-                        "invalid_mailbox_setup": "Check the email address, mail server and application password. Other email providers require their TLS IMAP server and port.",
-                        "mailbox_already_connected": "This mailbox is already saved. Use Update app password or Check connection on its card.",
-                        "mailbox_source_mismatch": "Choose the mailbox for the email address and mail server already approved for this website.",
-                        "mailbox_scope_missing": "Reconnect the configured Gmail account with permission to read login messages.",
-                        "account_not_connected": "Connect the configured Gmail account through Manage permissions first.",
-                        "provider_rejected_access": "The email provider rejected this connection. Reconnect the mailbox in Verification.",
-                        "network_unavailable": "The email provider could not be reached. Your saved setup is preserved; try Check email connection when it is online.",
-                        "invalid_authenticator_export": "This image is not a supported Authenticator transfer QR. Choose a complete export or the website's original setup QR.",
-                        "authenticator_multiple_batches": "This export spans multiple QR codes. In Google Authenticator, export only the account you want to connect and choose its QR image.",
-                        "unsupported_authenticator_settings": "This authenticator uses settings that are not supported yet. Six-digit SHA-1 TOTP is required.",
-                        "authenticator_preview_expired": "The import preview expired. Choose the QR image again.",
-                        "authenticator_selection_changed": "The connected account changed during the preview. Choose the QR image again and review the account.",
-                        "password_sync_requires_https_origin": "Enter only the HTTPS server address, without a path or query.",
-                        "invalid_password_sync_link": "Check the connection details. Vault and item IDs must be the exact 26-character IDs from 1Password."
-                    ]
-                    throw Failure.message(reasons[payload["reason"] as? String ?? ""] ?? "The local app could not complete this step. Your existing connections are preserved.")
-                }
-                result = .success(payload)
+                result = .success(try self.checkedOwnerResponse(response.statusCode, payload))
             } catch { result = .failure(error) }
         }.resume()
         guard done.wait(timeout: .now() + 35) == .success else {
             throw Failure.message("The local app took too long to respond. Try again.")
         }
         return try result.get()
+    }
+
+    func checkedOwnerResponse(_ code: Int, _ payload: [String: Any], pending: Bool = false) throws -> [String: Any] {
+        if code == 200 || (pending && code == 202) { return payload }
+        let reasons = [
+            "owner_setup_authorization_required": "Approve this setup action on your Mac to continue.",
+            "owner_channel_unavailable": "The protected app reconnected. Check setup progress before trying this action again.",
+            "owner_backend_unavailable": "The protected app is temporarily unavailable. Check progress before retrying this action.",
+            "broker_worker_recovering": "The protected app is recovering. Check again shortly; your action was not repeated.",
+            "vault_setup_repair_required": "The protected account store needs repair. Your saved data is preserved.",
+            "password_sync_identity_mismatch": "This password-manager item belongs to a different username. Select the item for the account you imported.",
+            "password_source_item_changed": "This item must be an active login for the approved website, with one username and password.",
+            "password_source_access_removed": "The password source rejected access. Check its read-only token and the selected vault and item.",
+            "password_source_unavailable": "The password source is temporarily unavailable. Try again when it is online.",
+            "mailbox_connection_failed": "The email server did not accept this connection. Check the email address and application password in Verification. No website sign-in was started.",
+            "mailbox_temporarily_unavailable": "The mailbox is temporarily unreachable. Your saved setup is preserved; Account Access can retry without another login approval.",
+            "mailbox_tls_verification_failed": "The mailbox's secure connection could not be verified. Check the server settings; Account Access will not use an unverified connection.",
+            "mailbox_not_connected": "Connect this email account in Verification first. No website sign-in was started.",
+            "mailbox_identity_mismatch": "The connected Gmail account does not match the mailbox approved for these login messages. Connect the correct Gmail account.",
+            "mailbox_uid_tracking_unavailable": "This mail server did not provide the message tracking needed to exclude old codes. No website sign-in was started.",
+            "invalid_mailbox_setup": "Check the email address, mail server and application password. Other email providers require their TLS IMAP server and port.",
+            "mailbox_already_connected": "This mailbox is already saved. Use Update app password or Check connection on its card.",
+            "mailbox_source_mismatch": "Choose the mailbox for the email address and mail server already approved for this website.",
+            "mailbox_scope_missing": "Reconnect the configured Gmail account with permission to read login messages.",
+            "account_not_connected": "Connect the configured Gmail account through Manage permissions first.",
+            "provider_rejected_access": "The email provider rejected this connection. Reconnect the mailbox in Verification.",
+            "network_unavailable": "The email provider could not be reached. Your saved setup is preserved; try Check email connection when it is online.",
+            "invalid_authenticator_export": "This image is not a supported Authenticator transfer QR. Choose a complete export or the website's original setup QR.",
+            "authenticator_multiple_batches": "This export spans multiple QR codes. In Google Authenticator, export only the account you want to connect and choose its QR image.",
+            "unsupported_authenticator_settings": "This authenticator uses settings that are not supported yet. Six-digit SHA-1 TOTP is required.",
+            "authenticator_preview_expired": "The import preview expired. Choose the QR image again.",
+            "authenticator_selection_changed": "The connected account changed during the preview. Choose the QR image again and review the account.",
+            "password_sync_requires_https_origin": "Enter only the HTTPS server address, without a path or query.",
+            "invalid_password_sync_link": "Check the connection details. Vault and item IDs must be the exact 26-character IDs from 1Password."
+        ]
+        throw Failure.message(reasons[payload["reason"] as? String ?? ""] ?? "The local app could not complete this step. Your existing connections are preserved.")
+    }
+
+    func openSystemOwner() {
+        guard !busy else { return }
+        systemSetupGeneration += 1
+        let generation = systemSetupGeneration
+        busy = true
+        page("Opening Account Access", "Connecting to your protected local app…")
+        progress()
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let state = try self.request("owner/state")
+                DispatchQueue.main.async {
+                    guard generation == self.systemSetupGeneration else { return }
+                    self.busy = false
+                    self.presentSystemState(state)
+                }
+            } catch { self.fail(error, retry: #selector(self.reopen)) }
+        }
+    }
+
+    func presentSystemState(_ state: [String: Any]) {
+        systemSetupGeneration += 1
+        systemOwnerReady = false
+        switch DesktopVaultScreen(state) {
+        case .ready:
+            systemOwnerReady = true
+            accept(state)
+            if accounts.contains(where: { $0["connected"] as? Bool == true }) { ready() }
+            else { connections() }
+        case .needsOwner:
+            page("Set up your private account store", "Connect once. Your AI can use approved accounts without seeing their passwords or login codes.")
+            card("Protected on this Mac", "The account store runs separately from your AI tools. macOS asks you to approve setup before any credentials are saved.")
+            primary("Set up Account Access", #selector(enrollSystemVault))
+        case .paused:
+            page("Account Access is paused", "Saved connections are preserved. Approve Resume on this Mac to let your AI use them again.")
+            primary("Resume Account Access", #selector(enrollSystemVault))
+        case .initializing:
+            page("Preparing your private account store", "Account Access is finishing setup. You can leave this window open; it will continue automatically.")
+            progress()
+            status.stringValue = "Preparing secure storage…"
+            action("Check progress", #selector(reopen))
+            pollSystemSetup(generation: systemSetupGeneration, remaining: 60)
+        case .repair:
+            page("Your installation needs attention", "The protected account store could not be opened safely. Your saved data is preserved. Check the installation before connecting more accounts.")
+            action("Check again", #selector(reopen))
+        }
+    }
+
+    @objc func enrollSystemVault() {
+        guard !busy else { return }
+        systemSetupGeneration += 1
+        busy = true
+        page("Approve setup on this Mac", "Use the macOS approval window to continue. Your AI tools never receive this approval or your credentials.")
+        progress()
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let state = try self.request("owner/vault/enroll", body: [:])
+                DispatchQueue.main.async {
+                    self.busy = false
+                    if state["vault_setup"] != nil { self.presentSystemState(state) }
+                    else { self.openSystemOwner() }
+                }
+            } catch { self.fail(error, retry: #selector(self.reopen)) }
+        }
+    }
+
+    func pollSystemSetup(generation: Int, remaining: Int) {
+        guard remaining > 0 else {
+            status.stringValue = "Setup is taking longer. Choose Check progress to reconnect."
+            return
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+            guard let self, generation == self.systemSetupGeneration, !self.busy else { return }
+            DispatchQueue.global(qos: .utility).async {
+                let state = try? self.request("owner/state") // Reconnect and read only; never replay enrollment.
+                DispatchQueue.main.async {
+                    guard generation == self.systemSetupGeneration, !self.busy else { return }
+                    if let state, DesktopVaultScreen(state) != .initializing { self.presentSystemState(state) }
+                    else { self.pollSystemSetup(generation: generation, remaining: remaining - 1) }
+                }
+            }
+        }
     }
 
     func accept(_ state: [String: Any]) {

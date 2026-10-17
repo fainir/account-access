@@ -5,6 +5,8 @@ import sys
 
 
 CHECKS = {
+    "desktop_profile_reads_protected_root_registration", "desktop_native_read_needs_no_os_approval",
+    "desktop_native_invalid_os_proof_blocks_enrollment",
     "system_entrypoint_hosts_initial_owner_gateway", "no_initial_worker_or_key_created",
     "first_enrollment_root_peer_prepared", "first_enrollment_state_available_without_vault",
     "first_enrollment_health_available", "first_enrollment_without_approval_refused",

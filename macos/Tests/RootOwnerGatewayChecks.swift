@@ -148,6 +148,22 @@ enum RootGatewayFixture {
                 checks["first_enrollment_invalid_os_proof_refused"] = !authorized
                 checks["first_enrollment_invalid_proof_cannot_create_key"] = try RootGatewayFixture.request(channel, "owner/vault/enroll", [:]).0 == 403
                 checks["first_enrollment_caller_configuration_refused"] = try RootGatewayFixture.request(channel, "owner/vault/enroll", ["vault_id": "untrusted"]).0 == 403
+                let directory = URL(fileURLWithPath: CommandLine.arguments[2]).deletingLastPathComponent()
+                let profile = try DesktopOwnerProfile.fixture(directory: directory, components: ["desktop-owner.json"], fileOwner: 0)
+                checks["desktop_profile_reads_protected_root_registration"] = profile.peer.uid == 0
+                var prompts = 0
+                let desktop = DesktopOwnerConnection(makeChannel: {
+                    try OwnerGatewayConnection(service: OwnerGatewayHost.serviceName, peer: profile.peer)
+                }, acquire: { prompts += 1; return Data(repeating: 0x41, count: 32) })
+                defer { desktop.close() }
+                let desktopState = try desktop.request("owner/state")
+                checks["desktop_native_read_needs_no_os_approval"] = desktopState.0 == 200 && prompts == 0
+                    && (desktopState.1["vault_setup"] as? [String: Any])?["status"] as? String == "needs_owner"
+                var approvalRefused = false
+                do { _ = try desktop.request("owner/vault/enroll", body: [:]) }
+                catch DesktopOwnerFailure.approval { approvalRefused = true }
+                checks["desktop_native_invalid_os_proof_blocks_enrollment"] = approvalRefused && prompts == 1
+
             } else if mode == "coordinator" {
                 checks["coordinator_privileged_peer_prepared"] = ready
                 guard ready else { throw OwnerGatewayError.unavailable }
