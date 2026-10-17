@@ -398,6 +398,8 @@ def root_key_custody(prefix, roles):
                             stage("key_record_shape_" + result["record_shape"])
                         if type(result.get("record_count")) is int and 0 <= result["record_count"] <= 10_000:
                             print(json.dumps({"key_record_count": result["record_count"]}), file=sys.stderr, flush=True)
+                        if type(result.get("unique_reference_count")) is int and 0 <= result["unique_reference_count"] <= 10_000:
+                            print(json.dumps({"unique_key_reference_count": result["unique_reference_count"]}), file=sys.stderr, flush=True)
                         if result.get("keychain_operation") in {"load", "enroll", "remove"}:
                             stage("keychain_" + result["keychain_operation"])
                         if type(result.get("keychain_status")) is int:

@@ -29,12 +29,29 @@ struct RootVaultRecordFailure: Error {
     // Fixed shape metadata only. Never retain or format a Keychain value.
     let shape: String
     let count: Int
+    let uniqueReferences: Int?
     init(_ stage: Stage, result: CFTypeRef? = nil) {
         self.stage = stage
+        uniqueReferences = (result as? [Data]).map { Set($0).count }
         if let array = result as? NSArray { shape = "array"; count = array.count }
         else if result is Data { shape = "data"; count = 1 }
         else if result is NSDictionary { shape = "dictionary"; count = 1 }
         else { shape = result == nil ? "absent" : "other"; count = 0 }
+    }
+}
+
+enum RootVaultItemReference {
+    static func unique(_ result: CFTypeRef?) throws -> Data {
+        // A search list can expose the same record more than once. Identical
+        // persistent references identify the same item; distinct references
+        // remain ambiguous even when their stored passwords might match.
+        guard let values = result as? [Data], !values.isEmpty,
+              values.allSatisfy({ !$0.isEmpty }) else { throw RootVaultRecordFailure(.references, result: result) }
+        let references = Set(values)
+        guard references.count == 1, let reference = references.first else {
+            throw RootVaultRecordFailure(.references, result: result)
+        }
+        return reference
     }
 }
 
@@ -95,11 +112,9 @@ final class RootVaultKeyStore {
         let status = SecItemCopyMatching(request as CFDictionary, &result)
         if status == errSecItemNotFound { throw RootVaultKeyFailure.missing }
         guard status == errSecSuccess else { throw RootKeychainFailure(operation: .load, status: status) }
-        guard let references = result as? [Data], references.count == 1 else {
-            throw RootVaultRecordFailure(.references, result: result)
-        }
+        let reference = try RootVaultItemReference.unique(result)
         request.removeValue(forKey: kSecReturnPersistentRef as String)
-        request[kSecValuePersistentRef as String] = references[0]
+        request[kSecValuePersistentRef as String] = reference
         request[kSecMatchLimit as String] = kSecMatchLimitOne
         request[kSecReturnData as String] = true
         result = nil

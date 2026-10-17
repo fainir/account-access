@@ -40,6 +40,10 @@ jobs:
             -framework Foundation -framework Security macos/WorkerBootstrap.swift macos/OwnerGateway.swift \
             macos/OwnerGatewayHost.swift macos/Tests/RootOwnerGatewayChecks.swift -o /tmp/ac-root-owner-client
           xcrun clang -O2 -Wall -Wextra -Werror -c macos/KeychainInteraction.c -o /tmp/ac-keychain-interaction.o
+          xcrun swiftc -O -parse-as-library -warnings-as-errors -framework Foundation -framework Security \
+            -import-objc-header macos/KeychainInteraction.h macos/RootVaultKeyStore.swift \
+            macos/Tests/VaultReferenceChecks.swift /tmp/ac-keychain-interaction.o -o /tmp/ac-vault-reference-checks
+          /tmp/ac-vault-reference-checks
           xcrun swiftc -O -parse-as-library -D ACCOUNT_ACCESS_ROOT_KEY_CHECKS \
             -framework Foundation -framework Security -framework CryptoKit -import-objc-header macos/KeychainInteraction.h \
             macos/WorkerBootstrap.swift macos/RootVaultKeyStore.swift macos/Tests/RootVaultKeyChecks.swift \

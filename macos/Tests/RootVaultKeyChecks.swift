@@ -104,6 +104,7 @@ import Darwin
                 report["reason"] = failure.stage.rawValue
                 report["record_shape"] = failure.shape
                 report["record_count"] = failure.count
+                if let unique = failure.uniqueReferences { report["unique_reference_count"] = unique }
             }
             if let failure = error as? RootKeychainFailure {
                 report["reason"] = "system_keychain_unavailable"

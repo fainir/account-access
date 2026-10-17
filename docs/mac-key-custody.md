@@ -37,7 +37,10 @@ vault identity must not resolve the enrolled key.
 No key bytes are printed, passed on a command line or stored in a report/file.
 
 Recovery first resolves one opaque record reference, then reads that exact
-record. The file-based shim rejects all-password-data queries. A narrow C bridge
+record. Identical persistent references repeated by a search list count as one
+item; different references remain ambiguous and are refused. Pure metadata
+tests check that distinction without accessing a Keychain. The file-based shim
+rejects all-password-data queries. A narrow C bridge
 uses its documented, deprecated interaction control to disable prompts in the
 daemon; data-protection authentication contexts do not control this keychain.
 The remaining storage operations use `SecItem`. The unprivileged probe uses a
