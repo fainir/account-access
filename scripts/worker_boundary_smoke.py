@@ -15,8 +15,10 @@ import http.client
 import json
 import os
 from pathlib import Path
+import plistlib
 import pwd
 import re
+import selectors
 import secrets
 import shutil
 import signal
@@ -24,6 +26,7 @@ import socket
 import ssl
 import subprocess
 import sys
+import threading
 import time
 from urllib.parse import urlsplit
 
@@ -219,6 +222,137 @@ def probe(prefix, roles, worker, policy, phase):
     return result["checks"]
 
 
+def root_owner_gateway(prefix, roles, policy, capability, worker):
+    """Deploy only in the disposable VM; never install on the operator's Mac."""
+    if sys.platform != "darwin" or os.getuid() != 0 or os.environ.get("GITHUB_ACTIONS") != "true":
+        raise RuntimeError("root_owner_qa_requires_disposable_mac_ci")
+    label = "com.fainir.accountaccess.broker.owner"
+    if subprocess.run(["/bin/launchctl", "print", "system/" + label], capture_output=True).returncode == 0:
+        raise RuntimeError("root_owner_namespace_already_occupied")
+    daemon, trusted, denied = (prefix / name for name in ["root-owner-gateway", "root-owner-client", "root-owner-client-denied"])
+    def code_hash(path):
+        root_managed_path(path)
+        signed = subprocess.run(["/usr/bin/codesign", "-d", "--verbose=4", str(path)], capture_output=True, timeout=10)
+        matches = re.findall(rb"^CDHash=([a-f0-9]{40})$", signed.stderr, re.MULTILINE)
+        assert signed.returncode == 0 and len(matches) == 1
+        return matches[0].decode()
+    daemon_hash, trusted_hash = code_hash(daemon), code_hash(trusted)
+    assert code_hash(denied) != trusted_hash
+    source_path = prefix / "control/boot.sock"
+    public_policy = prefix / "root-owner.json"
+    value = {"fixture": "account-access-root-owner-ci-v1", "owner_uid": roles["agent"].pw_uid,
+             "owner_hash": trusted_hash, "server_hash": daemon_hash, "owner_socket": policy["owner_socket"],
+             "owner_port": policy["owner_port"], "bootstrap_socket": str(source_path)}
+    public_policy.write_text(json.dumps(value))
+    public_policy.chmod(0o644)
+    wrong_server = prefix / "root-owner-wrong-server.json"
+    wrong_server.write_text(json.dumps({**value, "server_hash": "0" * 40}))
+    wrong_server.chmod(0o644)
+    launch = prefix / "root-owner.plist"
+    launch.write_bytes(plistlib.dumps({"Label": label, "ProgramArguments": [str(daemon), "--policy", str(public_policy)],
+        "UserName": "root", "GroupName": "wheel", "RunAtLoad": True, "KeepAlive": False,
+        "MachServices": {label: True}, "ProcessType": "Background", "ExitTimeOut": 10,
+        "StandardOutPath": "/dev/null", "StandardErrorPath": "/dev/null"}))
+    launch.chmod(0o644)
+    checks, booted, held = {}, False, None
+    def client(binary, user, mode, policy_path=public_policy):
+        result = subprocess.run([*dropped(user), str(binary), "--policy", str(policy_path), mode],
+            capture_output=True, timeout=100, env={"PATH": "/usr/bin:/bin", "LANG": "en_US.UTF-8"})
+        assert capability.encode() not in result.stdout + result.stderr
+        report = json.loads(result.stdout)
+        assert result.returncode == 0 and report["status"] == "PASSED" and all(item is True for item in report["checks"].values())
+        return report["checks"]
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as bootstrap:
+        bootstrap.bind(str(source_path))
+        bootstrap.listen(1)
+        bootstrap.settimeout(40)
+        source_path.chmod(0o600)
+        issued = threading.Event()
+        def supply():
+            try:
+                channel, _ = bootstrap.accept()
+                with channel:
+                    import ctypes
+                    system = ctypes.CDLL("/usr/lib/libSystem.B.dylib", use_errno=True)
+                    system.getpeereid.argtypes = [ctypes.c_int, ctypes.POINTER(ctypes.c_uint), ctypes.POINTER(ctypes.c_uint)]
+                    system.getpeereid.restype = ctypes.c_int
+                    uid, gid = ctypes.c_uint(), ctypes.c_uint()
+                    assert system.getpeereid(channel.fileno(), ctypes.byref(uid), ctypes.byref(gid)) == 0 and uid.value == 0
+                    channel.sendall(capability.encode())
+                    channel.shutdown(socket.SHUT_WR)
+                issued.set()
+            except Exception:
+                pass  # Fixed timeout/failure below; no capability/exception text.
+        sender = threading.Thread(target=supply, daemon=True)
+        sender.start()
+        try:
+            stage("root_owner_launchd_bootstrap")
+            command(["/bin/launchctl", "bootstrap", "system", str(launch)])
+            booted = True
+            assert issued.wait(45), "root_owner_bootstrap_failed"
+            checks["root_only_capability_handoff"] = True
+            service = command(["/bin/launchctl", "print", "system/" + label])
+            matches = re.findall(rb"\bpid = ([0-9]+)", service)
+            assert len(matches) == 1
+            pid = int(matches[0])
+            assert command(["/bin/ps", "-p", str(pid), "-o", "uid="]).strip() == b"0"
+            checks["daemon_root_uid_verified"] = True
+            stage("root_owner_signed_client")
+            checks.update(client(trusted, roles["agent"], "accepted"))
+            for name, binary, user, client_policy in [
+                ("wrong_client", denied, roles["agent"], public_policy),
+                ("wrong_user", trusted, roles["broker"], public_policy),
+                ("wrong_server", trusted, roles["agent"], wrong_server),
+            ]:
+                stage("root_owner_" + name)
+                result = client(binary, user, "denied", client_policy)
+                for suffix, source in [("refused", "prepare_refused"), ("setup_refused", "failed_prepare_refuses_setup"),
+                                       ("credential_input_refused", "failed_prepare_refuses_credential_input")]:
+                    checks[name + "_" + suffix] = result[source]
+            stage("root_owner_stop_live_connection")
+            held = subprocess.Popen([*dropped(roles["agent"]), str(trusted), "--policy", str(public_policy), "hold"],
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True,
+                env={"PATH": "/usr/bin:/bin", "LANG": "en_US.UTF-8"})
+            with selectors.DefaultSelector() as ready:
+                ready.register(held.stdout, selectors.EVENT_READ)
+                assert ready.select(45)
+                assert json.loads(held.stdout.readline(256)) == {"stage": "owner_connection_ready"}
+            command(["/bin/launchctl", "bootout", "system/" + label])
+            booted = False
+            stdout, stderr = held.communicate(b"continue\n", timeout=45)
+            assert capability.encode() not in stdout + stderr
+            report = json.loads(stdout)
+            assert held.returncode == 0 and report["status"] == "PASSED"
+            checks.update(report["checks"])
+            checks["launchd_service_removed"] = subprocess.run(["/bin/launchctl", "print", "system/" + label], capture_output=True).returncode != 0
+            deadline = time.monotonic() + 10
+            while time.monotonic() < deadline:
+                try:
+                    os.kill(pid, 0)
+                except ProcessLookupError:
+                    break
+                time.sleep(0.1)
+            else:
+                raise RuntimeError("root_owner_daemon_did_not_exit")
+            checks["daemon_process_exited"] = True
+            checks["gateway_stop_keeps_worker_alive"] = worker.poll() is None
+            checks["capability_absent_from_client_output"] = True
+            assert checks and all(item is True for item in checks.values())
+            return {"status": "PASSED", "environment": "controlled-demo", "platform": "macos", "production_ready": False,
+                    "private_signins": 0, "root_service_installed": True, "consumer_deployment_verified": False,
+                    "real_owner_auth_approval_tested": False, "authorization_database_changed": False,
+                    "publisher_signed_peers": False, "checks": checks}
+        finally:
+            if held is not None and held.poll() is None:
+                os.killpg(held.pid, signal.SIGTERM)
+                held.communicate(timeout=10)
+            if booted:
+                command(["/bin/launchctl", "bootout", "system/" + label])
+            bootstrap.close()
+            sender.join(timeout=2)
+            source_path.unlink(missing_ok=True)
+
+
 def exercise(prefix, roles):
     if sys.platform == "darwin":
         # No login data is provided to this canary. It checks whether the
@@ -410,9 +544,17 @@ def exercise(prefix, roles):
                 checks["provider_confirmed_four_passwords_all_factors"] = True
                 checks["tls_imap_message_fetched"] = mailbox.fetches == 1
                 checks["pinned_https_sms_delivered"] = len(delivered_sms) == 1
-                owner_request(owner_path, owner_token, "/owner/revoke", {"account": "demo-api"})
+                owner_report = None
+                if sys.platform == "darwin":
+                    owner_report = root_owner_gateway(prefix, roles, policy, owner_token, worker)
+                    owner_report["checks"].update(probe(prefix, roles, worker, policy, "after-owner-stop"))
+                else:
+                    owner_request(owner_path, owner_token, "/owner/revoke", {"account": "demo-api"})
                 stage("revoked_read")
                 checks.update(probe(prefix, roles, worker, policy, "revoked"))
+                if owner_report is not None:
+                    owner_report["checks"]["revocation_confirmed_by_agent"] = checks["revoked_operation_denied"]
+                    assert provider.login_count == 4
                 checks["worker_still_alive_after_denied_attacks"] = worker.poll() is None
                 worker.send_signal(signal.SIGTERM)
                 stage("graceful_exit")
@@ -423,6 +565,11 @@ def exercise(prefix, roles):
                     checks["native_broker_identity_drop_verified"] = True
                     checks["native_runtime_writable_descendant_rejected"] = True
                 assert all(checks.values()), "fixture_worker_final_checks_failed"
+                if owner_report is not None:
+                    assert all(item is True for item in owner_report["checks"].values())
+                    evidence = Path("/tmp/account-access-mac-root-owner.json")
+                    private_file(evidence, (json.dumps(owner_report, indent=2) + "\n").encode())
+                    evidence.chmod(0o644)  # Fixed non-secret metadata for the unprivileged CI validator.
                 return {"status": "PASSED", "environment": "controlled-demo", "production_ready": False,
                         "private_signins": 0, "platform": "macos" if sys.platform == "darwin" else "linux", "real_distinct_uids": True,
                         "checks": checks,

@@ -273,6 +273,9 @@ final class OwnerGatewaySession: NSObject, OwnerGatewayRPC {
 final class OwnerGatewayListener: NSObject, NSXPCListenerDelegate {
     private let peer: OwnerGatewayPeer
     private let makeSession: () -> OwnerGatewaySession
+    private let lock = NSLock()
+    private var stopped = false
+    private var connections: [UUID: (NSXPCConnection, OwnerGatewaySession)] = [:]
     init(peer: OwnerGatewayPeer, makeSession: @escaping () -> OwnerGatewaySession) {
         self.peer = peer; self.makeSession = makeSession
     }
@@ -280,13 +283,31 @@ final class OwnerGatewayListener: NSObject, NSXPCListenerDelegate {
         guard connection.effectiveUserIdentifier == peer.uid else { return false }
         connection.setCodeSigningRequirement(peer.requirement)
         let session = makeSession()
+        let identifier = UUID()
         connection.exportedInterface = NSXPCInterface(with: OwnerGatewayRPC.self)
         connection.exportedObject = session
-        connection.invalidationHandler = { [weak session] in session?.close() }
+        connection.invalidationHandler = { [weak self, weak session] in
+            session?.close()
+            guard let self else { return }
+            self.lock.lock(); self.connections.removeValue(forKey: identifier); self.lock.unlock()
+        }
         connection.interruptionHandler = { [weak session] in session?.close() }
+        lock.lock()
+        guard !stopped, connections.count < 16 else {
+            lock.unlock(); session.close(); return false
+        }
+        connections[identifier] = (connection, session)
+        lock.unlock()
         connection.resume()
         return true
     }
+    func stop() {
+        lock.lock(); stopped = true
+        let active = Array(connections.values)
+        connections.removeAll(); lock.unlock()
+        for (connection, session) in active { session.close(); connection.invalidate() }
+    }
+    deinit { stop() }
 }
 
 // Production construction uses the system bootstrap namespace and a root peer;

@@ -98,6 +98,10 @@ def run(args):
     if os.getuid() == 0 or os.getuid() == args.worker_uid:
         raise RuntimeError("probe_requires_distinct_unprivileged_identity")
     config = Path(args.config)
+    if args.phase == "after-owner-stop":
+        result = cli(config, "run", "demo-web", "summary")
+        require_result(result["status"] == "COMPLETED", "demo-web", result)
+        return {"worker_operates_after_owner_gateway_stop": True}
     if args.phase == "revoked":
         result = cli(config, "run", "demo-api", "summary")
         require_result(result["status"] == "DENIED", "revoked_read", result)
@@ -157,7 +161,7 @@ def run(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--phase", choices=["initial", "revoked"], required=True)
+    parser.add_argument("--phase", choices=["initial", "revoked", "after-owner-stop"], required=True)
     for name in ["config", "state", "worker-module", "policy", "owner-socket", "agent-socket"]:
         parser.add_argument("--" + name, required=True)
     parser.add_argument("--worker-pid", type=int, required=True)

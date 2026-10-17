@@ -21,12 +21,21 @@ jobs:
           for AC_BOOTSTRAP_ARCH in arm64 x86_64; do
             xcrun swiftc -parse-as-library -warnings-as-errors -typecheck \
               -target "$AC_BOOTSTRAP_ARCH-apple-macos13" -framework Foundation macos/WorkerBootstrap.swift
+            xcrun swiftc -parse-as-library -warnings-as-errors -typecheck \
+              -target "$AC_BOOTSTRAP_ARCH-apple-macos13" -framework Foundation -framework Security \
+              macos/OwnerGateway.swift macos/OwnerGatewayHost.swift
           done
           xcrun swiftc -O -parse-as-library -framework Foundation \
             macos/WorkerBootstrap.swift macos/Tests/WorkerBootstrapChecks.swift -o /tmp/ac-worker-bootstrap-checks
           /tmp/ac-worker-bootstrap-checks
           xcrun swiftc -O -parse-as-library -D ACCOUNT_ACCESS_WORKER_BOOTSTRAP_MAIN -framework Foundation \
             macos/WorkerBootstrap.swift -o /tmp/ac-mac-worker-bootstrap
+          xcrun swiftc -O -parse-as-library -D ACCOUNT_ACCESS_GATEWAY_CHECKS -D ACCOUNT_ACCESS_ROOT_GATEWAY_DAEMON \
+            -framework Foundation -framework Security macos/WorkerBootstrap.swift macos/OwnerGateway.swift \
+            macos/OwnerGatewayHost.swift macos/Tests/RootOwnerGatewayChecks.swift -o /tmp/ac-root-owner-gateway
+          xcrun swiftc -O -parse-as-library -D ACCOUNT_ACCESS_GATEWAY_CHECKS -D ACCOUNT_ACCESS_ROOT_GATEWAY_CLIENT \
+            -framework Foundation -framework Security macos/WorkerBootstrap.swift macos/OwnerGateway.swift \
+            macos/OwnerGatewayHost.swift macos/Tests/RootOwnerGatewayChecks.swift -o /tmp/ac-root-owner-client
       - name: Prepare root-owned runtime in this disposable Mac VM
         run: |
           uv build --wheel --out-dir /tmp/account-access-mac-worker-wheel
@@ -48,6 +57,13 @@ jobs:
           sudo install -m 644 scripts/mac_browser_probe.py "$AC_MAC_WORKER_PREFIX/browser-probe.py"
           sudo install -m 755 /tmp/ac-mac-worker-bootstrap "$AC_MAC_WORKER_PREFIX/mac-worker-bootstrap"
           sudo codesign --force --options runtime --sign - "$AC_MAC_WORKER_PREFIX/mac-worker-bootstrap"
+          sudo install -m 755 /tmp/ac-root-owner-gateway "$AC_MAC_WORKER_PREFIX/root-owner-gateway"
+          sudo install -m 755 /tmp/ac-root-owner-client "$AC_MAC_WORKER_PREFIX/root-owner-client"
+          sudo install -m 755 /tmp/ac-root-owner-client "$AC_MAC_WORKER_PREFIX/root-owner-client-denied"
+          for AC_GATEWAY_BINARY in root-owner-gateway root-owner-client root-owner-client-denied; do
+            sudo codesign --force --options runtime --identifier "com.fainir.accountaccess.qa.$AC_GATEWAY_BINARY" \
+              --sign - "$AC_MAC_WORKER_PREFIX/$AC_GATEWAY_BINARY"
+          done
           sudo env PLAYWRIGHT_BROWSERS_PATH="$AC_MAC_WORKER_PREFIX/browsers" \
             "$AC_MAC_WORKER_PREFIX/runtime/bin/python" -I -B -m playwright install chromium
           sudo chmod -R a+rX "$AC_MAC_WORKER_PREFIX/browsers"
@@ -57,12 +73,16 @@ jobs:
           sudo env GITHUB_ACTIONS=true "$AC_MAC_WORKER_PREFIX/runtime/bin/python" -I -B \
             "$AC_MAC_WORKER_PREFIX/acceptance.py" --prefix "$AC_MAC_WORKER_PREFIX" > /tmp/account-access-mac-worker.json
           uv run python scripts/check_worker_boundary_report.py /tmp/account-access-mac-worker.json
+          uv run python scripts/check_mac_root_owner_report.py /tmp/account-access-mac-root-owner.json
           cat /tmp/account-access-mac-worker.json
+          cat /tmp/account-access-mac-root-owner.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: mac-worker-boundary-acceptance
-          path: /tmp/account-access-mac-worker.json
+          path: |
+            /tmp/account-access-mac-worker.json
+            /tmp/account-access-mac-root-owner.json
           if-no-files-found: ignore
       - name: Remove the ephemeral runtime
         if: always()

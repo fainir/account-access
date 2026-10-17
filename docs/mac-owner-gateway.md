@@ -80,3 +80,23 @@ The production supervisor, protected packaging/update and key custody, native
 UI wiring, client issuance/migration, real owner-approval test and notarized
 installation remain required. Private email, SMS and authenticator acceptance
 remain open.
+
+## Root host integration
+
+`OwnerGatewayHost.swift` adds a root-only host for the fixed system Mach service.
+The trusted parent supplies the validated owner peer and private Unix backend;
+caller requests cannot select either. Stopping the host closes active setup
+sessions and connections. Connections are bounded and never resurrect after stop.
+This class does not obtain a vault key or install a consumer service.
+
+The Mac worker CI harness now deploys this host as a temporary root launchd
+service beside the separate-user broker. A test-only daemon receives its owner
+capability once over a root-private, peer-checked Unix socket, in memory. No key
+or capability is supplied through a file, argument or environment variable.
+The client uses the production privileged connection and root-peer check.
+Wrong code/user/server identities, missing setup authorization, owner revocation
+and service shutdown have a separate, strict evidence report. Code identities
+are ad-hoc hash-pinned in CI; genuine owner setup approval and publisher trust
+are not established by that report. Confirm actual workflow success before
+counting these integration tests as passed. This is not consumer installation,
+durable key custody or migration acceptance.
