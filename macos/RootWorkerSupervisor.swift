@@ -21,6 +21,7 @@ final class RootWorkerSupervisor: OwnerGatewayBackend {
     private let bootstrap: String
     private let peer: OwnerGatewayPeer
     private let vault: String
+    private let listeners: RootActivatedListeners?
     private let pausePath: String
     private let clock: () -> TimeInterval
     private let invalidateOwners: () -> Void
@@ -33,17 +34,17 @@ final class RootWorkerSupervisor: OwnerGatewayBackend {
     private var retryAt: TimeInterval = 0
 
     convenience init(policy: String, bootstrap: String, peer: OwnerGatewayPeer, vault: String,
-                     invalidateOwners: @escaping () -> Void) throws {
+                     listeners: RootActivatedListeners? = nil, invalidateOwners: @escaping () -> Void) throws {
         try self.init(policy: policy, bootstrap: bootstrap, peer: peer, vault: vault,
-                      invalidateOwners: invalidateOwners, clock: { ProcessInfo.processInfo.systemUptime })
+                      listeners: listeners, invalidateOwners: invalidateOwners, clock: { ProcessInfo.processInfo.systemUptime })
     }
     private init(policy: String, bootstrap: String, peer: OwnerGatewayPeer, vault: String,
-                 invalidateOwners: @escaping () -> Void, clock: @escaping () -> TimeInterval) throws {
+                 listeners: RootActivatedListeners?, invalidateOwners: @escaping () -> Void, clock: @escaping () -> TimeInterval) throws {
         try RootVaultKeyStore.requireDaemon()
         let plan = try MacWorkerPlan(policy: policy)
         let value = try WorkerLaunchPaths.object(plan.workerPolicy)
         let root = try WorkerLaunchPaths.lexical(value["root"])
-        self.policy = policy; self.bootstrap = bootstrap; self.peer = peer; self.vault = vault
+        self.policy = policy; self.bootstrap = bootstrap; self.peer = peer; self.vault = vault; self.listeners = listeners
         self.pausePath = URL(fileURLWithPath: root).appendingPathComponent("service.paused").path
         self.invalidateOwners = invalidateOwners; self.clock = clock
     }
@@ -51,7 +52,7 @@ final class RootWorkerSupervisor: OwnerGatewayBackend {
     static func fixture(policy: String, bootstrap: String, peer: OwnerGatewayPeer, vault: String,
                         invalidateOwners: @escaping () -> Void, clock: @escaping () -> TimeInterval) throws -> RootWorkerSupervisor {
         try RootWorkerSupervisor(policy: policy, bootstrap: bootstrap, peer: peer, vault: vault,
-                                 invalidateOwners: invalidateOwners, clock: clock)
+                                 listeners: nil, invalidateOwners: invalidateOwners, clock: clock)
     }
     #endif
     var state: RootWorkerState { lock.lock(); defer { lock.unlock() }; return current }
@@ -74,7 +75,7 @@ final class RootWorkerSupervisor: OwnerGatewayBackend {
     }
     private func launch() throws {
         if try isPaused() { current = .paused; return }
-        let next = try RootWorkerProcess(policy: policy, bootstrap: bootstrap, peer: peer, vault: vault)
+        let next = try RootWorkerProcess(policy: policy, bootstrap: bootstrap, peer: peer, vault: vault, listeners: listeners)
         worker = next
         let ready = try next.start()
         invalidateOwners()

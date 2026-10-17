@@ -354,6 +354,177 @@ def root_owner_gateway(prefix, roles, policy, capability, worker):
             source_path.unlink(missing_ok=True)
 
 
+def root_coordinator(prefix, roles, key_policy, phase):
+    """Crash the actual composed host, using launchd-owned listeners and groups."""
+    if sys.platform != "darwin" or os.getuid() != 0 or os.environ.get("GITHUB_ACTIONS") != "true":
+        raise RuntimeError("coordinator_requires_disposable_mac_ci")
+    stage("coordinator_prepare")
+    binary, client = prefix / "root-key-checks", prefix / "root-owner-client"
+    ready = prefix / "root-coordinator-ready.json"
+    public = prefix / "root-coordinator-client.json"
+    plan = json.loads((prefix / "key-worker-policy.json").read_bytes())
+    paths = [Path(plan["agent_socket"]), Path(plan["owner_socket"])]
+    assert all(not item.exists() and not item.is_symlink() for item in paths)
+    def signature(path):
+        result = subprocess.run(["/usr/bin/codesign", "-d", "--verbose=4", str(path)], capture_output=True, timeout=10)
+        hashes = re.findall(rb"^CDHash=([a-f0-9]{40})$", result.stderr, re.MULTILINE)
+        assert result.returncode == 0 and len(hashes) == 1
+        return hashes[0].decode()
+    private_file(prefix / "root-coordinator.json", json.dumps({"fixture": "account-access-root-coordinator-ci-v1",
+        "owner_hash": signature(client)}).encode())
+    private_file(public, json.dumps({"fixture": "account-access-root-owner-ci-v1", "owner_uid": roles["agent"].pw_uid,
+        "owner_hash": signature(client), "server_hash": signature(binary), "owner_socket": str(paths[1]),
+        "owner_port": plan["owner_port"], "bootstrap_socket": str(prefix / "control/coordinator-unused.sock")}).encode())
+    public.chmod(0o644)
+    label = "com.fainir.accountaccess.qa.coordinator"
+    target = "system/" + label
+    if subprocess.run(["/bin/launchctl", "print", target], capture_output=True).returncode == 0:
+        raise RuntimeError("coordinator_namespace_already_occupied")
+    launch = prefix / (label + ".plist")
+    launch.write_bytes(plistlib.dumps({"Label": label, "ProgramArguments": [str(binary), "--policy", str(key_policy), "coordinator"],
+        "UserName": "root", "GroupName": "wheel", "RunAtLoad": True, "KeepAlive": True,
+        "ThrottleInterval": 1, "ExitTimeOut": 20, "AbandonProcessGroup": False, "Umask": 0o077,
+        "ProcessType": "Background", "StandardOutPath": "/dev/null", "StandardErrorPath": "/dev/null",
+        "MachServices": {"com.fainir.accountaccess.broker.owner": True},
+        "Sockets": {"AccountAccessAgent": {"SockPathName": str(paths[0]), "SockPathOwner": 0,
+            "SockPathGroup": roles["agent"].pw_gid, "SockPathMode": 0o660},
+            "AccountAccessOwner": {"SockPathName": str(paths[1]), "SockPathOwner": 0, "SockPathGroup": 0, "SockPathMode": 0o600}}}))
+    launch.chmod(0o644)
+    checks, booted, held = {}, False, None
+    known_sockets = {}
+    def snapshot(*, previous=0, state="running"):
+        deadline = time.monotonic() + 65
+        while time.monotonic() < deadline:
+            try:
+                value = json.loads(ready.read_bytes())
+            except (OSError, ValueError):
+                value = {}
+            if value.get("status") == "READY" and value.get("pid") != previous and value.get("worker_state") == state:
+                assert set(value) == {"status", "pid", "uid", "group", "worker_pid", "worker_group", "worker_state", "setup_policy_registered", "socket_activation_one_shot"}
+                assert value["uid"] == 0 and type(value["pid"]) is int and value["pid"] > 0
+                assert value["group"] == value["pid"] and value["setup_policy_registered"] is True
+                assert value["socket_activation_one_shot"] is True
+                if state == "running":
+                    assert type(value["worker_pid"]) is int and value["worker_pid"] > 0
+                    assert value["worker_group"] == value["group"]
+                    output = command(["/bin/ps", "-p", str(value["worker_pid"]), "-o", "uid=,gid=,pgid=,ppid="])
+                    assert [int(item) for item in output.split()] == [roles["broker"].pw_uid, roles["broker"].pw_gid, value["pid"], value["pid"]]
+                else:
+                    assert value["worker_pid"] == 0 and value["worker_group"] == 0
+                return value
+            failure = prefix / "key-coordinator.json"
+            if failure.exists():
+                detail = json.loads(failure.read_bytes())
+                if detail.get("reason") in {"broker_socket_activation_unavailable", "broker_socket_activation_invalid",
+                        "broker_socket_activation_in_use", "owner_policy_changed", "owner_policy_unavailable", "owner_policy_readback_invalid",
+                        "worker_process_unavailable", "worker_bootstrap_code_rejected", "vault_key_missing", "system_keychain_unavailable"}:
+                    stage(detail["reason"])
+                raise RuntimeError("coordinator_start_failed")
+            time.sleep(0.1)
+        stage("coordinator_ready_timed_out")
+        raise RuntimeError("coordinator_ready_timed_out")
+    def stopped(pid):
+        # Observation only. Never signal a process from metadata.
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline:
+            try:
+                os.kill(pid, 0)
+            except ProcessLookupError:
+                return True
+            time.sleep(0.1)
+        return False
+    def read_client(prefix_name):
+        result = subprocess.run([*dropped(roles["agent"]), str(client), "--policy", str(public), "coordinator"],
+            capture_output=True, timeout=50, env={"PATH": "/usr/bin:/bin", "LANG": "en_US.UTF-8"})
+        value = json.loads(result.stdout)
+        assert result.returncode == 0 and value["status"] == "PASSED" and value["checks"]
+        for name, passed in value["checks"].items():
+            assert passed is True
+            checks[prefix_name + "_" + name] = True
+    def denied_client(who, executable, policy=public):
+        result = subprocess.run([*dropped(who), str(executable), "--policy", str(policy), "denied"],
+            capture_output=True, timeout=50, env={"PATH": "/usr/bin:/bin", "LANG": "en_US.UTF-8"})
+        value = json.loads(result.stdout)
+        return result.returncode == 0 and value.get("status") == "PASSED" and value.get("checks") == {
+            "prepare_refused": True, "failed_prepare_refuses_setup": True, "failed_prepare_refuses_credential_input": True}
+    try:
+        stage("coordinator_first_bootstrap")
+        command(["/bin/launchctl", "bootstrap", "system", str(launch)])
+        booted = True
+        first = snapshot()
+        checks["composed_system_host_started"] = True
+        checks["worker_kernel_identity_and_job_group_verified"] = True
+        checks["socket_activation_cannot_replay"] = first["socket_activation_one_shot"]
+        for item in paths:
+            info = item.lstat()
+            known_sockets[item] = (info.st_dev, info.st_ino)
+        read_client("initial")
+        checks["unapproved_client_code_refused"] = denied_client(roles["agent"], prefix / "root-owner-client-denied")
+        checks["wrong_owner_uid_refused"] = denied_client(roles["broker"], client)
+        wrong = prefix / "root-coordinator-wrong-server.json"
+        wrong_value = json.loads(public.read_bytes())
+        wrong_value["server_hash"] = "0" * 40
+        private_file(wrong, json.dumps(wrong_value).encode())
+        wrong.chmod(0o644)
+        checks["wrong_server_signature_refused"] = denied_client(roles["agent"], client, wrong)
+        stage("coordinator_hold_owner_connection")
+        held = subprocess.Popen([*dropped(roles["agent"]), str(client), "--policy", str(public), "hold"],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True,
+            env={"PATH": "/usr/bin:/bin", "LANG": "en_US.UTF-8"})
+        with selectors.DefaultSelector() as selector:
+            selector.register(held.stdout, selectors.EVENT_READ)
+            assert selector.select(45) and json.loads(held.stdout.readline(256)) == {"stage": "owner_connection_ready"}
+        stage("coordinator_parent_sigkill")
+        command(["/bin/launchctl", "kill", "SIGKILL", target])
+        recovered = snapshot(previous=first["pid"])
+        checks["system_manager_restarted_crashed_parent"] = recovered["pid"] != first["pid"]
+        checks["old_worker_exited_without_pid_adoption"] = stopped(first["worker_pid"])
+        checks["replacement_worker_has_new_process_identity"] = recovered["worker_pid"] != first["worker_pid"]
+        checks["activated_socket_identity_survives_parent_crash"] = all((item.lstat().st_dev, item.lstat().st_ino) == identity
+            for item, identity in known_sockets.items())
+        stdout, _ = held.communicate(b"continue\n", timeout=45)
+        old = json.loads(stdout)
+        checks["crashed_parent_owner_channel_retired"] = held.returncode == 0 and old["status"] == "PASSED" and old["checks"] == {"stopped_service_channel_refused": True}
+        read_client("recovered")
+        stage("coordinator_cold_service_start")
+        command(["/bin/launchctl", "bootout", target])
+        booted = False
+        checks["old_parent_exits_on_service_removal"] = stopped(recovered["pid"])
+        checks["old_worker_exits_on_service_removal"] = stopped(recovered["worker_pid"])
+        command(["/bin/launchctl", "bootstrap", "system", str(launch)])
+        booted = True
+        cold = snapshot(previous=recovered["pid"])
+        checks["cold_service_reopens_system_key_store"] = cold["worker_pid"] != recovered["worker_pid"]
+        read_client("cold")
+        stage("coordinator_pause_then_parent_crash")
+        pause = Path(plan["root"]) / "service.paused"
+        private_file(pause, b"paused\n")
+        paused = snapshot(state="paused")
+        checks["pause_stops_owned_worker_before_parent_crash"] = paused["worker_pid"] == 0
+        command(["/bin/launchctl", "kill", "SIGKILL", target])
+        later = snapshot(previous=paused["pid"], state="paused")
+        checks["pause_survives_parent_restart"] = later["worker_pid"] == 0
+        result = subprocess.run([*dropped(roles["agent"]), str(client), "--policy", str(public), "coordinator-paused"],
+            capture_output=True, timeout=50, env={"PATH": "/usr/bin:/bin", "LANG": "en_US.UTF-8"})
+        value = json.loads(result.stdout)
+        checks["paused_parent_keeps_native_gateway_alive"] = later["pid"] != paused["pid"] and result.returncode == 0 and value == {
+            "status": "PASSED", "checks": {"coordinator_paused_peer_prepared": True,
+                "coordinator_paused_state_refused": True, "coordinator_paused_ungranted_setup_refused": True}}
+        assert checks and all(value is True for value in checks.values())
+    finally:
+        if held is not None and held.poll() is None:
+            os.killpg(held.pid, signal.SIGTERM)
+            held.communicate(timeout=10)
+        if booted:
+            command(["/bin/launchctl", "bootout", target])
+        phase("coordinator-cleanup", collect=False)
+        checks["fixture_setup_policy_removed"] = True
+        (Path(plan["root"]) / "service.paused").unlink(missing_ok=True)
+    checks["system_job_removed"] = subprocess.run(["/bin/launchctl", "print", target], capture_output=True).returncode != 0
+    assert checks and all(value is True for value in checks.values())
+    return checks
+
+
 def root_key_custody(prefix, roles):
     """Touch only a new fixture UUID in the disposable VM's System keychain."""
     if sys.platform != "darwin" or os.getuid() != 0 or os.environ.get("GITHUB_ACTIONS") != "true":
@@ -447,6 +618,7 @@ def root_key_custody(prefix, roles):
         phase("reopen")
         handoff = phase("handoff", collect=False)
         supervisor = phase("supervisor", collect=False)
+        coordinator = root_coordinator(prefix, roles, policy, phase)
         stage("key_custody_unprivileged_direct_read")
         result = subprocess.run([*dropped(roles["agent"]), str(denied), "--policy", str(policy), "unprivileged"],
             capture_output=True, timeout=45, env={"PATH": "/usr/bin:/bin", "LANG": "en_US.UTF-8"})
@@ -474,6 +646,14 @@ def root_key_custody(prefix, roles):
         "fixture_key_removed": True, "checks": handoff}
     evidence = Path("/tmp/account-access-mac-key-handoff.json")
     private_file(evidence, (json.dumps(handoff_report, indent=2) + "\n").encode())
+    evidence.chmod(0o644)
+    coordinator_report = {"status": "PASSED", "platform": "macos", "environment": "controlled-demo", "production_ready": False,
+        "private_signins": 0, "system_key_used": True, "actual_worker_used": True, "consumer_deployment_verified": False,
+        "actual_root_composition_verified": True, "parent_daemon_recovery_verified": True, "machine_reboot_verified": False,
+        "genuine_owner_approval_verified": False, "authorization_database_changed": True, "fixture_policy_removed": True,
+        "fixture_key_removed": True, "publisher_signed_peers": False, "checks": coordinator}
+    evidence = Path("/tmp/account-access-mac-root-coordinator.json")
+    private_file(evidence, (json.dumps(coordinator_report, indent=2) + "\n").encode())
     evidence.chmod(0o644)
     supervisor_report = {"status": "PASSED", "platform": "macos", "environment": "controlled-demo", "production_ready": False,
         "private_signins": 0, "system_key_used": True, "actual_worker_used": True, "consumer_deployment_verified": False,

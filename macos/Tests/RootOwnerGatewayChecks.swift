@@ -124,6 +124,23 @@ enum RootGatewayFixture {
                 guard readLine() == "continue" else { throw OwnerGatewayError.invalidResponse }
                 let result = try RootGatewayFixture.request(channel, "owner/state")
                 checks["stopped_service_channel_refused"] = result.0 == 503
+            } else if mode == "coordinator-paused" {
+                checks["coordinator_paused_peer_prepared"] = ready
+                guard ready else { throw OwnerGatewayError.unavailable }
+                let state = try RootGatewayFixture.request(channel, "owner/state")
+                checks["coordinator_paused_state_refused"] = state.0 == 503 && state.1["reason"] as? String == "broker_worker_paused"
+                let authorized: Bool = try RootGatewayFixture.wait { channel.authorizeSetup(Data(repeating: 0x41, count: 32), reply: $0) }
+                checks["coordinator_paused_ungranted_setup_refused"] = !authorized
+            } else if mode == "coordinator" {
+                checks["coordinator_privileged_peer_prepared"] = ready
+                guard ready else { throw OwnerGatewayError.unavailable }
+                let state = try RootGatewayFixture.request(channel, "owner/state")
+                checks["coordinator_encrypted_fixture_store_reached"] = state.0 == 200
+                    && (state.1["accounts"] as? [[String: Any]])?.isEmpty == true
+                let authorized: Bool = try RootGatewayFixture.wait { channel.authorizeSetup(Data(repeating: 0x41, count: 32), reply: $0) }
+                checks["coordinator_ungranted_setup_refused"] = !authorized
+                let credential = try RootGatewayFixture.request(channel, "owner/credential", ["account": "fixture", "credential": [:]])
+                checks["coordinator_unauthorized_write_refused"] = credential.0 == 403
             } else if mode == "accepted" {
                 checks["privileged_root_peer_prepared"] = ready
                 guard ready else { throw OwnerGatewayError.unavailable }

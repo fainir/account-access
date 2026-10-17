@@ -16,11 +16,14 @@ final class RootBrokerHost {
          vault: String, owner: OwnerGatewayPeer) throws {
         try RootVaultKeyStore.requireDaemon()
         let reference = GatewayReference()
+        let listeners = try RootActivatedListeners(plan: MacWorkerPlan(policy: policy))
         worker = try RootWorkerSupervisor(policy: policy, bootstrap: bootstrap, peer: bootstrapPeer,
-            vault: vault, invalidateOwners: { reference.host?.invalidateSessions() })
+            vault: vault, listeners: listeners, invalidateOwners: { reference.host?.invalidateSessions() })
         gateway = try OwnerGatewayHost(owner: owner, backend: worker)
         reference.host = gateway
     }
+    var workerPID: pid_t? { worker.pid }
+    var state: RootWorkerState { worker.state }
     // Run off the GUI thread. Provisioning must run in this same hosting binary
     // so authd's registrar pin matches the process that verifies owner proofs.
     func start() throws {

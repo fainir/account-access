@@ -19,16 +19,19 @@ final class RootWorkerProcess {
     private let policy: String
     private let bootstrap: String
     private let vault: String
+    private let listeners: RootActivatedListeners?
+    private var listenersClaimed = false
     private let lock = NSRecursiveLock()
     private var child: pid_t?
     private var stopped = false
     private var exitStatus: Int32?
     private var owned: [(path: String, device: dev_t, inode: ino_t)] = []
 
-    init(policy: String, bootstrap: String, peer: OwnerGatewayPeer, vault: String) throws {
+    init(policy: String, bootstrap: String, peer: OwnerGatewayPeer, vault: String,
+         listeners: RootActivatedListeners? = nil) throws {
         try RootVaultKeyStore.requireDaemon()
         self.plan = try MacWorkerPlan(policy: policy)
-        self.policy = policy; self.vault = vault
+        self.policy = policy; self.vault = vault; self.listeners = listeners
         self.bootstrap = try WorkerLaunchPaths.protected(bootstrap).path
         var code: SecStaticCode?
         var requirement: SecRequirement?
@@ -125,8 +128,13 @@ final class RootWorkerProcess {
         var descriptors: [Int32] = []
         defer { descriptors.forEach { Darwin.close($0) } }
         do {
-            descriptors.append(try listener(plan.agentSocket, mode: 0o660, group: agentGroup))
-            descriptors.append(try listener(plan.ownerSocket, mode: 0o600, group: 0))
+            if let listeners {
+                descriptors = try listeners.acquire(for: plan)
+                listenersClaimed = true
+            } else {
+                descriptors.append(try listener(plan.agentSocket, mode: 0o660, group: agentGroup))
+                descriptors.append(try listener(plan.ownerSocket, mode: 0o600, group: 0))
+            }
             let key = try RootVaultKeyStore().load(vault)
             let channel = try RootWorkerChannel(key: key)
             defer { channel.cancel() }
@@ -178,6 +186,10 @@ final class RootWorkerProcess {
             }
             child = nil
             exitStatus = status
+        }
+        if listenersClaimed {
+            try listeners?.release()
+            listenersClaimed = false
         }
         while let item = owned.first {
             var info = stat()
