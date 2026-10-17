@@ -18,6 +18,7 @@ struct SystemBrokerSettings {
     let vault: String
     let owner: OwnerGatewayPeer
     let bootstrapPeer: OwnerGatewayPeer
+    let brokerUID: uid_t
 
     init(path: String) throws { try self.init(path: path, fixture: false) }
     private init(path: String, fixture: Bool) throws {
@@ -52,6 +53,7 @@ struct SystemBrokerSettings {
         }
         let plan = try MacWorkerEnrollmentPlan(policy: enrollmentPolicy, requireEmptyStage: false)
         let worker = try MacWorkerPlan(policy: workerPolicy)
+        brokerUID = worker.uid
         guard plan.vault == vault, plan.base.workerPolicy == worker.workerPolicy,
               uid == worker.agentUID else { throw SystemBrokerFailure.policy }
         _ = try WorkerLaunchPaths.protected(bootstrap)
@@ -63,6 +65,7 @@ struct SystemBrokerSettings {
 
 struct SystemBrokerMain {
     static func serve(_ settings: SystemBrokerSettings, fixtureRoot: URL? = nil) throws -> Never {
+        try ensureBrokerDomain(settings.brokerUID)
         let host = try RootBrokerHost(policy: settings.workerPolicy, bootstrap: settings.bootstrap,
             bootstrapPeer: settings.bootstrapPeer, vault: settings.vault, owner: settings.owner,
             enrollmentPolicy: settings.enrollmentPolicy)
@@ -91,6 +94,30 @@ struct SystemBrokerMain {
         term.setEventHandler(handler: stop); interrupt.setEventHandler(handler: stop)
         term.resume(); interrupt.resume()
         withExtendedLifetime((host, term, interrupt)) { dispatchMain() }
+    }
+    // A non-login account has no interactive session to recreate its Mach
+    // domain after reboot. Policy validation binds this fixed system identity.
+    private static func ensureBrokerDomain(_ uid: uid_t) throws {
+        func run(_ arguments: [String]) throws -> Int32 {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+            process.arguments = arguments
+            process.environment = ["PATH": "/usr/bin:/bin:/usr/sbin:/sbin"]
+            process.standardInput = FileHandle.nullDevice
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+            try process.run()
+            let deadline = Date().addingTimeInterval(15)
+            while process.isRunning && Date() < deadline { Thread.sleep(forTimeInterval: 0.02) }
+            guard !process.isRunning else { process.terminate(); throw SystemBrokerFailure.unavailable }
+            return process.terminationStatus
+        }
+        guard uid != 0 else { throw SystemBrokerFailure.policy }
+        let domain = "user/" + String(uid)
+        if try run(["print", domain]) != 0 {
+            guard try run(["bootstrap", domain]) == 0 else { throw SystemBrokerFailure.unavailable }
+        }
+        guard try run(["print", domain]) == 0 else { throw SystemBrokerFailure.unavailable }
     }
     static func main() {
         umask(0o077)

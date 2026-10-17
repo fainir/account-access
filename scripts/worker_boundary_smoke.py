@@ -482,6 +482,168 @@ def system_broker_waiting(prefix, roles):
     return checks
 
 
+def provisioned_system_broker(prefix, roles):
+    """Prepare fresh policies/identity with the consumer publisher, then real XPC."""
+    from account_access.system_provision import Layout, prepare, remove_ci_identity, root_json
+
+    layout = Layout.ci_fixture(prefix, name="_aaq" + secrets.token_hex(6))
+    checks, installed, booted = {}, False, False
+    target = "system/" + layout.label
+    try:
+        stage("provision_fresh_system_installation")
+        first = prepare(layout, roles["agent"].pw_uid)
+        installed = True
+        before = (layout.base / "broker/install.json").read_bytes()
+        repeated = prepare(layout, roles["agent"].pw_uid)
+        checks["prepared_installation_is_idempotent"] = (
+            first == repeated and before == (layout.base / "broker/install.json").read_bytes()
+        )
+        broker = pwd.getpwnam(layout.broker_name)
+        checks["dedicated_nonlogin_identity_created"] = (
+            broker.pw_uid == first["broker_uid"] and broker.pw_shell == "/usr/bin/false"
+        )
+        checks["broker_and_owner_identities_differ"] = (
+            broker.pw_uid != roles["agent"].pw_uid and broker.pw_gid != roles["agent"].pw_gid
+        )
+        checks["broker_home_is_private"] = (
+            layout.base / "home"
+        ).stat().st_uid == broker.pw_uid and (layout.base / "home").stat().st_mode & 0o777 == 0o700
+        checks["new_store_and_stage_are_empty"] = not any((layout.base / "vault/data").iterdir())
+        transaction = root_json(layout.base / "broker/install.json")
+        staged = layout.base / "vault" / (".enrollment-" + transaction["enrollment_id"])
+        checks["new_store_and_stage_are_empty"] &= not any(staged.iterdir())
+        command(["/bin/launchctl", "print", "user/" + str(broker.pw_uid)])
+        checks["nonlogin_user_bootstrap_domain_ready"] = True
+        command(["/bin/launchctl", "bootout", "user/" + str(broker.pw_uid)])
+        profile = json.loads((layout.base / "owner.json").read_bytes())
+        host = json.loads((layout.base / "broker/host.json").read_bytes())
+        worker = json.loads((layout.base / "broker/worker.json").read_bytes())
+        checks["public_profile_binds_owner_and_server"] = (
+            profile["owner_uid"] == roles["agent"].pw_uid and bool(profile["server_hashes"])
+        )
+        checks["published_policies_preserve_empty_fixed_enrollment"] = (
+            host["vault_id"] == first["vault_id"] and worker["broker_uid"] == broker.pw_uid
+        )
+        client_policy = layout.base / "client-probe.json"
+        private_file(
+            client_policy,
+            json.dumps(
+                {
+                    "fixture": "account-access-root-owner-ci-v1",
+                    "owner_uid": roles["agent"].pw_uid,
+                    "owner_hash": host["owner_hashes"][0],
+                    "server_hash": profile["server_hashes"][0],
+                    "owner_socket": worker["owner_socket"],
+                    "owner_port": worker["owner_port"],
+                    "bootstrap_socket": str(layout.base / "control/unused.sock"),
+                }
+            ).encode(),
+        )
+        client_policy.chmod(0o644)
+        command(
+            ["/bin/launchctl", "bootstrap", "system", str(layout.base / "broker/service.plist")]
+        )
+        booted = True
+        ready = layout.base / "broker/system-broker-ready.json"
+        deadline = time.monotonic() + 60
+        while time.monotonic() < deadline and not ready.exists():
+            time.sleep(0.1)
+        snapshot = json.loads(ready.read_bytes())
+        checks["generated_installation_starts_actual_system_entrypoint"] = (
+            snapshot["status"] == "READY" and snapshot["uid"] == 0
+        )
+        checks["fresh_install_waits_without_key_or_worker"] = (
+            snapshot["enrollment_state"] == "needs_owner"
+            and snapshot["fixture_key_absent"] is True
+            and snapshot["worker_pid"] == 0
+        )
+        command(["/bin/launchctl", "print", "user/" + str(broker.pw_uid)])
+        checks["system_entrypoint_recreates_nonlogin_user_domain"] = True
+        result = subprocess.run(
+            [
+                *dropped(roles["agent"]),
+                str(prefix / "root-owner-client"),
+                "--policy",
+                str(client_policy),
+                "provisioned-install",
+            ],
+            capture_output=True,
+            timeout=50,
+            env={"PATH": "/usr/bin:/bin"},
+        )
+        value = json.loads(result.stdout)
+        assert (
+            result.returncode == 0
+            and value["status"] == "PASSED"
+            and all(item is True for item in value["checks"].values())
+        )
+        checks.update(value["checks"])
+    finally:
+        if booted:
+            command(["/bin/launchctl", "bootout", target])
+            booted = False
+            cleanup_target = target + ".cleanup"
+            cleanup_file = layout.base / "broker/cleanup.plist"
+            cleanup_file.write_bytes(
+                plistlib.dumps(
+                    {
+                        "Label": layout.label + ".cleanup",
+                        "ProgramArguments": [
+                            str(layout.broker),
+                            "--fixture-policy",
+                            str(layout.base / "broker/host.json"),
+                            "--cleanup-fixture-policy",
+                        ],
+                        "UserName": "root",
+                        "GroupName": "wheel",
+                        "RunAtLoad": True,
+                        "KeepAlive": False,
+                        "StandardOutPath": "/dev/null",
+                        "StandardErrorPath": "/dev/null",
+                    }
+                )
+            )
+            cleanup_file.chmod(0o644)
+            command(["/bin/launchctl", "bootstrap", "system", str(cleanup_file)])
+            try:
+                cleanup = layout.base / "broker/system-broker-cleanup.json"
+                deadline = time.monotonic() + 45
+                while time.monotonic() < deadline and not cleanup.exists():
+                    time.sleep(0.1)
+                value = json.loads(cleanup.read_bytes())
+                checks["rejected_setup_keeps_new_key_absent"] = value["fixture_key_absent"] is True
+                checks["fixture_setup_policy_removed"] = value["fixture_right_removed"] is True
+            finally:
+                command(["/bin/launchctl", "bootout", cleanup_target])
+        if installed:
+            remove_ci_identity(layout)
+            checks["created_service_identity_and_domain_removed"] = True
+    checks["temporary_system_jobs_removed"] = (
+        subprocess.run(["/bin/launchctl", "print", target], capture_output=True).returncode != 0
+    )
+    assert checks and all(value is True for value in checks.values())
+    report = {
+        "status": "PASSED",
+        "platform": "macos",
+        "environment": "controlled-demo",
+        "production_ready": False,
+        "private_signins": 0,
+        "actual_provisioner_used": True,
+        "actual_system_entrypoint_used": True,
+        "actual_native_xpc_used": True,
+        "consumer_package_verified": False,
+        "genuine_owner_approval_verified": False,
+        "publisher_signed_peers": False,
+        "fixture_identity_removed": True,
+        "checks": checks,
+    }
+    private_file(
+        Path("/tmp/account-access-mac-provisioning.json"),
+        (json.dumps(report, indent=2) + "\n").encode(),
+    )
+    return checks
+
+
 def root_coordinator(prefix, roles, key_policy, phase):
     """Crash the actual composed host, using launchd-owned listeners and groups."""
     if sys.platform != "darwin" or os.getuid() != 0 or os.environ.get("GITHUB_ACTIONS") != "true":
@@ -780,6 +942,7 @@ def root_key_custody(prefix, roles):
         initializer = phase("initializer", collect=False)
         initial_setup = phase("initial-setup", collect=False)
         initial_gateway = system_broker_waiting(prefix, roles)
+        provisioned_system_broker(prefix, roles)
         coordinator = root_coordinator(prefix, roles, policy, phase)
         stage("key_custody_unprivileged_direct_read")
         result = subprocess.run([*dropped(roles["agent"]), str(denied), "--policy", str(policy), "unprivileged"],

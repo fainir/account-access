@@ -131,7 +131,7 @@ enum RootGatewayFixture {
                 checks["coordinator_paused_state_refused"] = state.0 == 503 && state.1["reason"] as? String == "broker_worker_paused"
                 let authorized: Bool = try RootGatewayFixture.wait { channel.authorizeSetup(Data(repeating: 0x41, count: 32), reply: $0) }
                 checks["coordinator_paused_ungranted_setup_refused"] = !authorized
-            } else if mode == "first-enrollment" {
+            } else if mode == "first-enrollment" || mode == "provisioned-install" {
                 checks["first_enrollment_root_peer_prepared"] = ready
                 guard ready else { throw OwnerGatewayError.unavailable }
                 let state = try RootGatewayFixture.request(channel, "owner/state")
@@ -149,7 +149,8 @@ enum RootGatewayFixture {
                 checks["first_enrollment_invalid_proof_cannot_create_key"] = try RootGatewayFixture.request(channel, "owner/vault/enroll", [:]).0 == 403
                 checks["first_enrollment_caller_configuration_refused"] = try RootGatewayFixture.request(channel, "owner/vault/enroll", ["vault_id": "untrusted"]).0 == 403
                 let directory = URL(fileURLWithPath: CommandLine.arguments[2]).deletingLastPathComponent()
-                let profile = try DesktopOwnerProfile.fixture(directory: directory, components: ["desktop-owner.json"], fileOwner: 0)
+                let profileName = mode == "provisioned-install" ? "owner.json" : "desktop-owner.json"
+                let profile = try DesktopOwnerProfile.fixture(directory: directory, components: [profileName], fileOwner: 0)
                 checks["desktop_profile_reads_protected_root_registration"] = profile.peer.uid == 0
                 var prompts = 0
                 let desktop = DesktopOwnerConnection(makeChannel: {

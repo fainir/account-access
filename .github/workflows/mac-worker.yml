@@ -15,7 +15,7 @@ jobs:
       - name: Check Darwin pipe handoff and reject filesystem FIFO bootstrap
         run: |
           uv sync --locked
-          uv run pytest -q tests/test_worker_signals.py tests/test_worker_boundary.py tests/test_worker_enroll.py tests/test_worker_evidence.py tests/test_mac_root_owner_evidence.py tests/test_mac_key_custody_evidence.py tests/test_mac_owner_policy_evidence.py tests/test_mac_key_handoff_evidence.py tests/test_mac_root_supervisor_evidence.py tests/test_mac_root_coordinator_evidence.py tests/test_mac_staged_enrollment_evidence.py tests/test_mac_initial_setup_evidence.py tests/test_mac_initial_gateway_evidence.py
+          uv run pytest -q tests/test_worker_signals.py tests/test_worker_boundary.py tests/test_worker_enroll.py tests/test_worker_evidence.py tests/test_mac_root_owner_evidence.py tests/test_mac_key_custody_evidence.py tests/test_mac_owner_policy_evidence.py tests/test_mac_key_handoff_evidence.py tests/test_mac_root_supervisor_evidence.py tests/test_mac_root_coordinator_evidence.py tests/test_mac_staged_enrollment_evidence.py tests/test_mac_initial_setup_evidence.py tests/test_mac_initial_gateway_evidence.py tests/test_system_provision.py tests/test_mac_provisioning_evidence.py tests/test_agent_setup.py tests/test_managed_client.py
       - name: Compile and check the permanent identity-drop launcher
         run: |
           for AC_BOOTSTRAP_ARCH in arm64 x86_64; do
@@ -143,6 +143,7 @@ jobs:
           uv run python scripts/check_mac_staged_enrollment_report.py /tmp/account-access-mac-staged-enrollment.json
           uv run python scripts/check_mac_initial_setup_report.py /tmp/account-access-mac-initial-setup.json
           uv run python scripts/check_mac_initial_gateway_report.py /tmp/account-access-mac-initial-gateway.json
+          uv run python scripts/check_mac_provisioning_report.py /tmp/account-access-mac-provisioning.json
           cat /tmp/account-access-mac-worker.json
           cat /tmp/account-access-mac-root-owner.json
           cat /tmp/account-access-mac-key-custody.json
@@ -168,6 +169,7 @@ jobs:
             /tmp/account-access-mac-staged-enrollment.json
             /tmp/account-access-mac-initial-setup.json
             /tmp/account-access-mac-initial-gateway.json
+            /tmp/account-access-mac-provisioning.json
           if-no-files-found: ignore
       - name: Remove the ephemeral runtime
         if: always()
