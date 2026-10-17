@@ -44,6 +44,66 @@ AC_PROBE_RESULT=$("$AC_PROBE_SCRIPTS/AccountAccess-installerverify") || AC_PROBE
 exit "$AC_PROBE_STATUS"
 '''
 
+SOURCE_POSTINSTALL = '''#!/bin/sh
+set -eu
+PATH=/usr/bin:/bin:/usr/sbin:/sbin
+export PATH
+[ "$(/usr/bin/id -u)" = 0 ] && [ "${3:-}" = / ] || exit 1
+AC_SOURCE_BASE="/Library/Application Support/Account Access"
+AC_SOURCE_SCRIPTS=$(CDPATH= cd "$(/usr/bin/dirname "$0")" && /bin/pwd -P)
+export ACCOUNT_ACCESS_UNRELATED_ENV=public-probe-sentinel
+export PYTHONPATH=/unrelated-public-probe
+exec 200< "$AC_SOURCE_SCRIPTS/RecoveryManifest.json"
+AC_SOURCE_STATUS=0
+AC_SOURCE_RESULT=$("$AC_SOURCE_SCRIPTS/AccountAccess-installerverify" --install) || AC_SOURCE_STATUS=$?
+/bin/mkdir "$AC_SOURCE_BASE"
+/usr/bin/printf '%s\\n' "$AC_SOURCE_RESULT" > "$AC_SOURCE_BASE/native-source-handoff.json"
+/bin/ls -lARe "$AC_SOURCE_SCRIPTS/PublicImage" > "$AC_SOURCE_BASE/native-source-context.txt"
+exit "$AC_SOURCE_STATUS"
+'''
+
+
+def source_handoff(source, scratch, root, helper, output):
+    """Actual native SETEXEC and public-FD transfer; the interpreter is a fixture."""
+    scripts = scratch / "source-scripts"
+    scripts.mkdir()
+    root.rename(scripts / "PublicImage")
+    image = scripts / "PublicImage"
+    interpreter = image / SUPPORT / "runtime/bin/python"
+    interpreter.parent.mkdir(parents=True)
+    subprocess.run(["xcrun", "swiftc", "-O", "-parse-as-library", "-warnings-as-errors",
+                    "-framework", "Foundation", "-framework", "CryptoKit",
+                    str(source / "macos/Tests/InstallerSourceHandoff.swift"), "-o", str(interpreter)],
+                   check=True, capture_output=True, timeout=120)
+    subprocess.run(["/usr/bin/codesign", "--force", "--options", "runtime", "--sign", "-", str(interpreter)],
+                   check=True, capture_output=True, timeout=30)
+    shutil.copy2(helper, scripts / helper.name)
+    (scripts / "RecoveryManifest.json").write_bytes(build(image, "0.8.0", "arm64"))
+    (scripts / "postinstall").write_text(SOURCE_POSTINSTALL)
+    (scripts / "postinstall").chmod(0o755)
+    package = scratch / "source-handoff.pkg"
+    subprocess.run(["/usr/bin/pkgbuild", "--nopayload", "--scripts", str(scripts),
+                    "--identifier", "com.fainir.accountaccess.qa.source-handoff", "--version", "0.8.0",
+                    "--ownership", "recommended", "--install-location", "/", str(package)],
+                   check=True, capture_output=True, timeout=120)
+    try:
+        result = subprocess.run(["/usr/bin/sudo", "-n", "/usr/sbin/installer", "-pkg", str(package), "-target", "/"],
+                                capture_output=True, timeout=180)
+        for filename in ["native-source-handoff.json", "native-source-context.txt"]:
+            path = BASE / filename
+            if path.is_file() and not path.is_symlink() and path.stat().st_size <= 65536:
+                shutil.copyfile(path, output / filename)
+        path = output / "native-source-handoff.json"
+        value = json.loads(path.read_bytes()) if path.exists() else {"status": "MISSING"}
+        return {"status": "PASSED" if result.returncode == 0 and value.get("status") == "PASSED" else "FAILED",
+                "actual_installer_exit_code": result.returncode, "native_result": value,
+                "actual_python_or_provisioning_executed": False, "target_image_materialized": False}
+    finally:
+        if not (BASE / "vault").exists() and not (BASE / "broker").exists() and not JOB.exists():
+            if BASE.exists() and not BASE.is_symlink():
+                subprocess.run(["/usr/bin/sudo", "-n", "/bin/rm", "-rf", "--", str(BASE)], check=True, timeout=30)
+        assert not BASE.exists() and not APP.exists()
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -115,6 +175,10 @@ def main():
                     if path.exists() and not path.is_symlink():
                         subprocess.run(["/usr/bin/sudo", "-n", "/bin/rm", "-rf", "--", str(path)], check=True, timeout=30)
         assert not BASE.exists() and not APP.exists()
+        if report["status"] == "PASSED":
+            report["source_handoff"] = source_handoff(source, scratch, root, helper, output)
+            if report["source_handoff"]["status"] != "PASSED":
+                report["status"] = "FAILED"
         assert all(parent_state[str(path)] == (path.stat().st_uid, path.stat().st_gid, stat.S_IMODE(path.stat().st_mode)) for path in parents)
         report["temporary_public_image_removed"] = True
         report["shared_parent_permissions_preserved"] = True
