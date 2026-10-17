@@ -7,6 +7,17 @@ or physical-device coverage.
 
 ## Candidate 0.8 changes
 
+- Genuine Developer ID staging exposed a production signature-check argument
+  defect: a bare `codesign -R` requirement was interpreted as a filename. The
+  corrected `-R=` invocation preserves the rule and has an actual native parser
+  regression. Revision `b2dddbc` passes all eight workflows, both 1,445-case
+  regressions with 75 platform skips, and two warning-free 745-case focused Mac
+  suites with one skip. All four genuine universal peers and five executable
+  files pass publisher/purpose/timestamp/runtime checks. A separate genuine
+  runtime passes its complete native audit and callback/browser probes with
+  library validation enabled and hash-bound JIT permissions only. This is
+  ordinary-user compatibility, not publisher-signed installed deployment or
+  genuine owner setup. [Method and evidence](publisher-runtime-checks.md).
 - Same-image/same-owner installation recovery passed actual Installer journeys
   on two disposable Macs. A script-only package verifies its complete public
   source before isolated privileged Python, copies under an exclusive journal
@@ -19,7 +30,7 @@ or physical-device coverage.
   deliberately stops before credential enrollment or registration: completed
   consumer setup, interrupted positive provisioning, physical power loss,
   different-image updates and migration remain unverified.
-  [Exact recovery evidence](../artifacts/resumable-installer-080.json).
+  [Exact recovery evidence for that revision](../artifacts/resumable-installer-080-a777168.json).
 - Native public-image verification now runs before privileged Python during
   fresh installation. It binds the complete bounded inventory, checks root
   ownership/modes/ACLs and stable hashes through non-following descriptors, and
@@ -59,7 +70,7 @@ or physical-device coverage.
   dependency graph are checked; the final copied image receives another native
   audit and complete file/mode/alias inventory.
   [Twenty prepared-install checks passed on two disposable Macs](../artifacts/native-install-verification-080.json).
-  Real publisher/runtime compatibility, Apple acceptance and positive consumer
+  Publisher-signed installed runtime compatibility, Apple acceptance and positive consumer
   installation remain open. CodeDirectory runtime flags are checked separately
   from executable-segment flags; missing or duplicate directory metadata stops.
 - Reviewed two-page password flows can submit an email/username to one exact
@@ -212,9 +223,9 @@ or physical-device coverage.
 
 | Requirement | Verified evidence | Remaining gate |
 | --- | --- | --- |
-| Simple Mac installation | Signed universal app, local update/repair flow, checksum-tamper rejection; resumable maintainer notary helper with real local preflight and protocol failure tests | Valid publisher Notary credentials, live Apple acceptance/stapling and a clean downloaded-install test on a separate Mac |
+| Simple Mac installation | Signed universal app, local update/repair flow, checksum-tamper rejection; resumable maintainer notary helper with real local preflight and protocol failure tests | Developer ID Installer identity for the protected package, valid Notary credentials, live Apple acceptance/stapling and a clean downloaded-install test on a separate Mac |
 | Dedicated Mac service provisioning | [26 checks in two disposable Macs](../artifacts/mac-system-provisioning-080.json): non-login identity, private empty state, idempotent policy publication, persistent job registration, cold user-domain recreation and native pre-enrollment denials | Signed consumer deployment, migration, machine reboot, genuine positive owner approval and interrupted positive provisioning |
-| Offline protected Mac package | [23 prepared-install checks in two disposable Macs](../artifacts/resumable-installer-080.json): actual Installer source verification before privileged Python, process interruption and same-package recovery, preserved published identities, installed native recheck, complete runtime files/modes/aliases, signatures/runtime flags, receipts/locks, callbacks/crypto, sandboxed browser and refusal before unsigned credential setup; the original 16-check package regression also passes | Apple silicon only; genuine publisher/runtime compatibility, signed/notarized positive installation, first successful owner setup, interrupted positive provisioning, power loss/reboot, different-image updates/migration and clean downloaded-install QA; development archives are not consumer downloads |
+| Offline protected Mac package | [23 prepared-install checks in two disposable Macs](../artifacts/resumable-installer-080.json): actual Installer source verification before privileged Python, process interruption and same-package recovery, preserved published identities, installed native recheck, complete runtime files/modes/aliases, signatures/runtime flags, receipts/locks, callbacks/crypto, sandboxed browser and refusal before unsigned credential setup; original 16-check package regression passes. [Genuine ordinary-user runtime compatibility](publisher-runtime-checks.md) also passes with library validation enabled | Apple silicon only; publisher-signed installed compatibility, signed/notarized positive installation, first successful owner setup, interrupted positive provisioning, power loss/reboot, different-image updates/migration and clean downloaded-install QA; development archives are not consumer downloads |
 | System-service entrypoint | Universal service/bootstrap build and signature/ordinary-user guard checks; the actual entrypoint's separate-process native owner connection passed [18 pre-enrollment checks](../artifacts/mac-desktop-connection-080.json) | Native desktop/profile integration and unsigned negative package provisioning have controlled coverage; publisher-signed positive installed deployment and genuine approval through the screens remain |
 | First isolated vault setup | Initializer/key verification/publication passed [28 checks](../artifacts/mac-staged-enrollment-080.json); native setup-session authority → fresh System key → published store → worker passed [40 first-vault/client checks](../artifacts/mac-agent-setup-080.json), including initialized-vault Pause/Resume and missing-key repair | Positive setup authority is synthetic; genuine owner approval, positive separate-process native enrollment, full crash/power-loss recovery, complete isolated source/collector setup, consumer client provisioning/repair and installed migration |
 | Automatic agent client setup | One portable identity, digest-only enrollment, both host launchers and preserved session instructions passed [40 first-vault/client checks and 38 transport checks](../artifacts/mac-agent-setup-080.json) | Genuine OS approval, consumer deployment, migration/revocation repair, real Codex/Claude sessions against this isolated setup and private sign-in QA |

@@ -1,5 +1,38 @@
 # Validation of Account Access
 
+## Genuine publisher and runtime checks — 18 October 2026
+
+Revision `b2dddbc` passed all eight push/PR workflows. Both full regressions
+passed **1,445 tests with 75 platform skips**, in 526.13 and 593.23 seconds.
+Both Macs passed 745 focused cases with one platform skip and no warnings,
+including the fresh-interpreter crash checks and a real requirement-parser
+regression. Their sixteen worker reports match, with original 16-check and
+prepared 23-check Installer recovery journeys. Lint, dependency audits and
+package builds passed. [Current recovery evidence](../artifacts/resumable-installer-080.json).
+
+A genuine Developer ID staging check exposed a production-only signature
+failure: the `codesign -R` argument treated the requirement source as a filename.
+The correction uses `-R=` with the same publisher/identifier/debugger predicate.
+All four genuinely signed universal peers now pass the production checker, and
+all five executable files pass Developer ID purpose, secure timestamp and
+hardened-runtime checks. Sixteen static native checks accept the expected
+publisher/identifier/hashes and reject wrong values using the production policy.
+
+A separate genuine private runtime build signed 41 native files and ten bundle
+seals with JIT permissions bound to fourteen of sixteen executable hashes.
+Library validation stays enabled and unsigned executable memory is not allowed.
+Its complete 64-native-file, 23-executable, eleven-bundle, 33-wheel audit passed,
+followed by callbacks/crypto/validation and a fresh headless browser. The observed
+browser launch retained sandboxing and requested a mock keychain; original Python,
+32 dependency wheels and the lock remain unchanged. These ordinary-user checks
+installed no app and changed no System Keychain, AuthDB policy or service identity.
+
+Publisher-signed installed deployment, genuine owner setup, private factor
+delivery, physical phones and the complete protected Chrome/agent journey remain
+open. Developer ID Installer signing and live Apple notarization are still
+required. Chrome CSV imports remain snapshots. The candidate is **not production
+ready**. [Method and exact genuine-runtime evidence](publisher-runtime-checks.md).
+
 ## Resumable source-image installation — 17 October 2026
 
 Revision `a777168` passed all eight push/PR workflows. Both complete regressions
@@ -44,7 +77,7 @@ Genuine publisher/notary acceptance, genuine owner setup, private login-code
 delivery, physical phones and protected installed real-agent sessions remain
 open. Chrome CSV imports remain snapshots. The installed owner app and deferred
 Gmail form remain untouched. The candidate remains **not production ready**.
-See [exact source and sanitized recovery evidence](../artifacts/resumable-installer-080.json).
+See [exact source and sanitized recovery evidence](../artifacts/resumable-installer-080-a777168.json).
 
 ## Native verification before privileged Python — 17 October 2026
 

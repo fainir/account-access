@@ -1,49 +1,51 @@
 {
   "version": "0.8.0-candidate",
-  "date": "2026-10-17",
-  "source_revision": "a777168f7095d442b7fcd0d9df07d759c6e67798",
+  "date": "2026-10-18",
+  "source_revision": "b2dddbc73103a8a92d4b8204f4b4c2bf213e8bee",
   "production_ready": false,
   "private_signins": 0,
   "ci": {
     "all_eight_push_and_pr_workflows": "passed",
     "runs": {
-      "push_main": "https://github.com/fainir/account-access/actions/runs/39065968074",
-      "push_mac": "https://github.com/fainir/account-access/actions/runs/39065968105",
-      "push_linux": "https://github.com/fainir/account-access/actions/runs/39065968063",
-      "push_android": "https://github.com/fainir/account-access/actions/runs/39065968040",
-      "pr_main": "https://github.com/fainir/account-access/actions/runs/39065970704",
-      "pr_mac": "https://github.com/fainir/account-access/actions/runs/39065970736",
-      "pr_linux": "https://github.com/fainir/account-access/actions/runs/39065970836",
-      "pr_android": "https://github.com/fainir/account-access/actions/runs/39065970712"
+      "push_main": "https://github.com/fainir/account-access/actions/runs/39068241757",
+      "push_mac": "https://github.com/fainir/account-access/actions/runs/39068241720",
+      "push_linux": "https://github.com/fainir/account-access/actions/runs/39068241857",
+      "push_android": "https://github.com/fainir/account-access/actions/runs/39068241792",
+      "pr_main": "https://github.com/fainir/account-access/actions/runs/39068244472",
+      "pr_mac": "https://github.com/fainir/account-access/actions/runs/39068244456",
+      "pr_linux": "https://github.com/fainir/account-access/actions/runs/39068244516",
+      "pr_android": "https://github.com/fainir/account-access/actions/runs/39068244454"
     },
     "regressions": [
       {
-        "run": 39065968074,
+        "run": 39068241757,
         "passed": 1445,
-        "platform_skips": 74,
-        "seconds": 598.26
+        "platform_skips": 75,
+        "seconds": 526.13,
+        "warnings": 0
       },
       {
-        "run": 39065970704,
+        "run": 39068244472,
         "passed": 1445,
-        "platform_skips": 74,
-        "seconds": 582.19
+        "platform_skips": 75,
+        "seconds": 593.23,
+        "warnings": 0
       }
     ],
     "focused_mac_suites": [
       {
-        "run": 39065968105,
-        "passed": 744,
+        "run": 39068241720,
+        "passed": 745,
         "platform_skips": 1,
-        "seconds": 96.84,
-        "warnings": 9
+        "seconds": 95.42,
+        "warnings": 0
       },
       {
-        "run": 39065970736,
-        "passed": 744,
+        "run": 39068244456,
+        "passed": 745,
         "platform_skips": 1,
-        "seconds": 94.49,
-        "warnings": 9
+        "seconds": 103.3,
+        "warnings": 0
       }
     ],
     "lint_and_package_builds": "passed",
@@ -125,9 +127,9 @@
   },
   "complete_package_builds": [
     {
-      "run": 39065968105,
+      "run": 39068241720,
       "prepared_runtime": false,
-      "payload_manifest_sha256": "05445b1a016a0819e741c8904a5a9ff401d7d72245d2726f3ed470e0fc3757bf",
+      "payload_manifest_sha256": "a27e01b316022b5615eb2a13750a7360e795fe01353cdc7b591c95dedaa91268",
       "installer_verifier_sha256": "58dde032e71e8a93b236ea4940898f38a964c1f7edbe171f768fa7ee8162b6a8",
       "objects": {
         "files": 5260,
@@ -138,9 +140,9 @@
       "runtime_distributions": 33
     },
     {
-      "run": 39065968105,
+      "run": 39068241720,
       "prepared_runtime": true,
-      "payload_manifest_sha256": "d9fe78a12d01423eac40cd841c2c9f5430efd05f525b30dfd8689895045d6120",
+      "payload_manifest_sha256": "f8bc370a1e4c6b1f4b86d518cb5eec5105f5e69d2547a35ffde9ab4f902a7676",
       "installer_verifier_sha256": "58dde032e71e8a93b236ea4940898f38a964c1f7edbe171f768fa7ee8162b6a8",
       "objects": {
         "files": 5271,
@@ -151,9 +153,9 @@
       "runtime_distributions": 33
     },
     {
-      "run": 39065970736,
+      "run": 39068244456,
       "prepared_runtime": false,
-      "payload_manifest_sha256": "7dd79eff7c98f1e50e5849edaab59492a4610315dc9d85219e7b2ad436f965c3",
+      "payload_manifest_sha256": "33421af7eda0020417923d180aca5929cebe4b591a264a6e0be6599278d007f8",
       "installer_verifier_sha256": "58dde032e71e8a93b236ea4940898f38a964c1f7edbe171f768fa7ee8162b6a8",
       "objects": {
         "files": 5260,
@@ -164,9 +166,9 @@
       "runtime_distributions": 33
     },
     {
-      "run": 39065970736,
+      "run": 39068244456,
       "prepared_runtime": true,
-      "payload_manifest_sha256": "9b63ae8508a97c79a4e370e8ade88442121f7b08e6e27aa6e14a6cf3677f183e",
+      "payload_manifest_sha256": "80938503116ce98a26af68cbe4782de2be0c6d5ff3a22ca5a4ed4c5481b3b45f",
       "installer_verifier_sha256": "58dde032e71e8a93b236ea4940898f38a964c1f7edbe171f768fa7ee8162b6a8",
       "objects": {
         "files": 5271,
@@ -361,8 +363,9 @@
     "Native handoff fixture checks descriptors and process identity; complete-package tests separately execute actual Python and materialize the image.",
     "Unsigned owner setup deliberately refuses before vault, service identity or registration; no positive consumer installation is established.",
     "The completed-registration retry branch has synthetic engine coverage; actual unsigned packages cannot reach completed consumer registration.",
-    "Genuine publisher/notary acceptance, genuine owner approval, interrupted positive provisioning, migration, updates and machine reboot remain open.",
+    "Publisher-signed installed deployment and Apple notary acceptance, genuine owner approval, interrupted positive provisioning, migration, updates and machine reboot remain open.",
     "Private factor delivery, installed real-agent sessions, protected Chrome composition and physical phone acceptance remain open.",
     "Chrome CSV imports remain snapshots; existing exact-item 1Password Connect support is not universal Chrome synchronization."
-  ]
+  ],
+  "genuine_component_and_ordinary_user_runtime_evidence": "publisher-runtime-080.json"
 }

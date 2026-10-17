@@ -370,9 +370,19 @@ replacing the public roots or receipt. A separate eight-check native handoff
 fixture verifies process identity, public descriptors, clean environment and
 unrelated-descriptor closure; it does not execute Python. The full-package
 journey separately executes the real source runtime and materializes the image.
-See [exact-source evidence](../artifacts/resumable-installer-080.json).
+See [exact-source evidence](../artifacts/resumable-installer-080-a777168.json).
 
 No such experiment runs on the owner's Mac. The unsigned development package
 stops before owner setup, so actual completed consumer registration and
 interrupted positive provisioning remain unverified. Positive consumer setup,
 physical power loss/reboot and different-image updates/migration remain open.
+
+The subsequent `b2dddbc` revision corrects direct publisher-requirement input to
+`codesign`, with the predicate unchanged. All eight workflows pass; both focused
+Mac suites pass 745 cases with one skip and no warnings. Package recovery reports
+remain identical at 16/23 checks. Genuine Developer ID component checks and an
+ordinary-user signed runtime now pass, including callbacks and headless browsing
+with library validation enabled. These do not establish publisher-signed installed
+deployment or genuine owner enrollment. See the [publisher check method](publisher-runtime-checks.md),
+[current recovery evidence](../artifacts/resumable-installer-080.json) and
+[genuine runtime evidence](../artifacts/publisher-runtime-080.json).
