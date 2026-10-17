@@ -174,7 +174,9 @@ copy, refuses external aliases/shared source inodes and privileged file modes,
 checks the resulting publisher, and reseals nested bundles from the inside out.
 Production native validation then runs before the interpreter/version probe.
 The package embeds `runtime-preparation.json`; its public build report records
-the same receipt. No private key is exported or placed in that receipt.
+the same receipt, including original/prepared native-file hashes, bundle paths
+and the unchanged project-wheel pin. No private key is exported or placed in
+that receipt.
 
 `--development --runtime-identity -` permits only an explicit ad-hoc fixture
 identity and never reports publisher or notarization acceptance. A separate
@@ -183,3 +185,20 @@ with a reviewed JIT permission and a sandboxed static-page browser. It uses a
 synthetic wheel lock and stub runtime directories: it cannot establish complete
 Python/browser preparation or positive publisher-signed consumer compatibility.
 Exact passing results must be recorded in [validation](validation.md).
+
+CI also builds a complete prepared development package after the original
+unprepared-package regression. Its separate test profile explicitly disables
+library validation for ad-hoc executables, which have no publisher team, and
+enables JIT only for the Python/Node/Chromium fixture roles. This is not a
+production permission plan or evidence that those exceptions are needed with a
+real publisher.
+
+The composed check runs Apple's actual Installer, binds the installed receipt,
+derived requirements and original project lock, then checks native bytes at
+their final Python/browser/site-package paths. It requires intact signatures,
+bundle seals, root-controlled nonprivileged code, native crypto/validation and
+CFFI/ctypes callbacks, and a sandboxed browser. The ad-hoc owner app must still
+fail before service identity, vault or account setup. Cleanup preserves system
+parent permissions and removes only its fresh credential-free payload. Passing
+this check is controlled runtime compatibility; genuine publisher signing,
+notarization, owner approval and positive consumer installation remain separate.

@@ -8,14 +8,14 @@ defaults:
 jobs:
   mac-cross-user:
     runs-on: macos-15
-    timeout-minutes: 20
+    timeout-minutes: 30 # Includes two Installer passes and complete runtime signing.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
       - name: Check Darwin pipe handoff and reject filesystem FIFO bootstrap
         run: |
           uv sync --locked
-          uv run pytest -q tests/test_worker_signals.py tests/test_worker_boundary.py tests/test_worker_enroll.py tests/test_worker_evidence.py tests/test_mac_root_owner_evidence.py tests/test_mac_key_custody_evidence.py tests/test_mac_owner_policy_evidence.py tests/test_mac_key_handoff_evidence.py tests/test_mac_root_supervisor_evidence.py tests/test_mac_root_coordinator_evidence.py tests/test_mac_staged_enrollment_evidence.py tests/test_mac_initial_setup_evidence.py tests/test_mac_initial_gateway_evidence.py tests/test_system_provision.py tests/test_mac_provisioning_evidence.py tests/test_agent_setup.py tests/test_managed_client.py tests/test_runtime_acl.py tests/test_native_messages.py tests/test_mac_native_messages_evidence.py tests/test_mac_native_browser_evidence.py tests/test_mac_native_system_browser_evidence.py tests/test_payload_audit.py tests/test_system_package.py tests/test_runtime_prepare.py tests/test_runtime_prepare_package.py
+          uv run pytest -q tests/test_worker_signals.py tests/test_worker_boundary.py tests/test_worker_enroll.py tests/test_worker_evidence.py tests/test_mac_root_owner_evidence.py tests/test_mac_key_custody_evidence.py tests/test_mac_owner_policy_evidence.py tests/test_mac_key_handoff_evidence.py tests/test_mac_root_supervisor_evidence.py tests/test_mac_root_coordinator_evidence.py tests/test_mac_staged_enrollment_evidence.py tests/test_mac_initial_setup_evidence.py tests/test_mac_initial_gateway_evidence.py tests/test_system_provision.py tests/test_mac_provisioning_evidence.py tests/test_agent_setup.py tests/test_managed_client.py tests/test_runtime_acl.py tests/test_native_messages.py tests/test_mac_native_messages_evidence.py tests/test_mac_native_browser_evidence.py tests/test_mac_native_system_browser_evidence.py tests/test_payload_audit.py tests/test_system_package.py tests/test_runtime_prepare.py tests/test_runtime_prepare_package.py tests/test_prepared_package_checks.py
       - name: Compile and check the permanent identity-drop launcher
         run: |
           for AC_BOOTSTRAP_ARCH in arm64 x86_64; do
@@ -180,7 +180,7 @@ jobs:
           cat /tmp/account-access-mac-initial-setup.json
           cat /tmp/account-access-mac-initial-gateway.json
           cat /tmp/account-access-mac-provisioning.json
-      - name: Assemble offline development package and verify fail-closed installation
+      - name: Verify offline and fully prepared development package installation
         run: |
           uv build --wheel
           ACCOUNT_ACCESS_SYSTEM_INSTALL=1 ACCOUNT_ACCESS_MAC_OUTPUT=/tmp/account-access-system-owner bash macos/build.sh
@@ -195,6 +195,24 @@ jobs:
             --architecture "$AC_PACKAGE_ARCH" --development
           uv run python scripts/mac_package_smoke.py "/tmp/account-access-system-package/Account-Access-$AC_PACKAGE_ARCH-development.pkg" \
             --report /tmp/account-access-mac-package.json
+          uv run python -m macos.system_package \
+            --app "/tmp/account-access-system-owner/Account Access.app" \
+            --native /tmp/ac-system-broker-production \
+            --python "$AC_PACKAGE_PYTHON" --browsers "$AC_MAC_WORKER_PREFIX/browsers" \
+            --wheels /tmp/account-access-package-wheels --output /tmp/account-access-runtime-review \
+            --architecture "$AC_PACKAGE_ARCH" --development --inspect-runtime
+          uv run python scripts/mac_prepared_fixture_plan.py \
+            /tmp/account-access-runtime-review/runtime-signing-plan.json \
+            /tmp/account-access-runtime-review/ad-hoc-fixture-plan.json
+          uv run python -m macos.system_package \
+            --app "/tmp/account-access-system-owner/Account Access.app" \
+            --native /tmp/ac-system-broker-production \
+            --python "$AC_PACKAGE_PYTHON" --browsers "$AC_MAC_WORKER_PREFIX/browsers" \
+            --wheels /tmp/account-access-package-wheels --output /tmp/account-access-prepared-package \
+            --architecture "$AC_PACKAGE_ARCH" --development --runtime-identity - \
+            --runtime-plan /tmp/account-access-runtime-review/ad-hoc-fixture-plan.json
+          uv run python scripts/mac_package_smoke.py "/tmp/account-access-prepared-package/Account-Access-$AC_PACKAGE_ARCH-development.pkg" \
+            --prepared-runtime --report /tmp/account-access-mac-prepared-package.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
@@ -212,6 +230,7 @@ jobs:
             /tmp/account-access-mac-initial-gateway.json
             /tmp/account-access-mac-provisioning.json
             /tmp/account-access-mac-package.json
+            /tmp/account-access-mac-prepared-package.json
             /tmp/account-access-mac-native-messages.json
             /tmp/account-access-mac-native-browser.json
             /tmp/account-access-mac-native-system-browser.json

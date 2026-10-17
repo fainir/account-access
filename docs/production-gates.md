@@ -16,6 +16,9 @@ or physical-device coverage.
   maintainer preparation now binds exact runtime input trees/executables, signs
   private copies, rebuilds native wheel checksum records and derives installer
   hashes from the original locked artifacts. The source lock remains unchanged.
+  The complete development-package check additionally binds installed native
+  bytes/signatures, package receipts and locks, native callbacks and sandboxed
+  browsing. Its explicit ad-hoc library-validation exceptions are fixture-only.
   Real publisher validation, complete prepared-runtime compatibility, Apple
   acceptance and positive installed compatibility remain open.
 - Reviewed two-page password flows can submit an email/username to one exact

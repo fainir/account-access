@@ -104,6 +104,7 @@ def test_signing_rebuilds_record_and_derives_exact_artifact_hashes_without_chang
     derived, receipt = prepare(inputs, command)
     assert receipt["notarization_verified"] is receipt["installed_runtime_verified"] is False
     assert receipt["native_files_signed"] == 4 and receipt["bundle_seals_signed"] == 0
+    assert len(receipt["native_files"]) == 4
     assert receipt["original_requirements_sha256"] == hashlib.sha256(requirements).hexdigest()
     native_hash = runtime.digest(payload / "wheels/native.whl")
     original_hash = runtime.digest(original / "native.whl")
@@ -120,6 +121,13 @@ def test_signing_rebuilds_record_and_derives_exact_artifact_hashes_without_chang
     with zipfile.ZipFile(payload / "wheels/native.whl") as archive:
         assert not any(name.endswith((".jws", ".p7s")) for name in archive.namelist())
         assert archive.read("package/code.py") == b"# unchanged source\n"
+        row = next(
+            row
+            for row in receipt["native_files"]
+            if row["path"] == "wheels/native.whl/package/node"
+        )
+        assert row["prepared_sha256"] == hashlib.sha256(archive.read("package/node")).hexdigest()
+        assert row["prepared_sha256"] != row["original_sha256"]
         rows = list(csv.reader(io.StringIO(archive.read("fixture.dist-info/RECORD").decode())))
         assert {row[0] for row in rows} == set(archive.namelist())
         for name, checksum, size in rows:

@@ -321,6 +321,15 @@ def prepare(
             if native:
                 repack_wheel(wheel, directory, entries)
         replacements = {originals[wheel.name]: digest(wheel) for wheel, *_ in wheels}
+        native_files = [
+            {
+                "path": labels[path],
+                "kind": kind,
+                "original_sha256": checksum,
+                "prepared_sha256": digest(path),
+            }
+            for path, (kind, checksum) in pieces.items()
+        ]
     derived = re.sub(
         rb"--hash=sha256:([a-f0-9]{64})",
         lambda match: (
@@ -334,7 +343,10 @@ def prepare(
         "publisher_team": team,
         "transform": "account-access-native-signing-and-wheel-record-v1",
         "native_files_signed": len(pieces),
+        "native_files": sorted(native_files, key=lambda value: value["path"]),
         "bundle_seals_signed": len(bundles),
+        "bundles": sorted(bundle.relative_to(payload).as_posix() for bundle in bundles),
+        "project_wheel": {"filename": project_name, "sha256": project_hash},
         "notarization_verified": False,
         "installed_runtime_verified": False,
         "signing_plan_sha256": hashlib.sha256(
