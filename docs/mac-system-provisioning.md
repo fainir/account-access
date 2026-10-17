@@ -229,7 +229,8 @@ inventory before invoking Installer. This is the identity foundation for a
 subsequent protected recovery transaction. Retrying an existing installation is
 still refused: the transaction and retry behavior are not yet implemented, and
 this inventory alone grants no overwrite or deletion permission. The owner
-installation is unchanged. Exact acceptance of this next candidate is pending.
+installation is unchanged. The inventory passed independent archive binding on
+two disposable Macs; see [exact evidence](../artifacts/package-recovery-inventory-080.json).
 
 ## Complete runtime image candidate
 
@@ -255,6 +256,10 @@ complete copied runtime receives a second native-code audit, a byte/mode/alias
 inventory and its own build receipt. The final package inventory binds both
 copies. Disposable Mac acceptance compares the installed runtime against that
 receipt before exercising imports, native callbacks and sandboxed browsing.
-The new candidate has local static validation against all 33 actual Mac wheels;
-its real Installer acceptance is pending. Interrupted-install retry, genuine
-publisher compatibility and positive consumer setup remain separate work.
+Revision `3a54663` passed real Installer acceptance on two disposable Macs, with
+identical sixteen-report worker sets. Both original 12-check and prepared
+19-check packages match the installed complete-image inventory and execute their
+native/browser probes. Both full regression runs passed 1,342 tests with seven
+platform skips. See [exact evidence](../artifacts/complete-runtime-image-080.json).
+Interrupted-install retry, genuine publisher compatibility and positive consumer
+setup remain separate work.

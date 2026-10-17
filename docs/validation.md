@@ -1,5 +1,45 @@
 # Validation of Account Access
 
+## Complete preassembled runtime image — 17 October 2026
+
+Revision `3a54663` passed all eight push/PR workflows. Both full regression
+runs passed **1,342 tests with seven platform skips**, in 584.15 and 511.32
+seconds. Lint, package builds and dependency auditing passed. Two disposable
+Macs produced identical sets of sixteen complete worker reports, including
+the **19-check prepared** and **12-check original** package installations.
+
+The maintainer now assembles the complete runtime from the exact approved
+binary wheels before packaging. No wheel code or setup script executes during
+that assembly, and it compiles no bytecode. The administrator-level installer
+uses the complete image; it no longer creates a virtual environment, runs pip
+or recursively changes runtime permissions. Original runtime inputs and signing
+receipts stay unchanged. Original filenames/hashes, wheel records, Python/ABI
+compatibility and the complete dependency graph are checked before assembly.
+
+Actual Installer acceptance confirms the relocated runtime's public files,
+permissions and aliases match its build inventory, then exercises installed
+imports, SSL/SQLite, native callbacks, crypto, validation and sandboxed browsing.
+Each image contains 33 installed distributions and CPython 3.12.15. The final
+native inventory covers 63 files, 22 executables, eleven bundles and 33 wheels.
+These counts include the original Python and its complete runtime copy; the
+preparation receipt still covers 41 native entries and ten bundle seals.
+Ad-hoc signatures and explicit fixture permissions remain development-only.
+
+The candidate runtime requires Apple silicon and macOS 14 or later. The pinned
+cryptography release has no Intel Mac wheel. Shell/direct bootstrap tests refuse
+Intel or Rosetta before downloads/runtime changes, and package assembly refuses
+Intel before opening payload inputs. Universal native executables do not prove
+Intel runtime support. No Intel installation or source-build fallback is claimed.
+
+Native desktop/Chrome component reports match; Linux isolation and both Android
+emulator journeys passed. This does not establish publisher-signed consumer
+installation, interrupted-install retry, migration/update/reboot, genuine owner
+approval, full installed Chrome/native/XPC/worker acceptance, protected real-agent
+sessions, private factor delivery or physical phones. Chrome CSV imports remain
+snapshots. Owner build 53 and the unfinished Gmail form remain intact; Gmail
+connection is deferred. The candidate remains **not production ready**. See the
+[exact source, workflow links and sanitized reports](../artifacts/complete-runtime-image-080.json).
+
 ## Public package inventory acceptance — 17 October 2026
 
 Revision `e5c09ae` passed all eight push/PR workflows. The two full regression
@@ -15,7 +55,8 @@ The inventory binds file bytes and permissions, directory modes and confined
 aliases under the two fixed public roots. It grants no retry, overwrite or
 deletion authority. The protected interrupted-install transaction remains
 unimplemented. Newer source adds build-time complete runtime assembly; its
-actual Installer validation is pending and is not covered by these results.
+Installer results are recorded separately above and are not covered by these
+older inventory-only results.
 No new private sign-in or physical phone was validated. Owner build 53 and the
 unfinished Gmail form remain intact; Gmail connection is deferred. The candidate
 remains **not production ready**. See the
