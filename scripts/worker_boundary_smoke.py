@@ -175,6 +175,17 @@ def exercise(prefix, roles):
                 deadline = time.monotonic() + 20
                 while time.monotonic() < deadline:
                     if worker.poll() is not None:
+                        stdout, _ = worker.communicate(timeout=5)
+                        try:
+                            reason = json.loads(stdout)["reason"]
+                        except (ValueError, KeyError, TypeError):
+                            reason = "no_worker_startup_report"
+                        allowed = {"invalid_worker_bootstrap", "worker_bootstrap_timed_out", "invalid_worker_listener",
+                            "untrusted_worker_runtime", "invalid_worker_policy", "invalid_worker_identity",
+                            "worker_requires_isolated_python", "unsafe_worker_privileges", "unsafe_worker_state",
+                            "invalid_worker_descriptors", "invalid_worker_configuration_mode", "worker_unavailable"}
+                        stage(reason if reason in allowed else "no_worker_startup_report")
+                        print(json.dumps({"worker_exit_code": worker.returncode}), file=sys.stderr)
                         raise RuntimeError("fixture_worker_exited_before_ready")
                     try:
                         with UnixHTTP(api_path) as channel:

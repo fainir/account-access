@@ -9,6 +9,7 @@ import argparse
 import json
 import os
 import resource
+import signal
 import threading
 
 from .worker_bootstrap import BootstrapError, read_bootstrap, read_policy, require_worker_identity, take_listener
@@ -72,11 +73,17 @@ def serve(args):
                         return
             monitor = threading.Thread(target=watch, daemon=True)
             monitor.start()
+            # Uvicorn replays captured signals after its own graceful shutdown.
+            # Receive SIGTERM again without terminating before the owner socket
+            # and background threads can finish their cleanup below.
+            previous_term = signal.getsignal(signal.SIGTERM)
+            signal.signal(signal.SIGTERM, lambda *_: setattr(server, "should_exit", True))
             try:
                 server.run(sockets=[agent])
                 if not server.started:
                     failed.set()
             finally:
+                signal.signal(signal.SIGTERM, previous_term)
                 closed.set()
                 owner.shutdown()
                 owner.server_close()
