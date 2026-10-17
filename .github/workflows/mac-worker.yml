@@ -15,7 +15,7 @@ jobs:
       - name: Check Darwin pipe handoff and reject filesystem FIFO bootstrap
         run: |
           uv sync --locked
-          uv run pytest -q tests/test_worker_boundary.py tests/test_worker_evidence.py tests/test_mac_root_owner_evidence.py tests/test_mac_key_custody_evidence.py tests/test_mac_owner_policy_evidence.py tests/test_mac_key_handoff_evidence.py
+          uv run pytest -q tests/test_worker_boundary.py tests/test_worker_evidence.py tests/test_mac_root_owner_evidence.py tests/test_mac_key_custody_evidence.py tests/test_mac_owner_policy_evidence.py tests/test_mac_key_handoff_evidence.py tests/test_mac_root_supervisor_evidence.py
       - name: Compile and check the permanent identity-drop launcher
         run: |
           for AC_BOOTSTRAP_ARCH in arm64 x86_64; do
@@ -27,7 +27,8 @@ jobs:
             xcrun swiftc -parse-as-library -warnings-as-errors -typecheck \
               -target "$AC_BOOTSTRAP_ARCH-apple-macos13" -framework Foundation -framework Security \
               -import-objc-header macos/KeychainInteraction.h macos/RootVaultKeyStore.swift macos/RootWorkerChannel.swift \
-              macos/WorkerBootstrap.swift macos/OwnerGateway.swift macos/RootWorkerProcess.swift
+              macos/WorkerBootstrap.swift macos/OwnerGateway.swift macos/OwnerGatewayHost.swift macos/OwnerAuthorizationPolicy.swift \
+              macos/RootWorkerProcess.swift macos/RootWorkerSupervisor.swift macos/RootBrokerHost.swift
           done
           xcrun swiftc -O -parse-as-library -framework Foundation \
             macos/WorkerBootstrap.swift macos/Tests/WorkerBootstrapChecks.swift -o /tmp/ac-worker-bootstrap-checks
@@ -55,6 +56,7 @@ jobs:
           xcrun swiftc -O -parse-as-library -D ACCOUNT_ACCESS_ROOT_KEY_CHECKS -D ACCOUNT_ACCESS_GATEWAY_CHECKS \
             -framework Foundation -framework Security -framework CryptoKit -import-objc-header macos/KeychainInteraction.h \
             macos/WorkerBootstrap.swift macos/RootVaultKeyStore.swift macos/RootWorkerChannel.swift macos/OwnerGateway.swift macos/RootWorkerProcess.swift \
+            macos/RootWorkerSupervisor.swift macos/Tests/RootSupervisorChecks.swift \
             macos/Tests/RootKeyHandoffChecks.swift macos/Tests/RootVaultKeyChecks.swift \
             /tmp/ac-keychain-interaction.o -o /tmp/ac-root-key-checks
       - name: Prepare root-owned runtime in this disposable Mac VM
@@ -111,11 +113,13 @@ jobs:
           uv run python scripts/check_mac_key_custody_report.py /tmp/account-access-mac-key-custody.json
           uv run python scripts/check_mac_owner_policy_report.py /tmp/account-access-mac-owner-policy.json
           uv run python scripts/check_mac_key_handoff_report.py /tmp/account-access-mac-key-handoff.json
+          uv run python scripts/check_mac_root_supervisor_report.py /tmp/account-access-mac-root-supervisor.json
           cat /tmp/account-access-mac-worker.json
           cat /tmp/account-access-mac-root-owner.json
           cat /tmp/account-access-mac-key-custody.json
           cat /tmp/account-access-mac-owner-policy.json
           cat /tmp/account-access-mac-key-handoff.json
+          cat /tmp/account-access-mac-root-supervisor.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
@@ -126,6 +130,7 @@ jobs:
             /tmp/account-access-mac-key-custody.json
             /tmp/account-access-mac-owner-policy.json
             /tmp/account-access-mac-key-handoff.json
+            /tmp/account-access-mac-root-supervisor.json
           if-no-files-found: ignore
       - name: Remove the ephemeral runtime
         if: always()

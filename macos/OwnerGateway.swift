@@ -298,12 +298,15 @@ final class OwnerGatewayListener: NSObject, NSXPCListenerDelegate {
     private let makeSession: () -> OwnerGatewaySession
     private let lock = NSLock()
     private var stopped = false
+    private var generation = 0
     private var connections: [UUID: (NSXPCConnection, OwnerGatewaySession)] = [:]
     init(peer: OwnerGatewayPeer, makeSession: @escaping () -> OwnerGatewaySession) {
         self.peer = peer; self.makeSession = makeSession
     }
     func listener(_ listener: NSXPCListener, shouldAcceptNewConnection connection: NSXPCConnection) -> Bool {
         guard connection.effectiveUserIdentifier == peer.uid else { return false }
+        lock.lock(); let attempt = generation; let open = !stopped; lock.unlock()
+        guard open else { return false }
         connection.setCodeSigningRequirement(peer.requirement)
         let session = makeSession()
         let identifier = UUID()
@@ -316,7 +319,7 @@ final class OwnerGatewayListener: NSObject, NSXPCListenerDelegate {
         }
         connection.interruptionHandler = { [weak session] in session?.close() }
         lock.lock()
-        guard !stopped, connections.count < 16 else {
+        guard !stopped, generation == attempt, connections.count < 16 else {
             lock.unlock(); session.close(); return false
         }
         connections[identifier] = (connection, session)
@@ -326,6 +329,12 @@ final class OwnerGatewayListener: NSObject, NSXPCListenerDelegate {
     }
     func stop() {
         lock.lock(); stopped = true
+        lock.unlock()
+        invalidateSessions()
+    }
+    func invalidateSessions() {
+        lock.lock()
+        generation += 1
         let active = Array(connections.values)
         connections.removeAll(); lock.unlock()
         for (connection, session) in active { session.close(); connection.invalidate() }

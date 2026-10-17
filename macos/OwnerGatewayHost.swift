@@ -12,7 +12,7 @@ final class OwnerGatewayHost {
     private var started = false
     private var stopped = false
 
-    init(owner: OwnerGatewayPeer, backend: OwnerUnixBackend) throws {
+    init(owner: OwnerGatewayPeer, backend: OwnerGatewayBackend) throws {
         guard getuid() == 0, geteuid() == 0, owner.uid != 0 else { throw OwnerGatewayError.invalidPolicy }
         delegate = OwnerGatewayListener(peer: owner) {
             OwnerGatewaySession(backend: backend, verifier: RootOwnerSetupProofVerifier())
@@ -30,5 +30,6 @@ final class OwnerGatewayHost {
         lock.lock(); let alreadyStopped = stopped; stopped = true; lock.unlock()
         if !alreadyStopped { delegate.stop(); listener.invalidate() }
     }
+    func invalidateSessions() { delegate.invalidateSessions() }
     deinit { stop() }
 }

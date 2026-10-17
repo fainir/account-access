@@ -396,7 +396,7 @@ def root_key_custody(prefix, roles):
         command(["/bin/launchctl", "bootstrap", "system", str(launch)])
         try:
             path = prefix / ("key-" + mode + ".json")
-            deadline = time.monotonic() + 45
+            deadline = time.monotonic() + (120 if mode == "supervisor" else 45)
             while time.monotonic() < deadline:
                 service = command(["/bin/launchctl", "print", "system/" + label])
                 exited = re.findall(rb"last exit code = ([0-9]+)", service)
@@ -414,7 +414,7 @@ def root_key_custody(prefix, roles):
                             stage(reason)
                         if result.get("checkpoint") in {"policy", "context", "invalid_identity", "initial_missing", "enrollment",
                             "encryption", "duplicate_enrollment", "other_vault", "restart_recovery", "fixture_removal", "system_location",
-                            "native_handoff", "native_worker_service"}:
+                            "native_handoff", "native_worker_service", "native_worker_supervisor"}:
                             stage("key_checkpoint_" + result["checkpoint"])
                         if result.get("record_shape") in {"array", "data", "dictionary", "absent", "other"}:
                             stage("key_record_shape_" + result["record_shape"])
@@ -443,6 +443,7 @@ def root_key_custody(prefix, roles):
         phase("create")
         phase("reopen")
         handoff = phase("handoff", collect=False)
+        supervisor = phase("supervisor", collect=False)
         stage("key_custody_unprivileged_direct_read")
         result = subprocess.run([*dropped(roles["agent"]), str(denied), "--policy", str(policy), "unprivileged"],
             capture_output=True, timeout=45, env={"PATH": "/usr/bin:/bin", "LANG": "en_US.UTF-8"})
@@ -470,6 +471,14 @@ def root_key_custody(prefix, roles):
         "fixture_key_removed": True, "checks": handoff}
     evidence = Path("/tmp/account-access-mac-key-handoff.json")
     private_file(evidence, (json.dumps(handoff_report, indent=2) + "\n").encode())
+    evidence.chmod(0o644)
+    supervisor_report = {"status": "PASSED", "platform": "macos", "environment": "controlled-demo", "production_ready": False,
+        "private_signins": 0, "system_key_used": True, "actual_worker_used": True, "consumer_deployment_verified": False,
+        "parent_daemon_recovery_verified": False, "genuine_owner_approval_verified": False,
+        "owner_session_checks": "synthetic-in-process", "controlled_monotonic_clock": True,
+        "fixture_key_removed": True, "checks": supervisor}
+    evidence = Path("/tmp/account-access-mac-root-supervisor.json")
+    private_file(evidence, (json.dumps(supervisor_report, indent=2) + "\n").encode())
     evidence.chmod(0o644)
     return {"status": "PASSED", "platform": "macos", "environment": "controlled-demo", "production_ready": False,
             "private_signins": 0, "personal_keychain_used": False, "consumer_deployment_verified": False,

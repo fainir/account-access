@@ -48,7 +48,7 @@ import Darwin
                   let identity = value["vault_id"] as? String else { throw RootVaultKeyFailure.invalidIdentity }
             let root = try WorkerLaunchPaths.protected(WorkerLaunchPaths.lexical(value["root"]))
             let mode = CommandLine.arguments[3]
-            guard ["create", "reopen", "unprivileged", "remove", "handoff", "receive"].contains(mode) else { throw RootVaultKeyFailure.invalidIdentity }
+            guard ["create", "reopen", "unprivileged", "remove", "handoff", "supervisor", "receive"].contains(mode) else { throw RootVaultKeyFailure.invalidIdentity }
             if mode == "receive" {
                 guard CommandLine.arguments.count == 5 else { throw RootVaultKeyFailure.invalidIdentity }
                 try RootKeyHandoffChecks.receive(value, stage: CommandLine.arguments[4])
@@ -75,7 +75,10 @@ import Darwin
             checks["system_daemon_context_verified"] = true
             var limit = rlimit()
             checks["provider_disabled_core_dumps"] = getrlimit(RLIMIT_CORE, &limit) == 0 && limit.rlim_cur == 0 && limit.rlim_max == 0
-            if mode == "handoff" {
+            if mode == "supervisor" {
+                checkpoint = "native_worker_supervisor"
+                checks = try RootSupervisorChecks.run(value, identity: identity)
+            } else if mode == "handoff" {
                 checkpoint = "native_handoff"
                 let created = try RootKeyHandoffChecks.run(value, policy: path, store: store, identity: identity, stage: "create")
                 let reopened = try RootKeyHandoffChecks.run(value, policy: path, store: store, identity: identity, stage: "reopen")
