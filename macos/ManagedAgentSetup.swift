@@ -68,7 +68,10 @@ final class ManagedAgentSetup {
         let ownerHome = try home()
         let runtime = base.appendingPathComponent("runtime")
         _ = try WorkerLaunchPaths.protectedTree(runtime.path)
-        let python = try WorkerLaunchPaths.protected(runtime.appendingPathComponent("bin/python").path)
+        let python = runtime.appendingPathComponent("bin/python")
+        _ = try WorkerLaunchPaths.protected(python.path)
+        // Keep the validated virtual-environment path as argv[0]. Executing
+        // its resolved base binary would discard the installed package context.
         let process = Process()
         process.executableURL = python
         process.arguments = ["-I", "-B", "-m", "account_access.agent_setup", action]

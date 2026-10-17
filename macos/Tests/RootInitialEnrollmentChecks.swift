@@ -7,6 +7,13 @@ import Darwin
 #error("Initial enrollment acceptance is CI-only")
 #endif
 
+enum RootAgentSetupFixtureFailure: String, Error {
+    case prepareProcess = "client_prepare_process_failed"
+    case installProcess = "client_install_process_failed"
+    case response = "client_probe_response_invalid"
+    case enrollment = "client_enrollment_response_invalid"
+}
+
 enum RootInitialEnrollmentChecks {
     static func run(_ value: [String: Any]) throws -> [String: Bool] {
         let root = try WorkerLaunchPaths.protected(WorkerLaunchPaths.lexical(value["root"]))
@@ -101,7 +108,8 @@ enum RootInitialEnrollmentChecks {
         try FileManager.default.createDirectory(at: agentHome, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
         guard chown(agentHome.path, plan.base.agentUID, agentGroup) == 0 else { throw RootPublicationFailure.notVerified }
         let probe = try WorkerLaunchPaths.protected(root.appendingPathComponent("agent-setup-probe.py").path)
-        let python = try WorkerLaunchPaths.protected(root.appendingPathComponent("runtime/bin/python").path)
+        let python = root.appendingPathComponent("runtime/bin/python")
+        _ = try WorkerLaunchPaths.protected(python.path)
         func ownerProbe(_ phase: String) throws -> [String: Any] {
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/sudo")
@@ -116,8 +124,11 @@ enum RootInitialEnrollmentChecks {
             while process.isRunning && Date() < limit { Thread.sleep(forTimeInterval: 0.02) }
             guard !process.isRunning else { process.terminate(); throw RootPublicationFailure.notVerified }
             let output = pipe.fileHandleForReading.readDataToEndOfFile()
-            guard process.terminationStatus == 0, output.count < 8192,
-                  let result = try JSONSerialization.jsonObject(with: output) as? [String: Any] else { throw RootPublicationFailure.notVerified }
+            guard process.terminationStatus == 0 else {
+                throw phase == "prepare" ? RootAgentSetupFixtureFailure.prepareProcess : RootAgentSetupFixtureFailure.installProcess
+            }
+            guard output.count < 8192,
+                  let result = try JSONSerialization.jsonObject(with: output) as? [String: Any] else { throw RootAgentSetupFixtureFailure.response }
             return result
         }
         let prepared = try ownerProbe("prepare")
@@ -129,6 +140,7 @@ enum RootInitialEnrollmentChecks {
         let enrolled = request(approved, "owner/client/enroll", body: clientBody)
         let enrollmentResult = try JSONSerialization.jsonObject(with: enrolled.1) as? [String: Any]
         checks["approved_owner_client_enrollment_reaches_worker"] = enrolled.0 == 200 && enrollmentResult?["client_id"] as? String == clientID
+        guard enrolled.0 == 200, enrollmentResult?["client_id"] as? String == clientID else { throw RootAgentSetupFixtureFailure.enrollment }
         checks["owner_client_enrollment_is_idempotent"] = request(approved, "owner/client/enroll", body: clientBody).1 == enrolled.1
         checks["client_enrollment_reply_omits_capability"] = !String(decoding: enrolled.1, as: UTF8.self).contains(token)
         let changedClient = try JSONSerialization.data(withJSONObject: ["token": String(repeating: "Z", count: 43)])

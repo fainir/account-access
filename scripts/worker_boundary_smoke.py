@@ -736,7 +736,9 @@ def root_key_custody(prefix, roles):
                             "worker_process_invalid_state", "worker_process_unavailable", "worker_socket_already_occupied",
                             "worker_bootstrap_code_rejected", "worker_process_ownership_lost", "worker_socket_identity_changed",
                             "worker_store_paused", "vault_publication_busy", "vault_publication_unsafe_state",
-                            "vault_publication_requires_verified_stage", "vault_publication_unavailable"}:
+                            "vault_publication_requires_verified_stage", "vault_publication_unavailable",
+                            "client_prepare_process_failed", "client_install_process_failed",
+                            "client_probe_response_invalid", "client_enrollment_response_invalid"}:
                             stage(reason)
                         if result.get("checkpoint") in {"policy", "context", "invalid_identity", "initial_missing", "enrollment",
                             "encryption", "duplicate_enrollment", "other_vault", "restart_recovery", "fixture_removal", "system_location",
