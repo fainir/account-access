@@ -96,6 +96,47 @@ def test_supervisor_holds_its_lease_until_owned_child_cleanup_finishes(env, monk
         pass
 
 
+@pytest.mark.parametrize("during", ["open", "read", "replace"])
+def test_pause_or_replacement_during_generation_read_never_activates_old_inode(env, monkeypatch, during):
+    _, broker, _ = env
+    root = broker.store.root
+    generation = enable(root)
+    path = root / "supervisor.json"
+    original_open, original_read = os.open, os.read
+    target = None
+    triggered = False
+
+    def change():
+        nonlocal triggered
+        triggered = True
+        path.unlink()
+        if during == "replace":
+            private_file(path, b'{"generation":"invalid replacement"}')
+
+    def opened(name, flags, *args, **kwargs):
+        nonlocal target
+        fd = original_open(name, flags, *args, **kwargs)
+        if name == path:
+            target = fd
+            if during == "open":
+                change()
+        return fd
+
+    def read(fd, count):
+        data = original_read(fd, count)
+        if fd == target and not triggered:
+            change()
+        return data
+
+    monkeypatch.setattr("account_access.supervisor.os.open", opened)
+    monkeypatch.setattr("account_access.supervisor.os.read", read)
+    assert not active(root, generation)
+    assert triggered
+    if during == "replace":
+        with pytest.raises(AccessError, match="invalid_service_supervision"):
+            active(root, generation)
+
+
 @pytest.mark.parametrize("kind", ["symlink", "hardlink", "public", "malformed"])
 def test_untrusted_supervision_control_is_refused(env, tmp_path, kind):
     _, broker, _ = env

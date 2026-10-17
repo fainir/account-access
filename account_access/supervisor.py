@@ -63,11 +63,40 @@ def attached(root):
 
 def registration(root):
     path = root / "supervisor.json"
+    fd = None
     try:
-        private_regular(path)
-        if path.stat().st_size > 4096:
+        # Pin one inode: Pause may unlink the generation while we read it.
+        # A removed/replaced generation is inactive, not an unsafe live file.
+        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+        flags |= getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NONBLOCK", 0)
+        fd = os.open(path, flags)
+        info = os.fstat(fd)
+        if info.st_nlink == 0:
+            return None
+        if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1
+                or info.st_mode & 0o077 or info.st_uid != os.getuid()):
+            raise AccessError("DENIED", "unsafe_service_control_file")
+        if not 0 < info.st_size <= 4096:
             raise ValueError()
-        value = json.loads(path.read_text())
+        data = bytearray()
+        while len(data) <= 4096:
+            part = os.read(fd, 4097 - len(data))
+            if not part:
+                break
+            data.extend(part)
+        after = os.fstat(fd)
+        if after.st_nlink == 0:
+            return None
+        named = path.lstat()
+        if (named.st_dev, named.st_ino) != (info.st_dev, info.st_ino):
+            # A replaced path must not activate the old open generation.
+            # Validate the replacement on the next read, without following it.
+            return None
+        if (after.st_nlink != 1 or after.st_mode != info.st_mode
+                or after.st_uid != info.st_uid or len(data) != info.st_size
+                or after.st_size != info.st_size or after.st_mtime_ns != info.st_mtime_ns):
+            raise AccessError("DENIED", "unsafe_service_control_file")
+        value = json.loads(data)
         if (not isinstance(value, dict) or set(value) != {"generation", "runtime", "version"}
                 or not isinstance(value["generation"], str)
                 or not re.fullmatch(r"[a-f0-9]{64}", value["generation"])
@@ -76,8 +105,13 @@ def registration(root):
         return value
     except FileNotFoundError:
         return None
+    except OSError:
+        raise AccessError("DENIED", "unsafe_service_control_file") from None
     except (ValueError, TypeError):
         raise AccessError("NEEDS_USER", "invalid_service_supervision") from None
+    finally:
+        if fd is not None:
+            os.close(fd)
 
 
 def enable(root):
