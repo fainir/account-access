@@ -19,7 +19,10 @@ or physical-device coverage.
   before filling the password. Routine sign-in with no usable enrolled method
   stops without consuming a first-stage login attempt; an unavailable alternative
   does not block another usable method. Existing connector
-  fingerprints remain unchanged when the optional identity step is absent.
+  fingerprints remain unchanged when the optional identity step is absent. The
+  [18-check protected Mac composition](../artifacts/username-password-pages-080.json)
+  also requires two identity/password/SMS logins, session reuse and durable
+  recovery after a cold restart; its accounts/messages are synthetic.
 - Staged Mac build 61 requires macOS 14 (Sonoma) or later, matching the
   pinned Playwright browser runtime. App metadata, shell preflight and the direct
   Python bootstrap enforce this before downloads/runtime changes. This corrects

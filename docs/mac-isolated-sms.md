@@ -104,6 +104,13 @@ completes a second fresh password/SMS login without owner input. Both host/worke
 pairs must stop; the fixture job, setup policy and System key must be removed.
 Two independent disposable Macs produced identical complete reports.
 
+A later [18-check system-host report](../artifacts/username-password-pages-080.json)
+adds the reviewed username-first page to both fresh logins. The provider must
+observe exactly two accepted identity POSTs, two password submissions and two
+SMS verifications across the cold restart and four completed reads. The
+standalone single-page journey is retained. Both disposable Macs produced
+identical complete reports.
+
 That test still uses a CI entrypoint, synthetic source enrollment, website and
 Messages data, and hash-pinned ad-hoc peers. Signed consumer installation, genuine
 owner approval and Full Disk Access attribution, forwarded physical SMS delivery,

@@ -71,6 +71,13 @@ then saved-session reuse. They also cover changed forms/URLs, missing sources,
 inert controls, early/duplicate/wrong-endpoint POSTs, replay redirects, temporary
 failures, late presence challenges and permission invalidation.
 
+The [protected Mac composition](../artifacts/username-password-pages-080.json)
+also completes two identity/password/SMS logins through the product CLI,
+production system host, System key, isolated worker and native owner-UID reader,
+with session reuse and durable cooldown recovery after a cold restart. Two
+disposable Macs produced identical 18-check system-host reports. This uses a CI
+entrypoint, synthetic enrollment and ad-hoc hash-pinned peers.
+
 These tests use fictional accounts, messages and seeds. They do not establish
 private provider compatibility, physical delivery or consumer installation.
 Those remain in [production acceptance](production-gates.md).

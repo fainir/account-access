@@ -1,5 +1,57 @@
 # Validation of Account Access
 
+## Two-page password and protected SMS recovery — 17 October 2026
+
+Revision `a6bdebc` passed **1,120 tests, five platform skips, in 594.49 seconds**,
+lint, package builds and an audit with no known vulnerabilities. All eight
+push/PR workflows passed. [Regression CI](https://github.com/fainir/account-access/actions/runs/39037809838).
+
+The candidate supports a reviewed email/username page followed by its password
+page. The identity stage accepts one exact declared POST and requires a real
+accepted response before the expected password page. Password controls and their
+POST destination are checked again. Early, duplicate, wrong-endpoint or replayed
+requests stop. Native and explicitly configured JavaScript flows complete
+password-only, email, SMS and authenticator journeys with saved-session reuse in
+controlled tests. Missing sources, changed forms/pages and priority challenges
+stop before password disclosure. Temporary failures retain durable retry and the
+normal cooldown. No new end-user command or routine approval is added.
+
+Verification-source preflight now precedes either credential fill, and page/form
+checks repeat after single-page username input handlers. A fixed hash recorded
+before the new schema confirms unchanged connectors retain their permission
+fingerprint. The compatibility test's reconstruction of an old model was fixed
+to omit the new empty field; the expected golden hash was not changed.
+
+Two disposable Macs produced identical sets of fifteen complete worker reports.
+The **18-check System-key/native-SMS journey** now requires two independently
+confirmed identity steps as well as two password/SMS logins, session reuse,
+cold-host reopening, automatic cooldown recovery and complete process/job/key
+cleanup. It invokes the product CLI under another UID through the actual root
+host, System key, isolated worker and native owner-UID reader. The standalone
+single-page native SMS journey remains a separate regression.
+
+The SMS browser harness now accepts only expected late-delivery refusals after
+an acknowledged first delivery. Deterministic tests require rejection after code
+consumption and window cleanup; the product policy was not loosened. A preceding
+PR run exposed that test race while its parallel push run passed.
+
+The native desktop and Chrome-bridge component reports also remain identical.
+Linux isolation and Android emulator acceptance passed. These are controlled
+fixtures with fictional website credentials, messages and seeds. They do not
+validate a new private provider, physical phone delivery, genuine OS approval,
+consumer installation or real agents against the protected deployment. The full
+installed Chrome/native/XPC/worker journey remains unverified.
+
+Owner build 53 and the unfinished Gmail form were preserved; Gmail setup remains
+deferred. No new private sign-in was requested. Chrome CSV imports remain
+snapshots; the public Chromium review does not establish a safe continuous-sync
+connection. The candidate remains **not production ready**.
+
+See [sanitized evidence](../artifacts/username-password-pages-080.json),
+[connector behavior](username-password-pages.md),
+[Chrome sync research](chrome-password-sync-research.md) and
+[production gates](production-gates.md).
+
 ## Protected Chrome SMS bridge — 17 October 2026
 
 Revision `8ccdd74` passed **1,086 tests, five platform skips, in 503.7 seconds**,
