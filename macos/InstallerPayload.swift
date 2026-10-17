@@ -15,6 +15,12 @@ enum InstallerPayloadFailure: String, Error {
     case execution = "installer_source_not_started"
 }
 
+struct InstallerSpawnFailure: Error {
+    enum Operation: String { case actions, attributes, input, inherit, replace }
+    let operation: Operation
+    let code: Int32
+}
+
 struct InstallerPayloadNode {
     let kind: String
     let mode: mode_t?
@@ -434,24 +440,30 @@ enum InstallerPayloadIO {
         guard !arguments.dropLast().contains(where: { $0 == nil }),
               !environment.dropLast().contains(where: { $0 == nil }) else { throw InstallerPayloadFailure.execution }
         var actions: posix_spawn_file_actions_t?, attributes: posix_spawnattr_t?
-        guard posix_spawn_file_actions_init(&actions) == 0 else { throw InstallerPayloadFailure.execution }
+        let actionStatus = posix_spawn_file_actions_init(&actions)
+        guard actionStatus == 0 else { throw InstallerSpawnFailure(operation: .actions, code: actionStatus) }
         defer { posix_spawn_file_actions_destroy(&actions) }
-        guard posix_spawnattr_init(&attributes) == 0 else { throw InstallerPayloadFailure.execution }
+        let attributeStatus = posix_spawnattr_init(&attributes)
+        guard attributeStatus == 0 else { throw InstallerSpawnFailure(operation: .attributes, code: attributeStatus) }
         defer { posix_spawnattr_destroy(&attributes) }
-        guard posix_spawnattr_setflags(&attributes, Int16(POSIX_SPAWN_SETEXEC | POSIX_SPAWN_CLOEXEC_DEFAULT)) == 0,
-              posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_RDONLY, 0) == 0 else { throw InstallerPayloadFailure.execution }
+        let flagStatus = posix_spawnattr_setflags(&attributes, Int16(POSIX_SPAWN_SETEXEC | POSIX_SPAWN_CLOEXEC_DEFAULT))
+        guard flagStatus == 0 else { throw InstallerSpawnFailure(operation: .attributes, code: flagStatus) }
+        let inputStatus = posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_RDONLY, 0)
+        guard inputStatus == 0 else { throw InstallerSpawnFailure(operation: .input, code: inputStatus) }
         // Only standard output/error and the two verified public handles reach
         // the trusted interpreter. Caller environment and other handles do not.
         for fd in [Int32(1), Int32(2), image, file] {
-            guard fcntl(fd, F_GETFD) != -1, posix_spawn_file_actions_addinherit_np(&actions, fd) == 0 else { throw InstallerPayloadFailure.execution }
+            guard fcntl(fd, F_GETFD) != -1 else { throw InstallerSpawnFailure(operation: .inherit, code: EBADF) }
+            let status = posix_spawn_file_actions_addinherit_np(&actions, fd)
+            guard status == 0 else { throw InstallerSpawnFailure(operation: .inherit, code: status) }
         }
         var pid: pid_t = 0
-        arguments.withUnsafeMutableBufferPointer { args in
+        let status = arguments.withUnsafeMutableBufferPointer { args in
             environment.withUnsafeMutableBufferPointer { env in
-                _ = posix_spawn(&pid, python, &actions, &attributes, args.baseAddress!, env.baseAddress!)
+                posix_spawn(&pid, python, &actions, &attributes, args.baseAddress!, env.baseAddress!)
             }
         }
-        throw InstallerPayloadFailure.execution
+        throw InstallerSpawnFailure(operation: .replace, code: status)
     }
 }
 
@@ -492,6 +504,14 @@ enum InstallerPayloadIO {
             let (manifest, counts) = try InstallerPayloadIO.installed()
             try output(manifest, counts: counts, status: "VERIFIED")
         } catch {
+            if let failure = error as? InstallerSpawnFailure {
+                let value: [String: Any] = ["schema": 1, "status": "FAILED", "reason": "installer_source_not_started",
+                                          "operation": failure.operation.rawValue, "error_code": Int(failure.code)]
+                if let data = try? JSONSerialization.data(withJSONObject: value, options: [.sortedKeys]) {
+                    FileHandle.standardOutput.write(data); FileHandle.standardOutput.write(Data([10]))
+                }
+                exit(78)
+            }
             let reason = (error as? InstallerPayloadFailure)?.rawValue ?? "installer_payload_not_verified"
             FileHandle.standardOutput.write(Data(("{\"schema\":1,\"status\":\"FAILED\",\"reason\":\"" + reason + "\"}\n").utf8))
             exit(78)
