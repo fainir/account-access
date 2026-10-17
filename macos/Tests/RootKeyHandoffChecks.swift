@@ -34,6 +34,9 @@ enum RootKeyHandoffChecks {
         checks["worker_kernel_identity_verified"] = process.terminationStatus == 0 && text.split(whereSeparator: { $0.isWhitespace }).map(String.init) == [String(plan.uid), String(plan.gid)]
         try first.stop()
         checks["worker_graceful_shutdown_verified"] = first.pid == nil && first.lastExitStatus == 0
+        if checks["worker_graceful_shutdown_verified"] != true {
+            fputs("worker_shutdown_wait_status=\(first.lastExitStatus ?? -1)\n", stderr)
+        }
         let second = try RootWorkerProcess(policy: policy, bootstrap: bootstrap, peer: peer, vault: identity)
         defer { try? second.stop() }
         let current = try second.start()

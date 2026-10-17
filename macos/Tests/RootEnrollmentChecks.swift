@@ -56,6 +56,9 @@ enum RootEnrollmentChecks {
             && stateValue?["accounts"] is [[String: Any]]
         try worker.stop()
         checks["initialized_store_worker_stops_cleanly"] = worker.lastExitStatus == 0
+        if checks["initialized_store_worker_stops_cleanly"] != true {
+            fputs("initializer_worker_shutdown_wait_status=\(worker.lastExitStatus ?? -1)\n", stderr)
+        }
         let wrongID = UUID().uuidString.lowercased()
         _ = try store.enrollNewVault(wrongID)
         var removed = false

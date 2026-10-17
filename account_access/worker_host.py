@@ -9,7 +9,6 @@ import argparse
 import json
 import os
 import resource
-import signal
 import threading
 
 from .worker_bootstrap import BootstrapError, read_bootstrap, read_policy, require_worker_identity, take_listener
@@ -43,6 +42,7 @@ def serve(args):
         from .service import create_app
         from .storage import Store
         import uvicorn
+        from .worker_signals import ManagedWorkerServer, managed_worker_signals
 
         store = Store(root, secrets.vault_key)
         from .worker_enroll import verify_store_key
@@ -59,12 +59,14 @@ def serve(args):
                                          origin_port=policy["owner_port"], local_host_actions=False,
                                          ready=lambda: server is not None and server.started and not server.should_exit)
             owner_socket = None  # The owner server now owns this descriptor.
-            server = uvicorn.Server(uvicorn.Config(create_app(broker), log_level="critical",
+            server = ManagedWorkerServer(uvicorn.Config(create_app(broker), log_level="critical",
                                                    access_log=False, log_config=None))
             owner_thread = threading.Thread(target=owner.serve_forever, daemon=True)
             owner_thread.start()
             def watch():
                 while not closed.wait(0.25):
+                    if server.should_exit:
+                        return
                     if not owner_thread.is_alive():
                         if not (root / "service.paused").exists():
                             failed.set()
@@ -76,25 +78,20 @@ def serve(args):
                         return
             monitor = threading.Thread(target=watch, daemon=True)
             monitor.start()
-            # Uvicorn replays captured signals after its own graceful shutdown.
-            # Receive SIGTERM again without terminating before the owner socket
-            # and background threads can finish their cleanup below.
-            previous_term = signal.getsignal(signal.SIGTERM)
-            signal.signal(signal.SIGTERM, lambda *_: setattr(server, "should_exit", True))
-            try:
-                server.run(sockets=[agent])
-                if not server.started:
-                    failed.set()
-            finally:
-                signal.signal(signal.SIGTERM, previous_term)
-                closed.set()
-                owner.shutdown()
-                owner.server_close()
-                owner = None
-                owner_thread.join(timeout=5)
-                monitor.join(timeout=2)
-                if owner_thread.is_alive():
-                    failed.set()
+            with managed_worker_signals(server):
+                try:
+                    server.run(sockets=[agent])
+                    if not server.started:
+                        failed.set()
+                finally:
+                    closed.set()
+                    owner.shutdown()
+                    owner.server_close()
+                    owner = None
+                    owner_thread.join(timeout=5)
+                    monitor.join(timeout=2)
+                    if owner_thread.is_alive():
+                        failed.set()
         return 75 if failed.is_set() else 0
     finally:
         closed.set()
