@@ -53,7 +53,11 @@ struct OwnerGatewayPeer {
 }
 
 enum OwnerSetupAuthorization {
+    #if ACCOUNT_ACCESS_GATEWAY_CHECKS
+    static let right = "com.fainir.accountaccess.owner-enrollment.qa"
+    #else
     static let right = "com.fainir.accountaccess.owner-enrollment.v1"
+    #endif
     // Provisioning must install this exact rule before enabling the UI.
     // No caller-supplied right, default unknown-right rule or allow rule is used.
     // The canned session-owner delegation has a very long credential lifetime.
@@ -98,7 +102,10 @@ enum OwnerSetupAuthorization {
     }
 
     static func granted(_ reference: AuthorizationRef, flags: AuthorizationFlags) -> Bool {
-        right.withCString { name in
+        // Never let an undefined right inherit the host's default policy, even
+        // if another internal caller uses this lower-level helper directly.
+        guard installed() else { return false }
+        return right.withCString { name in
             var item = AuthorizationItem(name: name, valueLength: 0, value: nil, flags: 0)
             return withUnsafeMutablePointer(to: &item) { pointer in
                 var rights = AuthorizationRights(count: 1, items: pointer)

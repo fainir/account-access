@@ -121,6 +121,7 @@ enum GatewayChecks {
         // and exact returned right are checked by the production verifier.
         var exportedAgain = AuthorizationExternalForm()
         result["os_authorization_reference_round_trip"] = AuthorizationMakeExternalForm(imported, &exportedAgain) == errAuthorizationSuccess
+        result["host_default_cannot_replace_dedicated_rule"] = !OwnerSetupAuthorization.granted(imported, flags: [])
         result["unconfigured_or_ungranted_setup_rejected"] = !OwnerSetupAuthorization.check(external)
         let grant = try JSONSerialization.data(withJSONObject: ["account": "demo-web"])
         for (name, route) in [("query_route", "owner/grant?x=1"), ("traversal_route", "owner/../grant"),
