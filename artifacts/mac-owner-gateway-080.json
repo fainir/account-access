@@ -101,5 +101,17 @@
     "genuine owner setup authorization approval",
     "notarized installation and Mac cross-user acceptance",
     "private email/SMS/authenticator and physical-phone acceptance"
-  ]
+  ],
+  "regression": {
+    "tested_commit": "712f1a15aa9db577323803a990ff6c8051580506",
+    "workflow_url": "https://github.com/fainir/account-access/actions/runs/38991224960",
+    "tests_passed": 710,
+    "seconds": 440.9,
+    "lint": "passed",
+    "dependency_audit": "no known vulnerabilities",
+    "package_build": "passed",
+    "native_checks": "passed"
+  },
+  "android_emulator_workflow": "https://github.com/fainir/account-access/actions/runs/38991224921",
+  "separate_user_worker_workflow": "https://github.com/fainir/account-access/actions/runs/38991224853"
 }

@@ -22,11 +22,13 @@ production rule requires an unshared session-owner authorization, a short
 handoff and no root shortcut. Setup sessions expire and do not apply to routine
 agent operations.
 
-The matching earlier baseline `17effe0` passed **710 Python tests in 481.59
+Final component revision `712f1a1` passed **710 Python tests in 440.90
 seconds**, lint, dependency audit (no known vulnerabilities), package and native
-checks in [CI](https://github.com/fainir/account-access/actions/runs/38990597823).
-Later native permission fixes are tested by the separate 54-check evidence;
-full current-head CI is recorded when complete.
+checks in [CI](https://github.com/fainir/account-access/actions/runs/38991224960).
+Its [Android emulator journey](https://github.com/fainir/account-access/actions/runs/38991224921)
+and the separate [24-check Linux worker journey](https://github.com/fainir/account-access/actions/runs/38991224853)
+also passed. The two native/platform fixtures retain their distinct scope;
+these results do not establish consumer Mac deployment.
 
 See [sanitized evidence](../artifacts/mac-owner-gateway-080.json) and the
 [channel contract](mac-owner-gateway.md). These are ordinary-user fixtures with
