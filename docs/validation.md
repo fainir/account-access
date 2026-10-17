@@ -1,5 +1,63 @@
 # Validation of Account Access
 
+## Complete prepared Mac runtime installation — 17 October 2026
+
+Code revision `3c59a87` passed all eight push/PR workflows. Both regression runs
+passed **1,235 tests with seven platform skips**, in 584.64 and 588.49 seconds.
+Lint and package builds passed; the Python dependency audit found no known
+vulnerabilities. [Regression CI](https://github.com/fainir/account-access/actions/runs/39045910620).
+
+Two disposable Macs produced identical sets of **sixteen complete worker
+reports**, including the new **17-check prepared-package installation**. Each
+uses Apple's actual Installer on a complete, privately prepared development
+runtime. The test checks installed native bytes, CodeDirectory runtime flags,
+signatures and bundle seals, root-controlled paths without privileged modes,
+the immutable project-wheel pin, and original/derived dependency lock bindings.
+The installed Python constructs an SSL context, runs an SQLite query, and
+executes CFFI/ctypes callbacks, crypto, greenlet, Pydantic and fictional TOTP
+operations; its installed browser opens a static page with the sandbox enabled.
+
+The development inventory records 45 native files, 20 executables, 11 bundles
+and 33 wheels. Runtime preparation records 41 native entries, ten bundle seals
+and 32 dependency wheels, leaving the app-pinned project wheel unchanged. These
+counts describe the fixture inputs, not publisher acceptance. The explicit
+ad-hoc permission plan includes library-validation exceptions for executables
+without a publisher team and reviewed fixture JIT roles. It is not a production
+permission profile. The ad-hoc owner app still refuses setup before any service
+identity, vault or registration is created; cleanup preserves shared system
+parent permissions. The original ten-check unprepared-package regression also
+passes. Neither package is uploaded as a consumer download.
+
+Both Macs actually ran the separate Node-preparation/browser probe: one passed
+test in 4.26 and 4.79 seconds. Their native desktop and Chrome-bridge component
+reports also match, with 38 and 18 checks. Linux isolation passed. Both Android
+emulator runs produced identical six-check reports, each completing one actual
+notification → certificate-pinned HTTPS relay → browser SMS verification.
+Physical phones and carriers remain unverified.
+
+The independent runtime check exposed a parser error in preceding Mac runs:
+`codesign` reports both CodeDirectory and executable-segment flags. All three
+validators now require exactly one CodeDirectory flag field; segment flags
+cannot substitute for it, and missing/duplicate directory metadata is refused.
+A preceding Android run missed its notification after a fixed 300 ms delay.
+Instrumentation now waits a bounded interval for the exact tag, ID and package,
+while still requiring actual listener and browser delivery. Product delivery
+policy is unchanged. App notarization also validates the explicitly versioned,
+exact six-file SMS helper through its final archive; Apple responses in those
+unit tests are simulated.
+
+These results establish controlled runtime compatibility and refusal behavior.
+They do not establish a genuine publisher, Apple acceptance/stapling, positive
+consumer installation, migration/update/reboot, genuine OS approval, complete
+installed Chrome/native/XPC/worker acceptance, real protected agent sessions or
+new private password/email/SMS/authenticator sign-ins. Owner build 53 and the
+unfinished Gmail form were preserved; Gmail remains deferred. Chrome CSV
+imports remain snapshots. The candidate remains **not production ready**.
+
+See [sanitized evidence](../artifacts/prepared-runtime-install-080.json),
+[runtime preparation and installation](mac-system-provisioning.md) and
+[production requirements](production-gates.md).
+
 ## Two-page password and protected SMS recovery — 17 October 2026
 
 Revision `a6bdebc` passed **1,120 tests, five platform skips, in 594.49 seconds**,

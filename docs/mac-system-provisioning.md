@@ -202,3 +202,11 @@ fail before service identity, vault or account setup. Cleanup preserves system
 parent permissions and removes only its fresh credential-free payload. Passing
 this check is controlled runtime compatibility; genuine publisher signing,
 notarization, owner approval and positive consumer installation remain separate.
+
+Revision `3c59a87` passed the complete 17-check prepared-install journey on two
+disposable Macs, with identical sets of sixteen worker reports. The original
+unprepared-package checks remain separate and pass too. Both main regression
+runs passed 1,235 tests with seven skips. See the
+[exact source, workflow links and sanitized reports](../artifacts/prepared-runtime-install-080.json).
+The successful fixture does not establish that its explicit ad-hoc permission
+exceptions are needed by, or sufficient for, a real publisher's runtime.
