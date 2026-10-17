@@ -48,6 +48,25 @@ def test_protected_browser_bridge_delivers_only_to_an_enrolled_active_window(env
         assert result.status_code == 403
 
 
+@pytest.mark.parametrize("finish", [False, True])
+def test_protected_bridge_refuses_a_duplicate_after_code_consumption_or_cleanup(env, finish):
+    _, broker, _ = env
+    codes, started, base = armed(broker)
+    with private_bridge(broker) as client:
+        message = {"message": delivery(base)}
+        assert client.post("/owner/browser-message", json=message).status_code == 200
+        assert codes.resolve("google-sms", started, set()) == "123456"
+        if finish:
+            codes.finish("google-sms", started)
+        result = client.post("/owner/browser-message", json=message)
+        assert result.status_code == 403
+        assert result.json() == {
+            "status": "NEEDS_USER" if finish else "DENIED",
+            "reason": "login_code_window_expired" if finish else "google_messages_window_finished",
+        }
+        assert "123456" not in result.text
+
+
 @pytest.mark.parametrize("body", [
     {"message": {"method": "session-import"}},
     {"message": {"method": "credential"}},

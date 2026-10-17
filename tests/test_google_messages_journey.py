@@ -57,11 +57,27 @@ def test_password_to_messages_reader_to_native_host_to_browser(env, monkeypatch,
     cleanup = ExitStack()
     request.addfinalizer(cleanup.close)
     bridge = cleanup.enter_context(private_bridge(broker)) if protected else None
+    accepted_windows = set()
     def exchange(body):
         if bridge is not None:
             response = bridge.post("/owner/browser-message", json={"message": body})
-            assert response.status_code == 200
-            return response.json()
+            result = response.json()
+            window = (body.get("source"), body.get("window"))
+            if response.status_code == 403:
+                # As in the extension/native protocol, a repeated poll may race
+                # with successful consumption or final window cleanup. Only a
+                # window whose first delivery succeeded may take this path.
+                assert body["method"] == "deliver" and window in accepted_windows
+                assert result["reason"] in {
+                    "google_messages_window_finished", "login_code_window_missing",
+                    "login_code_window_expired",
+                }, result
+            else:
+                assert response.status_code == 200, result
+                if body["method"] == "deliver":
+                    assert result == {"status": "RECEIVED"}
+                    accepted_windows.add(window)
+            return result
         raw = json.dumps({"id": 1, "body": body}).encode()
         outgoing = io.BytesIO()
         assert (
