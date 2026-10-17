@@ -216,9 +216,12 @@ def exercise(prefix, roles):
         # No login data is provided to this canary. It checks whether the
         # dedicated identity can start sandboxed Chromium in the CI session.
         stage("credential_free_browser_canary")
-        canary = subprocess.run([*dropped(roles["broker"]), sys.executable, "-I", "-B", str(prefix / "browser-probe.py")],
-            capture_output=True, timeout=45, env={"PATH": "/usr/bin:/bin", "LANG": "en_US.UTF-8",
-                "HOME": roles["broker"].pw_dir, "PLAYWRIGHT_BROWSERS_PATH": str(prefix / "browsers")})
+        # sudo resets its environment. Place these fixed, non-secret settings
+        # after the identity switch so the canary uses the installed browser.
+        canary = subprocess.run([*dropped(roles["broker"]), "/usr/bin/env",
+            "PLAYWRIGHT_BROWSERS_PATH=" + str(prefix / "browsers"), "HOME=" + roles["broker"].pw_dir,
+            "LANG=en_US.UTF-8", sys.executable, "-I", "-B", str(prefix / "browser-probe.py")],
+            capture_output=True, timeout=45, env={"PATH": "/usr/bin:/bin", "LANG": "en_US.UTF-8"})
         if canary.returncode:
             result = json.loads(canary.stdout)
             allowed = {"mach_bootstrap_registration_failed", "browser_profile_unavailable", "browser_not_installed",
