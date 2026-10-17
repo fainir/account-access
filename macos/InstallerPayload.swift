@@ -183,12 +183,22 @@ enum InstallerPayloadIO {
         }
         throw InstallerPayloadFailure.limit
     }
-    static func check(_ fd: Int32, owner: uid_t, directory: Bool, sharedParent: Bool = false) throws -> stat {
+    static func check(_ fd: Int32, owner: uid_t, directory: Bool, sharedParent: Bool = false,
+                      installerTemporaryParent: Bool = false) throws -> stat {
         var info = stat()
         guard fstat(fd, &info) == 0, info.st_uid == owner,
               info.st_mode & S_IFMT == (directory ? S_IFDIR : S_IFREG), info.st_mode & 0o6000 == 0,
-              info.st_mode & (sharedParent ? 0o002 : 0o022) == 0,
               directory || info.st_nlink == 1 else { throw InstallerPayloadFailure.object }
+        if installerTemporaryParent {
+            // Apple's scripts live below root-owned /private/tmp (01777).
+            // The sticky bit protects its root-owned child from other users;
+            // every child is opened without following links and must satisfy
+            // the ordinary protected-directory policy. No payload-root walk
+            // receives this exception, and no directory permissions change.
+            guard directory, !sharedParent, info.st_mode & 0o7777 == 0o1777 else { throw InstallerPayloadFailure.object }
+        } else {
+            guard info.st_mode & (sharedParent ? 0o002 : 0o022) == 0 else { throw InstallerPayloadFailure.object }
+        }
         try noGrantACL(fd)
         return info
     }
@@ -198,11 +208,20 @@ enum InstallerPayloadIO {
             && before.st_mtimespec.tv_sec == after.st_mtimespec.tv_sec && before.st_mtimespec.tv_nsec == after.st_mtimespec.tv_nsec
             && before.st_ctimespec.tv_sec == after.st_ctimespec.tv_sec && before.st_ctimespec.tv_nsec == after.st_ctimespec.tv_nsec
     }
-    static func directory(_ path: String, owner: uid_t, sharedApplicationParent: Bool = false) throws -> Int32 {
+    static func directory(_ path: String, owner: uid_t, sharedApplicationParent: Bool = false,
+                          installerResources: Bool = false) throws -> Int32 {
+        let root = open("/", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard root >= 0 else { throw InstallerPayloadFailure.path }
+        defer { Darwin.close(root) }
+        return try walkDirectory(path, from: root, owner: owner, sharedApplicationParent: sharedApplicationParent,
+                                 installerResources: installerResources)
+    }
+    static func walkDirectory(_ path: String, from root: Int32, owner: uid_t, sharedApplicationParent: Bool = false,
+                              installerResources: Bool = false) throws -> Int32 {
         guard path.hasPrefix("/"), !path.utf8.contains(0), !path.contains("\\") else { throw InstallerPayloadFailure.path }
         let parts = path.split(separator: "/", omittingEmptySubsequences: false).dropFirst().map(String.init)
         guard parts.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." }) else { throw InstallerPayloadFailure.path }
-        var fd = open("/", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        var fd = dup(root)
         guard fd >= 0 else { throw InstallerPayloadFailure.path }
         do {
             _ = try check(fd, owner: owner, directory: true)
@@ -214,7 +233,9 @@ enum InstallerPayloadIO {
                     // reads a descriptor-pinned app and hashes every member. It
                     // never executes root code from that shared namespace.
                     _ = try check(next, owner: owner, directory: true,
-                                  sharedParent: sharedApplicationParent && index == 0 && name == "Applications")
+                                  sharedParent: sharedApplicationParent && index == 0 && name == "Applications",
+                                  installerTemporaryParent: installerResources && index == 1 && parts[0] == "private"
+                                      && name == "tmp" && parts.count > 2)
                 } catch { Darwin.close(next); throw error }
                 Darwin.close(fd); fd = next
             }
@@ -331,7 +352,8 @@ enum InstallerPayloadIO {
         guard getuid() == 0, geteuid() == 0, CommandLine.arguments.count == 1 else { throw InstallerPayloadFailure.context }
         let executable = CommandLine.arguments[0]
         guard executable.hasPrefix("/"), executable.hasSuffix("/AccountAccess-installerverify") else { throw InstallerPayloadFailure.context }
-        let resources = try directory(URL(fileURLWithPath: executable).deletingLastPathComponent().path, owner: 0)
+        let resources = try directory(URL(fileURLWithPath: executable).deletingLastPathComponent().path, owner: 0,
+                                      installerResources: true)
         defer { Darwin.close(resources) }
         let file = openat(resources, "RecoveryManifest.json", O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK)
         guard file >= 0 else { throw InstallerPayloadFailure.manifest }

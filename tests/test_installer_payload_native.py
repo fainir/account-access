@@ -197,6 +197,53 @@ def test_native_manifest_file_cannot_be_a_symlink(native_verifier, fixture, tmp_
     assert verify(native_verifier, fixture)["status"] == "REFUSED"
 
 
+@pytest.mark.parametrize("damage", [None, "strict-walk", "no-child", "wrong-parent", "no-sticky", "wrong-mode",
+                                  "writable-child", "group-writable-child", "writable-descendant", "child-alias",
+                                  "temporary-parent-alias", "parent-acl", "child-acl"])
+def test_installer_resources_allow_only_exact_sticky_parent_with_protected_children(native_verifier, tmp_path, damage):
+    root = tmp_path / "synthetic-root"
+    shared = root / "private/tmp"
+    resources = shared / "PKInstallSandbox.fixture/Scripts/package.fixture"
+    resources.mkdir(parents=True)
+    for path in [root, *root.rglob("*")]:
+        path.chmod(0o755)
+    shared.chmod(0o1777)
+    requested = "/private/tmp/PKInstallSandbox.fixture/Scripts/package.fixture"
+    argument = "--resources"
+    acl_path = None
+    if damage == "strict-walk":
+        argument = "--directory"
+    elif damage == "no-child":
+        requested = "/private/tmp"
+    elif damage == "wrong-parent":
+        (root / "private").rename(root / "unrelated")
+        requested = requested.replace("/private/", "/unrelated/")
+    elif damage in {"no-sticky", "wrong-mode"}:
+        shared.chmod(0o777 if damage == "no-sticky" else 0o1775)
+    elif damage in {"writable-child", "group-writable-child"}:
+        (shared / "PKInstallSandbox.fixture").chmod(0o777 if damage == "writable-child" else 0o775)
+    elif damage == "writable-descendant":
+        resources.chmod(0o777)
+    elif damage in {"child-alias", "temporary-parent-alias"}:
+        original = shared if damage == "temporary-parent-alias" else shared / "PKInstallSandbox.fixture"
+        moved = root / "moved"
+        original.rename(moved)
+        original.symlink_to(moved, target_is_directory=True)
+    elif damage in {"parent-acl", "child-acl"}:
+        acl_path = shared if damage == "parent-acl" else shared / "PKInstallSandbox.fixture"
+        subprocess.run(["/bin/chmod", "+a", "everyone allow write", str(acl_path)], check=True, capture_output=True)
+    try:
+        before = {str(path): path.lstat().st_mode for path in [root, *root.rglob("*")]}
+        result = subprocess.run([str(native_verifier), argument, str(root), requested], capture_output=True, timeout=10)
+        assert not result.stderr
+        assert (result.returncode == 0) == (damage is None)
+        assert json.loads(result.stdout)["status"] == ("VERIFIED" if damage is None else "REFUSED")
+        assert before == {str(path): path.lstat().st_mode for path in [root, *root.rglob("*")]}
+    finally:
+        if acl_path is not None:
+            subprocess.run(["/bin/chmod", "-N", str(acl_path)], check=True, capture_output=True)
+
+
 def test_ordinary_manifest_preflight_reads_only_stdin_metadata_and_does_not_verify_a_missing_image(production_verifier, fixture):
     root, _, _, path = fixture
     data = path.read_bytes()

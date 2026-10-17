@@ -4,8 +4,19 @@ import Darwin
 
 @main struct InstallerPayloadChecks {
     static func main() {
-        guard getuid() != 0, geteuid() == getuid(), CommandLine.arguments.count == 3 else { exit(64) }
+        guard getuid() != 0, geteuid() == getuid() else { exit(64) }
         do {
+            if CommandLine.arguments.count == 4, ["--resources", "--directory"].contains(CommandLine.arguments[1]) {
+                let root = open(CommandLine.arguments[2], O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+                guard root >= 0 else { throw InstallerPayloadFailure.path }
+                defer { Darwin.close(root) }
+                let directory = try InstallerPayloadIO.walkDirectory(CommandLine.arguments[3], from: root, owner: getuid(),
+                                                                      installerResources: CommandLine.arguments[1] == "--resources")
+                Darwin.close(directory)
+                print("{\"status\":\"VERIFIED\"}")
+                return
+            }
+            guard CommandLine.arguments.count == 3 else { exit(64) }
             let file = open(CommandLine.arguments[1], O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC)
             guard file >= 0 else { throw InstallerPayloadFailure.path }
             let data: Data

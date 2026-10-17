@@ -296,8 +296,19 @@ and typed object counts. Invalid schemas, excessive alias work and directory
 depth stop during the build. Assembly refuses root or unequal real/effective
 identities before opening supplied payload paths.
 
-Local checks cover 116 native, receipt, archive-binding and package cases, both
+Local checks cover 129 native, receipt, archive-binding and package cases, both
 native architectures and a signed universal helper's ordinary-user refusal.
-Real Installer acceptance of this next candidate is pending. The package still
+The first real Installer attempt refused its script-resource path beneath
+`/private/tmp`: Apple uses this root-owned sticky shared directory for its
+root-owned script sandbox. A separate tiny actual-Installer probe reproduced
+the failure and recorded only public object metadata. The corrected resource
+walk allows exactly this ancestor with mode `01777`, while requiring root
+ownership, no ACL grants and protected non-alias children throughout. The sticky
+directory prevents other users from renaming its root-owned child. This rule is
+unavailable to installed payload walks; files and shared-parent permissions
+remain unchanged. Thirteen ordinary-user synthetic cases exercise the boundary,
+including missing sticky protection, writable children, ACLs and aliases.
+
+Real Installer acceptance of this correction is pending. The package still
 refuses existing installations; interrupted-install retry is not implemented.
 The installed owner app and deferred Gmail form remain untouched.
