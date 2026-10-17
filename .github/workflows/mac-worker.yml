@@ -154,6 +154,7 @@ jobs:
           cat /tmp/account-access-mac-staged-enrollment.json
           cat /tmp/account-access-mac-initial-setup.json
           cat /tmp/account-access-mac-initial-gateway.json
+          cat /tmp/account-access-mac-provisioning.json
       - name: Assemble offline development package and verify fail-closed installation
         run: |
           uv build --wheel

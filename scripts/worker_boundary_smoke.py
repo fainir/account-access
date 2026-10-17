@@ -657,10 +657,12 @@ def provisioned_system_broker(prefix, roles):
         "fixture_identity_removed": True,
         "checks": checks,
     }
+    evidence = Path("/tmp/account-access-mac-provisioning.json")
     private_file(
-        Path("/tmp/account-access-mac-provisioning.json"),
+        evidence,
         (json.dumps(report, indent=2) + "\n").encode(),
     )
+    evidence.chmod(0o644)  # Fixed non-secret booleans for the ordinary CI validator/uploader.
     return checks
 
 

@@ -11,6 +11,7 @@ import json
 import os
 from pathlib import Path
 import pwd
+import stat
 import subprocess
 import sys
 
@@ -50,6 +51,13 @@ def main():
     ):
         parser.error("Requires the exact development package from this build")
     checks = {}
+    parents = [Path("/Library"), Path("/Library/Application Support"), Path("/Applications")]
+
+    def ownership(path):
+        info = path.stat()
+        return info.st_uid, info.st_gid, stat.S_IMODE(info.st_mode)
+
+    parent_state = {path: ownership(path) for path in parents}
     try:
         result = subprocess.run(
             ["/usr/bin/sudo", "-n", "/usr/sbin/installer", "-pkg", str(package), "-target", "/"],
@@ -61,8 +69,6 @@ def main():
         checks["offline_runtime_installed_at_final_path"] = python.is_file()
         probe = subprocess.run(
             [
-                "/usr/bin/sudo",
-                "-n",
                 str(python),
                 "-I",
                 "-B",
@@ -77,6 +83,29 @@ def main():
         checks["installed_runtime_loads_dependencies_with_protected_paths"] = (
             probe.returncode == 0 and probe.stdout.strip() == b"OFFLINE_RUNTIME_OK"
         )
+        browser = subprocess.run(
+            [
+                str(python),
+                "-I",
+                "-B",
+                "-c",
+                "from playwright.sync_api import sync_playwright;"
+                "p=sync_playwright().start();b=p.chromium.launch(chromium_sandbox=True);"
+                "page=b.new_page();page.set_content('<h1>Package fixture</h1>');"
+                "assert page.locator('h1').inner_text()=='Package fixture';"
+                "b.close();p.stop();print('PACKAGE_BROWSER_OK')",
+            ],
+            capture_output=True,
+            timeout=45,
+            env={
+                "PATH": "/usr/bin:/bin",
+                "HOME": str(Path.home()),
+                "PLAYWRIGHT_BROWSERS_PATH": str(BASE / "browsers"),
+            },
+        )
+        checks["relocated_package_browser_runs_sandboxed_without_credentials"] = (
+            browser.returncode == 0 and browser.stdout.strip() == b"PACKAGE_BROWSER_OK"
+        )
         # The ad-hoc application cannot authorize a production service. Neither
         # payload installation nor dependency installation may create a store.
         checks["development_package_creates_no_vault_or_registration"] = (
@@ -90,6 +119,9 @@ def main():
             else:
                 checks["development_package_creates_no_service_" + name] = False
         checks["protected_app_payload_present"] = APP.is_dir()
+        checks["shared_system_parent_ownership_and_modes_preserved"] = all(
+            ownership(path) == before for path, before in parent_state.items()
+        )
         assert checks and all(value is True for value in checks.values())
     finally:
         # Never turn this into a general uninstall path. Only fresh CI payloads,

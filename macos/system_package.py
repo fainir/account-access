@@ -25,6 +25,17 @@ set -eu
 PATH=/usr/bin:/bin:/usr/sbin:/sbin
 export PATH
 [ "$(/usr/bin/id -u)" = 0 ] && [ "${3:-}" = / ] || exit 1
+for directory in / /Library "/Library/Application Support"; do
+  [ -d "$directory" ] && [ ! -L "$directory" ] || exit 1
+  [ "$(/usr/bin/stat -f %u "$directory")" = 0 ] || exit 1
+  permissions=$(/usr/bin/stat -f %p "$directory")
+  [ "$((0$permissions & 022))" = 0 ] || exit 1
+  # Before any bundled interpreter executes, require ordinary protected
+  # installation parents. Runtime validation can allow restrictive deny ACLs;
+  # this bootstrap conservatively refuses all nonstandard parent ACLs.
+  listing=$(/bin/ls -lde "$directory")
+  /usr/bin/printf '%s\\n' "$listing" | /usr/bin/awk 'NR > 1 { bad=1 } END { exit bad }' || exit 1
+done
 for location in "/Library/Application Support/Account Access" "/Applications/Account Access.app" "/Library/LaunchDaemons/com.fainir.accountaccess.broker.plist"; do
   [ ! -e "$location" ] && [ ! -L "$location" ] || exit 1
 done
@@ -48,6 +59,9 @@ AC_PACKAGE_BASE="/Library/Application Support/Account Access"
 "$AC_PACKAGE_BASE/runtime/bin/python" -I -B -m pip --isolated install --no-index --no-cache-dir --only-binary=:all: --require-hashes --find-links "$AC_PACKAGE_BASE/wheels" -r "$AC_PACKAGE_BASE/package-requirements.txt"
 /bin/chmod -R go-w "$AC_PACKAGE_BASE/python" "$AC_PACKAGE_BASE/runtime" "$AC_PACKAGE_BASE/browsers" "$AC_PACKAGE_BASE/bin" "$AC_PACKAGE_BASE/wheels"
 "$AC_PACKAGE_BASE/runtime/bin/python" -I -B -m account_access.system_provision
+AC_PACKAGE_OWNER=$(/usr/bin/stat -f %u /dev/console)
+[ "$AC_PACKAGE_OWNER" -gt 0 ] || exit 1
+/bin/launchctl asuser "$AC_PACKAGE_OWNER" /usr/bin/sudo -n -H -u "#$AC_PACKAGE_OWNER" -- /usr/bin/open -a "/Applications/Account Access.app"
 """
 
 
@@ -176,6 +190,9 @@ def assemble(args):
         (payload / "package-requirements.txt").write_bytes(
             requirements + f"\naccount-access=={version} --hash=sha256:{pin}\n".encode()
         )
+        # Do not ship ACL grants inherited from a maintainer's build folders.
+        # This changes only our private copied payload, never source artifacts.
+        command(["/bin/chmod", "-RN", str(root)])
         scripts.mkdir()
         for name, contents in [("preinstall", PREINSTALL), ("postinstall", POSTINSTALL)]:
             target = scripts / name
