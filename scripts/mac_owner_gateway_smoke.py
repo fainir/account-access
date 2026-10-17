@@ -6,6 +6,7 @@ XPC peer requirements run on this Mac. Publisher signing is optional for CI.
 """
 
 import argparse
+from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
@@ -24,6 +25,7 @@ from account_access.owner import make_owner_server
 
 SOURCE = Path(__file__).resolve().parents[1]
 NATIVE_CHECKS = {
+    "health_readiness_deadline_enforced", "invalid_health_timeouts_rejected",
     "worker_generation_retires_live_owner_session", "worker_generation_accepts_new_owner_connection",
     "actual_python_owner_api_reached", "allow_authorization_rule_rejected", "authorization_cannot_survive_disconnect",
     "authorized_authenticator_setup_reached_broker", "authorized_csv_preview_reached_broker",
@@ -43,6 +45,43 @@ NATIVE_CHECKS = {
     "untrusted_code_cannot_reach_gateway", "untrusted_helper_ran", "hardened_test_peers", "os_authorization_reference_round_trip",
     "host_default_cannot_replace_dedicated_rule",
 }
+
+
+@contextmanager
+def stalled_health(path):
+    """Accept one read-only health request and intentionally send no reply."""
+    server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    server.bind(str(path))
+    server.listen(8)
+    server.settimeout(0.2)
+    stopped = threading.Event()
+    requests = []
+
+    def serve():
+        while not stopped.is_set():
+            try:
+                peer, _ = server.accept()
+            except TimeoutError:
+                continue
+            with peer:
+                peer.settimeout(2)
+                try:
+                    data = peer.recv(4096)
+                    requests.append(data.startswith(b"GET /owner/health HTTP/1.0\r\n"))
+                except TimeoutError:
+                    requests.append(False)
+                stopped.wait(2)
+
+    thread = threading.Thread(target=serve, daemon=True)
+    thread.start()
+    try:
+        yield requests
+    finally:
+        stopped.set()
+        thread.join(timeout=5)
+        server.close()
+        path.unlink(missing_ok=True)
+        assert not thread.is_alive()
 
 
 def validate_report(value, *, publisher):
@@ -113,7 +152,7 @@ def main():
         app, helpers = build(root, args.signing_identity)
         stage = "fixture"
         state = root / "state"
-        with environment(state) as (provider, broker, _):
+        with environment(state) as (provider, broker, _), stalled_health(root / "health.sock") as health_requests:
             broker.store.new_client("gateway-qa")
             path = str(root / "owner.sock")
             listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -125,7 +164,7 @@ def main():
             thread.start()
             stage = "native_xpc"
             try:
-                message = {"socket": path, "capability": capability, "trusted_service": helpers[0],
+                message = {"socket": path, "health_socket": str(root / "health.sock"), "capability": capability, "trusted_service": helpers[0],
                            "denied_service": helpers[1], "login_url": provider.base + "/web/login"}
                 result = subprocess.run([str(app / "Contents/MacOS/GatewayChecks")],
                     input=json.dumps(message).encode(), capture_output=True, timeout=240)
@@ -142,6 +181,7 @@ def main():
                                       "failed_checks": report.get("failed_checks", []), "production_ready": False}))
                     return 1
                 assert validate_report(report, publisher=bool(args.signing_identity))
+                assert health_requests == [True]  # No write, invalid-timeout I/O or replay.
                 assert all(secret not in result.stdout + result.stderr for secret in
                     [capability.encode(), b"controlled-demo-password-only", b"JBSWY3DPEHPK3PXP"])
                 assert not provider.login_count  # No browser sign-ins in this owner-channel test.

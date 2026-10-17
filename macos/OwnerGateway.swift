@@ -503,14 +503,22 @@ final class OwnerUnixBackend: OwnerGatewayBackend {
     }
 
     func request(_ route: OwnerGatewayRoute) throws -> (Int, Data) {
+        try request(route, timeout: 35)
+    }
+    func health(timeout: TimeInterval) throws -> (Int, Data) {
+        try request(OwnerGatewayRoute("owner/health", body: nil), timeout: timeout)
+    }
+    private func request(_ route: OwnerGatewayRoute, timeout: TimeInterval) throws -> (Int, Data) {
+        guard timeout.isFinite, timeout > 0, timeout <= 35 else { throw OwnerGatewayError.invalidPolicy }
         let descriptor = socket(AF_UNIX, SOCK_STREAM, 0)
         guard descriptor >= 0 else { throw OwnerGatewayError.unavailable }
         defer { Darwin.close(descriptor) }
         guard fcntl(descriptor, F_SETFD, FD_CLOEXEC) == 0 else { throw OwnerGatewayError.unavailable }
-        var timeout = timeval(tv_sec: 30, tv_usec: 0)
+        let milliseconds = Int((min(timeout, 30) * 1000).rounded(.up))
+        var socketTimeout = timeval(tv_sec: milliseconds / 1000, tv_usec: Int32((milliseconds % 1000) * 1000))
         var enabled: Int32 = 1
-        guard setsockopt(descriptor, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size)) == 0,
-              setsockopt(descriptor, SOL_SOCKET, SO_SNDTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size)) == 0,
+        guard setsockopt(descriptor, SOL_SOCKET, SO_RCVTIMEO, &socketTimeout, socklen_t(MemoryLayout<timeval>.size)) == 0,
+              setsockopt(descriptor, SOL_SOCKET, SO_SNDTIMEO, &socketTimeout, socklen_t(MemoryLayout<timeval>.size)) == 0,
               setsockopt(descriptor, SOL_SOCKET, SO_NOSIGPIPE, &enabled, socklen_t(MemoryLayout<Int32>.size)) == 0 else {
             throw OwnerGatewayError.unavailable
         }
@@ -532,7 +540,7 @@ final class OwnerUnixBackend: OwnerGatewayBackend {
         if route.body != nil { header += "Origin: http://" + host + "\r\nContent-Type: application/json\r\n" }
         header += "Content-Length: " + String(body.count) + "\r\n\r\n"
         var payload = Data(header.utf8); payload.append(body)
-        let deadline = ProcessInfo.processInfo.systemUptime + 35
+        let deadline = ProcessInfo.processInfo.systemUptime + timeout
         try payload.withUnsafeBytes { raw in
             var sent = 0
             while sent < raw.count {

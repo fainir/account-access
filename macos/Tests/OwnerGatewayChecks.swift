@@ -221,13 +221,28 @@ enum GatewayChecks {
         do {
             let input = FileHandle.standardInput.readDataToEndOfFile()
             guard input.count <= 4096, let values = try JSONSerialization.jsonObject(with: input) as? [String: Any],
-                  let path = values["socket"] as? String, let capability = values["capability"] as? String,
+                  let path = values["socket"] as? String, let healthPath = values["health_socket"] as? String,
+                  let capability = values["capability"] as? String,
                   let trustedID = values["trusted_service"] as? String, let deniedID = values["denied_service"] as? String else {
                 throw OwnerGatewayError.invalidPolicy
             }
             trusted = trustedID; denied = deniedID
             stage = "pure_policy"
             var checks = try GatewayChecks.pureChecks()
+            stage = "bounded_readiness_health"
+            let stalled = try OwnerUnixBackend.fixture(path: healthPath, capability: capability, port: 8765)
+            let began = ProcessInfo.processInfo.systemUptime
+            do { _ = try stalled.health(timeout: 0.15); throw OwnerGatewayError.invalidPolicy }
+            catch OwnerGatewayError.invalidResponse { }
+            catch OwnerGatewayError.unavailable { }
+            let elapsed = ProcessInfo.processInfo.systemUptime - began
+            checks["health_readiness_deadline_enforced"] = elapsed >= 0.1 && elapsed < 2
+            var invalid = 0
+            for limit: TimeInterval in [0, -1, 36, .infinity, .nan] {
+                do { _ = try stalled.health(timeout: limit); throw OwnerGatewayError.invalidResponse }
+                catch OwnerGatewayError.invalidPolicy { invalid += 1 }
+            }
+            checks["invalid_health_timeouts_rejected"] = invalid == 5
             stage = "private_unix_backend"
             let backend = CheckedOwnerBackend(try OwnerUnixBackend.fixture(path: path, capability: capability, port: 8765), capability: capability)
             let bundle = Bundle.main.bundleURL

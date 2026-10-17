@@ -142,7 +142,9 @@ final class RootWorkerProcess {
                 let state = waitpid(child!, &status, WNOHANG)
                 if state == child! { child = nil; exitStatus = status; throw RootWorkerProcessFailure.unavailable }
                 guard state == 0 else { throw RootWorkerProcessFailure.ownershipLost }
-                if let result = try? backend.request(OwnerGatewayRoute("owner/health", body: nil)), result.0 == 200 { return backend }
+                let remaining = deadline - ProcessInfo.processInfo.systemUptime
+                guard remaining > 0 else { throw RootWorkerProcessFailure.unavailable }
+                if let result = try? backend.health(timeout: min(1, remaining)), result.0 == 200 { return backend }
                 Thread.sleep(forTimeInterval: 0.1)
             }
             throw RootWorkerProcessFailure.unavailable

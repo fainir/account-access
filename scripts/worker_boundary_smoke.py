@@ -396,7 +396,9 @@ def root_key_custody(prefix, roles):
         command(["/bin/launchctl", "bootstrap", "system", str(launch)])
         try:
             path = prefix / ("key-" + mode + ".json")
-            deadline = time.monotonic() + (120 if mode == "supervisor" else 45)
+            # These phases contain several independently bounded worker
+            # starts/stops; their aggregate budget must cover the full journey.
+            deadline = time.monotonic() + {"handoff": 240, "supervisor": 420}.get(mode, 45)
             while time.monotonic() < deadline:
                 service = command(["/bin/launchctl", "print", "system/" + label])
                 exited = re.findall(rb"last exit code = ([0-9]+)", service)
@@ -436,6 +438,7 @@ def root_key_custody(prefix, roles):
                             checks[mode + "_" + key] = value
                     return result["checks"]
                 time.sleep(0.1)
+            stage("key_custody_phase_timed_out")
             raise RuntimeError("key_custody_phase_timed_out")
         finally:
             command(["/bin/launchctl", "bootout", "system/" + label])
