@@ -15,8 +15,9 @@ controlled fixtures.
 The launcher also checks descendants of the venv, managed Python installation
 and browser tree. Root-owned top-level folders are insufficient: imported code,
 site hooks, standard-library files and browser components must also be root
-owned and unwritable by other users. Special/set-ID objects and directory
-symlinks escaping the checked tree are rejected. Enumeration is bounded and
+owned and unwritable by other users. Special/set-ID objects are rejected;
+directory symlink targets are recursively checked, including external targets.
+Enumeration is bounded, tracks visited targets to prevent cycles and
 fails on unreadable entries. Runtime provisioning and updates still need their
 own trusted package verification; filesystem ownership is not publisher trust.
 
@@ -40,6 +41,14 @@ The current launcher requires a descriptor-table limit of at most 65,536; its CI
 parent uses 10,240. This bounds the final descriptor cleanup. The parent must
 supervise/reap the child and retain appropriate custody of its key. Root and the
 complete runtime/provisioning chain remain trusted.
+
+The parent must also establish the dedicated user's Mac execution context.
+Changing UID/GID alone does not adopt a Mach bootstrap namespace or security
+audit session. The disposable harness creates a user launchd domain and adopts
+it with `launchctl asuser` before the root-invoked native launcher drops its
+credentials. The harness does not create a GUI login. CI must confirm that sandboxed
+Chromium actually starts and that the final process has the expected UID/GID.
+The initial UID-only launch failed browser startup and is not acceptance.
 
 ## Acceptance scope
 

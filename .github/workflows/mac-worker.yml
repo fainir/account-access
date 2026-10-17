@@ -51,6 +51,7 @@ jobs:
           sudo env PLAYWRIGHT_BROWSERS_PATH="$AC_MAC_WORKER_PREFIX/browsers" \
             "$AC_MAC_WORKER_PREFIX/runtime/bin/python" -I -B -m playwright install chromium
           sudo chmod -R a+rX "$AC_MAC_WORKER_PREFIX/browsers"
+          sudo chmod -R go-w "$AC_MAC_WORKER_PREFIX/python" "$AC_MAC_WORKER_PREFIX/runtime" "$AC_MAC_WORKER_PREFIX/browsers"
       - name: Verify real cross-user password, email, SMS and authenticator recovery
         run: |
           ulimit -n 10240

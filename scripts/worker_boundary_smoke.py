@@ -344,9 +344,21 @@ def exercise(prefix, roles):
                         unsafe.write_text("# Inert CI fixture, never imported.\n")
                         unsafe.chmod(0o666)
                         rejected = subprocess.run(arguments, capture_output=True, timeout=30)
-                        assert rejected.returncode == 78 and json.loads(rejected.stdout).get("reason") == "unsafe_worker_launcher_runtime"
+                        assert rejected.returncode == 78 and json.loads(rejected.stdout).get("reason") == "worker_runtime_tree_writable"
                     finally:
                         unsafe.unlink(missing_ok=True)
+                    outside = prefix / "qa-external-module"
+                    alias = unsafe.with_name("qa-external-module-alias")
+                    outside.mkdir(mode=0o755)
+                    try:
+                        (outside / "untrusted.py").write_text("# Inert external-directory fixture.\n")
+                        (outside / "untrusted.py").chmod(0o666)
+                        alias.symlink_to(outside, target_is_directory=True)
+                        rejected = subprocess.run(arguments, capture_output=True, timeout=30)
+                        assert rejected.returncode == 78 and json.loads(rejected.stdout).get("reason") == "worker_runtime_tree_writable"
+                    finally:
+                        alias.unlink(missing_ok=True)
+                        shutil.rmtree(outside)
                 worker = subprocess.Popen(arguments, pass_fds=(reader, agent_socket.fileno(), owner_socket.fileno()),
                     stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                     start_new_session=True, env={"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"})
@@ -371,7 +383,9 @@ def exercise(prefix, roles):
                             "invalid_worker_descriptors", "invalid_worker_configuration_mode", "worker_unavailable",
                             "worker_launcher_requires_root", "invalid_worker_launcher_arguments", "invalid_worker_launcher_policy",
                             "unsafe_worker_launcher_runtime", "invalid_worker_launcher_identity", "invalid_worker_launcher_descriptors",
-                            "worker_identity_drop_failed", "worker_execution_failed"}
+                            "worker_identity_drop_failed", "worker_execution_failed", "worker_runtime_tree_owner_mismatch",
+                            "worker_runtime_tree_writable", "worker_runtime_tree_special_object", "worker_runtime_tree_unreadable",
+                            "worker_runtime_tree_too_large"}
                         stage(reason if reason in allowed else "no_worker_startup_report")
                         print(json.dumps({"worker_exit_code": worker.returncode}), file=sys.stderr)
                         raise RuntimeError("fixture_worker_exited_before_ready")

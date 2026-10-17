@@ -8,6 +8,11 @@ enum WorkerLaunchFailure: String, Error {
     case invalidArguments = "invalid_worker_launcher_arguments"
     case invalidPolicy = "invalid_worker_launcher_policy"
     case unsafeRuntime = "unsafe_worker_launcher_runtime"
+    case treeOwner = "worker_runtime_tree_owner_mismatch"
+    case treeWritable = "worker_runtime_tree_writable"
+    case treeObject = "worker_runtime_tree_special_object"
+    case treeUnreadable = "worker_runtime_tree_unreadable"
+    case treeTooLarge = "worker_runtime_tree_too_large"
     case invalidIdentity = "invalid_worker_launcher_identity"
     case invalidDescriptors = "invalid_worker_launcher_descriptors"
     case identityDropFailed = "worker_identity_drop_failed"
@@ -17,38 +22,49 @@ enum WorkerLaunchFailure: String, Error {
 enum WorkerLaunchPaths {
     static func protectedTree(_ path: String) throws -> URL {
         let root = try protected(path)
-        var rootInfo = stat()
-        guard lstat(root.path, &rootInfo) == 0, rootInfo.st_mode & S_IFMT == S_IFDIR else {
-            throw WorkerLaunchFailure.unsafeRuntime
-        }
-        var failed = false
-        guard let entries = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil,
-            options: [], errorHandler: { _, _ in failed = true; return false }) else {
-            throw WorkerLaunchFailure.unsafeRuntime
-        }
+        var pending = [root], visited: Set<String> = []
         var count = 0
-        while let item = entries.nextObject() as? URL {
-            count += 1
-            var info = stat()
-            guard count <= 100_000, lstat(item.path, &info) == 0, info.st_uid == 0 else {
-                throw WorkerLaunchFailure.unsafeRuntime
+        while let directory = pending.popLast() {
+            if visited.contains(directory.path) { continue }
+            visited.insert(directory.path)
+            var rootInfo = stat()
+            guard lstat(directory.path, &rootInfo) == 0, rootInfo.st_mode & S_IFMT == S_IFDIR else {
+                throw WorkerLaunchFailure.treeUnreadable
             }
-            let kind = info.st_mode & S_IFMT
-            if kind == S_IFLNK {
-                let target = try protected(item.path)
-                var targetInfo = stat()
-                guard lstat(target.path, &targetInfo) == 0 else { throw WorkerLaunchFailure.unsafeRuntime }
-                // Directory aliases must remain in the tree being enumerated;
-                // otherwise their contents would evade the descendant checks.
-                if targetInfo.st_mode & S_IFMT == S_IFDIR && target.path != root.path
-                    && !target.path.hasPrefix(root.path + "/") { throw WorkerLaunchFailure.unsafeRuntime }
-            } else {
-                guard [S_IFREG, S_IFDIR].contains(kind), info.st_mode & 0o6022 == 0 else {
-                    throw WorkerLaunchFailure.unsafeRuntime
+            guard rootInfo.st_mode & 0o6000 == 0 else { throw WorkerLaunchFailure.treeObject }
+            var failed = false
+            guard let entries = FileManager.default.enumerator(at: directory, includingPropertiesForKeys: nil,
+                options: [], errorHandler: { _, _ in failed = true; return false }) else {
+                throw WorkerLaunchFailure.treeUnreadable
+            }
+            while let item = entries.nextObject() as? URL {
+                count += 1
+                guard count <= 100_000 else { throw WorkerLaunchFailure.treeTooLarge }
+                var info = stat()
+                guard lstat(item.path, &info) == 0 else { throw WorkerLaunchFailure.treeUnreadable }
+                guard info.st_uid == 0 else { throw WorkerLaunchFailure.treeOwner }
+                let kind = info.st_mode & S_IFMT
+                if kind == S_IFLNK {
+                    let target = try protected(item.path)
+                    var targetInfo = stat()
+                    guard lstat(target.path, &targetInfo) == 0 else { throw WorkerLaunchFailure.treeUnreadable }
+                    guard targetInfo.st_mode & 0o6000 == 0 else { throw WorkerLaunchFailure.treeObject }
+                    if targetInfo.st_mode & S_IFMT == S_IFDIR {
+                        // A root-owned directory alias may leave this tree,
+                        // but all of its target's descendants must be checked.
+                        if !visited.contains(where: { target.path == $0 || target.path.hasPrefix($0 + "/") }) {
+                            pending.append(target)
+                        }
+                    } else if targetInfo.st_mode & S_IFMT != S_IFREG { throw WorkerLaunchFailure.treeObject }
+                } else {
+                    guard [S_IFREG, S_IFDIR].contains(kind), info.st_mode & 0o6000 == 0 else {
+                        throw WorkerLaunchFailure.treeObject
+                    }
+                    guard info.st_mode & 0o022 == 0 else { throw WorkerLaunchFailure.treeWritable }
                 }
             }
+            guard !failed else { throw WorkerLaunchFailure.treeUnreadable }
         }
-        guard !failed else { throw WorkerLaunchFailure.unsafeRuntime }
         return root
     }
 
