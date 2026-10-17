@@ -48,7 +48,7 @@ import Darwin
                   let identity = value["vault_id"] as? String else { throw RootVaultKeyFailure.invalidIdentity }
             let root = try WorkerLaunchPaths.protected(WorkerLaunchPaths.lexical(value["root"]))
             let mode = CommandLine.arguments[3]
-            guard ["create", "reopen", "unprivileged", "remove", "handoff", "supervisor", "receive", "coordinator", "coordinator-cleanup", "initializer"].contains(mode) else { throw RootVaultKeyFailure.invalidIdentity }
+            guard ["create", "reopen", "unprivileged", "remove", "handoff", "supervisor", "receive", "coordinator", "coordinator-cleanup", "initializer", "initial-setup", "initial-setup-cleanup"].contains(mode) else { throw RootVaultKeyFailure.invalidIdentity }
             if mode == "receive" {
                 guard CommandLine.arguments.count == 5 else { throw RootVaultKeyFailure.invalidIdentity }
                 try RootKeyHandoffChecks.receive(value, stage: CommandLine.arguments[4])
@@ -75,7 +75,15 @@ import Darwin
             checks["system_daemon_context_verified"] = true
             var limit = rlimit()
             checks["provider_disabled_core_dumps"] = getrlimit(RLIMIT_CORE, &limit) == 0 && limit.rlim_cur == 0 && limit.rlim_max == 0
-            if mode == "initializer" {
+            if mode == "initial-setup" {
+                checkpoint = "native_initial_enrollment"
+                checks = try RootInitialEnrollmentChecks.run(value)
+            } else if mode == "initial-setup-cleanup" {
+                let plan = try MacWorkerEnrollmentPlan(policy: root.appendingPathComponent("first-enrollment-launch.json").path, requireEmptyStage: false)
+                do { try store.removeFixture(plan.vault) }
+                catch let error as RootKeychainFailure where error.status == errSecItemNotFound { }
+                checks["initial_setup_fixture_key_removed"] = true
+            } else if mode == "initializer" {
                 checkpoint = "native_staged_initializer"
                 checks = try RootEnrollmentChecks.run(value, identity: identity)
             } else if mode == "coordinator" {

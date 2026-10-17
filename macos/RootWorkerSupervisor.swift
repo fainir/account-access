@@ -94,6 +94,22 @@ final class RootWorkerSupervisor: OwnerGatewayBackend {
             throw error
         }
     }
+    // Initial enrollment may be paused before the empty store's first worker
+    // is ready. Its root-owned enrollment journal holds the durable pause.
+    func pauseEnrollment() throws {
+        try RootVaultKeyStore.requireDaemon()
+        lock.lock(); defer { lock.unlock() }
+        guard current != .stopped else { throw RootWorkerProcessFailure.invalidState }
+        current = .paused
+        try discardWorker()
+    }
+    func resumeEnrollment(_ approval: OwnerEnrollmentApproval) throws {
+        try RootVaultKeyStore.requireDaemon()
+        lock.lock(); defer { lock.unlock() }
+        guard current == .paused, try !isPaused() else { throw RootWorkerProcessFailure.paused }
+        current = .idle
+        try start()
+    }
     // A trusted native scheduler calls tick; requests never restart the worker
     // or replay a write. Only an observed, reaped owned-child exit is retried.
     func tick() throws {

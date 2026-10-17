@@ -44,6 +44,10 @@ NATIVE_CHECKS = {
     "test_clients_have_distinct_code_hashes", "test_helpers_exited", "unconfigured_or_ungranted_setup_rejected",
     "untrusted_code_cannot_reach_gateway", "untrusted_helper_ran", "hardened_test_peers", "os_authorization_reference_round_trip",
     "host_default_cannot_replace_dedicated_rule",
+    "vault_enrollment_requires_setup", "vault_enrollment_rejects_caller_configuration",
+    "unapproved_vault_enrollment_refused", "invalid_vault_enrollment_proof_refused",
+    "approved_vault_enrollment_uses_typed_authority", "expired_vault_enrollment_refused",
+    "closed_vault_enrollment_refused", "vault_enrollment_not_forwarded_to_legacy_backend",
 }
 
 

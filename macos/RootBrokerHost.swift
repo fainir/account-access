@@ -1,11 +1,12 @@
-// Native composition for a previously enrolled store. Consumer installation,
-// genuine enrollment, source collectors and parent-daemon recovery are separate.
+// Native composition for existing stores or a fixed first-enrollment plan.
+// Consumer installation, source collectors and client issuance are separate.
 import Foundation
 
 final class RootBrokerHost {
     private final class GatewayReference { weak var host: OwnerGatewayHost? }
     private let worker: RootWorkerSupervisor
     private let gateway: OwnerGatewayHost
+    private let enrollment: RootInitialEnrollment?
     private let queue = DispatchQueue(label: "com.fainir.accountaccess.broker.lifecycle")
     private let lock = NSLock()
     private var timer: DispatchSourceTimer?
@@ -13,13 +14,17 @@ final class RootBrokerHost {
     private var stopped = false
 
     init(policy: String, bootstrap: String, bootstrapPeer: OwnerGatewayPeer,
-         vault: String, owner: OwnerGatewayPeer) throws {
+         vault: String, owner: OwnerGatewayPeer, enrollmentPolicy: String? = nil) throws {
         try RootVaultKeyStore.requireDaemon()
         let reference = GatewayReference()
         let listeners = try RootActivatedListeners(plan: MacWorkerPlan(policy: policy))
-        worker = try RootWorkerSupervisor(policy: policy, bootstrap: bootstrap, peer: bootstrapPeer,
+        let managedWorker = try RootWorkerSupervisor(policy: policy, bootstrap: bootstrap, peer: bootstrapPeer,
             vault: vault, listeners: listeners, invalidateOwners: { reference.host?.invalidateSessions() })
-        gateway = try OwnerGatewayHost(owner: owner, backend: worker)
+        worker = managedWorker
+        let initialSetup = try enrollmentPolicy.map { try RootInitialEnrollment(worker: managedWorker, policy: $0,
+            bootstrap: bootstrap, peer: bootstrapPeer, owner: owner.uid, workerPolicy: policy, vault: vault) }
+        enrollment = initialSetup
+        gateway = try OwnerGatewayHost(owner: owner, backend: initialSetup ?? managedWorker)
         reference.host = gateway
     }
     var workerPID: pid_t? { worker.pid }
@@ -33,7 +38,8 @@ final class RootBrokerHost {
         started = true
         do {
             _ = try OwnerAuthorizationPolicy.installIfAbsent()
-            try worker.start()
+            if let enrollment { try enrollment.start() }
+            else { try worker.start() }
             try gateway.start()
             let monitor = DispatchSource.makeTimerSource(queue: queue)
             monitor.schedule(deadline: .now() + 0.25, repeating: 0.25)
@@ -47,7 +53,8 @@ final class RootBrokerHost {
         } catch {
             stopped = true
             gateway.stop()
-            try worker.stop()
+            if let enrollment { try enrollment.stop() }
+            else { try worker.stop() }
             throw error
         }
     }
@@ -57,7 +64,8 @@ final class RootBrokerHost {
         guard !wasStopped else { return }
         monitor?.cancel()
         gateway.stop()
-        try worker.stop()
+        if let enrollment { try enrollment.stop() }
+        else { try worker.stop() }
     }
     deinit { try? stop() }
 }

@@ -179,7 +179,7 @@ struct OwnerGatewayRoute {
         "owner/authenticator/apply", "owner/authenticator/discard", "owner/source",
         "owner/source/check", "owner/source/revoke", "owner/mailbox/connect", "owner/mailbox/check",
         "owner/mailbox/password", "owner/mailbox/remove", "owner/password-sync",
-        "owner/password-sync/disconnect", "owner/phone/pair", "owner/stop"
+        "owner/password-sync/disconnect", "owner/phone/pair", "owner/stop", "owner/vault/enroll"
     ]
     static let restrictions: Set<String> = ["owner/stop", "owner/revoke", "owner/source/revoke",
         "owner/mailbox/remove", "owner/password-sync/disconnect", "owner/authenticator/discard"]
@@ -196,6 +196,7 @@ struct OwnerGatewayRoute {
             if route == "owner/verify", (value["visible"] as? Bool) == true {
                 throw OwnerGatewayError.invalidPolicy // Requires a future trusted host handoff.
             }
+            if route == "owner/vault/enroll", !value.isEmpty { throw OwnerGatewayError.invalidPolicy }
         }
         self.path = "/" + route
         self.body = body
@@ -205,6 +206,13 @@ struct OwnerGatewayRoute {
 
 protocol OwnerGatewayBackend {
     func request(_ route: OwnerGatewayRoute) throws -> (Int, Data)
+}
+
+// Only a live, authenticated setup session can create this native authority.
+// It has no serialized representation, secret bytes or caller-selected policy.
+struct OwnerEnrollmentApproval { fileprivate init() {} }
+protocol OwnerVaultEnrollmentBackend: OwnerGatewayBackend {
+    func enroll(_ approval: OwnerEnrollmentApproval) throws -> (Int, Data)
 }
 
 protocol OwnerSetupProofVerifying {
@@ -278,7 +286,16 @@ final class OwnerGatewaySession: NSObject, OwnerGatewayRPC {
         lock.unlock()
         let result: (Int, Data)
         do {
-            let (status, data) = try backend.request(route)
+            let response: (Int, Data)
+            if route.path == "/owner/vault/enroll" {
+                guard let enrollment = backend as? OwnerVaultEnrollmentBackend else {
+                    throw OwnerGatewayError.invalidPolicy
+                }
+                response = try enrollment.enroll(OwnerEnrollmentApproval())
+            } else {
+                response = try backend.request(route)
+            }
+            let (status, data) = response
             guard (200...299).contains(status) || (400...599).contains(status), data.count <= 8_000_000,
                   (try? JSONSerialization.jsonObject(with: data)) is [String: Any] else {
                 throw OwnerGatewayError.invalidResponse

@@ -10,6 +10,8 @@ enum RootPublicationFailure: String, Error {
     case unavailable = "vault_publication_unavailable"
 }
 
+enum RootPublicationPhase { case empty, incomplete, ready, published }
+
 final class RootStorePublication {
     private struct Identity: Equatable, Codable {
         let device: Int64
@@ -167,6 +169,56 @@ final class RootStorePublication {
         guard stage == record.emptyIdentity, destination == record.stagedIdentity,
               try ready() else { throw RootPublicationFailure.unsafeState }
         return true
+    }
+    private func marker(_ name: String, equals data: Data) throws -> Bool {
+        var info = stat()
+        if fstatat(journalFD, name, &info, AT_SYMLINK_NOFOLLOW) == -1 {
+            guard errno == ENOENT else { throw RootPublicationFailure.unsafeState }
+            return false
+        }
+        guard try Self.read(journalFD, name) == data else { throw RootPublicationFailure.unsafeState }
+        return true
+    }
+    private func authorizationData(_ owner: uid_t) throws -> Data {
+        guard owner == plan.base.agentUID else { throw RootPublicationFailure.unsafeState }
+        return try JSONSerialization.data(withJSONObject: ["schema": 1, "owner_uid": Int(owner)], options: .sortedKeys)
+    }
+    func isAuthorized(owner: uid_t) throws -> Bool {
+        try RootVaultKeyStore.requireDaemon()
+        stateLock.lock(); defer { stateLock.unlock() }
+        return try marker("authorized", equals: authorizationData(owner))
+    }
+    func authorize(_ approval: OwnerEnrollmentApproval, owner: uid_t) throws {
+        try RootVaultKeyStore.requireDaemon()
+        stateLock.lock(); defer { stateLock.unlock() }
+        let data = try authorizationData(owner)
+        if try !marker("authorized", equals: data) { try Self.create(journalFD, "authorized", data: data) }
+    }
+    func isPaused() throws -> Bool {
+        try RootVaultKeyStore.requireDaemon()
+        stateLock.lock(); defer { stateLock.unlock() }
+        return try marker("paused", equals: Data("paused\n".utf8))
+    }
+    func pause() throws {
+        try RootVaultKeyStore.requireDaemon()
+        stateLock.lock(); defer { stateLock.unlock() }
+        let data = Data("paused\n".utf8)
+        if try !marker("paused", equals: data) { try Self.create(journalFD, "paused", data: data) }
+    }
+    func resume(_ approval: OwnerEnrollmentApproval) throws {
+        try RootVaultKeyStore.requireDaemon()
+        stateLock.lock(); defer { stateLock.unlock() }
+        if try marker("paused", equals: Data("paused\n".utf8)) {
+            guard unlinkat(journalFD, "paused", 0) == 0, fsync(journalFD) == 0 else { throw RootPublicationFailure.unavailable }
+        }
+    }
+    func phase() throws -> RootPublicationPhase {
+        try RootVaultKeyStore.requireDaemon()
+        stateLock.lock(); defer { stateLock.unlock() }
+        if try swapped() { return .published }
+        guard try FileManager.default.contentsOfDirectory(atPath: destination).isEmpty else { throw RootPublicationFailure.unsafeState }
+        if try ready() { return .ready }
+        return try FileManager.default.contentsOfDirectory(atPath: plan.stage).isEmpty ? .empty : .incomplete
     }
     func accept(_ receipt: VerifiedStagedVault) throws {
         try RootVaultKeyStore.requireDaemon()

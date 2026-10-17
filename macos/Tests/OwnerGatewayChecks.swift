@@ -175,6 +175,34 @@ enum GatewayChecks {
         final class Echo: OwnerGatewayBackend {
             func request(_ route: OwnerGatewayRoute) throws -> (Int, Data) { (200, Data("{}".utf8)) }
         }
+        final class EnrollmentProbe: OwnerVaultEnrollmentBackend {
+            var enrolled = 0, ordinary = 0
+            func request(_ route: OwnerGatewayRoute) throws -> (Int, Data) { ordinary += 1; return (200, Data("{}".utf8)) }
+            func enroll(_ approval: OwnerEnrollmentApproval) throws -> (Int, Data) { enrolled += 1; return (202, Data("{}".utf8)) }
+        }
+        let enrollmentBody = Data("{}".utf8)
+        result["vault_enrollment_requires_setup"] = try OwnerGatewayRoute("owner/vault/enroll", body: enrollmentBody).requiresSetup
+        result["vault_enrollment_rejects_caller_configuration"] = ["vault_id", "path", "owner_uid", "password", "command"].allSatisfy {
+            (try? OwnerGatewayRoute("owner/vault/enroll", body: JSONSerialization.data(withJSONObject: [$0: "untrusted"]))) == nil
+        }
+        let probe = EnrollmentProbe()
+        var enrollmentTime: TimeInterval = 100
+        let enrolling = OwnerGatewaySession.fixture(backend: probe, authorize: { $0 == Data(repeating: 0x45, count: 32) }, clock: { enrollmentTime })
+        enrolling.request("owner/vault/enroll", body: enrollmentBody) { status, _ in result["unapproved_vault_enrollment_refused"] = status == 403 && probe.enrolled == 0 }
+        enrolling.authorizeSetup(Data(repeating: 0x00, count: 32)) { result["invalid_vault_enrollment_proof_refused"] = !$0 }
+        enrolling.request("owner/vault/enroll", body: enrollmentBody) { status, _ in result["invalid_vault_enrollment_proof_refused"] = result["invalid_vault_enrollment_proof_refused"] == true && status == 403 && probe.enrolled == 0 }
+        enrolling.authorizeSetup(Data(repeating: 0x45, count: 32)) { accepted in
+            if !accepted { result["approved_vault_enrollment_uses_typed_authority"] = false }
+        }
+        enrolling.request("owner/vault/enroll", body: enrollmentBody) { status, _ in result["approved_vault_enrollment_uses_typed_authority"] = status == 202 && probe.enrolled == 1 && probe.ordinary == 0 }
+        enrollmentTime = 701
+        enrolling.request("owner/vault/enroll", body: enrollmentBody) { status, _ in result["expired_vault_enrollment_refused"] = status == 403 && probe.enrolled == 1 }
+        enrolling.close()
+        enrolling.request("owner/vault/enroll", body: enrollmentBody) { status, _ in result["closed_vault_enrollment_refused"] = status == 403 && probe.enrolled == 1 }
+        let legacy = OwnerGatewaySession.fixture(backend: Echo(), authorize: { _ in true })
+        legacy.authorizeSetup(Data(repeating: 0x45, count: 32)) { _ in }
+        legacy.request("owner/vault/enroll", body: enrollmentBody) { status, _ in result["vault_enrollment_not_forwarded_to_legacy_backend"] = status == 503 }
+        legacy.close()
         var now: TimeInterval = 100
         let session = OwnerGatewaySession.fixture(backend: Echo(), authorize: { $0 == Data(repeating: 0x41, count: 32) }, clock: { now })
         var accepted = false
