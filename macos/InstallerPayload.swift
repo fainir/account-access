@@ -428,6 +428,15 @@ enum InstallerPayloadIO {
         guard manifest.trees[InstallerPayloadManifest.support]?.nodes["runtime/bin/python"] != nil,
               lseek(file, 0, SEEK_SET) == 0 else { throw InstallerPayloadFailure.manifest }
         let python = resourcePath + "/PublicImage" + InstallerPayloadManifest.support + "/runtime/bin/python"
+        try replaceSource(python, source: image, manifest: file, digest: manifest.sha256)
+    }
+    static func replaceSource(_ python: String, source image: Int32, manifest file: Int32, digest: String) throws -> Never {
+        // This primitive preserves identity; it never elevates. Production's
+        // root-only caller verifies the complete source before reaching it.
+        guard getuid() == geteuid(), image >= 3, file >= 3, image != file,
+              python.hasPrefix("/"), !python.utf8.contains(0) else { throw InstallerPayloadFailure.context }
+        _ = try check(image, owner: getuid(), directory: true)
+        _ = try check(file, owner: getuid(), directory: false)
         // Keep sources above every destination. Explicit dup actions avoid
         // descriptor collisions and inherit only the fixed public 3/4 frame.
         let sourceCopy = fcntl(image, F_DUPFD_CLOEXEC, 10)
@@ -439,9 +448,15 @@ enum InstallerPayloadIO {
         let input = open("/dev/null", O_RDONLY | O_CLOEXEC)
         guard input >= 0 else { throw InstallerSpawnFailure(operation: .input, code: errno) }
         defer { Darwin.close(input) }
+        for fd in [sourceCopy, manifestCopy, input] {
+            // SETEXEC applies file actions to these source handles before the
+            // new image starts. Clear only our public duplicates; default
+            // close-on-exec plus explicit closes still bound the child frame.
+            guard fcntl(fd, F_SETFD, 0) == 0 else { throw InstallerSpawnFailure(operation: .inherit, code: errno) }
+        }
         let values: [String] = [python, "-I", "-B", "-m", "account_access.install_transaction",
                                 "--source-fd", "3", "--manifest-fd", "4",
-                                "--manifest-sha256", manifest.sha256]
+                                "--manifest-sha256", digest]
         var arguments: [UnsafeMutablePointer<CChar>?] = values.map { value in value.withCString { strdup($0) } }
         arguments.append(nil)
         let settings: [String] = ["PATH=/usr/bin:/bin:/usr/sbin:/sbin", "LANG=C", "HOME=/var/root"]
@@ -470,6 +485,10 @@ enum InstallerPayloadIO {
         }
         for (source, destination) in [(sourceCopy, Int32(3)), (manifestCopy, Int32(4))] {
             let status = posix_spawn_file_actions_adddup2(&actions, source, destination)
+            guard status == 0 else { throw InstallerSpawnFailure(operation: .inherit, code: status) }
+        }
+        for fd in [sourceCopy, manifestCopy] + (input > 4 ? [input] : []) {
+            let status = posix_spawn_file_actions_addclose(&actions, fd)
             guard status == 0 else { throw InstallerSpawnFailure(operation: .inherit, code: status) }
         }
         var pid: pid_t = 0

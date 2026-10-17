@@ -149,7 +149,7 @@ def run(source_fd, manifest_fd, digest):
     """Fixed production layout. Called only after main's root-context check."""
     if sys.platform != "darwin" or os.getuid() != 0 or os.geteuid() != 0:
         raise ImageConflict("invalid_install_context")
-    if source_fd < 3 or manifest_fd < 3 or source_fd == manifest_fd:
+    if type(source_fd) is not int or type(manifest_fd) is not int or source_fd != 3 or manifest_fd != 4:
         raise ImageConflict("invalid_install_descriptor")
     for fd in [source_fd, manifest_fd]:
         os.set_inheritable(fd, False)

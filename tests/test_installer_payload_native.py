@@ -287,3 +287,29 @@ def test_public_image_recheck_excludes_only_fixed_top_level_private_branches(nat
     assert (result.returncode == 0) == (placement == 'opaque-branches')
     assert value['status'] == ('VERIFIED' if placement == 'opaque-branches' else 'REFUSED')
     assert outside.read_bytes() == b'synthetic private fixture; not an account'
+
+
+@pytest.fixture(scope='session')
+def source_handoff(tmp_path_factory):
+    path = tmp_path_factory.mktemp('ordinary-source-handoff')
+    launcher, interpreter = path / 'launcher', path / 'interpreter'
+    common = ['xcrun', 'swiftc', '-O', '-parse-as-library', '-warnings-as-errors', '-framework', 'Foundation', '-framework', 'CryptoKit']
+    subprocess.run([*common, str(ROOT / 'macos/InstallerPayload.swift'), str(ROOT / 'macos/Tests/InstallerSourceLauncherChecks.swift'), '-o', str(launcher)],
+                   check=True, capture_output=True, timeout=120)
+    subprocess.run([*common, '-D', 'ACCOUNT_ACCESS_SOURCE_HANDOFF_USER_FIXTURE', str(ROOT / 'macos/Tests/InstallerSourceHandoff.swift'), '-o', str(interpreter)],
+                   check=True, capture_output=True, timeout=120)
+    return launcher, interpreter
+
+
+@pytest.mark.parametrize('stdin', ['open-stdin', 'closed-stdin'])
+def test_real_native_source_replacement_passes_only_public_handles_and_clean_environment(source_handoff, tmp_path, stdin):
+    launcher, interpreter = source_handoff
+    source = tmp_path / 'public-source'
+    source.mkdir()
+    manifest = tmp_path / 'public-metadata.json'
+    manifest.write_bytes(b'{"fixture":"public metadata only"}')
+    result = subprocess.run([str(launcher), str(interpreter), str(source), str(manifest), stdin], capture_output=True, timeout=15)
+    assert result.returncode == 0, result.stdout.decode(errors='replace')
+    value = json.loads(result.stdout)
+    assert value['status'] == 'PASSED' and all(v is True for v in value['checks'].values())
+    assert value['actual_python_or_provisioning_executed'] is False and value['private_signins'] == 0

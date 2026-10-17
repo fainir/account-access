@@ -13,6 +13,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
       - run: uv sync --locked
+      - name: Check the native source replacement with ordinary public fixtures
+        run: uv run pytest -q tests/test_installer_payload_native.py -k real_native_source_replacement
       - name: Verify the native reader inside a real Installer script sandbox
         run: uv run python scripts/mac_installer_context_probe.py --output /tmp/account-access-installer-context
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

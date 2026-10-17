@@ -14,20 +14,27 @@ import Darwin
             print("{\"status\":\"FAILED\",\"reason\":\"invalid_source_handoff_arguments\"}"); exit(78)
         }
         var directory = stat(), file = stat(), input = stat(), null = stat()
-        let sourceOK = fstat(source, &directory) == 0 && directory.st_uid == 0 && directory.st_mode & S_IFMT == S_IFDIR
-        let fileOK = fstat(manifest, &file) == 0 && file.st_uid == 0 && file.st_mode & S_IFMT == S_IFREG
+        #if ACCOUNT_ACCESS_SOURCE_HANDOFF_USER_FIXTURE
+        let expectedUID = getuid()
+        #else
+        let expectedUID: uid_t = 0
+        #endif
+        let sourceOK = fstat(source, &directory) == 0 && directory.st_uid == expectedUID && directory.st_mode & S_IFMT == S_IFDIR
+        let fileOK = fstat(manifest, &file) == 0 && file.st_uid == expectedUID && file.st_mode & S_IFMT == S_IFREG
             && file.st_nlink == 1 && file.st_size > 0 && file.st_size <= 16 * 1024 * 1024
         let inputOK = fstat(0, &input) == 0 && lstat("/dev/null", &null) == 0 && input.st_rdev == null.st_rdev && input.st_mode & S_IFMT == S_IFCHR
         let unrelatedClosed = [source, manifest].contains(200) || fcntl(200, F_GETFD) == -1
+        let duplicatesClosed = fcntl(10, F_GETFD) == -1 && fcntl(11, F_GETFD) == -1
         let environment = ProcessInfo.processInfo.environment
         var digestOK = false
         if fileOK, lseek(manifest, 0, SEEK_SET) == 0,
            let data = try? FileHandle(fileDescriptor: manifest, closeOnDealloc: false).readToEnd() {
             digestOK = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() == args[10]
         }
-        let checks: [String: Bool] = ["root_identity_preserved": getuid() == 0 && geteuid() == 0,
+        let checks: [String: Bool] = ["expected_process_identity_preserved": getuid() == expectedUID && geteuid() == expectedUID,
             "verified_public_directory_passed": sourceOK, "verified_public_manifest_passed": fileOK && digestOK,
             "unrelated_descriptor_closed": unrelatedClosed, "stdin_is_dev_null": inputOK,
+            "temporary_public_duplicates_closed": duplicatesClosed,
             "caller_environment_removed": environment["ACCOUNT_ACCESS_UNRELATED_ENV"] == nil && environment["PYTHONPATH"] == nil,
             "fixed_environment_present": environment["PATH"] == "/usr/bin:/bin:/usr/sbin:/sbin" && environment["LANG"] == "C" && environment["HOME"] == "/var/root"]
         let passed = checks.values.allSatisfy { $0 }
