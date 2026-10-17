@@ -1,0 +1,35 @@
+{
+  "agent": "claude",
+  "version": "0.8.0",
+  "passed": false,
+  "environment": "failed-isolation-global-connection-selected",
+  "exit_code": 0,
+  "timed_out": false,
+  "elapsed_seconds": 66.01,
+  "ordinary_prompt_without_skill_or_command": true,
+  "used_project_launcher": false,
+  "launcher_verification": "successful tool command resolves to the installed project launcher",
+  "evidence_revision": "9afb0218ed02728c2f22cb16e63ebc6bd68f4691",
+  "completed_four_account_task": false,
+  "password_logins": 0,
+  "email_verifications": 0,
+  "sms_verifications": 0,
+  "totp_verifications": 0,
+  "mailbox_fetches": 0,
+  "mailbox_connection_checked_without_messages_or_website_login": true,
+  "reusable_mailbox_connected_and_linked_through_owner_api": true,
+  "codex_fixture_socket_only_profile": false,
+  "limits": [
+    "Failed acceptance run; agent selected a global connection instead of the fixture",
+    "One stopped-service profile read occurred; no credential or code is included in this public record",
+    "A previous timeout retained no trace; a later local audit confirmed another stopped-service profile read during that window. Neither run counts as a pass",
+    "No private mailbox or physical device acceptance"
+  ],
+  "test_isolation_failure": {
+    "global_connection_read_results": 4,
+    "stopped_private_service_profile_reads": 1,
+    "fixture_logins": 0,
+    "accepted_as_private_qa": false,
+    "remediation": "Unique temporary skill and invocation-only tool guard; fixture client environment; no global permissions changed"
+  }
+}

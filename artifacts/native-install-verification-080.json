@@ -1,0 +1,306 @@
+{
+  "version": "0.8.0-candidate",
+  "date": "2026-10-17",
+  "source_revision": "5802fde64da8440f2076441cf58b3407670c9f6f",
+  "production_ready": false,
+  "private_signins": 0,
+  "ci": {
+    "all_eight_push_and_pr_workflows": "passed",
+    "runs": {
+      "push_main": "https://github.com/fainir/account-access/actions/runs/39060959543",
+      "push_mac": "https://github.com/fainir/account-access/actions/runs/39060959571",
+      "push_linux": "https://github.com/fainir/account-access/actions/runs/39060959546",
+      "push_android": "https://github.com/fainir/account-access/actions/runs/39060959547",
+      "pr_main": "https://github.com/fainir/account-access/actions/runs/39060962812",
+      "pr_mac": "https://github.com/fainir/account-access/actions/runs/39060962942",
+      "pr_linux": "https://github.com/fainir/account-access/actions/runs/39060962842",
+      "pr_android": "https://github.com/fainir/account-access/actions/runs/39060962866"
+    },
+    "regressions": [
+      {
+        "run": 39060959543,
+        "passed": 1380,
+        "platform_skips": 66,
+        "seconds": 580.07
+      },
+      {
+        "run": 39060962812,
+        "passed": 1380,
+        "platform_skips": 66,
+        "seconds": 565.25
+      }
+    ],
+    "lint_and_package_builds": "passed",
+    "python_dependency_audit": "no known vulnerabilities found",
+    "reports_per_mac": 16,
+    "complete_worker_reports_identical": true,
+    "desktop_and_chrome_component_reports_identical": true,
+    "desktop_component_checks": 38,
+    "chrome_bridge_component_checks": 18,
+    "linux_cross_user_checks": 24,
+    "android_emulator_checks": 6
+  },
+  "native_guard": {
+    "checks_before_privileged_python": true,
+    "bounded_manifest_parser": true,
+    "fixed_public_roots_only": true,
+    "no_follow_descriptor_walks": true,
+    "owner_mode_acl_type_and_inode_checks": true,
+    "stable_streaming_file_hashes": true,
+    "exact_directory_children_and_confined_alias_graph": true,
+    "application_namespace_reopened_after_hashing": true,
+    "metadata_preflight_mode": "ordinary-user bounded stdin; INSPECTED cannot satisfy installed VERIFIED receipt",
+    "source_resource_temporary_parent": "Only exact root-owned /private/tmp with mode01777; all descendants protected; no ACL grants",
+    "temporary_parent_exception_available_to_installed_payload_walks": false,
+    "permissions_changed_by_verifier": false,
+    "receipt_grants_account_or_repair_authority": false
+  },
+  "regression_and_correction": {
+    "initial_real_installer_result": "refused before Python with unsafe_installer_payload_object",
+    "isolated_public_probe_cause": "Apple script resources descend from root-owned sticky /private/tmp",
+    "correction_revision": "4837170e5b900cbd427e070824e3c9f366a6cccf",
+    "ordinary_user_native_cases_passed": 59,
+    "new_temporary_boundary_cases": 13,
+    "all_focused_native_receipt_archive_package_cases": 129,
+    "universal_native_peers_built_and_ad_hoc_verified": 3
+  },
+  "actual_installer_context_probe": {
+    "status": "PASSED",
+    "environment": "disposable-ci-public-synthetic-image",
+    "private_signins": 0,
+    "production_ready": false,
+    "actual_installer_used": true,
+    "installer_exit_code": 0,
+    "native_result": {
+      "aliases": 0,
+      "directories": 5,
+      "files": 3,
+      "manifest_sha256": "82c35c404f219e9ab0ffa0d779f74f3af02f442b6977bdefeb1d068db2c5cedb",
+      "schema": 1,
+      "status": "VERIFIED"
+    },
+    "provisioning_or_account_setup_executed": false,
+    "temporary_public_image_removed": true,
+    "shared_parent_permissions_preserved": true
+  },
+  "development_native_inventory": {
+    "native_files": 64,
+    "executables": 23,
+    "bundles": 11,
+    "wheels": 33,
+    "publisher_signatures_verified": false,
+    "notarization_verified": false
+  },
+  "complete_package_builds": [
+    {
+      "run": 39060959571,
+      "prepared_runtime": false,
+      "native_manifest_preflight": true,
+      "payload_manifest_sha256": "dffddf5864198b5eedb213aed296bd23b19f355526da28b8959963393af6b4e1",
+      "installer_verifier_sha256": "2a1d69cfc266002acf5e5fcffc689ffb56f02f3281126517d293c3c9398746be",
+      "objects": {
+        "files": 5257,
+        "directories": 927,
+        "aliases": 25
+      },
+      "python_version": "3.12.15",
+      "installed_distributions": 33
+    },
+    {
+      "run": 39060959571,
+      "prepared_runtime": true,
+      "native_manifest_preflight": true,
+      "payload_manifest_sha256": "7564b9a471f8771672d6a1cbafbcc7f31388fde09b069598403cffc4333d2c8c",
+      "installer_verifier_sha256": "2a1d69cfc266002acf5e5fcffc689ffb56f02f3281126517d293c3c9398746be",
+      "objects": {
+        "files": 5268,
+        "directories": 937,
+        "aliases": 25
+      },
+      "python_version": "3.12.15",
+      "installed_distributions": 33
+    },
+    {
+      "run": 39060962942,
+      "prepared_runtime": false,
+      "native_manifest_preflight": true,
+      "payload_manifest_sha256": "b4d180bbf09d79000fa83a629d3fd013b8de03b6b3a64869aeb35ac1aaef25d3",
+      "installer_verifier_sha256": "2a1d69cfc266002acf5e5fcffc689ffb56f02f3281126517d293c3c9398746be",
+      "objects": {
+        "files": 5257,
+        "directories": 927,
+        "aliases": 25
+      },
+      "python_version": "3.12.15",
+      "installed_distributions": 33
+    },
+    {
+      "run": 39060962942,
+      "prepared_runtime": true,
+      "native_manifest_preflight": true,
+      "payload_manifest_sha256": "d174794d1f0a3722eb6a0bba3248b5db01ad85771cb89f397be883a7530edb87",
+      "installer_verifier_sha256": "2a1d69cfc266002acf5e5fcffc689ffb56f02f3281126517d293c3c9398746be",
+      "objects": {
+        "files": 5268,
+        "directories": 937,
+        "aliases": 25
+      },
+      "python_version": "3.12.15",
+      "installed_distributions": 33
+    }
+  ],
+  "original_package_acceptance": {
+    "status": "PASSED",
+    "environment": "controlled-demo",
+    "production_ready": false,
+    "private_signins": 0,
+    "actual_installer_used": true,
+    "positive_consumer_install_verified": false,
+    "publisher_signed_package": false,
+    "genuine_owner_approval_verified": false,
+    "prepared_runtime_executed": false,
+    "fixture_library_validation_exception": false,
+    "checks": {
+      "recovery_manifest_matches_complete_public_package_payload": true,
+      "actual_development_package_refused_before_owner_setup": true,
+      "native_verifier_binds_installed_image_before_privileged_python": true,
+      "offline_runtime_installed_at_final_path": true,
+      "complete_runtime_image_matches_installed_public_files_and_modes": true,
+      "installed_runtime_loads_dependencies_with_protected_paths": true,
+      "relocated_package_browser_runs_sandboxed_without_credentials": true,
+      "development_package_creates_no_vault_or_registration": true,
+      "development_package_creates_no_service_user": true,
+      "development_package_creates_no_service_group": true,
+      "protected_app_payload_present": true,
+      "shared_system_parent_ownership_and_modes_preserved": true,
+      "temporary_package_payload_removed": true
+    }
+  },
+  "prepared_package_acceptance": {
+    "status": "PASSED",
+    "environment": "controlled-demo",
+    "production_ready": false,
+    "private_signins": 0,
+    "actual_installer_used": true,
+    "positive_consumer_install_verified": false,
+    "publisher_signed_package": false,
+    "genuine_owner_approval_verified": false,
+    "prepared_runtime_executed": true,
+    "fixture_library_validation_exception": true,
+    "checks": {
+      "recovery_manifest_matches_complete_public_package_payload": true,
+      "actual_development_package_refused_before_owner_setup": true,
+      "native_verifier_binds_installed_image_before_privileged_python": true,
+      "offline_runtime_installed_at_final_path": true,
+      "complete_runtime_image_matches_installed_public_files_and_modes": true,
+      "installed_runtime_loads_dependencies_with_protected_paths": true,
+      "prepared_receipt_matches_installed_package_metadata": true,
+      "derived_requirements_match_preparation_receipt": true,
+      "app_pinned_project_and_original_source_lock_preserved": true,
+      "prepared_native_bytes_preserved_at_final_install_paths": true,
+      "prepared_code_is_root_controlled_without_privileged_modes": true,
+      "prepared_signatures_and_bundle_seals_valid_after_install": true,
+      "prepared_native_callbacks_crypto_and_validation_work": true,
+      "relocated_package_browser_runs_sandboxed_without_credentials": true,
+      "development_package_creates_no_vault_or_registration": true,
+      "development_package_creates_no_service_user": true,
+      "development_package_creates_no_service_group": true,
+      "protected_app_payload_present": true,
+      "shared_system_parent_ownership_and_modes_preserved": true,
+      "temporary_package_payload_removed": true
+    }
+  },
+  "complete_worker_reports": {
+    "account-access-mac-initial-gateway.json": {
+      "status": "PASSED",
+      "checks": 18,
+      "canonical_report_sha256": "8b6b89260a91d01e5d79fc962598fbf54162751aad9b4688243123e1cd59a97a"
+    },
+    "account-access-mac-initial-setup.json": {
+      "status": "PASSED",
+      "checks": 40,
+      "canonical_report_sha256": "15081758e3e9e709f927c6741a8ea6c1a2bab0c69e0dee1f67968449344eaf0d"
+    },
+    "account-access-mac-key-custody.json": {
+      "status": "PASSED",
+      "checks": 20,
+      "canonical_report_sha256": "ef20627fc97d1ec80513e10820ea09f6f1a6c0d87b79b286c229f85b4bce61f7"
+    },
+    "account-access-mac-key-handoff.json": {
+      "status": "PASSED",
+      "checks": 33,
+      "canonical_report_sha256": "da6c41338919316c40ac5ed49ada0daeb272479a40bc25e10a77dd3050930182"
+    },
+    "account-access-mac-native-browser.json": {
+      "status": "PASSED",
+      "checks": 10,
+      "canonical_report_sha256": "bb4a3de0f9d6b2c4cbf3c2f3b8ce2812e30e9d3b8569ab0c3f99bf53756d994e"
+    },
+    "account-access-mac-native-messages.json": {
+      "status": "PASSED",
+      "checks": 13,
+      "canonical_report_sha256": "92f3767bf268e7ea751c442a0fd70b284b6991eb573aadbf49741ba91192a44d"
+    },
+    "account-access-mac-native-system-browser.json": {
+      "status": "PASSED",
+      "checks": 18,
+      "canonical_report_sha256": "264d2b75d4226ac82a270abcee1d06b39bb5141cf51afb45ac7e70856b665d79"
+    },
+    "account-access-mac-owner-policy.json": {
+      "status": "PASSED",
+      "checks": 16,
+      "canonical_report_sha256": "76eda3b98d2824200e400fe1be81b345d2bcab3a2028a47ead0a97bd215f200c"
+    },
+    "account-access-mac-package.json": {
+      "status": "PASSED",
+      "checks": 13,
+      "canonical_report_sha256": "2da83734229da45020e410d4fb8a45c79d0489a0f2be9004c81135677b34771c"
+    },
+    "account-access-mac-prepared-package.json": {
+      "status": "PASSED",
+      "checks": 20,
+      "canonical_report_sha256": "1e0f6564069f5e250312ae4531064edc831c273255929390d78d92f19b41442e"
+    },
+    "account-access-mac-provisioning.json": {
+      "status": "PASSED",
+      "checks": 26,
+      "canonical_report_sha256": "e649fff80f00ac1bd20652d9be95bed2c01de5fa5f10025b63f77b275935b666"
+    },
+    "account-access-mac-root-coordinator.json": {
+      "status": "PASSED",
+      "checks": 31,
+      "canonical_report_sha256": "3f63595b364fd7ec4d677e1518d3c30f9b13ae44fdb19fc3bfce7fc512b1d3f6"
+    },
+    "account-access-mac-root-owner.json": {
+      "status": "PASSED",
+      "checks": 24,
+      "canonical_report_sha256": "df1eabffa22fa05055f851f51d1c0463be2dcfa1d8ab63bc2eb5683bf9466d7d"
+    },
+    "account-access-mac-root-supervisor.json": {
+      "status": "PASSED",
+      "checks": 21,
+      "canonical_report_sha256": "161c0cc1eb4c43b4db5d8640c69292f3e683b87a097518ef8e18640942d31866"
+    },
+    "account-access-mac-staged-enrollment.json": {
+      "status": "PASSED",
+      "checks": 28,
+      "canonical_report_sha256": "051cc5d11d17bfa3e57bac070eb0c27408a2b231287c6aa33a0b58f1e19ae011"
+    },
+    "account-access-mac-worker.json": {
+      "status": "PASSED",
+      "checks": 25,
+      "canonical_report_sha256": "bca0943b7be3c309be0b2854d79e9a0a78f6e87b6bc87a22ec6d0224a87b4863"
+    }
+  },
+  "limits": [
+    "All authentication data are controlled fixtures; no new private account sign-in or physical phone/carrier delivery is validated.",
+    "Development package acceptance requires refusal before unsigned owner setup; positive consumer setup and genuine owner approval remain unverified.",
+    "Real publisher/runtime compatibility, Apple notarization/stapling, downloaded installation, updates/migration and machine reboot remain open.",
+    "Fresh installation only: protected interrupted-install retry/transaction is not implemented.",
+    "Mac runtime targets Apple silicon and macOS14; universal native helpers do not establish Intel runtime support.",
+    "Owner build53 and unfinished Gmail form remain untouched; Gmail enrollment is deferred, GitHub personal QA stopped and Namecheap quarantined.",
+    "Installed Chrome/native/XPC/worker composition, protected real Codex/Claude sessions and private factor QA remain open.",
+    "Chrome CSV imports remain snapshots; universal continuous Chrome/password-manager sync is not shipped."
+  ],
+  "platform_rule_source": "https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man2/chmod.2.html"
+}

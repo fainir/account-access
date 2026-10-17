@@ -35,6 +35,11 @@ def enroll(store, source_id, data):
     if not isinstance(source_id, str) or source_id not in config.code_sources:
         raise AccessError("DENIED", "unknown_code_source")
     kind = config.code_sources[source_id].kind
+    if kind == "imap" and isinstance(data, dict) and set(data) == {"mailbox"}:
+        from .mailboxes import link
+        return link(store, source_id, data["mailbox"])
+    if kind == "google_messages":
+        raise AccessError("NEEDS_USER", "google_messages_extension_setup_required", "sms")
     required = {"totp": {"seed"}, "imap": ({"username"} if config.code_sources[source_id].account else {"username", "password"}),
                 "twilio": {"sid", "auth_token"}, "mac_messages": {"enabled"},
                 "gmail": set(), "phone_relay": set()}[kind]
@@ -54,6 +59,7 @@ def enroll(store, source_id, data):
         value = data
     with store.lock("source:" + source_id):
         store.put("source:" + source_id, value)
+        store.put("mailbox-health:" + source_id, None)
     store.audit("owner", "", "", "factor_enrolled", kind)
     return {"status": "ENROLLED", "source": source_id, "kind": kind}
 
@@ -65,4 +71,5 @@ def revoke(store, source_id):
         store.put("source:" + source_id, {"enabled": False})
         store.put("phone-pair:" + source_id, None)
         store.put("code-window:" + source_id, None)
+        store.put("mailbox-health:" + source_id, None)
     return {"status": "REVOKED", "source": source_id}

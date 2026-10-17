@@ -1,0 +1,261 @@
+name: Mac separate-user worker acceptance
+on: [push, pull_request]
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  mac-installer-context:
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      - run: uv sync --locked
+      - name: Check the native source replacement with ordinary public fixtures
+        run: uv run pytest -q tests/test_installer_payload_native.py -k real_native_source_replacement
+      - name: Verify the native reader inside a real Installer script sandbox
+        run: uv run python scripts/mac_installer_context_probe.py --output /tmp/account-access-installer-context
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: mac-installer-context
+          path: /tmp/account-access-installer-context
+          if-no-files-found: error
+  mac-cross-user:
+    needs: mac-installer-context
+    runs-on: macos-15
+    timeout-minutes: 30 # Includes two Installer passes and complete runtime signing.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      - name: Check Darwin pipe handoff and reject filesystem FIFO bootstrap
+        run: |
+          uv sync --locked
+          uv run pytest -q tests/test_worker_signals.py tests/test_worker_boundary.py tests/test_worker_enroll.py tests/test_worker_evidence.py tests/test_mac_root_owner_evidence.py tests/test_mac_key_custody_evidence.py tests/test_mac_owner_policy_evidence.py tests/test_mac_key_handoff_evidence.py tests/test_mac_root_supervisor_evidence.py tests/test_mac_root_coordinator_evidence.py tests/test_mac_staged_enrollment_evidence.py tests/test_mac_initial_setup_evidence.py tests/test_mac_initial_gateway_evidence.py tests/test_system_provision.py tests/test_mac_provisioning_evidence.py tests/test_agent_setup.py tests/test_managed_client.py tests/test_runtime_acl.py tests/test_native_messages.py tests/test_mac_native_messages_evidence.py tests/test_mac_native_browser_evidence.py tests/test_mac_native_system_browser_evidence.py tests/test_payload_audit.py tests/test_system_package.py tests/test_runtime_prepare.py tests/test_runtime_prepare_package.py tests/test_prepared_package_checks.py tests/test_install_manifest.py tests/test_runtime_image.py tests/test_install_image.py tests/test_install_transaction.py tests/test_installer_payload_native.py tests/test_installer_payload_receipt.py tests/test_package_manifest_binding.py
+      - name: Compile and check the permanent identity-drop launcher
+        run: |
+          for AC_BOOTSTRAP_ARCH in arm64 x86_64; do
+            xcrun swiftc -parse-as-library -warnings-as-errors -typecheck \
+              -target "$AC_BOOTSTRAP_ARCH-apple-macos13" -framework Foundation macos/WorkerBootstrap.swift
+            xcrun swiftc -parse-as-library -warnings-as-errors -typecheck \
+              -target "$AC_BOOTSTRAP_ARCH-apple-macos13" -framework Foundation -framework Security \
+              macos/OwnerGateway.swift macos/OwnerGatewayHost.swift macos/OwnerAuthorizationPolicy.swift
+            xcrun swiftc -parse-as-library -warnings-as-errors -typecheck \
+              -target "$AC_BOOTSTRAP_ARCH-apple-macos13" -framework Foundation -framework Security -framework CryptoKit \
+              -import-objc-header macos/NativeBroker.h macos/RootVaultKeyStore.swift macos/RootWorkerChannel.swift \
+              macos/WorkerBootstrap.swift macos/OwnerGateway.swift macos/OwnerGatewayHost.swift macos/OwnerAuthorizationPolicy.swift \
+              macos/RootActivatedListeners.swift macos/RootWorkerProcess.swift macos/RootWorkerSupervisor.swift macos/RootMessagesCollector.swift macos/RootBrokerHost.swift macos/RootStoreInitializer.swift macos/RootStorePublication.swift macos/RootInitialEnrollment.swift macos/SystemBroker.swift
+          done
+          xcrun swiftc -O -parse-as-library -framework Foundation \
+            macos/WorkerBootstrap.swift macos/Tests/WorkerBootstrapChecks.swift -o /tmp/ac-worker-bootstrap-checks
+          /tmp/ac-worker-bootstrap-checks
+          xcrun swiftc -O -parse-as-library -D ACCOUNT_ACCESS_WORKER_BOOTSTRAP_MAIN -framework Foundation \
+            macos/WorkerBootstrap.swift -o /tmp/ac-mac-worker-bootstrap
+          xcrun swiftc -O -parse-as-library -D ACCOUNT_ACCESS_GATEWAY_CHECKS -D ACCOUNT_ACCESS_ROOT_GATEWAY_DAEMON \
+            -framework Foundation -framework Security macos/WorkerBootstrap.swift macos/OwnerGateway.swift \
+            macos/OwnerAuthorizationPolicy.swift macos/OwnerGatewayHost.swift macos/Tests/RootOwnerGatewayChecks.swift -o /tmp/ac-root-owner-gateway
+          xcrun swiftc -O -parse-as-library -D ACCOUNT_ACCESS_GATEWAY_CHECKS -D ACCOUNT_ACCESS_ROOT_GATEWAY_CLIENT \
+            -framework Foundation -framework Security macos/WorkerBootstrap.swift macos/OwnerGateway.swift \
+            macos/OwnerAuthorizationPolicy.swift macos/OwnerGatewayHost.swift macos/DesktopOwnerConnection.swift macos/Tests/RootOwnerGatewayChecks.swift -o /tmp/ac-root-owner-client
+          xcrun clang -O2 -Wall -Wextra -Werror -c macos/KeychainInteraction.c -o /tmp/ac-keychain-interaction.o
+          xcrun clang -O2 -Wall -Wextra -Werror -c macos/NativeBroker.c -o /tmp/ac-native-broker.o
+          xcrun swiftc -O -parse-as-library -warnings-as-errors -framework Foundation -framework Security \
+            -import-objc-header macos/KeychainInteraction.h macos/RootVaultKeyStore.swift \
+            macos/Tests/VaultReferenceChecks.swift /tmp/ac-keychain-interaction.o -o /tmp/ac-vault-reference-checks
+          /tmp/ac-vault-reference-checks
+          xcrun swiftc -O -parse-as-library -warnings-as-errors -D ACCOUNT_ACCESS_GATEWAY_CHECKS \
+            -framework Foundation -framework Security macos/WorkerBootstrap.swift macos/OwnerGateway.swift \
+            macos/OwnerAuthorizationPolicy.swift macos/Tests/RootOwnerPolicyChecks.swift -o /tmp/ac-root-owner-policy-checks
+          xcrun swiftc -O -parse-as-library -warnings-as-errors -D ACCOUNT_ACCESS_GATEWAY_CHECKS \
+            -framework Foundation -framework Security macos/OwnerGateway.swift macos/OwnerAuthorizationPolicy.swift \
+            macos/Tests/OwnerPolicyGuardChecks.swift -o /tmp/ac-owner-policy-guard-checks
+          /tmp/ac-owner-policy-guard-checks
+          xcrun swiftc -O -parse-as-library -D ACCOUNT_ACCESS_ROOT_KEY_CHECKS -D ACCOUNT_ACCESS_GATEWAY_CHECKS \
+            -framework Foundation -framework Security -framework CryptoKit -import-objc-header macos/NativeBroker.h \
+            macos/WorkerBootstrap.swift macos/RootVaultKeyStore.swift macos/RootWorkerChannel.swift macos/OwnerGateway.swift macos/RootWorkerProcess.swift \
+            macos/RootActivatedListeners.swift macos/RootWorkerSupervisor.swift macos/RootMessagesCollector.swift macos/RootBrokerHost.swift macos/OwnerGatewayHost.swift \
+            macos/OwnerAuthorizationPolicy.swift macos/RootStoreInitializer.swift macos/RootStorePublication.swift macos/RootInitialEnrollment.swift \
+            macos/Tests/RootEnrollmentChecks.swift macos/Tests/RootInitialEnrollmentChecks.swift \
+            macos/Tests/RootMessagesChecks.swift macos/Tests/RootNativeHostChecks.swift macos/Tests/RootCoordinatorChecks.swift macos/Tests/RootSupervisorChecks.swift \
+            macos/Tests/RootKeyHandoffChecks.swift macos/Tests/RootVaultKeyChecks.swift \
+            /tmp/ac-keychain-interaction.o /tmp/ac-native-broker.o -lsqlite3 -o /tmp/ac-root-key-checks
+          xcrun swiftc -O -parse-as-library -warnings-as-errors -D ACCOUNT_ACCESS_GATEWAY_CHECKS \
+            -framework AppKit -framework Security -framework CryptoKit -lsqlite3 -lbsm \
+            macos/WorkerBootstrap.swift macos/OwnerGateway.swift macos/DesktopOwnerConnection.swift \
+            macos/MessageText.swift macos/MessagesReader.swift macos/SystemMessagesReader.swift \
+            macos/Tests/SystemMessagesFixtureMain.swift -o /tmp/ac-native-messages-helper
+          xcrun swiftc -O -parse-as-library -warnings-as-errors -D ACCOUNT_ACCESS_GATEWAY_CHECKS \
+            -framework Foundation -framework Security -framework CryptoKit -import-objc-header macos/KeychainInteraction.h \
+            macos/RootVaultKeyStore.swift macos/WorkerBootstrap.swift macos/OwnerGateway.swift \
+            macos/OwnerGatewayHost.swift macos/OwnerAuthorizationPolicy.swift macos/RootMessagesCollector.swift \
+            macos/Tests/RootOwnerGatewayChecks.swift macos/Tests/RootMessagesJourneyMain.swift \
+            /tmp/ac-keychain-interaction.o -o /tmp/ac-native-browser-collector
+          bash macos/build-broker.sh /tmp/ac-system-broker-production
+          uv run python - <<'PY'
+          import json, subprocess
+          result = subprocess.run(['/tmp/ac-system-broker-production/AccountAccess-broker'], capture_output=True)
+          assert result.returncode == 78 and json.loads(result.stdout) == {'status': 'FAILED', 'reason': 'system_daemon_context_required'}
+          for name in ['broker', 'bootstrap']:
+              output = subprocess.check_output(['xcrun', 'lipo', '-archs', '/tmp/ac-system-broker-production/AccountAccess-' + name])
+              assert set(output.decode().split()) == {'arm64', 'x86_64'}
+          PY
+          xcrun swiftc -O -parse-as-library -warnings-as-errors -D ACCOUNT_ACCESS_SYSTEM_BROKER_MAIN \
+            -D ACCOUNT_ACCESS_ROOT_KEY_CHECKS -D ACCOUNT_ACCESS_GATEWAY_CHECKS \
+            -framework Foundation -framework Security -framework CryptoKit -import-objc-header macos/NativeBroker.h \
+            macos/WorkerBootstrap.swift macos/RootVaultKeyStore.swift macos/RootWorkerChannel.swift macos/OwnerGateway.swift \
+            macos/RootWorkerProcess.swift macos/RootActivatedListeners.swift macos/RootWorkerSupervisor.swift macos/RootMessagesCollector.swift macos/RootBrokerHost.swift \
+            macos/OwnerGatewayHost.swift macos/OwnerAuthorizationPolicy.swift macos/RootStoreInitializer.swift \
+            macos/RootStorePublication.swift macos/RootInitialEnrollment.swift macos/SystemBroker.swift \
+            /tmp/ac-keychain-interaction.o /tmp/ac-native-broker.o -o /tmp/ac-system-broker-ci
+      - name: Prepare root-owned runtime in this disposable Mac VM
+        run: |
+          uv build --wheel --out-dir /tmp/account-access-mac-worker-wheel
+          sudo mkdir -p /Library/PrivilegedHelperTools
+          AC_MAC_WORKER_PREFIX=$(sudo mktemp -d /Library/PrivilegedHelperTools/account-access-worker-qa-XXXXXXXX)
+          echo "AC_MAC_WORKER_PREFIX=$AC_MAC_WORKER_PREFIX" >> "$GITHUB_ENV"
+          sudo chmod 755 "$AC_MAC_WORKER_PREFIX"
+          AC_MAC_UV=$(command -v uv)
+          sudo env UV_CACHE_DIR="$AC_MAC_WORKER_PREFIX/cache" "$AC_MAC_UV" python install \
+            --no-bin --install-dir "$AC_MAC_WORKER_PREFIX/python" 3.12
+          sudo env UV_CACHE_DIR="$AC_MAC_WORKER_PREFIX/cache" UV_PYTHON_INSTALL_DIR="$AC_MAC_WORKER_PREFIX/python" \
+            "$AC_MAC_UV" venv --managed-python --python 3.12 "$AC_MAC_WORKER_PREFIX/runtime"
+          sudo env UV_CACHE_DIR="$AC_MAC_WORKER_PREFIX/cache" "$AC_MAC_UV" pip install \
+            --python "$AC_MAC_WORKER_PREFIX/runtime/bin/python" --require-hashes -r account_access/runtime-requirements.txt
+          sudo env UV_CACHE_DIR="$AC_MAC_WORKER_PREFIX/cache" "$AC_MAC_UV" pip install \
+            --python "$AC_MAC_WORKER_PREFIX/runtime/bin/python" --no-deps /tmp/account-access-mac-worker-wheel/account_access-*.whl
+          sudo install -m 644 scripts/worker_boundary_smoke.py "$AC_MAC_WORKER_PREFIX/acceptance.py"
+          sudo install -m 644 scripts/worker_boundary_probe.py "$AC_MAC_WORKER_PREFIX/probe.py"
+          sudo install -m 644 scripts/mac_native_sms_fixture.py "$AC_MAC_WORKER_PREFIX/native-sms-fixture.py"
+          sudo install -m 644 scripts/mac_native_system_fixture.py "$AC_MAC_WORKER_PREFIX/native-system-fixture.py"
+          sudo install -m 755 /tmp/ac-native-browser-collector "$AC_MAC_WORKER_PREFIX/native-browser-collector"
+          sudo codesign --force --options runtime --identifier com.fainir.accountaccess.qa.native-browser --sign - "$AC_MAC_WORKER_PREFIX/native-browser-collector"
+          sudo install -m 644 scripts/mac_browser_probe.py "$AC_MAC_WORKER_PREFIX/browser-probe.py"
+          sudo install -m 644 scripts/mac_agent_setup_probe.py "$AC_MAC_WORKER_PREFIX/agent-setup-probe.py"
+          sudo install -m 644 scripts/mac_key_handoff_probe.py "$AC_MAC_WORKER_PREFIX/key-handoff-probe.py"
+          sudo install -m 755 /tmp/ac-mac-worker-bootstrap "$AC_MAC_WORKER_PREFIX/mac-worker-bootstrap"
+          sudo codesign --force --options runtime --sign - "$AC_MAC_WORKER_PREFIX/mac-worker-bootstrap"
+          sudo install -m 755 /tmp/ac-root-owner-gateway "$AC_MAC_WORKER_PREFIX/root-owner-gateway"
+          sudo install -m 755 /tmp/ac-root-owner-client "$AC_MAC_WORKER_PREFIX/root-owner-client"
+          sudo install -m 755 /tmp/ac-root-owner-client "$AC_MAC_WORKER_PREFIX/root-owner-client-denied"
+          for AC_GATEWAY_BINARY in root-owner-gateway root-owner-client root-owner-client-denied; do
+            sudo codesign --force --options runtime --identifier "com.fainir.accountaccess.qa.$AC_GATEWAY_BINARY" \
+              --sign - "$AC_MAC_WORKER_PREFIX/$AC_GATEWAY_BINARY"
+          done
+          sudo install -m 755 /tmp/ac-native-messages-helper "$AC_MAC_WORKER_PREFIX/native-messages-helper"
+          sudo codesign --force --options runtime --identifier com.fainir.accountaccess.qa.messages-helper \
+            --sign - "$AC_MAC_WORKER_PREFIX/native-messages-helper"
+          sudo install -m 755 /tmp/ac-root-key-checks "$AC_MAC_WORKER_PREFIX/root-key-checks"
+          sudo install -m 755 /tmp/ac-root-key-checks "$AC_MAC_WORKER_PREFIX/root-key-checks-denied"
+          sudo install -m 755 /tmp/ac-system-broker-ci "$AC_MAC_WORKER_PREFIX/system-broker"
+          sudo codesign --force --options runtime --identifier com.fainir.accountaccess.qa.system-broker \
+            --sign - "$AC_MAC_WORKER_PREFIX/system-broker"
+          for AC_KEY_BINARY in root-key-checks root-key-checks-denied; do
+            sudo codesign --force --options runtime --identifier "com.fainir.accountaccess.qa.$AC_KEY_BINARY" \
+              --sign - "$AC_MAC_WORKER_PREFIX/$AC_KEY_BINARY"
+          done
+          sudo install -m 755 /tmp/ac-root-owner-policy-checks "$AC_MAC_WORKER_PREFIX/root-owner-policy-checks"
+          sudo install -m 755 /tmp/ac-owner-policy-guard-checks "$AC_MAC_WORKER_PREFIX/owner-policy-guard-checks"
+          for AC_POLICY_BINARY in root-owner-policy-checks owner-policy-guard-checks; do
+            sudo codesign --force --options runtime --identifier "com.fainir.accountaccess.qa.$AC_POLICY_BINARY" \
+              --sign - "$AC_MAC_WORKER_PREFIX/$AC_POLICY_BINARY"
+          done
+          sudo env PLAYWRIGHT_BROWSERS_PATH="$AC_MAC_WORKER_PREFIX/browsers" \
+            "$AC_MAC_WORKER_PREFIX/runtime/bin/python" -I -B -m playwright install chromium
+          sudo chmod -R a+rX "$AC_MAC_WORKER_PREFIX/browsers"
+          sudo chmod -R go-w "$AC_MAC_WORKER_PREFIX/python" "$AC_MAC_WORKER_PREFIX/runtime" "$AC_MAC_WORKER_PREFIX/browsers"
+      - name: Check private Node signing preparation with a sandboxed fixture browser
+        run: |
+          env PLAYWRIGHT_BROWSERS_PATH="$AC_MAC_WORKER_PREFIX/browsers" \
+            uv run pytest -q tests/test_runtime_prepare_real_mac.py
+      - name: Verify real cross-user password, email, SMS and authenticator recovery
+        run: |
+          sudo env GITHUB_ACTIONS=true "$AC_MAC_WORKER_PREFIX/runtime/bin/python" -I -B \
+            "$AC_MAC_WORKER_PREFIX/acceptance.py" --prefix "$AC_MAC_WORKER_PREFIX" > /tmp/account-access-mac-worker.json
+          uv run python scripts/check_worker_boundary_report.py /tmp/account-access-mac-worker.json
+          uv run python scripts/check_mac_root_owner_report.py /tmp/account-access-mac-root-owner.json
+          uv run python scripts/check_mac_key_custody_report.py /tmp/account-access-mac-key-custody.json
+          uv run python scripts/check_mac_owner_policy_report.py /tmp/account-access-mac-owner-policy.json
+          uv run python scripts/check_mac_key_handoff_report.py /tmp/account-access-mac-key-handoff.json
+          uv run python scripts/check_mac_root_supervisor_report.py /tmp/account-access-mac-root-supervisor.json
+          uv run python scripts/check_mac_root_coordinator_report.py /tmp/account-access-mac-root-coordinator.json
+          uv run python scripts/check_mac_staged_enrollment_report.py /tmp/account-access-mac-staged-enrollment.json
+          uv run python scripts/check_mac_initial_setup_report.py /tmp/account-access-mac-initial-setup.json
+          uv run python scripts/check_mac_initial_gateway_report.py /tmp/account-access-mac-initial-gateway.json
+          uv run python scripts/check_mac_provisioning_report.py /tmp/account-access-mac-provisioning.json
+          uv run python scripts/check_mac_native_messages_report.py /tmp/account-access-mac-native-messages.json
+          uv run python scripts/check_mac_native_browser_report.py /tmp/account-access-mac-native-browser.json
+          uv run python scripts/check_mac_native_system_browser_report.py /tmp/account-access-mac-native-system-browser.json
+          cat /tmp/account-access-mac-worker.json
+          cat /tmp/account-access-mac-root-owner.json
+          cat /tmp/account-access-mac-key-custody.json
+          cat /tmp/account-access-mac-owner-policy.json
+          cat /tmp/account-access-mac-key-handoff.json
+          cat /tmp/account-access-mac-root-supervisor.json
+          cat /tmp/account-access-mac-root-coordinator.json
+          cat /tmp/account-access-mac-staged-enrollment.json
+          cat /tmp/account-access-mac-initial-setup.json
+          cat /tmp/account-access-mac-initial-gateway.json
+          cat /tmp/account-access-mac-provisioning.json
+      - name: Verify offline and fully prepared development package installation
+        run: |
+          uv build --wheel
+          ACCOUNT_ACCESS_SYSTEM_INSTALL=1 ACCOUNT_ACCESS_MAC_OUTPUT=/tmp/account-access-system-owner bash macos/build.sh
+          AC_PACKAGE_PYTHON=$("$AC_MAC_WORKER_PREFIX/runtime/bin/python" -I -B -c 'import sys; print(sys.base_prefix)')
+          "$AC_PACKAGE_PYTHON/bin/python3.12" -I -B -m pip download --only-binary=:all: --require-hashes -r account_access/runtime-requirements.txt --dest /tmp/account-access-package-wheels
+          AC_PACKAGE_ARCH=$(uname -m)
+          uv run python -m macos.system_package \
+            --app "/tmp/account-access-system-owner/Account Access.app" \
+            --native /tmp/ac-system-broker-production \
+            --python "$AC_PACKAGE_PYTHON" --browsers "$AC_MAC_WORKER_PREFIX/browsers" \
+            --wheels /tmp/account-access-package-wheels --output /tmp/account-access-system-package \
+            --architecture "$AC_PACKAGE_ARCH" --development
+          uv run python scripts/mac_package_smoke.py "/tmp/account-access-system-package/Account-Access-$AC_PACKAGE_ARCH-development.pkg" \
+            --report /tmp/account-access-mac-package.json
+          uv run python -m macos.system_package \
+            --app "/tmp/account-access-system-owner/Account Access.app" \
+            --native /tmp/ac-system-broker-production \
+            --python "$AC_PACKAGE_PYTHON" --browsers "$AC_MAC_WORKER_PREFIX/browsers" \
+            --wheels /tmp/account-access-package-wheels --output /tmp/account-access-runtime-review \
+            --architecture "$AC_PACKAGE_ARCH" --development --inspect-runtime
+          uv run python scripts/mac_prepared_fixture_plan.py \
+            /tmp/account-access-runtime-review/runtime-signing-plan.json \
+            /tmp/account-access-runtime-review/ad-hoc-fixture-plan.json
+          uv run python -m macos.system_package \
+            --app "/tmp/account-access-system-owner/Account Access.app" \
+            --native /tmp/ac-system-broker-production \
+            --python "$AC_PACKAGE_PYTHON" --browsers "$AC_MAC_WORKER_PREFIX/browsers" \
+            --wheels /tmp/account-access-package-wheels --output /tmp/account-access-prepared-package \
+            --architecture "$AC_PACKAGE_ARCH" --development --runtime-identity - \
+            --runtime-plan /tmp/account-access-runtime-review/ad-hoc-fixture-plan.json
+          uv run python scripts/mac_package_smoke.py "/tmp/account-access-prepared-package/Account-Access-$AC_PACKAGE_ARCH-development.pkg" \
+            --prepared-runtime --report /tmp/account-access-mac-prepared-package.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: mac-worker-boundary-acceptance
+          path: |
+            /tmp/account-access-mac-worker.json
+            /tmp/account-access-mac-root-owner.json
+            /tmp/account-access-mac-key-custody.json
+            /tmp/account-access-mac-owner-policy.json
+            /tmp/account-access-mac-key-handoff.json
+            /tmp/account-access-mac-root-supervisor.json
+            /tmp/account-access-mac-root-coordinator.json
+            /tmp/account-access-mac-staged-enrollment.json
+            /tmp/account-access-mac-initial-setup.json
+            /tmp/account-access-mac-initial-gateway.json
+            /tmp/account-access-mac-provisioning.json
+            /tmp/account-access-mac-package.json
+            /tmp/account-access-mac-prepared-package.json
+            /tmp/account-access-mac-native-messages.json
+            /tmp/account-access-mac-native-browser.json
+            /tmp/account-access-mac-native-system-browser.json
+          if-no-files-found: ignore
+      - name: Remove the ephemeral runtime
+        if: always()
+        run: |
+          if [[ "$AC_MAC_WORKER_PREFIX" == /Library/PrivilegedHelperTools/account-access-worker-qa-* ]]; then
+            sudo rm -rf -- "$AC_MAC_WORKER_PREFIX"
+          fi

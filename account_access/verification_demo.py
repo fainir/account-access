@@ -152,7 +152,13 @@ def environment(root, *, relay=False, secure_keyring=False):
     store.configure(setup_config(provider.base, mailbox, relay=relay))
     broker = Broker(store)
     if not relay:
-        broker.codes.messages = lambda source_id, source, started, used: broker.codes.messages_at(path, source, started, used)
+        def baseline(*_):
+            with sqlite3.connect(path) as db:
+                return db.execute("SELECT COALESCE(MAX(ROWID),0) FROM message").fetchone()[0]
+        broker.codes.messages_baseline = baseline
+        broker.codes.messages = lambda source_id, source, started, used: broker.codes.messages_at(
+            path, source, started, used,
+            after_row=store.get("code-window:" + source_id)["after_row"])
     def deliver(kind, code):
         if kind == "email":
             mailbox.deliver(code)

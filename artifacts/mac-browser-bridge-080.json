@@ -1,0 +1,85 @@
+{
+  "version": "0.8.0-candidate",
+  "date": "2026-10-17",
+  "source_revision": "8ccdd74c2e777354c9957397e834cec306b29e46",
+  "production_ready": false,
+  "ci": {
+    "runs": [
+      "https://github.com/fainir/account-access/actions/runs/39033139504",
+      "https://github.com/fainir/account-access/actions/runs/39033142869"
+    ],
+    "native_component_reports_identical": true,
+    "worker_reports_identical": true,
+    "complete_worker_reports_per_mac": 15
+  },
+  "native_component": {
+    "actual_native_xpc_used": false,
+    "checks": {
+      "approved_connection_reaches_worker_once": true,
+      "arbitrary_path_refused": true,
+      "boolean_delivery_time_refused": true,
+      "boolean_message_id_refused": true,
+      "closed_connection_cannot_poll": true,
+      "connection_without_approval_never_reaches_worker": true,
+      "cookies_refused": true,
+      "empty_frame_refused": true,
+      "framed_pending_reaches_fixed_bridge": true,
+      "oversized_frame_refused": true,
+      "owner_route_refused": true,
+      "partial_body_refused": true,
+      "partial_header_refused": true,
+      "routine_delivery_needs_no_new_approval": true,
+      "routine_poll_needs_no_owner_approval": true,
+      "shell_cannot_impersonate_chrome_parent": true,
+      "transport_failure_does_not_echo_details": true,
+      "wrong_origin_refused_before_request": true
+    },
+    "environment": "controlled-demo",
+    "genuine_owner_approval_verified": false,
+    "private_signins": 0,
+    "production_ready": false,
+    "status": "PASSED"
+  },
+  "verified_scope": [
+    "Framing, fixed extension origin, shell-parent rejection, fixed methods and sanitized failure replies",
+    "Setup approval is required for connect; routine enrolled-window polling/delivery needs no new setup approval",
+    "Owner-user registration uses fixed protected app/resources, matches the runtime payload and never opens a vault/keyring",
+    "Private Unix bridge to SMS window and DOM/browser fixture completes fresh password/SMS login without returning the code",
+    "Wrong capability, wrong window, revoked source, cookie imports and agent transport are refused"
+  ],
+  "deployment": {
+    "protected_chrome_parent_positive_verified": false,
+    "complete_chrome_native_xpc_worker_journey_verified": false,
+    "genuine_owner_approval_verified": false,
+    "physical_sms_delivery_verified": false,
+    "consumer_deployment_verified": false,
+    "private_signins": 0
+  },
+  "public_browser_metadata_check": {
+    "running_chrome_signature_policy_matched": true,
+    "method": "SecCodeCheckValidity with kSecCSStrictValidate",
+    "complete_native_host_launch_verified": false
+  },
+  "regression": {
+    "url": "https://github.com/fainir/account-access/actions/runs/39033139504",
+    "passed": 1086,
+    "platform_skips": 5,
+    "seconds": 503.7,
+    "all_eight_push_and_pr_workflows": "passed",
+    "dependency_audit": "no known vulnerabilities found"
+  },
+  "owner_state": {
+    "installed_build": 53,
+    "installed_app_replaced": false,
+    "unfinished_mailbox_form": "preserved",
+    "gmail_setup": "deferred_by_owner",
+    "new_private_signin_requests": 0
+  },
+  "limits": [
+    "Native framing/authorization component and private worker/DOM/browser journey are separate controlled tests, not one complete Chrome-to-XPC acceptance",
+    "The current parent policy accepts signed stable Google Chrome only; a positive installed launch remains unverified",
+    "Protected resources do not prevent an unrestricted owner-user process from changing Chrome registration or controlling the browser itself",
+    "Protected source setup, Chrome Web Store distribution, genuine OS approval, physical devices and private-account QA remain release gates",
+    "No Chrome password-vault extraction or continuous Chrome password sync is added"
+  ]
+}

@@ -1,0 +1,78 @@
+{
+  "version": "0.8.0-candidate",
+  "application_build": 59,
+  "environment": "controlled-demo",
+  "production_ready": false,
+  "registration": "enabled",
+  "os_managed_crash_recovery": true,
+  "pause_prevents_restart": true,
+  "keyring_namespace_cleaned": true,
+  "service_unregistered": true,
+  "private_account_sign_ins": 0,
+  "owner_settings_or_approval_changed": false,
+  "limits": [
+    "Fictional provider only; not private account/MFA acceptance",
+    "No actual logout or reboot",
+    "No OS credential isolation or Apple notarization acceptance"
+  ],
+  "signed_input_and_helper_verified": true,
+  "initial_fixture_service_ready": true,
+  "paused_new_job_invocation_stays_stopped": true,
+  "passed": true,
+  "source_revision": "6dc9600617984298fd98d419188a036fd5acb56e",
+  "date": "2026-10-17",
+  "scope": "Temporary QA app registration and fixture Keychain item only; existing owner app settings and approvals preserved",
+  "package": {
+    "build": "59",
+    "application_files": 61,
+    "all_application_files_match_source": true,
+    "wheel_sha256": "e831a55dc74dc93c436c1cb742227f388eee0f5cf0de038b5a211580bb5aa318",
+    "zip_sha256": "c09add67083e73c693ca13bd39d2aae69bbd991ecd30ff8dd4e2a0521a5724de",
+    "prepared_archive_sha256": "7ee86bb0b0073b953f6a3235ed90a6b904554cb1210d6b1b7893f0b810b74196",
+    "main_and_helper_developer_id_runtime_timestamp_both_architectures": "passed",
+    "launch_agent_policy_pin": "passed",
+    "notarization_submitted": false,
+    "installed": false
+  },
+  "validation": {
+    "focused_cases": 49,
+    "focused_seconds": 41.6,
+    "lint": "passed",
+    "failed_cases_reproduced_before_fix": 4,
+    "private_account_sign_in_acceptance": false,
+    "native_owner_checks": 26,
+    "native_background_checks": 6,
+    "package_build": "passed"
+  },
+  "update_rollback": {
+    "uncertain_replacement_stop": "retain environment; do not restart the previous service concurrently",
+    "failed_payload_publication": "restore both runtime and desktop launchers",
+    "stop_success": "supervisor and service leases released",
+    "owned_child_cleanup": "supervisor lease held through child reaping",
+    "scope": "controlled failure cases and isolated actual Mac job recovery"
+  },
+  "agent_checks": {
+    "evidence_revision": "321d1431ef794e6d420f996451257ab19f2a5c8a",
+    "codex": "passed; 22.91 seconds",
+    "claude": "passed; 73.24 seconds",
+    "scope": "four fictional password logins and one email/SMS/TOTP verification per host; subsequent supervisor change tested separately"
+  },
+  "owner_installation": {
+    "candidate_installed": false,
+    "existing_owner_app": "not changed by this validation",
+    "private_enrollment": "not evaluated in this run"
+  },
+  "ci": {
+    "status": "passed",
+    "source_revision": "6dc9600617984298fd98d419188a036fd5acb56e",
+    "url": "https://github.com/fainir/account-access/actions/runs/38979943215",
+    "android_url": "https://github.com/fainir/account-access/actions/runs/38979943214",
+    "android_status": "passed",
+    "tests_passed": 637,
+    "seconds": 515.14,
+    "lint": "passed",
+    "dependency_audit": "no known vulnerabilities found",
+    "package_build": "passed",
+    "native_owner_policy_messages_entrypoint_startup": "passed"
+  }
+}

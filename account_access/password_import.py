@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 
 from .errors import AccessError
 from .models import BrowserAccount, Configuration, origin
+from .account_context import describe
 
 MAX_BYTES = 4_000_000
 MAX_ROWS = 10_000
@@ -18,6 +19,10 @@ def available(store):
     from .catalog import entries
     return {**entries(), **{k: v for k, v in store.config().accounts.items()
                            if isinstance(v, BrowserAccount)}}
+
+
+def matching_origin(spec, url):
+    return origin(url) in {origin(spec.login_url), *spec.password_import_origins}
 
 
 def parse(contents):
@@ -73,16 +78,15 @@ def preview(store, contents):
     rows = parse(contents)
     public = []
     for row in rows:
-        candidates = {k: spec for k, spec in specs.items() if origin(spec.login_url) == origin(row["url"])}
+        candidates = {k: spec for k, spec in specs.items() if matching_origin(spec, row["url"])}
         target = urlsplit(row["url"])
         exact = {k: spec for k, spec in candidates.items()
                  if (urlsplit(spec.login_url).path.rstrip("/"), urlsplit(spec.login_url).query)
                  == (target.path.rstrip("/"), target.query)}
         paths = {k: spec for k, spec in candidates.items()
                  if urlsplit(spec.login_url).path.rstrip("/") == target.path.rstrip("/")}
-        matches = [{"id": k, "label": spec.label,
-                    "authenticator_supported": bool(spec.login and spec.login.code_source
-                        and config.code_sources[spec.login.code_source].kind == "totp"),
+        matches = [{"id": k, **describe(spec, test_mode=config.test_mode),
+                    "authenticator_supported": bool(spec.login and spec.login.authenticator_source(config)),
                     "operations": [{"name": n, "description": op.description}
                                    for n, op in spec.operations.items()]}
                    for k, spec in (exact or paths or candidates).items()]
@@ -135,7 +139,7 @@ def apply(broker, ident, selections, principals):
                     or account not in specs or account in accounts or not isinstance(ops, list)
                     or not ops or any(not isinstance(x, str) or x not in specs[account].operations for x in ops)):
                 raise AccessError("DENIED", "invalid_import_selection")
-            if origin(rows[row]["url"]) != origin(specs[account].login_url):
+            if not matching_origin(specs[account], rows[row]["url"]):
                 raise AccessError("DENIED", "password_origin_mismatch")
             spec = specs[account]
             check = config.model_copy(deep=True)
@@ -147,7 +151,7 @@ def apply(broker, ident, selections, principals):
             if not isinstance(include, bool):
                 raise AccessError("DENIED", "invalid_import_selection")
             if include:
-                source_id = spec.login.code_source if spec.login else None
+                source_id = spec.login.authenticator_source(config) if spec.login else None
                 seed = rows[row].get("totp")
                 if not seed or not source_id or config.code_sources[source_id].kind != "totp":
                     raise AccessError("DENIED", "authenticator_import_not_supported")

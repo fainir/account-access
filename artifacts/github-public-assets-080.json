@@ -1,0 +1,12 @@
+{
+  "environment": "anonymous-public-site",
+  "private_account_used": false,
+  "login_form_present": true,
+  "final_url_matches": true,
+  "declared_assets": 110,
+  "anonymous_asset_downloads": 77,
+  "cached_assets": 77,
+  "asset_fetch_failures": 0,
+  "downloaded_bytes": 4108489,
+  "elapsed_seconds": 5.84
+}

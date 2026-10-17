@@ -1,0 +1,103 @@
+{
+  "version": "0.8.0-candidate",
+  "date": "2026-10-17",
+  "application_build": 57,
+  "source_revision": "5fbeaef45bf1b1c3e9b3b6daec3fd65d523f7f71",
+  "production_ready": false,
+  "changes": [
+    "Separate local process supervises its owned desktop child with bounded interruptible restart backoff",
+    "Process lease and generation control; pause and updates stop current generation",
+    "Owner keyring/setup errors stop startup retries instead of repeating prompts",
+    "Supervisor loads no vault key and never signals an adopted existing host PID",
+    "Dead API/recovery thread closes owner service for recovery",
+    "Native owner requests verify rotated endpoint before sending setup data; idle forms preserved; no lost-response replay",
+    "Isolated Python imports on generated skill launcher, client startup and supervisor subprocesses"
+  ],
+  "targeted_validation": {
+    "supervision_worker_install_cases": 22,
+    "seconds": 37.09,
+    "startup_upgrade_cases": 14,
+    "startup_upgrade_seconds": 15.7,
+    "native_ui_checks": 24,
+    "lint": "passed",
+    "package_build": "passed",
+    "environment": "controlled local providers and native protocol fixtures",
+    "actual_child_termination_test": "passed; original queued task completed without agent reconnect; completed read not repeated after second crash",
+    "private_delivery_tested": false,
+    "isolated_startup_automatic_cases": 19,
+    "isolated_startup_seconds": 24.43,
+    "isolated_installer_guided_cases": 12,
+    "isolated_installer_seconds": 14.14,
+    "skill_validation": "passed",
+    "hostile_project_and_pythonpath": "no untrusted startup/package/JSON code executed"
+  },
+  "signed_candidate": {
+    "universal": true,
+    "strict_deep_all_architectures_signature": "passed",
+    "application_files": 61,
+    "all_application_files_match_source": true,
+    "wheel_sha256": "78a94bebb2df4eb1acf2e9f325dcda26a2fecb3d5245e64b1e6405fbc7bc8c0e",
+    "wheel_pin_matches": true,
+    "zip_sha256": "444a1d9e8fc6fe2294879acef216d63824c5ef3af557e70efe13b2185040af2d",
+    "notarization_verified": false,
+    "installed": false,
+    "developer_id_team_runtime_timestamp_and_arches": "verified locally",
+    "notarization_preparation": "passed; no upload",
+    "prepared_archive_sha256": "a9560181f446c863b1bfcfb39653a41cfe2ce864fd0a19e71ec5a0a55de3ebd6"
+  },
+  "static_review": {
+    "scope": "supervisor.py and desktop.py only",
+    "tool": "Bandit 1.9.4",
+    "errors": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 2,
+    "rules": [
+      "B404",
+      "B603"
+    ],
+    "assessment": "Reviewed subprocess import and internal fixed-action argument-array execution; no shell; same-user trusted runtime remains a limitation",
+    "independent_audit": false
+  },
+  "ci": {
+    "status": "passed",
+    "url": "https://github.com/fainir/account-access/actions/runs/38972780892",
+    "android_status": "passed",
+    "android_url": "https://github.com/fainir/account-access/actions/runs/38972780993",
+    "native_owner_ui": "passed",
+    "prior_supervision_revision": "5325bf41fca64141ff77f2ef7ea4877fdd4995f6",
+    "prior_supervision_ci": "https://github.com/fainir/account-access/actions/runs/38972188282",
+    "prior_supervision_tests": 612,
+    "prior_supervision_seconds": 464.17,
+    "tests_passed": 613,
+    "seconds": 468.16,
+    "lint": "passed",
+    "dependency_audit": "no known vulnerabilities found",
+    "package_build": "passed",
+    "messages_and_startup_checks": "passed"
+  },
+  "owner_state": {
+    "installed_build": 53,
+    "private_website_sign_in_requests": 0,
+    "pending_gmail_form": "preserved; enrollment remains unconfirmed",
+    "installed_build_rechecked": true,
+    "native_status_only_rechecked": true,
+    "connect_mailbox_action_visible": true,
+    "checked_or_saved_confirmation_visible": false,
+    "credential_field_values_emitted": false
+  },
+  "limits": [
+    "Fictional provider, mailbox and SMS fixtures do not validate private sign-in or physical-phone delivery",
+    "No OS-managed restart after simultaneous supervisor/host loss or shutdown; next app/client launch restores service",
+    "Existing web owner tab must be reopened after host restart",
+    "No separate-OS-identity custody or independent security audit",
+    "Owner enrollment, Namecheap browser verification and notarization remain open"
+  ],
+  "privacy": "Public record excludes private credentials, tokens, paths, identifiers and raw traces",
+  "agent_fixtures": {
+    "codex": "passed; 32.93 seconds; four successful command calls reviewed within fixture scope",
+    "claude": "passed; 41.05 seconds; every successful trace tool passed fixture policy",
+    "scope": "Fictional four-account task, four password logins and one email/SMS/TOTP verification per host",
+    "private_account_acceptance": false
+  }
+}

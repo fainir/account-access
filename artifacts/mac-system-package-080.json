@@ -1,0 +1,55 @@
+{
+  "version": "0.8.0-candidate",
+  "date": "2026-10-17",
+  "source_revision": "a03b2419010c94c5e5a129602e4a3f87fa05860b",
+  "production_ready": false,
+  "ci": {
+    "runs": [
+      "https://github.com/fainir/account-access/actions/runs/39021348626",
+      "https://github.com/fainir/account-access/actions/runs/39021351108"
+    ],
+    "independent_reports_identical": true
+  },
+  "acceptance": {
+    "status": "PASSED",
+    "environment": "controlled-demo",
+    "production_ready": false,
+    "private_signins": 0,
+    "actual_installer_used": true,
+    "positive_consumer_install_verified": false,
+    "publisher_signed_package": false,
+    "genuine_owner_approval_verified": false,
+    "checks": {
+      "actual_development_package_refused_before_owner_setup": true,
+      "offline_runtime_installed_at_final_path": true,
+      "installed_runtime_loads_dependencies_with_protected_paths": true,
+      "relocated_package_browser_runs_sandboxed_without_credentials": true,
+      "development_package_creates_no_vault_or_registration": true,
+      "development_package_creates_no_service_user": true,
+      "development_package_creates_no_service_group": true,
+      "protected_app_payload_present": true,
+      "shared_system_parent_ownership_and_modes_preserved": true,
+      "temporary_package_payload_removed": true
+    }
+  },
+  "regression": {
+    "url": "https://github.com/fainir/account-access/actions/runs/39021348603",
+    "passed": 994,
+    "platform_skips": 5,
+    "seconds": 455.31,
+    "dependency_audit": "no known vulnerabilities found",
+    "all_eight_push_and_pr_workflows": "passed"
+  },
+  "owner_state": {
+    "installed_build": 53,
+    "installed_app_replaced": false,
+    "unfinished_mailbox_form": "preserved",
+    "new_private_signin_requests": 0
+  },
+  "limits": [
+    "No signed positive consumer installation or genuine OS approval",
+    "No notarized download, migration/update or interrupted package repair acceptance",
+    "No new private email/SMS/authenticator or physical-phone sign-in acceptance",
+    "Continuous Chrome password sync and isolated host collector deployment remain release gates"
+  ]
+}

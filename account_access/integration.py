@@ -73,18 +73,22 @@ def update_guidance(path, block, *, start_marker=START, end_marker=END, owned_on
         temporary.unlink(missing_ok=True)
 
 
+def codex_rule_block(skill):
+    start, end = "# account-access:automatic:start", "# account-access:automatic:end"
+    launcher = json.dumps(str(skill / "scripts/access"))
+    commands = json.dumps(["accounts", "status", "run", "task", "audit", "doctor"])
+    return (start + "\n" + "prefix_rule(\n"
+            + "    pattern = [" + launcher + ", " + commands + "],\n"
+            + '    decision = "allow",\n'
+            + '    justification = "Use the installed Account Access client for owner-approved operations",\n'
+            + ")\n" + end)
+
+
 def install_codex_rule(directory, skill):
     """Allow only the installed, client-only launcher; retain every other host policy."""
     start, end = "# account-access:automatic:start", "# account-access:automatic:end"
     path = directory / "rules/account-access.rules"
-    launcher = json.dumps(str(skill / "scripts/access"))
-    commands = json.dumps(["accounts", "status", "run", "task", "audit", "doctor"])
-    block = (start + "\n" + "prefix_rule(\n"
-             + "    pattern = [" + launcher + ", " + commands + "],\n"
-             + '    decision = "allow",\n'
-             + '    justification = "Use the installed Account Access client for owner-approved operations",\n'
-             + ")\n" + end)
-    update_guidance(path, block, start_marker=start, end_marker=end, owned_only=True)
+    update_guidance(path, codex_rule_block(skill), start_marker=start, end_marker=end, owned_only=True)
     return str(path)
 
 

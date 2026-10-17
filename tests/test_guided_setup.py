@@ -101,6 +101,8 @@ def test_visible_sign_in_diagnostics_require_owner_and_keep_permissions(env, mon
     broker.store.audit("service", "demo-web", "", "browser_navigation_failed",
                        "redirect:destination:configured_path_1:query")
     broker.store.audit("service", "demo-web", "", "browser_navigation_failed", "fictional-secret-to-exclude")
+    broker.store.audit("service", "demo-web", "", "browser_navigation_route", "origin_0:/sessions/verified-device")
+    broker.store.audit("service", "demo-web", "", "browser_navigation_route", "origin_0:/fictional-secret-to-exclude")
     with broker.store.db() as db:
         grants = [dict(row) for row in db.execute("SELECT * FROM grants")]
     server, token = make_owner_server(broker, guided=True)
@@ -125,6 +127,7 @@ def test_visible_sign_in_diagnostics_require_owner_and_keep_permissions(env, mon
                 time.sleep(.05)
             assert result["status"] == "NEEDS_USER"
             assert state["navigation_failures"][0]["reason"] == "redirect:destination:configured_path_1:query"
+            assert state["navigation_failures"][0]["route"] == "origin_0:/sessions/verified-device"
             assert "fictional-secret-to-exclude" not in json.dumps(state)
             assert observed == [("demo-web", True)]
             assert "page" not in result and "html" not in result
@@ -132,6 +135,13 @@ def test_visible_sign_in_diagnostics_require_owner_and_keep_permissions(env, mon
             assert not any(row["event"] == "browser_navigation_failed" for row in broker.audit("test")["events"])
             with broker.store.db() as db:
                 assert [dict(row) for row in db.execute("SELECT * FROM grants")] == grants
+            # A later check of another account must not hide this problem. A
+            # later check of this account must retire it, even if the new check
+            # stops at an entirely different verification step.
+            broker.store.audit("service", "demo-mfa", "", "browser_check_started")
+            assert client.get("/owner/state", headers=headers).json()["navigation_failures"]
+            broker.store.audit("service", "demo-web", "", "browser_check_started")
+            assert client.get("/owner/state", headers=headers).json()["navigation_failures"] == []
     finally:
         server.shutdown()
         server.server_close()

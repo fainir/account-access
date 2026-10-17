@@ -1,0 +1,87 @@
+{
+  "version": "0.8.0-candidate",
+  "date": "2026-10-16",
+  "evidence_revision": "2a7cf4b5f51c6b7cced4b8af57c52670f46fdf30",
+  "production_ready": false,
+  "environment": "fictional test accounts and sources",
+  "local_full_suite": {
+    "passed": 340,
+    "seconds": 272.11
+  },
+  "native_owner_checks_passed": 11,
+  "signed_mac_build": 43,
+  "local_graphical_repair": "completed; existing account entries, approved reads and enrolled SMS source preserved",
+  "lint": "passed",
+  "dependency_audit": "no known vulnerabilities in audited dependencies; project not on PyPI",
+  "package_build": "passed",
+  "staged_secret_scan": "no findings",
+  "mail_parser": {
+    "max_bytes": 256000,
+    "max_parts": 64,
+    "max_depth": 8,
+    "max_html_elements": 4096,
+    "formats": [
+      "plain text",
+      "HTML-only",
+      "multipart alternative with plain-text preference",
+      "related HTML root"
+    ],
+    "excluded": [
+      "attachments",
+      "forwarded messages",
+      "duplicate identity headers",
+      "multiple candidate bodies",
+      "malformed MIME",
+      "script/form/frame markup",
+      "arbitrary six-digit extraction"
+    ]
+  },
+  "gmail_contract": [
+    "access and matching message-ID baseline before password submission",
+    "reject stale and far-future timestamps and malformed response identities",
+    "stop on pagination rather than select from an incomplete result set",
+    "one rejected-access renewal per resolver call with scope recheck",
+    "uncertain rotating refresh is never replayed",
+    "code cannot escape an expired or revoked login window",
+    "HTML email completes browser login and later saved-session reuse"
+  ],
+  "totp": "waits for next interval when fewer than five seconds remain; original login expiry retained",
+  "shared_delivery": "distinct source names serialize each email/SMS channel; second account waits without sending a password or creating an owner challenge, then completes later",
+  "source_preflight": "disabled sources, unpaired Android relay and missing/invalid SMS gateway details stop before password submission",
+  "claude": {
+    "version": "2.1.112",
+    "passed": true,
+    "seconds": 50.25,
+    "four_account_task": true
+  },
+  "codex": {
+    "version": "0.162.0-alpha.17.2",
+    "distribution": "desktop bundled",
+    "passed": true,
+    "seconds": 32.02,
+    "four_account_task": true,
+    "global_settings_changed": false,
+    "earlier_host_failure": "CLI 0.155.1 rejected its configured model before any launcher or website request"
+  },
+  "private_account_qa_completed": false,
+  "private_mailbox_delivery_validated": false,
+  "physical_sms_delivery_validated": false,
+  "private_authenticator_login_validated": false,
+  "remaining": [
+    "GitHub private SMS request still redirects to recovery",
+    "Owner will complete genuine GitHub verification later",
+    "Private email and authenticator enrollment and delivery QA remain outstanding",
+    "Broad private website connectors and host coverage remain incomplete",
+    "Chrome CSV imports are snapshots; continuous Chrome sync is not shipped",
+    "Notarization, extension marketplace distribution and clean-machine QA remain outstanding",
+    "Same-user unrestricted agent isolation and independent security review remain outstanding"
+  ],
+  "ci": {
+    "evidence_revision": "2a7cf4b5f51c6b7cced4b8af57c52670f46fdf30",
+    "tests_passed": 340,
+    "seconds": 292.95,
+    "checks": "https://github.com/fainir/account-access/actions/runs/38919671268",
+    "android": "https://github.com/fainir/account-access/actions/runs/38919671276",
+    "conclusion": "success"
+  }
+}

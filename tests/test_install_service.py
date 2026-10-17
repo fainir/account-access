@@ -30,6 +30,20 @@ def test_installed_skill_calls_real_private_service_and_worker(env, tmp_path):
         result = subprocess.run([sys.executable, script, "accounts"], capture_output=True, text=True, timeout=10)
         assert result.returncode == 0, result.stderr
         assert json.loads(result.stdout)["accounts"][0]["account"] == "demo-api"
+        hostile = tmp_path / "untrusted-project"
+        (hostile / "account_access").mkdir(parents=True)
+        marker = hostile / "project-code-ran"
+        poison = ("from pathlib import Path\nPath(" + repr(str(marker))
+                  + ").write_text('unexpected import')\nraise RuntimeError('untrusted project import')\n")
+        for path in [hostile / "json.py", hostile / "sitecustomize.py", hostile / "account_access/__init__.py"]:
+            path.write_text(poison)
+        wrapper = tmp_path / "account-access/scripts/access"
+        isolated = subprocess.run([str(wrapper), "accounts"], cwd=hostile,
+                                 env={**os.environ, "PYTHONPATH": str(hostile)},
+                                 capture_output=True, text=True, timeout=10)
+        assert isolated.returncode == 0, isolated.stderr
+        assert json.loads(isolated.stdout)["accounts"][0]["account"] == "demo-api"
+        assert not marker.exists()
         submit = subprocess.run([sys.executable, script, "task", "submit", "--key", "cli-test", "--steps", "demo-api:summary"], capture_output=True, text=True, timeout=30)
         job = json.loads(submit.stdout)
         waiting = subprocess.run([sys.executable, script, "task", "wait", job["task_id"], "--timeout", "15"], capture_output=True, text=True, timeout=30)
