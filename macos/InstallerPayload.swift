@@ -12,6 +12,7 @@ enum InstallerPayloadFailure: String, Error {
     case object = "unsafe_installer_payload_object"
     case changed = "installer_payload_changed"
     case limit = "installer_payload_limit"
+    case execution = "installer_source_not_started"
 }
 
 struct InstallerPayloadNode {
@@ -308,11 +309,12 @@ enum InstallerPayloadIO {
             throw InstallerPayloadFailure.changed
         }
     }
-    static func verify(_ fd: Int32, tree: InstallerPayloadTree, owner: uid_t, name: String = "") throws -> InstallerPayloadCounts {
+    static func verify(_ fd: Int32, tree: InstallerPayloadTree, owner: uid_t, name: String = "",
+                       rootExtras: Set<String> = []) throws -> InstallerPayloadCounts {
         let before = try check(fd, owner: owner, directory: true)
         guard before.st_mode & 0o7777 == tree.nodes[name]?.mode else { throw InstallerPayloadFailure.changed }
         let expected = tree.children[name] ?? []
-        guard try contents(fd) == expected else { throw InstallerPayloadFailure.changed }
+        guard try contents(fd).subtracting(name.isEmpty ? rootExtras : []) == expected else { throw InstallerPayloadFailure.changed }
         var counts = InstallerPayloadCounts(files: 0, directories: 1, aliases: 0)
         for child in expected.sorted() {
             let relative = name.isEmpty ? child : name + "/" + child
@@ -362,11 +364,16 @@ enum InstallerPayloadIO {
         catch { Darwin.close(file); throw error }
         Darwin.close(file)
         let manifest = try InstallerPayloadManifest(data)
+        return (manifest, try installedImage(manifest))
+    }
+    static func installedImage(_ manifest: InstallerPayloadManifest, opaquePrivateBranches: Bool = false) throws -> InstallerPayloadCounts {
         var counts = InstallerPayloadCounts()
         for root in manifest.trees.keys.sorted() {
             let fd = try directory(root, owner: 0, sharedApplicationParent: root == InstallerPayloadManifest.application)
             do {
-                counts.add(try verify(fd, tree: manifest.trees[root]!, owner: 0))
+                let extras: Set<String> = opaquePrivateBranches && root == InstallerPayloadManifest.support
+                    ? ["broker", "home", "vault", "run", "control", "owner.json", "install-verification.json"] : []
+                counts.add(try verify(fd, tree: manifest.trees[root]!, owner: 0, rootExtras: extras))
                 // Reopen the namespace after hashing: a moved/replaced app may
                 // not substitute for the descriptor-pinned image we inspected.
                 let current = try directory(root, owner: 0, sharedApplicationParent: root == InstallerPayloadManifest.application)
@@ -376,7 +383,74 @@ enum InstallerPayloadIO {
             } catch { Darwin.close(fd); throw error }
             Darwin.close(fd)
         }
-        return (manifest, counts)
+        return counts
+    }
+    static func suppliedManifest() throws -> (InstallerPayloadManifest, InstallerPayloadCounts) {
+        guard getuid() == 0, geteuid() == 0, CommandLine.arguments.count == 3,
+              CommandLine.arguments[1] == "--verify-image-manifest-fd",
+              let fd = Int32(CommandLine.arguments[2]), fd >= 3 else { throw InstallerPayloadFailure.context }
+        guard lseek(fd, 0, SEEK_SET) == 0 else { throw InstallerPayloadFailure.manifest }
+        let manifest = try InstallerPayloadManifest(read(fd, maximum: InstallerPayloadManifest.maximumManifest, owner: 0))
+        return (manifest, try installedImage(manifest, opaquePrivateBranches: true))
+    }
+    static func installSource() throws -> Never {
+        guard getuid() == 0, geteuid() == 0, CommandLine.arguments.count == 2,
+              CommandLine.arguments[1] == "--install" else { throw InstallerPayloadFailure.context }
+        let executable = CommandLine.arguments[0]
+        guard executable.hasPrefix("/"), executable.hasSuffix("/AccountAccess-installerverify") else { throw InstallerPayloadFailure.context }
+        let resourcePath = URL(fileURLWithPath: executable).deletingLastPathComponent().path
+        let resources = try directory(resourcePath, owner: 0, installerResources: true)
+        defer { Darwin.close(resources) }
+        let file = openat(resources, "RecoveryManifest.json", O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK)
+        guard file >= 3 else { throw InstallerPayloadFailure.manifest }
+        defer { Darwin.close(file) }
+        let data = try read(file, maximum: InstallerPayloadManifest.maximumManifest, owner: 0)
+        let manifest = try InstallerPayloadManifest(data)
+        let image = openat(resources, "PublicImage", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard image >= 3, image != file else { throw InstallerPayloadFailure.path }
+        defer { Darwin.close(image) }
+        _ = try check(image, owner: 0, directory: true)
+        for root in manifest.trees.keys.sorted() {
+            let fd = try walkDirectory(root, from: image, owner: 0)
+            defer { Darwin.close(fd) }
+            _ = try verify(fd, tree: manifest.trees[root]!, owner: 0)
+            let current = try walkDirectory(root, from: image, owner: 0)
+            defer { Darwin.close(current) }
+            var first = stat(), second = stat()
+            guard fstat(fd, &first) == 0, fstat(current, &second) == 0, same(first, second) else { throw InstallerPayloadFailure.changed }
+        }
+        guard manifest.trees[InstallerPayloadManifest.support]?.nodes["runtime/bin/python"] != nil,
+              lseek(file, 0, SEEK_SET) == 0 else { throw InstallerPayloadFailure.manifest }
+        let python = resourcePath + "/PublicImage" + InstallerPayloadManifest.support + "/runtime/bin/python"
+        var arguments = [python, "-I", "-B", "-m", "account_access.install_transaction",
+                         "--source-fd", String(image), "--manifest-fd", String(file),
+                         "--manifest-sha256", manifest.sha256].map { strdup($0) }
+        arguments.append(nil)
+        let settings: [String] = ["PATH=/usr/bin:/bin:/usr/sbin:/sbin", "LANG=C", "HOME=/var/root"]
+        var environment = settings.map { strdup($0) }
+        environment.append(nil)
+        defer { arguments.forEach { free($0) }; environment.forEach { free($0) } }
+        guard !arguments.dropLast().contains(where: { $0 == nil }),
+              !environment.dropLast().contains(where: { $0 == nil }) else { throw InstallerPayloadFailure.execution }
+        var actions: posix_spawn_file_actions_t?, attributes: posix_spawnattr_t?
+        guard posix_spawn_file_actions_init(&actions) == 0 else { throw InstallerPayloadFailure.execution }
+        defer { posix_spawn_file_actions_destroy(&actions) }
+        guard posix_spawnattr_init(&attributes) == 0 else { throw InstallerPayloadFailure.execution }
+        defer { posix_spawnattr_destroy(&attributes) }
+        guard posix_spawnattr_setflags(&attributes, Int16(POSIX_SPAWN_SETEXEC | POSIX_SPAWN_CLOEXEC_DEFAULT)) == 0,
+              posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_RDONLY, 0) == 0 else { throw InstallerPayloadFailure.execution }
+        // Only standard output/error and the two verified public handles reach
+        // the trusted interpreter. Caller environment and other handles do not.
+        for fd in [Int32(1), Int32(2), image, file] {
+            guard fcntl(fd, F_GETFD) != -1, posix_spawn_file_actions_addinherit_np(&actions, fd) == 0 else { throw InstallerPayloadFailure.execution }
+        }
+        var pid: pid_t = 0
+        arguments.withUnsafeMutableBufferPointer { args in
+            environment.withUnsafeMutableBufferPointer { env in
+                _ = posix_spawn(&pid, python, &actions, &attributes, args.baseAddress!, env.baseAddress!)
+            }
+        }
+        throw InstallerPayloadFailure.execution
     }
 }
 
@@ -384,6 +458,14 @@ enum InstallerPayloadIO {
 @main struct AccountAccessInstallerVerifier {
     static func main() {
         do {
+            if CommandLine.arguments.count == 2, CommandLine.arguments[1] == "--install" {
+                try InstallerPayloadIO.installSource()
+            }
+            if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--verify-image-manifest-fd" {
+                let (manifest, counts) = try InstallerPayloadIO.suppliedManifest()
+                try output(manifest, counts: counts, status: "VERIFIED")
+                return
+            }
             // Maintainer preflight accepts only bounded stdin metadata. It
             // cannot read a path or select a target, and root cannot use it to
             // bypass the installed-image check.

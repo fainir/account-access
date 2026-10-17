@@ -13,10 +13,12 @@ from pathlib import Path
 import plistlib
 import pwd
 import re
+import signal
 import stat
 import subprocess
 import sys
 import tempfile
+import time
 import zipfile
 
 from account_access.package_manifest import MAX_MANIFEST_BYTES, build as build_manifest, inventory_digest
@@ -26,6 +28,7 @@ from account_access.worker_bootstrap import root_managed_path
 BASE = Path("/Library/Application Support/Account Access")
 APP = Path("/Applications/Account Access.app")
 JOB = Path("/Library/LaunchDaemons/com.fainir.accountaccess.broker.plist")
+JOURNAL = Path("/Library/Application Support/Account Access Installer")
 
 PREPARED_PROBE = """import sys
 def checkpoint(name):
@@ -70,6 +73,8 @@ def verify_package_manifest(package, metadata):
     expected = metadata.get("payload_manifest_sha256")
     if type(expected) is not str or re.fullmatch(r"[a-f0-9]{64}", expected) is None:
         raise ValueError("package_recovery_manifest_pin_required")
+    if metadata.get("installation_strategy") != "verified-script-image-v1":
+        raise ValueError("verified_script_image_package_required")
     with tempfile.TemporaryDirectory(prefix="account-access-package-manifest-") as temporary:
         expanded = Path(temporary) / "expanded"
         subprocess.run(
@@ -77,6 +82,10 @@ def verify_package_manifest(package, metadata):
             check=True, capture_output=True, timeout=120,
         )
         component = expanded / "payload.pkg"
+        payload = component / "Payload"
+        if payload.is_symlink() or payload.exists() and (not payload.is_dir() or any(payload.iterdir())):
+            raise ValueError("unexpected_automatic_package_payload")
+        source = component / "Scripts/PublicImage"
         path = component / "Scripts/RecoveryManifest.json"
         info = path.lstat()
         if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or not 0 < info.st_size <= MAX_MANIFEST_BYTES:
@@ -84,7 +93,7 @@ def verify_package_manifest(package, metadata):
         encoded = path.read_bytes()
         if hashlib.sha256(encoded).hexdigest() != expected:
             raise ValueError("package_recovery_manifest_changed")
-        actual = build_manifest(component / "Payload", metadata["version"], metadata["architecture"])
+        actual = build_manifest(source, metadata["version"], metadata["architecture"])
         if actual != encoded:
             raise ValueError("package_recovery_payload_changed")
         verifier = component / "Scripts/AccountAccess-installerverify"
@@ -95,8 +104,58 @@ def verify_package_manifest(package, metadata):
             raise ValueError("unsafe_package_native_verifier")
         checksum = sha256(verifier)
         if (checksum != metadata.get("installer_verifier_sha256")
-                or checksum != sha256(component / "Payload/Library/Application Support/Account Access/bin/AccountAccess-installerverify")):
+                or checksum != sha256(source / "Library/Application Support/Account Access/bin/AccountAccess-installerverify")):
             raise ValueError("package_native_verifier_changed")
+    return True
+
+
+def interrupt_installer(package, metadata):
+    """Kill only this fresh disposable package's coordinator after its intent.
+
+    No production fault switch, path override or owner data is involved. The
+    exact public manifest binds process selection, then SIGKILL exercises the
+    same journal and lease that a terminated installation leaves behind.
+    """
+    expected = metadata["payload_manifest_sha256"]
+    if re.fullmatch(r"[a-f0-9]{64}", expected) is None:
+        raise ValueError("invalid_package_manifest")
+    child = subprocess.Popen(["/usr/bin/sudo", "-n", "/usr/sbin/installer", "-pkg", str(package), "-target", "/"],
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    killed = False
+    try:
+        deadline = time.monotonic() + 180
+        while child.poll() is None and time.monotonic() < deadline:
+            observed = subprocess.run(["/bin/ps", "-axo", "pid=,uid=,args="], capture_output=True, text=True,
+                                      check=True, timeout=10).stdout
+            matches = []
+            for line in observed.splitlines():
+                fields = line.strip().split(None, 2)
+                if len(fields) != 3 or not fields[0].isdigit() or fields[1] != "0":
+                    continue
+                command = fields[2]
+                if (command.startswith("/private/tmp/PKInstallSandbox.")
+                        and "/Scripts/com.fainir.accountaccess.system." in command
+                        and "/PublicImage/Library/Application Support/Account Access/runtime/bin/python -I -B -m account_access.install_transaction --source-fd " in command
+                        and command.endswith(" --manifest-sha256 " + expected)):
+                    matches.append(int(fields[0]))
+            if len(matches) > 1:
+                raise ValueError("ambiguous_install_coordinator")
+            if matches and not BASE.exists():
+                recorded = subprocess.run(["/usr/bin/sudo", "-n", "/bin/test", "-f", str(JOURNAL / "intent.json")],
+                                          capture_output=True, timeout=10)
+                if recorded.returncode == 0:
+                    subprocess.run(["/usr/bin/sudo", "-n", "/bin/kill", "-" + str(signal.SIGKILL), str(matches[0])],
+                                   check=True, capture_output=True, timeout=10)
+                    killed = True
+                    break
+            time.sleep(0.05)
+        child.communicate(timeout=180)
+        if not killed or child.returncode == 0:
+            raise ValueError("actual_install_interruption_not_observed")
+    finally:
+        if child.poll() is None:
+            child.kill()
+            child.communicate(timeout=30)
     return True
 
 
@@ -282,7 +341,7 @@ def main():
         or os.environ.get("RUNNER_OS") != "macOS"
     ):
         parser.error("Requires an ordinary runner in a disposable GitHub Mac VM")
-    if any(path.exists() or path.is_symlink() for path in [BASE, APP, JOB]):
+    if any(path.exists() or path.is_symlink() for path in [BASE, APP, JOB, JOURNAL]):
         parser.error("Requires a fresh system namespace")
     for lookup in [pwd.getpwnam, grp.getgrnam]:
         try:
@@ -310,6 +369,7 @@ def main():
 
     parent_state = {path: ownership(path) for path in parents}
     try:
+        checks["actual_installer_coordinator_killed_after_protected_intent"] = interrupt_installer(package, metadata)
         result = subprocess.run(
             ["/usr/bin/sudo", "-n", "/usr/sbin/installer", "-pkg", str(package), "-target", "/"],
             capture_output=True,
@@ -317,7 +377,15 @@ def main():
         )
         checks["actual_development_package_refused_before_owner_setup"] = result.returncode != 0
         root_managed_path(BASE)
-        checks["native_verifier_binds_installed_image_before_privileged_python"] = verify_install_receipt(BASE, metadata)
+        checks["native_verified_source_and_installed_image_before_provisioning"] = verify_install_receipt(BASE, metadata)
+        checks["same_package_resumes_after_actual_process_interruption"] = True
+        snapshot = {path: (path.lstat().st_dev, path.lstat().st_ino) for path in [BASE, APP, BASE / "install-verification.json"]}
+        repeated = subprocess.run(["/usr/bin/sudo", "-n", "/usr/sbin/installer", "-pkg", str(package), "-target", "/"],
+                                  capture_output=True, timeout=360)
+        checks["same_package_rechecks_published_image_without_replacing_it"] = (
+            repeated.returncode != 0 and verify_install_receipt(BASE, metadata)
+            and all((path.lstat().st_dev, path.lstat().st_ino) == identity for path, identity in snapshot.items())
+        )
         python = BASE / "runtime/bin/python"
         checks["offline_runtime_installed_at_final_path"] = python.is_file()
         image = metadata["runtime_image"]
@@ -414,7 +482,7 @@ def main():
         # Never turn this into a general uninstall path. Only fresh CI payloads,
         # with no credential store, can be removed by this negative journey.
         if not (BASE / "vault").exists() and not (BASE / "broker").exists() and not JOB.exists():
-            for path in [BASE, APP]:
+            for path in [BASE, APP, JOURNAL]:
                 if path.exists():
                     subprocess.run(
                         ["/usr/bin/sudo", "-n", "/bin/rm", "-rf", "--", str(path)], check=True

@@ -26,6 +26,7 @@ def package(tmp_path, monkeypatch):
     encoded = manifest.build(root, "0.8.0", "arm64")
     metadata = {"payload_manifest_sha256": hashlib.sha256(encoded).hexdigest(),
                 "version": "0.8.0", "architecture": "arm64",
+                "installation_strategy": "verified-script-image-v1",
                 "installer_verifier_sha256": hashlib.sha256(verifier.read_bytes()).hexdigest()}
     calls = []
 
@@ -34,8 +35,7 @@ def package(tmp_path, monkeypatch):
         assert args[:2] == ["/usr/sbin/pkgutil", "--expand-full"]
         assert kwargs["check"] is True and kwargs["timeout"] <= 120
         component = Path(args[-1]) / "payload.pkg"
-        shutil.copytree(root, component / "Payload")
-        (component / "Scripts").mkdir()
+        shutil.copytree(root, component / "Scripts/PublicImage")
         (component / "Scripts/RecoveryManifest.json").write_bytes(encoded)
         shutil.copy2(verifier, component / "Scripts/AccountAccess-installerverify")
         return SimpleNamespace(returncode=0, stdout=b"", stderr=b"")
@@ -62,7 +62,7 @@ def test_recovery_manifest_cannot_hide_changed_code_metadata_or_paths(package, m
         result = original(args, **kwargs)
         component = Path(args[-1]) / "payload.pkg"
         path = component / "Scripts/RecoveryManifest.json"
-        resource = component / "Payload" / manifest.SUPPORT / "public-resource"
+        resource = component / "Scripts/PublicImage" / manifest.SUPPORT / "public-resource"
         if damage == "payload":
             resource.write_bytes(b"changed code")
         elif damage == "manifest":
@@ -87,7 +87,7 @@ def test_recovery_manifest_cannot_hide_changed_code_metadata_or_paths(package, m
             else:
                 verifier.unlink()
                 if damage == "verifier-alias":
-                    verifier.symlink_to(component / "Payload" / manifest.SUPPORT / "bin/AccountAccess-installerverify")
+                    verifier.symlink_to(component / "Scripts/PublicImage" / manifest.SUPPORT / "bin/AccountAccess-installerverify")
         return result
 
     monkeypatch.setattr(smoke.subprocess, "run", expand)

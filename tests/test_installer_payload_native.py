@@ -41,7 +41,8 @@ def production_verifier(tmp_path_factory):
     return output
 
 
-@pytest.mark.parametrize("arguments", [[], ["--manifest", "/unrelated"], ["--fixture-root", "/unrelated"]])
+@pytest.mark.parametrize("arguments", [[], ["--manifest", "/unrelated"], ["--fixture-root", "/unrelated"],
+                                     ["--install"], ["--verify-image-manifest-fd", "3"]])
 def test_production_entrypoint_refuses_ordinary_user_before_reading_installed_or_supplied_paths(production_verifier, arguments):
     result = subprocess.run([str(production_verifier), *arguments], capture_output=True, timeout=10)
     assert result.returncode == 78 and not result.stderr
@@ -263,3 +264,26 @@ def test_manifest_stdin_preflight_is_bounded_and_refuses_invalid_input(productio
     result = subprocess.run([str(production_verifier), "--inspect-manifest"], input=data, capture_output=True, timeout=10)
     assert result.returncode == 78 and not result.stderr
     assert json.loads(result.stdout) == {"schema": 1, "status": "FAILED", "reason": reason}
+
+
+@pytest.mark.parametrize('placement', ['opaque-branches', 'unlisted', 'nested-private-name', 'application-private-name'])
+def test_public_image_recheck_excludes_only_fixed_top_level_private_branches(native_verifier, fixture, tmp_path, placement):
+    root, support, app, manifest = fixture
+    outside = tmp_path / 'opaque-synthetic-data'
+    outside.write_bytes(b'synthetic private fixture; not an account')
+    (support / 'vault').symlink_to(outside)
+    (support / 'broker').mkdir(mode=0o700)
+    (support / 'broker/opaque').write_bytes(b'opaque synthetic fixture')
+    if placement == 'unlisted':
+        (support / 'unknown').write_bytes(b'unlisted')
+    elif placement == 'nested-private-name':
+        (support / 'bin/vault').write_bytes(b'unlisted')
+    elif placement == 'application-private-name':
+        (app / 'vault').write_bytes(b'unlisted')
+    assert verify(native_verifier, fixture)['status'] == 'REFUSED'
+    result = subprocess.run([str(native_verifier), '--public-image', str(manifest), str(root)], capture_output=True, timeout=10)
+    value = json.loads(result.stdout)
+    assert not result.stderr
+    assert (result.returncode == 0) == (placement == 'opaque-branches')
+    assert value['status'] == ('VERIFIED' if placement == 'opaque-branches' else 'REFUSED')
+    assert outside.read_bytes() == b'synthetic private fixture; not an account'

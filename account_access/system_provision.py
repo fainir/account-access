@@ -6,6 +6,8 @@ The package and protected payload must be trusted before this entrypoint runs.
 """
 
 import ctypes
+from contextlib import contextmanager
+from contextvars import ContextVar
 import grp
 import hashlib
 import json
@@ -36,6 +38,28 @@ MARKER = "account-access-system-install-v1"
 IDENTITY = "_accountaccess"
 LABEL = "com.fainir.accountaccess.broker"
 SERVICE = LABEL + ".owner"
+_INSTALL_LEASE = ContextVar("account_access_install_lease", default=None)
+
+
+@contextmanager
+def command_lease(fd):
+    """Keep the install lease alive through synchronous root command children.
+
+    The trusted image coordinator owns this lease. Never use this context to
+    launch the ordinary owner app, an account worker, or agent processes.
+    """
+    if type(fd) is not int or fd < 3:
+        raise ProvisionError("invalid_install_lease")
+    info = os.fstat(fd)
+    if (os.getuid() != 0 or os.geteuid() != 0 or info.st_uid != 0
+            or not stat.S_ISREG(info.st_mode) or info.st_nlink != 1
+            or stat.S_IMODE(info.st_mode) != 0o600):
+        raise ProvisionError("invalid_install_lease")
+    token = _INSTALL_LEASE.set(fd)
+    try:
+        yield
+    finally:
+        _INSTALL_LEASE.reset(token)
 
 
 @dataclass(frozen=True)
@@ -91,11 +115,14 @@ class Layout:
 
 
 def command(arguments):
+    lease = _INSTALL_LEASE.get()
     result = subprocess.run(
         arguments,
         capture_output=True,
         timeout=20,
         env={"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "LANG": "C"},
+        close_fds=True,
+        **({"pass_fds": (lease,)} if lease is not None else {}),
     )
     if result.returncode != 0 or len(result.stdout) + len(result.stderr) > 65536:
         raise ProvisionError("provisioning_command_failed")
@@ -483,7 +510,7 @@ def plans(layout, transaction, signatures, owner_group):
     return values, profile, job
 
 
-def prepare(layout, owner_uid):
+def prepare(layout, owner_uid, *, expected_signatures=None):
     if sys.platform != "darwin" or os.getuid() != 0 or os.geteuid() != 0:
         raise ProvisionError("system_install_requires_root")
     if type(owner_uid) is not int or owner_uid <= 0:
@@ -492,6 +519,8 @@ def prepare(layout, owner_uid):
     if owner_uid == 0 or owner.pw_name in {"loginwindow", "_mbsetupuser"}:
         raise ProvisionError("interactive_owner_required")
     signatures = payload(layout)
+    if expected_signatures is not None and signatures != expected_signatures:
+        raise ProvisionError("payload_identity_changed")
     root_directory(layout.base)
     root_directory(layout.base / "broker", 0o755)
     lock_path = layout.base / "broker/install.lock"
@@ -638,14 +667,15 @@ def main():
         return 78
 
 
-def activate(layout, owner_uid):
+def activate(layout, owner_uid, *, expected_signatures=None):
     """Persist and register only the exact prepared system job.
 
     A failed bootstrap leaves the identical protected plist available for a
     retry. Registration never starts an account worker or grants website access;
     native owner enrollment still controls creation of the first vault.
     """
-    prepared = prepare(layout, owner_uid)
+    prepared = (prepare(layout, owner_uid) if expected_signatures is None else
+                prepare(layout, owner_uid, expected_signatures=expected_signatures))
     source = layout.base / "broker/service.plist"
     root_managed_path(source)
     info = source.lstat()

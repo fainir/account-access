@@ -325,3 +325,41 @@ These are development signatures and controlled inputs; positive consumer
 installation and genuine owner approval remain unverified. The package still
 refuses existing installations; interrupted-install retry is not implemented.
 The installed owner app and deferred Gmail form remain untouched.
+
+## Resumable source-image candidate
+
+The next candidate is a script-only package. PackageKit archives the public
+image under its script resources and writes no automatic target payload. A
+native guard verifies that immutable source before replacing itself with its
+isolated interpreter. Only two verified public descriptors and a clean
+environment cross that boundary. The Python coordinator accepts no destination,
+identity, fixture or command overrides; it requires the real Mac root context.
+
+An exclusive lease and private journal under
+`/Library/Application Support/Account Access Installer` bind one exact manifest
+and interactive owner. Existing unmanaged targets, a changed image/owner or
+conflicting state stop without adoption or overwrite. The coordinator copies
+missing public files into private staging, validates matching existing files,
+and resumes only byte-for-byte matching temporary prefixes. Exclusive kernel
+rename publishes each complete directory. Immutable, synced phase records bind
+the published device/inode identities, covering a process death between the two
+publications. Conflicting files and unknown data are preserved.
+
+After publication, native code rechecks the installed public image before
+provisioning. Fixed private branches remain opaque; they are neither traversed
+nor copied. The verification receipt can be resumed but never replaces an
+existing conflicting file. Package-bound publisher/hash identities constrain
+the actual owner, broker and bootstrap peers before provisioning writes.
+Synchronous privileged command children retain the install lease; the ordinary
+owner app inherits no privileged handles. A completed same-image retry verifies
+the image and reopens setup without repeating provisioning.
+
+Local focused checks passed 226 cases, including every mutation checkpoint,
+eight actual SIGKILL scenarios, cross-process lock exclusion, conflicting
+records/files, namespace replacement, read-only temporaries, receipt recovery,
+native opaque-branch boundaries and changed signed-peer refusal. Both native
+architectures type-check. Actual package acceptance is pending: disposable CI
+will kill the real package coordinator after its durable intent, reinstall the
+same package, and recheck the published image without replacing it. No such
+experiment runs on the owner's Mac. Positive consumer setup, physical power
+loss/reboot and different-image updates/migration remain unverified.

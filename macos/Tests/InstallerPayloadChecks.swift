@@ -16,15 +16,16 @@ import Darwin
                 print("{\"status\":\"VERIFIED\"}")
                 return
             }
-            guard CommandLine.arguments.count == 3 else { exit(64) }
-            let file = open(CommandLine.arguments[1], O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC)
+            let publicImage = CommandLine.arguments.count == 4 && CommandLine.arguments[1] == "--public-image"
+            guard CommandLine.arguments.count == 3 || publicImage else { exit(64) }
+            let file = open(CommandLine.arguments[publicImage ? 2 : 1], O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC)
             guard file >= 0 else { throw InstallerPayloadFailure.path }
             let data: Data
             do { data = try InstallerPayloadIO.read(file, maximum: InstallerPayloadManifest.maximumManifest, owner: getuid()) }
             catch { Darwin.close(file); throw error }
             Darwin.close(file)
             let manifest = try InstallerPayloadManifest(data)
-            let root = open(CommandLine.arguments[2], O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+            let root = open(CommandLine.arguments[publicImage ? 3 : 2], O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
             guard root >= 0 else { throw InstallerPayloadFailure.path }
             defer { Darwin.close(root) }
             guard (try? InstallerPayloadIO.check(root, owner: getuid() + 1, directory: true)) == nil else { exit(1) }
@@ -42,8 +43,10 @@ import Darwin
                         catch { Darwin.close(next); throw error }
                         Darwin.close(directory); directory = next
                     }
-                    let first = try InstallerPayloadIO.verify(directory, tree: manifest.trees[path]!, owner: getuid())
-                    let second = try InstallerPayloadIO.verify(directory, tree: manifest.trees[path]!, owner: getuid())
+                    let extras: Set<String> = publicImage && path == InstallerPayloadManifest.support
+                        ? ["broker", "home", "vault", "run", "control", "owner.json", "install-verification.json"] : []
+                    let first = try InstallerPayloadIO.verify(directory, tree: manifest.trees[path]!, owner: getuid(), rootExtras: extras)
+                    let second = try InstallerPayloadIO.verify(directory, tree: manifest.trees[path]!, owner: getuid(), rootExtras: extras)
                     guard first.files == second.files, first.directories == second.directories,
                           first.aliases == second.aliases else { exit(1) }
                     counts.add(first)

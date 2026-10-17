@@ -1,4 +1,4 @@
-"""Assemble an offline, fresh-install Mac package; never install it on this host."""
+"""Assemble an offline Mac package with protected same-image install recovery."""
 
 import argparse
 import hashlib
@@ -20,8 +20,8 @@ from macos.payload_audit import audit_payload, binary_type, tree_files
 BASE = Path("Library/Application Support/Account Access")
 IDENTIFIER = "com.fainir.accountaccess.system"
 
-# Installer provides the target volume as argument 3. This first installer does
-# not adopt, remove or overwrite existing installation/account data.
+# Installer provides the target volume as argument 3. The verified coordinator
+# owns all image publication and recovery; PackageKit writes no target payload.
 PREINSTALL = """#!/bin/sh
 set -eu
 PATH=/usr/bin:/bin:/usr/sbin:/sbin
@@ -38,16 +38,6 @@ for directory in / /Library "/Library/Application Support"; do
   listing=$(/bin/ls -lde "$directory")
   /usr/bin/printf '%s\\n' "$listing" | /usr/bin/awk 'NR > 1 { bad=1 } END { exit bad }' || exit 1
 done
-for location in "/Library/Application Support/Account Access" "/Applications/Account Access.app" "/Library/LaunchDaemons/com.fainir.accountaccess.broker.plist"; do
-  [ ! -e "$location" ] && [ ! -L "$location" ] || exit 1
-done
-for record in /Users/_accountaccess /Groups/_accountaccess; do
-  if /usr/bin/dscl -plist . -read "$record" RecordName >/dev/null 2>&1; then
-    exit 1
-  else
-    [ "$?" = 56 ] || exit 1
-  fi
-done
 """
 POSTINSTALL = """#!/bin/sh
 set -eu
@@ -55,20 +45,8 @@ PATH=/usr/bin:/bin:/usr/sbin:/sbin
 export PATH
 umask 022
 [ "$(/usr/bin/id -u)" = 0 ] && [ "${3:-}" = / ] || exit 1
-AC_PACKAGE_BASE="/Library/Application Support/Account Access"
-[ -d "$AC_PACKAGE_BASE/runtime" ] && [ ! -L "$AC_PACKAGE_BASE/runtime" ] || exit 1
-[ -x "$AC_PACKAGE_BASE/runtime/bin/python" ] || exit 1
 AC_PACKAGE_SCRIPTS=$(CDPATH= cd "$(/usr/bin/dirname "$0")" && /bin/pwd -P)
-AC_PACKAGE_VERIFIER_STATUS=0
-AC_PACKAGE_VERIFICATION=$("$AC_PACKAGE_SCRIPTS/AccountAccess-installerverify") || AC_PACKAGE_VERIFIER_STATUS=$?
-# Public integrity evidence only. The native verifier has finished walking the
-# exact fresh image before this extra file is created. Never overwrite a file.
-(set -C; /usr/bin/printf '%s\\n' "$AC_PACKAGE_VERIFICATION" > "$AC_PACKAGE_BASE/install-verification.json")
-[ "$AC_PACKAGE_VERIFIER_STATUS" = 0 ] || exit "$AC_PACKAGE_VERIFIER_STATUS"
-"$AC_PACKAGE_BASE/runtime/bin/python" -I -B -m account_access.system_provision
-AC_PACKAGE_OWNER=$(/usr/bin/stat -f %u /dev/console)
-[ "$AC_PACKAGE_OWNER" -gt 0 ] || exit 1
-/bin/launchctl asuser "$AC_PACKAGE_OWNER" /usr/bin/sudo -n -H -u "#$AC_PACKAGE_OWNER" -- /usr/bin/open -a "/Applications/Account Access.app"
+exec "$AC_PACKAGE_SCRIPTS/AccountAccess-installerverify" --install
 """
 
 
@@ -297,10 +275,28 @@ def assemble(args):
         )
         from account_access.package_manifest import build as install_manifest
 
+        identities = {
+            key: signature(path, identifier, fixture=args.development)
+            for key, path, identifier in [
+                ("owner", root / "Applications/Account Access.app", "com.fainir.accountaccess"),
+                ("broker", payload / "bin/AccountAccess-broker", "com.fainir.accountaccess.broker"),
+                ("bootstrap", payload / "bin/AccountAccess-bootstrap", "com.fainir.accountaccess.bootstrap"),
+            ]
+        }
+        (payload / "package-identity.json").write_text(json.dumps({
+            "schema": 1, "managed_by": "account-access-package-identity-v1", "signatures": identities,
+        }, sort_keys=True) + "\n")
+
         # Refuse writable/special payload objects before the supplied
         # interpreter runs; preparation receipts retain their exact tree modes.
         source_manifest = install_manifest(root, version, args.architecture)
         native_manifest_preflight(payload / "bin/AccountAccess-installerverify", source_manifest)
+        from account_access.install_transaction import _peer_identity
+        directory = os.open(payload, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+        try:
+            _peer_identity(directory, os.getuid())
+        finally:
+            os.close(directory)
         from macos.runtime_image import assemble as runtime_image, verify_origins
 
         origins = verify_origins(payload / "wheels", original_requirements, project.name, pin,
@@ -339,22 +335,19 @@ def assemble(args):
         (scripts / "RecoveryManifest.json").write_bytes(manifest)
         verifier = payload / "bin/AccountAccess-installerverify"
         shutil.copy2(verifier, scripts / verifier.name)
+        verifier_digest = hashlib.sha256(verifier.read_bytes()).hexdigest()
         for name, contents in [("preinstall", PREINSTALL), ("postinstall", POSTINSTALL)]:
             target = scripts / name
             target.write_text(contents)
             target.chmod(0o755)
-        components = scratch / "components.plist"
-        command(["/usr/bin/pkgbuild", "--analyze", "--root", str(root), str(components)])
-        components.write_bytes(
-            plistlib.dumps(bundle_rules(plistlib.loads(components.read_bytes())))
-        )
+        # No PackageKit payload can overwrite existing paths before our lease,
+        # journal and exclusive publication checks. The native helper verifies
+        # this private source before its interpreter can run.
+        root.rename(scripts / "PublicImage")
         command(
             [
                 "/usr/bin/pkgbuild",
-                "--root",
-                str(root),
-                "--component-plist",
-                str(components),
+                "--nopayload",
                 "--identifier",
                 IDENTIFIER,
                 "--version",
@@ -395,7 +388,9 @@ def assemble(args):
             "architecture": args.architecture,
             "development": args.development,
             "offline_runtime": True,
-            "fresh_install_only": True,
+            "fresh_install_only": False,
+            "installation_strategy": "verified-script-image-v1",
+            "recovery_scope": "same-image-same-owner-only",
             "production_ready": False,
             "notarized": False,
             "installed": False,
@@ -403,7 +398,7 @@ def assemble(args):
             "runtime_preparation": runtime_preparation,
             "runtime_image": image,
             "payload_manifest_sha256": hashlib.sha256(manifest).hexdigest(),
-            "installer_verifier_sha256": hashlib.sha256(verifier.read_bytes()).hexdigest(),
+            "installer_verifier_sha256": verifier_digest,
             "payload_manifest_counts": manifest_counts(manifest),
             "native_manifest_preflight": True,
             "sha256": hashlib.sha256(result.read_bytes()).hexdigest(),

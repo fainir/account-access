@@ -68,7 +68,8 @@ def test_installer_scripts_are_valid_shell_and_refuse_ordinary_user(tmp_path):
                 subprocess.run(["/bin/sh", str(path), "package", "destination", "/"]).returncode
                 != 0
             )
-    assert "-I -B -m account_access.system_provision" in package.POSTINSTALL
+    assert 'exec "$AC_PACKAGE_SCRIPTS/AccountAccess-installerverify" --install' in package.POSTINSTALL
+    assert "python" not in package.POSTINSTALL
     assert "-m pip" not in package.POSTINSTALL and "-m venv" not in package.POSTINSTALL
     assert "chmod" not in package.POSTINSTALL
     assert "runtime" not in package.PREINSTALL  # Reject the entire existing installation first.
