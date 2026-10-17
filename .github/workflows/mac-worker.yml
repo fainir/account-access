@@ -22,6 +22,7 @@ jobs:
           path: /tmp/account-access-installer-context
           if-no-files-found: error
   mac-cross-user:
+    needs: mac-installer-context
     runs-on: macos-15
     timeout-minutes: 30 # Includes two Installer passes and complete runtime signing.
     steps:
