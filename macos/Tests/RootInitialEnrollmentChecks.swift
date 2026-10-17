@@ -106,6 +106,7 @@ enum RootInitialEnrollmentChecks {
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/sudo")
             process.arguments = ["-n", "-u", "#" + String(plan.base.agentUID), "-g", "#" + String(agentGroup), "--",
+                "/usr/bin/env", "GITHUB_ACTIONS=true", "HOME=" + agentHome.path,
                 python.path, "-I", "-B", probe.path, "--prefix", root.path, "--socket", plan.base.agentSocket, phase]
             process.environment = ["PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "GITHUB_ACTIONS": "true", "HOME": agentHome.path]
             let pipe = Pipe(); process.standardOutput = pipe
