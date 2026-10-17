@@ -27,7 +27,7 @@ def test_native_receipt_binds_the_exact_image_and_all_public_object_counts_witho
     assert path.read_bytes() == before and list(base.iterdir()) == [path]
 
 
-@pytest.mark.parametrize("damage", ["hash", "count", "schema-bool", "count-bool", "extra-field", "array", "empty",
+@pytest.mark.parametrize("damage", ["hash", "count", "schema-bool", "count-bool", "extra-field", "inspection-only", "array", "empty",
                                   "large", "mode", "hardlink", "symlink", "fifo", "parent-mode", "parent-alias"])
 def test_unbound_unsafe_or_replaced_native_receipts_cannot_count_as_installer_acceptance(receipt, tmp_path, damage):
     base, path, metadata, value = receipt
@@ -41,6 +41,8 @@ def test_unbound_unsafe_or_replaced_native_receipts_cannot_count_as_installer_ac
         value["files"] = True
     elif damage == "extra-field":
         value["unrecognized"] = True
+    elif damage == "inspection-only":
+        value["status"] = "INSPECTED"
     elif damage == "array":
         value = []
     path.write_text(json.dumps(value))

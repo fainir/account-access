@@ -63,13 +63,18 @@ struct InstallerPayloadManifest {
               !target.unicodeScalars.contains(where: { $0.value < 32 || $0.value == 127 }) else {
             throw InstallerPayloadFailure.path
         }
-        return target.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
+        let parts = target.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
+        guard parts.count <= 128 else { throw InstallerPayloadFailure.limit }
+        return parts
     }
-    static func confinedAlias(_ name: String, nodes: [String: InstallerPayloadNode]) throws {
+    static func confinedAlias(_ name: String, nodes: [String: InstallerPayloadNode], work: inout Int) throws {
         var current = Array(try components(name).dropLast())
-        var pending = try targetParts(nodes[name]!.target!), links = 0
-        while !pending.isEmpty {
-            let part = pending.removeFirst()
+        var pending = try targetParts(nodes[name]!.target!), links = 0, cursor = 0
+        while cursor < pending.count {
+            work += 1
+            guard work <= 1_000_000 else { throw InstallerPayloadFailure.limit }
+            let part = pending[cursor]
+            cursor += 1
             if part.isEmpty || part == "." { continue }
             if part == ".." {
                 guard !current.isEmpty else { throw InstallerPayloadFailure.path }
@@ -80,10 +85,11 @@ struct InstallerPayloadManifest {
             if node.kind == "symlink" {
                 links += 1
                 guard links <= 40 else { throw InstallerPayloadFailure.path }
-                pending = try targetParts(node.target!) + pending
+                pending = try targetParts(node.target!) + pending.dropFirst(cursor)
+                cursor = 0
             } else {
                 current.append(part)
-                guard pending.isEmpty || node.kind == "directory" else { throw InstallerPayloadFailure.path }
+                guard cursor == pending.count || node.kind == "directory" else { throw InstallerPayloadFailure.path }
             }
         }
     }
@@ -97,7 +103,7 @@ struct InstallerPayloadManifest {
               value["version"] as? String == "0.8.0", value["architecture"] as? String == "arm64",
               let roots = value["roots"] as? [String: [String: [String: Any]]],
               Set(roots.keys) == [Self.support, Self.application] else { throw InstallerPayloadFailure.manifest }
-        var trees: [String: InstallerPayloadTree] = [:], count = 0, total: Int64 = 0
+        var trees: [String: InstallerPayloadTree] = [:], count = 0, total: Int64 = 0, aliasWork = 0
         for (root, rows) in roots {
             var nodes: [String: InstallerPayloadNode] = [:], names: Set<String> = []
             var children: [String: Set<String>] = [:]
@@ -140,7 +146,7 @@ struct InstallerPayloadManifest {
             for (name, node) in nodes where !name.isEmpty {
                 let parent = try Self.components(name).dropLast().joined(separator: "/")
                 guard nodes[parent]?.kind == "directory" else { throw InstallerPayloadFailure.manifest }
-                if node.kind == "symlink" { try Self.confinedAlias(name, nodes: nodes) }
+                if node.kind == "symlink" { try Self.confinedAlias(name, nodes: nodes, work: &aliasWork) }
             }
             trees[root] = InstallerPayloadTree(nodes: nodes, children: children)
         }
@@ -228,10 +234,18 @@ enum InstallerPayloadIO {
             guard let entry = readdir(directory) else {
                 guard errno == 0 else { throw InstallerPayloadFailure.path }; break
             }
-            let name = withUnsafePointer(to: &entry.pointee.d_name) {
-                $0.withMemoryRebound(to: CChar.self, capacity: 1024) { String(validatingCString: $0) }
+            // Darwin dirents are variable-length records. Read only the name
+            // bytes covered by this record rather than rebinding a full tuple.
+            guard let offset = MemoryLayout<dirent>.offset(of: \.d_name) else { throw InstallerPayloadFailure.path }
+            let length = Int(entry.pointee.d_namlen)
+            guard length > 0, length < 1024, Int(entry.pointee.d_reclen) >= offset + length + 1 else {
+                throw InstallerPayloadFailure.path
             }
-            guard let name else { throw InstallerPayloadFailure.path }
+            let bytes = UnsafeRawPointer(entry).advanced(by: offset).assumingMemoryBound(to: UInt8.self)
+            guard bytes[length] == 0,
+                  let name = String(bytes: UnsafeBufferPointer(start: bytes, count: length), encoding: .utf8) else {
+                throw InstallerPayloadFailure.path
+            }
             if name == "." || name == ".." { continue }
             guard try InstallerPayloadManifest.components(name).count == 1,
                   names.count < InstallerPayloadManifest.maximumEntries,
@@ -348,16 +362,41 @@ enum InstallerPayloadIO {
 @main struct AccountAccessInstallerVerifier {
     static func main() {
         do {
+            // Maintainer preflight accepts only bounded stdin metadata. It
+            // cannot read a path or select a target, and root cannot use it to
+            // bypass the installed-image check.
+            if getuid() != 0, geteuid() == getuid(), CommandLine.arguments.count == 2,
+               CommandLine.arguments[1] == "--inspect-manifest" {
+                var data = Data()
+                while let block = try FileHandle.standardInput.read(upToCount: 64 * 1024), !block.isEmpty {
+                    guard data.count + block.count <= InstallerPayloadManifest.maximumManifest else { throw InstallerPayloadFailure.limit }
+                    data.append(block)
+                }
+                let manifest = try InstallerPayloadManifest(data)
+                var counts = InstallerPayloadCounts()
+                for tree in manifest.trees.values {
+                    for node in tree.nodes.values {
+                        if node.kind == "file" { counts.files += 1 }
+                        else if node.kind == "directory" { counts.directories += 1 }
+                        else { counts.aliases += 1 }
+                    }
+                }
+                try output(manifest, counts: counts, status: "INSPECTED")
+                return
+            }
             let (manifest, counts) = try InstallerPayloadIO.installed()
-            let output: [String: Any] = ["schema": 1, "status": "VERIFIED", "manifest_sha256": manifest.sha256,
-                                         "files": counts.files, "directories": counts.directories, "aliases": counts.aliases]
-            let data = try JSONSerialization.data(withJSONObject: output, options: [.sortedKeys])
-            FileHandle.standardOutput.write(data); FileHandle.standardOutput.write(Data([10]))
+            try output(manifest, counts: counts, status: "VERIFIED")
         } catch {
             let reason = (error as? InstallerPayloadFailure)?.rawValue ?? "installer_payload_not_verified"
             FileHandle.standardOutput.write(Data(("{\"schema\":1,\"status\":\"FAILED\",\"reason\":\"" + reason + "\"}\n").utf8))
             exit(78)
         }
+    }
+    static func output(_ manifest: InstallerPayloadManifest, counts: InstallerPayloadCounts, status: String) throws {
+        let value: [String: Any] = ["schema": 1, "status": status, "manifest_sha256": manifest.sha256,
+                                  "files": counts.files, "directories": counts.directories, "aliases": counts.aliases]
+        let data = try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
+        FileHandle.standardOutput.write(data); FileHandle.standardOutput.write(Data([10]))
     }
 }
 #endif

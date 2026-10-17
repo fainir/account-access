@@ -72,11 +72,12 @@ AC_PACKAGE_OWNER=$(/usr/bin/stat -f %u /dev/console)
 """
 
 
-def command(arguments):
+def command(arguments, *, input_data=None):
     return subprocess.run(
         arguments,
         check=True,
-        stdin=subprocess.DEVNULL,
+        stdin=subprocess.DEVNULL if input_data is None else None,
+        input=input_data,
         capture_output=True,
         timeout=600,
         env={"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "LANG": "C"},
@@ -140,8 +141,27 @@ def verify_source_inventory(before, after):
         raise ValueError("runtime_image_source_payload_changed")
 
 
+def manifest_counts(encoded):
+    return {
+        kind: sum(row["kind"] == word for tree in json.loads(encoded)["roots"].values() for row in tree.values())
+        for kind, word in [("files", "file"), ("directories", "directory"), ("aliases", "symlink")]
+    }
+
+
+def native_manifest_preflight(verifier, encoded):
+    expected = {"schema": 1, "status": "INSPECTED", "manifest_sha256": hashlib.sha256(encoded).hexdigest(),
+                **manifest_counts(encoded)}
+    result = command([str(verifier), "--inspect-manifest"], input_data=encoded)
+    if len(result.stdout) > 4096:
+        raise ValueError("native_manifest_preflight_mismatch")
+    value = json.loads(result.stdout)
+    if (type(value) is not dict or value != expected
+            or any(type(value[key]) is not int for key in ["schema", "files", "directories", "aliases"])):
+        raise ValueError("native_manifest_preflight_mismatch")
+
+
 def assemble(args):
-    if sys.platform != "darwin" or os.getuid() == 0:
+    if sys.platform != "darwin" or os.getuid() == 0 or os.getuid() != os.geteuid():
         raise ValueError("ordinary_mac_build_context_required")
     if args.architecture != "arm64":
         raise ValueError("apple_silicon_binary_runtime_required")
@@ -280,6 +300,7 @@ def assemble(args):
         # Refuse writable/special payload objects before the supplied
         # interpreter runs; preparation receipts retain their exact tree modes.
         source_manifest = install_manifest(root, version, args.architecture)
+        native_manifest_preflight(payload / "bin/AccountAccess-installerverify", source_manifest)
         from macos.runtime_image import assemble as runtime_image, verify_origins
 
         origins = verify_origins(payload / "wheels", original_requirements, project.name, pin,
@@ -313,6 +334,7 @@ def assemble(args):
         )
         manifest = install_manifest(root, version, args.architecture)
         verify_source_inventory(source_manifest, manifest)
+        native_manifest_preflight(payload / "bin/AccountAccess-installerverify", manifest)
         scripts.mkdir()
         (scripts / "RecoveryManifest.json").write_bytes(manifest)
         verifier = payload / "bin/AccountAccess-installerverify"
@@ -382,10 +404,8 @@ def assemble(args):
             "runtime_image": image,
             "payload_manifest_sha256": hashlib.sha256(manifest).hexdigest(),
             "installer_verifier_sha256": hashlib.sha256(verifier.read_bytes()).hexdigest(),
-            "payload_manifest_counts": {
-                kind: sum(row["kind"] == word for tree in json.loads(manifest)["roots"].values() for row in tree.values())
-                for kind, word in [("files", "file"), ("directories", "directory"), ("aliases", "symlink")]
-            },
+            "payload_manifest_counts": manifest_counts(manifest),
+            "native_manifest_preflight": True,
             "sha256": hashlib.sha256(result.read_bytes()).hexdigest(),
         }
         (output / "package.json").write_text(json.dumps(report, indent=2) + "\n")
@@ -429,6 +449,7 @@ def main():
                 "chmod",
                 "lipo",
                 "pkgutil",
+                "AccountAccess-installerverify",
             }:
                 diagnostic["tool"] = executable
                 diagnostic["exit_code"] = exc.returncode

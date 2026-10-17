@@ -39,7 +39,7 @@ def test_package_assembly_never_runs_under_root_or_on_another_platform(monkeypat
 @pytest.mark.parametrize("architecture", ["x86_64", "i386", "unknown"])
 def test_package_refuses_unavailable_intel_runtime_before_opening_any_supplied_payload(monkeypatch, architecture):
     monkeypatch.setattr(package.sys, "platform", "darwin")
-    monkeypatch.setattr(package, "os", SimpleNamespace(getuid=lambda: 501))
+    monkeypatch.setattr(package, "os", SimpleNamespace(getuid=lambda: 501, geteuid=lambda: 501))
     with pytest.raises(ValueError, match="apple_silicon_binary_runtime_required"):
         package.assemble(SimpleNamespace(architecture=architecture))
 
@@ -127,7 +127,7 @@ def test_supplied_python_cannot_run_before_private_payload_inventory(
     # would also change the inventory's ownership checks (and hide Linux UID
     # differences). Deliberately use a different simulated builder identity.
     actual_uid = os.getuid()
-    monkeypatch.setattr(package, "os", SimpleNamespace(getuid=lambda: actual_uid + 1))
+    monkeypatch.setattr(package, "os", SimpleNamespace(getuid=lambda: actual_uid + 1, geteuid=lambda: actual_uid + 1))
     assert os.getuid() == actual_uid
     monkeypatch.setattr(
         package, "inspect_app", lambda *a, **k: ("0.8.0", "ABCDEFGHIJ", wheel, b"fixture==1")
@@ -176,3 +176,44 @@ def test_supplied_python_cannot_run_before_private_payload_inventory(
     if writable:
         assert executable.stat().st_mode & 0o777 == 0o666
     assert not list((tmp_path / "output").iterdir())
+
+
+@pytest.mark.parametrize("fault", [None, "digest", "count", "schema-bool", "runtime-status", "extra-field", "oversized"])
+def test_native_manifest_preflight_uses_bounded_stdin_and_binds_exact_inspection_result(monkeypatch, fault):
+    import hashlib
+    import json
+
+    encoded = json.dumps({"roots": {"public": {"": {"kind": "directory"}, "code": {"kind": "file"}}}}).encode()
+    expected = {"schema": 1, "status": "INSPECTED", "manifest_sha256": hashlib.sha256(encoded).hexdigest(),
+                "files": 1, "directories": 1, "aliases": 0}
+    calls = []
+    def inspect(arguments, *, input_data):
+        calls.append(arguments)
+        assert arguments == ["/synthetic/verifier", "--inspect-manifest"] and input_data == encoded
+        value = expected.copy()
+        if fault == "digest":
+            value["manifest_sha256"] = "0" * 64
+        elif fault == "count":
+            value["files"] += 1
+        elif fault == "schema-bool":
+            value["schema"] = True
+        elif fault == "runtime-status":
+            value["status"] = "VERIFIED"
+        elif fault == "extra-field":
+            value["unrecognized"] = True
+        return SimpleNamespace(stdout=b"x" * 4097 if fault == "oversized" else json.dumps(value).encode())
+    monkeypatch.setattr(package, "command", inspect)
+    if fault:
+        with pytest.raises(ValueError, match="native_manifest_preflight_mismatch"):
+            package.native_manifest_preflight("/synthetic/verifier", encoded)
+    else:
+        package.native_manifest_preflight("/synthetic/verifier", encoded)
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize("real_uid,effective_uid", [(0, 0), (501, 0), (501, 502)])
+def test_package_refuses_privileged_or_mismatched_identity_before_any_payload_path_is_read(monkeypatch, real_uid, effective_uid):
+    monkeypatch.setattr(package.sys, "platform", "darwin")
+    monkeypatch.setattr(package, "os", SimpleNamespace(getuid=lambda: real_uid, geteuid=lambda: effective_uid))
+    with pytest.raises(ValueError, match="ordinary_mac_build_context_required"):
+        package.assemble(SimpleNamespace())

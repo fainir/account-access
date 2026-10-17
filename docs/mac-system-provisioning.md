@@ -288,7 +288,15 @@ without overwriting an existing file. Disposable acceptance requires a matching
 successful receipt; a failed or absent native check cannot count as installation
 acceptance. The receipt grants no account access, retry or deletion authority.
 
-Local checks cover 100 native, receipt, archive-binding and package cases, both
+The ordinary-user assembler also sends both source and final inventories to the
+native parser through bounded stdin before packaging. This metadata-only mode
+has no path argument, cannot run as root, and reports `INSPECTED`, which cannot
+substitute for installed-image `VERIFIED` evidence. It binds the exact digest
+and typed object counts. Invalid schemas, excessive alias work and directory
+depth stop during the build. Assembly refuses root or unequal real/effective
+identities before opening supplied payload paths.
+
+Local checks cover 116 native, receipt, archive-binding and package cases, both
 native architectures and a signed universal helper's ordinary-user refusal.
 Real Installer acceptance of this next candidate is pending. The package still
 refuses existing installations; interrupted-install retry is not implemented.

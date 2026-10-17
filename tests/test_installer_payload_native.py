@@ -3,6 +3,7 @@
 These tests run as the ordinary user, never against installed code/account data.
 Actual root execution belongs only to the disposable Mac Installer workflow.
 """
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -125,7 +126,7 @@ def test_native_verifier_refuses_changed_unsafe_or_unlisted_public_payload(nativ
 
 @pytest.mark.parametrize("damage", ["schema", "version", "architecture", "extra-root", "extra-field", "mode-bool",
                                   "size-bool", "bad-hash", "hash-newline", "missing-parent", "parent-file", "dotdot",
-                                  "absolute-name", "control-name", "backslash-name", "case-collision",
+                                  "absolute-name", "control-name", "backslash-name", "case-collision", "deep-name",
                                   "dangling-alias", "absolute-alias", "outside-return", "cycle", "non-directory-hop"])
 def test_native_manifest_refuses_ambiguous_or_unsafe_image_metadata(native_verifier, fixture, damage):
     _, _, _, manifest = fixture
@@ -144,9 +145,9 @@ def test_native_manifest_refuses_ambiguous_or_unsafe_image_metadata(native_verif
         del rows["bin"]
     elif damage == "parent-file":
         rows["bin"] = rows["public.json"]
-    elif damage in {"dotdot", "absolute-name", "control-name", "backslash-name", "case-collision"}:
+    elif damage in {"dotdot", "absolute-name", "control-name", "backslash-name", "case-collision", "deep-name"}:
         name = {"dotdot": "../escape", "absolute-name": "/escape", "control-name": "line\nbreak",
-                "backslash-name": "back\\slash", "case-collision": "PUBLIC.JSON"}[damage]
+                "backslash-name": "back\\slash", "case-collision": "PUBLIC.JSON", "deep-name": "/".join(["child"] * 129)}[damage]
         rows[name] = rows["public.json"]
     else:
         target = {"dangling-alias": "missing", "absolute-alias": "/etc/passwd", "outside-return": "../../Account Access/bin/tool",
@@ -154,6 +155,20 @@ def test_native_manifest_refuses_ambiguous_or_unsafe_image_metadata(native_verif
         rows["bin/alias"]["target"] = target
     manifest.write_text(json.dumps(value))
     assert verify(native_verifier, fixture)["status"] == "REFUSED"
+
+
+def test_alias_graph_total_work_is_bounded_before_any_image_directory_is_opened(native_verifier, fixture):
+    root, _, _, manifest = fixture
+    value = json.loads(manifest.read_bytes())
+    rows = value["roots"]["/" + str(package_manifest.SUPPORT)]
+    for index in range(40):
+        target = "chain" + str(index + 1) if index < 39 else "bin"
+        rows["chain" + str(index)] = {"kind": "symlink", "target": target + "/." * 127}
+    for index in range(200):
+        rows["fanout" + str(index)] = {"kind": "symlink", "target": "chain0"}
+    manifest.write_text(json.dumps(value))
+    shutil.rmtree(root)
+    assert verify(native_verifier, fixture) == {"status": "REFUSED", "reason": "installer_payload_limit"}
 
 
 def test_native_check_accepts_standard_shared_applications_parent_without_changing_it(native_verifier, fixture):
@@ -180,3 +195,24 @@ def test_native_manifest_file_cannot_be_a_symlink(native_verifier, fixture, tmp_
     shutil.move(manifest, moved)
     manifest.symlink_to(moved)
     assert verify(native_verifier, fixture)["status"] == "REFUSED"
+
+
+def test_ordinary_manifest_preflight_reads_only_stdin_metadata_and_does_not_verify_a_missing_image(production_verifier, fixture):
+    root, _, _, path = fixture
+    data = path.read_bytes()
+    shutil.rmtree(root)
+    result = subprocess.run([str(production_verifier), "--inspect-manifest"], input=data, capture_output=True, timeout=10)
+    assert result.returncode == 0 and not result.stderr
+    value = json.loads(result.stdout)
+    assert value == {"schema": 1, "status": "INSPECTED", "manifest_sha256": hashlib.sha256(data).hexdigest(),
+                     "files": 3, "directories": 5, "aliases": 2}
+    assert not root.exists()
+
+
+@pytest.mark.parametrize("data,reason", [(b"{}", "invalid_installer_payload_manifest"),
+                                      (b"x" * (16 * 1024 * 1024 + 1), "installer_payload_limit")],
+                         ids=["invalid-json", "oversized"])
+def test_manifest_stdin_preflight_is_bounded_and_refuses_invalid_input(production_verifier, data, reason):
+    result = subprocess.run([str(production_verifier), "--inspect-manifest"], input=data, capture_output=True, timeout=10)
+    assert result.returncode == 78 and not result.stderr
+    assert json.loads(result.stdout) == {"schema": 1, "status": "FAILED", "reason": reason}

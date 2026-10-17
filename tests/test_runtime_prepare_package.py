@@ -27,7 +27,7 @@ def package_inputs(tmp_path, monkeypatch):
         with zipfile.ZipFile(path, "w") as archive:
             archive.writestr("fixture.py", "# fixture")
     monkeypatch.setattr(package.sys, "platform", "darwin")
-    monkeypatch.setattr(package.os, "getuid", lambda: 501)
+    monkeypatch.setattr(package, "os", SimpleNamespace(getuid=lambda: 501, geteuid=lambda: 501))
     monkeypatch.setattr(
         package, "inspect_app", lambda *a, **k: ("0.8.0", "ABCDEFGHIJ", project, b"fixture==1")
     )
