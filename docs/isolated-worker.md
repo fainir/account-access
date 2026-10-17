@@ -55,7 +55,10 @@ directory alias, before key handoff. This does not deploy a consumer root servic
 
 The separate [System-key provider](mac-key-custody.md) passed 20 native daemon
 checks, including process-restart recovery and actual separate-user read denial.
-It is not yet connected to this worker's production bootstrap.
+The subsequent [33-check native handoff](../artifacts/mac-key-handoff-080.json)
+uses the production reader, encrypted storage and actual worker service. It
+checks startup, owned-child shutdown, crash/reopen, capability replacement and
+Pause against an empty fixture Store. Consumer orchestration remains separate.
 
 This component needs a production supervisor integrating that key custody, authenticated
 owner enrollment, secure client issuance and migration, lifecycle/recovery,

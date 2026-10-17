@@ -11,26 +11,26 @@
   "real_owner_auth_approval_tested": false,
   "consumer_deployment_verified": false,
   "checks": {
-    "strict_rule_created": true,
+    "registrar_identity_verified": true,
     "matching_rule_preserved": true,
-    "foreign_registrar_requirement_refused": true,
-    "foreign_registrar_identifier_refused": true,
-    "changed_policy_refused": true,
-    "fixture_rule_removed": true,
     "changed_policy_detected": true,
+    "fixture_rule_removed": true,
+    "foreign_registrar_requirement_refused": true,
     "changed_policy_preserved": true,
     "strict_rule_readback_verified": true,
+    "strict_rule_restored": true,
+    "foreign_registrar_identifier_refused": true,
     "system_daemon_context_verified": true,
-    "registrar_identity_verified": true,
+    "changed_policy_refused": true,
+    "namespace_initially_absent": true,
     "root_shortcut_refused": true,
     "changed_policy_granted_proof_refused": true,
-    "strict_rule_restored": true,
-    "namespace_initially_absent": true,
+    "strict_rule_created": true,
     "unprivileged_policy_install_refused": true
   },
   "date": "2026-10-17",
-  "source_revision": "d402c5d7793da0c36aa44866488015398ac986d9",
-  "ci_url": "https://github.com/fainir/account-access/actions/runs/38999652539/job/117299684300",
+  "source_revision": "d8264cdc9cad52440033969766679d81f10b2783",
+  "ci_url": "https://github.com/fainir/account-access/actions/runs/39002897216/job/117309356475",
   "installed_owner_app_changed": false,
   "publisher_signed_peers": false,
   "limits": [
@@ -39,18 +39,5 @@
     "No genuine owner presence, positive owner UI/XPC enrollment, consumer service installation or migration acceptance",
     "No private account, mailbox, phone or authenticator enrollment or delivery acceptance"
   ],
-  "validation": {
-    "source_revision": "d402c5d7793da0c36aa44866488015398ac986d9",
-    "regression_tests": 778,
-    "platform_skips": 1,
-    "regression_seconds": 468.24,
-    "regression_ci": "https://github.com/fainir/account-access/actions/runs/38999652497",
-    "lint": "passed",
-    "dependency_audit": "no known vulnerabilities",
-    "package_and_native_checks": "passed",
-    "linux_cross_user_checks": 24,
-    "linux_ci": "https://github.com/fainir/account-access/actions/runs/38999652516",
-    "android_emulator_journey": "passed",
-    "android_ci": "https://github.com/fainir/account-access/actions/runs/38999652533"
-  }
+  "matching_regression_evidence": "mac-key-handoff-080.json"
 }

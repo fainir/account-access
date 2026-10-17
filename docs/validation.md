@@ -1,5 +1,37 @@
 # Validation of Account Access
 
+## System key to actual worker service — 17 October 2026
+
+Revision `d8264cd` passed **33 native handoff/lifecycle checks** in
+[Mac CI](https://github.com/fainir/account-access/actions/runs/39002897216/job/117309356475).
+A native sender loaded the real fixture System key and sent exactly 64 bytes
+through an anonymous pipe. The launcher permanently dropped to the dedicated
+broker identity; production Python bootstrap/storage code created and reopened
+an encrypted fixture Store in separate processes. Private receipts, kernel
+UID/GID, descriptor closure, replay/failure/cancel behavior were checked.
+
+The same native lifecycle component started the actual worker on that Store,
+confirmed private owner state and kernel identity, stopped/reopened it, refused
+the previous owner capability, and preserved Pause. A killed owned worker was
+reaped; another worker reopened the same encrypted data. Wrong launcher
+signature was refused and created listener paths were removed. The Store is
+empty of website accounts: this does not add private sign-in coverage. These
+checks ran alongside the 20 System-key, 25 worker, 24 owner-host and 16 policy
+checks, whose scopes remain separate.
+
+Matching source passed **794 tests, one platform skip, in 433.65 seconds**,
+lint, audit with no known vulnerabilities, packaging and native checks in
+[regression CI](https://github.com/fainir/account-access/actions/runs/39002897235).
+[Linux's 24-check worker](https://github.com/fainir/account-access/actions/runs/39002897242)
+and [Android emulator journey](https://github.com/fainir/account-access/actions/runs/39002897234)
+also passed. See [native handoff evidence](../artifacts/mac-key-handoff-080.json).
+
+This verifies an existing fixture Store under a live native parent. It does not
+verify parent-daemon crash/reboot, consumer provisioning/installation, genuine
+initial owner enrollment, native phone/source collectors or migration. Signed
+build 61 is still the older staged payload; installed build 53 and its mailbox
+form remain untouched. Private email/SMS/TOTP and physical phones remain open.
+
 ## Strict Mac setup policy and stop recovery — 17 October 2026
 
 Revision `d402c5d` passed **16 native policy checks**, alongside the existing

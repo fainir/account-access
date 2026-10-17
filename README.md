@@ -299,8 +299,11 @@ the root host beside the isolated broker in a disposable Mac VM, verified peer
 identity and revocation, and removed the service. This does not validate a
 consumer installation or genuine owner approval. A separate
 [20-check System-key journey](artifacts/mac-key-custody-080.json) verified daemon
-restart recovery and denied another user's direct read. Production supervision,
-key handoff and native consumer wiring remain under implementation.
+restart recovery and denied another user's direct read. Production supervision
+and native consumer wiring remain under implementation. A separate
+[33-check native handoff](artifacts/mac-key-handoff-080.json) now opens an
+encrypted fixture Store in the actual worker and verifies restart, crash
+recovery, fresh owner capability and Pause. It is not consumer installation.
 
 The same Mac VM passed [16 setup-policy checks](artifacts/mac-owner-policy-080.json):
 strict rule provisioning, registrar binding, changed-rule rejection and fixture

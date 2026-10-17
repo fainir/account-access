@@ -64,11 +64,11 @@ The test confirms process restart, not a machine reboot or a different signed
 binary recovering the item after an update.
 
 This is not production supervision, consumer installation, migration or genuine
-owner authorization. Integrating the provider with the isolated worker, native
-setup/source collectors and secure client issuance remains necessary, alongside
+owner authorization. The separate worker handoff below now opens a fixture Store;
+consumer orchestration, native setup/source collectors and secure client issuance remain necessary, alongside
 private email/SMS/TOTP, physical-device and notarized-install acceptance.
 
-## Native worker handoff under validation
+## Native worker handoff and existing-store lifecycle
 
 `RootWorkerChannel.swift` prepares a one-shot anonymous pipe for a trusted
 supervisor. It sends the 32-byte System key followed by 32 bytes of fresh owner
@@ -94,7 +94,11 @@ inode. It neither adopts a recorded PID nor installs/restarts a service.
 The newest CI journey starts the actual worker on the fixture Store, checks its
 kernel identity and private owner state, stops it, reopens it with a fresh owner
 capability and refuses the old capability. It also kills/reaps only its owned
-worker and checks recovery of the encrypted Store in a new worker. This crash
-extension is under validation.
+worker and checks recovery of the encrypted Store in a new worker. Revision
+`d8264cd` passed **33 handoff/lifecycle checks** in
+[Mac CI](https://github.com/fainir/account-access/actions/runs/39002897216/job/117309356475),
+alongside the 20 key-custody, 25 worker, 24 owner-host and 16 setup-policy checks.
+The actual service Store is an empty encrypted fixture, not a private enrollment.
+See [handoff evidence](../artifacts/mac-key-handoff-080.json).
 It is not production supervision, genuine owner enrollment, migration or
 consumer installation.
