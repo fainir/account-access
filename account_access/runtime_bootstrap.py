@@ -9,6 +9,7 @@ import fcntl
 import json
 import os
 from pathlib import Path
+import platform
 import shlex
 import shutil
 import re
@@ -172,6 +173,10 @@ def restore_launcher(path, snapshot):
 
 
 def install(uv, wheel, runtime, requirements, *, data_dir="", no_open=False, run=subprocess.run):
+    if sys.platform == "darwin":
+        version = platform.mac_ver()[0]
+        if not re.fullmatch(r"[0-9]{1,3}(?:\.[0-9]+){0,2}", version) or int(version.split(".")[0]) < 14:
+            raise RuntimeError("Account Access requires macOS 14 (Sonoma) or later.")
     runtime = Path(os.path.abspath(runtime))
     if runtime.is_symlink():
         raise RuntimeError("Refusing a linked installation directory.")

@@ -7,6 +7,10 @@ or physical-device coverage.
 
 ## Candidate 0.8 changes
 
+- The next Mac source build requires macOS 14 (Sonoma) or later, matching the
+  pinned Playwright browser runtime. App metadata, shell preflight and the direct
+  Python bootstrap enforce this before downloads/runtime changes. This corrects
+  the previous macOS 13 claim; it is not clean-Mac installation acceptance.
 - A verified mailbox repair can resume an original blocked task without a
   separate website-check click. The service stores internal source/fingerprint
   context on recognized mailbox-access challenges and requires a fresh verified

@@ -8,7 +8,17 @@ AC_RUNTIME="${ACCOUNT_ACCESS_INSTALL_DIR:-$HOME/.local/share/account-access/runt
 AC_SCRATCH=$(mktemp -d "${TMPDIR:-/tmp}/account-access-install.XXXXXX")
 trap 'rm -rf "$AC_SCRATCH"' EXIT HUP INT TERM
 case "$(uname -s)" in
-  Darwin|Linux) ;;
+  Darwin)
+    AC_MAC_VERSION=$(sw_vers -productVersion 2>/dev/null || true)
+    AC_MAC_MAJOR=${AC_MAC_VERSION%%.*}
+    case "$AC_MAC_MAJOR" in
+      ''|*[!0-9]*) echo "Could not verify macOS. Account Access requires macOS 14 or later."; exit 1 ;;
+    esac
+    if [ ${#AC_MAC_MAJOR} -gt 3 ] || [ "$AC_MAC_MAJOR" -lt 14 ]; then
+      echo "Account Access requires macOS 14 (Sonoma) or later. Update macOS before installing."
+      exit 1
+    fi ;;
+  Linux) ;;
   *) echo "This installer supports macOS and Linux. Windows is not supported yet."; exit 1 ;;
 esac
 printf '\nAccount Access\nInstalling what you need. No developer setup required.\n\n'

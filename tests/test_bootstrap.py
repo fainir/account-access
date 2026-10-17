@@ -65,9 +65,15 @@ def test_bundled_package_requires_matching_signed_pin(tmp_path, pin):
 
 
 @pytest.mark.parametrize("cached_uv", [False, True])
-def test_verified_bootstrap_runs_without_finder_path_dependencies(tmp_path, cached_uv):
+@pytest.mark.parametrize("mac_version", [None, "14.0", "26.1"])
+def test_verified_bootstrap_runs_without_finder_path_dependencies(tmp_path, cached_uv, mac_version):
     tools = tmp_path / "bin"
     tools.mkdir()
+    if mac_version:
+        for name, value in [("uname", "Darwin"), ("sw_vers", mac_version)]:
+            path = tools / name
+            path.write_text("#!/bin/sh\nprintf '%s\\n' '" + value + "'\n")
+            path.chmod(0o700)
     uv = tools / "uv"
     uv.write_text('''#!/bin/sh
 case "$1 $2" in
@@ -107,3 +113,27 @@ Path(os.environ["TEST_BOOTSTRAP_LOG"]).write_text(json.dumps(sys.argv[1:]))
     assert args[0] == str(tmp_path / "runtime/uv/uv" if cached_uv else uv)
     assert args[2] == str(tmp_path / "runtime")
     assert args[4:] == [str(root), "1"]
+
+
+@pytest.mark.parametrize("version", ["13.7.8", "12.0", "", "unknown", "9999.0"])
+def test_unsupported_mac_stops_before_downloads_or_runtime_changes(tmp_path, version):
+    tools = tmp_path / "bin"
+    tools.mkdir()
+    marker = tmp_path / "downloads-or-execution"
+    for name, script in {
+        "uname": "printf '%s\\n' Darwin",
+        "sw_vers": 'printf "%s\\n" "$TEST_MAC_VERSION"',
+        "uv": 'touch "$TEST_INSTALL_MARKER"; exit 99',
+        "curl": 'touch "$TEST_INSTALL_MARKER"; exit 99',
+    }.items():
+        path = tools / name
+        path.write_text("#!/bin/sh\n" + script + "\n")
+        path.chmod(0o700)
+    runtime = tmp_path / "runtime"
+    result = subprocess.run(["sh", str(Path(__file__).resolve().parents[1] / "install.sh")],
+                            env={**os.environ, "PATH": str(tools) + ":/usr/bin:/bin",
+                                 "ACCOUNT_ACCESS_INSTALL_DIR": str(runtime), "TEST_MAC_VERSION": version,
+                                 "TEST_INSTALL_MARKER": str(marker)},
+                            text=True, capture_output=True, timeout=15)
+    assert result.returncode == 1 and "requires macOS 14" in result.stdout
+    assert not runtime.exists() and not marker.exists()

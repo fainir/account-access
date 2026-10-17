@@ -32,6 +32,18 @@ def setup(tmp_path, monkeypatch):
     return runtime, launcher, old, wheel, requirements
 
 
+@pytest.mark.parametrize("version", ["13.7.8", "12.0", "", "unknown"])
+def test_direct_bootstrap_rejects_unsupported_mac_without_touching_runtime(tmp_path, monkeypatch, version):
+    monkeypatch.setattr("account_access.runtime_bootstrap.sys.platform", "darwin")
+    monkeypatch.setattr("account_access.runtime_bootstrap.platform.mac_ver", lambda: (version, (), ""))
+    runtime = tmp_path / "runtime"
+    def no_execution(*args, **kwargs):
+        raise AssertionError("Unsupported OS must stop before any installer commands")
+    with pytest.raises(RuntimeError, match="requires macOS 14"):
+        install("uv", tmp_path / "unused.whl", runtime, tmp_path / "unused.txt", run=no_execution)
+    assert not runtime.exists()
+
+
 @pytest.mark.parametrize("failure", [None, "packages", "browser", "health", "start"])
 def test_prepare_then_switch_and_rollback_failed_runtime(setup, failure, monkeypatch):
     runtime, launcher, old, wheel, requirements = setup

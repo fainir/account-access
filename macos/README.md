@@ -1,6 +1,6 @@
 # Graphical Mac app
 
-This is a genuine native installer and owner interface for macOS 13 or later, on Apple silicon or Intel. It runs the published, checksum-verified bootstrap, shows installation progress, automatically installs one portable skill and CLI, and connects supported accounts through the authenticated local owner API. Reopening it starts the saved local service; no terminal window is required.
+This is a genuine native installer and owner interface for macOS 14 (Sonoma) or later, on Apple silicon or Intel. The pinned Playwright browser runtime requires macOS 14; the candidate's app metadata and installer preflight enforce this requirement before downloads or runtime changes. It runs the published, checksum-verified bootstrap, shows installation progress, automatically installs one portable skill and CLI, and connects supported accounts through the authenticated local owner API. Reopening it starts the saved local service; no terminal window is required.
 
 The candidate account catalog contains a limited Namecheap password pilot as well as public SauceDemo and The Internet examples. The Namecheap operation confirms only the signed-in username. A private Chrome credential was imported, but sign-in stopped at browser verification/HTTP 429; password and email/TOTP acceptance remain open. See [other-service validation](../docs/other-service-validation.md). The app includes reviewed password-export import, explicit authenticator enrollment, TLS IMAP/Gmail source setup, an iPhone Messages reader and Android pairing. Imports do not add support for arbitrary websites. Real provider delivery and physical-phone validation remain outstanding.
 
@@ -89,6 +89,11 @@ integration refresh/restart. These are controlled checks; private-authentication
 installed owner upgrade, distribution and separate-identity gates remain open.
 
 Build with Xcode's command-line tools:
+
+The next source build is **61**. It aligns the app's minimum OS version with
+the pinned browser runtime and stops unsupported installations before runtime
+changes. This does not replace the separately staged signed build 60 or the
+installed build 53, and does not enable the separate-user worker component.
 
 ```sh
 uv build
