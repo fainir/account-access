@@ -428,8 +428,19 @@ enum InstallerPayloadIO {
         guard manifest.trees[InstallerPayloadManifest.support]?.nodes["runtime/bin/python"] != nil,
               lseek(file, 0, SEEK_SET) == 0 else { throw InstallerPayloadFailure.manifest }
         let python = resourcePath + "/PublicImage" + InstallerPayloadManifest.support + "/runtime/bin/python"
+        // Keep sources above every destination. Explicit dup actions avoid
+        // descriptor collisions and inherit only the fixed public 3/4 frame.
+        let sourceCopy = fcntl(image, F_DUPFD_CLOEXEC, 10)
+        guard sourceCopy >= 10 else { throw InstallerSpawnFailure(operation: .inherit, code: errno) }
+        defer { Darwin.close(sourceCopy) }
+        let manifestCopy = fcntl(file, F_DUPFD_CLOEXEC, 10)
+        guard manifestCopy >= 10 else { throw InstallerSpawnFailure(operation: .inherit, code: errno) }
+        defer { Darwin.close(manifestCopy) }
+        let input = open("/dev/null", O_RDONLY | O_CLOEXEC)
+        guard input >= 0 else { throw InstallerSpawnFailure(operation: .input, code: errno) }
+        defer { Darwin.close(input) }
         let values: [String] = [python, "-I", "-B", "-m", "account_access.install_transaction",
-                                "--source-fd", String(image), "--manifest-fd", String(file),
+                                "--source-fd", "3", "--manifest-fd", "4",
                                 "--manifest-sha256", manifest.sha256]
         var arguments: [UnsafeMutablePointer<CChar>?] = values.map { value in value.withCString { strdup($0) } }
         arguments.append(nil)
@@ -448,13 +459,17 @@ enum InstallerPayloadIO {
         defer { posix_spawnattr_destroy(&attributes) }
         let flagStatus = posix_spawnattr_setflags(&attributes, Int16(POSIX_SPAWN_SETEXEC | POSIX_SPAWN_CLOEXEC_DEFAULT))
         guard flagStatus == 0 else { throw InstallerSpawnFailure(operation: .attributes, code: flagStatus) }
-        let inputStatus = posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_RDONLY, 0)
+        let inputStatus = posix_spawn_file_actions_adddup2(&actions, input, 0)
         guard inputStatus == 0 else { throw InstallerSpawnFailure(operation: .input, code: inputStatus) }
         // Only standard output/error and the two verified public handles reach
         // the trusted interpreter. Caller environment and other handles do not.
-        for fd in [Int32(1), Int32(2), image, file] {
+        for fd in [Int32(1), Int32(2)] {
             guard fcntl(fd, F_GETFD) != -1 else { throw InstallerSpawnFailure(operation: .inherit, code: EBADF) }
             let status = posix_spawn_file_actions_addinherit_np(&actions, fd)
+            guard status == 0 else { throw InstallerSpawnFailure(operation: .inherit, code: status) }
+        }
+        for (source, destination) in [(sourceCopy, Int32(3)), (manifestCopy, Int32(4))] {
+            let status = posix_spawn_file_actions_adddup2(&actions, source, destination)
             guard status == 0 else { throw InstallerSpawnFailure(operation: .inherit, code: status) }
         }
         var pid: pid_t = 0
