@@ -176,6 +176,23 @@ def test_aliases_cannot_leave_the_copied_runtime_or_add_external_bundle_seals(tm
     assert report["native_files"] == 1
 
 
+def test_os_ancestor_aliases_are_canonicalized_without_accepting_a_symlink_root(tmp_path):
+    real = tmp_path / "real" / "Runtime.app"
+    real.mkdir(parents=True)
+    (real / "program").write_bytes(thin())
+    (real / "program-alias").symlink_to("program")
+    ancestor = tmp_path / "alias"
+    ancestor.symlink_to(real.parent, target_is_directory=True)
+    command, calls = signature_command()
+    result = audit.audit_payload([ancestor / real.name], [], "arm64", command, development=False)
+    assert result["native_files"] == result["bundles"] == 1
+    assert any("--deep" in call and call[-1] == str(real.resolve()) for call in calls)
+    direct = tmp_path / "direct.app"
+    direct.symlink_to(real, target_is_directory=True)
+    with pytest.raises(ValueError, match="unsafe_native_payload_path"):
+        audit.audit_payload([direct], [], "arm64", command, development=False)
+
+
 @pytest.mark.parametrize(
     "names",
     [["../outside"], ["/absolute"], ["a\\b"], ["a/./b"], ["a//b"], ["A", "a"], ["evil.app/code"]],

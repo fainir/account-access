@@ -141,10 +141,17 @@ def verify_code(path, kind, architecture, command):
         raise ValueError("native_payload_publishers_disagree")
 
 
-def tree_files(root):
-    root = root.absolute()
+def canonical_root(root):
+    root = Path(root).absolute()
     if root.is_symlink():
         raise ValueError("unsafe_native_payload_path")
+    # macOS's /tmp and /var are ordinary ancestor aliases. Compare every child
+    # against the same canonical root, while refusing a redirected input itself.
+    return root.resolve(strict=True)
+
+
+def tree_files(root):
+    root = canonical_root(root)
     if root.is_file():
         yield root
         return
@@ -213,7 +220,7 @@ def audit_payload(roots, wheels, architecture, command, *, development):
         return kind
 
     for root in roots:
-        root = Path(root).absolute()
+        root = canonical_root(root)
         for path in tree_files(root):
             if inspect(path) is not None:
                 for parent in path.parents:
