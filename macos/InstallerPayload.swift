@@ -422,12 +422,13 @@ enum InstallerPayloadIO {
         guard manifest.trees[InstallerPayloadManifest.support]?.nodes["runtime/bin/python"] != nil,
               lseek(file, 0, SEEK_SET) == 0 else { throw InstallerPayloadFailure.manifest }
         let python = resourcePath + "/PublicImage" + InstallerPayloadManifest.support + "/runtime/bin/python"
-        var arguments = [python, "-I", "-B", "-m", "account_access.install_transaction",
-                         "--source-fd", String(image), "--manifest-fd", String(file),
-                         "--manifest-sha256", manifest.sha256].map { strdup($0) }
+        let values: [String] = [python, "-I", "-B", "-m", "account_access.install_transaction",
+                                "--source-fd", String(image), "--manifest-fd", String(file),
+                                "--manifest-sha256", manifest.sha256]
+        var arguments: [UnsafeMutablePointer<CChar>?] = values.map { value in value.withCString { strdup($0) } }
         arguments.append(nil)
         let settings: [String] = ["PATH=/usr/bin:/bin:/usr/sbin:/sbin", "LANG=C", "HOME=/var/root"]
-        var environment = settings.map { strdup($0) }
+        var environment: [UnsafeMutablePointer<CChar>?] = settings.map { value in value.withCString { strdup($0) } }
         environment.append(nil)
         defer { arguments.forEach { free($0) }; environment.forEach { free($0) } }
         guard !arguments.dropLast().contains(where: { $0 == nil }),
