@@ -148,8 +148,8 @@ def test_publication_refuses_unsafe_existing_objects(tmp_path, monkeypatch, kind
 @pytest.mark.parametrize(
     "code,out,err,expected",
     [
-        (0, b"UniqueID: 451\n", b"", "451"),
-        (0, b"No such key: UniqueID\n", b"", None),
+        (0, plistlib.dumps({"dsAttrTypeStandard:UniqueID": ["451"]}), b"", "451"),
+        (0, plistlib.dumps({}), b"", None),
         (56, b"", b"DS Error: -14136 (eDSRecordNotFound)", None),
     ],
 )
@@ -171,6 +171,41 @@ def test_directory_service_failure_is_not_treated_as_an_absent_account(monkeypat
         lambda *a, **k: SimpleNamespace(returncode=1, stdout=b"", stderr=b"service unavailable"),
     )
     with pytest.raises(provision.ProvisionError, match="directory_services_unavailable"):
+        provision.directory_value("/Users/_accountaccess", "UniqueID")
+
+
+def test_directory_reader_uses_structured_values_for_long_native_fields(monkeypatch):
+    home = "/Library/Application Support/" + "Long path " * 15 + "/home"
+    calls = []
+
+    def run(arguments, **kwargs):
+        calls.append(arguments)
+        return SimpleNamespace(
+            returncode=0,
+            stdout=plistlib.dumps({"dsAttrTypeNative:NFSHomeDirectory": [home]}),
+            stderr=b"",
+        )
+
+    monkeypatch.setattr(provision.subprocess, "run", run)
+    assert provision.directory_value("/Users/_accountaccess", "NFSHomeDirectory") == home
+    assert calls[0][:4] == ["/usr/bin/dscl", "-plist", ".", "-read"]
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        b"human-readable output",
+        plistlib.dumps({"wrong": ["451"]}),
+        plistlib.dumps({"dsAttrTypeStandard:UniqueID": ["451", "452"]}),
+    ],
+)
+def test_directory_reader_refuses_malformed_or_ambiguous_values(monkeypatch, value):
+    monkeypatch.setattr(
+        provision.subprocess,
+        "run",
+        lambda *a, **k: SimpleNamespace(returncode=0, stdout=value, stderr=b""),
+    )
+    with pytest.raises(provision.ProvisionError):
         provision.directory_value("/Users/_accountaccess", "UniqueID")
 
 
@@ -251,3 +286,84 @@ def test_reallocated_uid_is_refused_before_creating_records(tmp_path, monkeypatc
     with pytest.raises(provision.ProvisionError, match="service_identity_conflict"):
         provision.identity_record(actual, 451)
     assert calls == []
+
+
+def activation_fixture(tmp_path, monkeypatch, *, running=False):
+    actual = layout(tmp_path)
+    source = actual.base / "broker/service.plist"
+    source.parent.mkdir(parents=True)
+    source.write_bytes(plistlib.dumps({"Label": actual.label, "RunAtLoad": True}))
+    source.chmod(0o644)
+    prepared = {"status": "PREPARED", "broker_uid": 451, "owner_uid": 501}
+    calls = []
+    monkeypatch.setattr(provision, "prepare", lambda target, owner: dict(prepared))
+    monkeypatch.setattr(provision, "root_managed_path", lambda path: Path(path))
+
+    def directory(path, mode=0o755):
+        path.mkdir(mode=mode, exist_ok=True)
+        return path
+
+    monkeypatch.setattr(provision, "root_directory", directory)
+    monkeypatch.setattr(
+        provision.subprocess, "run", lambda *a, **k: SimpleNamespace(returncode=0 if running else 1)
+    )
+    monkeypatch.setattr(provision, "command", lambda arguments: calls.append(arguments))
+    return actual, source, calls
+
+
+def test_activation_persists_only_the_prepared_job_and_bootstraps_once(tmp_path, monkeypatch):
+    actual, source, calls = activation_fixture(tmp_path, monkeypatch)
+    result = provision.activate(actual, 501)
+    destination = actual.base / "launchdaemons" / (actual.label + ".plist")
+    assert result == {"status": "REGISTERED", "broker_uid": 451, "owner_uid": 501}
+    assert destination.read_bytes() == source.read_bytes()
+    assert destination.stat().st_nlink == 1 and destination.stat().st_mode & 0o777 == 0o644
+    assert calls == [
+        ["/bin/launchctl", "bootstrap", "system", str(destination)],
+        ["/bin/launchctl", "print", "system/" + actual.label],
+    ]
+
+
+def test_activation_preserves_an_existing_registration(tmp_path, monkeypatch):
+    actual, _, calls = activation_fixture(tmp_path, monkeypatch, running=True)
+    provision.activate(actual, 501)
+    provision.activate(actual, 501)
+    assert calls == [["/bin/launchctl", "print", "system/" + actual.label]] * 2
+
+
+def test_activation_refuses_conflicting_persistent_job_before_launchctl(tmp_path, monkeypatch):
+    actual, _, calls = activation_fixture(tmp_path, monkeypatch)
+    destination = actual.base / "launchdaemons" / (actual.label + ".plist")
+    destination.parent.mkdir()
+    destination.write_bytes(b"preserve unknown job")
+    destination.chmod(0o644)
+    with pytest.raises(provision.ProvisionError, match="existing_installation_requires_repair"):
+        provision.activate(actual, 501)
+    assert destination.read_bytes() == b"preserve unknown job" and not calls
+
+
+def test_fresh_identity_sets_preflight_missing_fields_despite_record_defaults(
+    tmp_path, monkeypatch
+):
+    actual = layout(tmp_path)
+    records = {}
+    calls = identity_fixture(monkeypatch, actual, records)
+    original = provision.command
+
+    def create(arguments):
+        result = original(arguments)
+        if (
+            arguments[0] == "/usr/bin/dscl"
+            and len(arguments) == 4
+            and arguments[3].startswith("/Users/")
+        ):
+            records[arguments[3]].update(
+                {"Password": "default-placeholder", "NFSHomeDirectory": "/var/empty"}
+            )
+        return result
+
+    monkeypatch.setattr(provision, "command", create)
+    provision.identity_record(actual, 451)
+    assert records["/Users/" + actual.broker_name]["Password"] == "*"
+    assert records["/Users/" + actual.broker_name]["NFSHomeDirectory"] == str(actual.base / "home")
+    assert any(call[-2:] == ["Password", "*"] for call in calls)

@@ -227,7 +227,7 @@ def choose_identity():
 
 def directory_value(record, field):
     result = subprocess.run(
-        ["/usr/bin/dscl", ".", "-read", record, field],
+        ["/usr/bin/dscl", "-plist", ".", "-read", record, field],
         capture_output=True,
         timeout=20,
         env={"PATH": "/usr/bin:/bin"},
@@ -236,13 +236,21 @@ def directory_value(record, field):
         if b"(eDSRecordNotFound)" in result.stdout + result.stderr:
             return None
         raise ProvisionError("directory_services_unavailable")
-    text = result.stdout.decode("utf-8", errors="strict").strip()
-    if text == "No such key: " + field:
+    if len(result.stdout) + len(result.stderr) > 65536:
+        raise ProvisionError("directory_services_unavailable")
+    try:
+        value = plistlib.loads(result.stdout)
+    except (ValueError, plistlib.InvalidFileException):
+        raise ProvisionError("directory_services_unavailable") from None
+    if value == {}:
         return None
-    prefix = field + ": "
-    if not text.startswith(prefix) or "\n" in text:
+    keys = {"dsAttrTypeStandard:" + field, "dsAttrTypeNative:" + field}
+    if type(value) is not dict or len(value) != 1 or not set(value) <= keys:
         raise ProvisionError("service_identity_conflict")
-    return text[len(prefix) :]
+    entries = next(iter(value.values()))
+    if type(entries) is not list or len(entries) != 1 or type(entries[0]) is not str:
+        raise ProvisionError("service_identity_conflict")
+    return entries[0]
 
 
 def identity_record(layout, uid):
@@ -266,16 +274,21 @@ def identity_record(layout, uid):
     }
     # A committed root transaction reserves the name and UID. Only missing
     # fields may be completed; conflicting records are never rewritten.
+    missing = {}
     for record, expected in [(group, {"PrimaryGroupID": str(uid)}), (user, fields)]:
+        missing[record] = {}
         for field, value in expected.items():
             present = directory_value(record, field)
             if present is not None and present != value:
                 raise ProvisionError("service_identity_conflict")
-    for record, expected in [(group, {"PrimaryGroupID": str(uid)}), (user, fields)]:
+            if present is None:
+                missing[record][field] = value
+    for record, expected in missing.items():
         command(["/usr/bin/dscl", ".", "-create", record])
         for field, value in expected.items():
-            if directory_value(record, field) is None:
-                command(["/usr/bin/dscl", ".", "-create", record, field, value])
+            # Record creation can introduce defaults. Set the fields that were
+            # absent in the validated reserved record, regardless of defaults.
+            command(["/usr/bin/dscl", ".", "-create", record, field, value])
     command(["/usr/bin/dscacheutil", "-flushcache"])
     check = pwd.getpwnam(layout.broker_name)
     group_check = grp.getgrnam(layout.broker_name)
@@ -616,7 +629,7 @@ def main():
             raise ProvisionError("invalid_install_arguments")
         layout = Layout.installed()
         owner = os.stat("/dev/console").st_uid
-        result = prepare(layout, owner)
+        result = activate(layout, owner)
         print(json.dumps({"status": result["status"]}))
         return 0
     except Exception:
@@ -624,8 +637,43 @@ def main():
         return 78
 
 
-if __name__ == "__main__":
-    raise SystemExit(main())
+def activate(layout, owner_uid):
+    """Persist and register only the exact prepared system job.
+
+    A failed bootstrap leaves the identical protected plist available for a
+    retry. Registration never starts an account worker or grants website access;
+    native owner enrollment still controls creation of the first vault.
+    """
+    prepared = prepare(layout, owner_uid)
+    source = layout.base / "broker/service.plist"
+    root_managed_path(source)
+    info = source.lstat()
+    if (
+        not stat.S_ISREG(info.st_mode)
+        or info.st_nlink != 1
+        or stat.S_IMODE(info.st_mode) != 0o644
+        or info.st_size > 8192
+    ):
+        raise ProvisionError("unsafe_install_record")
+    directory = (
+        root_directory(layout.base / "launchdaemons")
+        if layout.fixture
+        else Path("/Library/LaunchDaemons")
+    )
+    root_managed_path(directory)
+    destination = directory / (layout.label + ".plist")
+    publish(destination, source.read_bytes())
+    domain = "system/" + layout.label
+    observed = subprocess.run(
+        ["/bin/launchctl", "print", domain],
+        capture_output=True,
+        timeout=20,
+        env={"PATH": "/usr/bin:/bin"},
+    )
+    if observed.returncode != 0:
+        command(["/bin/launchctl", "bootstrap", "system", str(destination)])
+    command(["/bin/launchctl", "print", domain])
+    return dict(prepared, status="REGISTERED")
 
 
 def remove_ci_identity(layout):
@@ -669,3 +717,7 @@ def remove_ci_identity(layout):
     except KeyError:
         return
     raise ProvisionError("service_identity_conflict")
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

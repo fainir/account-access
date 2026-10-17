@@ -15,6 +15,7 @@ CHECKS = {
     "public_profile_binds_owner_and_server",
     "published_policies_preserve_empty_fixed_enrollment",
     "generated_installation_starts_actual_system_entrypoint",
+    "exact_prepared_job_is_persisted_and_registered",
     "fresh_install_waits_without_key_or_worker",
     "system_entrypoint_recreates_nonlogin_user_domain",
     "first_enrollment_root_peer_prepared",

@@ -7,6 +7,8 @@ an isolation boundary, and this module does not install or elevate a service.
 
 import base64
 from dataclasses import dataclass
+import errno
+from functools import lru_cache
 import hashlib
 import hmac
 import json
@@ -123,6 +125,51 @@ def take_listener(fd, *, issuer_uid=0):
         raise BootstrapError("invalid_worker_listener") from None
 
 
+@lru_cache(maxsize=1)
+def _darwin_acl_api():
+    import ctypes
+
+    libc = ctypes.CDLL(None, use_errno=True)
+    libc.acl_get_link_np.argtypes = [ctypes.c_char_p, ctypes.c_int]
+    libc.acl_get_link_np.restype = ctypes.c_void_p
+    libc.acl_get_entry.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.POINTER(ctypes.c_void_p)]
+    libc.acl_get_entry.restype = ctypes.c_int
+    libc.acl_get_tag_type.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_int)]
+    libc.acl_get_tag_type.restype = ctypes.c_int
+    libc.acl_free.argtypes = [ctypes.c_void_p]
+    libc.acl_free.restype = ctypes.c_int
+    return libc
+
+
+def reject_grant_acl(path):
+    """POSIX mode bits do not describe Darwin's independent allow ACLs."""
+    if sys.platform != "darwin":
+        return
+    import ctypes
+
+    libc = _darwin_acl_api()
+    ctypes.set_errno(0)
+    value = libc.acl_get_link_np(os.fsencode(path), 0x100)  # ACL_TYPE_EXTENDED
+    if not value:
+        if ctypes.get_errno() == errno.ENOENT:
+            return
+        raise BootstrapError("untrusted_worker_runtime")
+    try:
+        entry, tag, position = ctypes.c_void_p(), ctypes.c_int(), 0
+        for _ in range(170):  # Darwin permits at most 169 entries.
+            ctypes.set_errno(0)
+            if libc.acl_get_entry(value, position, ctypes.byref(entry)) != 0:
+                if ctypes.get_errno() == errno.EINVAL:
+                    return
+                break
+            if not entry.value or libc.acl_get_tag_type(entry, ctypes.byref(tag)) != 0 or tag.value != 2:
+                break
+            position = -1  # ACL_NEXT_ENTRY; restrictive deny entries are safe.
+        raise BootstrapError("untrusted_worker_runtime")
+    finally:
+        libc.acl_free(value)
+
+
 def root_managed_path(path):
     """Reject code reached through agent-writable files or parent directories."""
     try:
@@ -140,6 +187,7 @@ def root_managed_path(path):
                 info = item.lstat()
                 if info.st_uid != 0 or (not stat.S_ISLNK(info.st_mode) and info.st_mode & 0o022):
                     raise BootstrapError("untrusted_worker_runtime")
+                reject_grant_acl(item)
                 if stat.S_ISLNK(info.st_mode):
                     target = Path(os.readlink(item))
                     pending.append(target if target.is_absolute() else item.parent / target)

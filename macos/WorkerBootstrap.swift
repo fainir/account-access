@@ -20,6 +20,28 @@ enum WorkerLaunchFailure: String, Error {
 }
 
 enum WorkerLaunchPaths {
+    static func rejectGrantACL(_ path: String) throws {
+        errno = 0
+        guard let acl = acl_get_link_np(path, ACL_TYPE_EXTENDED) else {
+            guard errno == ENOENT else { throw WorkerLaunchFailure.unsafeRuntime }
+            return
+        }
+        defer { acl_free(UnsafeMutableRawPointer(acl)) }
+        var entry: acl_entry_t?, tag = acl_tag_t(rawValue: 0)
+        var position = ACL_FIRST_ENTRY.rawValue
+        for _ in 0..<170 {
+            errno = 0
+            if acl_get_entry(acl, position, &entry) != 0 {
+                guard errno == EINVAL else { throw WorkerLaunchFailure.unsafeRuntime }
+                return
+            }
+            guard let current = entry, acl_get_tag_type(current, &tag) == 0,
+                  tag == ACL_EXTENDED_DENY else { throw WorkerLaunchFailure.unsafeRuntime }
+            position = ACL_NEXT_ENTRY.rawValue
+        }
+        throw WorkerLaunchFailure.unsafeRuntime
+    }
+
     static func protectedTree(_ path: String) throws -> URL {
         let root = try protected(path)
         var pending = [root], visited: Set<String> = []
@@ -43,6 +65,7 @@ enum WorkerLaunchPaths {
                 var info = stat()
                 guard lstat(item.path, &info) == 0 else { throw WorkerLaunchFailure.treeUnreadable }
                 guard info.st_uid == 0 else { throw WorkerLaunchFailure.treeOwner }
+                try rejectGrantACL(item.path)
                 let kind = info.st_mode & S_IFMT
                 if kind == S_IFLNK {
                     let target = try protected(item.path)
@@ -82,6 +105,7 @@ enum WorkerLaunchPaths {
             while true {
                 var info = stat()
                 guard lstat(item.path, &info) == 0, info.st_uid == 0 else { throw WorkerLaunchFailure.unsafeRuntime }
+                try rejectGrantACL(item.path)
                 if info.st_mode & S_IFMT == S_IFLNK {
                     let target = try FileManager.default.destinationOfSymbolicLink(atPath: item.path)
                     pending.append(target.hasPrefix("/") ? URL(fileURLWithPath: target)

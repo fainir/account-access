@@ -46,6 +46,21 @@ import Darwin
         defer { try? FileManager.default.removeItem(at: folder) }
         let file = folder.appendingPathComponent("policy.json")
         try Data("{}".utf8).write(to: file)
+        func aclCommand(_ arguments: [String]) throws {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/bin/chmod")
+            process.arguments = arguments + [file.path]
+            try process.run(); process.waitUntilExit()
+            guard process.terminationStatus == 0 else { exit(1) }
+        }
+        try WorkerLaunchPaths.rejectGrantACL(file.path)
+        try aclCommand(["+a", "everyone allow write"])
+        guard (try? WorkerLaunchPaths.rejectGrantACL(file.path)) == nil else { exit(1) }
+        try aclCommand(["-N"])
+        try aclCommand(["+a", "everyone deny delete"])
+        try WorkerLaunchPaths.rejectGrantACL(file.path)
+        try aclCommand(["-N"])
+        print("PASS: runtime allow ACL refused; absent/restrictive ACL accepted")
         let ordinary = open(file.path, O_RDONLY)
         guard ordinary >= 3 else { exit(1) }
         defer { Darwin.close(ordinary) }

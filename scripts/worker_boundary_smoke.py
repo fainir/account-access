@@ -485,7 +485,7 @@ def system_broker_waiting(prefix, roles):
 
 def provisioned_system_broker(prefix, roles):
     """Prepare fresh policies/identity with the consumer publisher, then real XPC."""
-    from account_access.system_provision import Layout, prepare, remove_ci_identity, root_json
+    from account_access.system_provision import Layout, activate, prepare, remove_ci_identity, root_json
 
     layout = Layout.ci_fixture(prefix, name="_aaq" + secrets.token_hex(6))
     checks, installed, booted = {}, False, False
@@ -516,7 +516,6 @@ def provisioned_system_broker(prefix, roles):
         checks["new_store_and_stage_are_empty"] &= not any(staged.iterdir())
         command(["/bin/launchctl", "print", "user/" + str(broker.pw_uid)])
         checks["nonlogin_user_bootstrap_domain_ready"] = True
-        command(["/bin/launchctl", "bootout", "user/" + str(broker.pw_uid)])
         profile = json.loads((layout.base / "owner.json").read_bytes())
         host = json.loads((layout.base / "broker/host.json").read_bytes())
         worker = json.loads((layout.base / "broker/worker.json").read_bytes())
@@ -542,15 +541,31 @@ def provisioned_system_broker(prefix, roles):
             ).encode(),
         )
         client_policy.chmod(0o644)
-        command(
-            ["/bin/launchctl", "bootstrap", "system", str(layout.base / "broker/service.plist")]
-        )
+        registered = activate(layout, roles["agent"].pw_uid)
         booted = True
+        persisted = layout.base / "launchdaemons" / (layout.label + ".plist")
+        checks["exact_prepared_job_is_persisted_and_registered"] = (
+            registered["status"] == "REGISTERED"
+            and persisted.read_bytes() == (layout.base / "broker/service.plist").read_bytes()
+        )
         ready = layout.base / "broker/system-broker-ready.json"
         deadline = time.monotonic() + 60
         while time.monotonic() < deadline and not ready.exists():
             time.sleep(0.1)
         snapshot = json.loads(ready.read_bytes())
+        # Test the actual daemon's cold-domain repair, without re-running the
+        # provisioner (which also prepares that domain). No vault exists yet.
+        stage("provision_cold_service_restart")
+        command(["/bin/launchctl", "bootout", target])
+        booted = False
+        command(["/bin/launchctl", "bootout", "user/" + str(broker.pw_uid)])
+        ready.unlink()
+        command(["/bin/launchctl", "bootstrap", "system", str(persisted)])
+        booted = True
+        deadline = time.monotonic() + 60
+        while time.monotonic() < deadline and not ready.exists():
+            time.sleep(0.1)
+        cold = json.loads(ready.read_bytes())
         checks["generated_installation_starts_actual_system_entrypoint"] = (
             snapshot["status"] == "READY" and snapshot["uid"] == 0
         )
@@ -560,7 +575,10 @@ def provisioned_system_broker(prefix, roles):
             and snapshot["worker_pid"] == 0
         )
         command(["/bin/launchctl", "print", "user/" + str(broker.pw_uid)])
-        checks["system_entrypoint_recreates_nonlogin_user_domain"] = True
+        checks["system_entrypoint_recreates_nonlogin_user_domain"] = (
+            cold["status"] == "READY" and cold["enrollment_state"] == "needs_owner"
+            and cold["fixture_key_absent"] is True and cold["worker_pid"] == 0
+        )
         result = subprocess.run(
             [
                 *dropped(roles["agent"]),
