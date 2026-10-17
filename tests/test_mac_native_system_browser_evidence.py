@@ -27,7 +27,7 @@ def report():
 
 
 def test_all_system_native_journey_checks_are_required():
-    assert len(CHECKS) == 16 and validate(report())
+    assert len(CHECKS) == 17 and validate(report())
     for key in CHECKS:
         for value in [False, None, 1, "true"]:
             broken = report()

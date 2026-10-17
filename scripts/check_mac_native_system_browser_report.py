@@ -21,6 +21,7 @@ CHECKS = {
     "temporary_jobs_removed",
     "fixture_setup_policy_removed",
     "fixture_system_key_removed",
+    "durable_task_retries_cooldown_without_owner",
 }
 
 

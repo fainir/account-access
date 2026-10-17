@@ -221,9 +221,10 @@ def _exercise(prefix, roles, key_policy, phase, client_token, probe, command, fi
             roles,
             SimpleNamespace(pid=second["worker_pid"]),
             worker,
-            "native-sms",
+            "native-sms-recover",
             client_config=config,
         )
+        assert repeated.pop("durable_task_retries_cooldown_without_owner") is True
         assert (
             repeated == checks
             and fixture.provider.login_count == fixture.provider.sms_count == fixture.delivered == 2
@@ -236,6 +237,7 @@ def _exercise(prefix, roles, key_policy, phase, client_token, probe, command, fi
         checks.update(
             {
                 "system_key_initialized_private_worker_store": True,
+                "durable_task_retries_cooldown_without_owner": True,
                 "production_composed_host_started": True,
                 "kernel_worker_parent_group_identity_verified": True,
                 "launchd_socket_activation_one_shot": True,

@@ -17,7 +17,7 @@ import sys
 
 
 ACCOUNTS = ("demo-api", "demo-web", "demo-mfa", "example-email", "example-sms")
-DIAGNOSTIC_STAGES = {"account_discovery", "revoked_read", "ungranted_read", "boundary_checks", *ACCOUNTS, "native-sms"}
+DIAGNOSTIC_STAGES = {"account_discovery", "revoked_read", "ungranted_read", "boundary_checks", *ACCOUNTS, "native-sms", "native-sms-recover"}
 SAFE_REASONS = {"browser_guard_unavailable", "internal_error", "service_unavailable", "worker_unavailable",
                 "login_failed", "verification_code_unavailable", "invalid_credentials", "request_failed",
                 "browser_execution_failed", "login_code_not_received", "verification_code_rejected",
@@ -100,12 +100,25 @@ def run(args):
     if os.getuid() == 0 or os.getuid() == args.worker_uid:
         raise RuntimeError("probe_requires_distinct_unprivileged_identity")
     config = Path(args.config)
-    if args.phase == "native-sms":
-        results = [cli(config, "run", "native-sms", "summary") for _ in range(2)]
+    if args.phase in {"native-sms", "native-sms-recover"}:
+        task_view = None
+        if args.phase == "native-sms-recover":
+            delayed = cli(config, "run", "native-sms", "summary")
+            require_result(delayed.get("status") == "RETRYABLE" and delayed.get("reason") == "login_retry_cooldown"
+                and "challenge" not in delayed, "native-sms", delayed)
+            submitted = cli(config, "task", "submit", "--key", "native-sms-cold-" + str(args.worker_pid),
+                "--steps", "native-sms:summary")
+            require_result(submitted.get("status") in {"QUEUED", "RUNNING", "RETRYABLE", "COMPLETED"}, "native-sms", submitted)
+            task_view = cli(config, "task", "wait", submitted["task_id"], "--timeout", "90")
+            require_result(task_view.get("status") == "COMPLETED" and task_view.get("progress") == 1
+                and len(task_view.get("results", [])) == 1, "native-sms", task_view)
+            results = [task_view["results"][0], cli(config, "run", "native-sms", "summary")]
+        else:
+            results = [cli(config, "run", "native-sms", "summary") for _ in range(2)]
         for result in results:
             require_result(result["status"] == "COMPLETED", "native-sms", result)
             require_result(result.get("data") == {"balance": "987.65", "currency": "ILS"}, "native-sms", result)
-        raw = json.dumps(results)
+        raw = json.dumps([results, task_view])
         checks = {"cli_completed_native_sms_browser_reads": True,
                   "only_approved_result_fields_returned": True,
                   "no_six_digit_code_in_cli_results": re.search(r"\b[0-9]{6}\b", raw) is None,
@@ -116,6 +129,8 @@ def run(args):
             response = channel.getresponse()
             response.read()
             checks["agent_cannot_fetch_native_collector_requests"] = response.status == 404
+        if args.phase == "native-sms-recover":
+            checks["durable_task_retries_cooldown_without_owner"] = True
         assert all(value is True for value in checks.values())
         return checks
     if args.phase == "after-owner-stop":
@@ -181,7 +196,7 @@ def run(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--phase", choices=["initial", "revoked", "after-owner-stop", "native-sms"], required=True)
+    parser.add_argument("--phase", choices=["initial", "revoked", "after-owner-stop", "native-sms", "native-sms-recover"], required=True)
     for name in ["config", "state", "worker-module", "policy", "owner-socket", "agent-socket"]:
         parser.add_argument("--" + name, required=True)
     parser.add_argument("--worker-pid", type=int, required=True)
