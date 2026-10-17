@@ -1,0 +1,69 @@
+{
+  "version": "0.8.0-candidate",
+  "date": "2026-10-17",
+  "source_revision": "04e81936c8eca27df7e9c2d7ad9b694e5589f84b",
+  "production_ready": false,
+  "ci": {
+    "runs": [
+      "https://github.com/fainir/account-access/actions/runs/39027669558",
+      "https://github.com/fainir/account-access/actions/runs/39027672013"
+    ],
+    "independent_reports_identical": true
+  },
+  "acceptance": {
+    "status": "PASSED",
+    "environment": "controlled-demo",
+    "production_ready": false,
+    "private_signins": 0,
+    "platform": "macos",
+    "full_worker_browser_sms_journey_verified": true,
+    "actual_native_collector_used": true,
+    "actual_distinct_uids": true,
+    "real_messages_database_used": false,
+    "physical_sms_delivery_verified": false,
+    "genuine_full_disk_access_verified": false,
+    "system_key_used": false,
+    "checks": {
+      "cli_completed_native_sms_browser_reads": true,
+      "only_approved_result_fields_returned": true,
+      "no_six_digit_code_in_cli_results": true,
+      "agent_still_cannot_read_worker_store": true,
+      "agent_cannot_fetch_native_collector_requests": true,
+      "provider_verified_password_and_fresh_sms": true,
+      "session_reuse_avoids_second_password_and_sms": true,
+      "real_distinct_reader_and_worker_uids": true,
+      "root_collector_stops_cleanly": true,
+      "temporary_collector_job_removed": true
+    }
+  },
+  "orchestration": {
+    "entrypoint": "CI root collector host",
+    "production_collector_used": true,
+    "production_worker_used": true,
+    "product_cli_used": true,
+    "production_composed_host_used": false,
+    "publisher_signed_peers": false,
+    "consumer_deployment_verified": false,
+    "real_codex_or_claude_invoked": false
+  },
+  "regression": {
+    "url": "https://github.com/fainir/account-access/actions/runs/39027669545",
+    "passed": 1047,
+    "platform_skips": 5,
+    "seconds": 484.65,
+    "dependency_audit": "no known vulnerabilities found",
+    "all_eight_push_and_pr_workflows": "passed"
+  },
+  "owner_state": {
+    "installed_build": 53,
+    "installed_app_replaced": false,
+    "unfinished_mailbox_form": "preserved",
+    "new_private_signin_requests": 0
+  },
+  "limits": [
+    "Synthetic Messages database and website, ad-hoc code-pinned peers, no personal messages or physical SMS delivery",
+    "This journey uses the CI root collector host and controlled private bootstrap, not the production composed host or a System vault key",
+    "Real Codex/Claude sessions against the protected deployment, genuine Full Disk Access and signed positive installation remain open",
+    "Private email/SMS/authenticator, physical Android/iPhone, isolated Chrome ingress and continuous Chrome password sync remain release gates"
+  ]
+}

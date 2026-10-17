@@ -1,5 +1,40 @@
 # Validation of Account Access
 
+## Composed native SMS browser journey — 17 October 2026
+
+Revision `04e8193` passed **1,047 tests, five platform skips, in 484.65 seconds**,
+lint, package builds and an audit with no known vulnerabilities. All eight
+push/PR workflows passed. [Regression CI](https://github.com/fainir/account-access/actions/runs/39027669545).
+
+[Mac acceptance](https://github.com/fainir/account-access/actions/runs/39027669558) and a
+[second disposable Mac](https://github.com/fainir/account-access/actions/runs/39027672013) produced identical sets of fourteen
+complete reports. The new **ten-check composed journey** invokes the product CLI
+as an unprivileged account. Its approved read reaches the actual isolated
+worker, which requests a baseline and fresh code from the production native
+collector. The signed, hash-pinned reader runs under a separate owner UID. The
+worker supplies the code to the fixture website, completes the read and reuses
+its saved browser session for a second CLI request. The provider independently
+confirms one password login and one accepted SMS code.
+
+The CLI returns exactly the approved summary fields, contains no six-digit code,
+cannot fetch internal collector requests and remains unable to read the worker's
+vault. The root collector stops cleanly and its temporary job is removed. The
+existing 13 process-specific SMS checks and the twelve earlier Mac reports
+remain complete.
+
+This closes the gap between separate native-reader and browser-transport tests
+for the **controlled worker/browser journey**. It uses a CI root collector host
+and test bootstrap material: **the production composed host and System vault key
+are not used in this journey**. Their other controlled tests are separate.
+Real Codex/Claude sessions against that protected deployment, genuine Full Disk
+Access attribution, physical SMS and private-account acceptance remain required.
+Installed owner build 53 and its unfinished mailbox form remain untouched. No
+new private sign-in was requested. The public download remains the preview and
+the candidate is **not production ready**.
+
+See [sanitized journey evidence](../artifacts/mac-native-browser-080.json),
+[collector boundary](mac-isolated-sms.md) and [production gates](production-gates.md).
+
 ## Isolated Mac SMS collection and concurrent stop — 17 October 2026
 
 Revision `73b7c06` passed **1033 tests, 5 platform skips, in 518.55 seconds**,

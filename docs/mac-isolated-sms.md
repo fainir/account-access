@@ -86,9 +86,17 @@ forged PID announcements, future-dated texts, incomplete result sets and an
 untrusted invoker. It never accesses a personal
 Messages database or imports a phone code into AI chat.
 
-A successful process test does not prove Full Disk Access attribution when
-launched by the system daemon, forwarded physical SMS delivery, a complete worker
-and browser SMS journey, signed consumer installation, logout/reboot behavior or
-all provider templates. These remain release gates in
+The [composed Mac journey](../artifacts/mac-native-browser-080.json) now connects
+the actual collector, isolated worker, product CLI and browser. Ten assertions
+cover successful password/SMS login, session reuse, exact approved result fields,
+no code in CLI output, worker-store denial, absent agent collector routes and clean
+collector/job shutdown. The website and Messages database are synthetic. The CLI
+runs under a real different UID; actual Codex/Claude sessions against this new
+protected deployment still require their own validation.
+
+That journey uses a CI root collector host and controlled private bootstrap.
+Production system-host orchestration with a System vault key, signed consumer
+installation, real Full Disk Access attribution, forwarded physical SMS delivery,
+logout/reboot behavior and broader provider templates remain release gates in
 [production acceptance](production-gates.md). Email, authenticator, Android and
 Chrome sources retain their separate verification requirements.
