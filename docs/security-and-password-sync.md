@@ -133,6 +133,13 @@ The local preview is for a trusted-agent pilot. An unrestricted agent running un
 
 Protecting credentials from that threat requires a broker under a separate OS identity or on a separate host, with a trusted owner enrollment channel. General isolated consumer installation and an independent security assessment remain production work. The video describes encryption, approved reads and automatic supported sign-ins; it does not claim protection against every local process or unattended access to every website.
 
+The candidate's internal [separate-user worker](isolated-worker.md) passed
+[24 Linux cross-user checks](../artifacts/worker-boundary-080.json), including
+fictional password/email/SMS/TOTP recovery and denied vault, process and owner
+access. Its root-managed runtime, inherited private pipe and separate Unix
+listeners are a component for a trusted supervisor. It is not enabled by the
+consumer installer and does not change the installed Mac app's same-user limit.
+
 ### Verified Mac service prerequisites
 
 Apple's [SMAppService registration](https://developer.apple.com/documentation/servicemanagement/smappservice/register%28%29)

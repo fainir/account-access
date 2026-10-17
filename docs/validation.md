@@ -1,5 +1,46 @@
 # Validation of Account Access
 
+## Separate-user worker acceptance — 17 October 2026
+
+Internal worker revision `60e34d2` passed **24 cross-user checks** in a
+[disposable Linux CI VM](https://github.com/fainir/account-access/actions/runs/38987941570).
+A root-owned runtime launched a dedicated non-root broker; a different locked,
+non-sudo account ran the ordinary client. It completed an approved OAuth API
+read and four fictional browser password logins, including one email, SMS and
+authenticator challenge each. Email traveled over TLS IMAP; a synthetic handset
+sent the SMS message through the paired, certificate-checked HTTPS relay. No
+personal account, real carrier, physical phone or installed owner store was used.
+
+The agent was denied vault/configuration reads, database writes, runtime
+replacement, policy changes, process memory/environment/descriptors, signaling,
+the private owner socket, owner routes on the agent API and worker identity
+impersonation. Owner revocation stopped a previously permitted read. Worker
+shutdown completed without credential output. The worker received its initial
+vault key and owner capability through the inherited bootstrap pipe.
+
+The first workflow incorrectly looked green because a shell pipeline hid an
+upstream runtime preflight failure and uploaded an empty report. It is excluded.
+The workflow now propagates failures and requires a complete, non-empty report
+with every required assertion exactly true. A later attempt caught an HTTP
+client context-manager bug in the harness; wire-request regression tests cover
+the correction. Worker SIGTERM now completes owner cleanup after Uvicorn replays
+its signal. Earlier failed attempts are not counted as acceptance.
+
+See [sanitized evidence](../artifacts/worker-boundary-080.json) and the
+[component contract](isolated-worker.md). The matching application runtime on
+`95023e5` passed **696 tests in 458.75 seconds** in
+[regression CI](https://github.com/fainir/account-access/actions/runs/38987658984),
+plus lint, dependency audit (no known vulnerabilities), package build, native
+owner UI, Messages-reader, background-helper and startup checks. The later
+`60e34d2` extension changes the acceptance harness, not application/runtime
+modules; its [Android emulator journey](https://github.com/fainir/account-access/actions/runs/38987945192)
+also passed. The consumer Mac installer does not
+enable this component. A production supervisor, secure key custody and client
+issuance, trusted owner enrollment and Mac deployment remain required. Signed
+Mac build 60 and the existing ordinary-language model fixtures are separate
+earlier artifacts; this work did not replace the installed app or unfinished
+setup form. Private Gmail/SMS/authenticator acceptance remains open.
+
 ## Bound runtime activation — 17 October 2026
 
 Candidate build 60 binds the installed wheel record to the activated interpreter,

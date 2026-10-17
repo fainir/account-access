@@ -1,0 +1,69 @@
+{
+  "status": "PASSED",
+  "environment": "controlled-demo",
+  "production_ready": false,
+  "private_signins": 0,
+  "platform": "linux",
+  "real_distinct_uids": true,
+  "checks": {
+    "different_nonroot_uid": true,
+    "approved_api_password_email_sms_totp_reads": true,
+    "ungranted_operation_denied": true,
+    "vault_database_read_denied": true,
+    "vault_database_write_denied": true,
+    "owner_configuration_read_denied": true,
+    "runtime_write_denied": true,
+    "runtime_replacement_denied": true,
+    "policy_write_denied": true,
+    "worker_memory_read_denied": true,
+    "worker_environment_read_denied": true,
+    "worker_descriptors_denied": true,
+    "worker_signal_denied": true,
+    "private_owner_channel_denied": true,
+    "agent_api_has_no_owner_routes": true,
+    "agent_has_no_passwordless_sudo": true,
+    "agent_cannot_impersonate_worker": true,
+    "provider_confirmed_four_passwords_all_factors": true,
+    "tls_imap_message_fetched": true,
+    "pinned_https_sms_delivered": true,
+    "revoked_operation_denied": true,
+    "worker_still_alive_after_denied_attacks": true,
+    "graceful_worker_exit": true,
+    "worker_output_has_no_credentials": true
+  },
+  "remaining": [
+    "trusted production supervisor and lifecycle",
+    "trusted owner enrollment gateway",
+    "consumer installer integration",
+    "macOS and private-account acceptance"
+  ],
+  "schema": 1,
+  "tested_commit": "60e34d251688fb8de003745b933952fcf7b1c1fb",
+  "workflow_url": "https://github.com/fainir/account-access/actions/runs/38987941570",
+  "scope": "Internal Linux separate-user worker; fictional providers only; not enabled by the consumer installer",
+  "private_owner_store_changed": false,
+  "invalid_prior_evidence": [
+    {
+      "workflow_url": "https://github.com/fainir/account-access/actions/runs/38987244881",
+      "acceptance": false,
+      "reason": "Shell pipeline hid a runtime preflight failure; uploaded report was empty"
+    },
+    {
+      "workflow_url": "https://github.com/fainir/account-access/actions/runs/38987512857",
+      "acceptance": false,
+      "reason": "CI wire client lacked a context manager; harness failed before approved reads"
+    }
+  ],
+  "regression": {
+    "tested_commit": "95023e500f1f47d4bfdf5533bc120aecc39220ce",
+    "application_modules_match_factor_harness_commit": true,
+    "workflow_url": "https://github.com/fainir/account-access/actions/runs/38987658984",
+    "tests_passed": 696,
+    "seconds": 458.75,
+    "lint": "passed",
+    "dependency_audit": "no known vulnerabilities",
+    "native_checks": "passed",
+    "package_build": "passed"
+  },
+  "android_emulator_workflow": "https://github.com/fainir/account-access/actions/runs/38987945192"
+}

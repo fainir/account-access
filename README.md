@@ -283,6 +283,12 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) to add reviewed connectors and tests.
 
 Credentials, sessions and task outputs are encrypted. Agent clients receive scoped identities, and every operation/result access rechecks standing permissions. Website content is untrusted. These controls do not isolate secrets from an agent with unrestricted shell access under the same OS user: strong credential custody requires a separate OS identity or host.
 
+The development candidate includes an internal [separate-user worker component](docs/isolated-worker.md).
+It passed [24 Linux cross-user checks](artifacts/worker-boundary-080.json), including
+fictional password/email/SMS/authenticator sign-ins and denied agent access to
+the vault and owner controls. It still needs a production supervisor, trusted
+enrollment and installer integration; it is not enabled in the consumer Mac app.
+
 Version 0.7 strengthens private file replacement, rejects vault-sidecar symlinks, requires an active matching window for every code resolver, and rechecks the verification page before filling its code. Native forms must POST to an approved destination. These checks run silently for supported normal logins. [Security and sync details](docs/security-and-password-sync.md) describe what is enforced and what remains outside the local preview's boundary.
 
 - [Architecture and trust boundaries](docs/architecture.md)
