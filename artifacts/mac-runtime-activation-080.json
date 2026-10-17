@@ -1,0 +1,100 @@
+{
+  "version": "0.8.0-candidate",
+  "application_build": 60,
+  "environment": "controlled-demo",
+  "production_ready": false,
+  "registration": "enabled",
+  "os_managed_crash_recovery": true,
+  "pause_prevents_restart": true,
+  "keyring_namespace_cleaned": true,
+  "service_unregistered": true,
+  "private_account_sign_ins": 0,
+  "owner_settings_or_approval_changed": false,
+  "limits": [
+    "Fictional provider only; not private account/MFA acceptance",
+    "No actual logout or reboot",
+    "No OS credential isolation or Apple notarization acceptance"
+  ],
+  "signed_input_and_helper_verified": true,
+  "native_activation_preflight": "passed",
+  "initial_fixture_service_ready": true,
+  "paused_new_job_invocation_stays_stopped": true,
+  "paused_managed_client_stays_stopped": true,
+  "retained_managed_client_uses_activated_runtime": true,
+  "retained_client_scope": "Same candidate code in a second managed environment; not an unmodified pre-60 client",
+  "service_processes_quiesced": true,
+  "passed": true,
+  "source_revision": "c40d9625399df326195a1da40815e0983d63f866",
+  "date": "2026-10-17",
+  "scope": "Unique synthetic Mac QA app, fixture Keychain namespace and same-candidate managed client environments only; installed owner app/settings preserved",
+  "package": {
+    "build": "60",
+    "application_files": 61,
+    "all_application_files_match_source": true,
+    "wheel_sha256": "0d26b479b5a3baa68581c3e1690473a873d8c3dec6ec2a4f51ba41e0d7e3799f",
+    "zip_sha256": "f948893abdcf49e068401a8cfdad8c979b5fd28cf9fad7447f53d638b03ca751",
+    "prepared_archive_sha256": "448b8844a05ea1dc00d6ebbfe15ed73f00707d646f85418ff436ae3453c7118b",
+    "main_and_helper_developer_id_runtime_timestamp_both_architectures": "passed",
+    "launch_agent_policy_pin": "passed",
+    "notarization_submitted": false,
+    "installed": false
+  },
+  "validation": {
+    "focused_cases": 49,
+    "focused_seconds": 9.36,
+    "restrictive_umask": true,
+    "native_background_checks": 8,
+    "lint": "passed",
+    "real_private_sign_in_acceptance": false,
+    "native_owner_checks": 26
+  },
+  "initial_mac_probe": {
+    "passed": false,
+    "reason": "literal comparison of equivalent existing Mac system-folder aliases",
+    "temporary_job_and_key_cleanup": "passed",
+    "included_in_acceptance": false
+  },
+  "initial_ci": {
+    "source_revision": "da821078cb17d98bf37603f40ec9025c04c617e3",
+    "status": "failed",
+    "passed_cases": 660,
+    "failed_cases": 1,
+    "url": "https://github.com/fainir/account-access/actions/runs/38982665239",
+    "reason": "negative fixture mode masked by earlier restrictive umask; explicit fixture chmod added",
+    "included_in_acceptance": false
+  },
+  "activation": {
+    "record_schema": 2,
+    "wheel_runtime_launcher_and_exact_command_bound": true,
+    "uncommitted_runtime": "rejected",
+    "changed_launcher": "rejected",
+    "legacy_unbound_record": "requires repair; remains recognized for rollback",
+    "unsafe_installer_paths": "rejected before installer subprocesses",
+    "purpose": "update consistency and preflight protection, not code attestation or separate OS identity"
+  },
+  "owner_state": {
+    "installed_app_changed": false,
+    "private_website_login_requests": 0,
+    "connect_mailbox_action_visible": true,
+    "checked_or_saved_confirmation_visible": false,
+    "enrollment": "unconfirmed; status-only UI check"
+  },
+  "agent_scope": {
+    "models_retested_in_this_run": false,
+    "last_guarded_model_fixture_revision": "321d1431ef794e6d420f996451257ab19f2a5c8a",
+    "this_run": "candidate CLI cold startup from a retained managed environment; ordinary agent routing is separate earlier evidence"
+  },
+  "ci": {
+    "status": "passed",
+    "source_revision": "c40d9625399df326195a1da40815e0983d63f866",
+    "url": "https://github.com/fainir/account-access/actions/runs/38983709256",
+    "android_status": "passed",
+    "android_url": "https://github.com/fainir/account-access/actions/runs/38983709263",
+    "tests_passed": 661,
+    "seconds": 480.93,
+    "lint": "passed",
+    "dependency_audit": "no known vulnerabilities found",
+    "package_build": "passed",
+    "native_owner_policy_messages_entrypoint_startup": "passed"
+  }
+}

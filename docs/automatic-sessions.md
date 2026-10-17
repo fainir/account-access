@@ -18,7 +18,18 @@ For Codex, the installer also creates an owned `rules/account-access.rules` file
 
 When a relevant request arrives, the agent discovers the accounts and operations it may use and performs the requested work through the installed launcher. Ordinary coding conversations do not fetch unrelated account information at startup. The CLI is internal plumbing; the user does not run it.
 
-For an existing secure local installation, a connection failure can start its registered background service once. This does not replay an operation after a response timeout. A deliberate pause is respected until the owner reopens the app. The computer must be awake and its secure keyring available. Remote clients and controlled development fixtures do not use this local startup path.
+For an existing secure local installation, a connection failure can start its registered background service once. This does not replay an operation after a response timeout. A deliberate pause is respected until the owner reopens the app. The computer must be awake and its secure keyring available. Remote clients do not use this local startup path. Controlled fixtures disable it by default; the opt-in Mac QA runner enables it only inside its synthetic store.
+
+Build 60 binds managed startup to the activated interpreter, wheel and exact
+launcher command. A client running the updated logic from a retained environment
+uses the current launcher; it cannot start its older runtime when activation is
+missing or invalid. The native app and OS helper use the same binding, while
+equivalent Mac system-folder aliases remain valid. Unsafe existing runtime or
+launcher files stop before execution and need owner maintenance. Installation
+refreshes the known host integration folders. Unmodified pre-60 client processes
+need a refresh/restart; the new behavior cannot be added to an already-running
+old binary remotely. A real Mac fixture verified cold startup from a separate
+managed environment and that Pause prevents it.
 
 The 0.8 candidate also supervises the desktop service in a separate local
 process. Generated skill launchers, client startup and supervised subprocesses
@@ -58,7 +69,7 @@ a per-user process, with the same separate-identity security gate.
 
 Automatic invocation depends on a host that loads local skills/instructions and permits the client to run. Project overrides, host permissions and isolated cloud sessions still apply. There is no interception of arbitrary browser tools, and an unsupported website still needs a reviewed connector. Genuine owner-presence authentication remains a human step.
 
-The latest candidate was checked with Claude Code 2.1.112 and the desktop app's
+Ordinary-language model fixtures were last checked on revision `321d143` with Claude Code 2.1.112 and the desktop app's
 bundled Codex CLI 0.162.0-alpha.17.2. A separate older CLI 0.155.1 on PATH rejected
 its configured model before reaching Account Access. A host-model error needs
 that host's supported client/model setup; reinstalling Account Access cannot
@@ -67,3 +78,5 @@ and [invocation-only CLI overrides](https://learn.chatgpt.com/docs/cli/reference
 The compatibility test used the bundled CLI for one invocation and preserved
 the user's global settings. These two host versions are tested coverage, not a
 minimum-version guarantee for every other version or agent.
+Subsequent managed-startup changes have focused bootstrap/native tests and
+actual Mac CLI cold-start acceptance; see [validation](validation.md).

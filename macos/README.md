@@ -74,6 +74,20 @@ actual registered-job recovery/Pause and removed its job and fixture key. The
 installed owner app and enrollment form were not changed; private authentication
 and notarized distribution acceptance remain open.
 
+Candidate build **60** binds the signed wheel record to its activated interpreter,
+launcher digest and exact isolated command. Native reopening and the background
+helper reject an uncommitted environment or changed launcher. Updated clients
+running from a retained environment start the activated service, and Pause still
+prevents startup. A real Mac fixture verified this cold start alongside OS-job
+recovery, then removed its job and fixture key and confirmed process shutdown.
+Preflight rejects unsafe existing runtime directories, launchers and lock files
+before executing an old installation. Forty-nine bootstrap/automatic-startup
+cases pass under a restrictive umask; final CI passed 661 tests plus native
+checks and the Android emulator journey. Eight background checks cover actual
+Mac path aliases as well as spaces and apostrophes. Unchanged legacy clients need a host
+integration refresh/restart. These are controlled checks; private-authentication,
+installed owner upgrade, distribution and separate-identity gates remain open.
+
 Build with Xcode's command-line tools:
 
 ```sh

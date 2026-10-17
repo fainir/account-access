@@ -90,6 +90,16 @@ concurrent repairs. The previous environment is retained. Python and Chromium
 downloads still rely on their vendor distribution mechanisms; this does not
 claim an independently reproducible or fully offline installation.
 
+Managed activation also binds the wheel to the interpreter, launcher digest and
+fixed isolated command. A matching wheel digest alone cannot select another
+managed environment. Updated clients use the activated launcher for cold starts,
+and invalid activation requires repair instead of starting a retained runtime.
+Before executing an old launcher, installer preflight checks the runtime's
+ownership and permissions and rejects unsafe, linked or non-regular files.
+This provides update/preflight checks, not independent attestation of installed
+code or protection from an unrestricted same-user process. Known integrations
+are refreshed by installation; unchanged old client processes need restarting.
+
 ## Password-source updates
 
 **Chrome, Apple Passwords and CSV exports are snapshots.** Import a fresh export when a password changes. A file export is not a live connection to the original manager. Account Access does not keep a plaintext CSV watcher or extract Chrome's encrypted password database.

@@ -87,8 +87,8 @@ and [reusable-mailbox validation](artifacts/reusable-mailboxes-080.json).
 The current development candidate resumes saved work after a verified mailbox
 repair or a local service crash. Pause stops recovery. Installation repairs keep
 the previous runtime available and restore the launchers if an update fails.
-Signed build **59** adds shutdown and rollback fixes to the background recovery
-verified with a separate Mac QA app. It is staged for testing; private-account
+Signed build **60** adds startup and update checks verified with a separate Mac
+QA app, including cold startup from a retained managed environment. It is staged for testing; private-account
 acceptance, installed owner upgrade, logout/reboot and notarized distribution
 remain open. See [validation](docs/validation.md) and
 [production acceptance](docs/production-gates.md).

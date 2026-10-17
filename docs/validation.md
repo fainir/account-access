@@ -21,7 +21,7 @@ pre-60 clients do not gain this behavior retroactively; known host integrations
 are refreshed by installation, and long-running old clients need a restart.
 
 Installer preflight also checks private runtime/environments directories,
-non-writable shared bin directories, and an owned regular single-link 0700
+bin directories without group/world write, and an owned regular single-link 0700
 launcher before executing an existing installation. A marker alone cannot
 authorize that execution. Unsafe modes, hard links, FIFOs and non-regular lock
 files stop before any installer subprocess runs. A readable but non-writable
@@ -29,8 +29,8 @@ bin directory remains valid. An unsafe existing runtime needs owner maintenance;
 the app does not loosen permissions or execute it to repair itself.
 
 The focused bootstrap/automatic-session and native policy/path checks exercise
-these cases, including paths with spaces and apostrophes. Full candidate/package
-validation is recorded below when complete. This is update consistency and
+these cases, including paths with spaces and apostrophes. Final candidate/package
+validation is recorded below. This is update consistency and
 preflight protection, not independent code attestation or a separate OS
 credential identity. Complete broker/runtime isolation and a trusted owner
 enrollment channel remain production work.
@@ -45,6 +45,33 @@ An added preflight check reports only fixed metadata checks before registering
 another QA job. A separate CI failure came from a negative-test directory being
 made private by an earlier restrictive umask; the fixture now explicitly sets
 and checks its intended unsafe mode. Product checks were not relaxed for it.
+
+Final runtime revision `c40d962` passed **661 tests in 480.93 seconds** in
+[CI](https://github.com/fainir/account-access/actions/runs/38983709256), plus
+lint, dependency audit (no known vulnerabilities), package build, **26 native
+UI checks**, **eight background-policy checks**, Messages-reader and startup
+checks. Its [Android emulator journey](https://github.com/fainir/account-access/actions/runs/38983709263)
+also passed. All **49 focused bootstrap/automatic-startup cases** passed in
+9.36 seconds with restrictive umask explicitly applied.
+
+The rebuilt signed build 60 passed actual Mac acceptance on this final revision:
+registered-job crash recovery continued the original task; Pause blocked both
+a fresh job invocation and a managed client; and a client using the same
+candidate code from a second retained environment cold-started the activated
+runtime rather than itself. This does not validate unchanged pre-60 clients.
+The temporary job was unregistered, its key removed, and its processes confirmed
+quiescent before fixture removal. All **61 application files** match source.
+Main/helper Developer ID/team, hardened-runtime, timestamp, both architectures
+and the fixed LaunchAgent policy passed local preparation. No Apple submission
+or private website sign-in was made. Ordinary-language model fixtures remain
+separate earlier evidence on `321d143`; they were not rerun for this managed
+startup change. See the [sanitized build 60 report](../artifacts/mac-runtime-activation-080.json).
+
+The installed owner app/form were preserved. A status-only UI check still
+showed Connect mailbox without checked/saved confirmation, leaving enrollment
+unconfirmed. Private email/SMS/authenticator acceptance, installed owner upgrade,
+actual logout/reboot, notarized distribution, isolated custody and independent
+review remain open.
 
 ## Update rollback after an uncertain stop — 17 October 2026
 
