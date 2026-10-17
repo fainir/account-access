@@ -106,10 +106,10 @@
     "notarized clean-Mac installation and private email/SMS/authenticator/physical-phone acceptance"
   ],
   "latest_adhoc_ci": {
-    "source_revision": "1bb6992ba40b9f370b97683271f57b17799face5",
-    "workflow_url": "https://github.com/fainir/account-access/actions/runs/39010365609",
-    "job_id": 117331438983,
-    "checks": 66,
+    "source_revision": "cf313f64f73660dc238be77327cfc74618654683",
+    "workflow_url": "https://github.com/fainir/account-access/actions/runs/39012690209",
+    "job_id": 117338380736,
+    "checks": 67,
     "publisher_signed_peers": false
   }
 }

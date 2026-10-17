@@ -106,6 +106,22 @@ are refreshed by installation; unchanged old client processes need restarting.
 
 Chrome's [public extension API reference](https://developer.chrome.com/docs/extensions/reference/api) does not offer a password-vault synchronization API. Automatic Chrome password updates are therefore not shipped. Keeping routine logins automatic is supported while the imported credentials or saved sessions remain valid.
 
+Rechecked against primary sources on 17 October 2026: Google's documented
+[Data Portability scopes](https://developers.google.com/data-portability/user-guide/scopes)
+and [Chrome export schema](https://developers.google.com/data-portability/schema-reference/chrome)
+include Chrome contact/autofill data, bookmarks, history and settings, with no
+saved-password resource group. The autofill schema describes contact information.
+This provides no documented password-sync path for Account Access.
+
+Chromium's `passwordsPrivate` permission is restricted to browser component
+extensions in its [permission feature rules](https://chromium.googlesource.com/chromium/src/+/main/chrome/common/extensions/api/_permission_features.json).
+The [API context rules](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/chrome/common/extensions/api/_api_features.json)
+also expose it to Chrome's own password-manager WebUI. An ordinary installed
+extension cannot obtain that access by declaring a normal permission. This is
+why the Messages helper does not imply a Chrome vault connection. Continuous
+Chrome synchronization remains an unmet requirement; CSV import is not its
+replacement or proof of completion.
+
 **1Password Connect supports background updates.** This is an optional integration for an existing Connect deployment, not a one-click connection to any personal 1Password account. An administrator first provisions a dedicated vault and a token with read access only. See the [official Connect requirements and API](https://developer.1password.com/docs/connect/api-reference/).
 
 1. Import the login and approve its supported reads.

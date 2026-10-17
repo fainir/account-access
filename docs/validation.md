@@ -1,5 +1,57 @@
 # Validation of Account Access
 
+## System entrypoint and initial native connection — 17 October 2026
+
+Revision `cf313f6` passed **15 pre-enrollment gateway checks** in
+[Mac CI](https://github.com/fainir/account-access/actions/runs/39012690226/job/117338380658)
+and an [independent repeat](https://github.com/fainir/account-access/actions/runs/39012692656/job/117338387612).
+All ten complete raw reports agree, retaining the separate 24 positive coordinator,
+28 publication, 31 composed-host, 21 supervisor, 33 handoff, 20 System-key,
+24 root owner-host, 16 policy and 25 cross-user worker assertions.
+
+The production system entrypoint hosts the first-enrollment mode with activated
+listeners and a real native owner connection before a vault key exists. The
+pinned owner can read setup state and health. Wrong owner UID, wrong client or
+server code, unapproved enrollment, an invalid OS proof and caller-provided
+configuration are refused. No key or worker starts. After the rejected requests
+and service shutdown, the same entrypoint signature checks key absence while
+removing its QA setup rule. Temporary system jobs are removed.
+
+The service uses a permanent dispatch loop and retains its host and signal
+sources. QA writes readiness metadata once; no test-only main-queue timer keeps
+the daemon alive. The production build accepts no arguments and has a fixed
+protected host-policy path. Its ordinary-user launch exits 78 before reading
+configuration. Both service and bootstrap build as universal arm64/x86_64 tools
+targeting macOS 14 and pass signature checks locally and in CI. Local builds and
+the VM use ad-hoc identities, not a publisher-signed installed deployment.
+
+The native owner-channel suite passed **67 checks** locally and in
+[CI](https://github.com/fainir/account-access/actions/runs/39012690209/job/117338380736).
+A new regression failed before the fix: malformed enrollment data on a prepared
+client returned channel-unavailable 503. It now returns policy-refusal 403 with a
+fixed reason before forwarding. Unprepared or closed channels still refuse setup
+input. Earlier revision `eb250e6` failed both new Mac gateway runs and is excluded.
+The older fixture client did not retain assertion names, so those runtime reports
+alone do not identify the exact assertion. The deterministic regression and later
+complete repeats are recorded in [evidence](../artifacts/mac-initial-gateway-080.json).
+
+Matching source passed **910 tests, one platform skip, in 514.17 seconds**,
+lint, an audit with no known vulnerabilities, packaging and native UI checks in
+[regression CI](https://github.com/fainir/account-access/actions/runs/39012690209).
+The [Linux 24-check worker](https://github.com/fainir/account-access/actions/runs/39012690259)
+and [Android emulator journey](https://github.com/fainir/account-access/actions/runs/39012690281)
+also passed. All eight push/PR workflows passed. The focused local evidence group
+passed 55 cases; the SDK/evidence group passed 31, with overlapping cases.
+
+This new journey exercises separate-process native reads and refusals before
+enrollment. Positive setup authority remains a separate in-process synthetic
+coordinator test. Genuine positive approval, consumer package/native UI, client
+issuance/migration, setup crash/power-loss recovery and publisher continuity remain
+unverified. Private email/SMS/authenticator/physical-phone acceptance and notarized
+clean installation remain open. Installed build 53 and its unfinished mailbox form
+were untouched; no private sign-in was attempted. Continuous Chrome password sync
+remains unmet; the source/API review is in [password-source limits](security-and-password-sync.md#password-source-updates).
+
 ## Native first-vault coordinator — 17 October 2026
 
 Revision `1bb6992` passed **24 first-enrollment checks** in

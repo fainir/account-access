@@ -325,6 +325,12 @@ another setup request and repair when a published key is missing. Positive
 approval is synthetic; genuine owner approval and the consumer native setup
 flow remain unverified.
 
+The [system-service entrypoint](docs/mac-system-service.md) passed
+[15 pre-enrollment connection checks](artifacts/mac-initial-gateway-080.json)
+with separate native processes, including owner/code identity checks and refusal
+of unapproved setup before a key exists. This does not install the isolated
+service in the consumer app or verify positive owner approval.
+
 The same Mac VM passed [16 setup-policy checks](artifacts/mac-owner-policy-080.json):
 strict rule provisioning, registrar binding, changed-rule rejection and fixture
 cleanup. The proof test deliberately uses a synthetic permissive rule and does

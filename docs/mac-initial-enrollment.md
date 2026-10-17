@@ -68,8 +68,10 @@ consumer installation. No private passwords, mailbox messages, SMS or
 authenticator accounts are used.
 
 Positive setup sessions run in the same hosting process as the coordinator.
-The new first-enrollment mode of `RootBrokerHost` is compiled but has not yet
-been exercised through a separate native XPC owner process. Existing-store
+The [system entrypoint](mac-system-service.md) now exercises the first-enrollment
+mode through a separate native XPC owner process before key creation. That
+15-check journey covers reads and rejected requests, with no positive approval.
+Existing-store
 composed-host and native owner-channel acceptance are separate journeys. Setup
 objects are reopened against their durable files; a setup-process crash and
 power-loss injection remain unverified.

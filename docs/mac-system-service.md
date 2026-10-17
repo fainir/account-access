@@ -2,7 +2,9 @@
 
 `SystemBroker.swift` provides the service entrypoint needed by the isolated
 consumer installer. It composes `RootBrokerHost`, its fixed initial-enrollment
-plan and the native owner gateway. This is a development component; it is not
+plan and the native owner gateway. Its pre-enrollment connection passed
+[15 checks in two independent Mac VM runs](../artifacts/mac-initial-gateway-080.json).
+This is a development component; it is not
 installed or enabled by the published preview.
 
 ## Build and installation contract
@@ -42,7 +44,7 @@ not create a key. A genuinely approved setup request uses the
 [initial coordinator](mac-initial-enrollment.md). Mandatory OS approval still
 belongs to the owner application; the daemon never prompts or synthesizes it.
 
-The entrypoint retains its host and signal sources for the service lifetime.
+The entrypoint retains its host and signal sources in its permanent dispatch loop.
 SIGTERM/SIGINT stop owner connections and drain/stop the owned lifecycle through
 the host. Error output is a fixed reason code, without exception text,
 configuration, keys, credentials or caller arguments.
@@ -51,14 +53,15 @@ configuration, keys, credentials or caller arguments.
 
 CI compiles the same entrypoint with two explicit QA flags. Only that binary can
 select a protected fixture policy, use ad-hoc pinned peers and emit sanitized
-readiness probes in its temporary namespace. Its key provider uses the separate
+readiness metadata once in its temporary namespace. There is no test-only timer
+keeping the entrypoint alive. Its key provider uses the separate
 QA service. It can remove only the QA setup rule registered to its own code.
 Production builds contain none of those command-line modes.
 
 The new journey exercises first-enrollment state through separate native XPC
 processes while no key or worker exists. It rejects wrong client/server code,
 wrong owner UID, unapproved setup, invalid OS proof and caller configuration,
-then obtains a fresh key-absence probe. It removes its temporary job and setup
+then checks key absence after shutdown in the cleanup process. It removes its temporary job and setup
 rule. This is a negative pre-enrollment boundary test: a genuine positive owner
 approval, consumer package/native screens, client issuance, migration, publisher
 update continuity and private account/phone QA remain separate release gates.
