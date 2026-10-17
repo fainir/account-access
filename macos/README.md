@@ -171,8 +171,12 @@ uv run python macos/notarize.py finalize \
 
 `prepare` is local-only. It validates the Apple-anchored Developer ID signature,
 expected team, hardened runtime, timestamp, executable permissions, both CPU
-architectures and bundled-wheel pin. It copies the app, so the input app is
-preserved. Unknown nonempty work directories, symlinks and conflicting release
+architectures and bundled-wheel pin. Current bundles declare browser-extension
+format 1 and contain exactly the six reviewed SMS-helper files. Missing or extra
+files, unsupported formats and changed prepared helper content stop before
+upload; helper hashes are checked again after the final archive is unpacked.
+Legacy bundles without that marker retain their original resource layout.
+It copies the app, so the input app is preserved. Unknown nonempty work directories, symlinks and conflicting release
 processes are refused. Work files and tool diagnostics are private; do not
 publish the work directory.
 

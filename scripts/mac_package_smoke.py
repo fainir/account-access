@@ -157,7 +157,11 @@ def prepared_checks(base, app, metadata):
         assert len(metadata_text) <= 65536
         assert re.findall(rb"^TeamIdentifier=(.+)$", metadata_text, re.MULTILINE) == [b"not set"]
         if row["kind"] == 2:
-            flags = re.findall(rb"\bflags=0x([0-9a-fA-F]+)", metadata_text)
+            flags = re.findall(
+                rb"^CodeDirectory[ \t]+[^\r\n]*\bflags=0x([0-9a-fA-F]+)\b",
+                metadata_text,
+                re.MULTILINE,
+            )
             assert len(flags) == 1 and int(flags[0], 16) & 0x10000
     checks["prepared_native_bytes_preserved_at_final_install_paths"] = True
     checks["prepared_code_is_root_controlled_without_privileged_modes"] = True

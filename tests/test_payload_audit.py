@@ -93,6 +93,7 @@ def signature_command(
     team="ABCDEFGHIJ",
     flags="0x10000",
     authority="Developer ID Application: Fixture",
+    directory=None,
 ):
     calls = []
 
@@ -100,7 +101,8 @@ def signature_command(
         calls.append(args)
         if args[0] == "/usr/bin/lipo":
             return SimpleNamespace(stdout=" ".join(architectures).encode())
-        text = f"TeamIdentifier={team}\nAuthority={authority}\nTimestamp={timestamp}\nCDHash={'a' * 40}\nCodeDirectory v=20500 flags={flags}(runtime)\n"
+        code = f"CodeDirectory v=20500 flags={flags}(runtime)\n" if directory is None else directory
+        text = f"TeamIdentifier={team}\nAuthority={authority}\nTimestamp={timestamp}\nCDHash={'a' * 40}\n{code}Executable Segment flags=0x1\n"
         return SimpleNamespace(stdout=b"", stderr=text.encode())
 
     return command, calls
@@ -131,6 +133,17 @@ def test_libraries_need_valid_publisher_and_timestamp_but_do_not_require_executa
     requirement = next(arg for call in calls for arg in call if arg.startswith("-R="))
     assert "100.6.1.13" in requirement and "get-task-allow" in requirement
     assert len([call for call in calls if "--arch" in call]) == 2
+
+
+@pytest.mark.parametrize("directory", [
+    "Executable Segment flags=0x10000\n",
+    "CodeDirectory flags=0x0\nExecutable Segment flags=0x10000\n",
+    "CodeDirectory flags=0x10000\nCodeDirectory flags=0x10000\n",
+])
+def test_executable_segment_flags_cannot_replace_one_runtime_code_directory(directory):
+    command, _ = signature_command(directory=directory)
+    with pytest.raises(ValueError, match="native_publisher_runtime_timestamp_required"):
+        audit.verify_code(Path("fixture"), 2, "arm64", command)
 
 
 def test_every_native_file_inside_wheels_and_frameworks_is_inspected(tmp_path):

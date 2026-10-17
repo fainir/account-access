@@ -9,45 +9,21 @@ Account Access is a local authentication and delegated-access service for **Code
 
 **Status: 0.7.4 preview.** The included examples are usable today. Real websites require reviewed connectors; this is not an “add any website” consumer app or validated production access to banks, Google, Meta or insurance accounts.
 
-This development branch contains the **0.8 candidate**: local Google Authenticator transfer import, reviewed SMS enrollment, and an installer that requires tested dependency hashes and can roll back a failed repair. These changes are under validation; the download below remains the published 0.7.4 preview. See [production acceptance and remaining gates](docs/production-gates.md).
+Set up saved passwords and the verification sources your supported websites use.
+When an agent requests an approved operation, Account Access reuses its session
+or handles the configured password, email, SMS or authenticator login locally.
+Passwords and codes stay outside the agent conversation. Genuine phone,
+passkey or biometric approval still needs the owner.
 
-The candidate also contains a [protected Mac installation path](docs/mac-system-provisioning.md) with a dedicated service identity and bundled offline runtime. Two disposable Mac runs passed [26 provisioning checks](artifacts/mac-system-provisioning-080.json) and [10 unsigned-package refusal checks](artifacts/mac-system-package-080.json). Signed positive consumer installation, migration, complete isolated collectors and private email/SMS/authenticator QA remain open. This path is not enabled in the published preview.
-
-The isolated candidate now also has a [private Mac SMS collector](docs/mac-isolated-sms.md).
-Two disposable Macs passed [13 native process checks](artifacts/mac-native-messages-080.json),
-a [ten-check composed journey](artifacts/mac-native-browser-080.json) and
-[17 system-host recovery checks](artifacts/mac-native-system-browser-080.json).
-The latter uses the production host, System vault key and isolated worker to
-complete password/SMS login, reuse a session, then restart and recover through a
-durable task without owner input. Messages and the website are synthetic;
-consumer installation, genuine OS privacy approval and physical delivery remain
-unverified.
-
-The isolated candidate adds a [native Chrome SMS bridge](docs/google-messages.md#protected-mac-candidate)
-that sends fixed requests to the protected worker without opening the legacy
-vault. [Component and worker/browser tests](artifacts/mac-browser-bridge-080.json)
-pass; complete installed Chrome/XPC, genuine approval and physical-phone
-acceptance remain open. The unpacked-extension step is still a developer preview.
-
-The development candidate also includes a [Google Messages browser connection](docs/google-messages.md) for fresh GitHub login texts from an already-paired Android inbox. Its optional browser helper now also offers [verified GitHub session reuse](docs/browser-sessions.md): confirm the username locally and connect an existing Chrome sign-in. Cookie/site permission is optional and temporary. The unpacked-extension setup and private acceptance are still under validation.
-
-The personal GitHub pilot now reuses an owner-approved Chrome session: its identity was checked locally, its original blocked task resumed, and fresh Claude Code and Codex sessions completed the approved profile-heading read without authentication input. A fresh password/SMS login still redirects to account recovery; personal email and authenticator sign-ins remain unverified. See the [private-session evidence](artifacts/private-github-session-080.json) and [validation report](docs/validation.md).
-
-Further GitHub testing has stopped at the owner's request. The current candidate
-adds a limited **Namecheap** password connection and exact password-export
-aliases. Its anonymous form preflight passed, and one owner-approved private
-credential was imported locally. The private check stopped at browser
-verification/HTTP 429; password and email/TOTP sign-in remain unverified.
-Railway's email sign-in was inspected but is
-not yet a supported connector. See [other-service validation](docs/other-service-validation.md).
-
-The browser sign-in flow uses the imported email/username and password, then supplies the website's email, SMS or authenticator login code from its connected source. A reviewed connector can configure all three methods for one website, including successive verification steps. This is the authentication flow being tested; using another application's existing login is not browser-authentication evidence.
+The **0.8 development candidate** adds protected Mac installation, local Google
+Authenticator transfer import and further recovery checks. It is under
+validation; the download remains the **0.7.4 preview**. Private password/code
+acceptance, physical-phone delivery, notarized installation and continuous
+Chrome sync remain incomplete. See [what is verified and what remains](docs/production-gates.md)
+and the [test evidence](docs/validation.md). The recording shows the intended
+workflow with controlled example accounts.
 
 ![Account dashboard with approved reads and automatic session integration](docs/account-dashboard.png)
-
-The isolated Mac development path now includes [native setup and progress screens](docs/mac-desktop-connection.md), a protected public connection profile and recovery without repeating setup writes. Its [controlled acceptance](artifacts/mac-desktop-connection-080.json) is separate from consumer installation and private account/phone QA. It is not enabled by the preview download.
-
-The isolated development flow also adds [one portable client connection](docs/mac-agent-setup.md) for detected Codex and Claude Code installations. It preserves existing preferences and requires no agent selector. This does not enable the isolated service in the preview download or establish private sign-in coverage.
 
 ## Easy installation
 

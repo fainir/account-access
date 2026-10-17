@@ -238,11 +238,12 @@ class Notarization:
             def field(name):
                 match = re.search(r"^" + re.escape(name) + r"=(.+)$", metadata, re.MULTILINE)
                 return match[1].strip() if match else ""
-            flags = re.search(r"\bflags=0x([0-9a-fA-F]+)", metadata)
+            flags = re.findall(r"^CodeDirectory[ \t]+[^\r\n]*\bflags=0x([0-9a-fA-F]+)\b",
+                               metadata, re.MULTILINE)
             code_hash = field("CDHash")
             if (field("Identifier") != identifier or field("TeamIdentifier") != team
                     or not re.search(r"^Authority=Developer ID Application:", metadata, re.MULTILINE)
-                    or not flags or not int(flags[1], 16) & 0x10000
+                    or len(flags) != 1 or not int(flags[0], 16) & 0x10000
                     or field("Timestamp") in {"", "none"} or not re.fullmatch(r"[a-f0-9]{40}", code_hash)):
                 raise ReleaseError("developer_id_runtime_timestamp_required")
             hashes[arch] = code_hash

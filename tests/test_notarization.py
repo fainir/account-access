@@ -36,6 +36,7 @@ class AppleTools:
         self.background_team = None
         self.background_hardened = True
         self.background_timestamp = True
+        self.directory_override = None
 
     def __call__(self, argv, timeout=60):
         self.calls.append(argv)
@@ -50,9 +51,12 @@ class AppleTools:
                 path.read_bytes() for path in sorted(app.rglob("*"))
                 if path.is_file() and path.name != "fixture-notary-ticket")
             digest = hashlib.sha256(content + arch.encode()).hexdigest()[:40]
+            directory = ("CodeDirectory flags=0x10000(runtime)\n" if self.hardened and (not background or self.background_hardened) else "CodeDirectory flags=0x0\n")
+            if self.directory_override is not None:
+                directory = self.directory_override
             error = (f"Identifier={identifier}\nTeamIdentifier={team}\n"
                      f"Authority=Developer ID Application: Fixture\nCDHash={digest}\n"
-                     + ("CodeDirectory flags=0x10000(runtime)\n" if self.hardened and (not background or self.background_hardened) else "CodeDirectory flags=0x0\n")
+                     + directory + "Executable Segment flags=0x1\n"
                      + ("Timestamp=fixture timestamp\n" if self.timestamp and (not background or self.background_timestamp) else ""))
         elif argv[0] == "lipo":
             text = "x86_64 arm64\n"
@@ -174,6 +178,18 @@ def test_pending_job_is_checked_again_instead_of_reuploaded(release):
     assert resumed.finalize(PROFILE)["apple_status"] == "In Progress"
     assert tools.uploads == 1 and tools.staples == 0
     assert not task.output.exists()
+
+
+@pytest.mark.parametrize("directory", [
+    "Executable Segment flags=0x10000\n",
+    "CodeDirectory flags=0x10000\nCodeDirectory flags=0x10000\n",
+])
+def test_release_runtime_flag_must_belong_to_one_code_directory(release, directory):
+    task, tools, _ = release
+    tools.directory_override = directory
+    with pytest.raises(ReleaseError, match="developer_id_runtime_timestamp_required"):
+        task.submit(PROFILE)
+    assert tools.uploads == 0
 
 
 def test_timeout_is_uncertain_and_known_job_can_be_adopted_without_resubmission(release):

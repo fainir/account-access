@@ -126,7 +126,9 @@ def verify_code(path, kind, architecture, command):
             values = re.findall(r"^" + re.escape(name) + r"=(.+)$", text, re.MULTILINE)
             return values[0].strip() if len(values) == 1 else ""
 
-        flags = re.findall(r"\bflags=0x([0-9a-fA-F]+)", text)
+        flags = re.findall(
+            r"^CodeDirectory[ \t]+[^\r\n]*\bflags=0x([0-9a-fA-F]+)\b", text, re.MULTILINE
+        )
         team = field("TeamIdentifier")
         if (
             re.fullmatch(r"[A-Z0-9]{10}", team) is None

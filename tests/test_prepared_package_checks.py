@@ -130,7 +130,7 @@ def installed(tmp_path, monkeypatch):
         return SimpleNamespace(
             returncode=0,
             stdout=b"",
-            stderr=b"TeamIdentifier=not set\nCodeDirectory flags=0x10000(runtime)\n",
+            stderr=b"TeamIdentifier=not set\nCodeDirectory flags=0x10000(runtime)\nExecutable Segment flags=0x1\n",
         )
 
     monkeypatch.setattr(smoke.subprocess, "run", command)
@@ -152,6 +152,8 @@ def test_installed_native_bytes_signatures_seals_and_both_locks_are_checked(inst
     [
         b"TeamIdentifier=not set\nCodeDirectory flags=0x0\n",
         b"TeamIdentifier=ABCDEFGHIJ\nCodeDirectory flags=0x10000\n",
+        b"TeamIdentifier=not set\nExecutable Segment flags=0x10000\n",
+        b"TeamIdentifier=not set\nCodeDirectory flags=0x10000\nCodeDirectory flags=0x10000\n",
     ],
 )
 def test_prepared_fixture_requires_actual_runtime_flag_and_fixture_publisher(
