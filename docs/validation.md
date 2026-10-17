@@ -1,5 +1,42 @@
 # Validation of Account Access
 
+## Separate-user Mac worker — 17 October 2026
+
+Revision `40ad638` passed **25 cross-user checks** in
+[Mac CI](https://github.com/fainir/account-access/actions/runs/38994642402/job/117284376640).
+A root-owned runtime, native identity-drop launcher and two temporary non-admin
+OS users exercised the actual broker. Four fictional password logins completed
+with one TLS IMAP email code, one certificate-checked synthetic handset SMS and
+one TOTP verification. The agent could not read or change the vault, replace
+runtime/policy files, signal or obtain a task port for the worker, impersonate
+its identity, use passwordless sudo or reach the private owner channel.
+Revocation stopped an approved read; graceful shutdown produced no credentials.
+
+The native launcher rejects writable runtime descendants, including code behind
+a directory symlink, before key handoff. Its kernel descriptor allowlist passed
+a native regression with an open descriptor above a lowered soft limit and
+preserved the PID. Both Mac architectures type-check; the cross-user runtime
+journey ran on the hosted arm64 Mac. This is not a production supervisor or
+installed-owner migration. See [evidence](../artifacts/mac-worker-boundary-080.json)
+and the [component contract](mac-worker.md).
+
+Initial attempts are excluded: Darwin pipe stat ownership differs from Linux;
+UID-only launches did not establish the user's Mac execution context; the first
+blank-page canary lost its browser setting through sudo; and the first recursive
+runtime guard rejected the installed layout. The corrected path checks root
+ownership/modes throughout alias targets, normalizes vendor permissions and
+adopts the dedicated user's launchd context. The browser sandbox stayed enabled.
+The final run removed both temporary users/domains and its runtime.
+
+The separately staged **Developer ID signed build 61** corrects the consumer
+minimum to macOS 14 and passed local packaging/pin checks. Matching application
+source `aeb1d28` passed **724 tests, one platform skip, in 502.56 seconds**, lint,
+dependency audit, packaging/native checks and the Android emulator journey.
+See [build evidence](../artifacts/mac-platform-061.json). Its consumer transport
+is still the earlier same-user service; the isolated components are not enabled.
+Installed build 53 and the unfinished mailbox form were preserved. Real mailbox,
+physical phone and private authenticator acceptance remain open.
+
 ## Native Mac owner channel — 17 October 2026
 
 Revision `712f1a1` passed **54 native owner-channel checks** locally with actual

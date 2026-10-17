@@ -7,7 +7,7 @@ or physical-device coverage.
 
 ## Candidate 0.8 changes
 
-- The next Mac source build requires macOS 14 (Sonoma) or later, matching the
+- Staged Mac build 61 requires macOS 14 (Sonoma) or later, matching the
   pinned Playwright browser runtime. App metadata, shell preflight and the direct
   Python bootstrap enforce this before downloads/runtime changes. This corrects
   the previous macOS 13 claim; it is not clean-Mac installation acceptance.
@@ -153,7 +153,7 @@ or physical-device coverage.
 | Passkey/security key | Real private browser sign-in identified a WebAuthn route | A reviewed browser route to an available email/SMS/authenticator method, or genuine owner presence when the provider requires it |
 | Existing browser sign-in | One private GitHub Chrome session verified locally; original task resumed; fresh Claude Code and Codex reads completed without authentication input. Wrong-user, expiry, cancellation, native framing and temporary-permission contracts tested | Chrome permission display remains unconfirmed; further GitHub QA was stopped at the owner's request. Private session expiry/recovery coverage and extension marketplace distribution remain open; session reuse does not validate fresh SMS delivery |
 | Automatic agent discovery | Installed skill/CLI used from ordinary prompts in Codex and Claude Code; both completed the approved private GitHub profile read | Broader private connections and host matrix |
-| Credential isolation | Linux worker passed 24 real cross-user checks with fictional password/email/SMS/TOTP ([worker evidence](../artifacts/worker-boundary-080.json)); native Mac owner-channel component passed 54 peer, authorization, route and lifecycle checks ([Mac evidence](../artifacts/mac-owner-gateway-080.json)) | Production supervisor/key custody, genuine owner authorization, trusted enrollment/client issuance and consumer integration; the installed same-user Mac app is not isolated. Mac component tests run under one OS user |
+| Credential isolation | Linux worker passed 24 and Mac worker passed 25 real cross-user checks with fictional password/email/SMS/TOTP ([Linux evidence](../artifacts/worker-boundary-080.json), [Mac worker evidence](../artifacts/mac-worker-boundary-080.json)); native Mac owner channel passed 54 separate-process checks ([channel evidence](../artifacts/mac-owner-gateway-080.json)) | Production supervisor/key custody, genuine owner authorization, trusted enrollment/client issuance and consumer integration; the installed same-user Mac app is not isolated. Owner-channel fixtures still run under one OS user and do not establish root deployment |
 | Open-source trust | Public MIT repository, CI, contribution guide, private vulnerability reporting enabled | Independent security review, release provenance and published production acceptance results |
 | Operational health | Worker health and bounded retries; process leases, native reconnection and same-version payload handshake; signed Apple-registered per-user guardian with real synthetic-job crash/Pause/cleanup acceptance | Actual logout/reboot and installed owner upgrade, external monitoring/alerting and separate-identity custody remain open |
 

@@ -284,9 +284,12 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) to add reviewed connectors and tests.
 Credentials, sessions and task outputs are encrypted. Agent clients receive scoped identities, and every operation/result access rechecks standing permissions. Website content is untrusted. These controls do not isolate secrets from an agent with unrestricted shell access under the same OS user: strong credential custody requires a separate OS identity or host.
 
 The development candidate includes an internal [separate-user worker component](docs/isolated-worker.md).
-It passed [24 Linux cross-user checks](artifacts/worker-boundary-080.json), including
+It passed [24 Linux cross-user checks](artifacts/worker-boundary-080.json) and
+[25 Mac cross-user checks](artifacts/mac-worker-boundary-080.json), including
 fictional password/email/SMS/authenticator sign-ins and denied agent access to
-the vault and owner controls. It still needs a production supervisor, trusted
+the vault and owner controls. The [Mac launcher](docs/mac-worker.md) validates
+the protected runtime, permanently drops its OS identity and lets the kernel
+close unapproved file handles. It still needs a production supervisor, trusted
 enrollment and installer integration; it is not enabled in the consumer Mac app.
 
 The [native Mac owner-channel component](docs/mac-owner-gateway.md) also passed

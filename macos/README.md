@@ -90,10 +90,18 @@ installed owner upgrade, distribution and separate-identity gates remain open.
 
 Build with Xcode's command-line tools:
 
-The next source build is **61**. It aligns the app's minimum OS version with
+Staged signed build **61** aligns the app's minimum OS version with
 the pinned browser runtime and stops unsupported installations before runtime
-changes. This does not replace the separately staged signed build 60 or the
-installed build 53, and does not enable the separate-user worker component.
+changes. Both universal executables, their Developer ID signatures, hardened
+runtime/timestamps and the wheel's source contents were checked locally.
+Fifty-nine focused installer/rollback cases passed; matching source CI passed
+724 tests, native owner/UI/background checks and the Android emulator journey.
+The separate cross-user Mac browser workflow failed and is excluded from that
+acceptance. This does not replace the
+installed build 53 and does not enable the separate-user worker component.
+Apple notarization was prepared locally but not submitted. See the
+[packaging evidence](../artifacts/mac-platform-061.json); clean-Mac installation
+and private sign-in acceptance remain open.
 
 ```sh
 uv build

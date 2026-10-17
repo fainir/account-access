@@ -42,6 +42,15 @@ website accounts, phone inbox, mailbox or installed owner store.
 The root-only harness is CI machinery, not a service installation command. It
 must not be run against a user's Mac or an existing service deployment.
 
+The [Mac launcher](mac-worker.md) also passed
+[25 cross-user checks](../artifacts/mac-worker-boundary-080.json) in a disposable
+Mac VM. It validates the root-owned runtime and its descendants, adopts the
+dedicated user's execution context, permanently drops UID/GID and closes
+unapproved descriptors in the kernel at image replacement. Two temporary
+non-admin users exercised the real broker and synthetic authentication sources.
+The additional native tests reject writable code reached directly or through a
+directory alias, before key handoff. This does not deploy a consumer root service.
+
 ## Still required
 
 This component needs a production supervisor with key custody, authenticated
