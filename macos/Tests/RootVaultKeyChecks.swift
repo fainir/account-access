@@ -48,7 +48,7 @@ import Darwin
                   let identity = value["vault_id"] as? String else { throw RootVaultKeyFailure.invalidIdentity }
             let root = try WorkerLaunchPaths.protected(WorkerLaunchPaths.lexical(value["root"]))
             let mode = CommandLine.arguments[3]
-            guard ["create", "reopen", "unprivileged", "remove", "handoff", "supervisor", "receive", "coordinator", "coordinator-cleanup"].contains(mode) else { throw RootVaultKeyFailure.invalidIdentity }
+            guard ["create", "reopen", "unprivileged", "remove", "handoff", "supervisor", "receive", "coordinator", "coordinator-cleanup", "initializer"].contains(mode) else { throw RootVaultKeyFailure.invalidIdentity }
             if mode == "receive" {
                 guard CommandLine.arguments.count == 5 else { throw RootVaultKeyFailure.invalidIdentity }
                 try RootKeyHandoffChecks.receive(value, stage: CommandLine.arguments[4])
@@ -75,7 +75,10 @@ import Darwin
             checks["system_daemon_context_verified"] = true
             var limit = rlimit()
             checks["provider_disabled_core_dumps"] = getrlimit(RLIMIT_CORE, &limit) == 0 && limit.rlim_cur == 0 && limit.rlim_max == 0
-            if mode == "coordinator" {
+            if mode == "initializer" {
+                checkpoint = "native_staged_initializer"
+                checks = try RootEnrollmentChecks.run(value, identity: identity)
+            } else if mode == "coordinator" {
                 checkpoint = "native_coordinator"
                 try RootCoordinatorChecks.run(value, identity: identity)
             } else if mode == "coordinator-cleanup" {
@@ -156,6 +159,7 @@ import Darwin
             if let failure = error as? RootWorkerProcessFailure { report["reason"] = failure.rawValue }
             if let failure = error as? RootListenerFailure { report["reason"] = failure.rawValue }
             if let failure = error as? OwnerPolicyFailure { report["reason"] = failure.rawValue }
+            if let failure = error as? RootStoreInitializationFailure { report["reason"] = failure.rawValue }
         }
         if getuid() != 0 {
             print(String(data: (try? JSONSerialization.data(withJSONObject: report)) ?? Data(), encoding: .utf8) ?? "{}")

@@ -4,15 +4,17 @@ import Darwin
 @main struct WorkerBootstrapChecks {
     static func main() throws {
         guard getuid() != 0 else { exit(1) }
-        if CommandLine.arguments.dropFirst().first == "--check-inherited" {
+        if ["--check-inherited", "--check-inherited-enrollment"].contains(CommandLine.arguments.dropFirst().first ?? "") {
+            let last: Int32 = CommandLine.arguments[1] == "--check-inherited-enrollment" ? 4 : 5
             guard CommandLine.arguments.count == 3, Int32(CommandLine.arguments[2]) == getpid(),
-                  (Int32(0)...5).allSatisfy({ fcntl($0, F_GETFD) != -1 }),
-                  fcntl(6, F_GETFD) == -1, fcntl(128, F_GETFD) == -1,
+                  (Int32(0)...last).allSatisfy({ fcntl($0, F_GETFD) != -1 }),
+                  ((last + 1)...6).allSatisfy({ fcntl($0, F_GETFD) == -1 }), fcntl(128, F_GETFD) == -1,
                   getenv("ACCOUNT_ACCESS_INERT_INHERITANCE_FIXTURE") == nil else { exit(1) }
             print("PASS: kernel descriptor allowlist retained only approved handles and preserved PID")
             return
         }
-        if CommandLine.arguments.dropFirst().first == "--prepare-inherited" {
+        if ["--prepare-inherited", "--prepare-inherited-enrollment"].contains(CommandLine.arguments.dropFirst().first ?? "") {
+            let enrollment = CommandLine.arguments[1] == "--prepare-inherited-enrollment"
             var limit = rlimit()
             guard getrlimit(RLIMIT_NOFILE, &limit) == 0, limit.rlim_max >= 256 else { exit(1) }
             limit.rlim_cur = 256
@@ -29,7 +31,8 @@ import Darwin
             setenv("ACCOUNT_ACCESS_INERT_INHERITANCE_FIXTURE", "fictional-only", 1)
             let executable = URL(fileURLWithPath: CommandLine.arguments[0]).path
             try MacWorkerBootstrap.replaceImage(executable,
-                arguments: [executable, "--check-inherited", String(getpid())], environment: ["PATH=/usr/bin:/bin"])
+                arguments: [executable, enrollment ? "--check-inherited-enrollment" : "--check-inherited", String(getpid())],
+                environment: ["PATH=/usr/bin:/bin"], lastDescriptor: enrollment ? 4 : 5)
         }
         for value in [true, false, -1, 0, 1.5, "501"] as [Any] {
             guard (try? WorkerLaunchPaths.integer(value)) == nil else { exit(1) }
@@ -82,6 +85,11 @@ import Darwin
         probe.arguments = ["--prepare-inherited"]
         try probe.run(); probe.waitUntilExit()
         guard probe.terminationReason == .exit, probe.terminationStatus == 0 else { exit(1) }
+        let enrollmentProbe = Process()
+        enrollmentProbe.executableURL = URL(fileURLWithPath: CommandLine.arguments[0])
+        enrollmentProbe.arguments = ["--prepare-inherited-enrollment"]
+        try enrollmentProbe.run(); enrollmentProbe.waitUntilExit()
+        guard enrollmentProbe.terminationReason == .exit, enrollmentProbe.terminationStatus == 0 else { exit(1) }
         print("PASS: non-root launcher denied, unsafe paths/policies and invalid identity values rejected")
     }
 }

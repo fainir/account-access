@@ -17,7 +17,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from account_access.worker_bootstrap import read_bootstrap, read_policy, require_worker_identity
 from account_access.storage import Store, check_private
-from account_access.models import Configuration
+from account_access.worker_enroll import initialize
 
 
 def main():
@@ -41,8 +41,8 @@ def main():
             check_private(state)
             if args.store_mode == "create":
                 assert not list(state.iterdir())
-                store = Store(state, material.vault_key)
-                store.configure(Configuration(accounts={}, test_mode=True))
+                store = initialize(state, material.vault_key, "11111111-1111-4111-8111-111111111111",
+                                   "22222222-2222-4222-8222-222222222222", controlled_fixture=True)
                 store.put("handoff-canary", {"marker": marker.decode()})
             else:
                 for name in ["state.db", "config.json"]:

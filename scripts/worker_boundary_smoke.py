@@ -558,6 +558,25 @@ def root_key_custody(prefix, roles):
     launcher["worker_policy"] = str(prefix / "key-worker-policy.json")
     private_file(prefix / "key-worker-launcher.json", json.dumps(launcher).encode())
     (prefix / "key-worker-launcher.json").chmod(0o644)
+    enrollment_id = str(uuid.uuid4())
+    destination = prefix / "enrollment-destination"
+    stage_root = prefix / (".enrollment-" + enrollment_id)
+    for directory in [destination, stage_root]:
+        directory.mkdir(mode=0o700)
+        os.chown(directory, roles["broker"].pw_uid, roles["broker"].pw_gid)
+    enrollment_worker = dict(worker_policy, root=str(destination), agent_socket=str(prefix / "public/enroll-agent.sock"),
+                             owner_socket=str(prefix / "control/enroll-owner.sock"))
+    enrollment_stage = dict(enrollment_worker, root=str(stage_root))
+    enrollment_base_path, enrollment_stage_path = prefix / "enrollment-base.json", prefix / "enrollment-stage.json"
+    enrollment_base_launcher, enrollment_stage_launcher = prefix / "enrollment-base-launcher.json", prefix / "enrollment-stage-launcher.json"
+    for path, contents in [(enrollment_base_path, enrollment_worker), (enrollment_stage_path, enrollment_stage),
+            (enrollment_base_launcher, dict(launcher, worker_policy=str(enrollment_base_path))),
+            (enrollment_stage_launcher, dict(launcher, worker_policy=str(enrollment_stage_path))),
+            (prefix / "enrollment-launch.json", {"managed_by": "account-access-worker-enrollment-v1", "schema": 1,
+                "worker_launcher": str(enrollment_base_launcher), "stage_policy": str(enrollment_stage_path),
+                "vault_id": identity, "enrollment_id": enrollment_id})]:
+        private_file(path, json.dumps(contents).encode())
+        path.chmod(0o644)
     def phase(mode, *, collect=True):
         stage("key_custody_" + mode)
         launch = prefix / "root-key.plist"
@@ -570,7 +589,7 @@ def root_key_custody(prefix, roles):
             path = prefix / ("key-" + mode + ".json")
             # These phases contain several independently bounded worker
             # starts/stops; their aggregate budget must cover the full journey.
-            deadline = time.monotonic() + {"handoff": 240, "supervisor": 420}.get(mode, 45)
+            deadline = time.monotonic() + {"handoff": 240, "supervisor": 420, "initializer": 180}.get(mode, 45)
             while time.monotonic() < deadline:
                 service = command(["/bin/launchctl", "print", "system/" + label])
                 exited = re.findall(rb"last exit code = ([0-9]+)", service)
@@ -588,7 +607,7 @@ def root_key_custody(prefix, roles):
                             stage(reason)
                         if result.get("checkpoint") in {"policy", "context", "invalid_identity", "initial_missing", "enrollment",
                             "encryption", "duplicate_enrollment", "other_vault", "restart_recovery", "fixture_removal", "system_location",
-                            "native_handoff", "native_worker_service", "native_worker_supervisor"}:
+                            "native_handoff", "native_worker_service", "native_worker_supervisor", "native_staged_initializer"}:
                             stage("key_checkpoint_" + result["checkpoint"])
                         failed_checks = result.get("failed_checks")
                         if (isinstance(failed_checks, list) and len(failed_checks) <= 100
@@ -623,6 +642,7 @@ def root_key_custody(prefix, roles):
         phase("reopen")
         handoff = phase("handoff", collect=False)
         supervisor = phase("supervisor", collect=False)
+        initializer = phase("initializer", collect=False)
         coordinator = root_coordinator(prefix, roles, policy, phase)
         stage("key_custody_unprivileged_direct_read")
         result = subprocess.run([*dropped(roles["agent"]), str(denied), "--policy", str(policy), "unprivileged"],
@@ -651,6 +671,14 @@ def root_key_custody(prefix, roles):
         "fixture_key_removed": True, "checks": handoff}
     evidence = Path("/tmp/account-access-mac-key-handoff.json")
     private_file(evidence, (json.dumps(handoff_report, indent=2) + "\n").encode())
+    evidence.chmod(0o644)
+    initialization_report = {"status": "PASSED", "platform": "macos", "environment": "controlled-demo", "production_ready": False,
+        "private_signins": 0, "system_key_used": True, "actual_initializer_used": True,
+        "consumer_deployment_verified": False, "genuine_owner_approval_verified": False, "stage_published": False,
+        "key_enrollment_authorization_verified": False, "fixture_key_removed": True, "publisher_signed_peers": False,
+        "checks": initializer}
+    evidence = Path("/tmp/account-access-mac-staged-enrollment.json")
+    private_file(evidence, (json.dumps(initialization_report, indent=2) + "\n").encode())
     evidence.chmod(0o644)
     coordinator_report = {"status": "PASSED", "platform": "macos", "environment": "controlled-demo", "production_ready": False,
         "private_signins": 0, "system_key_used": True, "actual_worker_used": True, "consumer_deployment_verified": False,

@@ -4,6 +4,8 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <libproc.h>
+#include <sys/proc_info.h>
 
 // Bridge launch.h's non-null result-array annotation to a single descriptor.
 // Unix listeners must each have exactly one result; close unexpected arrays.
@@ -28,4 +30,13 @@ int AccountAccessActivateSocket(const char *name, int *descriptor) {
     }
     *descriptor = value;
     return 0;
+}
+
+bool AccountAccessProcessIdentity(int pid, unsigned int uid, unsigned int gid, int parent, int group) {
+    if (pid <= 0 || parent <= 0 || group <= 0 || uid == 0 || gid == 0) return false;
+    struct proc_bsdinfo value = {0};
+    if (proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &value, sizeof(value)) != sizeof(value)) return false;
+    return value.pbi_pid == (unsigned int)pid && value.pbi_ppid == (unsigned int)parent &&
+        value.pbi_pgid == (unsigned int)group && value.pbi_uid == uid && value.pbi_ruid == uid && value.pbi_svuid == uid &&
+        value.pbi_gid == gid && value.pbi_rgid == gid && value.pbi_svgid == gid;
 }

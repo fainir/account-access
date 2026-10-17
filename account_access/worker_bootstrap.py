@@ -182,7 +182,7 @@ def read_policy(path):
         raise BootstrapError("invalid_worker_policy") from None
 
 
-def require_worker_identity(policy, *, worker_module):
+def require_worker_identity(policy, *, worker_module, fresh=False):
     """Validate the supervisor's identity/runtime contract before reading keys."""
     try:
         worker_uid = os.getuid()
@@ -210,8 +210,16 @@ def require_worker_identity(policy, *, worker_module):
                 or not root.is_absolute()):
             raise BootstrapError("unsafe_worker_state")
         root_managed_path(root.parent)
-        # This entry point opens an existing owner-enrolled store only. A bad
-        # deployment must fail before Store can initialize a new empty database.
+        if type(fresh) is not bool:
+            raise BootstrapError("unsafe_worker_state")
+        if fresh:
+            # Only the separate initializer requests this path, after native
+            # owner authorization and private staging preparation. Never infer
+            # initialization from a missing database in the ordinary worker.
+            if any(root.iterdir()):
+                raise BootstrapError("worker_enrollment_state_not_empty")
+            return root.resolve()
+        # Ordinary workers open an existing enrolled store only.
         for name in ["state.db", "config.json"]:
             item = (root / name).lstat()
             if (not stat.S_ISREG(item.st_mode) or item.st_uid != worker_uid

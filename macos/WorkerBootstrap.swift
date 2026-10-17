@@ -216,6 +216,46 @@ struct MacWorkerPlan {
     }
 }
 
+struct MacWorkerEnrollmentPlan {
+    let base: MacWorkerPlan
+    let stagePolicy: String
+    let stage: String
+    let vault: String
+    let enrollment: String
+
+    init(policy path: String) throws {
+        let value = try WorkerLaunchPaths.object(path)
+        guard Set(value.keys) == ["managed_by", "schema", "worker_launcher", "stage_policy", "vault_id", "enrollment_id"],
+              value["managed_by"] as? String == "account-access-worker-enrollment-v1",
+              try WorkerLaunchPaths.integer(value["schema"]) == 1,
+              let vaultID = value["vault_id"] as? String, let vaultUUID = UUID(uuidString: vaultID), vaultUUID.uuidString.lowercased() == vaultID,
+              let enrollmentID = value["enrollment_id"] as? String, let enrollmentUUID = UUID(uuidString: enrollmentID), enrollmentUUID.uuidString.lowercased() == enrollmentID else {
+            throw WorkerLaunchFailure.invalidPolicy
+        }
+        vault = vaultID; enrollment = enrollmentID
+        base = try MacWorkerPlan(policy: WorkerLaunchPaths.lexical(value["worker_launcher"]))
+        stagePolicy = try WorkerLaunchPaths.lexical(value["stage_policy"])
+        var expected = try WorkerLaunchPaths.object(base.workerPolicy)
+        let original = try WorkerLaunchPaths.lexical(expected["root"])
+        stage = URL(fileURLWithPath: original).deletingLastPathComponent().appendingPathComponent(".enrollment-" + enrollmentID).path
+        expected["root"] = stage
+        let actual = try WorkerLaunchPaths.object(stagePolicy)
+        guard try JSONSerialization.data(withJSONObject: expected, options: .sortedKeys) == JSONSerialization.data(withJSONObject: actual, options: .sortedKeys) else {
+            throw WorkerLaunchFailure.invalidPolicy
+        }
+        var info = stat()
+        guard lstat(stage, &info) == 0, info.st_mode & S_IFMT == S_IFDIR, info.st_uid == base.uid,
+              info.st_mode & 0o077 == 0, try FileManager.default.contentsOfDirectory(atPath: stage).isEmpty else {
+            throw WorkerLaunchFailure.invalidPolicy
+        }
+    }
+    var arguments: [String] {
+        [base.python, "-I", "-B", "-m", "account_access.worker_enroll", "--policy", stagePolicy,
+         "--vault-id", vault, "--enrollment-id", enrollment, "--bootstrap-fd", "3", "--receipt-fd", "4"]
+            + (base.fixture ? ["--controlled-fixture"] : [])
+    }
+}
+
 enum MacWorkerBootstrap {
     static func requireListening(_ fd: Int32) throws {
         var info = stat(), kind: Int32 = 0
@@ -227,7 +267,8 @@ enum MacWorkerBootstrap {
               getsockopt(fd, SOL_SOCKET, SO_TYPE, &kind, &length) == 0, kind == SOCK_STREAM,
               listen(fd, 128) == 0 else { throw WorkerLaunchFailure.invalidDescriptors }
     }
-    static func replaceImage(_ executable: String, arguments values: [String], environment settings: [String]) throws -> Never {
+    static func replaceImage(_ executable: String, arguments values: [String], environment settings: [String], lastDescriptor: Int32 = 5) throws -> Never {
+        guard [4, 5].contains(lastDescriptor) else { throw WorkerLaunchFailure.invalidDescriptors }
         var arguments = values.map { strdup($0) }; arguments.append(nil)
         var environment = settings.map { strdup($0) }; environment.append(nil)
         defer {
@@ -247,7 +288,7 @@ enum MacWorkerBootstrap {
         // The kernel closes every unlisted descriptor atomically, including
         // handles above a lowered soft limit or opened by a library thread.
         // SETEXEC retains this process/PID and its permanently dropped identity.
-        for fd in Int32(0)...5 {
+        for fd in Int32(0)...lastDescriptor {
             guard fcntl(fd, F_GETFD) != -1, posix_spawn_file_actions_addinherit_np(&actions, fd) == 0 else {
                 throw WorkerLaunchFailure.invalidDescriptors
             }
@@ -292,6 +333,26 @@ enum MacWorkerBootstrap {
         umask(0o077)
         var noCore = rlimit(rlim_cur: 0, rlim_max: 0)
         guard setrlimit(RLIMIT_CORE, &noCore) == 0 else { throw WorkerLaunchFailure.unsafeRuntime }
+        if argv.first == "--enrollment-policy" {
+            guard argv.count == 6, argv[2] == "--bootstrap-fd", argv[4] == "--receipt-fd",
+                  let secret = Int32(argv[3]), let receipt = Int32(argv[5]), secret != receipt else {
+                throw WorkerLaunchFailure.invalidArguments
+            }
+            let plan = try MacWorkerEnrollmentPlan(policy: argv[1])
+            try checkFD(secret, type: S_IFIFO)
+            try checkFD(receipt, type: S_IFSOCK)
+            var copies: [Int32] = []
+            for fd in [secret, receipt] {
+                let copy = fcntl(fd, F_DUPFD_CLOEXEC, 10)
+                guard copy >= 10 else { throw WorkerLaunchFailure.invalidDescriptors }
+                copies.append(copy)
+            }
+            for (index, source) in copies.enumerated() {
+                guard dup2(source, Int32(index + 3)) == index + 3 else { throw WorkerLaunchFailure.invalidDescriptors }
+            }
+            try dropIdentity(plan.base)
+            try replaceImage(plan.base.python, arguments: plan.arguments, environment: plan.base.environment, lastDescriptor: 4)
+        }
         guard argv.count == 8, argv[0] == "--policy", argv[2] == "--bootstrap-fd",
               argv[4] == "--agent-fd", argv[6] == "--owner-fd",
               let secretFD = Int32(argv[3]), let agentFD = Int32(argv[5]), let ownerFD = Int32(argv[7]),

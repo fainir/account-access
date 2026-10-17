@@ -45,6 +45,8 @@ def serve(args):
         import uvicorn
 
         store = Store(root, secrets.vault_key)
+        from .worker_enroll import verify_store_key
+        verify_store_key(store)
         config = store.config()
         if config.test_mode != args.controlled_fixture:
             raise BootstrapError("invalid_worker_configuration_mode")
