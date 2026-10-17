@@ -39,8 +39,8 @@
     "private-account and physical-phone acceptance"
   ],
   "date": "2026-10-17",
-  "source_revision": "40ad6386814d08c9e956e147c55801286ed96966",
-  "ci_url": "https://github.com/fainir/account-access/actions/runs/38994642402/job/117284376640",
+  "source_revision": "de1b0d7f63c1c7631fe46ba7f346dcc4cb43b820",
+  "ci_url": "https://github.com/fainir/account-access/actions/runs/38995617514/job/117287405676",
   "architecture": "arm64",
   "consumer_integration_enabled": false,
   "installed_owner_app_changed": false,
@@ -49,7 +49,8 @@
   "limits": [
     "Controlled accounts and TLS message sources only; no private mailbox, carrier or physical phone",
     "Mac arm64 runtime journey; Intel type-checking only",
-    "No consumer root supervisor, durable key custody, root owner gateway deployment or installed vault migration",
-    "Positive genuine owner authorization, private account acceptance and notarized distribution remain open"
-  ]
+    "Positive genuine owner authorization, private account acceptance and notarized distribution remain open",
+    "Root owner transport is tested separately in this VM; production supervision, custody, migration and consumer installation remain open"
+  ],
+  "root_owner_integration_evidence": "mac-root-owner-080.json"
 }

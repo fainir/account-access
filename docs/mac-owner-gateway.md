@@ -97,6 +97,15 @@ The client uses the production privileged connection and root-peer check.
 Wrong code/user/server identities, missing setup authorization, owner revocation
 and service shutdown have a separate, strict evidence report. Code identities
 are ad-hoc hash-pinned in CI; genuine owner setup approval and publisher trust
-are not established by that report. Confirm actual workflow success before
-counting these integration tests as passed. This is not consumer installation,
-durable key custody or migration acceptance.
+are not established by that report. Revision `de1b0d7` passed **24 root integration
+checks** alongside the worker's 25 cross-user checks in
+[Mac CI](https://github.com/fainir/account-access/actions/runs/38995617514/job/117287405676).
+The service ran as UID 0; a pinned client reached the separate-user broker and
+revoked an approved read. Wrong client code, wrong OS user and wrong server
+code were rejected. Setup writes without OS authorization were refused.
+Removing the service invalidated an open owner connection while approved broker
+reads kept working. The service/process and temporary users/domains were removed.
+The existing 54 ordinary-user checks also passed locally with Developer ID
+signatures after the listener lifecycle change. See
+[root integration evidence](../artifacts/mac-root-owner-080.json).
+This is not consumer installation, durable key custody or migration acceptance.

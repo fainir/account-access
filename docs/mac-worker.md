@@ -73,8 +73,11 @@ permanent identity drop and rejects a deliberately writable runtime descendant
 before key handoff. The report validator requires the platform's exact
 check set and does not count one platform's checks as the other platform's proof.
 
-This is not a downloaded consumer installation or a privileged XPC-owner-channel
-deployment. The production service, protected packaging/update, durable key
+The same VM also verified the privileged root owner channel in
+[24 separate integration checks](../artifacts/mac-root-owner-080.json), including
+kernel peer identity, unauthorized setup rejection and revocation through the
+actual worker. These are not downloaded consumer installation tests.
+The production supervisor, protected packaging/update, durable key
 custody, native owner/UI integration, source collector integration, migration
 and client issuance remain required. Genuine owner authorization, notarization,
 private-account and physical-phone acceptance remain open.

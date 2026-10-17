@@ -1,5 +1,39 @@
 # Validation of Account Access
 
+## Root Mac owner service integration — 17 October 2026
+
+Revision `de1b0d7` passed **24 root owner-service checks** alongside the worker's
+25 cross-user checks in the same
+[disposable Mac VM](https://github.com/fainir/account-access/actions/runs/38995617514/job/117287405676).
+The host ran as UID 0 under launchd's system namespace. A pinned client under a
+temporary non-admin owner identity reached the actual separate-user worker and
+revoked an approved operation; the agent then confirmed denial. Wrong client
+code, OS user and server code were refused. A live owner connection failed after
+service removal while approved browser reads through the worker still worked.
+The service, daemon process, temporary OS users and their domains were removed.
+
+The capability crossed once in memory through a root-private, peer-checked Unix
+socket, never a file, argument or environment variable. It was absent from client
+output. Setup credentials and grants without OS authorization were rejected;
+this test deliberately did not register an authorization rule or claim a
+genuine owner approval. CI pins ad-hoc code hashes, so publisher trust remains a
+separate scope. The existing **54 ordinary-user checks** also passed locally
+with actual Developer ID signatures after the connection-lifecycle change.
+**53 focused Python cases** and both native architecture type-checks passed.
+Matching source passed **740 tests, one platform skip, in 485.01 seconds**,
+lint, dependency audit with no known vulnerabilities, packaging and native
+checks in [regression CI](https://github.com/fainir/account-access/actions/runs/38995617512).
+The [24-check Linux journey](https://github.com/fainir/account-access/actions/runs/38995620477)
+and [Android emulator journey](https://github.com/fainir/account-access/actions/runs/38995620442)
+also passed; their synthetic/physical-device limits remain distinct.
+
+The host bounds active connections and closes their setup sessions on stop.
+There is still no production supervisor/key custody, consumer UI/source-collector
+integration or installed-owner migration. Installed build 53 and its unfinished
+mailbox form were preserved. See [root integration evidence](../artifacts/mac-root-owner-080.json)
+and the [channel contract](mac-owner-gateway.md). These are synthetic account and
+message sources, not private Gmail/SMS/TOTP or physical-phone acceptance.
+
 ## Separate-user Mac worker — 17 October 2026
 
 Revision `40ad638` passed **25 cross-user checks** in
