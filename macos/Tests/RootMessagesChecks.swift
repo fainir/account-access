@@ -47,7 +47,7 @@ enum RootMessagesChecks {
         try sql("INSERT INTO message VALUES('fresh','Example login: 123456',NULL,1,0,\(date));")
         request["action"] = "read"; request["after_row"] = 0; request["used"] = [String]()
         let found = try call()
-        checks["private_pipe_returns_matching_fresh_fixture_code"] = found["status"] as? String == "FOUND" && found["code"] as? String == "123456" && found["id"] as? String == "fresh"
+        checks["private_socket_returns_matching_fresh_fixture_code"] = found["status"] as? String == "FOUND" && found["code"] as? String == "123456" && found["id"] as? String == "fresh"
         request["used"] = ["fresh"]
         checks["already_used_message_excluded"] = try call()["status"] as? String == "WAITING"
         request["used"] = [String](); request["after_row"] = 1

@@ -80,17 +80,20 @@ final class RootMessagesCollector {
         try RootVaultKeyStore.requireDaemon()
         guard body.count <= 8192 else { throw RootMessagesFailure.rejected }
         try checkCode()
-        let process = Process(), input = Pipe(), output = Pipe()
+        let process = Process()
+        var descriptors: [Int32] = [-1, -1]
+        guard socketpair(AF_UNIX, SOCK_STREAM, 0, &descriptors) == 0 else { throw RootMessagesFailure.unavailable }
+        let channel = FileHandle(fileDescriptor: descriptors[0], closeOnDealloc: true)
+        let child = FileHandle(fileDescriptor: descriptors[1], closeOnDealloc: true)
+        defer { try? channel.close(); try? child.close() }
         process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
         process.arguments = ["asuser", String(owner.uid), "/usr/bin/sudo", "-n", "-H", "-u", "#" + String(owner.uid), "--", app] + arguments
         process.environment = ["PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "LANG": "C.UTF-8"]
-        process.standardInput = input; process.standardOutput = output; process.standardError = FileHandle.nullDevice
-        guard fcntl(input.fileHandleForWriting.fileDescriptor, F_SETNOSIGPIPE, 1) == 0,
-              fcntl(output.fileHandleForReading.fileDescriptor, F_SETFL, O_NONBLOCK) == 0 else { throw RootMessagesFailure.unavailable }
-        defer {
-            try? input.fileHandleForWriting.close(); try? input.fileHandleForReading.close()
-            try? output.fileHandleForReading.close(); try? output.fileHandleForWriting.close()
-        }
+        process.standardInput = child; process.standardOutput = child; process.standardError = FileHandle.nullDevice
+        guard fcntl(channel.fileDescriptor, F_SETFD, FD_CLOEXEC) == 0,
+              fcntl(child.fileDescriptor, F_SETFD, FD_CLOEXEC) == 0,
+              fcntl(channel.fileDescriptor, F_SETNOSIGPIPE, 1) == 0,
+              fcntl(channel.fileDescriptor, F_SETFL, O_NONBLOCK) == 0 else { throw RootMessagesFailure.unavailable }
         try process.run()
         var birth = proc_bsdinfo()
         guard proc_pidinfo(process.processIdentifier, PROC_PIDTBSDINFO, 0, &birth,
@@ -98,15 +101,14 @@ final class RootMessagesCollector {
             if process.isRunning { process.terminate() }
             throw RootMessagesFailure.unavailable
         }
-        try output.fileHandleForWriting.close()
-        try input.fileHandleForReading.close()
+        try child.close()
         defer { if process.isRunning { process.terminate() } }
         var data = Data(), buffer = [UInt8](repeating: 0, count: 1024)
         let deadline = ProcessInfo.processInfo.systemUptime + 5
         var eof = false
         var attested = false
         while ProcessInfo.processInfo.systemUptime < deadline {
-            let count = Darwin.read(output.fileHandleForReading.fileDescriptor, &buffer, buffer.count)
+            let count = Darwin.read(channel.fileDescriptor, &buffer, buffer.count)
             if count > 0 {
                 data.append(contentsOf: buffer.prefix(count))
                 guard data.count <= 4096 else { throw RootMessagesFailure.rejected }
@@ -122,8 +124,8 @@ final class RootMessagesCollector {
                 guard process.isRunning else { throw RootMessagesFailure.rejected }
                 attested = true
                 data.removeSubrange(...split)
-                try input.fileHandleForWriting.write(contentsOf: body)
-                try input.fileHandleForWriting.close()
+                try channel.write(contentsOf: body)
+                guard shutdown(channel.fileDescriptor, SHUT_WR) == 0 else { throw RootMessagesFailure.unavailable }
             }
             if eof && !process.isRunning { break }
             Thread.sleep(forTimeInterval: 0.01)

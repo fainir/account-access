@@ -6,7 +6,7 @@ import sys
 
 CHECKS = {
     "root_launches_reader_as_separate_owner_uid",
-    "private_pipe_returns_matching_fresh_fixture_code",
+    "private_socket_returns_matching_fresh_fixture_code",
     "already_used_message_excluded",
     "pre_request_baseline_excludes_old_messages",
     "expired_native_request_refused",
@@ -51,7 +51,7 @@ def main(argv=None):
     except (ValueError, OSError):
         print("Native Messages evidence missing, failed or incomplete", file=sys.stderr)
         return 1
-    print("Validated native Messages identity and private-pipe evidence")
+    print("Validated native Messages identity and private-socket evidence")
     return 0
 
 

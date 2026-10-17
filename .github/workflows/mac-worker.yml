@@ -64,7 +64,7 @@ jobs:
             macos/Tests/RootKeyHandoffChecks.swift macos/Tests/RootVaultKeyChecks.swift \
             /tmp/ac-keychain-interaction.o /tmp/ac-native-broker.o -lsqlite3 -o /tmp/ac-root-key-checks
           xcrun swiftc -O -parse-as-library -warnings-as-errors -D ACCOUNT_ACCESS_GATEWAY_CHECKS \
-            -framework AppKit -framework Security -framework CryptoKit -lsqlite3 \
+            -framework AppKit -framework Security -framework CryptoKit -lsqlite3 -lbsm \
             macos/WorkerBootstrap.swift macos/OwnerGateway.swift macos/DesktopOwnerConnection.swift \
             macos/MessageText.swift macos/MessagesReader.swift macos/SystemMessagesReader.swift \
             macos/Tests/SystemMessagesFixtureMain.swift -o /tmp/ac-native-messages-helper

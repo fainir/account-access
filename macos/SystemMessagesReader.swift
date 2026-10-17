@@ -1,5 +1,5 @@
 // A headless owner-UID reader. No legacy key/config is copied from the broker.
-// Its only authority is a protected profile and the kernel's parent chain.
+// Its only authority is a protected profile and the kernel's socket peer token.
 import Foundation
 import Security
 import Darwin
@@ -7,41 +7,24 @@ import Darwin
 struct SystemMessagesReader {
     static func parentAuthorized(_ peer: OwnerGatewayPeer) -> Bool {
         guard getuid() != 0, geteuid() == getuid(), peer.uid == 0 else { return false }
-        var pid = getppid()
-        for _ in 0..<4 {
-            guard pid > 1 else { return false }
-            var before = proc_bsdinfo()
-            let size = Int32(MemoryLayout<proc_bsdinfo>.size)
-            guard proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &before, size) == size else { return false }
-            if before.pbi_uid == 0 && before.pbi_ruid == 0 {
-                var code: SecCode?, requirement: SecRequirement?
-                if SecRequirementCreateWithString(peer.requirement as CFString, [], &requirement) == errSecSuccess,
-                   let requirement,
-                   SecCodeCopyGuestWithAttributes(nil, [kSecGuestAttributePid: pid] as CFDictionary, [], &code) == errSecSuccess,
-                   let code, SecCodeCheckValidity(code, SecCSFlags(rawValue: kSecCSStrictValidate), requirement) == errSecSuccess {
-                    var after = proc_bsdinfo()
-                    return proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &after, size) == size
-                        && after.pbi_uid == 0 && after.pbi_ruid == 0
-                        && before.pbi_start_tvsec == after.pbi_start_tvsec && before.pbi_start_tvusec == after.pbi_start_tvusec
-                }
-            }
-            // sudo can use a monitor process. Only the immutable OS executable
-            // may intervene before the pinned root broker, never an arbitrary
-            // process merely running as root or bearing a chosen argv[0].
-            var path = [CChar](repeating: 0, count: 4 * Int(MAXPATHLEN))
-            guard proc_pidpath(pid, &path, UInt32(path.count)) > 0,
-                  String(cString: path) == "/usr/bin/sudo",
-                  [uid_t(0), getuid()].contains(before.pbi_uid),
-                  [uid_t(0), getuid()].contains(before.pbi_ruid) else { return false }
-            var after = proc_bsdinfo()
-            guard proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &after, size) == size,
-                  before.pbi_uid == after.pbi_uid, before.pbi_ruid == after.pbi_ruid,
-                  before.pbi_ppid == after.pbi_ppid,
-                  before.pbi_start_tvsec == after.pbi_start_tvsec,
-                  before.pbi_start_tvusec == after.pbi_start_tvusec else { return false }
-            pid = pid_t(before.pbi_ppid)
-        }
-        return false
+        // The root broker creates this anonymous socket before switching the
+        // reader UID. The kernel retains its creator's audit identity across
+        // exec/sudo; no PID supplied by a caller is trusted here.
+        var token = audit_token_t()
+        var size = socklen_t(MemoryLayout<audit_token_t>.size)
+        var uid: uid_t = 0, gid: gid_t = 0
+        guard getsockopt(STDIN_FILENO, SOL_LOCAL, LOCAL_PEERTOKEN, &token, &size) == 0,
+              size == MemoryLayout<audit_token_t>.size,
+              getpeereid(STDIN_FILENO, &uid, &gid) == 0, uid == 0,
+              audit_token_to_euid(token) == 0, audit_token_to_ruid(token) == 0,
+              audit_token_to_pid(token) > 1 else { return false }
+        let data = withUnsafeBytes(of: &token) { Data($0) }
+        var code: SecCode?, requirement: SecRequirement?
+        guard SecRequirementCreateWithString(peer.requirement as CFString, [], &requirement) == errSecSuccess,
+              let requirement,
+              SecCodeCopyGuestWithAttributes(nil, [kSecGuestAttributeAudit: data] as CFDictionary, [], &code) == errSecSuccess,
+              let code else { return false }
+        return SecCodeCheckValidity(code, SecCSFlags(rawValue: kSecCSStrictValidate), requirement) == errSecSuccess
     }
 
     static func validRequest(_ data: Data) -> Bool {
