@@ -1,5 +1,57 @@
 # Validation of Account Access
 
+## Protected Mac provisioning and offline package — 17 October 2026
+
+Revision `a03b241` passed **994 tests, five platform skips, in 455.31 seconds**,
+lint, an audit with no known vulnerabilities, package builds, native app checks
+and all eight push/PR workflows. [Regression CI](https://github.com/fainir/account-access/actions/runs/39021348603),
+[Linux worker](https://github.com/fainir/account-access/actions/runs/39021348638)
+and [Android emulator](https://github.com/fainir/account-access/actions/runs/39021348632)
+passed. These do not establish physical-phone delivery or private sign-ins.
+
+[Mac acceptance](https://github.com/fainir/account-access/actions/runs/39021348626)
+and an [independent repeat](https://github.com/fainir/account-access/actions/runs/39021351108)
+produced identical sets of twelve complete reports. New coverage includes
+**26 provisioning checks** and **10 negative package-installation checks**.
+The existing reports retained 40 initial-vault/client, 18 initial gateway,
+28 publication, 31 coordinator, 21 supervisor, 33 handoff, 20 System-key,
+24 owner-host, 16 setup-policy and 25 isolated-worker checks. Native owner
+transport retained 67 checks and desktop transport retained 38.
+
+The provisioner creates a dedicated non-login identity, private empty stores,
+root-controlled policies and a persistent launchd job. Identical preparation is
+idempotent. The actual service starts without a key or worker, recreates its
+missing user bootstrap domain and rejects unapproved setup through native XPC.
+Directory Services values use structured plist output. Cleanup verifies the
+canonical records rather than stale passwd-cache results. Python and native
+runtime checks reject allow ACL entries; ordinary temporary-file tests confirm
+that restrictive deny ACLs remain accepted. This is not a full-machine reboot.
+
+The package journey uses Apple's actual Installer in a disposable VM. The
+included Python creates its environment at the installed path; dependencies
+install offline from required hashes, and a relocated sandboxed browser renders
+a fictional page. Shared system-folder ownership and modes remain unchanged.
+The ad-hoc development app is refused before any vault, service identity or
+registration is created, and its credential-free payload is removed. The owner
+app requires protected registration and cannot fall back to legacy storage when
+that registration is missing. This is a **negative development-package test**,
+not signed positive consumer installation or genuine owner consent.
+
+A separate local build/unpack check also loaded the offline dependencies and
+ran the relocated sandboxed browser, without installing the package. All root
+installation experiments occurred only in disposable CI. Installed owner build
+53 and its unfinished mailbox form remain untouched. No new private sign-in was
+requested. The development archive is not published as a user download.
+
+See [provisioning evidence](../artifacts/mac-system-provisioning-080.json),
+[package evidence](../artifacts/mac-system-package-080.json) and the
+[installation contract](mac-system-provisioning.md). Signed/notarized positive
+installation, interrupted-package recovery, migration/update continuity, genuine
+OS approval, trusted isolated host collectors and real email/SMS/authenticator
+and physical-device QA remain release gates. Chrome password imports remain
+snapshots; continuous Chrome synchronization is still unmet. The public download
+remains the **0.7.4 preview**, and this candidate is **not production ready**.
+
 ## Portable client bootstrap through native owner setup — 17 October 2026
 
 Revision `0a473b8` passed **946 tests, three platform skips, in 508.62 seconds**,
