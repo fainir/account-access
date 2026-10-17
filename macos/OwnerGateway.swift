@@ -92,13 +92,23 @@ enum OwnerSetupAuthorization {
         guard AuthorizationCreateFromExternalForm(&form, &reference) == errAuthorizationSuccess,
               let reference else { return false }
         defer { AuthorizationFree(reference, []) }
-        return right.withCString { name in
+        // The service never prompts, extends rights or accepts partial
+        // authorization. Only the signed UI may ask the owner first.
+        return granted(reference, flags: [])
+    }
+
+    static func granted(_ reference: AuthorizationRef, flags: AuthorizationFlags) -> Bool {
+        right.withCString { name in
             var item = AuthorizationItem(name: name, valueLength: 0, value: nil, flags: 0)
             return withUnsafeMutablePointer(to: &item) { pointer in
                 var rights = AuthorizationRights(count: 1, items: pointer)
-                // The service never prompts, extends rights or accepts partial
-                // authorization. Only the signed UI may ask the owner first.
-                return AuthorizationCopyRights(reference, &rights, nil, [], nil) == errAuthorizationSuccess
+                var returned: UnsafeMutablePointer<AuthorizationRights>?
+                let status = AuthorizationCopyRights(reference, &rights, nil, flags, &returned)
+                defer { if let returned { AuthorizationFreeItemSet(returned) } }
+                guard status == errAuthorizationSuccess, let returned, returned.pointee.count == 1,
+                      let items = returned.pointee.items,
+                      String(cString: items.pointee.name) == right, items.pointee.flags == 0 else { return false }
+                return true
             }
         }
     }
@@ -118,14 +128,7 @@ final class OwnerSetupApproval {
             throw OwnerGatewayError.unavailable
         }
         guard let reference else { throw OwnerGatewayError.unavailable }
-        let accepted = OwnerSetupAuthorization.right.withCString { name in
-            var item = AuthorizationItem(name: name, valueLength: 0, value: nil, flags: 0)
-            return withUnsafeMutablePointer(to: &item) { pointer in
-                var rights = AuthorizationRights(count: 1, items: pointer)
-                return AuthorizationCopyRights(reference, &rights, nil,
-                    [.interactionAllowed, .extendRights], nil) == errAuthorizationSuccess
-            }
-        }
+        let accepted = OwnerSetupAuthorization.granted(reference, flags: [.interactionAllowed, .extendRights])
         guard accepted else { throw OwnerGatewayError.unavailable }
         var form = AuthorizationExternalForm()
         guard AuthorizationMakeExternalForm(reference, &form) == errAuthorizationSuccess else {

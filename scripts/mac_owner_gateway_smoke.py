@@ -39,7 +39,7 @@ NATIVE_CHECKS = {
     "revocation_does_not_need_setup_auth", "setup_needs_authorization", "setup_session_expires",
     "short_os_authorization_rejected", "signed_owner_state", "state_read_after_revocation",
     "test_clients_have_distinct_code_hashes", "test_helpers_exited", "unconfigured_or_ungranted_setup_rejected",
-    "untrusted_code_cannot_reach_gateway", "untrusted_helper_ran", "hardened_test_peers", "os_right_without_approval_denied",
+    "untrusted_code_cannot_reach_gateway", "untrusted_helper_ran", "hardened_test_peers", "os_authorization_reference_round_trip",
 }
 
 

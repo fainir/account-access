@@ -116,13 +116,11 @@ enum GatewayChecks {
             throw OwnerGatewayError.unavailable
         }
         defer { AuthorizationFree(imported, []) }
-        result["os_right_without_approval_denied"] = OwnerSetupAuthorization.right.withCString { name in
-            var item = AuthorizationItem(name: name, valueLength: 0, value: nil, flags: 0)
-            return withUnsafeMutablePointer(to: &item) { pointer in
-                var rights = AuthorizationRights(count: 1, items: pointer)
-                return AuthorizationCopyRights(imported, &rights, nil, [], nil) != errAuthorizationSuccess
-            }
-        }
+        // An undefined right can inherit an allow rule on a CI host. Importing
+        // an OS reference is not proof of owner approval. The dedicated rule
+        // and exact returned right are checked by the production verifier.
+        var exportedAgain = AuthorizationExternalForm()
+        result["os_authorization_reference_round_trip"] = AuthorizationMakeExternalForm(imported, &exportedAgain) == errAuthorizationSuccess
         result["unconfigured_or_ungranted_setup_rejected"] = !OwnerSetupAuthorization.check(external)
         let grant = try JSONSerialization.data(withJSONObject: ["account": "demo-web"])
         for (name, route) in [("query_route", "owner/grant?x=1"), ("traversal_route", "owner/../grant"),

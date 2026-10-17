@@ -35,8 +35,9 @@ creates a fresh Authorization Services reference, obtains the dedicated
 `com.fainir.accountaccess.owner-enrollment.v1` right and passes its opaque
 external form through the pinned XPC channel. That form is a secret: it is not
 saved, logged, placed in an argument/environment variable or returned to agents.
-The gateway verifies already-granted rights without displaying a prompt or
-extending authorization itself.
+The gateway verifies the exact returned right without displaying a prompt or
+extending authorization itself. An API success code or a valid external
+reference alone is insufficient.
 
 Provisioning must install the exact rule declared in the source: authenticate
 the session owner, disallow a root shortcut and shared credentials, allow a
@@ -62,8 +63,9 @@ hash requirement; the ad-hoc mode used by CI exercises exact hash checks only.
 The accepted helper reached a real Python owner server over a private Unix
 socket for state, a permission grant, authenticator enrollment, CSV preview and
 revocation. Wrong client code, wrong server code and a mismatched expected user
-were rejected. A real Authorization Services reference with no granted right
-was denied without prompting. Session, route, framing and evidence checks are
+were rejected. A real Authorization Services reference was exported/imported
+without requesting a grant, and the production verifier rejected unconfigured
+setup. Session, route, framing and evidence checks are
 included. Only fixed test metadata is retained publicly.
 
 The configuration approval in the positive journey is an explicitly synthetic
