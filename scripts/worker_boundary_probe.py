@@ -25,6 +25,12 @@ class UnixHTTP(http.client.HTTPConnection):
         self.sock.settimeout(self.timeout)
         self.sock.connect(self.path)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self.close()
+
 
 def cli(config, *arguments):
     environment = {"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8", "ACCESS_CLIENT_CONFIG": str(config)}
@@ -93,6 +99,11 @@ def run(args):
         checks["agent_api_has_no_owner_routes"] = response.status == 404
     sudo = subprocess.run(["/usr/bin/sudo", "-n", "true"], capture_output=True, timeout=5)
     checks["agent_has_no_passwordless_sudo"] = sudo.returncode != 0
+    launch = subprocess.run([sys.executable, "-I", "-B", "-m", "account_access.worker_host",
+        "--policy", args.policy, "--bootstrap-fd", "9", "--agent-fd", "10", "--owner-fd", "11",
+        "--controlled-fixture"], capture_output=True, timeout=10)
+    checks["agent_cannot_impersonate_worker"] = (launch.returncode == 78
+        and json.loads(launch.stdout).get("reason") == "invalid_worker_identity")
     assert all(checks.values()), "worker_boundary_probe_failed"
     return checks
 

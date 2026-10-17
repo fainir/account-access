@@ -1,9 +1,16 @@
 import copy
 import json
+from http.server import BaseHTTPRequestHandler
+from pathlib import Path
+import socketserver
+import tempfile
+import threading
 
 import pytest
 
 from scripts.check_worker_boundary_report import CHECKS, main, validate
+from scripts.worker_boundary_probe import UnixHTTP as AgentWire
+from scripts.worker_boundary_smoke import UnixHTTP as OwnerWire
 
 
 def report():
@@ -42,3 +49,32 @@ def test_fictional_acceptance_cannot_claim_a_production_or_private_result(name, 
     changed = report()
     changed[name] = value
     assert not validate(changed)
+
+
+@pytest.mark.parametrize("wire", [AgentWire, OwnerWire])
+def test_acceptance_harness_wire_clients_really_connect_and_close(wire):
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *_):
+            pass
+
+        def do_GET(self):
+            body = b'{"fixture":true}'
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    with tempfile.TemporaryDirectory(prefix="aaw-wire-", dir="/tmp") as folder:
+        path = str(Path(folder) / "test.sock")
+        with socketserver.UnixStreamServer(path, Handler) as server:
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                with wire(path) as client:
+                    client.request("GET", "/fixture")
+                    response = client.getresponse()
+                    assert response.status == 200 and json.loads(response.read()) == {"fixture": True}
+                assert client.sock is None
+            finally:
+                server.shutdown()
+                thread.join(timeout=5)

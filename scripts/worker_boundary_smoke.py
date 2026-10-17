@@ -38,6 +38,12 @@ class UnixHTTP(http.client.HTTPConnection):
         self.sock.settimeout(self.timeout)
         self.sock.connect(self.path)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self.close()
+
 
 def command(arguments, *, timeout=30):
     result = subprocess.run(arguments, capture_output=True, timeout=timeout,

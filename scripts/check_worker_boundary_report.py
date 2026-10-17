@@ -14,6 +14,7 @@ CHECKS = {
     "agent_has_no_passwordless_sudo", "provider_confirmed_two_passwords_one_totp",
     "revoked_operation_denied", "worker_still_alive_after_denied_attacks", "graceful_worker_exit",
     "worker_output_has_no_credentials",
+    "agent_cannot_impersonate_worker",
 }
 
 
