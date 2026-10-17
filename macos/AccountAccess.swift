@@ -2387,6 +2387,10 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
 #if !ACCOUNT_ACCESS_UI_CHECKS
 @main struct AccountAccessMain {
     static func main() {
+        if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--system-read-login-code" {
+            SystemMessagesReader.run()
+            return
+        }
         if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--background-enable" {
             let payload = ["status": BackgroundRecovery.manage()]
             let data = try! JSONSerialization.data(withJSONObject: payload)
@@ -2394,6 +2398,11 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             return
         }
         if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--read-login-code" {
+            guard !(Bundle.main.object(forInfoDictionaryKey: "AccountAccessSystemInstallationRequired") as? Bool == true)
+                && !DesktopOwnerProfile.isInstalled else {
+                print("{\"status\":\"NEEDS_USER\",\"reason\":\"owner_authorization_required\"}")
+                return
+            }
             MessagesReader.run()
             return
         }

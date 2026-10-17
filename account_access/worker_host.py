@@ -9,6 +9,7 @@ import argparse
 import json
 import os
 import resource
+import sys
 import threading
 
 from .worker_bootstrap import BootstrapError, read_bootstrap, read_policy, require_worker_identity, take_listener
@@ -27,6 +28,7 @@ def serve(args):
     owner_thread = None
     closed = threading.Event()
     failed = threading.Event()
+    native_messages = None
     try:
         unclaimed.remove(args.agent_fd)
         agent = take_listener(args.agent_fd)
@@ -54,10 +56,15 @@ def serve(args):
             if (root / "service.paused").exists() or (root / "service.paused").is_symlink():
                 return 0
             broker = Broker(store)
+            if sys.platform == "darwin":
+                from .native_messages import NativeMessagesRelay
+                native_messages = NativeMessagesRelay()
+                broker.codes.native_transport = native_messages.request
             owner, _ = make_owner_server(broker, guided=True, instance_key=secrets.owner_proof_key,
                                          owner_token=secrets.owner_token, server_socket=owner_socket,
                                          origin_port=policy["owner_port"], local_host_actions=False,
-                                         ready=lambda: server is not None and server.started and not server.should_exit)
+                                         ready=lambda: server is not None and server.started and not server.should_exit,
+                                         native_messages=native_messages)
             owner_socket = None  # The owner server now owns this descriptor.
             server = ManagedWorkerServer(uvicorn.Config(create_app(broker), log_level="critical",
                                                    access_log=False, log_config=None))
@@ -95,6 +102,8 @@ def serve(args):
         return 75 if failed.is_set() else 0
     finally:
         closed.set()
+        if native_messages is not None:
+            native_messages.close()
         if owner is not None:
             if owner_thread is not None and owner_thread.is_alive():
                 owner.shutdown()

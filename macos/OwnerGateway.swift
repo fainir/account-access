@@ -542,6 +542,22 @@ final class OwnerUnixBackend: OwnerGatewayBackend {
         try request(OwnerGatewayRoute("owner/health", body: nil), timeout: timeout)
     }
     private func request(_ route: OwnerGatewayRoute, timeout: TimeInterval) throws -> (Int, Data) {
+        try exchange(path: route.path, body: route.body, timeout: timeout)
+    }
+    // These fixed routes are deliberately absent from OwnerGatewayRoute and
+    // XPC. Only the root host, holding this worker's private capability, uses
+    // them. Never accept a caller-selected collector path.
+    func nativeMessagesNext() throws -> (Int, Data) {
+        guard getuid() == 0, geteuid() == 0 else { throw OwnerGatewayError.invalidPolicy }
+        let value = try exchange(path: "/owner/native-messages/next", body: nil, timeout: 1)
+        guard value.1.count <= 16384 else { throw OwnerGatewayError.invalidResponse }
+        return value
+    }
+    func nativeMessagesRespond(_ body: Data) throws -> (Int, Data) {
+        guard getuid() == 0, geteuid() == 0, body.count <= 8192 else { throw OwnerGatewayError.invalidPolicy }
+        return try exchange(path: "/owner/native-messages/respond", body: body, timeout: 1)
+    }
+    private func exchange(path routePath: String, body routeBody: Data?, timeout: TimeInterval) throws -> (Int, Data) {
         guard timeout.isFinite, timeout > 0, timeout <= 35 else { throw OwnerGatewayError.invalidPolicy }
         let descriptor = socket(AF_UNIX, SOCK_STREAM, 0)
         guard descriptor >= 0 else { throw OwnerGatewayError.unavailable }
@@ -566,11 +582,11 @@ final class OwnerUnixBackend: OwnerGatewayBackend {
             }
         }
         guard connected == 0 else { throw OwnerGatewayError.unavailable }
-        let body = route.body ?? Data()
+        let body = routeBody ?? Data()
         let host = "127.0.0.1:" + String(port)
-        var header = (route.body == nil ? "GET " : "POST ") + route.path + " HTTP/1.0\r\nHost: " + host
+        var header = (routeBody == nil ? "GET " : "POST ") + routePath + " HTTP/1.0\r\nHost: " + host
             + "\r\nAuthorization: Bearer " + capability + "\r\nConnection: close\r\n"
-        if route.body != nil { header += "Origin: http://" + host + "\r\nContent-Type: application/json\r\n" }
+        if routeBody != nil { header += "Origin: http://" + host + "\r\nContent-Type: application/json\r\n" }
         header += "Content-Length: " + String(body.count) + "\r\n\r\n"
         var payload = Data(header.utf8); payload.append(body)
         let deadline = ProcessInfo.processInfo.systemUptime + timeout

@@ -43,7 +43,10 @@ final class DesktopChannelFixture: DesktopOwnerChannel {
         checks["next_read_reconnects_without_approval"] = try connection.request("owner/state").0 == 200 && created.count == 2 && approvals == 2
         checks["new_channel_does_not_inherit_setup_lease"] = try connection.request("owner/credential", body: [:]).0 == 200 && approvals == 3 && created[1].approvals == 1
         let beforeInvalid = created[1].requests
-        checks["unsupported_route_refused_before_transport"] = fails { _ = try connection.request("owner/install", body: [:]) } && created[1].requests == beforeInvalid && approvals == 3
+        checks["unsupported_route_refused_before_transport"] = fails { _ = try connection.request("owner/install", body: [:]) }
+            && fails { _ = try connection.request("owner/native-messages/next") }
+            && fails { _ = try connection.request("owner/native-messages/respond", body: [:]) }
+            && created[1].requests == beforeInvalid && approvals == 3
         checks["caller_enrollment_configuration_refused"] = fails { _ = try connection.request("owner/vault/enroll", body: ["vault_id": "untrusted"]) } && created[1].requests == beforeInvalid
         connection.close()
         let beforeStopApproval = approvals

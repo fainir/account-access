@@ -63,6 +63,7 @@ class Codes:
     def __init__(self, store, oauth):
         self.store = store
         self.oauth = oauth
+        self.native_transport = None
 
     def check_window(self, source_id, started):
         """Recheck after delivery as well as before it; network calls can block."""
@@ -253,12 +254,29 @@ class Codes:
             credentials = self.store.get("source:" + source_id, {}) or {}
             if credentials.get("enabled") is not True:
                 raise AccessError("NEEDS_USER", "message_permission_required", "sms")
-            window["after_row"] = self.messages_baseline(source_id, source, started)
+            if self.native_transport is not None:
+                # Publish the short-lived window before asking the private root
+                # collector for a baseline. No password has been submitted yet.
+                self.store.put("code-window:" + source_id, window)
+                try:
+                    baseline = self.messages_baseline(source_id, source, started)
+                    self.check_window(source_id, started)
+                except Exception:
+                    self.finish(source_id, started)
+                    raise
+                window["after_row"] = baseline
+            else:
+                window["after_row"] = self.messages_baseline(source_id, source, started)
         if source.kind == "google_messages":
             if credentials.get("enabled") is not True:
                 raise AccessError("NEEDS_USER", "google_messages_not_connected", "sms")
             window["google_window"] = secrets.token_hex(16)
-        self.store.put("code-window:" + source_id, window)
+        if source.kind == "mac_messages" and self.native_transport is not None:
+            with self.store.lock("code-window:" + source_id):
+                self.check_window(source_id, started)
+                self.store.put("code-window:" + source_id, window)
+        else:
+            self.store.put("code-window:" + source_id, window)
         if source.kind == "google_messages":
             deadline = time.monotonic() + 15
             while time.monotonic() < deadline:
@@ -421,6 +439,12 @@ class Codes:
 
     def native_messages(self, source_id, source, started, **fields):
         """Authenticated transport to the signed app; never exposed to agents."""
+        if self.native_transport is not None:
+            result = self.native_transport(
+                {"source": source_id, "sender": source.sender, "template": source.template,
+                 "started": started, **fields}, lambda: self.check_window(source_id, started))
+            self.check_window(source_id, started)
+            return result
         binary = Path.home() / "Applications/Account Access.app/Contents/MacOS/AccountAccess"
         if sys.platform != "darwin" or not binary.is_file() or binary.is_symlink():
             raise AccessError("NEEDS_USER", "mac_messages_app_required", "sms")

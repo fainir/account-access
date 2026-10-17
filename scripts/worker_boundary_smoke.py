@@ -893,6 +893,14 @@ def root_key_custody(prefix, roles):
     prepare_enrollment("enrollment", identity)
     prepare_enrollment("first-enrollment", str(uuid.uuid4()))
     prepare_enrollment("entry-enrollment", str(uuid.uuid4()))
+    native_settings = {"owner_uid": roles["agent"].pw_uid}
+    for name, path in [("helper_hash", prefix / "native-messages-helper"), ("parent_hash", binary)]:
+        signed = subprocess.run(["/usr/bin/codesign", "-d", "--verbose=4", str(path)], capture_output=True, timeout=10)
+        found = re.findall(rb"^CDHash=([a-f0-9]{40})$", signed.stderr, re.MULTILINE)
+        assert signed.returncode == 0 and len(found) == 1
+        native_settings[name] = found[0].decode()
+    private_file(prefix / "native-messages-fixture.json", json.dumps(native_settings).encode())
+    (prefix / "native-messages-fixture.json").chmod(0o644)
     def phase(mode, *, collect=True):
         stage("key_custody_" + mode)
         launch = prefix / "root-key.plist"
@@ -905,7 +913,7 @@ def root_key_custody(prefix, roles):
             path = prefix / ("key-" + mode + ".json")
             # These phases contain several independently bounded worker
             # starts/stops; their aggregate budget must cover the full journey.
-            deadline = time.monotonic() + {"handoff": 240, "supervisor": 420, "initializer": 180, "initial-setup": 240}.get(mode, 45)
+            deadline = time.monotonic() + {"handoff": 240, "supervisor": 420, "initializer": 180, "initial-setup": 240, "native-messages": 90}.get(mode, 45)
             while time.monotonic() < deadline:
                 service = command(["/bin/launchctl", "print", "system/" + label])
                 exited = re.findall(rb"last exit code = ([0-9]+)", service)
@@ -924,9 +932,13 @@ def root_key_custody(prefix, roles):
                             "client_prepare_process_failed", "client_install_process_failed",
                             "client_probe_response_invalid", "client_enrollment_response_invalid"}:
                             stage(reason)
+                        if reason in {"native_messages_reader_unavailable", "native_messages_reader_rejected",
+                            "native_messages_reader_code_rejected", "native_messages_reader_identity_rejected",
+                            "native_messages_reader_ancestry_rejected", "native_messages_reader_handshake_rejected"}:
+                            stage(reason)
                         if result.get("checkpoint") in {"policy", "context", "invalid_identity", "initial_missing", "enrollment",
                             "encryption", "duplicate_enrollment", "other_vault", "restart_recovery", "fixture_removal", "system_location",
-                            "native_handoff", "native_worker_service", "native_worker_supervisor", "native_staged_initializer", "native_initial_enrollment"}:
+                            "native_handoff", "native_worker_service", "native_worker_supervisor", "native_staged_initializer", "native_initial_enrollment", "native_messages"}:
                             stage("key_checkpoint_" + result["checkpoint"])
                         failed_checks = result.get("failed_checks")
                         if (isinstance(failed_checks, list) and len(failed_checks) <= 100
@@ -959,6 +971,24 @@ def root_key_custody(prefix, roles):
     try:
         phase("create")
         phase("reopen")
+        native_checks = phase("native-messages", collect=False)
+        unprivileged_reader = subprocess.run(
+            [*dropped(roles["agent"]), str(prefix / "native-messages-helper"),
+             str(prefix / "native-messages-profile.json"), str(prefix / "native-messages-owner/messages.sqlite")],
+            input=json.dumps({"action": "begin", "source": "fixture-sms", "sender": "Example",
+                              "template": "Example login: {code}", "started": time.time()}).encode(),
+            capture_output=True, timeout=10, env={"PATH": "/usr/bin:/bin"})
+        native_checks["untrusted_invoker_cannot_read_codes"] = (
+            unprivileged_reader.returncode == 0
+            and json.loads(unprivileged_reader.stdout) == {"status": "NEEDS_USER", "reason": "owner_authorization_required"})
+        assert all(value is True for value in native_checks.values())
+        native_evidence = Path("/tmp/account-access-mac-native-messages.json")
+        private_file(native_evidence, json.dumps({"status": "PASSED", "environment": "controlled-demo",
+            "production_ready": False, "private_signins": 0, "actual_separate_owner_uid_reader": True,
+            "real_messages_database_used": False, "physical_sms_delivery_verified": False,
+            "full_worker_browser_sms_journey_verified": False, "genuine_full_disk_access_verified": False,
+            "checks": native_checks}, indent=2).encode())
+        native_evidence.chmod(0o644)
         handoff = phase("handoff", collect=False)
         supervisor = phase("supervisor", collect=False)
         initializer = phase("initializer", collect=False)

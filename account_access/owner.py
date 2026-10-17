@@ -19,7 +19,10 @@ from .storage import check_private, private_file
 
 
 def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=None,
-                      server_socket=None, origin_port=None, local_host_actions=True, ready=None):
+                      server_socket=None, origin_port=None, local_host_actions=True, ready=None,
+                      native_messages=None):
+    if native_messages is not None and (server_socket is None or local_host_actions):
+        raise AccessError("DENIED", "trusted_owner_route_required")
     if ready is not None and not callable(ready):
         raise AccessError("DENIED", "invalid_owner_readiness")
     if owner_token is not None and (not isinstance(owner_token, str)
@@ -34,11 +37,12 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
         raise AccessError("DENIED", "invalid_owner_transport")
     if server_socket is not None:
         server_socket.listen(128)
-    reader_key = broker.store.root / "native-reader.key"
-    with broker.store.lock("native-reader-key"):
-        if not reader_key.exists():
-            private_file(reader_key, secrets.token_bytes(32))
-        check_private(reader_key)
+    if native_messages is None:
+        reader_key = broker.store.root / "native-reader.key"
+        with broker.store.lock("native-reader-key"):
+            if not reader_key.exists():
+                private_file(reader_key, secrets.token_bytes(32))
+            check_private(reader_key)
     from .phone import PhoneRelay
     phone = PhoneRelay(broker.store)
     try:
@@ -169,6 +173,12 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                 return
             if not self.authorized():
                 self.send(401, {"status": "DENIED", "reason": "owner_authorization_required"})
+                return
+            if self.path == "/owner/native-messages/next":
+                if native_messages is None:
+                    self.send(403, {"status": "DENIED", "reason": "trusted_owner_route_required"})
+                else:
+                    self.send(200, native_messages.next())
                 return
             if guided and self.path.startswith("/owner/ready?"):
                 challenge = parse_qs(urlsplit(self.path).query).get("challenge", [""])[0]
@@ -303,6 +313,13 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                 if not 0 < length <= limit:
                     raise ValueError()
                 data = json.loads(self.rfile.read(length))
+                if self.path == "/owner/native-messages/respond":
+                    if native_messages is None:
+                        raise AccessError("DENIED", "trusted_owner_route_required")
+                    if type(data) is not dict or set(data) != {"id", "response"}:
+                        raise ValueError()
+                    self.send(200, native_messages.respond(data["id"], data["response"]))
+                    return
                 if self.path in {"/owner/client/enroll", "/owner/client/installed"}:
                     if local_host_actions or server_socket is None:
                         raise AccessError("DENIED", "trusted_owner_route_required")

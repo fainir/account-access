@@ -7,6 +7,7 @@ final class RootBrokerHost {
     private let worker: RootWorkerSupervisor
     private let gateway: OwnerGatewayHost
     private let enrollment: RootInitialEnrollment?
+    private let messages: RootMessagesCollector
     private let queue = DispatchQueue(label: "com.fainir.accountaccess.broker.lifecycle")
     private let lock = NSLock()
     private var timer: DispatchSourceTimer?
@@ -21,6 +22,7 @@ final class RootBrokerHost {
         let managedWorker = try RootWorkerSupervisor(policy: policy, bootstrap: bootstrap, peer: bootstrapPeer,
             vault: vault, listeners: listeners, invalidateOwners: { reference.host?.invalidateSessions() })
         worker = managedWorker
+        messages = try RootMessagesCollector(owner: owner)
         let initialSetup = try enrollmentPolicy.map { try RootInitialEnrollment(worker: managedWorker, policy: $0,
             bootstrap: bootstrap, peer: bootstrapPeer, owner: owner.uid, workerPolicy: policy, vault: vault) }
         enrollment = initialSetup
@@ -48,6 +50,7 @@ final class RootBrokerHost {
                 // The supervisor retains its fixed failed status; no error
                 // text, code material or retry loop is exported or logged.
                 try? self?.worker.tick()
+                if let self, let backend = self.worker.nativeCollectorBackend { self.messages.poll(backend) }
             }
             timer = monitor
             monitor.resume()

@@ -57,6 +57,11 @@ final class RootWorkerSupervisor: OwnerGatewayBackend {
     #endif
     var state: RootWorkerState { lock.lock(); defer { lock.unlock() }; return current }
     var pid: pid_t? { lock.lock(); defer { lock.unlock() }; return worker?.pid }
+    var nativeCollectorBackend: OwnerUnixBackend? {
+        lock.lock(); defer { lock.unlock() }
+        guard getuid() == 0, geteuid() == 0, current == .running else { return nil }
+        return backend
+    }
 
     private func isPaused() throws -> Bool {
         var info = stat()
