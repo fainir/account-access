@@ -28,6 +28,7 @@ import subprocess
 import sys
 import threading
 import time
+import uuid
 from urllib.parse import urlsplit
 
 from account_access.demo import DEMO_PASSWORD, environment
@@ -353,6 +354,87 @@ def root_owner_gateway(prefix, roles, policy, capability, worker):
             source_path.unlink(missing_ok=True)
 
 
+def root_key_custody(prefix, roles):
+    """Touch only a new fixture UUID in the disposable VM's System keychain."""
+    if sys.platform != "darwin" or os.getuid() != 0 or os.environ.get("GITHUB_ACTIONS") != "true":
+        raise RuntimeError("key_custody_requires_disposable_mac_ci")
+    binary, denied = prefix / "root-key-checks", prefix / "root-key-checks-denied"
+    for path in (binary, denied):
+        root_managed_path(path)
+    identity = str(uuid.uuid4())
+    policy = prefix / "root-key.json"
+    policy.write_text(json.dumps({"fixture": "account-access-system-key-ci-v1", "vault_id": identity, "root": str(prefix)}))
+    policy.chmod(0o644)
+    label = "com.fainir.accountaccess.qa.key-custody"
+    if subprocess.run(["/bin/launchctl", "print", "system/" + label], capture_output=True).returncode == 0:
+        raise RuntimeError("key_custody_namespace_already_occupied")
+    checks, pids = {}, []
+    def phase(mode):
+        stage("key_custody_" + mode)
+        launch = prefix / "root-key.plist"
+        launch.write_bytes(plistlib.dumps({"Label": label, "ProgramArguments": [str(binary), "--policy", str(policy), mode],
+            "UserName": "root", "GroupName": "wheel", "RunAtLoad": True, "KeepAlive": False,
+            "ProcessType": "Background", "StandardOutPath": "/dev/null", "StandardErrorPath": "/dev/null"}))
+        launch.chmod(0o644)
+        command(["/bin/launchctl", "bootstrap", "system", str(launch)])
+        try:
+            path = prefix / ("key-" + mode + ".json")
+            deadline = time.monotonic() + 45
+            while time.monotonic() < deadline:
+                service = command(["/bin/launchctl", "print", "system/" + label])
+                exited = re.findall(rb"last exit code = ([0-9]+)", service)
+                if path.exists() and exited:
+                    result = json.loads(path.read_bytes())
+                    if result.get("status") != "PASSED" or exited != [b"0"]:
+                        reason = result.get("reason")
+                        if reason in {"system_daemon_context_required", "invalid_vault_identity", "vault_key_missing",
+                            "vault_key_already_enrolled", "invalid_vault_key_record", "system_keychain_unavailable", "root_key_checks_failed"}:
+                            stage(reason)
+                        if result.get("keychain_operation") in {"load", "enroll", "remove"}:
+                            stage("keychain_" + result["keychain_operation"])
+                        if type(result.get("keychain_status")) is int:
+                            print(json.dumps({"keychain_status": result["keychain_status"]}), file=sys.stderr, flush=True)
+                        raise RuntimeError("key_custody_phase_failed")
+                    assert set(result) == {"status", "checks", "pid", "uid"} and result["uid"] == 0
+                    assert type(result["pid"]) is int and result["pid"] > 0
+                    assert result["checks"] and all(item is True for item in result["checks"].values())
+                    pids.append(result["pid"])
+                    for key, value in result["checks"].items():
+                        checks[mode + "_" + key] = value
+                    return
+                time.sleep(0.1)
+            raise RuntimeError("key_custody_phase_timed_out")
+        finally:
+            command(["/bin/launchctl", "bootout", "system/" + label])
+    try:
+        phase("create")
+        phase("reopen")
+        stage("key_custody_unprivileged_direct_read")
+        result = subprocess.run([*dropped(roles["agent"]), str(denied), "--policy", str(policy), "unprivileged"],
+            capture_output=True, timeout=45, env={"PATH": "/usr/bin:/bin", "LANG": "en_US.UTF-8"})
+        value = json.loads(result.stdout)
+        if result.returncode and type(value.get("probe_status")) is int:
+            print(json.dumps({"keychain_probe_status": value["probe_status"]}), file=sys.stderr, flush=True)
+        assert result.returncode == 0 and set(value) == {"status", "checks", "pid", "uid", "probe_status"}
+        assert value["status"] == "PASSED" and value["uid"] == roles["agent"].pw_uid
+        assert value["checks"] and all(item is True for item in value["checks"].values())
+        for key, verified in value["checks"].items():
+            checks["unprivileged_" + key] = verified
+    finally:
+        phase("remove")
+    checks["separate_daemon_processes_used"] = len(set(pids)) == 3
+    def signature(path):
+        signed = subprocess.run(["/usr/bin/codesign", "-d", "--verbose=4", str(path)], capture_output=True, timeout=10)
+        matches = re.findall(rb"^CDHash=([a-f0-9]{40})$", signed.stderr, re.MULTILINE)
+        assert signed.returncode == 0 and len(matches) == 1
+        return matches[0]
+    checks["unprivileged_probe_has_different_code_signature"] = signature(binary) != signature(denied)
+    assert checks and all(item is True for item in checks.values())
+    return {"status": "PASSED", "platform": "macos", "environment": "controlled-demo", "production_ready": False,
+            "private_signins": 0, "personal_keychain_used": False, "consumer_deployment_verified": False,
+            "fixture_namespace": True, "fixture_key_removed": True, "direct_read_status": value["probe_status"], "checks": checks}
+
+
 def exercise(prefix, roles):
     if sys.platform == "darwin":
         # No login data is provided to this canary. It checks whether the
@@ -548,6 +630,7 @@ def exercise(prefix, roles):
                 if sys.platform == "darwin":
                     owner_report = root_owner_gateway(prefix, roles, policy, owner_token, worker)
                     owner_report["checks"].update(probe(prefix, roles, worker, policy, "after-owner-stop"))
+                    key_report = root_key_custody(prefix, roles)
                 else:
                     owner_request(owner_path, owner_token, "/owner/revoke", {"account": "demo-api"})
                 stage("revoked_read")
@@ -570,6 +653,9 @@ def exercise(prefix, roles):
                     evidence = Path("/tmp/account-access-mac-root-owner.json")
                     private_file(evidence, (json.dumps(owner_report, indent=2) + "\n").encode())
                     evidence.chmod(0o644)  # Fixed non-secret metadata for the unprivileged CI validator.
+                    custody_evidence = Path("/tmp/account-access-mac-key-custody.json")
+                    private_file(custody_evidence, (json.dumps(key_report, indent=2) + "\n").encode())
+                    custody_evidence.chmod(0o644)
                 return {"status": "PASSED", "environment": "controlled-demo", "production_ready": False,
                         "private_signins": 0, "platform": "macos" if sys.platform == "darwin" else "linux", "real_distinct_uids": True,
                         "checks": checks,

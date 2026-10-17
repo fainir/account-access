@@ -15,7 +15,7 @@ jobs:
       - name: Check Darwin pipe handoff and reject filesystem FIFO bootstrap
         run: |
           uv sync --locked
-          uv run pytest -q tests/test_worker_boundary.py tests/test_worker_evidence.py
+          uv run pytest -q tests/test_worker_boundary.py tests/test_worker_evidence.py tests/test_mac_root_owner_evidence.py tests/test_mac_key_custody_evidence.py
       - name: Compile and check the permanent identity-drop launcher
         run: |
           for AC_BOOTSTRAP_ARCH in arm64 x86_64; do
@@ -24,6 +24,9 @@ jobs:
             xcrun swiftc -parse-as-library -warnings-as-errors -typecheck \
               -target "$AC_BOOTSTRAP_ARCH-apple-macos13" -framework Foundation -framework Security \
               macos/OwnerGateway.swift macos/OwnerGatewayHost.swift
+            xcrun swiftc -parse-as-library -warnings-as-errors -typecheck \
+              -target "$AC_BOOTSTRAP_ARCH-apple-macos13" -framework Foundation -framework Security \
+              -framework LocalAuthentication macos/RootVaultKeyStore.swift
           done
           xcrun swiftc -O -parse-as-library -framework Foundation \
             macos/WorkerBootstrap.swift macos/Tests/WorkerBootstrapChecks.swift -o /tmp/ac-worker-bootstrap-checks
@@ -36,6 +39,9 @@ jobs:
           xcrun swiftc -O -parse-as-library -D ACCOUNT_ACCESS_GATEWAY_CHECKS -D ACCOUNT_ACCESS_ROOT_GATEWAY_CLIENT \
             -framework Foundation -framework Security macos/WorkerBootstrap.swift macos/OwnerGateway.swift \
             macos/OwnerGatewayHost.swift macos/Tests/RootOwnerGatewayChecks.swift -o /tmp/ac-root-owner-client
+          xcrun swiftc -O -parse-as-library -D ACCOUNT_ACCESS_ROOT_KEY_CHECKS \
+            -framework Foundation -framework Security -framework LocalAuthentication -framework CryptoKit \
+            macos/WorkerBootstrap.swift macos/RootVaultKeyStore.swift macos/Tests/RootVaultKeyChecks.swift -o /tmp/ac-root-key-checks
       - name: Prepare root-owned runtime in this disposable Mac VM
         run: |
           uv build --wheel --out-dir /tmp/account-access-mac-worker-wheel
@@ -64,6 +70,12 @@ jobs:
             sudo codesign --force --options runtime --identifier "com.fainir.accountaccess.qa.$AC_GATEWAY_BINARY" \
               --sign - "$AC_MAC_WORKER_PREFIX/$AC_GATEWAY_BINARY"
           done
+          sudo install -m 755 /tmp/ac-root-key-checks "$AC_MAC_WORKER_PREFIX/root-key-checks"
+          sudo install -m 755 /tmp/ac-root-key-checks "$AC_MAC_WORKER_PREFIX/root-key-checks-denied"
+          for AC_KEY_BINARY in root-key-checks root-key-checks-denied; do
+            sudo codesign --force --options runtime --identifier "com.fainir.accountaccess.qa.$AC_KEY_BINARY" \
+              --sign - "$AC_MAC_WORKER_PREFIX/$AC_KEY_BINARY"
+          done
           sudo env PLAYWRIGHT_BROWSERS_PATH="$AC_MAC_WORKER_PREFIX/browsers" \
             "$AC_MAC_WORKER_PREFIX/runtime/bin/python" -I -B -m playwright install chromium
           sudo chmod -R a+rX "$AC_MAC_WORKER_PREFIX/browsers"
@@ -74,8 +86,10 @@ jobs:
             "$AC_MAC_WORKER_PREFIX/acceptance.py" --prefix "$AC_MAC_WORKER_PREFIX" > /tmp/account-access-mac-worker.json
           uv run python scripts/check_worker_boundary_report.py /tmp/account-access-mac-worker.json
           uv run python scripts/check_mac_root_owner_report.py /tmp/account-access-mac-root-owner.json
+          uv run python scripts/check_mac_key_custody_report.py /tmp/account-access-mac-key-custody.json
           cat /tmp/account-access-mac-worker.json
           cat /tmp/account-access-mac-root-owner.json
+          cat /tmp/account-access-mac-key-custody.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
@@ -83,6 +97,7 @@ jobs:
           path: |
             /tmp/account-access-mac-worker.json
             /tmp/account-access-mac-root-owner.json
+            /tmp/account-access-mac-key-custody.json
           if-no-files-found: ignore
       - name: Remove the ephemeral runtime
         if: always()
