@@ -54,7 +54,6 @@ jobs:
           sudo chmod -R go-w "$AC_MAC_WORKER_PREFIX/python" "$AC_MAC_WORKER_PREFIX/runtime" "$AC_MAC_WORKER_PREFIX/browsers"
       - name: Verify real cross-user password, email, SMS and authenticator recovery
         run: |
-          ulimit -n 10240
           sudo env GITHUB_ACTIONS=true "$AC_MAC_WORKER_PREFIX/runtime/bin/python" -I -B \
             "$AC_MAC_WORKER_PREFIX/acceptance.py" --prefix "$AC_MAC_WORKER_PREFIX" > /tmp/account-access-mac-worker.json
           uv run python scripts/check_worker_boundary_report.py /tmp/account-access-mac-worker.json

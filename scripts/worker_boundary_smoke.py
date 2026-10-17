@@ -17,7 +17,6 @@ import os
 from pathlib import Path
 import pwd
 import re
-import resource
 import secrets
 import shutil
 import signal
@@ -454,10 +453,6 @@ def main():
         parser.error("Requires a disposable root-owned CI runtime in the platform's protected prefix")
     os.umask(0o077)
     try:
-        if sys.platform == "darwin":
-            current, maximum = resource.getrlimit(resource.RLIMIT_NOFILE)
-            resource.setrlimit(resource.RLIMIT_NOFILE,
-                (10240 if current == resource.RLIM_INFINITY else min(current, 10240), maximum))
         stage("validate_immutable_runtime")
         for label, path in [("prefix", prefix), ("environment", sys.prefix), ("interpreter", sys.executable),
                             ("harness", __file__), ("probe", prefix / "probe.py")]:

@@ -217,6 +217,40 @@ struct MacWorkerPlan {
 }
 
 enum MacWorkerBootstrap {
+    static func replaceImage(_ executable: String, arguments values: [String], environment settings: [String]) throws -> Never {
+        var arguments = values.map { strdup($0) }; arguments.append(nil)
+        var environment = settings.map { strdup($0) }; environment.append(nil)
+        defer {
+            arguments.forEach { free($0) }
+            environment.forEach { free($0) }
+        }
+        guard !arguments.dropLast().contains(where: { $0 == nil }),
+              !environment.dropLast().contains(where: { $0 == nil }) else { throw WorkerLaunchFailure.executionFailed }
+        var actions: posix_spawn_file_actions_t?
+        guard posix_spawn_file_actions_init(&actions) == 0 else { throw WorkerLaunchFailure.executionFailed }
+        defer { posix_spawn_file_actions_destroy(&actions) }
+        var attributes: posix_spawnattr_t?
+        guard posix_spawnattr_init(&attributes) == 0 else { throw WorkerLaunchFailure.executionFailed }
+        defer { posix_spawnattr_destroy(&attributes) }
+        let flags = Int16(POSIX_SPAWN_SETEXEC | POSIX_SPAWN_CLOEXEC_DEFAULT)
+        guard posix_spawnattr_setflags(&attributes, flags) == 0 else { throw WorkerLaunchFailure.executionFailed }
+        // The kernel closes every unlisted descriptor atomically, including
+        // handles above a lowered soft limit or opened by a library thread.
+        // SETEXEC retains this process/PID and its permanently dropped identity.
+        for fd in Int32(0)...5 {
+            guard fcntl(fd, F_GETFD) != -1, posix_spawn_file_actions_addinherit_np(&actions, fd) == 0 else {
+                throw WorkerLaunchFailure.invalidDescriptors
+            }
+        }
+        var pid: pid_t = 0
+        arguments.withUnsafeMutableBufferPointer { args in
+            environment.withUnsafeMutableBufferPointer { env in
+                _ = posix_spawn(&pid, executable, &actions, &attributes, args.baseAddress!, env.baseAddress!)
+            }
+        }
+        throw WorkerLaunchFailure.executionFailed
+    }
+
     static func checkFD(_ fd: Int32, type: mode_t, socketPath: String? = nil) throws {
         var info = stat()
         guard fd >= 3, fstat(fd, &info) == 0, info.st_mode & S_IFMT == type, info.st_uid == 0 else {
@@ -256,8 +290,6 @@ enum MacWorkerBootstrap {
         try checkFD(secretFD, type: S_IFIFO)
         try checkFD(agentFD, type: S_IFSOCK, socketPath: plan.agentSocket)
         try checkFD(ownerFD, type: S_IFSOCK, socketPath: plan.ownerSocket)
-        let tableSize = getdtablesize()
-        guard tableSize > 5, tableSize <= 65536 else { throw WorkerLaunchFailure.invalidDescriptors }
         // Make all three sources independent before overwriting descriptors
         // 3/4/5; the caller's descriptor numbers may overlap those targets.
         var duplicates: [Int32] = []
@@ -280,22 +312,7 @@ enum MacWorkerBootstrap {
               setuid(0) == -1, errno == EPERM, setgid(0) == -1, errno == EPERM else {
             throw WorkerLaunchFailure.identityDropFailed
         }
-        var arguments = plan.arguments.map { strdup($0) }; arguments.append(nil)
-        var environment = plan.environment.map { strdup($0) }; environment.append(nil)
-        guard !arguments.dropLast().contains(where: { $0 == nil }),
-              !environment.dropLast().contains(where: { $0 == nil }) else { throw WorkerLaunchFailure.executionFailed }
-        // The next image gets only stdio and the three approved channels, even
-        // if a library opened a descriptor while root policy was being read.
-        for fd in Int32(6)..<tableSize {
-            if fcntl(fd, F_GETFD) != -1 { _ = fcntl(fd, F_SETFD, FD_CLOEXEC) }
-        }
-        for fd in Int32(3)...5 {
-            guard fcntl(fd, F_SETFD, 0) == 0 else { throw WorkerLaunchFailure.invalidDescriptors }
-        }
-        arguments.withUnsafeMutableBufferPointer { args in
-            environment.withUnsafeMutableBufferPointer { env in _ = execve(plan.python, args.baseAddress!, env.baseAddress!) }
-        }
-        throw WorkerLaunchFailure.executionFailed
+        try replaceImage(plan.python, arguments: plan.arguments, environment: plan.environment)
     }
 }
 

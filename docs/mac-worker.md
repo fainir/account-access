@@ -37,10 +37,15 @@ root parent and protected launch chain, not from pipe stat ownership. Linux
 retains its creator-UID check. See Apple's
 [`pipe_stat` implementation](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/kern/sys_pipe.c).
 
-The current launcher requires a descriptor-table limit of at most 65,536; its CI
-parent uses 10,240. This bounds the final descriptor cleanup. The parent must
-supervise/reap the child and retain appropriate custody of its key. Root and the
-complete runtime/provisioning chain remain trusted.
+Image replacement uses `POSIX_SPAWN_SETEXEC` and
+`POSIX_SPAWN_CLOEXEC_DEFAULT`, with explicit inheritance of stdio and the three
+approved channels. The kernel closes every other descriptor, including handles
+above a lowered file limit and handles opened by library threads. A native
+regression creates such a high handle, lowers the limit, then verifies that
+only descriptors 0–5 remain and that PID/environment binding is preserved.
+There is no descriptor-table-size assumption. The parent must supervise/reap
+the child and retain appropriate custody of its key. Root and the complete
+runtime/provisioning chain remain trusted.
 
 The parent must also establish the dedicated user's Mac execution context.
 Changing UID/GID alone does not adopt a Mach bootstrap namespace or security
