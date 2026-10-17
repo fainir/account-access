@@ -14,12 +14,14 @@ This development branch contains the **0.8 candidate**: local Google Authenticat
 The candidate also contains a [protected Mac installation path](docs/mac-system-provisioning.md) with a dedicated service identity and bundled offline runtime. Two disposable Mac runs passed [26 provisioning checks](artifacts/mac-system-provisioning-080.json) and [10 unsigned-package refusal checks](artifacts/mac-system-package-080.json). Signed positive consumer installation, migration, complete isolated collectors and private email/SMS/authenticator QA remain open. This path is not enabled in the published preview.
 
 The isolated candidate now also has a [private Mac SMS collector](docs/mac-isolated-sms.md).
-Two disposable Macs passed [13 native process checks](artifacts/mac-native-messages-080.json)
-and a new [ten-check composed journey](artifacts/mac-native-browser-080.json):
-the CLI requests an approved read, the isolated worker obtains a native code,
-completes browser login and reuses its session. Messages and the website are
-synthetic. Production system-host composition, genuine OS privacy approval and
-physical delivery remain unverified.
+Two disposable Macs passed [13 native process checks](artifacts/mac-native-messages-080.json),
+a [ten-check composed journey](artifacts/mac-native-browser-080.json) and
+[17 system-host recovery checks](artifacts/mac-native-system-browser-080.json).
+The latter uses the production host, System vault key and isolated worker to
+complete password/SMS login, reuse a session, then restart and recover through a
+durable task without owner input. Messages and the website are synthetic;
+consumer installation, genuine OS privacy approval and physical delivery remain
+unverified.
 
 The development candidate also includes a [Google Messages browser connection](docs/google-messages.md) for fresh GitHub login texts from an already-paired Android inbox. Its optional browser helper now also offers [verified GitHub session reuse](docs/browser-sessions.md): confirm the username locally and connect an existing Chrome sign-in. Cookie/site permission is optional and temporary. The unpacked-extension setup and private acceptance are still under validation.
 

@@ -94,9 +94,20 @@ collector/job shutdown. The website and Messages database are synthetic. The CLI
 runs under a real different UID; actual Codex/Claude sessions against this new
 protected deployment still require their own validation.
 
-That journey uses a CI root collector host and controlled private bootstrap.
-Production system-host orchestration with a System vault key, signed consumer
-installation, real Full Disk Access attribution, forwarded physical SMS delivery,
-logout/reboot behavior and broader provider templates remain release gates in
-[production acceptance](production-gates.md). Email, authenticator, Android and
-Chrome sources retain their separate verification requirements.
+The standalone journey uses a CI root collector host and controlled private
+bootstrap. A newer [17-check system-host journey](../artifacts/mac-native-system-browser-080.json)
+uses the actual production host, supervisor, launchd-activated sockets and System
+vault key. It completes a password/SMS login and session reuse, stops the host
+and worker, expires the synthetic website session and starts a cold host against
+the same store. A durable task waits through the normal login cooldown and
+completes a second fresh password/SMS login without owner input. Both host/worker
+pairs must stop; the fixture job, setup policy and System key must be removed.
+Two independent disposable Macs produced identical complete reports.
+
+That test still uses a CI entrypoint, synthetic source enrollment, website and
+Messages data, and hash-pinned ad-hoc peers. Signed consumer installation, genuine
+owner approval and Full Disk Access attribution, forwarded physical SMS delivery,
+real Codex/Claude sessions, logout/reboot behavior and broader provider templates
+remain release gates in [production acceptance](production-gates.md). Email,
+authenticator, Android and Chrome sources retain their separate verification
+requirements.

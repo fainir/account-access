@@ -30,9 +30,11 @@ Describe the affected version, trust boundary, expected behavior and minimal rep
   reader verifies the root broker using a kernel-issued socket audit token; the
   broker verifies the reader's code and identity before sending bounded active-login
   metadata. The queue and replies are private and unavailable through agent routes.
-  A composed native/worker/browser test uses synthetic Messages and a CI root host.
-  Real Full Disk Access, production host/System-key composition, physical SMS and
-  private-account acceptance remain separate. See the [collector boundary](docs/mac-isolated-sms.md).
+  A system-host journey exercises the production host, System key, isolated
+  worker and native reader through a CI entrypoint with synthetic enrollment,
+  Messages and website data. Cold restart and durable cooldown recovery pass in
+  that environment. Consumer installation, genuine owner approval/Full Disk Access,
+  physical SMS and private-account acceptance remain separate. See the [collector boundary](docs/mac-isolated-sms.md).
 - The native typedstream reader extracts the first string of a constrained
   attributed-string archive. It does not instantiate archived classes or search
   formatting metadata for codes. Unsupported formats stop setup.

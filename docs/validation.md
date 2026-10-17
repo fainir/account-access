@@ -1,5 +1,43 @@
 # Validation of Account Access
 
+## System-host SMS recovery — 17 October 2026
+
+Revision `020e9eb` passed **1,065 tests, five platform skips, in 511.46 seconds**,
+lint, package builds and an audit with no known vulnerabilities. All eight
+push/PR workflows passed. [Regression CI](https://github.com/fainir/account-access/actions/runs/39031475490).
+
+[Mac acceptance](https://github.com/fainir/account-access/actions/runs/39031475505) and a
+[second disposable Mac](https://github.com/fainir/account-access/actions/runs/39031478145) produced identical sets of fifteen
+complete reports. The new **17-check system-host journey** uses the actual
+`RootBrokerHost`, supervisor, launchd-activated sockets and System vault key.
+The product CLI runs under a separate unprivileged UID. Its scoped read reaches
+the isolated worker, native collector and owner-UID reader, completes a fresh
+password/SMS login and reuses the saved session.
+
+The test stops that host and its worker, expires only the synthetic website
+session, then starts a cold host against the same protected store and System
+key. A direct read observes the normal login cooldown. A durable task waits
+through that guard and completes a second password/SMS login without owner
+intervention; a subsequent read reuses the second session. The provider
+independently confirms exactly two password logins and two accepted SMS codes
+across four completed reads. Shutdown receipts must match both host PIDs and
+their workers must be absent. Temporary jobs, setup policy and fixture key are
+removed. Result-field, code-output, store and private-collector restrictions
+remain enforced.
+
+This is controlled acceptance through a CI entrypoint with synthetic enrollment,
+website and Messages data and hash-pinned ad-hoc peers. It does **not** establish
+consumer installed startup, genuine owner approval, Full Disk Access attribution,
+physical SMS, real AI CLI sessions against this protected deployment or private
+email/SMS/authenticator sign-ins. The candidate remains **not production ready**.
+Owner build 53 and its unfinished mailbox form were preserved; no new private
+sign-in was requested.
+
+The preceding 14 reports remain complete, including the standalone ten-check
+native browser journey and 13 native reader-process checks. See
+[sanitized system-host evidence](../artifacts/mac-native-system-browser-080.json),
+[collector design](mac-isolated-sms.md) and [remaining gates](production-gates.md).
+
 ## Composed native SMS browser journey — 17 October 2026
 
 Revision `04e8193` passed **1,047 tests, five platform skips, in 484.65 seconds**,
