@@ -82,6 +82,41 @@ enum GatewayChecks {
         connection.invalidate()
     }
 
+    static func retireSession(_ service: String, endpoint: NSXPCListenerEndpoint, policy: [String: Any],
+                              retire: () -> Void) throws -> Bool {
+        // Keep the helper's control connection and exported probe object alive
+        // while the gateway changes generation. An exited helper cannot make
+        // an old-session invalidation test pass accidentally.
+        let connection = NSXPCConnection(serviceName: service)
+        connection.remoteObjectInterface = NSXPCInterface(with: OwnerGatewayProbeRPC.self)
+        connection.resume()
+        defer { connection.invalidate() }
+        var failed = false
+        guard let proxy = connection.remoteObjectProxyWithErrorHandler({ _ in failed = true }) as? OwnerGatewayProbeRPC else {
+            throw OwnerGatewayError.unavailable
+        }
+        func run(_ mode: String) throws -> (pid_t, [String: Bool]) {
+            let done = DispatchSemaphore(value: 0)
+            var response: Data?
+            proxy.run(endpoint, peerPolicy: try JSONSerialization.data(withJSONObject: policy), mode: mode) {
+                response = $0; done.signal()
+            }
+            guard done.wait(timeout: .now() + 45) == .success, !failed, let response,
+                  let value = try JSONSerialization.jsonObject(with: response) as? [String: Any],
+                  let pid = value["pid"] as? Int32, pid > 0,
+                  let checks = value["checks"] as? [String: Bool], checks["unexpected_error"] != true else {
+                throw OwnerGatewayError.invalidResponse
+            }
+            probePIDs.insert(pid)
+            return (pid, checks)
+        }
+        let before = try run("hold")
+        guard before.1["prepared"] == true, before.1["held_channel_authorized"] == true else { return false }
+        retire()
+        let after = try run("retired")
+        return before.0 == after.0 && after.1["retired_channel_refuses_setup_input"] == true
+    }
+
     static func pureChecks() throws -> [String: Bool] {
         let definition = OwnerSetupAuthorization.definition
         var result = ["dedicated_owner_rule_validated": OwnerSetupAuthorization.validDefinition(definition)]
@@ -221,6 +256,14 @@ enum GatewayChecks {
             let journey = try GatewayChecks.invoke(trustedID, endpoint: listener.endpoint, policy: serverPolicy, mode: "journey")
             guard journey["unexpected_error"] != true else { throw OwnerGatewayError.unavailable }
             checks.merge(journey) { _, current in current }
+            stage = "retire_live_owner_generation"
+            let writesBeforeRetirement = backend.writes
+            checks["worker_generation_retires_live_owner_session"] = try GatewayChecks.retireSession(trustedID,
+                endpoint: listener.endpoint, policy: serverPolicy, retire: { delegate.invalidateSessions() })
+                && backend.writes == writesBeforeRetirement
+            let fresh = try GatewayChecks.invoke(trustedID, endpoint: listener.endpoint, policy: serverPolicy, mode: "fresh")
+            checks["worker_generation_accepts_new_owner_connection"] = fresh["prepared"] == true
+                && fresh["fresh_channel_needs_setup_authorization"] == true && backend.writes == writesBeforeRetirement
             let before = backend.calls
             stage = "untrusted_xpc_peer"
             let untrusted = try GatewayChecks.invoke(deniedID, endpoint: listener.endpoint, policy: serverPolicy, mode: "denied")

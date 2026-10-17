@@ -9,6 +9,8 @@ import Darwin
 
 #if ACCOUNT_ACCESS_GATEWAY_PROBE
 final class OwnerGatewayProbe: NSObject, OwnerGatewayProbeRPC {
+    private let lock = NSLock()
+    private var held: OwnerGatewayConnection?
     func quit(withReply reply: @escaping () -> Void) {
         reply()
         DispatchQueue.global().asyncAfter(deadline: .now() + 0.2) { exit(0) }
@@ -19,6 +21,24 @@ final class OwnerGatewayProbe: NSObject, OwnerGatewayProbeRPC {
             var checks: [String: Bool] = ["helper_ran": true]
             var client: OwnerGatewayConnection?
             do {
+                if mode == "retired" {
+                    self.lock.lock(); let previous = self.held; self.held = nil; self.lock.unlock()
+                    guard let previous else { throw OwnerGatewayError.unavailable }
+                    defer { previous.invalidate() }
+                    let done = DispatchSemaphore(value: 0)
+                    var refused = false
+                    previous.request("owner/credential", body: Data("{}".utf8)) {
+                        refused = [403, 503].contains($0); _ = $1; done.signal()
+                    }
+                    guard done.wait(timeout: .now() + 40) == .success else { throw OwnerGatewayError.unavailable }
+                    let auth = DispatchSemaphore(value: 0)
+                    var authorized = true
+                    previous.authorizeSetup(Data(repeating: 0x41, count: 32)) { authorized = $0; auth.signal() }
+                    guard auth.wait(timeout: .now() + 40) == .success else { throw OwnerGatewayError.unavailable }
+                    checks["retired_channel_refuses_setup_input"] = refused && !authorized
+                    reply((try? JSONSerialization.data(withJSONObject: ["pid": getpid(), "checks": checks])) ?? Data())
+                    return
+                }
                 let value = try JSONSerialization.jsonObject(with: peerPolicy) as! [String: Any]
                 let uid = (value["uid"] as! NSNumber).uint32Value
                 let peer: OwnerGatewayPeer
@@ -33,6 +53,25 @@ final class OwnerGatewayProbe: NSObject, OwnerGatewayProbeRPC {
                 channel.prepare { prepared = $0; ready.signal() }
                 guard ready.wait(timeout: .now() + 40) == .success else { throw OwnerGatewayError.unavailable }
                 checks["prepared"] = prepared
+                if prepared && mode == "hold" {
+                    let auth = DispatchSemaphore(value: 0)
+                    var authorized = false
+                    channel.authorizeSetup(Data(repeating: 0x41, count: 32)) { authorized = $0; auth.signal() }
+                    guard auth.wait(timeout: .now() + 40) == .success else { throw OwnerGatewayError.unavailable }
+                    checks["held_channel_authorized"] = authorized
+                    self.lock.lock(); let previous = self.held; self.held = channel; self.lock.unlock()
+                    previous?.invalidate()
+                    client = nil // Retain it across the parent's generation change.
+                }
+                if prepared && mode == "fresh" {
+                    let done = DispatchSemaphore(value: 0)
+                    var refused = false
+                    channel.request("owner/grant", body: Data("{}".utf8)) {
+                        refused = $0 == 403; _ = $1; done.signal()
+                    }
+                    guard done.wait(timeout: .now() + 40) == .success else { throw OwnerGatewayError.unavailable }
+                    checks["fresh_channel_needs_setup_authorization"] = refused
+                }
                 if !prepared {
                     let done = DispatchSemaphore(value: 0)
                     var authorized = true

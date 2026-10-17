@@ -24,6 +24,7 @@ from account_access.owner import make_owner_server
 
 SOURCE = Path(__file__).resolve().parents[1]
 NATIVE_CHECKS = {
+    "worker_generation_retires_live_owner_session", "worker_generation_accepts_new_owner_connection",
     "actual_python_owner_api_reached", "allow_authorization_rule_rejected", "authorization_cannot_survive_disconnect",
     "authorized_authenticator_setup_reached_broker", "authorized_csv_preview_reached_broker",
     "authorized_grant_reached_broker", "bounded_http_framing", "client_rejects_wrong_server_code",
