@@ -97,6 +97,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     let ownerConnectionLock = NSRecursiveLock()
     var systemOwner: DesktopOwnerConnection?
     var systemOwnerSelected = false
+    var requiresSystemInstallation = Bundle.main.object(forInfoDictionaryKey: "AccountAccessSystemInstallationRequired") as? Bool == true
     var systemOwnerReady = false
     var systemSetupGeneration = 0
     var managedAgents = ManagedAgentSetup()
@@ -109,7 +110,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         #if ACCOUNT_ACCESS_UI_CHECKS
         if fixtureSystemOwnerSelected { return true }
         #endif
-        return systemOwnerSelected || DesktopOwnerProfile.isInstalled
+        return requiresSystemInstallation || systemOwnerSelected || DesktopOwnerProfile.isInstalled
     }
     func nativeOwner() throws -> DesktopOwnerConnection? {
         guard systemOwnerConfigured else { return nil }

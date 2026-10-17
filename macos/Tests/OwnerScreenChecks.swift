@@ -417,6 +417,17 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         views = descendants(owner.stack)
         precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Resume Account Access"))
         print("PASS: native Pause sends one stop request, clears local setup secrets and offers explicit Resume")
+        let packaged = AccountAccess()
+        packaged.requiresSystemInstallation = true
+        precondition(packaged.systemOwnerConfigured)
+        let legacyRequestsBefore = VerificationRetryFixture.ownerRequests
+        do { _ = try packaged.nativeOwner(); preconditionFailure("Missing protected registration accepted") }
+        catch {
+            precondition(packaged.systemOwnerSelected && packaged.systemOwner == nil)
+            precondition(packaged.token.isEmpty && packaged.base == nil)
+            precondition(VerificationRetryFixture.ownerRequests == legacyRequestsBefore)
+        }
+        print("PASS: protected package refuses missing registration without starting legacy credential storage")
         owner.fixtureSystemOwnerSelected = true
         let nativeChannel = NativeOwnerScreenFixture()
         var nativePrompts = 0

@@ -1,0 +1,263 @@
+"""Assemble an offline, fresh-install Mac package; never install it on this host."""
+
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import plistlib
+import shutil
+import subprocess
+import sys
+import tempfile
+import zipfile
+from xml.sax.saxutils import escape
+
+from account_access.system_provision import signature
+
+BASE = Path("Library/Application Support/Account Access")
+IDENTIFIER = "com.fainir.accountaccess.system"
+
+# Installer provides the target volume as argument 3. This first installer does
+# not adopt, remove or overwrite existing installation/account data.
+PREINSTALL = """#!/bin/sh
+set -eu
+PATH=/usr/bin:/bin:/usr/sbin:/sbin
+export PATH
+[ "$(/usr/bin/id -u)" = 0 ] && [ "${3:-}" = / ] || exit 1
+for location in "/Library/Application Support/Account Access" "/Applications/Account Access.app" "/Library/LaunchDaemons/com.fainir.accountaccess.broker.plist"; do
+  [ ! -e "$location" ] && [ ! -L "$location" ] || exit 1
+done
+for record in /Users/_accountaccess /Groups/_accountaccess; do
+  if /usr/bin/dscl -plist . -read "$record" RecordName >/dev/null 2>&1; then
+    exit 1
+  else
+    [ "$?" = 56 ] || exit 1
+  fi
+done
+"""
+POSTINSTALL = """#!/bin/sh
+set -eu
+PATH=/usr/bin:/bin:/usr/sbin:/sbin
+export PATH
+umask 022
+[ "$(/usr/bin/id -u)" = 0 ] && [ "${3:-}" = / ] || exit 1
+AC_PACKAGE_BASE="/Library/Application Support/Account Access"
+[ ! -e "$AC_PACKAGE_BASE/runtime" ] && [ ! -L "$AC_PACKAGE_BASE/runtime" ] || exit 1
+"$AC_PACKAGE_BASE/python/bin/python3.12" -I -B -m venv --symlinks "$AC_PACKAGE_BASE/runtime"
+"$AC_PACKAGE_BASE/runtime/bin/python" -I -B -m pip --isolated install --no-index --no-cache-dir --only-binary=:all: --require-hashes --find-links "$AC_PACKAGE_BASE/wheels" -r "$AC_PACKAGE_BASE/package-requirements.txt"
+/bin/chmod -R go-w "$AC_PACKAGE_BASE/python" "$AC_PACKAGE_BASE/runtime" "$AC_PACKAGE_BASE/browsers" "$AC_PACKAGE_BASE/bin" "$AC_PACKAGE_BASE/wheels"
+"$AC_PACKAGE_BASE/runtime/bin/python" -I -B -m account_access.system_provision
+"""
+
+
+def command(arguments):
+    return subprocess.run(
+        arguments,
+        check=True,
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        timeout=600,
+        env={"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "LANG": "C"},
+    )
+
+
+def bundle_rules(values):
+    if type(values) is not list:
+        raise ValueError("invalid_component_analysis")
+    for value in values:
+        value["BundleIsRelocatable"] = False
+        value["BundleHasStrictIdentifier"] = True
+        for child in value.get("ChildBundles", []):
+            bundle_rules([child])
+    return values
+
+
+def distribution(version, architecture):
+    if architecture not in {"arm64", "x86_64"}:
+        raise ValueError("unsupported_package_architecture")
+    return f'''<?xml version="1.0" encoding="utf-8"?>
+<installer-gui-script minSpecVersion="2">
+<title>Account Access</title>
+<options customize="never" require-scripts="true" hostArchitectures="{architecture}"/>
+<domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>
+<volume-check><allowed-os-versions><os-version min="14.0"/></allowed-os-versions></volume-check>
+<choices-outline><line choice="default"/></choices-outline>
+<choice id="default" title="Account Access" visible="false"><pkg-ref id="{IDENTIFIER}"/></choice>
+<pkg-ref id="{IDENTIFIER}" version="{escape(version)}" onConclusion="none">payload.pkg</pkg-ref>
+</installer-gui-script>
+'''
+
+
+def inspect_app(app, *, development):
+    info = plistlib.loads((app / "Contents/Info.plist").read_bytes())
+    if (
+        info.get("CFBundleIdentifier") != "com.fainir.accountaccess"
+        or info.get("AccountAccessSystemInstallationRequired") is not True
+        or info.get("CFBundleShortVersionString") != "0.8.0"
+    ):
+        raise ValueError("protected_owner_app_required")
+    signed = signature(app, "com.fainir.accountaccess", fixture=development)
+    wheel = app / "Contents/Resources/account_access.whl"
+    if hashlib.sha256(wheel.read_bytes()).hexdigest() != info.get("AccountAccessWheelSHA256"):
+        raise ValueError("owner_wheel_pin_mismatch")
+    with zipfile.ZipFile(wheel) as archive:
+        requirements = archive.read("account_access/runtime-requirements.txt")
+    if not requirements or len(requirements) > 2_000_000:
+        raise ValueError("runtime_lock_required")
+    return info["CFBundleShortVersionString"], signed["team"], wheel, requirements
+
+
+def assemble(args):
+    if sys.platform != "darwin" or os.getuid() == 0:
+        raise ValueError("ordinary_mac_build_context_required")
+    app, native, python, browsers, wheels = [
+        Path(getattr(args, name)).resolve(strict=True)
+        for name in ["app", "native", "python", "browsers", "wheels"]
+    ]
+    output = Path(args.output).absolute()
+    if output.exists() or output.is_symlink():
+        raise ValueError("new_output_directory_required")
+    version, team, wheel, requirements = inspect_app(app, development=args.development)
+    for name, identifier in [
+        ("broker", "com.fainir.accountaccess.broker"),
+        ("bootstrap", "com.fainir.accountaccess.bootstrap"),
+    ]:
+        signed = signature(native / ("AccountAccess-" + name), identifier, fixture=args.development)
+        if signed["team"] != team:
+            raise ValueError("payload_publishers_disagree")
+    executable = python / "bin/python3.12"
+    executable.resolve(strict=True).relative_to(python)
+    if not (python / "lib/python3.12/os.py").is_file() or not browsers.is_dir():
+        raise ValueError("standalone_python_and_browsers_required")
+    found = json.loads(
+        command(
+            [
+                str(executable),
+                "-I",
+                "-B",
+                "-c",
+                "import json,platform,sys;print(json.dumps([list(sys.version_info[:2]),platform.machine(),sys.prefix==sys.base_prefix]))",
+            ]
+        ).stdout
+    )
+    if found != [[3, 12], args.architecture, True]:
+        raise ValueError("matching_standalone_python_required")
+    source_wheels = list(wheels.iterdir())
+    if not source_wheels or any(
+        p.is_symlink() or not p.is_file() or p.suffix != ".whl" for p in source_wheels
+    ):
+        raise ValueError("binary_wheelhouse_required")
+    if not args.development and not args.installer_identity:
+        raise ValueError("developer_id_installer_identity_required")
+    output.mkdir(mode=0o700)
+    with tempfile.TemporaryDirectory(prefix="account-access-system-package-") as temporary:
+        scratch = Path(temporary)
+        root, scripts = scratch / "root", scratch / "scripts"
+        payload = root / BASE
+        payload.mkdir(parents=True)
+        (root / "Applications").mkdir()
+        shutil.copytree(app, root / "Applications/Account Access.app", symlinks=True)
+        shutil.copytree(python, payload / "python", symlinks=True)
+        shutil.copytree(browsers, payload / "browsers", symlinks=True)
+        (payload / "bin").mkdir()
+        for name in ["broker", "bootstrap"]:
+            shutil.copy2(
+                native / ("AccountAccess-" + name), payload / "bin" / ("AccountAccess-" + name)
+            )
+        (payload / "wheels").mkdir()
+        for source in source_wheels:
+            shutil.copy2(source, payload / "wheels" / source.name)
+        project = payload / "wheels" / f"account_access-{version}-py3-none-any.whl"
+        if project.exists() and project.read_bytes() != wheel.read_bytes():
+            raise ValueError("wheelhouse_project_mismatch")
+        shutil.copy2(wheel, project)
+        pin = hashlib.sha256(project.read_bytes()).hexdigest()
+        (payload / "package-requirements.txt").write_bytes(
+            requirements + f"\naccount-access=={version} --hash=sha256:{pin}\n".encode()
+        )
+        scripts.mkdir()
+        for name, contents in [("preinstall", PREINSTALL), ("postinstall", POSTINSTALL)]:
+            target = scripts / name
+            target.write_text(contents)
+            target.chmod(0o755)
+        components = scratch / "components.plist"
+        command(["/usr/bin/pkgbuild", "--analyze", "--root", str(root), str(components)])
+        components.write_bytes(
+            plistlib.dumps(bundle_rules(plistlib.loads(components.read_bytes())))
+        )
+        command(
+            [
+                "/usr/bin/pkgbuild",
+                "--root",
+                str(root),
+                "--component-plist",
+                str(components),
+                "--identifier",
+                IDENTIFIER,
+                "--version",
+                version,
+                "--install-location",
+                "/",
+                "--ownership",
+                "recommended",
+                "--scripts",
+                str(scripts),
+                str(scratch / "payload.pkg"),
+            ]
+        )
+        xml = scratch / "Distribution.xml"
+        xml.write_text(distribution(version, args.architecture))
+        result = output / (
+            "Account-Access-"
+            + args.architecture
+            + ("-development" if args.development else "")
+            + ".pkg"
+        )
+        command(
+            [
+                "/usr/bin/productbuild",
+                "--distribution",
+                str(xml),
+                "--package-path",
+                str(scratch),
+                *([] if args.development else ["--sign", args.installer_identity]),
+                str(result),
+            ]
+        )
+        if not args.development:
+            command(["/usr/sbin/pkgutil", "--check-signature", str(result)])
+        report = {
+            "status": "BUILT",
+            "version": version,
+            "architecture": args.architecture,
+            "development": args.development,
+            "offline_runtime": True,
+            "fresh_install_only": True,
+            "production_ready": False,
+            "notarized": False,
+            "installed": False,
+            "sha256": hashlib.sha256(result.read_bytes()).hexdigest(),
+        }
+        (output / "package.json").write_text(json.dumps(report, indent=2) + "\n")
+        return report
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    for name in ["app", "native", "python", "browsers", "wheels", "output"]:
+        parser.add_argument("--" + name, required=True)
+    parser.add_argument("--architecture", choices=["arm64", "x86_64"], required=True)
+    parser.add_argument("--development", action="store_true")
+    parser.add_argument("--installer-identity")
+    args = parser.parse_args()
+    try:
+        print(json.dumps(assemble(args)))
+        return 0
+    except Exception:
+        print('{"status":"FAILED","reason":"system_package_not_built"}', file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

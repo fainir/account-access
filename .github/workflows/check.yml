@@ -109,7 +109,7 @@ jobs:
           with sync_playwright() as pw:
               pw.chromium.launch(headless=True, chromium_sandbox=True).close()
           PY
-      - run: uv run ruff check account_access tests scripts macos/notarize.py
+      - run: uv run ruff check account_access tests scripts macos/notarize.py macos/system_package.py
       - run: uv run pytest -q
       - run: uv run pip-audit --local
       - run: uv build

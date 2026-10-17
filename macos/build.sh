@@ -54,6 +54,9 @@ cat > "$AC_APP/Contents/Info.plist" <<'PLIST'
 </dict></plist>
 PLIST
 /usr/libexec/PlistBuddy -c "Add :AccountAccessWheelSHA256 string $AC_WHEEL_HASH" "$AC_APP/Contents/Info.plist"
+if [ "${ACCOUNT_ACCESS_SYSTEM_INSTALL:-0}" = 1 ]; then
+  /usr/libexec/PlistBuddy -c 'Add :AccountAccessSystemInstallationRequired bool true' "$AC_APP/Contents/Info.plist"
+fi
 if [ -n "${ACCOUNT_ACCESS_SIGNING_IDENTITY:-}" ]; then
   codesign --force --options runtime --timestamp --identifier com.fainir.accountaccess.background \
     --sign "$ACCOUNT_ACCESS_SIGNING_IDENTITY" "$AC_APP/Contents/MacOS/AccountAccessBackground"

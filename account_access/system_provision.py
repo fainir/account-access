@@ -712,11 +712,11 @@ def remove_ci_identity(layout):
     command(["/usr/bin/dscl", ".", "-delete", "/Users/" + layout.broker_name])
     command(["/usr/bin/dscl", ".", "-delete", "/Groups/" + layout.broker_name])
     command(["/usr/bin/dscacheutil", "-flushcache"])
-    try:
-        pwd.getpwnam(layout.broker_name)
-    except KeyError:
-        return
-    raise ProvisionError("service_identity_conflict")
+    # libc/OpenDirectory can retain a just-deleted passwd result. Verify the
+    # authoritative records, rather than treating that cache as a live account.
+    for kind in ["/Users/", "/Groups/"]:
+        if directory_value(kind + layout.broker_name, "RecordName") is not None:
+            raise ProvisionError("service_identity_conflict")
 
 
 if __name__ == "__main__":

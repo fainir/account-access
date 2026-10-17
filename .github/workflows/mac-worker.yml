@@ -154,6 +154,22 @@ jobs:
           cat /tmp/account-access-mac-staged-enrollment.json
           cat /tmp/account-access-mac-initial-setup.json
           cat /tmp/account-access-mac-initial-gateway.json
+      - name: Assemble offline development package and verify fail-closed installation
+        run: |
+          uv build --wheel
+          ACCOUNT_ACCESS_SYSTEM_INSTALL=1 ACCOUNT_ACCESS_MAC_OUTPUT=/tmp/account-access-system-owner bash macos/build.sh
+          uv run python -m ensurepip --upgrade
+          uv run python -m pip download --only-binary=:all: --require-hashes -r account_access/runtime-requirements.txt --dest /tmp/account-access-package-wheels
+          AC_PACKAGE_PYTHON=$("$AC_MAC_WORKER_PREFIX/runtime/bin/python" -I -B -c 'import sys; print(sys.base_prefix)')
+          AC_PACKAGE_ARCH=$(uname -m)
+          uv run python -m macos.system_package \
+            --app "/tmp/account-access-system-owner/Account Access.app" \
+            --native /tmp/ac-system-broker-production \
+            --python "$AC_PACKAGE_PYTHON" --browsers "$AC_MAC_WORKER_PREFIX/browsers" \
+            --wheels /tmp/account-access-package-wheels --output /tmp/account-access-system-package \
+            --architecture "$AC_PACKAGE_ARCH" --development
+          uv run python scripts/mac_package_smoke.py "/tmp/account-access-system-package/Account-Access-$AC_PACKAGE_ARCH-development.pkg" \
+            --report /tmp/account-access-mac-package.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
@@ -170,6 +186,7 @@ jobs:
             /tmp/account-access-mac-initial-setup.json
             /tmp/account-access-mac-initial-gateway.json
             /tmp/account-access-mac-provisioning.json
+            /tmp/account-access-mac-package.json
           if-no-files-found: ignore
       - name: Remove the ephemeral runtime
         if: always()

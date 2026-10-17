@@ -367,3 +367,38 @@ def test_fresh_identity_sets_preflight_missing_fields_despite_record_defaults(
     assert records["/Users/" + actual.broker_name]["Password"] == "*"
     assert records["/Users/" + actual.broker_name]["NFSHomeDirectory"] == str(actual.base / "home")
     assert any(call[-2:] == ["Password", "*"] for call in calls)
+
+
+@pytest.mark.parametrize("remaining", [None, "unexpected-record"])
+def test_ci_identity_cleanup_checks_authoritative_records_not_cached_passwd(
+    tmp_path, monkeypatch, remaining
+):
+    from dataclasses import replace
+
+    actual = replace(
+        layout(tmp_path),
+        base=Path("/Library/PrivilegedHelperTools/account-access-worker-qa-inert/provisioned"),
+    )
+    monkeypatch.setattr(provision.sys, "platform", "darwin")
+    monkeypatch.setattr(provision.os, "getuid", lambda: 0)
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setattr(provision, "root_json", lambda _: {"broker_uid": 451, "owner_uid": 501})
+    cached = SimpleNamespace(
+        pw_uid=451, pw_dir=str(actual.base / "home"), pw_shell="/usr/bin/false"
+    )
+    monkeypatch.setattr(provision.pwd, "getpwnam", lambda _: cached)
+    calls = []
+
+    def command(arguments):
+        calls.append(arguments)
+        return SimpleNamespace(stdout=b"501\n", stderr=b"")
+
+    monkeypatch.setattr(provision, "command", command)
+    monkeypatch.setattr(provision, "directory_value", lambda *a: remaining)
+    if remaining:
+        with pytest.raises(provision.ProvisionError, match="service_identity_conflict"):
+            provision.remove_ci_identity(actual)
+    else:
+        provision.remove_ci_identity(actual)
+    assert ["/usr/bin/dscl", ".", "-delete", "/Users/" + actual.broker_name] in calls
+    assert ["/usr/bin/dscl", ".", "-delete", "/Groups/" + actual.broker_name] in calls
