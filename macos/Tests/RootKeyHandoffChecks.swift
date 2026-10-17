@@ -8,6 +8,54 @@ import Darwin
 #endif
 
 enum RootKeyHandoffChecks {
+    static func service(_ value: [String: Any], identity: String) throws -> [String: Bool] {
+        guard let hash = value["bootstrap_hash"] as? String else { throw RootWorkerProcessFailure.unsafeCode }
+        let policy = try WorkerLaunchPaths.lexical(value["worker_launcher"])
+        let root = try WorkerLaunchPaths.protected(WorkerLaunchPaths.lexical(value["root"]))
+        let bootstrap = root.appendingPathComponent("mac-worker-bootstrap").path
+        var checks: [String: Bool] = [:]
+        let wrong = try OwnerGatewayPeer.fixture(uid: 0, codeHash: String(repeating: "0", count: 40))
+        do { _ = try RootWorkerProcess(policy: policy, bootstrap: bootstrap, peer: wrong, vault: identity); throw RootWorkerProcessFailure.unavailable }
+        catch RootWorkerProcessFailure.unsafeCode { checks["bootstrap_signature_mismatch_refused"] = true }
+        let peer = try OwnerGatewayPeer.fixture(uid: 0, codeHash: hash)
+        let plan = try MacWorkerPlan(policy: policy)
+        let first = try RootWorkerProcess(policy: policy, bootstrap: bootstrap, peer: peer, vault: identity)
+        defer { try? first.stop() }
+        let previous = try first.start()
+        let before = try previous.request(OwnerGatewayRoute("owner/state", body: nil))
+        checks["enrolled_fixture_worker_started"] = before.0 == 200
+        guard let pid = first.pid else { throw RootWorkerProcessFailure.unavailable }
+        let process = Process(), output = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/bin/ps"); process.arguments = ["-p", String(pid), "-o", "uid=,gid="]
+        process.standardOutput = output; process.standardError = FileHandle.nullDevice
+        process.environment = ["PATH": "/usr/bin:/bin", "LANG": "en_US.UTF-8"]
+        try process.run(); process.waitUntilExit()
+        let text = String(data: output.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        checks["worker_kernel_identity_verified"] = process.terminationStatus == 0 && text.split(whereSeparator: { $0.isWhitespace }).map(String.init) == [String(plan.uid), String(plan.gid)]
+        try first.stop()
+        checks["worker_graceful_shutdown_verified"] = first.pid == nil && first.lastExitStatus == 0
+        let second = try RootWorkerProcess(policy: policy, bootstrap: bootstrap, peer: peer, vault: identity)
+        defer { try? second.stop() }
+        let current = try second.start()
+        checks["enrolled_fixture_worker_restarted"] = try current.request(OwnerGatewayRoute("owner/state", body: nil)).0 == 200
+        let denied = try previous.request(OwnerGatewayRoute("owner/state", body: nil))
+        checks["previous_owner_capability_refused"] = [401, 403].contains(denied.0)
+        try second.stop()
+        checks["worker_listener_cleanup_verified"] = !FileManager.default.fileExists(atPath: plan.agentSocket)
+            && !FileManager.default.fileExists(atPath: plan.ownerSocket)
+        let workerPolicy = try WorkerLaunchPaths.object(plan.workerPolicy)
+        let state = try WorkerLaunchPaths.lexical(workerPolicy["root"])
+        let pause = URL(fileURLWithPath: state).appendingPathComponent("service.paused")
+        let pausedFD = open(pause.path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0o600)
+        guard pausedFD >= 0 else { throw RootWorkerProcessFailure.unavailable }
+        Darwin.close(pausedFD)
+        defer { unlink(pause.path) }
+        let paused = try RootWorkerProcess(policy: policy, bootstrap: bootstrap, peer: peer, vault: identity)
+        do { _ = try paused.start(); throw RootWorkerProcessFailure.unavailable }
+        catch RootWorkerProcessFailure.paused { checks["paused_store_does_not_start_worker"] = paused.pid == nil }
+        return checks
+    }
+
     static func receive(_ value: [String: Any], stage: String) throws -> Never {
         guard getuid() == 0, geteuid() == 0, ["create", "reopen"].contains(stage) else { throw RootWorkerChannelFailure.unavailable }
         let plan = try MacWorkerPlan(policy: WorkerLaunchPaths.lexical(value["launcher"]))

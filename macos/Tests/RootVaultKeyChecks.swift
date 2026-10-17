@@ -43,7 +43,7 @@ import Darwin
                 throw RootVaultKeyFailure.invalidIdentity
             }
             let value = try WorkerLaunchPaths.object(path)
-            guard Set(value.keys) == ["fixture", "vault_id", "root", "launcher"],
+            guard Set(value.keys) == ["fixture", "vault_id", "root", "launcher", "worker_launcher", "bootstrap_hash"],
                   value["fixture"] as? String == "account-access-system-key-ci-v1",
                   let identity = value["vault_id"] as? String else { throw RootVaultKeyFailure.invalidIdentity }
             let root = try WorkerLaunchPaths.protected(WorkerLaunchPaths.lexical(value["root"]))
@@ -82,6 +82,8 @@ import Darwin
                 checks = ["separate_receiver_processes_used": created.pid != reopened.pid]
                 for (name, value) in created.checks { checks["create_" + name] = value }
                 for (name, value) in reopened.checks { checks["reopen_" + name] = value }
+                checkpoint = "native_worker_service"
+                checks.merge(try RootKeyHandoffChecks.service(value, identity: identity)) { _, new in new }
             } else if mode == "create" {
                 checkpoint = "invalid_identity"
                 do { _ = try store.load("not-a-vault-uuid"); throw RootVaultKeyFailure.invalidRecord }
@@ -140,6 +142,7 @@ import Darwin
                 report["keychain_status"] = Int(failure.status)
             }
             if let failure = error as? RootWorkerChannelFailure { report["reason"] = failure.rawValue }
+            if let failure = error as? RootWorkerProcessFailure { report["reason"] = failure.rawValue }
         }
         if getuid() != 0 {
             print(String(data: (try? JSONSerialization.data(withJSONObject: report)) ?? Data(), encoding: .utf8) ?? "{}")

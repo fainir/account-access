@@ -363,8 +363,12 @@ def root_key_custody(prefix, roles):
         root_managed_path(path)
     identity = str(uuid.uuid4())
     policy = prefix / "root-key.json"
+    signed = subprocess.run(["/usr/bin/codesign", "-d", "--verbose=4", str(prefix / "mac-worker-bootstrap")], capture_output=True, timeout=10)
+    hashes = re.findall(rb"^CDHash=([a-f0-9]{40})$", signed.stderr, re.MULTILINE)
+    assert signed.returncode == 0 and len(hashes) == 1
     policy.write_text(json.dumps({"fixture": "account-access-system-key-ci-v1", "vault_id": identity, "root": str(prefix),
-                                 "launcher": str(prefix / "mac-launcher.json")}))
+        "launcher": str(prefix / "mac-launcher.json"), "worker_launcher": str(prefix / "key-worker-launcher.json"),
+        "bootstrap_hash": hashes[0].decode()}))
     policy.chmod(0o644)
     label = "com.fainir.accountaccess.qa.key-custody"
     if subprocess.run(["/bin/launchctl", "print", "system/" + label], capture_output=True).returncode == 0:
@@ -373,6 +377,15 @@ def root_key_custody(prefix, roles):
     handoff_state = prefix / "key-handoff-state"
     handoff_state.mkdir(mode=0o700)
     os.chown(handoff_state, roles["broker"].pw_uid, roles["broker"].pw_gid)
+    worker_policy = json.loads((prefix / "policy.json").read_bytes())
+    worker_policy.update(root=str(handoff_state), agent_socket=str(prefix / "public/key-worker.sock"),
+                         owner_socket=str(prefix / "control/key-owner.sock"), owner_port=8766)
+    private_file(prefix / "key-worker-policy.json", json.dumps(worker_policy).encode())
+    (prefix / "key-worker-policy.json").chmod(0o644)
+    launcher = json.loads((prefix / "mac-launcher.json").read_bytes())
+    launcher["worker_policy"] = str(prefix / "key-worker-policy.json")
+    private_file(prefix / "key-worker-launcher.json", json.dumps(launcher).encode())
+    (prefix / "key-worker-launcher.json").chmod(0o644)
     def phase(mode, *, collect=True):
         stage("key_custody_" + mode)
         launch = prefix / "root-key.plist"
@@ -394,10 +407,14 @@ def root_key_custody(prefix, roles):
                         if reason in {"system_daemon_context_required", "invalid_vault_identity", "vault_key_missing",
                             "vault_key_already_enrolled", "invalid_vault_key_record", "system_keychain_unavailable", "root_key_checks_failed",
                             "vault_key_reference_result_invalid", "vault_key_data_result_invalid", "vault_key_enrollment_readback_invalid",
-                            "worker_secret_channel_unavailable", "worker_secret_channel_already_consumed"}:
+                            "worker_secret_channel_unavailable", "worker_secret_channel_already_consumed",
+                            "worker_process_invalid_state", "worker_process_unavailable", "worker_socket_already_occupied",
+                            "worker_bootstrap_code_rejected", "worker_process_ownership_lost", "worker_socket_identity_changed",
+                            "worker_store_paused"}:
                             stage(reason)
                         if result.get("checkpoint") in {"policy", "context", "invalid_identity", "initial_missing", "enrollment",
-                            "encryption", "duplicate_enrollment", "other_vault", "restart_recovery", "fixture_removal", "system_location", "native_handoff"}:
+                            "encryption", "duplicate_enrollment", "other_vault", "restart_recovery", "fixture_removal", "system_location",
+                            "native_handoff", "native_worker_service"}:
                             stage("key_checkpoint_" + result["checkpoint"])
                         if result.get("record_shape") in {"array", "data", "dictionary", "absent", "other"}:
                             stage("key_record_shape_" + result["record_shape"])
@@ -449,7 +466,7 @@ def root_key_custody(prefix, roles):
     assert checks and all(item is True for item in checks.values())
     handoff_report = {"status": "PASSED", "platform": "macos", "environment": "controlled-demo", "production_ready": False,
         "private_signins": 0, "system_key_used": True, "production_python_reader_used": True, "production_storage_used": True,
-        "consumer_deployment_verified": False, "production_supervision_verified": False, "actual_worker_store_handoff_verified": False,
+        "consumer_deployment_verified": False, "production_supervision_verified": False, "actual_worker_store_handoff_verified": True,
         "fixture_key_removed": True, "checks": handoff}
     evidence = Path("/tmp/account-access-mac-key-handoff.json")
     private_file(evidence, (json.dumps(handoff_report, indent=2) + "\n").encode())

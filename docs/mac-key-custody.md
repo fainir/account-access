@@ -83,6 +83,16 @@ returns a domain-separated HMAC receipt only over inherited private IPC. The
 parent checks kernel UID/GID while the child waits, then confirms its exit.
 The expanded journey creates an encrypted fixture Store in one receiver and
 reopens it in a second process with a fresh System-key load and envelope. Both
-use production storage code. No key or receipt is printed. This expanded journey
-is under validation; it does not start an enrolled worker service or establish
-production supervision, owner enrollment, migration or consumer installation.
+use production storage code. No key or receipt is printed.
+
+`RootWorkerProcess.swift` adds a system-only lifecycle component for an existing
+store: validated launcher/runtime, inherited root listeners, fresh key/owner
+envelope, authenticated readiness and reaping of only its owned child. Existing
+socket paths and paused stores are refused; cleanup checks each created socket's
+inode. It neither adopts a recorded PID nor installs/restarts a service.
+
+The newest CI journey starts the actual worker on the fixture Store, checks its
+kernel identity and private owner state, stops it, reopens it with a fresh owner
+capability and refuses the old capability. This extension is under validation.
+It is not production supervision, genuine owner enrollment, migration or
+consumer installation.

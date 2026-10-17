@@ -8,7 +8,10 @@ PHASE_CHECKS = {"system_key_decrypted_by_python_reader", "owner_entropy_receipt_
           "descriptor_allowlist_verified", "exact_envelope_and_eof_verified", "channel_description_redacted",
           "successful_channel_cannot_replay", "missing_reader_fails_without_signal_or_fallback",
           "failed_channel_cannot_replay", "cancelled_channel_refuses_owner_material", "encrypted_store_checked"}
-CHECKS = {phase + "_" + name for phase in ("create", "reopen") for name in PHASE_CHECKS} | {"separate_receiver_processes_used"}
+CHECKS = {phase + "_" + name for phase in ("create", "reopen") for name in PHASE_CHECKS} | {
+    "separate_receiver_processes_used", "bootstrap_signature_mismatch_refused", "enrolled_fixture_worker_started",
+    "worker_kernel_identity_verified", "worker_graceful_shutdown_verified", "enrolled_fixture_worker_restarted",
+    "previous_owner_capability_refused", "worker_listener_cleanup_verified", "paused_store_does_not_start_worker"}
 
 
 def validate(value):
@@ -18,7 +21,7 @@ def validate(value):
             and value.get("system_key_used") is True and value.get("production_python_reader_used") is True
             and value.get("production_storage_used") is True
             and value.get("consumer_deployment_verified") is False and value.get("production_supervision_verified") is False
-            and value.get("actual_worker_store_handoff_verified") is False and value.get("fixture_key_removed") is True
+            and value.get("actual_worker_store_handoff_verified") is True and value.get("fixture_key_removed") is True
             and isinstance(value.get("checks"), dict) and set(value["checks"]) == CHECKS
             and all(item is True for item in value["checks"].values()))
 
