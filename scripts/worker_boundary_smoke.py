@@ -388,8 +388,12 @@ def root_key_custody(prefix, roles):
                     if result.get("status") != "PASSED" or exited != [b"0"]:
                         reason = result.get("reason")
                         if reason in {"system_daemon_context_required", "invalid_vault_identity", "vault_key_missing",
-                            "vault_key_already_enrolled", "invalid_vault_key_record", "system_keychain_unavailable", "root_key_checks_failed"}:
+                            "vault_key_already_enrolled", "invalid_vault_key_record", "system_keychain_unavailable", "root_key_checks_failed",
+                            "vault_key_reference_result_invalid", "vault_key_data_result_invalid", "vault_key_enrollment_readback_invalid"}:
                             stage(reason)
+                        if result.get("checkpoint") in {"policy", "context", "invalid_identity", "initial_missing", "enrollment",
+                            "encryption", "duplicate_enrollment", "other_vault", "restart_recovery", "fixture_removal"}:
+                            stage("key_checkpoint_" + result["checkpoint"])
                         if result.get("keychain_operation") in {"load", "enroll", "remove"}:
                             stage("keychain_" + result["keychain_operation"])
                         if type(result.get("keychain_status")) is int:

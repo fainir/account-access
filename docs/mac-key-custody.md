@@ -15,6 +15,8 @@ depend on those implementation details or disable system protections.
 
 Each canonical vault UUID identifies one 32-byte random key. The returned object
 has a redacted description and gives bytes only to a root system-context caller.
+The provider disables core dumps before any key operation. This does not prevent
+trusted root/OS access or guarantee erasure of library memory.
 Reading never enrolls a missing item. Fresh enrollment is a separate operation;
 duplicates cannot replace an existing key. The supervisor must authorize that
 operation and verify absence of enrolled encrypted state first. There is no
@@ -30,6 +32,8 @@ fixture service namespace and newly allocated UUID isolate it from personal or
 production entries. An encrypted canary checks key recovery after process exit;
 missing/duplicate enrollment, invalid identity, root-context guards and direct
 unprivileged access have separate assertions. Cleanup removes the fixture item.
+Each daemon phase verifies zero soft/hard core-dump limits; a different valid
+vault identity must not resolve the enrolled key.
 No key bytes are printed, passed on a command line or stored in a report/file.
 
 Recovery first resolves one opaque record reference, then reads that exact

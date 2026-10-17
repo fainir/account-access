@@ -9,6 +9,7 @@ import Darwin
     static func main() {
         var report: [String: Any] = ["status": "FAILED", "reason": "root_key_checks_failed"]
         var output: URL?
+        var checkpoint = "policy"
         do {
             guard CommandLine.arguments.count == 4, CommandLine.arguments[1] == "--policy" else {
                 throw RootVaultKeyFailure.invalidIdentity
@@ -52,16 +53,21 @@ import Darwin
                 exit(checks.values.allSatisfy({ $0 }) ? 0 : 1)
             }
             guard getuid() == 0, geteuid() == 0 else { throw RootVaultKeyFailure.daemonRequired }
-            var noCore = rlimit(rlim_cur: 0, rlim_max: 0)
-            guard setrlimit(RLIMIT_CORE, &noCore) == 0 else { throw RootVaultKeyFailure.unavailable }
             let store = try RootVaultKeyStore()
+            checkpoint = "context"
             checks["system_daemon_context_verified"] = true
+            var limit = rlimit()
+            checks["provider_disabled_core_dumps"] = getrlimit(RLIMIT_CORE, &limit) == 0 && limit.rlim_cur == 0 && limit.rlim_max == 0
             if mode == "create" {
+                checkpoint = "invalid_identity"
                 do { _ = try store.load("not-a-vault-uuid"); throw RootVaultKeyFailure.invalidRecord }
                 catch RootVaultKeyFailure.invalidIdentity { checks["invalid_vault_identity_rejected"] = true }
+                checkpoint = "initial_missing"
                 do { _ = try store.load(identity); throw RootVaultKeyFailure.invalidRecord }
                 catch RootVaultKeyFailure.missing { checks["missing_key_read_did_not_enroll"] = true }
+                checkpoint = "enrollment"
                 let key = try store.enrollNewVault(identity)
+                checkpoint = "encryption"
                 checks["key_description_redacted"] = String(reflecting: key) == "<RootVaultKey redacted>"
                 let sealed = try key.withUnsafeKey { try AES.GCM.seal(marker, using: SymmetricKey(data: Data($0))).combined! }
                 let fd = open(canary.path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0o600)
@@ -69,14 +75,20 @@ import Darwin
                 let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
                 try handle.write(contentsOf: sealed); try handle.synchronize(); try handle.close()
                 checks["fresh_key_stored_and_canary_encrypted"] = true
+                checkpoint = "duplicate_enrollment"
                 do { _ = try store.enrollNewVault(identity); throw RootVaultKeyFailure.invalidRecord }
                 catch RootVaultKeyFailure.duplicate { checks["duplicate_enrollment_cannot_replace_key"] = true }
+                checkpoint = "other_vault"
+                do { _ = try store.load(UUID().uuidString.lowercased()); throw RootVaultKeyFailure.invalidRecord }
+                catch RootVaultKeyFailure.missing { checks["other_vault_cannot_read_enrolled_key"] = true }
             } else if mode == "reopen" {
+                checkpoint = "restart_recovery"
                 let key = try store.load(identity)
                 let sealed = try AES.GCM.SealedBox(combined: Data(contentsOf: canary))
                 let opened = try key.withUnsafeKey { try AES.GCM.open(sealed, using: SymmetricKey(data: Data($0))) }
                 checks["persisted_key_recovered_after_process_restart"] = opened == marker
             } else {
+                checkpoint = "fixture_removal"
                 do { try store.removeFixture(identity) }
                 catch let error as RootKeychainFailure where error.status == errSecItemNotFound { }
                 do { _ = try store.load(identity); throw RootVaultKeyFailure.invalidRecord }
@@ -87,6 +99,8 @@ import Darwin
             report = ["status": "PASSED", "checks": checks, "pid": Int(getpid()), "uid": Int(getuid())]
         } catch {
             report["reason"] = (error as? RootVaultKeyFailure)?.rawValue ?? "root_key_checks_failed"
+            report["checkpoint"] = checkpoint
+            if let failure = error as? RootVaultRecordFailure { report["reason"] = failure.rawValue }
             if let failure = error as? RootKeychainFailure {
                 report["reason"] = "system_keychain_unavailable"
                 report["keychain_operation"] = failure.operation.rawValue

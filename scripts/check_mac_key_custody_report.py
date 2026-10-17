@@ -11,7 +11,9 @@ CHECKS = {"create_system_daemon_context_verified", "create_missing_key_read_did_
           "reopen_system_daemon_context_verified", "reopen_persisted_key_recovered_after_process_restart",
           "unprivileged_provider_refused", "unprivileged_direct_system_item_read_denied",
           "remove_system_daemon_context_verified", "remove_fixture_key_removed_and_not_recreated",
-          "separate_daemon_processes_used", "unprivileged_probe_has_different_code_signature"}
+          "separate_daemon_processes_used", "unprivileged_probe_has_different_code_signature",
+          "create_provider_disabled_core_dumps", "reopen_provider_disabled_core_dumps", "remove_provider_disabled_core_dumps",
+          "create_other_vault_cannot_read_enrolled_key"}
 
 
 def validate(value):

@@ -15,7 +15,7 @@ def report():
 
 def test_key_custody_requires_all_persistence_and_denial_assertions(tmp_path):
     value = report()
-    assert len(CHECKS) == 14 and validate(value)
+    assert len(CHECKS) == 18 and validate(value)
     for name in CHECKS:
         for replacement in [False, 1, None]:
             changed = copy.deepcopy(value)

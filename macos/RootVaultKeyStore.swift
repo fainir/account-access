@@ -19,6 +19,12 @@ struct RootKeychainFailure: Error {
     let status: OSStatus
 }
 
+enum RootVaultRecordFailure: String, Error {
+    case references = "vault_key_reference_result_invalid"
+    case data = "vault_key_data_result_invalid"
+    case readback = "vault_key_enrollment_readback_invalid"
+}
+
 final class RootVaultKey: CustomStringConvertible, CustomDebugStringConvertible {
     private var bytes: Data
     fileprivate init(_ value: Data) { bytes = value }
@@ -46,6 +52,10 @@ final class RootVaultKeyStore {
               attributes.rawValue & 0x0001 != 0 else { // AuthSession.h: sessionIsRoot
             throw RootVaultKeyFailure.daemonRequired
         }
+        // Apply this before the first secret enters this process, including
+        // callers that have not yet configured their supervisor lifecycle.
+        var noCore = rlimit(rlim_cur: 0, rlim_max: 0)
+        guard setrlimit(RLIMIT_CORE, &noCore) == 0 else { throw RootVaultKeyFailure.unavailable }
         guard AccountAccessDisableKeychainInteraction() else { throw RootVaultKeyFailure.unavailable }
     }
     private func query(_ identity: String) throws -> [String: Any] {
@@ -73,7 +83,7 @@ final class RootVaultKeyStore {
         if status == errSecItemNotFound { throw RootVaultKeyFailure.missing }
         guard status == errSecSuccess else { throw RootKeychainFailure(operation: .load, status: status) }
         guard let references = result as? [Data], references.count == 1 else {
-            throw RootVaultKeyFailure.invalidRecord
+            throw RootVaultRecordFailure.references
         }
         request.removeValue(forKey: kSecReturnPersistentRef as String)
         request[kSecValuePersistentRef as String] = references[0]
@@ -83,7 +93,7 @@ final class RootVaultKeyStore {
         let read = SecItemCopyMatching(request as CFDictionary, &result)
         if read == errSecItemNotFound { throw RootVaultKeyFailure.missing }
         guard read == errSecSuccess else { throw RootKeychainFailure(operation: .load, status: read) }
-        guard let bytes = result as? Data, bytes.count == 32 else { throw RootVaultKeyFailure.invalidRecord }
+        guard let bytes = result as? Data, bytes.count == 32 else { throw RootVaultRecordFailure.data }
         return RootVaultKey(bytes)
     }
     // Explicit fresh enrollment only. The supervisor must authorize enrollment
@@ -101,7 +111,7 @@ final class RootVaultKeyStore {
         if status == errSecDuplicateItem { throw RootVaultKeyFailure.duplicate }
         guard status == errSecSuccess else { throw RootKeychainFailure(operation: .enroll, status: status) }
         let stored = try load(identity)
-        guard try stored.withUnsafeKey({ Data($0) == bytes }) else { throw RootVaultKeyFailure.invalidRecord }
+        guard try stored.withUnsafeKey({ Data($0) == bytes }) else { throw RootVaultRecordFailure.readback }
         return stored
     }
 
