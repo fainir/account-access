@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 import secrets
 import socket
+import sys
 import tempfile
 import threading
 
@@ -62,6 +63,24 @@ def test_regular_file_and_different_issuer_cannot_supply_worker_secrets(tmp_path
     reader = pipe_message(b"x" * 64)
     with pytest.raises(BootstrapError):
         read_bootstrap(reader, issuer_uid=os.getuid() + 1)
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="XNU pipe-stat contract")
+def test_darwin_root_parent_pipe_uses_caller_stat_and_rejects_filesystem_fifo(tmp_path):
+    # Darwin cannot attest the creator uid through pipe_stat after identity
+    # drop. The real cross-user native-launcher CI exercises that handoff.
+    reader = pipe_message(b"x" * 64)
+    info = os.fstat(reader)
+    assert info.st_uid == os.getuid() and info.st_dev == 0 and info.st_nlink == 0
+    assert read_bootstrap(reader).vault_key == b"x" * 32
+    path = tmp_path / "not-an-anonymous-pipe"
+    os.mkfifo(path, 0o600)
+    reader = os.open(path, os.O_RDWR | os.O_NONBLOCK)
+    os.write(reader, b"x" * 64)
+    with pytest.raises(BootstrapError, match="invalid_worker_bootstrap"):
+        read_bootstrap(reader)
+    with pytest.raises(OSError):
+        os.fstat(reader)
 
 
 @pytest.mark.parametrize("fd", [0, 1, 2, -1, True])

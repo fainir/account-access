@@ -40,15 +40,24 @@ def read_bootstrap(fd, *, issuer_uid=0, timeout=3):
 
     No secret is accepted from argv, an environment variable, a regular file or
     a fallback keyring. The inherited descriptor is closed on every outcome.
+    On Darwin, pipe stat ownership describes the caller, not the creator;
+    root provenance is the trusted native launcher's responsibility. Its
+    protected policy/runtime and separate worker identity are checked first.
     """
     if type(fd) is not int or fd < 3 or not 0 < timeout <= 10:
         raise BootstrapError("invalid_worker_bootstrap")
     data = bytearray()
     try:
         info = os.fstat(fd)
-        # Anonymous pipe mode bits differ across kernels and do not grant
-        # filesystem access. The supervisor's identity and inherited FD matter.
-        if not stat.S_ISFIFO(info.st_mode) or info.st_uid != issuer_uid:
+        # XNU pipe_stat synthesizes uid/gid from the current caller and leaves
+        # dev/nlink zero. Do not mistake that uid for root-creator attestation.
+        # A vnode-backed filesystem FIFO is never a Darwin bootstrap channel.
+        if sys.platform == "darwin":
+            trusted_pipe = (info.st_uid == os.getuid() and issuer_uid in (0, os.getuid())
+                            and info.st_dev == 0 and info.st_nlink == 0)
+        else:
+            trusted_pipe = info.st_uid == issuer_uid
+        if not stat.S_ISFIFO(info.st_mode) or not trusted_pipe:
             raise BootstrapError("invalid_worker_bootstrap")
         os.set_inheritable(fd, False)
         os.set_blocking(fd, False)

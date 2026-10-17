@@ -13,13 +13,20 @@ must belong to that identity. A development CA is allowed only in explicitly
 controlled fixtures.
 
 The parent passes a root-created secret pipe and two Unix listeners. The child
-checks their types, creator and bound paths, normalizes them to three fixed
+checks their types and bound socket paths, normalizes them to three fixed
 descriptors and permanently drops supplementary groups, group and user IDs.
 Attempts to regain root must fail. Isolated Python starts with a fresh minimal
 environment and inherited channels only; unrelated descriptors close on exec.
 There is no command/shell input, owner-keyring lookup, plaintext key-file
 fallback or inherited Python/DYLD configuration. The bootstrap accepts descriptor
 numbers and non-secret policy paths, never credentials on its command line.
+
+Darwin's anonymous-pipe `fstat` reports the caller's UID/GID, not the pipe
+creator's. The launcher and worker require a kernel pipe with zero device and
+link count, rejecting filesystem FIFOs. Root provenance comes from the trusted
+root parent and protected launch chain, not from pipe stat ownership. Linux
+retains its creator-UID check. See Apple's
+[`pipe_stat` implementation](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/kern/sys_pipe.c).
 
 The current launcher requires a descriptor-table limit of at most 65,536; its CI
 parent uses 10,240. This bounds the final descriptor cleanup. The parent must

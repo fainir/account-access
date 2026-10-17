@@ -163,6 +163,12 @@ enum MacWorkerBootstrap {
         guard fd >= 3, fstat(fd, &info) == 0, info.st_mode & S_IFMT == type, info.st_uid == 0 else {
             throw WorkerLaunchFailure.invalidDescriptors
         }
+        // XNU reports the stat caller's uid for anonymous pipes. This check
+        // establishes the channel's shape, not its creator; the trusted root
+        // parent must create/pass it. Reject vnode-backed filesystem FIFOs.
+        if type == S_IFIFO && (info.st_dev != 0 || info.st_nlink != 0) {
+            throw WorkerLaunchFailure.invalidDescriptors
+        }
         if let socketPath {
             var address = sockaddr_un(), length = socklen_t(MemoryLayout<sockaddr_un>.size)
             let result = withUnsafeMutablePointer(to: &address) { pointer in
