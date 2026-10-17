@@ -13,7 +13,8 @@ CHECKS = {"create_system_daemon_context_verified", "create_missing_key_read_did_
           "remove_system_daemon_context_verified", "remove_fixture_key_removed_and_not_recreated",
           "separate_daemon_processes_used", "unprivileged_probe_has_different_code_signature",
           "create_provider_disabled_core_dumps", "reopen_provider_disabled_core_dumps", "remove_provider_disabled_core_dumps",
-          "create_other_vault_cannot_read_enrolled_key"}
+          "create_other_vault_cannot_read_enrolled_key", "create_key_confirmed_in_system_keychain",
+          "reopen_key_confirmed_in_system_keychain"}
 
 
 def validate(value):
@@ -23,7 +24,7 @@ def validate(value):
             and value["private_signins"] == 0 and value.get("personal_keychain_used") is False
             and value.get("consumer_deployment_verified") is False and value.get("fixture_namespace") is True
             and value.get("fixture_key_removed") is True and type(value.get("direct_read_status")) is int
-            and value["direct_read_status"] in {-25293, -25308, -25300}
+            and value["direct_read_status"] in {-25293, -25308}
             and isinstance(value.get("checks"), dict) and set(value["checks"]) == CHECKS
             and all(item is True for item in value["checks"].values()))
 

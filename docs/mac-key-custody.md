@@ -48,6 +48,9 @@ test-only `SecKeychainOpen` call to target System explicitly, avoiding a false
 miss in its own default search list. Production Swift and the C bridge compile
 with warnings as errors; only that specific compatibility call is annotated.
 An invalid query or unavailable service is not accepted as access-denial proof.
+Nor is a missing item: the root fixture independently confirms the key through
+an explicit System query, before and after restart. The separate-user probe must
+receive an authentication/interaction denial from that same explicit query.
 Actual workflow success and its complete report must be verified before counting
 this component as passed.
 

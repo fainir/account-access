@@ -15,7 +15,7 @@ def report():
 
 def test_key_custody_requires_all_persistence_and_denial_assertions(tmp_path):
     value = report()
-    assert len(CHECKS) == 18 and validate(value)
+    assert len(CHECKS) == 20 and validate(value)
     for name in CHECKS:
         for replacement in [False, 1, None]:
             changed = copy.deepcopy(value)
@@ -29,7 +29,7 @@ def test_key_custody_requires_all_persistence_and_denial_assertions(tmp_path):
     assert main([str(target)]) == 0
 
 
-@pytest.mark.parametrize("status", [-50, -25291, 0, None, True, "-25308"])
+@pytest.mark.parametrize("status", [-50, -25291, -25300, 0, None, True, "-25308"])
 def test_invalid_queries_and_unavailable_keychains_are_not_access_denial_proof(status):
     value = report()
     value["direct_read_status"] = status

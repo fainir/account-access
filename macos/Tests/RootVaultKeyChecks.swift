@@ -6,6 +6,29 @@ import CryptoKit
 import Darwin
 
 @main struct RootVaultKeyChecks {
+    // Independently target System rather than relying on the daemon's default
+    // search list. This prevents a wrong-keychain miss from becoming denial
+    // evidence. The deprecated open call is confined to this CI fixture.
+    static func systemQuery(_ identity: String) throws -> [String: Any] {
+        guard AccountAccessDisableKeychainInteraction() else { throw RootVaultKeyFailure.unavailable }
+        var system: SecKeychain?
+        let status = SecKeychainOpen("/Library/Keychains/System.keychain", &system)
+        guard status == errSecSuccess, let system else { throw RootKeychainFailure(operation: .load, status: status) }
+        return [kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: RootVaultKeyStore.service, kSecAttrAccount as String: "vault-" + identity,
+                kSecUseDataProtectionKeychain as String: false, kSecAttrSynchronizable as String: false,
+                kSecMatchSearchList as String: [system], kSecMatchLimit as String: kSecMatchLimitOne,
+                kSecReturnData as String: true]
+    }
+    static func confirmSystemRecord(_ key: RootVaultKey, identity: String) throws -> Bool {
+        let query = try systemQuery(identity)
+        var result: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        guard status == errSecSuccess else { throw RootKeychainFailure(operation: .load, status: status) }
+        guard var value = result as? Data, value.count == 32 else { throw RootVaultRecordFailure(.data, result: result) }
+        defer { value.resetBytes(in: 0..<value.count) }
+        return try key.withUnsafeKey { Data($0) == value }
+    }
     static func main() {
         var report: [String: Any] = ["status": "FAILED", "reason": "root_key_checks_failed"]
         var output: URL?
@@ -32,21 +55,10 @@ import Darwin
             if mode == "unprivileged" {
                 guard getuid() != 0 else { throw RootVaultKeyFailure.daemonRequired }
                 checks["provider_refused"] = (try? RootVaultKeyStore()) == nil
-                // Test-only explicit System search; product storage uses
-                // SecItem in the verified root system context.
-                var system: SecKeychain?
-                guard SecKeychainOpen("/Library/Keychains/System.keychain", &system) == errSecSuccess, let system else {
-                    throw RootVaultKeyFailure.unavailable
-                }
-                guard AccountAccessDisableKeychainInteraction() else { throw RootVaultKeyFailure.unavailable }
-                let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
-                    kSecAttrService as String: RootVaultKeyStore.service, kSecAttrAccount as String: "vault-" + identity,
-                    kSecUseDataProtectionKeychain as String: false, kSecAttrSynchronizable as String: false,
-                    kSecMatchSearchList as String: [system], kSecMatchLimit as String: kSecMatchLimitOne,
-                    kSecReturnData as String: true]
+                let query = try systemQuery(identity)
                 var result: CFTypeRef?
                 let status = SecItemCopyMatching(query as CFDictionary, &result)
-                checks["direct_system_item_read_denied"] = [errSecAuthFailed, errSecInteractionNotAllowed, errSecItemNotFound].contains(status) && result == nil
+                checks["direct_system_item_read_denied"] = [errSecAuthFailed, errSecInteractionNotAllowed].contains(status) && result == nil
                 report = ["status": checks.values.allSatisfy({ $0 }) ? "PASSED" : "FAILED", "checks": checks,
                           "pid": Int(getpid()), "uid": Int(getuid()), "probe_status": Int(status)]
                 print(String(data: try JSONSerialization.data(withJSONObject: report), encoding: .utf8)!)
@@ -67,6 +79,8 @@ import Darwin
                 catch RootVaultKeyFailure.missing { checks["missing_key_read_did_not_enroll"] = true }
                 checkpoint = "enrollment"
                 let key = try store.enrollNewVault(identity)
+                checkpoint = "system_location"
+                checks["key_confirmed_in_system_keychain"] = try confirmSystemRecord(key, identity: identity)
                 checkpoint = "encryption"
                 checks["key_description_redacted"] = String(reflecting: key) == "<RootVaultKey redacted>"
                 let sealed = try key.withUnsafeKey { try AES.GCM.seal(marker, using: SymmetricKey(data: Data($0))).combined! }
@@ -84,6 +98,8 @@ import Darwin
             } else if mode == "reopen" {
                 checkpoint = "restart_recovery"
                 let key = try store.load(identity)
+                checkpoint = "system_location"
+                checks["key_confirmed_in_system_keychain"] = try confirmSystemRecord(key, identity: identity)
                 let sealed = try AES.GCM.SealedBox(combined: Data(contentsOf: canary))
                 let opened = try key.withUnsafeKey { try AES.GCM.open(sealed, using: SymmetricKey(data: Data($0))) }
                 checks["persisted_key_recovered_after_process_restart"] = opened == marker

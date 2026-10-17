@@ -392,7 +392,7 @@ def root_key_custody(prefix, roles):
                             "vault_key_reference_result_invalid", "vault_key_data_result_invalid", "vault_key_enrollment_readback_invalid"}:
                             stage(reason)
                         if result.get("checkpoint") in {"policy", "context", "invalid_identity", "initial_missing", "enrollment",
-                            "encryption", "duplicate_enrollment", "other_vault", "restart_recovery", "fixture_removal"}:
+                            "encryption", "duplicate_enrollment", "other_vault", "restart_recovery", "fixture_removal", "system_location"}:
                             stage("key_checkpoint_" + result["checkpoint"])
                         if result.get("record_shape") in {"array", "data", "dictionary", "absent", "other"}:
                             stage("key_record_shape_" + result["record_shape"])
