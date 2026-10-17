@@ -7,6 +7,13 @@ or physical-device coverage.
 
 ## Candidate 0.8 changes
 
+- The current Mac runtime requires Apple silicon, running natively. Intel and
+  Rosetta bootstrap sessions stop before downloads/runtime changes; the package
+  assembler also refuses Intel before opening payload inputs. The pinned
+  cryptography release no longer publishes Intel Mac wheels. Universal native
+  binaries alone do not establish Intel installation support. Source compilation
+  or an older cryptography release is not used as an automatic fallback.
+  [Upstream platform change](https://cryptography.io/en/50.0.2/changelog/#v49-0-0).
 - Mac package assembly checks its private native payload before running the
   supplied Python. Production builds require Developer ID signatures and secure
   timestamps throughout runtime folders and dependency wheels, hardened runtime

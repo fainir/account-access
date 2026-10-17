@@ -17,6 +17,10 @@ case "$(uname -s)" in
     if [ ${#AC_MAC_MAJOR} -gt 3 ] || [ "$AC_MAC_MAJOR" -lt 14 ]; then
       echo "Account Access requires macOS 14 (Sonoma) or later. Update macOS before installing."
       exit 1
+    fi
+    if [ "$(uname -m)" != arm64 ]; then
+      echo "This Account Access runtime requires an Apple silicon (M-series) Mac. Intel Macs are not supported. On an M-series Mac, reopen the installer outside Rosetta."
+      exit 1
     fi ;;
   Linux) ;;
   *) echo "This installer supports macOS and Linux. Windows is not supported yet."; exit 1 ;;

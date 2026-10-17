@@ -1,6 +1,15 @@
 # Graphical Mac app
 
-This is a genuine native installer and owner interface for macOS 14 (Sonoma) or later, on Apple silicon or Intel. The pinned Playwright browser runtime requires macOS 14; the candidate's app metadata and installer preflight enforce this requirement before downloads or runtime changes. It runs the published, checksum-verified bootstrap, shows installation progress, automatically installs one portable skill and CLI, and connects supported accounts through the authenticated local owner API. Reopening it starts the saved local service; no terminal window is required.
+This is a native installer and owner interface for macOS 14 (Sonoma) or later.
+The current 0.8 runtime candidate requires **Apple silicon (M-series)**, running
+natively. Its cryptography dependency no longer publishes Intel Mac wheels;
+Intel and Rosetta bootstrap sessions stop before downloads or runtime changes.
+Universal native executables alone do not establish Intel runtime support.
+See the [upstream platform change](https://cryptography.io/en/50.0.2/changelog/#v49-0-0).
+The pinned Playwright browser runtime also requires macOS 14. Setup shows
+installation progress, installs one portable skill and CLI automatically, and
+connects supported accounts through the local owner API. Reopening starts the
+saved local service; no terminal window is required.
 
 The candidate account catalog contains a limited Namecheap password pilot as well as public SauceDemo and The Internet examples. The Namecheap operation confirms only the signed-in username. A private Chrome credential was imported, but sign-in stopped at browser verification/HTTP 429; password and email/TOTP acceptance remain open. See [other-service validation](../docs/other-service-validation.md). The app includes reviewed password-export import, explicit authenticator enrollment, TLS IMAP/Gmail source setup, an iPhone Messages reader and Android pairing. Imports do not add support for arbitrary websites. Real provider delivery and physical-phone validation remain outstanding.
 

@@ -17,7 +17,8 @@ passkey or biometric approval still needs the owner.
 
 The **0.8 development candidate** adds protected Mac installation, local Google
 Authenticator transfer import and further recovery checks. It is under
-validation; the download remains the **0.7.4 preview**. Private password/code
+validation and its Mac runtime requires **Apple silicon and macOS 14 or later**;
+Intel support is not established. The download remains the **0.7.4 preview**. Private password/code
 acceptance, physical-phone delivery, notarized installation and continuous
 Chrome sync remain incomplete. See [what is verified and what remains](docs/production-gates.md)
 and the [test evidence](docs/validation.md). The recording shows the intended

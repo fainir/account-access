@@ -36,6 +36,14 @@ def test_package_assembly_never_runs_under_root_or_on_another_platform(monkeypat
         package.assemble(SimpleNamespace())
 
 
+@pytest.mark.parametrize("architecture", ["x86_64", "i386", "unknown"])
+def test_package_refuses_unavailable_intel_runtime_before_opening_any_supplied_payload(monkeypatch, architecture):
+    monkeypatch.setattr(package.sys, "platform", "darwin")
+    monkeypatch.setattr(package, "os", SimpleNamespace(getuid=lambda: 501))
+    with pytest.raises(ValueError, match="apple_silicon_binary_runtime_required"):
+        package.assemble(SimpleNamespace(architecture=architecture))
+
+
 def test_complete_image_may_add_only_its_generated_runtime_and_receipt_to_source_inventory():
     import json
 

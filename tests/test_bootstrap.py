@@ -72,7 +72,8 @@ def test_verified_bootstrap_runs_without_finder_path_dependencies(tmp_path, cach
     if mac_version:
         for name, value in [("uname", "Darwin"), ("sw_vers", mac_version)]:
             path = tools / name
-            path.write_text("#!/bin/sh\nprintf '%s\\n' '" + value + "'\n")
+            path.write_text("#!/bin/sh\nif [ \"${1:-}\" = -m ]; then printf '%s\\n' arm64; "
+                            "else printf '%s\\n' '" + value + "'; fi\n")
             path.chmod(0o700)
     uv = tools / "uv"
     uv.write_text('''#!/bin/sh
@@ -136,4 +137,29 @@ def test_unsupported_mac_stops_before_downloads_or_runtime_changes(tmp_path, ver
                                  "TEST_INSTALL_MARKER": str(marker)},
                             text=True, capture_output=True, timeout=15)
     assert result.returncode == 1 and "requires macOS 14" in result.stdout
+    assert not runtime.exists() and not marker.exists()
+
+
+@pytest.mark.parametrize("architecture", ["x86_64", "i386", "unknown", ""])
+def test_unsupported_mac_architecture_stops_before_downloads_or_runtime_changes(tmp_path, architecture):
+    tools = tmp_path / "bin"
+    tools.mkdir()
+    marker = tmp_path / "downloads-or-execution"
+    scripts = {
+        "uname": 'if [ "${1:-}" = -m ]; then printf "%s\\n" "$TEST_MAC_ARCH"; else printf "%s\\n" Darwin; fi',
+        "sw_vers": "printf '%s\\n' 14.0",
+        "uv": 'touch "$TEST_INSTALL_MARKER"; exit 99',
+        "curl": 'touch "$TEST_INSTALL_MARKER"; exit 99',
+    }
+    for name, script in scripts.items():
+        path = tools / name
+        path.write_text("#!/bin/sh\n" + script + "\n")
+        path.chmod(0o700)
+    runtime = tmp_path / "runtime"
+    result = subprocess.run(["sh", str(Path(__file__).resolve().parents[1] / "install.sh")],
+                            env={**os.environ, "PATH": str(tools) + ":/usr/bin:/bin",
+                                 "ACCOUNT_ACCESS_INSTALL_DIR": str(runtime), "TEST_MAC_ARCH": architecture,
+                                 "TEST_INSTALL_MARKER": str(marker)},
+                            text=True, capture_output=True, timeout=15)
+    assert result.returncode == 1 and "requires an Apple silicon" in result.stdout
     assert not runtime.exists() and not marker.exists()

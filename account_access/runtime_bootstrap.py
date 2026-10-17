@@ -177,6 +177,9 @@ def install(uv, wheel, runtime, requirements, *, data_dir="", no_open=False, run
         version = platform.mac_ver()[0]
         if not re.fullmatch(r"[0-9]{1,3}(?:\.[0-9]+){0,2}", version) or int(version.split(".")[0]) < 14:
             raise RuntimeError("Account Access requires macOS 14 (Sonoma) or later.")
+        if platform.machine() != "arm64":
+            raise RuntimeError("This Account Access runtime requires an Apple silicon (M-series) Mac. "
+                               "Intel Macs are not supported. On an M-series Mac, reopen the installer outside Rosetta.")
     runtime = Path(os.path.abspath(runtime))
     if runtime.is_symlink():
         raise RuntimeError("Refusing a linked installation directory.")

@@ -136,6 +136,8 @@ def verify_source_inventory(before, after):
 def assemble(args):
     if sys.platform != "darwin" or os.getuid() == 0:
         raise ValueError("ordinary_mac_build_context_required")
+    if args.architecture != "arm64":
+        raise ValueError("apple_silicon_binary_runtime_required")
     app, native, python, browsers, wheels = [
         Path(getattr(args, name)).resolve(strict=True)
         for name in ["app", "native", "python", "browsers", "wheels"]
@@ -379,7 +381,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ["app", "native", "python", "browsers", "wheels", "output"]:
         parser.add_argument("--" + name, required=True)
-    parser.add_argument("--architecture", choices=["arm64", "x86_64"], required=True)
+    parser.add_argument("--architecture", choices=["arm64"], required=True)
     parser.add_argument("--development", action="store_true")
     parser.add_argument("--installer-identity")
     parser.add_argument("--runtime-identity")

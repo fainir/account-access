@@ -44,6 +44,19 @@ def test_direct_bootstrap_rejects_unsupported_mac_without_touching_runtime(tmp_p
     assert not runtime.exists()
 
 
+@pytest.mark.parametrize("architecture", ["x86_64", "i386", "unknown", ""])
+def test_direct_bootstrap_rejects_unsupported_mac_architecture_before_runtime_changes(tmp_path, monkeypatch, architecture):
+    monkeypatch.setattr("account_access.runtime_bootstrap.sys.platform", "darwin")
+    monkeypatch.setattr("account_access.runtime_bootstrap.platform.mac_ver", lambda: ("14.0", (), ""))
+    monkeypatch.setattr("account_access.runtime_bootstrap.platform.machine", lambda: architecture)
+    runtime = tmp_path / "runtime"
+    def no_execution(*args, **kwargs):
+        raise AssertionError("Unsupported architecture must stop before any installer commands")
+    with pytest.raises(RuntimeError, match="requires an Apple silicon"):
+        install("uv", tmp_path / "unused.whl", runtime, tmp_path / "unused.txt", run=no_execution)
+    assert not runtime.exists()
+
+
 @pytest.mark.parametrize("failure", [None, "packages", "browser", "health", "start"])
 def test_prepare_then_switch_and_rollback_failed_runtime(setup, failure, monkeypatch):
     runtime, launcher, old, wheel, requirements = setup

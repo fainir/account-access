@@ -89,7 +89,11 @@ installing anything on the build host. Inputs are the protected-mode owner app,
 matching broker/bootstrap executables, a standalone Python 3.12 distribution,
 a binary wheelhouse and the matching browser runtime. The wheel in the owner
 app must match its signed hash. The runtime dependency hash lock comes from that
-wheel. The package is specific to Apple Silicon or Intel and requires macOS 14.
+wheel. The current binary runtime requires Apple silicon and macOS 14 or later.
+The assembler refuses Intel before opening supplied payload paths: the pinned
+cryptography release has no Intel Mac wheel. Native universal builds do not
+establish a usable Intel runtime, and source compilation is not an installer
+fallback. See the [upstream removal](https://cryptography.io/en/50.0.2/changelog/#v49-0-0).
 
 Build the owner variant with `ACCOUNT_ACCESS_SYSTEM_INSTALL=1` when invoking
 `macos/build.sh`. Its signed bundle requires protected registration, including
