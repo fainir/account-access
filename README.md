@@ -13,6 +13,12 @@ This development branch contains the **0.8 candidate**: local Google Authenticat
 
 The candidate also contains a [protected Mac installation path](docs/mac-system-provisioning.md) with a dedicated service identity and bundled offline runtime. Two disposable Mac runs passed [26 provisioning checks](artifacts/mac-system-provisioning-080.json) and [10 unsigned-package refusal checks](artifacts/mac-system-package-080.json). Signed positive consumer installation, migration, complete isolated collectors and private email/SMS/authenticator QA remain open. This path is not enabled in the published preview.
 
+The isolated candidate now also has a [private Mac SMS collector](docs/mac-isolated-sms.md).
+Two disposable Macs passed [13 native process checks](artifacts/mac-native-messages-080.json),
+and a separate synthetic browser journey covers automatic code submission and
+revocation. Real Full Disk Access attribution, physical texts and the complete
+isolated native-reader/browser login remain unverified.
+
 The development candidate also includes a [Google Messages browser connection](docs/google-messages.md) for fresh GitHub login texts from an already-paired Android inbox. Its optional browser helper now also offers [verified GitHub session reuse](docs/browser-sessions.md): confirm the username locally and connect an existing Chrome sign-in. Cookie/site permission is optional and temporary. The unpacked-extension setup and private acceptance are still under validation.
 
 The personal GitHub pilot now reuses an owner-approved Chrome session: its identity was checked locally, its original blocked task resumed, and fresh Claude Code and Codex sessions completed the approved profile-heading read without authentication input. A fresh password/SMS login still redirects to account recovery; personal email and authenticator sign-ins remain unverified. See the [private-session evidence](artifacts/private-github-session-080.json) and [validation report](docs/validation.md).

@@ -1,5 +1,47 @@
 # Validation of Account Access
 
+## Isolated Mac SMS collection and concurrent stop — 17 October 2026
+
+Revision `73b7c06` passed **1033 tests, 5 platform skips, in 518.55 seconds**,
+lint, package builds and a dependency audit with no known vulnerabilities. All
+eight push/PR workflows passed. [Regression CI](https://github.com/fainir/account-access/actions/runs/39026369253).
+
+[Mac acceptance](https://github.com/fainir/account-access/actions/runs/39026369231) and an
+[second disposable Mac](https://github.com/fainir/account-access/actions/runs/39026372636) produced identical sets of thirteen
+complete reports. The new native SMS report contains **13 checks**. The root
+host starts a code-pinned reader under the actual owner UID, authenticates both
+ends of an inherited private socket and supplies only bounded active-login
+metadata. A kernel audit token binds the root peer to its code and process
+identity. Wrong peers, forged reader PIDs, stale/used/ambiguous codes,
+future-dated texts and truncated result sets are refused. No reader key or vault
+credential is copied into the owner account.
+
+Two synthetic browser tests separately complete password/SMS login through the
+private Unix collector transport, reuse the saved session and stop code
+submission after source revocation. These tests do not switch OS users or invoke
+the native reader. The native process journey and browser transport journey are
+separate: **a complete isolated native-reader/browser SMS login is still open**.
+Neither uses a private message or physical phone.
+
+Regression testing also exposed a concurrent stop/read failure in the legacy
+desktop supervisor. Reading one pinned descriptor now treats a removed or
+replaced registration as inactive while preserving ownership, private-mode and
+link checks. Three deterministic cases exercise removal during open/read and
+replacement during a read. The 23 local supervisor tests passed. The protected
+system job now associates the owner app's bundle identifier, following Apple's
+responsible-code guidance; this does not grant Full Disk Access.
+
+The existing twelve Mac reports remained complete, including 40 first-vault/client,
+26 provisioning, 10 negative package, 31 coordinator and 25 worker checks. Signed
+positive installation, genuine OS privacy approval, private email/SMS/TOTP,
+physical Android/iPhone, isolated Chrome ingress and continuous Chrome password
+sync remain release gates. Installed owner build 53 and its unfinished mailbox
+form were preserved. No new private sign-in was requested. The candidate remains
+**not production ready**, and the public download remains the 0.7.4 preview.
+
+See [sanitized evidence](../artifacts/mac-native-messages-080.json),
+[collector boundary](mac-isolated-sms.md) and [production gates](production-gates.md).
+
 ## Protected Mac provisioning and offline package — 17 October 2026
 
 Revision `a03b241` passed **994 tests, five platform skips, in 455.31 seconds**,
