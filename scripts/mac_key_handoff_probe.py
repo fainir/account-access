@@ -53,7 +53,7 @@ def seed_native_host_fixture(store, settings):
     from account_access.worker_bootstrap import root_managed_path
 
     root_managed_path(module)
-    account = runpy.run_path(str(module))["native_account"](base)
+    account = runpy.run_path(str(module))["native_account"](base, identity=True)
     with store.db() as db:
         if (
             db.execute("SELECT 1 FROM clients LIMIT 1").fetchone()

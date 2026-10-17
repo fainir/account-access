@@ -15,6 +15,7 @@ CHECKS = {
     "kernel_worker_parent_group_identity_verified",
     "launchd_socket_activation_one_shot",
     "two_fresh_password_sms_logins_completed",
+    "two_reviewed_identity_steps_completed",
     "saved_sessions_reused_after_each_login",
     "cold_host_reopened_same_store",
     "both_hosts_stopped_owned_workers",

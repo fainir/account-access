@@ -13,14 +13,15 @@ import subprocess
 import sys
 import threading
 import time
+from urllib.parse import parse_qs
 
 from account_access.demo import DEMO_PASSWORD, DemoProvider, configuration
-from account_access.models import CodeSource, LoginFactor
+from account_access.models import CodeSource, LoginFactor, LoginIdentityStep
 from account_access.storage import private_file
 from account_access.worker_bootstrap import root_managed_path
 
 
-def native_account(base):
+def native_account(base, *, identity=False):
     spec = configuration(base).accounts["demo-mfa"].model_copy(deep=True)
     spec.label = "Controlled native SMS browser fixture"
     spec.login_url = spec.login_url.replace("/mfa/", "/sms/")
@@ -36,7 +37,55 @@ def native_account(base):
     }
     spec.challenge_selectors.pop("totp")
     spec.challenge_selectors["sms"] = "#sms-challenge"
+    if identity:
+        spec.login_url = base + "/sms/identity"
+        spec.login_resources += [base + "/sms/" + path for path in ["identity", "identify", "password"]]
+        spec.login_post_urls.append(base + "/sms/identify")
+        spec.login.identity_step = LoginIdentityStep(
+            submit_selector="#continue",
+            post_url=base + "/sms/identify",
+            password_url=base + "/sms/password",
+            password_post_url=base + "/sms/login",
+        )
     return spec
+
+
+def identity_provider(provider):
+    """Add a fictional username-first flow; never connect to an external site."""
+    parent = provider.server.RequestHandlerClass
+    provider.identity_count = 0
+
+    class Handler(parent):
+        def do_GET(self):
+            if self.path == "/sms/identity":
+                self.page('<form id="password-login" method="post" action="/sms/identify">'
+                          '<input id="username" name="username">'
+                          '<button id="continue">Continue</button></form>')
+            elif self.path == "/sms/password":
+                self.page('<form id="password-login" method="post" action="/sms/login">'
+                          '<input type="hidden" name="username" value="demo@example.test">'
+                          '<input id="password" name="password" type="password">'
+                          '<button id="login-submit">Sign in</button></form>')
+            else:
+                super().do_GET()
+
+        def do_POST(self):
+            if self.path != "/sms/identify":
+                super().do_POST()
+                return
+            provider.posted_paths.append(self.path)
+            length = int(self.headers.get("Content-Length", "0"))
+            if not 0 < length <= 1024:
+                self.send(400, {})
+                return
+            data = parse_qs(self.rfile.read(length).decode())
+            if data != {"username": ["demo@example.test"]}:
+                self.send(400, {})
+                return
+            provider.identity_count += 1
+            self.send(303, {}, {"Location": "/sms/password"})
+
+    provider.server.RequestHandlerClass = Handler
 
 
 class NativeSMSFixture:
@@ -79,6 +128,8 @@ class NativeSMSFixture:
         self.delivered = 0
         self.provider = DemoProvider().start()
         self.provider.delivery = self.deliver
+        if tag == "native-host":
+            identity_provider(self.provider)
 
     @staticmethod
     def date():

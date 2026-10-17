@@ -205,6 +205,7 @@ def _exercise(prefix, roles, key_policy, phase, client_token, probe, command, fi
             client_config=config,
         )
         assert fixture.provider.login_count == fixture.provider.sms_count == fixture.delivered == 1
+        assert fixture.provider.identity_count == 1
         print(
             json.dumps({"stage": "native_system_first_cli_completed"}), file=sys.stderr, flush=True
         )
@@ -228,6 +229,7 @@ def _exercise(prefix, roles, key_policy, phase, client_token, probe, command, fi
         assert (
             repeated == checks
             and fixture.provider.login_count == fixture.provider.sms_count == fixture.delivered == 2
+            and fixture.provider.identity_count == 2
         )
         print(
             json.dumps({"stage": "native_system_second_cli_completed"}), file=sys.stderr, flush=True
@@ -242,6 +244,7 @@ def _exercise(prefix, roles, key_policy, phase, client_token, probe, command, fi
                 "kernel_worker_parent_group_identity_verified": True,
                 "launchd_socket_activation_one_shot": True,
                 "two_fresh_password_sms_logins_completed": True,
+                "two_reviewed_identity_steps_completed": True,
                 "saved_sessions_reused_after_each_login": True,
                 "cold_host_reopened_same_store": True,
                 "both_hosts_stopped_owned_workers": True,
