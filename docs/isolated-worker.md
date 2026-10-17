@@ -31,10 +31,12 @@ are disabled in this transport; they require a future trusted host gateway.
 
 `worker-boundary.yml` builds a root-owned runtime in a disposable Ubuntu VM and
 creates two locked system accounts with no administrator rights. The synthetic
-harness checks approved API, browser password and TOTP reads through the CLI;
+harness checks approved API and browser password/email/SMS/TOTP reads through the CLI;
 ungranted operations; revocation; vault/configuration access; code and policy
 modification; process memory, environment and descriptors; signaling; and the
-private owner channel. It retains only fixed test metadata. It uses no personal
+private owner channel. Email uses a TLS test mailbox; SMS uses a synthetic
+handset over the paired, certificate-checked HTTPS ingress. These are not public
+email/carrier delivery or physical-phone acceptance. It retains only fixed test metadata. It uses no personal
 website accounts, phone inbox, mailbox or installed owner store.
 
 The root-only harness is CI machinery, not a service installation command. It

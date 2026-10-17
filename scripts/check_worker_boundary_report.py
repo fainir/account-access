@@ -6,12 +6,13 @@ import sys
 
 
 CHECKS = {
-    "different_nonroot_uid", "approved_api_password_totp_reads", "ungranted_operation_denied",
+    "different_nonroot_uid", "approved_api_password_email_sms_totp_reads", "ungranted_operation_denied",
     "vault_database_read_denied", "vault_database_write_denied", "owner_configuration_read_denied",
     "runtime_write_denied", "runtime_replacement_denied", "policy_write_denied",
     "worker_memory_read_denied", "worker_environment_read_denied", "worker_descriptors_denied",
     "worker_signal_denied", "private_owner_channel_denied", "agent_api_has_no_owner_routes",
-    "agent_has_no_passwordless_sudo", "provider_confirmed_two_passwords_one_totp",
+    "agent_has_no_passwordless_sudo", "provider_confirmed_four_passwords_all_factors",
+    "tls_imap_message_fetched", "pinned_https_sms_delivered",
     "revoked_operation_denied", "worker_still_alive_after_denied_attacks", "graceful_worker_exit",
     "worker_output_has_no_credentials",
     "agent_cannot_impersonate_worker",

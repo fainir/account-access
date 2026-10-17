@@ -67,7 +67,7 @@ def run(args):
 
     accounts = cli(config, "accounts")
     assert accounts["status"] == "OK"
-    for account in ["demo-api", "demo-web", "demo-mfa"]:
+    for account in ["demo-api", "demo-web", "demo-mfa", "example-email", "example-sms"]:
         result = cli(config, "run", account, "summary")
         assert result["status"] == "COMPLETED" and "balance" in result["data"]
     result = cli(config, "run", "demo-api", "details")
@@ -75,7 +75,7 @@ def run(args):
 
     checks = {
         "different_nonroot_uid": True,
-        "approved_api_password_totp_reads": True,
+        "approved_api_password_email_sms_totp_reads": True,
         "ungranted_operation_denied": True,
         "vault_database_read_denied": denied(lambda: (Path(args.state) / "state.db").read_bytes()),
         "vault_database_write_denied": denied(lambda: write_existing(Path(args.state) / "state.db")),

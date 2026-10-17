@@ -8,8 +8,9 @@ This is not a production supervisor, installer or owner enrollment gateway.
 
 import argparse
 import base64
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 import grp
+import hashlib
 import http.client
 import json
 import os
@@ -19,12 +20,15 @@ import secrets
 import shutil
 import signal
 import socket
+import ssl
 import subprocess
 import sys
 import time
+from urllib.parse import urlsplit
 
-from account_access.demo import environment
+from account_access.demo import DEMO_PASSWORD, environment
 from account_access.storage import private_file
+from account_access.verification_demo import ExampleMailbox, setup_config
 from account_access.worker_bootstrap import root_managed_path
 
 
@@ -55,6 +59,18 @@ def command(arguments, *, timeout=30):
 
 def stage(name):
     print(json.dumps({"stage": name}), file=sys.stderr, flush=True)
+
+
+@contextmanager
+def fixture_mailbox(prefix):
+    folder = prefix / "mail-fixture"
+    folder.mkdir(mode=0o700)
+    mailbox = ExampleMailbox(folder)
+    try:
+        yield mailbox
+    finally:
+        mailbox.close()
+        shutil.rmtree(folder)
 
 
 @contextmanager
@@ -137,9 +153,41 @@ def exercise(prefix, roles):
     (prefix / "policy.json").chmod(0o644)
     worker = None
     reader = writer = None
-    with environment(state) as (provider, broker, _):
+    with environment(state) as (provider, broker, _), fixture_mailbox(prefix) as mailbox:
+        config = broker.store.config()
+        verification = setup_config(provider.base, mailbox, relay=True)
+        for account in ["example-email", "example-sms"]:
+            config.accounts[account] = verification.accounts[account]
+            broker.store.put("credential:" + account, {"username": "demo@example.test", "password": DEMO_PASSWORD})
+        config.code_sources.update(verification.code_sources)
+        broker.store.configure(config)
+        broker.store.put("source:example-email", {"username": "demo@example.test", "password": DEMO_PASSWORD})
+        # Only the public test CA crosses into the worker. Mail credentials are
+        # encrypted in its private store, never environment/argv/bootstrap logs.
+        private_file(state / "fixture-mail-ca.pem", mailbox.cert_path.read_bytes())
+        phone = {}
+        delivered_sms = []
+        def deliver(kind, code):
+            if kind == "email":
+                mailbox.deliver(code)
+            elif kind == "sms":
+                address = urlsplit(phone["url"])
+                certificate = (state / "phone/certificate.pem").read_bytes()
+                fingerprint = hashlib.sha256(ssl.PEM_cert_to_DER_cert(certificate.decode())).hexdigest()
+                assert secrets.compare_digest(fingerprint, phone["certificate_sha256"])
+                context = ssl.create_default_context(cadata=certificate.decode())
+                with closing(http.client.HTTPSConnection(
+                        address.hostname, address.port, context=context, timeout=10)) as channel:
+                    channel.request("POST", address.path, json.dumps({"id": secrets.token_hex(16),
+                        "sender": "Example", "recipient": "demo@example.test", "body": "Example sign-in: " + code,
+                        "received_at": time.time()}), {"Authorization": "Bearer " + phone["token"],
+                        "Content-Type": "application/json"})
+                    response = channel.getresponse()
+                    assert response.status == 200 and json.loads(response.read())["status"] == "RECEIVED"
+                delivered_sms.append(True)
+        provider.delivery = deliver
         token = broker.store.new_client("fixture-agent")
-        for account in ["demo-api", "demo-web", "demo-mfa"]:
+        for account in ["demo-api", "demo-web", "demo-mfa", "example-email", "example-sms"]:
             broker.grant("fixture-agent", account, ["summary"])
         payload = (state / "demo.key").read_bytes() + secrets.token_bytes(32)
         (state / "demo.key").unlink()
@@ -164,6 +212,7 @@ def exercise(prefix, roles):
             try:
                 arguments = [*dropped(roles["broker"]), "/usr/bin/env",
                     "PLAYWRIGHT_BROWSERS_PATH=" + str(prefix / "browsers"),
+                    "SSL_CERT_FILE=" + str(state / "fixture-mail-ca.pem"),
                     sys.executable, "-I", "-B", "-m", "account_access.worker_host",
                     "--policy", str(prefix / "policy.json"), "--bootstrap-fd", str(reader),
                     "--agent-fd", str(agent_socket.fileno()), "--owner-fd", str(owner_socket.fileno()),
@@ -205,10 +254,14 @@ def exercise(prefix, roles):
                     time.sleep(0.1)
                 else:
                     raise RuntimeError("fixture_worker_start_timed_out")
+                phone.update(owner_request(owner_path, owner_token, "/owner/phone/pair", {"source": "example-sms"}))
+                assert mailbox.fetches == provider.login_count == 0
                 stage("different_user_signins_and_denials")
                 checks = probe(prefix, roles, worker, policy, "initial")
-                assert provider.login_count == 2 and provider.totp_count == 1
-                checks["provider_confirmed_two_passwords_one_totp"] = True
+                assert provider.login_count == 4 and provider.totp_count == provider.email_count == provider.sms_count == 1
+                checks["provider_confirmed_four_passwords_all_factors"] = True
+                checks["tls_imap_message_fetched"] = mailbox.fetches == 1
+                checks["pinned_https_sms_delivered"] = len(delivered_sms) == 1
                 owner_request(owner_path, owner_token, "/owner/revoke", {"account": "demo-api"})
                 stage("revoked_read")
                 checks.update(probe(prefix, roles, worker, policy, "revoked"))
