@@ -16,6 +16,7 @@ import json
 import os
 from pathlib import Path
 import pwd
+import re
 import resource
 import secrets
 import shutil
@@ -114,7 +115,7 @@ def mac_identities(prefix):
     # runs only in disposable hosted CI, under its already-authorized root role.
     if os.environ.get("GITHUB_ACTIONS") != "true":
         raise RuntimeError("mac_worker_qa_requires_disposable_ci")
-    created_users, created_groups = [], []
+    created_users, created_groups, created_domains = [], [], []
     try:
         roles = {}
         for role in ["broker", "agent"]:
@@ -144,8 +145,15 @@ def mac_identities(prefix):
             home.mkdir(mode=0o700)
             os.chown(home, user.pw_uid, user.pw_gid)
             roles[role] = user
+            # A UID switch does not adopt its Mach bootstrap/audit session.
+            # Create only this newly allocated account's user domain, and
+            # remove it before deleting the temporary Directory Services entry.
+            command(["/bin/launchctl", "bootstrap", "user/" + str(candidate)])
+            created_domains.append("user/" + str(candidate))
         yield roles
     finally:
+        for domain in reversed(created_domains):
+            command(["/bin/launchctl", "bootout", domain])
         for record in reversed(created_users):
             command(["/usr/bin/dscl", ".", "-delete", record])
         for record in reversed(created_groups):
@@ -155,7 +163,8 @@ def mac_identities(prefix):
 
 def dropped(user):
     if sys.platform == "darwin":
-        return ["/usr/bin/sudo", "-n", "-H", "-u", "#" + str(user.pw_uid), "-g", "#" + str(user.pw_gid), "--"]
+        return ["/bin/launchctl", "asuser", str(user.pw_uid), "/usr/bin/sudo", "-n", "-H",
+                "-u", "#" + str(user.pw_uid), "-g", "#" + str(user.pw_gid), "--"]
     return ["/usr/bin/setpriv", "--reuid=" + str(user.pw_uid), "--regid=" + str(user.pw_gid),
             "--clear-groups", "--no-new-privs", "--bounding-set=-all", "--inh-caps=-all",
             "--ambient-caps=-all", "--reset-env"]
@@ -229,6 +238,9 @@ def exercise(prefix, roles):
                        "browser_closed_during_launch", "browser_canary_failed"}
             if result.get("reason") in allowed:
                 stage(result["reason"])
+            for site in result.get("chromium_sites", [])[:8]:
+                if isinstance(site, str) and re.fullmatch(r"[a-z_]+\.(?:cc|mm):[0-9]{1,6}", site):
+                    stage("chromium_site_" + site)
             raise RuntimeError("fixture_browser_canary_failed")
     stage("prepare_fictional_state")
     state = prefix / "state"
@@ -318,9 +330,23 @@ def exercise(prefix, roles):
                     private_file(prefix / "mac-launcher.json", json.dumps(launcher).encode())
                     (prefix / "mac-launcher.json").chmod(0o644)
                     root_managed_path(prefix / "mac-worker-bootstrap")
-                    arguments = [str(prefix / "mac-worker-bootstrap"), "--policy", str(prefix / "mac-launcher.json"),
+                    arguments = ["/bin/launchctl", "asuser", str(roles["broker"].pw_uid),
+                        str(prefix / "mac-worker-bootstrap"), "--policy", str(prefix / "mac-launcher.json"),
                         "--bootstrap-fd", str(reader), "--agent-fd", str(agent_socket.fileno()),
                         "--owner-fd", str(owner_socket.fileno())]
+                    # A protected top-level directory alone cannot attest code
+                    # inside it. An unsafe descendant must stop native launch
+                    # before any key handoff; only this disposable CI tree changes.
+                    import account_access.worker_host as worker_module
+                    unsafe = Path(worker_module.__file__).with_name("qa-writable-descendant.py")
+                    assert not unsafe.exists()
+                    try:
+                        unsafe.write_text("# Inert CI fixture, never imported.\n")
+                        unsafe.chmod(0o666)
+                        rejected = subprocess.run(arguments, capture_output=True, timeout=30)
+                        assert rejected.returncode == 78 and json.loads(rejected.stdout).get("reason") == "unsafe_worker_launcher_runtime"
+                    finally:
+                        unsafe.unlink(missing_ok=True)
                 worker = subprocess.Popen(arguments, pass_fds=(reader, agent_socket.fileno(), owner_socket.fileno()),
                     stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                     start_new_session=True, env={"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"})
@@ -362,6 +388,8 @@ def exercise(prefix, roles):
                 else:
                     raise RuntimeError("fixture_worker_start_timed_out")
                 phone.update(owner_request(owner_path, owner_token, "/owner/phone/pair", {"source": "example-sms"}))
+                identity = command(["/bin/ps", "-p", str(worker.pid), "-o", "uid=,gid="]).split()
+                assert identity == [str(roles["broker"].pw_uid).encode(), str(roles["broker"].pw_gid).encode()]
                 assert mailbox.fetches == provider.login_count == 0
                 stage("different_user_signins_and_denials")
                 checks = probe(prefix, roles, worker, policy, "initial")
@@ -380,6 +408,7 @@ def exercise(prefix, roles):
                 checks["worker_output_has_no_credentials"] = not stdout and not stderr
                 if sys.platform == "darwin":
                     checks["native_broker_identity_drop_verified"] = True
+                    checks["native_runtime_writable_descendant_rejected"] = True
                 assert all(checks.values()), "fixture_worker_final_checks_failed"
                 return {"status": "PASSED", "environment": "controlled-demo", "production_ready": False,
                         "private_signins": 0, "platform": "macos" if sys.platform == "darwin" else "linux", "real_distinct_uids": True,

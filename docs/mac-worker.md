@@ -12,6 +12,14 @@ primary group, private home and non-login shell. The existing enrolled state
 must belong to that identity. A development CA is allowed only in explicitly
 controlled fixtures.
 
+The launcher also checks descendants of the venv, managed Python installation
+and browser tree. Root-owned top-level folders are insufficient: imported code,
+site hooks, standard-library files and browser components must also be root
+owned and unwritable by other users. Special/set-ID objects and directory
+symlinks escaping the checked tree are rejected. Enumeration is bounded and
+fails on unreadable entries. Runtime provisioning and updates still need their
+own trusted package verification; filesystem ownership is not publisher trust.
+
 The parent passes a root-created secret pipe and two Unix listeners. The child
 checks their types and bound socket paths, normalizes them to three fixed
 descriptors and permanently drops supplementary groups, group and user IDs.
@@ -47,7 +55,8 @@ actual report, not inferred from compilation.
 
 The Mac checks differ from Linux `/proc` checks: a denied task-port request tests
 Mac memory/control access, while the native launcher additionally verifies its
-permanent identity drop. The report validator requires the platform's exact
+permanent identity drop and rejects a deliberately writable runtime descendant
+before key handoff. The report validator requires the platform's exact
 check set and does not count one platform's checks as the other platform's proof.
 
 This is not a downloaded consumer installation or a privileged XPC-owner-channel

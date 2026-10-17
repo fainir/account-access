@@ -18,7 +18,8 @@ CHECKS = {
     "agent_cannot_impersonate_worker",
 }
 MAC_CHECKS = (CHECKS - {"worker_memory_read_denied", "worker_environment_read_denied", "worker_descriptors_denied"}) | {
-    "worker_task_port_denied", "native_launcher_requires_root", "native_broker_identity_drop_verified"}
+    "worker_task_port_denied", "native_launcher_requires_root", "native_broker_identity_drop_verified",
+    "native_runtime_writable_descendant_rejected"}
 
 
 def validate(value):

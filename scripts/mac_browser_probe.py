@@ -6,6 +6,7 @@ labels leave this process; Playwright's raw error text is never printed.
 
 import json
 import os
+import re
 import sys
 
 from playwright.sync_api import sync_playwright
@@ -29,6 +30,8 @@ def main():
         # input. Never output the exception or browser subprocess arguments.
         message = str(error)
         labels = [("bootstrap_check_in", "mach_bootstrap_registration_failed"),
+                  ("bootstrap_look_up", "mach_bootstrap_registration_failed"),
+                  ("bootstrap_register", "mach_bootstrap_registration_failed"),
                   ("MachPortRendezvous", "mach_bootstrap_registration_failed"),
                   ("ProcessSingleton", "browser_profile_unavailable"),
                   ("Executable doesn't exist", "browser_not_installed"),
@@ -36,7 +39,8 @@ def main():
                   ("Permission denied", "browser_launch_permission_denied"),
                   ("Target page, context or browser has been closed", "browser_closed_during_launch")]
         reason = next((label for text, label in labels if text in message), "browser_canary_failed")
-        print(json.dumps({"status": "FAILED", "phase": phase, "reason": reason}))
+        sites = sorted(set(re.findall(r"\b([a-z_]+\.(?:cc|mm):[0-9]{1,6})\b", message)))[:8]
+        print(json.dumps({"status": "FAILED", "phase": phase, "reason": reason, "chromium_sites": sites}))
         return 1
 
 

@@ -15,6 +15,43 @@ enum WorkerLaunchFailure: String, Error {
 }
 
 enum WorkerLaunchPaths {
+    static func protectedTree(_ path: String) throws -> URL {
+        let root = try protected(path)
+        var rootInfo = stat()
+        guard lstat(root.path, &rootInfo) == 0, rootInfo.st_mode & S_IFMT == S_IFDIR else {
+            throw WorkerLaunchFailure.unsafeRuntime
+        }
+        var failed = false
+        guard let entries = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil,
+            options: [], errorHandler: { _, _ in failed = true; return false }) else {
+            throw WorkerLaunchFailure.unsafeRuntime
+        }
+        var count = 0
+        while let item = entries.nextObject() as? URL {
+            count += 1
+            var info = stat()
+            guard count <= 100_000, lstat(item.path, &info) == 0, info.st_uid == 0 else {
+                throw WorkerLaunchFailure.unsafeRuntime
+            }
+            let kind = info.st_mode & S_IFMT
+            if kind == S_IFLNK {
+                let target = try protected(item.path)
+                var targetInfo = stat()
+                guard lstat(target.path, &targetInfo) == 0 else { throw WorkerLaunchFailure.unsafeRuntime }
+                // Directory aliases must remain in the tree being enumerated;
+                // otherwise their contents would evade the descendant checks.
+                if targetInfo.st_mode & S_IFMT == S_IFDIR && target.path != root.path
+                    && !target.path.hasPrefix(root.path + "/") { throw WorkerLaunchFailure.unsafeRuntime }
+            } else {
+                guard [S_IFREG, S_IFDIR].contains(kind), info.st_mode & 0o6022 == 0 else {
+                    throw WorkerLaunchFailure.unsafeRuntime
+                }
+            }
+        }
+        guard !failed else { throw WorkerLaunchFailure.unsafeRuntime }
+        return root
+    }
+
     static func protected(_ path: String) throws -> URL {
         guard path.hasPrefix("/"), !path.utf8.contains(0), !path.split(separator: "/").contains("..") else {
             throw WorkerLaunchFailure.unsafeRuntime
@@ -127,9 +164,15 @@ struct MacWorkerPlan {
         guard lstat(brokerHome, &homeInfo) == 0, homeInfo.st_mode & S_IFMT == S_IFDIR,
               homeInfo.st_uid == uid, homeInfo.st_mode & 0o077 == 0 else { throw WorkerLaunchFailure.invalidIdentity }
         _ = try WorkerLaunchPaths.protected(URL(fileURLWithPath: brokerHome).deletingLastPathComponent().path)
-        let runtimeURL = try WorkerLaunchPaths.protected(runtime)
+        let runtimeURL = try WorkerLaunchPaths.protectedTree(runtime)
         let executable = try WorkerLaunchPaths.protected(python)
-        _ = try WorkerLaunchPaths.protected(browsers)
+        // Isolated Python still loads its standard library and site hooks.
+        // Protect the entire managed Python installation, not only its binary.
+        guard executable.deletingLastPathComponent().lastPathComponent == "bin" else {
+            throw WorkerLaunchFailure.unsafeRuntime
+        }
+        _ = try WorkerLaunchPaths.protectedTree(executable.deletingLastPathComponent().deletingLastPathComponent().path)
+        _ = try WorkerLaunchPaths.protectedTree(browsers)
         if let fixtureCA { _ = try WorkerLaunchPaths.protected(fixtureCA) }
         // The selected venv is fixed by root policy; its bin/python may point
         // to a different root-owned Python installation, as normal venvs do.
