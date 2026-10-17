@@ -8,6 +8,9 @@ enum RootListenerFailure: String, Error {
     case unavailable = "broker_socket_activation_unavailable"
     case invalid = "broker_socket_activation_invalid"
     case busy = "broker_socket_activation_in_use"
+    case context = "broker_socket_activation_context_invalid"
+    case metadata = "broker_socket_activation_metadata_invalid"
+    case changed = "broker_socket_activation_identity_changed"
 }
 
 final class RootActivatedListeners {
@@ -35,19 +38,19 @@ final class RootActivatedListeners {
     private static func metadata(_ fd: Int32, path: String, group: gid_t, mode: mode_t) throws -> stat {
         _ = try WorkerLaunchPaths.protected(URL(fileURLWithPath: path).deletingLastPathComponent().path)
         try MacWorkerBootstrap.checkFD(fd, type: S_IFSOCK, socketPath: path)
-        var accepts: Int32 = 0, length = socklen_t(MemoryLayout<Int32>.size), info = stat()
-        guard getsockopt(fd, SOL_SOCKET, SO_ACCEPTCONN, &accepts, &length) == 0, accepts == 1,
-              lstat(path, &info) == 0, info.st_mode & S_IFMT == S_IFSOCK,
+        var info = stat()
+        guard lstat(path, &info) == 0, info.st_mode & S_IFMT == S_IFSOCK,
               info.st_uid == 0, info.st_gid == group, info.st_mode & 0o7777 == mode else {
-            throw RootListenerFailure.invalid
+            throw RootListenerFailure.metadata
         }
+        try MacWorkerBootstrap.requireListening(fd)
         return info
     }
     init(plan: MacWorkerPlan) throws {
         try RootVaultKeyStore.requireDaemon()
         // Parent crash cleanup belongs to this launchd job's process group.
         guard getppid() == 1, getpgrp() == getpid(), let user = getpwuid(plan.agentUID) else {
-            throw RootListenerFailure.invalid
+            throw RootListenerFailure.context
         }
         let group = user.pointee.pw_gid
         var acquired: [Entry] = []
@@ -73,7 +76,7 @@ final class RootActivatedListeners {
         do {
             for entry in entries {
                 let info = try Self.metadata(entry.fd, path: entry.path, group: entry.group, mode: entry.mode)
-                guard info.st_dev == entry.device, info.st_ino == entry.inode else { throw RootListenerFailure.invalid }
+                guard info.st_dev == entry.device, info.st_ino == entry.inode else { throw RootListenerFailure.changed }
                 let copy = fcntl(entry.fd, F_DUPFD_CLOEXEC, 10)
                 guard copy >= 10 else { throw RootListenerFailure.unavailable }
                 copies.append(copy)

@@ -416,6 +416,7 @@ def root_coordinator(prefix, roles, key_policy, phase):
             if failure.exists():
                 detail = json.loads(failure.read_bytes())
                 if detail.get("reason") in {"broker_socket_activation_unavailable", "broker_socket_activation_invalid",
+                        "broker_socket_activation_context_invalid", "broker_socket_activation_metadata_invalid", "broker_socket_activation_identity_changed",
                         "broker_socket_activation_in_use", "owner_policy_changed", "owner_policy_unavailable", "owner_policy_readback_invalid",
                         "worker_process_unavailable", "worker_bootstrap_code_rejected", "vault_key_missing", "system_keychain_unavailable"}:
                     stage(detail["reason"])

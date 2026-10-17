@@ -217,6 +217,16 @@ struct MacWorkerPlan {
 }
 
 enum MacWorkerBootstrap {
+    static func requireListening(_ fd: Int32) throws {
+        var info = stat(), kind: Int32 = 0
+        var length = socklen_t(MemoryLayout<Int32>.size)
+        // Darwin does not expose SO_ACCEPTCONN for these Unix sockets. Calling
+        // listen establishes readiness, is safe on an existing listener, and
+        // rejects a connected stream. Root/path ownership checks stay separate.
+        guard fd >= 3, fstat(fd, &info) == 0, info.st_mode & S_IFMT == S_IFSOCK,
+              getsockopt(fd, SOL_SOCKET, SO_TYPE, &kind, &length) == 0, kind == SOCK_STREAM,
+              listen(fd, 128) == 0 else { throw WorkerLaunchFailure.invalidDescriptors }
+    }
     static func replaceImage(_ executable: String, arguments values: [String], environment settings: [String]) throws -> Never {
         var arguments = values.map { strdup($0) }; arguments.append(nil)
         var environment = settings.map { strdup($0) }; environment.append(nil)

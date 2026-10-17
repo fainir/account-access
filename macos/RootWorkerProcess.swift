@@ -152,7 +152,10 @@ final class RootWorkerProcess {
                 guard state == 0 else { throw RootWorkerProcessFailure.ownershipLost }
                 let remaining = deadline - ProcessInfo.processInfo.systemUptime
                 guard remaining > 0 else { throw RootWorkerProcessFailure.unavailable }
-                if let result = try? backend.health(timeout: min(1, remaining)), result.0 == 200 { return backend }
+                if let result = try? backend.health(timeout: min(1, remaining)), result.0 == 200 {
+                    guard listeners == nil || getpgid(child!) == getpgrp() else { throw RootListenerFailure.context }
+                    return backend
+                }
                 Thread.sleep(forTimeInterval: 0.1)
             }
             throw RootWorkerProcessFailure.unavailable
