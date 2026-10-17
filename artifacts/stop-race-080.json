@@ -1,0 +1,39 @@
+{
+  "status": "PASSED",
+  "environment": "controlled-demo",
+  "production_ready": false,
+  "private_signins": 0,
+  "date": "2026-10-17",
+  "source_revision": "d402c5d7793da0c36aa44866488015398ac986d9",
+  "installed_owner_app_changed": false,
+  "problem": "Supervision can stop the owner listener after authenticated readiness but before the stop POST",
+  "checks": {
+    "real_listener_exit_after_readiness_exercised": true,
+    "actual_connection_refused_observed": true,
+    "both_process_leases_verified_before_success": true,
+    "pause_intent_preserved": true,
+    "on_demand_restart_refused_while_paused": true,
+    "held_service_lease_still_refused": true,
+    "explicit_owner_endpoint_rejection_still_refused": true,
+    "uncertain_stop_post_not_replayed": true
+  },
+  "targeted_lifecycle_cases": 29,
+  "targeted_installer_bootstrap_cases": 64,
+  "validation": {
+    "source_revision": "d402c5d7793da0c36aa44866488015398ac986d9",
+    "regression_tests": 778,
+    "platform_skips": 1,
+    "regression_seconds": 468.24,
+    "regression_ci": "https://github.com/fainir/account-access/actions/runs/38999652497",
+    "lint": "passed",
+    "dependency_audit": "no known vulnerabilities",
+    "package_and_native_checks": "passed",
+    "linux_cross_user_checks": 24,
+    "linux_ci": "https://github.com/fainir/account-access/actions/runs/38999652516",
+    "android_emulator_journey": "passed",
+    "android_ci": "https://github.com/fainir/account-access/actions/runs/38999652533"
+  },
+  "limits": [
+    "Controlled local service processes only; installed owner update and actual logout/reboot remain unverified"
+  ]
+}

@@ -302,6 +302,11 @@ consumer installation or genuine owner approval. A separate
 restart recovery and denied another user's direct read. Production supervision,
 key handoff and native consumer wiring remain under implementation.
 
+The same Mac VM passed [16 setup-policy checks](artifacts/mac-owner-policy-080.json):
+strict rule provisioning, registrar binding, changed-rule rejection and fixture
+cleanup. The proof test deliberately uses a synthetic permissive rule and does
+not establish genuine owner presence or consumer enrollment.
+
 Version 0.7 strengthens private file replacement, rejects vault-sidecar symlinks, requires an active matching window for every code resolver, and rechecks the verification page before filling its code. Native forms must POST to an approved destination. These checks run silently for supported normal logins. [Security and sync details](docs/security-and-password-sync.md) describe what is enforced and what remains outside the local preview's boundary.
 
 - [Architecture and trust boundaries](docs/architecture.md)

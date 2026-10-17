@@ -1,10 +1,44 @@
 # Validation of Account Access
 
+## Strict Mac setup policy and stop recovery — 17 October 2026
+
+Revision `d402c5d` passed **16 native policy checks**, alongside the existing
+20 System-key, 24 root owner-host and 25 worker checks in the same
+[Mac VM](https://github.com/fainir/account-access/actions/runs/38999652539/job/117299684300).
+The daemon created the exact user/session-owner rule, verified its own registrar
+identity, preserved an existing matching rule, refused altered rules and foreign
+registrar metadata, and removed the QA right. A real OS proof obtained only under
+the fixture's temporary permissive rule was refused by the production root
+verifier. This is explicitly synthetic proof testing, not genuine owner approval.
+The installed owner's authorization database and app were unchanged.
+
+Matching source passed **778 tests, one platform skip, in 468.24 seconds**,
+lint, dependency audit with no known vulnerabilities, package and native checks
+in [regression CI](https://github.com/fainir/account-access/actions/runs/38999652497).
+[Linux's 24-check worker](https://github.com/fainir/account-access/actions/runs/38999652516)
+and the [Android emulator journey](https://github.com/fainir/account-access/actions/runs/38999652533)
+also passed. All eight push/PR workflow variants succeeded. The updated owner
+channel passed 54 checks locally with ad-hoc peers; the earlier Developer ID
+run retains its own source scope. See [policy evidence](../artifacts/mac-owner-policy-080.json).
+
+An earlier full run at `7ebf887` exposed a genuine shutdown race: supervision
+could close the owner listener after authenticated readiness but before Stop's
+POST. That failed run is excluded. Stop now tolerates a transport failure only
+while still requiring both actual process leases to finish; explicit HTTP
+rejection and held leases still fail. A deterministic real-process regression,
+29 targeted lifecycle tests and 64 installer/bootstrap tests passed. See
+[stop-race evidence](../artifacts/stop-race-080.json).
+
+Consumer supervision/key handoff, native enrollment/collectors, genuine owner
+approval, migration, notarized installation, real private verification sources
+and physical phones remain open. Installed build 53 and its unfinished mailbox
+form were preserved. The production goal is not complete.
+
 ## Mac system key custody — 17 October 2026
 
-Revision `1aacc8a` passed **20 daemon key-custody checks** alongside the Mac
+Revision `d402c5d` passed **20 daemon key-custody checks** alongside the Mac
 worker's 25 and root owner host's 24 checks in the same
-[disposable VM](https://github.com/fainir/account-access/actions/runs/38998814664/job/117297184139).
+[disposable VM](https://github.com/fainir/account-access/actions/runs/38999652539/job/117299684300).
 The key was confirmed independently in System, recovered by a new system
 process, and refused to a separate user (`errSecAuthFailed`). Invalid/other vault
 identities, duplicate enrollment, missing-key non-enrollment, zero core-dump
@@ -15,8 +49,8 @@ No key was supplied through a file, argument, environment or agent response.
 
 This is process-restart component acceptance, not reboot, signed-binary update,
 consumer supervision, key handoff or installed-owner migration. Private mailbox,
-SMS and TOTP coverage remains open. The new authorization-policy provisioner is
-still under validation and does not establish genuine owner approval. See
+SMS and TOTP coverage remains open. The separately tested authorization-policy
+provisioner does not establish genuine owner approval. See
 [key-custody evidence](../artifacts/mac-key-custody-080.json) and its
 [contract and remaining work](mac-key-custody.md).
 

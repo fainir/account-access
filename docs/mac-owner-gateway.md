@@ -54,10 +54,15 @@ identifier/designated requirement; the root proof verifier checks that registrar
 as well as the strict rule before and after OS verification. Apple adds prompt
 and creator metadata on readback, which does not replace any authentication flag.
 An external installer cannot register on the daemon's behalf. It grants no setup authorization and
-accepts no caller-selected name or policy. Its new disposable-VM harness uses
+accepts no caller-selected name or policy. Its disposable-VM harness uses
 only the separate QA right, including a temporary permissive rule to test proof
-rejection, then removes it. This provisioning journey is under validation;
-it is not a completed genuine owner approval or consumer installation.
+rejection, then removes it. Revision `d402c5d` passed **16 policy checks** in
+[Mac CI](https://github.com/fainir/account-access/actions/runs/38999652539/job/117299684300),
+alongside key custody, root host and worker acceptance. See the
+[policy evidence](../artifacts/mac-owner-policy-080.json). This is not completed
+genuine owner approval or consumer installation. Apple's
+[rule registration/export implementation](https://github.com/apple-oss-distributions/Security/blob/main/OSX/authd/rule.c)
+records the creator's code identity and emits that metadata on readback.
 
 One accepted proof enables configuration writes on that connection for ten
 minutes. End setup, expiration and disconnect remove that authority; a late
