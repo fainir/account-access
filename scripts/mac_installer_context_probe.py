@@ -68,10 +68,18 @@ def main():
         (root / OWNER_APP / "Contents/MacOS").mkdir(parents=True)
         scripts.mkdir()
         helper = scripts / "AccountAccess-installerverify"
-        subprocess.run(["xcrun", "swiftc", "-O", "-parse-as-library", "-warnings-as-errors",
-                        "-D", "ACCOUNT_ACCESS_INSTALL_VERIFIER_MAIN", "-framework", "Foundation", "-framework", "CryptoKit",
-                        str(source / "macos/InstallerPayload.swift"), "-o", str(helper)],
-                       check=True, capture_output=True, timeout=120)
+        try:
+            subprocess.run(["xcrun", "swiftc", "-O", "-parse-as-library", "-warnings-as-errors",
+                            "-D", "ACCOUNT_ACCESS_INSTALL_VERIFIER_MAIN", "-framework", "Foundation", "-framework", "CryptoKit",
+                            str(source / "macos/InstallerPayload.swift"), "-o", str(helper)],
+                           check=True, capture_output=True, timeout=120)
+        except subprocess.CalledProcessError as error:
+            # The input is public repository source, never credential-bearing
+            # owner state. Preserve bounded compiler diagnostics for CI review.
+            diagnostics = (error.stdout + error.stderr)[:65536]
+            (output / "compiler-diagnostics.txt").write_bytes(diagnostics)
+            print(diagnostics[:16384].decode("utf-8", errors="replace"))
+            raise
         subprocess.run(["/usr/bin/codesign", "--force", "--options", "runtime", "--sign", "-", str(helper)],
                        check=True, capture_output=True, timeout=30)
         shutil.copy2(helper, root / SUPPORT / "bin/AccountAccess-installerverify")
