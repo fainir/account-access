@@ -171,10 +171,12 @@ def _exercise(prefix, roles, key_policy, phase, client_token, probe, command, fi
         nonlocal booted
         command(["/bin/launchctl", "bootout", target])
         booted = False
-        receipt = json.loads(stopped_file.read_bytes())
-        assert receipt == {"status": "STOPPED", "pid": ready["pid"], "owned_worker_stopped": True}
-        deadline = time.monotonic() + 10
+        deadline = time.monotonic() + 25
         while time.monotonic() < deadline:
+            try:
+                receipt = json.loads(stopped_file.read_bytes())
+            except (OSError, ValueError):
+                receipt = {}
             absent = [
                 subprocess.run(
                     ["/bin/ps", "-p", str(ready[key]), "-o", "pid="], capture_output=True
@@ -182,13 +184,18 @@ def _exercise(prefix, roles, key_policy, phase, client_token, probe, command, fi
                 != 0
                 for key in ["pid", "worker_pid"]
             ]
-            if all(absent):
+            if all(absent) and receipt == {
+                "status": "STOPPED",
+                "pid": ready["pid"],
+                "owned_worker_stopped": True,
+            }:
                 return
             time.sleep(0.05)
         raise RuntimeError("native_system_owned_process_did_not_stop")
 
     try:
         first = start()
+        print(json.dumps({"stage": "native_system_first_ready"}), file=sys.stderr, flush=True)
         checks = probe(
             prefix,
             roles,
@@ -198,12 +205,17 @@ def _exercise(prefix, roles, key_policy, phase, client_token, probe, command, fi
             client_config=config,
         )
         assert fixture.provider.login_count == fixture.provider.sms_count == fixture.delivered == 1
+        print(
+            json.dumps({"stage": "native_system_first_cli_completed"}), file=sys.stderr, flush=True
+        )
         stop(first)
+        print(json.dumps({"stage": "native_system_first_stopped"}), file=sys.stderr, flush=True)
         # The saved website cookie is now expired independently of the service.
         # A new root host must reopen the same System-key store and collect anew.
         fixture.provider.sessions.clear()
         second = start(previous=first["pid"])
         assert second["worker_pid"] != first["worker_pid"]
+        print(json.dumps({"stage": "native_system_second_ready"}), file=sys.stderr, flush=True)
         repeated = probe(
             prefix,
             roles,
@@ -216,7 +228,11 @@ def _exercise(prefix, roles, key_policy, phase, client_token, probe, command, fi
             repeated == checks
             and fixture.provider.login_count == fixture.provider.sms_count == fixture.delivered == 2
         )
+        print(
+            json.dumps({"stage": "native_system_second_cli_completed"}), file=sys.stderr, flush=True
+        )
         stop(second)
+        print(json.dumps({"stage": "native_system_second_stopped"}), file=sys.stderr, flush=True)
         checks.update(
             {
                 "system_key_initialized_private_worker_store": True,

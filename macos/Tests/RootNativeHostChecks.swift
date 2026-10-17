@@ -53,7 +53,6 @@ enum RootNativeHostChecks {
         timeout.schedule(deadline: .now() + 90)
         timeout.setEventHandler { try? host.stop(); exit(78) }
         timeout.resume()
-        withExtendedLifetime((host, termination, timeout)) { RunLoop.current.run() }
-        throw RootWorkerProcessFailure.unavailable
+        withExtendedLifetime((host, termination, timeout)) { dispatchMain() }
     }
 }
