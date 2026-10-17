@@ -318,6 +318,13 @@ directories, binds their identities in a protected journal and refuses existing
 data or an unverified stage. This component does not complete the consumer
 owner-enrollment, client-issuance or migration flow.
 
+The [first-enrollment coordinator](docs/mac-initial-enrollment.md) passed
+[24 further checks](artifacts/mac-initial-setup-080.json), including approval
+rejection, durable Pause, resume during initialization, reopening without
+another setup request and repair when a published key is missing. Positive
+approval is synthetic; genuine owner approval and the consumer native setup
+flow remain unverified.
+
 The same Mac VM passed [16 setup-policy checks](artifacts/mac-owner-policy-080.json):
 strict rule provisioning, registrar binding, changed-rule rejection and fixture
 cleanup. The proof test deliberately uses a synthetic permissive rule and does

@@ -81,8 +81,11 @@ account list by itself cannot establish that the encrypted vault key works.
 These components passed [28 checks in a disposable Mac VM](../artifacts/mac-staged-enrollment-080.json),
 not consumer setup acceptance. The fixture uses an explicitly created temporary
 System key and exercises publication and reopening the published store.
-The approved first-install flow still needs its owner-authorized key creation,
-full setup crash recovery, native UI integration, client issuance and installed migration.
+The [initial enrollment coordinator](mac-initial-enrollment.md) now connects
+native setup authority to key creation and this pipeline. Its positive approval
+is synthetic; a genuine owner approval, separate-process native setup
+composition, full setup crash recovery, native UI integration, client issuance
+and installed migration remain unverified.
 Genuine owner approval, publisher update continuity, notarized clean installation
 and private password/email/SMS/authenticator/physical-phone QA remain open.
 

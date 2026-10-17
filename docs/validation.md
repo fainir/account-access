@@ -1,5 +1,58 @@
 # Validation of Account Access
 
+## Native first-vault coordinator — 17 October 2026
+
+Revision `1bb6992` passed **24 first-enrollment checks** in
+[Mac CI](https://github.com/fainir/account-access/actions/runs/39010365682/job/117331438897)
+and an [independent repeat](https://github.com/fainir/account-access/actions/runs/39010368012/job/117331446556).
+All nine complete raw reports agree, including the existing 28 publication,
+31 composed-host, 21 supervisor, 33 handoff, 20 System-key, 24 root owner-host,
+16 setup-policy and 25 worker checks.
+
+The production coordinator connects setup-session authority to a fresh System
+key, staged initialization, atomic publication and an actual dedicated worker.
+Fresh startup without recorded approval and rejected setup requests create no key.
+Native owner state and health stay available before enrollment. A new setup
+route accepts only an empty object and uses an opaque native approval type;
+caller-selected IDs, paths, credentials and commands are rejected, and the
+legacy owner backend cannot receive key-creation requests.
+
+The real production verifier rejects an invalid proof. Positive setup authority
+is synthetic and passed through an in-process `OwnerGatewaySession`. A controlled
+checkpoint before initialization makes Pause/Resume deterministic. Pause before
+approval persists across coordinator reopening. Pause during initialization
+blocks progress, and an approved immediate resume completes one pipeline.
+Another coordinator reopens the published store without new approval. Removing
+the fixture key makes the published store require repair while keeping owner
+reads available; it never creates a replacement key. Fixture keys are removed.
+
+The native owner-channel suite passed **66 checks** locally and in
+[CI](https://github.com/fainir/account-access/actions/runs/39010365609/job/117331438983)
+with ad-hoc peers. Its eight added checks cover the new route, typed authority,
+unapproved/invalid/expired/closed sessions and legacy-backend refusal. Earlier
+publisher-signed results retain their own source scope.
+
+Matching source passed **893 tests, one platform skip, in 501.66 seconds**,
+lint, an audit with no known vulnerabilities, packaging and native UI checks in
+[regression CI](https://github.com/fainir/account-access/actions/runs/39010365609).
+The [Linux 24-check worker](https://github.com/fainir/account-access/actions/runs/39010365642)
+and [Android emulator journey](https://github.com/fainir/account-access/actions/runs/39010365669)
+also passed. All eight push/PR workflows passed; the focused local evidence
+group passed 49 cases. Both production Mac architectures type-check, and the
+native QA harness links locally.
+
+This is first-store coordinator acceptance, not a genuine positive owner
+approval or consumer setup. The new `RootBrokerHost` enrollment mode is compiled
+but not yet exercised through a separate native XPC owner process. Setup objects
+reopen their durable files within the same hosting process; setup-process kill,
+full crash/power-loss recovery, native consumer screens/installer, client
+issuance and migration remain unverified. The existing-store composed-host
+parent-crash journey is separate. Private email/SMS/authenticator sign-ins,
+physical phones, publisher continuity and notarized clean installation remain
+open. No private login was attempted; installed build 53 and its unfinished
+mailbox form were preserved. See [evidence](../artifacts/mac-initial-setup-080.json)
+and [flow/limits](mac-initial-enrollment.md).
+
 ## Staged vault setup and publication — 17 October 2026
 
 Revision `a0c6cd9` passed **28 native setup/publication checks** in

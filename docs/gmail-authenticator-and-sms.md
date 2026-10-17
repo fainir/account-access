@@ -12,6 +12,12 @@ These are three separate ways a website can verify a sign-in:
 
 Google recommends **Sign in with Google**. Account Access supports an operator-configured Gmail OAuth connection, but the public preview does not include a registered, ready-to-use Google OAuth application. A generic “Connect verification” button is not evidence that this setup has been completed. [Google's Gmail connection guidance](https://support.google.com/mail/answer/7126229).
 
+The consumer OAuth path needs a publisher-registered desktop client. Google's
+[desktop flow](https://developers.google.com/identity/protocols/oauth2/native-app)
+uses the external browser with PKCE and a local callback. For broad consumer
+release, the `gmail.readonly` scope also requires Google's restricted-scope
+verification. [Gmail scope requirements](https://developers.google.com/workspace/gmail/api/auth/scopes).
+
 The video shows the **Gmail app-password option**, for accounts where Google permits it. A reviewed connector must already configure its email-code source with Gmail's mail server, `imap.gmail.com`, port `993`. That makes the source appear in **Verification**; importing a website password alone does not create a mailbox connection.
 
 **Current 0.8 candidate:** you can now connect a mailbox before adding a website.

@@ -52,7 +52,8 @@ final class RootInitialEnrollment: OwnerVaultEnrollmentBackend {
         return true
     }
     // Ordinary startup can continue only an enrollment whose owner approval
-    // was already durably recorded. It never silently enrolls an absent key.
+    // was already durably recorded. Missing keys for initialized data are
+    // never replaced; a recorded fresh empty transaction may continue creation.
     func start() throws {
         try RootVaultKeyStore.requireDaemon()
         lock.lock(); defer { lock.unlock() }
