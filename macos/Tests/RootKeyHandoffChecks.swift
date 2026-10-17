@@ -40,7 +40,20 @@ enum RootKeyHandoffChecks {
         checks["enrolled_fixture_worker_restarted"] = try current.request(OwnerGatewayRoute("owner/state", body: nil)).0 == 200
         let denied = try previous.request(OwnerGatewayRoute("owner/state", body: nil))
         checks["previous_owner_capability_refused"] = [401, 403].contains(denied.0)
+        guard let killed = second.pid, Darwin.kill(killed, SIGKILL) == 0 else { throw RootWorkerProcessFailure.unavailable }
+        let deadline = ProcessInfo.processInfo.systemUptime + 5
+        var alive = true
+        while alive && ProcessInfo.processInfo.systemUptime < deadline {
+            Thread.sleep(forTimeInterval: 0.05)
+            alive = try second.poll()
+        }
+        checks["owned_worker_crash_reaped"] = !alive && second.pid == nil && second.lastExitStatus != 0
         try second.stop()
+        let recovered = try RootWorkerProcess(policy: policy, bootstrap: bootstrap, peer: peer, vault: identity)
+        defer { try? recovered.stop() }
+        let restored = try recovered.start()
+        checks["crashed_worker_store_recovered"] = try restored.request(OwnerGatewayRoute("owner/state", body: nil)).0 == 200
+        try recovered.stop()
         checks["worker_listener_cleanup_verified"] = !FileManager.default.fileExists(atPath: plan.agentSocket)
             && !FileManager.default.fileExists(atPath: plan.ownerSocket)
         let workerPolicy = try WorkerLaunchPaths.object(plan.workerPolicy)

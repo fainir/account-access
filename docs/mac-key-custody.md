@@ -93,6 +93,8 @@ inode. It neither adopts a recorded PID nor installs/restarts a service.
 
 The newest CI journey starts the actual worker on the fixture Store, checks its
 kernel identity and private owner state, stops it, reopens it with a fresh owner
-capability and refuses the old capability. This extension is under validation.
+capability and refuses the old capability. It also kills/reaps only its owned
+worker and checks recovery of the encrypted Store in a new worker. This crash
+extension is under validation.
 It is not production supervision, genuine owner enrollment, migration or
 consumer installation.

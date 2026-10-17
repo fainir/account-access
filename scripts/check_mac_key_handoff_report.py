@@ -11,7 +11,8 @@ PHASE_CHECKS = {"system_key_decrypted_by_python_reader", "owner_entropy_receipt_
 CHECKS = {phase + "_" + name for phase in ("create", "reopen") for name in PHASE_CHECKS} | {
     "separate_receiver_processes_used", "bootstrap_signature_mismatch_refused", "enrolled_fixture_worker_started",
     "worker_kernel_identity_verified", "worker_graceful_shutdown_verified", "enrolled_fixture_worker_restarted",
-    "previous_owner_capability_refused", "worker_listener_cleanup_verified", "paused_store_does_not_start_worker"}
+    "previous_owner_capability_refused", "worker_listener_cleanup_verified", "paused_store_does_not_start_worker",
+    "owned_worker_crash_reaped", "crashed_worker_store_recovered"}
 
 
 def validate(value):

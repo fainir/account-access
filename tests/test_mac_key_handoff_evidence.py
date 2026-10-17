@@ -13,7 +13,7 @@ def report():
 
 
 def test_handoff_requires_each_cross_identity_protocol_and_lifecycle_assertion(tmp_path):
-    assert len(CHECKS) == 31 and validate(report())
+    assert len(CHECKS) == 33 and validate(report())
     for key in CHECKS:
         for replacement in [False, None, 1]:
             value = report()

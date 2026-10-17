@@ -185,5 +185,16 @@ final class RootWorkerProcess {
             owned.removeFirst()
         }
     }
+    func poll() throws -> Bool {
+        try RootVaultKeyStore.requireDaemon()
+        lock.lock(); defer { lock.unlock() }
+        guard let pid = child else { return false }
+        var status: Int32 = 0
+        let result = waitpid(pid, &status, WNOHANG)
+        if result == 0 { return true }
+        guard result == pid else { throw RootWorkerProcessFailure.ownershipLost }
+        child = nil; exitStatus = status
+        return false
+    }
     deinit { try? stop() }
 }
