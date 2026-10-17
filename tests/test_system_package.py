@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+import os
 import subprocess
 import xml.etree.ElementTree as ET
 import zipfile
@@ -100,7 +101,12 @@ def test_supplied_python_cannot_run_before_private_payload_inventory(
         archive.writestr("fixture/data", "fixture only")
     calls, inventories = [], []
     monkeypatch.setattr(package.sys, "platform", "darwin")
-    monkeypatch.setattr(package.os, "getuid", lambda: 501)
+    # Fake only the assembler's platform context. Patching the shared os module
+    # would also change the inventory's ownership checks (and hide Linux UID
+    # differences). Deliberately use a different simulated builder identity.
+    actual_uid = os.getuid()
+    monkeypatch.setattr(package, "os", SimpleNamespace(getuid=lambda: actual_uid + 1))
+    assert os.getuid() == actual_uid
     monkeypatch.setattr(
         package, "inspect_app", lambda *a, **k: ("0.8.0", "ABCDEFGHIJ", wheel, b"fixture==1")
     )
