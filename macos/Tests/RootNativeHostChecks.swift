@@ -50,7 +50,9 @@ enum RootNativeHostChecks {
         }
         termination.resume()
         let timeout = DispatchSource.makeTimerSource(queue: .main)
-        timeout.schedule(deadline: .now() + 90)
+        // The durable recovery command can wait 90 seconds after the cold host
+        // starts. Keep this fixture alive through that wait and verified shutdown.
+        timeout.schedule(deadline: .now() + 180)
         timeout.setEventHandler { try? host.stop(); exit(78) }
         timeout.resume()
         withExtendedLifetime((host, termination, timeout)) { dispatchMain() }
