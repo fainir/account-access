@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import traceback
 import zipfile
 from xml.sax.saxutils import escape
 
@@ -271,8 +272,33 @@ def main():
     try:
         print(json.dumps(assemble(args)))
         return 0
-    except Exception:
-        print('{"status":"FAILED","reason":"system_package_not_built"}', file=sys.stderr)
+    except Exception as exc:
+        diagnostic = {
+            "status": "FAILED",
+            "reason": "system_package_not_built",
+            "type": type(exc).__name__,
+        }
+        frames = traceback.extract_tb(exc.__traceback__)
+        if frames:
+            diagnostic["source"] = {
+                "file": Path(frames[-1].filename).name,
+                "line": frames[-1].lineno,
+                "function": frames[-1].name,
+            }
+        if isinstance(exc, subprocess.CalledProcessError):
+            executable = Path(exc.cmd[0]).name
+            if executable in {
+                "pkgbuild",
+                "productbuild",
+                "python3.12",
+                "codesign",
+                "chmod",
+                "lipo",
+                "pkgutil",
+            }:
+                diagnostic["tool"] = executable
+                diagnostic["exit_code"] = exc.returncode
+        print(json.dumps(diagnostic), file=sys.stderr)
         return 1
 
 
