@@ -28,6 +28,12 @@ The local API binds a private Unix-domain socket, with bearer authentication eve
 
 Local same-user access is appropriate for a trusted-agent pilot, not strong isolation against arbitrary shell execution. A compromised agent with owner filesystem/keychain access can bypass broker interfaces. Isolated deployment is a release requirement for that threat model. The HTTPS client can reach a broker on another host; TLS reverse-proxy configuration is supplied. Multi-tenant hosting, a token issuance UI for remote clients and native Windows transport are not shipped.
 
+An internal [separate-user worker component](isolated-worker.md) accepts a
+root-managed runtime/policy and inherited private bootstrap and listener
+descriptors. It is not connected to the consumer installer or a production
+owner enrollment gateway. Its cross-user CI acceptance uses fictional accounts;
+it does not validate isolation in the installed Mac app.
+
 ## Authority and operations
 
 Standing grants bind principal, account, named operation, owner configuration fingerprint and optional expiry. The owner chooses them once. Every operation and task result access rechecks them. Provider OAuth scopes are also checked before an API read. Configuration drift fails closed until reviewed, granted and reconnected. A revoked principal cannot read its earlier results. A local account revocation stops new operations but cannot retract an already issued HTTP request or invalidate a provider token by itself.

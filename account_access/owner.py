@@ -1,10 +1,11 @@
-"""An ephemeral, loopback-only owner console. This authority is never an agent API."""
+"""An ephemeral private owner console, on loopback or an inherited Unix socket."""
 
 import json
 import hashlib
 import hmac
 import secrets
 import re
+import socket
 import threading
 import time
 import webbrowser
@@ -17,7 +18,20 @@ from .models import BrowserAccount, OAuthAccount
 from .storage import check_private, private_file
 
 
-def make_owner_server(broker, *, guided=False, instance_key=None):
+def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=None,
+                      server_socket=None, origin_port=None, local_host_actions=True):
+    if owner_token is not None and (not isinstance(owner_token, str)
+            or not re.fullmatch(r"[A-Za-z0-9_-]{43}", owner_token)):
+        raise AccessError("DENIED", "invalid_owner_bootstrap")
+    if (server_socket is None) != (origin_port is None):
+        raise AccessError("DENIED", "invalid_owner_transport")
+    if server_socket is not None and (not isinstance(server_socket, socket.socket)
+            or server_socket.family != socket.AF_UNIX
+            or server_socket.getsockopt(socket.SOL_SOCKET, socket.SO_TYPE) != socket.SOCK_STREAM
+            or type(origin_port) is not int or not 1 <= origin_port <= 65535):
+        raise AccessError("DENIED", "invalid_owner_transport")
+    if server_socket is not None:
+        server_socket.listen(128)
     reader_key = broker.store.root / "native-reader.key"
     with broker.store.lock("native-reader-key"):
         if not reader_key.exists():
@@ -30,7 +44,7 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
     except (AccessError, OSError, ValueError):
         # A changed Wi-Fi address or busy port requires re-pairing, not a failed local app.
         phone.server = None
-    token = secrets.token_urlsafe(32)
+    token = owner_token or secrets.token_urlsafe(32)
     instance_key = instance_key or secrets.token_bytes(32)
     jobs = {}
     reviews = {}
@@ -215,6 +229,7 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                 with guard:
                     connection_jobs = dict(jobs)
                 state = {"accounts": accounts, "principals": principals, "grants": grants,
+                         "local_host_actions": local_host_actions,
                          "background_recovery": broker.worker_health.view(),
                          "integrations": broker.store.get("agent-integrations", principals),
                          "automatic_sessions": broker.store.get("session-integrations", {}),
@@ -239,7 +254,8 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                                                          for n, op in spec.operations.items()]}
                                          for key, spec in config.accounts.items()
                                          if isinstance(spec, BrowserAccount) and key not in present]
-                    state["portable_cli"] = str(Path.home() / ".agents/skills/account-access/scripts/access")
+                    state["portable_cli"] = (str(Path.home() / ".agents/skills/account-access/scripts/access")
+                                             if local_host_actions else None)
                 from .mailbox_health import view as mailbox_health
                 from .mailboxes import view as mailboxes
                 state["mailboxes"] = mailboxes(broker.store)
@@ -262,6 +278,11 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
         def do_POST(self):
             if not self.authorized(mutate=True):
                 self.send(403, {"status": "DENIED", "reason": "owner_authorization_required"})
+                return
+            if not local_host_actions and (self.path in {
+                    "/owner/install", "/owner/google-messages/prepare", "/owner/sms/setup-start",
+                    "/owner/connect"} or self.path.startswith("/owner/browser-session/")):
+                self.send(403, {"status": "NEEDS_USER", "reason": "trusted_host_action_required"})
                 return
             try:
                 length = int(self.headers.get("Content-Length", "0"))
@@ -498,8 +519,10 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
                             or not isinstance(data.get("visible", False), bool)
                             or not isinstance(config.accounts[account], BrowserAccount)):
                         raise ValueError()
-                    ident = new_job(account)
                     visible = data.get("visible", False)
+                    if visible and not local_host_actions:
+                        raise AccessError("NEEDS_USER", "trusted_browser_handoff_required")
+                    ident = new_job(account)
                     stop = threading.Event() if visible else None
                     if stop:
                         with guard:
@@ -562,7 +585,16 @@ def make_owner_server(broker, *, guided=False, instance_key=None):
             phone.close()
             super().server_close()
 
-    server = OwnerServer(("127.0.0.1", 0), Handler)
+    if server_socket is None:
+        server = OwnerServer(("127.0.0.1", 0), Handler)
+    else:
+        class UnixOwnerServer(OwnerServer):
+            address_family = socket.AF_UNIX
+        server = UnixOwnerServer(server_socket.getsockname(), Handler, bind_and_activate=False)
+        server.socket.close()
+        server.socket = server_socket
+        server.server_name = "localhost"
+        server.server_port = origin_port
     return server, token
 
 
