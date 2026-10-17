@@ -1,5 +1,71 @@
 # Validation of Account Access
 
+## Portable client bootstrap through native owner setup — 17 October 2026
+
+Revision `0a473b8` passed **946 tests, three platform skips, in 508.62 seconds**,
+lint, an audit with no known vulnerabilities, packaging, native screen checks
+and all eight push/PR workflows in
+[regression CI](https://github.com/fainir/account-access/actions/runs/39016682285).
+The [Linux 24-check worker](https://github.com/fainir/account-access/actions/runs/39016682312)
+and [Android emulator journey](https://github.com/fainir/account-access/actions/runs/39016682286)
+also passed. Seventy focused cases passed locally on Mac, including the two
+Darwin ACL cases skipped by the Linux regression job. Native owner-channel
+acceptance retained **67 checks** with ad-hoc peers.
+
+The native app now connects a fresh isolated vault to one `generic` client,
+without a Claude/Codex selector. An owner-user helper prepares private client
+files, the approved native setup path enrolls its digest, and the helper verifies
+an account read before publishing the portable launcher and detected-host session
+guidance. Confirmation contains only the public ID and known host names. The
+broker returns no token and grants no account access during enrollment. Repeating
+the same connection preserves its token and grants; different, revoked or orphaned
+principal history requires repair rather than silent replacement.
+
+[Mac CI](https://github.com/fainir/account-access/actions/runs/39016682451/job/117350116965)
+and an [independent repeat](https://github.com/fainir/account-access/actions/runs/39016685806/job/117350126691)
+produced identical sets of ten complete reports: **40 first-vault/client setup**,
+18 initial native gateway, 28 publication, 31 composed host, 21 supervisor,
+33 handoff, 20 System-key, 24 root owner-host, 16 policy and 25 worker checks.
+An ordinary fixture owner prepares and installs the shared client against the
+actual dedicated worker. Both portable and Claude launchers discover an empty
+permitted-account set, omit the capability from output and preserve existing
+Codex/Claude instruction text. Opening the broker store raises an actual permission
+error. Client installation state survives worker reopening.
+
+Positive authority in that journey is a synthetic in-process native setup session;
+it is not a genuine OS approval or positive separate-process owner-XPC acceptance.
+Neither real AI product is invoked in this new bootstrap test. The test also does
+not sign into a private website. Those scopes remain separate from the earlier
+private-session evidence and the owner's stop on further GitHub QA.
+
+The [desktop transport](https://github.com/fainir/account-access/actions/runs/39016682285/job/117350116464)
+and its [independent repeat](https://github.com/fainir/account-access/actions/runs/39016685782/job/117350126423)
+passed **38 controlled checks**. The added cases require setup authorization and
+reject malformed client requests, caller-selected principals and unknown hosts.
+Native screen checks hold the account view until client setup finishes, connect
+both hosts without a selector, and reopen without another enrollment or approval.
+A changed local capability digest is refused before any request. These helper,
+channel and positive approval implementations are synthetic.
+
+Two earlier revisions failed the new Mac bootstrap gate and are excluded. Source
+review found the disposable marker was supplied before `sudo` reset the environment,
+then found the helper's verified virtual-environment path was replaced with its
+resolved base interpreter. A local Swift `Process` regression proves the latter:
+the virtual-environment path imports the package, while its resolved base binary
+does not. Both desktop and QA callers now validate the target but launch the
+original environment path. Subsequent complete repeats pass. Earlier runtime
+diagnostics retained only the phase, so their exact child exception was not
+captured; new diagnostics report fixed process/response failure classes without
+secret values. See [structured evidence](../artifacts/mac-agent-setup-080.json).
+
+Consumer provisioning, genuine OS approval through the screens, complete trusted
+email/SMS/browser collectors, migration and client-revocation repair, publisher
+continuity, notarized installation and private/physical-phone QA remain open.
+Continuous Chrome synchronization remains unmet. Installed build 53 and its
+unfinished mailbox form, the 0.7.4 download and older staged build 61 were preserved.
+The [client setup contract](mac-agent-setup.md) describes the implemented flow and
+its limits. This remains a development candidate, not production acceptance.
+
 ## Native desktop integration and initialized-vault Pause — 17 October 2026
 
 Revision `5356e8a` passed **910 tests, one platform skip, in 495.93 seconds**,

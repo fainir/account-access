@@ -29,6 +29,8 @@ The browser sign-in flow uses the imported email/username and password, then sup
 
 The isolated Mac development path now includes [native setup and progress screens](docs/mac-desktop-connection.md), a protected public connection profile and recovery without repeating setup writes. Its [controlled acceptance](artifacts/mac-desktop-connection-080.json) is separate from consumer installation and private account/phone QA. It is not enabled by the preview download.
 
+The isolated development flow also adds [one portable client connection](docs/mac-agent-setup.md) for detected Codex and Claude Code installations. It preserves existing preferences and requires no agent selector. This does not enable the isolated service in the preview download or establish private sign-in coverage.
+
 ## Easy installation
 
 On a Mac, [download Account Access 0.7.4](https://github.com/fainir/account-access/releases/download/v0.7.4/Account-Access-Mac-preview.zip), unzip it, open **Account Access**, and click **Install Account Access**. The app prepares Python, the browser and the local service. No developer tools, terminal commands or administrator password are needed for this flow.
@@ -321,7 +323,7 @@ data or an unverified stage. This component does not complete the consumer
 owner-enrollment, client-issuance or migration flow.
 
 The [first-enrollment coordinator](docs/mac-initial-enrollment.md) passed
-[27 further checks](artifacts/mac-desktop-connection-080.json), including approval
+[40 first-vault/client checks](artifacts/mac-agent-setup-080.json), including approval
 rejection, durable Pause, resume during initialization, reopening without
 another setup request and repair when a published key is missing. Positive
 approval is synthetic; genuine owner approval and the consumer native setup

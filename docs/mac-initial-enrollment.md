@@ -6,7 +6,7 @@ worker. It passed [27 checks in two independent Mac VM runs](../artifacts/mac-de
 The installed preview does not use this
 isolated setup path. Native screen/transport integration is implemented and
 covered by controlled checks; consumer provisioning, genuine owner approval
-through those screens, client issuance and migration are still required.
+through those screens, consumer client provisioning and migration are still required.
 
 ## Owner flow
 
@@ -36,7 +36,10 @@ publishes it. The worker must verify encrypted data before reporting readiness.
 First worker startup retires existing owner connections. The UI must reconnect
 and read state rather than replay the setup POST. Importing credentials,
 granting specific account operations and issuing agent clients remain separate
-owner actions; creating a vault grants no account access.
+owner actions; creating a vault grants no account access. The new
+[portable client connection](mac-agent-setup.md) lets the native app continue into
+one shared client setup without selecting Claude or Codex. The client itself
+receives no account permissions until the owner approves specific operations.
 
 ## Restart, Pause and repair
 

@@ -2,8 +2,9 @@
 
 The desktop app can use the protected system broker through native XPC. This
 connection is separate from the owner HTTP capability used by the published
-preview. It does not install the system service, migrate an existing store,
-provision agent identities or establish phone/email connections by itself.
+preview. The [portable client setup flow](mac-agent-setup.md) connects a fresh
+store to the existing agents. Neither component installs the system service,
+migrates an existing store or establishes phone/email connections by itself.
 
 ## Installation contract
 
@@ -95,7 +96,7 @@ revision, run results and limitations are recorded in [validation](validation.md
 
 Consumer provisioning, positive genuine owner approval through these screens,
 full password/email/SMS/authenticator setup through the isolated service,
-trusted browser/phone collectors, agent-client issuance, migration, publisher
+trusted browser/phone collectors, consumer client provisioning and repair, migration, publisher
 update continuity, notarized clean installation and private/physical-phone QA
 remain release gates. Host actions absent from the native route allowlist are
 refused rather than sent to the legacy HTTP channel. The installed owner app
