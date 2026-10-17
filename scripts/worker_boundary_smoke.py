@@ -28,6 +28,7 @@ import subprocess
 import sys
 import threading
 import time
+import traceback
 import uuid
 from urllib.parse import urlsplit
 
@@ -493,6 +494,7 @@ def provisioned_system_broker(prefix, roles):
         stage("provision_fresh_system_installation")
         first = prepare(layout, roles["agent"].pw_uid)
         installed = True
+        stage("provision_repeat_system_installation")
         before = (layout.base / "broker/install.json").read_bytes()
         repeated = prepare(layout, roles["agent"].pw_uid)
         checks["prepared_installation_is_idempotent"] = (
@@ -1346,8 +1348,24 @@ def main():
             report = exercise(prefix, roles)
     except Exception as exc:
         # Fixed metadata only, never provider payloads, token or key material.
-        print(json.dumps({"status": "FAILED", "reason": "worker_boundary_acceptance_failed",
-                          "exception_type": type(exc).__name__, "production_ready": False}))
+        diagnostic = {"status": "FAILED", "reason": "worker_boundary_acceptance_failed",
+                      "exception_type": type(exc).__name__, "production_ready": False}
+        # Source locations contain no exception message, locals or provider data.
+        frames = traceback.extract_tb(exc.__traceback__)
+        if frames:
+            diagnostic["source"] = {"file": Path(frames[-1].filename).name,
+                                    "line": frames[-1].lineno, "function": frames[-1].name}
+        from account_access.system_provision import ProvisionError
+        if isinstance(exc, ProvisionError) and str(exc) in {
+            "provisioning_command_failed", "service_identity_conflict",
+            "directory_services_unavailable", "unsafe_install_directory",
+            "unsafe_private_directory", "unsafe_install_record",
+            "existing_installation_requires_repair", "invalid_payload_signature",
+            "invalid_fixture_signature", "payload_publishers_disagree",
+            "service_identity_unavailable", "disposable_provisioning_required",
+        }:
+            diagnostic["provisioning_reason"] = str(exc)
+        print(json.dumps(diagnostic))
         return 1
     print(json.dumps(report, indent=2))
     # No long-lived users or fictional vault state are left after this check.
