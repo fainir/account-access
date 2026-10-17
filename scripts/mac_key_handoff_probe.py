@@ -81,7 +81,7 @@ def main():
         receipt.settimeout(15)
         try:
             policy = read_policy(args.policy)
-            require_worker_identity(policy, worker_module=__file__)
+            require_worker_identity(policy, worker_module=__file__, fresh=args.store_mode == "native-host")
             material = read_bootstrap(3)  # Exactly 64 bytes and EOF, production parser.
             sealed = os.read(4, 257)
             os.close(4)
