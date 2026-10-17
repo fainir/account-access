@@ -8,6 +8,7 @@ import argparse
 import http.client
 import json
 import os
+import re
 from pathlib import Path
 import signal
 import socket
@@ -16,11 +17,12 @@ import sys
 
 
 ACCOUNTS = ("demo-api", "demo-web", "demo-mfa", "example-email", "example-sms")
-DIAGNOSTIC_STAGES = {"account_discovery", "revoked_read", "ungranted_read", "boundary_checks", *ACCOUNTS}
+DIAGNOSTIC_STAGES = {"account_discovery", "revoked_read", "ungranted_read", "boundary_checks", *ACCOUNTS, "native-sms"}
 SAFE_REASONS = {"browser_guard_unavailable", "internal_error", "service_unavailable", "worker_unavailable",
                 "login_failed", "verification_code_unavailable", "invalid_credentials", "request_failed",
                 "browser_execution_failed", "login_code_not_received", "verification_code_rejected",
-                "verification_source_not_connected", "browser_state_unrecognized", "login_retry_cooldown"}
+                "verification_source_not_connected", "browser_state_unrecognized", "login_retry_cooldown",
+                "mac_messages_reader_unavailable", "mac_messages_permission_required"}
 
 
 class ProbeFailure(Exception):
@@ -98,6 +100,24 @@ def run(args):
     if os.getuid() == 0 or os.getuid() == args.worker_uid:
         raise RuntimeError("probe_requires_distinct_unprivileged_identity")
     config = Path(args.config)
+    if args.phase == "native-sms":
+        results = [cli(config, "run", "native-sms", "summary") for _ in range(2)]
+        for result in results:
+            require_result(result["status"] == "COMPLETED", "native-sms", result)
+            require_result(result.get("data") == {"balance": "987.65", "currency": "ILS"}, "native-sms", result)
+        raw = json.dumps(results)
+        checks = {"cli_completed_native_sms_browser_reads": True,
+                  "only_approved_result_fields_returned": True,
+                  "no_six_digit_code_in_cli_results": re.search(r"\b[0-9]{6}\b", raw) is None,
+                  "agent_still_cannot_read_worker_store": denied(lambda: Path(args.state, "state.db").open("rb"))}
+        with UnixHTTP(args.agent_socket) as channel:
+            token = Path(json.loads(config.read_text())["token_file"]).read_text().strip()
+            channel.request("GET", "/owner/native-messages/next", headers={"Authorization": "Bearer " + token})
+            response = channel.getresponse()
+            response.read()
+            checks["agent_cannot_fetch_native_collector_requests"] = response.status == 404
+        assert all(value is True for value in checks.values())
+        return checks
     if args.phase == "after-owner-stop":
         result = cli(config, "run", "demo-web", "summary")
         require_result(result["status"] == "COMPLETED", "demo-web", result)
@@ -161,7 +181,7 @@ def run(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--phase", choices=["initial", "revoked", "after-owner-stop"], required=True)
+    parser.add_argument("--phase", choices=["initial", "revoked", "after-owner-stop", "native-sms"], required=True)
     for name in ["config", "state", "worker-module", "policy", "owner-socket", "agent-socket"]:
         parser.add_argument("--" + name, required=True)
     parser.add_argument("--worker-pid", type=int, required=True)

@@ -18,6 +18,7 @@ from pathlib import Path
 import plistlib
 import pwd
 import re
+import runpy
 import selectors
 import secrets
 import shutil
@@ -207,11 +208,12 @@ def probe(prefix, roles, worker, policy, phase):
         # This harness is also executed as an isolated standalone script; it
         # cannot import a sibling script through a user-controlled search path.
         diagnostic_stages = {"account_discovery", "revoked_read", "ungranted_read", "boundary_checks",
-                             "demo-api", "demo-web", "demo-mfa", "example-email", "example-sms"}
+                             "demo-api", "demo-web", "demo-mfa", "example-email", "example-sms", "native-sms"}
         safe_reasons = {"browser_guard_unavailable", "internal_error", "service_unavailable", "worker_unavailable",
                        "login_failed", "verification_code_unavailable", "invalid_credentials", "request_failed",
                        "browser_execution_failed", "login_code_not_received", "verification_code_rejected",
-                       "verification_source_not_connected", "browser_state_unrecognized", "login_retry_cooldown"}
+                       "verification_source_not_connected", "browser_state_unrecognized", "login_retry_cooldown",
+                       "mac_messages_reader_unavailable", "mac_messages_permission_required"}
         # Closed fixture labels only. Never copy raw CLI/provider output.
         if result.get("stage") in diagnostic_stages:
             stage("probe_" + result["stage"])
@@ -1133,6 +1135,19 @@ def root_owner_policy(prefix, roles):
             "real_owner_auth_approval_tested": False, "consumer_deployment_verified": False, "checks": checks}
 
 
+@contextmanager
+def composed_native_sms(prefix, roles, broker):
+    if sys.platform != "darwin":
+        yield None
+        return
+    # Isolated Python has no sibling search path. Load only this explicitly
+    # Root-validated CI file under the already protected runtime prefix.
+    path = prefix / "native-sms-fixture.py"
+    root_managed_path(path)
+    with runpy.run_path(str(path))["native_sms_fixture"](prefix, roles, broker) as fixture:
+        yield fixture
+
+
 def exercise(prefix, roles):
     if sys.platform == "darwin":
         # No login data is provided to this canary. It checks whether the
@@ -1169,7 +1184,8 @@ def exercise(prefix, roles):
     (prefix / "policy.json").chmod(0o644)
     worker = None
     reader = writer = None
-    with environment(state) as (provider, broker, _), fixture_mailbox(prefix) as mailbox:
+    with environment(state) as (provider, broker, _), fixture_mailbox(prefix) as mailbox, \
+            composed_native_sms(prefix, roles, broker) as native_sms:
         config = broker.store.config()
         verification = setup_config(provider.base, mailbox, relay=True)
         for account in ["example-email", "example-sms"]:
@@ -1204,7 +1220,7 @@ def exercise(prefix, roles):
                 delivered_sms.append(True)
         provider.delivery = deliver
         token = broker.store.new_client("fixture-agent")
-        for account in ["demo-api", "demo-web", "demo-mfa", "example-email", "example-sms"]:
+        for account in ["demo-api", "demo-web", "demo-mfa", "example-email", "example-sms"] + (["native-sms"] if native_sms else []):
             broker.grant("fixture-agent", account, ["summary"])
         payload = (state / "demo.key").read_bytes() + secrets.token_bytes(32)
         (state / "demo.key").unlink()
@@ -1325,6 +1341,26 @@ def exercise(prefix, roles):
                 checks["tls_imap_message_fetched"] = mailbox.fetches == 1
                 checks["pinned_https_sms_delivered"] = len(delivered_sms) == 1
                 owner_report = None
+                if native_sms is not None:
+                    stage("composed_native_sms_browser_login")
+                    with native_sms.collector(owner_token, policy):
+                        native_checks = probe(prefix, roles, worker, policy, "native-sms")
+                        assert native_sms.provider.login_count == native_sms.provider.sms_count == native_sms.delivered == 1
+                        native_checks["provider_verified_password_and_fresh_sms"] = True
+                        native_checks["session_reuse_avoids_second_password_and_sms"] = True
+                        native_checks["real_distinct_reader_and_worker_uids"] = roles["agent"].pw_uid != roles["broker"].pw_uid
+                    native_checks["root_collector_stops_cleanly"] = True
+                    native_checks["temporary_collector_job_removed"] = subprocess.run(
+                        ["/bin/launchctl", "print", "system/" + native_sms.label], capture_output=True).returncode != 0
+                    assert all(item is True for item in native_checks.values())
+                    private_file(Path("/tmp/account-access-mac-native-browser.json"), json.dumps({
+                        "status": "PASSED", "environment": "controlled-demo", "production_ready": False,
+                        "private_signins": 0, "platform": "macos", "full_worker_browser_sms_journey_verified": True,
+                        "actual_native_collector_used": True, "actual_distinct_uids": True,
+                        "real_messages_database_used": False, "physical_sms_delivery_verified": False,
+                        "genuine_full_disk_access_verified": False, "system_key_used": False,
+                        "checks": native_checks}, indent=2).encode())
+                    Path("/tmp/account-access-mac-native-browser.json").chmod(0o644)
                 if sys.platform == "darwin":
                     owner_report = root_owner_gateway(prefix, roles, policy, owner_token, worker)
                     owner_report["checks"].update(probe(prefix, roles, worker, policy, "after-owner-stop"))
