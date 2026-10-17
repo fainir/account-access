@@ -3,7 +3,6 @@
 import Foundation
 import Security
 import CryptoKit
-import LocalAuthentication
 import Darwin
 
 @main struct RootVaultKeyChecks {
@@ -32,17 +31,17 @@ import Darwin
             if mode == "unprivileged" {
                 guard getuid() != 0 else { throw RootVaultKeyFailure.daemonRequired }
                 checks["provider_refused"] = (try? RootVaultKeyStore()) == nil
-                // Test-only compatibility call: product code uses SecItem in
-                // the root system context and has no deprecated keychain calls.
+                // Test-only explicit System search; product storage uses
+                // SecItem in the verified root system context.
                 var system: SecKeychain?
                 guard SecKeychainOpen("/Library/Keychains/System.keychain", &system) == errSecSuccess, let system else {
                     throw RootVaultKeyFailure.unavailable
                 }
-                let context = LAContext(); context.interactionNotAllowed = true
+                guard AccountAccessDisableKeychainInteraction() else { throw RootVaultKeyFailure.unavailable }
                 let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
                     kSecAttrService as String: RootVaultKeyStore.service, kSecAttrAccount as String: "vault-" + identity,
                     kSecUseDataProtectionKeychain as String: false, kSecAttrSynchronizable as String: false,
-                    kSecMatchSearchList as String: [system], kSecUseAuthenticationContext as String: context,
+                    kSecMatchSearchList as String: [system], kSecMatchLimit as String: kSecMatchLimitOne,
                     kSecReturnData as String: true]
                 var result: CFTypeRef?
                 let status = SecItemCopyMatching(query as CFDictionary, &result)

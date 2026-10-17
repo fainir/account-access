@@ -2,7 +2,6 @@
 // the owner app, an agent client, or a sudo process in a user login session.
 import Foundation
 import Security
-import LocalAuthentication
 import Darwin
 
 enum RootVaultKeyFailure: String, Error {
@@ -47,14 +46,13 @@ final class RootVaultKeyStore {
               attributes.rawValue & 0x0001 != 0 else { // AuthSession.h: sessionIsRoot
             throw RootVaultKeyFailure.daemonRequired
         }
+        guard AccountAccessDisableKeychainInteraction() else { throw RootVaultKeyFailure.unavailable }
     }
     private func query(_ identity: String) throws -> [String: Any] {
         try Self.requireDaemon()
         guard let uuid = UUID(uuidString: identity), uuid.uuidString.lowercased() == identity else {
             throw RootVaultKeyFailure.invalidIdentity
         }
-        let context = LAContext()
-        context.interactionNotAllowed = true
         // TN3137: system-context processes default to the System file-based
         // keychain. No user-login keychain, data-protection group or file-path
         // fallback is selected here. The OS owns its on-disk implementation.
@@ -62,21 +60,31 @@ final class RootVaultKeyStore {
                 kSecAttrService as String: Self.service,
                 kSecAttrAccount as String: "vault-" + identity,
                 kSecAttrSynchronizable as String: false,
-                kSecUseDataProtectionKeychain as String: false,
-                kSecUseAuthenticationContext as String: context]
+                kSecUseDataProtectionKeychain as String: false]
     }
     func load(_ identity: String) throws -> RootVaultKey {
         var request = try query(identity)
         request[kSecMatchLimit as String] = kSecMatchLimitAll
-        request[kSecReturnData as String] = true
+        // The file-based shim rejects MatchLimitAll + password data. Resolve
+        // the exact record first without retrieving any password bytes.
+        request[kSecReturnPersistentRef as String] = true
         var result: CFTypeRef?
         let status = SecItemCopyMatching(request as CFDictionary, &result)
         if status == errSecItemNotFound { throw RootVaultKeyFailure.missing }
         guard status == errSecSuccess else { throw RootKeychainFailure(operation: .load, status: status) }
-        guard let values = result as? [Data], values.count == 1, values[0].count == 32 else {
+        guard let references = result as? [Data], references.count == 1 else {
             throw RootVaultKeyFailure.invalidRecord
         }
-        return RootVaultKey(values[0])
+        request.removeValue(forKey: kSecReturnPersistentRef as String)
+        request[kSecValuePersistentRef as String] = references[0]
+        request[kSecMatchLimit as String] = kSecMatchLimitOne
+        request[kSecReturnData as String] = true
+        result = nil
+        let read = SecItemCopyMatching(request as CFDictionary, &result)
+        if read == errSecItemNotFound { throw RootVaultKeyFailure.missing }
+        guard read == errSecSuccess else { throw RootKeychainFailure(operation: .load, status: read) }
+        guard let bytes = result as? Data, bytes.count == 32 else { throw RootVaultKeyFailure.invalidRecord }
+        return RootVaultKey(bytes)
     }
     // Explicit fresh enrollment only. The supervisor must authorize enrollment
     // and confirm there is no existing encrypted state before calling this.

@@ -32,9 +32,14 @@ missing/duplicate enrollment, invalid identity, root-context guards and direct
 unprivileged access have separate assertions. Cleanup removes the fixture item.
 No key bytes are printed, passed on a command line or stored in a report/file.
 
-The unprivileged probe uses a test-only legacy `SecKeychainOpen` call to target
-System explicitly, avoiding a false miss in its own default search list. Product
-code has no deprecated Keychain calls and type-checks with warnings as errors.
+Recovery first resolves one opaque record reference, then reads that exact
+record. The file-based shim rejects all-password-data queries. A narrow C bridge
+uses its documented, deprecated interaction control to disable prompts in the
+daemon; data-protection authentication contexts do not control this keychain.
+The remaining storage operations use `SecItem`. The unprivileged probe uses a
+test-only `SecKeychainOpen` call to target System explicitly, avoiding a false
+miss in its own default search list. Production Swift and the C bridge compile
+with warnings as errors; only that specific compatibility call is annotated.
 An invalid query or unavailable service is not accepted as access-denial proof.
 Actual workflow success and its complete report must be verified before counting
 this component as passed.

@@ -26,7 +26,7 @@ jobs:
               macos/OwnerGateway.swift macos/OwnerGatewayHost.swift
             xcrun swiftc -parse-as-library -warnings-as-errors -typecheck \
               -target "$AC_BOOTSTRAP_ARCH-apple-macos13" -framework Foundation -framework Security \
-              -framework LocalAuthentication macos/RootVaultKeyStore.swift
+              -import-objc-header macos/KeychainInteraction.h macos/RootVaultKeyStore.swift
           done
           xcrun swiftc -O -parse-as-library -framework Foundation \
             macos/WorkerBootstrap.swift macos/Tests/WorkerBootstrapChecks.swift -o /tmp/ac-worker-bootstrap-checks
@@ -39,9 +39,11 @@ jobs:
           xcrun swiftc -O -parse-as-library -D ACCOUNT_ACCESS_GATEWAY_CHECKS -D ACCOUNT_ACCESS_ROOT_GATEWAY_CLIENT \
             -framework Foundation -framework Security macos/WorkerBootstrap.swift macos/OwnerGateway.swift \
             macos/OwnerGatewayHost.swift macos/Tests/RootOwnerGatewayChecks.swift -o /tmp/ac-root-owner-client
+          xcrun clang -O2 -Wall -Wextra -Werror -c macos/KeychainInteraction.c -o /tmp/ac-keychain-interaction.o
           xcrun swiftc -O -parse-as-library -D ACCOUNT_ACCESS_ROOT_KEY_CHECKS \
-            -framework Foundation -framework Security -framework LocalAuthentication -framework CryptoKit \
-            macos/WorkerBootstrap.swift macos/RootVaultKeyStore.swift macos/Tests/RootVaultKeyChecks.swift -o /tmp/ac-root-key-checks
+            -framework Foundation -framework Security -framework CryptoKit -import-objc-header macos/KeychainInteraction.h \
+            macos/WorkerBootstrap.swift macos/RootVaultKeyStore.swift macos/Tests/RootVaultKeyChecks.swift \
+            /tmp/ac-keychain-interaction.o -o /tmp/ac-root-key-checks
       - name: Prepare root-owned runtime in this disposable Mac VM
         run: |
           uv build --wheel --out-dir /tmp/account-access-mac-worker-wheel
