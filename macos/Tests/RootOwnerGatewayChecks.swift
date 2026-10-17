@@ -101,6 +101,7 @@ enum RootGatewayFixture {
 #if ACCOUNT_ACCESS_ROOT_GATEWAY_CLIENT
 @main struct RootOwnerGatewayClientMain {
     static func main() {
+        var checks: [String: Bool] = [:]
         do {
             guard getuid() != 0, CommandLine.arguments.count == 4 else { throw OwnerGatewayError.invalidPolicy }
             let value = try RootGatewayFixture.policy()
@@ -110,7 +111,6 @@ enum RootGatewayFixture {
             defer { channel.invalidate() }
             let ready: Bool = try RootGatewayFixture.wait { channel.prepare(reply: $0) }
             let mode = CommandLine.arguments[3]
-            var checks: [String: Bool] = [:]
             if mode == "denied" {
                 checks["prepare_refused"] = !ready
                 let authorized: Bool = try RootGatewayFixture.wait { channel.authorizeSetup(Data(repeating: 0x41, count: 32), reply: $0) }
@@ -175,7 +175,9 @@ enum RootGatewayFixture {
             guard !checks.isEmpty, checks.values.allSatisfy({ $0 }) else { throw OwnerGatewayError.invalidResponse }
             print(String(data: try JSONSerialization.data(withJSONObject: ["status": "PASSED", "checks": checks]), encoding: .utf8)!)
         } catch {
-            print("{\"status\":\"FAILED\",\"reason\":\"root_owner_client_checks_failed\"}")
+            let report: [String: Any] = ["status": "FAILED", "reason": "root_owner_client_checks_failed",
+                "failed_checks": checks.filter { !$0.value }.keys.sorted()]
+            print(String(data: (try? JSONSerialization.data(withJSONObject: report)) ?? Data(), encoding: .utf8) ?? "{}")
             exit(1)
         }
     }

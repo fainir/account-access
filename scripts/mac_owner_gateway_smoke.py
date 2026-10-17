@@ -48,6 +48,7 @@ NATIVE_CHECKS = {
     "unapproved_vault_enrollment_refused", "invalid_vault_enrollment_proof_refused",
     "approved_vault_enrollment_uses_typed_authority", "expired_vault_enrollment_refused",
     "closed_vault_enrollment_refused", "vault_enrollment_not_forwarded_to_legacy_backend",
+    "prepared_client_rejects_invalid_enrollment_body",
 }
 
 

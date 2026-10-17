@@ -100,6 +100,9 @@ final class OwnerGatewayProbe: NSObject, OwnerGatewayProbeRPC {
                     }
                     let state = try request("owner/state")
                     checks["signed_owner_state"] = state.0 == 200 && state.1["accounts"] is [[String: Any]]
+                    let invalidEnrollment = try request("owner/vault/enroll", ["vault_id": "untrusted"])
+                    checks["prepared_client_rejects_invalid_enrollment_body"] = invalidEnrollment.0 == 403
+                        && invalidEnrollment.1["reason"] as? String == "trusted_owner_route_required"
                     let grant: [String: Any] = ["account": "demo-web", "principal": "gateway-qa", "operations": ["summary"]]
                     let blocked = try request("owner/grant", grant)
                     checks["setup_needs_authorization"] = blocked.0 == 403

@@ -68,29 +68,16 @@ struct SystemBrokerMain {
             enrollmentPolicy: settings.enrollmentPolicy)
         try host.start()
         #if ACCOUNT_ACCESS_GATEWAY_CHECKS && ACCOUNT_ACCESS_ROOT_KEY_CHECKS
-        var reporter: DispatchSourceTimer?
         if let fixtureRoot {
             let ready = fixtureRoot.appendingPathComponent("system-broker-ready.json")
-            var sequence = 0
-            func publish() throws {
-                let missing: Bool
-                do { _ = try RootVaultKeyStore().load(settings.vault); missing = false }
-                catch RootVaultKeyFailure.missing { missing = true }
-                sequence += 1
-                let value: [String: Any] = ["status": "READY", "probe_sequence": sequence, "pid": Int(getpid()), "uid": Int(getuid()),
-                    "group": Int(getpgrp()), "worker_pid": Int(host.workerPID ?? 0),
-                    "worker_state": host.state.rawValue, "enrollment_state": host.enrollmentState?.rawValue ?? "absent",
-                    "setup_policy_registered": OwnerAuthorizationPolicy.trustedDefinition(), "fixture_key_absent": missing]
-                try JSONSerialization.data(withJSONObject: value, options: .sortedKeys).write(to: ready, options: .atomic)
-            }
-            try publish()
-            let source = DispatchSource.makeTimerSource(queue: .main)
-            source.schedule(deadline: .now() + 0.25, repeating: 0.25)
-            source.setEventHandler {
-                do { try publish() }
-                catch { try? host.stop(); exit(78) }
-            }
-            source.resume(); reporter = source
+            let missing: Bool
+            do { _ = try RootVaultKeyStore().load(settings.vault); missing = false }
+            catch RootVaultKeyFailure.missing { missing = true }
+            let value: [String: Any] = ["status": "READY", "pid": Int(getpid()), "uid": Int(getuid()),
+                "group": Int(getpgrp()), "worker_pid": Int(host.workerPID ?? 0),
+                "worker_state": host.state.rawValue, "enrollment_state": host.enrollmentState?.rawValue ?? "absent",
+                "setup_policy_registered": OwnerAuthorizationPolicy.trustedDefinition(), "fixture_key_absent": missing]
+            try JSONSerialization.data(withJSONObject: value, options: .sortedKeys).write(to: ready, options: .atomic)
         }
         #endif
         signal(SIGTERM, SIG_IGN)
@@ -103,12 +90,7 @@ struct SystemBrokerMain {
         }
         term.setEventHandler(handler: stop); interrupt.setEventHandler(handler: stop)
         term.resume(); interrupt.resume()
-        #if ACCOUNT_ACCESS_GATEWAY_CHECKS && ACCOUNT_ACCESS_ROOT_KEY_CHECKS
-        withExtendedLifetime((host, term, interrupt, reporter)) { RunLoop.current.run() }
-        #else
-        withExtendedLifetime((host, term, interrupt)) { RunLoop.current.run() }
-        #endif
-        throw SystemBrokerFailure.unavailable
+        withExtendedLifetime((host, term, interrupt)) { dispatchMain() }
     }
     static func main() {
         umask(0o077)
@@ -126,7 +108,10 @@ struct SystemBrokerMain {
                 if CommandLine.arguments.count == 4 {
                     guard CommandLine.arguments[3] == "--cleanup-fixture-policy" else { throw SystemBrokerFailure.arguments }
                     try cleanupFixturePolicy()
-                    let result: [String: Any] = ["status": "PASSED", "fixture_right_removed": true]
+                    let missing: Bool
+                    do { _ = try RootVaultKeyStore().load(settings.vault); missing = false }
+                    catch RootVaultKeyFailure.missing { missing = true }
+                    let result: [String: Any] = ["status": "PASSED", "fixture_right_removed": true, "fixture_key_absent": missing]
                     let output = URL(fileURLWithPath: path).deletingLastPathComponent().appendingPathComponent("system-broker-cleanup.json")
                     try JSONSerialization.data(withJSONObject: result).write(to: output, options: .atomic)
                     return

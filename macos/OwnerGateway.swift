@@ -439,8 +439,12 @@ final class OwnerGatewayConnection {
         let completion = OwnerGatewayReply<(Int, Data)> { reply($0.0, $0.1) }
         let failed = { completion.finish((503, OwnerGatewaySession.failure("owner_channel_unavailable"))) }
         DispatchQueue.global().asyncAfter(deadline: .now() + 35, execute: failed)
-        guard isReady, (try? OwnerGatewayRoute(route, body: body)) != nil,
-              let proxy = proxy(error: failed) else { failed(); return }
+        guard isReady else { failed(); return }
+        guard (try? OwnerGatewayRoute(route, body: body)) != nil else {
+            completion.finish((403, OwnerGatewaySession.failure("trusted_owner_route_required")))
+            return
+        }
+        guard let proxy = proxy(error: failed) else { failed(); return }
         proxy.request(route, body: body) { [weak self] status, data in
             guard self?.peerIdentityMatches == true, data.count <= 8_000_000,
                   (try? JSONSerialization.jsonObject(with: data)) is [String: Any] else { failed(); return }

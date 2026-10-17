@@ -399,15 +399,15 @@ def system_broker_waiting(prefix, roles):
                 "SockPathGroup": 0, "SockPathMode": 0o600}}}))
     launch.chmod(0o644)
     checks, booted = {}, False
-    def snapshot(after=0):
+    def snapshot():
         deadline = time.monotonic() + 55
         while time.monotonic() < deadline:
             try:
                 value = json.loads(ready.read_bytes())
             except (OSError, ValueError):
                 value = {}
-            if value.get("status") == "READY" and value.get("probe_sequence", 0) > after:
-                assert set(value) == {"status", "probe_sequence", "pid", "uid", "group", "worker_pid", "worker_state", "enrollment_state", "setup_policy_registered", "fixture_key_absent"}
+            if value.get("status") == "READY":
+                assert set(value) == {"status", "pid", "uid", "group", "worker_pid", "worker_state", "enrollment_state", "setup_policy_registered", "fixture_key_absent"}
                 assert value["uid"] == 0 and value["group"] == value["pid"]
                 assert value["worker_pid"] == 0 and value["worker_state"] == "idle"
                 assert value["enrollment_state"] == "needs_owner" and value["fixture_key_absent"] is True
@@ -419,6 +419,11 @@ def system_broker_waiting(prefix, roles):
         result = subprocess.run([*dropped(role), str(executable), "--policy", str(policy), mode],
             capture_output=True, timeout=50, env={"PATH": "/usr/bin:/bin", "LANG": "en_US.UTF-8"})
         value = json.loads(result.stdout)
+        if value.get("status") != "PASSED":
+            failures = value.get("failed_checks")
+            if (isinstance(failures, list) and len(failures) <= 100
+                    and all(isinstance(name, str) and re.fullmatch(r"[a-z_]{1,100}", name) for name in failures)):
+                print(json.dumps({"failed_initial_gateway_checks": failures}), file=sys.stderr, flush=True)
         assert result.returncode == 0 and value.get("status") == "PASSED" and value.get("checks")
         assert all(item is True for item in value["checks"].values())
         return value["checks"]
@@ -441,9 +446,6 @@ def system_broker_waiting(prefix, roles):
         private_file(wrong, json.dumps(wrong_value).encode())
         wrong.chmod(0o644)
         checks["wrong_initial_server_code_refused"] = denied(roles["agent"], client, wrong)
-        latest = snapshot()
-        snapshot(after=latest["probe_sequence"])
-        checks["rejected_setup_never_creates_a_key"] = True
     finally:
         if booted:
             command(["/bin/launchctl", "bootout", target])
@@ -461,8 +463,9 @@ def system_broker_waiting(prefix, roles):
                 state = command(["/bin/launchctl", "print", cleanup_target])
                 exited = re.findall(rb"last exit code = ([0-9]+)", state)
                 if cleanup_output.exists() and exited:
-                    assert exited == [b"0"] and json.loads(cleanup_output.read_bytes()) == {"status": "PASSED", "fixture_right_removed": True}
+                    assert exited == [b"0"] and json.loads(cleanup_output.read_bytes()) == {"status": "PASSED", "fixture_right_removed": True, "fixture_key_absent": True}
                     checks["entrypoint_fixture_setup_policy_removed"] = True
+                    checks["rejected_setup_never_creates_a_key"] = True
                     break
                 time.sleep(0.1)
             else:
