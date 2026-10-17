@@ -102,7 +102,10 @@ def _file(path, expected):
     }
 
 
-def inventory(root):
+def inventory(root, *, owner_uid=None):
+    owner_uid = os.getuid() if owner_uid is None else owner_uid
+    if type(owner_uid) is not int or owner_uid < 0:
+        raise ValueError("invalid_install_manifest_owner")
     root = canonical_root(root)
     if not root.is_dir():
         raise ValueError("install_manifest_directory_required")
@@ -118,7 +121,7 @@ def inventory(root):
             raise ValueError("install_manifest_collision_or_limit")
         names.add(folded)
         info = path.lstat()
-        if (info.st_uid != os.getuid() or info.st_mode & 0o6000
+        if (info.st_uid != owner_uid or info.st_mode & 0o6000
                 or not stat.S_ISLNK(info.st_mode) and info.st_mode & 0o022):
             raise ValueError("unsafe_install_manifest_object")
         if stat.S_ISLNK(info.st_mode):
@@ -138,6 +141,12 @@ def inventory(root):
         else:
             raise ValueError("unsafe_install_manifest_object")
     return dict(sorted(rows.items()))
+
+
+def inventory_digest(root, *, owner_uid=None):
+    value = inventory(root, owner_uid=owner_uid)
+    encoded = json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def build(root, version, architecture):

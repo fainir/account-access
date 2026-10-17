@@ -193,3 +193,14 @@ def test_manifest_requires_a_protected_unprivileged_staging_root(payload, mode):
     root.chmod(mode)
     with pytest.raises(ValueError, match="unsafe_install_manifest_root"):
         manifest.build(root, "0.8.0", "arm64")
+
+
+@pytest.mark.parametrize("owner", [True, -1, "0"])
+def test_read_only_manifest_owner_selector_rejects_ambiguous_ids(payload, owner):
+    with pytest.raises(ValueError, match="invalid_install_manifest_owner"):
+        manifest.inventory(payload[1], owner_uid=owner)
+
+
+def test_read_only_manifest_owner_selector_cannot_hide_wrong_file_ownership(payload):
+    with pytest.raises(ValueError, match="unsafe_install_manifest_object"):
+        manifest.inventory(payload[1], owner_uid=os.getuid() + 1)

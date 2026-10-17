@@ -36,6 +36,19 @@ def test_package_assembly_never_runs_under_root_or_on_another_platform(monkeypat
         package.assemble(SimpleNamespace())
 
 
+def test_complete_image_may_add_only_its_generated_runtime_and_receipt_to_source_inventory():
+    import json
+
+    source = {"roots": {"/" + str(package.BASE): {"python/file": {"sha256": "original"}}}}
+    complete = json.loads(json.dumps(source))
+    rows = complete["roots"]["/" + str(package.BASE)]
+    rows.update({"runtime": {}, "runtime/bin/python": {}, "runtime-image.json": {}})
+    package.verify_source_inventory(json.dumps(source), json.dumps(complete))
+    rows["python/file"]["sha256"] = "changed"
+    with pytest.raises(ValueError, match="runtime_image_source_payload_changed"):
+        package.verify_source_inventory(json.dumps(source), json.dumps(complete))
+
+
 def test_installer_scripts_are_valid_shell_and_refuse_ordinary_user(tmp_path):
     for name, source in [("preinstall", package.PREINSTALL), ("postinstall", package.POSTINSTALL)]:
         path = tmp_path / name
@@ -47,8 +60,9 @@ def test_installer_scripts_are_valid_shell_and_refuse_ordinary_user(tmp_path):
                 subprocess.run(["/bin/sh", str(path), "package", "destination", "/"]).returncode
                 != 0
             )
-    assert "--no-index" in package.POSTINSTALL and "--require-hashes" in package.POSTINSTALL
-    assert "-I -B -m" in package.POSTINSTALL and "--symlinks" in package.POSTINSTALL
+    assert "-I -B -m account_access.system_provision" in package.POSTINSTALL
+    assert "-m pip" not in package.POSTINSTALL and "-m venv" not in package.POSTINSTALL
+    assert "chmod" not in package.POSTINSTALL
     assert "runtime" not in package.PREINSTALL  # Reject the entire existing installation first.
     assert '"${3:-}" = /' in package.PREINSTALL
     assert not any(

@@ -56,10 +56,8 @@ export PATH
 umask 022
 [ "$(/usr/bin/id -u)" = 0 ] && [ "${3:-}" = / ] || exit 1
 AC_PACKAGE_BASE="/Library/Application Support/Account Access"
-[ ! -e "$AC_PACKAGE_BASE/runtime" ] && [ ! -L "$AC_PACKAGE_BASE/runtime" ] || exit 1
-"$AC_PACKAGE_BASE/python/bin/python3.12" -I -B -m venv --symlinks "$AC_PACKAGE_BASE/runtime"
-"$AC_PACKAGE_BASE/runtime/bin/python" -I -B -m pip --isolated install --no-index --no-cache-dir --only-binary=:all: --require-hashes --find-links "$AC_PACKAGE_BASE/wheels" -r "$AC_PACKAGE_BASE/package-requirements.txt"
-/bin/chmod -R go-w "$AC_PACKAGE_BASE/python" "$AC_PACKAGE_BASE/runtime" "$AC_PACKAGE_BASE/browsers" "$AC_PACKAGE_BASE/bin" "$AC_PACKAGE_BASE/wheels"
+[ -d "$AC_PACKAGE_BASE/runtime" ] && [ ! -L "$AC_PACKAGE_BASE/runtime" ] || exit 1
+[ -x "$AC_PACKAGE_BASE/runtime/bin/python" ] || exit 1
 "$AC_PACKAGE_BASE/runtime/bin/python" -I -B -m account_access.system_provision
 AC_PACKAGE_OWNER=$(/usr/bin/stat -f %u /dev/console)
 [ "$AC_PACKAGE_OWNER" -gt 0 ] || exit 1
@@ -124,6 +122,17 @@ def inspect_app(app, *, development):
     return info["CFBundleShortVersionString"], signed["team"], wheel, requirements
 
 
+def verify_source_inventory(before, after):
+    original, complete = json.loads(before), json.loads(after)
+    rows = complete["roots"]["/" + str(BASE)]
+    complete["roots"]["/" + str(BASE)] = {
+        name: value for name, value in rows.items()
+        if name not in {"runtime", "runtime-image.json"} and not name.startswith("runtime/")
+    }
+    if complete != original:
+        raise ValueError("runtime_image_source_payload_changed")
+
+
 def assemble(args):
     if sys.platform != "darwin" or os.getuid() == 0:
         raise ValueError("ordinary_mac_build_context_required")
@@ -135,6 +144,7 @@ def assemble(args):
     if output.exists() or output.is_symlink():
         raise ValueError("new_output_directory_required")
     version, team, wheel, requirements = inspect_app(app, development=args.development)
+    original_requirements = requirements
     for name, identifier in [
         ("broker", "com.fainir.accountaccess.broker"),
         ("bootstrap", "com.fainir.accountaccess.bootstrap"),
@@ -259,7 +269,11 @@ def assemble(args):
 
         # Refuse writable/special payload objects before the supplied
         # interpreter runs; preparation receipts retain their exact tree modes.
-        manifest = install_manifest(root, version, args.architecture)
+        source_manifest = install_manifest(root, version, args.architecture)
+        from macos.runtime_image import assemble as runtime_image, verify_origins
+
+        origins = verify_origins(payload / "wheels", original_requirements, project.name, pin,
+                                 runtime_preparation)
         found = json.loads(
             command(
                 [
@@ -267,12 +281,28 @@ def assemble(args):
                     "-I",
                     "-B",
                     "-c",
-                    "import json,platform,sys;print(json.dumps([list(sys.version_info[:2]),platform.machine(),sys.prefix==sys.base_prefix]))",
+                    "import json,platform,sys;print(json.dumps([list(sys.version_info[:3]),platform.machine(),sys.prefix==sys.base_prefix and sys.version_info.releaselevel=='final' and sys.version_info.serial==0]))",
                 ]
             ).stdout
         )
-        if found != [[3, 12], args.architecture, True]:
+        if (type(found) is not list or len(found) != 3 or type(found[0]) is not list
+                or len(found[0]) != 3 or found[0][:2] != [3, 12]
+                or any(type(value) is not int or value < 0 for value in found[0])
+                or found[1] != args.architecture or found[2] is not True):
             raise ValueError("matching_standalone_python_required")
+        image = runtime_image(payload, requirements, project.name, pin, args.architecture,
+                              ".".join(map(str, found[0])), origins=origins)
+        (payload / "runtime-image.json").write_text(json.dumps(image, indent=2) + "\n")
+        if binary_type(payload / "runtime/lib/python3.12/site-packages/playwright/driver/node") != 2:
+            raise ValueError("runtime_image_native_browser_driver_required")
+        runtime_audit = audit_payload(
+            [root / "Applications/Account Access.app", payload / "python", payload / "runtime",
+             payload / "browsers", payload / "bin"],
+            sorted((payload / "wheels").glob("*.whl")), args.architecture, command,
+            development=args.development,
+        )
+        manifest = install_manifest(root, version, args.architecture)
+        verify_source_inventory(source_manifest, manifest)
         scripts.mkdir()
         (scripts / "RecoveryManifest.json").write_bytes(manifest)
         for name, contents in [("preinstall", PREINSTALL), ("postinstall", POSTINSTALL)]:
@@ -337,6 +367,7 @@ def assemble(args):
             "installed": False,
             "native_payload_audit": runtime_audit,
             "runtime_preparation": runtime_preparation,
+            "runtime_image": image,
             "payload_manifest_sha256": hashlib.sha256(manifest).hexdigest(),
             "sha256": hashlib.sha256(result.read_bytes()).hexdigest(),
         }

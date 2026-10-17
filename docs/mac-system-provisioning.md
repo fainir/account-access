@@ -99,11 +99,10 @@ storage after an incomplete system installation.
 Package construction uses Apple's `pkgbuild` and `productbuild`. All app bundles,
 including nested browser bundles, have relocation disabled. A fresh install
 refuses existing installation paths, app, job or service identity. It does not
-migrate, erase or silently adopt an older installation. Its root-volume script
-creates the virtual environment at the final path using the included Python,
-installs binary wheels offline with required hashes, protects the resulting
-runtime and invokes the fixed system provisioner. No user needs terminal
-commands, Python or a separate dependency download during this install.
+migrate, erase or silently adopt an older installation. The maintainer builds the
+complete runtime image before creating the archive. The root-volume script uses
+that installed image to invoke the fixed system provisioner. No user needs
+terminal commands, Python or a separate dependency download during this install.
 
 A distribution build requires matching Developer ID application publishers and
 an Installer signing identity. `--development` accepts ad-hoc artifacts and
@@ -227,3 +226,31 @@ subsequent protected recovery transaction. Retrying an existing installation is
 still refused: the transaction and retry behavior are not yet implemented, and
 this inventory alone grants no overwrite or deletion permission. The owner
 installation is unchanged. Exact acceptance of this next candidate is pending.
+
+## Complete runtime image candidate
+
+The assembler now copies the audited standalone Python into a separate complete
+runtime and installs the exact locked wheels using PyPA `installer` 1.1.0. This
+is an ordinary-user build operation in the private package staging directory.
+It does not execute wheel code, run setup scripts or compile bytecode. Generated
+entrypoints name the final system interpreter, rather than the temporary build
+path. The administrator-level installer no longer creates a virtual environment,
+runs pip or changes runtime permissions recursively.
+
+Selection checks target CPython 3.12/macOS 14 architecture and markers, each
+original artifact filename and approved hash, complete wheel checksum records,
+metadata identity, Python requirements and the resolved dependency graph,
+including extras. Prepared native wheels must also match this build's signing
+receipt. An upstream wheel with generic internal platform metadata can narrow
+its platform only through the verified original filename; renaming a Linux
+artifact cannot turn it into an accepted Mac wheel. Startup-hook additions,
+ambiguous/missing/unused distributions and destination escapes are refused.
+
+The original Python, wheels and preparation receipts remain unchanged. The
+complete copied runtime receives a second native-code audit, a byte/mode/alias
+inventory and its own build receipt. The final package inventory binds both
+copies. Disposable Mac acceptance compares the installed runtime against that
+receipt before exercising imports, native callbacks and sandboxed browsing.
+The new candidate has local static validation against all 33 actual Mac wheels;
+its real Installer acceptance is pending. Interrupted-install retry, genuine
+publisher compatibility and positive consumer setup remain separate work.

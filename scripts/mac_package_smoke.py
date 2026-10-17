@@ -19,7 +19,7 @@ import sys
 import tempfile
 import zipfile
 
-from account_access.package_manifest import MAX_MANIFEST_BYTES, build as build_manifest
+from account_access.package_manifest import MAX_MANIFEST_BYTES, build as build_manifest, inventory_digest
 from account_access.worker_bootstrap import root_managed_path
 
 
@@ -265,6 +265,14 @@ def main():
         checks["actual_development_package_refused_before_owner_setup"] = result.returncode != 0
         python = BASE / "runtime/bin/python"
         checks["offline_runtime_installed_at_final_path"] = python.is_file()
+        image = metadata["runtime_image"]
+        assert image["schema"] == 1 and image["transform"] == "account-access-static-runtime-image-v1"
+        assert image["bytecode_compiled"] is False and image["wheel_installation_executes_package_code"] is False
+        assert json.loads((BASE / "runtime-image.json").read_bytes()) == image
+        root_managed_path(BASE / "runtime")
+        checks["complete_runtime_image_matches_installed_public_files_and_modes"] = (
+            inventory_digest(BASE / "runtime", owner_uid=0) == image["runtime_manifest_sha256"]
+        )
         probe = subprocess.run(
             [
                 str(python),
