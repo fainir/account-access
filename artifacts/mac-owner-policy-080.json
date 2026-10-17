@@ -11,26 +11,26 @@
   "real_owner_auth_approval_tested": false,
   "consumer_deployment_verified": false,
   "checks": {
+    "namespace_initially_absent": true,
+    "strict_rule_restored": true,
+    "root_shortcut_refused": true,
+    "changed_policy_preserved": true,
+    "strict_rule_readback_verified": true,
+    "changed_policy_refused": true,
     "changed_policy_detected": true,
     "registrar_identity_verified": true,
-    "changed_policy_preserved": true,
-    "root_shortcut_refused": true,
     "system_daemon_context_verified": true,
-    "namespace_initially_absent": true,
-    "fixture_rule_removed": true,
-    "strict_rule_readback_verified": true,
-    "strict_rule_restored": true,
     "matching_rule_preserved": true,
+    "changed_policy_granted_proof_refused": true,
     "foreign_registrar_identifier_refused": true,
-    "changed_policy_refused": true,
+    "fixture_rule_removed": true,
     "foreign_registrar_requirement_refused": true,
     "strict_rule_created": true,
-    "changed_policy_granted_proof_refused": true,
     "unprivileged_policy_install_refused": true
   },
   "date": "2026-10-17",
-  "source_revision": "40c9fa4d7609a294ef08a4a85dda1f4593d5b770",
-  "ci_url": "https://github.com/fainir/account-access/actions/runs/39004132984/job/117312998074",
+  "source_revision": "e756d1861a44ef67c203f2b413790cdcbd82e890",
+  "ci_url": "https://github.com/fainir/account-access/actions/runs/39006452093/job/117319816135",
   "installed_owner_app_changed": false,
   "publisher_signed_peers": false,
   "limits": [
@@ -39,5 +39,5 @@
     "No genuine owner presence, positive owner UI/XPC enrollment, consumer service installation or migration acceptance",
     "No private account, mailbox, phone or authenticator enrollment or delivery acceptance"
   ],
-  "matching_regression_evidence": "mac-root-supervisor-080.json"
+  "matching_regression_evidence": "mac-root-coordinator-080.json"
 }

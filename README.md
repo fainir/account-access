@@ -306,7 +306,9 @@ encrypted fixture Store in the actual worker and verifies restart, crash
 recovery, fresh owner capability and Pause. The [native supervisor](docs/mac-supervision.md)
 passed [21 checks](artifacts/mac-root-supervisor-080.json) for bounded recovery,
 old-session retirement, stable-running reset, missing-key refusal and durable
-Pause. Parent-daemon/reboot and active-operation crash recovery remain unverified;
+Pause. The composed host passed [31 checks](artifacts/mac-root-coordinator-080.json)
+for parent-service crash recovery, cold service reopening and paused native access.
+Machine reboot and active-operation/browser-descendant recovery remain unverified;
 consumer installation is not enabled.
 
 The same Mac VM passed [16 setup-policy checks](artifacts/mac-owner-policy-080.json):

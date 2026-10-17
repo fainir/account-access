@@ -23,7 +23,9 @@ Three consecutive restarts use delays of one, two and four seconds. A fourth
 unexpected exit stops recovery. Five minutes of observed stable running resets
 the budget. Startup failures, missing keys, unsafe code, changed socket identities
 and unknown occupied paths do not enter an automatic retry or enrollment loop.
-Only the trusted scheduler starts a replacement; an agent or owner request
+Managed worker health stays unavailable until the agent server has finished
+starting, including signal-handler setup. A callback failure or a non-boolean
+readiness value cannot report success. Only the trusted scheduler starts a replacement; an agent or owner request
 cannot trigger one. A write is never replayed after a lost response.
 
 The durable Pause marker prevents startup and recovery. Any object at that path,
@@ -38,6 +40,33 @@ Readiness probes have a one-second maximum and honor the remaining startup
 budget. Ordinary owner requests retain their separate bounded transport. A
 stalled-health test checks an actual unresponsive Unix responder, rather than
 substituting a successful health result.
+
+## System-owned listeners and parent recovery
+
+The composed `RootBrokerHost` now requires `RootActivatedListeners`: two fixed
+socket-activation names from its system job. The native adapter accepts exactly
+one Unix stream listener for each name, checks its bound path, root ownership,
+protected parent directories and root socket ownership. On first activation it
+sets the required group/mode and retains the filesystem identity; subsequent
+worker acquisition verifies both metadata and that identity without repairing it.
+It reserves the pair for one worker at a time. The adapter duplicates descriptors;
+it never creates a replacement socket or unlinks an unknown occupied path.
+Lower-level standalone worker tests can still create and clean their own sockets.
+
+The system job retains the listener namespace across daemon generations. The
+job must keep process-group cleanup enabled (`AbandonProcessGroup = false`), and
+the host must be the launchd child and its process-group leader. The crash journey
+checks the worker's actual kernel parent/group and dedicated UID/GID. It kills
+only the named disposable job through launchctl; metadata PIDs are observations,
+never adoption or signaling authority. A new parent loads the existing System
+key, issues a fresh owner capability and opens the existing encrypted store.
+
+Apple documents [socket activation](https://developer.apple.com/documentation/xpc/launch_activate_socket)
+and [job process-group cleanup](https://github.com/apple-oss-distributions/launchd/blob/main/man/launchd.plist.5).
+The API is a lifecycle mechanism, not owner authorization. Genuine setup proof,
+code/user pins, root-owned runtime and the separate worker identity remain
+necessary. Consumer provisioning must install the corresponding protected job;
+the installed preview does not enable this path.
 
 ## Owner connection generations
 
@@ -63,10 +92,11 @@ Its owner-session lifecycle checks are in-process synthetic sessions. The native
 XPC retirement test is a separate ordinary-user journey, including a local
 Developer ID signed run. They do not establish a deployed consumer composition.
 
-The supervisor is not recovery for a crashed parent daemon or a reboot. It never
-adopts a recorded PID, kills an unknown process or removes an occupied socket
-without its own recorded inode identity. Parent recovery needs a separately
-verified ownership/quiescence design and fault tests. Active-operation crash
+The standalone 21-check supervisor journey is not parent-daemon/reboot
+acceptance. The separate composed-host crash journey passed 31 checks, including a
+supervisor SIGKILL, owned-worker exit, socket continuity, cold service restart
+and paused native XPC access. See [composed-host evidence](../artifacts/mac-root-coordinator-080.json). No component adopts a recorded PID or kills an
+unknown process. The activated-listener path never removes socket files itself. Active-operation crash
 acceptance must also verify browser descendants and durable task recovery; an
 empty-store worker restart does not establish either. Consumer installation,
 trusted initial enrollment, native source collectors, client issuance, migration,
@@ -80,3 +110,10 @@ Revision `40c9fa4` passed [21 supervisor checks](../artifacts/mac-root-superviso
 in [Mac CI](https://github.com/fainir/account-access/actions/runs/39004132984/job/117312998074).
 The separate [58-check XPC journey](../artifacts/mac-owner-gateway-080.json) passed
 both local publisher signing and ad-hoc CI at the same revision.
+
+Revision `e756d18` passed the composed journey in two disposable Mac CI runs:
+[push](https://github.com/fainir/account-access/actions/runs/39006452093/job/117319816135)
+and [PR](https://github.com/fainir/account-access/actions/runs/39006454910/job/117319824512).
+The exact cold-start claim is service removal and re-registration; an actual
+machine reboot, active browser descendants and interrupted account tasks are
+not covered by this empty-store journey.

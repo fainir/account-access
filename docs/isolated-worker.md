@@ -60,7 +60,9 @@ uses the production reader, encrypted storage and actual worker service. It
 checks startup, owned-child shutdown, crash/reopen, capability replacement and
 Pause against an empty fixture Store. The [native existing-store supervisor](mac-supervision.md)
 also passed [21 recovery checks](../artifacts/mac-root-supervisor-080.json).
-Consumer orchestration remains separate.
+The composed native host passed [31 system-service checks](../artifacts/mac-root-coordinator-080.json),
+including supervisor crash/restart and cold service reopening. Consumer
+installation, machine reboot and active-operation recovery remain separate.
 
 This component still needs consumer orchestration integrating that key custody, authenticated
 owner enrollment, secure client issuance and migration, lifecycle/recovery,

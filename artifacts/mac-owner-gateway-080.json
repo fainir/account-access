@@ -88,7 +88,7 @@
     ],
     "minimum_typechecked_macos": "13"
   },
-  "matching_regression_evidence": "mac-root-supervisor-080.json",
+  "matching_regression_evidence": "mac-root-coordinator-080.json",
   "earlier_publisher_regression": {
     "source_revision": "712f1a15aa9db577323803a990ff6c8051580506",
     "checks": 54
@@ -100,9 +100,16 @@
     }
   ],
   "remaining": [
-    "consumer supervision, parent-daemon crash/reboot and active-operation/browser-descendant recovery",
+    "consumer deployment, machine reboot and active-operation/browser-descendant recovery",
     "trusted enrollment, native UI/source collectors, client issuance and migration",
     "genuine owner setup authorization approval and publisher update continuity",
     "notarized clean-Mac installation and private email/SMS/authenticator/physical-phone acceptance"
-  ]
+  ],
+  "latest_adhoc_ci": {
+    "source_revision": "e756d1861a44ef67c203f2b413790cdcbd82e890",
+    "workflow_url": "https://github.com/fainir/account-access/actions/runs/39006452116",
+    "job_id": 117319816349,
+    "checks": 58,
+    "publisher_signed_peers": false
+  }
 }

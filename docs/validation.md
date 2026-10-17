@@ -1,5 +1,57 @@
 # Validation of Account Access
 
+## Composed Mac system-host recovery — 17 October 2026
+
+Revision `e756d18` passed **31 composed-host checks** in
+[Mac CI](https://github.com/fainir/account-access/actions/runs/39006452093/job/117319816135)
+and an [independent PR run](https://github.com/fainir/account-access/actions/runs/39006454910/job/117319824512).
+Both complete sets of seven reports agree: 31 composed host, 21 supervisor,
+33 native handoff, 20 System-key, 24 root owner-host, 16 setup-policy and
+25 cross-user worker assertions.
+
+The actual `RootBrokerHost` activates its system job's listeners, loads the
+fixture System key, starts the dedicated worker on an existing empty encrypted
+Store and accepts the pinned native owner client. Wrong client code, owner UID,
+server code and ungranted configuration writes are refused. The journey kills
+the named supervisor job with SIGKILL, verifies the old worker exits, checks the
+replacement's kernel parent/group/UID/GID, confirms socket identity continuity,
+rejects the old owner connection and reads the reopened Store. It also removes
+and re-registers the service and preserves Pause across another parent crash;
+the paused native gateway remains available without starting a worker.
+The QA authorization rule and System key are removed afterward.
+
+Matching source passed **836 tests, one platform skip, in 430.71 seconds**,
+lint, a dependency audit with no known vulnerabilities and package/native
+checks in [regression CI](https://github.com/fainir/account-access/actions/runs/39006452116).
+The [Linux 24-check worker](https://github.com/fainir/account-access/actions/runs/39006452059),
+[Android emulator journey](https://github.com/fainir/account-access/actions/runs/39006452079)
+and [58-check ordinary-user owner XPC journey](https://github.com/fainir/account-access/actions/runs/39006452116/job/117319816349)
+also passed. All eight push/PR workflow runs passed. The earlier local publisher-signed XPC
+result retains its own revision scope. Local focused boundary/evidence checks passed 146 cases; the
+readiness/health group passed 55. A native listener regression verifies actual
+accept/relisten behavior and rejects regular files and connected streams.
+
+Earlier attempts are excluded. `f39079f` failed new host startup; the Darwin
+Unix-socket SO_ACCEPTCONN query proved unavailable locally and was replaced by
+listen-based readiness. At `114cdc1`, one run refused initial socket metadata;
+initial activation now sets and strictly verifies required group/mode on its
+own root-owned socket. Later acquisition only validates metadata/inode identity.
+Another run failed an existing handoff/lifecycle boolean before coordinator
+startup; that report did not identify the exact assertion. Code inspection found
+owner health could precede agent-server startup. Managed health now stays 503
+until the server has started, and fixed failing assertion names are retained.
+Tests also reject non-boolean or throwing readiness callbacks without exposing
+exception text. See [evidence and failed-run links](../artifacts/mac-root-coordinator-080.json).
+
+This is an actual system-host composition in a disposable VM with ad-hoc pins,
+not consumer deployment or genuine positive owner approval. Cold service
+removal/re-registration is not a full machine reboot. Active browser descendants
+and interrupted account tasks are not tested by the empty-store journey.
+Consumer setup, enrollment/client issuance, source collectors, migration,
+publisher update continuity, notarized installation and private email/SMS/TOTP
+and physical-phone acceptance remain open. Installed build 53 and the unfinished
+mailbox form were preserved.
+
 ## Native existing-store supervision — 17 October 2026
 
 Revision `40c9fa4` passed **21 native supervisor checks** in the

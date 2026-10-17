@@ -12,12 +12,12 @@
   "checks": {
     "root_only_capability_handoff": true,
     "daemon_root_uid_verified": true,
-    "signed_owner_revocation_reached_worker": true,
+    "unauthorized_grant_refused": true,
     "unconfigured_os_setup_refused": true,
-    "root_backend_reached_isolated_worker": true,
     "unauthorized_credential_write_refused": true,
     "privileged_root_peer_prepared": true,
-    "unauthorized_grant_refused": true,
+    "root_backend_reached_isolated_worker": true,
+    "signed_owner_revocation_reached_worker": true,
     "wrong_client_refused": true,
     "wrong_client_setup_refused": true,
     "wrong_client_credential_input_refused": true,
@@ -36,8 +36,8 @@
     "revocation_confirmed_by_agent": true
   },
   "date": "2026-10-17",
-  "source_revision": "40c9fa4d7609a294ef08a4a85dda1f4593d5b770",
-  "ci_url": "https://github.com/fainir/account-access/actions/runs/39004132984/job/117312998074",
+  "source_revision": "e756d1861a44ef67c203f2b413790cdcbd82e890",
+  "ci_url": "https://github.com/fainir/account-access/actions/runs/39006452093/job/117319816135",
   "installation_scope": "disposable hosted Mac VM; service removed after test",
   "architecture": "arm64",
   "installed_owner_app_changed": false,
@@ -48,7 +48,7 @@
     "source_revision": "40c9fa4d7609a294ef08a4a85dda1f4593d5b770",
     "evidence": "mac-owner-gateway-080.json"
   },
-  "focused_python_cases": 135,
+  "focused_python_cases": 146,
   "limits": [
     "Root host journey keeps its QA policy unconfigured; the separate policy journey subsequently creates/removes only the QA right",
     "Ad-hoc hash-pinned peers; genuine owner approval and publisher-signed consumer deployment remain unverified",
@@ -60,5 +60,5 @@
     "publisher_signed_peers": true,
     "source_revision": "de1b0d7f63c1c7631fe46ba7f346dcc4cb43b820"
   },
-  "matching_regression_evidence": "mac-root-supervisor-080.json"
+  "matching_regression_evidence": "mac-root-coordinator-080.json"
 }
