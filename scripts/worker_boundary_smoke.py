@@ -212,6 +212,21 @@ def probe(prefix, roles, worker, policy, phase):
 
 
 def exercise(prefix, roles):
+    if sys.platform == "darwin":
+        # No login data is provided to this canary. It checks whether the
+        # dedicated identity can start sandboxed Chromium in the CI session.
+        stage("credential_free_browser_canary")
+        canary = subprocess.run([*dropped(roles["broker"]), sys.executable, "-I", "-B", str(prefix / "browser-probe.py")],
+            capture_output=True, timeout=45, env={"PATH": "/usr/bin:/bin", "LANG": "en_US.UTF-8",
+                "HOME": roles["broker"].pw_dir, "PLAYWRIGHT_BROWSERS_PATH": str(prefix / "browsers")})
+        if canary.returncode:
+            result = json.loads(canary.stdout)
+            allowed = {"mach_bootstrap_registration_failed", "browser_profile_unavailable", "browser_not_installed",
+                       "browser_launch_not_permitted", "browser_launch_permission_denied",
+                       "browser_closed_during_launch", "browser_canary_failed"}
+            if result.get("reason") in allowed:
+                stage(result["reason"])
+            raise RuntimeError("fixture_browser_canary_failed")
     stage("prepare_fictional_state")
     state = prefix / "state"
     agent_directory, control_directory = prefix / "public", prefix / "control"
