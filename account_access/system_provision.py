@@ -444,6 +444,7 @@ def plans(layout, transaction, signatures, owner_group):
     )
     job = {
         "Label": layout.label,
+        "AssociatedBundleIdentifiers": ["com.fainir.accountaccess"],
         "ProgramArguments": arguments,
         "UserName": "root",
         "GroupName": "wheel",

@@ -63,6 +63,12 @@ codes. Protected app builds disable the legacy HMAC reader entry point.
 
 ## Permission and verification limits
 
+The system job declares the owner app in `AssociatedBundleIdentifiers`, following
+[Apple’s guidance on responsible code](https://developer.apple.com/forums/thread/678819).
+That association is metadata, not a privacy grant or proof that the launched
+reader has inherited an existing grant. The installed chain must be tested with
+real OS approval on a clean Mac.
+
 macOS still requires the owner to enable SMS forwarding and grant Full Disk Access
 where required. This bridge does not grant that permission or approve a device
 challenge. Full Disk Access is broad OS permission; the implementation restricts

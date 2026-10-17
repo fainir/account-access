@@ -88,6 +88,7 @@ def test_generated_plans_bind_identities_paths_and_public_profile_without_secret
     assert job["Sockets"]["AccountAccessAgent"]["SockPathGroup"] == 20
     assert job["Sockets"]["AccountAccessOwner"]["SockPathMode"] == 0o600
     assert job["AbandonProcessGroup"] is False and job["MachServices"] == {provision.SERVICE: True}
+    assert job["AssociatedBundleIdentifiers"] == ["com.fainir.accountaccess"]
     assert all(len(json.dumps(value).encode()) <= 4096 for value in values.values())
     assert plistlib.loads(plistlib.dumps(job)) == job
     assert not any(
