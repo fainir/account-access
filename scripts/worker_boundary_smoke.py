@@ -674,7 +674,7 @@ def root_key_custody(prefix, roles):
     evidence.chmod(0o644)
     initialization_report = {"status": "PASSED", "platform": "macos", "environment": "controlled-demo", "production_ready": False,
         "private_signins": 0, "system_key_used": True, "actual_initializer_used": True,
-        "consumer_deployment_verified": False, "genuine_owner_approval_verified": False, "stage_published": False,
+        "consumer_deployment_verified": False, "genuine_owner_approval_verified": False, "stage_published": True,
         "key_enrollment_authorization_verified": False, "fixture_key_removed": True, "publisher_signed_peers": False,
         "checks": initializer}
     evidence = Path("/tmp/account-access-mac-staged-enrollment.json")

@@ -28,7 +28,7 @@ jobs:
               -target "$AC_BOOTSTRAP_ARCH-apple-macos13" -framework Foundation -framework Security -framework CryptoKit \
               -import-objc-header macos/NativeBroker.h macos/RootVaultKeyStore.swift macos/RootWorkerChannel.swift \
               macos/WorkerBootstrap.swift macos/OwnerGateway.swift macos/OwnerGatewayHost.swift macos/OwnerAuthorizationPolicy.swift \
-              macos/RootActivatedListeners.swift macos/RootWorkerProcess.swift macos/RootWorkerSupervisor.swift macos/RootBrokerHost.swift macos/RootStoreInitializer.swift
+              macos/RootActivatedListeners.swift macos/RootWorkerProcess.swift macos/RootWorkerSupervisor.swift macos/RootBrokerHost.swift macos/RootStoreInitializer.swift macos/RootStorePublication.swift
           done
           xcrun swiftc -O -parse-as-library -framework Foundation \
             macos/WorkerBootstrap.swift macos/Tests/WorkerBootstrapChecks.swift -o /tmp/ac-worker-bootstrap-checks
@@ -58,7 +58,7 @@ jobs:
             -framework Foundation -framework Security -framework CryptoKit -import-objc-header macos/NativeBroker.h \
             macos/WorkerBootstrap.swift macos/RootVaultKeyStore.swift macos/RootWorkerChannel.swift macos/OwnerGateway.swift macos/RootWorkerProcess.swift \
             macos/RootActivatedListeners.swift macos/RootWorkerSupervisor.swift macos/RootBrokerHost.swift macos/OwnerGatewayHost.swift \
-            macos/OwnerAuthorizationPolicy.swift macos/RootStoreInitializer.swift macos/Tests/RootEnrollmentChecks.swift \
+            macos/OwnerAuthorizationPolicy.swift macos/RootStoreInitializer.swift macos/RootStorePublication.swift macos/Tests/RootEnrollmentChecks.swift \
             macos/Tests/RootCoordinatorChecks.swift macos/Tests/RootSupervisorChecks.swift \
             macos/Tests/RootKeyHandoffChecks.swift macos/Tests/RootVaultKeyChecks.swift \
             /tmp/ac-keychain-interaction.o /tmp/ac-native-broker.o -o /tmp/ac-root-key-checks

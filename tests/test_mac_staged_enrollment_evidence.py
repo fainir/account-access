@@ -8,13 +8,13 @@ from scripts.check_mac_staged_enrollment_report import CHECKS, main, validate
 def report():
     return {"status": "PASSED", "platform": "macos", "environment": "controlled-demo", "production_ready": False,
             "private_signins": 0, "system_key_used": True, "actual_initializer_used": True,
-            "consumer_deployment_verified": False, "genuine_owner_approval_verified": False, "stage_published": False,
+            "consumer_deployment_verified": False, "genuine_owner_approval_verified": False, "stage_published": True,
             "key_enrollment_authorization_verified": False, "fixture_key_removed": True, "publisher_signed_peers": False,
             "checks": dict.fromkeys(CHECKS, True)}
 
 
 def test_staged_enrollment_requires_each_native_key_proof_and_no_overwrite_check(tmp_path):
-    assert len(CHECKS) == 16 and validate(report())
+    assert len(CHECKS) == 28 and validate(report())
     for name in CHECKS:
         for substitute in [False, None, 1]:
             value = report()
@@ -30,9 +30,9 @@ def test_staged_enrollment_requires_each_native_key_proof_and_no_overwrite_check
 
 @pytest.mark.parametrize("name,value", [("production_ready", True), ("private_signins", True), ("private_signins", 1),
     ("system_key_used", False), ("actual_initializer_used", False), ("consumer_deployment_verified", True),
-    ("genuine_owner_approval_verified", True), ("stage_published", True), ("key_enrollment_authorization_verified", True),
+    ("genuine_owner_approval_verified", True), ("stage_published", False), ("key_enrollment_authorization_verified", True),
     ("fixture_key_removed", False), ("publisher_signed_peers", True), ("environment", "personal")])
-def test_staging_cannot_claim_genuine_authorization_publication_or_private_qa(name, value):
+def test_staging_requires_publication_but_cannot_claim_genuine_authorization_or_private_qa(name, value):
     value_report = report()
     value_report[name] = value
     assert not validate(value_report)

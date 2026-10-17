@@ -2,7 +2,7 @@
 
 First-time consumer enrollment needs a genuinely approved owner setup session,
 explicit System-key creation, staged initialization, publication and client
-issuance. This page describes the staged initializer now implemented in the
+issuance. This page describes the staged initializer and publisher implemented in the
 candidate. It does not claim that the installed preview performs that complete
 sequence.
 
@@ -32,11 +32,37 @@ Competing initialization or an existing file stops the operation; neither is
 silently replaced. Temporary and final staging files never contain the master
 key as a key file.
 
-A receipt authenticates the vault identifier, enrollment identifier and canonical
+A private receipt authenticates the vault identifier, enrollment identifier and canonical
 stage path using the fresh owner entropy from the inherited envelope. It stays
 on private IPC. Before acknowledging it, the native parent checks the child's
 kernel PID/parent/process group and real/effective/saved UID/GID. Success also
-requires the owned child to exit normally. A receipt alone is not publication.
+requires the owned child to exit normally. The returned native completion binds
+the unchanged stage device/inode as well as those identifiers. It contains no
+key or proof bytes and cannot be provided through an owner or agent request.
+
+## Publication and restart
+
+`RootStorePublication` holds an exclusive parent lock and creates a private,
+root-owned journal outside the broker-owned vault. Its immutable record binds
+the original empty destination and stage device/inode identities. Only the
+initializer's completed native receipt can record that this stage is ready.
+An unverified stage, competing setup, a nonempty destination or changed
+directory identity stops publication and preserves the directories.
+
+Publication uses Darwin's atomic directory swap under the same protected parent
+with fixed leaf names. Both directories remain present: the verified store
+becomes the destination and the original empty destination stays at the stage
+name. There is no remove/replace fallback on unsupported filesystems. The journal
+and parent directory are synchronized. Reopening the journal recognizes both
+pre-swap and completed-swap identities; repeating publication cannot swap back.
+The initializer refuses a populated destination after publication.
+
+The readiness marker and journal cover resuming publication after an interrupted
+process. An interruption before the verified completion is persisted requires
+repair and preserves the partial stage; it does not trigger blind initialization
+or key replacement. Power-loss/storage durability and full consumer setup
+recovery remain separate acceptance gates. See Apple's
+[volume swap support](https://developer.apple.com/documentation/foundation/urlresourcevalues/volumesupportsswaprenaming).
 
 ## Key verification before readiness
 
@@ -52,11 +78,11 @@ account list by itself cannot establish that the encrypted vault key works.
 
 ## Remaining work
 
-The initializer is a production component under CI validation, not consumer
-setup acceptance. The current fixture uses an explicitly created temporary
-System key and tests an unpublished private stage. The approved first-install
-flow still needs its owner-authorized key creation, recoverable atomic
-publication, native UI integration, client issuance and installed migration.
+These production components are under CI validation, not consumer setup
+acceptance. The fixture uses an explicitly created temporary System key; the
+new fixture journey exercises publication and reopening the published store.
+The approved first-install flow still needs its owner-authorized key creation,
+full setup crash recovery, native UI integration, client issuance and installed migration.
 Genuine owner approval, publisher update continuity, notarized clean installation
 and private password/email/SMS/authenticator/physical-phone QA remain open.
 

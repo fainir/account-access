@@ -13,6 +13,20 @@ enum RootStoreInitializationFailure: String, Error {
     case ownershipLost = "store_initializer_ownership_lost"
 }
 
+// Only a completed initializer can construct this receipt. It contains no key
+// or proof bytes and cannot be supplied through an owner/agent request.
+struct VerifiedStagedVault {
+    let vault: String
+    let enrollment: String
+    let path: String
+    let device: dev_t
+    let inode: ino_t
+    fileprivate init(plan: MacWorkerEnrollmentPlan, info: stat) {
+        vault = plan.vault; enrollment = plan.enrollment; path = plan.stage
+        device = info.st_dev; inode = info.st_ino
+    }
+}
+
 final class RootStoreInitializer {
     private let policy: String
     private let plan: MacWorkerEnrollmentPlan
@@ -84,10 +98,13 @@ final class RootStoreInitializer {
         }
         return data
     }
-    func initialize(key: RootVaultKey) throws {
+    @discardableResult
+    func initialize(key: RootVaultKey) throws -> VerifiedStagedVault {
         try RootVaultKeyStore.requireDaemon()
         // Recheck emptiness immediately before handing a key to the child.
         _ = try MacWorkerEnrollmentPlan(policy: policy)
+        var original = stat()
+        guard lstat(plan.stage, &original) == 0 else { throw RootStoreInitializationFailure.unavailable }
         let channel = try RootWorkerChannel(key: key)
         defer { channel.cancel() }
         var pair: [Int32] = [-1, -1]
@@ -147,5 +164,12 @@ final class RootStoreInitializer {
             Thread.sleep(forTimeInterval: 0.05)
         }
         guard status == 0 else { throw RootStoreInitializationFailure.unavailable }
+        var current = stat()
+        guard lstat(plan.stage, &current) == 0, current.st_dev == original.st_dev,
+              current.st_ino == original.st_ino, current.st_mode & S_IFMT == S_IFDIR,
+              current.st_uid == plan.base.uid, current.st_mode & 0o077 == 0 else {
+            throw RootStoreInitializationFailure.invalidReceipt
+        }
+        return VerifiedStagedVault(plan: plan, info: current)
     }
 }

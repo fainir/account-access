@@ -223,7 +223,7 @@ struct MacWorkerEnrollmentPlan {
     let vault: String
     let enrollment: String
 
-    init(policy path: String) throws {
+    init(policy path: String, requireEmptyStage: Bool = true) throws {
         let value = try WorkerLaunchPaths.object(path)
         guard Set(value.keys) == ["managed_by", "schema", "worker_launcher", "stage_policy", "vault_id", "enrollment_id"],
               value["managed_by"] as? String == "account-access-worker-enrollment-v1",
@@ -245,8 +245,14 @@ struct MacWorkerEnrollmentPlan {
         }
         var info = stat()
         guard lstat(stage, &info) == 0, info.st_mode & S_IFMT == S_IFDIR, info.st_uid == base.uid,
-              info.st_mode & 0o077 == 0, try FileManager.default.contentsOfDirectory(atPath: stage).isEmpty else {
+              info.st_mode & 0o077 == 0 else {
             throw WorkerLaunchFailure.invalidPolicy
+        }
+        if requireEmptyStage {
+            guard try FileManager.default.contentsOfDirectory(atPath: stage).isEmpty,
+                  try FileManager.default.contentsOfDirectory(atPath: original).isEmpty else {
+                throw WorkerLaunchFailure.invalidPolicy
+            }
         }
     }
     var arguments: [String] {

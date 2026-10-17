@@ -160,6 +160,7 @@ import Darwin
             if let failure = error as? RootListenerFailure { report["reason"] = failure.rawValue }
             if let failure = error as? OwnerPolicyFailure { report["reason"] = failure.rawValue }
             if let failure = error as? RootStoreInitializationFailure { report["reason"] = failure.rawValue }
+            if let failure = error as? RootPublicationFailure { report["reason"] = failure.rawValue }
         }
         if getuid() != 0 {
             print(String(data: (try? JSONSerialization.data(withJSONObject: report)) ?? Data(), encoding: .utf8) ?? "{}")

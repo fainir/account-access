@@ -9,7 +9,13 @@ CHECKS = {"wrong_bootstrap_code_refused", "staging_and_destination_initially_emp
           "destination_not_published_or_modified", "staged_files_private_and_owned_by_broker", "second_initialization_refused",
           "second_initialization_preserves_stage_files", "ordinary_worker_authenticates_initialized_store",
           "initialized_store_worker_stops_cleanly", "wrong_existing_key_never_reports_ready", "wrong_key_fixture_removed",
-          "correct_key_reopens_stage_after_wrong_key_refusal", "destination_remains_unpublished"}
+          "correct_key_reopens_stage_after_wrong_key_refusal", "destination_unpublished_before_explicit_publication",
+          "concurrent_publication_refused", "publication_before_verified_receipt_refused",
+          "nonempty_destination_preserved_and_refused", "ready_publication_reopens_without_reinitializing",
+          "verified_stage_atomically_published", "old_empty_destination_preserved", "published_files_keep_original_inodes",
+          "reopened_publication_never_swaps_back", "replacement_directory_identity_refused",
+          "ordinary_worker_authenticates_published_store", "published_worker_stops_cleanly",
+          "published_destination_prevents_reinitialization"}
 
 
 def validate(value):
@@ -18,7 +24,7 @@ def validate(value):
             and type(value.get("private_signins")) is int and value["private_signins"] == 0
             and value.get("system_key_used") is True and value.get("actual_initializer_used") is True
             and value.get("consumer_deployment_verified") is False and value.get("genuine_owner_approval_verified") is False
-            and value.get("stage_published") is False and value.get("key_enrollment_authorization_verified") is False
+            and value.get("stage_published") is True and value.get("key_enrollment_authorization_verified") is False
             and value.get("fixture_key_removed") is True and value.get("publisher_signed_peers") is False
             and isinstance(value.get("checks"), dict) and set(value["checks"]) == CHECKS
             and all(item is True for item in value["checks"].values()))
