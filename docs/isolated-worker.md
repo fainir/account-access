@@ -47,7 +47,9 @@ must not be run against a user's Mac or an existing service deployment.
 This component needs a production supervisor with key custody, authenticated
 owner enrollment, secure client issuance and migration, lifecycle/recovery,
 audited packaging and update policy. The Mac consumer path also needs its
-approved service installation and trusted native owner channel. Private email,
+approved service installation and integration of the tested
+[native owner-channel component](mac-owner-gateway.md). Its genuine owner
+approval and root deployment remain unverified. Private email,
 SMS and authenticator acceptance, physical phones and independent security
 review remain open. Passing the Linux component test does not close those gates
 or make the complete product production-ready.
