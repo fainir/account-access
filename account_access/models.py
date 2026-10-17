@@ -99,10 +99,20 @@ class LoginCodeRequest(StrictModel):
     url: str
 
 
+class LoginIdentityStep(StrictModel):
+    submit_selector: str = Field(min_length=1, max_length=500)
+    post_url: str
+    password_url: str
+    password_post_url: str
+    # Explicitly reviewed JavaScript POST instead of a native form submission.
+    scripted: bool = False
+
+
 class LoginForm(StrictModel):
     username_selector: str
     password_selector: str
     submit_selector: str
+    identity_step: LoginIdentityStep | None = None
     code_selector: str | None = None
     code_submit_selector: str | None = None
     code_source: Handle | None = None
@@ -212,11 +222,22 @@ class Configuration(StrictModel):
                         not account.javascript or origin(account.login_url) != "https://github.com"
                         or urlsplit(account.login_url).path != "/login"
                         or not account.login or account.login.username_selector != "#login_field"
-                        or account.login.password_selector != "#password"):
+                        or account.login.password_selector != "#password" or account.login.identity_step is not None):
                     raise ValueError("GitHub asset discovery requires the reviewed GitHub login form")
                 urls = [account.login_url, *account.read_resources, *account.login_resources,
                         *account.login_assets, *account.login_post_urls]
                 if account.login:
+                    identity = account.login.identity_step
+                    if identity and (
+                            identity.post_url not in account.login_post_urls
+                            or identity.post_url not in account.login_resources
+                            or identity.password_url not in account.login_resources
+                            or identity.password_post_url not in account.login_post_urls
+                            or identity.password_post_url not in account.login_resources
+                            or any(origin(url) != origin(account.login_url)
+                                   for url in [identity.post_url, identity.password_url, identity.password_post_url])
+                            or identity.scripted and not account.javascript):
+                        raise ValueError("Identity steps require reviewed same-origin login pages and POST; scripted steps require JavaScript")
                     if not account.login.sources() <= self.code_sources.keys():
                         raise ValueError("Unknown login code source")
                     kinds = {"totp": {"totp"}, "email": {"imap", "gmail"},
@@ -264,6 +285,8 @@ class Configuration(StrictModel):
             # no alias was added. A nonempty alias is still permission-bound.
             data.pop("password_import_origins", None)
         if isinstance(self.accounts[account], BrowserAccount) and data.get("login"):
+            if data["login"].get("identity_step") is None:
+                data["login"].pop("identity_step", None)
             if not data["login"].get("factors"):
                 data["login"].pop("factors", None)
             if not data["login"].get("choices"):

@@ -22,6 +22,15 @@ class Browser:
         context = browser.new_context(storage_state=state, java_script_enabled=config.javascript,
                                       service_workers="block", accept_downloads=False)
         context._login_code_request = None
+        identity = config.login.identity_step if login and config.login else None
+        context._identity_pending = identity is not None
+        context._identity_armed = False
+        context._identity_dispatched = False
+        context._identity_blocked = False
+        context._identity_redirect_replay = False
+        context._login_identity_request = None
+        context._login_step_post_url = identity.post_url if identity else None
+        context._password_blocked = False
         allowed = set(config.login_resources if login else config.read_resources)
         assets = set(config.login_assets) if login else set()
         asset_policy = None
@@ -40,6 +49,13 @@ class Browser:
             *(op.url for op in config.operations.values())}})
 
         def record_metadata(url, method, reason, resource_type, redirected=False):
+            if (context._identity_pending and (method == "POST" or resource_type == "document")
+                    and reason in {"destination", "method", "resource_type", "redirect_limit", "missing_location", "response_size"}):
+                context._identity_blocked = True
+            if (not context._identity_pending and context._login_step_post_url is not None
+                    and (method == "POST" or resource_type == "document")
+                    and reason in {"destination", "method", "resource_type", "redirect_limit", "missing_location", "response_size"}):
+                context._password_blocked = True
             if account is None or (resource_type != "document" and not (
                     login and method == "POST" and origin(url) == origin(config.login_url))):
                 return
@@ -67,11 +83,21 @@ class Browser:
             if method not in {"GET", "HEAD"} and not (
                     login and method == "POST" and url in config.login_post_urls):
                 return "method"
+            if method == "POST" and context._identity_pending and (
+                    not context._identity_armed or url != identity.post_url or context._identity_redirect_replay):
+                return "method"
+            if method == "POST" and context._login_step_post_url is not None and url != context._login_step_post_url:
+                return "method"
             if url in assets and resource_type not in {"script", "stylesheet"}:
                 return "resource_type"
             return None
 
         def response_metadata(url, method, status, resource_type, redirect=None):
+            identity_request = context._login_identity_request
+            if method == "POST" and identity_request is not None and url == identity_request["url"]:
+                identity_request["http_status"] = status
+                if status in {307, 308}:
+                    context._identity_redirect_replay = True
             pending = context._login_code_request
             if method == "POST" and pending is not None and url == pending["url"]:
                 pending["http_status"] = status
@@ -97,6 +123,12 @@ class Browser:
                 record_failure(request, url, reason)
                 route.abort("blockedbyclient")
                 return
+            if method == "POST" and context._identity_pending:
+                if context._identity_dispatched:
+                    record_failure(request, url, "method")
+                    route.abort("blockedbyclient")
+                    return
+                context._identity_dispatched = True
             if asset_policy and url in assets:
                 try:
                     body, public_headers = asset_policy.fetch(url)
@@ -376,15 +408,16 @@ class Browser:
             if page.url != config.login_url:
                 raise AccessError("NEEDS_USER", "login_destination_changed", "unknown")
             form = config.login
-            self.check_form(page, form.password_selector, config)
+            if form.identity_step:
+                self.check_identity_form(page, config)
+            else:
+                self.check_form(page, form.password_selector, config)
             if review_stop and review_stop.is_set():
                 raise AccessError("NEEDS_USER", "sms_setup_cancelled", "sms")
-            page.locator(form.username_selector).fill(credential["username"])
-            page.locator(form.password_selector).fill(credential["password"])
             started = time.time()
             for source_id in sorted(form.sources()):
                 try:
-                    # Establish freshness before the password can trigger code
+                    # Establish freshness before any credential fill can trigger code
                     # delivery. An unused alternative being offline must not
                     # prevent a different, enrolled method from completing.
                     self.codes.begin(source_id, account, started)
@@ -403,14 +436,33 @@ class Browser:
                 raise source_errors[sorted(form.sources())[0]]
             if review_stop and review_stop.is_set():
                 raise AccessError("NEEDS_USER", "sms_setup_cancelled", "sms")
+            if form.identity_step:
+                self.submit_identity(page, account, config, credential["username"], review_stop=review_stop)
+            expected = form.identity_step.password_url if form.identity_step else config.login_url
+            self.credential_page(page, config, expected)
+            self.check_form(page, form.password_selector, config)
+            if form.identity_step:
+                self.check_staged_native_form(page, form.password_selector, form.submit_selector,
+                                               form.identity_step.password_post_url, allow_missing=config.javascript)
+            if not form.identity_step:
+                page.locator(form.username_selector).fill(credential["username"])
+            page.locator(form.password_selector).fill(credential["password"])
             # Charge the password-attempt cooldown only when submission is
             # attempted. Connecting a missing mailbox/phone after preflight
             # stopped must not require another minute or user retry.
             self.store.put("login-attempt:" + account, time.time())
-            page.locator(form.submit_selector).click(timeout=10000)
-            context._login_progress["password_submit_attempted"] = True
-            page.wait_for_load_state("domcontentloaded")
-            self.wait_state(page, config, after_submit=True)
+            try:
+                page.locator(form.submit_selector).click(timeout=10000)
+                context._login_progress["password_submit_attempted"] = True
+                page.wait_for_load_state("domcontentloaded")
+                self.wait_state(page, config, after_submit=True)
+            except PlaywrightError:
+                if context._password_blocked:
+                    raise AccessError("NEEDS_USER", "login_form_destination_changed", "unknown") from None
+                raise
+            if context._password_blocked:
+                raise AccessError("NEEDS_USER", "login_form_destination_changed", "unknown")
+            context._login_step_post_url = None
             kind = self.challenge(page, config)
             used_by_source = {}
             choices_used = set()
@@ -550,6 +602,87 @@ class Browser:
                 for source_id in config.login.sources():
                     self.codes.finish(source_id, started)
             context.close()
+
+    def credential_page(self, page, config, expected):
+        kind = self.challenge(page, config)
+        if kind and kind != "login":
+            raise AccessError("NEEDS_USER", "browser_" + kind + "_required", kind)
+        if page.url != expected:
+            raise AccessError("NEEDS_USER", "login_destination_changed", "unknown")
+
+    def check_identity_form(self, page, config):
+        self.credential_page(page, config, config.login_url)
+        form, step = config.login, config.login.identity_step
+        if any(page.locator(selector).count() != 1 or not page.locator(selector).is_visible()
+               for selector in [form.username_selector, step.submit_selector]):
+            raise AccessError("NEEDS_USER", "login_identity_form_changed", "unknown")
+        if step.scripted:
+            return  # The phase guard permits only the exact reviewed identity POST.
+        self.check_staged_native_form(page, form.username_selector, step.submit_selector, step.post_url,
+                                       reason="login_identity_form_changed")
+
+    def check_staged_native_form(self, page, field_selector, submit_selector, post_url, *, allow_missing=False,
+                                reason="login_form_destination_changed"):
+        if any(page.locator(selector).count() != 1 or not page.locator(selector).is_visible()
+               for selector in [field_selector, submit_selector]):
+            raise AccessError("NEEDS_USER", reason, "unknown")
+        field = page.locator(field_selector).element_handle()
+        button = page.locator(submit_selector).element_handle()
+        destination = page.evaluate("""([field, button]) => {
+            const form = field?.form;
+            return form && button ? {same: form === button.form,
+                method: (button.hasAttribute('formmethod') ? button.formMethod : form.method).toUpperCase(),
+                action: button.hasAttribute('formaction') ? button.formAction : form.action} : null;
+        }""", [field, button])
+        if destination is None and allow_missing:
+            return
+        if not destination or destination != {"same": True, "method": "POST", "action": post_url}:
+            raise AccessError("NEEDS_USER", reason, "unknown")
+
+    def submit_identity(self, page, account, config, username, *, review_stop=None):
+        form, context = config.login, page.context
+        step = form.identity_step
+        self.check_identity_form(page, config)
+        if context._identity_blocked:
+            raise AccessError("NEEDS_USER", "login_identity_navigation_changed", "unknown")
+        confirmation = {"url": step.post_url, "http_status": None}
+        context._login_identity_request = confirmation
+        context._identity_armed = True
+        # Limit even a failed first-stage request. The final password submission
+        # refreshes this same cooldown; missing-source preflight does not charge it.
+        self.store.put("login-attempt:" + account, time.time())
+        try:
+            page.locator(form.username_selector).fill(username)
+            page.locator(step.submit_selector).click(timeout=10000)
+            context._login_progress["identity_submit_attempted"] = True
+            page.wait_for_load_state("domcontentloaded")
+        except PlaywrightError:
+            if context._identity_blocked or context._identity_redirect_replay:
+                raise AccessError("NEEDS_USER", "login_identity_navigation_changed", "unknown") from None
+            raise AccessError("RETRYABLE", "login_identity_transport_failed") from None
+        deadline = time.monotonic() + config.state_timeout_ms / 1000
+        while True:
+            kind = self.challenge(page, config)
+            if kind and kind != "login":
+                raise AccessError("NEEDS_USER", "browser_" + kind + "_required", kind)
+            status = confirmation["http_status"]
+            if status in {429, 500, 502, 503, 504}:
+                raise AccessError("RETRYABLE", "login_identity_temporarily_unavailable")
+            if status is not None and not 200 <= status < 400:
+                raise AccessError("NEEDS_USER", "login_identity_rejected", "unknown")
+            if context._identity_blocked or context._identity_redirect_replay:
+                raise AccessError("NEEDS_USER", "login_identity_navigation_changed", "unknown")
+            if review_stop and review_stop.is_set():
+                raise AccessError("NEEDS_USER", "sms_setup_cancelled", "sms")
+            if (status is not None and page.url == step.password_url
+                    and page.locator(form.password_selector).first.is_visible()):
+                context._identity_pending = False
+                context._login_identity_request = None
+                context._login_step_post_url = step.password_post_url
+                return
+            if time.monotonic() >= deadline:
+                raise AccessError("NEEDS_USER", "login_identity_not_completed", "unknown")
+            page.wait_for_timeout(50)
 
     def choose_method(self, page, config, source_errors, excluded, *, setup_method=None):
         """Select only an offered, reviewed GET link to an enrolled login factor.

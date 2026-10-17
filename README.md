@@ -128,6 +128,11 @@ Mac Full Disk Access and Android notification access are broader OS permissions 
 
 The 0.8 candidate supports separate reviewed sources and form selectors for email, SMS and authenticator verification on the same account. It handles the methods actually presented by the website and can complete successive distinct challenges. A repeated challenge stops after one code submission; a payment, device, passkey or administrator requirement is not treated as another login-code form. See the [connector configuration example](examples/browser-verification.json).
 
+The candidate also supports a reviewed [email/username page followed by a password page](docs/username-password-pages.md).
+It prepares verification sources before filling credentials and checks each
+stage's exact POST destination. This requires a configured connector; it does
+not add a passwordless or federated login for an unsupported service.
+
 When a website offers a choice, its connector can select a reviewed link to an enrolled verification method automatically. It checks the exact link before following it. A mandatory device approval still pauses. The owner app also offers a narrow sign-in-routing repair for the existing GitHub pilot, preserving its approved reads and login POST destinations.
 
 For the existing GitHub browser pilot, the candidate adds **Connect iPhone SMS**.

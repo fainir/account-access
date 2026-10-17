@@ -80,10 +80,21 @@ transfer and label that a completed password/code test.
 
 An anonymous inspection of Railway's current login page confirmed an email
 sign-in option alongside federated sign-in. Its email flow is not a bundled
-connector: the current password-form engine cannot treat an email-first login
-as a completed password login. No personal address was entered, no email was
+connector. The newer engine supports a reviewed username/email step followed by
+a password, but that does not implement a passwordless email-code flow.
+No personal address was entered, no email was
 requested, and no Railway account was connected. This is discovery, not a
 successful account test.
+
+## Two-page password engine
+
+The development candidate adds an optional identity step with exact identity
+POST, password-page and password-POST URLs. It works with reviewed native forms
+or an explicit JavaScript identity request. Source preparation precedes all
+credential fills, and a changed page/form or presence challenge stops before
+the password. Controlled tests cover all four existing verification variants
+and saved-session reuse. This does not enroll or validate another private
+provider. See [the configuration and limits](username-password-pages.md).
 
 ## Running the anonymous check
 

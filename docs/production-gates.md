@@ -7,6 +7,18 @@ or physical-device coverage.
 
 ## Candidate 0.8 changes
 
+- Reviewed two-page password flows can submit an email/username to one exact
+  identity endpoint, verify the expected password page, and submit the password
+  only to its declared endpoint. Native form controls must share the reviewed
+  POST form; JavaScript identity requests need explicit configuration and an
+  actual accepted response. Early/duplicate/wrong-endpoint requests and POST
+  replay redirects stop. Temporary failures retain automatic task retry and the
+  normal cooldown. This is controlled coverage, not a new private provider.
+- Verification-source preflight now runs before any credential fill, followed by
+  another page/presence check. JavaScript input handlers therefore cannot receive
+  a password before the configured code sources are prepared. Missing sources
+  stop without consuming a first-stage login attempt. Existing connector
+  fingerprints remain unchanged when the optional identity step is absent.
 - Staged Mac build 61 requires macOS 14 (Sonoma) or later, matching the
   pinned Playwright browser runtime. App metadata, shell preflight and the direct
   Python bootstrap enforce this before downloads/runtime changes. This corrects
