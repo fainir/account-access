@@ -100,7 +100,11 @@ import Darwin
         } catch {
             report["reason"] = (error as? RootVaultKeyFailure)?.rawValue ?? "root_key_checks_failed"
             report["checkpoint"] = checkpoint
-            if let failure = error as? RootVaultRecordFailure { report["reason"] = failure.rawValue }
+            if let failure = error as? RootVaultRecordFailure {
+                report["reason"] = failure.stage.rawValue
+                report["record_shape"] = failure.shape
+                report["record_count"] = failure.count
+            }
             if let failure = error as? RootKeychainFailure {
                 report["reason"] = "system_keychain_unavailable"
                 report["keychain_operation"] = failure.operation.rawValue

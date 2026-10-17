@@ -394,6 +394,10 @@ def root_key_custody(prefix, roles):
                         if result.get("checkpoint") in {"policy", "context", "invalid_identity", "initial_missing", "enrollment",
                             "encryption", "duplicate_enrollment", "other_vault", "restart_recovery", "fixture_removal"}:
                             stage("key_checkpoint_" + result["checkpoint"])
+                        if result.get("record_shape") in {"array", "data", "dictionary", "absent", "other"}:
+                            stage("key_record_shape_" + result["record_shape"])
+                        if type(result.get("record_count")) is int and 0 <= result["record_count"] <= 10_000:
+                            print(json.dumps({"key_record_count": result["record_count"]}), file=sys.stderr, flush=True)
                         if result.get("keychain_operation") in {"load", "enroll", "remove"}:
                             stage("keychain_" + result["keychain_operation"])
                         if type(result.get("keychain_status")) is int:
