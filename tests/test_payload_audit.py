@@ -220,6 +220,23 @@ def test_wheel_symlinks_are_refused_without_extracting_them():
         list(audit.wheel_entries(archive))
 
 
+@pytest.mark.parametrize("mode", [0o4755, 0o2755])
+def test_privileged_modes_cannot_become_root_owned_through_packaging(tmp_path, mode):
+    binary = tmp_path / "binary"
+    binary.write_bytes(thin())
+    binary.chmod(mode)
+    with pytest.raises(ValueError, match="privileged_payload_mode_refused"):
+        list(audit.tree_files(tmp_path))
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        entry = zipfile.ZipInfo("package/binary")
+        entry.create_system = 3
+        entry.external_attr = (stat.S_IFREG | mode) << 16
+        archive.writestr(entry, thin())
+    with zipfile.ZipFile(buffer) as archive, pytest.raises(ValueError):
+        list(audit.wheel_entries(archive))
+
+
 @pytest.mark.skipif(sys.platform != "darwin", reason="Uses Apple's native signature verifier")
 def test_real_ad_hoc_runtime_is_not_accepted_as_developer_id(tmp_path):
     source = tmp_path / "fixture.c"

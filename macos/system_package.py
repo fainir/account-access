@@ -151,7 +151,11 @@ def assemble(args):
         p.is_symlink() or not p.is_file() or p.suffix != ".whl" for p in source_wheels
     ):
         raise ValueError("binary_wheelhouse_required")
-    if not args.development and not args.installer_identity:
+    if (
+        not args.development
+        and not args.installer_identity
+        and not getattr(args, "inspect_runtime", False)
+    ):
         raise ValueError("developer_id_installer_identity_required")
     output.mkdir(mode=0o700)
     with tempfile.TemporaryDirectory(prefix="account-access-system-package-") as temporary:
@@ -176,9 +180,6 @@ def assemble(args):
             raise ValueError("wheelhouse_project_mismatch")
         shutil.copy2(wheel, project)
         pin = hashlib.sha256(project.read_bytes()).hexdigest()
-        (payload / "package-requirements.txt").write_bytes(
-            requirements + f"\naccount-access=={version} --hash=sha256:{pin}\n".encode()
-        )
         # Do not ship ACL grants inherited from a maintainer's build folders.
         # This changes only our private copied payload, never source artifacts.
         command(["/bin/chmod", "-RN", str(root)])
@@ -187,18 +188,84 @@ def assemble(args):
             binary_type(path) == 2 for path in tree_files(payload / "browsers")
         ):
             raise ValueError("native_python_and_browser_executables_required")
+        runtime_preparation = None
+        runtime_identity = getattr(args, "runtime_identity", None)
+        runtime_plan = getattr(args, "runtime_plan", None)
+        if getattr(args, "inspect_runtime", False):
+            if runtime_identity or runtime_plan:
+                raise ValueError("runtime_inspection_cannot_sign")
+            from .runtime_prepare import preparation_plan
+
+            plan = preparation_plan(payload, requirements, project.name, pin)
+            plan_file = output / "runtime-signing-plan.json"
+            plan_file.write_text(json.dumps(plan, indent=2) + "\n")
+            return {
+                "status": "INSPECTED",
+                "plan_file": str(plan_file),
+                "production_ready": False,
+                "notarized": False,
+                "installed": False,
+            }
+        if bool(runtime_identity) != bool(runtime_plan):
+            raise ValueError("runtime_signing_identity_and_plan_required")
+        if runtime_identity:
+            from .runtime_prepare import prepare
+
+            plan_path = Path(runtime_plan)
+            if plan_path.stat().st_size > 2_000_000:
+                raise ValueError("runtime_signing_plan_too_large")
+
+            def unique(values):
+                result = {}
+                for key, value in values:
+                    if key in result:
+                        raise ValueError("duplicate_runtime_signing_plan_key")
+                    result[key] = value
+                return result
+
+            plan = json.loads(plan_path.read_bytes(), object_pairs_hook=unique)
+            requirements, runtime_preparation = prepare(
+                payload,
+                requirements,
+                project.name,
+                pin,
+                runtime_identity,
+                team,
+                plan,
+                command,
+                development=args.development,
+            )
+            (payload / "runtime-preparation.json").write_text(
+                json.dumps(runtime_preparation, indent=2) + "\n"
+            )
+        (payload / "package-requirements.txt").write_bytes(
+            requirements + f"\naccount-access=={version} --hash=sha256:{pin}\n".encode()
+        )
         # Inspect the actual immutable build copies, including native code
         # inside dependency archives, before running the supplied interpreter.
         runtime_audit = audit_payload(
-            [root / "Applications/Account Access.app", payload / "python",
-             payload / "browsers", payload / "bin"],
-            sorted((payload / "wheels").glob("*.whl")), args.architecture,
-            command, development=args.development,
+            [
+                root / "Applications/Account Access.app",
+                payload / "python",
+                payload / "browsers",
+                payload / "bin",
+            ],
+            sorted((payload / "wheels").glob("*.whl")),
+            args.architecture,
+            command,
+            development=args.development,
         )
-        found = json.loads(command([
-            str(copied_python), "-I", "-B", "-c",
-            "import json,platform,sys;print(json.dumps([list(sys.version_info[:2]),platform.machine(),sys.prefix==sys.base_prefix]))",
-        ]).stdout)
+        found = json.loads(
+            command(
+                [
+                    str(copied_python),
+                    "-I",
+                    "-B",
+                    "-c",
+                    "import json,platform,sys;print(json.dumps([list(sys.version_info[:2]),platform.machine(),sys.prefix==sys.base_prefix]))",
+                ]
+            ).stdout
+        )
         if found != [[3, 12], args.architecture, True]:
             raise ValueError("matching_standalone_python_required")
         scripts.mkdir()
@@ -263,6 +330,7 @@ def assemble(args):
             "notarized": False,
             "installed": False,
             "native_payload_audit": runtime_audit,
+            "runtime_preparation": runtime_preparation,
             "sha256": hashlib.sha256(result.read_bytes()).hexdigest(),
         }
         (output / "package.json").write_text(json.dumps(report, indent=2) + "\n")
@@ -276,6 +344,9 @@ def main():
     parser.add_argument("--architecture", choices=["arm64", "x86_64"], required=True)
     parser.add_argument("--development", action="store_true")
     parser.add_argument("--installer-identity")
+    parser.add_argument("--runtime-identity")
+    parser.add_argument("--runtime-plan")
+    parser.add_argument("--inspect-runtime", action="store_true")
     args = parser.parse_args()
     try:
         print(json.dumps(assemble(args)))

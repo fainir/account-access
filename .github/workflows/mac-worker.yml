@@ -15,7 +15,7 @@ jobs:
       - name: Check Darwin pipe handoff and reject filesystem FIFO bootstrap
         run: |
           uv sync --locked
-          uv run pytest -q tests/test_worker_signals.py tests/test_worker_boundary.py tests/test_worker_enroll.py tests/test_worker_evidence.py tests/test_mac_root_owner_evidence.py tests/test_mac_key_custody_evidence.py tests/test_mac_owner_policy_evidence.py tests/test_mac_key_handoff_evidence.py tests/test_mac_root_supervisor_evidence.py tests/test_mac_root_coordinator_evidence.py tests/test_mac_staged_enrollment_evidence.py tests/test_mac_initial_setup_evidence.py tests/test_mac_initial_gateway_evidence.py tests/test_system_provision.py tests/test_mac_provisioning_evidence.py tests/test_agent_setup.py tests/test_managed_client.py tests/test_runtime_acl.py tests/test_native_messages.py tests/test_mac_native_messages_evidence.py tests/test_mac_native_browser_evidence.py tests/test_mac_native_system_browser_evidence.py tests/test_payload_audit.py tests/test_system_package.py
+          uv run pytest -q tests/test_worker_signals.py tests/test_worker_boundary.py tests/test_worker_enroll.py tests/test_worker_evidence.py tests/test_mac_root_owner_evidence.py tests/test_mac_key_custody_evidence.py tests/test_mac_owner_policy_evidence.py tests/test_mac_key_handoff_evidence.py tests/test_mac_root_supervisor_evidence.py tests/test_mac_root_coordinator_evidence.py tests/test_mac_staged_enrollment_evidence.py tests/test_mac_initial_setup_evidence.py tests/test_mac_initial_gateway_evidence.py tests/test_system_provision.py tests/test_mac_provisioning_evidence.py tests/test_agent_setup.py tests/test_managed_client.py tests/test_runtime_acl.py tests/test_native_messages.py tests/test_mac_native_messages_evidence.py tests/test_mac_native_browser_evidence.py tests/test_mac_native_system_browser_evidence.py tests/test_payload_audit.py tests/test_system_package.py tests/test_runtime_prepare.py tests/test_runtime_prepare_package.py
       - name: Compile and check the permanent identity-drop launcher
         run: |
           for AC_BOOTSTRAP_ARCH in arm64 x86_64; do
@@ -147,6 +147,10 @@ jobs:
             "$AC_MAC_WORKER_PREFIX/runtime/bin/python" -I -B -m playwright install chromium
           sudo chmod -R a+rX "$AC_MAC_WORKER_PREFIX/browsers"
           sudo chmod -R go-w "$AC_MAC_WORKER_PREFIX/python" "$AC_MAC_WORKER_PREFIX/runtime" "$AC_MAC_WORKER_PREFIX/browsers"
+      - name: Check private Node signing preparation with a sandboxed fixture browser
+        run: |
+          env PLAYWRIGHT_BROWSERS_PATH="$AC_MAC_WORKER_PREFIX/browsers" \
+            uv run pytest -q tests/test_runtime_prepare_real_mac.py
       - name: Verify real cross-user password, email, SMS and authenticator recovery
         run: |
           sudo env GITHUB_ACTIONS=true "$AC_MAC_WORKER_PREFIX/runtime/bin/python" -I -B \

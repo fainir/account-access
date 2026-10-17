@@ -12,9 +12,12 @@ or physical-device coverage.
   timestamps throughout runtime folders and dependency wheels, hardened runtime
   for executables, compatible architecture slices and valid bundle seals. Wheel
   traversal/collision/symlink and native-container bounds are checked in both
-  modes. Development inventory never claims publisher verification. Signed-input
-  preparation with dependency provenance, actual Apple acceptance and positive
-  installed compatibility remain open; the dependency lock is not rewritten.
+  modes. Development inventory never claims publisher verification. Optional
+  maintainer preparation now binds exact runtime input trees/executables, signs
+  private copies, rebuilds native wheel checksum records and derives installer
+  hashes from the original locked artifacts. The source lock remains unchanged.
+  Real publisher validation, complete prepared-runtime compatibility, Apple
+  acceptance and positive installed compatibility remain open.
 - Reviewed two-page password flows can submit an email/username to one exact
   identity endpoint, verify the expected password page, and submit the password
   only to its declared endpoint. Native form controls must share the reviewed

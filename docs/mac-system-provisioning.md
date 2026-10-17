@@ -121,11 +121,18 @@ paths, symlinks, collisions and oversized/invalid native containers stop the bui
 Development builds record an inventory with publisher verification explicitly
 false. Neither mode changes the source payload or its dependency hash lock.
 
-This verifier does not prepare signatures, re-sign dependency wheels, notarize the
-package or establish installed-runtime compatibility. Signed-runtime preparation
-still needs an explicit provenance chain from the original locked wheel to any
-publisher-modified artifact; changing the lock silently would lose that chain.
-Preparing and validating those release inputs remains required. An Installer
+An optional maintainer preparation step now signs private runtime copies and
+rebuilds native dependency wheels. It requires an exact input plan, verifies every
+vendor wheel against the original app-pinned hash lock and leaves the project
+wheel byte-for-byte intact. Rebuilt wheels get fresh `RECORD` hashes; obsolete
+upstream wheel-signature files are removed rather than presented as still valid.
+The installer receives a derived hash lock and a receipt binding original and
+prepared artifacts, source/prepared runtime trees and the signing plan. The source
+lock inside the app's pinned project wheel is unchanged.
+
+The verifier and preparer do not notarize the package or establish installed
+runtime compatibility. A real publisher, complete signed runtime compatibility,
+Apple acceptance and positive consumer installation remain required. An Installer
 signature protects the package, but does not establish these code properties or
 runtime compatibility. Apple's
 [notarization requirements](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)
@@ -144,3 +151,35 @@ accounts. The development package is not uploaded as a user download.
 Apple's [packaging documentation](https://developer.apple.com/documentation/xcode/packaging-mac-software-for-distribution)
 explains Installer signing. The standalone Python input follows the upstream
 [distribution model](https://github.com/astral-sh/python-build-standalone/blob/main/docs/distributions.rst).
+
+## Maintainer runtime preparation
+
+These are release-engineering options, not end-user setup or per-agent commands.
+Using the same input arguments as package assembly, add `--inspect-runtime` to
+write `runtime-signing-plan.json` in a fresh output directory. Inspection does not
+run the supplied Python, use a signing identity or create a package. It binds the
+Python/browser trees and lists every native executable by content hash and path.
+The generated entitlement dictionaries are empty for review.
+
+Review the exact inputs and only the runtime exceptions each executable needs.
+The plan permits explicit JIT, unsigned-executable-memory and library-validation
+exceptions. Debugging, DYLD-environment and executable-page-protection exceptions
+are not inherited from third-party signatures. Missing, extra, renamed or changed
+executables and changed non-native runtime resources require a new review.
+
+Build with `--runtime-plan /path/to/runtime-signing-plan.json` and
+`--runtime-identity 'Developer ID Application: …'`, alongside the matching owner
+app/broker and Installer identity. The tool signs only its private temporary build
+copy, refuses external aliases/shared source inodes and privileged file modes,
+checks the resulting publisher, and reseals nested bundles from the inside out.
+Production native validation then runs before the interpreter/version probe.
+The package embeds `runtime-preparation.json`; its public build report records
+the same receipt. No private key is exported or placed in that receipt.
+
+`--development --runtime-identity -` permits only an explicit ad-hoc fixture
+identity and never reports publisher or notarization acceptance. A separate
+ordinary-user disposable Mac probe exercises the actual dependency's Node binary
+with a reviewed JIT permission and a sandboxed static-page browser. It uses a
+synthetic wheel lock and stub runtime directories: it cannot establish complete
+Python/browser preparation or positive publisher-signed consumer compatibility.
+Exact passing results must be recorded in [validation](validation.md).

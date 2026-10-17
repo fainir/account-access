@@ -152,6 +152,8 @@ def canonical_root(root):
 
 def tree_files(root):
     root = canonical_root(root)
+    if root.stat().st_mode & 0o6000:
+        raise ValueError("privileged_payload_mode_refused")
     if root.is_file():
         yield root
         return
@@ -165,6 +167,8 @@ def tree_files(root):
                 raise ValueError("native_payload_file_limit")
             path = Path(folder) / name
             info = path.lstat()
+            if not stat.S_ISLNK(info.st_mode) and info.st_mode & 0o6000:
+                raise ValueError("privileged_payload_mode_refused")
             if stat.S_ISLNK(info.st_mode):
                 # Framework and Python aliases may point only within this input.
                 if not path.resolve(strict=True).is_relative_to(root):
@@ -193,6 +197,7 @@ def wheel_entries(archive):
             or any(part in {"", ".", ".."} for part in parts)
             or key in seen
             or entry.flag_bits & 1
+            or (entry.external_attr >> 16) & 0o6000
             or mode not in {0, stat.S_IFREG, stat.S_IFDIR}
         ):
             raise ValueError("unsafe_native_wheel_entry")
