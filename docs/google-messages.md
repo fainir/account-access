@@ -32,6 +32,41 @@ Google requires an online paired phone and browser. Only one computer can be
 active at a time, and inactive pairings can expire. Initial phone unlock and
 pairing use Google's genuine owner flow. [Google's setup and device limits](https://support.google.com/messages/answer/7611075?hl=en).
 
+## Protected Mac candidate
+
+The isolated installation now has a separate native SMS host. **Prepare browser
+connection** registers that app entrypoint and opens the extension inside the
+installed app's resources. It does not reopen the legacy vault or copy extension
+code into a user-writable credential folder. Registration first checks that all
+six resource files match the protected runtime's extension payload. An existing
+unknown or unsafe registration requires review rather than silent replacement.
+
+The host accepts the exact public extension origin and verifies that its parent
+is signed stable Google Chrome under the same OS user. It rechecks that parent
+around each protected request. The app connects through the pinned native owner
+channel. **Connect GitHub login texts** requires the normal macOS setup approval;
+later active-login polls and SMS replies need no new approval. The worker still
+checks the enrolled source and login window before accepting a delivery. No
+password, vault key, cookie export or code-retrieval operation is available in
+this bridge. The preview's browser-session import is not enabled through it.
+
+The host uses Chrome's documented framed stdin/stdout protocol, with a smaller
+64 KiB application limit and fixed message shapes.
+[Chrome native messaging documentation](https://developer.chrome.com/docs/extensions/develop/concepts/native-messaging).
+
+[18 native component checks](../artifacts/mac-browser-bridge-080.json), temporary
+registration tests and a separate private worker/DOM/browser fixture passed.
+The complete installed Chrome/native/XPC/worker path, positive parent validation,
+genuine owner approval, physical delivery and consumer installation remain
+unverified. The current parent policy does not include Chrome Beta, Chromium or
+Chrome for Testing. Web Store distribution remains required for the final simple
+consumer setup; loading an unpacked folder is still a developer-preview step.
+
+The installed app/resources are protected from ordinary owner-user writes by
+the isolated package. Chrome's per-user registration and the browser itself
+remain under the owner's control. This does not isolate an inbox from software
+already authorized to control that Chrome profile or protect a compromised browser.
+
 ## What stays local
 
 The SMS feature requests optional access to `https://messages.google.com/*`,

@@ -35,6 +35,14 @@ Describe the affected version, trust boundary, expected behavior and minimal rep
   Messages and website data. Cold restart and durable cooldown recovery pass in
   that environment. Consumer installation, genuine owner approval/Full Disk Access,
   physical SMS and private-account acceptance remain separate. See the [collector boundary](docs/mac-isolated-sms.md).
+- The isolated Chrome SMS bridge uses the native app and pinned owner channel,
+  not a same-user vault-opening Python host. A new source requires setup approval;
+  active-window polling/delivery does not. Methods, framing and reply limits are
+  fixed. The signed stable-Chrome parent is checked around each request. Component
+  and worker/browser tests are separate; complete installed acceptance remains
+  unverified. Root-controlled app/resources do not prevent an unrestricted owner
+  process from changing Chrome registration or controlling the browser itself.
+  See [browser bridge scope](docs/google-messages.md#protected-mac-candidate).
 - The native typedstream reader extracts the first string of a constrained
   attributed-string archive. It does not instantiate archived classes or search
   formatting metadata for codes. Unsupported formats stop setup.

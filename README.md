@@ -23,6 +23,12 @@ durable task without owner input. Messages and the website are synthetic;
 consumer installation, genuine OS privacy approval and physical delivery remain
 unverified.
 
+The isolated candidate adds a [native Chrome SMS bridge](docs/google-messages.md#protected-mac-candidate)
+that sends fixed requests to the protected worker without opening the legacy
+vault. [Component and worker/browser tests](artifacts/mac-browser-bridge-080.json)
+pass; complete installed Chrome/XPC, genuine approval and physical-phone
+acceptance remain open. The unpacked-extension step is still a developer preview.
+
 The development candidate also includes a [Google Messages browser connection](docs/google-messages.md) for fresh GitHub login texts from an already-paired Android inbox. Its optional browser helper now also offers [verified GitHub session reuse](docs/browser-sessions.md): confirm the username locally and connect an existing Chrome sign-in. Cookie/site permission is optional and temporary. The unpacked-extension setup and private acceptance are still under validation.
 
 The personal GitHub pilot now reuses an owner-approved Chrome session: its identity was checked locally, its original blocked task resumed, and fresh Claude Code and Codex sessions completed the approved profile-heading read without authentication input. A fresh password/SMS login still redirects to account recovery; personal email and authenticator sign-ins remain unverified. See the [private-session evidence](artifacts/private-github-session-080.json) and [validation report](docs/validation.md).

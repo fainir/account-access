@@ -1,5 +1,50 @@
 # Validation of Account Access
 
+## Protected Chrome SMS bridge — 17 October 2026
+
+Revision `8ccdd74` passed **1,086 tests, five platform skips, in 503.7 seconds**,
+lint, package builds and an audit with no known vulnerabilities. All eight
+push/PR workflows passed. [Regression CI](https://github.com/fainir/account-access/actions/runs/39033139504).
+
+The legacy Chrome native host opens the same-user vault and cannot serve the
+isolated installation. The candidate now registers the native app as its SMS
+host. The app uses the pinned owner channel to send fixed messages to the
+protected worker; it does not read a vault, keyring or broker capability. Its
+protocol accepts only account discovery, connection and active-window SMS
+poll/reply methods. Cookie import and arbitrary owner routes are refused.
+Connecting/enabling a source requires the existing setup approval. Routine
+polling and delivery require no new approval and remain bound to the worker's
+enrollment, freshness, cancellation and revocation checks.
+
+Two CI runs produced identical **18-check native component reports**. These cover
+framing, exact origin, shell-parent rejection, method bounds, approval gating and
+sanitized failures. Registration tests use a temporary home and check fixed
+protected app/resources, complete payload equality, unsafe paths, refusal before
+changes and recognized legacy-host migration without opening a store. A separate
+private-Unix → DOM reader → worker/browser fixture completes fresh password/SMS
+login and keeps the code out of the result. Wrong capabilities/windows, revoked
+sources, cookie imports and agent transport are refused.
+
+These remain **separate component and worker/browser tests**. They do not prove
+the complete installed Chrome → native app → XPC → worker journey, a positive
+signed-Chrome parent check, genuine owner approval or physical SMS. Stable Google
+Chrome is the initial parent policy; other branded/testing browsers are not
+included. Root-protected app/resources also do not make the owner's Chrome
+registration or inbox inaccessible to software that can control that browser.
+A read-only check of the already-running Chrome process matched the configured
+signing requirement through the same strict dynamic-code API. That checks public
+code identity; it does not establish native-host parentage or a Chrome connection.
+
+The fifteen Mac worker reports remain complete and identical across two Macs,
+including the 17-check System-key/native-SMS restart journey. Linux and Android
+emulator acceptance passed. Owner build 53 and its unfinished mailbox form were
+preserved; Gmail connection was deferred by the owner and no new private sign-in
+was requested. The candidate remains **not production ready**.
+
+See [sanitized evidence](../artifacts/mac-browser-bridge-080.json),
+[Google Messages setup and limits](google-messages.md) and
+[production gates](production-gates.md).
+
 ## System-host SMS recovery — 17 October 2026
 
 Revision `020e9eb` passed **1,065 tests, five platform skips, in 511.46 seconds**,
