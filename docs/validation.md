@@ -1,5 +1,54 @@
 # Validation of Account Access
 
+## Native existing-store supervision — 17 October 2026
+
+Revision `40c9fa4` passed **21 native supervisor checks** in the
+[disposable Mac VM](https://github.com/fainir/account-access/actions/runs/39004132984/job/117312998074),
+alongside 33 System-key handoff, 20 key-custody, 25 cross-user worker,
+24 root owner-host and 16 setup-policy checks. The actual dedicated worker
+reopens an empty encrypted fixture Store after observed owned-child crashes.
+The scheduler enforces one/two/four-second backoff and a three-restart budget,
+resets the budget after observed stable running, preserves Pause (including a
+dangling symlink), keeps paused native health available and never recreates a
+missing key. The monotonic clock is controlled; processes, signals, reaping,
+System key, encrypted storage and listener cleanup are real. Supervisor session
+checks use an in-process synthetic verifier.
+
+The same revision passed **58 native owner-channel checks** locally with
+Developer ID signed peers and in
+[ordinary-user CI with ad-hoc peers](https://github.com/fainir/account-access/actions/runs/39004132894/job/117312997677).
+The helper stays alive across generation retirement: its old setup session is
+refused, and the new connection needs its own approval. A deliberately stalled
+Unix responder checks the 150 ms health deadline; invalid timeout values send
+no request. Root worker readiness uses separately bounded health probes.
+The focused Python boundary/evidence regression passed **135 cases** locally.
+
+Matching source passed **811 tests, one platform skip, in 435.16 seconds**,
+lint, a dependency audit with no known vulnerabilities and package/native
+checks in [regression CI](https://github.com/fainir/account-access/actions/runs/39004132894).
+[Linux's 24-check worker](https://github.com/fainir/account-access/actions/runs/39004132859)
+and the [Android emulator journey](https://github.com/fainir/account-access/actions/runs/39004132911)
+also passed. An [independent Mac CI run](https://github.com/fainir/account-access/actions/runs/39004135625/job/117313005496)
+passed the same six native reports. All eight push/PR workflow runs passed.
+
+An earlier docs-only revision, `7600988`, had a
+[failed Mac handoff run](https://github.com/fainir/account-access/actions/runs/39003591785):
+its enclosing 45-second phase budget expired without a complete report. The
+inner operation was not identified. The readiness call could wait up to 35
+seconds, and the outer budget covered several starts/stops. The new readiness
+probe is bounded separately; aggregate handoff/supervision budgets cover their
+multi-worker journeys. The failed run is excluded. Superseded in-progress CI
+runs were cancelled to free capacity; cancelled runs are not acceptance.
+
+See [supervision evidence](../artifacts/mac-root-supervisor-080.json),
+[owner XPC evidence](../artifacts/mac-owner-gateway-080.json) and
+[component design/limits](mac-supervision.md). These tests do not deploy the
+consumer composition, prove a genuine owner approval, recover a crashed parent
+daemon/reboot or test active browser descendants/durable operations after a
+crash. Native consumer setup/source collectors, client issuance/migration,
+private email/SMS/TOTP, physical phones and notarized clean installation remain
+open. Installed build 53 and its unfinished mailbox form were preserved.
+
 ## System key to actual worker service — 17 October 2026
 
 Revision `d8264cd` passed **33 native handoff/lifecycle checks** in

@@ -289,21 +289,25 @@ It passed [24 Linux cross-user checks](artifacts/worker-boundary-080.json) and
 fictional password/email/SMS/authenticator sign-ins and denied agent access to
 the vault and owner controls. The [Mac launcher](docs/mac-worker.md) validates
 the protected runtime, permanently drops its OS identity and lets the kernel
-close unapproved file handles. It still needs a production supervisor, trusted
+close unapproved file handles. It still needs consumer supervision, trusted
 enrollment and installer integration; it is not enabled in the consumer Mac app.
 
 The [native Mac owner-channel component](docs/mac-owner-gateway.md) also passed
-[54 checks](artifacts/mac-owner-gateway-080.json) with separate helper processes.
+[58 checks](artifacts/mac-owner-gateway-080.json) with separate helper processes.
 A separate [24-check integration](artifacts/mac-root-owner-080.json) deployed
 the root host beside the isolated broker in a disposable Mac VM, verified peer
 identity and revocation, and removed the service. This does not validate a
 consumer installation or genuine owner approval. A separate
 [20-check System-key journey](artifacts/mac-key-custody-080.json) verified daemon
-restart recovery and denied another user's direct read. Production supervision
-and native consumer wiring remain under implementation. A separate
+restart recovery and denied another user's direct read. Consumer composition
+and native setup wiring remain under implementation. A separate
 [33-check native handoff](artifacts/mac-key-handoff-080.json) now opens an
 encrypted fixture Store in the actual worker and verifies restart, crash
-recovery, fresh owner capability and Pause. It is not consumer installation.
+recovery, fresh owner capability and Pause. The [native supervisor](docs/mac-supervision.md)
+passed [21 checks](artifacts/mac-root-supervisor-080.json) for bounded recovery,
+old-session retirement, stable-running reset, missing-key refusal and durable
+Pause. Parent-daemon/reboot and active-operation crash recovery remain unverified;
+consumer installation is not enabled.
 
 The same Mac VM passed [16 setup-policy checks](artifacts/mac-owner-policy-080.json):
 strict rule provisioning, registrar binding, changed-rule rejection and fixture

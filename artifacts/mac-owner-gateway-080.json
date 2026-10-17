@@ -18,8 +18,10 @@
     "fixture_setup_authorized": true,
     "fixture_setup_session_authorizes": true,
     "hardened_test_peers": true,
+    "health_readiness_deadline_enforced": true,
     "helper_ran": true,
     "host_default_cannot_replace_dedicated_rule": true,
+    "invalid_health_timeouts_rejected": true,
     "legacy_long_lived_delegation_rejected": true,
     "os_authorization_reference_round_trip": true,
     "owner_capability_never_returned": true,
@@ -53,7 +55,9 @@
     "test_helpers_exited": true,
     "unconfigured_or_ungranted_setup_rejected": true,
     "untrusted_code_cannot_reach_gateway": true,
-    "untrusted_helper_ran": true
+    "untrusted_helper_ran": true,
+    "worker_generation_accepts_new_owner_connection": true,
+    "worker_generation_retires_live_owner_session": true
   },
   "environment": "controlled-demo",
   "platform": "macos",
@@ -67,27 +71,27 @@
   "installed_owner_app_changed": false,
   "authorization_database_changed": false,
   "consumer_deployment_verified": false,
-  "schema": 1,
-  "tested_commit": "712f1a15aa9db577323803a990ff6c8051580506",
+  "schema": 2,
+  "date": "2026-10-17",
+  "tested_commit": "40c9fa4d7609a294ef08a4a85dda1f4593d5b770",
   "scope": "Native Mac owner-channel component, separate signed processes under the same ordinary OS user; fictional data only",
   "same_os_user_fixture": true,
   "mac_root_deployment_verified": false,
   "ci": {
-    "workflow_url": "https://github.com/fainir/account-access/actions/runs/38991224960",
-    "job_id": 117273831671,
+    "workflow_url": "https://github.com/fainir/account-access/actions/runs/39004132894",
+    "job_id": 117312997677,
     "publisher_signed_peers": false,
-    "checks_passed": 54,
+    "checks_passed": 58,
     "production_typecheck_architectures": [
       "arm64",
       "x86_64"
     ],
     "minimum_typechecked_macos": "13"
   },
-  "earlier_regression": {
-    "workflow_url": "https://github.com/fainir/account-access/actions/runs/38990597823",
-    "tested_commit": "17effe0abff1005271f5c34ab0a2d132eb0d56ff",
-    "tests_passed": 710,
-    "seconds": 481.59
+  "matching_regression_evidence": "mac-root-supervisor-080.json",
+  "earlier_publisher_regression": {
+    "source_revision": "712f1a15aa9db577323803a990ff6c8051580506",
+    "checks": 54
   },
   "excluded_attempts": [
     {
@@ -96,22 +100,9 @@
     }
   ],
   "remaining": [
-    "production supervisor and protected packaging/key custody",
-    "native UI wiring and migration/client issuance",
-    "genuine owner setup authorization approval",
-    "notarized installation and Mac cross-user acceptance",
-    "private email/SMS/authenticator and physical-phone acceptance"
-  ],
-  "regression": {
-    "tested_commit": "712f1a15aa9db577323803a990ff6c8051580506",
-    "workflow_url": "https://github.com/fainir/account-access/actions/runs/38991224960",
-    "tests_passed": 710,
-    "seconds": 440.9,
-    "lint": "passed",
-    "dependency_audit": "no known vulnerabilities",
-    "package_build": "passed",
-    "native_checks": "passed"
-  },
-  "android_emulator_workflow": "https://github.com/fainir/account-access/actions/runs/38991224921",
-  "separate_user_worker_workflow": "https://github.com/fainir/account-access/actions/runs/38991224853"
+    "consumer supervision, parent-daemon crash/reboot and active-operation/browser-descendant recovery",
+    "trusted enrollment, native UI/source collectors, client issuance and migration",
+    "genuine owner setup authorization approval and publisher update continuity",
+    "notarized clean-Mac installation and private email/SMS/authenticator/physical-phone acceptance"
+  ]
 }

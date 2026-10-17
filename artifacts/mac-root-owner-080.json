@@ -12,12 +12,12 @@
   "checks": {
     "root_only_capability_handoff": true,
     "daemon_root_uid_verified": true,
-    "unauthorized_credential_write_refused": true,
-    "unauthorized_grant_refused": true,
-    "privileged_root_peer_prepared": true,
-    "root_backend_reached_isolated_worker": true,
     "signed_owner_revocation_reached_worker": true,
     "unconfigured_os_setup_refused": true,
+    "root_backend_reached_isolated_worker": true,
+    "unauthorized_credential_write_refused": true,
+    "privileged_root_peer_prepared": true,
+    "unauthorized_grant_refused": true,
     "wrong_client_refused": true,
     "wrong_client_setup_refused": true,
     "wrong_client_credential_input_refused": true,
@@ -36,18 +36,19 @@
     "revocation_confirmed_by_agent": true
   },
   "date": "2026-10-17",
-  "source_revision": "d8264cdc9cad52440033969766679d81f10b2783",
-  "ci_url": "https://github.com/fainir/account-access/actions/runs/39002897216/job/117309356475",
+  "source_revision": "40c9fa4d7609a294ef08a4a85dda1f4593d5b770",
+  "ci_url": "https://github.com/fainir/account-access/actions/runs/39004132984/job/117312998074",
   "installation_scope": "disposable hosted Mac VM; service removed after test",
   "architecture": "arm64",
   "installed_owner_app_changed": false,
   "local_ordinary_user_regression": {
-    "checks": 54,
-    "publisher_signed_peers": false,
+    "checks": 58,
+    "publisher_signed_peers": true,
     "genuine_owner_auth_approval_tested": false,
-    "source_revision": "d402c5d7793da0c36aa44866488015398ac986d9"
+    "source_revision": "40c9fa4d7609a294ef08a4a85dda1f4593d5b770",
+    "evidence": "mac-owner-gateway-080.json"
   },
-  "focused_python_cases": 104,
+  "focused_python_cases": 135,
   "limits": [
     "Root host journey keeps its QA policy unconfigured; the separate policy journey subsequently creates/removes only the QA right",
     "Ad-hoc hash-pinned peers; genuine owner approval and publisher-signed consumer deployment remain unverified",
@@ -59,5 +60,5 @@
     "publisher_signed_peers": true,
     "source_revision": "de1b0d7f63c1c7631fe46ba7f346dcc4cb43b820"
   },
-  "matching_regression_evidence": "mac-key-handoff-080.json"
+  "matching_regression_evidence": "mac-root-supervisor-080.json"
 }

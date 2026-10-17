@@ -102,3 +102,9 @@ The actual service Store is an empty encrypted fixture, not a private enrollment
 See [handoff evidence](../artifacts/mac-key-handoff-080.json).
 It is not production supervision, genuine owner enrollment, migration or
 consumer installation.
+
+The [native supervisor](mac-supervision.md) now adds bounded existing-store
+recovery and owner-session retirement. Its [21-check journey](../artifacts/mac-root-supervisor-080.json)
+uses the same System key with actual dedicated worker processes and an empty
+encrypted fixture Store. Parent-daemon/reboot, active-operation recovery,
+consumer enrollment/installation and private-source acceptance remain separate.

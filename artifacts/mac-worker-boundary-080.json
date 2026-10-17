@@ -39,8 +39,8 @@
     "private-account and physical-phone acceptance"
   ],
   "date": "2026-10-17",
-  "source_revision": "d8264cdc9cad52440033969766679d81f10b2783",
-  "ci_url": "https://github.com/fainir/account-access/actions/runs/39002897216/job/117309356475",
+  "source_revision": "40c9fa4d7609a294ef08a4a85dda1f4593d5b770",
+  "ci_url": "https://github.com/fainir/account-access/actions/runs/39004132984/job/117312998074",
   "architecture": "arm64",
   "consumer_integration_enabled": false,
   "installed_owner_app_changed": false,
@@ -55,6 +55,6 @@
   "root_owner_integration_evidence": "mac-root-owner-080.json",
   "system_key_custody_evidence": "mac-key-custody-080.json",
   "owner_policy_evidence": "mac-owner-policy-080.json",
-  "matching_regression_evidence": "mac-key-handoff-080.json",
+  "matching_regression_evidence": "mac-root-supervisor-080.json",
   "system_key_handoff_evidence": "mac-key-handoff-080.json"
 }

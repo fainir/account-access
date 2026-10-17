@@ -58,9 +58,11 @@ checks, including process-restart recovery and actual separate-user read denial.
 The subsequent [33-check native handoff](../artifacts/mac-key-handoff-080.json)
 uses the production reader, encrypted storage and actual worker service. It
 checks startup, owned-child shutdown, crash/reopen, capability replacement and
-Pause against an empty fixture Store. Consumer orchestration remains separate.
+Pause against an empty fixture Store. The [native existing-store supervisor](mac-supervision.md)
+also passed [21 recovery checks](../artifacts/mac-root-supervisor-080.json).
+Consumer orchestration remains separate.
 
-This component needs a production supervisor integrating that key custody, authenticated
+This component still needs consumer orchestration integrating that key custody, authenticated
 owner enrollment, secure client issuance and migration, lifecycle/recovery,
 audited packaging and update policy. The Mac consumer path also needs its
 approved service installation and integration of the tested

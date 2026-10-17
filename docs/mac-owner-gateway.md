@@ -93,10 +93,20 @@ authorization database, privacy permission or real account. The separate Linux
 [worker acceptance](isolated-worker.md) does test an actual cross-user boundary.
 These results cannot be combined into an untested Mac installation claim.
 
-The production supervisor, protected packaging/update and key custody, native
-UI wiring, client issuance/migration, real owner-approval test and notarized
-installation remain required. Private email, SMS and authenticator acceptance
-remain open.
+The newer ordinary-user journey also retains a live client across listener
+generation retirement, rejects its old setup authority and accepts a fresh
+connection without inherited approval. A stalled Unix responder verifies the
+short health deadline, and invalid deadline values make no request. Revision
+`40c9fa4` passed **58 checks** locally with Developer ID signed peers and in
+[CI with ad-hoc peers](https://github.com/fainir/account-access/actions/runs/39004132894/job/117312997677).
+See the [sanitized report](../artifacts/mac-owner-gateway-080.json). This remains
+an ordinary-user fixture with synthetic positive setup approval.
+
+The [native supervisor component](mac-supervision.md) now composes existing-store
+worker recovery and owner-session retirement. Consumer supervision, protected
+packaging/update, native UI/source wiring, enrollment/client issuance/migration,
+real owner-approval and notarized installation still need acceptance. Private
+email, SMS and authenticator acceptance remain open.
 
 ## Root host integration
 
