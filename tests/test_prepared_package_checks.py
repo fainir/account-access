@@ -127,7 +127,11 @@ def installed(tmp_path, monkeypatch):
 
     def command(args, **kwargs):
         calls.append(args)
-        return SimpleNamespace(returncode=0)
+        return SimpleNamespace(
+            returncode=0,
+            stdout=b"",
+            stderr=b"TeamIdentifier=not set\nCodeDirectory flags=0x10000(runtime)\n",
+        )
 
     monkeypatch.setattr(smoke.subprocess, "run", command)
     monkeypatch.setattr(smoke, "root_managed_path", protected.append)
@@ -138,9 +142,29 @@ def test_installed_native_bytes_signatures_seals_and_both_locks_are_checked(inst
     base, app, metadata, calls, protected = installed
     checks = smoke.prepared_checks(base, app, metadata)
     assert len(checks) == 6 and all(value is True for value in checks.values())
-    assert len(calls) == len(protected) == 4
+    assert len(calls) == 7 and len(protected) == 4
     assert sum("--deep" in call for call in calls) == 1
     assert sum(any(arg.startswith("-R=") for arg in call) for call in calls) == 3
+
+
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        b"TeamIdentifier=not set\nCodeDirectory flags=0x0\n",
+        b"TeamIdentifier=ABCDEFGHIJ\nCodeDirectory flags=0x10000\n",
+    ],
+)
+def test_prepared_fixture_requires_actual_runtime_flag_and_fixture_publisher(
+    installed, monkeypatch, metadata
+):
+    base, app, value, _, _ = installed
+    monkeypatch.setattr(
+        smoke.subprocess,
+        "run",
+        lambda *a, **k: SimpleNamespace(returncode=0, stdout=b"", stderr=metadata),
+    )
+    with pytest.raises(AssertionError):
+        smoke.prepared_checks(base, app, value)
 
 
 @pytest.mark.parametrize(

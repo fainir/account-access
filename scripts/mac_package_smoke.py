@@ -147,6 +147,18 @@ def prepared_checks(base, app, metadata):
             capture_output=True,
             timeout=20,
         )
+        info = subprocess.run(
+            ["/usr/bin/codesign", "-d", "--verbose=4", str(target)],
+            check=True,
+            capture_output=True,
+            timeout=20,
+        )
+        metadata_text = info.stdout + info.stderr
+        assert len(metadata_text) <= 65536
+        assert re.findall(rb"^TeamIdentifier=(.+)$", metadata_text, re.MULTILINE) == [b"not set"]
+        if row["kind"] == 2:
+            flags = re.findall(rb"\bflags=0x([0-9a-fA-F]+)", metadata_text)
+            assert len(flags) == 1 and int(flags[0], 16) & 0x10000
     checks["prepared_native_bytes_preserved_at_final_install_paths"] = True
     checks["prepared_code_is_root_controlled_without_privileged_modes"] = True
     bundles = receipt["bundles"]
