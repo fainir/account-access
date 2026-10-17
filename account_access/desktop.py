@@ -121,11 +121,18 @@ def stop(root, *, updating=False):
     info = running(root)
     if info:
         base = info["url"].rstrip("/")
-        response = httpx.post(base + "/owner/stop", json={"updating": True} if updating else {},
-                              headers={"Authorization": "Bearer " + info["token"], "Origin": base},
-                              trust_env=False, follow_redirects=False, timeout=5)
-        if response.status_code != 200:
-            raise AccessError("DENIED", "could_not_stop_local_app")
+        try:
+            response = httpx.post(base + "/owner/stop", json={"updating": True} if updating else {},
+                                  headers={"Authorization": "Bearer " + info["token"], "Origin": base},
+                                  trust_env=False, follow_redirects=False, timeout=5)
+        except httpx.TransportError:
+            # Disabling supervision can close the owner listener immediately
+            # after its authenticated readiness response. Do not replay a stop
+            # with an uncertain response; the leases below prove quiescence.
+            pass
+        else:
+            if response.status_code != 200:
+                raise AccessError("DENIED", "could_not_stop_local_app")
     if root.exists():
         # A successful HTTP response only accepts the stop request. Wait for
         # both process leases before installers may remove a runtime or switch

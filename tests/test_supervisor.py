@@ -6,6 +6,7 @@ import sys
 import threading
 import time
 
+import httpx2 as httpx
 import pytest
 
 from account_access.desktop import launch, running, stop
@@ -175,6 +176,65 @@ def test_pause_stops_supervision_and_reopen_reuses_saved_access(env):
         assert broker.run("test", "demo-api", "summary")["status"] == "COMPLETED"
     finally:
         finish(root)
+
+
+def test_stop_accepts_actual_listener_exit_after_authenticated_readiness(env, monkeypatch):
+    _, broker, _ = env
+    root = broker.store.root
+    info = launch(root, key_file=root / "demo.key", open_browser=False)
+    refused = []
+    original_post = httpx.post
+    def after_exit(_root):
+        # Stop has disabled supervision. Wait for that real process to reap
+        # its child, then return the previously authenticated readiness result.
+        # This deterministically exercises the readiness-to-POST race.
+        with lease(root, timeout=20):
+            pass
+        with lease(root, "service", timeout=20):
+            pass
+        return info
+    def post(*args, **kwargs):
+        try:
+            return original_post(*args, **kwargs)
+        except httpx.ConnectError:
+            refused.append(True)
+            raise
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr("account_access.desktop.running", after_exit)
+            patch.setattr("account_access.desktop.httpx.post", post)
+            stop(root)
+        assert refused == [True]
+        assert not running(root) and not attached(root) and registration(root) is None
+        assert (root / "service.paused").is_file()
+        with pytest.raises(AccessError, match="service_paused"):
+            launch(root, key_file=root / "demo.key", open_browser=False, on_demand=True)
+    finally:
+        finish(root)
+
+
+def test_unreachable_stop_still_refuses_a_held_service_lease(env, monkeypatch):
+    _, broker, _ = env
+    root = broker.store.root
+    monkeypatch.setattr("account_access.desktop.running", lambda _: {"url": "http://127.0.0.1:1/", "token": "fixture"})
+    def disconnected(*_args, **_kwargs):
+        raise httpx.ConnectError("Synthetic closed listener")
+    monkeypatch.setattr("account_access.desktop.httpx.post", disconnected)
+    # Keep the real lease check, but don't wait twenty seconds to prove denial.
+    monkeypatch.setattr("account_access.supervisor.lease", lambda root, name="desktop-supervisor", timeout=0: lease(root, name, timeout=0))
+    with lease(root, "service"):
+        with pytest.raises(AccessError, match="account_busy"):
+            stop(root)
+    assert (root / "service.paused").is_file()
+
+
+def test_stop_does_not_hide_an_explicit_owner_endpoint_rejection(env, monkeypatch):
+    _, broker, _ = env
+    root = broker.store.root
+    monkeypatch.setattr("account_access.desktop.running", lambda _: {"url": "http://127.0.0.1:1/", "token": "fixture"})
+    monkeypatch.setattr("account_access.desktop.httpx.post", lambda *args, **kwargs: httpx.Response(403))
+    with pytest.raises(AccessError, match="could_not_stop_local_app"):
+        stop(root)
 
 
 @pytest.mark.parametrize("runner", [supervise, guard_desktop])
