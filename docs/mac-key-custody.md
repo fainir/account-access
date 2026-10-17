@@ -67,3 +67,19 @@ This is not production supervision, consumer installation, migration or genuine
 owner authorization. Integrating the provider with the isolated worker, native
 setup/source collectors and secure client issuance remains necessary, alongside
 private email/SMS/TOTP, physical-device and notarized-install acceptance.
+
+## Native worker handoff under validation
+
+`RootWorkerChannel.swift` prepares a one-shot anonymous pipe for a trusted
+supervisor. It sends the 32-byte System key followed by 32 bytes of fresh owner
+entropy, then EOF. Descriptors are close-on-exec unless explicitly inherited;
+an attempted send cannot replay, a missing reader fails without a signal or
+file fallback, and cancellation clears access to owner material. Descriptions
+are redacted. Buffer clearing does not guarantee erasure of OS/library copies.
+
+The new CI receiver uses the launcher's permanent UID drop and the production
+Python `read_bootstrap` parser. It decrypts the existing encrypted canary and
+returns a domain-separated HMAC receipt only over inherited private IPC. The
+parent checks kernel UID/GID while the child waits, then confirms its exit.
+No key or receipt is printed. This journey is under validation; it does not yet
+open an enrolled worker Store or establish production supervision, enrollment,+migration or consumer installation.

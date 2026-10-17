@@ -363,13 +363,14 @@ def root_key_custody(prefix, roles):
         root_managed_path(path)
     identity = str(uuid.uuid4())
     policy = prefix / "root-key.json"
-    policy.write_text(json.dumps({"fixture": "account-access-system-key-ci-v1", "vault_id": identity, "root": str(prefix)}))
+    policy.write_text(json.dumps({"fixture": "account-access-system-key-ci-v1", "vault_id": identity, "root": str(prefix),
+                                 "launcher": str(prefix / "mac-launcher.json")}))
     policy.chmod(0o644)
     label = "com.fainir.accountaccess.qa.key-custody"
     if subprocess.run(["/bin/launchctl", "print", "system/" + label], capture_output=True).returncode == 0:
         raise RuntimeError("key_custody_namespace_already_occupied")
     checks, pids = {}, []
-    def phase(mode):
+    def phase(mode, *, collect=True):
         stage("key_custody_" + mode)
         launch = prefix / "root-key.plist"
         launch.write_bytes(plistlib.dumps({"Label": label, "ProgramArguments": [str(binary), "--policy", str(policy), mode],
@@ -389,10 +390,11 @@ def root_key_custody(prefix, roles):
                         reason = result.get("reason")
                         if reason in {"system_daemon_context_required", "invalid_vault_identity", "vault_key_missing",
                             "vault_key_already_enrolled", "invalid_vault_key_record", "system_keychain_unavailable", "root_key_checks_failed",
-                            "vault_key_reference_result_invalid", "vault_key_data_result_invalid", "vault_key_enrollment_readback_invalid"}:
+                            "vault_key_reference_result_invalid", "vault_key_data_result_invalid", "vault_key_enrollment_readback_invalid",
+                            "worker_secret_channel_unavailable", "worker_secret_channel_already_consumed"}:
                             stage(reason)
                         if result.get("checkpoint") in {"policy", "context", "invalid_identity", "initial_missing", "enrollment",
-                            "encryption", "duplicate_enrollment", "other_vault", "restart_recovery", "fixture_removal", "system_location"}:
+                            "encryption", "duplicate_enrollment", "other_vault", "restart_recovery", "fixture_removal", "system_location", "native_handoff"}:
                             stage("key_checkpoint_" + result["checkpoint"])
                         if result.get("record_shape") in {"array", "data", "dictionary", "absent", "other"}:
                             stage("key_record_shape_" + result["record_shape"])
@@ -408,10 +410,11 @@ def root_key_custody(prefix, roles):
                     assert set(result) == {"status", "checks", "pid", "uid"} and result["uid"] == 0
                     assert type(result["pid"]) is int and result["pid"] > 0
                     assert result["checks"] and all(item is True for item in result["checks"].values())
-                    pids.append(result["pid"])
-                    for key, value in result["checks"].items():
-                        checks[mode + "_" + key] = value
-                    return
+                    if collect:
+                        pids.append(result["pid"])
+                        for key, value in result["checks"].items():
+                            checks[mode + "_" + key] = value
+                    return result["checks"]
                 time.sleep(0.1)
             raise RuntimeError("key_custody_phase_timed_out")
         finally:
@@ -419,6 +422,7 @@ def root_key_custody(prefix, roles):
     try:
         phase("create")
         phase("reopen")
+        handoff = phase("handoff", collect=False)
         stage("key_custody_unprivileged_direct_read")
         result = subprocess.run([*dropped(roles["agent"]), str(denied), "--policy", str(policy), "unprivileged"],
             capture_output=True, timeout=45, env={"PATH": "/usr/bin:/bin", "LANG": "en_US.UTF-8"})
@@ -440,6 +444,13 @@ def root_key_custody(prefix, roles):
         return matches[0]
     checks["unprivileged_probe_has_different_code_signature"] = signature(binary) != signature(denied)
     assert checks and all(item is True for item in checks.values())
+    handoff_report = {"status": "PASSED", "platform": "macos", "environment": "controlled-demo", "production_ready": False,
+        "private_signins": 0, "system_key_used": True, "production_python_reader_used": True,
+        "consumer_deployment_verified": False, "production_supervision_verified": False, "actual_worker_store_handoff_verified": False,
+        "fixture_key_removed": True, "checks": handoff}
+    evidence = Path("/tmp/account-access-mac-key-handoff.json")
+    private_file(evidence, (json.dumps(handoff_report, indent=2) + "\n").encode())
+    evidence.chmod(0o644)
     return {"status": "PASSED", "platform": "macos", "environment": "controlled-demo", "production_ready": False,
             "private_signins": 0, "personal_keychain_used": False, "consumer_deployment_verified": False,
             "fixture_namespace": True, "fixture_key_removed": True, "direct_read_status": value["probe_status"], "checks": checks}

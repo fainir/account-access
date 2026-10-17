@@ -42,12 +42,13 @@ import Darwin
                 throw RootVaultKeyFailure.invalidIdentity
             }
             let value = try WorkerLaunchPaths.object(path)
-            guard Set(value.keys) == ["fixture", "vault_id", "root"],
+            guard Set(value.keys) == ["fixture", "vault_id", "root", "launcher"],
                   value["fixture"] as? String == "account-access-system-key-ci-v1",
                   let identity = value["vault_id"] as? String else { throw RootVaultKeyFailure.invalidIdentity }
             let root = try WorkerLaunchPaths.protected(WorkerLaunchPaths.lexical(value["root"]))
             let mode = CommandLine.arguments[3]
-            guard ["create", "reopen", "unprivileged", "remove"].contains(mode) else { throw RootVaultKeyFailure.invalidIdentity }
+            guard ["create", "reopen", "unprivileged", "remove", "handoff", "receive"].contains(mode) else { throw RootVaultKeyFailure.invalidIdentity }
+            if mode == "receive" { try RootKeyHandoffChecks.receive(value) }
             output = root.appendingPathComponent("key-" + mode + ".json")
             var checks: [String: Bool] = [:]
             let marker = Data("account-access-system-key-canary-v1".utf8)
@@ -70,7 +71,10 @@ import Darwin
             checks["system_daemon_context_verified"] = true
             var limit = rlimit()
             checks["provider_disabled_core_dumps"] = getrlimit(RLIMIT_CORE, &limit) == 0 && limit.rlim_cur == 0 && limit.rlim_max == 0
-            if mode == "create" {
+            if mode == "handoff" {
+                checkpoint = "native_handoff"
+                checks = try RootKeyHandoffChecks.run(value, policy: path, store: store, identity: identity)
+            } else if mode == "create" {
                 checkpoint = "invalid_identity"
                 do { _ = try store.load("not-a-vault-uuid"); throw RootVaultKeyFailure.invalidRecord }
                 catch RootVaultKeyFailure.invalidIdentity { checks["invalid_vault_identity_rejected"] = true }
@@ -127,6 +131,7 @@ import Darwin
                 report["keychain_operation"] = failure.operation.rawValue
                 report["keychain_status"] = Int(failure.status)
             }
+            if let failure = error as? RootWorkerChannelFailure { report["reason"] = failure.rawValue }
         }
         if getuid() != 0 {
             print(String(data: (try? JSONSerialization.data(withJSONObject: report)) ?? Data(), encoding: .utf8) ?? "{}")

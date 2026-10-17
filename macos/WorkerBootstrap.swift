@@ -301,7 +301,13 @@ enum MacWorkerBootstrap {
         for (index, source) in duplicates.enumerated() {
             guard dup2(source, Int32(index + 3)) == index + 3 else { throw WorkerLaunchFailure.invalidDescriptors }
         }
-        guard chdir(plan.brokerHome) == 0, setgroups(0, nil) == 0,
+        try dropIdentity(plan)
+        try replaceImage(plan.python, arguments: plan.arguments, environment: plan.environment)
+    }
+
+    static func dropIdentity(_ plan: MacWorkerPlan) throws {
+        guard getuid() == 0, geteuid() == 0,
+              chdir(plan.brokerHome) == 0, setgroups(0, nil) == 0,
               setgid(plan.gid) == 0, setuid(plan.uid) == 0,
               getuid() == plan.uid, geteuid() == plan.uid, getgid() == plan.gid, getegid() == plan.gid else {
             throw WorkerLaunchFailure.identityDropFailed
@@ -312,7 +318,6 @@ enum MacWorkerBootstrap {
               setuid(0) == -1, errno == EPERM, setgid(0) == -1, errno == EPERM else {
             throw WorkerLaunchFailure.identityDropFailed
         }
-        try replaceImage(plan.python, arguments: plan.arguments, environment: plan.environment)
     }
 }
 
