@@ -15,7 +15,7 @@ jobs:
       - name: Check Darwin pipe handoff and reject filesystem FIFO bootstrap
         run: |
           uv sync --locked
-          uv run pytest -q tests/test_worker_boundary.py tests/test_worker_evidence.py tests/test_mac_root_owner_evidence.py tests/test_mac_key_custody_evidence.py
+          uv run pytest -q tests/test_worker_boundary.py tests/test_worker_evidence.py tests/test_mac_root_owner_evidence.py tests/test_mac_key_custody_evidence.py tests/test_mac_owner_policy_evidence.py
       - name: Compile and check the permanent identity-drop launcher
         run: |
           for AC_BOOTSTRAP_ARCH in arm64 x86_64; do
@@ -23,7 +23,7 @@ jobs:
               -target "$AC_BOOTSTRAP_ARCH-apple-macos13" -framework Foundation macos/WorkerBootstrap.swift
             xcrun swiftc -parse-as-library -warnings-as-errors -typecheck \
               -target "$AC_BOOTSTRAP_ARCH-apple-macos13" -framework Foundation -framework Security \
-              macos/OwnerGateway.swift macos/OwnerGatewayHost.swift
+              macos/OwnerGateway.swift macos/OwnerGatewayHost.swift macos/OwnerAuthorizationPolicy.swift
             xcrun swiftc -parse-as-library -warnings-as-errors -typecheck \
               -target "$AC_BOOTSTRAP_ARCH-apple-macos13" -framework Foundation -framework Security \
               -import-objc-header macos/KeychainInteraction.h macos/RootVaultKeyStore.swift
@@ -44,6 +44,13 @@ jobs:
             -import-objc-header macos/KeychainInteraction.h macos/RootVaultKeyStore.swift \
             macos/Tests/VaultReferenceChecks.swift /tmp/ac-keychain-interaction.o -o /tmp/ac-vault-reference-checks
           /tmp/ac-vault-reference-checks
+          xcrun swiftc -O -parse-as-library -warnings-as-errors -D ACCOUNT_ACCESS_GATEWAY_CHECKS \
+            -framework Foundation -framework Security macos/WorkerBootstrap.swift macos/OwnerGateway.swift \
+            macos/OwnerAuthorizationPolicy.swift macos/Tests/RootOwnerPolicyChecks.swift -o /tmp/ac-root-owner-policy-checks
+          xcrun swiftc -O -parse-as-library -warnings-as-errors -D ACCOUNT_ACCESS_GATEWAY_CHECKS \
+            -framework Foundation -framework Security macos/OwnerGateway.swift macos/OwnerAuthorizationPolicy.swift \
+            macos/Tests/OwnerPolicyGuardChecks.swift -o /tmp/ac-owner-policy-guard-checks
+          /tmp/ac-owner-policy-guard-checks
           xcrun swiftc -O -parse-as-library -D ACCOUNT_ACCESS_ROOT_KEY_CHECKS \
             -framework Foundation -framework Security -framework CryptoKit -import-objc-header macos/KeychainInteraction.h \
             macos/WorkerBootstrap.swift macos/RootVaultKeyStore.swift macos/Tests/RootVaultKeyChecks.swift \
@@ -82,6 +89,12 @@ jobs:
             sudo codesign --force --options runtime --identifier "com.fainir.accountaccess.qa.$AC_KEY_BINARY" \
               --sign - "$AC_MAC_WORKER_PREFIX/$AC_KEY_BINARY"
           done
+          sudo install -m 755 /tmp/ac-root-owner-policy-checks "$AC_MAC_WORKER_PREFIX/root-owner-policy-checks"
+          sudo install -m 755 /tmp/ac-owner-policy-guard-checks "$AC_MAC_WORKER_PREFIX/owner-policy-guard-checks"
+          for AC_POLICY_BINARY in root-owner-policy-checks owner-policy-guard-checks; do
+            sudo codesign --force --options runtime --identifier "com.fainir.accountaccess.qa.$AC_POLICY_BINARY" \
+              --sign - "$AC_MAC_WORKER_PREFIX/$AC_POLICY_BINARY"
+          done
           sudo env PLAYWRIGHT_BROWSERS_PATH="$AC_MAC_WORKER_PREFIX/browsers" \
             "$AC_MAC_WORKER_PREFIX/runtime/bin/python" -I -B -m playwright install chromium
           sudo chmod -R a+rX "$AC_MAC_WORKER_PREFIX/browsers"
@@ -93,9 +106,11 @@ jobs:
           uv run python scripts/check_worker_boundary_report.py /tmp/account-access-mac-worker.json
           uv run python scripts/check_mac_root_owner_report.py /tmp/account-access-mac-root-owner.json
           uv run python scripts/check_mac_key_custody_report.py /tmp/account-access-mac-key-custody.json
+          uv run python scripts/check_mac_owner_policy_report.py /tmp/account-access-mac-owner-policy.json
           cat /tmp/account-access-mac-worker.json
           cat /tmp/account-access-mac-root-owner.json
           cat /tmp/account-access-mac-key-custody.json
+          cat /tmp/account-access-mac-owner-policy.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
@@ -104,6 +119,7 @@ jobs:
             /tmp/account-access-mac-worker.json
             /tmp/account-access-mac-root-owner.json
             /tmp/account-access-mac-key-custody.json
+            /tmp/account-access-mac-owner-policy.json
           if-no-files-found: ignore
       - name: Remove the ephemeral runtime
         if: always()

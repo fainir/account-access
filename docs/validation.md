@@ -1,5 +1,25 @@
 # Validation of Account Access
 
+## Mac system key custody — 17 October 2026
+
+Revision `1aacc8a` passed **20 daemon key-custody checks** alongside the Mac
+worker's 25 and root owner host's 24 checks in the same
+[disposable VM](https://github.com/fainir/account-access/actions/runs/38998814664/job/117297184139).
+The key was confirmed independently in System, recovered by a new system
+process, and refused to a separate user (`errSecAuthFailed`). Invalid/other vault
+identities, duplicate enrollment, missing-key non-enrollment, zero core-dump
+limits and fixture removal were checked. Eleven pure metadata tests also passed.
+File-based Keychain queries now resolve one unique persistent reference before
+reading data; repeated identical references are tolerated, distinct records fail.
+No key was supplied through a file, argument, environment or agent response.
+
+This is process-restart component acceptance, not reboot, signed-binary update,
+consumer supervision, key handoff or installed-owner migration. Private mailbox,
+SMS and TOTP coverage remains open. The new authorization-policy provisioner is
+still under validation and does not establish genuine owner approval. See
+[key-custody evidence](../artifacts/mac-key-custody-080.json) and its
+[contract and remaining work](mac-key-custody.md).
+
 ## Root Mac owner service integration — 17 October 2026
 
 Revision `de1b0d7` passed **24 root owner-service checks** alongside the worker's

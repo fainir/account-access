@@ -445,6 +445,67 @@ def root_key_custody(prefix, roles):
             "fixture_namespace": True, "fixture_key_removed": True, "direct_read_status": value["probe_status"], "checks": checks}
 
 
+def root_owner_policy(prefix, roles):
+    """Provision/remove only the QA right in a disposable VM system session."""
+    if sys.platform != "darwin" or os.getuid() != 0 or os.environ.get("GITHUB_ACTIONS") != "true":
+        raise RuntimeError("owner_policy_requires_disposable_mac_ci")
+    binary, guard = prefix / "root-owner-policy-checks", prefix / "owner-policy-guard-checks"
+    for path in (binary, guard):
+        root_managed_path(path)
+    label = "com.fainir.accountaccess.qa.owner-policy"
+    if subprocess.run(["/bin/launchctl", "print", "system/" + label], capture_output=True).returncode == 0:
+        raise RuntimeError("owner_policy_namespace_already_occupied")
+    policy = prefix / "owner-policy.json"
+    policy.write_text(json.dumps({"fixture": "account-access-owner-policy-ci-v1", "root": str(prefix)}))
+    policy.chmod(0o644)
+    launch = prefix / "owner-policy.plist"
+    launch.write_bytes(plistlib.dumps({"Label": label, "ProgramArguments": [str(binary), "--policy", str(policy)],
+        "UserName": "root", "GroupName": "wheel", "RunAtLoad": True, "KeepAlive": False,
+        "ProcessType": "Background", "StandardOutPath": "/dev/null", "StandardErrorPath": "/dev/null"}))
+    launch.chmod(0o644)
+    stage("owner_policy_system_provisioning")
+    command(["/bin/launchctl", "bootstrap", "system", str(launch)])
+    try:
+        report = prefix / "owner-policy-report.json"
+        deadline = time.monotonic() + 45
+        while time.monotonic() < deadline:
+            service = command(["/bin/launchctl", "print", "system/" + label])
+            exited = re.findall(rb"last exit code = ([0-9]+)", service)
+            if report.exists() and exited:
+                value = json.loads(report.read_bytes())
+                if value.get("status") != "PASSED" or exited != [b"0"]:
+                    if value.get("reason") in {"owner_policy_requires_system_daemon", "owner_policy_changed",
+                        "owner_policy_unavailable", "owner_policy_readback_invalid", "owner_policy_checks_failed"}:
+                        stage(value["reason"])
+                    if value.get("checkpoint") in {"policy", "namespace", "install", "root_shortcut", "changed_policy",
+                        "permissive_proof", "restore", "cleanup"}:
+                        stage("owner_policy_checkpoint_" + value["checkpoint"])
+                    fields = value.get("definition_fields")
+                    if (isinstance(fields, list) and len(fields) <= 32
+                            and all(isinstance(item, str) and re.fullmatch(r"[a-z][a-z0-9-]{0,63}", item) for item in fields)):
+                        print(json.dumps({"fixture_definition_fields": fields}), file=sys.stderr, flush=True)
+                    raise RuntimeError("owner_policy_acceptance_failed")
+                assert set(value) == {"status", "checks", "pid", "uid"} and value["uid"] == 0
+                assert type(value["pid"]) is int and value["pid"] > 0
+                checks = value["checks"]
+                assert checks and all(item is True for item in checks.values())
+                break
+            time.sleep(0.1)
+        else:
+            raise RuntimeError("owner_policy_acceptance_timed_out")
+    finally:
+        command(["/bin/launchctl", "bootout", "system/" + label])
+    result = subprocess.run([*dropped(roles["agent"]), str(guard)], capture_output=True, timeout=30,
+                            env={"PATH": "/usr/bin:/bin", "LANG": "en_US.UTF-8"})
+    assert result.returncode == 0 and json.loads(result.stdout) == {"status": "PASSED",
+        "unprivileged_policy_install_refused": True, "authorization_database_changed": False}
+    checks["unprivileged_policy_install_refused"] = True
+    return {"status": "PASSED", "platform": "macos", "environment": "controlled-demo", "production_ready": False,
+            "private_signins": 0, "authorization_database_changed": True, "fixture_namespace": True,
+            "fixture_right_removed": True, "synthetic_permissive_rule_used": True,
+            "real_owner_auth_approval_tested": False, "consumer_deployment_verified": False, "checks": checks}
+
+
 def exercise(prefix, roles):
     if sys.platform == "darwin":
         # No login data is provided to this canary. It checks whether the
@@ -641,6 +702,7 @@ def exercise(prefix, roles):
                     owner_report = root_owner_gateway(prefix, roles, policy, owner_token, worker)
                     owner_report["checks"].update(probe(prefix, roles, worker, policy, "after-owner-stop"))
                     key_report = root_key_custody(prefix, roles)
+                    policy_report = root_owner_policy(prefix, roles)
                 else:
                     owner_request(owner_path, owner_token, "/owner/revoke", {"account": "demo-api"})
                 stage("revoked_read")
@@ -666,6 +728,9 @@ def exercise(prefix, roles):
                     custody_evidence = Path("/tmp/account-access-mac-key-custody.json")
                     private_file(custody_evidence, (json.dumps(key_report, indent=2) + "\n").encode())
                     custody_evidence.chmod(0o644)
+                    policy_evidence = Path("/tmp/account-access-mac-owner-policy.json")
+                    private_file(policy_evidence, (json.dumps(policy_report, indent=2) + "\n").encode())
+                    policy_evidence.chmod(0o644)
                 return {"status": "PASSED", "environment": "controlled-demo", "production_ready": False,
                         "private_signins": 0, "platform": "macos" if sys.platform == "darwin" else "linux", "real_distinct_uids": True,
                         "checks": checks,

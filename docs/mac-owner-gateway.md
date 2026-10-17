@@ -47,6 +47,14 @@ long lifetime on the inspected Mac, so delegating to it alone was rejected.
 See [Apple's authorization policy source](https://github.com/apple-oss-distributions/Security/blob/main/OSX/authd/authorization.plist)
 and [external authorization references](https://developer.apple.com/documentation/security/authorizationexternalform).
 
+`OwnerAuthorizationPolicy.swift` adds the internal system-only provisioner. It
+creates the exact dedicated right only when absent, preserves an already-matching
+rule and refuses a changed definition. It grants no setup authorization and
+accepts no caller-selected name or policy. Its new disposable-VM harness uses
+only the separate QA right, including a temporary permissive rule to test proof
+rejection, then removes it. This provisioning journey is under validation;
+it is not a completed genuine owner approval or consumer installation.
+
 One accepted proof enables configuration writes on that connection for ten
 minutes. End setup, expiration and disconnect remove that authority; a late
 authorization result cannot revive a disconnected session. Revocation and Pause

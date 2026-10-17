@@ -54,6 +54,15 @@ receive an authentication/interaction denial from that same explicit query.
 Actual workflow success and its complete report must be verified before counting
 this component as passed.
 
+Revision `1aacc8a` passed **20 system-context checks** in a
+[disposable Mac VM](https://github.com/fainir/account-access/actions/runs/38998814664/job/117297184139),
+alongside the worker's 25 and root owner's 24 checks. The direct separate-user
+read returned `errSecAuthFailed`, not a missing-item or invalid-query status.
+Eleven pure reference-selection checks passed locally and in that workflow.
+The [sanitized report](../artifacts/mac-key-custody-080.json) records the scope.
+The test confirms process restart, not a machine reboot or a different signed
+binary recovering the item after an update.
+
 This is not production supervision, consumer installation, migration or genuine
 owner authorization. Integrating the provider with the isolated worker, native
 setup/source collectors and secure client issuance remains necessary, alongside

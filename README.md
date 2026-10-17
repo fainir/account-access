@@ -297,8 +297,10 @@ The [native Mac owner-channel component](docs/mac-owner-gateway.md) also passed
 A separate [24-check integration](artifacts/mac-root-owner-080.json) deployed
 the root host beside the isolated broker in a disposable Mac VM, verified peer
 identity and revocation, and removed the service. This does not validate a
-consumer installation or genuine owner approval; durable key custody and native
-consumer wiring remain under implementation.
+consumer installation or genuine owner approval. A separate
+[20-check System-key journey](artifacts/mac-key-custody-080.json) verified daemon
+restart recovery and denied another user's direct read. Production supervision,
+key handoff and native consumer wiring remain under implementation.
 
 Version 0.7 strengthens private file replacement, rejects vault-sidecar symlinks, requires an active matching window for every code resolver, and rechecks the verification page before filling its code. Native forms must POST to an approved destination. These checks run silently for supported normal logins. [Security and sync details](docs/security-and-password-sync.md) describe what is enforced and what remains outside the local preview's boundary.
 

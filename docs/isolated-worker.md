@@ -53,7 +53,11 @@ directory alias, before key handoff. This does not deploy a consumer root servic
 
 ## Still required
 
-This component needs a production supervisor with key custody, authenticated
+The separate [System-key provider](mac-key-custody.md) passed 20 native daemon
+checks, including process-restart recovery and actual separate-user read denial.
+It is not yet connected to this worker's production bootstrap.
+
+This component needs a production supervisor integrating that key custody, authenticated
 owner enrollment, secure client issuance and migration, lifecycle/recovery,
 audited packaging and update policy. The Mac consumer path also needs its
 approved service installation and integration of the tested
