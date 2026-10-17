@@ -308,7 +308,20 @@ directory prevents other users from renaming its root-owned child. This rule is
 unavailable to installed payload walks; files and shared-parent permissions
 remain unchanged. Thirteen ordinary-user synthetic cases exercise the boundary,
 including missing sticky protection, writable children, ACLs and aliases.
+The directory rule follows Apple's documented
+[sticky-directory behavior](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man2/chmod.2.html).
 
-Real Installer acceptance of this correction is pending. The package still
+Revision `5802fde` passed the tiny actual-Installer check on two disposable Macs,
+with identical native digests/counts (three public synthetic files and five
+directories), exit zero, cleanup and unchanged shared-parent permissions. This
+check neither provisions the service nor uses accounts. Complete-package
+acceptance also passed on both Macs: identical sixteen-report worker sets,
+original 13-check and prepared 20-check packages, including a matching native
+verification receipt before privileged Python runs. Both regression runs passed
+1,380 tests with 66 platform skips. The complete development inventory contains
+64 native files, 23 executables, eleven bundles and 33 wheels. See
+[exact-source evidence](../artifacts/native-install-verification-080.json).
+These are development signatures and controlled inputs; positive consumer
+installation and genuine owner approval remain unverified. The package still
 refuses existing installations; interrupted-install retry is not implemented.
 The installed owner app and deferred Gmail form remain untouched.

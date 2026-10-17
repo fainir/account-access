@@ -1,5 +1,48 @@
 # Validation of Account Access
 
+## Native verification before privileged Python — 17 October 2026
+
+Revision `5802fde` passed all eight push/PR workflows. Both full regressions
+passed **1,380 tests with 66 platform skips**, in 580.07 and 565.25 seconds.
+Lint, package builds and dependency auditing passed. Both disposable Macs
+produced identical sets of sixteen complete worker reports, including the
+**13-check original** and **20-check prepared** package installations.
+
+A universal native helper now verifies the fresh public image before privileged
+Python provisioning. Its bounded parser binds the fixed roots, file bytes and
+modes, directory children and confined alias graph. Descriptor walks check
+ownership, ACLs, file type, hard links and stable metadata without following
+unapproved aliases. The ordinary-user builder also preflights source and final
+inventories through metadata-only stdin. That `INSPECTED` response cannot
+substitute for the installed-image `VERIFIED` receipt required by acceptance.
+
+The first Installer runs stopped before Python because the checker refused
+Apple's script-resource ancestor `/private/tmp`. A tiny actual-Installer probe
+isolated the root-owned sticky parent. Only the resource walk now permits that
+exact ancestor with mode `01777`, no ACL grants and protected root-owned
+descendants. Installed payload walks retain their strict policy. Thirteen new
+synthetic boundary cases reject missing sticky protection, writable children,
+ACL grants and aliases; all 59 native component cases pass. The corrected tiny
+Installer probe also passes twice with matching results and unchanged parent
+permissions. Three signed ad-hoc universal peers build locally; ordinary
+invocation of the production verifier refuses before reading installed paths.
+
+Both full-package variants pass native verification before their deliberate
+refusal of unsigned owner setup. The complete inventories contain 5,257 files,
+927 directories and 25 aliases for the original package, and 5,268 files,
+937 directories and 25 aliases for the prepared package. Native inventory is
+64 files, 23 executables, eleven bundles and 33 wheels; each runtime has
+CPython 3.12.15 and 33 distributions. Desktop/Chrome component reports match,
+as do Linux's 24-check and Android's six-check reports.
+
+These are controlled development fixtures. They do not validate genuine owner
+approval, positive consumer installation, private code delivery or physical
+phones. Protected interrupted-install retry is still unimplemented. Owner
+build 53 and the unfinished Gmail form remain untouched; Gmail is deferred,
+GitHub personal QA remains stopped and Namecheap was not retried. Chrome CSV
+imports remain snapshots. The candidate remains **not production ready**.
+See [exact source, workflow links and sanitized evidence](../artifacts/native-install-verification-080.json).
+
 ## Complete preassembled runtime image — 17 October 2026
 
 Revision `3a54663` passed all eight push/PR workflows. Both full regression
