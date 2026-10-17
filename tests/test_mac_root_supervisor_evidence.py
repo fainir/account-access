@@ -14,7 +14,7 @@ def report():
 
 
 def test_supervisor_requires_each_native_lifecycle_assertion(tmp_path):
-    assert len(CHECKS) == 19 and validate(report())
+    assert len(CHECKS) == 21 and validate(report())
     for name in CHECKS:
         for replacement in [False, None, 1]:
             changed = report()

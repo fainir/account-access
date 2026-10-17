@@ -34,22 +34,22 @@ enum RootSupervisorChecks {
         var authorized = false
         old.authorizeSetup(Data(repeating: 0x41, count: 32)) { authorized = $0 }
         checks["synthetic_owner_session_active_before_crash"] = authorized && response(old, "owner/state") == 200
-        func crash() throws {
-            guard let pid = supervisor.pid, Darwin.kill(pid, SIGKILL) == 0 else { throw RootWorkerProcessFailure.unavailable }
+        func crash(_ target: RootWorkerSupervisor) throws {
+            guard let pid = target.pid, Darwin.kill(pid, SIGKILL) == 0 else { throw RootWorkerProcessFailure.unavailable }
             let deadline = ProcessInfo.processInfo.systemUptime + 5
-            while supervisor.state == .running && ProcessInfo.processInfo.systemUptime < deadline {
-                try supervisor.tick()
-                if supervisor.state == .running { Thread.sleep(forTimeInterval: 0.05) }
+            while target.state == .running && ProcessInfo.processInfo.systemUptime < deadline {
+                try target.tick()
+                if target.state == .running { Thread.sleep(forTimeInterval: 0.05) }
             }
         }
-        try crash()
+        try crash(supervisor)
         checks["owned_crash_enters_backoff"] = supervisor.state == .recovering && supervisor.pid == nil
         checks["old_owner_session_retired"] = retired >= 2 && response(old, "owner/state") == 403
         let request = try OwnerGatewayRoute("owner/credential", body: Data("{\"account\":\"fixture\",\"credential\":{\"password\":\"fictional\"}}".utf8))
         checks["writes_during_backoff_not_replayed"] = try supervisor.request(request).0 == 503
         time += 0.9; try supervisor.tick()
         checks["backoff_deadline_enforced"] = supervisor.state == .recovering && supervisor.pid == nil
-        time += 0.1; try supervisor.tick()
+        time = 101; try supervisor.tick()
         let reopened = try supervisor.request(OwnerGatewayRoute("owner/state", body: nil))
         checks["crashed_store_reopens_automatically"] = supervisor.state == .running && reopened.0 == 200
         let fresh = OwnerGatewaySession.fixture(backend: supervisor, authorize: { _ in true })
@@ -58,21 +58,34 @@ enum RootSupervisorChecks {
         // Three restarts are allowed. A fourth rapid crash stays failed.
         var respected = true
         for delay: TimeInterval in [2, 4] {
-            try crash()
+            try crash(supervisor)
             respected = respected && supervisor.state == .recovering && supervisor.pid == nil
-            time += delay - 0.1; try supervisor.tick()
+            let nextTime = time + delay
+            time = nextTime - 0.1; try supervisor.tick()
             respected = respected && supervisor.state == .recovering && supervisor.pid == nil
-            time += 0.1; try supervisor.tick()
+            time = nextTime; try supervisor.tick()
             respected = respected && supervisor.state == .running && supervisor.pid != nil
         }
         checks["successive_backoff_deadlines_enforced"] = respected
-        try crash()
+        try crash(supervisor)
         checks["restart_budget_exhaustion_stops_loop"] = supervisor.state == .failed && supervisor.pid == nil
         time += 1000; try supervisor.tick()
         checks["failed_state_does_not_restart_on_tick"] = supervisor.state == .failed && supervisor.pid == nil
         try supervisor.stop()
         checks["supervisor_shutdown_cleans_listeners"] = !FileManager.default.fileExists(atPath: plan.agentSocket)
             && !FileManager.default.fileExists(atPath: plan.ownerSocket) && supervisor.state == .stopped
+        let stable = try RootWorkerSupervisor.fixture(policy: policy, bootstrap: binary, peer: peer, vault: identity,
+            invalidateOwners: {}, clock: { time })
+        defer { try? stable.stop() }
+        try stable.start()
+        try crash(stable)
+        time += 1; try stable.tick()
+        guard stable.state == .running else { throw RootWorkerProcessFailure.unavailable }
+        time += 301; try stable.tick()
+        try crash(stable)
+        time += 1; try stable.tick()
+        checks["stable_running_period_restores_restart_budget"] = stable.state == .running && stable.pid != nil
+        try stable.stop()
         let workerPolicy = try WorkerLaunchPaths.object(plan.workerPolicy)
         let state = try WorkerLaunchPaths.lexical(workerPolicy["root"])
         let pausePath = URL(fileURLWithPath: state).appendingPathComponent("service.paused").path
@@ -101,6 +114,15 @@ enum RootSupervisorChecks {
             healthValue?["worker_status"] == "paused"
         checks["paused_owner_reads_do_not_start_worker"] = try paused.request(OwnerGatewayRoute("owner/state", body: nil)).0 == 503 && paused.pid == nil
         try paused.stop()
+        guard unlink(pausePath) == 0 else { throw RootWorkerProcessFailure.unavailable }
+        guard symlink("absent-pause-target", pausePath) == 0 else { throw RootWorkerProcessFailure.unavailable }
+        let linked = try RootWorkerSupervisor.fixture(policy: policy, bootstrap: binary, peer: peer, vault: identity,
+            invalidateOwners: {}, clock: { time })
+        defer { try? linked.stop() }
+        try linked.start()
+        time += 1000; try linked.tick()
+        checks["dangling_pause_symlink_still_prevents_start"] = linked.state == .paused && linked.pid == nil
+        try linked.stop()
         guard unlink(pausePath) == 0 else { throw RootWorkerProcessFailure.unavailable }
         let missingID = UUID().uuidString.lowercased()
         let missing = try RootWorkerSupervisor.fixture(policy: policy, bootstrap: binary, peer: peer, vault: missingID,
