@@ -1,5 +1,60 @@
 # Validation of Account Access
 
+## Native desktop integration and initialized-vault Pause — 17 October 2026
+
+Revision `5356e8a` passed **910 tests, one platform skip, in 495.93 seconds**,
+lint, an audit with no known vulnerabilities, packaging and native UI checks in
+[regression CI](https://github.com/fainir/account-access/actions/runs/39013969385).
+All eight push/PR workflows passed. The
+[Linux 24-check worker](https://github.com/fainir/account-access/actions/runs/39013969316)
+and [Android emulator journey](https://github.com/fainir/account-access/actions/runs/39013969365)
+also passed. The owner-channel suite retained **67 passing checks** with ad-hoc
+peers. Local production desktop code type-checked for both arm64 and x86_64,
+targeting macOS 14; 35 focused evidence cases passed locally.
+
+The [desktop transport checks](https://github.com/fainir/account-access/actions/runs/39013969385/job/117342119864)
+passed **31 cases**, with an identical
+[independent report](https://github.com/fainir/account-access/actions/runs/39013972012/job/117342127557).
+They cover protected profile ownership, mode bits, ACLs, links, size, identity and
+schema; refusal before proof/credential release; setup-lease expiry and reuse;
+malformed responses; and lost-write responses followed by read-only reconnect.
+These channel and positive-approval implementations are synthetic, not native
+XPC or genuine OS approval evidence.
+
+Native screen checks render first setup, paused and repair states without
+exposing arbitrary error text. An asynchronous synthetic enrollment accepts 202,
+then automatically reads the full worker state and opens the account view. It
+uses no legacy capability registration. A second enrollment loses its response;
+reopening performs only a read, with no replay or new approval. Production mode
+selects the fixed protected registration before the old installer/runtime path.
+Missing or invalid native state cannot silently choose the legacy connection.
+
+[Mac service CI](https://github.com/fainir/account-access/actions/runs/39013969327/job/117342119300)
+and an [independent repeat](https://github.com/fainir/account-access/actions/runs/39013972022/job/117342127456)
+produced identical sets of ten raw reports: **18 pre-enrollment gateway, 27 first
+coordinator**, 28 publication, 31 composed host, 21 supervisor, 33 handoff,
+20 System-key, 24 root owner-host, 16 policy and 25 worker assertions. The new
+separate-process desktop transport assertions load the protected root-owned
+public profile, read actual service state without approval and refuse an invalid
+OS proof before enrollment. These are native XPC reads/refusals; genuine positive
+approval remains unverified.
+
+Pause after first-worker readiness now persists in the enrollment journal and
+keeps native owner state readable. A quick approved Resume handles either a
+completed pause or a superseded queued pause, without trying to start an already
+running worker. The added coordinator regression checks this with a real
+fixture store, key and worker, using synthetic in-process setup authority.
+
+The [connection contract](mac-desktop-connection.md) and
+[structured evidence](../artifacts/mac-desktop-connection-080.json) retain those
+separate scopes. Consumer provisioning, genuine positive approval through the
+screens, complete isolated source setup/collectors, client issuance, migration,
+publisher continuity and full setup crash/power-loss recovery remain open.
+This adds no private email/SMS/authenticator or physical-phone acceptance, and
+continuous Chrome password synchronization remains unmet. Installed build 53
+and its unfinished mailbox form, the 0.7.4 preview and older staged build 61
+were preserved; no private sign-in was attempted.
+
 ## System entrypoint and initial native connection — 17 October 2026
 
 Revision `cf313f6` passed **15 pre-enrollment gateway checks** in

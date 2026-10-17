@@ -27,6 +27,8 @@ The browser sign-in flow uses the imported email/username and password, then sup
 
 ![Account dashboard with approved reads and automatic session integration](docs/account-dashboard.png)
 
+The isolated Mac development path now includes [native setup and progress screens](docs/mac-desktop-connection.md), a protected public connection profile and recovery without repeating setup writes. Its [controlled acceptance](artifacts/mac-desktop-connection-080.json) is separate from consumer installation and private account/phone QA. It is not enabled by the preview download.
+
 ## Easy installation
 
 On a Mac, [download Account Access 0.7.4](https://github.com/fainir/account-access/releases/download/v0.7.4/Account-Access-Mac-preview.zip), unzip it, open **Account Access**, and click **Install Account Access**. The app prepares Python, the browser and the local service. No developer tools, terminal commands or administrator password are needed for this flow.
@@ -319,14 +321,14 @@ data or an unverified stage. This component does not complete the consumer
 owner-enrollment, client-issuance or migration flow.
 
 The [first-enrollment coordinator](docs/mac-initial-enrollment.md) passed
-[24 further checks](artifacts/mac-initial-setup-080.json), including approval
+[27 further checks](artifacts/mac-desktop-connection-080.json), including approval
 rejection, durable Pause, resume during initialization, reopening without
 another setup request and repair when a published key is missing. Positive
 approval is synthetic; genuine owner approval and the consumer native setup
 flow remain unverified.
 
 The [system-service entrypoint](docs/mac-system-service.md) passed
-[15 pre-enrollment connection checks](artifacts/mac-initial-gateway-080.json)
+[18 pre-enrollment connection checks](artifacts/mac-desktop-connection-080.json)
 with separate native processes, including owner/code identity checks and refusal
 of unapproved setup before a key exists. This does not install the isolated
 service in the consumer app or verify positive owner approval.

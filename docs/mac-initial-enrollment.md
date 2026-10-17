@@ -2,10 +2,11 @@
 
 This candidate component connects the native owner authorization channel to
 fresh System-key creation, staged initialization, publication and the first
-worker. It passed [24 checks in two independent Mac VM runs](../artifacts/mac-initial-setup-080.json).
+worker. It passed [27 checks in two independent Mac VM runs](../artifacts/mac-desktop-connection-080.json).
 The installed preview does not use this
-isolated setup path; a consumer installer, native screen integration, client
-issuance and migration are still required.
+isolated setup path. Native screen/transport integration is implemented and
+covered by controlled checks; consumer provisioning, genuine owner approval
+through those screens, client issuance and migration are still required.
 
 ## Owner flow
 
@@ -70,11 +71,16 @@ authenticator accounts are used.
 Positive setup sessions run in the same hosting process as the coordinator.
 The [system entrypoint](mac-system-service.md) now exercises the first-enrollment
 mode through a separate native XPC owner process before key creation. That
-15-check journey covers reads and rejected requests, with no positive approval.
-Existing-store
-composed-host and native owner-channel acceptance are separate journeys. Setup
+18-check journey covers reads and rejected requests, with no positive approval.
+Its additional desktop-transport assertions load the protected public profile,
+read without approval and reject an invalid OS proof. The positive first-store
+coordinator now also checks durable Pause after readiness and an immediate
+approved Resume without a competing worker. Existing-store composed-host and native owner-channel acceptance are separate journeys. Setup
 objects are reopened against their durable files; a setup-process crash and
 power-loss injection remain unverified.
 
 See [staged setup](mac-staged-setup.md), [owner transport](mac-owner-gateway.md)
 and the [production acceptance matrix](production-gates.md).
+
+See the [native desktop flow](mac-desktop-connection.md) for setup, progress,
+Pause/Resume and lost-response behavior.

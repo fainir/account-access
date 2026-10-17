@@ -3,7 +3,7 @@
 `SystemBroker.swift` provides the service entrypoint needed by the isolated
 consumer installer. It composes `RootBrokerHost`, its fixed initial-enrollment
 plan and the native owner gateway. Its pre-enrollment connection passed
-[15 checks in two independent Mac VM runs](../artifacts/mac-initial-gateway-080.json).
+[18 checks in two independent Mac VM runs](../artifacts/mac-desktop-connection-080.json).
 This is a development component; it is not
 installed or enabled by the published preview.
 
@@ -63,7 +63,11 @@ processes while no key or worker exists. It rejects wrong client/server code,
 wrong owner UID, unapproved setup, invalid OS proof and caller configuration,
 then checks key absence after shutdown in the cleanup process. It removes its temporary job and setup
 rule. This is a negative pre-enrollment boundary test: a genuine positive owner
-approval, consumer package/native screens, client issuance, migration, publisher
+approval through the desktop screens, consumer provisioning, client issuance, migration, publisher
 update continuity and private account/phone QA remain separate release gates.
 
 See [production acceptance](production-gates.md) and [validation](validation.md).
+
+The [desktop connection contract](mac-desktop-connection.md) describes the fixed
+root-owned public registration, first-setup screens and reconnect behavior.
+Those components do not provision the system installation.

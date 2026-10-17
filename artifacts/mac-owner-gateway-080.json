@@ -101,14 +101,14 @@
   ],
   "remaining": [
     "consumer deployment, machine reboot and active-operation/browser-descendant recovery",
-    "trusted enrollment, native UI/source collectors, client issuance and migration",
+    "complete consumer enrollment and trusted source collectors, client issuance and migration",
     "genuine owner setup authorization approval and publisher update continuity",
     "notarized clean-Mac installation and private email/SMS/authenticator/physical-phone acceptance"
   ],
   "latest_adhoc_ci": {
-    "source_revision": "cf313f64f73660dc238be77327cfc74618654683",
-    "workflow_url": "https://github.com/fainir/account-access/actions/runs/39012690209",
-    "job_id": 117338380736,
+    "source_revision": "5356e8a1e7e5dcf9c09aa3859b645158412d656a",
+    "workflow_url": "https://github.com/fainir/account-access/actions/runs/39013969385",
+    "job_id": 117342119755,
     "checks": 67,
     "publisher_signed_peers": false
   }
