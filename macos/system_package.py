@@ -15,6 +15,7 @@ import zipfile
 from xml.sax.saxutils import escape
 
 from account_access.system_provision import signature
+from macos.payload_audit import audit_payload, binary_type, tree_files
 
 BASE = Path("Library/Application Support/Account Access")
 IDENTIFIER = "com.fainir.accountaccess.system"
@@ -145,19 +146,6 @@ def assemble(args):
     executable.resolve(strict=True).relative_to(python)
     if not (python / "lib/python3.12/os.py").is_file() or not browsers.is_dir():
         raise ValueError("standalone_python_and_browsers_required")
-    found = json.loads(
-        command(
-            [
-                str(executable),
-                "-I",
-                "-B",
-                "-c",
-                "import json,platform,sys;print(json.dumps([list(sys.version_info[:2]),platform.machine(),sys.prefix==sys.base_prefix]))",
-            ]
-        ).stdout
-    )
-    if found != [[3, 12], args.architecture, True]:
-        raise ValueError("matching_standalone_python_required")
     source_wheels = list(wheels.iterdir())
     if not source_wheels or any(
         p.is_symlink() or not p.is_file() or p.suffix != ".whl" for p in source_wheels
@@ -194,6 +182,25 @@ def assemble(args):
         # Do not ship ACL grants inherited from a maintainer's build folders.
         # This changes only our private copied payload, never source artifacts.
         command(["/bin/chmod", "-RN", str(root)])
+        copied_python = payload / "python/bin/python3.12"
+        if binary_type(copied_python) != 2 or not any(
+            binary_type(path) == 2 for path in tree_files(payload / "browsers")
+        ):
+            raise ValueError("native_python_and_browser_executables_required")
+        # Inspect the actual immutable build copies, including native code
+        # inside dependency archives, before running the supplied interpreter.
+        runtime_audit = audit_payload(
+            [root / "Applications/Account Access.app", payload / "python",
+             payload / "browsers", payload / "bin"],
+            sorted((payload / "wheels").glob("*.whl")), args.architecture,
+            command, development=args.development,
+        )
+        found = json.loads(command([
+            str(copied_python), "-I", "-B", "-c",
+            "import json,platform,sys;print(json.dumps([list(sys.version_info[:2]),platform.machine(),sys.prefix==sys.base_prefix]))",
+        ]).stdout)
+        if found != [[3, 12], args.architecture, True]:
+            raise ValueError("matching_standalone_python_required")
         scripts.mkdir()
         for name, contents in [("preinstall", PREINSTALL), ("postinstall", POSTINSTALL)]:
             target = scripts / name
@@ -255,6 +262,7 @@ def assemble(args):
             "production_ready": False,
             "notarized": False,
             "installed": False,
+            "native_payload_audit": runtime_audit,
             "sha256": hashlib.sha256(result.read_bytes()).hexdigest(),
         }
         (output / "package.json").write_text(json.dumps(report, indent=2) + "\n")

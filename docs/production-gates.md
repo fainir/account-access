@@ -7,6 +7,14 @@ or physical-device coverage.
 
 ## Candidate 0.8 changes
 
+- Mac package assembly checks its private native payload before running the
+  supplied Python. Production builds require Developer ID signatures and secure
+  timestamps throughout runtime folders and dependency wheels, hardened runtime
+  for executables, compatible architecture slices and valid bundle seals. Wheel
+  traversal/collision/symlink and native-container bounds are checked in both
+  modes. Development inventory never claims publisher verification. Signed-input
+  preparation with dependency provenance, actual Apple acceptance and positive
+  installed compatibility remain open; the dependency lock is not rewritten.
 - Reviewed two-page password flows can submit an email/username to one exact
   identity endpoint, verify the expected password page, and submit the password
   only to its declared endpoint. Native form controls must share the reviewed

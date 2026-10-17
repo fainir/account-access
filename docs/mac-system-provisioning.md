@@ -112,12 +112,22 @@ provisioning. The resulting package metadata always records `production_ready:
 false`, `notarized: false` and `installed: false`. Building/signing a package is
 not evidence of a successful consumer installation.
 
-The assembler verifies the owner app and broker/bootstrap publishers. It copies
-the supplied Python, browser and dependency wheels; it does not recursively
-sign or attest the native code inside those inputs. Their complete signature,
-hardened-runtime and notarization preparation remains a release gate. An
-Installer signature protects the package, but does not establish these code
-properties or runtime compatibility. Apple's
+The assembler now inventories its private build copies, including native code
+inside dependency wheels, before running the supplied Python. A production build
+requires valid Developer ID Application signatures, secure timestamps, the target
+architecture and hardened runtime for executables. It checks every native slice
+and the enclosing app/framework bundle seals. Unsafe filesystem aliases, wheel
+paths, symlinks, collisions and oversized/invalid native containers stop the build.
+Development builds record an inventory with publisher verification explicitly
+false. Neither mode changes the source payload or its dependency hash lock.
+
+This verifier does not prepare signatures, re-sign dependency wheels, notarize the
+package or establish installed-runtime compatibility. Signed-runtime preparation
+still needs an explicit provenance chain from the original locked wheel to any
+publisher-modified artifact; changing the lock silently would lose that chain.
+Preparing and validating those release inputs remains required. An Installer
+signature protects the package, but does not establish these code properties or
+runtime compatibility. Apple's
 [notarization requirements](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)
 apply to the executables being distributed. A production build must verify the
 complete payload and its installed behavior, including binary extension modules,

@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 import subprocess
 import xml.etree.ElementTree as ET
+import zipfile
 
 import pytest
 
@@ -70,3 +71,74 @@ def test_protected_owner_app_required_before_signatures_or_payload_copy(tmp_path
     with pytest.raises(ValueError, match="protected_owner_app_required"):
         package.inspect_app(app, development=True)
     assert list((app / "Contents").iterdir()) == [app / "Contents/Info.plist"]
+
+
+@pytest.mark.parametrize("development", [False, True])
+@pytest.mark.parametrize("native_python", [False, True])
+def test_supplied_python_cannot_run_before_private_payload_inventory(
+    tmp_path, monkeypatch, development, native_python
+):
+    from test_payload_audit import thin
+
+    app, native, python, browsers, wheels = [
+        tmp_path / name for name in ["app", "native", "python", "browsers", "wheels"]
+    ]
+    for path in [app, native, python / "bin", python / "lib/python3.12", browsers, wheels]:
+        path.mkdir(parents=True)
+    executable = python / "bin/python3.12"
+    executable.write_bytes(thin() if native_python else b"#!/bin/sh\nexit 0\n")
+    (python / "lib/python3.12/os.py").write_text("# synthetic fixture")
+    (browsers / "browser").write_bytes(thin())
+    for name in ["broker", "bootstrap"]:
+        (native / ("AccountAccess-" + name)).write_bytes(thin())
+    wheel = app / "project.whl"
+    with zipfile.ZipFile(wheel, "w") as archive:
+        archive.writestr("account_access/runtime-requirements.txt", "fixture==1")
+    with zipfile.ZipFile(wheels / "fixture.whl", "w") as archive:
+        archive.writestr("fixture/data", "fixture only")
+    calls, inventories = [], []
+    monkeypatch.setattr(package.sys, "platform", "darwin")
+    monkeypatch.setattr(package.os, "getuid", lambda: 501)
+    monkeypatch.setattr(
+        package, "inspect_app", lambda *a, **k: ("0.8.0", "ABCDEFGHIJ", wheel, b"fixture==1")
+    )
+    monkeypatch.setattr(package, "signature", lambda *a, **k: {"team": "ABCDEFGHIJ"})
+
+    def command(args):
+        calls.append(args)
+        assert args[0] == "/bin/chmod", "No supplied interpreter or installer tool may run first"
+        return SimpleNamespace(stdout=b"", stderr=b"")
+
+    monkeypatch.setattr(package, "command", command)
+
+    def audit(roots, archives, architecture, command, *, development):
+        inventories.append((roots, archives, development))
+        assert architecture == "arm64"
+        assert all(not str(path).startswith(str(tmp_path)) for path in [*roots, *archives])
+        raise ValueError("fixture_inventory_stopped_before_execution")
+
+    monkeypatch.setattr(package, "audit_payload", audit)
+    expected = (
+        "fixture_inventory_stopped_before_execution"
+        if native_python
+        else "native_python_and_browser_executables_required"
+    )
+    with pytest.raises(ValueError, match=expected):
+        package.assemble(
+            SimpleNamespace(
+                app=app,
+                native=native,
+                python=python,
+                browsers=browsers,
+                wheels=wheels,
+                output=tmp_path / "output",
+                architecture="arm64",
+                development=development,
+                installer_identity="fixture never used",
+            )
+        )
+    assert len(calls) == 1 and bool(inventories) is native_python
+    if inventories:
+        assert inventories[0][2] is development
+    assert executable.read_bytes() == (thin() if native_python else b"#!/bin/sh\nexit 0\n")
+    assert not list((tmp_path / "output").iterdir())
