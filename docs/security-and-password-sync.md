@@ -5,6 +5,11 @@ The security changes do not introduce an approval prompt for each routine login.
 Passwords, sessions and verification-source secrets are encrypted in the local vault.
 The agent interface returns approved results, never passwords or verification codes.
 
+The current [Chrome sync source review](chrome-password-sync-research.md) explains
+why a raw browser-database reader is not a shipped continuous-sync connection.
+Chrome imports remain reviewed snapshots; the configured 1Password Connect
+contract is the existing ongoing-sync option. Private deployment QA remains open.
+
 Version 0.7 adds:
 
 - The signed Mac app pins the exact Python package checksum inside its signed bundle. A replaced package is rejected even if a replaced download manifest claims it is valid. The standalone shell installer still relies on HTTPS and the downloaded manifest; dependency installation also relies on the configured package registry.

@@ -15,9 +15,10 @@ or physical-device coverage.
   replay redirects stop. Temporary failures retain automatic task retry and the
   normal cooldown. This is controlled coverage, not a new private provider.
 - Verification-source preflight now runs before any credential fill, followed by
-  another page/presence check. JavaScript input handlers therefore cannot receive
-  a password before the configured code sources are prepared. Missing sources
-  stop without consuming a first-stage login attempt. Existing connector
+  another page/presence check. Single-page username input handlers are rechecked
+  before filling the password. Routine sign-in with no usable enrolled method
+  stops without consuming a first-stage login attempt; an unavailable alternative
+  does not block another usable method. Existing connector
   fingerprints remain unchanged when the optional identity step is absent.
 - Staged Mac build 61 requires macOS 14 (Sonoma) or later, matching the
   pinned Playwright browser runtime. App metadata, shell preflight and the direct

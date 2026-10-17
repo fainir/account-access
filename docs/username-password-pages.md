@@ -45,8 +45,10 @@ response; changing the DOM alone does not establish a completed first step.
 The service prepares the enrolled verification sources before entering either
 credential. This also protects single-page JavaScript forms that may submit on
 input. It then rechecks page location and priority challenges after preflight.
-Missing sources stop before the identity request and do not consume the login
-cooldown.
+If no enrolled alternative is usable, ordinary sign-in stops before the identity
+request and does not consume the login cooldown. An unavailable alternative does
+not prevent another enrolled method from completing. Page/form checks also run
+after a single-page username fill, since its input handler can change the page.
 
 The first stage permits one POST to the identity endpoint. An unexpected POST,
 an early request before preflight, or a redirect that replays the POST stops the

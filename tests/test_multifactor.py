@@ -483,6 +483,7 @@ def test_legacy_connector_fingerprint_survives_new_factor_schema(env):
     old["login"].pop("code_requests")
     old["login"].pop("choice_toggle_selector")
     old["login"].pop("code_wait_ms")
+    old["login"].pop("identity_step")
     old["code_source_config"] = config.code_sources["demo-totp"].model_dump()
     old["code_source_config"].pop("host")
     old["code_source_config"].pop("port")

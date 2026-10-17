@@ -187,6 +187,38 @@ def test_identity_step_is_permission_bound_and_default_preserves_existing_grants
     assert broker.run("test", "demo-web", "summary")["status"] == "DENIED"
 
 
+def test_username_input_presence_challenge_stops_before_password_fill(env, monkeypatch):
+    provider, broker, _ = env
+    parent = provider.server.RequestHandlerClass
+    class Handler(parent):
+        def login_form(self, *args, **kwargs):
+            return super().login_form(*args, **kwargs) + """<script>
+                document.querySelector('#username').oninput=()=>document.body.insertAdjacentHTML(
+                    'beforeend','<div id=action-challenge>Approve payment</div>');
+                </script>"""
+    provider.server.RequestHandlerClass = Handler
+    config = broker.store.config()
+    config.accounts["demo-web"].javascript = True
+    broker.store.configure(config)
+    broker.grant("test", "demo-web", ["summary"])
+    original_context = broker.browser.context
+    passwords_at_close = []
+    def context(*args, **kwargs):
+        value = original_context(*args, **kwargs)
+        close = value.close
+        def observe_close():
+            for page in value.pages:
+                if page.locator("#password").count():
+                    passwords_at_close.append(page.locator("#password").input_value())
+            close()
+        monkeypatch.setattr(value, "close", observe_close)
+        return value
+    monkeypatch.setattr(broker.browser, "context", context)
+    result = broker.run("test", "demo-web", "summary")
+    assert result["reason"] == "browser_action_required" and provider.login_count == 0
+    assert passwords_at_close and all(value == "" for value in passwords_at_close)
+
+
 @pytest.mark.parametrize("change", ["post_origin", "password_origin", "password_post_origin", "post_permission", "password_permission", "scripted_mode"])
 def test_identity_steps_require_explicit_same_origin_urls_and_script_policy(env, change):
     provider, broker, _ = env

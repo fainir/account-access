@@ -446,6 +446,10 @@ class Browser:
                                                form.identity_step.password_post_url, allow_missing=config.javascript)
             if not form.identity_step:
                 page.locator(form.username_selector).fill(credential["username"])
+                # Input handlers may reveal a presence challenge or replace
+                # the password form. Recheck before disclosing the password.
+                self.credential_page(page, config, expected)
+                self.check_form(page, form.password_selector, config)
             page.locator(form.password_selector).fill(credential["password"])
             # Charge the password-attempt cooldown only when submission is
             # attempted. Connecting a missing mailbox/phone after preflight
