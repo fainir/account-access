@@ -326,7 +326,8 @@ def test_unavailable_draft_fails_before_download_with_no_raw_api_output(tmp_path
     assert probe.main(["download", "--tag", "qa-review", "--asset", "review.tar.gz", "--asset-id", "652938188",
                        "--release-id", "416327595", "--source", REVISION, "--sha256", "a" * 64,
                        "--output", str(tmp_path / "must-not-exist")]) == 1
-    assert json.loads(capsys.readouterr().out) == {"status": "FAILED", "reason": "review_draft_metadata_unavailable", "production_ready": False}
+    assert json.loads(capsys.readouterr().out) == {"status": "FAILED", "reason": "review_draft_metadata_unavailable",
+                                                "failure_type": "ReviewError", "production_ready": False}
     assert not (tmp_path / "must-not-exist").exists()
 
 
@@ -347,3 +348,146 @@ def test_shared_applications_parent_is_read_only_metadata_and_never_runtime_trus
     assert probe.APP == probe.BASE / "owner.app"
     assert probe.PUBLIC_APP == Path("/Applications/Account Access.app")
     assert stat.S_IFMT(mode) != 0
+
+
+def test_designated_requirement_comes_from_stdout_only(monkeypatch):
+    monkeypatch.setattr(probe, "command", lambda *args, **kwargs: subprocess.CompletedProcess([], 0,
+        b'designated => anchor apple generic and identifier "fixed-fixture"\n',
+        b'Executable=/private/path\ndesignated => untrusted stderr decoy\n'))
+    assert probe.designated_requirement(Path("/public/fixture")) == 'anchor apple generic and identifier "fixed-fixture"'
+
+
+@pytest.mark.parametrize("stdout", [b"", b"unrelated output\n",
+    b"designated => first\ndesignated => second\n"])
+def test_missing_or_ambiguous_stdout_requirement_is_refused_even_with_stderr_decoy(monkeypatch, stdout):
+    monkeypatch.setattr(probe, "command", lambda *args, **kwargs: subprocess.CompletedProcess([], 0, stdout,
+        b'designated => plausible but wrong stream\n'))
+    with pytest.raises(probe.ReviewError, match="broker_designated_requirement_missing"):
+        probe.designated_requirement(Path("/public/fixture"))
+
+
+def test_command_failure_exposes_only_known_operation_and_exitcode(monkeypatch, capsys):
+    secret = "fixture-private-value-never-print"
+    monkeypatch.setattr(probe.subprocess, "run", lambda *args, **kwargs: subprocess.CompletedProcess([], 7,
+        secret.encode(), secret.encode()))
+    with pytest.raises(probe.ReviewError) as caught:
+        probe.command(["/usr/bin/codesign", "-d", "-r-", "/private/" + secret], env={"TOKEN": secret})
+    report = probe.public_error(caught.value)
+    assert report == {"reason": "review_command_failed", "failure_type": "ReviewError",
+                      "command_failure": {"kind": "codesign_designated", "exitcode": 7, "timed_out": False}}
+    assert secret not in json.dumps(report) and capsys.readouterr().out == ""
+
+
+def test_command_timeout_never_serializes_exception_arguments_output_or_environment(monkeypatch):
+    secret = "fixture-private-timeout-value"
+    def timeout(*args, **kwargs):
+        raise subprocess.TimeoutExpired([secret], 25, output=secret.encode(), stderr=secret.encode())
+    monkeypatch.setattr(probe.subprocess, "run", timeout)
+    with pytest.raises(probe.ReviewError) as caught:
+        probe.command(["/bin/launchctl", "asuser", secret], env={"TOKEN": secret})
+    report = probe.public_error(caught.value)
+    assert report["reason"] == "review_command_timeout"
+    assert report["command_failure"] == {"kind": "launchctl_owner_child", "exitcode": None, "timed_out": True}
+    assert secret not in json.dumps(report)
+
+
+def test_unknown_error_reason_and_forged_command_details_cannot_leak():
+    secret = "private-message-should-not-appear"
+    error = probe.ReviewError(secret, command_failure={"kind": secret, "exitcode": 3, "timed_out": False})
+    assert probe.public_error(error) == {"reason": "publisher_transport_failed", "failure_type": "ReviewError"}
+    class PrivateExceptionName(Exception):
+        pass
+    assert probe.public_error(PrivateExceptionName(secret)) == {"reason": "publisher_transport_failed", "failure_type": "Exception"}
+
+
+def test_cleanup_failure_keeps_the_primary_stage_and_reason_with_redacted_separate_diagnostics():
+    checks, failures, command_failures = {}, {}, {}
+    primary = probe.failed_report(probe.ReviewError("broker_designated_requirement_missing"), "broker-designated-requirement", checks)
+    def failed_cleanup():
+        raise probe.ReviewError("review_command_failed", command_failure={"kind": "launchctl_bootout", "exitcode": 5, "timed_out": False})
+    probe.cleanup_step("chrome_and_native_children_stopped", failed_cleanup, checks, failures, command_failures)
+    result = probe.cleanup_result(primary, failures, command_failures)
+    assert result["stage"] == "cleanup" and result["reason"] == "publisher_transport_cleanup_failed"
+    assert result["failed_stage"] == "broker-designated-requirement"
+    assert result["failed_reason"] == "broker_designated_requirement_missing"
+    assert result["cleanup_failures"] == {"chrome_and_native_children_stopped": "review_command_failed"}
+    assert result["cleanup_command_failures"] == {"chrome_and_native_children_stopped": {
+        "kind": "launchctl_bootout", "exitcode": 5, "timed_out": False}}
+    assert checks == {"chrome_and_native_children_stopped": False}
+    def unknown_cleanup():
+        raise ValueError("private unrelated data")
+    probe.cleanup_step("created_service_identity_removed", unknown_cleanup, checks, failures, command_failures)
+    assert failures["created_service_identity_removed"] == "ValueError"
+    assert "private" not in json.dumps(probe.cleanup_result(primary, failures, command_failures)).replace("private_signins", "")
+
+
+def test_successful_cleanup_keeps_the_exact_strict_success_contract():
+    report = valid_report()
+    assert probe.cleanup_result(report, {}, {}) is report
+    assert checker.validate(report)
+
+
+def test_owner_domain_cleanup_waits_for_process_exit_and_transient_domain_retirement(monkeypatch):
+    clock, operations = [0], []
+    print_results, bootout_results = iter([0, 0, 3]), iter([5, 0])
+    def command(args, **kwargs):
+        operations.append(args)
+        status = next(print_results) if args[1] == "print" else next(bootout_results)
+        return subprocess.CompletedProcess(args, status, b"", b"not reported")
+    monkeypatch.setattr(probe, "command", command)
+    monkeypatch.setattr(probe, "stop_uid", lambda uid: operations.append(["stopped-fresh-uid", uid]))
+    monkeypatch.setattr(probe, "uid_processes", lambda uid: [])
+    monkeypatch.setattr(probe.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(probe.time, "sleep", lambda _seconds: clock.__setitem__(0, clock[0] + 1))
+    probe.stop_owner_domain(50023)
+    assert operations == [["/bin/launchctl", "print", "user/50023"], ["/bin/launchctl", "bootout", "user/50023"],
+        ["stopped-fresh-uid", 50023], ["/bin/launchctl", "print", "user/50023"],
+        ["/bin/launchctl", "bootout", "user/50023"], ["/bin/launchctl", "print", "user/50023"]]
+
+
+def test_owner_domain_cleanup_is_bounded_and_never_ignores_a_persistent_domain(monkeypatch):
+    clock = [0]
+    monkeypatch.setattr(probe, "command", lambda args, **kwargs: subprocess.CompletedProcess(args, 5 if args[1] == "bootout" else 0, b"", b""))
+    monkeypatch.setattr(probe, "stop_uid", lambda uid: None)
+    monkeypatch.setattr(probe.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(probe.time, "sleep", lambda _seconds: clock.__setitem__(0, clock[0] + 1))
+    with pytest.raises(probe.ReviewError) as caught:
+        probe.stop_owner_domain(50023)
+    assert probe.public_error(caught.value)["reason"] == "cleanup_owner_domain_still_loaded"
+    assert probe.public_error(caught.value)["command_failure"] == {"kind": "launchctl_bootout", "exitcode": 5, "timed_out": False}
+    assert clock[0] == 5
+    with pytest.raises(probe.ReviewError, match="cleanup_identity_invalid"):
+        probe.stop_owner_domain(501)
+
+
+def test_absent_rule_cleanup_does_not_write_and_foreign_rule_is_preserved(monkeypatch):
+    monkeypatch.setattr(probe, "authorization", lambda: None)
+    monkeypatch.setattr(probe, "command", lambda *args, **kwargs: pytest.fail("No authorization write"))
+    probe.remove_review_authorization("exact designated fixture")
+    monkeypatch.setattr(probe, "authorization", lambda: {"identifier": "unrelated registrar"})
+    with pytest.raises(probe.ReviewError, match="cleanup_authorization_changed"):
+        probe.remove_review_authorization("exact designated fixture")
+
+
+@pytest.mark.parametrize("damage", [None, "raw", "extra", "unknown-reason", "unknown-type", "unknown-command", "duplicate"])
+def test_child_failures_propagate_only_the_strict_fixed_public_diagnostic(monkeypatch, damage):
+    secret = "fixture-private-stdout-value"
+    child = {"status": "FAILED", "reason": "production_transport_not_reached", "failure_type": "ReviewError", "production_ready": False}
+    if damage == "extra":
+        child["raw_output"] = secret
+    elif damage == "unknown-reason":
+        child["reason"] = secret
+    elif damage == "unknown-type":
+        child["failure_type"] = secret
+    elif damage == "unknown-command":
+        child["command_failure"] = {"kind": secret, "exitcode": 5, "timed_out": False}
+    raw = secret.encode() if damage == "raw" else json.dumps(child).encode()
+    if damage == "duplicate":
+        raw = b'{"status":"FAILED","status":"FAILED","reason":"production_transport_not_reached","failure_type":"ReviewError","production_ready":false}'
+    monkeypatch.setattr(probe, "command", lambda *args, **kwargs: subprocess.CompletedProcess([], 1, raw, secret.encode()))
+    with pytest.raises(probe.ReviewError) as caught:
+        probe.owner_child_command(["/bin/launchctl", "asuser", "50023"], env={"SECRET": secret})
+    report = probe.failed_report(caught.value, "chrome-owner-child", {})
+    assert report["command_failure"] == {"kind": "launchctl_owner_child", "exitcode": 1, "timed_out": False}
+    assert report.get("child_failure") == (child if damage is None else None)
+    assert secret not in json.dumps(report)

@@ -44,10 +44,102 @@ MAX_ARCHIVE = 2 * 1024**3
 MAX_IMAGE = 8 * 1024**3
 ENV_KEYS = {"GITHUB_ACTIONS", "GITHUB_REPOSITORY", "GITHUB_RUN_ID", "GITHUB_SHA",
             "RUNNER_ENVIRONMENT", "RUNNER_OS", "RUNNER_ARCH", "CI"}
+PUBLIC_REASONS = set("""
+authorization_lookup_failed broker_designated_requirement_missing cleanup_authorization_changed
+cleanup_authorization_still_present cleanup_identity_changed cleanup_identity_invalid cleanup_job_not_owned
+cleanup_job_still_loaded cleanup_owner_domain_still_loaded cleanup_process_query_invalid cleanup_processes_still_running
+cleanup_public_alias_changed cleanup_public_image_changed cleanup_service_identity_changed controller_revision_mismatch
+duplicate_review_field existing_production_authorization_rule existing_production_identity existing_production_installation
+existing_production_job fresh_review_identity_unavailable hosted_arm64_mac_required hosted_review_only invalid_review_asset
+invalid_review_inputs ordinary_ci_download_required packaged_extension_not_loaded production_activation_failed
+production_authorization_not_registered production_authorization_registrar_mismatch production_browser_setup_failed
+production_chrome_journey_failed production_manifest_changed production_parent_guard_failed production_profile_mismatch
+production_transport_not_reached public_app_alias_mismatch publisher_transport_deadline publisher_transport_report_incomplete
+review_app_wheel_mismatch review_architecture_mismatch review_archive_alias_mismatch review_archive_entry_limit
+review_archive_hash_mismatch review_archive_inventory_mismatch review_archive_size_limit review_archive_unavailable
+review_asset_metadata_mismatch review_browser_profile_not_fresh review_child_identity_mismatch review_command_failed
+review_command_timeout review_command_output_limit review_contains_nonpublic_state review_contract_mismatch
+review_download_already_exists review_download_hash_mismatch review_draft_metadata_unavailable review_draft_source_mismatch
+review_extension_changed review_extension_source_mismatch review_external_page_opened review_identity_invalid
+review_image_hash_mismatch review_installer_source_mismatch review_metadata_missing review_optional_permission_granted
+review_owner_home_not_empty review_owner_identity_mismatch review_package_files_mismatch review_package_source_mismatch
+review_publisher_mismatch review_runtime_package_missing review_runtime_source_mismatch review_source_tree_changed
+shared_applications_parent_changed unexpected_vault_initialization unsafe_review_archive_entry unsafe_shared_applications_parent
+untrusted_review_support_parent untrusted_review_applications_parent untrusted_review_launchdaemons_parent
+""".split())
+PUBLIC_EXCEPTION_TYPES = {"ReviewError", "BootstrapError", "ProvisionError", "FileNotFoundError", "PermissionError",
+                          "ValueError", "JSONDecodeError", "KeyError", "OSError", "TimeoutExpired"}
+PUBLIC_COMMAND_KINDS = set("""codesign_designated codesign_verify codesign_metadata authorization_read authorization_remove
+authorization_other launchctl_print launchctl_bootstrap launchctl_bootout launchctl_owner_child launchctl_other git_source
+github_metadata lipo_architecture directory_record directory_cache identity_process_stop identity_process_query other_command""".split())
 
 
 class ReviewError(Exception):
-    pass
+    def __init__(self, reason, *, command_failure=None, child_failure=None):
+        super().__init__(reason)
+        self.command_failure = command_failure
+        self.child_failure = child_failure
+
+
+def public_command_detail(detail):
+    if (type(detail) is dict and set(detail) == {"kind", "exitcode", "timed_out"}
+            and type(detail["kind"]) is str and detail["kind"] in PUBLIC_COMMAND_KINDS and type(detail["timed_out"]) is bool
+            and (detail["exitcode"] is None or type(detail["exitcode"]) is int and -2**31 <= detail["exitcode"] < 2**31)):
+        return dict(detail)
+    return None
+
+
+def public_child_failure(value):
+    fields = {"status", "reason", "failure_type", "production_ready"}
+    if (type(value) is not dict or set(value) not in [fields, fields | {"command_failure"}]
+            or value.get("status") != "FAILED" or value.get("production_ready") is not False
+            or type(value.get("reason")) is not str or value["reason"] not in PUBLIC_REASONS | {"publisher_transport_failed"}
+            or type(value.get("failure_type")) is not str or value["failure_type"] not in PUBLIC_EXCEPTION_TYPES | {"Exception"}):
+        return None
+    if "command_failure" in value and public_command_detail(value["command_failure"]) is None:
+        return None
+    return dict(value)
+
+
+def public_error(error):
+    name = type(error).__name__
+    result = {"reason": str(error) if isinstance(error, ReviewError) and str(error) in PUBLIC_REASONS
+              else "publisher_transport_failed", "failure_type": name if name in PUBLIC_EXCEPTION_TYPES else "Exception"}
+    detail = public_command_detail(error.command_failure) if isinstance(error, ReviewError) else None
+    if detail is not None:
+        result["command_failure"] = detail
+    child = public_child_failure(error.child_failure) if isinstance(error, ReviewError) else None
+    if child is not None:
+        result["child_failure"] = child
+    return result
+
+
+def failed_report(error, stage, checks):
+    return {"status": "FAILED", **public_error(error), "stage": stage, "checks": checks,
+            "production_ready": False, "private_signins": 0}
+
+
+def cleanup_result(report, failures, command_failures):
+    if failures:
+        report = dict(report)
+        report.update(failed_stage=report.get("stage", "none"), failed_reason=report.get("reason", "none"),
+                      status="FAILED", reason="publisher_transport_cleanup_failed", stage="cleanup",
+                      cleanup_failures=failures)
+        if command_failures:
+            report["cleanup_command_failures"] = command_failures
+    return report
+
+
+def cleanup_step(name, operation, checks, failures, command_failures):
+    try:
+        operation()
+        checks[name] = True
+    except Exception as error:
+        details = public_error(error)
+        checks[name] = False
+        failures[name] = details["reason"] if details["reason"] != "publisher_transport_failed" else details["failure_type"]
+        if "command_failure" in details:
+            command_failures[name] = details["command_failure"]
 
 
 def require(value, reason):
@@ -87,12 +179,49 @@ def environment(home=None):
     return result
 
 
+def command_kind(arguments):
+    executable = str(arguments[0]) if arguments else ""
+    if executable == "/usr/bin/codesign":
+        return "codesign_designated" if "-r-" in arguments else "codesign_verify" if "--verify" in arguments else "codesign_metadata"
+    if executable == "/usr/bin/security" and len(arguments) > 2 and arguments[1] == "authorizationdb":
+        return {"read": "authorization_read", "remove": "authorization_remove"}.get(arguments[2], "authorization_other")
+    if executable == "/bin/launchctl" and len(arguments) > 1:
+        return {"print": "launchctl_print", "bootstrap": "launchctl_bootstrap", "bootout": "launchctl_bootout",
+                "asuser": "launchctl_owner_child"}.get(arguments[1], "launchctl_other")
+    return {"/usr/bin/git": "git_source", "gh": "github_metadata", "/usr/bin/lipo": "lipo_architecture",
+            "/usr/bin/dscl": "directory_record", "/usr/bin/dscacheutil": "directory_cache",
+            "/usr/bin/pkill": "identity_process_stop", "/bin/ps": "identity_process_query"}.get(executable, "other_command")
+
+
+def command_diagnostic(arguments, *, exitcode=None, timed_out=False):
+    return {"kind": command_kind(arguments), "exitcode": exitcode, "timed_out": timed_out}
+
+
 def command(arguments, *, timeout=25, check=True, env=None, **kwargs):
-    result = subprocess.run(arguments, capture_output=True, timeout=timeout, close_fds=True,
-                            env=environment() if env is None else env, **kwargs)
-    require(len(result.stdout) + len(result.stderr) <= 1_000_000, "review_command_output_limit")
-    if check:
-        require(result.returncode == 0, "review_command_failed")
+    try:
+        result = subprocess.run(arguments, capture_output=True, timeout=timeout, close_fds=True,
+                                env=environment() if env is None else env, **kwargs)
+    except subprocess.TimeoutExpired:
+        raise ReviewError("review_command_timeout", command_failure=command_diagnostic(arguments, timed_out=True)) from None
+    diagnostic = command_diagnostic(arguments, exitcode=result.returncode)
+    if len(result.stdout) + len(result.stderr) > 1_000_000:
+        raise ReviewError("review_command_output_limit", command_failure=diagnostic)
+    if check and result.returncode != 0:
+        raise ReviewError("review_command_failed", command_failure=diagnostic)
+    return result
+
+
+def owner_child_command(arguments, *, env):
+    result = command(arguments, timeout=100, check=False, env=env)
+    if result.returncode != 0:
+        child = None
+        if len(result.stdout) <= 4096:
+            try:
+                child = public_child_failure(unique_json(result.stdout))
+            except (ValueError, TypeError, ReviewError):
+                pass
+        raise ReviewError("production_chrome_journey_failed",
+                          command_failure=command_diagnostic(arguments, exitcode=result.returncode), child_failure=child)
     return result
 
 
@@ -293,6 +422,22 @@ def exact_rule(value, designated):
             and type(value.get("timeout")) is int and type(value.get("tries")) is int)
 
 
+def designated_requirement(binary):
+    result = command(["/usr/bin/codesign", "-d", "-r-", str(binary)])
+    matches = re.findall(r"^designated => (.+)$", result.stdout.decode("utf-8"), re.MULTILINE)
+    require(len(matches) == 1, "broker_designated_requirement_missing")
+    return matches[0]
+
+
+def remove_review_authorization(designated):
+    observed = authorization()
+    if observed is None:
+        return  # Baseline was absent; no rule was installed or remains.
+    require(exact_rule(observed, designated), "cleanup_authorization_changed")
+    command(["/usr/bin/security", "authorizationdb", "remove", RIGHT])
+    require(authorization() is None, "cleanup_authorization_still_present")
+
+
 def fresh_owner_identity():
     for _ in range(100):
         uid = 50000 + secrets.randbelow(10000)
@@ -335,6 +480,29 @@ def stop_uid(uid):
             killed = True
         time.sleep(0.1)
     require(not uid_processes(uid), "cleanup_processes_still_running")
+
+
+def stop_owner_domain(uid):
+    require(type(uid) is int and 50000 <= uid < 60000, "cleanup_identity_invalid")
+    domain = "user/" + str(uid)
+    bootout = None
+    if command(["/bin/launchctl", "print", domain], check=False, timeout=5).returncode == 0:
+        bootout = command(["/bin/launchctl", "bootout", domain], check=False, timeout=5)
+    # Domain retirement may wait for its own user processes to exit. Neither
+    # a nonzero bootout nor a transient domain is treated as cleanup success.
+    stop_uid(uid)
+    deadline = time.monotonic() + 5
+    retried = False
+    while time.monotonic() < deadline:
+        if command(["/bin/launchctl", "print", domain], check=False, timeout=5).returncode != 0:
+            require(not uid_processes(uid), "cleanup_processes_still_running")
+            return
+        if not retried:
+            bootout = command(["/bin/launchctl", "bootout", domain], check=False, timeout=5)
+            retried = True
+        time.sleep(0.1)
+    raise ReviewError("cleanup_owner_domain_still_loaded", command_failure=command_diagnostic(
+        ["/bin/launchctl", "bootout"], exitcode=bootout.returncode if bootout is not None else None))
 
 
 def public_parent_metadata(parents):
@@ -510,6 +678,7 @@ def run(args):
                 and os.readlink(PUBLIC_APP) == APPLICATION_TARGET, "public_app_alias_mismatch")
         checks["public_app_alias_is_navigation_only"] = True
         # A fresh non-login UID has its own empty Chrome profile and Mach domain.
+        stage = "owner-identity"
         uid, name = fresh_owner_identity()
         home = prefix / "owner-home"
         home.mkdir(mode=0o700)
@@ -528,25 +697,29 @@ def run(args):
         command(["/usr/bin/dscacheutil", "-flushcache"])
         owner = pwd.getpwnam(name)
         require(owner.pw_uid == uid and owner.pw_gid == uid and owner.pw_dir == str(home), "review_owner_identity_mismatch")
+        stage = "owner-bootstrap-domain"
         command(["/bin/launchctl", "bootstrap", "user/" + str(uid)])
-        stage = "provision"
+        stage = "provision-prepare"
         prepare(Layout.installed(), uid)
+        stage = "provision-service-job"
         expected_job = (BASE / "broker/service.plist").read_bytes()
+        stage = "provision-activate"
         registered = activate(Layout.installed(), uid)
         require(registered["status"] == "REGISTERED", "production_activation_failed")
         checks["production_prepare_and_activate_used"] = True
+        stage = "installed-signatures"
         signatures = {key: signature(path, identifier) for key, path, identifier in [
             ("owner", APP, "com.fainir.accountaccess"), ("broker", BASE / "bin/AccountAccess-broker", LABEL),
             ("bootstrap", BASE / "bin/AccountAccess-bootstrap", "com.fainir.accountaccess.bootstrap")]}
+        stage = "installed-owner-profile"
         profile = unique_json((BASE / "owner.json").read_bytes())
         require(profile == {"managed_by": "account-access-desktop-owner-v1", "schema": 1, "owner_uid": uid,
                 "publisher_team": TEAM, "server_identifier": LABEL, "server_hashes": signatures["broker"]["hashes"]},
                 "production_profile_mismatch")
         checks["root_profile_pins_actual_publisher_hashes"] = True
-        text = command(["/usr/bin/codesign", "-d", "-r-", str(BASE / "bin/AccountAccess-broker")]).stderr.decode()
-        matches = re.findall(r"^designated => (.+)$", text, re.MULTILINE)
-        require(len(matches) == 1, "broker_designated_requirement_missing")
-        designated = matches[0]
+        stage = "broker-designated-requirement"
+        designated = designated_requirement(BASE / "bin/AccountAccess-broker")
+        stage = "broker-authorization-poll"
         deadline = time.monotonic() + 30
         while time.monotonic() < deadline:
             observed = authorization()
@@ -557,16 +730,18 @@ def run(args):
         else:
             raise ReviewError("production_authorization_not_registered")
         checks["genuine_broker_registered_its_own_exact_rule"] = True
-        stage = "chrome"
+        stage = "chrome-controller-config"
         controller = prefix / "probe.py"
         shutil.copyfile(Path(__file__), controller)
         controller.chmod(0o644)
         configuration = prefix / "child.json"
         configuration.write_text(json.dumps({"owner_uid": uid, "home": str(home), "prefix": str(prefix)}))
         configuration.chmod(0o644)
-        result = command(["/bin/launchctl", "asuser", str(uid), "/usr/bin/sudo", "-n", "-u", name, "--",
+        stage = "chrome-owner-child"
+        result = owner_child_command(["/bin/launchctl", "asuser", str(uid), "/usr/bin/sudo", "-n", "-u", name, "--",
                           str(BASE / "runtime/bin/python"), "-I", "-B", str(controller), "chrome-child", str(configuration)],
-                         timeout=100, env=environment(home))
+                         env=environment(home))
+        stage = "chrome-owner-child-report"
         child_report = unique_json(result.stdout)
         require(type(child_report) is dict and set(child_report) == {"status", "chrome_version", "extension_resources_sha256"}
                 and child_report["status"] == "PASSED", "production_chrome_journey_failed")
@@ -574,6 +749,7 @@ def run(args):
                       "shell_parent_rejected_by_production_entrypoint", "native_pending_reached_initial_enrollment",
                       "second_pending_reached_initial_enrollment", "optional_permissions_stay_ungranted", "no_external_website_opened"]:
             checks[check] = True
+        stage = "empty-vault-check"
         require(not list((BASE / "vault/data").iterdir())
                 and not list((BASE / "broker").glob(".enrollment-*.publication"))
                 and not list((BASE / "vault").glob(".enrollment-*.publication")), "unexpected_vault_initialization")
@@ -589,8 +765,7 @@ def run(args):
         report.update({key: True for key in checker["TRUE_FLAGS"]})
         report.update({key: False for key in checker["FALSE_FLAGS"]})
     except Exception as exc:
-        report = {"status": "FAILED", "reason": str(exc) if isinstance(exc, ReviewError) else "publisher_transport_failed",
-                  "stage": stage, "checks": checks, "production_ready": False, "private_signins": 0}
+        report = failed_report(exc, stage, checks)
         if stage.startswith("baseline-") and stage.endswith("-parent"):
             # Fixed, public system-directory metadata only; never raw errors,
             # user homes, environment values, account state or credentials.
@@ -599,27 +774,16 @@ def run(args):
                 ("support", BASE.parent), ("applications", PUBLIC_APP.parent), ("launchdaemons", JOB.parent)])
     finally:
         # Every deletion is bound to a baseline-absent name created by this run.
-        cleanup_ok = True
+        cleanup_failures, cleanup_command_failures = {}, {}
         if prefix is not None:
             def cleanup(name, operation):
-                nonlocal cleanup_ok
-                try:
-                    operation()
-                    checks[name] = True
-                except Exception:
-                    checks[name] = False
-                    cleanup_ok = False
+                cleanup_step(name, operation, checks, cleanup_failures, cleanup_command_failures)
             if owner is not None:
                 def stop_owner():
                     current = pwd.getpwnam(owner.pw_name)
                     require((current.pw_uid, current.pw_gid, current.pw_dir)
                             == (owner.pw_uid, owner.pw_gid, owner.pw_dir), "cleanup_identity_changed")
-                    domain = "user/" + str(owner.pw_uid)
-                    if command(["/bin/launchctl", "print", domain], check=False).returncode == 0:
-                        command(["/bin/launchctl", "bootout", domain])
-                    require(command(["/bin/launchctl", "print", domain], check=False).returncode != 0,
-                            "cleanup_owner_domain_still_loaded")
-                    stop_uid(owner.pw_uid)
+                    stop_owner_domain(owner.pw_uid)
                 cleanup("chrome_and_native_children_stopped", stop_owner)
             if JOB.exists():
                 def stop_job():
@@ -632,12 +796,7 @@ def run(args):
                     JOB.unlink()
                 cleanup("created_system_job_removed", stop_job)
             if designated is not None:
-                def remove_rule():
-                    observed = authorization()
-                    require(exact_rule(observed, designated), "cleanup_authorization_changed")
-                    command(["/usr/bin/security", "authorizationdb", "remove", RIGHT])
-                    require(authorization() is None, "cleanup_authorization_still_present")
-                cleanup("created_authorization_rule_removed", remove_rule)
+                cleanup("created_authorization_rule_removed", lambda: remove_review_authorization(designated))
             record = BASE / "broker/install.json"
             if record.is_file():
                 def remove_broker():
@@ -677,8 +836,7 @@ def run(args):
                         "shared_applications_parent_changed")
                 checks["shared_applications_parent_unchanged"] = True
             cleanup("fresh_public_image_removed", remove_image)
-        if not cleanup_ok:
-            report.update(status="FAILED", reason="publisher_transport_cleanup_failed", stage="cleanup")
+        report = cleanup_result(report, cleanup_failures, cleanup_command_failures)
     if report.get("status") == "PASSED":
         require(runpy.run_path(str(SOURCE / "scripts/check_mac_publisher_transport_report.py"))["validate"](report),
                 "publisher_transport_report_incomplete")
@@ -721,8 +879,7 @@ def main(argv=None):
                 signal.alarm(0)
         return 0
     except Exception as exc:
-        reason = str(exc) if isinstance(exc, ReviewError) and re.fullmatch(r"[a-z_]{1,100}", str(exc)) else "publisher_transport_failed"
-        print(json.dumps({"status": "FAILED", "reason": reason, "production_ready": False}))
+        print(json.dumps({"status": "FAILED", **public_error(exc), "production_ready": False}))
         return 1
 
 
