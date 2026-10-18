@@ -5,6 +5,8 @@ const el=id=>document.getElementById(id);
 const message=text=>el("message").textContent=text;
 let state=null;
 let healthTimer=null,healthBusy=false,locallyPaused=false;
+let deviceEmailReview=null,deviceEmailReviewNode=null,deviceEmailPreviewButton=null,deviceEmailEpoch=0;
+function clearDeviceEmailReview(){const previous=deviceEmailReview;deviceEmailReview=null;deviceEmailEpoch++;deviceEmailReviewNode?.remove();deviceEmailReviewNode=null;if(deviceEmailPreviewButton)deviceEmailPreviewButton.disabled=false;deviceEmailPreviewButton=null;if(previous?.id)call("/owner/device-email/discard",{id:previous.id}).catch(()=>{});}
 async function call(path,body){
  const r=await fetch(path,{method:body?"POST":"GET",headers:{Authorization:"Bearer "+capability,...(body?{"Content-Type":"application/json"}:{})},...(body?{body:JSON.stringify(body)}:{})});
  const value=await r.json();if(!r.ok)throw new Error(value.reason||"Please try again.");return value;
@@ -15,6 +17,8 @@ Object.assign(friendly,{password_export_encrypted:"Choose an unencrypted Bitward
 Object.assign(friendly,{password_file_too_large:"The password export is too large. Export fewer accounts and try again.",invalid_password_export:"The password file could not be read. Export a fresh UTF-8 CSV or unencrypted Bitwarden JSON file and try again.",unsupported_password_export:"Choose a supported password CSV or unencrypted Bitwarden JSON export."});
 Object.assign(friendly,{import_connector_changed:"This account's connection changed after the import review. Choose the password file again and review its current permissions.",import_authenticator_changed:"This account's authenticator changed after the import review. Choose the password file again before replacing its authenticator key."});
 Object.assign(friendly,{pypi_manual_setup_unavailable:"Manual PyPI setup is unavailable in this pilot. Use the reviewed automatic route; your saved login is preserved.",login_challenge_changed:"The website's verification route changed. Account Access stopped before another attempt; the connector needs review."});
+Object.assign(friendly,{device_email_setup_changed:"This account changed during the review. Choose its current mailbox connection again.",device_email_mailbox_changed:"This mailbox changed during the review. Check its connection, then choose it again.",device_email_mailbox_unavailable:"Connect and check a mailbox first, then choose it for PyPI device emails.",device_email_setup_expired:"This review expired. Choose the mailbox again to create a fresh review.",device_email_setup_incomplete:"The connection result could not be confirmed. Review its current state in Verification before trying again.",invalid_device_email_setup:"Choose this account's connected mailbox again in Verification.",device_email_setup_limit:"There are too many pending email reviews. Cancel an earlier review or wait briefly."});
+function deviceEmailProblem(error){message(friendly[error.message]||"The email connection could not be confirmed. Open Verification to review its current state.");}
 Object.assign(friendly,{password_sync_not_connected:"This password source was removed. Refresh Password sync before connecting it again.",password_sync_connection_changed:"This connection changed while the form was open. Reopen Password sync and use its current Replace token action.",password_sync_connector_changed:"The account connection changed. Review the current website and password source before reconnecting.",password_sync_identity_mismatch:"The replacement token returned a different account. Your existing login and source are preserved.",invalid_password_sync_link:"Check the password source details and replacement token. Reopen Password sync if this form is out of date."});
 Object.assign(friendly,{password_source_access_removed:"The password manager rejected this token or its read access. Your existing connection is preserved.",password_source_unavailable:"The password manager could not be reached. Your existing connection is preserved; try again when it is online.",password_source_item_changed:"The password-manager item no longer matches this approved login. Review the original item before reconnecting.",password_source_runtime_unavailable:"The password-manager helper is unavailable. Repair the local installation before reconnecting."});
 function problem(e){message(friendly[e.message]||"Setup needs attention: "+e.message);}
@@ -39,6 +43,7 @@ const isExample=account=>["controlled-demo","public-example"].includes(account.e
 const isReady=account=>account.connected&&account.portable_ready&&!account.challenges?.length;
 function prompt(){return state.accounts.some(x=>!isExample(x)&&isReady(x))?"Summarize the approved information from my connected services and save the results as one task.":state.accounts.some(x=>isExample(x)&&isReady(x))?"Try my connected example accounts and save the results as one task. Label the results as examples.":"Check which of my configured services are available and tell me what needs attention.";}
 function navigate(next){
+ if(next!==view||next!=="verification")clearDeviceEmailReview();
  view=next;
  el("accounts-view").hidden=view!=="accounts";
  el("verification").hidden=view!=="verification";
@@ -52,6 +57,7 @@ document.querySelectorAll("[data-view]").forEach(b=>b.onclick=()=>navigate(b.dat
 el("show-connect").onclick=()=>{adding=true;el("connect").hidden=false;el("connect").scrollIntoView({behavior:"smooth",block:"start"});};
 el("import-nav").onclick=()=>{navigate("accounts");adding=true;el("connect").hidden=false;el("password-file").click();};
 async function refresh(){
+ clearDeviceEmailReview();
  state=await call("/owner/state");
  const existing=new Set(state.accounts.map(x=>x.account));
  const previous=el("service").value;el("service").replaceChildren();
@@ -87,7 +93,7 @@ async function refresh(){
  if(Object.values(state.connection_jobs).some(x=>x.status==="RUNNING"))setTimeout(()=>refresh().catch(problem),1200);
 }
 el("service").onchange=()=>{permission();el("allow").checked=false;el("username").value="";el("password").value="";};
-el("stop").onclick=async()=>{if(!confirm("Stop Account Access? Your saved connections will be kept."))return;try{await call("/owner/stop",{});locallyPaused=true;clearInterval(healthTimer);message("Account Access is paused. Open the app to resume it.");el("service-status").textContent="Paused";el("recovery-health").hidden=true;document.querySelectorAll("button,input,select").forEach(x=>x.disabled=true);}catch(e){problem(e);}};
+el("stop").onclick=async()=>{if(!confirm("Stop Account Access? Your saved connections will be kept."))return;clearDeviceEmailReview();try{await call("/owner/stop",{});locallyPaused=true;clearInterval(healthTimer);message("Account Access is paused. Open the app to resume it.");el("service-status").textContent="Paused";el("recovery-health").hidden=true;document.querySelectorAll("button,input,select").forEach(x=>x.disabled=true);}catch(e){problem(e);}};
 el("manage").onclick=e=>{e.preventDefault();location.href="/manage#"+capability;};
 el("account-form").onsubmit=async e=>{e.preventDefault();el("add").disabled=true;try{if(!el("allow").checked)throw new Error("Choose the reads you want to allow.");await call("/owner/add",{service:el("service").value,username:el("username").value,password:el("password").value,agents:["generic"]});el("username").value="";el("password").value="";el("allow").checked=false;message("Signing in. You can connect another account while this finishes.");await refresh();}catch(e){problem(e);}finally{el("add").disabled=false;}};
 if(capability)call("/owner/install",{}).then(refresh).then(()=>{healthTimer=setInterval(checkRecoveryHealth,5000);document.addEventListener("visibilitychange",checkRecoveryHealth);}).catch(problem);else message("Open Account Access from its launcher to unlock your setup page.");
@@ -170,10 +176,54 @@ function renderMailboxes(container){
  provider.onchange=()=>{const gmail=provider.selectedIndex===0;fields.host.value=gmail?"imap.gmail.com":"";fields.port.value="993";fields.host.readOnly=fields.port.readOnly=gmail;fields.host.hidden=fields.port.hidden=gmail;};provider.onchange();
  details.append(text("p","For Gmail, create a Google app password for Account Access with 2-Step Verification enabled. If Google does not offer app passwords, use the configured Google browser connection above."));const google=text("a","Open Google App passwords");google.href="https://myaccount.google.com/apppasswords";google.target="_blank";google.rel="noreferrer";details.append(google);const save=text("button","Connect mailbox");save.type="submit";form.append(save);form.onsubmit=async event=>{event.preventDefault();save.disabled=true;try{const payload=Object.fromEntries(Object.entries(fields).map(([key,input])=>[key,input.value]));payload.port=Number(payload.port);payload.label=provider.selectedIndex===0?"Gmail":"Email";fields.password.value="";await call("/owner/mailbox/connect",payload);message("Mailbox setup saved. Its connection result is shown below; no website sign-in was started.");await refresh();}catch(error){problem(error);}finally{save.disabled=false;}};details.append(form,text("p","Your app password grants mailbox access and is encrypted locally. Account Access uses read-only checks and matching login messages for approved sign-ins. Mailbox checks fetch no messages and start no website login."));container.append(details);
 }
+function renderDeviceEmailSetups(container){
+ for(const setup of state.device_email_setups||[]){
+  const card=text("div","");card.className="account";card.setAttribute("aria-label",setup.label+" device confirmation email");container.append(card);
+  card.append(text("strong",setup.label+" · Device confirmation email"));
+  const configured=setup.configured??setup.connected;
+  const badge=text("span",setup.connected?"Setup saved · delivery unverified":configured?"Email connection needs attention":"One-time setup");badge.className="badge pending";card.append(badge);
+  if(configured){
+   if(setup.connected)card.append(text("p","Fresh matching PyPI device-confirmation emails are handled locally during sign-in. Saving setup does not verify email delivery."));
+   const remove=text("button","Disconnect device email");remove.type="button";remove.onclick=async()=>{if(remove.disabled)return;remove.disabled=true;clearDeviceEmailReview();try{await call("/owner/device-email/remove",{account:setup.account,fingerprint:setup.fingerprint});message("Device email disconnected. Your existing approved reads are retained.");await refresh();}catch(error){deviceEmailProblem(error);remove.disabled=false;}};card.append(remove);if(setup.connected)continue;
+  }
+  card.append(text("p","Use an email mailbox you already connected and checked. No password or login code needs to be entered again."));
+  if(!setup.mailboxes?.length){
+   card.append(text("p","Connect and check a saved email mailbox first. Gmail app-password mailboxes are supported here; a Google browser connection alone is not selected automatically."));
+   const connect=text("button","Connect a mailbox");connect.type="button";connect.onclick=()=>{const form=container.querySelector("details");if(form){form.open=true;form.scrollIntoView({block:"start"});}};card.append(connect);continue;
+  }
+  const menu=document.createElement("select");menu.setAttribute("aria-label","Connected mailbox for "+setup.label+" device emails");
+  for(const mailbox of setup.mailboxes){const option=text("option",mailbox.label+" · "+mailbox.recipient);option.value=mailbox.id;menu.append(option);}card.append(menu);
+  const preview=text("button","Review email connection");preview.type="button";card.append(preview);
+  preview.onclick=async()=>{
+   if(preview.disabled)return;clearDeviceEmailReview();preview.disabled=true;deviceEmailPreviewButton=preview;const epoch=deviceEmailEpoch;
+   try{
+    const review=await call("/owner/device-email/preview",{account:setup.account,fingerprint:setup.fingerprint,mailbox:menu.value});
+    if(epoch!==deviceEmailEpoch||view!=="verification"||locallyPaused){if(review.id)call("/owner/device-email/discard",{id:review.id}).catch(()=>{});return;}
+    if(typeof review.id!=="string"||!/^[a-f0-9]{32}$/.test(review.id)||review.account!==setup.account||typeof review.expires!=="number"||review.expires*1000<=Date.now()||typeof review.recipient!=="string"||typeof review.mailbox_label!=="string"||!Array.isArray(review.operations)){if(review.id)call("/owner/device-email/discard",{id:review.id}).catch(()=>{});throw new Error("device_email_setup_expired");}
+    deviceEmailReview=review;
+    const panel=text("div","");panel.className="card";panel.setAttribute("role","region");panel.setAttribute("aria-label","Review device email connection");deviceEmailReviewNode=panel;
+    panel.append(text("h3","Confirm device email"),text("p",review.mailbox_label+" · "+review.recipient),text("p","Account Access reads only fresh matching PyPI sign-in emails locally during a supported login. No password, code or link is sent to your AI. Your existing approved reads are retained."));
+    for(const operation of review.operations){if(typeof operation.description==="string")panel.append(text("p","Approved read: "+operation.description));}
+    panel.append(text("p","Saving this setup does not verify delivery or sign in to PyPI."));
+    const apply=text("button","Confirm email connection");apply.type="button";
+    const cancel=text("button","Cancel email connection");cancel.type="button";cancel.onclick=()=>{clearDeviceEmailReview();preview.disabled=false;};
+    apply.onclick=async()=>{
+     if(apply.disabled||deviceEmailReview!==review)return;apply.disabled=true;cancel.disabled=true;
+     if(review.expires*1000<=Date.now()){clearDeviceEmailReview();deviceEmailProblem(new Error("device_email_setup_expired"));preview.disabled=false;return;}
+     deviceEmailReview=null;deviceEmailReviewNode=null;panel.remove();
+     try{await call("/owner/device-email/apply",{id:review.id});message("Device email setup saved. Delivery is checked during an actual sign-in; approved reads are retained.");await refresh();}
+     catch(error){deviceEmailProblem(error);await refresh().catch(()=>{});}
+    };
+    panel.append(apply,cancel);card.append(panel);
+   }catch(error){deviceEmailProblem(error);preview.disabled=false;}
+  };
+ }
+}
 function renderFactors(){
  const container=el("factors");container.replaceChildren();
  renderMailboxes(container);
- for(const source of state.code_sources){
+ renderDeviceEmailSetups(container);
+ for(const source of state.code_sources.filter(item=>item.message_purpose!=="pypi-device-confirmation")){
   const card=document.createElement("div");card.className="account";const kind={totp:"Authenticator",imap:"Email",gmail:"Gmail",twilio:"SMS gateway",mac_messages:"iPhone Messages",phone_relay:"Android phone"}[source.kind]||"Verification";card.append(text("strong",kind));card.append(text("p",source.accounts.map(id=>state.accounts.find(x=>x.account===id)?.label||id).join(", ")));const email=["imap","gmail"].includes(source.kind);const checked=source.connection_check?.status==="VERIFIED";const status=text("span",source.enrolled?(email&&checked?"Mailbox connection checked":"Setup saved"):"One-time setup");status.className="badge"+(source.enrolled?"":" pending");card.append(status);
   if(email&&source.enrolled){card.append(text("p",checked?"Email access passed its last check. Website code delivery is still a separate check.":"Saving these details does not verify email access or code delivery."));const check=text("button","Check email connection");check.type="button";check.onclick=async()=>{check.disabled=true;try{await call("/owner/source/check",{source:source.id});message("Mailbox connection checked. No messages fetched or website sign-in started.");await refresh();}catch(e){problem(e);}finally{check.disabled=false;}};card.append(check);}
   const form=document.createElement("form");const fields={};

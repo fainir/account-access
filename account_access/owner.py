@@ -265,6 +265,8 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                 state["browser_updates"] = browser_updates(broker.store)
                 from .sms_setup import view as sms_setup
                 state["sms_setups"] = sms_setup(broker.store)
+                from .device_email_setup import view as device_email_setups
+                state["device_email_setups"] = device_email_setups(broker.store)
                 from .browser_sessions import candidates, requests
                 state["browser_session_accounts"] = candidates(broker)
                 state["browser_session_requests"] = requests(broker, owner=True)
@@ -284,18 +286,24 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                 from .mailbox_oauth import view as mailbox_oauth
                 state["mailboxes"] = mailboxes(broker.store)
                 state["mailbox_oauth"] = mailbox_oauth(broker)
-                state["code_sources"] = [{"id": key, "kind": source.kind,
+                source_views = []
+                for key, source in config.code_sources.items():
+                    credential = broker.store.get("source:" + key)
+                    enrolled = (credential.get("enabled") is True if source.kind == "gmail"
+                                else credential.get("enabled") is not False) if isinstance(credential, dict) else False
+                    source_views.append({"id": key, "kind": source.kind,
+                                          "message_purpose": source.message_purpose,
                                           "mailbox_account": source.account,
                                           "mail_server": source.host,
                                           "mail_port": source.port,
                                           "recipient": source.recipient if source.kind in {"imap", "gmail"} else None,
-                                          "linked_mailbox": (broker.store.get("source:" + key) or {}).get("mailbox"),
+                                          "linked_mailbox": credential.get("mailbox") if isinstance(credential, dict) else None,
                                           "connection_check": mailbox_health(broker.store, key),
-                                          "enrolled": bool(broker.store.get("source:" + key)) and broker.store.get("source:" + key, {}).get("enabled") is not False,
+                                          "enrolled": bool(credential) and enrolled,
                                           "accounts": [key2 for key2, spec in config.accounts.items()
                                                        if isinstance(spec, BrowserAccount) and spec.login
-                                                       and key in spec.login.sources()]}
-                                         for key, source in config.code_sources.items()]
+                                                       and key in spec.login.sources()]})
+                state["code_sources"] = source_views
                 self.send(200, state)
             else:
                 self.send(404, {"status": "DENIED"})
@@ -315,6 +323,24 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                 if not 0 < length <= limit:
                     raise ValueError()
                 data = json.loads(self.rfile.read(length))
+                if self.path in {"/owner/device-email/preview", "/owner/device-email/apply",
+                                 "/owner/device-email/discard", "/owner/device-email/remove"}:
+                    from . import device_email_setup
+                    if self.path.endswith("/preview"):
+                        if type(data) is not dict or set(data) != {"account", "fingerprint", "mailbox"}:
+                            raise ValueError()
+                        result = device_email_setup.preview(broker.store, data["account"], data["fingerprint"], data["mailbox"])
+                    elif self.path.endswith("/remove"):
+                        if type(data) is not dict or set(data) != {"account", "fingerprint"}:
+                            raise ValueError()
+                        result = device_email_setup.remove(broker.store, data["account"], data["fingerprint"])
+                    else:
+                        if type(data) is not dict or set(data) != {"id"}:
+                            raise ValueError()
+                        action = device_email_setup.apply if self.path.endswith("/apply") else device_email_setup.discard
+                        result = action(broker.store, data["id"])
+                    self.send(200, result)
+                    return
                 if self.path == "/owner/browser-message":
                     if local_host_actions or server_socket is None or not guided:
                         raise AccessError("DENIED", "trusted_owner_route_required")

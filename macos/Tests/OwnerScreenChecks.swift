@@ -71,12 +71,30 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
     var enrollments = 0
     var lostNextEnrollment = false
     var clientEnrollments = 0
+    var deviceEmailRequests: [String] = []
+    var deviceEmailApplyFailure = false
+    var deviceEmailPreview: [String: Any] = [:]
     let clientToken = String(repeating: "F", count: 43)
     var clientID: String { SHA256.hash(data: Data(clientToken.utf8)).map { String(format: "%02x", $0) }.joined() }
     var state: [String: Any] = ["accounts": [], "catalog": []]
     func prepare(reply: @escaping (Bool) -> Void) { isAvailable = true; reply(true) }
     func authorizeSetup(_ form: Data, reply: @escaping (Bool) -> Void) { reply(form.count == 32) }
     func request(_ route: String, body: Data?, reply: @escaping (Int, Data) -> Void) {
+        if route.hasPrefix("owner/device-email/") {
+            deviceEmailRequests.append(route)
+            if route.hasSuffix("/preview") {
+                reply(200, try! JSONSerialization.data(withJSONObject: deviceEmailPreview)); return
+            }
+            if route.hasSuffix("/apply") && deviceEmailApplyFailure {
+                reply(409, OwnerGatewaySession.failure("device_email_setup_changed")); return
+            }
+            if route.hasSuffix("/apply") || route.hasSuffix("/remove") {
+                var setups = state["device_email_setups"] as? [[String: Any]] ?? []
+                if !setups.isEmpty { setups[0]["connected"] = route.hasSuffix("/apply") }
+                state["device_email_setups"] = setups
+            }
+            reply(200, Data("{\"status\":\"ENROLLED\"}".utf8)); return
+        }
         if route == "owner/vault/enroll" {
             enrollments += 1
             if lostNextEnrollment {
@@ -607,6 +625,103 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
             preconditionFailure("Mismatched local capability must not be enrolled")
         } catch { precondition(mismatchedRequests == 0) }
         print("PASS: changed local capability identity is refused before any native enrollment request")
+
+        let fingerprint = String(repeating: "a", count: 64)
+        let deviceMailboxID = "mailbox-" + String(repeating: "b", count: 24)
+        let previewID = String(repeating: "c", count: 32)
+        for (route, payload, needsSetup) in [
+            ("owner/device-email/preview", ["account": "personal-pypi", "fingerprint": fingerprint, "mailbox": deviceMailboxID], true),
+            ("owner/device-email/apply", ["id": previewID], true),
+            ("owner/device-email/discard", ["id": previewID], false),
+            ("owner/device-email/remove", ["account": "personal-pypi", "fingerprint": fingerprint], false)
+        ] {
+            let rule = try! OwnerGatewayRoute(route, body: JSONSerialization.data(withJSONObject: payload))
+            precondition(rule.requiresSetup == needsSetup)
+        }
+        for payload in [["account": "personal-pypi", "fingerprint": fingerprint, "mailbox": "https://mail.example.test"],
+                        ["account": "personal-pypi", "fingerprint": fingerprint, "mailbox": deviceMailboxID, "template": "unreviewed"]] {
+            do {
+                _ = try OwnerGatewayRoute("owner/device-email/preview", body: JSONSerialization.data(withJSONObject: payload))
+                preconditionFailure("Unreviewed device email route accepted")
+            } catch {}
+        }
+        print("PASS: device-email preview/apply require fresh setup; exact discard/removal are restrictive and arbitrary filters or mailbox URLs are refused")
+
+        let deviceSetup: [String: Any] = ["account": "personal-pypi", "label": "PyPI", "fingerprint": fingerprint,
+            "connected": false, "mailboxes": [["id": deviceMailboxID, "label": "Saved Gmail", "recipient": "fictional@example.test", "kind": "imap"]]]
+        nativeChannel.deviceEmailPreview = ["id": previewID, "expires": Date().timeIntervalSince1970 + 120,
+            "account": "personal-pypi", "label": "PyPI", "recipient": "fictional@example.test", "mailbox_label": "Saved Gmail",
+            "operations": [["name": "status", "description": "Confirm your signed-in PyPI username"]]]
+        nativeChannel.state = ["accounts": [], "catalog": [], "device_email_setups": [deviceSetup]]
+        owner.accept(nativeChannel.state)
+        owner.showFactors()
+        views = descendants(owner.stack)
+        precondition(owner.deviceEmailMailboxMenus["personal-pypi"]?.numberOfItems == 1)
+        precondition(!views.contains { $0 is NSSecureTextField })
+        let reviewButton = views.compactMap { $0 as? NSButton }.first { $0.title == "Review email connection" }!
+        owner.previewDeviceEmail(reviewButton)
+        let previewDeadline = Date().addingTimeInterval(5)
+        while owner.busy && Date() < previewDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
+        precondition(owner.deviceEmailReview?["id"] as? String == previewID)
+        views = descendants(owner.stack)
+        precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains { $0.contains("existing approved reads are retained") })
+        owner.cancelDeviceEmail()
+        let discardDeadline = Date().addingTimeInterval(3)
+        while !nativeChannel.deviceEmailRequests.contains("owner/device-email/discard") && Date() < discardDeadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+        }
+        precondition(owner.deviceEmailReview == nil && !nativeChannel.deviceEmailRequests.contains("owner/device-email/apply"))
+        print("PASS: native PyPI device email reuses a checked mailbox without secret reentry, shows a review and cancels without applying")
+
+        owner.presentDeviceEmailReview(nativeChannel.deviceEmailPreview, expectedAccount: "personal-pypi")
+        owner.applyDeviceEmail(); owner.applyDeviceEmail()
+        let applyDeadline = Date().addingTimeInterval(5)
+        while owner.busy && Date() < applyDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
+        precondition(nativeChannel.deviceEmailRequests.filter { $0 == "owner/device-email/apply" }.count == 1)
+        precondition(owner.deviceEmailReview == nil)
+        views = descendants(owner.stack)
+        precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("Setup saved · delivery unverified"))
+        print("PASS: native device-email confirmation sends one apply and reports saved setup without claiming delivery")
+
+        nativeChannel.deviceEmailApplyFailure = true
+        owner.presentDeviceEmailReview(nativeChannel.deviceEmailPreview, expectedAccount: "personal-pypi")
+        owner.applyDeviceEmail()
+        let staleDeadline = Date().addingTimeInterval(5)
+        while owner.busy && Date() < staleDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
+        precondition(owner.deviceEmailReview == nil)
+        let applyCount = nativeChannel.deviceEmailRequests.filter { $0 == "owner/device-email/apply" }.count
+        owner.applyDeviceEmail()
+        precondition(nativeChannel.deviceEmailRequests.filter { $0 == "owner/device-email/apply" }.count == applyCount)
+        var expiredReview = nativeChannel.deviceEmailPreview
+        expiredReview["expires"] = Date().timeIntervalSince1970 - 1
+        owner.deviceEmailReview = expiredReview
+        owner.applyDeviceEmail()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+        precondition(owner.deviceEmailReview == nil)
+        precondition(nativeChannel.deviceEmailRequests.filter { $0 == "owner/device-email/apply" }.count == applyCount)
+        precondition(descendants(owner.stack).compactMap { ($0 as? NSTextField)?.stringValue }.contains { $0.contains("review expired") })
+        owner.presentDeviceEmailReview(nativeChannel.deviceEmailPreview, expectedAccount: "personal-pypi")
+        owner.showReady()
+        precondition(owner.deviceEmailReview == nil)
+        let deviceNavigationDeadline = Date().addingTimeInterval(5)
+        while owner.busy && Date() < deviceNavigationDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
+        owner.deviceEmailSetups = [["account": "personal-pypi", "label": "PyPI", "fingerprint": fingerprint, "connected": false, "mailboxes": []]]
+        owner.showFactors()
+        views = descendants(owner.stack)
+        precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Connect a mailbox"))
+        precondition(!views.compactMap { ($0 as? NSButton)?.title }.contains("Review email connection"))
+        owner.deviceEmailSetups[0]["configured"] = true
+        owner.showFactors()
+        views = descendants(owner.stack)
+        precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Disconnect device email"))
+        precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("Email connection needs attention"))
+        owner.presentDeviceEmailReview(nativeChannel.deviceEmailPreview, expectedAccount: "personal-pypi")
+        owner.pauseAccess()
+        precondition(owner.deviceEmailReview == nil)
+        let devicePauseDeadline = Date().addingTimeInterval(5)
+        while owner.busy && Date() < devicePauseDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
+        precondition(nativeChannel.deviceEmailRequests.filter { $0 == "owner/device-email/apply" }.count == applyCount)
+        print("PASS: stale native device-email apply is not replayed; navigation/pause clear review and missing mailboxes offer setup or restrictive disconnect")
 
 
     }

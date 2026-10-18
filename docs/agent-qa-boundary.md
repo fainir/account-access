@@ -39,6 +39,30 @@ not that a subsequent `codex exec` selected the same effective policy. The
 harness does not present that weaker test as an attestation or weaken the
 requested sandbox to make acceptance proceed.
 
+### App-server profile provenance is not a complete tool boundary
+
+The official app-server API provides a stronger selection mechanism for a future
+QA client: experimental `thread/start.permissions` selects a named profile, and
+`command/exec` can test that profile without creating a thread or model turn.
+However, `thread/start` can initialize configured MCP servers. App runtime status
+and MCP server status are separate snapshots, rather than a complete callable
+tool inventory bound to the selected permission profile.
+[App-server documentation](https://learn.chatgpt.com/docs/app-server)
+
+Static schema generation from the bundled CLI 0.163.0 exposes
+`activePermissionProfile` with only `id` and optional `extends`; this identifies
+profile provenance, not the complete resolved filesystem/network policy. The
+thread-start response also describes `disabledPluginIds` as a saved list that
+does not yet filter plugin capabilities. These schema observations do not prove
+that an app-server model turn has the fixture-only boundary required here.
+
+Permission profiles govern local sandboxed commands. Hosted search, apps, MCP,
+browser actions, and client service traffic have separate controls; a command
+socket allowlist does not constrain them. Consequently this investigation used
+official documentation and static CLI schema generation only. It did not start
+an app server, thread, model, or fixture, and it does not unblock acceptance.
+[Permission scope](https://learn.chatgpt.com/docs/permissions#scope-and-enforcement)
+
 The next live Codex run needs a disposable environment with a dedicated QA
 login and controlled configuration, or a supported way to attest the exact
 effective `exec` permissions before model startup. The intended policy must

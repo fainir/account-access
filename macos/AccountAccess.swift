@@ -120,6 +120,10 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     var sources: [[String: Any]] = []
     var mailboxes: [[String: Any]] = []
     var mailboxOAuth: [[String: Any]] = []
+    var deviceEmailSetups: [[String: Any]] = []
+    var deviceEmailMailboxMenus: [String: NSPopUpButton] = [:]
+    var deviceEmailReview: [String: Any]?
+    var deviceEmailGeneration = 0
     var activeMailboxOAuth: MailboxOAuthLoopback?
     var mailboxOAuthCancelled = false
     var mailboxOAuthFinishing = false
@@ -270,10 +274,12 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             alert.runModal()
             return .terminateCancel
         }
+        clearDeviceEmailReview()
         return .terminateNow
     }
 
-    func page(_ title: String, _ subtitle: String) {
+    func page(_ title: String, _ subtitle: String, preservingDeviceEmailReview: Bool = false) {
+        if !preservingDeviceEmailReview { clearDeviceEmailReview() }
         let shell = NSView()
         window.contentView = shell
         let haveOwner = systemOwnerReady || (!systemOwnerConfigured && base != nil && !token.isEmpty)
@@ -617,6 +623,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
 
     @objc func pauseAccess() {
         guard !busy else { return }
+        clearDeviceEmailReview()
         busy = true
         DispatchQueue.global(qos: .userInitiated).async {
             do {
@@ -767,6 +774,13 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             "import_authenticator_changed": "This account's authenticator changed after the import review. Choose the password file again before replacing its authenticator key.",
             "pypi_manual_setup_unavailable": "Manual PyPI setup is unavailable in this pilot. Use the reviewed automatic route; your saved login is preserved.",
             "login_challenge_changed": "The website's verification route changed. Account Access stopped before another attempt; the connector needs review.",
+            "device_email_setup_changed": "This account changed during the review. Open Verification and review its current email connection again.",
+            "device_email_mailbox_changed": "This mailbox changed during the review. Check its connection, then choose it again.",
+            "device_email_mailbox_unavailable": "Connect and check a mailbox first, then choose it for PyPI device emails.",
+            "device_email_setup_expired": "This review expired. Choose the connected mailbox again to create a fresh review.",
+            "device_email_setup_incomplete": "The connection result could not be confirmed. Open Verification to check its current state before trying again.",
+            "invalid_device_email_setup": "Choose this account's connected mailbox again in Verification.",
+            "device_email_setup_limit": "There are too many pending email reviews. Cancel an earlier review or wait briefly, then try again.",
             "account_not_connected": "Connect the configured Gmail account through Manage permissions first.",
             "provider_rejected_access": "The email provider rejected this connection. Reconnect the mailbox in Verification.",
             "network_unavailable": "The email provider could not be reached. Your saved setup is preserved; try Check email connection when it is online.",
@@ -937,9 +951,12 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         passwordSync = state["password_sync"] as? [[String: Any]] ?? []
         catalog = state["catalog"] as? [[String: Any]] ?? []
         accounts = state["accounts"] as? [[String: Any]] ?? []
-        sources = state["code_sources"] as? [[String: Any]] ?? []
+        sources = (state["code_sources"] as? [[String: Any]] ?? []).filter {
+            $0["message_purpose"] as? String != "pypi-device-confirmation"
+        }
         mailboxes = state["mailboxes"] as? [[String: Any]] ?? []
         mailboxOAuth = state["mailbox_oauth"] as? [[String: Any]] ?? []
+        deviceEmailSetups = state["device_email_setups"] as? [[String: Any]] ?? []
         principals = state["principals"] as? [String] ?? []
         agents = state["integrations"] as? [String] ?? principals
         automaticSessions = state["automatic_sessions"] as? [String: [String: Any]] ?? [:]
@@ -1177,7 +1194,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         case "login_challenge_changed":
             return "The website's verification route changed. Account Access stopped before another attempt; the connector needs review. " + delivery
         case "pypi_manual_setup_unavailable":
-            return "This PyPI pilot cannot complete manual setup or new-device email confirmation yet. " + delivery
+            return "PyPI manual setup is unavailable. Connect its authenticator and checked device-email mailbox in Verification, then retry the approved read. " + delivery
         case "browser_login_required":
             return "The website returned to password entry. " + delivery
         case "verification_method_unavailable", "verification_source_not_connected", "authenticator_not_enrolled":
@@ -1309,6 +1326,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
 
     @objc func showReady() {
         guard !busy else { return }
+        clearDeviceEmailReview()
         busy = true
         DispatchQueue.global(qos: .userInitiated).async {
             do {
@@ -1319,6 +1337,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
 
     @objc func importPasswords() {
+        clearDeviceEmailReview()
         section = "import"
         page("Import saved passwords", "Bring your supported logins from the password manager you already use.")
         card("1  Export your passwords", "In Chrome, open Password Manager, then Settings and Export passwords. Apple Passwords, Bitwarden and compatible 1Password CSV exports also work. Bitwarden can also export an unencrypted JSON file.")
@@ -1798,7 +1817,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             }
         }
         action("Connect Gmail or email", #selector(showEmailSetup))
-        if sources.isEmpty && smsSetups.isEmpty {
+        showDeviceEmailCards()
+        if sources.isEmpty && smsSetups.isEmpty && deviceEmailSetups.isEmpty {
             card("Connect a website", "You can save your mailbox now. Website verification methods appear after you connect a supported account.", status: "One-time setup", good: false)
             action("Back", #selector(backToConnections))
             return
@@ -1827,6 +1847,139 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         factorMenu.action = #selector(factorChanged)
         stack.addArrangedSubview(factorMenu)
         factorChanged()
+    }
+
+    func discardDeviceEmailID(_ id: String) {
+        DispatchQueue.global(qos: .utility).async {
+            _ = try? self.request("owner/device-email/discard", body: ["id": id])
+        }
+    }
+
+    func clearDeviceEmailReview() {
+        deviceEmailGeneration += 1
+        let id = deviceEmailReview?["id"] as? String
+        deviceEmailReview = nil
+        if let id { discardDeviceEmailID(id) }
+    }
+
+    func showDeviceEmailCards() {
+        deviceEmailMailboxMenus = [:]
+        for setup in deviceEmailSetups {
+            guard let account = setup["account"] as? String else { continue }
+            let connected = setup["connected"] as? Bool == true
+            let configured = setup["configured"] as? Bool ?? connected
+            let panel = card((setup["label"] as? String ?? "PyPI") + " · Device confirmation email",
+                connected ? "Email connection saved. Fresh matching PyPI device emails are handled locally during sign-in. Delivery is checked during an actual login."
+                : "Use a mailbox you already connected and checked. Account Access can handle fresh PyPI device-confirmation emails without asking you to copy a link.",
+                status: connected ? "Setup saved · delivery unverified" : configured ? "Email connection needs attention" : "One-time setup", good: false)
+            if configured {
+                let disconnect = NSButton(title: "Disconnect device email", target: self, action: #selector(disconnectDeviceEmail))
+                disconnect.identifier = NSUserInterfaceItemIdentifier(account)
+                panel.addArrangedSubview(disconnect)
+                if connected { continue }
+            }
+            let candidates = setup["mailboxes"] as? [[String: Any]] ?? []
+            if candidates.isEmpty {
+                panel.addArrangedSubview(makeLabel("Connect and check an email mailbox first. Gmail app-password mailboxes are supported here; a Google browser connection alone is not selected automatically.", 14, .secondaryLabelColor))
+                panel.addArrangedSubview(NSButton(title: "Connect a mailbox", target: self, action: #selector(showEmailSetup)))
+                continue
+            }
+            let menu = NSPopUpButton()
+            menu.setAccessibilityLabel("Connected mailbox for " + (setup["label"] as? String ?? "PyPI") + " device emails")
+            for mailbox in candidates {
+                guard let id = mailbox["id"] as? String else { continue }
+                menu.addItem(withTitle: (mailbox["label"] as? String ?? "Email") + " · " + (mailbox["recipient"] as? String ?? ""))
+                menu.lastItem?.representedObject = id
+            }
+            deviceEmailMailboxMenus[account] = menu
+            panel.addArrangedSubview(menu)
+            let review = NSButton(title: "Review email connection", target: self, action: #selector(previewDeviceEmail))
+            review.identifier = NSUserInterfaceItemIdentifier(account)
+            panel.addArrangedSubview(review)
+        }
+    }
+
+    @objc func previewDeviceEmail(_ sender: NSButton) {
+        guard !busy, let account = sender.identifier?.rawValue,
+              let setup = deviceEmailSetups.first(where: { $0["account"] as? String == account }),
+              let fingerprint = setup["fingerprint"] as? String,
+              let mailbox = deviceEmailMailboxMenus[account]?.selectedItem?.representedObject as? String else { return }
+        busy = true
+        page("Review your email connection", "Checking the selected account and saved mailbox. No website sign-in or email read is started.")
+        progress()
+        let generation = deviceEmailGeneration
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let review = try self.request("owner/device-email/preview", body: ["account": account, "fingerprint": fingerprint, "mailbox": mailbox])
+                DispatchQueue.main.async {
+                    self.busy = false
+                    guard generation == self.deviceEmailGeneration else {
+                        if let id = review["id"] as? String { self.discardDeviceEmailID(id) }
+                        return
+                    }
+                    self.presentDeviceEmailReview(review, expectedAccount: account)
+                }
+            } catch { self.fail(error, retry: #selector(self.showFactors)) }
+        }
+    }
+
+    func presentDeviceEmailReview(_ review: [String: Any], expectedAccount: String) {
+        guard let id = review["id"] as? String, id.range(of: "^[a-f0-9]{32}$", options: .regularExpression) != nil,
+              review["account"] as? String == expectedAccount,
+              let expires = review["expires"] as? Double, expires > Date().timeIntervalSince1970,
+              let recipient = review["recipient"] as? String, let mailbox = review["mailbox_label"] as? String,
+              let operations = review["operations"] as? [[String: Any]], operations.count <= 32 else {
+            if let id = review["id"] as? String { discardDeviceEmailID(id) }
+            fail(Failure.message("This email review is unavailable or expired. Choose the mailbox again in Verification."), retry: #selector(showFactors))
+            return
+        }
+        deviceEmailReview = review
+        page("Confirm device email", "Use " + mailbox + " · " + recipient + " for " + (review["label"] as? String ?? "PyPI") + ".", preservingDeviceEmailReview: true)
+        card("Fresh matching sign-in emails", "Account Access reads only matching PyPI device-confirmation emails locally during a supported login. No password, code or link is sent to your AI. Your existing approved reads are retained.")
+        for operation in operations {
+            if let description = operation["description"] as? String { label("Approved read: " + description, 14) }
+        }
+        label("Saving this setup does not verify email delivery or sign in to PyPI.", 14, .secondaryLabelColor)
+        primary("Confirm email connection", #selector(applyDeviceEmail))
+        action("Cancel email connection", #selector(cancelDeviceEmail))
+    }
+
+    @objc func cancelDeviceEmail() { clearDeviceEmailReview(); showFactors() }
+
+    @objc func applyDeviceEmail() {
+        guard !busy, let review = deviceEmailReview, let id = review["id"] as? String else { return }
+        guard let expires = review["expires"] as? Double, expires > Date().timeIntervalSince1970 else {
+            clearDeviceEmailReview()
+            fail(Failure.message("This email review expired. Choose the connected mailbox again in Verification."), retry: #selector(showFactors))
+            return
+        }
+        // Consume the local button capability before dispatch; a lost response
+        // is resolved by reading state, never by automatically repeating apply.
+        deviceEmailReview = nil
+        busy = true
+        page("Connecting device email", "Saving your reviewed mailbox connection. Existing approved reads are retained.")
+        progress()
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                _ = try self.request("owner/device-email/apply", body: ["id": id])
+                let state = try self.request("owner/state")
+                DispatchQueue.main.async { self.busy = false; self.accept(state); self.showFactors() }
+            } catch { self.fail(error, retry: #selector(self.showFactors)) }
+        }
+    }
+
+    @objc func disconnectDeviceEmail(_ sender: NSButton) {
+        guard !busy, let account = sender.identifier?.rawValue,
+              let setup = deviceEmailSetups.first(where: { $0["account"] as? String == account }),
+              let fingerprint = setup["fingerprint"] as? String else { return }
+        busy = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                _ = try self.request("owner/device-email/remove", body: ["account": account, "fingerprint": fingerprint])
+                let state = try self.request("owner/state")
+                DispatchQueue.main.async { self.busy = false; self.accept(state); self.showFactors() }
+            } catch { self.fail(error, retry: #selector(self.showFactors)) }
+        }
     }
 
     @objc func showEmailSetup() {

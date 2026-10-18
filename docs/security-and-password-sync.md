@@ -214,3 +214,27 @@ vault and trusted owner-enrollment channel behind the boundary. Keeping only a
 key in a helper while an unrestricted same-user process can replace broker code
 or read an owner capability is insufficient. No privileged service, owner
 credential migration or broader OS permission was installed during this review.
+
+## Owner-reviewed device email
+
+The consumer PyPI device-email connection selects a saved, checked TLS IMAP
+profile. Its review is encrypted, bounded to ten minutes, single-use and bound
+to the current connector and exact mailbox authority. The browser cannot supply
+an email filter, sender, purpose, server or arbitrary confirmation URL. State
+and preview calls make no mail or website requests.
+
+Changing the binding preserves only the same still-valid named account reads
+and their expiry. Before publishing the connector file, a durable transaction
+moves eligible grants and saved session/password-source authority to a unique
+non-fingerprint quarantine. Stale grants are removed. Final publication moves
+only unchanged surviving authority to the new fingerprint; concurrent revocation
+wins. Normal rollback restores only previously valid unchanged authority after
+proving the old configuration is current. A terminated process leaves incomplete
+changes denied, so reconnecting or removing a source cannot reactivate an older
+fingerprint's stale grants or sessions.
+
+Synthetic tests kill actual child processes after quarantine, configuration
+publication and final database commit for both connection and removal. Fresh
+stores verify the resulting authority, including repeated remove/reconnect
+cycles. This validates process interruption, not physical power loss, private
+mail delivery or a genuine owner approval. [Setup and limits](device-email-setup.md).

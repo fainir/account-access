@@ -62,9 +62,10 @@ app to resume it.
 The built-in catalog includes public SauceDemo and The Internet test accounts.
 The 0.8 candidate also includes narrow Namecheap and PyPI pilots; private
 acceptance is unfinished. PyPI supports the reviewed password/authenticator
-route. The candidate engine can also follow a fresh PyPI confirmation email
-when an operator has explicitly bound a reviewed mailbox source; the standard
-account picker does not yet configure that binding.
+route. In **Verification**, you can link an already checked mailbox for PyPI's
+new-device confirmation emails without editing configuration. This picker uses
+saved TLS IMAP connections, including Gmail app-password mailboxes.
+[Connect PyPI confirmation email](docs/device-email-setup.md).
 [Provider coverage and limits](docs/other-service-validation.md).
 Other private websites require an operator-supplied reviewed connector. A provider's
 mandatory passkey, biometric, phone unlock or administrator approval still needs

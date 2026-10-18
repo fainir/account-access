@@ -180,10 +180,12 @@ struct OwnerGatewayRoute {
         "owner/source/check", "owner/source/revoke", "owner/mailbox/connect", "owner/mailbox/check",
         "owner/mailbox/password", "owner/mailbox/remove", "owner/password-sync",
         "owner/mailbox/oauth/begin", "owner/mailbox/oauth/finish", "owner/mailbox/oauth/cancel",
+        "owner/device-email/preview", "owner/device-email/apply", "owner/device-email/discard", "owner/device-email/remove",
         "owner/password-sync/reconnect", "owner/password-sync/disconnect", "owner/phone/pair", "owner/stop", "owner/vault/enroll", "owner/client/enroll", "owner/client/installed", "owner/browser-message"
     ]
     static let restrictions: Set<String> = ["owner/stop", "owner/revoke", "owner/source/revoke",
-        "owner/mailbox/remove", "owner/mailbox/oauth/cancel", "owner/password-sync/disconnect", "owner/authenticator/discard"]
+        "owner/mailbox/remove", "owner/mailbox/oauth/cancel", "owner/password-sync/disconnect", "owner/authenticator/discard",
+        "owner/device-email/discard", "owner/device-email/remove"]
 
     init(_ route: String, body: Data?) throws {
         var browserNeedsSetup: Bool?
@@ -199,6 +201,23 @@ struct OwnerGatewayRoute {
                 throw OwnerGatewayError.invalidPolicy // Requires a future trusted host handoff.
             }
             if route == "owner/vault/enroll", !value.isEmpty { throw OwnerGatewayError.invalidPolicy }
+            if route.hasPrefix("owner/device-email/") {
+                let preview = route.hasSuffix("/preview"), remove = route.hasSuffix("/remove")
+                let expected: Set<String> = preview ? ["account", "fingerprint", "mailbox"] : remove ? ["account", "fingerprint"] : ["id"]
+                guard Set(value.keys) == expected else { throw OwnerGatewayError.invalidPolicy }
+                let patterns = preview || remove ? ["account": "^[a-z][a-z0-9_-]{0,63}$", "fingerprint": "^[a-f0-9]{64}$"] : ["id": "^[a-f0-9]{32}$"]
+                for (key, pattern) in patterns {
+                    guard let text = value[key] as? String, text.range(of: pattern, options: .regularExpression) != nil else {
+                        throw OwnerGatewayError.invalidPolicy
+                    }
+                }
+                if preview {
+                    guard let mailbox = value["mailbox"] as? String,
+                          mailbox.range(of: "^mailbox-[a-f0-9]{24}$", options: .regularExpression) != nil else {
+                        throw OwnerGatewayError.invalidPolicy
+                    }
+                }
+            }
             if route.hasPrefix("owner/mailbox/oauth/") {
                 let expected: Set<String> = route.hasSuffix("/begin") ? ["account", "fingerprint", "redirect_uri"]
                     : route.hasSuffix("/finish") ? ["account", "attempt", "callback"] : ["account", "attempt"]

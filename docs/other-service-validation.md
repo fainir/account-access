@@ -108,17 +108,24 @@ The connector can use an enrolled authenticator when that form is present. A
 required security key or actual recovery-code form stops. It never consumes
 recovery codes. PyPI's
 [new-device confirmation](https://github.com/pypi/warehouse/blob/f9ce83647318089c485c3d66378d559f0e7cdeed/warehouse/templates/accounts/unrecognized-device.html)
-stops unless an operator explicitly binds the optional device-email source
+stops unless the owner explicitly binds the optional device-email source
 described below. The bundled picker does not silently choose a mailbox.
 
-The next development candidate implements that optional engine path. See the
+The development candidate offers an in-app connection under **Verification**:
+choose an already checked saved TLS IMAP mailbox, review its address and the
+existing account reads, then confirm. Gmail app-password mailboxes work through
+this picker. A broken configured binding can be disconnected or replaced without
+editing configuration. Setup fetches no messages and starts no website login;
+delivery remains separate from saved setup. [Consumer steps](device-email-setup.md).
+
+The engine also accepts a
 [complete operator configuration](../examples/pypi-device-email.json); replace its
 recipient and mail server with the owner's actual mailbox configuration, enroll
 that source through the local owner flow, and separately approve the connector's
 changed permission fingerprint. This example contains no credential or grant.
 The source can use IMAP or an explicitly configured, consented Gmail account.
-Automatic mailbox selection and a consumer setup screen for this optional binding
-are not implemented by this engine example.
+Gmail OAuth-only connections still require that advanced configuration; automatic
+selection of them is not implemented by the consumer picker.
 
 The [deployed confirmation view](https://github.com/pypi/warehouse/blob/f9ce83647318089c485c3d66378d559f0e7cdeed/warehouse/accounts/views.py#L950)
 uses an emailed GET link, not a six-digit code or a form. Only an observed,
