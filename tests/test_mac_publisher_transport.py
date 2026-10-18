@@ -491,3 +491,121 @@ def test_child_failures_propagate_only_the_strict_fixed_public_diagnostic(monkey
     assert report["command_failure"] == {"kind": "launchctl_owner_child", "exitcode": 1, "timed_out": False}
     assert report.get("child_failure") == (child if damage is None else None)
     assert secret not in json.dumps(report)
+
+
+def test_owner_child_restores_only_public_environment_after_sudo(monkeypatch):
+    for key, value in hosted().items():
+        monkeypatch.setenv(key, value)
+    for key in ["GH_TOKEN", "PYTHONPATH", "DYLD_LIBRARY_PATH"]:
+        monkeypatch.setenv(key, "private-fixture-value")
+    prefix = Path("/Library/Application Support/account-access-publisher-qa-" + "1" * 16)
+    home = prefix / "owner-home"
+    args = probe.owner_child_arguments(50023, "aap" + "1" * 12, home, prefix / "probe.py", prefix / "child.json")
+    start = args.index("--") + 1
+    assert args[start:start + 2] == ["/usr/bin/env", "-i"]
+    end = args.index(str(probe.BASE / "runtime/bin/python"))
+    values = dict(item.split("=", 1) for item in args[start + 2:end])
+    assert set(values) == probe.ENV_KEYS | {"PATH", "LANG", "HOME", "TMPDIR"}
+    assert values["HOME"] == str(home) and values["TMPDIR"] == str(home / "tmp")
+    assert args[end:] == [str(probe.BASE / "runtime/bin/python"), "-I", "-B", str(prefix / "probe.py"), "chrome-child", str(prefix / "child.json")]
+    assert "private-fixture-value" not in repr(args)
+    probe.guard(root=False, environment=values, system="darwin", machine="arm64", uid=50023, euid=50023)
+
+
+def owner_record():
+    return SimpleNamespace(pw_name="aap" + "1" * 12, pw_uid=50023, pw_gid=50023,
+                           pw_dir="/Library/Application Support/account-access-publisher-qa-" + "1" * 16 + "/owner-home")
+
+
+def test_early_owner_cleanup_proves_zero_processes_before_identity_retirement(monkeypatch):
+    owner, calls = owner_record(), []
+    monkeypatch.setattr(probe.pwd, "getpwnam", lambda name: owner)
+    monkeypatch.setattr(probe.grp, "getgrnam", lambda name: SimpleNamespace(gr_gid=owner.pw_gid))
+    monkeypatch.setattr(probe, "command", lambda args, **kwargs: calls.append(args) or subprocess.CompletedProcess(args, 0, b"", b""))
+    monkeypatch.setattr(probe, "stop_uid", lambda uid: calls.append(["stop-fresh-uid", uid]))
+    monkeypatch.setattr(probe, "uid_processes", lambda uid: [])
+    probe.stop_owner_processes(owner)
+    assert calls == [["/bin/launchctl", "print", "user/50023"], ["/bin/launchctl", "bootout", "user/50023"], ["stop-fresh-uid", 50023]]
+    assert not any("dscl" in str(call) for call in calls)
+
+
+def test_owner_cleanup_rejects_changed_group_before_any_process_or_directory_action(monkeypatch):
+    owner = owner_record()
+    monkeypatch.setattr(probe.pwd, "getpwnam", lambda name: owner)
+    monkeypatch.setattr(probe.grp, "getgrnam", lambda name: SimpleNamespace(gr_gid=owner.pw_gid + 1))
+    monkeypatch.setattr(probe, "command", lambda *args, **kwargs: pytest.fail("Changed identity must be preserved"))
+    with pytest.raises(probe.ReviewError, match="cleanup_identity_changed"):
+        probe.stop_owner_processes(owner)
+
+
+@pytest.fixture
+def retiring_owner(monkeypatch):
+    from account_access import system_provision
+    owner, operations = owner_record(), []
+    records = ["/Groups/" + owner.pw_name, "/Users/" + owner.pw_name]
+    present = set(records)
+    def lookup(name):
+        if not present:
+            raise KeyError(name)
+        return owner
+    def command(args, **kwargs):
+        operations.append(args)
+        if args[0] == "/usr/bin/dscl":
+            present.remove(args[-1])
+        return subprocess.CompletedProcess(args, 0, b"", b"")
+    monkeypatch.setattr(probe, "command", command)
+    monkeypatch.setattr(probe, "stop_owner_processes", lambda actual: operations.append(["zero-pid-before-delete", actual.pw_uid]))
+    monkeypatch.setattr(system_provision, "directory_value", lambda record, field: owner.pw_name if record in present else None)
+    monkeypatch.setattr(probe.pwd, "getpwnam", lookup)
+    monkeypatch.setattr(probe.grp, "getgrnam", lookup)
+    monkeypatch.setattr(probe, "uid_processes", lambda uid: [])
+    return owner, records, present, operations
+
+
+@pytest.mark.parametrize("persistent_domain", [False, True])
+def test_final_owner_cleanup_deletes_only_its_records_then_requires_domain_absence(retiring_owner, monkeypatch, persistent_domain):
+    owner, records, present, operations = retiring_owner
+    def domain(uid):
+        assert not present and uid == owner.pw_uid
+        operations.append(["strict-domain-absence-after-records", uid])
+        if persistent_domain:
+            raise probe.ReviewError("cleanup_owner_domain_still_loaded", command_failure={"kind": "launchctl_bootout", "exitcode": 0, "timed_out": False})
+    monkeypatch.setattr(probe, "stop_owner_domain", domain)
+    if persistent_domain:
+        with pytest.raises(probe.ReviewError) as caught:
+            probe.remove_owner_identity(owner, records)
+        assert probe.public_error(caught.value)["reason"] == "cleanup_owner_domain_after_identity_removal"
+        assert probe.public_error(caught.value)["command_failure"]["exitcode"] == 0
+    else:
+        probe.remove_owner_identity(owner, records)
+    assert operations == [["zero-pid-before-delete", 50023],
+        ["/usr/bin/dscl", ".", "-delete", "/Users/" + owner.pw_name],
+        ["/usr/bin/dscl", ".", "-delete", "/Groups/" + owner.pw_name],
+        ["/usr/bin/dscacheutil", "-flushcache"], ["strict-domain-absence-after-records", 50023]]
+
+
+def test_owner_cleanup_refuses_foreign_record_names_before_deleting_anything(retiring_owner):
+    owner, _, present, operations = retiring_owner
+    with pytest.raises(probe.ReviewError, match="cleanup_owner_records_changed"):
+        probe.remove_owner_identity(owner, ["/Groups/unrelated", "/Users/unrelated"])
+    assert len(present) == 2 and operations == []
+
+
+def test_owner_cleanup_requires_authoritative_directory_absence_before_domain_success(retiring_owner, monkeypatch):
+    from account_access import system_provision
+    owner, records, _, _ = retiring_owner
+    monkeypatch.setattr(system_provision, "directory_value", lambda record, field: "still present")
+    monkeypatch.setattr(probe, "stop_owner_domain", lambda uid: pytest.fail("Directory absence is required first"))
+    with pytest.raises(probe.ReviewError, match="cleanup_owner_identity_still_present"):
+        probe.remove_owner_identity(owner, records)
+
+
+def test_stale_libc_identity_cache_does_not_override_authoritative_record_removal(retiring_owner, monkeypatch):
+    owner, records, present, _ = retiring_owner
+    monkeypatch.setattr(probe.pwd, "getpwnam", lambda name: owner)
+    monkeypatch.setattr(probe.grp, "getgrnam", lambda name: SimpleNamespace(gr_gid=owner.pw_gid))
+    def domain(uid):
+        assert not present and uid == owner.pw_uid
+    monkeypatch.setattr(probe, "stop_owner_domain", domain)
+    probe.remove_owner_identity(owner, records)
+    assert not present

@@ -48,6 +48,7 @@ PUBLIC_REASONS = set("""
 authorization_lookup_failed broker_designated_requirement_missing cleanup_authorization_changed
 cleanup_authorization_still_present cleanup_identity_changed cleanup_identity_invalid cleanup_job_not_owned
 cleanup_job_still_loaded cleanup_owner_domain_still_loaded cleanup_process_query_invalid cleanup_processes_still_running
+cleanup_owner_identity_still_present cleanup_owner_records_changed cleanup_owner_domain_after_identity_removal
 cleanup_public_alias_changed cleanup_public_image_changed cleanup_service_identity_changed controller_revision_mismatch
 duplicate_review_field existing_production_authorization_rule existing_production_identity existing_production_installation
 existing_production_job fresh_review_identity_unavailable hosted_arm64_mac_required hosted_review_only invalid_review_asset
@@ -223,6 +224,16 @@ def owner_child_command(arguments, *, env):
         raise ReviewError("production_chrome_journey_failed",
                           command_failure=command_diagnostic(arguments, exitcode=result.returncode), child_failure=child)
     return result
+
+
+def owner_child_arguments(uid, name, home, controller, configuration):
+    # sudo deliberately removes arbitrary caller variables. Restore only this
+    # public CI/owner-home whitelist after credentials have changed; no token,
+    # source interpreter override, or parent environment can reach the child.
+    values = environment(home)
+    return ["/bin/launchctl", "asuser", str(uid), "/usr/bin/sudo", "-n", "-u", name, "--",
+            "/usr/bin/env", "-i", *(key + "=" + values[key] for key in sorted(values)),
+            str(BASE / "runtime/bin/python"), "-I", "-B", str(controller), "chrome-child", str(configuration)]
 
 
 def digest(path):
@@ -505,6 +516,45 @@ def stop_owner_domain(uid):
         ["/bin/launchctl", "bootout"], exitcode=bootout.returncode if bootout is not None else None))
 
 
+def verify_owner_identity(owner):
+    current = pwd.getpwnam(owner.pw_name)
+    group = grp.getgrnam(owner.pw_name)
+    require((current.pw_uid, current.pw_gid, current.pw_dir) == (owner.pw_uid, owner.pw_gid, owner.pw_dir)
+            and group.gr_gid == owner.pw_gid, "cleanup_identity_changed")
+
+
+def stop_owner_processes(owner):
+    verify_owner_identity(owner)
+    require(type(owner.pw_uid) is int and 50000 <= owner.pw_uid < 60000, "cleanup_identity_invalid")
+    domain = "user/" + str(owner.pw_uid)
+    if command(["/bin/launchctl", "print", domain], check=False, timeout=5).returncode == 0:
+        command(["/bin/launchctl", "bootout", domain], check=False, timeout=5)
+    stop_uid(owner.pw_uid)
+    require(not uid_processes(owner.pw_uid), "cleanup_processes_still_running")
+
+
+def remove_owner_identity(owner, records):
+    from account_access.system_provision import directory_value
+    require(re.fullmatch(r"aap[a-f0-9]{12}", owner.pw_name) is not None
+            and len(records) == 2 and set(records) == {"/Users/" + owner.pw_name, "/Groups/" + owner.pw_name},
+            "cleanup_owner_records_changed")
+    stop_owner_processes(owner)
+    for record in reversed(records):
+        command(["/usr/bin/dscl", ".", "-delete", record])
+    command(["/usr/bin/dscacheutil", "-flushcache"])
+    for record in records:
+        require(directory_value(record, "RecordName") is None, "cleanup_owner_identity_still_present")
+    # libc/OpenDirectory may retain a deleted record. The fixed local dscl
+    # RecordName reads above are the authoritative absence proof.
+    try:
+        stop_owner_domain(owner.pw_uid)
+    except ReviewError as error:
+        if str(error) == "cleanup_owner_domain_still_loaded":
+            raise ReviewError("cleanup_owner_domain_after_identity_removal", command_failure=error.command_failure) from None
+        raise
+    require(not uid_processes(owner.pw_uid), "cleanup_processes_still_running")
+
+
 def public_parent_metadata(parents):
     observations = {}
     for label, path in parents:
@@ -738,8 +788,7 @@ def run(args):
         configuration.write_text(json.dumps({"owner_uid": uid, "home": str(home), "prefix": str(prefix)}))
         configuration.chmod(0o644)
         stage = "chrome-owner-child"
-        result = owner_child_command(["/bin/launchctl", "asuser", str(uid), "/usr/bin/sudo", "-n", "-u", name, "--",
-                          str(BASE / "runtime/bin/python"), "-I", "-B", str(controller), "chrome-child", str(configuration)],
+        result = owner_child_command(owner_child_arguments(uid, name, home, controller, configuration),
                          env=environment(home))
         stage = "chrome-owner-child-report"
         child_report = unique_json(result.stdout)
@@ -779,12 +828,7 @@ def run(args):
             def cleanup(name, operation):
                 cleanup_step(name, operation, checks, cleanup_failures, cleanup_command_failures)
             if owner is not None:
-                def stop_owner():
-                    current = pwd.getpwnam(owner.pw_name)
-                    require((current.pw_uid, current.pw_gid, current.pw_dir)
-                            == (owner.pw_uid, owner.pw_gid, owner.pw_dir), "cleanup_identity_changed")
-                    stop_owner_domain(owner.pw_uid)
-                cleanup("chrome_and_native_children_stopped", stop_owner)
+                cleanup("chrome_and_native_children_stopped", lambda: stop_owner_processes(owner))
             if JOB.exists():
                 def stop_job():
                     require(expected_job is not None and not JOB.is_symlink()
@@ -813,7 +857,8 @@ def run(args):
             if owner_records:
                 def remove_owner():
                     if owner is not None:
-                        stop_owner()
+                        remove_owner_identity(owner, owner_records)
+                        return
                     for record in reversed(owner_records):
                         command(["/usr/bin/dscl", ".", "-delete", record])
                     command(["/usr/bin/dscacheutil", "-flushcache"])
