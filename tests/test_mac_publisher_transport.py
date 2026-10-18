@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import subprocess
 import tarfile
+from types import SimpleNamespace
 
 import pytest
 
@@ -275,3 +276,48 @@ def test_git_trust_exception_is_command_local_and_exact_checkout(monkeypatch):
     probe.git(["rev-parse", "HEAD"])
     assert calls == [["/usr/bin/git", "-c", "safe.directory=" + str(probe.SOURCE),
                       "-C", str(probe.SOURCE), "rev-parse", "HEAD"]]
+
+
+def test_draft_download_uses_immutable_release_id_and_checks_exact_binding(tmp_path, monkeypatch, capsys):
+    body = b"public immutable archive fixture"
+    sha = hashlib.sha256(body).hexdigest()
+    args = SimpleNamespace(source=REVISION, sha256=sha, tag="qa-review", asset="review.tar.gz",
+                           release_id=416327595, asset_id=652938188, output=str(tmp_path / "review.tar.gz"))
+    metadata = {"id": args.release_id, "tag_name": args.tag, "draft": True, "target_commitish": REVISION,
+                "assets": [{"id": args.asset_id, "name": args.asset, "digest": "sha256:" + sha, "size": len(body)}]}
+    calls = []
+    monkeypatch.setattr(probe.os, "getuid", lambda: 501)
+    monkeypatch.setenv("GITHUB_REPOSITORY", probe.REPOSITORY)
+
+    def api(arguments, **kwargs):
+        calls.append(arguments)
+        return subprocess.CompletedProcess(arguments, 0, json.dumps(metadata).encode(), b"")
+
+    def binary(arguments, **kwargs):
+        calls.append(arguments)
+        kwargs["stdout"].write(body)
+        return subprocess.CompletedProcess(arguments, 0)
+
+    monkeypatch.setattr(probe, "command", api)
+    monkeypatch.setattr(probe.subprocess, "run", binary)
+    probe.download(args)
+    assert calls[0] == ["gh", "api", "repos/fainir/account-access/releases/416327595"]
+    assert calls[1][:3] == ["gh", "api", "repos/fainir/account-access/releases/assets/652938188"]
+    assert json.loads(capsys.readouterr().out)["draft"] is True
+    assert Path(args.output).read_bytes() == body
+    metadata["tag_name"] = "substituted"
+    args.output = str(tmp_path / "must-not-exist")
+    with pytest.raises(probe.ReviewError, match="review_draft_source_mismatch"):
+        probe.download(args)
+    assert not Path(args.output).exists()
+
+
+def test_unavailable_draft_fails_before_download_with_no_raw_api_output(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(probe.os, "getuid", lambda: 501)
+    monkeypatch.setenv("GITHUB_REPOSITORY", probe.REPOSITORY)
+    monkeypatch.setattr(probe, "command", lambda *args, **kwargs: subprocess.CompletedProcess([], 1, b"", b"private raw API failure"))
+    assert probe.main(["download", "--tag", "qa-review", "--asset", "review.tar.gz", "--asset-id", "652938188",
+                       "--release-id", "416327595", "--source", REVISION, "--sha256", "a" * 64,
+                       "--output", str(tmp_path / "must-not-exist")]) == 1
+    assert json.loads(capsys.readouterr().out) == {"status": "FAILED", "reason": "review_draft_metadata_unavailable", "production_ready": False}
+    assert not (tmp_path / "must-not-exist").exists()

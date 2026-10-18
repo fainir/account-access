@@ -111,10 +111,13 @@ def download(args):
             "ordinary_ci_download_required")
     require(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,100}", args.tag)
             and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,119}\.tar\.gz", args.asset)
-            and args.asset_id > 0, "invalid_review_asset")
+            and args.asset_id > 0 and args.release_id > 0, "invalid_review_asset")
     env = dict(os.environ)
-    metadata = unique_json(command(["gh", "api", "repos/" + REPOSITORY + "/releases/tags/" + args.tag], env=env).stdout)
-    require(metadata.get("draft") is True and metadata.get("target_commitish") == args.source,
+    response = command(["gh", "api", "repos/" + REPOSITORY + "/releases/" + str(args.release_id)], env=env, check=False)
+    require(response.returncode == 0, "review_draft_metadata_unavailable")
+    metadata = unique_json(response.stdout)
+    require(metadata.get("id") == args.release_id and metadata.get("tag_name") == args.tag
+            and metadata.get("draft") is True and metadata.get("target_commitish") == args.source,
             "review_draft_source_mismatch")
     matches = [item for item in metadata.get("assets", []) if item.get("id") == args.asset_id]
     require(len(matches) == 1 and matches[0].get("name") == args.asset
@@ -634,6 +637,7 @@ def main(argv=None):
     for name in ["tag", "asset", "sha256", "source", "output"]:
         fetch.add_argument("--" + name, required=True)
     fetch.add_argument("--asset-id", required=True, type=int)
+    fetch.add_argument("--release-id", required=True, type=int)
     parent = commands.add_parser("run")
     for name in ["archive", "sha256", "source", "report"]:
         parent.add_argument("--" + name, required=True)
@@ -655,8 +659,9 @@ def main(argv=None):
             finally:
                 signal.alarm(0)
         return 0
-    except Exception:
-        print('{"status":"FAILED","reason":"publisher_transport_failed","production_ready":false}')
+    except Exception as exc:
+        reason = str(exc) if isinstance(exc, ReviewError) and re.fullmatch(r"[a-z_]{1,100}", str(exc)) else "publisher_transport_failed"
+        print(json.dumps({"status": "FAILED", "reason": reason, "production_ready": False}))
         return 1
 
 
