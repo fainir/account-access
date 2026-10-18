@@ -12,6 +12,7 @@ CHECKS = {
     "canonical_owner_bundle_protected", "public_app_alias_is_navigation_only", "shared_applications_parent_unchanged",
     "production_prepare_and_activate_used", "root_profile_pins_actual_publisher_hashes",
     "genuine_broker_registered_its_own_exact_rule", "production_owner_browser_setup_used",
+    "fresh_profile_registration_matches_production",
     "signed_stable_chrome_used", "unchanged_packaged_extension_used",
     "shell_parent_rejected_by_production_entrypoint", "native_pending_reached_initial_enrollment",
     "second_pending_reached_initial_enrollment", "optional_permissions_stay_ungranted",

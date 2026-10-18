@@ -469,7 +469,7 @@ def test_child_optional_diagnostics_accept_only_exact_fixed_values(field, value)
 
 def test_schema_two_explicitly_records_existing_runner_and_replaces_domain_claim():
     report = valid_report()
-    assert len(checker.CHECKS) == 27
+    assert len(checker.CHECKS) == 28
     assert "temporary_owner_identity_and_domain_removed" not in checker.CHECKS
     assert "temporary_browser_profile_and_registration_removed" in checker.CHECKS
     assert report["runner_identity_unchanged"] is True
@@ -700,3 +700,220 @@ def test_unknown_process_inspection_text_and_wrong_exception_types_remain_redact
         "reason": "publisher_transport_failed", "failure_type": "ProcessInspectionError"}
     assert probe.public_error(ValueError("process_path_read_failed")) == {
         "reason": "publisher_transport_failed", "failure_type": "ValueError"}
+
+
+@pytest.mark.parametrize("category", sorted(probe.NATIVE_CATEGORIES))
+@pytest.mark.parametrize("phase", ["first", "second"])
+def test_only_fixed_native_phase_category_leaves_error_formatter(category, phase):
+    failure = {"status": "FAILED", "phase": phase, "category": category}
+    with pytest.raises(probe.ReviewError) as caught:
+        probe.check_native_exchange(failure)
+    detail = probe.public_error(caught.value)
+    assert detail == {"reason": "production_native_" + category, "failure_type": "ReviewError",
+                      "native_failure": {"phase": phase, "category": category}}
+    child = {"status": "FAILED", **detail, "production_ready": False, "child_stage": "native-exchange"}
+    assert probe.public_child_failure(child) == child
+
+
+@pytest.mark.parametrize("changed", [{"raw": "private response"}, {"phase": "private-phase"},
+    {"category": "private-error"}, {"phase": []}, {"category": []}, {"status": "other"}])
+def test_malformed_native_failure_and_private_fields_are_rejected(changed):
+    value = {"status": "FAILED", "phase": "first", "category": "unknown", **changed}
+    with pytest.raises(probe.ReviewError) as caught:
+        probe.check_native_exchange(value)
+    detail = probe.public_error(caught.value)
+    assert detail == {"reason": "production_transport_not_reached", "failure_type": "ReviewError"}
+    assert "private" not in json.dumps(detail)
+    child = {"status": "FAILED", "reason": "production_native_unknown", "failure_type": "ReviewError",
+             "production_ready": False, "native_failure": {key: item for key, item in value.items() if key != "status"}}
+    if "status" in changed:
+        child["native_failure"]["status"] = changed["status"]
+    assert probe.public_child_failure(child) is None
+
+
+def native_wrapper_result(*, scenario="success", message="", phase="first", permission=False):
+    import shutil
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("Node is required only for the pure JavaScript public fixture")
+    fixture = {"wrapper": probe.NATIVE_EXCHANGE_JS, "scenario": scenario, "message": message,
+               "phase": phase, "permission": permission}
+    script = r'''const fs=require("fs"), input=JSON.parse(fs.readFileSync(0,"utf8"));
+let calls=0;
+global.chrome={runtime:{getManifest:()=>({permissions:["nativeMessaging","alarms"]})},
+  permissions:{getAll:async()=>({origins:input.permission?["https://private.fixture/"]:[],permissions:["nativeMessaging","alarms"]})}};
+global.port=null;
+global.native=()=>{
+  calls++;
+  const listeners=[];
+  const current={onDisconnect:{addListener:listener=>listeners.push(listener),removeListener:listener=>{}}};
+  global.port=current;
+  const target=input.phase==="first"?1:2;
+  if(calls!==target || input.scenario==="success") return Promise.resolve({status:"NEEDS_USER",reason:"vault_setup_required"});
+  if(input.scenario==="reply") return Promise.resolve({password:"private native reply",status:"NEEDS_USER",reason:"vault_setup_required"});
+  if(input.scenario==="timeout") return Promise.reject(new Error("The local SMS connection timed out."));
+  if(input.scenario==="exception") return Promise.reject(new Error(input.message));
+  return new Promise((resolve,reject)=>setImmediate(()=>{
+    chrome.runtime.lastError=input.message===null?undefined:{message:input.message};
+    for(const listener of listeners) listener();
+    reject(new Error("Open Account Access and prepare the SMS connection first."));
+  }));
+};
+(async()=>{const value=await eval("("+input.wrapper+")")();console.log(JSON.stringify({value,calls}));})().catch(()=>process.exit(2));'''
+    result = subprocess.run([node, "-e", script], input=json.dumps(fixture).encode(), capture_output=True, timeout=5, check=True)
+    assert not result.stderr
+    return json.loads(result.stdout)
+
+
+@pytest.mark.parametrize("message,category", [
+    ("Specified native messaging host not found.", "host_not_found"),
+    ("Native host has exited.", "host_exited"),
+    ("Failed to start native messaging host.", "failed_start"),
+    ("Error when communicating with the native messaging host.", "disconnected"),
+    ("Access to the specified native messaging host is forbidden.", "forbidden"),
+    (None, "disconnected"), ("private message with path or code", "unknown"),
+])
+@pytest.mark.parametrize("phase", ["first", "second"])
+def test_actual_worker_wrapper_classifies_only_exact_chrome_disconnect_messages(message, category, phase):
+    result = native_wrapper_result(scenario="disconnect", message=message, phase=phase)
+    assert result == {"value": {"status": "FAILED", "phase": phase, "category": category}, "calls": 1 if phase == "first" else 2}
+    assert "private" not in json.dumps(result)
+
+
+@pytest.mark.parametrize("scenario,category", [("reply", "unknown"), ("exception", "unknown"), ("timeout", "timeout")])
+def test_actual_worker_wrapper_never_exports_unexpected_native_replies_or_errors(scenario, category):
+    result = native_wrapper_result(scenario=scenario, message="private exception text")
+    assert result == {"value": {"status": "FAILED", "phase": "first", "category": category}, "calls": 1}
+    assert "private" not in json.dumps(result)
+
+
+def test_actual_worker_wrapper_preserves_both_exact_replies_and_permission_requirements():
+    result = native_wrapper_result()
+    assert result["calls"] == 2
+    probe.check_native_exchange(result["value"])
+    permission = native_wrapper_result(permission=True)
+    assert permission["calls"] == 2 and permission["value"]["permissions_match"] is False
+    assert "private" not in json.dumps(permission)
+    with pytest.raises(probe.ReviewError, match="review_optional_permission_granted"):
+        probe.check_native_exchange(permission["value"])
+
+
+def isolated_profile(tmp_path, owner):
+    profile = tmp_path / "isolated-profile"
+    profile.mkdir(mode=0o700)
+    return profile, probe.profile_stamp(profile)
+
+
+def test_isolated_profile_registration_copies_exact_bound_production_bytes(registration_files, tmp_path):
+    owner, paths = registration_files
+    bindings = []
+    probe.capture_registrations(owner, bindings)
+    profile, stamp = isolated_profile(tmp_path, owner)
+    captured = probe.install_profile_registration(profile, stamp, owner, bindings)
+    target = profile / "NativeMessagingHosts" / paths[1][0].name
+    assert target.read_bytes() == paths[1][0].read_bytes()
+    assert target.stat().st_uid == owner.pw_uid and stat.S_IMODE(target.stat().st_mode) == 0o600
+    assert captured == probe.capture_profile_registration(profile, owner)
+    assert captured["sha256"] == bindings[1]["sha256"]
+    assert "fresh_profile_registration_matches_production" in checker.CHECKS
+    probe.remove_browser_profile(profile, stamp, owner, SimpleNamespace(snapshot=lambda *args: ()), captured)
+    assert not profile.exists() and all(path.exists() for path, _, _ in paths)
+
+
+@pytest.mark.parametrize("damage", ["populated-profile", "source-inode", "source-bytes"])
+def test_profile_copy_refuses_existing_content_or_changed_production_source(registration_files, tmp_path, damage):
+    owner, paths = registration_files
+    bindings = []
+    probe.capture_registrations(owner, bindings)
+    profile, stamp = isolated_profile(tmp_path, owner)
+    if damage == "populated-profile":
+        (profile / "preserve").write_text("unknown fixture")
+    elif damage == "source-inode":
+        path, data, mode = paths[1]
+        path.unlink()
+        path.write_bytes(data)
+        path.chmod(mode)
+    else:
+        paths[1][0].write_bytes(b"changed fixture")
+    with pytest.raises(probe.ReviewError):
+        probe.install_profile_registration(profile, stamp, owner, bindings)
+    assert profile.exists() and not (profile / "NativeMessagingHosts").exists()
+
+
+@pytest.mark.parametrize("damage", ["bytes", "inode", "symlink", "mode", "directory"])
+def test_isolated_profile_cleanup_preserves_changed_registration(registration_files, tmp_path, damage):
+    owner, paths = registration_files
+    bindings = []
+    probe.capture_registrations(owner, bindings)
+    profile, stamp = isolated_profile(tmp_path, owner)
+    captured = probe.install_profile_registration(profile, stamp, owner, bindings)
+    target = profile / "NativeMessagingHosts" / paths[1][0].name
+    if damage == "bytes":
+        target.write_bytes(b"changed fixture")
+    elif damage == "inode":
+        data = target.read_bytes()
+        target.unlink()
+        target.write_bytes(data)
+        target.chmod(0o600)
+    elif damage == "symlink":
+        target.unlink()
+        target.symlink_to(paths[1][0])
+    elif damage == "mode":
+        target.chmod(0o644)
+    else:
+        target.parent.rename(profile / "original")
+        target.parent.mkdir(mode=0o700)
+        target.write_bytes(paths[1][1])
+        target.chmod(0o600)
+    with pytest.raises((probe.ReviewError, OSError)):
+        probe.remove_browser_profile(profile, stamp, owner, SimpleNamespace(snapshot=lambda *args: ()), captured)
+    assert profile.exists() and (target.exists() or target.is_symlink())
+
+
+def test_profile_registration_destination_uses_descriptors_and_no_path_chown(registration_files, tmp_path, monkeypatch):
+    owner, _paths = registration_files
+    bindings = []
+    probe.capture_registrations(owner, bindings)
+    profile, stamp = isolated_profile(tmp_path, owner)
+    monkeypatch.setattr(probe.os, "chown", lambda *args, **kwargs: pytest.fail("Path-based chown must not be used"))
+    result = probe.install_profile_registration(profile, stamp, owner, bindings)
+    assert result == probe.capture_profile_registration(profile, owner)
+
+
+def test_profile_registration_refuses_destination_parent_symlink_without_external_writes(registration_files, tmp_path, monkeypatch):
+    owner, _paths = registration_files
+    bindings = []
+    probe.capture_registrations(owner, bindings)
+    profile, stamp = isolated_profile(tmp_path, owner)
+    outside = tmp_path / "outside"
+    outside.mkdir(mode=0o700)
+    original_open = probe.os.open
+    def changed_open(path, flags, *args, **kwargs):
+        if path == "NativeMessagingHosts":
+            (profile / "NativeMessagingHosts").rmdir()
+            (profile / "NativeMessagingHosts").symlink_to(outside, target_is_directory=True)
+        return original_open(path, flags, *args, **kwargs)
+    monkeypatch.setattr(probe.os, "open", changed_open)
+    with pytest.raises(OSError):
+        probe.install_profile_registration(profile, stamp, owner, bindings)
+    assert not list(outside.iterdir())
+
+
+def test_profile_registration_refuses_namespace_swap_after_writing_bound_directory(registration_files, tmp_path, monkeypatch):
+    owner, _paths = registration_files
+    bindings = []
+    probe.capture_registrations(owner, bindings)
+    profile, stamp = isolated_profile(tmp_path, owner)
+    original_capture = probe.capture_profile_registration
+    def changed_capture(profile, owner):
+        (profile / "NativeMessagingHosts").rename(profile / "original")
+        replacement = profile / "NativeMessagingHosts"
+        replacement.mkdir(mode=0o700)
+        target = replacement / "com.account_access.google_messages.json"
+        target.write_bytes(probe.registration_payloads(owner.pw_dir)[1][1])
+        target.chmod(0o600)
+        return original_capture(profile, owner)
+    monkeypatch.setattr(probe, "capture_profile_registration", changed_capture)
+    with pytest.raises(probe.ReviewError, match="review_registration_changed"):
+        probe.install_profile_registration(profile, stamp, owner, bindings)
+    assert (profile / "original").is_dir() and (profile / "NativeMessagingHosts").is_dir()

@@ -56,7 +56,9 @@ existing_production_job hosted_arm64_mac_required hosted_review_only invalid_rev
 invalid_review_inputs ordinary_ci_download_required packaged_extension_not_loaded production_activation_failed
 production_authorization_not_registered production_authorization_registrar_mismatch production_browser_setup_failed
 production_chrome_journey_failed production_manifest_changed production_parent_guard_failed production_profile_mismatch
-production_transport_not_reached public_app_alias_mismatch publisher_transport_deadline publisher_transport_report_incomplete
+production_transport_not_reached production_native_host_not_found production_native_host_exited
+production_native_failed_start production_native_disconnected production_native_forbidden production_native_timeout
+production_native_unknown public_app_alias_mismatch publisher_transport_deadline publisher_transport_report_incomplete
 review_app_wheel_mismatch review_architecture_mismatch review_archive_alias_mismatch review_archive_entry_limit
 review_archive_hash_mismatch review_archive_inventory_mismatch review_archive_size_limit review_archive_unavailable
 review_asset_metadata_mismatch review_browser_profile_not_fresh review_child_identity_mismatch review_command_failed
@@ -87,11 +89,70 @@ authorization_other launchctl_print launchctl_bootstrap launchctl_bootout launch
 github_metadata lipo_architecture directory_record directory_cache identity_process_stop identity_process_query other_command""".split())
 
 
+NATIVE_CATEGORIES = {"host_not_found", "host_exited", "failed_start", "disconnected", "forbidden", "timeout", "unknown"}
+NATIVE_EXCHANGE_JS = r"""async () => {
+  const categories = new Map([
+    ["Specified native messaging host not found.", "host_not_found"],
+    ["Native host has exited.", "host_exited"],
+    ["Failed to start native messaging host.", "failed_start"],
+    ["Error when communicating with the native messaging host.", "disconnected"],
+    ["Access to the specified native messaging host is forbidden.", "forbidden"]
+  ]);
+  const expected = {status:"NEEDS_USER",reason:"vault_setup_required"};
+  const exact = value => value !== null && typeof value === "object" && !Array.isArray(value) &&
+    Object.keys(value).sort().join(",") === "reason,status" &&
+    value.status === expected.status && value.reason === expected.reason;
+  async function exchange(phase) {
+    let disconnected = null, observed = null, listener = null, timer = null;
+    try {
+      // Use the unchanged product's port, framing and request function.
+      const pending = native({method:"pending"});
+      observed = port;
+      if(observed) {
+        listener = () => {
+          const message = chrome.runtime.lastError?.message;
+          disconnected = typeof message === "string" ? (categories.get(message) || "unknown") : "disconnected";
+        };
+        observed.onDisconnect.addListener(listener);
+      }
+      const bounded = new Promise(resolve => {timer = setTimeout(() => resolve({timeout:true}),20000);});
+      const result = await Promise.race([pending.then(value => ({value})), bounded]);
+      if(result.timeout === true) return {status:"FAILED",phase,category:"timeout"};
+      if(!exact(result.value)) return {status:"FAILED",phase,category:"unknown"};
+      return null;
+    } catch(error) {
+      const message = error !== null && typeof error === "object" && typeof error.message === "string" ? error.message : "";
+      const category = message === "The local SMS connection timed out." ? "timeout" :
+        message === "Open Account Access and prepare the SMS connection first." ? (disconnected || "disconnected") : "unknown";
+      return {status:"FAILED",phase,category};
+    } finally {
+      if(timer !== null) clearTimeout(timer);
+      if(observed && listener) observed.onDisconnect.removeListener(listener);
+    }
+  }
+  const first = await exchange("first");
+  if(first) return first;
+  const second = await exchange("second");
+  if(second) return second;
+  const permission = await chrome.permissions.getAll();
+  const manifest = chrome.runtime.getManifest();
+  const granted = new Set(Array.isArray(permission.permissions) ? permission.permissions : []);
+  const declared = new Set(Array.isArray(manifest.permissions) ? manifest.permissions : []);
+  const origins = permission.origins === undefined ? [] : permission.origins;
+  const permissions_match = Array.isArray(origins) && origins.length === 0 &&
+    granted.size === declared.size && [...granted].every(item => declared.has(item));
+  // Only exact expected replies and a boolean leave this worker. Unexpected
+  // native data, Chrome messages, origins and exception strings never do.
+  return {first:expected,second:expected,permissions_match};
+}"""
+
+
 class ReviewError(Exception):
-    def __init__(self, reason, *, command_failure=None, child_failure=None):
+    def __init__(self, reason, *, command_failure=None, child_failure=None, native_failure=None):
         super().__init__(reason)
         self.command_failure = command_failure
         self.child_failure = child_failure
+        self.native_failure = native_failure
 
 
 def public_command_detail(detail):
@@ -102,9 +163,29 @@ def public_command_detail(detail):
     return None
 
 
+def public_native_failure(value):
+    if (type(value) is dict and set(value) == {"phase", "category"}
+            and type(value["phase"]) is str and value["phase"] in {"first", "second"}
+            and type(value["category"]) is str and value["category"] in NATIVE_CATEGORIES):
+        return dict(value)
+    return None
+
+
+def check_native_exchange(value):
+    if type(value) is dict and set(value) == {"status", "phase", "category"} and value["status"] == "FAILED":
+        failure = public_native_failure({key: value[key] for key in ["phase", "category"]})
+        if failure is not None:
+            raise ReviewError("production_native_" + failure["category"], native_failure=failure)
+    expected = {"status": "NEEDS_USER", "reason": "vault_setup_required"}
+    require(type(value) is dict and set(value) == {"first", "second", "permissions_match"}
+            and value["first"] == expected and value["second"] == expected
+            and type(value["permissions_match"]) is bool, "production_transport_not_reached")
+    require(value["permissions_match"] is True, "review_optional_permission_granted")
+
+
 def public_child_failure(value):
     fields = {"status", "reason", "failure_type", "production_ready"}
-    if (type(value) is not dict or not fields <= set(value) <= fields | {"command_failure", "child_stage", "errno"}
+    if (type(value) is not dict or not fields <= set(value) <= fields | {"command_failure", "child_stage", "errno", "native_failure"}
             or value.get("status") != "FAILED" or value.get("production_ready") is not False
             or type(value.get("reason")) is not str or value["reason"] not in PUBLIC_REASONS | {"publisher_transport_failed"}
             or type(value.get("failure_type")) is not str or value["failure_type"] not in PUBLIC_EXCEPTION_TYPES | {"Exception"}):
@@ -114,6 +195,8 @@ def public_child_failure(value):
     if "child_stage" in value and (type(value["child_stage"]) is not str or value["child_stage"] not in CHILD_STAGES):
         return None
     if "errno" in value and (type(value["errno"]) is not int or not 0 < value["errno"] < 4096):
+        return None
+    if "native_failure" in value and public_native_failure(value["native_failure"]) is None:
         return None
     return dict(value)
 
@@ -129,6 +212,9 @@ def public_error(error):
     child = public_child_failure(error.child_failure) if isinstance(error, ReviewError) else None
     if child is not None:
         result["child_failure"] = child
+    native_failure = public_native_failure(error.native_failure) if isinstance(error, ReviewError) else None
+    if native_failure is not None:
+        result["native_failure"] = native_failure
     if isinstance(error, OSError) and type(error.errno) is int and 0 < error.errno < 4096:
         result["errno"] = error.errno
     return result
@@ -634,13 +720,106 @@ def remove_registrations(owner, bindings):
     registration_absent(owner.pw_dir)
 
 
-def remove_browser_profile(profile, profile_stamp, owner, api):
+def profile_stamp(path):
+    info = path.lstat()
+    return (info.st_dev, info.st_ino, info.st_uid, info.st_gid, info.st_mode)
+
+
+def capture_profile_registration(profile, owner):
+    expected = registration_payloads(owner.pw_dir)[1][1]
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+    root = os.open(profile, flags)
+    host = None
+    try:
+        first = os.fstat(root)
+        require(stat.S_ISDIR(first.st_mode) and first.st_uid == owner.pw_uid and first.st_gid == owner.pw_gid
+                and stat.S_IMODE(first.st_mode) == 0o700, "review_registration_changed")
+        host = os.open("NativeMessagingHosts", flags, dir_fd=root)
+        directory = os.fstat(host)
+        require(stat.S_ISDIR(directory.st_mode) and directory.st_uid == owner.pw_uid and directory.st_gid == owner.pw_gid
+                and stat.S_IMODE(directory.st_mode) == 0o700, "review_registration_changed")
+        fd = os.open("com.account_access.google_messages.json", os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK,
+                     dir_fd=host)
+        try:
+            info = os.fstat(fd)
+            require(stat.S_ISREG(info.st_mode) and info.st_uid == owner.pw_uid and info.st_gid == owner.pw_gid
+                    and stat.S_IMODE(info.st_mode) == 0o600 and info.st_nlink == 1 and info.st_size == len(expected)
+                    and os.read(fd, len(expected) + 1) == expected and file_stamp(os.fstat(fd)) == file_stamp(info),
+                    "review_registration_changed")
+            return {"profile": (first.st_dev, first.st_ino, first.st_uid, first.st_gid, first.st_mode),
+                    "directory": (directory.st_dev, directory.st_ino, directory.st_uid, directory.st_gid, directory.st_mode),
+                    "file": file_stamp(info), "sha256": hashlib.sha256(expected).hexdigest()}
+        finally:
+            os.close(fd)
+    finally:
+        if host is not None:
+            os.close(host)
+        os.close(root)
+
+
+def install_profile_registration(profile, original_stamp, owner, bindings):
+    require(profile_stamp(profile) == original_stamp and not list(profile.iterdir()), "review_browser_profile_not_fresh")
+    source, expected, mode = registration_payloads(owner.pw_dir)[1]
+    captured = capture_registration(source, expected, mode, owner)
+    require(captured in bindings, "review_registration_changed")
+    parent, _parents = registration_parent(source, owner)
+    try:
+        fd = os.open(source.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK, dir_fd=parent)
+        try:
+            require(file_stamp(os.fstat(fd)) == captured["stamp"], "review_registration_changed")
+            data = os.read(fd, len(expected) + 1)
+            require(data == expected and file_stamp(os.fstat(fd)) == captured["stamp"], "review_registration_changed")
+        finally:
+            os.close(fd)
+    finally:
+        os.close(parent)
+    # Chrome resolves NativeMessagingHosts under the selected --user-data-dir.
+    # Copy only this exact production JSON, retaining its unchanged launcher.
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+    root = os.open(profile, flags)
+    host = None
+    try:
+        info = os.fstat(root)
+        require((info.st_dev, info.st_ino, info.st_uid, info.st_gid, info.st_mode) == original_stamp
+                and not os.listdir(root), "review_browser_profile_not_fresh")
+        os.mkdir("NativeMessagingHosts", mode=0o700, dir_fd=root)
+        host = os.open("NativeMessagingHosts", flags, dir_fd=root)
+        created = os.fstat(host)
+        # The directory must still be the root-created, private entry. Refuse
+        # a runner-owned replacement before changing any ownership or content.
+        require(stat.S_ISDIR(created.st_mode) and created.st_uid == os.geteuid()
+                and stat.S_IMODE(created.st_mode) == 0o700, "review_registration_changed")
+        fd = os.open(source.name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
+                     0o600, dir_fd=host)
+        with os.fdopen(fd, "wb") as output:
+            output.write(data)
+            output.flush()
+            os.fsync(output.fileno())
+            os.fchmod(output.fileno(), 0o600)
+            os.fchown(output.fileno(), owner.pw_uid, owner.pw_gid)
+        os.fchown(host, owner.pw_uid, owner.pw_gid)
+        result = capture_profile_registration(profile, owner)
+        observed = os.fstat(host)
+        require(result["directory"] == (observed.st_dev, observed.st_ino, observed.st_uid, observed.st_gid, observed.st_mode)
+                and (observed.st_dev, observed.st_ino) == (created.st_dev, created.st_ino)
+                and result["sha256"] == captured["sha256"] and profile_stamp(profile) == original_stamp,
+                "review_registration_changed")
+        return result
+    finally:
+        if host is not None:
+            os.close(host)
+        os.close(root)
+
+
+def remove_browser_profile(profile, original_stamp, owner, api, registration=None):
     verify_runner_identity(owner)
     require(not api.snapshot(owner.pw_uid, (BASE, CHROME)), "cleanup_processes_still_running")
     info = profile.lstat()
-    require((info.st_dev, info.st_ino, info.st_uid, info.st_gid, info.st_mode) == profile_stamp
+    require((info.st_dev, info.st_ino, info.st_uid, info.st_gid, info.st_mode) == original_stamp
             and stat.S_ISDIR(info.st_mode) and stat.S_IMODE(info.st_mode) == 0o700,
             "cleanup_browser_profile_changed")
+    if registration is not None:
+        require(capture_profile_registration(profile, owner) == registration, "cleanup_registration_changed")
     shutil.rmtree(profile)
     require(not profile.exists() and not profile.is_symlink(), "cleanup_browser_profile_changed")
 
@@ -710,7 +889,10 @@ def child(config_path, *, prepare_only=False):
     manifest = unique_json((APP / "Contents/Resources/GoogleMessagesExtension/manifest.json").read_bytes())
     require("host_permissions" not in manifest, "production_manifest_changed")
     CHILD_STAGE = "chrome-profile"
-    require(not list(profile.iterdir()), "review_browser_profile_not_fresh")
+    require({item.name for item in profile.iterdir()} == {"NativeMessagingHosts"}
+            and {item.name for item in (profile / "NativeMessagingHosts").iterdir()} == {"com.account_access.google_messages.json"},
+            "review_browser_profile_not_fresh")
+    capture_profile_registration(profile, user)
     CHILD_STAGE = "playwright-driver"
     with sync_playwright() as playwright:
         CHILD_STAGE = "chrome-launch"
@@ -733,14 +915,9 @@ def child(config_path, *, prepare_only=False):
             if worker is None:
                 worker = context.wait_for_event("serviceworker", predicate=lambda item: item.url == origin, timeout=15000)
             CHILD_STAGE = "native-exchange"
-            replies = worker.evaluate("""async () => ({first: await native({method:'pending'}),
-                second: await native({method:'pending'}), permissions: await chrome.permissions.getAll()})""")
-            expected = {"status": "NEEDS_USER", "reason": "vault_setup_required"}
-            require(replies.get("first") == expected and replies.get("second") == expected, "production_transport_not_reached")
+            replies = worker.evaluate(NATIVE_EXCHANGE_JS)
+            check_native_exchange(replies)
             CHILD_STAGE = "permissions-check"
-            permissions = replies.get("permissions", {})
-            require(permissions.get("origins", []) == [] and set(permissions.get("permissions", [])) == set(manifest["permissions"]),
-                    "review_optional_permission_granted")
             CHILD_STAGE = "result-check"
             require(all(page.url in {"about:blank", "chrome://newtab/"} for page in context.pages), "review_external_page_opened")
             require(hashes == {name: digest(APP / "Contents/Resources/GoogleMessagesExtension" / name) for name in RESOURCES},
@@ -774,6 +951,8 @@ def run(args):
     bindings = []
     browser_profile = None
     browser_profile_stamp = None
+    isolated_registration = None
+    profile_registration_started = False
     expected_job = None
     signatures = None
     designated = None
@@ -937,6 +1116,10 @@ def run(args):
         require(unique_json(result.stdout) == {"status": "PREPARED", "extension_path": str(APP / "Contents/Resources/GoogleMessagesExtension"),
                 "extension_id": EXTENSION}, "production_browser_setup_failed")
         checks["production_owner_browser_setup_used"] = True
+        stage = "isolated-profile-registration"
+        profile_registration_started = True
+        isolated_registration = install_profile_registration(browser_profile, browser_profile_stamp, owner, bindings)
+        checks["fresh_profile_registration_matches_production"] = True
         stage = "chrome-owner-child"
         result = owner_child_command(owner_child_arguments(uid, name, home, controller, configuration, temporary=browser_tmp),
                          env=environment(home, browser_tmp))
@@ -1011,7 +1194,8 @@ def run(args):
                 def remove_browser():
                     require(checks.get("chrome_and_native_children_stopped") is True, "cleanup_processes_still_running")
                     remove_registrations(owner, bindings)
-                    remove_browser_profile(browser_profile, browser_profile_stamp, owner, process)
+                    require(not profile_registration_started or isolated_registration is not None, "cleanup_registration_changed")
+                    remove_browser_profile(browser_profile, browser_profile_stamp, owner, process, isolated_registration)
                     require(runner_metadata(owner) == owner_metadata, "cleanup_identity_changed")
                     report["runner_identity_unchanged"] = True
                 cleanup("temporary_browser_profile_and_registration_removed", remove_browser)
