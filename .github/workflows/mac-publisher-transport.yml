@@ -1,0 +1,73 @@
+name: Genuine publisher transport review
+on:
+  push:
+    branches: [codex/production-auth]
+    paths:
+      - .github/workflows/mac-publisher-transport.yml
+      - scripts/mac_publisher_transport_probe.py
+      - scripts/check_mac_publisher_transport_report.py
+      - tests/test_mac_publisher_transport.py
+  workflow_dispatch:
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  publisher-transport:
+    if: github.repository == 'fainir/account-access' && github.ref == 'refs/heads/codex/production-auth'
+    runs-on: macos-15
+    timeout-minutes: 20
+    env:
+      AC_REVIEW_SOURCE: a5190c6d888f2384ac04bf574395aedb7219ef2b
+      AC_REVIEW_SHA256: a00e24b988c626e5a9db82321b8164dac6925721bfa3b1798b6695e956beadb7
+      AC_REVIEW_ASSET_ID: '652938188'
+      AC_REVIEW_ASSET: account-access-publisher-transport-a5190c6.tar.gz
+      AC_REVIEW_TAG: qa-a5190c6-publisher-transport
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      - name: Check the archive and report contracts without installing anything
+        run: |
+          uv sync --locked
+          uv run pytest -q tests/test_mac_publisher_transport.py
+          test "$(uname -m)" = arm64
+          test "$RUNNER_ENVIRONMENT" = github-hosted
+          test "$GITHUB_REPOSITORY" = fainir/account-access
+          test ! -e '/Applications/Account Access.app'
+          test ! -e '/Library/Application Support/Account Access'
+      - name: Download the fixed public-code review asset before privileged changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          uv run python scripts/mac_publisher_transport_probe.py download \
+            --tag "$AC_REVIEW_TAG" --asset "$AC_REVIEW_ASSET" \
+            --asset-id "$AC_REVIEW_ASSET_ID" --sha256 "$AC_REVIEW_SHA256" \
+            --source "$AC_REVIEW_SOURCE" --output "$RUNNER_TEMP/$AC_REVIEW_ASSET"
+      - name: Exercise genuine production transport in this fresh disposable VM
+        run: |
+          mkdir -m 700 "$RUNNER_TEMP/account-access-publisher-report"
+          sudo -n /usr/bin/env -i \
+            PATH=/usr/bin:/bin:/usr/sbin:/sbin LANG=en_US.UTF-8 \
+            GITHUB_ACTIONS=true CI=true RUNNER_ENVIRONMENT=github-hosted \
+            RUNNER_OS=macOS RUNNER_ARCH=ARM64 \
+            GITHUB_REPOSITORY="$GITHUB_REPOSITORY" \
+            GITHUB_RUN_ID="$GITHUB_RUN_ID" GITHUB_SHA="$GITHUB_SHA" \
+            "$GITHUB_WORKSPACE/.venv/bin/python" -I -B \
+            "$GITHUB_WORKSPACE/scripts/mac_publisher_transport_probe.py" run \
+            --archive "$RUNNER_TEMP/$AC_REVIEW_ASSET" \
+            --sha256 "$AC_REVIEW_SHA256" --source "$AC_REVIEW_SOURCE" \
+            --report "$RUNNER_TEMP/account-access-publisher-report/report.json"
+      - name: Require the complete transport-only report
+        run: |
+          uv run python scripts/check_mac_publisher_transport_report.py \
+            "$RUNNER_TEMP/account-access-publisher-report/report.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: genuine-publisher-transport-review
+          path: ${{ runner.temp }}/account-access-publisher-report
+          if-no-files-found: warn
