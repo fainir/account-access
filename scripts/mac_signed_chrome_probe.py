@@ -369,7 +369,8 @@ def run_sms_journey(playwright, prefix, home, original, original_hashes):
         clients = client_type(
             [sys.executable, "-I", "-B", str(root_managed_path(prefix / "signed-chrome-probe.py")),
              "--prefix", str(prefix), "--cli-diagnostic"],
-            {"PATH": "/usr/bin:/bin", "HOME": str(home), "LANG": "C.UTF-8", "ACCESS_CLIENT_CONFIG": str(config)},
+            {"PATH": "/usr/bin:/bin", "HOME": str(home), "LANG": "C.UTF-8", "ACCESS_CLIENT_CONFIG": str(config),
+             "GITHUB_ACTIONS": "true"},
             time.monotonic() + CLI_READS_SECONDS,
             account=SMS_ACCOUNT,
             read_timeout=CLI_READ_SECONDS,
@@ -680,6 +681,21 @@ def failure_report(value):
     return json.loads(json.dumps(value))
 
 
+def publish_failure_report(value, path=Path("/tmp/account-access-mac-signed-chrome-failure.json")):
+    value = failure_report(value)
+    if value is None:
+        return False
+    try:
+        private_file(path, json.dumps(value).encode(), replace=True)
+        # This exact validated enum/boolean/counter object is already public
+        # in CI stderr. The unprivileged artifact uploader must be able to read
+        # it; private CLI sidecars and all other fixture files stay private.
+        path.chmod(0o644, follow_symlinks=False)
+        return True
+    except Exception:
+        return False  # Keep the original failed acceptance result.
+
+
 def exercise_signed_chrome_gateway(prefix, roles, fixture=None, client_config=None, *, service_identity=None):
     agent = require_fixture(prefix, roles)
     home = Path(agent.pw_dir)
@@ -785,11 +801,7 @@ def exercise_signed_chrome_gateway(prefix, roles, fixture=None, client_config=No
                     **({"sms_progress": progress} if progress is not None else {}),
                     **({"sms_details": details} if details is not None else {})})
                 if failure is not None:
-                    try:
-                        private_file(Path("/tmp/account-access-mac-signed-chrome-failure.json"),
-                                     json.dumps(failure).encode(), replace=True)
-                    except Exception:
-                        pass  # Keep the original failed acceptance result.
+                    publish_failure_report(failure)
                     print(json.dumps({**failure, "stage": "signed_chrome_failed_" + diagnostic}),
                           file=sys.stderr, flush=True)
             raise RuntimeError("signed_chrome_child_failed")

@@ -1,6 +1,7 @@
 """Failure-only disposable-CI metadata never expands the agent's public API."""
 
 import json
+import stat
 import subprocess
 from types import SimpleNamespace
 
@@ -191,6 +192,28 @@ def test_failure_artifact_is_strict_bounded_and_can_never_satisfy_success_checke
         value = report()
         mutate(value)
         assert probe.failure_report(value) is None
+
+
+def test_only_validated_public_failure_artifact_is_readable_by_ci_uploader(tmp_path):
+    target = tmp_path / "failure.json"
+    assert probe.publish_failure_report(report(), target)
+    assert json.loads(target.read_bytes()) == report()
+    assert stat.S_IMODE(target.stat().st_mode) == 0o644
+    previous = target.read_bytes()
+    assert not probe.publish_failure_report({**report(), "private": "private-canary"}, target)
+    assert target.read_bytes() == previous
+    assert not probe.publish_failure_report({**report(), "stage": "private-canary"}, tmp_path / "refused.json")
+    assert not (tmp_path / "refused.json").exists()
+
+
+def test_public_failure_artifact_refuses_symlink_without_changing_private_target(tmp_path):
+    private = tmp_path / "private-sidecar.json"
+    private_file(private, b"private-canary")
+    target = tmp_path / "failure.json"
+    target.symlink_to(private)
+    assert not probe.publish_failure_report(report(), target)
+    assert private.read_bytes() == b"private-canary"
+    assert stat.S_IMODE(private.stat().st_mode) == 0o600
 
 
 def test_child_emits_only_validated_details_when_it_fails(tmp_path, monkeypatch, capsys):

@@ -155,6 +155,22 @@ def test_sms_cli_budget_starts_after_browser_setup_and_failed_setup_never_starts
         assert clock[0] == 100 and deadline == 240
         assert read_timeout == 70 and probe.CHILD_SECONDS == 230
         assert account == probe.SMS_ACCOUNT
+        assert command == [probe.sys.executable, "-I", "-B", str(tmp_path / "signed-chrome-probe.py"),
+                           "--prefix", str(tmp_path), "--cli-diagnostic"]
+        assert set(env) == {"PATH", "HOME", "LANG", "ACCESS_CLIENT_CONFIG", "GITHUB_ACTIONS"}
+        # Replay the real diagnostic child's first guard using the actual
+        # constructed environment, without reading any protected Mac path.
+        # A valid CI marker gets as far as the deliberate temporary-prefix
+        # refusal; removing it must fail at the earlier environment guard.
+        with monkeypatch.context() as guard:
+            guard.setattr(probe, "sys", SimpleNamespace(platform="darwin"))
+            child_os = SimpleNamespace(environ=env, getuid=lambda: 503, geteuid=lambda: 503)
+            guard.setattr(probe, "os", child_os)
+            with pytest.raises(RuntimeError, match="^signed_chrome_requires_fixture_identity$"):
+                probe.require_fixture(Path(command[5]), child=True)
+            child_os.environ = {key: value for key, value in env.items() if key != "GITHUB_ACTIONS"}
+            with pytest.raises(RuntimeError, match="^signed_chrome_requires_disposable_mac_ci$"):
+                probe.require_fixture(Path(command[5]), child=True)
         raise RuntimeError("test_stop_after_cli_start")
 
     monkeypatch.setattr(probe.runpy, "run_path", lambda path: {"ClientReads": start_client})
