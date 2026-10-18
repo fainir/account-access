@@ -159,11 +159,9 @@ def finish(broker, account, attempt, callback):
                 clear(store, account, flow)
             raise
         clear(store, account, flow)
-    try:
-        broker.tick()
-    except AccessError as exc:
-        if exc.status != "RETRYABLE":
-            raise
+    # Return the committed connection before the normal service loop resumes
+    # queued work. Website recovery and password-source reads can exceed the
+    # native owner's reply deadline and must not run inside this setup RPC.
     return {"status": "CONNECTED", "account": account,
             "mailbox_identity_verified": False, "login_delivery_verified": False}
 

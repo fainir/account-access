@@ -130,6 +130,18 @@ def test_owner_browser_handoff_performs_real_pkce_and_single_use_exchange(env):
         finish(broker, "mail", started["attempt"], returned)
 
 
+def test_gmail_handoff_returns_after_token_commit_without_running_website_tasks(env, monkeypatch):
+    provider, broker, _ = env
+    started = start(broker)
+    returned = callback(started)
+    monkeypatch.setattr(broker, "tick", lambda: pytest.fail("Owner setup must not run queued website work"))
+    result = finish(broker, "mail", started["attempt"], returned)
+    assert result["status"] == "CONNECTED"
+    assert broker.store.get("connection:mail")["token"]["refresh_token"]
+    assert broker.store.get("oauth-pending:mail") is broker.store.get("mailbox-oauth:mail") is None
+    assert provider.login_count == provider.api_count == 0
+
+
 @pytest.mark.parametrize("change", ["state", "duplicate-state", "unicode-state", "path", "fragment", "both", "malformed"])
 def test_bad_callback_keeps_the_original_attempt_available(env, change):
     _, broker, _ = env
