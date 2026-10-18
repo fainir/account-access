@@ -17,10 +17,13 @@ import stat
 import sys
 import unicodedata
 
-from .package_manifest import MAX_ENTRIES, MAX_FILE_BYTES, MAX_MANIFEST_BYTES, MAX_TOTAL_BYTES
+from .package_manifest import (
+    APPLICATION_TARGET, MAX_ENTRIES, MAX_FILE_BYTES, MAX_MANIFEST_BYTES, MAX_TOTAL_BYTES,
+)
 
 SUPPORT = "/Library/Application Support/Account Access"
 APPLICATION = "/Applications/Account Access.app"
+OWNER_APPLICATION = SUPPORT + "/owner.app"
 ROOTS = {SUPPORT: "support", APPLICATION: "application"}
 EXTRAS = {"broker", "home", "vault", "run", "control", "owner.json", "install-verification.json"}
 DIRECTORY = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
@@ -97,6 +100,14 @@ class ImageManifest:
             count = total = work = 0
             self.children = {}
             for root, nodes in value["roots"].items():
+                if root == APPLICATION:
+                    # This single public launcher is data. No other inventory
+                    # alias may leave its own descriptor-pinned payload tree.
+                    if nodes != {"": {"kind": "symlink", "target": APPLICATION_TARGET}}:
+                        raise ImageConflict("invalid_image_inventory")
+                    count += 1
+                    self.children[root] = {}
+                    continue
                 if type(nodes) is not dict or nodes.get("", {}).get("kind") != "directory":
                     raise ImageConflict("invalid_image_inventory")
                 folded, children = set(), {}
@@ -188,7 +199,10 @@ class ImageManifest:
         except (ValueError, TypeError, KeyError, AttributeError, RecursionError):
             raise ImageConflict("invalid_image_inventory") from None
         self.trees, self.digest = value["roots"], expected_digest
-        if set(self.children[SUPPORT].get("", set())) & EXTRAS:
+        if (set(self.children[SUPPORT].get("", set())) & EXTRAS
+                or self.trees[SUPPORT].get("owner.app", {}).get("kind") != "directory"
+                or self.trees[SUPPORT].get("owner.app/Contents/MacOS/AccountAccess", {}).get("kind") != "file"
+                or count > MAX_ENTRIES):
             raise ImageConflict("invalid_image_inventory")
 
 
@@ -278,6 +292,17 @@ def _identity(info):
     return [info.st_dev, info.st_ino]
 
 
+def _application_alias(parent, name, uid):
+    """Inspect only the one literal public launch alias without following it."""
+    before = os.stat(name, dir_fd=parent, follow_symlinks=False)
+    if (not stat.S_ISLNK(before.st_mode) or before.st_uid != uid or before.st_nlink != 1
+            or before.st_mode & 0o6000
+            or os.readlink(name, dir_fd=parent) != APPLICATION_TARGET
+            or _stamp(os.stat(name, dir_fd=parent, follow_symlinks=False)) != _stamp(before)):
+        raise ImageConflict("image_alias_conflict")
+    return before
+
+
 def _names(fd):
     # An independent directory description prevents repeated inspections from
     # sharing a directory position with another descriptor or Python version.
@@ -327,6 +352,8 @@ class ImageRecovery:
     Production must pass UID0 and fixed protected parents after native source
     verification. Tests pass ordinary-user synthetic directories. checkpoint
     is internal fault injection; no CLI/environment switch enables it.
+    source[APPLICATION] is its parent descriptor; the public alias is never
+    opened as a directory or followed to executable code.
     """
 
     def __init__(
@@ -652,7 +679,11 @@ class ImageRecovery:
         # Recheck the immutable public input before recording an intent. This
         # supplements the native source attestation; it never opens account data.
         for root in ROOTS:
-            self._tree(root, self.source[root], self.source[root], None)
+            if root == APPLICATION:
+                _check(self.source[root], self.uid, True)
+                _application_alias(self.source[root], "Account Access.app", self.uid)
+            else:
+                self._tree(root, self.source[root], self.source[root], None)
         intent = {
             "managed_by": "account-access-public-image-install-v1",
             "schema": 1,
@@ -703,6 +734,16 @@ class ImageRecovery:
                     _check(self.source[root], self.uid, True)
                     parent, _ = self.targets[root]
                     _check(parent, self.uid, True, shared=root == APPLICATION)
+                    if root == APPLICATION:
+                        if not self._exists(self.journal, stage):
+                            os.symlink(APPLICATION_TARGET, stage, dir_fd=self.journal)
+                            os.fsync(self.journal)
+                            self.checkpoint("application-alias-staged")
+                        info = _application_alias(self.journal, stage, self.uid)
+                        if info.st_dev != os.fstat(parent).st_dev:
+                            raise ImageConflict("installation_volume_mismatch")
+                        roots[root] = _identity(info)
+                        continue
                     with self._mkdir(self.journal, stage) as destination:
                         if os.fstat(destination).st_dev != os.fstat(parent).st_dev:
                             raise ImageConflict("installation_volume_mismatch")
@@ -737,10 +778,13 @@ class ImageRecovery:
             info = staged or installed
             if _identity(info) != ready["roots"][root]:
                 raise ImageConflict("image_namespace_changed")
-            with _directory(
-                self.journal if staged else parent, stage if staged else name, self.uid
-            ) as image:
-                self._tree(root, self.source[root], image, None, allow_extras=published is not None)
+            if root == APPLICATION:
+                _application_alias(self.journal if staged else parent, stage if staged else name, self.uid)
+            else:
+                with _directory(
+                    self.journal if staged else parent, stage if staged else name, self.uid
+                ) as image:
+                    self._tree(root, self.source[root], image, None, allow_extras=published is not None)
             if staged:
                 _rename_exclusive(self.journal, stage, parent, name)
                 os.fsync(parent)

@@ -3,6 +3,7 @@
 import json
 import os
 import stat
+from contextlib import nullcontext
 from types import SimpleNamespace
 
 import pytest
@@ -11,6 +12,72 @@ from account_access import install_image as image
 from account_access import install_transaction as transaction
 from account_access import system_provision as provision
 from test_install_image import Crash, completed, fixture
+
+
+def test_coordinator_reads_public_alias_as_data_and_launches_only_canonical_bundle(monkeypatch):
+    calls, descents, opened, closed = [], [], [], []
+    counter = iter(range(100, 110))
+
+    def descend(source, path, uid):
+        descents.append((source, path, uid))
+        return next(counter)
+
+    def open_directory(path, flags, **kwargs):
+        opened.append((path, flags, kwargs))
+        return next(counter)
+
+    monkeypatch.setattr(transaction, "os", SimpleNamespace(
+        getuid=lambda: 0, geteuid=lambda: 0, set_inheritable=lambda *args: None,
+        stat=lambda path: SimpleNamespace(st_uid=501), open=open_directory,
+        mkdir=lambda *args, **kwargs: None, fsync=lambda fd: None, close=closed.append))
+    monkeypatch.setattr(transaction.sys, "platform", "darwin")
+    monkeypatch.setattr(transaction.pwd, "getpwuid", lambda uid: SimpleNamespace(pw_name="public-fixture"))
+    monkeypatch.setattr(transaction, "_check", lambda *args, **kwargs: None)
+    monkeypatch.setattr(transaction, "_read", lambda *args: b"public manifest fixture")
+    manifest = object()
+    monkeypatch.setattr(transaction, "ImageManifest", lambda *args: manifest)
+    monkeypatch.setattr(transaction, "_descend", descend)
+    monkeypatch.setattr(transaction, "_peer_identity", lambda *args: {"public": True})
+    monkeypatch.setattr(transaction, "_fresh_identity", lambda: None)
+    monkeypatch.setattr(transaction, "_native_verification", lambda *args: calls.append("native-verified"))
+    monkeypatch.setattr(transaction, "root_managed_path", lambda path: calls.append(str(path)))
+
+    class Recovery:
+        lease = 55
+        was_complete = False
+
+        def __init__(self, sources, journal, targets, observed, owner, **kwargs):
+            assert set(sources) == {image.SUPPORT, image.APPLICATION} and observed is manifest
+            assert owner == 501 and kwargs == {"object_uid": 0}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def _read_record(self, name):
+            return None
+
+        def materialize(self):
+            calls.append("materialized")
+            return {"public": True}
+
+        def publish_verification(self, proof):
+            calls.append("receipt")
+
+        def mark_complete(self):
+            calls.append("complete")
+
+    monkeypatch.setattr(transaction, "ImageRecovery", Recovery)
+    monkeypatch.setattr(provision, "command_lease", lambda lease: nullcontext())
+    monkeypatch.setattr(provision, "activate", lambda *args, **kwargs: calls.append("activate"))
+    monkeypatch.setattr(provision, "command", lambda arguments: calls.append(arguments))
+    assert transaction.run(3, 4, "a" * 64) == {"status": "REGISTERED"}
+    assert descents == [(3, image.SUPPORT, 0), (3, "/Applications", 0)]
+    assert calls[-1][-2:] == ["-a", "/Library/Application Support/Account Access/owner.app"]
+    assert calls.index("native-verified") < calls.index("activate") < calls.index("complete")
+    assert set(closed) == set(range(100, 105)) and len(opened) == 3
 
 
 @pytest.mark.parametrize("event", ["receipt-write", "receipt-synced", "receipt-published"])

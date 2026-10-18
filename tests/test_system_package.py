@@ -146,6 +146,9 @@ def test_supplied_python_cannot_run_before_private_payload_inventory(
         inventories.append((roots, archives, development))
         assert architecture == "arm64"
         assert all(not str(path).startswith(str(tmp_path)) for path in [*roots, *archives])
+        assert roots[0].as_posix().endswith("/Library/Application Support/Account Access/owner.app")
+        public = roots[0].parents[3] / package.OWNER_APP
+        assert public.is_symlink() and public.readlink().as_posix() == package.APPLICATION_TARGET
         if writable:
             return {}  # The subsequent real inventory must stop unsafe modes.
         raise ValueError("fixture_inventory_stopped_before_execution")

@@ -17,6 +17,7 @@ import sys
 from . import system_provision as provision
 from .install_image import (
     APPLICATION,
+    OWNER_APPLICATION,
     DIRECTORY,
     REGULAR,
     ROOTS,
@@ -163,7 +164,7 @@ def run(source_fd, manifest_fd, digest):
     sources, handles = {}, []
     try:
         for root in ROOTS:
-            fd = _descend(source_fd, root, 0)
+            fd = _descend(source_fd, str(Path(root).parent) if root == APPLICATION else root, 0)
             sources[root] = fd
             handles.append(fd)
         peers = _peer_identity(sources[SUPPORT], 0)
@@ -217,7 +218,7 @@ def run(source_fd, manifest_fd, digest):
             "--",
             "/usr/bin/open",
             "-a",
-            "/Applications/Account Access.app",
+            OWNER_APPLICATION,
         ]
     )
     return {"status": "REGISTERED"}

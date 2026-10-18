@@ -26,7 +26,7 @@ def image_process(base, encoded, event):
     """
     paths = [
         base / "source" / package_manifest.SUPPORT,
-        base / "source" / package_manifest.OWNER_APP,
+        base / "source" / package_manifest.OWNER_APP.parent,
         base / "journal",
         base / "library",
         base / "applications",
@@ -71,14 +71,17 @@ def image_process(base, encoded, event):
 def fixture(base, checkpoint=None, owner=501, readonly=False):
     source = base / "source"
     support = source / package_manifest.SUPPORT
-    app = source / package_manifest.OWNER_APP
+    app = source / package_manifest.CANONICAL_APP
     (support / "bin").mkdir(parents=True)
-    (app / "Contents").mkdir(parents=True)
+    (app / "Contents/MacOS").mkdir(parents=True)
+    public = source / package_manifest.OWNER_APP
+    public.parent.mkdir()
+    public.symlink_to(package_manifest.APPLICATION_TARGET)
     (support / "bin/tool").write_bytes(b"public fixture\n" * 80000)
     (support / "bin/tool").chmod(0o755)
     (support / "data").write_bytes(b"public data")
     (support / "current").symlink_to("bin")
-    (app / "Contents/resource").write_bytes(b"public app fixture")
+    (app / "Contents/MacOS/AccountAccess").write_bytes(b"public app fixture")
     for path in [source, *source.rglob("*")]:
         if not path.is_symlink():
             path.chmod(path.stat().st_mode & 0o777 & ~0o022)
@@ -91,8 +94,9 @@ def fixture(base, checkpoint=None, owner=501, readonly=False):
     library, applications = base / "library", base / "applications"
     library.mkdir()
     applications.mkdir(mode=0o775)
+    applications.chmod(0o775)
     fds = [
-        os.open(path, image.DIRECTORY) for path in [support, app, journal, library, applications]
+        os.open(path, image.DIRECTORY) for path in [support, public.parent, journal, library, applications]
     ]
 
     def engine(hook=checkpoint, owner_uid=owner):
@@ -133,13 +137,17 @@ def completed(value):
         "status": "VERIFIED",
         "manifest_sha256": value["manifest"].digest,
         "files": 3,
-        "directories": 4,
-        "aliases": 1,
+        "directories": 5,
+        "aliases": 2,
     }
     assert (value["support"] / "data").read_bytes() == b"public data"
     assert os.readlink(value["support"] / "current") == "bin"
+    assert value["app"].is_symlink()
+    assert os.readlink(value["app"]) == package_manifest.APPLICATION_TARGET
+    assert (value["support"] / "owner.app/Contents/MacOS/AccountAccess").read_bytes() == b"public app fixture"
     assert not (value["journal"] / "support").exists()
     assert not (value["journal"] / "application").exists()
+    assert not (value["journal"] / "application").is_symlink()
     assert not list((value["journal"] / "temporary").iterdir())
     return result
 
@@ -346,6 +354,20 @@ def test_changed_source_is_refused_before_intent_or_publication(tmp_path):
         assert not value["support"].exists() and not value["app"].exists()
 
 
+def test_changed_source_public_alias_is_refused_without_following_it_or_recording_intent(tmp_path):
+    with fixture(tmp_path) as value:
+        public = value["source"] / package_manifest.OWNER_APP
+        public.unlink()
+        public.symlink_to("unrelated-missing-destination")
+        inode = public.lstat().st_ino
+        with pytest.raises(image.ImageConflict, match="image_alias_conflict"):
+            with value["engine"]() as engine:
+                engine.materialize()
+        assert public.lstat().st_ino == inode
+        assert set(path.name for path in value["journal"].iterdir()) == {"lock"}
+        assert not value["support"].exists() and not value["app"].is_symlink()
+
+
 def test_resume_after_completed_temporary_became_read_only(tmp_path):
     def stop(event):
         if event == "file-synced:data":
@@ -385,14 +407,98 @@ def test_replaced_application_namespace_is_refused_and_both_objects_are_preserve
         def replace(event):
             if event == "root-published:application":
                 value["app"].rename(moved)
-                shutil.copytree(value["source"] / package_manifest.OWNER_APP, value["app"])
+                value["app"].symlink_to(package_manifest.APPLICATION_TARGET)
 
         with pytest.raises(image.ImageConflict, match="image_namespace_changed"):
             with value["engine"](hook=replace) as engine:
                 engine.materialize()
-        assert moved.is_dir() and value["app"].is_dir()
+        assert moved.is_symlink() and value["app"].is_symlink()
         with pytest.raises(image.ImageConflict, match="image_namespace_changed"):
             completed(value)
+
+
+def test_shared_application_parent_and_alias_are_never_opened_as_trusted_code(tmp_path, monkeypatch):
+    with fixture(tmp_path) as value:
+        original = os.open
+        parent = value["app"].parent
+        before = (parent.stat().st_ino, parent.stat().st_mode)
+
+        def opened(path, *args, **kwargs):
+            assert str(path) != "Account Access.app", "Never open or traverse the public alias"
+            return original(path, *args, **kwargs)
+
+        monkeypatch.setattr(os, "open", opened)
+        completed(value)
+        assert (parent.stat().st_ino, parent.stat().st_mode) == before
+        assert parent.stat().st_mode & 0o777 == 0o775
+
+
+@pytest.mark.parametrize("published", [False, True])
+def test_same_literal_replacement_alias_cannot_resume_with_a_different_inode(tmp_path, published):
+    def stop(event):
+        if event == ("root-published:application" if published else "record-published:ready.json"):
+            raise Crash()
+
+    with fixture(tmp_path, stop) as value:
+        with pytest.raises(Crash):
+            with value["engine"]() as engine:
+                engine.materialize()
+        path = value["app"] if published else value["journal"] / "application"
+        moved = tmp_path / "preserved-original-alias"
+        path.rename(moved)
+        path.symlink_to(package_manifest.APPLICATION_TARGET)
+        inode = path.lstat().st_ino
+        with pytest.raises(image.ImageConflict, match="image_namespace_changed"):
+            with value["engine"](hook=lambda event: None) as engine:
+                engine.materialize()
+        assert path.lstat().st_ino == inode and moved.is_symlink()
+
+
+@pytest.mark.parametrize("target", [package_manifest.APPLICATION_TARGET, "unrelated"])
+def test_unmanaged_or_racing_public_alias_is_preserved_without_adoption(tmp_path, target):
+    with fixture(tmp_path) as value:
+        value["app"].symlink_to(target)
+        before = value["app"].lstat().st_ino
+        with pytest.raises(image.ImageConflict, match="existing_installation_requires_repair"):
+            with value["engine"]() as engine:
+                engine.materialize()
+        assert value["app"].lstat().st_ino == before and os.readlink(value["app"]) == target
+        assert not (value["journal"] / "intent.json").exists()
+
+
+def test_exclusive_public_alias_publication_refuses_a_racing_new_name(tmp_path):
+    with fixture(tmp_path) as value:
+        def race(event):
+            if event == "root-published:support":
+                assert (value["support"] / "owner.app/Contents/MacOS/AccountAccess").is_file()
+                value["app"].symlink_to("unrelated")
+
+        with pytest.raises((image.ImageConflict, OSError)):
+            with value["engine"](hook=race) as engine:
+                engine.materialize()
+        assert os.readlink(value["app"]) == "unrelated"
+        assert (value["journal"] / "application").is_symlink()
+
+
+@pytest.mark.parametrize("fault", ["target", "absolute", "children", "directory", "canonical-alias"])
+def test_manifest_cannot_expand_the_literal_public_alias_exception(tmp_path, fault):
+    with fixture(tmp_path) as value:
+        data = json.loads(value["encoded"])
+        nodes = data["roots"][image.APPLICATION]
+        if fault == "target":
+            nodes[""]["target"] += "/../owner.app"
+        elif fault == "absolute":
+            nodes[""]["target"] = image.OWNER_APPLICATION
+        elif fault == "children":
+            nodes["child"] = {"kind": "directory", "mode": 0o755}
+        elif fault == "directory":
+            nodes[""] = {"kind": "directory", "mode": 0o755}
+        else:
+            data["roots"][image.SUPPORT]["owner.app/Contents/MacOS/AccountAccess"] = {
+                "kind": "symlink", "target": "../../../bin/tool"}
+        encoded = json.dumps(data).encode()
+        with pytest.raises(image.ImageConflict, match="invalid_image_inventory"):
+            image.ImageManifest(encoded, hashlib.sha256(encoded).hexdigest())
 
 
 @pytest.mark.parametrize(

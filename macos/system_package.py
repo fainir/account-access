@@ -15,6 +15,7 @@ import zipfile
 from xml.sax.saxutils import escape
 
 from account_access.system_provision import signature
+from account_access.package_manifest import APPLICATION_TARGET, CANONICAL_APP, OWNER_APP
 from macos.payload_audit import audit_payload, binary_type, tree_files
 
 BASE = Path("Library/Application Support/Account Access")
@@ -182,7 +183,9 @@ def assemble(args):
         payload = root / BASE
         payload.mkdir(parents=True)
         (root / "Applications").mkdir()
-        shutil.copytree(app, root / "Applications/Account Access.app", symlinks=True)
+        owner_app = root / CANONICAL_APP
+        shutil.copytree(app, owner_app, symlinks=True)
+        (root / OWNER_APP).symlink_to(APPLICATION_TARGET)
         shutil.copytree(python, payload / "python", symlinks=True)
         shutil.copytree(browsers, payload / "browsers", symlinks=True)
         (payload / "bin").mkdir()
@@ -263,7 +266,7 @@ def assemble(args):
         # inside dependency archives, before running the supplied interpreter.
         runtime_audit = audit_payload(
             [
-                root / "Applications/Account Access.app",
+                owner_app,
                 payload / "python",
                 payload / "browsers",
                 payload / "bin",
@@ -278,7 +281,7 @@ def assemble(args):
         identities = {
             key: signature(path, identifier, fixture=args.development)
             for key, path, identifier in [
-                ("owner", root / "Applications/Account Access.app", "com.fainir.accountaccess"),
+                ("owner", owner_app, "com.fainir.accountaccess"),
                 ("broker", payload / "bin/AccountAccess-broker", "com.fainir.accountaccess.broker"),
                 ("bootstrap", payload / "bin/AccountAccess-bootstrap", "com.fainir.accountaccess.bootstrap"),
             ]
@@ -323,7 +326,7 @@ def assemble(args):
         if binary_type(payload / "runtime/lib/python3.12/site-packages/playwright/driver/node") != 2:
             raise ValueError("runtime_image_native_browser_driver_required")
         runtime_audit = audit_payload(
-            [root / "Applications/Account Access.app", payload / "python", payload / "runtime",
+            [owner_app, payload / "python", payload / "runtime",
              payload / "browsers", payload / "bin"],
             sorted((payload / "wheels").glob("*.whl")), args.architecture, command,
             development=args.development,

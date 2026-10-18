@@ -16,7 +16,10 @@ MAX_FILE_BYTES = 1024 * 1024 * 1024
 MAX_TOTAL_BYTES = 8 * MAX_FILE_BYTES
 MAX_MANIFEST_BYTES = 16 * 1024 * 1024
 SUPPORT = Path("Library/Application Support/Account Access")
+# OWNER_APP names the public publication slot, never an executable source.
 OWNER_APP = Path("Applications/Account Access.app")
+CANONICAL_APP = SUPPORT / "owner.app"
+APPLICATION_TARGET = "../Library/Application Support/Account Access/owner.app"
 
 
 def canonical_root(root):
@@ -156,13 +159,23 @@ def build(root, version, architecture):
     info = root.lstat()
     if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o6022:
         raise ValueError("unsafe_install_manifest_root")
-    for relative in [SUPPORT, OWNER_APP]:
+    for relative in [CANONICAL_APP, OWNER_APP.parent]:
         current = root
         for part in relative.parts:
             current /= part
             info = current.lstat()
-            if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid():
+            if (not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid()
+                    or info.st_mode & 0o6022):
                 raise ValueError("unsafe_install_manifest_root")
+    alias = root / OWNER_APP
+    before = alias.lstat()
+    if (not stat.S_ISLNK(before.st_mode) or before.st_uid != os.getuid()
+            or before.st_nlink != 1 or before.st_mode & 0o6000
+            or os.readlink(alias) != APPLICATION_TARGET or _stamp(alias.lstat()) != _stamp(before)):
+        raise ValueError("unsafe_install_manifest_application_alias")
+    support = inventory(root / SUPPORT)
+    if support.get("owner.app/Contents/MacOS/AccountAccess", {}).get("kind") != "file":
+        raise ValueError("unsafe_install_manifest_owner_application")
     value = {
         "managed_by": "account-access-install-payload-v1",
         "schema": 1,
@@ -170,8 +183,8 @@ def build(root, version, architecture):
         "version": version,
         "architecture": architecture,
         "roots": {
-            "/" + str(SUPPORT): inventory(root / SUPPORT),
-            "/" + str(OWNER_APP): inventory(root / OWNER_APP),
+            "/" + str(SUPPORT): support,
+            "/" + str(OWNER_APP): {"": {"kind": "symlink", "target": APPLICATION_TARGET}},
         },
     }
     encoded = (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode()

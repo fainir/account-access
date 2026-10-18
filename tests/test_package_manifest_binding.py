@@ -13,12 +13,19 @@ from scripts import mac_package_smoke as smoke
 @pytest.fixture
 def package(tmp_path, monkeypatch):
     root = tmp_path / "input"
-    for relative in [manifest.SUPPORT, manifest.OWNER_APP]:
+    for relative in [manifest.SUPPORT, manifest.CANONICAL_APP]:
         path = root / relative
         path.mkdir(parents=True)
         (path / "public-resource").write_bytes(b"public fixture")
+    binary = root / manifest.CANONICAL_APP / "Contents/MacOS/AccountAccess"
+    binary.parent.mkdir(parents=True)
+    binary.write_bytes(b"synthetic canonical owner binary")
+    public = root / manifest.OWNER_APP
+    public.parent.mkdir()
+    public.symlink_to(manifest.APPLICATION_TARGET)
     for path in [root, *root.rglob("*")]:
-        path.chmod(path.stat().st_mode & 0o777 & ~0o022)
+        if not path.is_symlink():
+            path.chmod(path.stat().st_mode & 0o777 & ~0o022)
     verifier = root / manifest.SUPPORT / "bin/AccountAccess-installerverify"
     verifier.parent.mkdir()
     verifier.write_bytes(b"synthetic native verifier; never executed")
@@ -35,7 +42,7 @@ def package(tmp_path, monkeypatch):
         assert args[:2] == ["/usr/sbin/pkgutil", "--expand-full"]
         assert kwargs["check"] is True and kwargs["timeout"] <= 120
         component = Path(args[-1]) / "payload.pkg"
-        shutil.copytree(root, component / "Scripts/PublicImage")
+        shutil.copytree(root, component / "Scripts/PublicImage", symlinks=True)
         (component / "Scripts/RecoveryManifest.json").write_bytes(encoded)
         shutil.copy2(verifier, component / "Scripts/AccountAccess-installerverify")
         return SimpleNamespace(returncode=0, stdout=b"", stderr=b"")

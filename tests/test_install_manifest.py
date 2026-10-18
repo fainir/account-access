@@ -10,9 +10,12 @@ from account_access import package_manifest as manifest
 @pytest.fixture
 def payload(tmp_path):
     root = tmp_path / "copied-payload"
-    support, app = root / manifest.SUPPORT, root / manifest.OWNER_APP
+    support, app = root / manifest.SUPPORT, root / manifest.CANONICAL_APP
     (support / "bin").mkdir(parents=True)
     (app / "Contents/MacOS").mkdir(parents=True)
+    public = root / manifest.OWNER_APP
+    public.parent.mkdir()
+    public.symlink_to(manifest.APPLICATION_TARGET)
     (support / "bin/broker").write_bytes(b"synthetic broker code")
     (support / "bin/broker").chmod(0o755)
     (support / "requirements.txt").write_bytes(b"synthetic dependency lock")
@@ -42,9 +45,46 @@ def test_manifest_binds_fixed_roots_resources_native_files_and_internal_aliases(
         "sha256": hashlib.sha256(b"synthetic broker code").hexdigest(),
     }
     assert rows["bin/current"] == {"kind": "symlink", "target": "broker"}
+    assert rows["owner.app/Contents/MacOS/AccountAccess"]["kind"] == "file"
+    assert value["roots"]["/" + str(manifest.OWNER_APP)] == {
+        "": {"kind": "symlink", "target": "../Library/Application Support/Account Access/owner.app"}}
     assert {path: path.read_bytes() for path in before} == before
     (support / "requirements.txt").write_bytes(b"changed public lock")
     assert manifest.build(root, "0.8.0", "arm64") != encoded
+
+
+@pytest.mark.parametrize("target", ["/Library/Application Support/Account Access/owner.app",
+                                     "../Library/Application Support/Account Access/./owner.app",
+                                     "../Library/Application Support/Account Access/other.app"])
+def test_public_application_slot_accepts_only_the_exact_relative_literal(payload, target):
+    root, _, _ = payload
+    public = root / manifest.OWNER_APP
+    public.unlink()
+    public.symlink_to(target)
+    before = public.lstat().st_ino
+    with pytest.raises(ValueError, match="unsafe_install_manifest_application_alias"):
+        manifest.build(root, "0.8.0", "arm64")
+    assert public.lstat().st_ino == before and os.readlink(public) == target
+
+
+def test_public_application_directory_is_not_a_second_authoritative_bundle(payload):
+    root, _, _ = payload
+    public = root / manifest.OWNER_APP
+    public.unlink()
+    public.mkdir()
+    with pytest.raises(ValueError, match="unsafe_install_manifest_application_alias"):
+        manifest.build(root, "0.8.0", "arm64")
+
+
+def test_canonical_application_binary_cannot_be_an_alias_or_missing(payload):
+    root, _, app = payload
+    binary = app / "Contents/MacOS/AccountAccess"
+    binary.rename(binary.with_name("other"))
+    with pytest.raises(ValueError, match="unsafe_install_manifest_owner_application"):
+        manifest.build(root, "0.8.0", "arm64")
+    binary.symlink_to("other")
+    with pytest.raises(ValueError, match="unsafe_install_manifest_owner_application"):
+        manifest.build(root, "0.8.0", "arm64")
 
 
 @pytest.mark.parametrize("version,architecture", [("0.7.4", "arm64"), ("0.8.0", "i386")])
