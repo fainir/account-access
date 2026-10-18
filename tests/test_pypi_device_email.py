@@ -167,7 +167,8 @@ def device_browser(env, monkeypatch, request):
     spec.login_resources = [value.replace("https://pypi.org", provider.base) for value in spec.login_resources]
     spec.operations["status"].url = provider.base + challenge.STATUS_PATH
     spec.login.device_email_source = SOURCE
-    spec.login.code_wait_ms, spec.state_timeout_ms = 5000, 100
+    # Allow the deliberate final-five-second TOTP rollover guard plus polling.
+    spec.login.code_wait_ms, spec.state_timeout_ms = 10000, 100
     config.accounts["pypi-device"] = spec
     config.code_sources.update({PYPI_SOURCE: CodeSource(kind="totp"), SOURCE: source(kind)})
     broker.store.configure(Configuration.model_validate(config.model_dump()))

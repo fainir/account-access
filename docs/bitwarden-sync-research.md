@@ -37,6 +37,33 @@ Account Access does not collect a Bitwarden master password, retain an unlocked
 personal CLI profile, start its full-vault HTTP server, or run commands from an
 agent-supplied shell. Existing owner data was not accessed for this review.
 
+## Pinned standalone-client feasibility
+
+The official [CLI 2026.10.0 release](https://github.com/bitwarden/clients/releases/tag/cli-v2026.10.0)
+includes an OSS macOS ARM64 archive, despite the installation guide's older
+ARM64/npm advice. Its SHA-256 is
+`1fe8f48b9d8c823af3b034368449fffba3e8f3fe738d64207671bdff635c048d`.
+The archive contains only `bw`, not a source or license bundle.
+
+A private extracted copy passed `--version`, unauthenticated `status`, and a
+password-generation command after Developer ID signing with hardened runtime
+and **only** the `allow-jit` entitlement. Library validation remained enabled;
+the upstream `allow-unsigned-executable-memory` entitlement was removed. Every
+command used a fresh private HOME/TMPDIR, stripped environment and no input.
+Only `data.json` appeared in that directory; this observation does not audit
+other extraction paths. The pinned client
+[loads its WebAssembly SDK before commands](https://github.com/bitwarden/clients/blob/cli-v2026.10.0/apps/cli/src/platform/services/cli-sdk-load.service.ts).
+Optional desktop IPC and private login were not accepted by this probe.
+
+This is feasibility evidence, **not a shipped sync connection**. No personal
+profile, password, API key or account was used. Login, remote rotation,
+revocation, owner enrollment and installed-runtime containment remain untested.
+Any redistribution also needs the applicable
+[upstream licenses](https://github.com/bitwarden/clients/blob/cli-v2026.10.0/LICENSE.txt),
+corresponding source/build inputs and dependency notices; a link to the binary
+alone does not provide those materials. No Bitwarden binary was added to the
+repository or installer.
+
 A future integration needs a supported, explicitly enrolled source with bounded
 read-only authority, protected executable inputs, reliable revocation, and
 checked website/username/item binding. Contract fixtures alone would not prove
