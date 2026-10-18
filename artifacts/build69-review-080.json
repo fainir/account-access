@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "recorded_at": "2026-10-19",
+  "version": "0.8.0",
+  "build": 69,
+  "status": "QUARANTINED_SOURCE_DISCONNECT_RACE",
+  "production_ready": false,
+  "application_source_revision": "2fb0e5475921537352cf8f716af4ce869e0dd82c",
+  "qa_revision": "ba02a8df53f0dd5cefcbda87b72cbe55d87f3fc0",
+  "product_tree_sha256": "199e93e7b8dc636e493756ab1773b775847d0465f51297ee6846ce872dc0509e",
+  "qa_product_tree_identical": true,
+  "package": {
+    "filename": "Account-Access-arm64-unsigned.pkg",
+    "bytes": 289419327,
+    "sha256": "f41649d06d5d64c996ce847ce02e386fe21273f6f66d0bed42f132a42b258851",
+    "installer_signed": false,
+    "payload_developer_id_signatures_verified": true,
+    "notarized": false,
+    "installed": false,
+    "source_files_matched": 79,
+    "manifest_files": 25281,
+    "manifest_directories": 2305,
+    "manifest_aliases": 21,
+    "manifest_sha256": "4d12eb5c9df1ef3bbc454db2943be0ab7f5fe3a1d620cb2604c6b7240f7af6ab",
+    "required_install_bytes": 2077802496
+  },
+  "confirmed_failure": {
+    "environment": "isolated fictional website and password source",
+    "trigger": "Disconnect the central Bitwarden source after login preflight but before credential filling",
+    "source_status_after_disconnect": "DISCONNECTED",
+    "cached_credential_after_disconnect": false,
+    "password_filled_after_disconnect": true,
+    "website_password_submissions_after_disconnect": 1,
+    "browser_session_recreated_after_disconnect": true,
+    "operation_status": "COMPLETED",
+    "later_browser_guard_prevented_failure": false,
+    "result": "Package retained for failure provenance; do not install or distribute as a release"
+  },
+  "other_verified_scope": [
+    "Actual unsigned package extraction, inventory, source binding and payload signatures",
+    "Email/OAuth route shadowing from build 68 corrected and focused regressions passed",
+    "Ordinary-prompt Claude Code journey completed four fictional password logins with email, SMS and TOTP verification"
+  ],
+  "claude_report": "agent-tests/claude-verification-080-build69-ba02a8d.json",
+  "private_signins": 0,
+  "owner_installation_performed": false,
+  "limits": [
+    "The confirmed disconnect race overrides passing compatibility checks",
+    "Fictional email, SMS and authenticator inputs do not prove private or physical delivery",
+    "Chrome password imports remain snapshots",
+    "Apple publication and genuine consumer installation remain unverified"
+  ]
+}

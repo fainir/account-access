@@ -60,6 +60,18 @@ remain, but they cannot use the removed credential source. A password explicitly
 replaced through local editing or a new import is no longer linked and is not
 deleted by that source's disconnect.
 
+An active browser operation keeps the original source enrollment. Disconnecting
+or replacing that enrollment stops subsequent password/code entry, new browser
+requests and saved-session publication. A request already sent to a website
+cannot be recalled. Short local browser commands serialize with disconnect;
+waiting for a website, message or owner does not hold that authority lock.
+
+Source-bound browsing currently supports the attached main-frame transport,
+including its XHR/fetch requests. Child-frame and worker requests stop with
+`password_source_browser_surface_unsupported`; they do not fall back to an
+unchecked transport. Websites that require those surfaces need further reviewed
+support. This restriction applies to the Bitwarden connection.
+
 This is a separate Bitwarden client. Locking the Bitwarden desktop app or browser
 extension does not disconnect Account Access. To withdraw access, disconnect here
 and, when needed, revoke the client/API access in Bitwarden itself. Local removal

@@ -1,6 +1,7 @@
 """Preserve Chromium's transport while checking every native redirect response."""
 
 import base64
+from contextlib import nullcontext
 from urllib.parse import urljoin
 
 from playwright.sync_api import Error as PlaywrightError
@@ -18,13 +19,15 @@ class ResponseGuard:
     native transport.
     """
 
-    def __init__(self, context, permitted, failure, response, payload=None, proof=None):
+    def __init__(self, context, permitted, failure, response, payload=None, proof=None, *, authorize=None, defer=None):
         self.context = context
         self.permitted = permitted
         self.failure = failure
         self.response = response
         self.payload = payload
         self.proof = proof
+        self.authorize = authorize or nullcontext
+        self.defer = defer
         self.sessions = {}
 
     def attach(self, page):
@@ -66,6 +69,8 @@ class ResponseGuard:
             return {"attachment": None, "main_document": False}
 
     def paused(self, session, hops, event, main_frame=None):
+        if self.defer and self.defer(lambda: self.paused(session, hops, event, main_frame)):
+            return
         request_id = event["requestId"]
         chain = event.get("networkId", request_id)
         request = event["request"]
@@ -146,7 +151,8 @@ class ResponseGuard:
                     if self.payload:
                         headers = {item["name"].lower(): item["value"] for item in event.get("responseHeaders", [])}
                         self.payload(url, kind, payload, headers, event.get("frameId") == main_frame)
-            session.send("Fetch.continueResponse", {"requestId": request_id})
+            with self.authorize():
+                session.send("Fetch.continueResponse", {"requestId": request_id})
         except (PlaywrightError, ValueError, AccessError):
             try:
                 abort("transport")

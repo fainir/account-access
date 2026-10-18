@@ -7,7 +7,7 @@ establish that experience on personal accounts.
 
 ## Current candidate
 
-Build **69** is the current source candidate, adding explicit Bitwarden
+Build **70** is the current source candidate, adding explicit Bitwarden
 Password Manager connection, imported exact-item suggestions, unattended
 password refresh and restrictive source disconnect. Its official OSS CLI uses
 the protected Node runtime instead of the standalone client's older embedded
@@ -17,6 +17,18 @@ consent; exact-item restrictions are enforced by Account Access. Private
 enrollment and consumer installation are not established by its controlled
 tests. Earlier build evidence below does not validate this new product tree.
 [Bitwarden setup and limits](bitwarden-sync.md).
+
+Build **69** at application source `2fb0e54` corrected the email regression
+below and passed a fresh guarded Claude Code fictional-account journey. Its
+actual unsigned installer also passed inventory, source-binding and payload
+signature review. A later concurrent-disconnect test exposed a security failure:
+an operation could still fill/submit a captured password and recreate its session
+after its Bitwarden source had been disconnected. That package is quarantined;
+passing compatibility checks do not override this failure. Build 70 binds browser
+disclosure, dispatch, redirects and session publication to the original source
+enrollment, including while codes or owner review are pending. Its source-bound
+browser path stops unsupported child-frame/worker transport. The
+[build 69 failure record](../artifacts/build69-review-080.json) is retained.
 
 Build **68** at `8d831d1` was assembled for review but failed regression QA:
 the new source route shadowed the existing email/OAuth connection worker.

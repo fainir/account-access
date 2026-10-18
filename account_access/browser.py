@@ -1,7 +1,8 @@
 """Bounded browser reads and owner-authorized login, using Playwright instead of a raw agent browser."""
 
 import time
-from contextlib import ExitStack
+from contextlib import ExitStack, contextmanager, nullcontext
+import threading
 from urllib.parse import urljoin, urlsplit
 
 from playwright.sync_api import Error as PlaywrightError
@@ -28,14 +29,95 @@ def native_form_target(action):
     return action.partition("#")[0]
 
 
+class _PasswordAuthority:
+    """An operation's exact source enrollment, not whichever link is current later.
+
+    Only short local disclosure/dispatch/publication commands hold the source
+    lock. Playwright can invoke a route callback inside a fill command, so a
+    nested callback on that same thread reuses the already-held authority.
+    """
+
+    def __init__(self, store, account):
+        self.store, self.account = store, account
+        link = store.get("password-link:" + account) if account is not None else None
+        self.link = dict(link) if isinstance(link, dict) and link.get("provider") == "bitwarden" else None
+        self.error = None
+        self.local = threading.local()
+
+    @contextmanager
+    def authorize(self):
+        if self.error:
+            raise self.error
+        if self.link is None or getattr(self.local, "depth", 0):
+            yield
+            return
+        from .bitwarden_source import authority
+        try:
+            with authority(self.store, self.link):
+                current = self.store.get("password-link:" + self.account)
+                keys = ("provider", "generation", "connection", "connection_generation", "item", "username", "fingerprint")
+                if (not isinstance(current, dict)
+                        or any(current.get(key) != self.link.get(key) for key in keys)):
+                    raise AccessError("NEEDS_USER", "bitwarden_connection_changed")
+                self.local.depth = 1
+                try:
+                    yield
+                finally:
+                    self.local.depth = 0
+        except AccessError as error:
+            self.error = AccessError("RETRYABLE" if error.status == "RETRYABLE" else "NEEDS_USER", error.reason)
+            raise self.error from None
+        finally:
+            self.drain()
+
+    def check(self):
+        with self.authorize():
+            pass
+        if self.error:
+            raise self.error
+
+    def defer(self, callback):
+        # A synchronous Playwright command can pump unrelated network events.
+        # Pause those events until its short source section has fully exited;
+        # response-body/public-asset fetching must not inherit the outer lock.
+        if self.link is None or not getattr(self.local, "depth", 0):
+            return False
+        if not hasattr(self.local, "pending"):
+            self.local.pending = []
+        if len(self.local.pending) >= 256:
+            self.error = AccessError("RETRYABLE", "browser_execution_failed")
+            return True
+        self.local.pending.append(callback)
+        return True
+
+    def drain(self):
+        if getattr(self.local, "depth", 0) or getattr(self.local, "draining", False):
+            return
+        self.local.draining = True
+        try:
+            pending = getattr(self.local, "pending", [])
+            while pending:
+                callback = pending.pop(0)
+                try:
+                    callback()
+                except PlaywrightError:
+                    pass  # A closed target cannot dispatch the paused request.
+        finally:
+            self.local.draining = False
+
+
 class Browser:
     def __init__(self, store, codes):
         self.store = store
         self.codes = codes
 
-    def context(self, browser, config, state=None, *, login=False, account=None, secret_values=None):
+    def context(self, browser, config, state=None, *, login=False, account=None, secret_values=None,
+                authorization=None):
+        authorization = authorization or _PasswordAuthority(self.store, account)
+        authorization.check()
         context = browser.new_context(storage_state=state, java_script_enabled=config.javascript,
                                       service_workers="block", accept_downloads=False)
+        context._password_authority = authorization
         context._login_code_request = None
         identity = config.login.identity_step if login and config.login else None
         context._identity_pending = identity is not None
@@ -136,10 +218,25 @@ class Browser:
             allowed.update(asset_policy.urls)
 
         native = ResponseGuard(context, permitted, record_metadata, response_metadata,
-                               declared_assets if asset_policy else None, policy)
+                               declared_assets if asset_policy else None, policy,
+                               authorize=authorization.authorize, defer=authorization.defer)
         context._response_guard = native
 
         def guard(route):
+            if authorization.defer(lambda: guard(route)):
+                return
+            try:
+                dispatch(route)
+            except AccessError:
+                # Preserve the fixed source error on the operation, rather
+                # than letting a callback exception escape as an internal error.
+                try:
+                    route.abort("blockedbyclient")
+                except PlaywrightError:
+                    pass  # Closing a revoked context already stops dispatch.
+
+        def dispatch(route):
+            authorization.check()
             request = route.request
             url, method = request.url, request.method
             provenance = native.provenance(request) if policy else {}
@@ -175,8 +272,16 @@ class Browser:
                 # The attached response guard checks every redirect before
                 # Chromium follows it. Preserve real URLs, cookies, TLS and
                 # browser-generated headers throughout the login transaction.
-                route.continue_()
+                with authorization.authorize():
+                    route.continue_()
                 return
+            if authorization.link is not None:
+                # A fallback fetch waits for the full network response. It
+                # cannot serialize dispatch with revocation without holding a
+                # source lock over that wait; source-bound reads use only the
+                # attached main-frame transport (including main-frame XHR).
+                authorization.error = AccessError("NEEDS_USER", "password_source_browser_surface_unsupported")
+                raise authorization.error
             headers = {k: v for k, v in request.all_headers().items() if k not in {"cookie", "host", "content-length"}}
             body = request.post_data_buffer
             # Child frames and workers have no attached native response guard.
@@ -275,6 +380,7 @@ class Browser:
         return None
 
     def check(self, page, config):
+        self.check_authority(page)
         kind = self.challenge(page, config)
         if kind:
             raise AccessError("NEEDS_USER", "browser_" + kind + "_required", kind)
@@ -285,6 +391,7 @@ class Browser:
         """Wait for configured markers, including asynchronously rendered login responses."""
         deadline = time.monotonic() + config.state_timeout_ms / 1000
         while True:
+            self.check_authority(page)
             kind = self.challenge(page, config)
             prior = previous_kind or ("login" if after_submit else None)
             if kind and kind != prior:
@@ -295,11 +402,20 @@ class Browser:
                 return
             page.wait_for_timeout(50)
 
+    def check_authority(self, page):
+        # Marker helpers also support standalone owner/test pages. Every
+        # context created by this browser has the operation binding above.
+        authorization = getattr(page.context, "_password_authority", None)
+        if authorization is not None:
+            authorization.check()
+
     def read(self, account, op, config, *, secret_values=None, visible=False,
              setup_method=None, review_stop=None, on_code_request=None, on_attention=None):
         # Owner troubleshooting must describe this check, not an earlier routing
         # problem after the account has reached a different verification step.
         self.store.audit("service", account, "", "browser_check_started")
+        authorization = _PasswordAuthority(self.store, account)
+        authorization.check()
         connection = self.store.get("connection:" + account)
         if connection and connection.get("revoked"):
             raise AccessError("DENIED", "connection_revoked")
@@ -314,6 +430,7 @@ class Browser:
 
                 def review_failure(page, error):
                     nonlocal reviewed
+                    authorization.check()
                     if reviewed:
                         return False
                     reviewed = True
@@ -336,6 +453,7 @@ class Browser:
                     try:
                         deadline = time.monotonic() + 300
                         while not page.is_closed() and time.monotonic() < deadline:
+                            authorization.check()
                             if review_stop and review_stop.is_set():
                                 break
                             # Owner approval can complete on this exact reviewed
@@ -346,7 +464,7 @@ class Browser:
                             except AccessError:
                                 pass
                             else:
-                                self.save(account, page.context.storage_state(indexed_db=True))
+                                self.save(account, page.context.storage_state(indexed_db=True), authorization=authorization)
                                 self.store.resolve_login(account)
                                 self.store.audit("owner", account, "", "login_recovered_after_review")
                                 return True
@@ -355,7 +473,7 @@ class Browser:
                         pass
                     return False
                 try:
-                    context = self.context(browser, config, state, account=account)
+                    context = self.context(browser, config, state, account=account, authorization=authorization)
                     page = self.page(context)
                     page.goto(op.url, timeout=15000, wait_until="domcontentloaded")
                     self.wait_state(page, config)
@@ -370,15 +488,16 @@ class Browser:
                         context.close()
                         state = self.login(browser, account, config, state, secret_values=secret_values,
                                            review_failure=review_failure, setup_method=setup_method,
-                                           on_code_request=on_code_request, review_stop=review_stop)
-                        context = self.context(browser, config, state, account=account)
+                                           on_code_request=on_code_request, review_stop=review_stop,
+                                           authorization=authorization)
+                        context = self.context(browser, config, state, account=account, authorization=authorization)
                         page = self.page(context)
                         page.goto(op.url, timeout=15000, wait_until="domcontentloaded")
                         self.wait_state(page, config)
                         self.check(page, config)
                     data = {name: page.locator(selector).first.inner_text(timeout=5000)[:100_000]
                             for name, selector in op.fields.items()}
-                    self.save(account, context.storage_state(indexed_db=True))
+                    self.save(account, context.storage_state(indexed_db=True), authorization=authorization)
                     return data
                 except AccessError as exc:
                     if review_failure(page, exc):
@@ -391,10 +510,11 @@ class Browser:
                 finally:
                     browser.close()
         except PlaywrightError:
+            authorization.check()
             raise AccessError("RETRYABLE", "browser_execution_failed") from None
 
     def login(self, browser, account, config, state=None, *, secret_values=None, review_failure=None,
-              setup_method=None, on_code_request=None, review_stop=None):
+              setup_method=None, on_code_request=None, review_stop=None, authorization=None):
         # Source IDs are enrollment names, not proof of separate physical
         # inboxes/phones. Conservatively serialize each message channel too,
         # including owner setup that can request a text before enrollment.
@@ -411,14 +531,17 @@ class Browser:
                 held.enter_context(self.store.lock(key, timeout=0))
             return self._login(browser, account, config, state, secret_values=secret_values,
                                review_failure=review_failure, setup_method=setup_method,
-                               on_code_request=on_code_request, review_stop=review_stop)
+                               on_code_request=on_code_request, review_stop=review_stop,
+                               authorization=authorization)
 
     def _login(self, browser, account, config, state=None, *, secret_values=None, review_failure=None,
-               setup_method=None, on_code_request=None, review_stop=None):
+               setup_method=None, on_code_request=None, review_stop=None, authorization=None):
         if review_stop and review_stop.is_set():
             raise AccessError("NEEDS_USER", "sms_setup_cancelled", "sms")
         from .password_sync import refresh
         refresh(self.store, account, force=True)
+        authorization = authorization or _PasswordAuthority(self.store, account)
+        authorization.check()
         credential = self.store.get("credential:" + account, {})
         credential = credential or {}
         if secret_values is not None:
@@ -430,7 +553,8 @@ class Browser:
             # A timed throttle needs waiting, not owner authentication. Keep the
             # rate limit while letting durable tasks retry without a false prompt.
             raise AccessError("RETRYABLE", "login_retry_cooldown")
-        context = self.context(browser, config, state, login=True, account=account, secret_values=secret_values)
+        context = self.context(browser, config, state, login=True, account=account, secret_values=secret_values,
+                               authorization=authorization)
         context._login_progress = {}
         started = None
         completed = []
@@ -483,14 +607,14 @@ class Browser:
                 self.check_staged_native_form(page, form.password_selector, form.submit_selector,
                                                form.identity_step.password_post_url, allow_missing=config.javascript)
             if not form.identity_step:
-                page.locator(form.username_selector).fill(credential["username"])
+                self.fill_secret(page, form.username_selector, credential["username"])
                 # Input handlers may reveal a presence challenge or replace
                 # the password form. Recheck before disclosing the password.
                 self.credential_page(page, config, expected)
                 self.check_form(page, form.password_selector, config)
             if context._login_challenge:
                 self.check_staged_native_form(page, form.password_selector, form.submit_selector, config.login_url)
-            page.locator(form.password_selector).fill(credential["password"])
+            self.fill_secret(page, form.password_selector, credential["password"])
             # Charge the password-attempt cooldown only when submission is
             # attempted. Connecting a missing mailbox/phone after preflight
             # stopped must not require another minute or user retry.
@@ -602,6 +726,7 @@ class Browser:
                 code = None
                 deadline = time.monotonic() + min(form.code_wait_ms / 1000, max(0, started + 120 - time.time()))
                 while not code and time.monotonic() < deadline:
+                    authorization.check()
                     try:
                         code = self.codes.resolve(source_id, started, used)
                     except AccessError as exc:
@@ -630,7 +755,7 @@ class Browser:
                 if context._login_challenge:
                     context._login_challenge.arm_code(page.url)
                 # In-memory only, one submission, never put in logs or task state.
-                page.locator(factor.code_selector).fill(code)
+                self.fill_secret(page, factor.code_selector, code)
                 context._login_progress[kind + "_code_filled"] = True
                 context._login_progress[kind + "_submit_attempted"] = True
                 page.locator(factor.code_submit_selector).click(timeout=10000)
@@ -645,13 +770,14 @@ class Browser:
                 completed.append("email")
             self.check(page, config)
             state = context.storage_state(indexed_db=True)
-            self.save(account, state)
+            self.save(account, state, authorization=authorization)
             self.store.resolve_login(account)
             self.store.audit("service", account, "", "login_recovered")
             for factor in completed:
                 self.store.audit("service", account, "", "login_factor_completed", factor)
             return state
         except PlaywrightError:
+            authorization.check()
             if context._login_challenge and context._login_challenge.failed:
                 raise AccessError("NEEDS_USER", "login_challenge_changed", "unknown") from None
             raise
@@ -678,6 +804,7 @@ class Browser:
         used, link = set(), None
         deadline = time.monotonic() + min(config.login.code_wait_ms / 1000, max(0, started + 120 - time.time()))
         while link is None and time.monotonic() < deadline:
+            context._password_authority.check()
             try:
                 link = self.codes.resolve(source_id, started, used, pypi_user=policy.expected_user)
             except AccessError as exc:
@@ -692,6 +819,7 @@ class Browser:
         self.codes.check_window(source_id, started)
         if review_stop and review_stop.is_set():
             raise AccessError("NEEDS_USER", "sms_setup_cancelled", "email")
+        context._password_authority.check()
         destination = policy.arm_device(page.url, link, started)
         try:
             page.goto(destination, wait_until="domcontentloaded", timeout=15000)
@@ -717,6 +845,14 @@ class Browser:
             raise AccessError("NEEDS_USER", "browser_" + kind + "_required", kind)
         if page.url != expected:
             raise AccessError("NEEDS_USER", "login_destination_changed", "unknown")
+
+    def fill_secret(self, page, selector, value):
+        authorization = page.context._password_authority
+        with authorization.authorize():
+            if authorization.link is None:
+                page.locator(selector).fill(value)
+            else:
+                page.locator(selector).fill(value, timeout=2000)
 
     def check_identity_form(self, page, config):
         self.credential_page(page, config, config.login_url)
@@ -763,7 +899,7 @@ class Browser:
         # refreshes this same cooldown; missing-source preflight does not charge it.
         self.store.put("login-attempt:" + account, time.time())
         try:
-            page.locator(form.username_selector).fill(username)
+            self.fill_secret(page, form.username_selector, username)
             page.locator(step.submit_selector).click(timeout=10000)
             context._login_progress["identity_submit_attempted"] = True
             page.wait_for_load_state("domcontentloaded")
@@ -874,10 +1010,15 @@ class Browser:
                 or native_form_target(destination["action"]) not in config.login_post_urls):
             raise AccessError("NEEDS_USER", "login_form_destination_changed", "unknown")
 
-    def save(self, account, state, db=None):
+    def save(self, account, state, db=None, *, authorization=None):
+        authorization = authorization or _PasswordAuthority(self.store, account)
         config = self.store.config()
-        self.store.put("connection:" + account, {"state": state,
-                       "fingerprint": config.fingerprint(account), "generation": str(time.time_ns())}, db=db)
+        from .bitwarden_source import _database
+        database = (_database(self.store) if authorization.link is not None and db is None
+                    else nullcontext(db))
+        with authorization.authorize(), database as target:
+            self.store.put("connection:" + account, {"state": state,
+                           "fingerprint": config.fingerprint(account), "generation": str(time.time_ns())}, db=target)
 
     def connect(self, account, *, headless=False, complete=None):
         """Owner interactive connection. Login resources remain allowlisted; no screenshots/logs."""
