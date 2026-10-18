@@ -273,6 +273,14 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                     state["managed_client"] = managed_client(broker.store)
                 from .password_sync import view
                 state["password_sync"] = view(broker.store)
+                from .bitwarden_source import available as bitwarden_available, connections as bitwarden_connections
+                state["bitwarden_available"] = bitwarden_available(broker.store)
+                state["bitwarden_connections"] = bitwarden_connections(broker.store)
+                from .password_import import sync_suggestion
+                for item in accounts:
+                    suggestion = sync_suggestion(broker.store, item["account"], config=config)
+                    if suggestion:
+                        item["password_sync_suggestion"] = suggestion
                 from .browser_updates import view as browser_updates
                 state["browser_updates"] = browser_updates(broker.store)
                 from .sms_setup import view as sms_setup
@@ -454,6 +462,19 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                     if set(data) != {"id"}:
                         raise ValueError()
                     self.send(200, discard(broker.store, data["id"]))
+                    return
+                if self.path == "/owner/bitwarden/connect":
+                    from .bitwarden_source import connect
+                    if type(data) is not dict or set(data) != {
+                            "region", "client_id", "client_secret", "master_password", "consent_vault_access"}:
+                        raise ValueError()
+                    self.send(200, connect(broker.store, data))
+                    return
+                if self.path == "/owner/bitwarden/disconnect":
+                    from .bitwarden_source import disconnect
+                    if type(data) is not dict or set(data) != {"id", "generation"}:
+                        raise ValueError()
+                    self.send(200, disconnect(broker.store, data["id"], data["generation"]))
                     return
                 if self.path == "/owner/password-sync":
                     from .password_sync import enroll
@@ -683,6 +704,8 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                                 # link must not silently restore its former
                                 # username/password on the next refresh.
                                 broker.store.put("password-link:" + account, None, db=db)
+                                from .password_import import SYNC_HINT
+                                broker.store.put(SYNC_HINT + account, None, db=db)
                                 if previous_link:
                                     # Replacing this source repairs its own
                                     # prerequisite, not website authentication.

@@ -159,6 +159,18 @@ def native_manifest_preflight(verifier, encoded):
         raise ValueError("native_manifest_preflight_mismatch")
 
 
+def stage_bitwarden(args, payload):
+    """A consumer build cannot silently omit its pinned password provider."""
+    values = [getattr(args, name, None) for name in ["bitwarden_archive", "bitwarden_sources", "bitwarden_source_sha256"]]
+    if args.development and not any(values):
+        return None  # Explicit unrelated disposable CI fixture, not a consumer runtime.
+    if not all(values):
+        raise ValueError("bitwarden_runtime_and_corresponding_source_required")
+    from .bitwarden_runtime import stage
+
+    return stage(payload, *values)
+
+
 def assemble(args):
     if sys.platform != "darwin" or os.getuid() == 0 or os.getuid() != os.geteuid():
         raise ValueError("ordinary_mac_build_context_required")
@@ -221,6 +233,7 @@ def assemble(args):
             raise ValueError("wheelhouse_project_mismatch")
         shutil.copy2(wheel, project)
         pin = hashlib.sha256(project.read_bytes()).hexdigest()
+        bitwarden_runtime = stage_bitwarden(args, payload)
         # Do not ship ACL grants inherited from a maintainer's build folders.
         # This changes only our private copied payload, never source artifacts.
         command(["/bin/chmod", "-RN", str(root)])
@@ -243,6 +256,7 @@ def assemble(args):
             return {
                 "status": "INSPECTED",
                 "plan_file": str(plan_file),
+                "bitwarden_runtime": bitwarden_runtime,
                 "production_ready": False,
                 "notarized": False,
                 "installed": False,
@@ -423,6 +437,7 @@ def assemble(args):
             "installed": False,
             "native_payload_audit": runtime_audit,
             "runtime_preparation": runtime_preparation,
+            "bitwarden_runtime": bitwarden_runtime,
             "runtime_image": image,
             "payload_manifest_sha256": hashlib.sha256(manifest).hexdigest(),
             "installer_verifier_sha256": verifier_digest,
@@ -452,6 +467,9 @@ def main():
     parser.add_argument("--runtime-identity")
     parser.add_argument("--runtime-plan")
     parser.add_argument("--inspect-runtime", action="store_true")
+    parser.add_argument("--bitwarden-archive", help="Exact pinned official OSS npm CLI tgz; never downloaded during packaging")
+    parser.add_argument("--bitwarden-sources", help="Complete corresponding-source release archive prepared before packaging")
+    parser.add_argument("--bitwarden-source-sha256", help="Explicit reviewed digest of the corresponding-source release archive")
     args = parser.parse_args()
     try:
         print(json.dumps(assemble(args)))

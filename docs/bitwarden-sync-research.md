@@ -1,8 +1,9 @@
 # Bitwarden password updates
 
 Account Access accepts reviewed Bitwarden CSV and unencrypted JSON imports.
-They are snapshots. Import a fresh export after changing a password. This does
-not establish a continuous connection to a Bitwarden personal vault.
+They are snapshots. A separate, explicitly consented live source is now
+implemented in the 0.8 development candidate; see [setup and security limits](bitwarden-sync.md).
+It is not in the 0.7.4 download, and private acceptance remains unfinished.
 
 The public interfaces were checked on 18 October 2026:
 
@@ -32,10 +33,11 @@ The public interfaces were checked on 18 October 2026:
   standing exact-item sync authorization, and this review does not remove its
   approval step or treat its demonstration credentials as private acceptance.
 
-No continuous Bitwarden provider is shipped on the basis of these interfaces.
-Account Access does not collect a Bitwarden master password, retain an unlocked
-personal CLI profile, start its full-vault HTTP server, or run commands from an
-agent-supplied shell. Existing owner data was not accessed for this review.
+These interfaces do not supply provider-enforced exact-item personal access.
+The candidate instead requires explicit consent for a separate encrypted CLI
+profile and decryption session with broad vault authority. Its master password
+is used only for initial unlock. It starts no full-vault HTTP server and accepts
+no agent-supplied shell command. Existing owner data was not accessed for this review.
 
 ## Pinned standalone-client feasibility
 
@@ -55,18 +57,20 @@ other extraction paths. The pinned client
 [loads its WebAssembly SDK before commands](https://github.com/bitwarden/clients/blob/cli-v2026.10.0/apps/cli/src/platform/services/cli-sdk-load.service.ts).
 Optional desktop IPC and private login were not accepted by this probe.
 
-This is feasibility evidence, **not a shipped sync connection**. No personal
-profile, password, API key or account was used. Login, remote rotation,
-revocation, owner enrollment and installed-runtime containment remain untested.
+This earlier standalone probe was feasibility evidence. No personal
+profile, password, API key or account was used. It did not establish private
+login, remote rotation, revocation or owner enrollment.
 Any redistribution also needs the applicable
 [upstream licenses](https://github.com/bitwarden/clients/blob/cli-v2026.10.0/LICENSE.txt),
 corresponding source/build inputs and dependency notices; a link to the binary
-alone does not provide those materials. No Bitwarden binary was added to the
-repository or installer.
+alone does not provide those materials.
 
-A future integration needs a supported, explicitly enrolled source with bounded
-read-only authority, protected executable inputs, reliable revocation, and
-checked website/username/item binding. Contract fixtures alone would not prove
+The implemented candidate uses the official npm CLI program with the protected
+Node 24.21.0 runtime instead of the standalone client's older embedded Node.
+Its source preparation includes the upstream preferred sources, locked runtime
+dependencies and notices; packaging requires the matching materials alongside
+the installer. Controlled tests check subprocess containment, fresh remote-sync
+contracts, revocation and website/username/item binding. They do not prove
 private Bitwarden enrollment, rotation or delivery. The existing
 [1Password exact-item source](onepassword-sync.md) remains a separate opt-in
 option; its private acceptance is also unverified.

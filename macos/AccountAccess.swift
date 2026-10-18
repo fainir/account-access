@@ -135,6 +135,16 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     var factorEntryViews: [NSView] = []
     var editingMailbox: String?
     var passwordSync: [[String: Any]] = []
+    var bitwardenConnections: [[String: Any]] = []
+    var bitwardenAvailable = false
+    var bitwardenFields: [String: NSTextField] = [:]
+    var bitwardenRegion: NSPopUpButton!
+    var bitwardenConsent: NSButton!
+    var bitwardenAccounts: NSPopUpButton!
+    var bitwardenSources: NSPopUpButton!
+    var bitwardenItem: NSTextField!
+    var bitwardenItemLabel: NSTextField?
+    var bitwardenItemNote: NSTextField?
     var navigationFailures: [[String: Any]] = []
     var browserUpdates: [[String: Any]] = []
     var smsSetups: [[String: Any]] = []
@@ -281,6 +291,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
 
     func page(_ title: String, _ subtitle: String, preservingDeviceEmailReview: Bool = false) {
         if !preservingDeviceEmailReview { clearDeviceEmailReview() }
+        clearBitwardenFields()
         let shell = NSView()
         window.contentView = shell
         let haveOwner = systemOwnerReady || (!systemOwnerConfigured && base != nil && !token.isEmpty)
@@ -639,6 +650,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                     for field in self.mailboxFields.values where field is NSSecureTextField { field.stringValue = "" }
                     for field in self.factorFields.values where field is NSSecureTextField { field.stringValue = "" }
                     for field in self.syncFields.values where field is NSSecureTextField { field.stringValue = "" }
+                    self.clearBitwardenFields()
                     self.password?.stringValue = ""
                     self.page("Account Access is paused", "Saved connections are preserved. Background recovery stays paused after login until you resume it.")
                     self.primary("Resume Account Access", #selector(self.reopen))
@@ -694,10 +706,11 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     func request(_ route: String, body: [String: Any]? = nil) throws -> [String: Any] {
         ownerConnectionLock.lock()
         defer { ownerConnectionLock.unlock() }
+        let bitwardenRequest = route.hasPrefix("owner/bitwarden/") || (body?["connection"] as? [String: Any])?["provider"] as? String == "bitwarden"
         if let native = try nativeOwner() {
             do {
                 let response = try native.request(route, body: body)
-                return try checkedOwnerResponse(response.0, response.1, pending: route == "owner/vault/enroll")
+                return try checkedOwnerResponse(response.0, response.1, pending: route == "owner/vault/enroll", bitwarden: bitwardenRequest)
             } catch DesktopOwnerFailure.approval {
                 throw Failure.message("Setup was not approved. Your saved connections are preserved. Try the setup action again when you are ready to approve it on this Mac.")
             } catch is DesktopOwnerFailure {
@@ -716,6 +729,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             throw Failure.message("The local request is invalid.")
         }
         var message = URLRequest(url: url)
+        if route == "owner/bitwarden/connect" { message.timeoutInterval = 70 }
         message.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
         if let body = body {
             message.httpMethod = "POST"
@@ -733,17 +747,20 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                       let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
                     throw Failure.message("The local app could not complete this step. Your existing connections are preserved.")
                 }
-                result = .success(try self.checkedOwnerResponse(response.statusCode, payload))
+                result = .success(try self.checkedOwnerResponse(response.statusCode, payload, bitwarden: bitwardenRequest))
             } catch { result = .failure(error) }
         }.resume()
-        guard done.wait(timeout: .now() + 35) == .success else {
+        guard done.wait(timeout: .now() + (route == "owner/bitwarden/connect" ? 75 : 35)) == .success else {
             throw Failure.message("The local app took too long to respond. Try again.")
         }
         return try result.get()
     }
 
-    func checkedOwnerResponse(_ code: Int, _ payload: [String: Any], pending: Bool = false) throws -> [String: Any] {
+    func checkedOwnerResponse(_ code: Int, _ payload: [String: Any], pending: Bool = false, bitwarden: Bool = false) throws -> [String: Any] {
         if code == 200 || (pending && code == 202) { return payload }
+        if bitwarden && payload["reason"] as? String == "password_source_access_removed" {
+            throw Failure.message("Bitwarden did not accept this connection. Check the personal API key, region and master password, or reconnect if access was revoked.")
+        }
         let reasons = [
             "owner_setup_authorization_required": "Approve this setup action on your Mac to continue.",
             "owner_channel_unavailable": "The protected app reconnected. Check setup progress before trying this action again.",
@@ -754,7 +771,12 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             "password_source_item_changed": "This item must be an active login for the approved website, with one username and password.",
             "password_source_access_removed": "The password source rejected access. Check its read-only token and the selected vault and item.",
             "password_source_unavailable": "The password source is temporarily unavailable. Try again when it is online.",
-            "password_source_runtime_unavailable": "Repair or update Account Access to restore the 1Password connection.",
+            "password_source_runtime_unavailable": "Repair or update Account Access to restore the password-manager connection.",
+            "bitwarden_connection_invalid": "Check the Bitwarden server region, personal API key and master password. Enter them only here.",
+            "bitwarden_vault_consent_required": "Review and allow local Bitwarden vault access before connecting.",
+            "bitwarden_protected_worker_required": "Bitwarden sync requires the protected Account Access installation. Update or repair the app first.",
+            "bitwarden_connection_not_found": "This Bitwarden connection was removed. Connect it again in Password sync.",
+            "bitwarden_connection_changed": "This Bitwarden connection changed. Reopen Password sync before linking or disconnecting it.",
             "mailbox_connection_failed": "The email server did not accept this connection. Check the email address and application password in Verification. No website sign-in was started.",
             "mailbox_temporarily_unavailable": "The mailbox is temporarily unreachable. Your saved setup is preserved; Account Access can retry without another login approval.",
             "mailbox_tls_verification_failed": "The mailbox's secure connection could not be verified. Check the server settings; Account Access will not use an unverified connection.",
@@ -962,6 +984,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         smsSetups = state["sms_setups"] as? [[String: Any]] ?? []
         browserSessionAccounts = state["browser_session_accounts"] as? [[String: Any]] ?? []
         passwordSync = state["password_sync"] as? [[String: Any]] ?? []
+        bitwardenConnections = state["bitwarden_connections"] as? [[String: Any]] ?? []
+        bitwardenAvailable = state["bitwarden_available"] as? Bool ?? false
         catalog = state["catalog"] as? [[String: Any]] ?? []
         accounts = state["accounts"] as? [[String: Any]] ?? []
         sources = (state["code_sources"] as? [[String: Any]] ?? []).filter {
@@ -1357,7 +1381,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         card("2  Choose the export", "Select the CSV or Bitwarden JSON file on this Mac. You'll review matching supported accounts before anything is saved.")
         card("3  Approve your accounts", "Choose the logins and reads you want to allow. Passwords are encrypted locally. You can move the export to Trash after importing.")
         primary("Choose password file", #selector(choosePasswordFile))
-        card("Keeping passwords current", "CSV and JSON exports are snapshots. Import a fresh export when those passwords change. A configured 1Password service account or Connect source can update already-approved passwords automatically.")
+        card("Keeping passwords current", "CSV and JSON exports are snapshots. Connect Bitwarden or a configured 1Password source to keep approved passwords current automatically. Other imported passwords need a fresh export after changes.")
         action("Connect a live password source", #selector(showPasswordSync))
         action("Back to my accounts", #selector(showReady))
     }
@@ -1645,6 +1669,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
 
     @objc func showPasswordSync() {
         syncFields.values.forEach { $0.stringValue = "" }
+        clearBitwardenFields()
         syncReconnectAccount = nil
         syncReconnectGeneration = nil
         section = "sync"
@@ -1655,7 +1680,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             let name = accounts.first { $0["account"] as? String == account }?["label"] as? String ?? account
             let provider = link["provider"] as? String ?? "1Password"
             let body = card(name, provider + " · checks every five minutes while the service is running. Only the password can update; account identity and permissions stay fixed.", status: link["status"] as? String ?? "", good: link["status"] as? String == "SYNCED")
-            if let generation = link["generation"] as? String,
+            if provider == "Bitwarden" {
+                body.addArrangedSubview(NSTextField(wrappingLabelWithString: "Reconnect Bitwarden below if its vault access changes. A replacement token cannot repair this connection."))
+            } else if let generation = link["generation"] as? String,
                Self.passwordSyncReconnectConnection(token: "shape-check", generation: generation) != nil {
                 let replace = NSButton(title: "Replace token", target: self, action: #selector(showReconnectPasswordSync))
                 replace.identifier = NSUserInterfaceItemIdentifier(account)
@@ -1667,6 +1694,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             disconnect.identifier = NSUserInterfaceItemIdentifier(account)
             body.addArrangedSubview(disconnect)
         }
+        showBitwardenSyncCards()
         card("Connect 1Password", "Use a service account with read-only access to a dedicated vault, or an existing Connect server. Choose the exact login item for an account you already imported. Tokens stay encrypted locally; the app cannot add accounts or permissions through sync.")
         syncAccounts = NSPopUpButton()
         for account in accounts where account["route"] as? String == "browser" && account["portable_ready"] as? Bool == true {
@@ -1710,9 +1738,187 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         return ["token": token, "generation": generation]
     }
 
+    func clearBitwardenFields() {
+        bitwardenFields.values.forEach { $0.stringValue = "" }
+        bitwardenConsent?.state = .off
+    }
+
+    static func canonicalBitwardenUUID(_ value: String) -> Bool {
+        value.utf8.count == 36 && value.range(of: "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$", options: .regularExpression) != nil
+    }
+
+    static func bitwardenIdentity(id: String, generation: String) -> [String: String]? {
+        guard [id, generation].allSatisfy({ $0.utf8.count == 32 && $0.range(of: "^[a-f0-9]{32}$", options: .regularExpression) != nil }) else { return nil }
+        return ["id": id, "generation": generation]
+    }
+
+    static func bitwardenEnrollment(region: String, fields: [String: String], consent: Bool) -> [String: Any]? {
+        guard consent, ["us", "eu"].contains(region), Set(fields.keys) == ["client_id", "client_secret", "master_password"],
+              let client = fields["client_id"], client.hasPrefix("user."), client.utf8.count == 41,
+              canonicalBitwardenUUID(String(client.dropFirst(5))),
+              let secret = fields["client_secret"], (1...8192).contains(secret.utf8.count),
+              !secret.contains("\0"), !secret.contains("\r"), !secret.contains("\n"),
+              let master = fields["master_password"], (1...4096).contains(master.utf8.count), !master.contains("\0") else { return nil }
+        return ["region": region, "client_id": client, "client_secret": secret, "master_password": master, "consent_vault_access": true]
+    }
+
+    static func bitwardenItemConnection(id: String, generation: String, item: String) -> [String: String]? {
+        guard bitwardenIdentity(id: id, generation: generation) != nil, canonicalBitwardenUUID(item) else { return nil }
+        return ["provider": "bitwarden", "connection": id, "connection_generation": generation, "item": item]
+    }
+
+    func showBitwardenSyncCards() {
+        for connection in bitwardenConnections {
+            guard let id = connection["id"] as? String, let generation = connection["generation"] as? String,
+                  Self.bitwardenIdentity(id: id, generation: generation) != nil else { continue }
+            let email = connection["email"] as? String ?? "Bitwarden account"
+            let region = connection["region"] as? String == "eu" ? "Europe" : "United States"
+            let connectionStatus = connection["status"] as? String ?? "CONNECTED"
+            let body = card("Bitwarden · " + email, region + " server. This connection keeps its own encrypted vault session. Locking another Bitwarden app does not disconnect it.", status: connectionStatus, good: connectionStatus == "CONNECTED")
+            let remove = NSButton(title: "Disconnect Bitwarden vault", target: self, action: #selector(disconnectBitwarden))
+            remove.identifier = NSUserInterfaceItemIdentifier(id)
+            body.addArrangedSubview(remove)
+        }
+        guard bitwardenAvailable else {
+            card("Bitwarden live sync", "Update or repair Account Access to install its protected Bitwarden component. File import still works; live connection setup becomes available after repair.")
+            return
+        }
+        card("Connect Bitwarden once", "Bitwarden JSON imports are snapshots. Connect your vault once to keep selected, already-approved passwords current automatically. Your master password is used only to unlock setup and is never saved.")
+        action("Connect Bitwarden", #selector(showBitwardenConnect))
+        let choices = accounts.filter { $0["route"] as? String == "browser" && $0["portable_ready"] as? Bool == true }
+        let connectedVaults = bitwardenConnections.filter { ($0["status"] as? String ?? "CONNECTED") == "CONNECTED" }
+        guard !connectedVaults.isEmpty, !choices.isEmpty else {
+            label("Import and approve a supported login, then select it here after connecting Bitwarden.", 14, .secondaryLabelColor)
+            return
+        }
+        label("Keep an approved login current with Bitwarden", 17)
+        bitwardenAccounts = NSPopUpButton()
+        bitwardenAccounts.setAccessibilityLabel("Approved account for Bitwarden sync")
+        for account in choices {
+            bitwardenAccounts.addItem(withTitle: account["label"] as? String ?? "Account")
+            bitwardenAccounts.lastItem?.representedObject = account["account"]
+        }
+        bitwardenAccounts.target = self
+        bitwardenAccounts.action = #selector(bitwardenAccountChanged)
+        stack.addArrangedSubview(bitwardenAccounts)
+        bitwardenSources = NSPopUpButton()
+        bitwardenSources.setAccessibilityLabel("Connected Bitwarden vault")
+        for connection in connectedVaults {
+            guard let id = connection["id"] as? String, let generation = connection["generation"] as? String,
+                  let identity = Self.bitwardenIdentity(id: id, generation: generation) else { continue }
+            bitwardenSources.addItem(withTitle: (connection["email"] as? String ?? "Bitwarden account") + " · " + (connection["region"] as? String ?? ""))
+            bitwardenSources.lastItem?.representedObject = identity
+        }
+        stack.addArrangedSubview(bitwardenSources)
+        bitwardenItemNote = label("", 14, .secondaryLabelColor)
+        bitwardenItemLabel = label("Bitwarden login item ID (advanced)", 14, .secondaryLabelColor)
+        bitwardenItem = NSTextField()
+        bitwardenItem.placeholderString = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+        bitwardenItem.setAccessibilityLabel("Bitwarden login item ID (advanced)")
+        stack.addArrangedSubview(bitwardenItem)
+        bitwardenItem.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        bitwardenAccountChanged()
+        action("Connect Bitwarden automatic updates", #selector(linkBitwardenItem))
+    }
+
+    @objc func bitwardenAccountChanged() {
+        let account = bitwardenAccounts?.selectedItem?.representedObject as? String
+        let suggestion = accounts.first { $0["account"] as? String == account }?["password_sync_suggestion"] as? [String: String]
+        let item = suggestion?["provider"] == "bitwarden" ? suggestion?["item"] : nil
+        let imported = item.map(Self.canonicalBitwardenUUID) == true
+        bitwardenItem?.stringValue = imported ? item! : ""
+        bitwardenItem?.isHidden = imported
+        bitwardenItem?.isEditable = !imported
+        bitwardenItemLabel?.isHidden = imported
+        bitwardenItemNote?.stringValue = imported ? "Uses the exact Bitwarden login selected during password import. Only its password can update." : "Advanced: enter this login's exact item ID from Bitwarden. Account Access checks its website and username before linking it."
+    }
+
+    @objc func showBitwardenConnect() {
+        guard bitwardenAvailable else { showPasswordSync(); return }
+        page("Connect Bitwarden once", "Your approved login passwords can then update without routine prompts.")
+        card("One-time setup", "In the Bitwarden web vault, open Settings → Security → Keys, then View API key. Choose the same server region you use in Bitwarden. Your master password is used for this setup only and is never saved.")
+        action("Open Bitwarden setup instructions", #selector(openBitwardenInstructions))
+        label("Bitwarden server", 14, .secondaryLabelColor)
+        bitwardenRegion = NSPopUpButton()
+        bitwardenRegion.addItems(withTitles: ["United States · bitwarden.com", "Europe · bitwarden.eu"])
+        bitwardenRegion.setAccessibilityLabel("Bitwarden server region")
+        stack.addArrangedSubview(bitwardenRegion)
+        bitwardenFields = [:]
+        for (key, title) in [("client_id", "Personal API client ID"), ("client_secret", "Personal API client secret"), ("master_password", "Bitwarden master password")] {
+            label(title, 14, .secondaryLabelColor)
+            let field = NSSecureTextField()
+            field.placeholderString = title
+            field.setAccessibilityLabel(title)
+            stack.addArrangedSubview(field)
+            field.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+            bitwardenFields[key] = field
+        }
+        card("Review vault access", "Bitwarden's session can decrypt your whole vault. Account Access keeps that session encrypted locally and fetches only exact items you link to approved logins. Disconnecting below removes this connection and its saved linked passwords and sessions. No vault list, password or key is sent to your AI.")
+        bitwardenConsent = NSButton(checkboxWithTitle: "Allow Account Access to decrypt my Bitwarden vault locally", target: nil, action: nil)
+        bitwardenConsent.setAccessibilityLabel("Allow local Bitwarden vault decryption")
+        bitwardenConsent.state = .off
+        stack.addArrangedSubview(bitwardenConsent)
+        primary("Connect Bitwarden vault", #selector(connectBitwarden))
+        action("Cancel Bitwarden setup", #selector(showPasswordSync))
+    }
+
+    @objc func openBitwardenInstructions() { NSWorkspace.shared.open(URL(string: "https://bitwarden.com/help/personal-api-key/")!) }
+
+    @objc func connectBitwarden() {
+        guard bitwardenAvailable, let body = Self.bitwardenEnrollment(region: bitwardenRegion.indexOfSelectedItem == 1 ? "eu" : "us",
+            fields: bitwardenFields.mapValues { $0.stringValue }, consent: bitwardenConsent.state == .on) else {
+            status.stringValue = "Enter your personal API details and master password, then review local vault access."
+            return
+        }
+        clearBitwardenFields()
+        busy = true
+        page("Connecting Bitwarden", "Checking your vault connection. The master password is not saved; this can take up to a minute.")
+        progress()
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                _ = try self.request("owner/bitwarden/connect", body: body)
+                let state = try self.request("owner/state")
+                DispatchQueue.main.async { self.busy = false; self.accept(state); self.showPasswordSync() }
+            } catch { self.fail(error, retry: #selector(self.showPasswordSync)) }
+        }
+    }
+
+    @objc func linkBitwardenItem() {
+        guard let account = bitwardenAccounts?.selectedItem?.representedObject as? String,
+              let identity = bitwardenSources?.selectedItem?.representedObject as? [String: String],
+              let connection = Self.bitwardenItemConnection(id: identity["id"] ?? "", generation: identity["generation"] ?? "", item: bitwardenItem?.stringValue ?? "") else {
+            status.stringValue = "Choose the current Bitwarden connection and this login's exact item."
+            return
+        }
+        busy = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                _ = try self.request("owner/password-sync", body: ["account": account, "connection": connection])
+                let state = try self.request("owner/state")
+                DispatchQueue.main.async { self.busy = false; self.accept(state); self.showPasswordSync() }
+            } catch { self.fail(error, retry: #selector(self.showPasswordSync)) }
+        }
+    }
+
+    @objc func disconnectBitwarden(_ sender: NSButton) {
+        guard let id = sender.identifier?.rawValue,
+              let connection = bitwardenConnections.first(where: { $0["id"] as? String == id }),
+              let generation = connection["generation"] as? String,
+              let identity = Self.bitwardenIdentity(id: id, generation: generation) else { return }
+        busy = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                _ = try self.request("owner/bitwarden/disconnect", body: identity)
+                let state = try self.request("owner/state")
+                DispatchQueue.main.async { self.busy = false; self.accept(state); self.showPasswordSync() }
+            } catch { self.fail(error, retry: #selector(self.showPasswordSync)) }
+        }
+    }
+
     @objc func showReconnectPasswordSync(_ sender: NSButton) {
         guard let account = sender.identifier?.rawValue,
               let link = passwordSync.first(where: { $0["account"] as? String == account }),
+              link["provider"] as? String != "Bitwarden",
               let generation = link["generation"] as? String,
               Self.passwordSyncReconnectConnection(token: "shape-check", generation: generation) != nil else {
             status.stringValue = "Reopen Password sync after the current check finishes."

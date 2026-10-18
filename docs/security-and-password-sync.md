@@ -7,9 +7,11 @@ The agent interface returns approved results, never passwords or verification co
 
 The current [Chrome sync source review](chrome-password-sync-research.md) explains
 why a raw browser-database reader is not a shipped continuous-sync connection.
-Chrome imports remain reviewed snapshots; configured read-only 1Password
-service-account and Connect sources provide ongoing exact-item updates. Private
-deployment QA remains open.
+Chrome imports remain reviewed snapshots. Configured 1Password sources and the
+candidate's separately connected Bitwarden source provide ongoing updates.
+Bitwarden's session can decrypt the whole vault; its setup requires consent to
+that authority. The application's exact-item checks do not narrow the provider's
+session permission. Private deployment QA remains open.
 
 Version 0.7 adds:
 
@@ -136,11 +138,15 @@ why the Messages helper does not imply a Chrome vault connection. Continuous
 Chrome synchronization remains an unmet requirement; CSV import is not its
 replacement or proof of completion.
 
-Bitwarden imports also remain snapshots. Its documented personal API key still
-needs a separately unlocked vault for password reads; the Secrets Manager SDK
-serves a different source. See the [official-interface review](bitwarden-sync-research.md).
-Account Access does not retain a master password or unlocked personal CLI vault
-to turn an export import into a continuous connection.
+Bitwarden file imports also remain snapshots. The candidate's separate
+[Bitwarden connection](bitwarden-sync.md) uses an explicitly unlocked local CLI
+session; it does not retain the master password. The profile and decryption
+session are kept encrypted in the protected worker. This grants broad local
+vault authority, with application checks for each exact approved item and origin.
+Disconnect clears that source's still-linked credentials and browser sessions;
+changed source generations cannot revive a removed link. The
+[official-interface review](bitwarden-sync-research.md) explains why this needs a
+separate consent instead of treating an export or personal API key as live access.
 
 **1Password supports background updates through a service account or Connect.**
 The service-account option uses the pinned official SDK and removes the need to

@@ -3,6 +3,7 @@
 import csv
 import io
 import json
+import re
 import secrets
 import time
 from contextlib import ExitStack
@@ -16,6 +17,8 @@ from .account_context import describe
 MAX_BYTES = 4_000_000
 MAX_ROWS = 10_000
 MAX_ITEM_URIS = 64
+SYNC_HINT = "password-sync-hint:"
+ITEM_UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 
 
 def available(store):
@@ -141,6 +144,14 @@ def _parse_bitwarden(contents):
                 if len(rows) >= MAX_ROWS:
                     raise ValueError()
                 seen.add(row["url"])
+                # This is a suggestion for a later explicit source connection,
+                # never a grant or an enrolled sync link. Older exports without
+                # a canonical item ID remain ordinary password snapshots.
+                item_id = item.get("id")
+                if (isinstance(item_id, str) and ITEM_UUID.fullmatch(item_id)
+                        and type(item.get("reprompt", 0)) is int and item.get("reprompt", 0) == 0
+                        and item.get("archivedDate") is None):
+                    row["sync_item"] = item_id
                 rows.append(row)
     return rows
 
@@ -304,6 +315,13 @@ def apply(broker, ident, selections, principals):
                     # A new explicit import replaces an older manager link; it
                     # must not later overwrite the owner's selected password.
                     store.put("password-link:" + account, None, db=db)
+                    hint = None
+                    if row.get("sync_item"):
+                        hint = {"provider": "bitwarden", "item": row["sync_item"],
+                                "username": row["username"],
+                                "origin": origin(current.accounts[account].login_url),
+                                "fingerprint": current.fingerprint(account)}
+                    store.put(SYNC_HINT + account, hint, db=db)
                     for principal in principals:
                         db.execute("DELETE FROM grants WHERE principal=? AND account=?", (principal, account))
                         for op in set(ops):
@@ -315,3 +333,25 @@ def apply(broker, ident, selections, principals):
         for account, _, _ in chosen:
             store.audit("owner", account, "", "password_imported")
         return {"status": "IMPORTED", "accounts": [x[0] for x in chosen]}
+
+
+def sync_suggestion(store, account, *, config=None, credential=None, hint=None):
+    """Owner-only exact-item hint; enrollment still checks the live item.
+
+    An export never establishes authority to a password manager. The suggestion
+    disappears after an identity, connector, or explicit credential replacement.
+    """
+    config = config or store.config()
+    spec = config.accounts.get(account)
+    hint = store.get(SYNC_HINT + account) if hint is None else hint
+    credential = store.get("credential:" + account) if credential is None else credential
+    if (not isinstance(spec, BrowserAccount) or not spec.login
+            or not isinstance(hint, dict) or not isinstance(credential, dict)
+            or set(hint) != {"provider", "item", "username", "origin", "fingerprint"}
+            or hint.get("provider") != "bitwarden"
+            or not isinstance(hint.get("item"), str) or not ITEM_UUID.fullmatch(hint["item"])
+            or not credential.get("username") or hint.get("username") != credential["username"]
+            or hint.get("origin") != origin(spec.login_url)
+            or hint.get("fingerprint") != config.fingerprint(account)):
+        return None
+    return {"provider": "bitwarden", "item": hint["item"]}

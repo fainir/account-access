@@ -12,8 +12,9 @@ are enrolled. The review expires after ten minutes.
 In Bitwarden, open **Export vault**, choose the vault you want to export, and
 select the plain **.json** format. Complete Bitwarden's own export authorization,
 then choose that file in Account Access. Do not choose **.json (Encrypted)** or a
-ZIP archive. Account Access does not ask for your Bitwarden master password or
-attempt to decrypt a protected backup.
+ZIP archive. File import does not ask for your Bitwarden master password or
+attempt to decrypt a protected backup. A separate optional live connection has
+its own [local setup and vault-access consent](bitwarden-sync.md).
 [Bitwarden's export instructions](https://bitwarden.com/help/export-your-data/).
 
 One login can contain several website URIs. Account Access shows each distinct
@@ -59,10 +60,12 @@ approve, and importing does not dismiss independent website challenges.
 ## Password changes
 
 CSV and Bitwarden JSON imports are snapshots. Re-export and review a changed
-password when needed. Account Access does not watch a plaintext export or claim
-continuous Chrome or Bitwarden synchronization. For ongoing exact-item updates,
-the separate [1Password service-account or Connect source](onepassword-sync.md)
-uses a configured read-only connection.
+password when needed. Account Access does not watch a plaintext export or provide
+continuous Chrome synchronization. For ongoing updates, separately connect
+[Bitwarden](bitwarden-sync.md) or a
+[1Password service-account or Connect source](onepassword-sync.md). A supported
+Bitwarden JSON item ID is retained only as a suggestion for that later owner
+setup; it is not an enrolled source or a grant of vault access.
 
 The JSON import tests use fictional exports and local websites. Real private
 Bitwarden export and sign-in acceptance remain unverified.

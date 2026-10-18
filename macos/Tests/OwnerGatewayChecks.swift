@@ -10,14 +10,19 @@ final class CheckedOwnerBackend: OwnerGatewayBackend {
     private var mutations = 0
     private var routes: [String] = []
     private var exposed = false
+    private var bufferedHealth = false
     var calls: Int { lock.lock(); defer { lock.unlock() }; return count }
     var writes: Int { lock.lock(); defer { lock.unlock() }; return mutations }
     var paths: [String] { lock.lock(); defer { lock.unlock() }; return routes }
     var leaked: Bool { lock.lock(); defer { lock.unlock() }; return exposed }
+    var readMultiBufferHealth: Bool { lock.lock(); defer { lock.unlock() }; return bufferedHealth }
     init(_ wrapped: OwnerGatewayBackend, capability: String) { self.wrapped = wrapped; self.capability = capability }
     func request(_ route: OwnerGatewayRoute) throws -> (Int, Data) {
         lock.lock(); count += 1; mutations += route.body == nil ? 0 : 1; routes.append(route.path); lock.unlock()
         let result = try wrapped.request(route)
+        if route.path == "/owner/health", result.0 == 200, result.1.count > 8192 {
+            lock.lock(); bufferedHealth = true; lock.unlock()
+        }
         let text = String(data: result.1, encoding: .utf8) ?? ""
         lock.lock(); exposed = exposed || text.contains(capability); lock.unlock()
         return result
@@ -164,6 +169,39 @@ enum GatewayChecks {
             ("browser_handoff_route", "owner/browser-session/start")] {
             result["reject_" + name] = (try? OwnerGatewayRoute(route, body: grant)) == nil
         }
+        let bitwardenUUID = "12345678-1234-1234-1234-123456789abc"
+        let bitwardenConnect: [String: Any] = ["region": "us", "client_id": "user." + bitwardenUUID,
+            "client_secret": "synthetic-api-secret", "master_password": "  synthetic 🔐 master  ", "consent_vault_access": true]
+        let bitwardenBody = try JSONSerialization.data(withJSONObject: bitwardenConnect)
+        let bitwardenRoute = try OwnerGatewayRoute("owner/bitwarden/connect", body: bitwardenBody)
+        result["bitwarden_connect_requires_setup_and_bounded_budget"] = bitwardenRoute.requiresSetup && bitwardenRoute.requestTimeout == 70
+        var bitwardenInvalid = [[String: Any]]()
+        for (key, invalid) in [("region", "self-hosted" as Any), ("client_id", "user." + bitwardenUUID.uppercased()),
+                               ("client_secret", "bad\nsecret"), ("client_secret", String(repeating: "x", count: 8193)),
+                               ("master_password", "bad\0password"), ("master_password", String(repeating: "x", count: 4097)),
+                               ("consent_vault_access", false), ("consent_vault_access", 1), ("command", "caller-selected")] {
+            var body = bitwardenConnect; body[key] = invalid; bitwardenInvalid.append(body)
+        }
+        var missingConsent = bitwardenConnect; missingConsent.removeValue(forKey: "consent_vault_access")
+        bitwardenInvalid.append(missingConsent)
+        result["bitwarden_connect_rejects_invalid_scope_credentials_and_numeric_consent"] = bitwardenInvalid.allSatisfy {
+            (try? OwnerGatewayRoute("owner/bitwarden/connect", body: JSONSerialization.data(withJSONObject: $0))) == nil
+        }
+        let bitwardenIdentity = ["id": String(repeating: "b", count: 32), "generation": String(repeating: "a", count: 32)]
+        let disconnectBitwarden = try OwnerGatewayRoute("owner/bitwarden/disconnect", body: JSONSerialization.data(withJSONObject: bitwardenIdentity))
+        let bitwardenStateBudget = try OwnerGatewayRoute("owner/state", body: nil).requestTimeout
+        result["bitwarden_disconnect_is_restriction_with_normal_budget"] = !disconnectBitwarden.requiresSetup && disconnectBitwarden.requestTimeout == 35
+            && bitwardenStateBudget == 35
+        var badBitwardenIdentity = bitwardenIdentity; badBitwardenIdentity["generation"]! += "\n"
+        let bitwardenLink: [String: Any] = ["account": "fixture", "connection": ["provider": "bitwarden",
+            "connection": bitwardenIdentity["id"]!, "connection_generation": bitwardenIdentity["generation"]!, "item": bitwardenUUID]]
+        let linkedBitwarden = try OwnerGatewayRoute("owner/password-sync", body: JSONSerialization.data(withJSONObject: bitwardenLink))
+        var badBitwardenLink = bitwardenLink
+        var badConnection = bitwardenLink["connection"] as! [String: String]; badConnection["item"] = "arbitrary-name"
+        badBitwardenLink["connection"] = badConnection
+        result["bitwarden_exact_item_and_generation_are_validated"] = linkedBitwarden.requiresSetup && linkedBitwarden.requestTimeout == 35
+            && (try? OwnerGatewayRoute("owner/password-sync", body: JSONSerialization.data(withJSONObject: badBitwardenLink))) == nil
+            && (try? OwnerGatewayRoute("owner/bitwarden/disconnect", body: JSONSerialization.data(withJSONObject: badBitwardenIdentity))) == nil
         for (name, header) in [("duplicate_http_length", "HTTP/1.0 200 OK\r\nContent-Length: 2\r\ncontent-length: 2"),
             ("chunked_http", "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nContent-Length: 2"),
             ("http_redirect", "HTTP/1.1 302 Found\r\nContent-Length: 2"),
@@ -329,7 +367,7 @@ enum GatewayChecks {
             let wrongUID = try GatewayChecks.invoke(trustedID, endpoint: otherListener.endpoint, policy: serverPolicy, mode: "denied")
             checks["different_owner_uid_rejected"] = wrongUID["helper_ran"] == true && wrongUID["prepared"] == false && backend.calls == beforeUID
             checks["owner_capability_never_returned"] = !backend.leaked
-            checks["actual_python_owner_api_reached"] = backend.calls >= 7
+            checks["actual_python_owner_api_reached"] = backend.calls >= 7 && backend.readMultiBufferHealth
             stopHelpers()
             let deadline = Date().addingTimeInterval(5)
             while Date() < deadline && GatewayChecks.probePIDs.contains(where: { kill($0, 0) == 0 }) {

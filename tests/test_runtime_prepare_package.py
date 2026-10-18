@@ -32,6 +32,7 @@ def package_inputs(tmp_path, monkeypatch):
         package, "inspect_app", lambda *a, **k: ("0.8.0", "ABCDEFGHIJ", project, b"fixture==1")
     )
     monkeypatch.setattr(package, "signature", lambda *a, **k: {"team": "ABCDEFGHIJ"})
+    monkeypatch.setattr(package, "stage_bitwarden", lambda *a: {"fixture": "separate-provider-input-tests"})
     calls = []
 
     def command(arguments):

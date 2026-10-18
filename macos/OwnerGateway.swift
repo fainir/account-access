@@ -172,20 +172,21 @@ struct OwnerGatewayRoute {
     let path: String
     let body: Data?
     let requiresSetup: Bool
+    var requestTimeout: TimeInterval { path == "/owner/bitwarden/connect" ? 70 : 35 }
 
     static let writes: Set<String> = [
         "owner/credential", "owner/grant", "owner/revoke", "owner/add", "owner/verify",
         "owner/import/preview", "owner/import/apply", "owner/authenticator/preview",
         "owner/authenticator/apply", "owner/authenticator/discard", "owner/source",
         "owner/source/check", "owner/source/revoke", "owner/mailbox/connect", "owner/mailbox/check",
-        "owner/mailbox/password", "owner/mailbox/remove", "owner/password-sync",
+        "owner/mailbox/password", "owner/mailbox/remove", "owner/password-sync", "owner/bitwarden/connect", "owner/bitwarden/disconnect",
         "owner/mailbox/oauth/begin", "owner/mailbox/oauth/finish", "owner/mailbox/oauth/cancel", "owner/mailbox/oauth/check",
         "owner/device-email/preview", "owner/device-email/apply", "owner/device-email/discard", "owner/device-email/remove",
         "owner/password-sync/reconnect", "owner/password-sync/disconnect", "owner/phone/pair", "owner/stop", "owner/vault/enroll", "owner/client/enroll", "owner/client/installed", "owner/browser-message"
     ]
     static let restrictions: Set<String> = ["owner/stop", "owner/revoke", "owner/source/revoke",
         "owner/mailbox/remove", "owner/mailbox/oauth/cancel", "owner/password-sync/disconnect", "owner/authenticator/discard",
-        "owner/device-email/discard", "owner/device-email/remove"]
+        "owner/device-email/discard", "owner/device-email/remove", "owner/bitwarden/disconnect"]
 
     init(_ route: String, body: Data?) throws {
         var browserNeedsSetup: Bool?
@@ -201,6 +202,30 @@ struct OwnerGatewayRoute {
                 throw OwnerGatewayError.invalidPolicy // Requires a future trusted host handoff.
             }
             if route == "owner/vault/enroll", !value.isEmpty { throw OwnerGatewayError.invalidPolicy }
+            if route == "owner/bitwarden/connect" {
+                guard Set(value.keys) == ["region", "client_id", "client_secret", "master_password", "consent_vault_access"],
+                      let region = value["region"] as? String, ["us", "eu"].contains(region),
+                      let identity = value["client_id"] as? String, identity.utf8.count == 41,
+                      identity.hasPrefix("user."), Self.bitwardenUUID(String(identity.dropFirst(5))),
+                      let secret = value["client_secret"] as? String, (1...8192).contains(secret.utf8.count),
+                      !secret.contains("\0"), !secret.contains("\r"), !secret.contains("\n"),
+                      let master = value["master_password"] as? String, (1...4096).contains(master.utf8.count), !master.contains("\0"),
+                      let consent = value["consent_vault_access"] as? NSNumber,
+                      CFGetTypeID(consent) == CFBooleanGetTypeID(), consent.boolValue else { throw OwnerGatewayError.invalidPolicy }
+            }
+            if route == "owner/bitwarden/disconnect" {
+                guard Set(value.keys) == ["id", "generation"], Self.bitwardenHex(value["id"]), Self.bitwardenHex(value["generation"]) else {
+                    throw OwnerGatewayError.invalidPolicy
+                }
+            }
+            if route == "owner/password-sync", let connection = value["connection"] as? [String: Any],
+               connection["provider"] as? String == "bitwarden" {
+                guard Set(value.keys) == ["account", "connection"], let account = value["account"] as? String,
+                      (1...64).contains(account.utf8.count), account.range(of: "^[a-z][a-z0-9_-]{0,63}$", options: .regularExpression) != nil,
+                      Set(connection.keys) == ["provider", "connection", "connection_generation", "item"],
+                      Self.bitwardenHex(connection["connection"]), Self.bitwardenHex(connection["connection_generation"]),
+                      let item = connection["item"] as? String, Self.bitwardenUUID(item) else { throw OwnerGatewayError.invalidPolicy }
+            }
             if route.hasPrefix("owner/device-email/") {
                 let preview = route.hasSuffix("/preview"), remove = route.hasSuffix("/remove")
                 let expected: Set<String> = preview ? ["account", "fingerprint", "mailbox"] : remove ? ["account", "fingerprint"] : ["id"]
@@ -305,6 +330,14 @@ struct OwnerGatewayRoute {
         self.path = "/" + route
         self.body = body
         self.requiresSetup = browserNeedsSetup ?? (body != nil && !Self.restrictions.contains(route))
+    }
+
+    private static func bitwardenUUID(_ value: String) -> Bool {
+        value.utf8.count == 36 && value.range(of: "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$", options: .regularExpression) != nil
+    }
+    private static func bitwardenHex(_ value: Any?) -> Bool {
+        guard let value = value as? String else { return false }
+        return value.utf8.count == 32 && value.range(of: "^[a-f0-9]{32}$", options: .regularExpression) != nil
     }
 }
 
@@ -543,12 +576,12 @@ final class OwnerGatewayConnection {
     func request(_ route: String, body: Data?, reply: @escaping (Int, Data) -> Void) {
         let completion = OwnerGatewayReply<(Int, Data)> { reply($0.0, $0.1) }
         let failed = { completion.finish((503, OwnerGatewaySession.failure("owner_channel_unavailable"))) }
-        DispatchQueue.global().asyncAfter(deadline: .now() + 35, execute: failed)
         guard isReady else { failed(); return }
-        guard (try? OwnerGatewayRoute(route, body: body)) != nil else {
+        guard let checked = try? OwnerGatewayRoute(route, body: body) else {
             completion.finish((403, OwnerGatewaySession.failure("trusted_owner_route_required")))
             return
         }
+        DispatchQueue.global().asyncAfter(deadline: .now() + checked.requestTimeout, execute: failed)
         guard let proxy = proxy(error: failed) else { failed(); return }
         proxy.request(route, body: body) { [weak self] status, data in
             guard self?.peerIdentityMatches == true, data.count <= 8_000_000,
@@ -629,10 +662,11 @@ final class OwnerUnixBackend: OwnerGatewayBackend {
     }
 
     func request(_ route: OwnerGatewayRoute) throws -> (Int, Data) {
-        try request(route, timeout: 35)
+        try request(route, timeout: route.requestTimeout)
     }
     func health(timeout: TimeInterval) throws -> (Int, Data) {
-        try request(OwnerGatewayRoute("owner/health", body: nil), timeout: timeout)
+        guard timeout.isFinite, timeout > 0, timeout <= 35 else { throw OwnerGatewayError.invalidPolicy }
+        return try request(OwnerGatewayRoute("owner/health", body: nil), timeout: timeout)
     }
     private func request(_ route: OwnerGatewayRoute, timeout: TimeInterval) throws -> (Int, Data) {
         try exchange(path: route.path, body: route.body, timeout: timeout)
@@ -651,17 +685,29 @@ final class OwnerUnixBackend: OwnerGatewayBackend {
         return try exchange(path: "/owner/native-messages/respond", body: body, timeout: 1)
     }
     private func exchange(path routePath: String, body routeBody: Data?, timeout: TimeInterval) throws -> (Int, Data) {
-        guard timeout.isFinite, timeout > 0, timeout <= 35 else { throw OwnerGatewayError.invalidPolicy }
+        guard timeout.isFinite, timeout > 0, timeout <= 70 else { throw OwnerGatewayError.invalidPolicy }
+        let deadline = ProcessInfo.processInfo.systemUptime + timeout
         let descriptor = socket(AF_UNIX, SOCK_STREAM, 0)
         guard descriptor >= 0 else { throw OwnerGatewayError.unavailable }
         defer { Darwin.close(descriptor) }
-        guard fcntl(descriptor, F_SETFD, FD_CLOEXEC) == 0 else { throw OwnerGatewayError.unavailable }
-        let milliseconds = Int((min(timeout, 30) * 1000).rounded(.up))
-        var socketTimeout = timeval(tv_sec: milliseconds / 1000, tv_usec: Int32((milliseconds % 1000) * 1000))
+        let flags = fcntl(descriptor, F_GETFL)
+        guard flags >= 0, fcntl(descriptor, F_SETFL, flags | O_NONBLOCK) == 0,
+              fcntl(descriptor, F_SETFD, FD_CLOEXEC) == 0 else { throw OwnerGatewayError.unavailable }
+        func waitForIO(_ events: Int16) throws {
+            while true {
+                let remaining = deadline - ProcessInfo.processInfo.systemUptime
+                guard remaining > 0 else { throw OwnerGatewayError.unavailable }
+                var ready = pollfd(fd: descriptor, events: events, revents: 0)
+                let count = Darwin.poll(&ready, 1, Int32((remaining * 1000).rounded(.up)))
+                if count < 0 && errno == EINTR { continue }
+                guard count > 0, ready.revents & Int16(POLLNVAL) == 0 else { throw OwnerGatewayError.unavailable }
+                // POLLHUP can accompany unread response bytes. Let recv drain
+                // them; changing SO_RCVTIMEO on a closed Darwin peer fails.
+                return
+            }
+        }
         var enabled: Int32 = 1
-        guard setsockopt(descriptor, SOL_SOCKET, SO_RCVTIMEO, &socketTimeout, socklen_t(MemoryLayout<timeval>.size)) == 0,
-              setsockopt(descriptor, SOL_SOCKET, SO_SNDTIMEO, &socketTimeout, socklen_t(MemoryLayout<timeval>.size)) == 0,
-              setsockopt(descriptor, SOL_SOCKET, SO_NOSIGPIPE, &enabled, socklen_t(MemoryLayout<Int32>.size)) == 0 else {
+        guard setsockopt(descriptor, SOL_SOCKET, SO_NOSIGPIPE, &enabled, socklen_t(MemoryLayout<Int32>.size)) == 0 else {
             throw OwnerGatewayError.unavailable
         }
         var address = sockaddr_un()
@@ -674,7 +720,15 @@ final class OwnerUnixBackend: OwnerGatewayBackend {
                 Darwin.connect(descriptor, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
             }
         }
-        guard connected == 0 else { throw OwnerGatewayError.unavailable }
+        if connected != 0 {
+            guard [EINPROGRESS, EAGAIN, EWOULDBLOCK, EINTR].contains(errno) else { throw OwnerGatewayError.unavailable }
+            try waitForIO(Int16(POLLOUT))
+            var error: Int32 = 0
+            var length = socklen_t(MemoryLayout<Int32>.size)
+            guard getsockopt(descriptor, SOL_SOCKET, SO_ERROR, &error, &length) == 0, error == 0 else {
+                throw OwnerGatewayError.unavailable
+            }
+        }
         let body = routeBody ?? Data()
         let host = "127.0.0.1:" + String(port)
         var header = (routeBody == nil ? "GET " : "POST ") + routePath + " HTTP/1.0\r\nHost: " + host
@@ -682,13 +736,12 @@ final class OwnerUnixBackend: OwnerGatewayBackend {
         if routeBody != nil { header += "Origin: http://" + host + "\r\nContent-Type: application/json\r\n" }
         header += "Content-Length: " + String(body.count) + "\r\n\r\n"
         var payload = Data(header.utf8); payload.append(body)
-        let deadline = ProcessInfo.processInfo.systemUptime + timeout
         try payload.withUnsafeBytes { raw in
             var sent = 0
             while sent < raw.count {
-                guard ProcessInfo.processInfo.systemUptime < deadline else { throw OwnerGatewayError.unavailable }
+                try waitForIO(Int16(POLLOUT))
                 let count = Darwin.send(descriptor, raw.baseAddress!.advanced(by: sent), raw.count - sent, 0)
-                if count < 0 && errno == EINTR { continue }
+                if count < 0 && [EINTR, EAGAIN, EWOULDBLOCK].contains(errno) { continue }
                 guard count > 0 else { throw OwnerGatewayError.unavailable }
                 sent += count
             }
@@ -697,9 +750,9 @@ final class OwnerUnixBackend: OwnerGatewayBackend {
         var buffer = [UInt8](repeating: 0, count: 8192)
         var framing: (Int, Int, Int)?
         while true {
-            guard ProcessInfo.processInfo.systemUptime < deadline else { throw OwnerGatewayError.unavailable }
+            try waitForIO(Int16(POLLIN))
             let count = Darwin.recv(descriptor, &buffer, buffer.count, 0)
-            if count < 0 && errno == EINTR { continue }
+            if count < 0 && [EINTR, EAGAIN, EWOULDBLOCK].contains(errno) { continue }
             guard count > 0 else { throw OwnerGatewayError.invalidResponse }
             received.append(contentsOf: buffer.prefix(count))
             if framing == nil {

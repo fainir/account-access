@@ -57,7 +57,8 @@ decryption now would bypass unresolved requirements rather than finish them.
 Chrome CSV imports remain owner-reviewed snapshots. This project does not use
 Chrome's internal password API, extract its Safe Storage secret, monitor arbitrary
 password fields or claim live Chrome sync. The supported ongoing-sync contract
-uses exact approved items through a read-only 1Password service account or a
+uses exact approved items through a separately consented Bitwarden CLI source,
+a read-only 1Password service account or a
 configured Connect service; the SDK service-account option removes the Connect
 server requirement, but its live private deployment still needs acceptance
 testing. See [1Password setup](onepassword-sync.md),

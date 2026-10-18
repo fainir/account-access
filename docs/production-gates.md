@@ -7,6 +7,17 @@ establish that experience on personal accounts.
 
 ## Current candidate
 
+Build **68** is the current source candidate, adding explicit Bitwarden
+Password Manager connection, imported exact-item suggestions, unattended
+password refresh and restrictive source disconnect. Its official OSS CLI uses
+the protected Node runtime instead of the standalone client's older embedded
+runtime. Packaging requires the corresponding source and dependency notices.
+The connection retains broad vault-decryption authority with explicit owner
+consent; exact-item restrictions are enforced by Account Access. Private
+enrollment and consumer installation are not established by its controlled
+tests. Earlier build evidence below does not validate this new product tree.
+[Bitwarden setup and limits](bitwarden-sync.md).
+
 Build **67** at source `e2c8bc4` adds manifest-derived installation-space checks,
 safe low-space retry and a reviewed Read the Docs password/authenticator pilot.
 Its app and three protected runtime components have genuine Developer ID
@@ -73,7 +84,7 @@ presented as results for a later candidate.
 | Mac installation | Offline protected package, native inventory and publisher-signature checks; actual Installer-context and same-image recovery fixtures; build 67 adds native capacity preflight and non-destructive low-space retry | Developer ID Installer certificate, Notary credentials, Apple acceptance and stapling; clean downloaded installation, genuine owner enrollment and reboot QA |
 | Upgrade and repair | Explicit recognized-preview agent connection upgrade; atomic launcher replacement and rollback; same-image/same-owner package recovery | Genuine installed owner upgrade and interrupted positive provisioning; different-image protected-package updates and vault migration |
 | Password import | Reviewed Chrome, Apple Passwords, compatible 1Password and Bitwarden CSV; unencrypted Bitwarden JSON; hidden-password local review | Representative real export-to-private-website acceptance, including the new protected installation |
-| Password synchronization | Exact approved 1Password items through service-account SDK or Connect; bounded updates and revocation checks | Private enrollment, rotation and revocation QA. **Chrome and Bitwarden live sync is unimplemented**; exports remain snapshots |
+| Password synchronization | Approved 1Password items through service-account SDK or Connect; separately consented Bitwarden CLI source with exact-item checks, bounded updates and restrictive disconnect | Private enrollment, rotation and revocation QA. **Chrome live sync is unimplemented**; file imports remain snapshots |
 | Gmail and other email | Renewable Gmail authorization, checked reusable mailbox selection, and TLS IMAP; freshness, sender, template and authorization checks | Publisher-configured Google application, real owner consent/mailbox setup and actual website code delivery. Arbitrary webmail is unsupported |
 | iPhone SMS | Signed narrow Mac Messages reader and composed password/SMS/session fixtures | Genuine Full Disk Access, forwarded physical SMS and completed private login |
 | Android SMS | Paired pinned HTTPS delivery and notification-listener emulator fixtures | Physical pairing, carrier/notification delivery, reconnect and private login QA |

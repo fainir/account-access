@@ -266,7 +266,8 @@ def _link_valid(store, account, saved, db):
     if saved.get("username") != credential.get("username"):
         return False
     from .password_sync import SERVICE_ACCOUNT, validate_link
-    keys = (["provider", "token", "vault", "item"] if saved.get("provider") == SERVICE_ACCOUNT
+    keys = (["provider", "connection", "connection_generation", "item"] if saved.get("provider") == "bitwarden"
+            else ["provider", "token", "vault", "item"] if saved.get("provider") == SERVICE_ACCOUNT
             else ["endpoint", "token", "vault", "item"])
     try:
         validate_link(store, account, {key: saved[key] for key in keys})
@@ -290,14 +291,21 @@ def _quarantine(store, config, account, reviewed_grants, token):
         for row in approved:
             db.execute("INSERT INTO grants VALUES (?,?,?,?,?)",
                        (row["principal"], account, row["operation"], token, row["expires"]))
-        for prefix in ["connection:", "password-link:"]:
+        for prefix in ["connection:", "password-link:", "password-sync-hint:"]:
             saved = _get(store, db, prefix + account)
             if not isinstance(saved, dict) or not isinstance(saved.get("fingerprint"), str):
                 continue
+            from .password_import import sync_suggestion
             valid = (saved["fingerprint"] == config.fingerprint(account)
-                     and not saved.get("revoked") and not saved.get("invalid")
-                     and (isinstance(saved.get("state"), dict) if prefix == "connection:"
-                          else _link_valid(store, account, saved, db)))
+                     and not saved.get("revoked") and not saved.get("invalid"))
+            if valid:
+                if prefix == "connection:":
+                    valid = isinstance(saved.get("state"), dict)
+                elif prefix == "password-sync-hint:":
+                    valid = bool(sync_suggestion(store, account, config=config,
+                        credential=_get(store, db, "credential:" + account), hint=saved))
+                else:
+                    valid = _link_valid(store, account, saved, db)
             value = {**saved, "fingerprint": token}
             store.put(prefix + account, value, db=db)
             authorities[prefix] = {"previous": saved, "quarantined": value, "valid": valid}

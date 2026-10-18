@@ -165,6 +165,10 @@ class Broker:
                 op = spec.operations[operation]
                 secrets_seen = credential_values(self.store.get("credential:" + account, {}))
                 secrets_seen |= credential_values(self.store.get("password-link:" + account, {}))
+                password_link = self.store.get("password-link:" + account) or {}
+                if password_link.get("provider") == "bitwarden":
+                    from .bitwarden_source import secret_values
+                    secrets_seen |= secret_values(self.store, password_link)
                 if isinstance(spec, BrowserAccount) and spec.login:
                     for source_id in spec.login.sources():
                         secrets_seen |= credential_values(self.store.get("source:" + source_id, {}))

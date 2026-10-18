@@ -126,8 +126,8 @@ private final class DesktopOwnerReply<Value> {
         guard !closed else { return }
         result = value; closed = true; done.signal()
     }
-    func wait() throws -> Value {
-        let completed = done.wait(timeout: .now() + 40) == .success
+    func wait(timeout: TimeInterval = 40) throws -> Value {
+        let completed = done.wait(timeout: .now() + timeout) == .success
         lock.lock(); defer { lock.unlock() }
         closed = true
         guard completed, let result else { throw DesktopOwnerFailure.unavailable }
@@ -192,7 +192,7 @@ final class DesktopOwnerConnection {
         let reply = DesktopOwnerReply<(Int, Data)>()
         active.request(route, body: bytes) { reply.finish(($0, $1)) }
         let response: (Int, Data)
-        do { response = try reply.wait() }
+        do { response = try reply.wait(timeout: validated.path == "/owner/bitwarden/connect" ? 75 : 40) }
         catch { close(); throw error }
         guard response.1.count <= 8_000_000, let payload = try JSONSerialization.jsonObject(with: response.1) as? [String: Any] else {
             close(); throw DesktopOwnerFailure.response

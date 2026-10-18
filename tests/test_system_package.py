@@ -190,6 +190,9 @@ def test_supplied_python_cannot_run_before_private_payload_inventory(
         package, "inspect_app", lambda *a, **k: ("0.8.0", "ABCDEFGHIJ", wheel, b"fixture==1")
     )
     monkeypatch.setattr(package, "signature", lambda *a, **k: {"team": "ABCDEFGHIJ"})
+    # This case isolates the prior native payload inventory; standalone-provider
+    # input/source completeness has its own real archive tests.
+    monkeypatch.setattr(package, "stage_bitwarden", lambda *a: {"fixture": "separate-provider-input-tests"})
 
     def command(args):
         calls.append(args)
@@ -339,6 +342,7 @@ def test_unsigned_container_keeps_genuine_payload_and_runtime_verification(tmp_p
             raise ValueError("invalid_payload_publisher")
         return {"team": "ABCDEFGHIJ", "identifier": identifier, "hashes": ["a" * 40]}
     monkeypatch.setattr(package, "signature", signature)
+    monkeypatch.setattr(package, "stage_bitwarden", lambda *a: {"fixture": "separate-provider-input-tests"})
     def prepare(payload, requirements, project_name, pin, identity, team, selected, command, *, development):
         assert development is False and team == "ABCDEFGHIJ" and identity == "Application publisher"
         assert selected == {"reviewed": "fixture"}

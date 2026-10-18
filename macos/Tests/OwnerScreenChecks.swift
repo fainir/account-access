@@ -240,6 +240,54 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         owner.passwordSync = []
         print("PASS: token replacement needs only a masked new token and current generation; cancellation clears the secret without changing the source")
 
+        let bitwardenID = String(repeating: "b", count: 32)
+        let bitwardenItem = "12345678-1234-1234-1234-123456789abc"
+        let bitwardenFields = ["client_id": "user." + bitwardenItem, "client_secret": "synthetic-api-secret",
+                               "master_password": "  synthetic unicode 🔐 master  "]
+        precondition(AccountAccess.bitwardenEnrollment(region: "us", fields: bitwardenFields, consent: false) == nil)
+        let enrollment = AccountAccess.bitwardenEnrollment(region: "eu", fields: bitwardenFields, consent: true)!
+        precondition(enrollment["master_password"] as? String == bitwardenFields["master_password"])
+        precondition(enrollment["consent_vault_access"] as? Bool == true)
+        for (key, invalid) in [("client_id", "user." + bitwardenItem.uppercased()), ("client_secret", "secret\n"),
+                               ("master_password", "bad\0password"), ("master_password", String(repeating: "x", count: 4097))] {
+            var fields = bitwardenFields; fields[key] = invalid
+            precondition(AccountAccess.bitwardenEnrollment(region: "us", fields: fields, consent: true) == nil)
+        }
+        precondition(AccountAccess.bitwardenEnrollment(region: "self-hosted", fields: bitwardenFields, consent: true) == nil)
+        precondition(AccountAccess.bitwardenItemConnection(id: bitwardenID, generation: generation, item: bitwardenItem)?["item"] == bitwardenItem)
+        precondition(AccountAccess.bitwardenItemConnection(id: bitwardenID, generation: generation + "\n", item: bitwardenItem) == nil)
+        owner.bitwardenAvailable = true
+        owner.showBitwardenConnect()
+        precondition(Set(owner.bitwardenFields.keys) == Set(["client_id", "client_secret", "master_password"]))
+        precondition(owner.bitwardenFields.values.allSatisfy { $0 is NSSecureTextField })
+        precondition(owner.bitwardenConsent.state == .off)
+        for (key, field) in owner.bitwardenFields { field.stringValue = bitwardenFields[key]! }
+        owner.bitwardenConsent.state = .on
+        let discardedBitwardenFields = Array(owner.bitwardenFields.values)
+        owner.showPasswordSync()
+        precondition(discardedBitwardenFields.allSatisfy { $0.stringValue.isEmpty })
+        precondition(owner.bitwardenConsent.state == .off)
+        print("PASS: Bitwarden requires explicit vault consent, masks setup credentials, preserves master-password text and clears cancelled secrets")
+
+        func syncDescendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(syncDescendants) }
+        owner.bitwardenConnections = [["id": bitwardenID, "generation": generation, "email": "synthetic@example.test", "region": "eu", "provider": "Bitwarden"]]
+        owner.accounts = [["account": "fixture", "label": "Imported fixture", "route": "browser", "portable_ready": true,
+                           "password_sync_suggestion": ["provider": "bitwarden", "item": bitwardenItem]],
+                          ["account": "other", "label": "Advanced fixture", "route": "browser", "portable_ready": true]]
+        owner.passwordSync = [["account": "fixture", "provider": "Bitwarden", "status": "SYNCED", "generation": generation]]
+        owner.showPasswordSync()
+        precondition(owner.bitwardenItem.stringValue == bitwardenItem && owner.bitwardenItem.isHidden && !owner.bitwardenItem.isEditable)
+        precondition(!syncDescendants(owner.stack).compactMap { ($0 as? NSButton)?.title }.contains("Replace token"))
+        owner.bitwardenAccounts.selectItem(at: 1)
+        owner.bitwardenAccountChanged()
+        precondition(!owner.bitwardenItem.isHidden && owner.bitwardenItem.isEditable && owner.bitwardenItem.stringValue.isEmpty)
+        owner.bitwardenAvailable = false
+        owner.showPasswordSync()
+        precondition(!syncDescendants(owner.stack).compactMap { ($0 as? NSButton)?.title }.contains("Connect Bitwarden"))
+        owner.bitwardenConnections = []
+        owner.passwordSync = []
+        print("PASS: imported Bitwarden item IDs need no reentry; manual IDs stay advanced, replacement tokens are absent and unavailable runtime hides enrollment")
+
         owner.accounts = [["account": "fixture", "label": "Fixture account", "route": "browser",
                            "portable_ready": true, "connected": false]]
         owner.sources = [["id": "fixture-factor", "kind": "totp"]]

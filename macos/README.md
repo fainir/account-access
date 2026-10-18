@@ -1,6 +1,30 @@
 # Graphical Mac app
 
 This is a native installer and owner interface for macOS 14 (Sonoma) or later.
+
+Consumer package builds also require the pinned Bitwarden OSS npm CLI and its
+reviewed corresponding-source release asset. Add these maintainer arguments to
+`python -m macos.system_package`:
+
+```sh
+--bitwarden-archive /absolute/path/to/cli-2026.10.0.tgz \
+--bitwarden-sources /absolute/path/to/account-access-bitwarden-2026.10.0-corresponding-source.tar.gz \
+--bitwarden-source-sha256 REVIEWED_SOURCE_SHA256
+```
+
+Prepare the source asset with `python -m macos.bitwarden_sources --output NEW_DIRECTORY`.
+Both assets are verified and staged before runtime inspection/signing. The
+provider uses the existing protected Playwright Node 24.21.0 and fixed
+JavaScript/WASM program with native addons disabled. No standalone executable,
+npm install, shell launcher or extra native signing exception is introduced.
+The Python tree digest changes and requires normal signing-plan review.
+
+Every binary release containing this GPL program must provide its matching
+source archive alongside the installer, at no additional charge, with clear
+download directions. The source archive is a separate release asset; it is not
+copied into the installed runtime. See [runtime/source packaging](../docs/bitwarden-packaging.md)
+for exact validation and source-scope limits. Consumer assembly fails if the
+pinned runtime or reviewed source materials are missing.
 The current 0.8 runtime candidate requires **Apple silicon (M-series)**, running
 natively. Its cryptography dependency no longer publishes Intel Mac wheels;
 Intel and Rosetta bootstrap sessions stop before downloads or runtime changes.

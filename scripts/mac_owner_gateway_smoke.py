@@ -49,6 +49,10 @@ NATIVE_CHECKS = {
     "approved_vault_enrollment_uses_typed_authority", "expired_vault_enrollment_refused",
     "closed_vault_enrollment_refused", "vault_enrollment_not_forwarded_to_legacy_backend",
     "prepared_client_rejects_invalid_enrollment_body",
+    "bitwarden_connect_requires_setup_and_bounded_budget",
+    "bitwarden_connect_rejects_invalid_scope_credentials_and_numeric_consent",
+    "bitwarden_disconnect_is_restriction_with_normal_budget",
+    "bitwarden_exact_item_and_generation_are_validated",
 }
 
 
@@ -165,6 +169,18 @@ def main():
             listener.listen(16)
             server, capability = make_owner_server(broker, guided=True, server_socket=listener,
                 origin_port=8765, local_host_actions=False)
+            parent_handler = server.RequestHandlerClass
+
+            class BufferedHealthHandler(parent_handler):
+                def send(self, status, body, kind="application/json"):
+                    # Force the real native parser to drain several recv calls
+                    # after this HTTP/1.0 response closes. Darwin refuses a new
+                    # SO_RCVTIMEO on a closed peer even with buffered data left.
+                    if self.path == "/owner/health" and status == 200 and kind == "application/json":
+                        body = {**body, "fixture_buffered_response": "x" * 16384}
+                    return super().send(status, body, kind)
+
+            server.RequestHandlerClass = BufferedHealthHandler
             thread = threading.Thread(target=server.serve_forever, daemon=True)
             thread.start()
             stage = "native_xpc"
