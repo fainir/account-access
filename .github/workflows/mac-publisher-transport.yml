@@ -22,6 +22,7 @@ jobs:
       AC_REVIEW_SOURCE: a5190c6d888f2384ac04bf574395aedb7219ef2b
       AC_REVIEW_SHA256: a00e24b988c626e5a9db82321b8164dac6925721bfa3b1798b6695e956beadb7
       AC_REVIEW_ASSET_ID: '652938188'
+      AC_REVIEW_RELEASE_ID: '416327595'
       AC_REVIEW_ASSET: account-access-publisher-transport-a5190c6.tar.gz
       AC_REVIEW_TAG: qa-a5190c6-publisher-transport
     steps:
@@ -44,7 +45,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           uv run python scripts/mac_publisher_transport_probe.py download \
-            --tag "$AC_REVIEW_TAG" --asset "$AC_REVIEW_ASSET" \
+            --tag "$AC_REVIEW_TAG" --release-id "$AC_REVIEW_RELEASE_ID" --asset "$AC_REVIEW_ASSET" \
             --asset-id "$AC_REVIEW_ASSET_ID" --sha256 "$AC_REVIEW_SHA256" \
             --source "$AC_REVIEW_SOURCE" --output "$RUNNER_TEMP/$AC_REVIEW_ASSET"
       - name: Exercise genuine production transport in this fresh disposable VM
