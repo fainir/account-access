@@ -103,6 +103,10 @@ enum RootGatewayFixture {
     static func main() {
         var checks: [String: Bool] = [:]
         do {
+            if Array(CommandLine.arguments.dropFirst()) == [BrowserNativeHost.origin] {
+                do { try ChromeGatewayJourney.serve() }
+                catch { exit(78) } // Native stdout contains framed messages only.
+            }
             guard getuid() != 0, CommandLine.arguments.count == 4 else { throw OwnerGatewayError.invalidPolicy }
             let value = try RootGatewayFixture.policy()
             guard let hash = value["server_hash"] as? String else { throw OwnerGatewayError.invalidPolicy }

@@ -241,6 +241,10 @@ def _exercise(prefix, roles, key_policy, phase, client_token, probe, command, fi
             prefix, roles, fixture, config, signature(binary)
         )
         print(json.dumps({"stage": "protected_browser_cli_completed"}), file=sys.stderr, flush=True)
+        chrome_controller = prefix / "signed-chrome-probe.py"
+        root_managed_path(chrome_controller)
+        chrome_report = runpy.run_path(str(chrome_controller))["exercise_signed_chrome_gateway"](prefix, roles)
+        print(json.dumps({"stage": "signed_chrome_native_completed"}), file=sys.stderr, flush=True)
         stop(second)
         print(json.dumps({"stage": "native_system_second_stopped"}), file=sys.stderr, flush=True)
         checks.update(
@@ -285,5 +289,6 @@ def _exercise(prefix, roles, key_policy, phase, client_token, probe, command, fi
         "consumer_deployment_verified": False,
         "publisher_signed_peers": False,
         "protected_browser": browser_report,
+        "signed_chrome": chrome_report,
         "checks": checks,
     }

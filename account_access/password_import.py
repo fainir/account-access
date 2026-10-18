@@ -8,6 +8,7 @@ from contextlib import ExitStack
 from urllib.parse import urlsplit
 
 from .errors import AccessError
+from .factors import replace_source, source_mutation
 from .models import BrowserAccount, Configuration, origin
 from .account_context import describe
 
@@ -166,6 +167,8 @@ def apply(broker, ident, selections, principals):
             for account in sorted(accounts):
                 held.enter_context(store.lock("account:" + account))
             held.enter_context(store.lock("catalog"))
+            for source_id in sorted(seeds):
+                held.enter_context(source_mutation(store, source_id))
             # All input/connector validation precedes any persistent change.
             current = store.config()
             for account, _, _ in chosen:
@@ -186,7 +189,7 @@ def apply(broker, ident, selections, principals):
                                        (principal, account, op, current.fingerprint(account)))
                 store.put("password-import:" + ident, None, db=db)
                 for source_id, seed in seeds.items():
-                    store.put("source:" + source_id, {"seed": seed}, db=db)
+                    replace_source(store, source_id, {"seed": seed}, db=db)
         for account, _, _ in chosen:
             store.audit("owner", account, "", "password_imported")
         return {"status": "IMPORTED", "accounts": [x[0] for x in chosen]}

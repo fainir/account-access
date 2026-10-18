@@ -202,22 +202,39 @@ def payload(layout):
 
 
 def root_directory(path, mode=0o755):
+    """Create public policy directories in their final mode, without repairs.
+
+    The install coordinator is single-threaded. A temporary mask makes mkdir
+    atomic with respect to the requested mode; interruption cannot leave a
+    root-owned but unusable final name awaiting a later chmod.
+    """
     path = Path(path)
     root_managed_path(path.parent)
+    handles = []
     try:
-        path.mkdir(mode=mode)
-        descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        parent = os.open(path.parent, DIRECTORY)
+        handles.append(parent)
+        _check(parent, 0, True)
+        previous = os.umask(0)
         try:
-            os.fchmod(
-                descriptor, mode
-            )  # Do not let an inherited private umask hide public policy paths.
+            os.mkdir(path.name, mode, dir_fd=parent)
+        except FileExistsError:
+            pass
         finally:
+            os.umask(previous)
+        descriptor = os.open(path.name, DIRECTORY, dir_fd=parent)
+        handles.append(descriptor)
+        info = _check(descriptor, 0, True, mode)
+        observed = os.stat(path.name, dir_fd=parent, follow_symlinks=False)
+        if (info.st_dev, info.st_ino) != (observed.st_dev, observed.st_ino):
+            raise ImageConflict("unsafe_image_object")
+        os.fsync(descriptor)
+        os.fsync(parent)
+    except (OSError, ValueError, ImageConflict):
+        raise ProvisionError("unsafe_install_directory") from None
+    finally:
+        for descriptor in reversed(handles):
             os.close(descriptor)
-    except FileExistsError:
-        pass
-    info = path.lstat()
-    if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or stat.S_IMODE(info.st_mode) != mode:
-        raise ProvisionError("unsafe_install_directory")
     return path
 
 

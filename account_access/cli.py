@@ -277,7 +277,8 @@ def main(argv=None):
             else:
                 print_json({"status": "NEEDS_USER", "reason": "connect_mailbox_oauth", "account": source.account})
                 return 2
-            store.put("source:" + args.source, value)
+            from .factors import enroll
+            enroll(store, args.source, value)
             print_json({"status": "OK", "source": args.source})
         elif args.command == "grant":
             expires = time.time() + args.days * 86400 if args.days else None

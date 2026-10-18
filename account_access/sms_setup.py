@@ -3,11 +3,13 @@
 import hashlib
 import re
 import sys
+from contextlib import nullcontext
 from pathlib import Path
 from urllib.parse import urlsplit
 
 from .browser_updates import APP_LINK, APP_PAGE, METHOD_PAGE, SMS_LINK, SMS_PAGE, RECOVERY_PAGE, RECOVERY_SELECTOR, github_assets
 from .errors import AccessError
+from .factors import replace_source, source_mutation
 from .models import BrowserAccount, CodeSource, LoginChoice, LoginCodeRequest, LoginFactor, origin
 
 TEMPLATES = {
@@ -86,9 +88,9 @@ def save(store, config, account, previous, *, source=None):
     validated = type(config).model_validate(config.model_dump())
     current = validated.fingerprint(account)
     connection = store.get("connection:" + account)
-    with store.db() as db:
+    with source_mutation(store, source) if source else nullcontext(), store.db() as db:
         if source:
-            store.put("source:" + source, {"enabled": True}, db=db)
+            replace_source(store, source, {"enabled": True}, db=db)
         db.execute("UPDATE grants SET fingerprint=? WHERE account=? AND fingerprint=?", (current, account, previous))
         if connection and connection.get("fingerprint") == previous:
             connection["fingerprint"] = current
@@ -139,7 +141,7 @@ def apply(store, account, fingerprint, sender, template):
             or not isinstance(template, str) or template.lower() not in TEMPLATES):
         raise AccessError("DENIED", "invalid_sms_filter")
     source = "github-sms-" + hashlib.sha256(account.encode()).hexdigest()[:16]
-    with store.lock("account:" + account, timeout=5), store.lock("catalog"), store.lock("source:" + source):
+    with store.lock("account:" + account, timeout=5), store.lock("catalog"):
         config = store.config()
         if (not eligible(config, account) or config.fingerprint(account) != fingerprint
                 or source in config.code_sources or store.get("source:" + source)):

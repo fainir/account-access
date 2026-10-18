@@ -6,6 +6,7 @@ import secrets
 import time
 
 from .errors import AccessError
+from .factors import replace_source, source_mutation
 from .models import CodeSource, validate_url
 
 PREFIX = "mailbox-profile:"
@@ -49,8 +50,11 @@ def enrollment(store, source_id):
     if (source.kind != "imap" or source.account or source.host.lower() != profile["host"]
             or source.port != profile["port"] or source.recipient.lower() != profile["username"].lower()):
         raise AccessError("NEEDS_USER", "mailbox_source_mismatch", "email")
-    return {"enabled": True, "mailbox": credential["mailbox"], "username": profile["username"],
-            "password": profile["password"]}
+    effective = {"enabled": True, "mailbox": credential["mailbox"], "username": profile["username"],
+                 "password": profile["password"]}
+    if "generation" in profile:
+        effective["mailbox_generation"] = profile["generation"]
+    return effective
 
 
 def probe(broker, profile):
@@ -96,6 +100,7 @@ def connect(broker, data):
                and item["username"].lower() == profile["username"].lower() for item in existing):
             raise AccessError("DENIED", "mailbox_already_connected", "email")
         ident = "mailbox-" + secrets.token_hex(12)
+        profile["generation"] = secrets.token_hex(16)
         profile["connection_check"] = probe(broker, profile)
         store.put(PREFIX + ident, profile)
         store.audit("owner", "", "", "mailbox_saved")
@@ -118,6 +123,7 @@ def update_password(broker, ident, password):
     with broker.store.lock("mailbox-profiles"):
         profile = get(broker.store, ident)
         profile["password"] = password
+        profile["generation"] = secrets.token_hex(16)
         profile["connection_check"] = probe(broker, profile)
         broker.store.put(PREFIX + ident, profile)
     return {"status": "SAVED", "connection_check": profile["connection_check"], "login_delivery_verified": False}
@@ -126,14 +132,14 @@ def update_password(broker, ident, password):
 def link(store, source_id, ident):
     # No website connector, recipient/filter or standing operation grant can
     # be created or widened by connecting a mailbox.
-    source = store.config().code_sources.get(source_id)
-    profile = get(store, ident)
-    if (not source or source.kind != "imap" or source.account or source.host.lower() != profile["host"]
-            or source.port != profile["port"] or source.recipient.lower() != profile["username"].lower()):
-        raise AccessError("DENIED", "mailbox_source_mismatch", "email")
-    with store.lock("source:" + source_id):
-        store.put("source:" + source_id, {"mailbox": ident, "enabled": True})
-        store.put("mailbox-health:" + source_id, None)
+    with store.lock("mailbox-profiles"), source_mutation(store, source_id):
+        source = store.config().code_sources.get(source_id)
+        profile = get(store, ident)
+        if (not source or source.kind != "imap" or source.account or source.host.lower() != profile["host"]
+                or source.port != profile["port"] or source.recipient.lower() != profile["username"].lower()):
+            raise AccessError("DENIED", "mailbox_source_mismatch", "email")
+        with store.db() as db:
+            replace_source(store, source_id, {"mailbox": ident, "enabled": True}, db=db)
     return {"status": "ENROLLED", "source": source_id, "kind": "imap"}
 
 

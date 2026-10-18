@@ -37,6 +37,13 @@ descriptors without listing their contents, rewriting ownership or replacing
 their inode. Unknown children, ACL grants and conflicting ownership remain errors.
 Staging never adds a temporary sibling to the immutable public-image inventory.
 
+Public policy directories are created with their requested mode in the initial
+directory operation. A restrictive inherited file-creation mask cannot leave a
+half-prepared final directory awaiting a later permission change. Retries check
+ownership, permissions, ACLs and descriptor/name identity without rewriting an
+existing directory or inspecting its contents. Conflicting objects still require
+review.
+
 ## Publication and service start
 
 The provisioner publishes the worker/stage/enrollment/host policies, a launchd job

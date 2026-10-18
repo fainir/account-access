@@ -1038,6 +1038,13 @@ def root_key_custody(prefix, roles, client_token):
         evidence = Path("/tmp/account-access-mac-protected-browser.json")
         private_file(evidence, json.dumps(browser_report, indent=2).encode())
         evidence.chmod(0o644)
+        chrome_report = native_system_report["signed_chrome"]
+        chrome_report["checks"]["fixture_system_key_removed"] = checks["remove_fixture_key_removed_and_not_recreated"]
+        chrome_report["checks"]["fixture_setup_policy_removed"] = native_system_report["checks"]["fixture_setup_policy_removed"]
+        chrome_report["checks"]["temporary_jobs_removed"] = native_system_report["checks"]["temporary_jobs_removed"]
+        evidence = Path("/tmp/account-access-mac-signed-chrome.json")
+        private_file(evidence, json.dumps(chrome_report, indent=2).encode())
+        evidence.chmod(0o644)
     checks["separate_daemon_processes_used"] = len(set(pids)) == 3
     def signature(path):
         signed = subprocess.run(["/usr/bin/codesign", "-d", "--verbose=4", str(path)], capture_output=True, timeout=10)

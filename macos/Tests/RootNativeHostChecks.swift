@@ -51,9 +51,10 @@ enum RootNativeHostChecks {
         termination.resume()
         let timeout = DispatchSource.makeTimerSource(queue: .main)
         // The durable recovery command can wait 90 seconds after the cold host
-        // starts. The framed/XPC browser journey follows it. Keep the service
-        // alive through both bounded probes and verified shutdown.
-        timeout.schedule(deadline: .now() + 240)
+        // starts. The framed/XPC journey and a separately bounded 90-second
+        // signed-Chrome round-trip follow it. Keep this disposable-CI host
+        // alive through all three probes and verified shutdown.
+        timeout.schedule(deadline: .now() + 360)
         timeout.setEventHandler { try? host.stop(); exit(78) }
         timeout.resume()
         withExtendedLifetime((host, termination, timeout)) { dispatchMain() }

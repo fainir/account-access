@@ -188,6 +188,158 @@ def test_publication_refuses_unsafe_existing_objects(tmp_path, monkeypatch, kind
 
 
 @pytest.fixture
+def public_directories(tmp_path, monkeypatch):
+    """Keep real directory/mode/ACL checks while simulating Root ownership."""
+    from account_access.install_image import _check as real_check
+
+    real_uid = os.getuid()
+    root = tmp_path / "protected"
+    root.mkdir(mode=0o700)
+    owners = {}
+
+    def check(fd, uid, directory, mode=None):
+        info = real_check(fd, real_uid, directory, mode)
+        owner, group = owners.get((info.st_dev, info.st_ino), (0, 0))
+        if owner != uid:
+            raise provision.ImageConflict("unsafe_image_object")
+        metadata = {name: getattr(info, name) for name in dir(info) if name.startswith("st_")}
+        return SimpleNamespace(**dict(metadata, st_uid=owner, st_gid=group))
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("Public directory provisioning must never repair an existing object")
+
+    proxy = SimpleNamespace(**{name: getattr(os, name) for name in dir(os)})
+    proxy.fchmod, proxy.fchown = forbidden, forbidden
+    monkeypatch.setattr(provision, "os", proxy)
+    monkeypatch.setattr(provision, "_check", check)
+    monkeypatch.setattr(provision, "root_managed_path", lambda path: Path(path))
+    return root, owners
+
+
+@pytest.mark.parametrize("mode", [0o755, 0o700])
+def test_public_directory_recovers_interruption_immediately_after_mkdir_with_private_umask(
+    public_directories, monkeypatch, mode
+):
+    root, _ = public_directories
+    target = root / "policy"
+    mkdir = provision.os.mkdir
+
+    def interrupted(name, requested, *, dir_fd):
+        mkdir(name, requested, dir_fd=dir_fd)
+        assert os.stat(name, dir_fd=dir_fd, follow_symlinks=False).st_mode & 0o777 == mode
+        raise KeyboardInterrupt("synthetic crash before post-mkdir validation")
+
+    monkeypatch.setattr(provision.os, "mkdir", interrupted)
+    previous = os.umask(0o777)
+    try:
+        with pytest.raises(KeyboardInterrupt):
+            provision.root_directory(target, mode)
+        assert os.umask(0o777) == 0o777
+        before = target.stat()
+        monkeypatch.setattr(provision.os, "mkdir", mkdir)
+        assert provision.root_directory(target, mode) == target
+        assert os.umask(0o777) == 0o777
+        assert target.stat() == before
+    finally:
+        os.umask(previous)
+
+
+def test_public_directory_restores_umask_when_mkdir_fails(public_directories, monkeypatch):
+    root, _ = public_directories
+
+    def fail(*args, **kwargs):
+        raise OSError("synthetic mkdir failure")
+
+    monkeypatch.setattr(provision.os, "mkdir", fail)
+    previous = os.umask(0o777)
+    try:
+        with pytest.raises(provision.ProvisionError, match="unsafe_install_directory"):
+            provision.root_directory(root / "policy")
+        assert os.umask(0o777) == 0o777 and list(root.iterdir()) == []
+    finally:
+        os.umask(previous)
+
+
+@pytest.mark.parametrize("kind", ["symlink", "file", "mode", "foreign-owner", "setid"])
+def test_public_directory_preserves_conflicting_final(public_directories, kind):
+    root, owners = public_directories
+    outside = root / "outside"
+    outside.mkdir(mode=0o755)
+    outside.joinpath("keep").write_bytes(b"preserve")
+    target = root / "policy"
+    if kind == "symlink":
+        target.symlink_to(outside, target_is_directory=True)
+    elif kind == "file":
+        target.write_bytes(b"preserve")
+    else:
+        target.mkdir(mode=0o755)
+        if kind == "mode":
+            target.chmod(0o700)
+        elif kind == "setid":
+            target.chmod(0o2755)
+        else:
+            info = target.stat()
+            owners[(info.st_dev, info.st_ino)] = (451, 451)
+    before = target.lstat()
+    with pytest.raises(provision.ProvisionError, match="unsafe_install_directory"):
+        provision.root_directory(target)
+    assert target.lstat() == before and outside.joinpath("keep").read_bytes() == b"preserve"
+
+
+def test_public_directory_retry_checks_metadata_without_traversing_contents(
+    public_directories, monkeypatch
+):
+    root, owners = public_directories
+    target = provision.root_directory(root / "policy")
+    target.joinpath("keep").write_bytes(b"preserve")
+    before = target.stat()
+    # Root-managed paths may inherit a group; 0755 gives it no write authority.
+    owners[(before.st_dev, before.st_ino)] = (0, 20)
+    monkeypatch.setattr(provision, "_names", lambda _: pytest.fail("No contents traversal"))
+    provision.root_directory(target)
+    assert target.stat() == before and target.joinpath("keep").read_bytes() == b"preserve"
+
+
+def test_public_directory_rejects_name_replacement_after_open(public_directories, monkeypatch):
+    root, _ = public_directories
+    target = root / "policy"
+    target.mkdir(mode=0o755)
+    target.joinpath("keep").write_bytes(b"preserve")
+    moved = root / "moved"
+    original = provision.os.open
+
+    def replaced(name, flags, *args, **kwargs):
+        descriptor = original(name, flags, *args, **kwargs)
+        if name == target.name and kwargs.get("dir_fd") is not None:
+            target.rename(moved)
+            target.mkdir(mode=0o755)
+        return descriptor
+
+    monkeypatch.setattr(provision.os, "open", replaced)
+    with pytest.raises(provision.ProvisionError, match="unsafe_install_directory"):
+        provision.root_directory(target)
+    assert target.is_dir() and moved.joinpath("keep").read_bytes() == b"preserve"
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Darwin extended ACLs")
+@pytest.mark.parametrize("location", ["parent", "final"])
+def test_public_directory_rejects_allow_acl_without_repair(public_directories, location):
+    root, _ = public_directories
+    target = root / "policy"
+    if location == "final":
+        target.mkdir(mode=0o755)
+    controlled = root if location == "parent" else target
+    subprocess.run(["/bin/chmod", "+a", "everyone allow read", str(controlled)], check=True)
+    try:
+        before = controlled.stat()
+        with pytest.raises(provision.ProvisionError, match="unsafe_install_directory"):
+            provision.root_directory(target)
+        assert controlled.stat() == before and target.exists() == (location == "final")
+    finally:
+        subprocess.run(["/bin/chmod", "-N", str(controlled)], check=True)
+
+
+@pytest.fixture
 def private_directories(tmp_path, monkeypatch):
     """Exercise real descriptors/renames using synthetic ownership, never Root."""
     from account_access.install_image import _check as real_check
@@ -384,6 +536,20 @@ def test_privileged_private_directory_probe_refuses_local_execution(monkeypatch)
     )
     with pytest.raises(RuntimeError, match="disposable_private_directory_probe_required"):
         probe.check_recovery(Path("/Library/PrivilegedHelperTools/account-access-worker-qa-12345678"), 451)
+
+
+@pytest.mark.parametrize("boundary", ["stage-created", "public-755", "public-700"])
+def test_privileged_directory_probe_child_refuses_local_execution(monkeypatch, boundary):
+    from scripts import mac_private_directory_probe as probe
+
+    monkeypatch.setattr(probe.os, "getuid", lambda: 501)
+    monkeypatch.setattr(
+        probe, "root_managed_path", lambda path: pytest.fail("No local protected path access")
+    )
+    target = Path("/Library/PrivilegedHelperTools/account-access-worker-qa-12345678"
+                  "/provisioned/broker/private-directory-qa-" + "a" * 32)
+    with pytest.raises(RuntimeError, match="disposable_private_directory_probe_required"):
+        probe.child(target, 451, boundary)
 
 
 @pytest.mark.parametrize(

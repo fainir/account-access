@@ -1,11 +1,38 @@
 """Enrollment belongs to the owner, never to the agent client."""
 
 import re
+import secrets
+from contextlib import contextmanager
 from urllib.parse import parse_qs, urlsplit
 
 import pyotp
 
 from .errors import AccessError
+
+
+@contextmanager
+def source_mutation(store, source_id):
+    """Owner changes take the source lock before its delivery/window lock.
+
+    Browser-account/catalog/mailbox-profile locks, when needed, precede these locks.
+    Delivery takes only the window lock and never acquires a source lock, so
+    revocation waits for a current delivery before invalidating its window.
+    Keep network access outside this short mutation boundary.
+    """
+    with store.lock("source:" + source_id), store.lock("code-window:" + source_id):
+        yield
+
+
+def replace_source(store, source_id, value, *, db):
+    """Write one authority revision while holding source_mutation and a DB transaction.
+
+    A new generation is required even when credentials are unchanged: an old
+    login must not survive disable/re-enable or a new phone pairing.
+    """
+    store.put("source:" + source_id, value, db=db)
+    store.put("source-generation:" + source_id, secrets.token_hex(16), db=db)
+    store.put("code-window:" + source_id, None, db=db)
+    store.put("mailbox-health:" + source_id, None, db=db)
 
 
 def totp_seed(value):
@@ -57,19 +84,21 @@ def enroll(store, source_id, data):
         if any(not isinstance(v, str) or not 0 < len(v) <= 4096 for v in data.values()):
             raise AccessError("DENIED", "invalid_code_source_enrollment")
         value = data
-    with store.lock("source:" + source_id):
-        store.put("source:" + source_id, value)
-        store.put("mailbox-health:" + source_id, None)
+    with source_mutation(store, source_id):
+        current = store.config().code_sources.get(source_id)
+        if current is None or current.model_dump() != config.code_sources[source_id].model_dump():
+            raise AccessError("DENIED", "login_code_source_changed")
+        with store.db() as db:
+            replace_source(store, source_id, value, db=db)
     store.audit("owner", "", "", "factor_enrolled", kind)
     return {"status": "ENROLLED", "source": source_id, "kind": kind}
 
 
 def revoke(store, source_id):
-    if source_id not in store.config().code_sources:
+    if not isinstance(source_id, str) or source_id not in store.config().code_sources:
         raise AccessError("DENIED", "unknown_code_source")
-    with store.lock("source:" + source_id):
-        store.put("source:" + source_id, {"enabled": False})
-        store.put("phone-pair:" + source_id, None)
-        store.put("code-window:" + source_id, None)
-        store.put("mailbox-health:" + source_id, None)
+    with source_mutation(store, source_id):
+        with store.db() as db:
+            replace_source(store, source_id, {"enabled": False}, db=db)
+            store.put("phone-pair:" + source_id, None, db=db)
     return {"status": "REVOKED", "source": source_id}

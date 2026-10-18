@@ -14,13 +14,14 @@ import secrets
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from email.utils import parsedate_to_datetime
 
 import pyotp
 
 from .errors import AccessError
 from .email_codes import MAX_MESSAGE_BYTES, login_code as email_login_code
+from .factors import source_mutation
 from .mailboxes import enrollment
 from .providers import get_json
 
@@ -65,24 +66,69 @@ class Codes:
         self.oauth = oauth
         self.native_transport = None
 
-    def check_window(self, source_id, started):
+    def check_window(self, source_id, started, *, mailbox_locked=False):
         """Recheck after delivery as well as before it; network calls can block."""
-        config = self.store.config()
-        source = config.code_sources.get(source_id)
         if time.time() - started > 120 or started > time.time():
             raise AccessError("NEEDS_USER", "login_code_window_expired")
         window = self.store.get("code-window:" + source_id)
         if not window or window["started"] != started or window["expires"] < time.time():
             raise AccessError("DENIED", "login_code_window_missing")
+        return self.check_binding(source_id, window, mailbox_locked=mailbox_locked)
+
+    def mailbox_authorization(self, config, source):
+        """Stable owner authorization, without including renewable token bytes."""
+        connection = self.store.get("connection:" + source.account) or {}
+        return {"fingerprint": config.fingerprint(source.account),
+                "authorization": connection.get("authorization_id") or connection.get("generation"),
+                "connected": bool(connection), "revoked": bool(connection.get("revoked")),
+                "invalid": bool(connection.get("invalid")),
+                "refresh_in_flight": bool(connection.get("refresh_in_flight"))}
+
+    def check_binding(self, source_id, window, *, mailbox_locked=False):
+        """Validate an unpublished or live window against current authority."""
+        config = self.store.config()
+        source = config.code_sources.get(source_id)
         if source is None or window.get("source_config") != source.model_dump():
             raise AccessError("DENIED", "login_code_source_changed")
         credentials = enrollment(self.store, source_id)
         if credentials.get("enabled") is False:
             raise AccessError("NEEDS_USER", "verification_source_disabled")
         current = hashlib.sha256(json.dumps(credentials, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-        if window.get("source_enrollment") != current:
+        if (window.get("source_enrollment") != current
+                or window.get("source_generation") != self.store.get("source-generation:" + source_id)):
             raise AccessError("DENIED", "verification_source_enrollment_changed")
+        if source.account and source.kind in {"imap", "gmail"}:
+            # Gmail message reads already own this OAuth account lock. Other
+            # callers wait for an ordinary refresh before checking its flags;
+            # a completed refresh preserves authorization_id and the window.
+            # Final publication orders source -> window -> mailbox OAuth
+            # account. OAuth account holders never acquire source/window locks;
+            # nested Gmail checks below read the binding with mailbox_locked.
+            with nullcontext() if mailbox_locked else self.store.lock("account:" + source.account):
+                authorization = self.mailbox_authorization(self.store.config(), source)
+                if not authorization["connected"]:
+                    raise AccessError("NEEDS_USER", "account_not_connected", "email")
+                if authorization["revoked"]:
+                    raise AccessError("DENIED", "connection_revoked", "email")
+                if authorization["invalid"]:
+                    raise AccessError("NEEDS_USER", "provider_grant_revoked_or_expired", "email")
+                if authorization["refresh_in_flight"]:
+                    raise AccessError("NEEDS_USER", "refresh_outcome_uncertain", "email")
+                if window.get("mailbox_authorization") != authorization:
+                    raise AccessError("DENIED", "verification_source_enrollment_changed", "email")
         return source, window, credentials
+
+    def publish_window(self, source_id, window, *, existing=False):
+        # Baseline requests can block while the owner changes enrollment.
+        # Never publish their stale result after disable/re-enable, even if
+        # the replacement credentials have exactly the same value.
+        with source_mutation(self.store, source_id):
+            if existing:
+                self.check_window(source_id, window["started"])
+            self.check_binding(source_id, window)
+            if time.time() > window["expires"]:
+                raise AccessError("NEEDS_USER", "login_code_window_expired")
+            self.store.put("code-window:" + source_id, window)
 
     def resolve(self, source_id, started, used):
         source, window, credentials = self.check_window(source_id, started)
@@ -107,7 +153,7 @@ class Codes:
                 ids = self.gmail_ids(source, started, get)
                 candidates = []
                 for ident in ids:
-                    self.check_window(source_id, started)
+                    self.check_window(source_id, started, mailbox_locked=True)
                     if ident in used or ident in window["gmail_baseline"]:
                         continue
                     message = get(GMAIL_MESSAGES + "/" + ident, {"format": "raw"})
@@ -129,7 +175,7 @@ class Codes:
                     code = email_login_code(raw, source)
                     if code:
                         candidates.append((ident, code))
-                self.check_window(source_id, started)
+                self.check_window(source_id, started, mailbox_locked=True)
                 candidate = unique_code(candidates)
                 if candidate:
                     used.add(candidate[0])
@@ -143,9 +189,7 @@ class Codes:
             return self.messages(source_id, source, started, used)
         if source.kind in {"phone_relay", "google_messages"}:
             with self.store.lock("code-window:" + source_id):
-                window = self.store.get("code-window:" + source_id)
-                if not window or window["started"] != started or window["expires"] < time.time():
-                    return None
+                _, window, _ = self.check_window(source_id, started)
                 if window.get("lost"):
                     raise AccessError("RETRYABLE", "google_messages_tab_reloaded", "sms")
                 incoming = window.get("incoming", [])
@@ -219,10 +263,12 @@ class Codes:
     def begin(self, source_id, account, started):
         window = {"account": account, "started": started,
                   "expires": started + 120, "incoming": [], "consumed": False}
-        config = self.store.config()
-        source = config.code_sources[source_id]
-        window["source_config"] = source.model_dump()
-        credentials = enrollment(self.store, source_id)
+        with self.store.lock("source:" + source_id):
+            config = self.store.config()
+            source = config.code_sources[source_id]
+            window["source_config"] = source.model_dump()
+            credentials = enrollment(self.store, source_id)
+            window["source_generation"] = self.store.get("source-generation:" + source_id)
         if credentials.get("enabled") is False:
             kind = "email" if source.kind in {"imap", "gmail"} else "totp" if source.kind == "totp" else "sms"
             raise AccessError("NEEDS_USER", "verification_source_disabled", kind)
@@ -231,6 +277,9 @@ class Codes:
                 raise AccessError("NEEDS_USER", "authenticator_not_enrolled", "totp")
         window["source_enrollment"] = hashlib.sha256(
             json.dumps(credentials, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        if source.account and source.kind in {"imap", "gmail"}:
+            with self.store.lock("account:" + source.account):
+                window["mailbox_authorization"] = self.mailbox_authorization(self.store.config(), source)
         if source.kind == "gmail":
             # Check consent/access and remember current message IDs before the
             # password can trigger delivery. A pre-existing imported message
@@ -251,13 +300,12 @@ class Codes:
             except (imaplib.IMAP4.error, OSError) as exc:
                 raise mailbox_error(exc) from None
         if source.kind == "mac_messages":
-            credentials = self.store.get("source:" + source_id, {}) or {}
             if credentials.get("enabled") is not True:
                 raise AccessError("NEEDS_USER", "message_permission_required", "sms")
             if self.native_transport is not None:
                 # Publish the short-lived window before asking the private root
                 # collector for a baseline. No password has been submitted yet.
-                self.store.put("code-window:" + source_id, window)
+                self.publish_window(source_id, window)
                 try:
                     baseline = self.messages_baseline(source_id, source, started)
                     self.check_window(source_id, started)
@@ -271,12 +319,8 @@ class Codes:
             if credentials.get("enabled") is not True:
                 raise AccessError("NEEDS_USER", "google_messages_not_connected", "sms")
             window["google_window"] = secrets.token_hex(16)
-        if source.kind == "mac_messages" and self.native_transport is not None:
-            with self.store.lock("code-window:" + source_id):
-                self.check_window(source_id, started)
-                self.store.put("code-window:" + source_id, window)
-        else:
-            self.store.put("code-window:" + source_id, window)
+        self.publish_window(source_id, window,
+                            existing=source.kind == "mac_messages" and self.native_transport is not None)
         if source.kind == "google_messages":
             deadline = time.monotonic() + 15
             while time.monotonic() < deadline:

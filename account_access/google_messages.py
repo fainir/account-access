@@ -6,6 +6,7 @@ import time
 
 from .codes import Codes
 from .errors import AccessError
+from .factors import replace_source, source_mutation
 from .models import CodeSource, LoginFactor
 from .sms_setup import eligible, prepare, save
 
@@ -35,7 +36,9 @@ def connect(store, account, fingerprint):
         if factor and config.code_sources[factor.code_source].kind == "google_messages":
             if config.fingerprint(account) != fingerprint:
                 raise AccessError("DENIED", "google_messages_setup_changed")
-            store.put("source:" + factor.code_source, {"enabled": True})
+            with source_mutation(store, factor.code_source):
+                with store.db() as db:
+                    replace_source(store, factor.code_source, {"enabled": True}, db=db)
             return {"status": "CONNECTED", "account": account}
     fingerprint = prepare(store, account, fingerprint)
     source_id = "github-google-sms-" + secrets.token_hex(8)

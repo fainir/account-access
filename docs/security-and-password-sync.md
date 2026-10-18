@@ -26,6 +26,14 @@ a source while delivery is pending stops submission. Mac SMS reads record a
 message-row boundary before the password can trigger delivery; only newly
 inserted rows are eligible, with a bounded allowance for phone-clock rounding.
 
+Each new verification enrollment has a private revision, even when the saved
+settings are identical. Disabling and reconnecting a source, replacing a mailbox
+password or pairing a new phone invalidates the old login window. Revocation
+waits for an active delivery before clearing that window; a delayed baseline
+cannot publish it again. Phone requests also recheck their pairing token and
+message filters when accepting delivery. These checks add no routine approval
+prompt and do not expose enrollment revisions or codes to the agent.
+
 Email codes now share a bounded MIME parser for IMAP and Gmail. Plain text takes
 priority over an HTML alternative. HTML-only messages are converted to text
 without execution or network access; attachments and forwarded messages cannot

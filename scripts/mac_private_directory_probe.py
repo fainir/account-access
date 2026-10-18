@@ -1,4 +1,4 @@
-"""SIGKILL private-directory publication only inside a disposable Mac CI prefix.
+"""SIGKILL directory provisioning only inside a disposable Mac CI prefix.
 
 This creates empty synthetic directories for the fixture's already-created
 service identity. It never opens a credential store or changes a user account.
@@ -12,8 +12,10 @@ import signal
 import stat
 import subprocess
 import sys
+from types import SimpleNamespace
 import uuid
 
+from account_access import system_provision
 from account_access.system_provision import _private_stage_name, private_directory
 from account_access.worker_bootstrap import root_managed_path
 
@@ -24,6 +26,7 @@ BOUNDARIES = {
     "directory-published": "private_directory_crash_after_final_publication_recovers",
     "stage-removed": "private_directory_crash_after_staging_cleanup_recovers",
 }
+PUBLIC_MODES = {"public-755": 0o755, "public-700": 0o700}
 
 
 def require_context(prefix, uid):
@@ -39,24 +42,66 @@ def require_context(prefix, uid):
     return prefix
 
 
+def _checkpoint():
+    os.write(1, b"CHECKPOINT\n")
+    # The parent observes a completed boundary, then kills this actual
+    # process. No exception/finally cleanup simulates the interruption.
+    while True:
+        signal.pause()
+
+
 def child(target, uid, boundary):
     target = Path(target)
     prefix = require_context(target.parents[2], uid)
     if (target.parent != prefix / "provisioned/broker"
             or re.fullmatch(r"private-directory-qa-[a-f0-9]{32}", target.name) is None
-            or boundary not in BOUNDARIES):
+            or boundary not in BOUNDARIES | PUBLIC_MODES):
         raise RuntimeError("disposable_private_directory_probe_required")
+
+    if boundary in PUBLIC_MODES:
+        # Pause in this disposable child immediately after the actual mkdir,
+        # before root_directory can inspect it or restore the inherited mask.
+        # No production checkpoint or alternate directory path is introduced.
+        original = system_provision.os
+
+        def mkdir(name, mode, *, dir_fd):
+            original.mkdir(name, mode, dir_fd=dir_fd)
+            _checkpoint()
+
+        system_provision.os = SimpleNamespace(**dict(vars(original), mkdir=mkdir))
+        os.umask(0o777)
+        system_provision.root_directory(target, PUBLIC_MODES[boundary])
+        raise RuntimeError("public_directory_checkpoint_not_reached")
 
     def checkpoint(event):
         if event == boundary:
-            os.write(1, b"CHECKPOINT\n")
-            # The parent observes a completed boundary, then kills this actual
-            # process. No exception/finally cleanup simulates the interruption.
-            while True:
-                signal.pause()
+            _checkpoint()
 
     private_directory(target, uid, staging=target.parent, checkpoint=checkpoint)
     raise RuntimeError("private_directory_checkpoint_not_reached")
+
+
+def _kill_after_checkpoint(helper, target, uid, boundary):
+    process = subprocess.Popen(
+        [sys.executable, "-I", "-B", str(helper), "--child", str(target), str(uid), boundary],
+        stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        env={"PATH": "/usr/bin:/bin", "GITHUB_ACTIONS": "true"}, close_fds=True,
+    )
+    try:
+        with selectors.DefaultSelector() as ready:
+            ready.register(process.stdout, selectors.EVENT_READ)
+            if not ready.select(15) or os.read(process.stdout.fileno(), 64) != b"CHECKPOINT\n":
+                raise RuntimeError("private_directory_checkpoint_not_reached")
+        process.kill()
+        process.wait(timeout=10)
+        if process.returncode != -signal.SIGKILL:
+            raise RuntimeError("private_directory_child_not_killed")
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait(timeout=10)
+        process.stdout.close()
+        process.stderr.close()
 
 
 def check_recovery(prefix, uid):
@@ -71,42 +116,44 @@ def check_recovery(prefix, uid):
         target = broker / ("private-directory-qa-" + uuid.uuid4().hex)
         if os.path.lexists(target):
             raise RuntimeError("private_directory_probe_collision")
-        process = subprocess.Popen(
-            [sys.executable, "-I", "-B", str(helper), "--child", str(target), str(uid), boundary],
-            stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            env={"PATH": "/usr/bin:/bin", "GITHUB_ACTIONS": "true"}, close_fds=True,
-        )
-        try:
-            with selectors.DefaultSelector() as ready:
-                ready.register(process.stdout, selectors.EVENT_READ)
-                if not ready.select(15) or os.read(process.stdout.fileno(), 64) != b"CHECKPOINT\n":
-                    raise RuntimeError("private_directory_checkpoint_not_reached")
-            process.kill()
-            process.wait(timeout=10)
-            if process.returncode != -signal.SIGKILL:
-                raise RuntimeError("private_directory_child_not_killed")
-            before = target.stat().st_ino if target.exists() else None
-            private_directory(target, uid, staging=broker)
-            first = target.stat()
-            private_directory(target, uid, staging=broker)
-            repeated = target.stat()
-            same_inode &= (before is None or before == first.st_ino) and first.st_ino == repeated.st_ino
-            exact_identity &= (stat.S_ISDIR(first.st_mode) and first.st_uid == uid
-                               and first.st_gid == uid and stat.S_IMODE(first.st_mode) == 0o700)
-            no_intermediates &= not os.path.lexists(broker / _private_stage_name(target, uid))
-            checks[name] = True
-            # Remove only the exact empty synthetic final; rmdir cannot erase
-            # private contents if another process has added anything.
-            os.rmdir(target)
-        finally:
-            if process.poll() is None:
-                process.kill()
-                process.wait(timeout=10)
-            process.stdout.close()
-            process.stderr.close()
+        _kill_after_checkpoint(helper, target, uid, boundary)
+        before = target.stat().st_ino if target.exists() else None
+        private_directory(target, uid, staging=broker)
+        first = target.stat()
+        private_directory(target, uid, staging=broker)
+        repeated = target.stat()
+        same_inode &= (before is None or before == first.st_ino) and first.st_ino == repeated.st_ino
+        exact_identity &= (stat.S_ISDIR(first.st_mode) and first.st_uid == uid
+                           and first.st_gid == uid and stat.S_IMODE(first.st_mode) == 0o700)
+        no_intermediates &= not os.path.lexists(broker / _private_stage_name(target, uid))
+        checks[name] = True
+        # Remove only the exact empty synthetic final; rmdir cannot erase
+        # private contents if another process has added anything.
+        os.rmdir(target)
     checks["private_directory_recovery_preserves_published_inode"] = same_inode
     checks["private_directory_recovery_sets_exact_private_identity"] = exact_identity
     checks["private_directory_recovery_leaves_no_intermediates"] = no_intermediates
+    public_recovered = public_same_inode = public_modes = True
+    for boundary, mode in PUBLIC_MODES.items():
+        target = broker / ("private-directory-qa-" + uuid.uuid4().hex)
+        if os.path.lexists(target):
+            raise RuntimeError("private_directory_probe_collision")
+        _kill_after_checkpoint(helper, target, uid, boundary)
+        before = target.lstat()
+        public_modes &= (stat.S_ISDIR(before.st_mode) and before.st_uid == 0
+                         and stat.S_IMODE(before.st_mode) == mode)
+        system_provision.root_directory(target, mode)
+        first = target.lstat()
+        system_provision.root_directory(target, mode)
+        repeated = target.lstat()
+        public_recovered &= stat.S_ISDIR(repeated.st_mode) and repeated.st_uid == 0
+        public_same_inode &= (before.st_dev, before.st_ino) == (first.st_dev, first.st_ino)
+        public_same_inode &= (first.st_dev, first.st_ino) == (repeated.st_dev, repeated.st_ino)
+        public_modes &= stat.S_IMODE(first.st_mode) == stat.S_IMODE(repeated.st_mode) == mode
+        os.rmdir(target)
+    checks["public_directory_crash_after_creation_recovers"] = public_recovered
+    checks["public_directory_recovery_preserves_published_inode"] = public_same_inode
+    checks["public_directory_recovery_preserves_requested_mode"] = public_modes
     if not all(checks.values()):
         raise RuntimeError("private_directory_recovery_failed")
     return checks
