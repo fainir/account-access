@@ -13,7 +13,7 @@ import subprocess
 import sys
 import tempfile
 
-from account_access.package_manifest import OWNER_APP, SUPPORT, build
+from account_access.package_manifest import APPLICATION_TARGET, CANONICAL_APP, OWNER_APP, SUPPORT, build
 
 BASE = Path("/") / SUPPORT
 APP = Path("/") / OWNER_APP
@@ -102,7 +102,7 @@ def source_handoff(source, scratch, root, helper, output):
         if not (BASE / "vault").exists() and not (BASE / "broker").exists() and not JOB.exists():
             if BASE.exists() and not BASE.is_symlink():
                 subprocess.run(["/usr/bin/sudo", "-n", "/bin/rm", "-rf", "--", str(BASE)], check=True, timeout=30)
-        assert not BASE.exists() and not APP.exists()
+        assert not BASE.exists() and not APP.exists() and not APP.is_symlink()
 
 
 def main():
@@ -125,7 +125,9 @@ def main():
         scratch = Path(temporary)
         root, scripts = scratch / "public-image", scratch / "scripts"
         (root / SUPPORT / "bin").mkdir(parents=True)
-        (root / OWNER_APP / "Contents/MacOS").mkdir(parents=True)
+        (root / CANONICAL_APP / "Contents/MacOS").mkdir(parents=True)
+        (root / OWNER_APP).parent.mkdir(parents=True)
+        (root / OWNER_APP).symlink_to(APPLICATION_TARGET)
         scripts.mkdir()
         helper = scripts / "AccountAccess-installerverify"
         try:
@@ -144,9 +146,10 @@ def main():
                        check=True, capture_output=True, timeout=30)
         shutil.copy2(helper, root / SUPPORT / "bin/AccountAccess-installerverify")
         (root / SUPPORT / "public-fixture.txt").write_text("Synthetic public installation input\n")
-        (root / OWNER_APP / "Contents/MacOS/AccountAccess").write_text("Synthetic app fixture; never executed\n")
+        (root / CANONICAL_APP / "Contents/MacOS/AccountAccess").write_text("Synthetic app fixture; never executed\n")
         for path in [root, *root.rglob("*")]:
-            path.chmod(path.stat().st_mode & 0o777 & ~0o022)
+            if not path.is_symlink():
+                path.chmod(path.stat().st_mode & 0o777 & ~0o022)
         manifest = build(root, "0.8.0", "arm64")
         (scripts / "RecoveryManifest.json").write_bytes(manifest)
         (scripts / "postinstall").write_text(POSTINSTALL)
@@ -171,10 +174,13 @@ def main():
                       "native_result": value, "provisioning_or_account_setup_executed": False}
         finally:
             if not (BASE / "vault").exists() and not (BASE / "broker").exists() and not JOB.exists():
-                for path in [BASE, APP]:
-                    if path.exists() and not path.is_symlink():
-                        subprocess.run(["/usr/bin/sudo", "-n", "/bin/rm", "-rf", "--", str(path)], check=True, timeout=30)
-        assert not BASE.exists() and not APP.exists()
+                if APP.exists() or APP.is_symlink():
+                    if not APP.is_symlink() or os.readlink(APP) != APPLICATION_TARGET:
+                        raise RuntimeError("installer_context_public_alias_changed")
+                    subprocess.run(["/usr/bin/sudo", "-n", "/bin/rm", "--", str(APP)], check=True, timeout=30)
+                if BASE.exists() and not BASE.is_symlink():
+                    subprocess.run(["/usr/bin/sudo", "-n", "/bin/rm", "-rf", "--", str(BASE)], check=True, timeout=30)
+        assert not BASE.exists() and not APP.exists() and not APP.is_symlink()
         if report["status"] == "PASSED":
             report["source_handoff"] = source_handoff(source, scratch, root, helper, output)
             if report["source_handoff"]["status"] != "PASSED":
