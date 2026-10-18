@@ -1,6 +1,34 @@
 # Genuine publisher checks — 18 October 2026
 
-## Current connected-setup candidate
+## Current import and unattended-login candidate
+
+Application source `972b800`, Mac build **62**, has fresh genuinely signed
+universal owner/background, broker, bootstrap and native Installer components.
+All five executables pass publisher purpose, timestamp, hardened-runtime and
+architecture audits. Sixteen static peer checks pass; the pinned wheel matches
+all **58** current Python modules and the source extension/installer resources.
+
+The isolated ordinary-user runtime preparation signed 25 native files with a
+four-executable hash-bound plan; three reviewed entries receive JIT. Library
+validation stays enabled and unsigned executable memory is not allowed. The
+complete original-plus-assembled audit passes 49 native files, eleven executables,
+one bundle and 34 wheels. Crypto, native callbacks, SSL/SQLite, TOTP, the SDK
+native constructor/isolated child and a sandboxed synthetic browser render pass.
+The SDK input is invalid synthetic data, with no private account request.
+Pinned inputs contain only headless shell and FFmpeg; this is distinct from the
+full-browser CI package variant. Original public inputs remain unchanged.
+
+The [fresh production transport review](https://github.com/fainir/account-access/actions/runs/39122546678) passes **28 checks** at
+controller `97af5c6` against the source-972 archive, with a fresh Chrome
+profile and the exact production extension/native-host registration. Both reads
+reach the publisher-pinned service and receive the exact pre-enrollment denial.
+The disposable profile, registration, children, service, policy and image are
+removed; the runner identity is unchanged. The public QA archive is a draft
+input, not a consumer installer or release. No owner app was installed or
+launched on the owner's Mac, and no private sign-in or genuine owner approval
+was performed. [Exact current evidence](../artifacts/unattended-import-080.json).
+
+## Earlier connected-setup candidate at `57e7702`
 
 Application source `57e7702` has fresh genuinely signed universal owner,
 background, broker, bootstrap and native Installer components. All five
@@ -47,7 +75,7 @@ enrollment or website sign-in occurs.
 No review app was installed or launched on the owner's Mac. The unfinished
 mailbox form was preserved. Private sign-ins, genuine positive owner approval,
 physical delivery, consumer installation and notarization are still unverified.
-[Current exact evidence](../artifacts/connected-setup-080.json).
+[Evidence for source 57e7702](../artifacts/connected-setup-080.json).
 
 ## Earlier full-browser runtime at `b2dddbc`
 

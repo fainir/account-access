@@ -1,5 +1,57 @@
 # Validation of Account Access
 
+## Password imports, Gmail repair and PyPI pilot — 18 October 2026
+
+Application revision `972b800` passed all eight push/PR workflows. Both full
+regressions passed **2,130 tests with 92 platform skips and zero warnings**,
+in **727.68 and 728.80 seconds**. Both focused Macs passed **1,037 cases with
+one skip**, in **155.43 and 151.57 seconds**. Lint, locked exports, dependency audits and wheel/sdist builds passed.
+[Exact source and evidence](../artifacts/unattended-import-080.json).
+
+The executed native UI suites each passed **35 scenarios**, including bounded
+CSV/JSON reads and Gmail repair. Native reports passed **67 gateway, 38 desktop,
+18 framing and 23 Gmail callback checks**. Linux isolation passed **24 checks**;
+Android emulator delivery passed **6**. Both Macs produced eighteen matching
+reports, validated through sixteen strict validators and the original **16-check**
+and prepared **23-check** package contracts. Actual Installer-context checks and
+eight native source-handoff checks passed while preserving shared permissions.
+
+Reviewed Bitwarden unencrypted JSON imports now accompany CSV snapshots. Only
+selected supported logins are enrolled; authenticator import stays opt-in.
+Current connector authority and preview expiry are rechecked under locks before
+publication; opted-in authenticator imports also recheck enrollment generation. The native reader uses one bounded,
+non-following UTF-8 regular-file descriptor. Web replacement clears the old
+review and rejects invalid UTF-8 before submission. See [password imports](password-import.md).
+
+New Gmail OAuth authorization must contain exactly the reviewed read-only scope and
+its own refresh token before access is saved. Revoked, uncertain, nonrenewable
+and incorrectly scoped connections show reconnection instead of saved success.
+The PyPI pilot binds its short-lived verification URL to the observed native
+password POST redirect and permits one corresponding TOTP submission. Public
+form preflight passed ten checks without a credential or POST. Private PyPI
+login, new-device email verification and manual setup remain unverified or
+unsupported. See [provider scope](other-service-validation.md).
+
+Fresh genuinely signed Mac build **62** passes five executable audits and
+sixteen static peer checks; its wheel matches all **58** current source modules.
+The separately prepared runtime passes crypto/callback, SDK-native-child and
+sandboxed-browser probes with library validation enabled. A fresh
+[production Chrome/native-host review](https://github.com/fainir/account-access/actions/runs/39122546678) passes **28 checks** at
+controller `97af5c6` against exactly this source and archive. Both requests
+reach the publisher-pinned service and receive the expected pre-enrollment
+denial. The temporary image, registration, profile, service and policy are
+removed; the runner identity is unchanged. This does not exercise owner
+approval, vault enrollment or a website sign-in.
+
+New private sign-ins: **zero**. The installed owner app and unfinished mailbox
+form were preserved. Real Google publisher configuration/consent, private
+email/SMS/TOTP delivery, physical phones, private password-manager access,
+real isolated Claude Code/Codex sessions, genuine owner enrollment and signed,
+notarized consumer installation remain release gates. Chrome and Bitwarden
+file imports are snapshots; continuous synchronization from them is unimplemented.
+Production readiness remains **false**. Earlier sections retain their historical
+source revisions and evidence.
+
 ## Connected setup and protected app layout — 18 October 2026
 
 Application revision `57e7702` passed both Main regressions: **1,797 tests,

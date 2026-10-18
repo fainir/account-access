@@ -99,7 +99,7 @@ to check recreation, then exercises pre-enrollment reads and refused setup. Clea
 checks key absence, removes the QA setup rule, temporary jobs, identity and user
 domain. It uses no private accounts or genuine positive owner approval.
 
-The [current 37-check evidence](../artifacts/connected-setup-080.json) also
+The [current 37-check evidence](../artifacts/unattended-import-080.json) also
 kills actual subprocesses after five empty private-directory staging/publication
 boundaries and retries with the same reserved UID. Both Macs preserve a published
 inode, require the exact UID/GID/0700 mode and remove only empty intermediates.

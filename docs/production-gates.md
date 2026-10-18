@@ -7,6 +7,20 @@ or physical-device coverage.
 
 ## Candidate 0.8 changes
 
+- Revision `972b800` passes all eight workflows: both **2,130-test**
+  regressions with 92 platform skips and zero warnings, both **1,037-case**
+  focused Macs with one skip, and **35** executed native UI scenarios per Main
+  run. All eighteen Mac reports and paired native/Linux/Android reports match;
+  strict validators, package contracts and actual Installer-context checks pass.
+  Fresh signed build **62**, its runtime and a separate **28-check** genuine
+  production Chrome/native-host review at controller `97af5c6` pass.
+  The candidate adds reviewed Bitwarden JSON snapshots, locked import authority
+  rechecks, bounded UTF-8 file reads, renewable least-scope Gmail authorization
+  and a guarded PyPI password/TOTP pilot. Private sign-ins remain zero; owner
+  setup, real consent/delivery, physical phones, continuous Chrome/Bitwarden sync
+  and consumer installation/notarization remain open. The owner's installed app
+  and unfinished mailbox form were preserved. Production readiness is false.
+  [Exact current evidence](../artifacts/unattended-import-080.json).
 - Revision `57e7702` passes both Main regressions: **1,797 tests, 92 platform
   skips, zero warnings**, in 677.48 and 603.99 seconds. Lint, locked exports,
   sandboxing, dependency audits and package builds pass. Native reports pass
@@ -26,7 +40,7 @@ or physical-device coverage.
   1Password SDK sync have controlled coverage. No new private sign-in or owner
   installation occurred; the unfinished owner mailbox form was preserved.
   Consumer deployment and production readiness remain false.
-  [Current connected-setup evidence](../artifacts/connected-setup-080.json).
+  [Earlier connected-setup evidence](../artifacts/connected-setup-080.json).
 - Application revision `585412e` passes all eight workflows: two **1,605-test**
   regressions with 79 platform skips and two **889-case** focused Mac suites
   with one skip. All eighteen worker reports match. A new 17-check journey uses
@@ -135,7 +149,7 @@ or physical-device coverage.
   [18-check protected Mac composition](../artifacts/username-password-pages-080.json)
   also requires two identity/password/SMS logins, session reuse and durable
   recovery after a cold restart; its accounts/messages are synthetic.
-- Staged Mac build 61 requires macOS 14 (Sonoma) or later, matching the
+- Staged Mac build 62 requires macOS 14 (Sonoma) or later, matching the
   pinned Playwright browser runtime. App metadata, shell preflight and the direct
   Python bootstrap enforce this before downloads/runtime changes. This corrects
   the previous macOS 13 claim; it is not clean-Mac installation acceptance.
@@ -275,9 +289,9 @@ or physical-device coverage.
 | System-service entrypoint | [Current native reports](../artifacts/connected-setup-080.json) pass 67 gateway, 38 desktop and 18 framing checks. The owner app binds its executable, resources and Info to the protected canonical bundle and checks static/running code identity independently of the public launcher. | Genuine publisher Chrome → production native host → pinned desktop/XPC → initial-enrollment denial passes twice in the separate 28-check review. Genuine owner approval, account enrollment and consumer deployment remain open. |
 | First isolated vault setup | Initializer/key verification/publication passed [28 checks](../artifacts/mac-staged-enrollment-080.json); native setup-session authority → fresh System key → published store → worker passed [40 first-vault/client checks](../artifacts/mac-agent-setup-080.json), including initialized-vault Pause/Resume and missing-key repair | Positive setup authority is synthetic; genuine owner approval, positive separate-process native enrollment, full crash/power-loss recovery, complete isolated source/collector setup, consumer client provisioning/repair and installed migration |
 | Automatic agent client setup | One portable identity, digest-only enrollment, both host launchers and preserved session instructions passed [40 first-vault/client checks and 38 transport checks](../artifacts/mac-agent-setup-080.json) | Genuine OS approval, consumer deployment, migration/revocation repair, real Codex/Claude sessions against this isolated setup and private sign-in QA |
-| Chrome/password-manager import | Reviewed CSV imports; one selected personal entry imported in the native app | More real export formats and representative private website connectors |
+| Chrome/password-manager import | Reviewed CSV and candidate Bitwarden JSON imports; one selected personal Chrome entry imported using an earlier native preview | More real export formats and representative private website connectors |
 | Other website providers | Namecheap username-only pilot and exact export aliases; one selected real Chrome credential imported locally; anonymous preflight and local import/session fixtures passed | Private Namecheap login stopped at browser verification/HTTP 429; password/email/TOTP acceptance remains open. Railway email-first login is not implemented. See [provider scope](other-service-validation.md) |
-| Continuous password updates | [Exact-item 1Password service-account SDK and Connect](onepassword-sync.md) contracts; encrypted local tokens, approved username/origin binding, bounded isolated reads, serialized edits, preserved website gates and retry after repaired sources. | Private service-account/Connect enrollment, real rotation and revocation QA. Chrome CSV exports remain snapshots; continuous Chrome sync is unimplemented. |
+| Continuous password updates | [Exact-item 1Password service-account SDK and Connect](onepassword-sync.md) contracts; encrypted local tokens, approved username/origin binding, bounded isolated reads, serialized edits, preserved website gates and retry after repaired sources. | Private service-account/Connect enrollment, real rotation and revocation QA. CSV/JSON exports remain snapshots; continuous Chrome and Bitwarden sync is unimplemented. |
 | Gmail and other email codes | [Signed-desktop Gmail browser/PKCE setup](gmail-authenticator-and-sms.md), with 23 native callback/lifetime checks and controlled browser/token/cancellation tests. Separate mailbox checks, bounded Gmail freshness/renewal and plain-text/HTML TLS IMAP recovery remain covered. | Publisher-registered and verified consumer Google application, genuine owner consent and real mailbox/code-delivery QA. Arbitrary webmail is unsupported. |
 | iPhone SMS | Narrow signed Messages helper, message-selection fixtures and owner-granted Mac privacy permission | Real forwarded SMS delivery and completed private sign-in QA; the latest bounded attempt detected no new incoming text |
 | Isolated Mac SMS collector | [13 native checks](../artifacts/mac-native-messages-080.json), [10 composed checks](../artifacts/mac-native-browser-080.json) and [18 current system-host recovery checks in two Macs](../artifacts/protected-recovery-080.json): actual production host, System key, CLI, isolated worker and native reader complete two fresh password/SMS logins with session reuse and automatic durable cooldown recovery after a cold restart; restricted results and store/collector denials remain enforced | CI entrypoint and synthetic enrollment/messages/website; real agent sessions, genuine owner approval/Full Disk Access, physical delivery and installed consumer QA remain |
