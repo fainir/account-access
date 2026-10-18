@@ -394,6 +394,7 @@ def main():
         return info.st_uid, info.st_gid, stat.S_IMODE(info.st_mode)
 
     parent_state = {path: ownership(path) for path in parents}
+    snapshot = {}
     try:
         checks["actual_installer_coordinator_killed_after_protected_intent"] = interrupt_installer(package, metadata)
         result = subprocess.run(
@@ -514,7 +515,11 @@ def main():
         # with no credential store, can be removed by this negative journey.
         if not (BASE / "vault").exists() and not (BASE / "broker").exists() and not JOB.exists():
             if PUBLIC_APP.exists() or PUBLIC_APP.is_symlink():
-                if not PUBLIC_APP.is_symlink() or os.readlink(PUBLIC_APP) != PUBLIC_TARGET:
+                alias_info = PUBLIC_APP.lstat()
+                if (snapshot.get(PUBLIC_APP) != (alias_info.st_dev, alias_info.st_ino)
+                        or alias_info.st_uid != 0 or alias_info.st_nlink != 1
+                        or not stat.S_ISLNK(alias_info.st_mode)
+                        or os.readlink(PUBLIC_APP) != PUBLIC_TARGET):
                     raise RuntimeError("package_fixture_public_alias_changed")
                 subprocess.run(["/usr/bin/sudo", "-n", "/bin/rm", "--", str(PUBLIC_APP)], check=True)
             for path in [BASE, JOURNAL]:
