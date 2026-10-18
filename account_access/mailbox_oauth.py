@@ -1,6 +1,6 @@
 """Owner browser handoff for reviewed Gmail connections in the isolated worker.
 
-The desktop owns the loopback listener and system browser. PKCE state, token
+The desktop owns the loopback listener and system browser. The PKCE verifier, token
 exchange and renewal credentials stay in the worker's encrypted store.
 """
 
@@ -36,6 +36,41 @@ def supported(config, account):
                 and authorization.port == token.port and authorization.port)
 
 
+def validate_grant(token):
+    """New owner consent must provide the narrowly scoped, renewable grant.
+
+    Never carry a refresh token from an earlier consent into a new one: the
+    owner may have selected another Google account this time.
+    """
+    if not isinstance(token, dict):
+        raise AccessError("NEEDS_USER", "invalid_provider_token", "email")
+    scope = token.get("scope")
+    scopes = set(scope.split()) if isinstance(scope, str) else set()
+    if GMAIL_SCOPE not in scopes:
+        raise AccessError("NEEDS_USER", "mailbox_scope_missing", "email")
+    if scopes != {GMAIL_SCOPE}:
+        raise AccessError("NEEDS_USER", "mailbox_scope_not_allowed", "email")
+    refresh = token.get("refresh_token")
+    if not isinstance(refresh, str) or not refresh.strip():
+        raise AccessError("NEEDS_USER", "mailbox_oauth_renewal_unavailable", "email")
+
+
+def connection_issue(connection):
+    if not connection:
+        return None
+    if connection.get("revoked"):
+        return "connection_revoked"
+    if connection.get("invalid"):
+        return "provider_grant_revoked_or_expired"
+    if connection.get("refresh_in_flight"):
+        return "refresh_outcome_uncertain"
+    try:
+        validate_grant(connection.get("token"))
+    except AccessError as error:
+        return error.reason
+    return None
+
+
 def view(broker):
     config = broker.store.config()
     result = []
@@ -49,11 +84,17 @@ def view(broker):
                    if source.kind == "gmail" and source.account == account]
         credential_ready = (spec.token_auth_method == "none"
                             or bool((broker.store.get("credential:" + account) or {}).get("client_secret")))
+        connection = broker.store.get("connection:" + account) or {}
+        issue = connection_issue(connection)
+        state = broker.connection_view(account, config)
+        renewable = bool(connection and not issue and connection.get("fingerprint") == config.fingerprint(account))
+        if issue:
+            state.update(connected=False, connection_state="needs_attention", reason=issue)
         result.append({"account": account, "label": spec.label,
                        "fingerprint": config.fingerprint(account), "sources": sources,
                        "publisher_configured": credential_ready,
                        "environment": "controlled-demo" if config.test_mode else "personal",
-                       **broker.connection_view(account, config),
+                       **state, "renewable_access_saved": renewable,
                        "login_delivery_verified": False})
     return result
 
@@ -153,7 +194,7 @@ def finish(broker, account, attempt, callback):
             reason = "oauth_connection_declined" if params["error"] == ["access_denied"] else "oauth_connection_failed"
             raise AccessError("NEEDS_USER", reason, "email")
         try:
-            broker.oauth._finish_locked(account, callback)
+            broker.oauth._finish_locked(account, callback, validate_token=validate_grant)
         except AccessError as exc:
             if exc.reason != "invalid_oauth_callback":
                 clear(store, account, flow)

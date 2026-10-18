@@ -219,10 +219,10 @@ def test_cancellation_and_replacement_wait_for_an_active_exchange(env, monkeypat
     original = broker.oauth._finish_locked
     errors = []
 
-    def exchange(account, callback):
+    def exchange(account, callback, **kwargs):
         entered.set()
         assert release.wait(5)
-        original(account, callback)
+        original(account, callback, **kwargs)
 
     def finish_thread():
         try:
@@ -400,3 +400,137 @@ def test_existing_owner_connect_route_still_starts_its_oauth_job(env, monkeypatc
         server.shutdown()
         server.server_close()
         thread.join(5)
+
+
+def replace_token_response(broker, monkeypatch, transform):
+    from contextlib import contextmanager
+    original = broker.oauth.client
+
+    @contextmanager
+    def client(*args, **kwargs):
+        with original(*args, **kwargs) as delegate:
+            fetch = delegate.fetch_token
+            delegate.fetch_token = lambda *values, **options: transform(dict(fetch(*values, **options)))
+            yield delegate
+    monkeypatch.setattr(broker.oauth, "client", client)
+
+
+@pytest.mark.parametrize("field,value,reason", [
+    ("refresh_token", None, "mailbox_oauth_renewal_unavailable"),
+    ("refresh_token", "", "mailbox_oauth_renewal_unavailable"),
+    ("refresh_token", "   ", "mailbox_oauth_renewal_unavailable"),
+    ("refresh_token", [], "mailbox_oauth_renewal_unavailable"),
+    ("scope", "", "mailbox_scope_missing"),
+    ("scope", None, "mailbox_scope_missing"),
+    ("scope", [GMAIL_SCOPE], "mailbox_scope_missing"),
+    ("scope", "https://www.googleapis.com/auth/drive.readonly", "mailbox_scope_missing"),
+    ("scope", GMAIL_SCOPE + " https://www.googleapis.com/auth/drive.readonly", "mailbox_scope_not_allowed"),
+])
+def test_unusable_new_google_grant_never_replaces_existing_connection_or_resolves_work(env, monkeypatch, field, value, reason):
+    provider, broker, _ = env
+    first = start(broker)
+    finish(broker, "mail", first["attempt"], callback(first))
+    previous = broker.store.get("connection:mail")
+    fingerprint = broker.store.config().fingerprint("mail")
+    second = begin(broker, "mail", fingerprint, "http://127.0.0.1:52781/callback/mail")
+    returned = callback(second)
+    replace_token_response(broker, monkeypatch, lambda token: {**token, field: value})
+    monkeypatch.setattr(broker.store, "resolve_login", lambda account: pytest.fail("Rejected consent must preserve queued work"))
+    with pytest.raises(AccessError, match=reason) as caught:
+        finish(broker, "mail", second["attempt"], returned)
+    assert caught.value.kind == "email"
+    assert broker.store.get("connection:mail") == previous
+    assert broker.store.get("oauth-pending:mail") is broker.store.get("mailbox-oauth:mail") is None
+    assert broker.oauth.token("mail", broker.store.config()) == previous["token"]
+    assert previous["token"]["access_token"] not in json.dumps(view(broker))
+    assert provider.login_count == provider.api_count == provider.refresh_count == 0
+    with pytest.raises(AccessError, match="invalid_mailbox_oauth_attempt"):
+        finish(broker, "mail", second["attempt"], returned)
+
+
+def test_missing_refresh_cannot_reuse_a_different_google_accounts_prior_refresh_token(env, monkeypatch):
+    _, broker, _ = env
+    first = start(broker)
+    finish(broker, "mail", first["attempt"], callback(first))
+    previous = broker.store.get("connection:mail")
+    second = begin(broker, "mail", broker.store.config().fingerprint("mail"), "http://127.0.0.1:52781/callback/mail")
+    returned = callback(second)
+    def no_refresh(token):
+        token.pop("refresh_token")
+        return token
+    replace_token_response(broker, monkeypatch, no_refresh)
+    with pytest.raises(AccessError, match="mailbox_oauth_renewal_unavailable"):
+        finish(broker, "mail", second["attempt"], returned)
+    assert broker.store.get("connection:mail") == previous
+
+
+def test_default_generic_oauth_still_accepts_a_nonrenewable_grant_without_gmail_policy(env, monkeypatch):
+    _, broker, _ = env
+    uri = "http://127.0.0.1:52781/callback/demo-api"
+    url = broker.oauth.begin("demo-api", uri)
+    returned = httpx.get(url, follow_redirects=False, trust_env=False).headers["Location"]
+    def no_refresh(token):
+        token.pop("refresh_token")
+        return token
+    replace_token_response(broker, monkeypatch, no_refresh)
+    broker.oauth.finish("demo-api", returned)
+    assert broker.store.get("connection:demo-api")["token"]["access_token"]
+    assert broker.store.get("connection:demo-api")["token"]["refresh_token"] is None
+
+
+@pytest.mark.parametrize("field,value,reason", [
+    ("revoked", True, "connection_revoked"),
+    ("invalid", True, "provider_grant_revoked_or_expired"),
+    ("refresh_in_flight", True, "refresh_outcome_uncertain"),
+    ("refresh_token", None, "mailbox_oauth_renewal_unavailable"),
+    ("scope", "", "mailbox_scope_missing"),
+    ("scope", GMAIL_SCOPE + " https://www.googleapis.com/auth/drive.readonly", "mailbox_scope_not_allowed"),
+])
+def test_gmail_card_exposes_reconnect_for_known_unusable_saved_access_without_token_leaks(env, field, value, reason):
+    _, broker, _ = env
+    started = start(broker)
+    finish(broker, "mail", started["attempt"], callback(started))
+    connection = broker.store.get("connection:mail")
+    secret = connection["token"]["access_token"]
+    if field in {"refresh_token", "scope"}:
+        connection["token"][field] = value
+    else:
+        connection[field] = value
+    broker.store.put("connection:mail", connection)
+    shown = view(broker)[0]
+    assert shown["connected"] is False and shown["connection_state"] == "needs_attention"
+    assert shown["renewable_access_saved"] is False and shown["reason"] == reason
+    assert not shown["login_delivery_verified"] and secret not in json.dumps(shown)
+
+
+def test_gmail_renewal_capability_is_local_and_does_not_force_new_consent_or_claim_identity(env):
+    provider, broker, _ = env
+    fingerprint = configure(broker)
+    config = broker.store.config()
+    config.accounts["mail"].authorization_params = {"login_hint": "demo@example.test"}
+    broker.store.configure(config)
+    fingerprint = config.fingerprint("mail")
+    assert view(broker)[0]["renewable_access_saved"] is False
+    started = begin(broker, "mail", fingerprint, "http://127.0.0.1:52781/callback/mail")
+    query = parse_qs(urlsplit(started["authorization_url"]).query)
+    assert query["login_hint"] == ["demo@example.test"]
+    assert "prompt" not in query and "access_type" not in query
+    result = finish(broker, "mail", started["attempt"], callback(started))
+    shown = view(broker)[0]
+    assert shown["renewable_access_saved"] is True and shown["connected"] is True
+    assert not result["mailbox_identity_verified"] and not result["login_delivery_verified"]
+    assert not shown["verified_now"] and provider.api_count == provider.login_count == provider.refresh_count == 0
+
+
+def test_legacy_gmail_oauth_finish_also_validates_before_publication(env, monkeypatch):
+    _, broker, _ = env
+    configure(broker)
+    uri = "http://127.0.0.1:52781/callback/mail"
+    url = broker.oauth.begin("mail", uri)
+    returned = httpx.get(url, follow_redirects=False, trust_env=False).headers["Location"]
+    replace_token_response(broker, monkeypatch, lambda token: {**token, "refresh_token": None})
+    monkeypatch.setattr(broker.store, "resolve_login", lambda account: pytest.fail("Rejected legacy grant must not resume work"))
+    with pytest.raises(AccessError, match="mailbox_oauth_renewal_unavailable"):
+        broker.oauth.finish("mail", returned)
+    assert broker.store.get("connection:mail") is None
+    assert broker.store.get("oauth-pending:mail") is None

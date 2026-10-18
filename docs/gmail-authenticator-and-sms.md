@@ -36,6 +36,24 @@ after five minutes and cannot be replayed. Cancelling preserves any existing
 Google connection. This handoff removes the former requirement for the
 isolated worker to launch a browser in the owner's desktop session.
 
+New Google consent is accepted only when its token response includes the exact
+configured Gmail read scope and a refresh credential for unattended renewal.
+Missing renewal access or extra permissions produce a local reconnect/review
+message before replacing an existing connection or resuming queued work. A
+previous working connection is preserved if that new consent is rejected; the
+app never combines a new account's access token with an older account's refresh
+token. Configured Google authorization parameters are preserved, without adding
+an extra consent prompt during normal renewal.
+[Google's desktop-flow contract](https://developers.google.com/identity/protocols/oauth2/native-app#exchange-authorization-code)
+describes the refresh credential and checking granted scopes.
+
+The Gmail card now marks locally known revoked, uncertain, underscoped or
+nonrenewable saved access as needing reconnection. **Renewable access saved**
+means the encrypted grant has the required renewal credential; it is not a live
+Google acceptance, mailbox-identity or delivery check. Google may revoke or
+expire access later, so real consent and automatic renewal remain separate
+release tests.
+
 These controls have synthetic provider and local callback tests. They do not
 establish a completed real Google consent, verified Google application or real
 email-code delivery. If no registered connection is configured, the app explains

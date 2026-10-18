@@ -112,9 +112,13 @@ class OAuth:
 
     def finish(self, account, callback_url):
         with self.store.lock("account:" + account):
-            self._finish_locked(account, callback_url)
+            # The owner web/legacy route must enforce the same Gmail contract
+            # as the protected desktop handoff, before publication/resumption.
+            from .mailbox_oauth import supported, validate_grant
+            validator = validate_grant if supported(self.store.config(), account) else None
+            self._finish_locked(account, callback_url, validate_token=validator)
 
-    def _finish_locked(self, account, callback_url):
+    def _finish_locked(self, account, callback_url, *, validate_token=None):
         """Caller holds the account lock, including a desktop handoff's lifetime check."""
         config = self.store.config()
         pending = self.store.get("oauth-pending:" + account)
@@ -134,6 +138,8 @@ class OAuth:
                 token = client.fetch_token(config.accounts[account].token_url,
                                            authorization_response=callback_url,
                                            code_verifier=pending["verifier"])
+            if validate_token is not None:
+                validate_token(token)
             self.save(account, token, config)
         except (OAuthError, httpx.HTTPError, ValueError):
             raise AccessError("NEEDS_USER", "oauth_connection_failed") from None
