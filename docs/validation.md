@@ -1,12 +1,29 @@
 # Validation of Account Access
 
-The current [build 67 review](../artifacts/build67-review-080.json) records source
-`e2c8bc4`, identical-product QA revision `c2748c8`, all eight successful fresh CI
-runs and the independently reviewed unsigned offline installer. Both Main runs
-pass 2,467 tests with 93 skips and zero warnings. Production readiness and new
-private sign-ins remain false/zero; [production acceptance](production-gates.md)
-lists the open requirements. Sections below retain earlier source-specific
-results.
+The current [build 70 review](../artifacts/build70-review-080.json) records frozen
+application source `fecb17a` and identical-product QA revision `e90eaf3`. The
+actual unsigned installer inventory, 79 source files, app/Node signatures,
+provider inputs and corresponding source passed review. Targeted validation
+passed 220 existing browser compatibility cases and 27 source/browser/network
+cases. A fresh guarded Claude Code request completed four fictional password
+logins with email, SMS and TOTP verification. All eight current CI workflows
+passed. Both Main regressions passed 2,664
+tests with 93 skips and zero warnings; dependency audits and wheel/source
+builds passed. The product tree is identical to `fecb17a`.
+Production readiness and new private sign-ins remain false/zero;
+[production acceptance](production-gates.md) lists the open requirements.
+
+Build 69 is [quarantined](../artifacts/build69-review-080.json): disconnecting
+its Bitwarden source during login could still submit a captured password and
+recreate a session. Build 70 guards disclosure, dispatch and session publication
+with the original enrollment. Earlier passing compatibility checks do not erase
+that failure. The earlier identical-source Mac run also has an unclassified
+CLI transport failure in one copy and a passing counterpart; current QA adds
+failure-only bounded diagnostics without changing production timeouts.
+
+The [build 67 record](../artifacts/build67-review-080.json) remains historical
+evidence for its own earlier source, including eight passing CI workflows.
+Sections below retain earlier source-specific results.
 
 ## In-app confirmation email and interrupted setup — 18 October 2026
 

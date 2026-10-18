@@ -98,7 +98,8 @@ items through a separate, explicitly connected local vault session, and from
 1Password items using a read-only service account or Connect. The Bitwarden
 session has broad vault-decryption authority; its setup explains this before
 consent. A JSON import remembers the exact selected item for later linking.
-Checks run every five minutes and before password login when due; changed usernames/sites need review. Chrome
+Background checks run every five minutes when due, and a password login checks
+the source again. Changed usernames/sites need review. Chrome
 live sync is not shipped. Editing a saved login replaces its previous manager
 connection, so sync cannot undo your edit.
 [Bitwarden setup and security limits](docs/bitwarden-sync.md),

@@ -18,6 +18,15 @@ enrollment and consumer installation are not established by its controlled
 tests. Earlier build evidence below does not validate this new product tree.
 [Bitwarden setup and limits](bitwarden-sync.md).
 
+The actual build 70 archive passed inventory, source-binding and payload
+signature review. All eight workflows at identical-product QA `e90eaf3`
+passed; each Main regression passed 2,664 tests with 93 skips and zero
+warnings. A fresh guarded Claude Code request completed four fictional
+password logins with email, SMS and TOTP. These checks do not establish a
+genuine owner installation, private account or physical code delivery.
+The [build 70 record](../artifacts/build70-review-080.json) binds the exact
+source, tests, installer hash, remaining provider advisory and release gaps.
+
 Build **69** at application source `2fb0e54` corrected the email regression
 below and passed a fresh guarded Claude Code fictional-account journey. Its
 actual unsigned installer also passed inventory, source-binding and payload
@@ -83,7 +92,7 @@ The candidate now includes:
 - Separate connection and delivery status. A saved grant or successful mailbox
   check never claims that a real website email or SMS was delivered.
 
-A fresh [Claude Code check at source da2bb94](../artifacts/agent-tests/claude-verification-080-build66-da2bb94.json)
+An earlier [Claude Code check at source da2bb94](../artifacts/agent-tests/claude-verification-080-build66-da2bb94.json)
 completed four fictional password logins with email, SMS and TOTP verification
 from an ordinary request. Its invocation-only tool guard and independent trace
 check passed. This is controlled compatibility evidence, not personal-account
