@@ -26,7 +26,9 @@ from account_access.worker_bootstrap import root_managed_path
 
 
 BASE = Path("/Library/Application Support/Account Access")
-APP = Path("/Applications/Account Access.app")
+APP = BASE / "owner.app"
+PUBLIC_APP = Path("/Applications/Account Access.app")
+PUBLIC_TARGET = "../Library/Application Support/Account Access/owner.app"
 JOB = Path("/Library/LaunchDaemons/com.fainir.accountaccess.broker.plist")
 JOURNAL = Path("/Library/Application Support/Account Access Installer")
 
@@ -353,7 +355,7 @@ def main():
         or os.environ.get("RUNNER_OS") != "macOS"
     ):
         parser.error("Requires an ordinary runner in a disposable GitHub Mac VM")
-    if any(path.exists() or path.is_symlink() for path in [BASE, APP, JOB, JOURNAL]):
+    if any(path.exists() or path.is_symlink() for path in [BASE, PUBLIC_APP, JOB, JOURNAL]):
         parser.error("Requires a fresh system namespace")
     for lookup in [pwd.getpwnam, grp.getgrnam]:
         try:
@@ -391,7 +393,8 @@ def main():
         root_managed_path(BASE)
         checks["native_verified_source_and_installed_image_before_provisioning"] = verify_install_receipt(BASE, metadata)
         checks["same_package_resumes_after_actual_process_interruption"] = True
-        snapshot = {path: (path.lstat().st_dev, path.lstat().st_ino) for path in [BASE, APP, BASE / "install-verification.json"]}
+        snapshot = {path: (path.lstat().st_dev, path.lstat().st_ino)
+                    for path in [BASE, APP, PUBLIC_APP, BASE / "install-verification.json"]}
         repeated = subprocess.run(["/usr/bin/sudo", "-n", "/usr/sbin/installer", "-pkg", str(package), "-target", "/"],
                                   capture_output=True, timeout=360)
         checks["same_package_rechecks_published_image_without_replacing_it"] = (
@@ -481,7 +484,11 @@ def main():
                 checks["development_package_creates_no_service_" + name] = True
             else:
                 checks["development_package_creates_no_service_" + name] = False
-        checks["protected_app_payload_present"] = APP.is_dir()
+        checks["protected_app_payload_present"] = (
+            APP.is_dir() and root_managed_path(APP) == APP
+            and PUBLIC_APP.is_symlink() and os.readlink(PUBLIC_APP) == PUBLIC_TARGET
+            and PUBLIC_APP.resolve(strict=True) == APP
+        )
         checks["shared_system_parent_ownership_and_modes_preserved"] = all(
             ownership(path) == before for path, before in parent_state.items()
         )
@@ -494,12 +501,18 @@ def main():
         # Never turn this into a general uninstall path. Only fresh CI payloads,
         # with no credential store, can be removed by this negative journey.
         if not (BASE / "vault").exists() and not (BASE / "broker").exists() and not JOB.exists():
-            for path in [BASE, APP, JOURNAL]:
+            if PUBLIC_APP.exists() or PUBLIC_APP.is_symlink():
+                if not PUBLIC_APP.is_symlink() or os.readlink(PUBLIC_APP) != PUBLIC_TARGET:
+                    raise RuntimeError("package_fixture_public_alias_changed")
+                subprocess.run(["/usr/bin/sudo", "-n", "/bin/rm", "--", str(PUBLIC_APP)], check=True)
+            for path in [BASE, JOURNAL]:
                 if path.exists():
                     subprocess.run(
                         ["/usr/bin/sudo", "-n", "/bin/rm", "-rf", "--", str(path)], check=True
                     )
-    checks["temporary_package_payload_removed"] = not BASE.exists() and not APP.exists()
+    checks["temporary_package_payload_removed"] = (
+        not BASE.exists() and not PUBLIC_APP.exists() and not PUBLIC_APP.is_symlink()
+    )
     assert all(value is True for value in checks.values())
     args.report.write_text(
         json.dumps(
