@@ -179,6 +179,9 @@ class Codes:
                 raise AccessError("NEEDS_USER", "invalid_authenticator_seed", "totp") from None
         if source.kind == "gmail":
             with self.store.lock("account:" + source.account):
+                # The lock may have been busy since the initial live check.
+                # Stop a canceled/replaced window before mailbox requests too.
+                self.check_window(source_id, started, mailbox_locked=source.account)
                 get = self.gmail_reader(source, config)
                 ids = self.gmail_ids(source, started, get)
                 candidates = []

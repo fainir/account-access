@@ -474,3 +474,48 @@ def test_finishing_a_window_during_its_oauth_binding_read_cannot_return_a_stale_
     fresh_started = time.time()
     broker.codes.begin("email", "demo-web", fresh_started)
     assert broker.codes.check_window("email", fresh_started)[1]["started"] == fresh_started
+
+
+def test_gmail_resolution_rechecks_after_its_second_lock_wait_before_any_mailbox_request(env, monkeypatch):
+    _, broker, _ = env
+    gmail_source(broker)
+    enroll(broker.store, "email", {})
+    requests = []
+
+    def get(*args, **_kwargs):
+        requests.append(args[0])
+        return {}
+
+    monkeypatch.setattr("account_access.codes.get_json", get)
+    started = time.time()
+    broker.codes.begin("email", "demo-web", started)
+    requests.clear()
+    waiting, release = threading.Event(), threading.Event()
+    original_lock = broker.store.lock
+    entries = 0
+
+    @contextmanager
+    def lock(key, *args, **kwargs):
+        nonlocal entries
+        if threading.current_thread().name == "waiting-resolver" and key == "account:demo-api":
+            entries += 1
+            if entries == 2:
+                waiting.set()
+                assert release.wait(5)
+        with original_lock(key, *args, **kwargs):
+            yield
+
+    monkeypatch.setattr(broker.store, "lock", lock)
+    call = start_call("waiting-resolver", lambda: broker.codes.resolve("email", started, set()))
+    try:
+        assert waiting.wait(5)
+        broker.codes.finish("email", started)
+    finally:
+        release.set()
+    result = finish_call(call)
+    assert isinstance(result.get("error"), AccessError) and result["error"].reason == "login_code_window_missing"
+    assert requests == []
+    fresh_started = time.time()
+    broker.codes.begin("email", "demo-web", fresh_started)
+    assert broker.codes.resolve("email", fresh_started, set()) is None
+    assert len(requests) == 2  # Fresh baseline and fresh resolution only.
