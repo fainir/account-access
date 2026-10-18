@@ -37,6 +37,8 @@ struct InstallerPayloadTree {
 struct InstallerPayloadManifest {
     static let support = "/Library/Application Support/Account Access"
     static let application = "/Applications/Account Access.app"
+    static let applicationTarget = "../Library/Application Support/Account Access/owner.app"
+    static let canonicalApplication = support + "/owner.app"
     static let maximumEntries = 100_000
     static let maximumFile: Int64 = 1024 * 1024 * 1024
     static let maximumTotal: Int64 = 8 * maximumFile
@@ -112,6 +114,18 @@ struct InstallerPayloadManifest {
               Set(roots.keys) == [Self.support, Self.application] else { throw InstallerPayloadFailure.manifest }
         var trees: [String: InstallerPayloadTree] = [:], count = 0, total: Int64 = 0, aliasWork = 0
         for (root, rows) in roots {
+            // This is one fixed, non-executable publication alias. No other
+            // manifest root or generic tree alias may leave its own tree.
+            if root == Self.application {
+                guard rows.count == 1, let alias = rows[""], Set(alias.keys) == ["kind", "target"],
+                      alias["kind"] as? String == "symlink", alias["target"] as? String == Self.applicationTarget else {
+                    throw InstallerPayloadFailure.manifest
+                }
+                count += 1
+                trees[root] = InstallerPayloadTree(nodes: ["": InstallerPayloadNode(kind: "symlink", mode: nil,
+                    size: nil, sha256: nil, target: Self.applicationTarget)], children: [:])
+                continue
+            }
             var nodes: [String: InstallerPayloadNode] = [:], names: Set<String> = []
             var children: [String: Set<String>] = [:]
             for (name, row) in rows {
@@ -156,6 +170,11 @@ struct InstallerPayloadManifest {
                 if node.kind == "symlink" { try Self.confinedAlias(name, nodes: nodes, work: &aliasWork) }
             }
             trees[root] = InstallerPayloadTree(nodes: nodes, children: children)
+        }
+        guard count <= Self.maximumEntries,
+              trees[Self.support]?.nodes["owner.app"]?.kind == "directory",
+              trees[Self.support]?.nodes["owner.app/Contents/MacOS/AccountAccess"]?.kind == "file" else {
+            throw InstallerPayloadFailure.manifest
         }
         self.trees = trees
         sha256 = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
@@ -236,9 +255,9 @@ enum InstallerPayloadIO {
                 let next = openat(fd, name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
                 guard next >= 0 else { throw InstallerPayloadFailure.path }
                 do {
-                    // /Applications is normally root:admin 0775. This checker
-                    // reads a descriptor-pinned app and hashes every member. It
-                    // never executes root code from that shared namespace.
+                    // /Applications is normally root:admin 0775. Only the fixed
+                    // publication alias uses this shared parent; the complete
+                    // canonical app remains under protected Support directories.
                     _ = try check(next, owner: owner, directory: true,
                                   sharedParent: sharedApplicationParent && index == 0 && name == "Applications",
                                   installerTemporaryParent: installerResources && index == 1 && parts[0] == "private"
@@ -373,22 +392,55 @@ enum InstallerPayloadIO {
         return (manifest, try installedImage(manifest))
     }
     static func installedImage(_ manifest: InstallerPayloadManifest, opaquePrivateBranches: Bool = false) throws -> InstallerPayloadCounts {
-        var counts = InstallerPayloadCounts()
-        for root in manifest.trees.keys.sorted() {
-            let fd = try directory(root, owner: 0, sharedApplicationParent: root == InstallerPayloadManifest.application)
-            do {
-                let extras: Set<String> = opaquePrivateBranches && root == InstallerPayloadManifest.support
-                    ? ["broker", "home", "vault", "run", "control", "owner.json", "install-verification.json"] : []
-                counts.add(try verify(fd, tree: manifest.trees[root]!, owner: 0, rootExtras: extras))
-                // Reopen the namespace after hashing: a moved/replaced app may
-                // not substitute for the descriptor-pinned image we inspected.
-                let current = try directory(root, owner: 0, sharedApplicationParent: root == InstallerPayloadManifest.application)
-                defer { Darwin.close(current) }
-                var before = stat(), after = stat()
-                guard fstat(fd, &before) == 0, fstat(current, &after) == 0, same(before, after) else { throw InstallerPayloadFailure.changed }
-            } catch { Darwin.close(fd); throw error }
-            Darwin.close(fd)
+        let root = open("/", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard root >= 0 else { throw InstallerPayloadFailure.path }
+        defer { Darwin.close(root) }
+        return try verifyImage(root, manifest: manifest, owner: 0, opaquePrivateBranches: opaquePrivateBranches)
+    }
+    static func verifyApplicationAlias(from root: Int32, owner: uid_t) throws -> InstallerPayloadCounts {
+        let parent = try walkDirectory("/Applications", from: root, owner: owner, sharedApplicationParent: true)
+        defer { Darwin.close(parent) }
+        let parentBefore = try check(parent, owner: owner, directory: true, sharedParent: true)
+        var before = stat(), after = stat()
+        let name = "Account Access.app"
+        guard fstatat(parent, name, &before, AT_SYMLINK_NOFOLLOW) == 0,
+              before.st_uid == owner, before.st_nlink == 1, before.st_mode & 0o6000 == 0,
+              before.st_mode & S_IFMT == S_IFLNK else {
+            throw InstallerPayloadFailure.object
         }
+        var buffer = [CChar](repeating: 0, count: 4097)
+        let length = readlinkat(parent, name, &buffer, buffer.count)
+        guard length > 0, length <= 4096, Int64(length) == before.st_size,
+              Data(buffer.prefix(length).map { UInt8(bitPattern: $0) }) == Data(InstallerPayloadManifest.applicationTarget.utf8),
+              fstatat(parent, name, &after, AT_SYMLINK_NOFOLLOW) == 0, same(before, after),
+              before.st_gid == after.st_gid else { throw InstallerPayloadFailure.changed }
+        // Apps is a shared namespace. Pin its identity and policy without
+        // binding unrelated applications' concurrent directory-entry updates.
+        let current = try walkDirectory("/Applications", from: root, owner: owner, sharedApplicationParent: true)
+        defer { Darwin.close(current) }
+        let parentAfter = try check(current, owner: owner, directory: true, sharedParent: true)
+        guard parentBefore.st_dev == parentAfter.st_dev, parentBefore.st_ino == parentAfter.st_ino,
+              parentBefore.st_uid == parentAfter.st_uid, parentBefore.st_gid == parentAfter.st_gid,
+              parentBefore.st_mode == parentAfter.st_mode else { throw InstallerPayloadFailure.changed }
+        return InstallerPayloadCounts(files: 0, directories: 0, aliases: 1)
+    }
+    static func verifyImage(_ image: Int32, manifest: InstallerPayloadManifest, owner: uid_t,
+                            opaquePrivateBranches: Bool = false) throws -> InstallerPayloadCounts {
+        // Verify the complete protected canonical app before inspecting its
+        // public alias. Neither the alias nor /Applications is executable input.
+        let root = InstallerPayloadManifest.support
+        let fd = try walkDirectory(root, from: image, owner: owner)
+        defer { Darwin.close(fd) }
+        let extras: Set<String> = opaquePrivateBranches
+            ? ["broker", "home", "vault", "run", "control", "owner.json", "install-verification.json"] : []
+        var counts = try verify(fd, tree: manifest.trees[root]!, owner: owner, rootExtras: extras)
+        let current = try walkDirectory(root, from: image, owner: owner)
+        defer { Darwin.close(current) }
+        var before = stat(), after = stat()
+        guard fstat(fd, &before) == 0, fstat(current, &after) == 0, same(before, after) else {
+            throw InstallerPayloadFailure.changed
+        }
+        counts.add(try verifyApplicationAlias(from: image, owner: owner))
         return counts
     }
     static func suppliedManifest() throws -> (InstallerPayloadManifest, InstallerPayloadCounts) {
@@ -416,15 +468,7 @@ enum InstallerPayloadIO {
         guard image >= 3, image != file else { throw InstallerPayloadFailure.path }
         defer { Darwin.close(image) }
         _ = try check(image, owner: 0, directory: true)
-        for root in manifest.trees.keys.sorted() {
-            let fd = try walkDirectory(root, from: image, owner: 0)
-            defer { Darwin.close(fd) }
-            _ = try verify(fd, tree: manifest.trees[root]!, owner: 0)
-            let current = try walkDirectory(root, from: image, owner: 0)
-            defer { Darwin.close(current) }
-            var first = stat(), second = stat()
-            guard fstat(fd, &first) == 0, fstat(current, &second) == 0, same(first, second) else { throw InstallerPayloadFailure.changed }
-        }
+        _ = try verifyImage(image, manifest: manifest, owner: 0)
         guard manifest.trees[InstallerPayloadManifest.support]?.nodes["runtime/bin/python"] != nil,
               lseek(file, 0, SEEK_SET) == 0 else { throw InstallerPayloadFailure.manifest }
         let python = resourcePath + "/PublicImage" + InstallerPayloadManifest.support + "/runtime/bin/python"

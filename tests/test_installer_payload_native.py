@@ -53,9 +53,12 @@ def test_production_entrypoint_refuses_ordinary_user_before_reading_installed_or
 def fixture(tmp_path):
     root = tmp_path / "public-image"
     support = root / package_manifest.SUPPORT
-    app = root / package_manifest.OWNER_APP
+    app = root / package_manifest.CANONICAL_APP
+    alias = root / package_manifest.OWNER_APP
     (support / "bin").mkdir(parents=True)
     (app / "Contents/MacOS").mkdir(parents=True)
+    alias.parent.mkdir(parents=True)
+    alias.symlink_to(package_manifest.APPLICATION_TARGET)
     (support / "bin/tool").write_bytes(b"synthetic executable; never executed\n")
     (support / "bin/tool").chmod(0o755)
     (support / "public.json").write_text('{"fixture":true}\n')
@@ -84,7 +87,7 @@ def test_native_verifier_accepts_python_inventory_and_can_repeat_without_changin
     root, _, _, manifest = fixture
     before = package_manifest.build(root, "0.8.0", "arm64")
     value = verify(native_verifier, fixture)
-    assert value == {"status": "VERIFIED", "files": 3, "directories": 5, "aliases": 2}
+    assert value == {"status": "VERIFIED", "files": 3, "directories": 5, "aliases": 3}
     assert package_manifest.build(root, "0.8.0", "arm64") == before == manifest.read_bytes()
 
 
@@ -180,6 +183,55 @@ def test_native_check_accepts_standard_shared_applications_parent_without_changi
     assert parent.stat().st_mode & 0o777 == 0o775
 
 
+@pytest.mark.parametrize("damage", ["relative-target", "absolute-target", "directory", "file", "hardlinked-alias",
+                                  "public-parent-alias", "canonical-bundle-alias"])
+def test_public_application_alias_cannot_substitute_another_target_or_object(native_verifier, fixture, tmp_path, damage):
+    root, _, app, _ = fixture
+    alias = root / package_manifest.OWNER_APP
+    if damage == "canonical-bundle-alias":
+        moved = tmp_path / "outside-bundle"
+        app.rename(moved)
+        app.symlink_to(moved, target_is_directory=True)
+    elif damage == "public-parent-alias":
+        moved = root / "OtherApplications"
+        alias.parent.rename(moved)
+        alias.parent.symlink_to(moved, target_is_directory=True)
+    elif damage == "hardlinked-alias":
+        os.link(alias, tmp_path / "other-app-alias", follow_symlinks=False)
+        assert alias.lstat().st_nlink == 2
+    else:
+        alias.unlink()
+        if damage == "directory":
+            alias.mkdir()
+        elif damage == "file":
+            alias.write_bytes(b"synthetic substitution")
+        else:
+            alias.symlink_to(str(app) if damage == "absolute-target" else "../Library/Application Support/Account Access/./owner.app")
+    assert verify(native_verifier, fixture)["status"] == "REFUSED"
+
+
+@pytest.mark.parametrize("damage", ["directory-root", "extra-descendant", "other-target", "absolute-target",
+                                  "missing-canonical-bundle", "canonical-executable-alias"])
+def test_manifest_allows_only_the_fixed_public_root_alias_and_present_canonical_app(native_verifier, fixture, damage):
+    _, _, _, path = fixture
+    value = json.loads(path.read_bytes())
+    application = value["roots"]["/" + str(package_manifest.OWNER_APP)]
+    support = value["roots"]["/" + str(package_manifest.SUPPORT)]
+    if damage == "directory-root":
+        application[""] = {"kind": "directory", "mode": 0o755}
+    elif damage == "extra-descendant":
+        application["unlisted"] = {"kind": "symlink", "target": "other"}
+    elif damage in {"other-target", "absolute-target"}:
+        application[""]["target"] = "/Library/Application Support/Account Access/owner.app" if damage == "absolute-target" else "../other.app"
+    elif damage == "missing-canonical-bundle":
+        value["roots"]["/" + str(package_manifest.SUPPORT)] = {
+            name: node for name, node in support.items() if name != "owner.app" and not name.startswith("owner.app/")}
+    else:
+        support["owner.app/Contents/MacOS/AccountAccess"] = {"kind": "symlink", "target": "../../../bin/tool"}
+    path.write_text(json.dumps(value))
+    assert verify(native_verifier, fixture)["status"] == "REFUSED"
+
+
 def test_native_verifier_refuses_acl_write_grants_on_a_fixture_file(native_verifier, fixture):
     _, support, _, _ = fixture
     path = support / "public.json"
@@ -253,7 +305,7 @@ def test_ordinary_manifest_preflight_reads_only_stdin_metadata_and_does_not_veri
     assert result.returncode == 0 and not result.stderr
     value = json.loads(result.stdout)
     assert value == {"schema": 1, "status": "INSPECTED", "manifest_sha256": hashlib.sha256(data).hexdigest(),
-                     "files": 3, "directories": 5, "aliases": 2}
+                     "files": 3, "directories": 5, "aliases": 3}
     assert not root.exists()
 
 

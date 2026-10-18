@@ -29,30 +29,10 @@ import Darwin
             guard root >= 0 else { throw InstallerPayloadFailure.path }
             defer { Darwin.close(root) }
             guard (try? InstallerPayloadIO.check(root, owner: getuid() + 1, directory: true)) == nil else { exit(1) }
-            var counts = InstallerPayloadCounts()
-            for path in manifest.trees.keys.sorted() {
-                var directory = dup(root)
-                guard directory >= 0 else { throw InstallerPayloadFailure.path }
-                do {
-                    let parts = path.split(separator: "/").map(String.init)
-                    for (index, part) in parts.enumerated() {
-                        let next = openat(directory, part, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
-                        guard next >= 0 else { throw InstallerPayloadFailure.path }
-                        do { _ = try InstallerPayloadIO.check(next, owner: getuid(), directory: true,
-                                                             sharedParent: index == 0 && part == "Applications") }
-                        catch { Darwin.close(next); throw error }
-                        Darwin.close(directory); directory = next
-                    }
-                    let extras: Set<String> = publicImage && path == InstallerPayloadManifest.support
-                        ? ["broker", "home", "vault", "run", "control", "owner.json", "install-verification.json"] : []
-                    let first = try InstallerPayloadIO.verify(directory, tree: manifest.trees[path]!, owner: getuid(), rootExtras: extras)
-                    let second = try InstallerPayloadIO.verify(directory, tree: manifest.trees[path]!, owner: getuid(), rootExtras: extras)
-                    guard first.files == second.files, first.directories == second.directories,
-                          first.aliases == second.aliases else { exit(1) }
-                    counts.add(first)
-                } catch { Darwin.close(directory); throw error }
-                Darwin.close(directory)
-            }
+            let counts = try InstallerPayloadIO.verifyImage(root, manifest: manifest, owner: getuid(), opaquePrivateBranches: publicImage)
+            let second = try InstallerPayloadIO.verifyImage(root, manifest: manifest, owner: getuid(), opaquePrivateBranches: publicImage)
+            guard counts.files == second.files, counts.directories == second.directories,
+                  counts.aliases == second.aliases else { exit(1) }
             print("{\"status\":\"VERIFIED\",\"files\":\(counts.files),\"directories\":\(counts.directories),\"aliases\":\(counts.aliases)}")
         } catch {
             let reason = (error as? InstallerPayloadFailure)?.rawValue ?? "invalid_installer_payload_manifest"
