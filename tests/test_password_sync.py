@@ -170,7 +170,8 @@ def test_import_removes_old_continuous_source(env, manager):
     assert broker.store.get("credential:demo-web")["password"] == "new-import"
 
 
-def test_rotation_preserves_unrelated_login_presence_and_original_task(env, manager):
+@pytest.mark.parametrize("update", ["refresh", "reenroll"])
+def test_source_update_preserves_unrelated_login_presence_and_original_task(env, manager, update):
     provider, broker, _ = env
     state, link = manager
     account = "demo-web"
@@ -185,9 +186,12 @@ def test_rotation_preserves_unrelated_login_presence_and_original_task(env, mana
     broker.tick()
     assert broker.task("test", task["task_id"])["status"] == "NEEDS_USER"
     provider.password = state["item"]["fields"][1]["value"] = "rotated-synthetic-password"
-    saved = broker.store.get("password-link:" + account)
-    saved["next_at"] = 0
-    broker.store.put("password-link:" + account, saved)
+    if update == "reenroll":
+        enroll(broker.store, account, link)
+    else:
+        saved = broker.store.get("password-link:" + account)
+        saved["next_at"] = 0
+        broker.store.put("password-link:" + account, saved)
     broker.tick()
     assert broker.store.get("credential:" + account)["password"] == provider.password
     assert {x["id"] for x in broker.store.pending(account)} == {x["id"] for x in protected}
@@ -250,6 +254,62 @@ def test_source_repair_resumes_original_task_without_a_password_change(env, mana
     assert broker.task("test", task["task_id"])["status"] == "COMPLETED"
     assert not broker.store.pending(account)
     assert provider.login_count == 1
+
+
+def test_reenrollment_immediately_resumes_original_task_before_next_source_poll(env, manager):
+    provider, broker, _ = env
+    state, link = manager
+    store, account = broker.store, "demo-web"
+    enroll(store, account, link)
+    state["status"] = 403
+    saved = store.get("password-link:" + account)
+    saved["next_at"] = 0
+    store.put("password-link:" + account, saved)
+    task = broker.submit("test", TaskRequest.model_validate({
+        "key": "reenrollment-immediately-repairs-source",
+        "steps": [{"account": account, "operation": "summary"}]}))
+    broker.tick()
+    assert broker.task("test", task["task_id"])["status"] == "NEEDS_USER"
+    assert store.pending(account)[0]["reason"] == "password_source_access_removed"
+    with store.db() as db:
+        grants = [tuple(row) for row in db.execute("SELECT * FROM grants ORDER BY 1,2,3")]
+    state["status"] = 200
+    assert enroll(store, account, link) == {"status": "SYNCED", "account": account}
+    assert store.get("password-link:" + account)["next_at"] > time.time()
+    # Source repair is immediately usable, but is not website verification.
+    assert not store.pending(account)
+    assert store.get("connection:" + account) is None
+    assert provider.login_count == 0
+    with store.db() as db:
+        db.execute("UPDATE jobs SET next_at=0 WHERE id=?", (task["task_id"],))
+        assert grants == [tuple(row) for row in db.execute("SELECT * FROM grants ORDER BY 1,2,3")]
+    # Leave the newly linked source's future next_at unchanged. The original
+    # task must resume on this tick rather than wait for its five-minute poll.
+    broker.tick()
+    original = broker.task("test", task["task_id"])
+    assert original["task_id"] == task["task_id"]
+    assert original["status"] == "COMPLETED" and original["progress"] == 1
+    assert provider.login_count == 1
+
+
+def test_failed_reenrollment_preserves_source_gate_old_link_and_credential(env, manager):
+    provider, broker, _ = env
+    state, link = manager
+    store, account = broker.store, "demo-web"
+    enroll(store, account, link)
+    state["status"] = 403
+    saved = store.get("password-link:" + account)
+    saved["next_at"] = 0
+    store.put("password-link:" + account, saved)
+    assert broker.run("test", account, "summary")["status"] == "NEEDS_USER"
+    old_link, credential, pending = (store.get("password-link:" + account),
+                                    store.get("credential:" + account), store.pending(account))
+    with pytest.raises(AccessError, match="password_source_access_removed"):
+        enroll(store, account, link)
+    assert store.get("password-link:" + account) == old_link
+    assert store.get("credential:" + account) == credential
+    assert store.pending(account) == pending
+    assert provider.login_count == 0
 
 
 def test_source_outage_cannot_submit_a_stale_password_during_retry_backoff(env, manager):

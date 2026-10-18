@@ -14,6 +14,18 @@ from .providers import get_json
 
 INTERVAL = 300
 IDENTIFIER = re.compile(r"^[a-z0-9]{26}$")
+SOURCE_PREREQUISITES = (
+    "password_source_access_removed", "password_source_item_changed",
+    "password_sync_identity_mismatch", "password_sync_connector_changed",
+)
+
+
+def _resolve_source_prerequisites(db, account, now):
+    # Source validation repairs only this prerequisite. It does not prove a
+    # successful website login or satisfy an independent owner/presence gate.
+    db.execute("""UPDATE challenges SET resolved=? WHERE account=? AND resolved IS NULL
+                  AND kind='login' AND reason IN (?,?,?,?)""",
+               (now, account, *SOURCE_PREREQUISITES))
 
 
 def validate_link(store, account, data):
@@ -78,10 +90,12 @@ def enroll(store, account, data):
         # No permissions are created here. Linking follows an approved import.
         if config.fingerprint(account) != store.config().fingerprint(account):
             raise AccessError("DENIED", "password_sync_connector_changed")
+        now = time.time()
         link.update(username=saved["username"], fingerprint=config.fingerprint(account),
-                    status="SYNCED", checked=time.time(), next_at=time.time() + INTERVAL)
+                    status="SYNCED", checked=now, next_at=now + INTERVAL)
         with store.db() as db:
             store.put("password-link:" + account, link, db=db)
+            _resolve_source_prerequisites(db, account, now)
             if credential != saved:
                 store.put("credential:" + account, credential, db=db)
                 store.put("connection:" + account, None, db=db)
@@ -116,7 +130,7 @@ def refresh(store, account, *, force=False):
     link.pop("reason", None)
     with store.db() as db:
         store.put("password-link:" + account, link, db=db)
-        db.execute("UPDATE challenges SET resolved=? WHERE account=? AND resolved IS NULL AND kind='login' AND reason IN ('password_source_access_removed','password_source_item_changed','password_sync_identity_mismatch','password_sync_connector_changed')", (now, account))
+        _resolve_source_prerequisites(db, account, now)
         if changed:
             store.put("credential:" + account, credential, db=db)
             store.put("connection:" + account, None, db=db)

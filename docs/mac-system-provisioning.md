@@ -28,6 +28,15 @@ Their parents, public policy files, runtime and listeners remain root-controlled
 The owner and broker identities/groups must differ. Policies contain paths and
 identities only, with no password, token or vault key.
 
+New private directories are prepared inside a root-only staging container in the
+protected broker subtree. Their ownership, group and mode are set and checked
+before an exclusive rename publishes the final name. An interrupted retry can
+resume only the exact empty staged directory or remove its empty container after
+publication. Existing private directories are checked through non-following
+descriptors without listing their contents, rewriting ownership or replacing
+their inode. Unknown children, ACL grants and conflicting ownership remain errors.
+Staging never adds a temporary sibling to the immutable public-image inventory.
+
 ## Publication and service start
 
 The provisioner publishes the worker/stage/enrollment/host policies, a launchd job

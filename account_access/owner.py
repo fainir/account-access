@@ -611,8 +611,8 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                                     # Replacing this source repairs its own
                                     # prerequisite, not website authentication.
                                     # Unbound historical gates stay pending.
-                                    db.execute("UPDATE challenges SET resolved=? WHERE account=? AND resolved IS NULL AND kind='login' AND reason IN ('password_source_access_removed','password_source_item_changed','password_sync_identity_mismatch','password_sync_connector_changed')",
-                                               (time.time(), account))
+                                    from .password_sync import _resolve_source_prerequisites
+                                    _resolve_source_prerequisites(db, account, time.time())
                             # Saving a credential is not verified login and
                             # cannot clear presence, CAPTCHA, unknown-page or
                             # transaction challenges or restart their tasks.
