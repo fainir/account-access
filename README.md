@@ -198,6 +198,7 @@ private authentication or physical phone delivery.
 
 - [Validation and production gates](docs/production-gates.md)
 - [Detailed test evidence](docs/validation.md) and [machine-readable reports](artifacts/)
+- [Build 66 setup validation and remaining release gates](artifacts/setup-completion-080.json)
 - [Completed email-setup validation at source 1bba84f](artifacts/consumer-mail-setup-080.json)
 - [Earlier mailbox authorization and sync repair results](artifacts/mail-source-authority-080.json)
 - [Earlier import and Gmail repair results](artifacts/unattended-import-080.json)

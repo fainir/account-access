@@ -23,10 +23,24 @@ connection, **Verification → Connect with Google** opens Google's genuine
 consent page in your default browser. Select the mailbox approved for the
 website's login messages, review Google's mailbox read permission, and return
 to Account Access. No Google password, app password or copied authorization
-code is entered in Account Access. The same connection can support the
-website filters already configured for that mailbox. Enable or check each
-website's email verification to confirm its approved mailbox address; saving
-Google access alone does not verify delivery or start a website sign-in.
+code is entered in Account Access. After consent, the app checks the mailbox
+address without fetching messages or starting a website login. If that check
+temporarily fails, choose **Check Google connection** to retry using the saved
+grant; another consent flow is not needed.
+
+You can connect and check Google before adding a website's email source. The
+checked mailbox then appears in the verification-source picker. For the reviewed
+PyPI connector, find **PyPI · Device confirmation email**, select the mailbox,
+choose **Review email connection**, then **Confirm email connection** after
+reviewing its recipient and approved reads. Connecting Google does not enable a
+new website source or grant account operations by itself. **Google mailbox
+checked** confirms the mailbox address and access; it does not prove website
+email delivery.
+
+Normal automatic token renewal preserves that mailbox selection. New consent,
+revocation, or a changed Google account invalidates the old selection, so it
+cannot silently switch to another mailbox. Check the connection and review the
+affected website source again in those cases.
 
 The protected Mac installation runs its loopback callback in the signed
 desktop app. It sends the response through the owner channel to the isolated

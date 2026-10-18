@@ -12,6 +12,13 @@ from genuine Developer ID signed application and runtime components. The
 container is **unsigned, unnotarized and uninstalled**; it is a maintainer review
 artifact, not a consumer download. The public download remains the 0.7.4 preview.
 
+At QA revision `0398ec1`, all eight CI runs passed. Each Main regression passed
+2,429 tests with 92 skips and zero warnings; dependency audits and
+package builds passed. The packaged application source remains `da2bb94`: the
+later changes affect QA and documentation, with the complete product tree
+unchanged. [Exact candidate evidence](../artifacts/setup-completion-080.json)
+records both revisions, the installer hash, controlled coverage and open gates.
+
 The candidate now includes:
 
 - An explicit **Upgrade AI connection** action for recognized older managed

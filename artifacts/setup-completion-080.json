@@ -1,0 +1,373 @@
+{
+  "schema": 1,
+  "recorded_at": "2026-10-18T15:47:25.271523+00:00",
+  "status": "CONTROLLED_CANDIDATE_VERIFIED",
+  "production_ready": false,
+  "version": "0.8.0",
+  "build": 66,
+  "build_source_revision": "da2bb94f9b790e23512f42d4c46a206d309d7a2c",
+  "validation_revision": "0398ec1b57ba1ae2474bf06645536bb68dbc4c92",
+  "product_tree": {
+    "unchanged": true,
+    "paths": [
+      "account_access",
+      "macos",
+      "pyproject.toml",
+      "uv.lock"
+    ],
+    "method": "SHA-256 of git ls-tree -r REV -- PATHS",
+    "sha256": "f5dc3f0135ac440a0a42c1748e5d43a6b1a4ee14e5ca109aa86feb5f7cddba21"
+  },
+  "changes": [
+    "Explicit reviewed upgrade from recognized managed preview agent connections",
+    "Owner-local CODEX_HOME honored without changing unrelated agent configuration",
+    "Reusable checked Gmail OAuth mailbox selection and renewal without repeated consent",
+    "Genuine production-payload offline package with explicitly unsigned review container"
+  ],
+  "all_eight_ci_runs_passed": true,
+  "main_linux_android": {
+    "all_six_success": true,
+    "consumer_deployment_verified": false,
+    "errors": {},
+    "in_progress": false,
+    "packaged_application_source": "da2bb94f9b790e23512f42d4c46a206d309d7a2c",
+    "paired_reports_identical": {
+      "android": true,
+      "linux": true,
+      "main": true
+    },
+    "private_signins": 0,
+    "production_ready": false,
+    "real_google_consent_verified": false,
+    "runs": {
+      "android-pr": {
+        "conclusion": "success",
+        "created_at": "2026-10-18T15:21:33Z",
+        "event": "pull_request",
+        "head_sha": "0398ec1b57ba1ae2474bf06645536bb68dbc4c92",
+        "logs_sha256": "abfaa1086ca8e93ef2b9f55f157679f47379ad1a03aafc6558f43ec21a460f7b",
+        "reports": {
+          "android-journey.json": {
+            "canonical_sha256": "9824482dc86e84d65f10586c4f7f3a7943710425aca4634f15ea415b6ab661d9",
+            "checks": 6
+          }
+        },
+        "run": 39140119735,
+        "status": "completed",
+        "updated_at": "2026-10-18T15:24:14Z",
+        "url": "https://github.com/fainir/account-access/actions/runs/39140119735"
+      },
+      "android-push": {
+        "conclusion": "success",
+        "created_at": "2026-10-18T15:21:31Z",
+        "event": "push",
+        "head_sha": "0398ec1b57ba1ae2474bf06645536bb68dbc4c92",
+        "logs_sha256": "f276d2c482ef9a4c3fca2ded53933e5932d26b6076f028163c9ce6e7cf8a2101",
+        "reports": {
+          "android-journey.json": {
+            "canonical_sha256": "9824482dc86e84d65f10586c4f7f3a7943710425aca4634f15ea415b6ab661d9",
+            "checks": 6
+          }
+        },
+        "run": 39140117325,
+        "status": "completed",
+        "updated_at": "2026-10-18T15:24:00Z",
+        "url": "https://github.com/fainir/account-access/actions/runs/39140117325"
+      },
+      "linux-pr": {
+        "conclusion": "success",
+        "created_at": "2026-10-18T15:21:33Z",
+        "event": "pull_request",
+        "head_sha": "0398ec1b57ba1ae2474bf06645536bb68dbc4c92",
+        "logs_sha256": "2cefae9a04feefb099baceda3cb7c596fd3594b6b9deb72522fdc7d4250d9d54",
+        "reports": {
+          "account-access-worker-boundary.json": {
+            "canonical_sha256": "8859dd2683577b10166b724c22f6c10eb447ea49797efdeab3d297cb75477d0a",
+            "checks": 24
+          }
+        },
+        "run": 39140119655,
+        "status": "completed",
+        "updated_at": "2026-10-18T15:22:25Z",
+        "url": "https://github.com/fainir/account-access/actions/runs/39140119655"
+      },
+      "linux-push": {
+        "conclusion": "success",
+        "created_at": "2026-10-18T15:21:31Z",
+        "event": "push",
+        "head_sha": "0398ec1b57ba1ae2474bf06645536bb68dbc4c92",
+        "logs_sha256": "b32b8ace0f778b8a5a498c0390b47071ea2439950fa45c6069e2516c539d6d3d",
+        "reports": {
+          "account-access-worker-boundary.json": {
+            "canonical_sha256": "8859dd2683577b10166b724c22f6c10eb447ea49797efdeab3d297cb75477d0a",
+            "checks": 24
+          }
+        },
+        "run": 39140117332,
+        "status": "completed",
+        "updated_at": "2026-10-18T15:22:30Z",
+        "url": "https://github.com/fainir/account-access/actions/runs/39140117332"
+      },
+      "main-pr": {
+        "audit_clean": true,
+        "conclusion": "success",
+        "created_at": "2026-10-18T15:21:33Z",
+        "event": "pull_request",
+        "head_sha": "0398ec1b57ba1ae2474bf06645536bb68dbc4c92",
+        "logs_sha256": "3ada111f7fb528a38c051a2c3712ef709adc33c37239a11cfa124c1bbea94cd6",
+        "native_ui_scenarios": 43,
+        "pytest": {
+          "failed": 0,
+          "passed": 2429,
+          "seconds": 798.01,
+          "skipped": 92,
+          "warnings": 0
+        },
+        "reports": {
+          "account-access-browser-native.json": {
+            "canonical_sha256": "e81fa7990c882093cd5eddb33838d2ff7f19937fa6316fa1c2995c8abf617a3a",
+            "checks": 18
+          },
+          "account-access-desktop-owner.json": {
+            "canonical_sha256": "185e35ff46efbb2faa22414b389ef807e17a50400405ec76adf841e57f3e5fd5",
+            "checks": 38
+          },
+          "account-access-mailbox-oauth.json": {
+            "canonical_sha256": "214385666b74953595d4e098bb6b6ac59d823b4b3c6f67a319aea361f9b0b695",
+            "checks": 26
+          },
+          "account-access-owner-gateway.json": {
+            "canonical_sha256": "c13b5aecc3c525115d56737204e206e51233bc30bfcac31947c73f83018e7626",
+            "checks": 67
+          }
+        },
+        "run": 39140119715,
+        "sdist_built": true,
+        "status": "completed",
+        "updated_at": "2026-10-18T15:35:31Z",
+        "url": "https://github.com/fainir/account-access/actions/runs/39140119715",
+        "wheel_built": true
+      },
+      "main-push": {
+        "audit_clean": true,
+        "conclusion": "success",
+        "created_at": "2026-10-18T15:21:31Z",
+        "event": "push",
+        "head_sha": "0398ec1b57ba1ae2474bf06645536bb68dbc4c92",
+        "logs_sha256": "d82af4e081c2a258da10f71a201968181369850655a9eef7dc9a5e78437c6de9",
+        "native_ui_scenarios": 43,
+        "pytest": {
+          "failed": 0,
+          "passed": 2429,
+          "seconds": 831.47,
+          "skipped": 92,
+          "warnings": 0
+        },
+        "reports": {
+          "account-access-browser-native.json": {
+            "canonical_sha256": "e81fa7990c882093cd5eddb33838d2ff7f19937fa6316fa1c2995c8abf617a3a",
+            "checks": 18
+          },
+          "account-access-desktop-owner.json": {
+            "canonical_sha256": "185e35ff46efbb2faa22414b389ef807e17a50400405ec76adf841e57f3e5fd5",
+            "checks": 38
+          },
+          "account-access-mailbox-oauth.json": {
+            "canonical_sha256": "214385666b74953595d4e098bb6b6ac59d823b4b3c6f67a319aea361f9b0b695",
+            "checks": 26
+          },
+          "account-access-owner-gateway.json": {
+            "canonical_sha256": "c13b5aecc3c525115d56737204e206e51233bc30bfcac31947c73f83018e7626",
+            "checks": 67
+          }
+        },
+        "run": 39140117355,
+        "sdist_built": true,
+        "status": "completed",
+        "updated_at": "2026-10-18T15:36:06Z",
+        "url": "https://github.com/fainir/account-access/actions/runs/39140117355",
+        "wheel_built": true
+      }
+    },
+    "source_revision": "0398ec1b57ba1ae2474bf06645536bb68dbc4c92"
+  },
+  "mac_acceptance": {
+    "source_revision": "0398ec1b57ba1ae2474bf06645536bb68dbc4c92",
+    "build_source_revision": "da2bb94f9b790e23512f42d4c46a206d309d7a2c",
+    "product_tree_unchanged": true,
+    "runs": [
+      39140117334,
+      39140119734
+    ],
+    "status": "PASSED",
+    "focused_pytest": {
+      "mac-push": {
+        "passed": 1188,
+        "skipped": 1,
+        "seconds": 206.21,
+        "warning_summary_present": false
+      },
+      "mac-pr": {
+        "passed": 1188,
+        "skipped": 1,
+        "seconds": 184.89,
+        "warning_summary_present": false
+      }
+    },
+    "reports_per_run": 18,
+    "strict_validators_per_run": 16,
+    "package_contracts_per_run": 2,
+    "all18_canonically_identical": true,
+    "canonical_sha256": {
+      "account-access-mac-initial-gateway.json": "8b6b89260a91d01e5d79fc962598fbf54162751aad9b4688243123e1cd59a97a",
+      "account-access-mac-initial-setup.json": "15081758e3e9e709f927c6741a8ea6c1a2bab0c69e0dee1f67968449344eaf0d",
+      "account-access-mac-key-custody.json": "ef20627fc97d1ec80513e10820ea09f6f1a6c0d87b79b286c229f85b4bce61f7",
+      "account-access-mac-key-handoff.json": "da6c41338919316c40ac5ed49ada0daeb272479a40bc25e10a77dd3050930182",
+      "account-access-mac-native-browser.json": "bb4a3de0f9d6b2c4cbf3c2f3b8ce2812e30e9d3b8569ab0c3f99bf53756d994e",
+      "account-access-mac-native-messages.json": "92f3767bf268e7ea751c442a0fd70b284b6991eb573aadbf49741ba91192a44d",
+      "account-access-mac-native-system-browser.json": "75dab25de8a43c4144a29b49454c351145e43ee7eb4afe6d2275350911efce3c",
+      "account-access-mac-owner-policy.json": "76eda3b98d2824200e400fe1be81b345d2bcab3a2028a47ead0a97bd215f200c",
+      "account-access-mac-package.json": "de586997f2a64f51893e165aa3d2b2479ec6a1020193ae274d55d888bce28531",
+      "account-access-mac-prepared-package.json": "bb05ce48219a99e1a5db2bb19aebb01b179f41f66fb910e26ac25bbcacd14dcd",
+      "account-access-mac-protected-browser.json": "f42d580611cf823f0c9a502185e6636c80ee2d498728f03fe7a4d5e84fe8afa2",
+      "account-access-mac-provisioning.json": "c21cf3d8e7e6c2162e71af997c085d12a0b8feb158eef124c21fa21ce14c60b6",
+      "account-access-mac-root-coordinator.json": "3f63595b364fd7ec4d677e1518d3c30f9b13ae44fdb19fc3bfce7fc512b1d3f6",
+      "account-access-mac-root-owner.json": "df1eabffa22fa05055f851f51d1c0463be2dcfa1d8ab63bc2eb5683bf9466d7d",
+      "account-access-mac-root-supervisor.json": "161c0cc1eb4c43b4db5d8640c69292f3e683b87a097518ef8e18640942d31866",
+      "account-access-mac-signed-chrome.json": "a087856e99f6ed90790b3898682023586f5730a83e20b91f278a8cc66a07775d",
+      "account-access-mac-staged-enrollment.json": "051cc5d11d17bfa3e57bac070eb0c27408a2b231287c6aa33a0b58f1e19ae011",
+      "account-access-mac-worker.json": "bca0943b7be3c309be0b2854d79e9a0a78f6e87b6bc87a22ec6d0224a87b4863"
+    },
+    "check_counts": {
+      "account-access-mac-initial-gateway.json": 18,
+      "account-access-mac-initial-setup.json": 40,
+      "account-access-mac-key-custody.json": 20,
+      "account-access-mac-key-handoff.json": 33,
+      "account-access-mac-native-browser.json": 10,
+      "account-access-mac-native-messages.json": 13,
+      "account-access-mac-native-system-browser.json": 18,
+      "account-access-mac-owner-policy.json": 16,
+      "account-access-mac-package.json": 16,
+      "account-access-mac-prepared-package.json": 23,
+      "account-access-mac-protected-browser.json": 18,
+      "account-access-mac-provisioning.json": 37,
+      "account-access-mac-root-coordinator.json": 31,
+      "account-access-mac-root-owner.json": 24,
+      "account-access-mac-root-supervisor.json": 21,
+      "account-access-mac-signed-chrome.json": 17,
+      "account-access-mac-staged-enrollment.json": 28,
+      "account-access-mac-worker.json": 25
+    },
+    "installer_context_identical": true,
+    "installer_context_canonical_sha256": "770ec175c9d3364f4e9c524acf7b1643ad9a0fe0a283cfa63bb19f0d0eb8cf38",
+    "installer_context_counts": {
+      "files": 3,
+      "directories": 5,
+      "aliases": 1
+    },
+    "installer_source_handoff_checks": 8,
+    "shared_parent_permissions_preserved": true,
+    "corrected_bounded_sms_flow_passed_both": true,
+    "private_signins": 0,
+    "production_ready": false
+  },
+  "claude": {
+    "report": "artifacts/agent-tests/claude-verification-080-build66-da2bb94.json",
+    "sha256": "ed52420eb23d79f5ec06cb65272db0a6e3324c138513ff1e51ef9433f0289104",
+    "scope": "Four fictional password logins, one TLS IMAP code, one Messages-format SMS code and one TOTP; no private account or physical phone acceptance",
+    "elapsed_seconds": 64.55,
+    "ordinary_prompt_without_skill_or_command": true,
+    "guarded_tool_calls": 15,
+    "denied_tool_calls": 5,
+    "trace_boundary_verified": true
+  },
+  "offline_review_package": {
+    "source_revision": "da2bb94f9b790e23512f42d4c46a206d309d7a2c",
+    "build": 66,
+    "package": "dist/release-080-review-build66/Account-Access-arm64-unsigned.pkg",
+    "package_bytes": 257965484,
+    "package_sha256": "bd65fd5da5be5e9529eb2c769f2cdf1955b08f0c96b4e099c60854f40460d2d1",
+    "wheel_sha256": "6015f3c76d8827264be257c63c52b7a0d2bc326a42284a831038b0f0c1b381d0",
+    "source_modules": 61,
+    "all_packaged_modules_match_frozen_source": true,
+    "fixed_extension_and_runtime_lock_match_source": true,
+    "runtime_preparation": {
+      "development": false,
+      "publisher_team": "WBULD6N4NQ",
+      "native_files_signed": 25,
+      "reviewed_executables": 4,
+      "jit_entries": 3,
+      "library_validation_disabled": false,
+      "signing_plan_sha256": "de74b22e7335972ac4bd3887b75e42f4536cedc982629182092e6240961ec430"
+    },
+    "native_payload_audit": {
+      "native_files": 49,
+      "executables": 11,
+      "bundles": 1,
+      "wheels": 34,
+      "publisher_signatures_verified": true,
+      "notarization_verified": false
+    },
+    "payload_manifest_counts": {
+      "files": 4942,
+      "directories": 601,
+      "aliases": 21
+    },
+    "payload_manifest_sha256": "0cb60e3a4300050b4a50d437e63d08762211c4dcc6a4f6788e97da725b4f49aa",
+    "native_manifest_preflight": true,
+    "offline_runtime": true,
+    "runtime_wheels": 34,
+    "runtime_bytecode_compiled": false,
+    "wheel_installation_executes_package_code": false,
+    "public_inputs_unchanged": true,
+    "unsigned_container_verified_by_pkgutil": true,
+    "installer_signed": false,
+    "notarized": false,
+    "installed": false,
+    "production_ready": false
+  },
+  "publisher": {
+    "application_only_local_notary_preparation": "PREPARED",
+    "application_submission_archive_sha256": "c8f2362b1e3d80e6d2233d3b16e34b2619ae4e56cc7cacca02e8a984cd15fb1a",
+    "apple_submission_performed": false,
+    "developer_id_installer_identity_available": false,
+    "configured_notary_profile_available": false,
+    "repository_actions_secrets_available": false,
+    "installer_signed": false,
+    "notarized": false
+  },
+  "previous_failed_validation": {
+    "revision": "da2bb94f9b790e23512f42d4c46a206d309d7a2c",
+    "runs": [
+      39138411449,
+      39138414998,
+      39138411424
+    ],
+    "preserved": true,
+    "repairs": [
+      "Updated stale checked-Gmail UI assertions",
+      "Stopped the simulated Mac package test from changing the host platform used by Linux ACL checks",
+      "Aligned two sequential fixture reads with the existing HTTP budgets, retained finite cancellation, and added bounded code-free failure progress"
+    ],
+    "sms_product_delivery_cause_not_inferred": true
+  },
+  "personal_acceptance": {
+    "private_signins_this_revision": 0,
+    "protected_owner_installation_completed": false,
+    "real_google_consent_and_mail_delivery_verified": false,
+    "physical_iphone_sms_verified": false,
+    "physical_android_sms_verified": false,
+    "real_authenticator_enrollment_and_login_verified": false,
+    "private_password_manager_rotation_and_revocation_verified": false,
+    "current_nested_codex_fixture": "UNVERIFIED_BEFORE_STARTUP",
+    "owner_unsaved_setup_preserved": true
+  },
+  "unmet_requirements": [
+    "Signed and notarized consumer installation, genuine owner enrollment, update/reboot QA",
+    "Private password/email/SMS/authenticator acceptance through installed agents",
+    "Continuous Chrome and Bitwarden synchronization is not implemented; exports are snapshots",
+    "Broader reviewed website coverage; importing a password does not add arbitrary website support",
+    "Publisher-configured consumer Gmail OAuth application and genuine consent/delivery",
+    "Physical phone and private 1Password enrollment/rotation/revocation acceptance"
+  ]
+}
