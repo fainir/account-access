@@ -39,13 +39,18 @@ def enrollment(store, source_id):
     """Resolve a narrow source link, checking its exact mailbox identity/server.
 
     Returning effective credentials also binds active code windows and health
-    checks to password changes and mailbox revocation. Legacy inline source
-    enrollment is unchanged.
+    checks to password changes and mailbox revocation. Gmail OAuth consent
+    does not authorize a configured login-code filter until the owner enables
+    that source. Legacy inline IMAP enrollment is unchanged.
     """
     credential = store.get("source:" + source_id) or {}
-    if not credential.get("mailbox") or credential.get("enabled") is False:
+    if credential.get("enabled") is False:
         return credential
     source = store.config().code_sources[source_id]
+    if source.kind == "gmail" and credential.get("enabled") is not True:
+        raise AccessError("NEEDS_USER", "mailbox_not_connected", "email")
+    if not credential.get("mailbox"):
+        return credential
     profile = get(store, credential["mailbox"])
     if (source.kind != "imap" or source.account or source.host.lower() != profile["host"]
             or source.port != profile["port"] or source.recipient.lower() != profile["username"].lower()):

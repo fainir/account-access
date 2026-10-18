@@ -76,6 +76,8 @@ class PyPIChallenge:
         self.password_url = spec.login_url
         self.clock = clock or time.monotonic
         self.secrets = secret_values
+        self.device_enabled = spec.login.device_email_source is not None
+        self.terminal_url = self.origin + "/manage/projects/" if self.device_enabled else None
         self.clear()
 
     def clear(self):
@@ -87,6 +89,11 @@ class PyPIChallenge:
         self.code_proof = None
         self.password_dispatched = False
         self.code_dispatched = False
+        self.expected_user = None
+        self.device_page_reached = False
+        self.device_url = None
+        self.device_proof = None
+        self.device_dispatched = False
 
     def block(self):
         self.clear()
@@ -113,27 +120,37 @@ class PyPIChallenge:
 
     def observe(self, event, attachment, main_frame):
         request = event.get("request", {})
+        device = self.phase == "device_link"
         if (not self.live() or event.get("frameId") != main_frame or event.get("type") != "Document"
-                or request.get("method") != "POST"):
+                or request.get("method") != ("GET" if device else "POST")):
             return
-        target = self.password_url if self.phase == "password" else self.url if self.phase == "code" else None
+        target = (self.device_url if device else self.password_url if self.phase == "password"
+                  else self.url if self.phase == "code" else None)
         if request.get("url") != target:
             return
         chain = event.get("requestId")
         if not isinstance(chain, str) or not chain or event.get("redirectResponse") is not None:
             self.reject()
-        key = "password_proof" if self.phase == "password" else "code_proof"
+        key = "device_proof" if device else "password_proof" if self.phase == "password" else "code_proof"
         proof = _Proof(attachment, main_frame, chain)
         previous = getattr(self, key)
         if previous is not None and previous != proof:
             self.reject()
-        if self.phase == "code" and attachment is not self.password_proof.attachment:
+        if (self.phase == "code" or device) and attachment is not self.password_proof.attachment:
             self.reject()
         if self.phase == "code" and chain == self.password_proof.chain:
+            self.reject()
+        if device and chain in {self.password_proof.chain, self.code_proof.chain}:
             self.reject()
         setattr(self, key, proof)
 
     def dispatch(self, url, method, attachment, main_document):
+        if self.device_enabled and url == self.device_url:
+            if (not self.live() or self.phase != "device_link" or method != "GET" or not main_document
+                    or attachment is not self.password_proof.attachment or self.device_dispatched):
+                self.reject()
+            self.device_dispatched = True
+            return
         if method != "POST":
             return
         if not self.live() or not main_document:
@@ -155,6 +172,16 @@ class PyPIChallenge:
             proof = self.password_proof
             return chain is None or (self.password_dispatched and proof is not None
                                      and proof.attachment is attachment and proof.chain == chain)
+        if self.device_enabled and self.password_proof and attachment is self.password_proof.attachment:
+            if url == self.origin + DEVICE_PATH:
+                return (self.phase == "device" and method == "GET" and self.code_proof is not None
+                        and chain == self.code_proof.chain)
+            if url == self.device_url and self.phase == "device_link" and method == "GET":
+                return ((chain is None and not self.device_dispatched)
+                        or (self.device_dispatched and self.device_proof is not None and chain == self.device_proof.chain))
+            if url == self.terminal_url:
+                return (self.phase == "terminal" and method == "GET" and self.device_proof is not None
+                        and chain == self.device_proof.chain)
         if url != self.url or self.password_proof is None or attachment is not self.password_proof.attachment:
             return False
         if method == "GET" and self.phase == "challenge":
@@ -187,6 +214,12 @@ class PyPIChallenge:
             if len(token) > 2048 or not TOKEN.fullmatch(token):
                 self.reject()
             self.url = self.origin + CHALLENGE_PATH + "?" + token
+            if self.device_enabled:
+                from .pypi_device import password_user
+                try:
+                    self.expected_user = password_user(token)
+                except (ValueError, UnicodeError):
+                    self.reject()
             self.phase = "challenge"
             if self.secrets is not None:
                 self.secrets.update([token, self.url])
@@ -194,8 +227,23 @@ class PyPIChallenge:
             if (self.phase != "code" or not self.code_dispatched or self.code_proof != _Proof(attachment, frame, chain)
                     or not main_document or kind != "document" or hop != 0):
                 self.reject()
+            if self.device_enabled and status == 303 and locations in [[DEVICE_PATH], [self.origin + DEVICE_PATH]]:
+                self.phase = "device"
+                self.url = None
+                return
             self.clear()
             self.phase = "closed"
+        elif self.device_enabled and url == self.origin + DEVICE_PATH:
+            if (self.phase != "device" or method != "GET" or status != 200
+                    or self.code_proof != _Proof(attachment, frame, chain) or not main_document or hop != 1):
+                self.reject()
+            self.device_page_reached = True
+        elif self.device_enabled and url == self.device_url:
+            if (self.phase != "device_link" or method != "GET" or not self.device_dispatched
+                    or self.device_proof != _Proof(attachment, frame, chain) or not main_document or hop != 0
+                    or status != 303 or locations not in [["/manage/projects/"], [self.terminal_url]]):
+                self.reject()
+            self.phase = "terminal"
         elif url == self.url and method == "GET" and status != 200:
             self.clear()
             self.phase = "closed"
@@ -208,4 +256,34 @@ class PyPIChallenge:
     def arm_code(self, page_url):
         self.destination(page_url)
         self.phase = "code"
+
+    def manages(self, url):
+        return url == self.url or (self.device_enabled and url in {
+            self.origin + DEVICE_PATH, self.device_url, self.terminal_url})
+
+    def arm_device(self, page_url, link, started):
+        if (not self.live() or self.phase != "device" or not self.device_page_reached
+                or page_url != self.origin + DEVICE_PATH or not self.expected_user):
+            self.reject()
+        from .pypi_device import CONFIRM_URL, confirmation_token
+        if not isinstance(link, str) or not link.startswith(CONFIRM_URL):
+            self.reject()
+        try:
+            token = confirmation_token(link[len(CONFIRM_URL):], self.expected_user, started)
+        except (ValueError, UnicodeError):
+            self.reject()
+        self.device_url = self.origin + DEVICE_PATH + "?token=" + token
+        self.phase = "device_link"
+        if self.secrets is not None:
+            self.secrets.update([token, link, self.device_url])
+        return self.device_url
+
+    def intercept_terminal(self, *, url, method, attachment, frame, chain, main_document, hop):
+        if not self.device_enabled or url != self.terminal_url:
+            return False
+        if (not self.live() or self.phase != "terminal" or method != "GET" or not main_document
+                or self.device_proof != _Proof(attachment, frame, chain) or hop != 1):
+            self.reject()
+        self.phase = "confirmed"
+        return True
 

@@ -146,6 +146,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     var syncFields: [String: NSTextField] = [:]
     var syncEndpointViews: [NSView] = []
     var syncTokenLabel: NSTextField?
+    var syncReconnectAccount: String?
+    var syncReconnectGeneration: String?
     var automaticSessions: [String: [String: Any]] = [:]
     var section = "accounts"
     var selectedAccount: String?
@@ -763,7 +765,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             "unsupported_password_export": "Choose a supported password CSV or unencrypted Bitwarden JSON export.",
             "import_connector_changed": "This account's connection changed after the import review. Choose the password file again and review the current account permissions.",
             "import_authenticator_changed": "This account's authenticator changed after the import review. Choose the password file again before replacing its authenticator key.",
-            "pypi_manual_setup_unavailable": "This PyPI pilot cannot complete manual setup or new-device email confirmation yet. Your saved login is preserved.",
+            "pypi_manual_setup_unavailable": "Manual PyPI setup is unavailable in this pilot. Use the reviewed automatic route; your saved login is preserved.",
             "login_challenge_changed": "The website's verification route changed. Account Access stopped before another attempt; the connector needs review.",
             "account_not_connected": "Connect the configured Gmail account through Manage permissions first.",
             "provider_rejected_access": "The email provider rejected this connection. Reconnect the mailbox in Verification.",
@@ -775,7 +777,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             "authenticator_preview_expired": "The import preview expired. Choose the QR image again.",
             "authenticator_selection_changed": "The connected account changed during the preview. Choose the QR image again and review the account.",
             "password_sync_requires_https_origin": "Enter only the HTTPS server address, without a path or query.",
-            "invalid_password_sync_link": "Check the connection details. Vault and item IDs must be the exact 26-character IDs from 1Password."
+            "invalid_password_sync_link": "Check the password source details and replacement token. Reopen Password sync if this form is out of date.",
+            "password_sync_not_connected": "This password source was removed. Refresh Password sync before connecting it again.",
+            "password_sync_connection_changed": "This connection changed while the form was open. Reopen Password sync and use its current Replace token action."
         ]
         throw Failure.message(reasons[payload["reason"] as? String ?? ""] ?? "The local app could not complete this step. Your existing connections are preserved.")
     }
@@ -1608,6 +1612,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     @objc func backToConnections() { connections() }
 
     @objc func showPasswordSync() {
+        syncFields.values.forEach { $0.stringValue = "" }
+        syncReconnectAccount = nil
+        syncReconnectGeneration = nil
         section = "sync"
         page("Keep passwords up to date", "Approved logins stay automatic when your connected password source changes.")
         card("Chrome and password file imports", "CSV and JSON exports are one-time snapshots. Chrome does not offer this app a public password-sync API. Re-import after a password change; this app never leaves a plaintext export running in the background.")
@@ -1616,6 +1623,14 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             let name = accounts.first { $0["account"] as? String == account }?["label"] as? String ?? account
             let provider = link["provider"] as? String ?? "1Password"
             let body = card(name, provider + " · checks every five minutes while the service is running. Only the password can update; account identity and permissions stay fixed.", status: link["status"] as? String ?? "", good: link["status"] as? String == "SYNCED")
+            if let generation = link["generation"] as? String,
+               Self.passwordSyncReconnectConnection(token: "shape-check", generation: generation) != nil {
+                let replace = NSButton(title: "Replace token", target: self, action: #selector(showReconnectPasswordSync))
+                replace.identifier = NSUserInterfaceItemIdentifier(account)
+                body.addArrangedSubview(replace)
+            } else {
+                body.addArrangedSubview(NSTextField(wrappingLabelWithString: "A check is in progress. Reopen Password sync before replacing its token."))
+            }
             let disconnect = NSButton(title: "Disconnect and remove saved login", target: self, action: #selector(disconnectPasswordSync))
             disconnect.identifier = NSUserInterfaceItemIdentifier(account)
             body.addArrangedSubview(disconnect)
@@ -1654,6 +1669,59 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         }
         syncProviderChanged()
         primary("Connect automatic updates", #selector(connectPasswordSync))
+    }
+
+    static func passwordSyncReconnectConnection(token: String, generation: String) -> [String: String]? {
+        guard !token.isEmpty, token.utf8.count <= 8192, !token.contains("\r"), !token.contains("\n"),
+              generation.utf8.count == 32,
+              generation.range(of: "^[a-f0-9]{32}$", options: .regularExpression) != nil else { return nil }
+        return ["token": token, "generation": generation]
+    }
+
+    @objc func showReconnectPasswordSync(_ sender: NSButton) {
+        guard let account = sender.identifier?.rawValue,
+              let link = passwordSync.first(where: { $0["account"] as? String == account }),
+              let generation = link["generation"] as? String,
+              Self.passwordSyncReconnectConnection(token: "shape-check", generation: generation) != nil else {
+            status.stringValue = "Reopen Password sync after the current check finishes."
+            return
+        }
+        syncFields.values.forEach { $0.stringValue = "" }
+        syncReconnectAccount = account
+        syncReconnectGeneration = generation
+        let name = accounts.first { $0["account"] as? String == account }?["label"] as? String ?? account
+        page("Replace password source token", "Update automatic password access for " + name + ".")
+        card("Same approved login", "The website, username and exact password-manager item stay the same. If the replacement cannot be verified, the existing connection is preserved.")
+        label("Replacement read-only token", 14, .secondaryLabelColor)
+        let secret = NSSecureTextField()
+        secret.placeholderString = "Replacement read-only token"
+        secret.setAccessibilityLabel("Replacement read-only token")
+        stack.addArrangedSubview(secret)
+        secret.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        syncFields = ["token": secret]
+        primary("Check and replace token", #selector(reconnectPasswordSync))
+        action("Cancel token replacement", #selector(showPasswordSync))
+    }
+
+    @objc func reconnectPasswordSync() {
+        guard let account = syncReconnectAccount, let generation = syncReconnectGeneration,
+              let connection = Self.passwordSyncReconnectConnection(token: syncFields["token"]?.stringValue ?? "", generation: generation) else {
+            status.stringValue = "Enter the replacement read-only token."
+            return
+        }
+        syncFields.values.forEach { $0.stringValue = "" }
+        syncReconnectAccount = nil
+        syncReconnectGeneration = nil
+        busy = true
+        page("Checking the replacement token", "Verifying the same approved login. Existing access is preserved if this check fails.")
+        progress()
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                _ = try self.request("owner/password-sync/reconnect", body: ["account": account, "connection": connection])
+                let state = try self.request("owner/state")
+                DispatchQueue.main.async { self.busy = false; self.accept(state); self.showPasswordSync() }
+            } catch { self.fail(error, retry: #selector(self.showPasswordSync)) }
+        }
     }
 
     @objc func syncProviderChanged() {

@@ -3,6 +3,7 @@
 import hashlib
 import ipaddress
 import json
+import re
 from typing import Annotated, Literal
 from urllib.parse import urlsplit
 
@@ -116,6 +117,7 @@ class LoginForm(StrictModel):
     code_selector: str | None = None
     code_submit_selector: str | None = None
     code_source: Handle | None = None
+    device_email_source: Handle | None = None
     code_wait_ms: int = Field(default=60000, ge=5000, le=120000)
     login_only: Literal[True] = True
     factors: dict[Literal["email", "sms", "totp"], LoginFactor] = Field(default_factory=dict)
@@ -134,8 +136,9 @@ class LoginForm(StrictModel):
         return self
 
     def sources(self):
-        return ({factor.code_source for factor in self.factors.values()} if self.factors
-                else {self.code_source} if self.code_source else set())
+        values = ({factor.code_source for factor in self.factors.values()} if self.factors
+                  else {self.code_source} if self.code_source else set())
+        return values | ({self.device_email_source} if self.device_email_source else set())
 
     def factor(self, kind):
         if self.factors:
@@ -176,6 +179,7 @@ class BrowserAccount(StrictModel):
 
 class CodeSource(StrictModel):
     kind: Literal["totp", "gmail", "twilio", "imap", "mac_messages", "phone_relay", "google_messages"]
+    message_purpose: Literal["pypi-device-confirmation"] | None = None
     account: Handle | None = None
     sender: str | None = Field(default=None, max_length=200)
     recipient: str | None = Field(default=None, max_length=200)
@@ -187,11 +191,17 @@ class CodeSource(StrictModel):
 
     @model_validator(mode="after")
     def requirements(self):
+        if self.message_purpose:
+            if (self.kind not in {"gmail", "imap"} or self.sender != "noreply@pypi.org"
+                    or self.subject != "[PyPI] Unrecognized login to your PyPI account"
+                    or not self.recipient or re.fullmatch(r"[^\s<>@]+@[^\s<>@]+", self.recipient) is None
+                    or self.template is not None):
+                raise ValueError("PyPI device mail requires its reviewed sender, subject and a recipient; no code template")
         if self.kind == "google_messages" and (
                 self.sender != "github-login-rotating-senders" or self.recipient != "paired-google-messages"
                 or self.template != "{code} is your GitHub authentication code."):
             raise ValueError("Google Messages currently supports only the reviewed GitHub login template")
-        if self.kind != "totp" and (not self.sender or not self.recipient or not self.template
+        if self.kind != "totp" and not self.message_purpose and (not self.sender or not self.recipient or not self.template
                                     or self.template.count("{code}") != 1):
             raise ValueError("Message sources require sender, recipient and one {code} template")
         if self.kind == "gmail" and (not self.account or not self.subject):
@@ -244,10 +254,17 @@ class Configuration(StrictModel):
                         raise ValueError("Identity steps require reviewed same-origin login pages and POST; scripted steps require JavaScript")
                     if not account.login.sources() <= self.code_sources.keys():
                         raise ValueError("Unknown login code source")
+                    if account.login.code_source and self.code_sources[account.login.code_source].message_purpose:
+                        raise ValueError("A device confirmation source cannot supply a numeric code")
+                    device = account.login.device_email_source
+                    if device and (account.login_challenge != "pypi-totp-v1"
+                                   or self.code_sources[device].message_purpose != "pypi-device-confirmation"):
+                        raise ValueError("Device confirmation mail is bound only to the reviewed PyPI login")
                     kinds = {"totp": {"totp"}, "email": {"imap", "gmail"},
                              "sms": {"twilio", "mac_messages", "phone_relay", "google_messages"}}
                     for kind, factor in account.login.factors.items():
-                        if self.code_sources[factor.code_source].kind not in kinds[kind]:
+                        if (self.code_sources[factor.code_source].kind not in kinds[kind]
+                                or self.code_sources[factor.code_source].message_purpose):
                             raise ValueError("Verification method and source kind must match")
                     for choice in account.login.choices:
                         factor = account.login.factor(choice.kind)
@@ -291,6 +308,8 @@ class Configuration(StrictModel):
             # no alias was added. A nonempty alias is still permission-bound.
             data.pop("password_import_origins", None)
         if isinstance(self.accounts[account], BrowserAccount) and data.get("login"):
+            if data["login"].get("device_email_source") is None:
+                data["login"].pop("device_email_source", None)
             if data["login"].get("identity_step") is None:
                 data["login"].pop("identity_step", None)
             if not data["login"].get("factors"):
@@ -307,12 +326,17 @@ class Configuration(StrictModel):
             form = self.accounts[account].login
             if form and form.code_source:
                 data["code_source_config"] = self.code_sources[form.code_source].model_dump()
+                if data["code_source_config"].get("message_purpose") is None:
+                    data["code_source_config"].pop("message_purpose", None)
                 if self.code_sources[form.code_source].kind != "imap":
                     data["code_source_config"].pop("host", None)
                     data["code_source_config"].pop("port", None)
             if form and form.factors:
                 data["code_source_configs"] = {key: self.code_sources[key].model_dump()
                                                for key in sorted(form.sources())}
+                for source in data["code_source_configs"].values():
+                    if source.get("message_purpose") is None:
+                        source.pop("message_purpose", None)
         data["test_mode"] = self.test_mode
         return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
 

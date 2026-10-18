@@ -32,7 +32,7 @@ every personal 1Password vault. Desktop-app approval is a separate supported
 ## When a password changes
 
 While the service runs, it checks linked items about every five minutes and
-checks again before a new password sign-in when the previous check is due. A
+checks again before every new password sign-in. A
 changed password replaces the encrypted credential and clears the cached
 website session in one transaction. Existing operation grants remain unchanged.
 The source never silently changes the username, website, connector or TOTP key.
@@ -42,6 +42,27 @@ website, or removed source access blocks a new sign-in. Timeouts and SDK rate
 limits retry automatically. Other SDK failures use a fixed attention state; a
 later successful check repairs the source prerequisite without a new grant.
 No provider error text is exposed to the agent.
+
+## Renew a token without entering the item again
+
+If a service-account or Connect token expires, is revoked, or needs replacement,
+open **Password sync** and choose **Replace token** on its existing connection.
+Enter the new read-only token locally. The provider, server, vault, item,
+approved username and website stay bound to that connection; no new login or
+permission is added. Do not disconnect first or enter the token in AI chat.
+
+Account Access checks the replacement token and exact item before changing
+anything. Failed checks preserve the old connection, credential and pending
+source problem. A successful replacement repairs only that source problem. If
+the item also has a new password, its encrypted credential and cached website
+session change together. Otherwise the existing session stays available.
+
+Each enrollment has an opaque revision. If another owner action replaces or
+removes the connection while its repair form is open, the old form cannot
+restore it. Reopen Password sync and review its current state. Updating a token
+on one connection does not update other connections using the same token; they
+must be renewed separately. Revoke old provider-side access when it is no longer
+needed.
 
 Disconnecting removes the local service token, cached credential and website
 session for that link. If the same service token was enrolled for other links,

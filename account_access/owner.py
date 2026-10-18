@@ -423,6 +423,12 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                         raise ValueError()
                     self.send(200, enroll(broker.store, data["account"], data["connection"]))
                     return
+                if self.path == "/owner/password-sync/reconnect":
+                    from .password_sync import reconnect
+                    if set(data) != {"account", "connection"} or not isinstance(data["account"], str):
+                        raise ValueError()
+                    self.send(200, reconnect(broker.store, data["account"], data["connection"]))
+                    return
                 if self.path == "/owner/password-sync/disconnect":
                     from .password_sync import unlink
                     if set(data) != {"account"}:

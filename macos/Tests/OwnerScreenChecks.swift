@@ -183,6 +183,30 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
             precondition(field.frame.width <= owner.stack.frame.width + 1)
         }
         print("PASS: service-account sync needs no Connect server; provider switching clears tokens; fields fit the narrow window")
+        let generation = String(repeating: "a", count: 32)
+        precondition(AccountAccess.passwordSyncReconnectConnection(token: "fixture-replacement", generation: generation) == ["token": "fixture-replacement", "generation": generation])
+        for invalid in ["", "wrong", String(repeating: "A", count: 32), generation + "\n"] {
+            precondition(AccountAccess.passwordSyncReconnectConnection(token: "fixture-replacement", generation: invalid) == nil)
+        }
+        for invalid in ["", "value\n", String(repeating: "x", count: 8193)] {
+            precondition(AccountAccess.passwordSyncReconnectConnection(token: invalid, generation: generation) == nil)
+        }
+        owner.passwordSync = [["account": "fixture", "provider": "1Password service account", "status": "BLOCKED", "generation": generation]]
+        owner.showPasswordSync()
+        let replace = NSButton()
+        replace.identifier = NSUserInterfaceItemIdentifier("fixture")
+        owner.syncFields["token"]?.stringValue = "old-unsaved-token"
+        owner.showReconnectPasswordSync(replace)
+        precondition(Set(owner.syncFields.keys) == Set(["token"]))
+        precondition(owner.syncFields["token"] is NSSecureTextField && owner.syncFields["token"]?.stringValue == "")
+        precondition(owner.syncReconnectAccount == "fixture" && owner.syncReconnectGeneration == generation)
+        owner.syncFields["token"]?.stringValue = "replacement-to-cancel"
+        let discarded = owner.syncFields["token"]!
+        owner.showPasswordSync()
+        precondition(discarded.stringValue == "" && owner.syncReconnectAccount == nil && owner.syncReconnectGeneration == nil)
+        owner.passwordSync = []
+        print("PASS: token replacement needs only a masked new token and current generation; cancellation clears the secret without changing the source")
+
         owner.accounts = [["account": "fixture", "label": "Fixture account", "route": "browser",
                            "portable_ready": true, "connected": false]]
         owner.sources = [["id": "fixture-factor", "kind": "totp"]]

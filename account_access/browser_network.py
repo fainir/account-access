@@ -38,7 +38,10 @@ class ResponseGuard:
                 session.on("Network.requestWillBeSent", lambda event: self.proof.observe(event, session, main_frame))
                 session.send("Network.enable")
             session.on("Fetch.requestPaused", lambda event: self.paused(session, hops, event, main_frame))
-            session.send("Fetch.enable", {"patterns": [{"urlPattern": "*", "requestStage": "Response"}]})
+            patterns = [{"urlPattern": "*", "requestStage": "Response"}]
+            if self.proof and self.proof.terminal_url:
+                patterns.append({"urlPattern": self.proof.terminal_url, "requestStage": "Request"})
+            session.send("Fetch.enable", {"patterns": patterns})
             self.sessions[page] = session
             page.on("close", lambda: self.sessions.pop(page, None))
         except PlaywrightError:
@@ -82,6 +85,15 @@ class ResponseGuard:
             session.send("Fetch.failRequest", {"requestId": request_id, "errorReason": "BlockedByClient"})
 
         try:
+            if (self.proof and event.get("responseStatusCode") is None
+                    and self.proof.intercept_terminal(url=url, method=method, attachment=session,
+                        frame=event.get("frameId"), chain=chain,
+                        main_document=provenance["main_document"], hop=hop)):
+                # Continue the original confirmation 303/Set-Cookie unchanged,
+                # then stop its exact projects follow-hop before network dispatch.
+                hops.pop(chain, None)
+                session.send("Fetch.failRequest", {"requestId": request_id, "errorReason": "BlockedByClient"})
+                return
             reason = permitted(url, method)
             if reason:
                 abort(reason, redirected=hop > 0)

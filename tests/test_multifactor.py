@@ -190,6 +190,7 @@ def test_gmail_html_code_completes_browser_login_and_reuses_session(chain, monke
     broker.store.configure(config)
     broker.grant("test", "demo-mfa", ["summary"])
     connect_demo(broker, "mailbox")
+    enroll(broker.store, "example-email", {})
     messages = {}
     calls = []
 
@@ -485,9 +486,11 @@ def test_legacy_connector_fingerprint_survives_new_factor_schema(env):
     old["login"].pop("choice_toggle_selector")
     old["login"].pop("code_wait_ms")
     old["login"].pop("identity_step")
+    old["login"].pop("device_email_source")
     old["code_source_config"] = config.code_sources["demo-totp"].model_dump()
     old["code_source_config"].pop("host")
     old["code_source_config"].pop("port")
+    old["code_source_config"].pop("message_purpose")
     old["test_mode"] = True
     previous = hashlib.sha256(json.dumps(old, sort_keys=True).encode()).hexdigest()
     assert config.fingerprint("demo-mfa") == previous

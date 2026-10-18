@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "accounts": {
+    "personal-pypi": {
+      "kind": "browser",
+      "label": "PyPI",
+      "login_url": "https://pypi.org/account/login/?next=%2F_includes%2Fauthed%2Fcurrent-user-indicator%2F",
+      "ready_selector": "#user-indicator > nav > button.dropdown__trigger:has(img.user-image)",
+      "login": {
+        "username_selector": "#login-form #username",
+        "password_selector": "#login-form #password",
+        "submit_selector": "#login-form input[type='submit']",
+        "factors": {
+          "totp": {
+            "code_selector": "#totp-auth-form #totp_value",
+            "code_submit_selector": "#totp-auth-form input[type='submit']",
+            "code_source": "personal-pypi-totp"
+          }
+        },
+        "device_email_source": "personal-pypi-device-email"
+      },
+      "challenge_selectors": {
+        "login": "#login-form, a[href='/account/login/']",
+        "totp": "#totp-auth-form",
+        "passkey": ".twofa-login:not(:has(#totp-auth-form)) #webauthn-auth-form",
+        "device": "h1.page-title:has-text('Please confirm this login')",
+        "recovery": "form:has(#recovery_code_value)",
+        "captcha": ".g-recaptcha, .h-captcha"
+      },
+      "login_resources": [
+        "https://pypi.org/_includes/authed/current-user-indicator/",
+        "https://pypi.org/account/confirm-login/"
+      ],
+      "login_challenge": "pypi-totp-v1",
+      "login_post_urls": [
+        "https://pypi.org/account/login/?next=%2F_includes%2Fauthed%2Fcurrent-user-indicator%2F"
+      ],
+      "operations": {
+        "status": {
+          "description": "Confirm your signed-in PyPI username",
+          "url": "https://pypi.org/_includes/authed/current-user-indicator/",
+          "fields": {
+            "username": "#user-indicator > nav > button.dropdown__trigger:has(img.user-image)"
+          }
+        }
+      }
+    }
+  },
+  "code_sources": {
+    "personal-pypi-totp": {
+      "kind": "totp"
+    },
+    "personal-pypi-device-email": {
+      "kind": "imap",
+      "message_purpose": "pypi-device-confirmation",
+      "sender": "noreply@pypi.org",
+      "recipient": "your-address@example.com",
+      "subject": "[PyPI] Unrecognized login to your PyPI account",
+      "host": "imap.gmail.com",
+      "port": 993
+    }
+  }
+}

@@ -136,6 +136,12 @@ why the Messages helper does not imply a Chrome vault connection. Continuous
 Chrome synchronization remains an unmet requirement; CSV import is not its
 replacement or proof of completion.
 
+Bitwarden imports also remain snapshots. Its documented personal API key still
+needs a separately unlocked vault for password reads; the Secrets Manager SDK
+serves a different source. See the [official-interface review](bitwarden-sync-research.md).
+Account Access does not retain a master password or unlocked personal CLI vault
+to turn an export import into a continuous connection.
+
 **1Password supports background updates through a service account or Connect.**
 The service-account option uses the pinned official SDK and removes the need to
 run a Connect server. Both options require a dedicated vault and read-only
@@ -153,6 +159,14 @@ For an existing Connect deployment, see the
 The service checks the selected item every five minutes while running, and checks again before a password login. Updates are encrypted and replace the password and cached session together. New accounts and new permissions are never imported silently. A fresh explicit CSV import removes any previous manager link for the selected account. Editing a saved browser username or password also disconnects its old manager link, so a later sync cannot undo your edit. Saving unchanged values keeps that connection.
 
 A password update repairs only a missing-credential prerequisite or the exact password-source problem. It cannot dismiss a website's failed login, browser check or required verification. A checked source reconnection clears its repaired prerequisite immediately, so the original task can continue without waiting for another five-minute poll. Busy accounts do not prevent other linked accounts from receiving their updates; background scans rotate through a bounded set of links.
+
+An existing source can replace its token without re-entering the provider,
+server, vault or item. The owner repair carries an opaque enrollment generation;
+it must still match after the account lock and source read. Failed checks keep
+the previous connection and credential. Successful token replacement changes no
+standing grant, username, website or authenticator key, and resolves only the
+repaired password-source prerequisite. A later explicit edit or replacement
+cannot be undone by an older repair form.
 
 Network failures retry with backoff. A deleted item, removed access, changed username or changed website blocks use until repaired. An unavailable source cannot supply a stale password for a new login. Disconnecting a source erases its local token, cached password and session; existing operation grants alone do not restore a credential.
 

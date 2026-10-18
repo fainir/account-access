@@ -13,7 +13,7 @@ PYPI_SOURCE = "personal-pypi-totp"
 
 
 def pypi():
-    """Username-only pilot; new-device email confirmation remains a stop."""
+    """Username-only pilot; optional device email requires an explicit binding."""
     from . import pypi_challenge as policy
     root = "https://pypi.org"
     login = root + policy.LOGIN_PATH + "?" + policy.LOGIN_QUERY

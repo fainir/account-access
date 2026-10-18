@@ -93,7 +93,8 @@ def _body(part):
     return bodies[0] if bodies else None
 
 
-def login_code(raw, source):
+def message_body(raw, source):
+    """An internal, bounded body with exact message headers; never an inbox API."""
     if not isinstance(raw, bytes) or not 0 < len(raw) <= MAX_MESSAGE_BYTES:
         return None
     try:
@@ -114,6 +115,16 @@ def login_code(raw, source):
         body = _body(message)
         if not body:
             return None
+        return body
+    except (ValueError, TypeError, AttributeError, LookupError, RecursionError):
+        return None
+
+
+def login_code(raw, source):
+    body = message_body(raw, source)
+    if not body:
+        return None
+    try:
         kind, text = body
         template = source.template
         if kind == "text/html":

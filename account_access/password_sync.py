@@ -5,6 +5,7 @@ identity, website, connector, grants and authenticator enrollment cannot change.
 """
 
 import re
+import secrets
 import time
 from urllib.parse import urlsplit
 
@@ -14,6 +15,7 @@ from .providers import get_json
 
 INTERVAL = 300
 IDENTIFIER = re.compile(r"^[a-z0-9]{26}$")
+GENERATION = re.compile(r"^[a-f0-9]{32}$")
 SERVICE_ACCOUNT = "onepassword-service-account"
 SOURCE_PREREQUISITES = (
     "password_source_access_removed", "password_source_item_changed",
@@ -88,30 +90,78 @@ def fetch(link, expected_origin):
     return {"username": username[0], "password": password[0]}
 
 
-def enroll(store, account, data):
-    with store.lock("account:" + account):
-        # Serialize the complete enrollment with credential edits, imports and
-        # disconnection. A delayed source response cannot restore a link or
-        # credential after the owner's newer account action.
-        link = validate_link(store, account, data)
-        config = store.config()
-        credential = fetch(link, origin(config.accounts[account].login_url))
-        saved = store.get("credential:" + account) or {}
-        if not saved.get("username") or saved["username"] != credential["username"]:
-            raise AccessError("DENIED", "password_sync_identity_mismatch")
-        # No permissions are created here. Linking follows an approved import.
-        if config.fingerprint(account) != store.config().fingerprint(account):
+def _enroll_locked(store, account, data, *, previous=None):
+    link = validate_link(store, account, data)
+    config = store.config()
+    if previous is not None and (account not in config.accounts
+                                 or config.fingerprint(account) != previous["fingerprint"]):
+        raise AccessError("DENIED", "password_sync_connector_changed")
+    credential = fetch(link, origin(config.accounts[account].login_url))
+    saved = store.get("credential:" + account) or {}
+    if not saved.get("username") or saved["username"] != credential["username"]:
+        raise AccessError("DENIED", "password_sync_identity_mismatch")
+    # No permissions are created here. Linking follows an approved import.
+    # Bind the last authority check and commit to the configuration lock too;
+    # a connector edit must not slip between them after the source read.
+    with store.lock("configuration"):
+        current_config = store.config()
+        if (account not in current_config.accounts
+                or config.fingerprint(account) != current_config.fingerprint(account)
+                or (previous is not None
+                    and current_config.fingerprint(account) != previous["fingerprint"])):
             raise AccessError("DENIED", "password_sync_connector_changed")
+        if previous is not None:
+            # Retain the exact enrollment after the network wait. A delayed
+            # token response cannot replace a newer source or approved identity.
+            current = store.get("password-link:" + account)
+            if not current or current.get("generation") != previous["generation"]:
+                raise AccessError("DENIED", "password_sync_connection_changed")
+            if saved["username"] != previous["username"]:
+                raise AccessError("DENIED", "password_sync_identity_mismatch")
         now = time.time()
         link.update(username=saved["username"], fingerprint=config.fingerprint(account),
-                    status="SYNCED", checked=now, next_at=now + INTERVAL)
+                    generation=secrets.token_hex(16), status="SYNCED", checked=now,
+                    next_at=now + INTERVAL)
         with store.db() as db:
             store.put("password-link:" + account, link, db=db)
             _resolve_source_prerequisites(db, account, now)
             if credential != saved:
                 store.put("credential:" + account, credential, db=db)
                 store.put("connection:" + account, None, db=db)
+
+
+def enroll(store, account, data):
+    with store.lock("account:" + account):
+        # Serialize enrollment with credential edits, imports and disconnection.
+        _enroll_locked(store, account, data)
     store.audit("owner", account, "", "password_sync_connected")
+    return {"status": "SYNCED", "account": account}
+
+
+def reconnect(store, account, data):
+    if (not isinstance(data, dict) or set(data) != {"token", "generation"}
+            or not isinstance(data["generation"], str)
+            or not GENERATION.fullmatch(data["generation"])):
+        raise AccessError("DENIED", "invalid_password_sync_link")
+    with store.lock("account:" + account):
+        previous = store.get("password-link:" + account)
+        if not previous:
+            raise AccessError("DENIED", "password_sync_not_connected")
+        if previous.get("generation") != data["generation"]:
+            raise AccessError("DENIED", "password_sync_connection_changed")
+        config = store.config()
+        if (account not in config.accounts
+                or config.fingerprint(account) != previous["fingerprint"]):
+            raise AccessError("DENIED", "password_sync_connector_changed")
+        saved = store.get("credential:" + account) or {}
+        if saved.get("username") != previous["username"]:
+            raise AccessError("DENIED", "password_sync_identity_mismatch")
+        keys = (["provider", "vault", "item"] if previous.get("provider") == SERVICE_ACCOUNT
+                else ["endpoint", "vault", "item"])
+        connection = {key: previous[key] for key in keys}
+        connection["token"] = data["token"]
+        _enroll_locked(store, account, connection, previous=previous)
+    store.audit("owner", account, "", "password_sync_reconnected")
     return {"status": "SYNCED", "account": account}
 
 
@@ -189,11 +239,28 @@ def view(store):
     for account in store.config().accounts:
         link = store.get("password-link:" + account)
         if link:
+            if not isinstance(link.get("generation"), str) or not GENERATION.fullmatch(link["generation"]):
+                # Upgrade existing encrypted links once without changing their
+                # token, target, credential, grants or polling state. Never
+                # block owner-state reads behind a busy website operation.
+                try:
+                    with store.lock("account:" + account, timeout=0):
+                        link = store.get("password-link:" + account)
+                        if not link:
+                            continue
+                        if (not isinstance(link.get("generation"), str)
+                                or not GENERATION.fullmatch(link["generation"])):
+                            link["generation"] = secrets.token_hex(16)
+                            store.put("password-link:" + account, link)
+                except AccessError as exc:
+                    if exc.reason != "account_busy":
+                        raise
             provider = ("1Password service account" if link.get("provider") == SERVICE_ACCOUNT
                         else "1Password Connect")
             result.append({"account": account, "provider": provider,
                            "status": link["status"], "checked": link["checked"],
-                           "reason": link.get("reason"), "interval": INTERVAL})
+                           "reason": link.get("reason"), "interval": INTERVAL,
+                           "generation": link.get("generation")})
     return result
 
 

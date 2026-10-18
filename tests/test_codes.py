@@ -8,6 +8,7 @@ import pyotp
 
 from account_access.demo import connect_demo
 from account_access.errors import AccessError
+from account_access.factors import enroll
 from account_access.models import CodeSource
 
 
@@ -19,6 +20,7 @@ def gmail_source(broker):
                                               template="Login code: {code}")
     broker.store.configure(config)
     connect_demo(broker)
+    enroll(broker.store, "email", {})
 
 
 def gmail_message(ident, received, body="<p>Login code: <b>123456</b></p>"):
@@ -197,13 +199,7 @@ def test_gmail_renews_rejected_access_once_and_never_replays_uncertain_refresh(e
 
 def test_gmail_login_code_filters_and_does_not_expose_mailbox(env, monkeypatch):
     _, broker, _ = env
-    config = broker.store.config()
-    config.accounts["demo-api"].scopes.append("https://www.googleapis.com/auth/gmail.readonly")
-    config.code_sources["email"] = CodeSource(kind="gmail", account="demo-api", sender="login@example.test",
-                                              recipient="demo@example.test", subject="Your sign-in code",
-                                              template="Login code: {code}")
-    broker.store.configure(config)
-    connect_demo(broker)
+    gmail_source(broker)
     started = time.time() - 1
     calls = []
     fresh = False

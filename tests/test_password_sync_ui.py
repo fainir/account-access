@@ -5,6 +5,7 @@ import threading
 
 from playwright.sync_api import sync_playwright
 
+from account_access.errors import AccessError
 from account_access.demo import DEMO_PASSWORD
 from account_access.owner import make_owner_server
 
@@ -18,6 +19,8 @@ def test_owner_browser_links_service_account_without_connect_server(env, monkeyp
 
     def fetch(link, expected_origin):
         observed.append((dict(link), expected_origin))
+        if link["token"] == "ops_rejected-token":
+            raise AccessError("DENIED", "password_source_access_removed")
         return {"username": "demo@example.test", "password": DEMO_PASSWORD}
 
     monkeypatch.setattr("account_access.onepassword_source.fetch", fetch)
@@ -58,6 +61,33 @@ def test_owner_browser_links_service_account_without_connect_server(env, monkeyp
                 state = page.evaluate("async capability => (await fetch('/owner/state', {headers: {Authorization: 'Bearer ' + capability}})).json()", token)
                 assert source_token not in json.dumps(state)
                 assert state["password_sync"][0]["provider"] == "1Password service account"
+                original = broker.store.get("password-link:demo-web")
+                page.get_by_role("button", name="Replace token", exact=True).click()
+                # Account labels are fixture-specific; the replacement form is
+                # scoped by its existing account card and never needs item IDs.
+                replacement = page.locator('input[type="password"][aria-label^="Replacement token for "]')
+                assert replacement.get_attribute("type") == "password"
+                replacement.fill("ops_cancelled-token")
+                page.get_by_role("button", name="Cancel token replacement", exact=True).click()
+                assert replacement.input_value() == "" and len(observed) == 1
+                page.get_by_role("button", name="Replace token", exact=True).click()
+                replacement.fill("ops_rejected-token")
+                page.get_by_role("button", name="Check and replace token", exact=True).click()
+                page.locator("#message").filter(has_text="password manager rejected").wait_for()
+                assert broker.store.get("password-link:demo-web") == original
+                assert replacement.input_value() == ""
+                assert "ops_rejected-token" not in page.locator("body").inner_text()
+                replacement.fill("ops_verified-replacement")
+                page.get_by_role("button", name="Check and replace token", exact=True).click()
+                page.locator("#message").filter(has_text="token replaced").wait_for()
+                updated = broker.store.get("password-link:demo-web")
+                assert updated["token"] == "ops_verified-replacement"
+                assert updated["generation"] != original["generation"]
+                assert {k:updated[k] for k in ["provider","vault","item","username","fingerprint"]} == {
+                    k:original[k] for k in ["provider","vault","item","username","fingerprint"]}
+                assert "ops_verified-replacement" not in page.locator("body").inner_text()
+                page.get_by_role("button", name="Replace token", exact=True).wait_for(state="visible")
+                assert len(observed) == 3
             finally:
                 browser.close()
     finally:

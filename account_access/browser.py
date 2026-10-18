@@ -85,7 +85,7 @@ class Browser:
             record_metadata(url, request.method, reason, request.resource_type, redirected)
 
         def permitted(url, method, resource_type, **provenance):
-            if policy and (method == "POST" or url == policy.url):
+            if policy and (method == "POST" or policy.manages(url)):
                 return None if policy.permitted(url, method, resource_type, **provenance) else "method" if method == "POST" else "destination"
             if url not in allowed:
                 return "destination"
@@ -437,25 +437,26 @@ class Browser:
             if review_stop and review_stop.is_set():
                 raise AccessError("NEEDS_USER", "sms_setup_cancelled", "sms")
             started = time.time()
-            for source_id in sorted(form.sources()):
-                try:
-                    # Establish freshness before any credential fill can trigger code
-                    # delivery. An unused alternative being offline must not
-                    # prevent a different, enrolled method from completing.
-                    self.codes.begin(source_id, account, started)
-                except AccessError as exc:
-                    exc.source_id = source_id
-                    if not form.factors:
-                        raise
-                    source_errors[source_id] = exc
-            if not setup_method and form.sources() and form.sources() <= source_errors.keys():
-                google_error = next((source_errors[source_id] for source_id in form.sources()
-                                     if self.store.config().code_sources[source_id].kind == "google_messages"), None)
-                if google_error:
-                    # Do not submit a password when the paired SMS tab is
-                    # offline and no other enrolled method is usable.
-                    raise google_error
-                raise source_errors[sorted(form.sources())[0]]
+            primary = form.sources() - ({form.device_email_source} if form.device_email_source else set())
+            for required, sources in [(True, primary), (False, form.sources() - primary)]:
+                for source_id in sorted(sources):
+                    try:
+                        # Baseline primary methods first. Optional later device
+                        # mail must not make a missing primary factor usable.
+                        self.codes.begin(source_id, account, started)
+                    except AccessError as exc:
+                        exc.source_id = source_id
+                        if not form.factors:
+                            raise
+                        source_errors[source_id] = exc
+                if required and not setup_method and primary and primary <= source_errors.keys():
+                    google_error = next((source_errors[source_id] for source_id in primary
+                                         if self.store.config().code_sources[source_id].kind == "google_messages"), None)
+                    if google_error:
+                        # Do not submit a password when the paired SMS tab is
+                        # offline and no other enrolled method is usable.
+                        raise google_error
+                    raise source_errors[sorted(primary)[0]]
             if review_stop and review_stop.is_set():
                 raise AccessError("NEEDS_USER", "sms_setup_cancelled", "sms")
             if form.identity_step:
@@ -624,6 +625,9 @@ class Browser:
                 self.wait_state(page, config, previous_kind=kind)
                 completed.append(kind)
                 kind = self.challenge(page, config)
+            if kind == "device" and context._login_challenge and form.device_email_source:
+                page = self.confirm_pypi_device(page, context, config, started, source_errors, review_stop)
+                completed.append("email")
             self.check(page, config)
             state = context.storage_state(indexed_db=True)
             self.save(account, state)
@@ -648,6 +652,49 @@ class Browser:
                 for source_id in config.login.sources():
                     self.codes.finish(source_id, started)
             context.close()
+
+    def confirm_pypi_device(self, page, context, config, started, source_errors, review_stop):
+        policy = context._login_challenge
+        source_id = config.login.device_email_source
+        if not policy.live() or policy.phase != "device" or not policy.device_page_reached:
+            policy.reject()
+        if source_id in source_errors:
+            raise source_errors[source_id]
+        used, link = set(), None
+        deadline = time.monotonic() + min(config.login.code_wait_ms / 1000, max(0, started + 120 - time.time()))
+        while link is None and time.monotonic() < deadline:
+            try:
+                link = self.codes.resolve(source_id, started, used, pypi_user=policy.expected_user)
+            except AccessError as exc:
+                exc.source_id = source_id
+                raise
+            if link is None:
+                time.sleep(1)
+        if link is None:
+            raise AccessError("NEEDS_USER", "login_code_not_received", "email")
+        if self.challenge(page, config) != "device":
+            raise AccessError("NEEDS_USER", "verification_page_changed", "unknown")
+        self.codes.check_window(source_id, started)
+        if review_stop and review_stop.is_set():
+            raise AccessError("NEEDS_USER", "sms_setup_cancelled", "email")
+        destination = policy.arm_device(page.url, link, started)
+        try:
+            page.goto(destination, wait_until="domcontentloaded", timeout=15000)
+        except PlaywrightError:
+            # Only the exact, proof-bound terminal redirect blocked by CDP may
+            # finish here. All other browser failures retain their normal stop.
+            if policy.phase != "confirmed" or policy.failed:
+                raise
+        if policy.phase != "confirmed" or policy.failed:
+            policy.reject()
+        # A failed top-level redirect can commit Chromium's error document after
+        # goto reports failure. Close that page and use the same cookie context;
+        # never race a second navigation against its pending error document.
+        page.close()
+        page = self.page(context)
+        page.goto(config.operations["status"].url, wait_until="domcontentloaded", timeout=15000)
+        self.wait_state(page, config)
+        return page
 
     def credential_page(self, page, config, expected):
         kind = self.challenge(page, config)

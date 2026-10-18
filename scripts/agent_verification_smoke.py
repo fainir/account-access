@@ -33,6 +33,92 @@ from account_access.storage import private_file
 from account_access.verification_demo import environment, write_password_export
 from scripts.agent_qa_guard import digest, permitted
 
+CODEX_BUNDLED = Path("/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex")
+CODEX_MINIMUM = (0, 163, 0)
+
+
+class AgentQABoundaryError(RuntimeError):
+    """A fixed public refusal before any fixture, account or model connection."""
+
+    def __init__(self, reason, diagnostics=None):
+        self.reason = reason
+        self.diagnostics = diagnostics or {}
+        super().__init__(reason)
+
+
+def select_codex_cli(executable=None):
+    """Inspect public CLI capabilities only; never discover a CLI via PATH.
+
+    Help/version commands do not start a model or inspect account configuration.
+    Their environment excludes inherited credentials and startup injection
+    variables. Authentication is neither read nor copied here.
+    """
+    selection = "explicit" if executable is not None else "bundled"
+    executable = Path(executable) if executable is not None else CODEX_BUNDLED
+    diagnostics = {"cli_selection": selection}
+    try:
+        valid = executable.is_absolute() and executable.is_file() and os.access(executable, os.X_OK)
+        command = str(executable.resolve()) if valid else None
+    except (OSError, RuntimeError):
+        raise AgentQABoundaryError("codex_cli_preflight_failed", diagnostics) from None
+    if command is None:
+        raise AgentQABoundaryError("codex_modern_cli_required", diagnostics)
+    try:
+        version = subprocess.run([command, "--version"], capture_output=True, text=True,
+                                 timeout=5, env={"PATH": "/usr/bin:/bin"})
+        match = re.fullmatch(r"codex-cli ([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})(-[a-zA-Z0-9.-]{1,80})?\s*",
+                             version.stdout)
+        if (version.returncode or not match
+                or tuple(map(int, match.groups()[:3])) < CODEX_MINIMUM):
+            raise AgentQABoundaryError("codex_modern_cli_required", diagnostics)
+        diagnostics["cli_version"] = ".".join(match.groups()[:3])
+        help_result = subprocess.run([command, "exec", "--help"], capture_output=True,
+                                     text=True, timeout=5, env={"PATH": "/usr/bin:/bin"})
+        required = {"--ignore-user-config", "--strict-config", "--ephemeral", "--json"}
+        if (help_result.returncode or len(help_result.stdout) > 131072
+                or any(flag not in help_result.stdout.split() for flag in required)):
+            raise AgentQABoundaryError("codex_isolation_capabilities_required", diagnostics)
+    except (OSError, subprocess.TimeoutExpired, UnicodeError):
+        raise AgentQABoundaryError("codex_cli_preflight_failed", diagnostics) from None
+    return command, diagnostics
+
+
+def codex_fixture_preflight(executable=None):
+    """Refuse until the effective *exec* boundary can be proved before startup.
+
+    A legacy sandbox_mode in any loaded layer overrides default_permissions.
+    exec --ignore-user-config preserves auth but leaves managed/system layers.
+    sandbox -P proves an explicitly selected profile, not that exec selected the
+    same one. PreToolUse also has unsupported paths and failure-open cases.
+    Neither weaker proof permits creating a fixture service or starting a model.
+
+    A disposable runner with a dedicated QA login and controlled configuration,
+    or a supported exact effective-exec attestation, is needed to enable Codex
+    acceptance again. Do not bypass approvals, sandboxing or inherited rules.
+    """
+    _, diagnostics = select_codex_cli(executable)
+    raise AgentQABoundaryError("codex_effective_permissions_unverifiable", diagnostics)
+
+
+def blocked_report(error):
+    return {"agent": "codex", "version": __version__, "passed": False,
+            "status": "UNVERIFIED", "reason": error.reason, **error.diagnostics,
+            "fixture_started": False, "model_started": False,
+            "private_signins": 0, "production_ready": False}
+
+
+def agent_environment(agent, parent):
+    """Keep CLI login/hooks intact while reducing shell credential inheritance."""
+    environment = dict(parent)
+    for variable in ["BASH_ENV", "ENV", "PYTHONSTARTUP", "PYTHONPATH", "PYTHONHOME"]:
+        environment.pop(variable, None)
+    if agent == "claude":
+        # Claude retains credentials for its own API calls. Its supported scrub
+        # removes many credentials from Bash/hooks/MCP child environments; this
+        # is an additional reduction, not a complete secret/sandbox boundary.
+        environment["CLAUDE_CODE_SUBPROCESS_ENV_SCRUB"] = "1"
+    return environment
+
 
 def fixture_trace_boundary(trace, policy):
     """Independently reject successful tools outside the enforced QA policy."""
@@ -141,15 +227,19 @@ def used_installed_launcher(trace, skill, workspace):
     return False
 
 
-def check(agent, workspace, codex_model=None, report_suffix=""):
+def check(agent, workspace, codex_model=None, report_suffix="", codex_cli=None):
     if report_suffix and not re.fullmatch(r"[a-z0-9-]{1,32}", report_suffix):
         raise ValueError("Use a short lowercase report suffix")
+    if agent == "codex":
+        # Before workspace writes, fixture credentials/services or model startup.
+        # A prompt or a post-hoc trace is not an execution security boundary.
+        codex_fixture_preflight(codex_cli)
     suffix = "-" + report_suffix if report_suffix else ""
     workspace.mkdir(parents=True, exist_ok=True, mode=0o700)
     if any(workspace.iterdir()):
         raise ValueError("Use a new empty QA workspace; existing files are not trusted")
     root = Path(tempfile.mkdtemp(prefix="aav-", dir="/tmp"))
-    child_environment = dict(os.environ)
+    child_environment = agent_environment(agent, os.environ)
     started = time.monotonic()
     try:
         with environment(root) as (provider, broker, mailbox):
@@ -167,8 +257,6 @@ def check(agent, workspace, codex_model=None, report_suffix=""):
                 instruction_file.write_text(instruction_file.read_text().replace(
                     "name: account-access\n", "name: " + skill.name + "\n", 1))
             child_environment["ACCESS_CLIENT_CONFIG"] = installed["client_config"]
-            for variable in ["BASH_ENV", "ENV", "PYTHONSTARTUP", "PYTHONPATH", "PYTHONHOME"]:
-                child_environment.pop(variable, None)
             instructions = ("This is an isolated account-access QA workspace. For these fictional accounts, "
                             "use the project Account Access skill at " + str(skill) +
                             "/SKILL.md. Use only its installed launcher. Never use global personal account connections, "
@@ -235,18 +323,7 @@ def check(agent, workspace, codex_model=None, report_suffix=""):
                                    "--settings", str(settings), "--append-system-prompt", instructions,
                                    "--", prompt]
                     else:
-                        command = [shutil.which("codex"), "exec", "--ephemeral", "--skip-git-repo-check", "--json",
-                                   "--strict-config", "-C", str(workspace),
-                                   "-c", 'default_permissions="account_access_qa"',
-                                   "-c", 'permissions.account_access_qa.extends=":workspace"',
-                                   "-c", "features.network_proxy=true",
-                                   "-c", "permissions.account_access_qa.network.enabled=true",
-                                   "-c", "permissions.account_access_qa.network.domains={}",
-                                   "-c", "permissions.account_access_qa.network.unix_sockets={"
-                                   + json.dumps(str(root / "service.sock")) + '="allow"}']
-                        if codex_model:
-                            command += ["--model", codex_model]
-                        command.append(prompt)
+                        raise AgentQABoundaryError("codex_effective_permissions_unverifiable")
                     timed_out = False
                     try:
                         result = subprocess.run(command, cwd=workspace, env=child_environment,
@@ -322,6 +399,24 @@ if __name__ == "__main__":
     parser.add_argument("agent", choices=["codex", "claude"])
     parser.add_argument("--workspace", type=Path, required=True)
     parser.add_argument("--codex-model", help="Optional invocation-only model compatible with the existing CLI login")
+    parser.add_argument("--codex-cli", type=Path,
+                        help="Explicit modern Codex executable; defaults to the bundled CLI, never PATH")
     parser.add_argument("--report-suffix", default="", help="Keep a separate evidence record for this candidate")
     args = parser.parse_args()
-    raise SystemExit(0 if check(args.agent, args.workspace.resolve(), args.codex_model, args.report_suffix) else 1)
+    try:
+        passed = check(args.agent, args.workspace.resolve(), args.codex_model,
+                       args.report_suffix, args.codex_cli)
+    except AgentQABoundaryError as exc:
+        report = blocked_report(exc)
+        report["evidence_revision"] = subprocess.check_output(
+            ["git", "-C", str(Path(__file__).resolve().parents[1]), "rev-parse", "HEAD"],
+            text=True, timeout=5,
+            env={"PATH": os.defpath, "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": os.devnull},
+        ).strip()
+        suffix = "-" + args.report_suffix if args.report_suffix else ""
+        destination = Path("artifacts/agent-tests") / ("codex-verification-080" + suffix + ".blocked.json")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        private_file(destination, (json.dumps(report, indent=2) + "\n").encode(), replace=True)
+        print(json.dumps(report, indent=2), flush=True)
+        raise SystemExit(2)
+    raise SystemExit(0 if passed else 1)

@@ -105,15 +105,52 @@ tokens remain in memory and are redacted from returned data.
 The [TOTP template](https://github.com/pypi/warehouse/blob/f9ce83647318089c485c3d66378d559f0e7cdeed/warehouse/templates/accounts/two-factor.html)
 can offer a security key and a recovery link alongside the authenticator form.
 The connector can use an enrolled authenticator when that form is present. A
-required security key, actual recovery-code form or new-device confirmation
-stops. It never consumes recovery codes or follows an emailed device-confirmation
-link. PyPI's
+required security key or actual recovery-code form stops. It never consumes
+recovery codes. PyPI's
 [new-device confirmation](https://github.com/pypi/warehouse/blob/f9ce83647318089c485c3d66378d559f0e7cdeed/warehouse/templates/accounts/unrecognized-device.html)
-therefore remains a material acceptance gate.
+stops unless an operator explicitly binds the optional device-email source
+described below. The bundled picker does not silently choose a mailbox.
+
+The next development candidate implements that optional engine path. See the
+[complete operator configuration](../examples/pypi-device-email.json); replace its
+recipient and mail server with the owner's actual mailbox configuration, enroll
+that source through the local owner flow, and separately approve the connector's
+changed permission fingerprint. This example contains no credential or grant.
+The source can use IMAP or an explicitly configured, consented Gmail account.
+Automatic mailbox selection and a consumer setup screen for this optional binding
+are not implemented by this engine example.
+
+The [deployed confirmation view](https://github.com/pypi/warehouse/blob/f9ce83647318089c485c3d66378d559f0e7cdeed/warehouse/accounts/views.py#L950)
+uses an emailed GET link, not a six-digit code or a form. Only an observed,
+guarded TOTP response to the bare device page can start this step. The resolver
+requires fresh mail beyond the existing Gmail-ID or IMAP-UID baseline, exact
+recipient/sender/subject, the reviewed plain-text MIME template, unchanged source
+generation and current mailbox authority. It structurally compares the bounded
+confirmation token's action and user UUID to the user in PyPI's trusted password
+response. This comparison does not validate a signature: PyPI verifies its signed
+token and the device's IP when the link is used. Other users, actions, links,
+ambiguous messages and stale tokens cannot be selected.
+
+The resulting URL is a one-use, attached-main-frame capability within the
+original 120-second login lifetime. The original successful 303 and Set-Cookie
+are preserved. Its exact projects-page redirect is intercepted at CDP Request
+stage before dispatch, then a fresh guarded page in the same cookie context
+checks only the approved username fragment. No projects page is fetched or
+granted. A different redirect, frame, chain, session, HTTP method, duplicate
+Location header or replay stops. Tokens remain in memory and never become a
+saved URL allowlist or agent-visible result.
+
+PyPI may throttle confirmation email for fifteen minutes. A fresh matching mail
+that does not arrive within this login window remains a stop; the engine does
+not select an older inbox message or repeatedly submit the password to force a
+resend. Required security-device and recovery challenges remain owner actions.
 
 Local fictional fixtures exercise password/TOTP sign-in, saved-session reuse,
 remembered-factor sign-in, changed forms, missing sources, code rejection,
-presence challenges, redirect provenance and secret-free results. They do not
+presence challenges, redirect provenance and secret-free results. Additional
+fictional Gmail/IMAP journeys cover device-link confirmation, cookie retention,
+saved-session reuse, zero projects requests, token/user binding, freshness,
+revocation and ambiguous mail. They do not
 establish a successful login to a real PyPI account. This pilot supports the
 guarded automatic path; generic manual browser setup is rejected before opening
 a window (`pypi_manual_setup_unavailable`). No private PyPI account has been

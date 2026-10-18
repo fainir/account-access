@@ -112,6 +112,8 @@ class Codes:
         source = config.code_sources.get(source_id)
         if source is None or window.get("source_config") != source.model_dump():
             raise AccessError("DENIED", "login_code_source_changed")
+        if source.message_purpose and not self.device_binding(config, source_id, window["account"]):
+            raise AccessError("DENIED", "login_code_source_changed", "email")
         account = self.mailbox_account(source)
         if mailbox_locked is not None and mailbox_locked != account:
             raise AccessError("DENIED", "login_code_source_changed")
@@ -160,9 +162,18 @@ class Codes:
                 raise AccessError("NEEDS_USER", "login_code_window_expired")
             self.store.put("code-window:" + source_id, window)
 
-    def resolve(self, source_id, started, used):
+    def resolve(self, source_id, started, used, *, pypi_user=None):
         source, window, credentials = self.check_window(source_id, started)
         config = self.store.config()
+        if source.message_purpose or pypi_user is not None:
+            from .pypi_device import PURPOSE, user_id
+            if (source.message_purpose != PURPOSE or pypi_user is None
+                    or not self.device_binding(config, source_id, window["account"])):
+                raise AccessError("DENIED", "login_code_source_changed", "email")
+            try:
+                user_id(pypi_user)
+            except ValueError:
+                raise AccessError("DENIED", "login_code_source_changed", "email") from None
         if source.kind == "totp":
             if not credentials.get("seed"):
                 raise AccessError("NEEDS_USER", "authenticator_not_enrolled", "totp")
@@ -205,7 +216,7 @@ class Codes:
                                                altchars=b"-_", validate=True)
                     except ValueError:
                         continue
-                    code = email_login_code(raw, source)
+                    code = self.email_value(raw, source, started, pypi_user)
                     if code:
                         candidates.append((ident, code))
                 self.check_window(source_id, started, mailbox_locked=source.account)
@@ -215,7 +226,7 @@ class Codes:
                     return candidate[1]
                 return None
         if source.kind == "imap":
-            return self.imap(source_id, source, credentials, started, used, config)
+            return self.imap(source_id, source, credentials, started, used, config, pypi_user=pypi_user)
         if source.kind == "mac_messages":
             if credentials.get("enabled") is not True:
                 raise AccessError("NEEDS_USER", "message_permission_required", "sms")
@@ -299,6 +310,8 @@ class Codes:
         with self.store.lock("source:" + source_id):
             config = self.store.config()
             source = config.code_sources[source_id]
+            if source.message_purpose and not self.device_binding(config, source_id, account):
+                raise AccessError("DENIED", "login_code_source_changed", "email")
             window["source_config"] = source.model_dump()
             credentials = enrollment(self.store, source_id)
             window["source_generation"] = self.store.get("source-generation:" + source_id)
@@ -440,7 +453,20 @@ class Codes:
                 raise AccessError("NEEDS_USER", "mailbox_not_available", "email")
             yield mailbox
 
-    def imap(self, source_id, source, credentials, started, used, config):
+    @staticmethod
+    def device_binding(config, source_id, account_id):
+        account = config.accounts.get(account_id)
+        return (getattr(account, "login_challenge", None) == "pypi-totp-v1"
+                and account.login and account.login.device_email_source == source_id)
+
+    @staticmethod
+    def email_value(raw, source, started, pypi_user):
+        if source.message_purpose:
+            from .pypi_device import confirmation_link
+            return confirmation_link(raw, source, pypi_user, started)
+        return email_login_code(raw, source)
+
+    def imap(self, source_id, source, credentials, started, used, config, *, pypi_user=None):
         window = self.store.get("code-window:" + source_id)
         if not window or window["started"] != started or "UIDNEXT" not in window:
             raise AccessError("NEEDS_USER", "mailbox_login_window_missing", "email")
@@ -502,7 +528,7 @@ class Codes:
                         if (received_at is None or not int(started) <= received_at <= time.time() + 5
                                 or time.time() > window["expires"]):
                             continue
-                        code = email_login_code(item[1], source)
+                        code = self.email_value(item[1], source, started, pypi_user)
                         if code:
                             candidates.append((key, code))
                 self.check_window(source_id, started)
