@@ -17,6 +17,7 @@ dependencies = [
   "uvicorn>=0.35,<1",
   "filelock>=3.18,<4",
   "pyotp>=2.9,<3",
+  "onepassword-sdk==0.4.1",
 ]
 
 [project.scripts]

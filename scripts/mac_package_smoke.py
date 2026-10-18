@@ -59,6 +59,18 @@ checkpoint('pydantic')
 assert create_model('Fixture', value=(int, ...))(value='42').value == 42
 checkpoint('totp')
 assert len(pyotp.TOTP('JBSWY3DPEHPK3PXP').at(0)) == 6
+checkpoint('onepassword_native_child')
+from onepassword.core import UniffiCore
+UniffiCore()
+from account_access.onepassword_source import fetch
+from account_access.errors import AccessError
+try:
+    fetch({'token': 'synthetic-invalid-token', 'vault': 'a' * 26, 'item': 'b' * 26},
+          'https://example.test')
+except AccessError as error:
+    assert error.status == 'DENIED' and error.reason == 'password_source_access_removed'
+else:
+    raise AssertionError('synthetic_service_token_accepted')
 print('PREPARED_NATIVE_OK')
 """
 
@@ -402,7 +414,7 @@ def main():
                 "-I",
                 "-B",
                 "-c",
-                "import ssl,sqlite3,cryptography,playwright,account_access.system_provision;"
+                "import ssl,sqlite3,cryptography,playwright,onepassword,account_access.onepassword_source,account_access.system_provision;"
                 "from account_access.worker_bootstrap import root_managed_path;"
                 'import sys;root_managed_path(sys.prefix);print("OFFLINE_RUNTIME_OK")',
             ],

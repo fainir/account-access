@@ -179,10 +179,11 @@ struct OwnerGatewayRoute {
         "owner/authenticator/apply", "owner/authenticator/discard", "owner/source",
         "owner/source/check", "owner/source/revoke", "owner/mailbox/connect", "owner/mailbox/check",
         "owner/mailbox/password", "owner/mailbox/remove", "owner/password-sync",
+        "owner/mailbox/oauth/begin", "owner/mailbox/oauth/finish", "owner/mailbox/oauth/cancel",
         "owner/password-sync/disconnect", "owner/phone/pair", "owner/stop", "owner/vault/enroll", "owner/client/enroll", "owner/client/installed", "owner/browser-message"
     ]
     static let restrictions: Set<String> = ["owner/stop", "owner/revoke", "owner/source/revoke",
-        "owner/mailbox/remove", "owner/password-sync/disconnect", "owner/authenticator/discard"]
+        "owner/mailbox/remove", "owner/mailbox/oauth/cancel", "owner/password-sync/disconnect", "owner/authenticator/discard"]
 
     init(_ route: String, body: Data?) throws {
         var browserNeedsSetup: Bool?
@@ -198,6 +199,36 @@ struct OwnerGatewayRoute {
                 throw OwnerGatewayError.invalidPolicy // Requires a future trusted host handoff.
             }
             if route == "owner/vault/enroll", !value.isEmpty { throw OwnerGatewayError.invalidPolicy }
+            if route.hasPrefix("owner/mailbox/oauth/") {
+                let expected: Set<String> = route.hasSuffix("/begin") ? ["account", "fingerprint", "redirect_uri"]
+                    : route.hasSuffix("/finish") ? ["account", "attempt", "callback"] : ["account", "attempt"]
+                guard Set(value.keys) == expected, let account = value["account"] as? String,
+                      account.range(of: "^[a-z][a-z0-9_-]{0,63}$", options: .regularExpression) != nil else {
+                    throw OwnerGatewayError.invalidPolicy
+                }
+                if route.hasSuffix("/begin") {
+                    guard let fingerprint = value["fingerprint"] as? String,
+                          fingerprint.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil,
+                          let redirect = value["redirect_uri"] as? String, redirect.utf8.count <= 300,
+                          let parts = URLComponents(string: redirect), parts.scheme == "http", parts.host == "127.0.0.1",
+                          let port = parts.port, (1024...65535).contains(port),
+                          parts.user == nil, parts.password == nil, parts.query == nil, parts.fragment == nil,
+                          parts.path == "/callback/" + account,
+                          redirect == "http://127.0.0.1:\(port)/callback/" + account else { throw OwnerGatewayError.invalidPolicy }
+                } else {
+                    guard let attempt = value["attempt"] as? String,
+                          attempt.range(of: "^[a-f0-9]{32}$", options: .regularExpression) != nil else {
+                        throw OwnerGatewayError.invalidPolicy
+                    }
+                    if route.hasSuffix("/finish") {
+                        guard let callback = value["callback"] as? String, callback.utf8.count <= 8192,
+                              let parts = URLComponents(string: callback), parts.scheme == "http", parts.host == "127.0.0.1",
+                              let port = parts.port, (1024...65535).contains(port),
+                              parts.user == nil, parts.password == nil, parts.fragment == nil,
+                              parts.path == "/callback/" + account else { throw OwnerGatewayError.invalidPolicy }
+                    }
+                }
+            }
             if route == "owner/browser-message" {
                 guard Set(value.keys) == ["message"], let message = value["message"] as? [String: Any],
                       let method = message["method"] as? String else { throw OwnerGatewayError.invalidPolicy }

@@ -1,8 +1,11 @@
-"""Disposable Mac CI: real stable Chrome/native/XPC round trips, no websites.
+"""Disposable Mac CI: signed Chrome transport and a synthetic SMS runtime join.
 
 The exact packaged extension runs in a new, empty profile under the temporary
 agent UID. Chrome launches the existing hash-pinned fixture Mach-O directly.
-No Chrome profile, setting, account, owner approval or production service is used.
+The second empty profile uses a narrowly changed fixture manifest to represent
+an already approved Messages permission. Its unchanged production scripts read
+an in-memory HTTPS fixture, then deliver through the real native/XPC boundary.
+No owner profile, permission approval, private account or external site is used.
 """
 
 import argparse
@@ -12,11 +15,14 @@ import os
 from pathlib import Path
 import pwd
 import re
+import runpy
+import select
 import shutil
 import signal
 import stat
 import subprocess
 import sys
+import threading
 import time
 
 from account_access.storage import private_file
@@ -34,8 +40,13 @@ EXTENSION_ORIGIN = "chrome-extension://" + EXTENSION_ID + "/"
 HOST = "com.account_access.google_messages"
 RESOURCES = {"manifest.json", "background.js", "reader.js", "popup.js", "popup.html", "popup.css"}
 PROFILE_NAME = "signed-chrome-profile"
+SMS_PROFILE_NAME = "signed-chrome-sms-profile"
+SMS_EXTENSION_NAME = "signed-chrome-sms-extension"
+MESSAGES_ORIGIN = "https://messages.google.com/*"
+MESSAGES_URL = "https://messages.google.com/web/conversations"
 OUTPUT_LIMIT = 65536
-STAGES = {"guard", "profile", "signature", "negative-parent", "launch", "load", "first-pending", "reload", "cleanup"}
+STAGES = {"guard", "profile", "signature", "negative-parent", "launch", "load", "first-pending", "reload",
+          "sms-launch", "sms-load", "sms-dom", "sms-login", "sms-cleanup", "cleanup"}
 CURRENT_STAGE = "guard"
 
 
@@ -100,6 +111,190 @@ def resource_hashes(extension):
             raise RuntimeError("signed_chrome_extension_resources_changed")
         hashes[name] = hashlib.sha256(target.read_bytes()).hexdigest()
     return hashes
+
+
+def fixture_manifest(original):
+    """A declared CI enrollment substitute, never an installed product change."""
+    if (
+        type(original) is not dict or "host_permissions" in original
+        or original.get("optional_host_permissions") != [MESSAGES_ORIGIN, "https://github.com/*"]
+    ):
+        raise RuntimeError("signed_chrome_fixture_manifest_changed")
+    value = dict(original)
+    value["optional_host_permissions"] = ["https://github.com/*"]
+    value["host_permissions"] = [MESSAGES_ORIGIN]
+    return value
+
+
+def validate_fixture_manifest(original, candidate):
+    return candidate == fixture_manifest(original)
+
+
+def sms_page():
+    # The cached row must remain the baseline boundary when the fresh row is
+    # prepended. Neither this document nor its relative links contact Google.
+    return """<!doctype html><meta charset="utf-8"><title>Controlled SMS fixture</title>
+    <mws-conversations-list><nav><mws-conversation-list-item>
+    <a data-e2e-conversation href="/web/conversations/cached-fixture"></a>
+    <mws-conversation-snippet>111111 is your GitHub authentication code.</mws-conversation-snippet>
+    <mws-relative-timestamp><span aria-label="10 min ago"></span></mws-relative-timestamp>
+    </mws-conversation-list-item></nav></mws-conversations-list>"""
+
+
+def fictional_message(raw):
+    if type(raw) is not dict or set(raw) != {"code"} or type(raw["code"]) is not str or not re.fullmatch(r"[0-9]{6}", raw["code"]):
+        raise RuntimeError("signed_chrome_fixture_delivery_invalid")
+    return raw["code"]
+
+
+def run_sms_journey(playwright, prefix, home, original, original_hashes):
+    """Join the unchanged background/content scripts to a fresh worker login.
+
+    Only the manifest enrollment is synthetic. Chrome's normal public content
+    script APIs, the production polling loop, and native framing remain in use.
+    """
+    stage("sms-launch")
+    extension = root_managed_path(prefix / SMS_EXTENSION_NAME)
+    candidate = json.loads((extension / "manifest.json").read_bytes())
+    if not validate_fixture_manifest(original, candidate):
+        raise RuntimeError("signed_chrome_fixture_manifest_changed")
+    hashes = resource_hashes(extension)
+    unchanged = {name: digest for name, digest in hashes.items() if name != "manifest.json"}
+    if unchanged != {name: digest for name, digest in original_hashes.items() if name != "manifest.json"}:
+        raise RuntimeError("signed_chrome_fixture_scripts_changed")
+    profile = home / SMS_PROFILE_NAME
+    info = profile.lstat()
+    if (
+        not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o777 != 0o700
+        or {item.name for item in profile.iterdir()} != {"NativeMessagingHosts"}
+    ):
+        raise RuntimeError("signed_chrome_profile_not_empty")
+    if json.loads((profile / "NativeMessagingHosts" / (HOST + ".json")).read_bytes()) != native_manifest(
+        root_managed_path(prefix / "root-owner-client")
+    ):
+        raise RuntimeError("signed_chrome_manifest_changed")
+    helper = root_managed_path(prefix / "protected-browser-fixture.py")
+    client_type = runpy.run_path(str(helper))["ClientReads"]
+    config = prefix / "agent-client/native-host-client.json"
+    clients = client_type(
+        [sys.executable, "-I", "-B", "-m", "account_access.cli", "run", "browser-sms", "summary"],
+        {"PATH": "/usr/bin:/bin", "HOME": str(home), "LANG": "C.UTF-8", "ACCESS_CLIENT_CONFIG": str(config)},
+        time.monotonic() + 55,
+    )
+    context = None
+    checks = {"separate_empty_fixture_profile_used": True,
+              "only_messages_host_permission_moved_from_optional_to_required": True,
+              "all_five_packaged_script_html_css_resources_unchanged": True}
+    incoming = bytearray()
+    delivered = False
+    fulfilled = []
+    try:
+        context = playwright.chromium.launch_persistent_context(**launch_options(profile, home))
+
+        def local_document(route):
+            if route.request.url == MESSAGES_URL and route.request.resource_type == "document":
+                fulfilled.append(MESSAGES_URL)
+                route.fulfill(status=200, content_type="text/html", body=sms_page())
+            else:
+                route.abort()
+
+        context.route("**/*", local_document)
+        browser = context.browser
+        if browser is None:
+            raise RuntimeError("signed_chrome_browser_not_available")
+        cdp = browser.new_browser_cdp_session()
+        stage("sms-load")
+        loaded = cdp.send("Extensions.loadUnpacked", {"path": str(extension)})
+        checks["same_extension_key_and_id_loaded"] = loaded == {"id": EXTENSION_ID}
+        worker = next((item for item in context.service_workers
+                       if item.url == EXTENSION_ORIGIN + "background.js"), None)
+        if worker is None:
+            worker = context.wait_for_event("serviceworker", predicate=lambda item:
+                                            item.url == EXTENSION_ORIGIN + "background.js", timeout=15000)
+        stage("sms-dom")
+        page = context.new_page()
+        page.goto(MESSAGES_URL, wait_until="domcontentloaded", timeout=10000)
+        checks["https_messages_document_fulfilled_in_memory"] = fulfilled == [MESSAGES_URL]
+        prepared = worker.evaluate("""async () => {
+            const pages = await tabs();
+            if (pages.length !== 1) return false;
+            await chrome.scripting.registerContentScripts([{id:'account-access-sms',
+                matches:['https://messages.google.com/web/conversations*'], js:['reader.js'],
+                runAt:'document_idle', persistAcrossSessions:true}]);
+            await chrome.scripting.executeScript({target:{tabId:pages[0].id},files:['reader.js']});
+            await chrome.storage.local.set({enabled:true});
+            return true;
+        }""")
+        checks["production_reader_registered_and_injected_by_public_chrome_api"] = prepared is True
+        permissions = worker.evaluate("chrome.permissions.getAll()")
+        checks["only_messages_origin_granted_without_cookie_or_github_access"] = (
+            permissions.get("origins") == [MESSAGES_ORIGIN]
+            and set(permissions.get("permissions", [])) == set(original["permissions"])
+        )
+        if not all(checks.values()):
+            raise RuntimeError("signed_chrome_fixture_prepare_failed")
+        stage("sms-login")
+        while not clients.tick():
+            # This pipe carries only the fictional provider's single new code;
+            # the controller does not submit it to the worker or native host.
+            if select.select([sys.stdin.buffer], [], [], 0)[0]:
+                part = os.read(sys.stdin.buffer.fileno(), 256)
+                if not part or len(incoming) + len(part) > 128:
+                    raise RuntimeError("signed_chrome_fixture_delivery_invalid")
+                incoming.extend(part)
+                if b"\n" in incoming:
+                    if delivered or incoming.count(b"\n") != 1 or not incoming.endswith(b"\n"):
+                        raise RuntimeError("signed_chrome_fixture_delivery_invalid")
+                    code = fictional_message(json.loads(incoming))
+                    page.evaluate("""code => {
+                        const row = document.createElement('mws-conversation-list-item');
+                        const link = document.createElement('a');
+                        link.setAttribute('data-e2e-conversation','');
+                        link.setAttribute('href','/web/conversations/fresh-fixture');
+                        const snippet = document.createElement('mws-conversation-snippet');
+                        snippet.textContent = code + ' is your GitHub authentication code.';
+                        const stamp = document.createElement('mws-relative-timestamp');
+                        const age = document.createElement('span'); age.setAttribute('aria-label','now');
+                        stamp.append(age); row.append(link,snippet,stamp);
+                        document.querySelector('mws-conversations-list nav').prepend(row);
+                    }""", code)
+                    incoming.clear()
+                    delivered = True
+            # Pump Chrome normally; the unchanged background's one-second
+            # interval, rather than a harness delivery call, reads and forwards.
+            page.wait_for_timeout(50)
+        checks["single_fresh_synthetic_text_inserted_into_dom"] = delivered
+        checks["unchanged_background_polling_completed_fresh_password_sms_login"] = delivered and len(clients.values) == 2
+        checks["second_cli_read_reused_saved_session"] = len(clients.values) == 2
+        checks["cli_returns_only_reviewed_data_without_login_codes"] = re.search(
+            r"\b[0-9]{6}\b", json.dumps(clients.values)
+        ) is None
+        checks["completed_window_no_longer_pending"] = worker.evaluate(
+            "async () => await native({method:'pending'})"
+        ) == {"pending": [], "source_enabled": True}
+        checks["fixture_resources_unchanged_after_login"] = resource_hashes(extension) == hashes
+    finally:
+        previous = CURRENT_STAGE
+        stage("sms-cleanup")
+        try:
+            clients.close()
+        finally:
+            if context is not None:
+                context.close()
+        stage(previous)
+    checks["fixture_chrome_context_and_cli_children_closed"] = True
+    if not all(value is True for value in checks.values()):
+        raise RuntimeError("signed_chrome_sms_journey_failed")
+    return {"status": "PASSED", "checks": checks, "script_resources_sha256": unchanged,
+            "synthetic_manifest_sha256": hashes["manifest.json"],
+            "synthetic_manifest_pre_enrollment_used": True,
+            "synthetic_google_messages_dom_used": True,
+            "actual_content_script_and_background_polling_used": True,
+            "password_sms_browser_login_verified": True,
+            "production_extension_manifest_used": False,
+            "genuine_browser_permission_approval_verified": False,
+            "physical_sms_delivery_verified": False,
+            "production_entrypoint_run_verified": False}
 
 
 def run_child(prefix):
@@ -213,10 +408,11 @@ def run_child(prefix):
                 stage(previous)
         stage("cleanup")
         checks["fresh_chrome_context_closed"] = True
+        sms_journey = run_sms_journey(playwright, prefix, home, manifest, hashes)
     if not all(value is True for value in checks.values()):
         raise RuntimeError("signed_chrome_roundtrip_failed")
     return {"status": "PASSED", "chrome_version": version, "extension_id": EXTENSION_ID,
-            "extension_resources_sha256": hashes, "checks": checks}
+            "extension_resources_sha256": hashes, "checks": checks, "sms_journey": sms_journey}
 
 
 def stop_process(process):
@@ -243,11 +439,13 @@ def failure_diagnostic(value):
     return diagnostic if type(diagnostic) is str and diagnostic in STAGES else None
 
 
-def exercise_signed_chrome_gateway(prefix, roles):
+def exercise_signed_chrome_gateway(prefix, roles, fixture=None, client_config=None):
     agent = require_fixture(prefix, roles)
     home = Path(agent.pw_dir)
-    profile, temporary = home / PROFILE_NAME, home / "signed-chrome-tmp"
-    if profile.exists() or profile.is_symlink() or temporary.exists() or temporary.is_symlink():
+    profile, sms_profile, temporary = home / PROFILE_NAME, home / SMS_PROFILE_NAME, home / "signed-chrome-tmp"
+    extension = prefix / SMS_EXTENSION_NAME
+    directories = [profile, sms_profile, temporary, extension]
+    if any(directory.exists() or directory.is_symlink() for directory in directories):
         raise RuntimeError("signed_chrome_profile_already_exists")
     controller = root_managed_path(prefix / "signed-chrome-probe.py")
     binary = root_managed_path(prefix / "root-owner-client")
@@ -257,17 +455,47 @@ def exercise_signed_chrome_gateway(prefix, roles):
     if output.exists() or output.is_symlink():
         raise RuntimeError("signed_chrome_output_already_exists")
     created = []
+    incoming, lock = [], threading.Lock()
+    delivered = 0
+    if fixture is None or client_config != prefix / "agent-client/native-host-client.json":
+        raise RuntimeError("signed_chrome_fixture_provider_missing")
+    prior_delivery = fixture.provider.delivery
+    started = fixture.provider.login_count, fixture.provider.sms_count, fixture.provider.identity_count
+
+    def delivery(kind, code):
+        fictional_message({"code": code})
+        if kind != "sms":
+            raise RuntimeError("signed_chrome_fixture_delivery_invalid")
+        with lock:
+            incoming.append({"code": code})
+
     try:
-        for directory in [profile, temporary]:
+        for directory in [profile, sms_profile, temporary]:
             directory.mkdir(mode=0o700)
             created.append(directory)
             os.chown(directory, agent.pw_uid, agent.pw_gid)
-        hosts = profile / "NativeMessagingHosts"
-        hosts.mkdir(mode=0o700)
-        os.chown(hosts, agent.pw_uid, agent.pw_gid)
-        target = hosts / (HOST + ".json")
-        private_file(target, json.dumps(native_manifest(binary)).encode())
-        os.chown(target, agent.pw_uid, agent.pw_gid)
+        for browser_profile in [profile, sms_profile]:
+            hosts = browser_profile / "NativeMessagingHosts"
+            hosts.mkdir(mode=0o700)
+            os.chown(hosts, agent.pw_uid, agent.pw_gid)
+            target = hosts / (HOST + ".json")
+            private_file(target, json.dumps(native_manifest(binary)).encode())
+            os.chown(target, agent.pw_uid, agent.pw_gid)
+        from account_access import __file__ as package_file
+
+        original = root_managed_path(Path(package_file).parent / "google_messages_extension")
+        resource_hashes(original)
+        extension.mkdir(mode=0o755)
+        created.append(extension)
+        for name in sorted(RESOURCES):
+            target = extension / name
+            value = ((json.dumps(fixture_manifest(json.loads((original / name).read_bytes()))).encode())
+                     if name == "manifest.json" else (original / name).read_bytes())
+            private_file(target, value)
+            target.chmod(0o644)
+        extension.chmod(0o755)
+        fixture.provider.sessions.clear()
+        fixture.provider.delivery = delivery
         dropped = ["/bin/launchctl", "asuser", str(agent.pw_uid), "/usr/bin/sudo", "-n", "-H",
                    "-u", "#" + str(agent.pw_uid), "-g", "#" + str(agent.pw_gid), "--"]
         with output.open("xb", buffering=0) as destination:
@@ -275,7 +503,7 @@ def exercise_signed_chrome_gateway(prefix, roles):
             process = subprocess.Popen(
                 [*dropped, "/usr/bin/env", "GITHUB_ACTIONS=true", sys.executable, "-I", "-B",
                  str(controller), "--prefix", str(prefix)],
-                stdin=subprocess.DEVNULL, stdout=destination, stderr=subprocess.DEVNULL,
+                stdin=subprocess.PIPE, stdout=destination, stderr=subprocess.DEVNULL,
                 start_new_session=True,
                 env={"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "GITHUB_ACTIONS": "true"},
             )
@@ -283,6 +511,15 @@ def exercise_signed_chrome_gateway(prefix, roles):
             while process.poll() is None:
                 if time.monotonic() >= deadline or os.fstat(destination.fileno()).st_size > OUTPUT_LIMIT:
                     raise RuntimeError("signed_chrome_child_bound_exceeded")
+                with lock:
+                    queued = list(incoming)
+                    incoming.clear()
+                if queued:
+                    if delivered or len(queued) != 1:
+                        raise RuntimeError("signed_chrome_fixture_delivery_invalid")
+                    process.stdin.write(json.dumps(queued[0]).encode() + b"\n")
+                    process.stdin.flush()
+                    delivered += 1
                 time.sleep(0.05)
             process.wait(timeout=0)
         if output.stat().st_size > OUTPUT_LIMIT:
@@ -291,8 +528,6 @@ def exercise_signed_chrome_gateway(prefix, roles):
         from_checker = Path(__file__).with_name("check_mac_signed_chrome_report.py")
         # The controller runs from an installed fixture directory, so its
         # checker is copied there as public immutable code as well.
-        import runpy
-
         root_managed_path(from_checker)
         validate_child = runpy.run_path(str(from_checker))["validate_child"]
         if process.returncode != 0 or not validate_child(value):
@@ -300,16 +535,31 @@ def exercise_signed_chrome_gateway(prefix, roles):
             if diagnostic is not None:
                 print(json.dumps({"stage": "signed_chrome_failed_" + diagnostic}), file=sys.stderr, flush=True)
             raise RuntimeError("signed_chrome_child_failed")
+        value["sms_journey"]["checks"]["provider_recorded_one_fresh_password_sms_and_identity_submission"] = (
+            delivered == 1 and (fixture.provider.login_count, fixture.provider.sms_count,
+                               fixture.provider.identity_count) == tuple(number + 1 for number in started)
+        )
     finally:
+        fixture.provider.delivery = prior_delivery
         try:
             if process is not None:
-                stop_process(process)
+                try:
+                    stop_process(process)
+                finally:
+                    if process.stdin is not None:
+                        process.stdin.close()
         finally:
-            # Only the two newly created directories in the dedicated fixture
-            # identity are removed. No default Chrome profile is ever selected.
+            # Remove only this controller's three newly created identity-local
+            # directories and the root-owned synthetic manifest resource copy.
+            # No default Chrome profile is ever selected.
             for directory in created:
                 shutil.rmtree(directory)
     value["checks"]["temporary_chrome_profile_removed"] = not profile.exists() and not temporary.exists()
+    value["sms_journey"]["checks"]["fixture_profile_and_pre_enrollment_manifest_removed"] = (
+        not sms_profile.exists() and not extension.exists()
+    )
+    if not all(item is True for item in value["sms_journey"]["checks"].values()):
+        raise RuntimeError("signed_chrome_fixture_provider_or_cleanup_failed")
     value.update({"platform": "macos", "environment": "controlled-demo", "production_ready": False,
                   "private_signins": 0,
                   **dict.fromkeys([
@@ -319,9 +569,9 @@ def exercise_signed_chrome_gateway(prefix, roles):
                       "native_pending_roundtrip_verified",
                   ], True),
                   **dict.fromkeys([
-                      "production_entrypoint_run_verified", "google_messages_dom_used", "physical_sms_delivery_verified",
+                      "production_entrypoint_run_verified", "production_manifest_google_messages_dom_used", "physical_sms_delivery_verified",
                       "genuine_owner_approval_verified", "publisher_signed_peers", "consumer_deployment_verified",
-                      "password_sms_browser_login_verified", "extension_marketplace_install_verified",
+                      "production_manifest_password_sms_browser_login_verified", "extension_marketplace_install_verified",
                   ], False)})
     return value
 

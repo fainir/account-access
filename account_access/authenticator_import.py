@@ -2,7 +2,7 @@
 
 Interoperability format: the original research linked from google/google-
 authenticator-android#118. Google does not publish a supported migration API.
-Only one complete export batch and standard SHA-1, six-digit TOTP are accepted.
+Complete single- or multi-image exports and standard SHA-1, six-digit TOTP are accepted.
 """
 
 import base64
@@ -14,6 +14,10 @@ from urllib.parse import parse_qs, urlsplit
 
 from .errors import AccessError
 from .models import BrowserAccount
+
+MAX_PARTS = 16
+MAX_EXPORT_BYTES = 60000
+MAX_ACCOUNTS = 100
 
 
 def _bindings(config, source_id):
@@ -66,7 +70,7 @@ def _one(fields, number, default=None):
     return values[0]
 
 
-def parse(uri):
+def _parse_part(uri):
     try:
         if not isinstance(uri, str) or len(uri) > 32000:
             raise ValueError()
@@ -78,12 +82,14 @@ def parse(uri):
         payload = _fields(base64.b64decode(query["data"][0], validate=True))
         if set(payload) - {1, 2, 3, 4, 5} or _one(payload, 2, 1) != 1:
             raise ValueError()
-        if _one(payload, 3, 1) not in {0, 1} or _one(payload, 4, 0) != 0:
-            raise AccessError("DENIED", "authenticator_multiple_batches")
-        if 5 in payload and not isinstance(_one(payload, 5), int):
+        size, index, batch_id = _one(payload, 3, 1), _one(payload, 4, 0), _one(payload, 5)
+        if (type(size) is not int or not 0 <= size <= MAX_PARTS
+                or type(index) is not int or not 0 <= index < max(size, 1)
+                or (batch_id is not None and type(batch_id) is not int)
+                or (size > 1 and batch_id is None)):
             raise ValueError()
         parameters = payload.get(1, [])
-        if not 1 <= len(parameters) <= 100:
+        if not 1 <= len(parameters) <= MAX_ACCOUNTS:
             raise ValueError()
         result = []
         for parameter in parameters:
@@ -105,20 +111,47 @@ def parse(uri):
                 if label and label not in labels:
                     labels.append(label)
             result.append({"seed": seed, "label": " · ".join(labels) or "Authenticator account"})
-        return result
+        return {"size": max(size, 1), "index": index, "batch_id": batch_id, "items": result}
     except AccessError:
         raise
     except (ValueError, TypeError, AttributeError, UnicodeError, binascii.Error):
         raise AccessError("DENIED", "invalid_authenticator_export") from None
 
 
+def parse_many(uris):
+    if (type(uris) is not list or not 1 <= len(uris) <= MAX_PARTS
+            or any(type(uri) is not str or not uri.isascii() or len(uri) > 32000 for uri in uris)
+            or sum(len(uri) for uri in uris) > MAX_EXPORT_BYTES):
+        raise AccessError("DENIED", "invalid_authenticator_export")
+    parts = [_parse_part(uri) for uri in uris]
+    first = parts[0]
+    if len(parts) != first["size"]:
+        raise AccessError("DENIED", "authenticator_export_incomplete")
+    if (any(part["size"] != first["size"] or part["batch_id"] != first["batch_id"] for part in parts)
+            or {part["index"] for part in parts} != set(range(first["size"]))):
+        raise AccessError("DENIED", "authenticator_export_mismatch")
+    result = [item for part in sorted(parts, key=lambda part: part["index"]) for item in part["items"]]
+    if len(result) > MAX_ACCOUNTS:
+        raise AccessError("DENIED", "invalid_authenticator_export")
+    return result
+
+
+def parse(uri):
+    return parse_many([uri])
+
+
 def preview(store, source_id, uri):
     source = store.config().code_sources.get(source_id) if isinstance(source_id, str) else None
     if not source or source.kind != "totp":
         raise AccessError("DENIED", "unknown_authenticator_source")
-    items = parse(uri)
+    items = parse_many(uri) if type(uri) is list else parse(uri)
     ident = secrets.token_hex(24)
-    with store.lock("authenticator-import"):
+    with store.lock("authenticator-import"), store.lock("source:" + source_id):
+        config = store.config()
+        current = config.code_sources.get(source_id)
+        if current is None or current.model_dump() != source.model_dump():
+            raise AccessError("DENIED", "authenticator_selection_changed")
+        generation = store.get("source-generation:" + source_id)
         with store.db() as db:
             live = 0
             for row in db.execute("SELECT id,value FROM records WHERE id LIKE 'authenticator-import:%'").fetchall():
@@ -131,7 +164,8 @@ def preview(store, source_id, uri):
                 raise AccessError("DENIED", "too_many_import_previews")
             store.put("authenticator-import:" + ident, {"source": source_id,
                       "source_config": source.model_dump(), "items": items,
-                      "bindings": _bindings(store.config(), source_id),
+                      "bindings": _bindings(config, source_id),
+                      "source_generation": generation,
                       "expires": time.time() + 600}, db=db)
     return {"status": "PREVIEW", "id": ident, "expires_in": 600,
             "accounts": [{"index": i, "label": item["label"]} for i, item in enumerate(items)]}
@@ -141,19 +175,27 @@ def apply(store, ident, index):
     if (not isinstance(ident, str) or not re.fullmatch(r"[a-f0-9]{48}", ident)
             or type(index) is not int or not 0 <= index < 100):
         raise AccessError("DENIED", "invalid_authenticator_selection")
-    from .factors import enroll
+    from .factors import replace_source, source_mutation, totp_seed
     with store.lock("authenticator-import"):
         staged = store.get("authenticator-import:" + ident)
         if not staged or staged["expires"] <= time.time():
             raise AccessError("DENIED", "authenticator_preview_expired")
-        config = store.config()
-        source = config.code_sources.get(staged["source"])
-        if (not source or source.model_dump() != staged["source_config"] or index >= len(staged["items"])
-                or _bindings(config, staged["source"]) != staged["bindings"]):
-            raise AccessError("DENIED", "authenticator_selection_changed")
-        result = enroll(store, staged["source"], {"seed": staged["items"][index]["seed"]})
-        store.put("authenticator-import:" + ident, None)
-        return result
+        source_id = staged["source"]
+        with source_mutation(store, source_id):
+            if staged["expires"] <= time.time():
+                raise AccessError("DENIED", "authenticator_preview_expired")
+            config = store.config()
+            source = config.code_sources.get(source_id)
+            if (not source or source.model_dump() != staged["source_config"] or index >= len(staged["items"])
+                    or _bindings(config, source_id) != staged["bindings"]
+                    or store.get("source-generation:" + source_id) != staged.get("source_generation")):
+                raise AccessError("DENIED", "authenticator_selection_changed")
+            seed = totp_seed(staged["items"][index]["seed"])
+            with store.db() as db:
+                replace_source(store, source_id, {"seed": seed}, db=db)
+                store.put("authenticator-import:" + ident, None, db=db)
+        store.audit("owner", "", "", "factor_enrolled", "totp")
+        return {"status": "ENROLLED", "source": source_id, "kind": "totp"}
 
 
 def discard(store, ident):

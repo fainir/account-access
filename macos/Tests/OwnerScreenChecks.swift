@@ -128,6 +128,17 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         owner.window.contentView!.layoutSubtreeIfNeeded()
         precondition(Set(owner.syncFields.keys) == Set(["endpoint", "vault", "item", "token"]))
         precondition(owner.syncFields["token"] is NSSecureTextField)
+        precondition(owner.syncFields["endpoint"]?.isHidden == true)
+        precondition(owner.syncProvider.indexOfSelectedItem == 0)
+        let sourceFields = ["endpoint": "", "vault": "fixture-vault", "item": "fixture-item", "token": "fixture-token"]
+        let serviceConnection = AccountAccess.passwordSyncConnection(provider: 0, fields: sourceFields)!
+        precondition(serviceConnection["provider"] == "onepassword-service-account" && serviceConnection["endpoint"] == nil)
+        precondition(AccountAccess.passwordSyncConnection(provider: 1, fields: sourceFields) == nil)
+        owner.syncFields["token"]?.stringValue = "fixture-token-to-clear"
+        owner.syncProvider.selectItem(at: 1)
+        owner.syncProviderChanged()
+        precondition(owner.syncFields["endpoint"]?.isHidden == false && owner.syncFields["token"]?.stringValue == "")
+        owner.window.contentView!.layoutSubtreeIfNeeded()
         for field in owner.syncFields.values {
             precondition(field.superview === owner.stack)
             precondition(field.frame.width > 400 && field.frame.height > 0)
@@ -140,7 +151,7 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         for field in owner.syncFields.values {
             precondition(field.frame.width <= owner.stack.frame.width + 1)
         }
-        print("PASS: all four sync fields and connect action render; token is masked; fields fit the narrow window")
+        print("PASS: service-account sync needs no Connect server; provider switching clears tokens; fields fit the narrow window")
         owner.accounts = [["account": "fixture", "label": "Fixture account", "route": "browser",
                            "portable_ready": true, "connected": false]]
         owner.sources = [["id": "fixture-factor", "kind": "totp"]]
@@ -185,12 +196,16 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         precondition(AccountAccess.authenticatorQRText(["otpauth-migration://offline?data=FICTIONAL"]) != nil)
         precondition(AccountAccess.authenticatorQRText(["https://example.com"]) == nil)
         precondition(AccountAccess.authenticatorQRText(["otpauth://totp/A", "otpauth://totp/B"]) == nil)
+        precondition(AccountAccess.authenticatorQRTexts(["otpauth-migration://offline?data=PART1", "otpauth-migration://offline?data=PART2"])?.count == 2)
+        precondition(AccountAccess.authenticatorQRTexts(["otpauth://totp/A", "otpauth-migration://offline?data=PART2"]) == nil)
+        precondition(AccountAccess.authenticatorQRTexts(Array(repeating: "otpauth-migration://offline?data=PART", count: 17)) == nil)
+        precondition(AccountAccess.authenticatorQRTexts(Array(repeating: "otpauth-migration://offline?data=" + String(repeating: "A", count: 31000), count: 2)) == nil)
         owner.sources = [["id": "fixture-factor", "kind": "totp", "accounts": ["fixture"]]]
         owner.showFactors()
         views = descendants(owner.stack)
         precondition(owner.factorFields["seed"] is NSSecureTextField)
-        precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Import authenticator QR image"))
-        print("PASS: authenticator setup masks keys and accepts only a single setup or transfer QR")
+        precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Import authenticator QR images"))
+        print("PASS: authenticator setup masks keys and accepts bounded complete transfer image selections")
         owner.sources = [["id": "fixture-mail", "kind": "imap", "accounts": ["fixture"], "enrolled": true]]
         owner.showFactors()
         views = descendants(owner.stack)
@@ -210,6 +225,18 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Connect Gmail or email"))
         precondition(!views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("You're all set"))
         owner.showEmailSetup()
+        views = descendants(owner.stack)
+        precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Use an app password"))
+        precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains(where: { $0.contains("publisher's registered Gmail connection") }))
+        owner.mailboxOAuth = [["account": "fixture-gmail", "label": "Gmail", "fingerprint": String(repeating: "a", count: 64),
+                              "publisher_configured": true, "connected": false,
+                              "sources": [["recipient": "owner@example.test"]]]]
+        owner.showEmailSetup()
+        views = descendants(owner.stack)
+        precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Connect with Google"))
+        precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains(where: { $0.contains("Google grants mailbox read access") }))
+        owner.mailboxOAuth = []
+        owner.showMailboxPasswordSetup()
         precondition(owner.mailboxFields["password"] is NSSecureTextField)
         precondition(owner.mailboxFields["host"]?.stringValue == "imap.gmail.com")
         precondition(owner.mailboxFields["port"]?.stringValue == "993")
@@ -245,7 +272,7 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         // Simulate the endpoint/capability rotation after a service crash. The
         // real request method must verify the new owner before using it, while
         // leaving an unsaved native credential form intact.
-        owner.showEmailSetup()
+        owner.showMailboxPasswordSetup()
         owner.mailboxFields["password"]!.stringValue = "fictional-unsaved-value"
         let unsavedField = owner.mailboxFields["password"]!
         VerificationRetryFixture.ownerPort = 2
@@ -407,7 +434,7 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         views = descendants(owner.stack)
         precondition(!views.compactMap { ($0 as? NSButton)?.title }.contains("Open Login Items"))
         print("PASS: macOS background approval has a specific settings action and does not claim the current service is unavailable")
-        owner.showEmailSetup()
+        owner.showMailboxPasswordSetup()
         owner.mailboxFields["password"]!.stringValue = "fictional-unsaved-value"
         owner.pauseAccess()
         let pauseDeadline = Date().addingTimeInterval(5)

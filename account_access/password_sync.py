@@ -1,4 +1,4 @@
-"""Owner-enrolled 1Password Connect links; no vault listing or agent secret API.
+"""Owner-enrolled exact 1Password items; no vault listing or agent secret API.
 
 Only the password of an exact approved item can change automatically. Account
 identity, website, connector, grants and authenticator enrollment cannot change.
@@ -14,9 +14,11 @@ from .providers import get_json
 
 INTERVAL = 300
 IDENTIFIER = re.compile(r"^[a-z0-9]{26}$")
+SERVICE_ACCOUNT = "onepassword-service-account"
 SOURCE_PREREQUISITES = (
     "password_source_access_removed", "password_source_item_changed",
     "password_sync_identity_mismatch", "password_sync_connector_changed",
+    "password_source_runtime_unavailable",
 )
 
 
@@ -24,7 +26,7 @@ def _resolve_source_prerequisites(db, account, now):
     # Source validation repairs only this prerequisite. It does not prove a
     # successful website login or satisfy an independent owner/presence gate.
     db.execute("""UPDATE challenges SET resolved=? WHERE account=? AND resolved IS NULL
-                  AND kind='login' AND reason IN (?,?,?,?)""",
+                  AND kind='login' AND reason IN (?,?,?,?,?)""",
                (now, account, *SOURCE_PREREQUISITES))
 
 
@@ -32,13 +34,20 @@ def validate_link(store, account, data):
     spec = store.config().accounts.get(account)
     if not isinstance(spec, BrowserAccount) or not spec.login:
         raise AccessError("DENIED", "password_sync_account_unsupported")
-    if not isinstance(data, dict) or set(data) != {"endpoint", "token", "vault", "item"}:
+    if not isinstance(data, dict):
+        raise AccessError("DENIED", "invalid_password_sync_link")
+    service_account = data.get("provider") == SERVICE_ACCOUNT
+    keys = {"provider", "token", "vault", "item"} if service_account else {
+        "endpoint", "token", "vault", "item"}
+    if set(data) != keys:
         raise AccessError("DENIED", "invalid_password_sync_link")
     if (any(not isinstance(x, str) for x in data.values())
             or not 1 <= len(data["token"]) <= 8192
             or any(c in data["token"] for c in "\r\n")
             or any(not IDENTIFIER.fullmatch(data[x]) for x in ["vault", "item"])):
         raise AccessError("DENIED", "invalid_password_sync_link")
+    if service_account:
+        return dict(data)
     endpoint = data["endpoint"].rstrip("/")
     try:
         validate_url(endpoint, store.config().test_mode)
@@ -51,6 +60,9 @@ def validate_link(store, account, data):
 
 
 def fetch(link, expected_origin):
+    if link.get("provider") == SERVICE_ACCOUNT:
+        from .onepassword_source import fetch as service_fetch
+        return service_fetch(link, expected_origin)
     url = f'{link["endpoint"]}/v1/vaults/{link["vault"]}/items/{link["item"]}'
     try:
         item = get_json(url, headers={"Authorization": "Bearer " + link["token"]})
@@ -177,7 +189,9 @@ def view(store):
     for account in store.config().accounts:
         link = store.get("password-link:" + account)
         if link:
-            result.append({"account": account, "provider": "1Password Connect",
+            provider = ("1Password service account" if link.get("provider") == SERVICE_ACCOUNT
+                        else "1Password Connect")
+            result.append({"account": account, "provider": provider,
                            "status": link["status"], "checked": link["checked"],
                            "reason": link.get("reason"), "interval": INTERVAL})
     return result

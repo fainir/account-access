@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "accounts": {
+    "gmail-mailbox": {
+      "kind": "oauth",
+      "label": "Gmail login messages",
+      "authorization_url": "https://accounts.google.com/o/oauth2/v2/auth",
+      "token_url": "https://oauth2.googleapis.com/token",
+      "revoke_url": "https://oauth2.googleapis.com/revoke",
+      "client_id": "REPLACE_WITH_REGISTERED_GOOGLE_DESKTOP_CLIENT_ID.apps.googleusercontent.com",
+      "token_auth_method": "client_secret_post",
+      "scopes": ["https://www.googleapis.com/auth/gmail.readonly"],
+      "authorization_params": {"access_type": "offline", "prompt": "consent"},
+      "api_origins": ["https://gmail.googleapis.com"],
+      "operations": {}
+    }
+  },
+  "code_sources": {
+    "reviewed-website-email": {
+      "kind": "gmail",
+      "account": "gmail-mailbox",
+      "sender": "login@service.example",
+      "recipient": "REPLACE_WITH_APPROVED_MAILBOX@gmail.com",
+      "subject": "Your sign-in code",
+      "template": "Your sign-in code is {code}"
+    }
+  }
+}

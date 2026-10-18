@@ -18,10 +18,35 @@ uses the external browser with PKCE and a local callback. For broad consumer
 release, the `gmail.readonly` scope also requires Google's restricted-scope
 verification. [Gmail scope requirements](https://developers.google.com/workspace/gmail/api/auth/scopes).
 
+**Current 0.8 candidate:** when the publisher has configured that Gmail
+connection, **Verification → Connect with Google** opens Google's genuine
+consent page in your default browser. Select the mailbox approved for the
+website's login messages, review Google's mailbox read permission, and return
+to Account Access. No Google password, app password or copied authorization
+code is entered in Account Access. The same connection can support the
+website filters already configured for that mailbox. Enable or check each
+website's email verification to confirm its approved mailbox address; saving
+Google access alone does not verify delivery or start a website sign-in.
+
+The protected Mac installation runs its loopback callback in the signed
+desktop app. It sends the response through the owner channel to the isolated
+worker, where PKCE, state, token exchange, encrypted token storage and renewal
+remain. Callback host, path, method, state and size are checked; attempts expire
+after five minutes and cannot be replayed. Cancelling preserves any existing
+Google connection. This handoff removes the former requirement for the
+isolated worker to launch a browser in the owner's desktop session.
+
+These controls have synthetic provider and local callback tests. They do not
+establish a completed real Google consent, verified Google application or real
+email-code delivery. If no registered connection is configured, the app explains
+that publisher requirement and offers the app-password alternative below.
+An operator template is [gmail-oauth.json](../examples/gmail-oauth.json); its
+placeholder client ID and message filter are not a ready-to-use connection.
+
 The video shows the **Gmail app-password option**, for accounts where Google permits it. A reviewed connector must already configure its email-code source with Gmail's mail server, `imap.gmail.com`, port `993`. That makes the source appear in **Verification**; importing a website password alone does not create a mailbox connection.
 
-**Current 0.8 candidate:** you can now connect a mailbox before adding a website.
-Open **Verification → Connect Gmail or email**, keep **Gmail** selected, and enter
+You can also connect a reusable TLS IMAP mailbox before adding a website.
+Open **Verification → Connect Gmail or email → Use an app password**, keep **Gmail** selected, and enter
 your email address and Google app password locally. The app supplies Gmail's TLS
 IMAP settings. A read-only connection check fetches no messages and starts no
 website login. **Other email · TLS IMAP** accepts your provider's server and port.
@@ -110,7 +135,7 @@ the next code before submitting it. This does not require an owner prompt.
 
 If the website already uses Google Authenticator and you no longer have the original QR/key, follow that website's owner flow to obtain or re-enroll it. If it supplies a new key, update both your phone app and Account Access with the new key yourself.
 
-The published 0.7.4 preview accepts a website's standard `otpauth://totp/` setup QR/key: six digits, a 30-second period and SHA-1. Its importer does not accept Google Authenticator's different “Transfer codes / Export codes” format. **The 0.8 candidate adds local transfer-QR import:** choose **Import authenticator QR image**, select one complete export image, and review the matching account. It supports one complete batch of six-digit SHA-1 TOTP entries. The app does not read your phone screen or retrieve keys from Google's Authenticator cloud sync. Never send a private setup QR/key in chat.
+The published 0.7.4 preview accepts a website's standard `otpauth://totp/` setup QR/key: six digits, a 30-second period and SHA-1. Its importer does not accept Google Authenticator's different “Transfer codes / Export codes” format. **The 0.8 candidate adds local transfer-QR import:** choose **Import authenticator QR images** and select all images from one Google Authenticator export together. Select the matching account before importing. Up to 16 QR parts and 100 six-digit SHA-1 TOTP entries are supported; their batch identity, size and every part index must match. Missing parts, duplicates and mixed exports are rejected without changing enrollment. Only your selected account is enrolled; the other keys are discarded. Previews are encrypted, expire after ten minutes and become invalid if you replace or disable that source. Importing the selected key and consuming its preview commit together. The app does not read your phone screen or retrieve keys from Google's Authenticator cloud sync. Never send a private setup QR/key in chat.
 
 Fingerprint, passkey, push, device and administrator approvals remain owner actions; they cannot be replaced by generating an authenticator code.
 

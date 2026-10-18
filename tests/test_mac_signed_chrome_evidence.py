@@ -9,6 +9,7 @@ import pytest
 
 from scripts.check_mac_signed_chrome_report import (
     CHECKS, CHILD_CHECKS, EXTENSION_ID, RESOURCES, UNVERIFIED, VERIFIED,
+    SMS_CHECKS, SMS_CHILD_CHECKS, SMS_UNVERIFIED, SMS_VERIFIED,
     main, validate, validate_child,
 )
 from scripts import mac_signed_chrome_probe as probe
@@ -17,18 +18,27 @@ from scripts import mac_signed_chrome_probe as probe
 def child_report():
     return {"status": "PASSED", "chrome_version": "Chrome/155.0.8042.1",
             "extension_id": EXTENSION_ID, "extension_resources_sha256": dict.fromkeys(RESOURCES, "a" * 64),
-            "checks": dict.fromkeys(CHILD_CHECKS, True)}
+            "checks": dict.fromkeys(CHILD_CHECKS, True), "sms_journey": sms_report(child=True)}
+
+
+def sms_report(*, child=False):
+    return {"status": "PASSED", "checks": dict.fromkeys(SMS_CHILD_CHECKS if child else SMS_CHECKS, True),
+            "script_resources_sha256": dict.fromkeys(RESOURCES - {"manifest.json"}, "a" * 64),
+            "synthetic_manifest_sha256": "b" * 64,
+            **dict.fromkeys(SMS_VERIFIED, True), **dict.fromkeys(SMS_UNVERIFIED, False)}
 
 
 def report():
     return {**child_report(), "platform": "macos", "environment": "controlled-demo",
             "production_ready": False, "private_signins": 0,
             "checks": dict.fromkeys(CHECKS, True),
+            "sms_journey": sms_report(),
             **dict.fromkeys(VERIFIED, True), **dict.fromkeys(UNVERIFIED, False)}
 
 
 def test_real_chrome_evidence_requires_every_native_roundtrip_and_cleanup_check(tmp_path):
     assert len(CHILD_CHECKS) == 13 and len(CHECKS) == 17
+    assert len(SMS_CHILD_CHECKS) == 14 and len(SMS_CHECKS) == 16
     assert validate_child(child_report()) and validate(report())
     for key in CHECKS:
         for replacement in [False, None, 1, "true"]:
@@ -41,6 +51,81 @@ def test_real_chrome_evidence_requires_every_native_roundtrip_and_cleanup_check(
     target = tmp_path / "report.json"
     target.write_text(json.dumps(report()))
     assert main([str(target)]) == 0
+
+
+def test_synthetic_manifest_dom_join_requires_every_runtime_and_provider_check():
+    for child, keys in [(True, SMS_CHILD_CHECKS), (False, SMS_CHECKS)]:
+        make = child_report if child else report
+        check = validate_child if child else validate
+        for key in keys:
+            for replacement in [False, None, 1, "true"]:
+                value = make()
+                value["sms_journey"]["checks"][key] = replacement
+                assert not check(value)
+            value = make()
+            del value["sms_journey"]["checks"][key]
+            assert not check(value)
+
+
+@pytest.mark.parametrize("key", sorted(SMS_VERIFIED | SMS_UNVERIFIED))
+def test_synthetic_manifest_join_cannot_claim_owner_approval_or_production_manifest(key):
+    for replacement in [key not in SMS_VERIFIED, 1 if key in SMS_VERIFIED else 0]:
+        value = report()
+        value["sms_journey"][key] = replacement
+        assert not validate(value)
+
+
+def test_sms_join_refuses_changed_script_digests_missing_boundary_and_unknown_fields():
+    for change in [
+        lambda item: item.update(cookie="fictional"),
+        lambda item: item.update(synthetic_manifest_sha256="a" * 64),
+        lambda item: item.update(synthetic_manifest_sha256=True),
+        lambda item: item["script_resources_sha256"].update({"reader.js": "b" * 64}),
+        lambda item: item["script_resources_sha256"].update({"manifest.json": "a" * 64}),
+    ]:
+        value = report()
+        change(value["sms_journey"])
+        assert not validate(value)
+    value = report()
+    del value["sms_journey"]
+    assert not validate(value)
+
+
+def test_fixture_manifest_moves_only_one_declared_optional_origin():
+    target = Path(__file__).resolve().parents[1] / "account_access/google_messages_extension/manifest.json"
+    original = json.loads(target.read_bytes())
+    before = json.dumps(original, sort_keys=True)
+    candidate = probe.fixture_manifest(original)
+    assert json.dumps(original, sort_keys=True) == before
+    assert candidate["host_permissions"] == [probe.MESSAGES_ORIGIN]
+    assert candidate["optional_host_permissions"] == ["https://github.com/*"]
+    assert probe.validate_fixture_manifest(original, candidate)
+    for key in original.keys() - {"optional_host_permissions"}:
+        assert candidate[key] == original[key]
+    for changed in [
+        dict(candidate, optional_host_permissions=[]),
+        dict(candidate, host_permissions=["<all_urls>"]),
+        dict(candidate, permissions=original["permissions"] + ["cookies"]),
+        dict(candidate, key="other"),
+    ]:
+        assert not probe.validate_fixture_manifest(original, changed)
+    for changed in [dict(original, host_permissions=[]), dict(original, optional_host_permissions=[]), {}]:
+        with pytest.raises(RuntimeError, match="signed_chrome_fixture_manifest_changed"):
+            probe.fixture_manifest(changed)
+
+
+@pytest.mark.parametrize("value", [None, {}, {"code": 123456}, {"code": "12345"}, {"code": "123456", "extra": True}])
+def test_fixture_delivery_pipe_accepts_only_bounded_fictional_code(value):
+    with pytest.raises(RuntimeError, match="^signed_chrome_fixture_delivery_invalid$"):
+        probe.fictional_message(value)
+
+
+def test_fixture_delivery_preserves_leading_zeroes_and_cached_dom_boundary():
+    assert probe.fictional_message({"code": "012345"}) == "012345"
+    document = probe.sms_page()
+    assert '/web/conversations/cached-fixture' in document
+    assert 'aria-label="10 min ago"' in document
+    assert "<script" not in document
 
 
 @pytest.mark.parametrize("key", sorted(VERIFIED | UNVERIFIED))

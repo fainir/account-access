@@ -56,7 +56,7 @@ def credential_values(value):
     if isinstance(value, dict):
         for key, item in value.items():
             if isinstance(item, str) and (key in {"password", "seed", "access_token", "refresh_token",
-                                                 "client_secret", "id_token", "auth_token", "value"}):
+                                                 "client_secret", "id_token", "auth_token", "token", "value"}):
                 if item:
                     result.add(item)
             result.update(credential_values(item))
@@ -101,6 +101,7 @@ class OAuth:
         verifier = secrets.token_urlsafe(48)
         with self.client(account, account_config, redirect_uri=redirect_uri) as client:
             url, state = client.create_authorization_url(account_config.authorization_url,
+                                                        state=secrets.token_urlsafe(32),
                                                         code_verifier=verifier,
                                                         **account_config.authorization_params)
         self.store.put("oauth-pending:" + account, {
@@ -111,28 +112,32 @@ class OAuth:
 
     def finish(self, account, callback_url):
         with self.store.lock("account:" + account):
-            config = self.store.config()
-            pending = self.store.get("oauth-pending:" + account)
-            params = parse_qs(urlsplit(callback_url).query)
-            if (not pending or pending["expires"] < time.time()
-                or config.fingerprint(account) != pending["fingerprint"]
-                or len(params.get("state", [])) != 1
-                or not secrets.compare_digest(params["state"][0], pending["state"])
-                or callback_url.split("?", 1)[0] != pending["redirect_uri"]
-                or len(params.get("code", [])) != 1):
-                raise AccessError("DENIED", "invalid_oauth_callback")
-            # Consume state before network I/O. Never replay an authorization code after a lost response.
-            self.store.put("oauth-pending:" + account, None)
-            try:
-                with self.client(account, config.accounts[account], state=pending["state"],
-                                 redirect_uri=pending["redirect_uri"]) as client:
-                    token = client.fetch_token(config.accounts[account].token_url,
-                                               authorization_response=callback_url,
-                                               code_verifier=pending["verifier"])
-                self.save(account, token, config)
-            except (OAuthError, httpx.HTTPError, ValueError):
-                raise AccessError("NEEDS_USER", "oauth_connection_failed") from None
-            self.store.resolve_login(account)
+            self._finish_locked(account, callback_url)
+
+    def _finish_locked(self, account, callback_url):
+        """Caller holds the account lock, including a desktop handoff's lifetime check."""
+        config = self.store.config()
+        pending = self.store.get("oauth-pending:" + account)
+        params = parse_qs(urlsplit(callback_url).query)
+        if (not pending or pending["expires"] < time.time()
+            or config.fingerprint(account) != pending["fingerprint"]
+            or len(params.get("state", [])) != 1
+            or not secrets.compare_digest(params["state"][0], pending["state"])
+            or callback_url.split("?", 1)[0] != pending["redirect_uri"]
+            or len(params.get("code", [])) != 1):
+            raise AccessError("DENIED", "invalid_oauth_callback")
+        # Consume state before network I/O. Never replay an authorization code after a lost response.
+        self.store.put("oauth-pending:" + account, None)
+        try:
+            with self.client(account, config.accounts[account], state=pending["state"],
+                             redirect_uri=pending["redirect_uri"]) as client:
+                token = client.fetch_token(config.accounts[account].token_url,
+                                           authorization_response=callback_url,
+                                           code_verifier=pending["verifier"])
+            self.save(account, token, config)
+        except (OAuthError, httpx.HTTPError, ValueError):
+            raise AccessError("NEEDS_USER", "oauth_connection_failed") from None
+        self.store.resolve_login(account)
 
     def save(self, account, token, config, previous=None):
         previous = previous or {}

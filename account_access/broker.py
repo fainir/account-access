@@ -164,6 +164,7 @@ class Broker:
                             "challenge": self.challenge_view(pending[0])}
                 op = spec.operations[operation]
                 secrets_seen = credential_values(self.store.get("credential:" + account, {}))
+                secrets_seen |= credential_values(self.store.get("password-link:" + account, {}))
                 if isinstance(spec, BrowserAccount) and spec.login:
                     for source_id in spec.login.sources():
                         secrets_seen |= credential_values(self.store.get("source:" + source_id, {}))

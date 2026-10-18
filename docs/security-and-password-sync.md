@@ -135,7 +135,14 @@ why the Messages helper does not imply a Chrome vault connection. Continuous
 Chrome synchronization remains an unmet requirement; CSV import is not its
 replacement or proof of completion.
 
-**1Password Connect supports background updates.** This is an optional integration for an existing Connect deployment, not a one-click connection to any personal 1Password account. An administrator first provisions a dedicated vault and a token with read access only. See the [official Connect requirements and API](https://developer.1password.com/docs/connect/api-reference/).
+**1Password supports background updates through a service account or Connect.**
+The service-account option uses the pinned official SDK and removes the need to
+run a Connect server. Both options require a dedicated vault and read-only
+source access; neither is a one-click connection to every personal vault. See
+the [setup, containment and validation limits](onepassword-sync.md).
+
+For an existing Connect deployment, see the
+[official Connect requirements and API](https://developer.1password.com/docs/connect/api-reference/).
 
 1. Import the login and approve its supported reads.
 2. Open **Password sync** in Account Access.
@@ -148,7 +155,7 @@ A password update repairs only a missing-credential prerequisite or the exact pa
 
 Network failures retry with backoff. A deleted item, removed access, changed username or changed website blocks use until repaired. An unavailable source cannot supply a stale password for a new login. Disconnecting a source erases its local token, cached password and session; existing operation grants alone do not restore a credential.
 
-Sync does not rotate passwords at the website. It follows changes the owner makes in the source. It never updates a TOTP seed silently. 1Password Connect contract and browser recovery tests use fictional items; a private 1Password deployment has not been validated.
+Sync does not rotate passwords at the website. It follows changes the owner makes in the source. It never updates a TOTP seed silently. Both 1Password provider contract tests and browser recovery tests use fictional items; a private 1Password deployment has not been validated.
 
 ## What still needs genuine owner presence
 

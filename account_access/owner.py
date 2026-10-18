@@ -281,7 +281,9 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                                              if local_host_actions else None)
                 from .mailbox_health import view as mailbox_health
                 from .mailboxes import view as mailboxes
+                from .mailbox_oauth import view as mailbox_oauth
                 state["mailboxes"] = mailboxes(broker.store)
+                state["mailbox_oauth"] = mailbox_oauth(broker)
                 state["code_sources"] = [{"id": key, "kind": source.kind,
                                           "mailbox_account": source.account,
                                           "mail_server": source.host,
@@ -304,7 +306,7 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                 return
             if not local_host_actions and (self.path in {
                     "/owner/install", "/owner/google-messages/prepare", "/owner/sms/setup-start",
-                    "/owner/connect"} or self.path.startswith("/owner/browser-session/")):
+                    "/owner/connect", "/owner/mailbox/oauth/connect"} or self.path.startswith("/owner/browser-session/")):
                 self.send(403, {"status": "NEEDS_USER", "reason": "trusted_host_action_required"})
                 return
             try:
@@ -399,9 +401,9 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                     return
                 if self.path == "/owner/authenticator/preview":
                     from .authenticator_import import preview
-                    if set(data) != {"source", "uri"}:
+                    if set(data) not in ({"source", "uri"}, {"source", "uris"}):
                         raise ValueError()
-                    self.send(200, preview(broker.store, data["source"], data["uri"]))
+                    self.send(200, preview(broker.store, data["source"], data.get("uris", data.get("uri"))))
                     return
                 if self.path == "/owner/authenticator/apply":
                     from .authenticator_import import apply
@@ -445,8 +447,32 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                     self.send(200, check(broker, data["source"]))
                     return
                 if self.path == "/owner/mailbox/connect":
-                    from .mailboxes import connect
-                    self.send(200, connect(broker, data))
+                    from .mailboxes import connect as connect_mailbox
+                    self.send(200, connect_mailbox(broker, data))
+                    return
+                if self.path == "/owner/mailbox/oauth/begin":
+                    from .mailbox_oauth import begin
+                    if set(data) != {"account", "fingerprint", "redirect_uri"}:
+                        raise ValueError()
+                    self.send(200, begin(broker, data["account"], data["fingerprint"], data["redirect_uri"]))
+                    return
+                if self.path in {"/owner/mailbox/oauth/finish", "/owner/mailbox/oauth/cancel"}:
+                    from .mailbox_oauth import cancel, finish
+                    expected = {"account", "attempt", "callback"} if self.path.endswith("/finish") else {"account", "attempt"}
+                    if set(data) != expected:
+                        raise ValueError()
+                    result = (finish(broker, data["account"], data["attempt"], data["callback"])
+                              if self.path.endswith("/finish") else cancel(broker, data["account"], data["attempt"]))
+                    self.send(200, result)
+                    return
+                if self.path == "/owner/mailbox/oauth/connect":
+                    from .mailbox_oauth import prepare
+                    if set(data) != {"account", "fingerprint"}:
+                        raise ValueError()
+                    prepare(broker, data["account"], data["fingerprint"])
+                    ident = new_job(data["account"])
+                    threading.Thread(target=connect, args=(data["account"], ident), daemon=True).start()
+                    self.send(200, {"status": "RUNNING", "id": ident})
                     return
                 if self.path in {"/owner/mailbox/check", "/owner/mailbox/remove"}:
                     from .mailboxes import check, remove

@@ -36,9 +36,10 @@ function navigate(next){
  view=next;
  el("accounts-view").hidden=view!=="accounts";
  el("verification").hidden=view!=="verification";
+ el("sync-view").hidden=view!=="sync";
  el("show-connect").hidden=view!=="accounts";
- el("page-title").textContent=view==="verification"?"Verification":"Your accounts";
- el("page-intro").textContent=view==="verification"?"Connect a code source once. Your AI handles supported login challenges.":"Keep using your AI. We handle supported sign-ins and approved reads.";
+ el("page-title").textContent=view==="verification"?"Verification":view==="sync"?"Password sync":"Your accounts";
+ el("page-intro").textContent=view==="verification"?"Connect a code source once. Your AI handles supported login challenges.":view==="sync"?"Keep approved logins current when your password manager changes.":"Keep using your AI. We handle supported sign-ins and approved reads.";
  document.querySelectorAll("[data-view]").forEach(b=>{const active=b.dataset.view===view;b.classList.toggle("active",active);if(active)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current");});
 }
 document.querySelectorAll("[data-view]").forEach(b=>b.onclick=()=>navigate(b.dataset.view));
@@ -76,7 +77,7 @@ async function refresh(){
   el("connected").append(card);
  }
  el("prompts").replaceChildren();const example=text("div","");example.className="prompt";const p=text("p",prompt());const copy=text("button","Copy example");copy.type="button";copy.onclick=async()=>{try{await navigator.clipboard.writeText(p.textContent);copy.textContent="Copied";}catch{message("Select the example text to copy it.");}};example.append(p,copy);el("prompts").append(example);
- renderFactors();navigate(view);
+ renderFactors();renderPasswordSync();navigate(view);
  if(Object.values(state.connection_jobs).some(x=>x.status==="RUNNING"))setTimeout(()=>refresh().catch(problem),1200);
 }
 el("service").onchange=()=>{permission();el("allow").checked=false;el("username").value="";el("password").value="";};
@@ -86,6 +87,24 @@ el("account-form").onsubmit=async e=>{e.preventDefault();el("add").disabled=true
 if(capability)call("/owner/install",{}).then(refresh).then(()=>{healthTimer=setInterval(checkRecoveryHealth,5000);document.addEventListener("visibilitychange",checkRecoveryHealth);}).catch(problem);else message("Open Account Access from its launcher to unlock your setup page.");
 
 let importPreview=null;
+
+function renderPasswordSync(){
+ const container=el("password-sync");container.replaceChildren();
+ const note=text("div","");note.className="card";note.append(text("h2","Chrome password imports"),text("p","CSV imports are snapshots. Re-import after changing a Chrome password. Continuous Chrome password sync is not available."));container.append(note);
+ for(const link of state.password_sync||[]){
+  const account=state.accounts.find(item=>item.account===link.account);const card=text("div","");card.className="account";
+  card.append(text("strong",account?.label||link.account),text("p",link.provider+" · "+link.status),text("p","Checks every five minutes and before a password login. Only this approved login's password can update."));
+  const remove=text("button","Disconnect and remove saved login");remove.type="button";remove.onclick=async()=>{if(!confirm("Disconnect this source and remove its locally saved password and session? Your existing read permissions remain."))return;try{await call("/owner/password-sync/disconnect",{account:link.account});await refresh();}catch(error){problem(error);}};card.append(remove);container.append(card);
+ }
+ const choices=state.accounts.filter(item=>item.route==="browser"&&item.portable_ready);
+ const card=text("div","");card.className="card";card.append(text("h2","Connect 1Password"),text("p","Use a service account with read-only access to a dedicated vault, or an existing Connect server. Select the exact item for a login you already imported. Tokens stay encrypted locally and out of AI chat."));container.append(card);
+ if(!choices.length){card.append(text("p","Import and approve a supported login first."));return;}
+ const form=document.createElement("form");const account=document.createElement("select");account.setAttribute("aria-label","Approved account for password sync");for(const item of choices){const option=text("option",item.label);option.value=item.account;account.append(option);}form.append(account);
+ const provider=document.createElement("select");provider.setAttribute("aria-label","Password source connection");provider.append(text("option","1Password service account"),text("option","1Password Connect server"));form.append(provider);
+ const fields={},labels={};for(const [key,title] of [["endpoint","Connect server HTTPS address"],["vault","Vault ID"],["item","Login item ID"],["token","Service-account token for a read-only vault"]]){const label=text("label",title);label.className="field";const input=document.createElement("input");input.type=key==="token"?"password":"text";input.required=true;input.setAttribute("aria-label",title);input.autocomplete="off";label.append(input);fields[key]=input;labels[key]=label;form.append(label);}
+ provider.onchange=()=>{const service=provider.selectedIndex===0;labels.endpoint.hidden=service;fields.endpoint.disabled=service;fields.endpoint.value="";fields.token.value="";fields.token.setAttribute("aria-label",service?"Service-account token for a read-only vault":"Read-only Connect token");labels.token.firstChild.textContent=fields.token.getAttribute("aria-label");};provider.onchange();
+ const save=text("button","Connect automatic updates");save.type="submit";form.append(save);form.onsubmit=async event=>{event.preventDefault();save.disabled=true;const connection={vault:fields.vault.value,item:fields.item.value,token:fields.token.value};if(provider.selectedIndex===0)connection.provider="onepassword-service-account";else connection.endpoint=fields.endpoint.value;fields.token.value="";try{await call("/owner/password-sync",{account:account.value,connection});message("Password source connected. Approved passwords can now update automatically.");await refresh();}catch(error){problem(error);}finally{save.disabled=false;}};card.append(form);
+}
 el("import-passwords").onclick=()=>{adding=true;el("password-file").click();};
 el("password-file").onchange=async()=>{
  const file=el("password-file").files[0]; if(!file)return;
@@ -106,6 +125,17 @@ el("password-file").onchange=async()=>{
  }catch(e){problem(e);}
 };
 function renderMailboxes(container){
+ const googleConnections=state.mailbox_oauth||[];
+ for(const mailbox of googleConnections){
+  const card=text("div","");card.className="account";const recipients=[...new Set(mailbox.sources.map(source=>source.recipient))];card.append(text("strong","Gmail · "+recipients.join(", ")));
+  card.append(text("p","Connect in Google's browser page. Google grants mailbox read access; Account Access uses matching login messages for your configured websites. Website permissions stay the same."));
+  if(mailbox.environment==="controlled-demo")card.append(text("p","Controlled provider fixture. This is not a real Gmail connection."));
+  if(!mailbox.publisher_configured)card.append(text("p","The publisher must finish configuring its Google application before browser sign-in is available. Never enter your normal Google password here."));
+  else if(state.local_host_actions===false)card.append(text("p","Open Verification in the Account Access desktop app to connect Google in your browser."));
+  else{const connect=text("button",mailbox.connected?"Reconnect with Google":"Connect with Google");connect.type="button";connect.onclick=async()=>{connect.disabled=true;try{await call("/owner/mailbox/oauth/connect",{account:mailbox.account,fingerprint:mailbox.fingerprint});message("Choose the approved Google account in your browser. After consent, enable or check the website's email verification to confirm its mailbox address.");await refresh();}catch(e){problem(e);}finally{connect.disabled=false;}};card.append(connect);}
+  if(mailbox.connected)card.append(text("p","Google access is saved. Enable or check each website's email verification below to confirm its mailbox address. Website code delivery is checked during sign-in."));container.append(card);
+ }
+ if(!googleConnections.length)container.append(text("p","Sign in with Google needs the publisher's registered Gmail connection. This preview does not include one. Gmail app passwords are available only for accounts where Google permits them."));
  for(const mailbox of state.mailboxes||[]){
   const card=text("div","");card.className="account";card.append(text("strong",mailbox.label+" · "+mailbox.username));
   const checked=mailbox.connection_check?.status==="VERIFIED";card.append(text("p",checked?"Mailbox connection checked. Website code delivery is checked separately.":"Setup saved. Check the address and application password."));
@@ -116,7 +146,7 @@ function renderMailboxes(container){
  const details=document.createElement("details");details.append(text("summary","Connect Gmail or email"));const form=document.createElement("form");const provider=document.createElement("select");provider.setAttribute("aria-label","Email provider");for(const label of ["Gmail","Other email · TLS IMAP"])provider.append(text("option",label));form.append(provider);const fields={};
  for(const [name,label] of [["username","Email address"],["password","Application password"],["host","IMAP server"],["port","TLS port"]]){const input=document.createElement("input");input.type=name==="password"?"password":name==="port"?"number":"text";input.required=true;input.placeholder=label;input.setAttribute("aria-label",label);fields[name]=input;form.append(input);}
  provider.onchange=()=>{const gmail=provider.selectedIndex===0;fields.host.value=gmail?"imap.gmail.com":"";fields.port.value="993";fields.host.readOnly=fields.port.readOnly=gmail;fields.host.hidden=fields.port.hidden=gmail;};provider.onchange();
- details.append(text("p","Create a Google app password for Account Access with 2-Step Verification enabled. If Google does not offer app passwords for your account, this connection is not supported yet."));const google=text("a","Open Google App passwords");google.href="https://myaccount.google.com/apppasswords";google.target="_blank";google.rel="noreferrer";details.append(google);const save=text("button","Connect mailbox");save.type="submit";form.append(save);form.onsubmit=async event=>{event.preventDefault();save.disabled=true;try{const payload=Object.fromEntries(Object.entries(fields).map(([key,input])=>[key,input.value]));payload.port=Number(payload.port);payload.label=provider.selectedIndex===0?"Gmail":"Email";fields.password.value="";await call("/owner/mailbox/connect",payload);message("Mailbox setup saved. Its connection result is shown below; no website sign-in was started.");await refresh();}catch(error){problem(error);}finally{save.disabled=false;}};details.append(form,text("p","Your app password grants mailbox access and is encrypted locally. Account Access uses read-only checks and matching login messages for approved sign-ins. Mailbox checks fetch no messages and start no website login."));container.append(details);
+ details.append(text("p","For Gmail, create a Google app password for Account Access with 2-Step Verification enabled. If Google does not offer app passwords, use the configured Google browser connection above."));const google=text("a","Open Google App passwords");google.href="https://myaccount.google.com/apppasswords";google.target="_blank";google.rel="noreferrer";details.append(google);const save=text("button","Connect mailbox");save.type="submit";form.append(save);form.onsubmit=async event=>{event.preventDefault();save.disabled=true;try{const payload=Object.fromEntries(Object.entries(fields).map(([key,input])=>[key,input.value]));payload.port=Number(payload.port);payload.label=provider.selectedIndex===0?"Gmail":"Email";fields.password.value="";await call("/owner/mailbox/connect",payload);message("Mailbox setup saved. Its connection result is shown below; no website sign-in was started.");await refresh();}catch(error){problem(error);}finally{save.disabled=false;}};details.append(form,text("p","Your app password grants mailbox access and is encrypted locally. Account Access uses read-only checks and matching login messages for approved sign-ins. Mailbox checks fetch no messages and start no website login."));container.append(details);
 }
 function renderFactors(){
  const container=el("factors");container.replaceChildren();
@@ -130,7 +160,7 @@ function renderFactors(){
   for(const name of names){const input=document.createElement("input");input.type=name==="username"?"text":"password";input.required=true;input.placeholder=name==="seed"?"Authenticator setup key or otpauth link":name==="password"?"Mailbox application password":name;input.setAttribute("aria-label",input.placeholder);fields[name]=input;form.append(input);}
   if(mailboxMenu){if(!source.enrolled&&mailboxMenu.options.length===2){const saved=(state.mailboxes||[]).find(x=>x.id===mailboxMenu.options[1].value);if(saved?.connection_check?.status==="VERIFIED")mailboxMenu.selectedIndex=1;}mailboxMenu.onchange=()=>Object.values(fields).forEach(input=>{input.disabled=!!mailboxMenu.value;input.hidden=input.disabled;if(input.disabled)input.value="";});mailboxMenu.onchange();}
   if(source.kind==="mac_messages")card.append(text("p","Enable iPhone text forwarding to this Mac and grant the signed Account Access app Full Disk Access in macOS privacy settings."));
-  if(source.kind==="gmail")card.append(text("p","Connect the reviewed Gmail OAuth account in Manage permissions. Gmail consent grants mailbox read access."));
+  if(source.kind==="gmail")card.append(text("p","Connect the reviewed Gmail account above, then enable this website's email verification to confirm its approved mailbox address. Gmail consent grants mailbox read access."));
   const submit=text("button",source.enrolled?"Update verification":"Enable verification");submit.type="submit";form.append(submit);
   form.onsubmit=async event=>{event.preventDefault();try{const credential=mailboxMenu?.value?{mailbox:mailboxMenu.value}:Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,v.value]));if(source.kind==="mac_messages")credential.enabled=true;
   await call("/owner/source",{source:source.id,credential});Object.values(fields).forEach(x=>x.value="");if(email)await call("/owner/source/check",{source:source.id});for(const account of source.accounts){const current=state.accounts.find(x=>x.account===account);if(!current?.challenges?.some(x=>["captcha","passkey","device","admin","action","recovery","unknown"].includes(x.kind)))await call("/owner/verify",{account});}message("Verification saved locally. Check each website's sign-in status below.");await refresh();}catch(e){problem(e);}};

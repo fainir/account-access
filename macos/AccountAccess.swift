@@ -62,6 +62,11 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     var principals: [String] = []
     var sources: [[String: Any]] = []
     var mailboxes: [[String: Any]] = []
+    var mailboxOAuth: [[String: Any]] = []
+    var activeMailboxOAuth: MailboxOAuthLoopback?
+    var mailboxOAuthCancelled = false
+    var mailboxOAuthFinishing = false
+    var mailboxOAuthAttempt: [String: String]?
     var mailboxFields: [String: NSTextField] = [:]
     var mailboxServerViews: [NSView] = []
     var mailboxKind: NSPopUpButton!
@@ -80,7 +85,10 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     var smsDiagnostics: String?
     var verificationDetails: [String: String] = [:]
     var syncAccounts: NSPopUpButton!
+    var syncProvider: NSPopUpButton!
     var syncFields: [String: NSTextField] = [:]
+    var syncEndpointViews: [NSView] = []
+    var syncTokenLabel: NSTextField?
     var automaticSessions: [String: [String: Any]] = [:]
     var section = "accounts"
     var selectedAccount: String?
@@ -679,6 +687,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             "password_source_item_changed": "This item must be an active login for the approved website, with one username and password.",
             "password_source_access_removed": "The password source rejected access. Check its read-only token and the selected vault and item.",
             "password_source_unavailable": "The password source is temporarily unavailable. Try again when it is online.",
+            "password_source_runtime_unavailable": "Repair or update Account Access to restore the 1Password connection.",
             "mailbox_connection_failed": "The email server did not accept this connection. Check the email address and application password in Verification. No website sign-in was started.",
             "mailbox_temporarily_unavailable": "The mailbox is temporarily unreachable. Your saved setup is preserved; Account Access can retry without another login approval.",
             "mailbox_tls_verification_failed": "The mailbox's secure connection could not be verified. Check the server settings; Account Access will not use an unverified connection.",
@@ -693,7 +702,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             "provider_rejected_access": "The email provider rejected this connection. Reconnect the mailbox in Verification.",
             "network_unavailable": "The email provider could not be reached. Your saved setup is preserved; try Check email connection when it is online.",
             "invalid_authenticator_export": "This image is not a supported Authenticator transfer QR. Choose a complete export or the website's original setup QR.",
-            "authenticator_multiple_batches": "This export spans multiple QR codes. In Google Authenticator, export only the account you want to connect and choose its QR image.",
+            "authenticator_export_incomplete": "Choose all QR images from the same Google Authenticator export together. No account was changed.",
+            "authenticator_export_mismatch": "These QR images are duplicated or come from different exports. Choose each image from one complete export.",
             "unsupported_authenticator_settings": "This authenticator uses settings that are not supported yet. Six-digit SHA-1 TOTP is required.",
             "authenticator_preview_expired": "The import preview expired. Choose the QR image again.",
             "authenticator_selection_changed": "The connected account changed during the preview. Choose the QR image again and review the account.",
@@ -858,6 +868,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         accounts = state["accounts"] as? [[String: Any]] ?? []
         sources = state["code_sources"] as? [[String: Any]] ?? []
         mailboxes = state["mailboxes"] as? [[String: Any]] ?? []
+        mailboxOAuth = state["mailbox_oauth"] as? [[String: Any]] ?? []
         principals = state["principals"] as? [String] ?? []
         agents = state["integrations"] as? [String] ?? principals
         automaticSessions = state["automatic_sessions"] as? [String: [String: Any]] ?? [:]
@@ -1505,12 +1516,13 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         for link in passwordSync {
             let account = link["account"] as? String ?? ""
             let name = accounts.first { $0["account"] as? String == account }?["label"] as? String ?? account
-            let body = card(name, "1Password Connect · checks every five minutes while the service is running. Only the password can update; account identity and permissions stay fixed.", status: link["status"] as? String ?? "", good: link["status"] as? String == "SYNCED")
+            let provider = link["provider"] as? String ?? "1Password"
+            let body = card(name, provider + " · checks every five minutes while the service is running. Only the password can update; account identity and permissions stay fixed.", status: link["status"] as? String ?? "", good: link["status"] as? String == "SYNCED")
             let disconnect = NSButton(title: "Disconnect and remove saved login", target: self, action: #selector(disconnectPasswordSync))
             disconnect.identifier = NSUserInterfaceItemIdentifier(account)
             body.addArrangedSubview(disconnect)
         }
-        card("Connect 1Password", "Requires an existing 1Password Connect server and a read-only token for a dedicated vault. Your administrator supplies the connection details once. Tokens stay in the encrypted local vault.")
+        card("Connect 1Password", "Use a service account with read-only access to a dedicated vault, or an existing Connect server. Choose the exact login item for an account you already imported. Tokens stay encrypted locally; the app cannot add accounts or permissions through sync.")
         syncAccounts = NSPopUpButton()
         for account in accounts where account["route"] as? String == "browser" && account["portable_ready"] as? Bool == true {
             syncAccounts.addItem(withTitle: account["label"] as? String ?? "Account")
@@ -1522,23 +1534,58 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             return
         }
         stack.addArrangedSubview(syncAccounts)
+        syncProvider = NSPopUpButton()
+        syncProvider.addItems(withTitles: ["1Password service account", "1Password Connect server"])
+        syncProvider.setAccessibilityLabel("Password source connection")
+        syncProvider.target = self
+        syncProvider.action = #selector(syncProviderChanged)
+        stack.addArrangedSubview(syncProvider)
         syncFields = [:]
+        syncEndpointViews = []
         for (key, title) in [("endpoint", "Connect server HTTPS address"), ("vault", "Vault ID"), ("item", "Login item ID"), ("token", "Read-only Connect token")] {
             label(title, 14, .secondaryLabelColor)
+            if key == "endpoint", let view = stack.arrangedSubviews.last { syncEndpointViews.append(view) }
+            if key == "token" { syncTokenLabel = stack.arrangedSubviews.last as? NSTextField }
             let field: NSTextField = key == "token" ? NSSecureTextField() : NSTextField()
             field.placeholderString = title
             field.setAccessibilityLabel(title)
             stack.addArrangedSubview(field)
             field.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
             syncFields[key] = field
+            if key == "endpoint" { syncEndpointViews.append(field) }
         }
+        syncProviderChanged()
         primary("Connect automatic updates", #selector(connectPasswordSync))
     }
 
+    @objc func syncProviderChanged() {
+        let serviceAccount = syncProvider.indexOfSelectedItem == 0
+        for view in syncEndpointViews { view.isHidden = serviceAccount }
+        syncFields["endpoint"]?.isEnabled = !serviceAccount
+        syncFields["endpoint"]?.stringValue = ""
+        syncFields["token"]?.stringValue = ""
+        let title = serviceAccount ? "Service-account token for a read-only vault" : "Read-only Connect token"
+        syncTokenLabel?.stringValue = title
+        syncFields["token"]?.placeholderString = title
+        syncFields["token"]?.setAccessibilityLabel(title)
+    }
+
+    static func passwordSyncConnection(provider: Int, fields: [String: String]) -> [String: String]? {
+        guard provider == 0 || provider == 1 else { return nil }
+        var connection = fields.filter { provider == 1 || $0.key != "endpoint" }
+        guard Set(connection.keys) == (provider == 0 ? Set(["vault", "item", "token"]) : Set(["endpoint", "vault", "item", "token"])),
+              connection.values.allSatisfy({ !$0.isEmpty }) else { return nil }
+        if provider == 0 { connection["provider"] = "onepassword-service-account" }
+        return connection
+    }
+
     @objc func connectPasswordSync() {
-        guard let account = syncAccounts.selectedItem?.representedObject as? String else { return }
-        let connection = syncFields.mapValues { $0.stringValue }
-        guard connection.values.allSatisfy({ !$0.isEmpty }) else { return }
+        guard let account = syncAccounts.selectedItem?.representedObject as? String,
+              let connection = Self.passwordSyncConnection(provider: syncProvider.indexOfSelectedItem,
+                                                           fields: syncFields.mapValues { $0.stringValue }) else {
+            status.stringValue = "Enter the selected password source's token, vault and login item details."
+            return
+        }
         syncFields.values.forEach { $0.stringValue = "" }
         busy = true
         page("Connecting your password source", "Checking the selected account and website. Your approved reads stay the same.")
@@ -1567,6 +1614,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     @objc func showFactors() {
         section = "verification"
         page("Verification", "Connect email, SMS or an authenticator once. Login codes stay out of your AI chat.")
+        showGmailOAuthCards()
         for mailbox in mailboxes {
             guard let id = mailbox["id"] as? String else { continue }
             let check = mailbox["connection_check"] as? [String: Any] ?? [:]
@@ -1616,6 +1664,133 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
 
     @objc func showEmailSetup() {
+        page("Connect your email", "Connect Google in your browser once, or use an application password when your provider supports it.")
+        showGmailOAuthCards()
+        if mailboxOAuth.isEmpty {
+            label("Sign in with Google needs the publisher's registered Gmail connection. This preview does not include one. Gmail app passwords are available only for accounts where Google permits them.", 14, .secondaryLabelColor)
+        }
+        primary("Use an app password", #selector(showMailboxPasswordSetup))
+        action("Back", #selector(showFactors))
+    }
+
+    func showGmailOAuthCards() {
+        for mailbox in mailboxOAuth {
+            guard let account = mailbox["account"] as? String else { continue }
+            let ready = mailbox["publisher_configured"] as? Bool == true
+            let connected = mailbox["connected"] as? Bool == true
+            let recipients = (mailbox["sources"] as? [[String: Any]] ?? []).compactMap { $0["recipient"] as? String }
+            let addresses = Array(Set(recipients)).sorted().joined(separator: ", ")
+            let panel = card("Gmail · " + addresses,
+                             "Connect in Google's own browser page. Google grants mailbox read access; Account Access uses matching login messages for your configured websites. Website permissions stay the same."
+                             + (connected ? " Google access is saved. Enable or check each website's email verification below to confirm its approved mailbox address." : ""),
+                             status: ready ? (connected ? "Google access saved" : "One-time Google connection") : "Publisher setup needed", good: connected)
+            if mailbox["environment"] as? String == "controlled-demo" {
+                let example = NSTextField(wrappingLabelWithString: "Controlled provider fixture. This is not a real Gmail connection.")
+                panel.addArrangedSubview(example)
+            }
+            if ready {
+                let connect = NSButton(title: connected ? "Reconnect with Google" : "Connect with Google", target: self, action: #selector(connectGmailOAuth(_:)))
+                connect.identifier = NSUserInterfaceItemIdentifier(account)
+                panel.addArrangedSubview(connect)
+            } else {
+                panel.addArrangedSubview(NSTextField(wrappingLabelWithString: "The publisher must finish configuring its Google application before browser sign-in is available. Never enter your normal Google password here."))
+            }
+        }
+    }
+
+    @objc func connectGmailOAuth(_ sender: NSButton) {
+        guard let account = sender.identifier?.rawValue,
+              let configured = mailboxOAuth.first(where: { $0["account"] as? String == account }),
+              let fingerprint = configured["fingerprint"] as? String,
+              configured["publisher_configured"] as? Bool == true else { return }
+        busy = true
+        mailboxOAuthCancelled = false
+        mailboxOAuthFinishing = false
+        mailboxOAuthAttempt = nil
+        page("Connect Gmail in your browser", "Choose the approved Google account and review Google's mailbox read permission. Return here after consent. You do not need to copy a code or password.")
+        progress()
+        let cancel = action("Cancel Google connection", #selector(cancelGmailOAuth))
+        cancel.isEnabled = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            var listener: MailboxOAuthLoopback?
+            do {
+                let callback = try MailboxOAuthLoopback(account: account)
+                listener = callback
+                defer { callback.close() }
+                DispatchQueue.main.sync {
+                    self.activeMailboxOAuth = callback
+                    if self.mailboxOAuthCancelled { callback.close() }
+                }
+                let started = try self.request("owner/mailbox/oauth/begin", body: ["account": account, "fingerprint": fingerprint, "redirect_uri": callback.redirectURI])
+                guard let id = started["attempt"] as? String, let authorization = started["authorization_url"] as? String else {
+                    throw Failure.message("Google connection could not start. Try again from Verification.")
+                }
+                DispatchQueue.main.sync { self.mailboxOAuthAttempt = ["account": account, "attempt": id] }
+                let url = try callback.authorize(authorization)
+                var opened = false
+                var cancelled = false
+                DispatchQueue.main.sync {
+                    cancelled = self.mailboxOAuthCancelled
+                    if !cancelled { opened = NSWorkspace.shared.open(url) }
+                }
+                if cancelled { throw MailboxOAuthFailure.cancelled }
+                guard opened else { throw Failure.message("Open your default browser, then try connecting Gmail again.") }
+                let received = try callback.wait()
+                // The main queue orders the user's cancellation against the
+                // transition to saving the accepted provider response. Once
+                // saving starts the UI cannot claim that it was cancelled.
+                DispatchQueue.main.sync {
+                    cancelled = self.mailboxOAuthCancelled
+                    if !cancelled {
+                        self.mailboxOAuthFinishing = true
+                        self.mailboxOAuthAttempt = nil
+                        cancel.isEnabled = false
+                        self.status.stringValue = "Saving your Google connection…"
+                    }
+                }
+                if cancelled { throw MailboxOAuthFailure.cancelled }
+                _ = try self.request("owner/mailbox/oauth/finish", body: ["account": account, "attempt": id, "callback": received])
+                let state = try self.request("owner/state")
+                DispatchQueue.main.async {
+                    self.activeMailboxOAuth = nil; self.busy = false; self.accept(state); self.showFactors()
+                    self.status.stringValue = "Google access saved. Enable or check the website's email verification to confirm its mailbox address. Code delivery is checked during sign-in."
+                }
+            } catch {
+                listener?.close()
+                var abandoned: [String: String]?
+                DispatchQueue.main.sync {
+                    abandoned = self.mailboxOAuthAttempt
+                    self.mailboxOAuthAttempt = nil
+                    self.activeMailboxOAuth = nil
+                }
+                if let abandoned { _ = try? self.request("owner/mailbox/oauth/cancel", body: abandoned) }
+                if let failure = error as? MailboxOAuthFailure {
+                    let message: String
+                    switch failure {
+                    case .cancelled: message = "Google connection cancelled. Your existing connections are preserved."
+                    case .timedOut: message = "Google connection timed out. Try again from Verification when you are ready."
+                    case .invalidAuthorization: message = "The configured Google connection could not be verified. The publisher must check its Gmail setup."
+                    case .unavailable: message = "The local browser callback could not start. Try connecting Gmail again."
+                    }
+                    self.fail(Failure.message(message), retry: #selector(self.showFactors))
+                } else { self.fail(error, retry: #selector(self.showFactors)) }
+            }
+        }
+    }
+
+    @objc func cancelGmailOAuth() {
+        guard !mailboxOAuthFinishing else { return }
+        mailboxOAuthCancelled = true
+        activeMailboxOAuth?.close()
+        if let attempt = mailboxOAuthAttempt {
+            mailboxOAuthAttempt = nil
+            DispatchQueue.global(qos: .userInitiated).async {
+                _ = try? self.request("owner/mailbox/oauth/cancel", body: attempt)
+            }
+        }
+    }
+
+    @objc func showMailboxPasswordSetup() {
         editingMailbox = nil
         page("Connect your email", "Save your mailbox once. Only supported websites with approved login-message filters can use it.")
         mailboxKind = NSPopUpButton()
@@ -1638,7 +1813,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             if ["host", "port"].contains(name) { mailboxServerViews.append(field) }
         }
         mailboxKindChanged()
-        label("Create a Google app password for Account Access with 2-Step Verification enabled. If Google does not offer app passwords for your account, this connection is not supported yet.", 13, .secondaryLabelColor)
+        label("For Gmail, create a Google app password for Account Access with 2-Step Verification enabled. If Google does not offer app passwords, use the configured Google browser connection in Verification.", 13, .secondaryLabelColor)
         action("Open Google App passwords", #selector(openGoogleAppPasswords))
         label("Your app password grants mailbox access and is encrypted on this Mac. Account Access uses read-only checks and matching login messages for approved sign-ins. Website code delivery is checked separately.", 13, .secondaryLabelColor)
         primary("Connect mailbox", #selector(saveMailbox))
@@ -1970,9 +2145,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         }
         factorMailboxChanged()
         if kind == "totp" {
-            label("Use the website's setup key, or Google Authenticator → Transfer codes → Export codes. Unlock your phone and export the account you want to connect. Choose its QR image below and review the account before importing. Your phone keeps generating codes.", 14, .secondaryLabelColor)
+            label("Use the website's setup key, or Google Authenticator → Transfer codes → Export codes. Unlock your phone and export your accounts. Select all QR images from that export together, then choose the matching account. Your phone keeps generating codes.", 14, .secondaryLabelColor)
             label("Importing copies the authenticator key to this Mac for unattended login. The key stays encrypted locally. A push, passkey or fingerprint approval still needs you.", 14, .secondaryLabelColor)
-            action("Import authenticator QR image", #selector(readAuthenticatorQR))
+            action("Import authenticator QR images", #selector(readAuthenticatorQR))
         } else if kind == "imap" {
             label("Mail server: " + (source["mail_server"] as? String ?? "configured provider"), 14, .secondaryLabelColor)
             label("Uses encrypted IMAP access to the configured mailbox. Gmail may require an application password. Microsoft mail can use a configured OAuth connection.", 14, .secondaryLabelColor)
@@ -2002,22 +2177,37 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     @objc func readAuthenticatorQR() {
         let picker = NSOpenPanel()
         picker.allowedContentTypes = [.png, .jpeg]
-        guard picker.runModal() == .OK, let url = picker.url else { return }
-        guard let image = CIImage(contentsOf: url),
-              let detector = CIDetector(ofType: CIDetectorTypeQRCode, context: nil, options: [CIDetectorAccuracy: CIDetectorAccuracyHigh]),
-              let text = Self.authenticatorQRText(detector.features(in: image).compactMap { ($0 as? CIQRCodeFeature)?.messageString }) else {
+        picker.allowsMultipleSelection = true
+        picker.message = "Select the website setup QR, or all images from one Google Authenticator export."
+        guard picker.runModal() == .OK else { return }
+        let urls = picker.urls
+        var messages: [String] = []
+        let detector = CIDetector(ofType: CIDetectorTypeQRCode, context: nil, options: [CIDetectorAccuracy: CIDetectorAccuracyHigh])
+        var valid = !urls.isEmpty && urls.count <= 16 && detector != nil
+        for url in urls where valid {
+            guard let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+                  size <= 10_000_000, let image = CIImage(contentsOf: url),
+                  image.extent.width > 0, image.extent.height > 0,
+                  image.extent.width * image.extent.height <= 32_000_000 else { valid = false; break }
+            let found = detector!.features(in: image).compactMap { ($0 as? CIQRCodeFeature)?.messageString }
+            if found.isEmpty { valid = false; break }
+            messages.append(contentsOf: found)
+        }
+        guard valid, let texts = Self.authenticatorQRTexts(messages) else {
             let alert = NSAlert()
-            alert.messageText = "Choose one authenticator QR"
-            alert.informativeText = "The image must contain exactly one website setup QR or Google Authenticator transfer QR. No account was changed."
+            alert.messageText = "Choose authenticator QR images"
+            alert.informativeText = "Choose one website setup QR, or all QR images from one Google Authenticator export (up to 16). Every image must contain an authenticator QR. No account was changed."
             alert.runModal()
             return
         }
-        if text.hasPrefix("otpauth://totp/") { factorFields["seed"]?.stringValue = text; return }
+        if texts.count == 1, let text = texts.first, text.hasPrefix("otpauth://totp/") {
+            factorFields["seed"]?.stringValue = text; return
+        }
         guard let source = factorMenu.selectedItem?.representedObject as? [String: Any], let id = source["id"] as? String else { return }
         busy = true
         DispatchQueue.global(qos: .userInitiated).async {
             do {
-                let preview = try self.request("owner/authenticator/preview", body: ["source": id, "uri": text])
+                let preview = try self.request("owner/authenticator/preview", body: ["source": id, "uris": texts])
                 DispatchQueue.main.async { self.busy = false; self.chooseAuthenticator(preview, source: source) }
             } catch { self.fail(error, retry: #selector(self.showFactors)) }
         }
@@ -2027,6 +2217,13 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         guard messages.count == 1, let text = messages.first, text.utf8.count <= 32000,
               text.hasPrefix("otpauth://totp/") || text.hasPrefix("otpauth-migration://offline?") else { return nil }
         return text
+    }
+
+    static func authenticatorQRTexts(_ messages: [String]) -> [String]? {
+        guard (1...16).contains(messages.count), messages.reduce(0, { $0 + $1.utf8.count }) <= 60000 else { return nil }
+        if messages.count == 1 { return authenticatorQRText(messages).map { [$0] } }
+        guard messages.allSatisfy({ $0.utf8.count <= 32000 && $0.hasPrefix("otpauth-migration://offline?") }) else { return nil }
+        return messages
     }
 
     func chooseAuthenticator(_ preview: [String: Any], source: [String: Any]) {
@@ -2039,7 +2236,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         let linked = (source["accounts"] as? [String] ?? []).map { id in accounts.first { $0["account"] as? String == id }?["label"] as? String ?? id }.joined(separator: ", ")
         let alert = NSAlert()
         alert.messageText = "Choose the matching authenticator"
-        alert.informativeText = "Connect only the selected key to " + linked + ". Check that the website and account match. Other keys in this QR will be discarded."
+        alert.informativeText = "Connect only the selected key to " + linked + ". Check that the website and account match. Other keys in this export will be discarded."
         alert.accessoryView = picker
         alert.addButton(withTitle: "Import selected authenticator")
         alert.addButton(withTitle: "Cancel")

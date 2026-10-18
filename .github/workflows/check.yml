@@ -33,9 +33,15 @@ jobs:
         run: |
           xcrun swiftc -O -parse-as-library -D ACCOUNT_ACCESS_UI_CHECKS \
             -framework AppKit -framework CryptoKit -framework ServiceManagement -lsqlite3 -lbsm \
-            macos/AccountAccess.swift macos/OwnerGateway.swift macos/DesktopOwnerConnection.swift macos/BrowserNativeHost.swift macos/ManagedAgentSetup.swift macos/WorkerBootstrap.swift macos/BackgroundRecovery.swift macos/MessageText.swift macos/MessagesReader.swift macos/SystemMessagesReader.swift macos/Tests/OwnerScreenChecks.swift \
+            macos/AccountAccess.swift macos/MailboxOAuthLoopback.swift macos/OwnerGateway.swift macos/DesktopOwnerConnection.swift macos/BrowserNativeHost.swift macos/ManagedAgentSetup.swift macos/WorkerBootstrap.swift macos/BackgroundRecovery.swift macos/MessageText.swift macos/MessagesReader.swift macos/SystemMessagesReader.swift macos/Tests/OwnerScreenChecks.swift \
             -o /tmp/account-access-owner-checks
           /tmp/account-access-owner-checks
+      - name: Check signed-desktop Gmail callback parsing and listener lifetime
+        run: |
+          xcrun swiftc -O -parse-as-library -framework Foundation -framework Network -framework Security \
+            macos/MailboxOAuthLoopback.swift macos/OwnerGateway.swift macos/Tests/MailboxOAuthLoopbackChecks.swift \
+            -o /tmp/account-access-mailbox-oauth-checks
+          /tmp/account-access-mailbox-oauth-checks > /tmp/account-access-mailbox-oauth.json
       - name: Check protected desktop registration and reconnect behavior
         run: |
           xcrun swiftc -O -parse-as-library -warnings-as-errors -D ACCOUNT_ACCESS_GATEWAY_CHECKS \
@@ -55,6 +61,7 @@ jobs:
           path: |
             /tmp/account-access-desktop-owner.json
             /tmp/account-access-browser-native.json
+            /tmp/account-access-mailbox-oauth.json
           if-no-files-found: ignore
       - name: Check the narrow native Messages reader
         run: |
@@ -81,7 +88,7 @@ jobs:
         run: |
           xcrun swiftc -O -parse-as-library -D ACCOUNT_ACCESS_LAUNCH_CHECKS \
             -framework AppKit -framework CryptoKit -framework ServiceManagement -lsqlite3 -lbsm \
-            macos/AccountAccess.swift macos/OwnerGateway.swift macos/DesktopOwnerConnection.swift macos/BrowserNativeHost.swift macos/ManagedAgentSetup.swift macos/WorkerBootstrap.swift macos/BackgroundRecovery.swift macos/MessageText.swift macos/MessagesReader.swift macos/SystemMessagesReader.swift \
+            macos/AccountAccess.swift macos/MailboxOAuthLoopback.swift macos/OwnerGateway.swift macos/DesktopOwnerConnection.swift macos/BrowserNativeHost.swift macos/ManagedAgentSetup.swift macos/WorkerBootstrap.swift macos/BackgroundRecovery.swift macos/MessageText.swift macos/MessagesReader.swift macos/SystemMessagesReader.swift \
             -o /tmp/account-access-launch-checks
           AC_QA_ROOT=$(mktemp -d)
           ACCOUNT_ACCESS_DATA_DIR="$AC_QA_ROOT/data" ACCOUNT_ACCESS_INSTALL_DIR="$AC_QA_ROOT/runtime" \

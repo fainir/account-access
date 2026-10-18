@@ -38,7 +38,8 @@ enum ChromeGatewayJourney {
                                             presentedOrigin: BrowserNativeHost.origin) { body in
             guard BrowserNativeHost.chromeParentAuthorized(),
                   let message = body["message"] as? [String: Any],
-                  Set(message.keys) == ["method"], message["method"] as? String == "pending" else {
+                  let method = message["method"] as? String,
+                  ["pending", "armed", "lost", "deliver"].contains(method) else {
                 throw OwnerGatewayError.invalidPolicy
             }
             let response = try desktop.request("owner/browser-message", body: body)
