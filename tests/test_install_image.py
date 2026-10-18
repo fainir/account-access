@@ -2,11 +2,13 @@
 
 from contextlib import contextmanager
 import hashlib
+import errno
 import json
 import multiprocessing
 import os
 import shutil
 import signal
+from types import SimpleNamespace
 
 import pytest
 
@@ -150,6 +152,151 @@ def completed(value):
     assert not (value["journal"] / "application").is_symlink()
     assert not list((value["journal"] / "temporary").iterdir())
     return result
+
+
+def public_tree_snapshot(root):
+    """Only synthetic public fixtures: preserve bytes and namespace identity."""
+    result = {}
+    for path in [root, *root.rglob("*")]:
+        info = path.lstat()
+        result[str(path.relative_to(root))] = (
+            info.st_ino, info.st_mode, info.st_nlink,
+            os.readlink(path) if path.is_symlink() else path.read_bytes() if path.is_file() else None,
+        )
+    return result
+
+
+def test_space_estimate_covers_both_simultaneous_images_and_metadata(tmp_path):
+    with fixture(tmp_path) as value:
+        manifest = value["manifest"]
+        actual_bytes = sum(node["size"] for tree in manifest.trees.values()
+                           for node in tree.values() if node["kind"] == "file")
+        entries = sum(map(len, manifest.trees.values()))
+        first = manifest.required_space()
+        both = manifest.required_space(copies=2)
+        assert first >= actual_bytes + entries * 4096 + image.INSTALL_SPACE_RESERVE
+        assert both >= 2 * actual_bytes + 2 * entries * 4096 + image.INSTALL_SPACE_RESERVE
+        assert both - image.INSTALL_SPACE_RESERVE == 2 * (first - image.INSTALL_SPACE_RESERVE)
+
+
+@pytest.mark.parametrize("blocks_below", [0, 1])
+def test_capacity_boundary_uses_pinned_journal_and_refuses_before_image_writes(tmp_path, monkeypatch, blocks_below):
+    with fixture(tmp_path) as value:
+        blocks = value["manifest"].required_space() // 4096 - blocks_below
+        checked = []
+
+        def capacity(fd):
+            checked.append(os.fstat(fd).st_ino)
+            return SimpleNamespace(f_bavail=blocks, f_frsize=4096)
+
+        monkeypatch.setattr(image.os, "fstatvfs", capacity)
+        with value["engine"]() as engine:
+            before = public_tree_snapshot(tmp_path)
+            if blocks_below:
+                with pytest.raises(image.ImageConflict, match="^insufficient_install_space$"):
+                    engine.materialize()
+                assert public_tree_snapshot(tmp_path) == before
+                assert set(p.name for p in value["journal"].iterdir()) == {"lock"}
+                assert not value["support"].exists() and not value["app"].is_symlink()
+            else:
+                engine.materialize()
+                engine.mark_complete()
+        assert checked == [value["journal"].stat().st_ino]
+        if not blocks_below:
+            # An already complete image allocates no second runtime, even if
+            # the volume fills after installation.
+            monkeypatch.setattr(image.os, "fstatvfs", lambda _: pytest.fail("No copy capacity needed for completed image"))
+            completed(value)
+
+
+@pytest.mark.parametrize("event", ["record-open:intent.json", "file-write:bin/tool"])
+def test_low_space_retry_preserves_interrupted_records_and_bytes(tmp_path, monkeypatch, event):
+    with fixture(tmp_path) as value:
+        enough = value["manifest"].required_space() // 4096
+        monkeypatch.setattr(image.os, "fstatvfs", lambda _: SimpleNamespace(f_bavail=enough, f_frsize=4096))
+
+        def stop(observed):
+            if observed == event:
+                raise Crash()
+
+        with pytest.raises(Crash):
+            with value["engine"](hook=stop) as engine:
+                engine.materialize()
+        before = public_tree_snapshot(tmp_path)
+        monkeypatch.setattr(image.os, "fstatvfs", lambda _: SimpleNamespace(f_bavail=0, f_frsize=4096))
+        with pytest.raises(image.ImageConflict, match="^insufficient_install_space$"):
+            with value["engine"]() as engine:
+                engine.materialize()
+        assert public_tree_snapshot(tmp_path) == before
+        monkeypatch.setattr(image.os, "fstatvfs", lambda _: SimpleNamespace(f_bavail=enough, f_frsize=4096))
+        completed(value)
+
+
+def test_enospc_after_preflight_preserves_partial_bytes_for_safe_retry(tmp_path, monkeypatch):
+    with fixture(tmp_path) as value:
+        write, interrupted = os.write, False
+
+        def disk_filled(fd, data):
+            nonlocal interrupted
+            if len(data) > 8192:
+                if interrupted:
+                    raise OSError(errno.ENOSPC, "synthetic local path")
+                interrupted = True
+                return write(fd, data[:4096])
+            return write(fd, data)
+
+        monkeypatch.setattr(image.os, "write", disk_filled)
+        with pytest.raises(OSError) as error:
+            with value["engine"]() as engine:
+                engine.materialize()
+        assert error.value.errno == errno.ENOSPC and interrupted
+        assert not (value["journal"] / "complete.json").exists()
+        temporary = list((value["journal"] / "temporary").iterdir())
+        source = value["source"] / package_manifest.SUPPORT / "bin/tool"
+        assert len(temporary) == 1 and temporary[0].read_bytes() == source.read_bytes()[:4096]
+        assert not value["support"].exists() and not value["app"].is_symlink()
+        monkeypatch.setattr(image.os, "write", write)
+        completed(value)
+
+
+def test_capacity_check_refuses_other_target_device_before_any_image_write(tmp_path, monkeypatch):
+    with fixture(tmp_path) as value:
+        with value["engine"]() as engine:
+            before = public_tree_snapshot(tmp_path)
+            check = image._check
+            other_volume = engine.targets[image.APPLICATION][0]
+
+            def checked(fd, *args, **kwargs):
+                result = check(fd, *args, **kwargs)
+                return SimpleNamespace(st_dev=result.st_dev + 1) if fd == other_volume else result
+
+            monkeypatch.setattr(image, "_check", checked)
+            monkeypatch.setattr(image.os, "fstatvfs", lambda _: pytest.fail("No volume estimate after mismatch"))
+            with pytest.raises(image.ImageConflict, match="^installation_volume_mismatch$"):
+                engine.materialize()
+            assert public_tree_snapshot(tmp_path) == before
+
+
+@pytest.mark.parametrize("capacity", [
+    SimpleNamespace(f_bavail=-1, f_frsize=4096),
+    SimpleNamespace(f_bavail=True, f_frsize=4096),
+    SimpleNamespace(f_bavail=10**9, f_frsize=0),
+    SimpleNamespace(f_bavail=10**9, f_frsize=True),
+    SimpleNamespace(f_bavail=10**9, f_frsize=2**30),
+    None,
+])
+def test_unavailable_or_invalid_capacity_never_starts_image_publication(tmp_path, monkeypatch, capacity):
+    with fixture(tmp_path) as value:
+        def inspect(_):
+            if capacity is None:
+                raise OSError("synthetic private pathname must not escape")
+            return capacity
+        monkeypatch.setattr(image.os, "fstatvfs", inspect)
+        with value["engine"]() as engine:
+            before = public_tree_snapshot(tmp_path)
+            with pytest.raises(image.ImageConflict, match="^install_space_check_failed$"):
+                engine.materialize()
+            assert public_tree_snapshot(tmp_path) == before
 
 
 def test_complete_repeated_image_recovery_preserves_files_and_identity(tmp_path):

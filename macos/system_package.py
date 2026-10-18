@@ -15,6 +15,7 @@ import zipfile
 from xml.sax.saxutils import escape
 
 from account_access.system_provision import signature
+from account_access.install_image import ImageManifest
 from account_access.package_manifest import APPLICATION_TARGET, CANONICAL_APP, OWNER_APP
 from macos.payload_audit import audit_payload, binary_type, tree_files
 
@@ -74,18 +75,37 @@ def bundle_rules(values):
     return values
 
 
-def distribution(version, architecture):
+def distribution(version, architecture, *, install_bytes):
     if architecture not in {"arm64", "x86_64"}:
         raise ValueError("unsupported_package_architecture")
+    if type(install_bytes) is not int or install_bytes <= 0:
+        raise ValueError("invalid_install_space_requirement")
+    install_kbytes = (install_bytes + 1023) // 1024
+    required_gb = (install_bytes + 100_000_000 - 1) // 100_000_000
+    space_label = f"{required_gb // 10}.{required_gb % 10} GB"
     return f'''<?xml version="1.0" encoding="utf-8"?>
 <installer-gui-script minSpecVersion="2">
 <title>Account Access</title>
 <options customize="never" require-scripts="true" hostArchitectures="{architecture}"/>
 <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>
-<volume-check><allowed-os-versions><os-version min="14.0"/></allowed-os-versions></volume-check>
+<volume-check script="accountAccessSpaceCheck()"><allowed-os-versions><os-version min="14.0"/></allowed-os-versions></volume-check>
 <choices-outline><line choice="default"/></choices-outline>
 <choice id="default" title="Account Access" visible="false"><pkg-ref id="{IDENTIFIER}"/></choice>
-<pkg-ref id="{IDENTIFIER}" version="{escape(version)}" onConclusion="none">payload.pkg</pkg-ref>
+<pkg-ref id="{IDENTIFIER}" version="{escape(version)}" installKBytes="{install_kbytes}" onConclusion="none">payload.pkg</pkg-ref>
+<script><![CDATA[
+function accountAccessSpaceCheck() {{
+  // This historical property is misnamed: current native Installer returns
+  // bytes. An inert native preflight test verifies the units and both branches.
+  // The protected coordinator rechecks its pinned volume using fstatvfs.
+  var available = my.target.availableKilobytes;
+  if (my.target.mountpoint === "/" && typeof available === "number" &&
+      isFinite(available) && available >= {install_bytes}) return true;
+  my.result.type = "Fatal";
+  my.result.title = "Free some space to install Account Access";
+  my.result.message = "Account Access needs at least {space_label} of free space while installing. Free some space, then reopen this installer. Your existing setup is preserved.";
+  return false;
+}}
+]]></script>
 </installer-gui-script>
 '''
 
@@ -334,6 +354,10 @@ def assemble(args):
         manifest = install_manifest(root, version, args.architecture)
         verify_source_inventory(source_manifest, manifest)
         native_manifest_preflight(payload / "bin/AccountAccess-installerverify", manifest)
+        # --nopayload hides PublicImage's extracted runtime from PackageKit's
+        # automatic size estimate. Both that source and our destination coexist
+        # during installation, so declare their manifest-derived requirement.
+        install_bytes = ImageManifest(manifest, hashlib.sha256(manifest).hexdigest()).required_space(copies=2)
         scripts.mkdir()
         (scripts / "RecoveryManifest.json").write_bytes(manifest)
         verifier = payload / "bin/AccountAccess-installerverify"
@@ -365,7 +389,7 @@ def assemble(args):
             ]
         )
         xml = scratch / "Distribution.xml"
-        xml.write_text(distribution(version, args.architecture))
+        xml.write_text(distribution(version, args.architecture, install_bytes=install_bytes))
         result = output / (
             "Account-Access-"
             + args.architecture
@@ -403,6 +427,7 @@ def assemble(args):
             "payload_manifest_sha256": hashlib.sha256(manifest).hexdigest(),
             "installer_verifier_sha256": verifier_digest,
             "payload_manifest_counts": manifest_counts(manifest),
+            "required_install_bytes": install_bytes,
             "native_manifest_preflight": True,
             "sha256": hashlib.sha256(result.read_bytes()).hexdigest(),
         }

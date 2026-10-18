@@ -1,6 +1,9 @@
 from types import SimpleNamespace
 import os
+import plistlib
+import platform
 import subprocess
+import sys
 import xml.etree.ElementTree as ET
 import zipfile
 
@@ -19,7 +22,7 @@ def test_installer_disables_relocation_for_every_nested_app():
 
 @pytest.mark.parametrize("architecture", ["arm64", "x86_64"])
 def test_package_is_fixed_to_system_volume_and_supported_mac_version(architecture):
-    xml = ET.fromstring(package.distribution("0.8.0", architecture))
+    xml = ET.fromstring(package.distribution("0.8.0", architecture, install_bytes=16385))
     assert xml.find("options").attrib["hostArchitectures"] == architecture
     assert xml.find("domains").attrib == {
         "enable_anywhere": "false",
@@ -28,6 +31,59 @@ def test_package_is_fixed_to_system_volume_and_supported_mac_version(architectur
     }
     assert xml.find("volume-check/allowed-os-versions/os-version").attrib["min"] == "14.0"
     assert xml.find("pkg-ref").text == "payload.pkg"
+    assert xml.find("pkg-ref").attrib["installKBytes"] == "17"
+    assert xml.find("volume-check").attrib["script"] == "accountAccessSpaceCheck()"
+    assert "available >= 16385" in xml.find("script").text
+    assert "0.1 GB" in xml.find("script").text
+    assert "system.run" not in xml.find("script").text
+    assert "allow-external-scripts" not in xml.find("options").attrib
+
+
+@pytest.mark.parametrize("size", [True, False, 0, -1, 4096.0, "4096", None])
+def test_distribution_refuses_missing_or_invalid_space_estimate(size):
+    with pytest.raises(ValueError, match="invalid_install_space_requirement"):
+        package.distribution("0.8.0", "arm64", install_bytes=size)
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Apple package tools required")
+def test_actual_script_only_product_preserves_capacity_check_and_native_byte_units(tmp_path):
+    # Assemble and inspect a tiny inert package as an ordinary user. No package
+    # is installed, elevated or allowed to execute external programs. The
+    # production volume-check runs through native Installer's read-only query.
+    # productbuild rewrites installKBytes to zero for --nopayload; this verifies
+    # the actual surviving volume-check instead of trusting source XML.
+    scripts = tmp_path / "scripts"
+    architecture = platform.machine()
+    assert architecture in {"arm64", "x86_64"}
+    scripts.mkdir()
+    (scripts / "public-fixture.txt").write_text("public inert package fixture")
+    component = tmp_path / "payload.pkg"
+    command = ["/usr/bin/pkgbuild", "--nopayload", "--identifier", package.IDENTIFIER,
+               "--version", "0.8.0", "--scripts", str(scripts), str(component)]
+    def run(arguments):
+        return subprocess.run(arguments, check=True, stdin=subprocess.DEVNULL, capture_output=True,
+                       timeout=30, env={"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "LANG": "C"})
+    run(command)
+    volume = os.statvfs("/Library/Application Support")
+    # Half of actual free bytes is comfortably above its KiB-valued equivalent,
+    # on both small local volumes and large CI disks. This discriminates units;
+    # a hardcoded small requirement could accidentally pass with either unit.
+    available = volume.f_bavail * volume.f_frsize
+    assert available >= 1024 * 1024
+    for case, required, eligible in [("sufficient", available // 2, True),
+                                    ("insufficient", 2**53 - 1, False)]:
+        source, product, expanded = [tmp_path / (case + suffix) for suffix in [".xml", ".pkg", "-expanded"]]
+        source.write_text(package.distribution("0.8.0", architecture, install_bytes=required))
+        run(["/usr/bin/productbuild", "--distribution", str(source),
+             "--package-path", str(tmp_path), str(product)])
+        run(["/usr/sbin/pkgutil", "--expand", str(product), str(expanded)])
+        native = ET.parse(expanded / "Distribution")
+        assert native.find("volume-check").attrib["script"] == "accountAccessSpaceCheck()"
+        assert f"available >= {required}" in native.find("script").text
+        assert "allow-external-scripts" not in native.find("options").attrib
+        volumes = plistlib.loads(run(["/usr/sbin/installer", "-volinfo", "-plist", "-pkg", str(product)]).stdout)
+        assert type(volumes) is list
+        assert any(type(row) is dict and row.get("MountPoint") == "/" for row in volumes) is eligible
 
 
 def test_package_assembly_never_runs_under_root_or_on_another_platform(monkeypatch):
@@ -275,7 +331,7 @@ def test_unsigned_container_keeps_genuine_payload_and_runtime_verification(tmp_p
     # Simulate the package entrypoint without changing the host platform used
     # by descriptor/ACL helpers in other modules.
     monkeypatch.setattr(package, "sys", SimpleNamespace(platform="darwin"))
-    calls, policies, signatures = [], [], []
+    calls, policies, signatures, advertised = [], [], [], []
     def signature(path, identifier, *, fixture):
         assert fixture is False
         signatures.append(identifier)
@@ -311,6 +367,9 @@ def test_unsigned_container_keeps_genuine_payload_and_runtime_verification(tmp_p
         name = Path(arguments[0]).name
         if name in {"pkgbuild", "productbuild"}:
             assert "--sign" not in arguments
+            if name == "productbuild":
+                xml = ET.parse(arguments[arguments.index("--distribution") + 1])
+                advertised.append(int(xml.find("pkg-ref").attrib["installKBytes"]) * 1024)
             Path(arguments[-1]).write_bytes(b"fictional installer container")
         if name == "python3.12":
             return SimpleNamespace(stdout=b'[[3,12,15],"arm64",true]', stderr=b"")
@@ -333,6 +392,8 @@ def test_unsigned_container_keeps_genuine_payload_and_runtime_verification(tmp_p
         assert result["development"] is False and result["unsigned_package"] is True
         assert result["installer_signed"] is False and result["production_ready"] is False
         assert result["notarized"] is False and result["installed"] is False
+        assert advertised == [result["required_install_bytes"]]
+        assert result["required_install_bytes"] > 256 * 1024 * 1024
         assert (args.output / "Account-Access-arm64-unsigned.pkg").is_file()
         assert policies == ["production-runtime-signing", "production-payload-audit", "native-manifest",
                             "production-payload-audit", "native-manifest"]

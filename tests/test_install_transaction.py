@@ -1,6 +1,7 @@
 """Fixed native handoff and peer/lease contracts; no owner paths or root calls."""
 
 import json
+import errno
 import os
 import stat
 from contextlib import nullcontext
@@ -230,6 +231,28 @@ def test_entrypoint_refuses_unsupported_arguments_before_dispatch(monkeypatch, c
     )
     assert transaction.main() == 78
     assert "system_install_not_completed" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("error,reason", [
+    (image.ImageConflict("insufficient_install_space"), "insufficient_install_space"),
+    (image.ImageConflict("install_space_check_failed"), "system_install_not_completed"),
+    (image.ImageConflict("synthetic private pathname"), "system_install_not_completed"),
+    (OSError("insufficient_install_space"), "system_install_not_completed"),
+    (OSError(errno.ENOSPC, "synthetic private pathname"), "insufficient_install_space"),
+    (OSError(errno.EACCES, "synthetic private pathname"), "system_install_not_completed"),
+])
+def test_entrypoint_exposes_only_fixed_public_capacity_reason(monkeypatch, capsys, error, reason):
+    monkeypatch.setattr(transaction, "os", SimpleNamespace(getuid=lambda: 0, geteuid=lambda: 0))
+    monkeypatch.setattr(transaction.sys, "platform", "darwin")
+    monkeypatch.setattr(transaction.sys, "argv", ["native-coordinator", "--source-fd", "3",
+        "--manifest-fd", "4", "--manifest-sha256", "a" * 64])
+
+    def fail(*_):
+        raise error
+
+    monkeypatch.setattr(transaction, "run", fail)
+    assert transaction.main() == 78
+    assert json.loads(capsys.readouterr().out) == {"status": "FAILED", "reason": reason}
 
 
 def test_root_command_lease_is_narrow_and_does_not_survive_its_context(monkeypatch):

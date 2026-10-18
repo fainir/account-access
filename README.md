@@ -60,8 +60,10 @@ must be awake and its secure keyring available. If you pause access, reopen the
 app to resume it.
 
 The built-in catalog includes public SauceDemo and The Internet test accounts.
-The 0.8 candidate also includes narrow Namecheap and PyPI pilots; private
-acceptance is unfinished. PyPI supports the reviewed password/authenticator
+The 0.8 candidate also includes narrow Namecheap, PyPI and Read the Docs
+Community pilots; private acceptance is unfinished. Read the Docs requires a
+locally enrolled authenticator and permits only checking the signed-in username.
+PyPI supports the reviewed password/authenticator
 route. In **Verification**, you can link an already checked mailbox for PyPI's
 new-device confirmation emails without editing configuration. This picker uses
 checked Google browser connections or saved TLS IMAP connections, including Gmail

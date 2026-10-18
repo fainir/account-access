@@ -10,6 +10,20 @@ NAMECHEAP_FORM = "[id$='_loginDiv']"
 NAMECHEAP_USER = "[id$='_alreadyLoggedInDiv'] [id$='_ltUsername']"
 PYPI_ACCOUNT = "personal-pypi"
 PYPI_SOURCE = "personal-pypi-totp"
+RTD_ACCOUNT = "personal-readthedocs"
+RTD_SOURCE = "personal-readthedocs-totp"
+RTD_ROOT = "https://app.readthedocs.org"
+RTD_LOGIN_PATH = "/accounts/login/"
+RTD_MFA_PATH = "/accounts/2fa/authenticate/"
+RTD_STATUS_PATH = "/accounts/edit/"
+RTD_FORM = "form[action='/accounts/login/#/email']"
+RTD_CODE_FORM = "form[action='/accounts/2fa/authenticate/']"
+# The mobile menu is also rendered for anonymous users. Only the desktop
+# authenticated-user dropdown proves readiness; a logout form alone does not.
+RTD_READY = (".ui.top.right.pointing.wide.dropdown .wide.menu > .header"
+             ":has(+ a[href='/accounts/edit/'])")
+RTD_USERNAME = ("#edit-content .ui.centered.card > .content > .meta code, "
+                "#edit-content .ui.centered.card > .content:not(:has(> .meta code)) > .header")
 
 
 def pypi():
@@ -37,6 +51,13 @@ def include_sources(config, specs):
     Call before adding accounts. This mutates only the caller's configuration
     copy after all collisions pass; it never enrolls, enables, or grants a source.
     """
+    staged = config.model_copy(deep=True)
+    _include_pypi_source(staged, specs)
+    _include_readthedocs_source(staged, specs)
+    config.code_sources = staged.code_sources
+
+
+def _include_pypi_source(config, specs):
     selected = specs.get(PYPI_ACCOUNT)
     if selected is None or not selected.login or selected.login.sources() != {PYPI_SOURCE}:
         return
@@ -53,6 +74,53 @@ def include_sources(config, specs):
         raise AccessError("DENIED", "catalog_code_source_conflict")
     if existing is None:
         config.code_sources[PYPI_SOURCE] = expected
+
+
+def _include_readthedocs_source(config, specs):
+    """Never adopt another connector's existing authenticator enrollment."""
+    selected = specs.get(RTD_ACCOUNT)
+    if selected is None or not selected.login or selected.login.sources() != {RTD_SOURCE}:
+        return
+    expected = CodeSource(kind="totp")
+    existing = config.code_sources.get(RTD_SOURCE)
+    connected = config.accounts.get(RTD_ACCOUNT)
+    if connected is None and selected != readthedocs():
+        from .errors import AccessError
+        raise AccessError("DENIED", "catalog_connector_changed")
+    if existing is not None and (
+            not isinstance(connected, BrowserAccount) or not connected.login
+            or RTD_SOURCE not in connected.login.sources() or existing != expected):
+        from .errors import AccessError
+        raise AccessError("DENIED", "catalog_code_source_conflict")
+    if existing is None:
+        config.code_sources[RTD_SOURCE] = expected
+
+
+def readthedocs():
+    """Source-reviewed Community pilot for accounts with an enrolled authenticator.
+
+    Only the current user's username is returned. VCS/SSO, email verification,
+    recovery codes, profile editing and project management are not operations.
+    """
+    login = RTD_ROOT + RTD_LOGIN_PATH
+    code = RTD_ROOT + RTD_MFA_PATH
+    status = RTD_ROOT + RTD_STATUS_PATH
+    return BrowserAccount(
+        kind="browser", label="Read the Docs · authenticator", login_url=login,
+        ready_selector=RTD_READY,
+        password_import_origins=["https://readthedocs.org"],
+        login=LoginForm(username_selector=RTD_FORM + " #id_login",
+                        password_selector=RTD_FORM + " #id_password",
+                        submit_selector=RTD_FORM + " button[type='submit']:not([form])",
+                        factors={"totp": LoginFactor(code_selector=RTD_CODE_FORM + " #id_code",
+                            code_submit_selector=RTD_CODE_FORM + " button.ui.primary[type='submit']:not([form])",
+                            code_source=RTD_SOURCE)}),
+        challenge_selectors={"login": RTD_FORM + " #id_password", "totp": RTD_CODE_FORM + " #id_code"},
+        read_resources=[login + "?next=" + RTD_STATUS_PATH],
+        login_resources=[code, RTD_ROOT + "/dashboard/", status],
+        login_post_urls=[login, code],
+        operations={"status": BrowserOperation(url=status,
+            description="Confirm your signed-in Read the Docs username", fields={"username": RTD_USERNAME})})
 
 
 def namecheap():
@@ -95,6 +163,7 @@ def entries():
         result[handle] = spec
     result["personal-namecheap"] = namecheap()
     result[PYPI_ACCOUNT] = pypi()
+    result[RTD_ACCOUNT] = readthedocs()
     return result
 
 

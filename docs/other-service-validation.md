@@ -171,6 +171,64 @@ Developers can rerun the anonymous PyPI-only check explicitly:
 uv run python scripts/pypi_preflight.py
 ```
 
+## Read the Docs password and authenticator pilot
+
+The development candidate adds **Read the Docs · authenticator** for Community
+accounts at `app.readthedocs.org`. Its sole operation,
+`personal-readthedocs:status`, returns the current signed-in username. This
+connector requires the owner's password and a locally enrolled TOTP key before
+its first login. It does not claim password-only, Business, VCS/Google/SSO,
+email-code or SMS support. Its initial authenticator setup is a local owner step;
+routine supported sign-ins then use that enrolled key and reuse the saved session.
+
+[Read the Docs documents password and authenticator sign-in](https://docs.readthedocs.com/platform/stable/intro/accounts.html),
+including [the initial phone-app setup](https://docs.readthedocs.com/platform/stable/guides/management/2fa.html).
+The connector is reviewed against its
+[application routes](https://github.com/readthedocs/readthedocs.org/blob/9b9a4e366097f7a86f9f23b78d066b13218e2195/readthedocs/profiles/urls/private.py),
+[dashboard login form](https://github.com/readthedocs/ext-theme/blob/8befc8b90cd284caf321040a294a479535ca97f7/readthedocsext/theme/templates/account/login.html),
+[MFA form](https://github.com/readthedocs/ext-theme/blob/8befc8b90cd284caf321040a294a479535ca97f7/readthedocsext/theme/templates/mfa/authenticate.html)
+and the pinned `django-allauth` 65.17.0 code field. The selected MFA button is
+**Verify**, never the adjacent **Cancel** control associated with a logout form.
+Readiness requires the authenticated desktop user menu; the anonymous mobile
+menu's logout form cannot prove sign-in.
+
+JavaScript is disabled. The only credential POST destinations are the exact
+Community login and MFA URLs. The read phase permits the profile GET and its
+exact anonymous login redirect; profile-editing POSTs, tokens, deletion,
+project reads, social consent and other destinations are not granted. The
+username comes from the profile card and excludes a display name or other
+profile details. The native login form's `#/email` fragment is ignored only
+when comparing its HTTP destination; scheme, authority, path and query remain
+exact and the network allowlist accepts no fragments.
+
+The import picker matches the Community origin and its explicitly reviewed
+historical `https://readthedocs.org` origin. Adding/importing defines an
+unenrolled account-specific authenticator source; it cannot adopt another
+existing seed, enroll it silently or grant additional operations. Missing or
+revoked enrollment stops before a fresh password submission. Revoking the
+account's agent access also blocks saved-session reads.
+
+Provider-shaped local fixtures exercise the actual browser password/TOTP flow,
+CSRF field preservation, the Verify/Cancel distinction, session reuse, username
+extraction with and without a display name, factor/account revocation and
+changed or rejected verification forms. These use fictional credentials and do
+not establish a successful private Read the Docs login. A provider challenge,
+changed page or unreviewed destination still stops for local review; recovery
+codes are never selected. No private Read the Docs account has been enrolled.
+
+Developers can run the credential-free public form check explicitly:
+
+```sh
+uv run python scripts/readthedocs_preflight.py
+```
+
+This uses a fresh browser and the product's exact network guard, enters no
+credential, requests no code and uses no personal browser profile. It checks the
+deployed anonymous form and redirect, not private MFA completion or deployment
+identity of every source-reviewed template. The
+[recorded anonymous check](../artifacts/readthedocs-preflight-080.json) passed;
+that result does not establish a private sign-in.
+
 ## Railway discovery
 
 An anonymous inspection of Railway's current login page confirmed an email

@@ -6,6 +6,7 @@ handles and replaces its image with this exact isolated, preassembled runtime.
 """
 
 import fcntl
+import errno
 import json
 import os
 from pathlib import Path
@@ -241,8 +242,13 @@ def main():
         result = run(int(sys.argv[2]), int(sys.argv[4]), sys.argv[6])
         print(json.dumps(result))
         return 0
-    except Exception:
-        print('{"status":"FAILED","reason":"system_install_not_completed"}')
+    except Exception as error:
+        # Only this fixed public requirement is actionable outside the
+        # installer. Never expose arbitrary filesystem messages or pathnames.
+        no_space = (isinstance(error, ImageConflict) and str(error) == "insufficient_install_space"
+                    or isinstance(error, OSError) and error.errno == errno.ENOSPC)
+        reason = "insufficient_install_space" if no_space else "system_install_not_completed"
+        print(json.dumps({"status": "FAILED", "reason": reason}))
         return 78
 
 

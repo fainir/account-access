@@ -13,6 +13,21 @@ from .models import origin
 from .navigation import route_hint
 
 
+def native_form_target(action):
+    """Compare the resolved native action as HTTP sends it, preserving every
+    scheme, authority, path and query byte. A fragment is never sent to a server.
+    Configuration and network allowlists continue to reject fragments.
+    """
+    if not isinstance(action, str):
+        return None
+    try:
+        if urlsplit(action).scheme not in {"http", "https"}:
+            return None
+    except ValueError:
+        return None
+    return action.partition("#")[0]
+
+
 class Browser:
     def __init__(self, store, codes):
         self.store = store
@@ -730,6 +745,8 @@ class Browser:
         }""", [field, button])
         if destination is None and allow_missing:
             return
+        if isinstance(destination, dict):
+            destination["action"] = native_form_target(destination.get("action"))
         if not destination or destination != {"same": True, "method": "POST", "action": post_url}:
             raise AccessError("NEEDS_USER", reason, "unknown")
 
@@ -833,7 +850,10 @@ class Browser:
         raise AccessError("NEEDS_USER", "verification_method_unavailable", "method")
 
     def check_form(self, page, selector, config):
-        if page.url not in {config.login_url, *config.login_resources}:
+        # Native POST redirects can inherit the form's client fragment. Match
+        # that page's actual HTTP provenance without granting a new destination.
+        provenance = page.url if config.javascript else native_form_target(page.url)
+        if provenance not in {config.login_url, *config.login_resources}:
             raise AccessError("NEEDS_USER", "login_destination_changed", "unknown")
         destination = page.locator(selector).evaluate("""el => {
             const form = el.form;
@@ -851,7 +871,7 @@ class Browser:
             # allowed by the network guard in this connector mode.
             return
         if (not destination or destination["method"] != "POST"
-                or destination["action"] not in config.login_post_urls):
+                or native_form_target(destination["action"]) not in config.login_post_urls):
             raise AccessError("NEEDS_USER", "login_form_destination_changed", "unknown")
 
     def save(self, account, state, db=None):

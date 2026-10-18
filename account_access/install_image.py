@@ -28,6 +28,9 @@ ROOTS = {SUPPORT: "support", APPLICATION: "application"}
 EXTRAS = {"broker", "home", "vault", "run", "control", "owner.json", "install-verification.json"}
 DIRECTORY = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
 REGULAR = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC
+# Leave room for the small journal/provisioning records and for the rest of
+# macOS. This is an allocation estimate, never a claim that space is reserved.
+INSTALL_SPACE_RESERVE = 256 * 1024 * 1024
 
 
 class ImageConflict(Exception):
@@ -204,6 +207,26 @@ class ImageManifest:
                 or self.trees[SUPPORT].get("owner.app/Contents/MacOS/AccountAccess", {}).get("kind") != "file"
                 or count > MAX_ENTRIES):
             raise ImageConflict("invalid_image_inventory")
+
+    def required_space(self, *, copies=1, block_size=4096):
+        """Conservative allocation for verified public files and metadata.
+
+        The package distribution needs two copies: Installer's extracted source
+        and our separately verified destination coexist. At materialization the
+        source already exists, so only one additional copy is required. Charge
+        a filesystem block for each entry as well as rounding each file's data;
+        aliases, directories and empty files must not disappear from the cost.
+        """
+        if (type(copies) is not int or copies not in {1, 2}
+                or type(block_size) is not int or not 512 <= block_size <= 1024 * 1024):
+            raise ImageConflict("install_space_check_failed")
+        allocated = 0
+        for nodes in self.trees.values():
+            for node in nodes.values():
+                allocated += block_size
+                if node["kind"] == "file":
+                    allocated += ((node["size"] + block_size - 1) // block_size) * block_size
+        return copies * allocated + INSTALL_SPACE_RESERVE
 
 
 def _stamp(info):
@@ -671,6 +694,27 @@ class ImageRecovery:
         elif _stamp(before) != _stamp(_check(destination, self.uid, True, node["mode"])):
             raise ImageConflict("image_namespace_changed")
 
+    def _require_copy_space(self):
+        # Use the already pinned protected directory, never a caller-selected
+        # pathname or a purgeable-space estimate. Do not consume root's reserved
+        # blocks. A concurrent writer can still exhaust capacity afterwards;
+        # the normal non-destructive journal recovery remains authoritative.
+        journal = _check(self.journal, self.uid, True, 0o700)
+        for root, (parent, _) in self.targets.items():
+            target = _check(parent, self.uid, True, shared=root == APPLICATION)
+            if journal.st_dev != target.st_dev:
+                raise ImageConflict("installation_volume_mismatch")
+        try:
+            capacity = os.fstatvfs(self.journal)
+        except OSError:
+            raise ImageConflict("install_space_check_failed") from None
+        if (type(capacity.f_bavail) is not int or capacity.f_bavail < 0
+                or type(capacity.f_frsize) is not int):
+            raise ImageConflict("install_space_check_failed")
+        needed = self.manifest.required_space(block_size=capacity.f_frsize)
+        if capacity.f_bavail * capacity.f_frsize < needed:
+            raise ImageConflict("insufficient_install_space")
+
     def materialize(self):
         if self.lease is None:
             raise ImageConflict("install_lock_required")
@@ -696,7 +740,8 @@ class ImageRecovery:
                 raise ImageConflict("unknown_install_state")
             if any(self._exists(parent, name) for parent, name in self.targets.values()):
                 raise ImageConflict("existing_installation_requires_repair")
-        self._record("intent.json", intent)
+        elif not _same_record(existing, intent):
+            raise ImageConflict("install_record_conflict")
         ready, published = self._read_record("ready.json"), self._read_record("published.json")
         complete = self._read_record("complete.json")
         if (
@@ -716,6 +761,12 @@ class ImageRecovery:
             and (published is None or not _same_record(complete, self._completion()))
         ):
             raise ImageConflict("invalid_install_phase")
+        if ready is None:
+            self._require_copy_space()
+        # Refuse a full volume before creating or repairing intent/stage data.
+        # Existing records and interrupted public bytes remain unchanged, and
+        # the same package can retry after the owner frees disk space.
+        self._record("intent.json", intent)
         if ready is None:
             if any(self._exists(parent, name) for parent, name in self.targets.values()):
                 raise ImageConflict("existing_installation_requires_repair")
