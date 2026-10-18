@@ -69,6 +69,21 @@ def seed_native_host_fixture(store, settings):
     store.put("credential:native-sms", {"username": "demo@example.test", "password": DEMO_PASSWORD})
     store.put("source:native-sms", {"enabled": True})
     Broker(store).grant("fixture-agent", "native-sms", ["summary"])
+    # A separate enrolled source exercises browser framing/XPC delivery. This
+    # remains synthetic CI setup and never enables an owner's existing source.
+    browser = account.model_copy(deep=True)
+    browser.label = "Controlled framed-browser SMS fixture"
+    browser.login.factors["sms"].code_source = "browser-sms"
+    config = store.config()
+    config.accounts["browser-sms"] = browser
+    config.code_sources["browser-sms"] = CodeSource(
+        kind="google_messages", sender="github-login-rotating-senders",
+        recipient="paired-google-messages", template="{code} is your GitHub authentication code."
+    )
+    store.configure(config)
+    store.put("credential:browser-sms", {"username": "demo@example.test", "password": DEMO_PASSWORD})
+    store.put("source:browser-sms", {"enabled": True})
+    Broker(store).grant("fixture-agent", "browser-sms", ["summary"])
 
 
 def main():

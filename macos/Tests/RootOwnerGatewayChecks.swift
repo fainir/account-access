@@ -107,6 +107,9 @@ enum RootGatewayFixture {
             let value = try RootGatewayFixture.policy()
             guard let hash = value["server_hash"] as? String else { throw OwnerGatewayError.invalidPolicy }
             let peer = try OwnerGatewayPeer.fixture(uid: 0, codeHash: hash)
+            if CommandLine.arguments[3] == "browser-bridge" {
+                try BrowserGatewayJourney.serve(peer: peer)
+            }
             let channel = try OwnerGatewayConnection(service: OwnerGatewayHost.serviceName, peer: peer)
             defer { channel.invalidate() }
             let ready: Bool = try RootGatewayFixture.wait { channel.prepare(reply: $0) }

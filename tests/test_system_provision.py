@@ -187,6 +187,205 @@ def test_publication_refuses_unsafe_existing_objects(tmp_path, monkeypatch, kind
     assert outside.read_bytes() == b"preserve"
 
 
+@pytest.fixture
+def private_directories(tmp_path, monkeypatch):
+    """Exercise real descriptors/renames using synthetic ownership, never Root."""
+    from account_access.install_image import _check as real_check
+
+    real_uid = os.getuid()
+    root = tmp_path / "protected"
+    root.mkdir(mode=0o700)
+    staging = root / "broker"
+    staging.mkdir(mode=0o700)
+    owners, ownership_changes = {}, []
+
+    def identity(fd):
+        info = os.fstat(fd)
+        return info.st_dev, info.st_ino
+
+    def metadata(fd):
+        info = os.fstat(fd)
+        owner, group = owners.get(identity(fd), (0, 0))
+        return SimpleNamespace(st_uid=owner, st_gid=group, st_dev=info.st_dev,
+                               st_ino=info.st_ino)
+
+    def check(fd, uid, directory, mode=None):
+        real_check(fd, real_uid, directory, mode)
+        info = metadata(fd)
+        if info.st_uid != uid:
+            raise provision.ImageConflict("unsafe_image_object")
+        return info
+
+    def chown(fd, uid, gid):
+        owners[identity(fd)] = (uid, gid)
+        ownership_changes.append(identity(fd))
+
+    proxy = SimpleNamespace(**{name: getattr(os, name) for name in dir(os)})
+    proxy.fstat, proxy.fchown = metadata, chown
+    monkeypatch.setattr(provision, "os", proxy)
+    monkeypatch.setattr(provision, "_check", check)
+    monkeypatch.setattr(provision, "root_managed_path", lambda path: Path(path))
+    return root, staging, owners, ownership_changes
+
+
+@pytest.mark.parametrize("boundary", [
+    "stage-created", "directory-created", "ownership-set", "directory-published", "stage-removed",
+])
+def test_private_directory_recovers_each_atomic_publication_boundary(
+    private_directories, boundary
+):
+    root, staging, owners, changes = private_directories
+    target = root / "home"
+
+    def interrupt(event):
+        if event == boundary:
+            raise KeyboardInterrupt("synthetic provisioning interruption")
+
+    with pytest.raises(KeyboardInterrupt):
+        provision.private_directory(target, 451, staging=staging, checkpoint=interrupt)
+    published = target.stat().st_ino if target.exists() else None
+    provision.private_directory(target, 451, staging=staging)
+    before = target.stat()
+    target.joinpath("private-data").write_bytes(b"synthetic private contents")
+    provision.private_directory(target, 451, staging=staging)
+    assert target.stat().st_ino == before.st_ino
+    assert published is None or published == before.st_ino
+    assert owners[(before.st_dev, before.st_ino)] == (451, 451)
+    assert len(changes) == 1 and before.st_mode & 0o777 == 0o700
+    assert list(staging.iterdir()) == []
+    assert target.joinpath("private-data").read_bytes() == b"synthetic private contents"
+
+
+def test_private_directory_handles_restrictive_umask(private_directories):
+    root, staging, _, _ = private_directories
+    previous = os.umask(0o777)
+    try:
+        provision.private_directory(root / "home", 451, staging=staging)
+        assert os.umask(0o777) == 0o777
+    finally:
+        os.umask(previous)
+    assert (root / "home").stat().st_mode & 0o777 == 0o700
+
+
+def test_private_directory_sets_both_ids_after_root_group_inheritance(private_directories):
+    root, staging, owners, changes = private_directories
+    target = root / "home"
+    stage = staging / provision._private_stage_name(target, 451)
+    stage.mkdir(mode=0o700)
+    child = stage / "directory"
+    child.mkdir(mode=0o700)
+    before = child.stat()
+    owners[(before.st_dev, before.st_ino)] = (0, 20)
+    provision.private_directory(target, 451, staging=staging)
+    assert target.stat().st_ino == before.st_ino
+    assert owners[(before.st_dev, before.st_ino)] == (451, 451)
+    assert len(changes) == 1 and list(staging.iterdir()) == []
+
+
+@pytest.mark.parametrize("kind", ["root-owned", "symlink", "mode", "group"])
+def test_private_directory_never_adopts_or_rewrites_conflicting_final(
+    private_directories, kind
+):
+    root, staging, owners, changes = private_directories
+    outside = root / "outside"
+    outside.mkdir(mode=0o700)
+    outside.joinpath("keep").write_bytes(b"preserve")
+    target = root / "home"
+    if kind == "symlink":
+        target.symlink_to(outside, target_is_directory=True)
+    else:
+        target.mkdir(mode=0o700)
+        info = target.stat()
+        owners[(info.st_dev, info.st_ino)] = (0, 0) if kind == "root-owned" else (451, 451)
+        if kind == "mode":
+            target.chmod(0o750)
+        if kind == "group":
+            owners[(info.st_dev, info.st_ino)] = (451, 452)
+    before = target.lstat()
+    with pytest.raises(provision.ProvisionError, match="unsafe_private_directory"):
+        provision.private_directory(target, 451, staging=staging)
+    assert target.lstat() == before and changes == [] and list(staging.iterdir()) == []
+    assert outside.joinpath("keep").read_bytes() == b"preserve"
+
+
+@pytest.mark.parametrize("kind", ["unknown-child", "nonempty-child", "symlink-child", "mode", "foreign-owner"])
+def test_private_directory_preserves_conflicting_intermediate(private_directories, kind):
+    root, staging, owners, changes = private_directories
+    target = root / "home"
+    stage = staging / provision._private_stage_name(target, 451)
+    stage.mkdir(mode=0o700)
+    if kind == "unknown-child":
+        stage.joinpath("unknown").write_bytes(b"preserve")
+    elif kind == "symlink-child":
+        stage.joinpath("directory").symlink_to(root, target_is_directory=True)
+    elif kind in {"nonempty-child", "foreign-owner"}:
+        child = stage / "directory"
+        child.mkdir(mode=0o700)
+        if kind == "nonempty-child":
+            child.joinpath("private-data").write_bytes(b"preserve")
+        else:
+            info = child.stat()
+            owners[(info.st_dev, info.st_ino)] = (452, 452)
+    else:
+        stage.chmod(0o750)
+    before = {path.name: path.lstat() for path in stage.iterdir()}
+    with pytest.raises(provision.ProvisionError, match="unsafe_private_directory"):
+        provision.private_directory(target, 451, staging=staging)
+    assert not target.exists() and changes == []
+    assert {path.name: path.lstat() for path in stage.iterdir()} == before
+
+
+def test_private_directory_does_not_traverse_existing_private_contents(
+    private_directories, monkeypatch
+):
+    root, staging, _, _ = private_directories
+    target = root / "home"
+    provision.private_directory(target, 451, staging=staging)
+    private_inode = target.stat().st_ino
+    original = provision._names
+
+    def names(fd):
+        assert os.fstat(fd).st_ino != private_inode
+        return original(fd)
+
+    monkeypatch.setattr(provision, "_names", names)
+    provision.private_directory(target, 451, staging=staging)
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Darwin extended ACLs")
+@pytest.mark.parametrize("location", ["stage", "final"])
+def test_private_directory_rejects_allow_acl_without_changing_private_state(
+    private_directories, location
+):
+    root, staging, _, changes = private_directories
+    target = root / "home"
+    if location == "final":
+        provision.private_directory(target, 451, staging=staging)
+        controlled = target
+    else:
+        controlled = staging / provision._private_stage_name(target, 451)
+        controlled.mkdir(mode=0o700)
+    count = len(changes)
+    subprocess.run(["/bin/chmod", "+a", "everyone allow read", str(controlled)], check=True)
+    try:
+        with pytest.raises(provision.ProvisionError, match="unsafe_private_directory"):
+            provision.private_directory(target, 451, staging=staging)
+        assert len(changes) == count and controlled.exists()
+    finally:
+        subprocess.run(["/bin/chmod", "-N", str(controlled)], check=True)
+
+
+def test_privileged_private_directory_probe_refuses_local_execution(monkeypatch):
+    from scripts import mac_private_directory_probe as probe
+
+    monkeypatch.setattr(probe.os, "getuid", lambda: 501)
+    monkeypatch.setattr(
+        probe, "root_managed_path", lambda path: pytest.fail("No local protected path access")
+    )
+    with pytest.raises(RuntimeError, match="disposable_private_directory_probe_required"):
+        probe.check_recovery(Path("/Library/PrivilegedHelperTools/account-access-worker-qa-12345678"), 451)
+
+
 @pytest.mark.parametrize(
     "code,out,err,expected",
     [

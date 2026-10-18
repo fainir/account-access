@@ -26,6 +26,7 @@ from dataclasses import dataclass
 
 from filelock import FileLock
 
+from .install_image import DIRECTORY, ImageConflict, _check, _names, _rename_exclusive
 from .worker_bootstrap import root_managed_path
 
 
@@ -331,21 +332,122 @@ def identity_record(layout, uid):
     return check
 
 
-def private_directory(path, uid):
-    root_managed_path(path.parent)
-    try:
-        path.mkdir(mode=0o700)
-        os.chown(path, uid, uid)
-    except FileExistsError:
-        pass
-    info = path.lstat()
-    if (
-        not stat.S_ISDIR(info.st_mode)
-        or info.st_uid != uid
-        or info.st_gid != uid
-        or stat.S_IMODE(info.st_mode) != 0o700
-    ):
+def _private_stage_name(path, uid):
+    return ".private-directory-" + hashlib.sha256(
+        (str(path) + "\0" + str(uid)).encode()
+    ).hexdigest()
+
+
+def _private_info(fd, uid):
+    info = _check(fd, uid, True, 0o700)
+    if info.st_gid != uid:
         raise ProvisionError("unsafe_private_directory")
+    return info
+
+
+def _private_mkdir(parent, name):
+    # A restrictive inherited umask must not leave an unusable intermediate.
+    # The coordinator is single-threaded; restore its mask before any callback.
+    previous = os.umask(0o077)
+    try:
+        os.mkdir(name, 0o700, dir_fd=parent)
+        return True
+    except FileExistsError:
+        return False
+    finally:
+        os.umask(previous)
+
+
+def private_directory(path, uid, *, staging, checkpoint=None):
+    """Publish an empty private directory only after setting its ownership.
+
+    Staging stays behind a root-only directory in the protected broker subtree.
+    Recovery never adopts a root-owned final name, traverses existing private
+    contents, or removes a nonempty intermediate. checkpoint is internal test
+    fault injection; the installed entrypoint exposes no switch for it.
+    """
+    if type(uid) is not int or uid <= 0:
+        raise ProvisionError("unsafe_private_directory")
+    path, staging = Path(path), Path(staging)
+    root_managed_path(path.parent)
+    root_managed_path(staging)
+    stage_name = _private_stage_name(path, uid)
+    checkpoint = checkpoint or (lambda event: None)
+    handles = []
+    try:
+        parent = os.open(path.parent, DIRECTORY)
+        handles.append(parent)
+        root = os.open(staging, DIRECTORY)
+        handles.append(root)
+        _check(parent, 0, True)
+        _check(root, 0, True)
+        if os.fstat(parent).st_dev != os.fstat(root).st_dev:
+            raise ProvisionError("unsafe_private_directory")
+        try:
+            final = os.open(path.name, DIRECTORY, dir_fd=parent)
+        except FileNotFoundError:
+            final = None
+        if final is not None:
+            handles.append(final)
+            info = _private_info(final, uid)
+            observed = os.stat(path.name, dir_fd=parent, follow_symlinks=False)
+            if (info.st_dev, info.st_ino) != (observed.st_dev, observed.st_ino):
+                raise ProvisionError("unsafe_private_directory")
+
+        created = _private_mkdir(root, stage_name)
+        stage = os.open(stage_name, DIRECTORY, dir_fd=root)
+        handles.append(stage)
+        _check(stage, 0, True, 0o700)
+        os.fsync(root)
+        if created:
+            checkpoint("stage-created")
+        names = _names(stage)
+        if names - {"directory"} or final is not None and names:
+            raise ProvisionError("unsafe_private_directory")
+        if final is None:
+            created = _private_mkdir(stage, "directory")
+            child = os.open("directory", DIRECTORY, dir_fd=stage)
+            handles.append(child)
+            owner = os.fstat(child).st_uid
+            if owner not in {0, uid}:
+                raise ProvisionError("unsafe_private_directory")
+            # Root-created directories inherit the protected parent's group on
+            # Darwin. Their 0700 mode and root-only enclosing stage keep that
+            # group from granting access; fchown sets both final IDs below.
+            if owner == 0:
+                _check(child, 0, True, 0o700)
+            else:
+                _private_info(child, uid)
+            if _names(child):
+                raise ProvisionError("unsafe_private_directory")
+            os.fsync(stage)
+            if created:
+                checkpoint("directory-created")
+            if owner == 0:
+                os.fchown(child, uid, uid)
+            _private_info(child, uid)
+            os.fsync(child)
+            os.fsync(stage)
+            checkpoint("ownership-set")
+            _rename_exclusive(stage, "directory", parent, path.name)
+            os.fsync(parent)
+            os.fsync(stage)
+            checkpoint("directory-published")
+        # Only the exact, empty protected container is removed. An existing
+        # final directory is validated above without listing its contents.
+        _check(stage, 0, True, 0o700)
+        observed = os.stat(stage_name, dir_fd=root, follow_symlinks=False)
+        info = os.fstat(stage)
+        if _names(stage) or (info.st_dev, info.st_ino) != (observed.st_dev, observed.st_ino):
+            raise ProvisionError("unsafe_private_directory")
+        os.rmdir(stage_name, dir_fd=root)
+        os.fsync(root)
+        checkpoint("stage-removed")
+    except (OSError, ImageConflict):
+        raise ProvisionError("unsafe_private_directory") from None
+    finally:
+        for descriptor in reversed(handles):
+            os.close(descriptor)
 
 
 def publish(path, data, *, mode=0o644):
@@ -637,7 +739,7 @@ def prepare(layout, owner_uid, *, expected_signatures=None):
             layout.base / "vault/data",
             layout.base / "vault" / (".enrollment-" + transaction["enrollment_id"]),
         ]:
-            private_directory(path, identity.pw_uid)
+            private_directory(path, identity.pw_uid, staging=layout.base / "broker")
         values, profile, job = plans(layout, transaction, signatures, owner.pw_gid)
         for name, value in values.items():
             publish(layout.base / "broker" / name, json.dumps(value, sort_keys=True).encode())

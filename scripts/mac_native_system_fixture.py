@@ -5,6 +5,7 @@ import json
 import os
 import plistlib
 import re
+import runpy
 import subprocess
 import sys
 import time
@@ -234,6 +235,12 @@ def _exercise(prefix, roles, key_policy, phase, client_token, probe, command, fi
         print(
             json.dumps({"stage": "native_system_second_cli_completed"}), file=sys.stderr, flush=True
         )
+        controller = prefix / "protected-browser-fixture.py"
+        root_managed_path(controller)
+        browser_report = runpy.run_path(str(controller))["exercise_browser_gateway"](
+            prefix, roles, fixture, config, signature(binary)
+        )
+        print(json.dumps({"stage": "protected_browser_cli_completed"}), file=sys.stderr, flush=True)
         stop(second)
         print(json.dumps({"stage": "native_system_second_stopped"}), file=sys.stderr, flush=True)
         checks.update(
@@ -277,5 +284,6 @@ def _exercise(prefix, roles, key_policy, phase, client_token, probe, command, fi
         "genuine_full_disk_access_verified": False,
         "consumer_deployment_verified": False,
         "publisher_signed_peers": False,
+        "protected_browser": browser_report,
         "checks": checks,
     }

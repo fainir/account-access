@@ -596,11 +596,23 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                     with broker.store.lock("account:" + account):
                         with broker.store.db() as db:
                             previous = broker.store.get("credential:" + account)
+                            previous_link = broker.store.get("password-link:" + account)
                             broker.store.put("credential:" + account, value, db=db)
                             if isinstance(config.accounts[account], BrowserAccount) and previous != value:
                                 # A session for the old identity must not be
                                 # reported as the edited account's connection.
                                 broker.store.put("connection:" + account, None, db=db)
+                                # An explicit owner edit replaces the source,
+                                # just like a fresh CSV import. An old manager
+                                # link must not silently restore its former
+                                # username/password on the next refresh.
+                                broker.store.put("password-link:" + account, None, db=db)
+                                if previous_link:
+                                    # Replacing this source repairs its own
+                                    # prerequisite, not website authentication.
+                                    # Unbound historical gates stay pending.
+                                    db.execute("UPDATE challenges SET resolved=? WHERE account=? AND resolved IS NULL AND kind='login' AND reason IN ('password_source_access_removed','password_source_item_changed','password_sync_identity_mismatch','password_sync_connector_changed')",
+                                               (time.time(), account))
                             # Saving a credential is not verified login and
                             # cannot clear presence, CAPTCHA, unknown-page or
                             # transaction challenges or restart their tasks.

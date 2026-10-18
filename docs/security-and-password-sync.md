@@ -134,7 +134,9 @@ replacement or proof of completion.
 3. Select that account. Enter the Connect server's HTTPS origin, vault ID, item ID and read-only token locally. Do not send the token in chat.
 4. Click **Connect automatic updates**.
 
-The service checks the selected item every five minutes while running, and checks again before a password login. Updates are encrypted and replace the password and cached session together. New accounts and new permissions are never imported silently. A fresh explicit CSV import removes any previous manager link for the selected account.
+The service checks the selected item every five minutes while running, and checks again before a password login. Updates are encrypted and replace the password and cached session together. New accounts and new permissions are never imported silently. A fresh explicit CSV import removes any previous manager link for the selected account. Editing a saved browser username or password also disconnects its old manager link, so a later sync cannot undo your edit. Saving unchanged values keeps that connection.
+
+A password update repairs only a missing-credential prerequisite or the exact password-source problem. It cannot dismiss a website's failed login, browser check or required verification. Busy accounts do not prevent other linked accounts from receiving their updates; background scans rotate through a bounded set of links.
 
 Network failures retry with backoff. A deleted item, removed access, changed username or changed website blocks use until repaired. An unavailable source cannot supply a stale password for a new login. Disconnecting a source erases its local token, cached password and session; existing operation grants alone do not restore a credential.
 

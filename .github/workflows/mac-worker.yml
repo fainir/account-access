@@ -33,7 +33,7 @@ jobs:
       - name: Check Darwin pipe handoff and reject filesystem FIFO bootstrap
         run: |
           uv sync --locked
-          uv run pytest -q tests/test_worker_signals.py tests/test_worker_boundary.py tests/test_worker_enroll.py tests/test_worker_evidence.py tests/test_mac_root_owner_evidence.py tests/test_mac_key_custody_evidence.py tests/test_mac_owner_policy_evidence.py tests/test_mac_key_handoff_evidence.py tests/test_mac_root_supervisor_evidence.py tests/test_mac_root_coordinator_evidence.py tests/test_mac_staged_enrollment_evidence.py tests/test_mac_initial_setup_evidence.py tests/test_mac_initial_gateway_evidence.py tests/test_system_provision.py tests/test_mac_provisioning_evidence.py tests/test_agent_setup.py tests/test_managed_client.py tests/test_runtime_acl.py tests/test_native_messages.py tests/test_mac_native_messages_evidence.py tests/test_mac_native_browser_evidence.py tests/test_mac_native_system_browser_evidence.py tests/test_payload_audit.py tests/test_system_package.py tests/test_runtime_prepare.py tests/test_runtime_prepare_package.py tests/test_prepared_package_checks.py tests/test_install_manifest.py tests/test_runtime_image.py tests/test_install_image.py tests/test_install_transaction.py tests/test_installer_payload_native.py tests/test_installer_payload_receipt.py tests/test_package_manifest_binding.py
+          uv run pytest -q tests/test_worker_signals.py tests/test_worker_boundary.py tests/test_worker_enroll.py tests/test_worker_evidence.py tests/test_mac_root_owner_evidence.py tests/test_mac_key_custody_evidence.py tests/test_mac_owner_policy_evidence.py tests/test_mac_key_handoff_evidence.py tests/test_mac_root_supervisor_evidence.py tests/test_mac_root_coordinator_evidence.py tests/test_mac_staged_enrollment_evidence.py tests/test_mac_initial_setup_evidence.py tests/test_mac_initial_gateway_evidence.py tests/test_system_provision.py tests/test_mac_provisioning_evidence.py tests/test_agent_setup.py tests/test_managed_client.py tests/test_runtime_acl.py tests/test_native_messages.py tests/test_mac_native_messages_evidence.py tests/test_mac_native_browser_evidence.py tests/test_mac_native_system_browser_evidence.py tests/test_mac_protected_browser_evidence.py tests/test_payload_audit.py tests/test_system_package.py tests/test_runtime_prepare.py tests/test_runtime_prepare_package.py tests/test_prepared_package_checks.py tests/test_install_manifest.py tests/test_runtime_image.py tests/test_install_image.py tests/test_install_transaction.py tests/test_installer_payload_native.py tests/test_installer_payload_receipt.py tests/test_package_manifest_binding.py
       - name: Compile and check the permanent identity-drop launcher
         run: |
           for AC_BOOTSTRAP_ARCH in arm64 x86_64; do
@@ -58,7 +58,8 @@ jobs:
             macos/OwnerAuthorizationPolicy.swift macos/OwnerGatewayHost.swift macos/Tests/RootOwnerGatewayChecks.swift -o /tmp/ac-root-owner-gateway
           xcrun swiftc -O -parse-as-library -D ACCOUNT_ACCESS_GATEWAY_CHECKS -D ACCOUNT_ACCESS_ROOT_GATEWAY_CLIENT \
             -framework Foundation -framework Security macos/WorkerBootstrap.swift macos/OwnerGateway.swift \
-            macos/OwnerAuthorizationPolicy.swift macos/OwnerGatewayHost.swift macos/DesktopOwnerConnection.swift macos/Tests/RootOwnerGatewayChecks.swift -o /tmp/ac-root-owner-client
+            macos/OwnerAuthorizationPolicy.swift macos/OwnerGatewayHost.swift macos/DesktopOwnerConnection.swift \
+            macos/BrowserNativeHost.swift macos/Tests/BrowserGatewayJourney.swift macos/Tests/RootOwnerGatewayChecks.swift -o /tmp/ac-root-owner-client
           xcrun clang -O2 -Wall -Wextra -Werror -c macos/KeychainInteraction.c -o /tmp/ac-keychain-interaction.o
           xcrun clang -O2 -Wall -Wextra -Werror -c macos/NativeBroker.c -o /tmp/ac-native-broker.o
           xcrun swiftc -O -parse-as-library -warnings-as-errors -framework Foundation -framework Security \
@@ -129,6 +130,8 @@ jobs:
           sudo install -m 644 scripts/worker_boundary_probe.py "$AC_MAC_WORKER_PREFIX/probe.py"
           sudo install -m 644 scripts/mac_native_sms_fixture.py "$AC_MAC_WORKER_PREFIX/native-sms-fixture.py"
           sudo install -m 644 scripts/mac_native_system_fixture.py "$AC_MAC_WORKER_PREFIX/native-system-fixture.py"
+          sudo install -m 644 scripts/mac_protected_browser_fixture.py "$AC_MAC_WORKER_PREFIX/protected-browser-fixture.py"
+          sudo install -m 644 scripts/mac_private_directory_probe.py "$AC_MAC_WORKER_PREFIX/private-directory-probe.py"
           sudo install -m 755 /tmp/ac-native-browser-collector "$AC_MAC_WORKER_PREFIX/native-browser-collector"
           sudo codesign --force --options runtime --identifier com.fainir.accountaccess.qa.native-browser --sign - "$AC_MAC_WORKER_PREFIX/native-browser-collector"
           sudo install -m 644 scripts/mac_browser_probe.py "$AC_MAC_WORKER_PREFIX/browser-probe.py"
@@ -187,6 +190,7 @@ jobs:
           uv run python scripts/check_mac_native_messages_report.py /tmp/account-access-mac-native-messages.json
           uv run python scripts/check_mac_native_browser_report.py /tmp/account-access-mac-native-browser.json
           uv run python scripts/check_mac_native_system_browser_report.py /tmp/account-access-mac-native-system-browser.json
+          uv run python scripts/check_mac_protected_browser_report.py /tmp/account-access-mac-protected-browser.json
           cat /tmp/account-access-mac-worker.json
           cat /tmp/account-access-mac-root-owner.json
           cat /tmp/account-access-mac-key-custody.json
@@ -252,6 +256,7 @@ jobs:
             /tmp/account-access-mac-native-messages.json
             /tmp/account-access-mac-native-browser.json
             /tmp/account-access-mac-native-system-browser.json
+            /tmp/account-access-mac-protected-browser.json
           if-no-files-found: ignore
       - name: Remove the ephemeral runtime
         if: always()

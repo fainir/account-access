@@ -82,7 +82,9 @@ an export or paste credentials into chat.
 password. Optional 1Password Connect sync updates only exact approved items,
 every five minutes and before password login. It requires an existing Connect
 server and read-only vault token; changed usernames/sites need review. Universal
-Chrome live sync is not shipped. [Password-sync details](docs/security-and-password-sync.md).
+Chrome live sync is not shipped. Editing a saved login replaces its previous
+manager connection, so sync cannot undo your edit.
+[Password-sync details](docs/security-and-password-sync.md).
 
 ### Connect email, SMS and an authenticator
 

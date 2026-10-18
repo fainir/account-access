@@ -65,10 +65,13 @@ def fetch(link, expected_origin):
 
 
 def enroll(store, account, data):
-    link = validate_link(store, account, data)
-    config = store.config()
-    credential = fetch(link, origin(config.accounts[account].login_url))
     with store.lock("account:" + account):
+        # Serialize the complete enrollment with credential edits, imports and
+        # disconnection. A delayed source response cannot restore a link or
+        # credential after the owner's newer account action.
+        link = validate_link(store, account, data)
+        config = store.config()
+        credential = fetch(link, origin(config.accounts[account].login_url))
         saved = store.get("credential:" + account) or {}
         if not saved.get("username") or saved["username"] != credential["username"]:
             raise AccessError("DENIED", "password_sync_identity_mismatch")
@@ -117,18 +120,31 @@ def refresh(store, account, *, force=False):
         if changed:
             store.put("credential:" + account, credential, db=db)
             store.put("connection:" + account, None, db=db)
-            db.execute("UPDATE challenges SET resolved=? WHERE account=? AND resolved IS NULL AND kind='login'",
+            # A source password update is not a successful website sign-in.
+            # Match owner credential-save semantics: repair only the missing
+            # credential/login prerequisite, never an unrelated login gate.
+            db.execute("UPDATE challenges SET resolved=? WHERE account=? AND resolved IS NULL AND kind='login' AND reason IN ('password_not_connected','browser_login_required')",
                        (now, account))
     if changed:
         store.audit("service", account, "", "password_synced")
 
 
 def due(store):
-    # Bounded work per tick. Exceptions contain only fixed reasons, never items.
+    # Bound both record inspection and network work. Rotate by immutable record
+    # ID (put replaces rowids), so busy or not-yet-due links cannot starve later
+    # accounts. Exceptions contain only fixed reasons, never item contents.
+    cursor = store.get("password-sync-cursor", "")
+    if not isinstance(cursor, str) or (cursor and not cursor.startswith("password-link:")):
+        cursor = ""
     with store.db() as db:
-        keys = [r[0] for r in db.execute("SELECT id FROM records WHERE id LIKE 'password-link:%'")]
+        query = """SELECT id FROM records WHERE id LIKE 'password-link:%' AND id>?
+                   ORDER BY id LIMIT 20"""
+        keys = [r[0] for r in db.execute(query, (cursor,))]
+        if not keys and cursor:
+            keys = [r[0] for r in db.execute(query, ("",))]
     count = 0
     for key in keys:
+        store.put("password-sync-cursor", key)
         link = store.get(key)
         if not link or link["next_at"] > time.time():
             continue

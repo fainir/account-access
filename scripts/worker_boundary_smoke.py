@@ -512,6 +512,9 @@ def provisioned_system_broker(prefix, roles):
         checks["broker_home_is_private"] = (
             layout.base / "home"
         ).stat().st_uid == broker.pw_uid and (layout.base / "home").stat().st_mode & 0o777 == 0o700
+        stage("provision_private_directory_crash_recovery")
+        private_probe = runpy.run_path(str(prefix / "private-directory-probe.py"))
+        checks.update(private_probe["check_recovery"](prefix, broker.pw_uid))
         checks["new_store_and_stage_are_empty"] = not any((layout.base / "vault/data").iterdir())
         transaction = root_json(layout.base / "broker/install.json")
         staged = layout.base / "vault" / (".enrollment-" + transaction["enrollment_id"])
@@ -1025,8 +1028,15 @@ def root_key_custody(prefix, roles, client_token):
             phase("remove")
     if native_system_report is not None:
         native_system_report["checks"]["fixture_system_key_removed"] = checks["remove_fixture_key_removed_and_not_recreated"]
+        browser_report = native_system_report["protected_browser"]
+        browser_report["checks"]["fixture_system_key_removed"] = checks["remove_fixture_key_removed_and_not_recreated"]
+        browser_report["checks"]["fixture_setup_policy_removed"] = native_system_report["checks"]["fixture_setup_policy_removed"]
+        browser_report["checks"]["temporary_jobs_removed"] = native_system_report["checks"]["temporary_jobs_removed"]
         evidence = Path("/tmp/account-access-mac-native-system-browser.json")
         private_file(evidence, json.dumps(native_system_report, indent=2).encode())
+        evidence.chmod(0o644)
+        evidence = Path("/tmp/account-access-mac-protected-browser.json")
+        private_file(evidence, json.dumps(browser_report, indent=2).encode())
         evidence.chmod(0o644)
     checks["separate_daemon_processes_used"] = len(set(pids)) == 3
     def signature(path):
