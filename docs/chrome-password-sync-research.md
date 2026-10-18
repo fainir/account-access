@@ -63,3 +63,9 @@ server requirement, but its live private deployment still needs acceptance
 testing. See [1Password setup](onepassword-sync.md),
 [password sync behavior](security-and-password-sync.md) and
 [production gates](production-gates.md).
+
+The candidate also supports reviewed Bitwarden unencrypted JSON imports through
+the same owner-only import flow. That documented export format improves transfer
+compatibility; it is another snapshot, not an ongoing password-manager feed or a
+solution to the unresolved Chrome change-authority requirements.
+[Supported import formats](password-import.md).

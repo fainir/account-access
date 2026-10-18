@@ -7,8 +7,9 @@ The agent interface returns approved results, never passwords or verification co
 
 The current [Chrome sync source review](chrome-password-sync-research.md) explains
 why a raw browser-database reader is not a shipped continuous-sync connection.
-Chrome imports remain reviewed snapshots; the configured 1Password Connect
-contract is the existing ongoing-sync option. Private deployment QA remains open.
+Chrome imports remain reviewed snapshots; configured read-only 1Password
+service-account and Connect sources provide ongoing exact-item updates. Private
+deployment QA remains open.
 
 Version 0.7 adds:
 
@@ -115,7 +116,7 @@ are refreshed by installation; unchanged old client processes need restarting.
 
 ## Password-source updates
 
-**Chrome, Apple Passwords and CSV exports are snapshots.** Import a fresh export when a password changes. A file export is not a live connection to the original manager. Account Access does not keep a plaintext CSV watcher or extract Chrome's encrypted password database.
+**Chrome, Apple Passwords, CSV and Bitwarden JSON exports are snapshots.** Import a fresh export when a password changes. A file export is not a live connection to the original manager. Account Access does not keep a plaintext export watcher or extract Chrome's encrypted password database. The [local import guide](password-import.md) describes supported formats, selected-account review and optional authenticator enrollment.
 
 Chrome's [public extension API reference](https://developer.chrome.com/docs/extensions/reference/api) does not offer a password-vault synchronization API. Automatic Chrome password updates are therefore not shipped. Keeping routine logins automatic is supported while the imported credentials or saved sessions remain valid.
 
