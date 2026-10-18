@@ -81,7 +81,7 @@ class Layout:
             BASE,
             BASE / "runtime",
             BASE / "browsers",
-            Path("/Applications/Account Access.app"),
+            BASE / "owner.app",
             BASE / "bin/AccountAccess-broker",
             BASE / "bin/AccountAccess-bootstrap",
             IDENTITY,
@@ -185,6 +185,7 @@ def payload(layout):
         layout.runtime,
         layout.runtime / "bin/python",
         layout.browsers,
+        layout.owner_app,
         layout.broker,
         layout.bootstrap,
     ]:

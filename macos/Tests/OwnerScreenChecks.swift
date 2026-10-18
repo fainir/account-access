@@ -103,6 +103,18 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
 
 @main struct OwnerScreenChecks {
     static func main() {
+        let legacy = Bundle.main
+        var attempts = 0
+        precondition((try! OwnerApplicationBundle.select(system: false, main: legacy, installed: {
+            attempts += 1; throw DesktopOwnerFailure.profile
+        })) == legacy && attempts == 0)
+        do {
+            _ = try OwnerApplicationBundle.select(system: true, main: legacy, installed: {
+                attempts += 1; throw DesktopOwnerFailure.profile
+            })
+            preconditionFailure("A rejected protected bundle fell back to Bundle.main")
+        } catch { precondition(attempts == 1) }
+        print("PASS: protected bundle validation cannot fall back to public alias resources")
         _ = NSApplication.shared
         let fixtureRoot = FileManager.default.temporaryDirectory.appendingPathComponent("account-access-native-" + UUID().uuidString)
         try! FileManager.default.createDirectory(at: fixtureRoot, withIntermediateDirectories: false,

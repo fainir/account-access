@@ -13,8 +13,8 @@ from .google_messages_host import HOST, extension_id
 from .storage import private_file
 from .worker_bootstrap import root_managed_path
 
-APP = Path("/Applications/Account Access.app/Contents/MacOS/AccountAccess")
-RESOURCES = Path("/Applications/Account Access.app/Contents/Resources/GoogleMessagesExtension")
+APP = Path("/Library/Application Support/Account Access/owner.app/Contents/MacOS/AccountAccess")
+RESOURCES = Path("/Library/Application Support/Account Access/owner.app/Contents/Resources/GoogleMessagesExtension")
 RELATIVE = Path("Library/Application Support/Account Access/browser-v1")
 CHROME = Path("Library/Application Support/Google/Chrome/NativeMessagingHosts")
 FILES = ["manifest.json", "background.js", "reader.js", "popup.js", "popup.html", "popup.css"]

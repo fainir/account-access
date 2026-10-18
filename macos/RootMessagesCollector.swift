@@ -20,7 +20,7 @@ final class RootMessagesCollector {
         try RootVaultKeyStore.requireDaemon()
         guard owner.uid != 0 else { throw RootMessagesFailure.rejected }
         self.owner = owner
-        app = "/Applications/Account Access.app/Contents/MacOS/AccountAccess"
+        app = "/Library/Application Support/Account Access/owner.app/Contents/MacOS/AccountAccess"
         arguments = ["--system-read-login-code"]
     }
     #if ACCOUNT_ACCESS_GATEWAY_CHECKS

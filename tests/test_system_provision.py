@@ -79,9 +79,26 @@ def test_fixed_production_layout_has_no_owner_path_or_command_override():
     actual = provision.Layout.installed()
     assert actual.base == Path("/Library/Application Support/Account Access")
     assert actual.runtime / "bin/python" == actual.base / "runtime/bin/python"
+    assert actual.owner_app == actual.base / "owner.app"
     assert actual.broker_name == "_accountaccess" and actual.fixture is False
     with pytest.raises(provision.ProvisionError, match="disposable_provisioning_required"):
         provision.Layout.ci_fixture(Path("/tmp/forged"), name="_aaq0123456789ab")
+
+
+def test_owner_bundle_path_is_protected_before_its_code_identity_is_considered(monkeypatch):
+    actual = provision.Layout.installed()
+    checked = []
+
+    def protected(path):
+        checked.append(path)
+        if path == actual.owner_app:
+            raise provision.ProvisionError("untrusted_owner_bundle")
+
+    monkeypatch.setattr(provision, "root_managed_path", protected)
+    monkeypatch.setattr(provision, "signature", lambda *args, **kwargs: pytest.fail("Unsafe owner code was inspected"))
+    with pytest.raises(provision.ProvisionError, match="untrusted_owner_bundle"):
+        provision.payload(actual)
+    assert checked[-1] == actual.owner_app
 
 
 def test_provisioning_requires_root_before_payload_or_identity_access(tmp_path, monkeypatch):
@@ -480,11 +497,18 @@ def test_private_directory_preserves_conflicting_intermediate(private_directorie
             owners[(info.st_dev, info.st_ino)] = (452, 452)
     else:
         stage.chmod(0o750)
-    before = {path.name: path.lstat() for path in stage.iterdir()}
+    def identity(path):
+        info = path.lstat()
+        # A refusal may read a directory and update access time. Identity,
+        # permissions, contents metadata and ownership must remain unchanged.
+        return (info.st_dev, info.st_ino, info.st_mode, info.st_uid, info.st_gid,
+                info.st_nlink, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+
+    before = {path.name: identity(path) for path in stage.iterdir()}
     with pytest.raises(provision.ProvisionError, match="unsafe_private_directory"):
         provision.private_directory(target, 451, staging=staging)
     assert not target.exists() and changes == []
-    assert {path.name: path.lstat() for path in stage.iterdir()} == before
+    assert {path.name: identity(path) for path in stage.iterdir()} == before
 
 
 def test_private_directory_does_not_traverse_existing_private_contents(

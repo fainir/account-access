@@ -5,6 +5,63 @@ import Security
 import UniformTypeIdentifiers
 import CoreImage
 import ServiceManagement
+import Darwin
+
+// The public /Applications entry is a convenience alias in a shared directory.
+// Bind system resources once to the protected bundle, independently of how
+// Launch Services populated Bundle.main when following that alias.
+enum OwnerApplicationBundle {
+    static let canonical = URL(fileURLWithPath: "/Library/Application Support/Account Access/owner.app")
+    static let systemRequired: Bool = {
+        if Bundle.main.object(forInfoDictionaryKey: "AccountAccessSystemInstallationRequired") as? Bool == true
+            || DesktopOwnerProfile.isInstalled { return true }
+        var info = stat()
+        if lstat(canonical.path, &info) == 0 { return true }
+        return errno != ENOENT
+    }()
+    static let selection: Result<Bundle, Error> = Result {
+        try select(system: systemRequired, main: .main, installed: validatedInstalled)
+    }
+    static func current() throws -> Bundle { try selection.get() }
+    static func select(system: Bool, main: Bundle, installed: () throws -> Bundle) throws -> Bundle {
+        system ? try installed() : main
+    }
+    private static func validatedInstalled() throws -> Bundle {
+        _ = try WorkerLaunchPaths.protectedTree(canonical.path)
+        let executable = canonical.appendingPathComponent("Contents/MacOS/AccountAccess")
+        guard try WorkerLaunchPaths.protected(executable.path) == executable else { throw DesktopOwnerFailure.profile }
+        var bytes = [CChar](repeating: 0, count: 4 * Int(MAXPATHLEN))
+        guard proc_pidpath(getpid(), &bytes, UInt32(bytes.count)) > 0,
+              URL(fileURLWithPath: String(cString: bytes)).resolvingSymlinksInPath() == executable,
+              let bundle = Bundle(url: canonical), bundle.bundleIdentifier == "com.fainir.accountaccess",
+              bundle.executableURL == executable,
+              bundle.object(forInfoDictionaryKey: "AccountAccessSystemInstallationRequired") as? Bool == true else {
+            throw DesktopOwnerFailure.profile
+        }
+        var code: SecStaticCode?, running: SecCode?, runningStatic: SecStaticCode?
+        var staticInfo: CFDictionary?, runningInfo: CFDictionary?
+        guard SecStaticCodeCreateWithPath(canonical as CFURL, [], &code) == errSecSuccess, let code,
+              SecStaticCodeCheckValidity(code, SecCSFlags(rawValue: kSecCSStrictValidate), nil) == errSecSuccess,
+              SecCodeCopySelf([], &running) == errSecSuccess, let running,
+              SecCodeCopyStaticCode(running, [], &runningStatic) == errSecSuccess, let runningStatic,
+              SecCodeCopySigningInformation(code, SecCSFlags(rawValue: kSecCSSigningInformation), &staticInfo) == errSecSuccess,
+              SecCodeCopySigningInformation(runningStatic, SecCSFlags(rawValue: kSecCSSigningInformation), &runningInfo) == errSecSuccess,
+              let expected = staticInfo as? [String: Any], let actual = runningInfo as? [String: Any],
+              let team = expected[kSecCodeInfoTeamIdentifier as String] as? String,
+              let hash = expected[kSecCodeInfoUnique as String] as? Data,
+              actual[kSecCodeInfoUnique as String] as? Data == hash,
+              team.range(of: "^[A-Z0-9]{10}$", options: .regularExpression) != nil else { throw DesktopOwnerFailure.profile }
+        let requirement = try OwnerGatewayPeer(uid: getuid(), team: team,
+            identifier: "com.fainir.accountaccess", codeHashes: [hash.map { String(format: "%02x", $0) }.joined()]).requirement
+        var parsed: SecRequirement?
+        guard SecRequirementCreateWithString(requirement as CFString, [], &parsed) == errSecSuccess, let parsed,
+              SecStaticCodeCheckValidity(code, SecCSFlags(rawValue: kSecCSStrictValidate), parsed) == errSecSuccess,
+              SecCodeCheckValidity(running, SecCSFlags(rawValue: kSecCSStrictValidate), parsed) == errSecSuccess else {
+            throw DesktopOwnerFailure.profile
+        }
+        return bundle
+    }
+}
 
 final class FlippedView: NSView { override var isFlipped: Bool { true } }
 
@@ -42,9 +99,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         let canonical = home.appendingPathComponent(".local/share/account-access")
         let legacy = home.appendingPathComponent("Library/Application Support/AccountAccess")
         let fallback = !FileManager.default.fileExists(atPath: canonical.appendingPathComponent("config.json").path) && FileManager.default.fileExists(atPath: legacy.appendingPathComponent("config.json").path) ? legacy : canonical
-        return URL(fileURLWithPath: ProcessInfo.processInfo.environment["ACCOUNT_ACCESS_DATA_DIR"] ?? (Bundle.main.object(forInfoDictionaryKey: "AccountAccessDataDirectory") as? String) ?? fallback.path)
+        return URL(fileURLWithPath: ProcessInfo.processInfo.environment["ACCOUNT_ACCESS_DATA_DIR"] ?? ((try? OwnerApplicationBundle.current())?.object(forInfoDictionaryKey: "AccountAccessDataDirectory") as? String) ?? fallback.path)
     }()
-    lazy var runtime = URL(fileURLWithPath: ProcessInfo.processInfo.environment["ACCOUNT_ACCESS_INSTALL_DIR"] ?? (Bundle.main.object(forInfoDictionaryKey: "AccountAccessInstallDirectory") as? String) ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/share/account-access/runtime").path)
+    lazy var runtime = URL(fileURLWithPath: ProcessInfo.processInfo.environment["ACCOUNT_ACCESS_INSTALL_DIR"] ?? ((try? OwnerApplicationBundle.current())?.object(forInfoDictionaryKey: "AccountAccessInstallDirectory") as? String) ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/share/account-access/runtime").path)
     var window: NSWindow!
     var stack: NSStackView!
     var status: NSTextField!
@@ -105,7 +162,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     let ownerConnectionLock = NSRecursiveLock()
     var systemOwner: DesktopOwnerConnection?
     var systemOwnerSelected = false
-    var requiresSystemInstallation = Bundle.main.object(forInfoDictionaryKey: "AccountAccessSystemInstallationRequired") as? Bool == true
+    var requiresSystemInstallation = OwnerApplicationBundle.systemRequired
     var systemOwnerReady = false
     var systemSetupGeneration = 0
     var managedAgents = ManagedAgentSetup()
@@ -190,7 +247,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
            files.isExecutableFile(atPath: runtime.appendingPathComponent("bin/account-access").path), installedPayloadMatches() {
             let metadata = try? Data(contentsOf: root.appendingPathComponent("desktop.json"))
             let info = metadata.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
-            if info?["version"] as? String == Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
+            if info?["version"] as? String == (try? OwnerApplicationBundle.current())?.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
                 reopen()
             } else { welcome() }
         } else { welcome() }
@@ -378,7 +435,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 try self.saveApplication()
-                guard let script = Bundle.main.url(forResource: "install", withExtension: "sh") else {
+                guard let script = try OwnerApplicationBundle.current().url(forResource: "install", withExtension: "sh") else {
                     throw Failure.message("The installer is incomplete. Download it again from the official release.")
                 }
                 let process = Process()
@@ -388,7 +445,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 environment["ACCOUNT_ACCESS_NO_OPEN"] = "1"
                 environment["ACCOUNT_ACCESS_DATA_DIR"] = self.root.path
                 environment["ACCOUNT_ACCESS_INSTALL_DIR"] = self.runtime.path
-                guard let expectedHash = Bundle.main.object(forInfoDictionaryKey: "AccountAccessWheelSHA256") as? String,
+                guard let expectedHash = try OwnerApplicationBundle.current().object(forInfoDictionaryKey: "AccountAccessWheelSHA256") as? String,
                       expectedHash.count == 64 else {
                     throw Failure.message("The installer is missing its signed package checksum. Download the complete app from the official release.")
                 }
@@ -396,7 +453,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 // The package is part of the signed app. Ignore inherited paths;
                 // the bootstrap also checks it against the signed checksum.
                 environment.removeValue(forKey: "ACCOUNT_ACCESS_BUNDLED_WHEEL")
-                if let wheel = Bundle.main.url(forResource: "account_access", withExtension: "whl") {
+                if let wheel = try OwnerApplicationBundle.current().url(forResource: "account_access", withExtension: "whl") {
                     environment["ACCOUNT_ACCESS_BUNDLED_WHEEL"] = wheel.path
                 }
                 process.environment = environment
@@ -480,7 +537,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         let directory = files.homeDirectoryForCurrentUser.appendingPathComponent("Applications")
         try files.createDirectory(at: directory, withIntermediateDirectories: true)
         let target = directory.appendingPathComponent("Account Access.app")
-        let source = Bundle.main.bundleURL
+        let source = try OwnerApplicationBundle.current().bundleURL
         if source.standardizedFileURL == target.standardizedFileURL { return }
         if files.fileExists(atPath: target.path) {
             let attributes = try files.attributesOfItem(atPath: target.path)
@@ -520,7 +577,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     enum Failure: Error { case message(String) }
 
     func installedPayloadMatches() -> Bool {
-        guard let expected = Bundle.main.object(forInfoDictionaryKey: "AccountAccessWheelSHA256") as? String else { return false }
+        guard let expected = (try? OwnerApplicationBundle.current())?.object(forInfoDictionaryKey: "AccountAccessWheelSHA256") as? String else { return false }
         return BackgroundRecovery.installationMatches(runtime: runtime, expected: expected)
     }
 
@@ -528,7 +585,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         // ServiceManagement must be called by the saved app, rather than the
         // original download that the installer copied into Applications.
         do {
-            let layout = try BackgroundRecovery.Layout(bundle: .main)
+            let layout = try BackgroundRecovery.Layout(bundle: OwnerApplicationBundle.current())
             guard layout.root.standardizedFileURL == root.standardizedFileURL,
                   layout.runtime.standardizedFileURL == runtime.standardizedFileURL else { return "custom_configuration" }
             let saved = files.homeDirectoryForCurrentUser.appendingPathComponent("Applications/Account Access.app/Contents/MacOS/AccountAccess")
@@ -1912,7 +1969,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                     : self.request("owner/google-messages/prepare", body: [:])
                 guard let path = result["extension_path"] as? String,
                       path == (self.systemOwnerConfigured
-                        ? "/Applications/Account Access.app/Contents/Resources/GoogleMessagesExtension"
+                        ? "/Library/Application Support/Account Access/owner.app/Contents/Resources/GoogleMessagesExtension"
                         : self.root.appendingPathComponent("GoogleMessagesExtension").path) else {
                     throw Failure.message("The browser connection could not be prepared.")
                 }
@@ -2587,6 +2644,11 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
 #if !ACCOUNT_ACCESS_UI_CHECKS
 @main struct AccountAccessMain {
     static func main() {
+        do { _ = try OwnerApplicationBundle.current() }
+        catch {
+            fputs("Account Access could not verify its protected app. Reinstall the signed package.\n", stderr)
+            exit(78)
+        }
         if CommandLine.arguments.count >= 2 && CommandLine.arguments[1] == "--browser-native-host" {
             exit(BrowserNativeHost.run(arguments: Array(CommandLine.arguments.dropFirst(2))))
         }
@@ -2601,7 +2663,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             return
         }
         if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--read-login-code" {
-            guard !(Bundle.main.object(forInfoDictionaryKey: "AccountAccessSystemInstallationRequired") as? Bool == true)
+            guard !OwnerApplicationBundle.systemRequired
                 && !DesktopOwnerProfile.isInstalled else {
                 print("{\"status\":\"NEEDS_USER\",\"reason\":\"owner_authorization_required\"}")
                 return

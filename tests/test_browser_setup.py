@@ -4,7 +4,7 @@ import shutil
 
 import pytest
 
-from account_access.browser_setup import CHROME, FILES, RELATIVE, prepare
+from account_access.browser_setup import APP, CHROME, FILES, RELATIVE, RESOURCES as OWNER_RESOURCES, prepare
 from account_access.errors import AccessError
 from account_access.google_messages_host import HOST, RESOURCES, extension_id
 
@@ -73,6 +73,12 @@ def test_browser_setup_refuses_unrecognized_or_unsafe_existing_registration(brow
 def test_native_host_pins_the_public_extension_identity():
     swift = (Path(__file__).parents[1] / "macos/BrowserNativeHost.swift").read_text()
     assert 'static let origin = "chrome-extension://' + extension_id() + '/"' in swift
+
+
+def test_production_browser_host_and_resources_are_canonical_not_public_alias():
+    owner = Path("/Library/Application Support/Account Access/owner.app")
+    assert APP == owner / "Contents/MacOS/AccountAccess"
+    assert OWNER_RESOURCES == owner / "Contents/Resources/GoogleMessagesExtension"
 
 
 def test_untrusted_runtime_refused_before_browser_registration_changes(browser_files):
