@@ -49,5 +49,150 @@
     "Fictional email, SMS and authenticator inputs do not prove private or physical delivery",
     "Chrome password imports remain snapshots",
     "Apple publication and genuine consumer installation remain unverified"
-  ]
+  ],
+  "ci": {
+    "qa_revision": "ba02a8df53f0dd5cefcbda87b72cbe55d87f3fc0",
+    "all_eight_passed": false,
+    "successes": 7,
+    "runs": [
+      {
+        "id": 39173110769,
+        "name": "Android login-code journey",
+        "event": "pull_request",
+        "url": "https://github.com/fainir/account-access/actions/runs/39173110769",
+        "conclusion": "success",
+        "pytest": []
+      },
+      {
+        "id": 39173110742,
+        "name": "Separate-user worker acceptance",
+        "event": "pull_request",
+        "url": "https://github.com/fainir/account-access/actions/runs/39173110742",
+        "conclusion": "success",
+        "pytest": []
+      },
+      {
+        "id": 39173110722,
+        "name": "Account Access checks",
+        "event": "pull_request",
+        "url": "https://github.com/fainir/account-access/actions/runs/39173110722",
+        "conclusion": "success",
+        "pytest": [
+          {
+            "passed": 2620,
+            "skipped": 93,
+            "warnings": 0,
+            "duration": "907.37s"
+          }
+        ]
+      },
+      {
+        "id": 39173110744,
+        "name": "Mac separate-user worker acceptance",
+        "event": "pull_request",
+        "url": "https://github.com/fainir/account-access/actions/runs/39173110744",
+        "conclusion": "failure",
+        "pytest": [
+          {
+            "passed": 1215,
+            "skipped": 1,
+            "warnings": 0,
+            "duration": "193.11s"
+          },
+          {
+            "passed": 153,
+            "skipped": 0,
+            "warnings": 0,
+            "duration": "126.45s"
+          },
+          {
+            "passed": 22,
+            "skipped": 0,
+            "warnings": 0,
+            "duration": "62.19s"
+          },
+          {
+            "passed": 1,
+            "skipped": 0,
+            "warnings": 0,
+            "duration": "3.71s"
+          }
+        ]
+      },
+      {
+        "id": 39173107404,
+        "name": "Android login-code journey",
+        "event": "push",
+        "url": "https://github.com/fainir/account-access/actions/runs/39173107404",
+        "conclusion": "success",
+        "pytest": []
+      },
+      {
+        "id": 39173107400,
+        "name": "Separate-user worker acceptance",
+        "event": "push",
+        "url": "https://github.com/fainir/account-access/actions/runs/39173107400",
+        "conclusion": "success",
+        "pytest": []
+      },
+      {
+        "id": 39173107406,
+        "name": "Account Access checks",
+        "event": "push",
+        "url": "https://github.com/fainir/account-access/actions/runs/39173107406",
+        "conclusion": "success",
+        "pytest": [
+          {
+            "passed": 2620,
+            "skipped": 93,
+            "warnings": 0,
+            "duration": "840.06s"
+          }
+        ]
+      },
+      {
+        "id": 39173107386,
+        "name": "Mac separate-user worker acceptance",
+        "event": "push",
+        "url": "https://github.com/fainir/account-access/actions/runs/39173107386",
+        "conclusion": "success",
+        "pytest": [
+          {
+            "passed": 1215,
+            "skipped": 1,
+            "warnings": 0,
+            "duration": "201.31s"
+          },
+          {
+            "passed": 153,
+            "skipped": 0,
+            "warnings": 0,
+            "duration": "125.70s"
+          },
+          {
+            "passed": 22,
+            "skipped": 0,
+            "warnings": 0,
+            "duration": "61.22s"
+          },
+          {
+            "passed": 1,
+            "skipped": 0,
+            "warnings": 0,
+            "duration": "4.43s"
+          }
+        ]
+      }
+    ],
+    "unclassified_mac_failure": {
+      "run": 39173110744,
+      "stage": "signed_chrome_failed_sms-login",
+      "failure": "browser_fixture_cli_service_unavailable",
+      "completed_cli_reads": 0,
+      "fixture_sms_forwarded": false,
+      "same_source_mac_push_passed": true,
+      "cause_established": false
+    },
+    "scope": "Compatibility results do not override the separately confirmed source-disconnect security failure"
+  }
 }

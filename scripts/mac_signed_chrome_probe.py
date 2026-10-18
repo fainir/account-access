@@ -55,6 +55,14 @@ STAGES = {"guard", "profile", "signature", "negative-parent", "launch", "load", 
           "sms-launch", "sms-load", "sms-dom", "sms-login", "sms-cleanup", "cleanup"}
 CURRENT_STAGE = "guard"
 SMS_FAILURE_PROGRESS = None
+SMS_FAILURE_DETAILS = None
+HTTP_ERROR_CLASSES = {
+    "ConnectTimeout", "ReadTimeout", "WriteTimeout", "PoolTimeout", "ConnectError",
+    "ReadError", "WriteError", "CloseError", "RemoteProtocolError", "LocalProtocolError",
+    "ProxyError", "UnsupportedProtocol", "DecodingError", "TooManyRedirects", "HTTPError",
+}
+HTTP_STAGES = {"unavailable", "started", "completed", "http_error"}
+HTTP_DIAGNOSTIC = "signed-chrome-cli-http.json"
 FAILURES = {
     "browser_fixture_cli_failed", "browser_fixture_cli_login_retry_cooldown",
     "browser_fixture_cli_google_messages_tab_unavailable", "browser_fixture_cli_google_messages_tab_reloaded",
@@ -161,14 +169,122 @@ def fictional_message(raw):
     return raw["code"]
 
 
+def http_diagnostic(value):
+    if (type(value) is not dict or set(value) != {"stage", "error"}
+            or type(value["stage"]) is not str or value["stage"] not in HTTP_STAGES
+            or type(value["error"]) is not str
+            or (value["stage"] == "http_error" and value["error"] not in HTTP_ERROR_CLASSES)
+            or (value["stage"] != "http_error" and value["error"] != "none")):
+        return None
+    return value.copy()
+
+
+def read_http_diagnostic(home):
+    empty = {"stage": "unavailable", "error": "none"}
+    try:
+        path = home / "signed-chrome-tmp" / HTTP_DIAGNOSTIC
+        info = path.lstat()
+        if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_uid != os.getuid()
+                or info.st_mode & 0o077 or not 0 < info.st_size <= 512):
+            return empty
+        return http_diagnostic(json.loads(path.read_bytes())) or empty
+    except (OSError, ValueError):
+        return empty
+
+
+def diagnostic_cli(prefix):
+    """Fixture-only HTTP classification; ordinary CLI output and budget stay intact."""
+    agent = require_fixture(prefix, child=True)
+    import httpx2 as httpx
+    from account_access.cli import main as cli_main
+
+    path = Path(agent.pw_dir) / "signed-chrome-tmp" / HTTP_DIAGNOSTIC
+    original = httpx.Client.request
+
+    def record(stage, error="none"):
+        try:
+            private_file(path, json.dumps({"stage": stage, "error": error}).encode(), replace=True)
+        except Exception:
+            pass  # Diagnostics cannot change the CLI's result.
+
+    def request(client, *args, **kwargs):
+        record("started")
+        try:
+            value = original(client, *args, **kwargs)
+        except httpx.HTTPError as error:
+            kind = type(error).__name__
+            record("http_error", kind if kind in HTTP_ERROR_CLASSES else "HTTPError")
+            raise
+        record("completed")
+        return value
+
+    previous = os.environ.get("ACCESS_CLIENT_CONFIG")
+    os.environ["ACCESS_CLIENT_CONFIG"] = str(prefix / "agent-client/native-host-client.json")
+    httpx.Client.request = request
+    try:
+        return cli_main(["run", SMS_ACCOUNT, "summary"])
+    finally:
+        httpx.Client.request = original
+        if previous is None:
+            os.environ.pop("ACCESS_CLIENT_CONFIG", None)
+        else:
+            os.environ["ACCESS_CLIENT_CONFIG"] = previous
+
+
+def pending_diagnostic(value):
+    if (type(value) is not dict or set(value) != {"status", "present", "phase", "source_enabled"}
+            or type(value["status"]) is not str or value["status"] not in {"available", "timeout", "unavailable"}
+            or type(value["present"]) is not bool or type(value["source_enabled"]) is not bool
+            or type(value["phase"]) is not str or value["phase"] not in {"none", "baseline", "watch"}
+            or value["present"] != (value["phase"] != "none")
+            or (value["status"] != "available" and (value["present"] or value["source_enabled"]))):
+        return None
+    return value.copy()
+
+
+def read_pending_diagnostic(worker):
+    empty = {"status": "unavailable", "present": False, "phase": "none", "source_enabled": False}
+    if worker is None:
+        return empty
+    try:
+        value = worker.evaluate("""async () => {
+            const unavailable = {status:'unavailable',present:false,phase:'none',source_enabled:false};
+            return await Promise.race([
+                (async () => {
+                    try {
+                        const value = await native({method:'pending'});
+                        if (!Array.isArray(value?.pending) || typeof value.source_enabled !== 'boolean') return unavailable;
+                        const own = value.pending.filter(item => item?.source === 'chrome-sms');
+                        if (own.length > 1 || (own.length === 1 && !['baseline','watch'].includes(own[0].phase))) return unavailable;
+                        return {status:'available',present:own.length === 1,
+                            phase:own.length ? own[0].phase : 'none',source_enabled:value.source_enabled};
+                    } catch { return unavailable; }
+                })(),
+                new Promise(resolve => setTimeout(() => resolve({status:'timeout',present:false,
+                    phase:'none',source_enabled:false}), 1500))
+            ]);
+        }""")
+        return pending_diagnostic(value) or empty
+    except Exception:
+        return empty  # Never retain exception text or extension/native response data.
+
+
+def failure_details(value):
+    if type(value) is not dict or set(value) != {"http", "pending"}:
+        return None
+    http, pending = http_diagnostic(value["http"]), pending_diagnostic(value["pending"])
+    return {"http": http, "pending": pending} if http and pending else None
+
+
 def run_sms_journey(playwright, prefix, home, original, original_hashes):
     """Join the unchanged background/content scripts to a fresh worker login.
 
     Only the manifest enrollment is synthetic. Chrome's normal public content
     script APIs, the production polling loop, and native framing remain in use.
     """
-    global SMS_FAILURE_PROGRESS
+    global SMS_FAILURE_PROGRESS, SMS_FAILURE_DETAILS
     SMS_FAILURE_PROGRESS = None
+    SMS_FAILURE_DETAILS = None
     stage("sms-launch")
     extension = root_managed_path(prefix / SMS_EXTENSION_NAME)
     candidate = json.loads((extension / "manifest.json").read_bytes())
@@ -194,6 +310,7 @@ def run_sms_journey(playwright, prefix, home, original, original_hashes):
     config = prefix / "agent-client/native-host-client.json"
     clients = None
     context = None
+    worker = None
     checks = {"separate_empty_fixture_profile_used": True,
               "fixture_account_and_code_source_are_separate_from_prior_transport_journey": True,
               "only_messages_host_permission_moved_from_optional_to_required": True,
@@ -250,7 +367,8 @@ def run_sms_journey(playwright, prefix, home, original, original_hashes):
         # calls and remain inside the controller's hard outer cap. Give
         # the two actual CLI reads their full budget only after setup finishes.
         clients = client_type(
-            [sys.executable, "-I", "-B", "-m", "account_access.cli", "run", SMS_ACCOUNT, "summary"],
+            [sys.executable, "-I", "-B", str(root_managed_path(prefix / "signed-chrome-probe.py")),
+             "--prefix", str(prefix), "--cli-diagnostic"],
             {"PATH": "/usr/bin:/bin", "HOME": str(home), "LANG": "C.UTF-8", "ACCESS_CLIENT_CONFIG": str(config)},
             time.monotonic() + CLI_READS_SECONDS,
             account=SMS_ACCOUNT,
@@ -305,6 +423,9 @@ def run_sms_journey(playwright, prefix, home, original, original_hashes):
             "synthetic_dom_inserted": delivered,
             "active_cli": clients is not None and clients.process is not None,
         }
+        SMS_FAILURE_DETAILS = {"http": read_http_diagnostic(home),
+                               "pending": read_pending_diagnostic(worker) if clients is not None else
+                                   read_pending_diagnostic(None)}
         raise
     finally:
         previous = CURRENT_STAGE
@@ -488,7 +609,78 @@ def failure_progress(value):
     return value.copy()
 
 
-def exercise_signed_chrome_gateway(prefix, roles, fixture=None, client_config=None):
+def service_diagnostic(roles, identity):
+    empty = dict.fromkeys(["checked", "root_host_alive", "worker_alive",
+                           "root_identity_matches", "worker_identity_matches"], False)
+    if (type(identity) is not dict or set(identity) != {"root_pid", "worker_pid"}
+            or any(type(value) is not int or value <= 1 for value in identity.values())):
+        return empty
+
+    def process(pid, expected):
+        try:
+            result = subprocess.run(["/bin/ps", "-p", str(pid), "-o", "uid=,gid=,pgid=,ppid="],
+                capture_output=True, timeout=2, env={"PATH": "/usr/bin:/bin"})
+            if result.returncode:
+                return True, False, False
+            values = result.stdout.split()
+            if len(values) != 4 or any(re.fullmatch(rb"[0-9]{1,10}", item) is None for item in values):
+                return False, False, False
+            return True, True, [int(value) for value in values] == expected
+        except (OSError, subprocess.TimeoutExpired):
+            return False, False, False
+
+    root = identity["root_pid"]
+    root_checked, root_alive, root_match = process(root, [0, 0, root, 1])
+    worker_checked, worker_alive, worker_match = process(identity["worker_pid"],
+        [roles["broker"].pw_uid, roles["broker"].pw_gid, root, root])
+    return {"checked": root_checked and worker_checked, "root_host_alive": root_alive,
+            "worker_alive": worker_alive, "root_identity_matches": root_match,
+            "worker_identity_matches": worker_match}
+
+
+def provider_diagnostic(provider, previous):
+    result = {"checked": False, "identity_submissions": 0, "password_submissions": 0, "sms_submissions": 0}
+    try:
+        values = [provider.login_count - previous[0], provider.sms_count - previous[1],
+                  provider.identity_count - previous[2]]
+        if any(type(value) is not int or not 0 <= value <= 2 for value in values):
+            return result
+        return {"checked": True, "identity_submissions": values[2],
+                "password_submissions": values[0], "sms_submissions": values[1]}
+    except (AttributeError, TypeError, IndexError):
+        return result
+
+
+def failure_report(value):
+    """Allow only fixed failure classes and finite fictional-fixture metadata."""
+    required = {"status", "stage", "failure", "fixture_sms_forwarded", "service", "provider",
+                "production_ready", "private_signins"}
+    if (type(value) is not dict or not required <= set(value)
+            or set(value) - required - {"sms_progress", "sms_details"}
+            or value["status"] != "FAILED" or value["production_ready"] is not False
+            or type(value["private_signins"]) is not int or value["private_signins"] != 0
+            or type(value["stage"]) is not str or value["stage"] not in STAGES
+            or type(value["failure"]) is not str or value["failure"] not in FAILURES | {"runtime_unavailable"}
+            or type(value["fixture_sms_forwarded"]) is not bool):
+        return None
+    service, provider = value["service"], value["provider"]
+    if (type(service) is not dict or set(service) != {"checked", "root_host_alive", "worker_alive",
+            "root_identity_matches", "worker_identity_matches"}
+            or any(type(item) is not bool for item in service.values())
+            or (service["root_identity_matches"] and not service["root_host_alive"])
+            or (service["worker_identity_matches"] and not service["worker_alive"])
+            or type(provider) is not dict or set(provider) != {"checked", "identity_submissions",
+                "password_submissions", "sms_submissions"} or type(provider["checked"]) is not bool
+            or any(type(provider[key]) is not int or not 0 <= provider[key] <= 2
+                   for key in ["identity_submissions", "password_submissions", "sms_submissions"])
+            or (not provider["checked"] and any(provider[key] for key in provider if key != "checked"))
+            or ("sms_progress" in value and failure_progress(value["sms_progress"]) is None)
+            or ("sms_details" in value and failure_details(value["sms_details"]) is None)):
+        return None
+    return json.loads(json.dumps(value))
+
+
+def exercise_signed_chrome_gateway(prefix, roles, fixture=None, client_config=None, *, service_identity=None):
     agent = require_fixture(prefix, roles)
     home = Path(agent.pw_dir)
     profile, sms_profile, temporary = home / PROFILE_NAME, home / SMS_PROFILE_NAME, home / "signed-chrome-tmp"
@@ -585,9 +777,21 @@ def exercise_signed_chrome_gateway(prefix, roles, fixture=None, client_config=No
                 detail = value.get("failure")
                 detail = detail if type(detail) is str and detail in FAILURES else "runtime_unavailable"
                 progress = failure_progress(value.get("sms_progress"))
-                print(json.dumps({"stage": "signed_chrome_failed_" + diagnostic, "failure": detail,
-                                  "fixture_sms_forwarded": delivered == 1,
-                                  **({"sms_progress": progress} if progress is not None else {})}), file=sys.stderr, flush=True)
+                details = failure_details(value.get("sms_details"))
+                failure = failure_report({"status": "FAILED", "stage": diagnostic, "failure": detail,
+                    "fixture_sms_forwarded": delivered == 1, "production_ready": False, "private_signins": 0,
+                    "service": service_diagnostic(roles, service_identity),
+                    "provider": provider_diagnostic(fixture.provider, started),
+                    **({"sms_progress": progress} if progress is not None else {}),
+                    **({"sms_details": details} if details is not None else {})})
+                if failure is not None:
+                    try:
+                        private_file(Path("/tmp/account-access-mac-signed-chrome-failure.json"),
+                                     json.dumps(failure).encode(), replace=True)
+                    except Exception:
+                        pass  # Keep the original failed acceptance result.
+                    print(json.dumps({**failure, "stage": "signed_chrome_failed_" + diagnostic}),
+                          file=sys.stderr, flush=True)
             raise RuntimeError("signed_chrome_child_failed")
         value["sms_journey"]["checks"]["provider_recorded_one_fresh_password_sms_and_identity_submission"] = (
             delivered == 1 and (fixture.provider.login_count, fixture.provider.sms_count,
@@ -631,12 +835,17 @@ def exercise_signed_chrome_gateway(prefix, roles, fixture=None, client_config=No
 
 
 def main(argv=None):
+    global SMS_FAILURE_PROGRESS, SMS_FAILURE_DETAILS
     stage("guard")
+    SMS_FAILURE_PROGRESS, SMS_FAILURE_DETAILS = None, None
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--prefix", type=Path, required=True)
+    parser.add_argument("--cli-diagnostic", action="store_true")
     args = parser.parse_args(argv)
     try:
         require_fixture(args.prefix, child=True)
+        if args.cli_diagnostic:
+            return diagnostic_cli(args.prefix)
 
         def interrupted(*_):
             raise InterruptedError("signed_chrome_child_interrupted")
@@ -648,9 +857,11 @@ def main(argv=None):
             signal.signal(signal.SIGTERM, previous)
     except Exception as error:
         progress = failure_progress(SMS_FAILURE_PROGRESS)
+        details = failure_details(SMS_FAILURE_DETAILS)
         print(json.dumps({"status": "FAILED", "reason": "signed_chrome_roundtrip_failed", "stage": CURRENT_STAGE,
                           "failure": failure_reason(error),
-                          **({"sms_progress": progress} if progress is not None else {})}))
+                          **({"sms_progress": progress} if progress is not None else {}),
+                          **({"sms_details": details} if details is not None else {})}))
         return 1
     print(json.dumps(value, sort_keys=True))
     return 0

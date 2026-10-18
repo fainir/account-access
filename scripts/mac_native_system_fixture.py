@@ -244,7 +244,8 @@ def _exercise(prefix, roles, key_policy, phase, client_token, probe, command, fi
         chrome_controller = prefix / "signed-chrome-probe.py"
         root_managed_path(chrome_controller)
         chrome_report = runpy.run_path(str(chrome_controller))["exercise_signed_chrome_gateway"](
-            prefix, roles, fixture, config
+            prefix, roles, fixture, config,
+            service_identity={"root_pid": second["pid"], "worker_pid": second["worker_pid"]}
         )
         print(json.dumps({"stage": "signed_chrome_native_completed"}), file=sys.stderr, flush=True)
         stop(second)

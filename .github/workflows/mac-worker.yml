@@ -266,6 +266,7 @@ jobs:
             /tmp/account-access-mac-native-system-browser.json
             /tmp/account-access-mac-protected-browser.json
             /tmp/account-access-mac-signed-chrome.json
+            /tmp/account-access-mac-signed-chrome-failure.json
           if-no-files-found: ignore
       - name: Remove the ephemeral runtime
         if: always()
