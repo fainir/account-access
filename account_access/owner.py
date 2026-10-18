@@ -464,11 +464,11 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                     self.send(200, discard(broker.store, data["id"]))
                     return
                 if self.path == "/owner/bitwarden/connect":
-                    from .bitwarden_source import connect
+                    from .bitwarden_source import connect as connect_bitwarden
                     if type(data) is not dict or set(data) != {
                             "region", "client_id", "client_secret", "master_password", "consent_vault_access"}:
                         raise ValueError()
-                    self.send(200, connect(broker.store, data))
+                    self.send(200, connect_bitwarden(broker.store, data))
                     return
                 if self.path == "/owner/bitwarden/disconnect":
                     from .bitwarden_source import disconnect

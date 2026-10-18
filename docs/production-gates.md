@@ -7,7 +7,7 @@ establish that experience on personal accounts.
 
 ## Current candidate
 
-Build **68** is the current source candidate, adding explicit Bitwarden
+Build **69** is the current source candidate, adding explicit Bitwarden
 Password Manager connection, imported exact-item suggestions, unattended
 password refresh and restrictive source disconnect. Its official OSS CLI uses
 the protected Node runtime instead of the standalone client's older embedded
@@ -17,6 +17,12 @@ consent; exact-item restrictions are enforced by Account Access. Private
 enrollment and consumer installation are not established by its controlled
 tests. Earlier build evidence below does not validate this new product tree.
 [Bitwarden setup and limits](bitwarden-sync.md).
+
+Build **68** at `8d831d1` was assembled for review but failed regression QA:
+the new source route shadowed the existing email/OAuth connection worker.
+The failure is retained; that package is not a release candidate. Build 69
+aliases the provider function so the original connection worker remains usable.
+Earlier passing source and packaging checks do not erase this failure.
 
 Build **67** at source `e2c8bc4` adds manifest-derived installation-space checks,
 safe low-space retry and a reviewed Read the Docs password/authenticator pilot.
