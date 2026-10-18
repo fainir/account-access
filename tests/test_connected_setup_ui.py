@@ -99,7 +99,9 @@ def test_owner_browser_reconnects_unusable_google_grant_without_success_claim(en
                 page = browser.new_page()
                 page.goto(f"http://127.0.0.1:{server.server_port}/#" + token)
                 page.get_by_role("button", name="Verification", exact=True).click()
-                page.get_by_text("Renewable Google access is saved.", exact=False).wait_for()
+                page.get_by_text("Google access is saved. Check its address", exact=False).wait_for()
+                assert page.get_by_role("button", name="Check Google connection", exact=True).is_visible()
+                assert "Google mailbox checked." not in page.locator("body").inner_text()
                 for reason in ["mailbox_oauth_renewal_unavailable", "refresh_outcome_uncertain",
                                "mailbox_scope_not_allowed", "fictional-private-reason"]:
                     grant.update(connected=False, renewable_access_saved=False,
@@ -107,7 +109,8 @@ def test_owner_browser_reconnects_unusable_google_grant_without_success_claim(en
                     page.evaluate("refresh()")
                     assert page.get_by_role("button", name="Reconnect with Google", exact=True).is_visible()
                     body = page.locator("body").inner_text()
-                    assert "Renewable Google access is saved." not in body
+                    assert "Google access is saved." not in body
+                    assert "Google mailbox checked." not in body
                     assert "fictional-private-reason" not in body
                     assert "Reconnect once" in body or "publisher must check" in body
                 grant.update(connected=True)
@@ -115,7 +118,8 @@ def test_owner_browser_reconnects_unusable_google_grant_without_success_claim(en
                 grant.pop("connection_state")
                 page.evaluate("refresh()")
                 assert page.get_by_role("button", name="Reconnect with Google", exact=True).is_visible()
-                assert "Renewable Google access is saved." not in page.locator("body").inner_text()
+                assert "Google access is saved." not in page.locator("body").inner_text()
+                assert "Google mailbox checked." not in page.locator("body").inner_text()
             finally:
                 browser.close()
     finally:

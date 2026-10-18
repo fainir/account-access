@@ -150,9 +150,10 @@ def test_sms_cli_budget_starts_after_browser_setup_and_failed_setup_never_starts
     monkeypatch.setattr(probe, "time", SimpleNamespace(monotonic=lambda: clock[0]))
     monkeypatch.setattr(probe, "CURRENT_STAGE", probe.CURRENT_STAGE)
 
-    def start_client(command, env, deadline, *, account):
+    def start_client(command, env, deadline, *, account, read_timeout):
         calls.append("cli")
-        assert clock[0] == 100 and deadline == 155
+        assert clock[0] == 100 and deadline == 240
+        assert read_timeout == 70 and probe.CHILD_SECONDS == 230
         assert account == probe.SMS_ACCOUNT
         raise RuntimeError("test_stop_after_cli_start")
 
@@ -184,6 +185,8 @@ def test_sms_cli_budget_starts_after_browser_setup_and_failed_setup_never_starts
     with pytest.raises(RuntimeError, match="^" + reason + "$"):
         probe.run_sms_journey(playwright, tmp_path, tmp_path, original, hashes)
     assert calls == ["prepared", "permissions", *(["cli"] if prepared else []), "closed"]
+    assert probe.SMS_FAILURE_PROGRESS == {"completed_cli_reads": 0, "synthetic_dom_inserted": False,
+                                          "active_cli": False}
 
 
 @pytest.mark.parametrize("key", sorted(VERIFIED | UNVERIFIED))
@@ -337,3 +340,38 @@ def test_child_failure_reason_never_serializes_exception_or_provider_text():
         assert probe.failure_reason(RuntimeError(value)) == value
     for error in [RuntimeError("fictional-private-canary"), ValueError("browser_fixture_cli_login_retry_cooldown")]:
         assert probe.failure_reason(error) == "runtime_unavailable"
+
+
+@pytest.mark.parametrize("change", [
+    {"completed_cli_reads": True}, {"completed_cli_reads": -1}, {"completed_cli_reads": 3},
+    {"completed_cli_reads": "1"}, {"synthetic_dom_inserted": 1}, {"active_cli": None},
+    {"raw_output": "fictional-private-canary"},
+])
+def test_failure_progress_rejects_unknown_fields_and_nonfinite_counter_schema(change):
+    value = {"completed_cli_reads": 1, "synthetic_dom_inserted": True, "active_cli": True}
+    value.update(change)
+    assert probe.failure_progress(value) is None
+
+
+def test_failure_progress_preserves_zero_one_or_two_reads_without_claiming_forwarded_sms_is_login():
+    for count in [0, 1, 2]:
+        value = {"completed_cli_reads": count, "synthetic_dom_inserted": True, "active_cli": False}
+        assert probe.failure_progress(value) == value
+        assert probe.failure_progress(value) is not value
+
+
+def test_child_failure_emits_only_allowlisted_progress_before_cleanup(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(probe, "require_fixture", lambda *args, **kwargs: None)
+    monkeypatch.setattr(probe, "CURRENT_STAGE", "sms-login")
+    monkeypatch.setattr(probe, "SMS_FAILURE_PROGRESS", None)
+    def failed(prefix):
+        probe.stage("sms-login")
+        probe.SMS_FAILURE_PROGRESS = {"completed_cli_reads": 1, "synthetic_dom_inserted": True,
+                                      "active_cli": True}
+        raise RuntimeError("browser_fixture_deadline_expired")
+    monkeypatch.setattr(probe, "run_child", failed)
+    assert probe.main(["--prefix", str(tmp_path)]) == 1
+    value = json.loads(capsys.readouterr().out)
+    assert value == {"status": "FAILED", "reason": "signed_chrome_roundtrip_failed", "stage": "sms-login",
+                     "failure": "browser_fixture_deadline_expired", "sms_progress": {
+                         "completed_cli_reads": 1, "synthetic_dom_inserted": True, "active_cli": True}}

@@ -115,9 +115,10 @@ class ClientReads:
     There is no executor/thread whose shutdown could delay cancellation. Output
     is drained while the child runs, bounded and never copied into exceptions.
     """
-    def __init__(self, arguments, environment, deadline, *, account="browser-sms"):
+    def __init__(self, arguments, environment, deadline, *, account="browser-sms", read_timeout=None):
         self.arguments, self.environment, self.deadline = arguments, environment, deadline
         self.account = account
+        self.read_timeout, self.read_deadline = read_timeout, None
         self.process = None
         self.output = bytearray()
         self.eof = False
@@ -125,7 +126,11 @@ class ClientReads:
 
     def tick(self):
         remaining(self.deadline)
+        if self.read_deadline is not None:
+            remaining(self.read_deadline)
         if self.process is None:
+            self.read_deadline = (time.monotonic() + self.read_timeout
+                                  if self.read_timeout is not None else None)
             self.process = subprocess.Popen(
                 self.arguments, env=self.environment, stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, start_new_session=True,
@@ -151,6 +156,7 @@ class ClientReads:
         self.values.append(value)
         stop_process(self.process)
         self.process = None
+        self.read_deadline = None
         return len(self.values) == 2
 
     def close(self):

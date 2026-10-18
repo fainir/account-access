@@ -272,7 +272,9 @@ def test_unsigned_container_keeps_genuine_payload_and_runtime_verification(tmp_p
         archive.writestr("fictional/data", "public fictional data")
     plan = tmp_path / "plan.json"
     plan.write_text('{"reviewed":"fixture"}')
-    monkeypatch.setattr(package.sys, "platform", "darwin")
+    # Simulate the package entrypoint without changing the host platform used
+    # by descriptor/ACL helpers in other modules.
+    monkeypatch.setattr(package, "sys", SimpleNamespace(platform="darwin"))
     calls, policies, signatures = [], [], []
     def signature(path, identifier, *, fixture):
         assert fixture is False

@@ -174,6 +174,88 @@ def test_expired_shared_deadline_never_launches_another_cli_or_writes_a_frame(mo
     assert child.stdin.getvalue() == b""
 
 
+def timed_clients(monkeypatch, clock, ready):
+    """Actual bounded output pipes; fake time/child completion, no subprocess."""
+    from scripts import mac_protected_browser_fixture as fixture
+    import os
+
+    created, signals = [], []
+    monkeypatch.setattr(fixture.time, "monotonic", lambda: clock[0])
+    result = {"status": "COMPLETED", "account": "chrome-sms", "operation": "summary",
+              "environment": "controlled-demo", "environment_source": "connector-configuration",
+              "data": {"balance": "987.65", "currency": "ILS"}, "untrusted_data": True}
+    class TimedChild:
+        def __init__(self, completed):
+            self.pid, self.completed, self.returncode = 990 + len(created), completed, None
+            self.stdin, self.stderr = None, None
+            read, write = os.pipe()
+            os.write(write, json.dumps(result).encode())
+            os.close(write)
+            self.stdout = os.fdopen(read, "rb")
+        def poll(self):
+            if self.returncode is None and clock[0] >= self.completed:
+                self.returncode = 0
+            return self.returncode
+        def wait(self, timeout):
+            assert self.returncode == 0
+            return 0
+    def launch(*args, **kwargs):
+        child = TimedChild(ready[len(created)])
+        created.append(child)
+        return child
+    def terminate(pid, sig):
+        assert sig == signal.SIGTERM
+        child = next(child for child in created if child.pid == pid)
+        signals.append(pid)
+        child.returncode = 0
+    monkeypatch.setattr(fixture.subprocess, "Popen", launch)
+    monkeypatch.setattr(fixture.os, "killpg", terminate)
+    return fixture, created, signals
+
+
+@pytest.mark.parametrize("old_shared_budget", [True, False])
+def test_two_valid_sequential_requests_reproduce_short_shared_budget_failure(monkeypatch, old_shared_budget):
+    clock = [0]
+    fixture, children, signals = timed_clients(monkeypatch, clock, [50, 60])
+    clients = fixture.ClientReads([], {}, 55 if old_shared_budget else 140,
+                                  account="chrome-sms", read_timeout=70)
+    try:
+        assert clients.tick() is False
+        clock[0] = 50
+        assert clients.tick() is False and len(clients.values) == 1
+        assert clients.tick() is False
+        clock[0] = 56
+        if old_shared_budget:
+            with pytest.raises(RuntimeError, match="browser_fixture_deadline_expired"):
+                clients.tick()
+            assert len(clients.values) == 1
+        else:
+            assert clients.tick() is False
+            clock[0] = 60
+            assert clients.tick() is True and len(clients.values) == 2
+    finally:
+        clients.close()
+    assert len(children) == 2 and all(child.stdout.closed for child in children)
+    assert len(signals) == (1 if old_shared_budget else 0)
+
+
+@pytest.mark.parametrize("combined_deadline,expired_at", [(140, 121), (80, 81)])
+def test_individual_and_combined_read_caps_still_cancel_owned_pending_child(monkeypatch, combined_deadline, expired_at):
+    clock = [0]
+    fixture, children, signals = timed_clients(monkeypatch, clock, [50, 999])
+    clients = fixture.ClientReads([], {}, combined_deadline, account="chrome-sms", read_timeout=70)
+    assert clients.tick() is False
+    clock[0] = 50
+    assert clients.tick() is False and len(clients.values) == 1
+    assert clients.tick() is False
+    clock[0] = expired_at
+    with pytest.raises(RuntimeError, match="browser_fixture_deadline_expired"):
+        clients.tick()
+    clients.close()
+    assert len(children) == 2 and all(child.stdout.closed for child in children)
+    assert signals == [children[1].pid]
+
+
 def test_frame_failure_immediately_cancels_cli_then_native_and_restores_delivery(tmp_path, monkeypatch):
     from scripts import mac_protected_browser_fixture as fixture
 

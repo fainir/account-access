@@ -46,9 +46,15 @@ MESSAGES_ORIGIN = "https://messages.google.com/*"
 MESSAGES_URL = "https://messages.google.com/web/conversations"
 SMS_ACCOUNT = "chrome-sms"
 OUTPUT_LIMIT = 65536
+# Each Client.request permits 60 seconds. Account for Python startup/output
+# draining per sequential child, rather than sharing a shorter 55-second cap.
+CLI_READ_SECONDS = 60 + 10
+CLI_READS_SECONDS = 2 * CLI_READ_SECONDS
+CHILD_SECONDS = 90 + CLI_READS_SECONDS
 STAGES = {"guard", "profile", "signature", "negative-parent", "launch", "load", "first-pending", "reload",
           "sms-launch", "sms-load", "sms-dom", "sms-login", "sms-cleanup", "cleanup"}
 CURRENT_STAGE = "guard"
+SMS_FAILURE_PROGRESS = None
 FAILURES = {
     "browser_fixture_cli_failed", "browser_fixture_cli_login_retry_cooldown",
     "browser_fixture_cli_google_messages_tab_unavailable", "browser_fixture_cli_google_messages_tab_reloaded",
@@ -161,6 +167,8 @@ def run_sms_journey(playwright, prefix, home, original, original_hashes):
     Only the manifest enrollment is synthetic. Chrome's normal public content
     script APIs, the production polling loop, and native framing remain in use.
     """
+    global SMS_FAILURE_PROGRESS
+    SMS_FAILURE_PROGRESS = None
     stage("sms-launch")
     extension = root_managed_path(prefix / SMS_EXTENSION_NAME)
     candidate = json.loads((extension / "manifest.json").read_bytes())
@@ -239,13 +247,14 @@ def run_sms_journey(playwright, prefix, home, original, original_hashes):
         if not all(checks.values()):
             raise RuntimeError("signed_chrome_fixture_prepare_failed")
         # Browser startup and enrollment substitutes have their own bounded
-        # calls and remain inside the controller's hard 90-second cap. Give
+        # calls and remain inside the controller's hard outer cap. Give
         # the two actual CLI reads their full budget only after setup finishes.
         clients = client_type(
             [sys.executable, "-I", "-B", "-m", "account_access.cli", "run", SMS_ACCOUNT, "summary"],
             {"PATH": "/usr/bin:/bin", "HOME": str(home), "LANG": "C.UTF-8", "ACCESS_CLIENT_CONFIG": str(config)},
-            time.monotonic() + 55,
+            time.monotonic() + CLI_READS_SECONDS,
             account=SMS_ACCOUNT,
+            read_timeout=CLI_READ_SECONDS,
         )
         stage("sms-login")
         while not clients.tick():
@@ -287,6 +296,16 @@ def run_sms_journey(playwright, prefix, home, original, original_hashes):
             "async () => await native({method:'pending'})"
         ) == {"pending": [], "source_enabled": True}
         checks["fixture_resources_unchanged_after_login"] = resource_hashes(extension) == hashes
+    except Exception:
+        # Capture before close() clears the child. These finite counts/booleans
+        # distinguish delivery from first/second-read exhaustion without a code,
+        # URL, account output, page contents or exception string.
+        SMS_FAILURE_PROGRESS = {
+            "completed_cli_reads": len(clients.values) if clients is not None else 0,
+            "synthetic_dom_inserted": delivered,
+            "active_cli": clients is not None and clients.process is not None,
+        }
+        raise
     finally:
         previous = CURRENT_STAGE
         stage("sms-cleanup")
@@ -459,6 +478,16 @@ def failure_reason(error):
     return str(error) if type(error) is RuntimeError and str(error) in FAILURES else "runtime_unavailable"
 
 
+def failure_progress(value):
+    if (type(value) is not dict
+            or set(value) != {"completed_cli_reads", "synthetic_dom_inserted", "active_cli"}
+            or type(value["completed_cli_reads"]) is not int or not 0 <= value["completed_cli_reads"] <= 2
+            or type(value["synthetic_dom_inserted"]) is not bool
+            or type(value["active_cli"]) is not bool):
+        return None
+    return value.copy()
+
+
 def exercise_signed_chrome_gateway(prefix, roles, fixture=None, client_config=None):
     agent = require_fixture(prefix, roles)
     home = Path(agent.pw_dir)
@@ -527,7 +556,7 @@ def exercise_signed_chrome_gateway(prefix, roles, fixture=None, client_config=No
                 start_new_session=True,
                 env={"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "GITHUB_ACTIONS": "true"},
             )
-            deadline = time.monotonic() + 90
+            deadline = time.monotonic() + CHILD_SECONDS
             while process.poll() is None:
                 if time.monotonic() >= deadline or os.fstat(destination.fileno()).st_size > OUTPUT_LIMIT:
                     raise RuntimeError("signed_chrome_child_bound_exceeded")
@@ -555,8 +584,10 @@ def exercise_signed_chrome_gateway(prefix, roles, fixture=None, client_config=No
             if diagnostic is not None:
                 detail = value.get("failure")
                 detail = detail if type(detail) is str and detail in FAILURES else "runtime_unavailable"
+                progress = failure_progress(value.get("sms_progress"))
                 print(json.dumps({"stage": "signed_chrome_failed_" + diagnostic, "failure": detail,
-                                  "fixture_sms_forwarded": delivered == 1}), file=sys.stderr, flush=True)
+                                  "fixture_sms_forwarded": delivered == 1,
+                                  **({"sms_progress": progress} if progress is not None else {})}), file=sys.stderr, flush=True)
             raise RuntimeError("signed_chrome_child_failed")
         value["sms_journey"]["checks"]["provider_recorded_one_fresh_password_sms_and_identity_submission"] = (
             delivered == 1 and (fixture.provider.login_count, fixture.provider.sms_count,
@@ -616,8 +647,10 @@ def main(argv=None):
         finally:
             signal.signal(signal.SIGTERM, previous)
     except Exception as error:
+        progress = failure_progress(SMS_FAILURE_PROGRESS)
         print(json.dumps({"status": "FAILED", "reason": "signed_chrome_roundtrip_failed", "stage": CURRENT_STAGE,
-                          "failure": failure_reason(error)}))
+                          "failure": failure_reason(error),
+                          **({"sms_progress": progress} if progress is not None else {})}))
         return 1
     print(json.dumps(value, sort_keys=True))
     return 0
