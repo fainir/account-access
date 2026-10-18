@@ -1,5 +1,13 @@
 # Validation of Account Access
 
+The current [build 67 review](../artifacts/build67-review-080.json) records source
+`e2c8bc4`, identical-product QA revision `c2748c8`, all eight successful fresh CI
+runs and the independently reviewed unsigned offline installer. Both Main runs
+pass 2,467 tests with 93 skips and zero warnings. Production readiness and new
+private sign-ins remain false/zero; [production acceptance](production-gates.md)
+lists the open requirements. Sections below retain earlier source-specific
+results.
+
 ## In-app confirmation email and interrupted setup — 18 October 2026
 
 Application revision `1bba84f` passed all eight push/PR workflows. Both full

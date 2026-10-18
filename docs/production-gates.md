@@ -7,17 +7,37 @@ establish that experience on personal accounts.
 
 ## Current candidate
 
-Build **66** contains the protected 0.8 runtime. Its offline package was assembled
-from genuine Developer ID signed application and runtime components. The
-container is **unsigned, unnotarized and uninstalled**; it is a maintainer review
-artifact, not a consumer download. The public download remains the 0.7.4 preview.
+Build **67** at source `e2c8bc4` adds manifest-derived installation-space checks,
+safe low-space retry and a reviewed Read the Docs password/authenticator pilot.
+Its app and three protected runtime components have genuine Developer ID
+signatures; an independent check matched every bundled source file to that
+revision. Its offline package has now been assembled with production payload
+verification. The container is **unsigned, unnotarized and uninstalled** and is
+for maintainer review. An initial `pkgbuild` failure during disk pressure is
+retained; the same product source built successfully after space was freed.
 
-At QA revision `0398ec1`, all eight CI runs passed. Each Main regression passed
-2,429 tests with 92 skips and zero warnings; dependency audits and
-package builds passed. The packaged application source remains `da2bb94`: the
-later changes affect QA and documentation, with the complete product tree
-unchanged. [Exact candidate evidence](../artifacts/setup-completion-080.json)
-records both revisions, the installer hash, controlled coverage and open gates.
+All eight fresh CI runs at QA revision `c2748c8` passed. Each Main regression
+passed **2,467 tests with 93 skips and zero warnings**; dependency audits and
+wheel/source builds passed. Its product tree is identical to `e2c8bc4`; the QA
+change gives the device-email fixture enough time for the deliberate TOTP
+rollover guard. The original failed run remains part of the evidence. This
+changes no production timeout or security check.
+
+Both source-`e2c8bc4` Macs also passed 1,215 focused tests and 22 reviewed-browser
+tests each; all 18 report pairs match through their strict validators and
+package contracts. The actual build 67 package's manifest, source bindings and
+low-space refusal passed independent review. The
+[exact build 67 record](../artifacts/build67-review-080.json) includes current CI
+links, package hash and scope. No personal-account sign-in or owner installation
+was performed.
+
+Build **66** remains the earlier completed offline review package, assembled
+from genuine Developer ID signed components. Its container is **unsigned,
+unnotarized and uninstalled**, and it does not contain the build 67 changes.
+All eight CI runs at its QA revision `0398ec1` passed. The
+[build 66 record](../artifacts/setup-completion-080.json) preserves its exact
+source revisions, installer hash and scope. The public download remains the
+0.7.4 preview; these review artifacts are not consumer releases.
 
 The candidate now includes:
 
@@ -50,7 +70,7 @@ presented as results for a later candidate.
 
 | Area | Implemented or controlled coverage | Still required |
 | --- | --- | --- |
-| Mac installation | Offline protected package, native inventory and publisher-signature checks; actual Installer-context and same-image recovery fixtures | Developer ID Installer certificate, Notary credentials, Apple acceptance and stapling; clean downloaded installation, genuine owner enrollment and reboot QA |
+| Mac installation | Offline protected package, native inventory and publisher-signature checks; actual Installer-context and same-image recovery fixtures; build 67 adds native capacity preflight and non-destructive low-space retry | Developer ID Installer certificate, Notary credentials, Apple acceptance and stapling; clean downloaded installation, genuine owner enrollment and reboot QA |
 | Upgrade and repair | Explicit recognized-preview agent connection upgrade; atomic launcher replacement and rollback; same-image/same-owner package recovery | Genuine installed owner upgrade and interrupted positive provisioning; different-image protected-package updates and vault migration |
 | Password import | Reviewed Chrome, Apple Passwords, compatible 1Password and Bitwarden CSV; unencrypted Bitwarden JSON; hidden-password local review | Representative real export-to-private-website acceptance, including the new protected installation |
 | Password synchronization | Exact approved 1Password items through service-account SDK or Connect; bounded updates and revocation checks | Private enrollment, rotation and revocation QA. **Chrome and Bitwarden live sync is unimplemented**; exports remain snapshots |
@@ -60,7 +80,7 @@ presented as results for a later candidate.
 | Google Messages Web | Unchanged production scripts in a synthetic Messages document, stable Chrome/native transport and controlled SMS-login composition | Genuine positive owner approval and complete private/physical SMS login; broader language coverage and extension distribution |
 | Authenticator | Local original-key, supported QR and complete Google Authenticator transfer-batch import; TOTP login fixtures | Owner-approved real phone export/enrollment and provider login. Push approvals, nonstandard TOTP and Google Authenticator cloud sync are unsupported |
 | Agent integration | Portable installed CLI/skill; current guarded Claude fictional-account journey; earlier source-specific Codex results | Current protected owner installation and private sessions through both agents. The optional nested Codex QA harness remains unverified before startup |
-| Website coverage | Reviewed public examples and narrow Namecheap/PyPI pilots; password, email, SMS and TOTP engine fixtures | More reviewed connectors and representative private acceptance. Importing a password does not add arbitrary website support |
+| Website coverage | Reviewed public examples and narrow Namecheap, PyPI and Read the Docs pilots; password, email, SMS and TOTP engine fixtures | More reviewed connectors and representative private acceptance. Importing a password does not add arbitrary website support |
 | Security and operations | Separate service identity, native owner authorization, protected key custody, permission/revocation checks and disposable cross-user/crash fixtures | Genuine consumer deployment and owner approval, real logout/reboot and active-operation recovery; independent security review and release provenance |
 
 The optional Codex QA refusal is a test-harness boundary. The installed launcher
