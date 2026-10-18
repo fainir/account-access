@@ -44,7 +44,7 @@ broker; a local skill does not expose your computer's localhost to the cloud.
 
 ## Connect and use
 
-1. Choose **Import saved passwords**, select a local CSV export, and review the
+1. Choose **Import saved passwords**, select a local password export, and review the
    supported accounts that match. Approve only the account reads you want.
 2. Open **Verification** and connect the login-code sources those accounts use.
 3. Check that the account shows **Connected**, then ask your AI for the work.
@@ -68,12 +68,15 @@ the owner. [Automatic sessions and their limits](docs/automatic-sessions.md).
 
 Export passwords from Chrome or your password manager, then select the file in
 **Import saved passwords**. Supported layouts include Chrome, Apple Passwords,
-compatible 1Password CSV and Bitwarden login exports.
+compatible 1Password CSV and Bitwarden CSV. The 0.8 development candidate also
+accepts unencrypted Bitwarden JSON with multiple website addresses per login;
+cards, notes, passkeys and deleted entries are not imported.
+[Supported files and import review](docs/password-import.md).
 [Chrome export instructions](https://support.google.com/chrome/answer/13068232)
 and [Apple export instructions](https://support.apple.com/guide/passwords/mchl35b12625/mac).
 
 The app hides passwords during review and saves only approved selections in its
-encrypted vault. Unsupported entries are not retained. CSV exports contain
+encrypted vault. Unsupported entries are not retained. CSV and unencrypted JSON exports contain
 plaintext passwords: keep them local and use the app's option to move the export
 to Trash afterward. This does not securely erase it or empty Trash. Never upload
 an export or paste credentials into chat.

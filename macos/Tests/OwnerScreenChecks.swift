@@ -129,6 +129,25 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
             try! FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
         }
         saveOwner(port: 1, token: VerificationRetryFixture.ownerToken)
+        let export = fixtureRoot.appendingPathComponent("fictional-bitwarden.json")
+        let exportText = "{\"encrypted\":false,\"items\":[]}"
+        try! Data(exportText.utf8).write(to: export)
+        precondition((try! AccountAccess.readPasswordExport(export)) == exportText)
+        func rejectedExport(_ file: URL) -> Bool {
+            do { _ = try AccountAccess.readPasswordExport(file); return false }
+            catch { return true }
+        }
+        let alias = fixtureRoot.appendingPathComponent("linked.csv")
+        try! FileManager.default.createSymbolicLink(at: alias, withDestinationURL: export)
+        precondition(rejectedExport(alias))
+        let fifo = fixtureRoot.appendingPathComponent("pipe.csv")
+        precondition(mkfifo(fifo.path, 0o600) == 0 && rejectedExport(fifo))
+        precondition(rejectedExport(fixtureRoot))
+        try! Data([0xff, 0xfe, 0xfd]).write(to: export)
+        precondition(rejectedExport(export))
+        try! Data(repeating: 65, count: 4_000_001).write(to: export)
+        precondition(rejectedExport(export))
+        print("PASS: password files are bounded regular UTF-8 files; symlinks, pipes, directories and oversized exports are refused")
         let owner = AccountAccess()
         owner.window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1040, height: 740),
                                 styleMask: [.titled, .resizable], backing: .buffered, defer: false)
@@ -247,6 +266,32 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         views = descendants(owner.stack)
         precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Connect with Google"))
         precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains(where: { $0.contains("Google grants mailbox read access") }))
+        owner.mailboxOAuth[0]["connected"] = true
+        owner.mailboxOAuth[0]["renewable_access_saved"] = true
+        owner.showEmailSetup()
+        views = descendants(owner.stack)
+        precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains(where: { $0.contains("Renewable Google access is saved") }))
+        precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Reconnect with Google"))
+        for reason in ["connection_revoked", "provider_grant_revoked_or_expired", "refresh_outcome_uncertain",
+                       "mailbox_oauth_renewal_unavailable", "mailbox_scope_missing", "mailbox_scope_not_allowed", "fictional-private-reason"] {
+            owner.mailboxOAuth[0]["connected"] = false
+            owner.mailboxOAuth[0]["renewable_access_saved"] = false
+            owner.mailboxOAuth[0]["connection_state"] = "needs_attention"
+            owner.mailboxOAuth[0]["reason"] = reason
+            owner.showEmailSetup()
+            views = descendants(owner.stack)
+            let texts = views.compactMap { ($0 as? NSTextField)?.stringValue }
+            precondition(texts.contains(where: { $0.contains("Google connection needs attention") }))
+            precondition(!texts.contains(where: { $0.contains("Renewable Google access is saved") || $0.contains("fictional-private-reason") }))
+            precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Reconnect with Google"))
+        }
+        owner.mailboxOAuth[0]["connected"] = true
+        owner.mailboxOAuth[0].removeValue(forKey: "renewable_access_saved")
+        owner.mailboxOAuth[0].removeValue(forKey: "connection_state")
+        owner.showEmailSetup()
+        views = descendants(owner.stack)
+        precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains(where: { $0.contains("Google connection needs attention") }))
+        print("PASS: unusable or nonrenewable Google grants require reconnection without claiming saved access or exposing arbitrary reasons")
         owner.mailboxOAuth = []
         owner.showMailboxPasswordSetup()
         precondition(owner.mailboxFields["password"] is NSSecureTextField)

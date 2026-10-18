@@ -755,6 +755,16 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             "mailbox_already_connected": "This mailbox is already saved. Use Update app password or Check connection on its card.",
             "mailbox_source_mismatch": "Choose the mailbox for the email address and mail server already approved for this website.",
             "mailbox_scope_missing": "Reconnect the configured Gmail account with permission to read login messages.",
+            "mailbox_scope_not_allowed": "Google returned broader access than this Gmail connection permits. The publisher must check its Google application; your existing connection is preserved.",
+            "mailbox_oauth_renewal_unavailable": "Google did not provide renewable access. Reconnect Google once so approved email-code logins can continue after access expires.",
+            "password_export_encrypted": "Choose an unencrypted Bitwarden JSON export. Account Access cannot open password-protected exports. Keep the export on this Mac and remove it after importing.",
+            "password_file_too_large": "The password export is too large. Export fewer accounts and try again.",
+            "invalid_password_export": "The password file could not be read. Export a fresh UTF-8 CSV or unencrypted Bitwarden JSON file and try again.",
+            "unsupported_password_export": "Choose a supported password CSV or unencrypted Bitwarden JSON export.",
+            "import_connector_changed": "This account's connection changed after the import review. Choose the password file again and review the current account permissions.",
+            "import_authenticator_changed": "This account's authenticator changed after the import review. Choose the password file again before replacing its authenticator key.",
+            "pypi_manual_setup_unavailable": "This PyPI pilot cannot complete manual setup or new-device email confirmation yet. Your saved login is preserved.",
+            "login_challenge_changed": "The website's verification route changed. Account Access stopped before another attempt; the connector needs review.",
             "account_not_connected": "Connect the configured Gmail account through Manage permissions first.",
             "provider_rejected_access": "The email provider rejected this connection. Reconnect the mailbox in Verification.",
             "network_unavailable": "The email provider could not be reached. Your saved setup is preserved; try Check email connection when it is online.",
@@ -1160,6 +1170,10 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             return "The website requires owner approval before continuing. " + delivery
         case "browser_state_unrecognized":
             return "The website returned a sign-in page this connector does not recognize. " + delivery
+        case "login_challenge_changed":
+            return "The website's verification route changed. Account Access stopped before another attempt; the connector needs review. " + delivery
+        case "pypi_manual_setup_unavailable":
+            return "This PyPI pilot cannot complete manual setup or new-device email confirmation yet. " + delivery
         case "browser_login_required":
             return "The website returned to password entry. " + delivery
         case "verification_method_unavailable", "verification_source_not_connected", "authenticator_not_enrolled":
@@ -1303,27 +1317,23 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     @objc func importPasswords() {
         section = "import"
         page("Import saved passwords", "Bring your supported logins from the password manager you already use.")
-        card("1  Export your passwords", "In Chrome, open Password Manager, then Settings and Export passwords. Apple Passwords, Bitwarden and compatible 1Password CSV exports also work.")
-        card("2  Choose the export", "Select the CSV file on this Mac. You'll review matching supported accounts before anything is saved.")
+        card("1  Export your passwords", "In Chrome, open Password Manager, then Settings and Export passwords. Apple Passwords, Bitwarden and compatible 1Password CSV exports also work. Bitwarden can also export an unencrypted JSON file.")
+        card("2  Choose the export", "Select the CSV or Bitwarden JSON file on this Mac. You'll review matching supported accounts before anything is saved.")
         card("3  Approve your accounts", "Choose the logins and reads you want to allow. Passwords are encrypted locally. You can move the export to Trash after importing.")
         primary("Choose password file", #selector(choosePasswordFile))
-        card("Keeping passwords current", "Chrome and CSV exports are snapshots. Import a fresh export when those passwords change. A configured 1Password Connect source can update already-approved passwords automatically.")
+        card("Keeping passwords current", "CSV and JSON exports are snapshots. Import a fresh export when those passwords change. A configured 1Password service account or Connect source can update already-approved passwords automatically.")
         action("Connect a live password source", #selector(showPasswordSync))
         action("Back to my accounts", #selector(showReady))
     }
 
     @objc func choosePasswordFile() {
         let picker = NSOpenPanel()
-        picker.allowedContentTypes = [.commaSeparatedText]
+        picker.allowedContentTypes = [.commaSeparatedText, .json]
         picker.allowsMultipleSelection = false
-        picker.message = "Select the password CSV exported by Chrome, Apple Passwords, Bitwarden, or 1Password. Only selected supported logins will be saved."
+        picker.message = "Select a password CSV or unencrypted Bitwarden JSON export. Only selected supported logins will be saved."
         guard picker.runModal() == .OK, let file = picker.url else { return }
         do {
-            let attributes = try files.attributesOfItem(atPath: file.path)
-            guard (attributes[.size] as? NSNumber)?.intValue ?? 4_000_001 <= 4_000_000 else {
-                throw Failure.message("The password export is too large. Export fewer accounts and try again.")
-            }
-            let csv = try String(contentsOf: file, encoding: .utf8)
+            let csv = try Self.readPasswordExport(file)
             busy = true
             page("Reviewing your saved logins", "Passwords stay in the local service and never appear in your AI chat.")
             progress()
@@ -1334,6 +1344,37 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 } catch { self.fail(error, retry: #selector(self.importPasswords)) }
             }
         } catch { fail(error, retry: #selector(importPasswords)) }
+    }
+
+    static func readPasswordExport(_ file: URL) throws -> String {
+        let limit = 4_000_000
+        let invalid = Failure.message("Choose the original CSV or Bitwarden JSON export file. It must be a readable UTF-8 file on this Mac.")
+        let tooLarge = Failure.message("The password export is too large. Export fewer accounts and try again.")
+        let fd = open(file.path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK)
+        guard fd >= 0 else { throw invalid }
+        defer { Darwin.close(fd) }
+        var before = stat()
+        guard fstat(fd, &before) == 0, before.st_mode & S_IFMT == S_IFREG else { throw invalid }
+        guard before.st_size <= limit else { throw tooLarge }
+        guard before.st_size > 0 else { throw invalid }
+        var data = Data(), buffer = [UInt8](repeating: 0, count: 65536)
+        while true {
+            let count = Darwin.read(fd, &buffer, min(buffer.count, limit + 1 - data.count))
+            if count < 0 && errno == EINTR { continue }
+            guard count >= 0 else { throw invalid }
+            if count == 0 { break }
+            data.append(contentsOf: buffer.prefix(count))
+            guard data.count <= limit else { throw tooLarge }
+        }
+        var after = stat()
+        guard fstat(fd, &after) == 0, before.st_dev == after.st_dev, before.st_ino == after.st_ino,
+              before.st_size == after.st_size, after.st_size == data.count,
+              before.st_mtimespec.tv_sec == after.st_mtimespec.tv_sec,
+              before.st_mtimespec.tv_nsec == after.st_mtimespec.tv_nsec,
+              before.st_ctimespec.tv_sec == after.st_ctimespec.tv_sec,
+              before.st_ctimespec.tv_nsec == after.st_ctimespec.tv_nsec,
+              let contents = String(data: data, encoding: .utf8) else { throw invalid }
+        return contents
     }
 
     func reviewImport(_ preview: [String: Any]) {
@@ -1569,7 +1610,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     @objc func showPasswordSync() {
         section = "sync"
         page("Keep passwords up to date", "Approved logins stay automatic when your connected password source changes.")
-        card("Chrome and other CSV imports", "An export is a one-time snapshot. Chrome does not offer this app a public password-sync API. Re-import after a password change; this app never leaves a plaintext export running in the background.")
+        card("Chrome and password file imports", "CSV and JSON exports are one-time snapshots. Chrome does not offer this app a public password-sync API. Re-import after a password change; this app never leaves a plaintext export running in the background.")
         for link in passwordSync {
             let account = link["account"] as? String ?? ""
             let name = accounts.first { $0["account"] as? String == account }?["label"] as? String ?? account
@@ -1730,23 +1771,42 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         action("Back", #selector(showFactors))
     }
 
+    static func mailboxOAuthRepairMessage(_ reason: String) -> String {
+        switch reason {
+        case "mailbox_scope_not_allowed":
+            return "Google returned broader access than this connection permits. The publisher must check its Google application before you reconnect."
+        case "refresh_outcome_uncertain":
+            return "Google access renewal was interrupted. Reconnect once to restore automatic email-code access."
+        case "connection_revoked", "provider_grant_revoked_or_expired":
+            return "The saved Google permission is no longer usable. Reconnect once to restore automatic email-code access."
+        case "mailbox_scope_missing":
+            return "Reconnect Google with the mailbox read permission needed for your approved login messages."
+        default:
+            return "Renewable Google access is not saved. Reconnect once so approved email-code logins can continue after access expires."
+        }
+    }
+
     func showGmailOAuthCards() {
         for mailbox in mailboxOAuth {
             guard let account = mailbox["account"] as? String else { continue }
             let ready = mailbox["publisher_configured"] as? Bool == true
+            let needsAttention = mailbox["connection_state"] as? String == "needs_attention"
+                || (mailbox["connected"] as? Bool == true && mailbox["renewable_access_saved"] as? Bool != true)
             let connected = mailbox["connected"] as? Bool == true
+                && mailbox["renewable_access_saved"] as? Bool == true && !needsAttention
             let recipients = (mailbox["sources"] as? [[String: Any]] ?? []).compactMap { $0["recipient"] as? String }
             let addresses = Array(Set(recipients)).sorted().joined(separator: ", ")
             let panel = card("Gmail · " + addresses,
                              "Connect in Google's own browser page. Google grants mailbox read access; Account Access uses matching login messages for your configured websites. Website permissions stay the same."
-                             + (connected ? " Google access is saved. Enable or check each website's email verification below to confirm its approved mailbox address." : ""),
-                             status: ready ? (connected ? "Google access saved" : "One-time Google connection") : "Publisher setup needed", good: connected)
+                             + (connected ? " Renewable Google access is saved. Enable or check each website's email verification below to confirm its approved mailbox address." : "")
+                             + (needsAttention ? " " + Self.mailboxOAuthRepairMessage(mailbox["reason"] as? String ?? "") : ""),
+                             status: ready ? (connected ? "Google access saved" : needsAttention ? "Google connection needs attention" : "One-time Google connection") : "Publisher setup needed", good: ready && connected)
             if mailbox["environment"] as? String == "controlled-demo" {
                 let example = NSTextField(wrappingLabelWithString: "Controlled provider fixture. This is not a real Gmail connection.")
                 panel.addArrangedSubview(example)
             }
             if ready {
-                let connect = NSButton(title: connected ? "Reconnect with Google" : "Connect with Google", target: self, action: #selector(connectGmailOAuth(_:)))
+                let connect = NSButton(title: connected || needsAttention ? "Reconnect with Google" : "Connect with Google", target: self, action: #selector(connectGmailOAuth(_:)))
                 connect.identifier = NSUserInterfaceItemIdentifier(account)
                 panel.addArrangedSubview(connect)
             } else {
