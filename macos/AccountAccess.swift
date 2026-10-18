@@ -2644,7 +2644,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
 #if !ACCOUNT_ACCESS_UI_CHECKS
 @main struct AccountAccessMain {
     static func main() {
-        do { _ = try OwnerApplicationBundle.current() }
+        let appBundle: Bundle
+        do { appBundle = try OwnerApplicationBundle.current() }
         catch {
             fputs("Account Access could not verify its protected app. Reinstall the signed package.\n", stderr)
             exit(78)
@@ -2657,7 +2658,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             return
         }
         if CommandLine.arguments.count == 2 && CommandLine.arguments[1] == "--background-enable" {
-            let payload = ["status": BackgroundRecovery.manage()]
+            let payload = ["status": BackgroundRecovery.manage(bundle: appBundle)]
             let data = try! JSONSerialization.data(withJSONObject: payload)
             print(String(decoding: data, as: UTF8.self))
             return

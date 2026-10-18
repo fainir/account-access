@@ -9,6 +9,7 @@ CHECKS = {
     "hosted_arm64_mac_guard_passed", "immutable_review_archive_verified",
     "archive_matches_exact_public_image", "application_wheel_and_runtime_match_source",
     "genuine_publisher_components_verified", "fresh_production_paths_only",
+    "canonical_owner_bundle_protected", "public_app_alias_is_navigation_only", "shared_applications_parent_unchanged",
     "production_prepare_and_activate_used", "root_profile_pins_actual_publisher_hashes",
     "genuine_broker_registered_its_own_exact_rule", "production_owner_browser_setup_used",
     "signed_stable_chrome_used", "unchanged_packaged_extension_used",

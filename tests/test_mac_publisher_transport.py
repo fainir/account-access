@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import stat
 import tarfile
 from types import SimpleNamespace
 
@@ -69,10 +70,15 @@ def public_image(tmp_path):
     for name in ["bin", "browsers", "runtime"]:
         (support / name).mkdir(parents=True)
     app.mkdir(parents=True)
+    alias = payload / probe.PUBLIC_APP.relative_to("/")
+    alias.parent.mkdir(parents=True)
+    alias.symlink_to(probe.APPLICATION_TARGET)
     for name in ["AccountAccess-broker", "AccountAccess-bootstrap"]:
         (support / "bin" / name).write_bytes(b"public fixture " + name.encode())
     (support / "runtime/python").write_bytes(b"public fixture runtime")
     (support / "runtime/current").symlink_to("python")
+    (app / "Contents/MacOS").mkdir(parents=True)
+    (app / "Contents/MacOS/AccountAccess").write_bytes(b"public owner executable fixture")
     (app / "public-resource").write_bytes(b"public app fixture")
     for path in [payload, *payload.rglob("*")]:
         if not path.is_symlink():
@@ -332,3 +338,12 @@ def test_parent_diagnostics_only_include_presence_uid_mode_and_alias_metadata(tm
     assert probe.public_parent_metadata([("applications", public), ("helpers", tmp_path / "absent")]) == {
         "applications": {"present": True, "owner_uid": os.getuid(), "mode": 0o775, "symlink": False},
         "helpers": {"present": False}}
+
+
+@pytest.mark.parametrize("uid,mode,accepted", [(0, 0o40775, True), (0, 0o40755, True),
+    (0, 0o40777, False), (501, 0o40775, False), (0, 0o42775, False), (0, 0o100755, False)])
+def test_shared_applications_parent_is_read_only_metadata_and_never_runtime_trust(uid, mode, accepted):
+    assert probe.shared_parent_metadata_valid(SimpleNamespace(st_uid=uid, st_mode=mode)) is accepted
+    assert probe.APP == probe.BASE / "owner.app"
+    assert probe.PUBLIC_APP == Path("/Applications/Account Access.app")
+    assert stat.S_IFMT(mode) != 0

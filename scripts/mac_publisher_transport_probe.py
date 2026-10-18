@@ -30,7 +30,9 @@ REPOSITORY = "fainir/account-access"
 TEAM = "WBULD6N4NQ"
 SOURCE = Path(__file__).resolve().parents[1]
 BASE = Path("/Library/Application Support/Account Access")
-APP = Path("/Applications/Account Access.app")
+APP = BASE / "owner.app"
+PUBLIC_APP = Path("/Applications/Account Access.app")
+APPLICATION_TARGET = "../Library/Application Support/Account Access/owner.app"
 JOB = Path("/Library/LaunchDaemons/com.fainir.accountaccess.broker.plist")
 LABEL = "com.fainir.accountaccess.broker"
 RIGHT = "com.fainir.accountaccess.owner-enrollment.v1"
@@ -150,9 +152,11 @@ def contract(review_raw, manifest_raw, expected_source):
     manifest = unique_json(manifest_raw)
     require(manifest["architecture"] == "arm64", "review_architecture_mismatch")
     support = manifest["roots"][str(BASE)]
-    require({name.split("/")[0] for name in support if name} == {"runtime", "browsers", "bin"}
+    require({name.split("/")[0] for name in support if name} == {"runtime", "browsers", "bin", "owner.app"}
             and {name for name in support if name.startswith("bin/")} == {
-                "bin/AccountAccess-broker", "bin/AccountAccess-bootstrap"}, "review_contains_nonpublic_state")
+                "bin/AccountAccess-broker", "bin/AccountAccess-bootstrap"}
+            and manifest["roots"][str(PUBLIC_APP)] == {"": {"kind": "symlink", "target": APPLICATION_TARGET}},
+            "review_contains_nonpublic_state")
     return review, manifest
 
 
@@ -345,6 +349,10 @@ def public_parent_metadata(parents):
     return observations
 
 
+def shared_parent_metadata_valid(info):
+    return stat.S_ISDIR(info.st_mode) and info.st_uid == 0 and info.st_mode & 0o7002 == 0
+
+
 def child(config_path):
     guard(root=False)
     from account_access.browser_setup import prepare
@@ -356,7 +364,7 @@ def child(config_path):
     home = Path(user.pw_dir)
     require(set(config) == {"owner_uid", "home", "prefix"} and config["owner_uid"] == os.getuid()
             and config["home"] == str(home) and home == Path(config["prefix"]) / "owner-home"
-            and re.fullmatch(r"/Library/PrivilegedHelperTools/account-access-publisher-qa-[a-f0-9]{16}", config["prefix"]),
+            and re.fullmatch(r"/Library/Application Support/account-access-publisher-qa-[a-f0-9]{16}", config["prefix"]),
             "review_child_identity_mismatch")
     require(set(home.iterdir()) == {home / "tmp"}, "review_owner_home_not_empty")
     prepared = prepare(home)
@@ -404,7 +412,7 @@ def run(args):
     guard(root=True)
     validate_inputs(args.source, args.sha256)
     from account_access.system_provision import Layout, activate, prepare, signature
-    from account_access.worker_bootstrap import root_managed_path
+    from account_access.worker_bootstrap import reject_grant_acl, root_managed_path
     checks, stage = {}, "guard"
     prefix = None
     copied = []
@@ -414,6 +422,7 @@ def run(args):
     signatures = None
     designated = None
     preflight_failure_type = None
+    applications_parent_stamp = None
     report = {"status": "FAILED", "reason": "publisher_transport_incomplete"}
     try:
         checks["hosted_arm64_mac_guard_passed"] = True
@@ -421,7 +430,7 @@ def run(args):
         require(git(["rev-parse", "HEAD"]).stdout.decode().strip() == os.environ["GITHUB_SHA"],
                 "controller_revision_mismatch")
         stage = "baseline-paths"
-        for path in [BASE, APP, JOB]:
+        for path in [BASE, PUBLIC_APP, JOB]:
             require(not path.exists() and not path.is_symlink(), "existing_production_installation")
         for lookup in [pwd.getpwnam, grp.getgrnam]:
             try:
@@ -435,8 +444,7 @@ def run(args):
         stage = "baseline-job"
         require(command(["/bin/launchctl", "print", "system/" + LABEL], check=False).returncode != 0,
                 "existing_production_job")
-        for path, label in [(BASE.parent, "support"), (APP.parent, "applications"),
-                            (JOB.parent, "launchdaemons"), (Path("/Library/PrivilegedHelperTools"), "helpers")]:
+        for path, label in [(BASE.parent, "support"), (JOB.parent, "launchdaemons")]:
             stage = "baseline-" + label + "-parent"
             try:
                 root_managed_path(path)
@@ -444,9 +452,15 @@ def run(args):
                 preflight_failure_type = type(exc).__name__ if type(exc).__name__ in {
                     "BootstrapError", "FileNotFoundError", "PermissionError", "ValueError"} else "Exception"
                 raise ReviewError("untrusted_review_" + label + "_parent") from None
+        stage = "baseline-applications-parent"
+        parent_info = PUBLIC_APP.parent.lstat()
+        require(shared_parent_metadata_valid(parent_info), "unsafe_shared_applications_parent")
+        reject_grant_acl(PUBLIC_APP.parent)
+        applications_parent_stamp = (parent_info.st_dev, parent_info.st_ino, parent_info.st_uid, parent_info.st_gid, parent_info.st_mode)
         checks["fresh_production_paths_only"] = True
-        prefix = Path("/Library/PrivilegedHelperTools/account-access-publisher-qa-" + secrets.token_hex(8))
-        prefix.mkdir(mode=0o755)
+        candidate = BASE.parent / ("account-access-publisher-qa-" + secrets.token_hex(8))
+        candidate.mkdir(mode=0o755)
+        prefix = candidate
         private = prefix / "private"
         private.mkdir(mode=0o700)
         stage = "archive"
@@ -471,7 +485,7 @@ def run(args):
         checks["application_wheel_and_runtime_match_source"] = True
         stage = "signatures"
         audit = runpy.run_path(str(SOURCE / "macos/payload_audit.py"))
-        audit["audit_payload"]([payload / APP.relative_to("/"), payload / BASE.relative_to("/")], [], "arm64", command, development=False)
+        audit["audit_payload"]([payload / BASE.relative_to("/")], [], "arm64", command, development=False)
         for relative, identifier in [(APP, "com.fainir.accountaccess"),
                 (BASE / "bin/AccountAccess-broker", LABEL), (BASE / "bin/AccountAccess-bootstrap", "com.fainir.accountaccess.bootstrap")]:
             require(signature(payload / relative.relative_to("/"), identifier)["team"] == TEAM, "review_publisher_mismatch")
@@ -482,12 +496,19 @@ def run(args):
         checks["genuine_publisher_components_verified"] = True
         checks["signed_stable_chrome_used"] = True
         stage = "public-image"
-        for path in [BASE, APP]:
+        for path in [BASE]:
             path.mkdir(mode=0o755)
             copied.append((path, (path.stat().st_dev, path.stat().st_ino)))
             shutil.copytree(payload / path.relative_to("/"), path, symlinks=True, dirs_exist_ok=True)
         for path in [BASE, APP]:
             root_managed_path(path)
+        checks["canonical_owner_bundle_protected"] = True
+        os.symlink(APPLICATION_TARGET, PUBLIC_APP)
+        info = PUBLIC_APP.lstat()
+        copied.append((PUBLIC_APP, (info.st_dev, info.st_ino)))
+        require(stat.S_ISLNK(info.st_mode) and info.st_uid == 0
+                and os.readlink(PUBLIC_APP) == APPLICATION_TARGET, "public_app_alias_mismatch")
+        checks["public_app_alias_is_navigation_only"] = True
         # A fresh non-login UID has its own empty Chrome profile and Mach domain.
         uid, name = fresh_owner_identity()
         home = prefix / "owner-home"
@@ -575,8 +596,7 @@ def run(args):
             # user homes, environment values, account state or credentials.
             report["preflight_failure_type"] = preflight_failure_type
             report["public_parent_metadata"] = public_parent_metadata([
-                ("support", BASE.parent), ("applications", APP.parent),
-                ("launchdaemons", JOB.parent), ("helpers", Path("/Library/PrivilegedHelperTools"))])
+                ("support", BASE.parent), ("applications", PUBLIC_APP.parent), ("launchdaemons", JOB.parent)])
     finally:
         # Every deletion is bound to a baseline-absent name created by this run.
         cleanup_ok = True
@@ -642,10 +662,20 @@ def run(args):
             def remove_image():
                 for path, identity in reversed(copied):
                     info = path.lstat()
-                    require(stat.S_ISDIR(info.st_mode) and info.st_uid == 0
+                    require(info.st_uid == 0
                             and (info.st_dev, info.st_ino) == identity, "cleanup_public_image_changed")
-                    shutil.rmtree(path)
+                    if path == PUBLIC_APP:
+                        require(stat.S_ISLNK(info.st_mode) and os.readlink(path) == APPLICATION_TARGET,
+                                "cleanup_public_alias_changed")
+                        path.unlink()
+                    else:
+                        require(stat.S_ISDIR(info.st_mode), "cleanup_public_image_changed")
+                        shutil.rmtree(path)
                 shutil.rmtree(prefix)
+                info = PUBLIC_APP.parent.lstat()
+                require((info.st_dev, info.st_ino, info.st_uid, info.st_gid, info.st_mode) == applications_parent_stamp,
+                        "shared_applications_parent_changed")
+                checks["shared_applications_parent_unchanged"] = True
             cleanup("fresh_public_image_removed", remove_image)
         if not cleanup_ok:
             report.update(status="FAILED", reason="publisher_transport_cleanup_failed", stage="cleanup")
