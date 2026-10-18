@@ -741,10 +741,14 @@ def test_source_writer_wait_is_bounded_and_rolls_back_without_partial_publicatio
     try:
         blocked.execute("BEGIN IMMEDIATE")
         started = time.monotonic()
-        with pytest.raises(AccessError, match="password_source_unavailable"):
+        with pytest.raises(AccessError, match="password_source_unavailable") as failure:
             with source._database(store) as database:
+                assert database.execute("PRAGMA busy_timeout").fetchone()[0] == 1000
                 store.put("fictional-source-wait", {"value": "must-not-publish"}, db=database)
-        assert time.monotonic() - started < 2
+        assert failure.value.status == "RETRYABLE"
+        # SQLite bounds accumulated busy-handler sleeping, not wall time.
+        # Retain a coarse hang guard with room for shared-runner scheduling.
+        assert time.monotonic() - started < 4
     finally:
         blocked.rollback()
         blocked.close()
