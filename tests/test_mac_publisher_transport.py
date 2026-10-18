@@ -609,3 +609,82 @@ def test_stale_libc_identity_cache_does_not_override_authoritative_record_remova
     monkeypatch.setattr(probe, "stop_owner_domain", domain)
     probe.remove_owner_identity(owner, records)
     assert not present
+
+
+def test_real_child_configuration_failure_reports_the_fixed_inner_stage_only(monkeypatch, capsys):
+    from account_access import worker_bootstrap
+    monkeypatch.setattr(probe, "guard", lambda **kwargs: None)
+    def configuration(path):
+        raise ModuleNotFoundError("private module/path text must be suppressed")
+    monkeypatch.setattr(worker_bootstrap, "root_managed_path", configuration)
+    assert probe.main(["chrome-child", "/private-unread-fixture"]) == 1
+    value = json.loads(capsys.readouterr().out)
+    assert value == {"status": "FAILED", "reason": "publisher_transport_failed", "failure_type": "ModuleNotFoundError",
+                     "child_stage": "configuration", "production_ready": False}
+    assert probe.public_child_failure(value) == value
+
+
+def test_child_oserror_keeps_only_bounded_errno_and_fixed_stage(monkeypatch, capsys):
+    def child(path):
+        probe.CHILD_STAGE = "chrome-launch"
+        raise PermissionError(13, "private OS detail", "/private/fixture-file")
+    monkeypatch.setattr(probe, "child", child)
+    assert probe.main(["chrome-child", "/ignored-fixture"]) == 1
+    value = json.loads(capsys.readouterr().out)
+    assert value == {"status": "FAILED", "reason": "publisher_transport_failed", "failure_type": "PermissionError",
+                     "errno": 13, "child_stage": "chrome-launch", "production_ready": False}
+    assert probe.public_child_failure(value) == value
+
+
+@pytest.mark.parametrize("field,value", [("child_stage", "private-stage"), ("child_stage", []),
+    ("errno", True), ("errno", -1), ("errno", 999999), ("errno", "13"), ("filename", "/private/path")])
+def test_child_optional_diagnostics_accept_only_exact_fixed_values(field, value):
+    child = {"status": "FAILED", "reason": "publisher_transport_failed", "failure_type": "Error", "production_ready": False}
+    child[field] = value
+    assert probe.public_child_failure(child) is None
+
+
+def test_residual_domain_output_is_optional_bounded_diagnostics_without_names():
+    raw = b'user/50023 = {\n\tservice count = 0\n\tactive service count = 0\n\tstate = active\n\tprivate-service-name = /private/fixture\n}\n'
+    expected = {"diagnostic_only": True, "last_print_succeeded": True, "service_count": 0,
+                "active_service_count": 0, "state": "active"}
+    assert probe.residual_domain_diagnostic(raw) == expected
+    assert probe.public_domain_detail(expected) == expected
+    assert "private" not in json.dumps(expected)
+    ambiguous = probe.residual_domain_diagnostic(raw + b'\tservice count = 1\n\tstate = running\n')
+    assert ambiguous["service_count"] is None and ambiguous["state"] == "unknown"
+    unknown = probe.residual_domain_diagnostic(b'\tservice count = 999999999999\n\tstate = private-name\n')
+    assert unknown["service_count"] is None and unknown["state"] == "unknown"
+    assert probe.residual_domain_diagnostic(b'x' * 65537)["service_count"] is None
+
+
+def test_empty_printed_domain_never_becomes_cleanup_success(monkeypatch):
+    clock = [0]
+    def command(args, **kwargs):
+        return subprocess.CompletedProcess(args, 0, b'\tservice count = 0\n\tactive service count = 0\n\tstate = active\n', b'')
+    monkeypatch.setattr(probe, "command", command)
+    monkeypatch.setattr(probe, "stop_uid", lambda uid: None)
+    monkeypatch.setattr(probe.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(probe.time, "sleep", lambda _seconds: clock.__setitem__(0, clock[0] + 1))
+    with pytest.raises(probe.ReviewError) as caught:
+        probe.stop_owner_domain(50023)
+    details = probe.public_error(caught.value)
+    assert details["reason"] == "cleanup_owner_domain_still_loaded"
+    assert details["domain_diagnostic"]["service_count"] == 0
+    assert details["domain_diagnostic"]["diagnostic_only"] is True
+
+
+def test_residual_domain_diagnostics_survive_final_identity_cleanup_failure(retiring_owner, monkeypatch):
+    owner, records, present, _ = retiring_owner
+    diagnostic = probe.residual_domain_diagnostic(b'\tservice count = 0\n')
+    def domain(uid):
+        assert not present
+        raise probe.ReviewError("cleanup_owner_domain_still_loaded", domain_diagnostic=diagnostic)
+    monkeypatch.setattr(probe, "stop_owner_domain", domain)
+    checks, failures, commands, domains = {}, {}, {}, {}
+    name = "temporary_owner_identity_and_domain_removed"
+    probe.cleanup_step(name, lambda: probe.remove_owner_identity(owner, records), checks, failures, commands, domains)
+    result = probe.cleanup_result(probe.failed_report(probe.ReviewError("production_chrome_journey_failed"), "chrome-owner-child", checks), failures, commands, domains)
+    assert result["status"] == "FAILED" and result["cleanup_failures"][name] == "cleanup_owner_domain_after_identity_removal"
+    assert result["cleanup_domain_diagnostics"] == {name: diagnostic}
+    assert checks[name] is False
