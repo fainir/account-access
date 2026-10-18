@@ -14,7 +14,7 @@ import secrets
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from contextlib import contextmanager, nullcontext
+from contextlib import contextmanager
 from email.utils import parsedate_to_datetime
 
 import pyotp
@@ -66,14 +66,36 @@ class Codes:
         self.oauth = oauth
         self.native_transport = None
 
-    def check_window(self, source_id, started, *, mailbox_locked=False):
+    @staticmethod
+    def mailbox_account(source):
+        return source.account if source and source.kind in {"imap", "gmail"} else None
+
+    def check_window(self, source_id, started, *, mailbox_locked=None):
         """Recheck after delivery as well as before it; network calls can block."""
         if time.time() - started > 120 or started > time.time():
             raise AccessError("NEEDS_USER", "login_code_window_expired")
+        source = self.store.config().code_sources.get(source_id)
+        account = self.mailbox_account(source)
+        if mailbox_locked is not None and mailbox_locked != account:
+            raise AccessError("DENIED", "login_code_source_changed")
+        if account and mailbox_locked is None:
+            # Refresh/owner authorization can hold this lock for network I/O.
+            # Read the live window only after waiting; revocation and finish
+            # can clear it while we wait. No source/window lock is taken here.
+            with self.store.lock("account:" + account):
+                return self.check_window(source_id, started, mailbox_locked=account)
         window = self.store.get("code-window:" + source_id)
         if not window or window["started"] != started or window["expires"] < time.time():
             raise AccessError("DENIED", "login_code_window_missing")
-        return self.check_binding(source_id, window, mailbox_locked=mailbox_locked)
+        if source is None or window.get("source_config") != source.model_dump():
+            raise AccessError("DENIED", "login_code_source_changed")
+        result = self.check_binding(source_id, window, mailbox_locked=mailbox_locked)
+        current = self.store.get("code-window:" + source_id)
+        if (not current or current["started"] != started or current["expires"] < time.time()
+                or current.get("source_generation") != window.get("source_generation")
+                or current.get("source_enrollment") != window.get("source_enrollment")):
+            raise AccessError("DENIED", "login_code_window_missing")
+        return result
 
     def mailbox_authorization(self, config, source):
         """Stable owner authorization, without including renewable token bytes."""
@@ -84,12 +106,20 @@ class Codes:
                 "invalid": bool(connection.get("invalid")),
                 "refresh_in_flight": bool(connection.get("refresh_in_flight"))}
 
-    def check_binding(self, source_id, window, *, mailbox_locked=False):
+    def check_binding(self, source_id, window, *, mailbox_locked=None):
         """Validate an unpublished or live window against current authority."""
         config = self.store.config()
         source = config.code_sources.get(source_id)
         if source is None or window.get("source_config") != source.model_dump():
             raise AccessError("DENIED", "login_code_source_changed")
+        account = self.mailbox_account(source)
+        if mailbox_locked is not None and mailbox_locked != account:
+            raise AccessError("DENIED", "login_code_source_changed")
+        if account and mailbox_locked is None:
+            # Re-enter after the wait so an unpublished window's binding is
+            # checked against current configuration/enrollment as well.
+            with self.store.lock("account:" + account):
+                return self.check_binding(source_id, window, mailbox_locked=account)
         credentials = enrollment(self.store, source_id)
         if credentials.get("enabled") is False:
             raise AccessError("NEEDS_USER", "verification_source_disabled")
@@ -97,25 +127,25 @@ class Codes:
         if (window.get("source_enrollment") != current
                 or window.get("source_generation") != self.store.get("source-generation:" + source_id)):
             raise AccessError("DENIED", "verification_source_enrollment_changed")
-        if source.account and source.kind in {"imap", "gmail"}:
+        if account:
             # Gmail message reads already own this OAuth account lock. Other
             # callers wait for an ordinary refresh before checking its flags;
             # a completed refresh preserves authorization_id and the window.
             # Final publication orders source -> window -> mailbox OAuth
             # account. OAuth account holders never acquire source/window locks;
-            # nested Gmail checks below read the binding with mailbox_locked.
-            with nullcontext() if mailbox_locked else self.store.lock("account:" + source.account):
-                authorization = self.mailbox_authorization(self.store.config(), source)
-                if not authorization["connected"]:
-                    raise AccessError("NEEDS_USER", "account_not_connected", "email")
-                if authorization["revoked"]:
-                    raise AccessError("DENIED", "connection_revoked", "email")
-                if authorization["invalid"]:
-                    raise AccessError("NEEDS_USER", "provider_grant_revoked_or_expired", "email")
-                if authorization["refresh_in_flight"]:
-                    raise AccessError("NEEDS_USER", "refresh_outcome_uncertain", "email")
-                if window.get("mailbox_authorization") != authorization:
-                    raise AccessError("DENIED", "verification_source_enrollment_changed", "email")
+            # mailbox_locked names the held account, preventing a source from
+            # switching to a different mailbox beneath a nested Gmail check.
+            authorization = self.mailbox_authorization(config, source)
+            if not authorization["connected"]:
+                raise AccessError("NEEDS_USER", "account_not_connected", "email")
+            if authorization["revoked"]:
+                raise AccessError("DENIED", "connection_revoked", "email")
+            if authorization["invalid"]:
+                raise AccessError("NEEDS_USER", "provider_grant_revoked_or_expired", "email")
+            if authorization["refresh_in_flight"]:
+                raise AccessError("NEEDS_USER", "refresh_outcome_uncertain", "email")
+            if window.get("mailbox_authorization") != authorization:
+                raise AccessError("DENIED", "verification_source_enrollment_changed", "email")
         return source, window, credentials
 
     def publish_window(self, source_id, window, *, existing=False):
@@ -153,7 +183,7 @@ class Codes:
                 ids = self.gmail_ids(source, started, get)
                 candidates = []
                 for ident in ids:
-                    self.check_window(source_id, started, mailbox_locked=True)
+                    self.check_window(source_id, started, mailbox_locked=source.account)
                     if ident in used or ident in window["gmail_baseline"]:
                         continue
                     message = get(GMAIL_MESSAGES + "/" + ident, {"format": "raw"})
@@ -175,7 +205,7 @@ class Codes:
                     code = email_login_code(raw, source)
                     if code:
                         candidates.append((ident, code))
-                self.check_window(source_id, started, mailbox_locked=True)
+                self.check_window(source_id, started, mailbox_locked=source.account)
                 candidate = unique_code(candidates)
                 if candidate:
                     used.add(candidate[0])

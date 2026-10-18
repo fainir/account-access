@@ -15,8 +15,9 @@ def source_mutation(store, source_id):
     """Owner changes take the source lock before its delivery/window lock.
 
     Browser-account/catalog/mailbox-profile locks, when needed, precede these locks.
-    Delivery takes only the window lock and never acquires a source lock, so
-    revocation waits for a current delivery before invalidating its window.
+    Delivery releases any source snapshot lock before taking the window lock;
+    it never waits for a source lock while holding the window. Revocation waits
+    for a current delivery before invalidating its window.
     Keep network access outside this short mutation boundary.
     """
     with store.lock("source:" + source_id), store.lock("code-window:" + source_id):

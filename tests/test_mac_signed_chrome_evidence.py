@@ -85,11 +85,24 @@ def test_missing_or_malformed_chrome_evidence_fails(tmp_path, contents):
 
 
 def test_signed_chrome_journey_refuses_owner_mac_before_any_read_write_or_launch(tmp_path, monkeypatch):
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
     monkeypatch.setattr(probe, "root_managed_path", lambda *a: pytest.fail("no path inspection"))
     monkeypatch.setattr(probe.subprocess, "Popen", lambda *a, **kw: pytest.fail("no process launch"))
     with pytest.raises(RuntimeError, match="signed_chrome_requires_disposable_mac_ci"):
         probe.exercise_signed_chrome_gateway(tmp_path, None)
     with pytest.raises(RuntimeError, match="signed_chrome_requires_disposable_mac_ci"):
+        probe.run_child(tmp_path)
+    assert not list(tmp_path.iterdir())
+
+
+def test_ci_child_refuses_wrong_prefix_before_any_path_read_or_launch(tmp_path, monkeypatch):
+    monkeypatch.setattr(probe.sys, "platform", "darwin")
+    monkeypatch.setattr(probe.os, "getuid", lambda: 501)
+    monkeypatch.setattr(probe.os, "geteuid", lambda: 501)
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setattr(probe, "root_managed_path", lambda *a: pytest.fail("guard before paths"))
+    monkeypatch.setattr(probe.subprocess, "Popen", lambda *a, **kw: pytest.fail("no process launch"))
+    with pytest.raises(RuntimeError, match="signed_chrome_requires_fixture_identity"):
         probe.run_child(tmp_path)
     assert not list(tmp_path.iterdir())
 

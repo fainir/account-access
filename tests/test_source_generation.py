@@ -397,3 +397,80 @@ def test_interrupted_authority_write_preserves_the_previous_pairing_and_window_a
             relay.pair(source_id)
     assert {key: broker.store.get(key) for key in keys} == before
     assert broker.codes.check_window(source_id, started)[1]["started"] == started
+
+
+@pytest.mark.parametrize("change", ["revoke", "finish", "reenroll", "mailbox_account"])
+def test_oauth_lock_wait_reloads_the_live_window_and_source_before_accepting(env, monkeypatch, change):
+    provider, broker, _ = env
+    gmail_source(broker)
+    enroll(broker.store, "email", {})
+    monkeypatch.setattr("account_access.codes.get_json", lambda *_a, **_k: {})
+    started = time.time()
+    broker.codes.begin("email", "demo-web", started)
+    waiting = threading.Event()
+    original_lock = broker.store.lock
+
+    @contextmanager
+    def lock(key, *args, **kwargs):
+        if threading.current_thread().name == "waiting-window-check" and key == "account:demo-api":
+            waiting.set()
+        with original_lock(key, *args, **kwargs):
+            yield
+
+    monkeypatch.setattr(broker.store, "lock", lock)
+    with original_lock("account:demo-api"):
+        call = start_call("waiting-window-check", lambda: broker.codes.check_window("email", started))
+        assert waiting.wait(5)
+        if change == "revoke":
+            revoke(broker.store, "email")
+        elif change == "finish":
+            broker.codes.finish("email", started)
+        elif change == "reenroll":
+            enroll(broker.store, "email", {})
+        else:
+            config = broker.store.config()
+            config.accounts["secondary-api"] = config.accounts["demo-api"].model_copy(deep=True)
+            config.code_sources["email"].account = "secondary-api"
+            broker.store.configure(config)
+    result = finish_call(call)
+    reason = "login_code_source_changed" if change == "mailbox_account" else "login_code_window_missing"
+    assert isinstance(result.get("error"), AccessError) and result["error"].reason == reason
+    if change == "mailbox_account":
+        token = broker.store.get("connection:demo-api")["token"]
+        with original_lock("account:secondary-api"):
+            broker.oauth.save("secondary-api", token, broker.store.config())
+    enroll(broker.store, "email", {})
+    fresh_started = time.time()
+    broker.codes.begin("email", "demo-web", fresh_started)
+    assert broker.codes.check_window("email", fresh_started)[1]["started"] == fresh_started
+    assert provider.login_count == 0
+
+
+def test_finishing_a_window_during_its_oauth_binding_read_cannot_return_a_stale_window(env, monkeypatch):
+    _, broker, _ = env
+    gmail_source(broker)
+    enroll(broker.store, "email", {})
+    monkeypatch.setattr("account_access.codes.get_json", lambda *_a, **_k: {})
+    started = time.time()
+    broker.codes.begin("email", "demo-web", started)
+    paused, release = threading.Event(), threading.Event()
+    original = broker.codes.mailbox_authorization
+
+    def authorization(*args):
+        if threading.current_thread().name == "binding-read":
+            paused.set()
+            assert release.wait(5)
+        return original(*args)
+
+    monkeypatch.setattr(broker.codes, "mailbox_authorization", authorization)
+    call = start_call("binding-read", lambda: broker.codes.check_window("email", started))
+    try:
+        assert paused.wait(5)
+        broker.codes.finish("email", started)
+    finally:
+        release.set()
+    result = finish_call(call)
+    assert isinstance(result.get("error"), AccessError) and result["error"].reason == "login_code_window_missing"
+    fresh_started = time.time()
+    broker.codes.begin("email", "demo-web", fresh_started)
+    assert broker.codes.check_window("email", fresh_started)[1]["started"] == fresh_started
