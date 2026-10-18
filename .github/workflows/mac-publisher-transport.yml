@@ -13,18 +13,48 @@ permissions:
 defaults:
   run:
     shell: bash
+env:
+  AC_REVIEW_SOURCE: a5190c6d888f2384ac04bf574395aedb7219ef2b
+  AC_REVIEW_SHA256: a00e24b988c626e5a9db82321b8164dac6925721bfa3b1798b6695e956beadb7
+  AC_REVIEW_ASSET_ID: '652938188'
+  AC_REVIEW_RELEASE_ID: '416327595'
+  AC_REVIEW_ASSET: account-access-publisher-transport-a5190c6.tar.gz
+  AC_REVIEW_TAG: qa-a5190c6-publisher-transport
 jobs:
+  download-public-review:
+    if: github.repository == 'fainir/account-access' && github.ref == 'refs/heads/codex/production-auth'
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    # GitHub restricts draft visibility to push-capable tokens. This ordinary
+    # download job only performs fixed GETs; its token never enters the Mac VM.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Download and hash-check the fixed public-code draft asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -I -B scripts/mac_publisher_transport_probe.py download \
+            --tag "$AC_REVIEW_TAG" --release-id "$AC_REVIEW_RELEASE_ID" --asset "$AC_REVIEW_ASSET" \
+            --asset-id "$AC_REVIEW_ASSET_ID" --sha256 "$AC_REVIEW_SHA256" \
+            --source "$AC_REVIEW_SOURCE" --output "$RUNNER_TEMP/$AC_REVIEW_ASSET"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: publisher-transport-public-input
+          path: ${{ runner.temp }}/${{ env.AC_REVIEW_ASSET }}
+          compression-level: 0
+          retention-days: 3
+          if-no-files-found: error
   publisher-transport:
+    needs: download-public-review
     if: github.repository == 'fainir/account-access' && github.ref == 'refs/heads/codex/production-auth'
     runs-on: macos-15
     timeout-minutes: 20
-    env:
-      AC_REVIEW_SOURCE: a5190c6d888f2384ac04bf574395aedb7219ef2b
-      AC_REVIEW_SHA256: a00e24b988c626e5a9db82321b8164dac6925721bfa3b1798b6695e956beadb7
-      AC_REVIEW_ASSET_ID: '652938188'
-      AC_REVIEW_RELEASE_ID: '416327595'
-      AC_REVIEW_ASSET: account-access-publisher-transport-a5190c6.tar.gz
-      AC_REVIEW_TAG: qa-a5190c6-publisher-transport
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -40,14 +70,10 @@ jobs:
           test "$GITHUB_REPOSITORY" = fainir/account-access
           test ! -e '/Applications/Account Access.app'
           test ! -e '/Library/Application Support/Account Access'
-      - name: Download the fixed public-code review asset before privileged changes
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          uv run python scripts/mac_publisher_transport_probe.py download \
-            --tag "$AC_REVIEW_TAG" --release-id "$AC_REVIEW_RELEASE_ID" --asset "$AC_REVIEW_ASSET" \
-            --asset-id "$AC_REVIEW_ASSET_ID" --sha256 "$AC_REVIEW_SHA256" \
-            --source "$AC_REVIEW_SOURCE" --output "$RUNNER_TEMP/$AC_REVIEW_ASSET"
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: publisher-transport-public-input
+          path: ${{ runner.temp }}/account-access-review-input
       - name: Exercise genuine production transport in this fresh disposable VM
         run: |
           mkdir -m 700 "$RUNNER_TEMP/account-access-publisher-report"
@@ -59,7 +85,7 @@ jobs:
             GITHUB_RUN_ID="$GITHUB_RUN_ID" GITHUB_SHA="$GITHUB_SHA" \
             "$GITHUB_WORKSPACE/.venv/bin/python" -I -B \
             "$GITHUB_WORKSPACE/scripts/mac_publisher_transport_probe.py" run \
-            --archive "$RUNNER_TEMP/$AC_REVIEW_ASSET" \
+            --archive "$RUNNER_TEMP/account-access-review-input/$AC_REVIEW_ASSET" \
             --sha256 "$AC_REVIEW_SHA256" --source "$AC_REVIEW_SOURCE" \
             --report "$RUNNER_TEMP/account-access-publisher-report/report.json"
       - name: Require the complete transport-only report
