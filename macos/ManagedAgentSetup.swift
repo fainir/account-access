@@ -21,8 +21,8 @@ final class ManagedAgentSetup {
     #endif
     func status() throws -> [String: Any] { try helper("status") }
     static func prepareBrowser() throws -> [String: Any] { try runHelper("browser") }
-    func connect(request: (String, [String: Any]) throws -> [String: Any]) throws {
-        let prepared = try helper("prepare")
+    func connect(upgrade: Bool = false, request: (String, [String: Any]) throws -> [String: Any]) throws {
+        let prepared = try helper(upgrade ? "prepare-upgrade" : "prepare")
         guard prepared["status"] as? String == "PREPARED", let expected = prepared["client_id"] as? String else {
             throw ManagedAgentSetupFailure.invalidResponse
         }
@@ -36,7 +36,7 @@ final class ManagedAgentSetup {
         let enrolled = try request("owner/client/enroll", ["token": token])
         guard enrolled["status"] as? String == "ENROLLED", enrolled["client_id"] as? String == identity,
               enrolled["principal"] as? String == "generic" else { throw ManagedAgentSetupFailure.invalidResponse }
-        let installed = try helper("install")
+        let installed = try helper(upgrade ? "install-upgrade" : "install")
         guard installed["status"] as? String == "INSTALLED", installed["client_id"] as? String == identity,
               let hosts = installed["hosts"] as? [String], hosts.count <= 2, Set(hosts).count == hosts.count,
               hosts.allSatisfy({ ["codex", "claude"].contains($0) }) else { throw ManagedAgentSetupFailure.invalidResponse }
@@ -64,9 +64,31 @@ final class ManagedAgentSetup {
               let token = String(bytes: bytes.prefix(43), encoding: .ascii) else { throw ManagedAgentSetupFailure.unavailable }
         return token
     }
+    static func helperEnvironment(action: String, ownerHome: URL, inherited: [String: String]) throws -> [String: String] {
+        guard ["status", "prepare", "install", "prepare-upgrade", "install-upgrade", "browser"].contains(action) else {
+            throw ManagedAgentSetupFailure.unavailable
+        }
+        var environment = ["PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "HOME": ownerHome.path, "LANG": "en_US.UTF-8"]
+        if action != "browser", var namespace = inherited["CODEX_HOME"] {
+            guard !namespace.isEmpty, namespace.utf8.count <= 4096,
+                  !namespace.unicodeScalars.contains(where: { $0.value < 32 || $0.value == 127 }),
+                  !namespace.split(separator: "/").contains(where: { $0 == "." || $0 == ".." }) else {
+                throw ManagedAgentSetupFailure.unavailable
+            }
+            if namespace.hasPrefix("~/") { namespace = ownerHome.path + "/" + namespace.dropFirst(2) }
+            guard namespace.hasPrefix(ownerHome.path + "/"), namespace != ownerHome.path + "/" else {
+                throw ManagedAgentSetupFailure.unavailable
+            }
+            // The isolated Python helper then verifies every existing component
+            // with no-follow, owner/mode/ACL checks before any setup writes.
+            environment["CODEX_HOME"] = namespace
+        }
+        return environment
+    }
     private static func runHelper(_ action: String) throws -> [String: Any] {
-        guard ["status", "prepare", "install", "browser"].contains(action) else { throw ManagedAgentSetupFailure.unavailable }
         let ownerHome = try home()
+        let environment = try helperEnvironment(action: action, ownerHome: ownerHome,
+                                                inherited: ProcessInfo.processInfo.environment)
         let runtime = base.appendingPathComponent("runtime")
         _ = try WorkerLaunchPaths.protectedTree(runtime.path)
         let python = runtime.appendingPathComponent("bin/python")
@@ -77,7 +99,7 @@ final class ManagedAgentSetup {
         process.executableURL = python
         process.arguments = action == "browser" ? ["-I", "-B", "-m", "account_access.browser_setup"]
             : ["-I", "-B", "-m", "account_access.agent_setup", action]
-        process.environment = ["PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "HOME": ownerHome.path, "LANG": "en_US.UTF-8"]
+        process.environment = environment
         process.currentDirectoryURL = base
         process.standardInput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice

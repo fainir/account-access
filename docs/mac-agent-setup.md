@@ -18,12 +18,34 @@ The native app invokes the immutable system runtime as the ordinary owner user:
 
 `/Library/Application Support/Account Access/runtime/bin/python`
 
-Only the fixed `account_access.agent_setup` module and `prepare`, `install` or
-`status` action can be selected. Python runs with isolated imports and a sanitized
+Only the fixed `account_access.agent_setup` module and `prepare`, `install`,
+`status`, `prepare-upgrade` or `install-upgrade` action can be selected. Python runs with isolated imports and a sanitized
 environment. The app verifies the protected runtime before execution. The helper
 uses the OS account's home, not an inherited `HOME`, and refuses root execution.
 Production has no arguments or environment override for the home, client location,
 interpreter or service endpoint.
+
+Both installers honor a custom `CODEX_HOME` inherited by the app when it is a
+validated private namespace beneath the actual owner's home. Personal Codex
+settings and authentication files are not read or changed. Instructions and the
+narrow client rule use that namespace; the shared skill remains in `.agents`.
+
+## Upgrade a preview connection
+
+A recognized preview skill shows **Upgrade AI connection**. Choose it once to
+connect both detected agents to the new protected store. The helper first
+prepares a separate capability, the native app obtains owner approval, and the
+new broker confirms that capability before any launcher changes. Unknown or
+modified skills remain preserved for review.
+
+The upgrade replaces only known managed skill files and instruction blocks.
+Publication failures restore the old launchers; an interrupted upgrade can be
+retried. Existing personal instructions, hooks, settings and unrelated command
+rules are preserved. The preview vault, website passwords, old tokens and old
+grants are not copied. Import and approve the accounts intended for the protected
+store through its local setup flow.
+
+## Client publication
 
 1. The helper checks the destination skill folders and instructions before
    creating an unregistered random capability. It preserves that same capability
@@ -63,8 +85,8 @@ credential service and its supported trusted-source paths.
 
 Preflight rejects symbolic paths, hard-linked files, unsafe owners/modes and ACLs
 that grant access. Restrictive Darwin deny entries, such as the standard home
-folder delete restriction, are allowed. A managed legacy skill pointing to another
-client requires migration before any replacement; an unknown skill is preserved.
+folder delete restriction, are allowed. A recognized legacy skill uses the
+explicit upgrade path; an unknown or modified skill is preserved.
 Installation success is recorded only after the service read and file writes.
 Status checks compare skill resources, launcher metadata and session guidance,
 including the narrow Codex execution rule, so stale files cannot claim readiness.

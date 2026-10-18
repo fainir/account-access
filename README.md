@@ -64,7 +64,9 @@ The 0.8 candidate also includes narrow Namecheap and PyPI pilots; private
 acceptance is unfinished. PyPI supports the reviewed password/authenticator
 route. In **Verification**, you can link an already checked mailbox for PyPI's
 new-device confirmation emails without editing configuration. This picker uses
-saved TLS IMAP connections, including Gmail app-password mailboxes.
+checked Google browser connections or saved TLS IMAP connections, including Gmail
+app-password mailboxes. Google browser consent requires a configured publisher
+application; consent is followed by a mailbox-address check.
 [Connect PyPI confirmation email](docs/device-email-setup.md).
 [Provider coverage and limits](docs/other-service-validation.md).
 Other private websites require an operator-supplied reviewed connector. A provider's
@@ -196,7 +198,7 @@ private authentication or physical phone delivery.
 
 - [Validation and production gates](docs/production-gates.md)
 - [Detailed test evidence](docs/validation.md) and [machine-readable reports](artifacts/)
-- [Current in-app email setup and interrupted-setup results](artifacts/consumer-mail-setup-080.json)
+- [Completed email-setup validation at source 1bba84f](artifacts/consumer-mail-setup-080.json)
 - [Earlier mailbox authorization and sync repair results](artifacts/mail-source-authority-080.json)
 - [Earlier import and Gmail repair results](artifacts/unattended-import-080.json)
 - [Earlier connected setup and canonical installation results](artifacts/connected-setup-080.json)
@@ -205,6 +207,11 @@ private authentication or physical phone delivery.
 - [Genuine publisher and runtime checks](docs/publisher-runtime-checks.md)
 - [Preview validation history](docs/preview-validation-history.md)
 - [Current agent QA boundary](docs/agent-qa-boundary.md) — Claude passes controlled fictional login; local Codex QA stops before startup until its permissions can be attested.
+
+That Codex preflight belongs to the optional isolated CLI test harness. The
+installed skill and client do not run it. Protected setup also supports an
+explicit upgrade from a recognized preview connection, preserving personal
+instructions and tool settings. See [agent setup and upgrades](docs/mac-agent-setup.md).
 - [Advanced setup and other agents](docs/setup.md)
 - [Contributor guide](CONTRIBUTING.md) and [security reporting](SECURITY.md)
 - [Research and design](docs/research.md)

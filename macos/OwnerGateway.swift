@@ -179,7 +179,7 @@ struct OwnerGatewayRoute {
         "owner/authenticator/apply", "owner/authenticator/discard", "owner/source",
         "owner/source/check", "owner/source/revoke", "owner/mailbox/connect", "owner/mailbox/check",
         "owner/mailbox/password", "owner/mailbox/remove", "owner/password-sync",
-        "owner/mailbox/oauth/begin", "owner/mailbox/oauth/finish", "owner/mailbox/oauth/cancel",
+        "owner/mailbox/oauth/begin", "owner/mailbox/oauth/finish", "owner/mailbox/oauth/cancel", "owner/mailbox/oauth/check",
         "owner/device-email/preview", "owner/device-email/apply", "owner/device-email/discard", "owner/device-email/remove",
         "owner/password-sync/reconnect", "owner/password-sync/disconnect", "owner/phone/pair", "owner/stop", "owner/vault/enroll", "owner/client/enroll", "owner/client/installed", "owner/browser-message"
     ]
@@ -213,19 +213,26 @@ struct OwnerGatewayRoute {
                 }
                 if preview {
                     guard let mailbox = value["mailbox"] as? String,
-                          mailbox.range(of: "^mailbox-[a-f0-9]{24}$", options: .regularExpression) != nil else {
+                          mailbox.range(of: "^(?:mailbox-|gmail-mailbox-)[a-f0-9]{24}$", options: .regularExpression) != nil else {
                         throw OwnerGatewayError.invalidPolicy
                     }
                 }
             }
             if route.hasPrefix("owner/mailbox/oauth/") {
+                let checking = route.hasSuffix("/check")
                 let expected: Set<String> = route.hasSuffix("/begin") ? ["account", "fingerprint", "redirect_uri"]
-                    : route.hasSuffix("/finish") ? ["account", "attempt", "callback"] : ["account", "attempt"]
+                    : route.hasSuffix("/finish") ? ["account", "attempt", "callback"]
+                    : checking ? ["account", "fingerprint"] : ["account", "attempt"]
                 guard Set(value.keys) == expected, let account = value["account"] as? String,
                       account.range(of: "^[a-z][a-z0-9_-]{0,63}$", options: .regularExpression) != nil else {
                     throw OwnerGatewayError.invalidPolicy
                 }
-                if route.hasSuffix("/begin") {
+                if checking {
+                    guard let fingerprint = value["fingerprint"] as? String,
+                          fingerprint.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil else {
+                        throw OwnerGatewayError.invalidPolicy
+                    }
+                } else if route.hasSuffix("/begin") {
                     guard let fingerprint = value["fingerprint"] as? String,
                           fingerprint.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil,
                           let redirect = value["redirect_uri"] as? String, redirect.utf8.count <= 300,

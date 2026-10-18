@@ -57,7 +57,7 @@ def test_configured_gmail_is_discovered_without_giving_an_agent_mailbox_access(e
     assert provider.api_count == provider.login_count == 0
 
 
-@pytest.mark.parametrize("change", ["authorization", "token", "scope", "api", "api-extra", "no-source"])
+@pytest.mark.parametrize("change", ["authorization", "token", "scope", "api", "api-extra"])
 def test_consumer_cards_never_advertise_unreviewed_or_broader_google_oauth(env, change):
     _, broker, _ = env
     configure(broker, production=True)
@@ -73,12 +73,22 @@ def test_consumer_cards_never_advertise_unreviewed_or_broader_google_oauth(env, 
         spec.api_origins = ["https://example.test"]
     elif change == "api-extra":
         spec.api_origins.append("https://example.test")
-    else:
-        config.code_sources.pop("mail-login")
     broker.store.configure(config)
     assert view(broker) == []
     with pytest.raises(AccessError, match="mailbox_oauth_not_configured"):
         prepare(broker, "mail", config.fingerprint("mail"))
+
+
+def test_reviewed_gmail_can_connect_before_any_website_source_exists(env):
+    _, broker, _ = env
+    configure(broker, production=True)
+    config = broker.store.config()
+    config.code_sources.pop("mail-login")
+    broker.store.configure(config)
+    mailbox = view(broker)[0]
+    assert mailbox["sources"] == [] and mailbox["reusable_mailbox"] is None
+    assert not mailbox["mailbox_identity_verified"]
+    assert prepare(broker, "mail", config.fingerprint("mail")) == config
 
 
 def test_google_application_secret_gate_does_not_request_a_user_password(env):

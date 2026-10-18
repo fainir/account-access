@@ -74,8 +74,10 @@ def install_skill(store, agent, destination=None):
 
 def install_detected(store):
     """Install one shared portable identity; host folders are discovery aliases."""
+    from .integration import install_session_guidance, resolve_codex_home
+
     home = Path.home()
-    codex_home = Path(os.environ.get("CODEX_HOME", str(home / ".codex"))).expanduser()
+    codex_home = resolve_codex_home(home)
     detected = [agent for agent, folder, command in [("codex", codex_home, "codex"),
                                                      ("claude", home / ".claude", "claude")]
                 if folder.exists() or shutil.which(command)]
@@ -115,7 +117,6 @@ def install_detected(store):
         installed.append({"agent": "codex", "skill_path": str(primary), "principal": "generic",
                           "client_config": str(store.root / "clients/generic/client.json")})
     store.put("agent-integrations", detected)
-    from .integration import install_session_guidance
     automatic = install_session_guidance(home, detected, codex_home)
     store.put("session-integrations", automatic)
     return {"status": "INSTALLED", "clients": installed,

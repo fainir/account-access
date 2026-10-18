@@ -4,26 +4,34 @@ The desktop owns the loopback listener and system browser. The PKCE verifier, to
 exchange and renewal credentials stay in the worker's encrypted store.
 """
 
+import asyncio
+import hashlib
+import math
 import re
 import secrets
 import time
 from urllib.parse import parse_qs, urlsplit
 
+import httpx2 as httpx
+
 from .errors import AccessError
 from .models import OAuthAccount
+from .providers import MAX_RESPONSE, response_json
 
 GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly"
 AUTHORIZATION_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 API_ORIGIN = "https://gmail.googleapis.com"
 PREFIX = "mailbox-oauth:"
+PROFILE_PREFIX = "gmail-mailbox-profile:"
+PROFILE_IDENT = re.compile(r"gmail-mailbox-[a-f0-9]{24}")
+ADDRESS = re.compile(r"[^\s@<>]+@[^\s@<>]+")
+PROFILE_TIMEOUT = 10
 
 
 def supported(config, account):
     spec = config.accounts.get(account)
-    if (not isinstance(spec, OAuthAccount) or set(spec.scopes) != {GMAIL_SCOPE}
-            or not any(source.kind == "gmail" and source.account == account
-                       for source in config.code_sources.values())):
+    if not isinstance(spec, OAuthAccount) or set(spec.scopes) != {GMAIL_SCOPE}:
         return False
     if (spec.authorization_url == AUTHORIZATION_URL and spec.token_url == TOKEN_URL
             and set(spec.api_origins) == {API_ORIGIN}):
@@ -33,7 +41,153 @@ def supported(config, account):
     authorization, token = urlsplit(spec.authorization_url), urlsplit(spec.token_url)
     return bool(config.test_mode and authorization.scheme == token.scheme == "http"
                 and authorization.hostname == token.hostname == "127.0.0.1"
-                and authorization.port == token.port and authorization.port)
+                and authorization.port == token.port and authorization.port
+                and spec.api_origins == [f"http://127.0.0.1:{authorization.port}"])
+
+
+def profile_id(account):
+    return "gmail-mailbox-" + hashlib.sha256(account.encode()).hexdigest()[:24]
+
+
+def _record(store, key, db=None):
+    if db is None:
+        return store.get(key)
+    row = db.execute("SELECT value FROM records WHERE id=?", (key,)).fetchone()
+    return store.unseal(key, row[0]) if row else None
+
+
+def _authorization(config, account, connection, *, allow_refresh=False):
+    if (not supported(config, account) or not isinstance(connection, dict)
+            or connection.get("fingerprint") != config.fingerprint(account)):
+        raise AccessError("NEEDS_USER", "mailbox_not_connected", "email")
+    issue = connection_issue(connection)
+    if issue and not (allow_refresh and issue == "refresh_outcome_uncertain"
+                      and connection.get("refresh_in_flight")):
+        raise AccessError("NEEDS_USER", issue, "email")
+    # A refresh keeps this identity. A new owner consent replaces it, even if
+    # Google happens to issue identical token bytes or the same email address.
+    ident = connection.get("authorization_id") or connection.get("generation")
+    if not isinstance(ident, str) or not re.fullmatch(r"[a-f0-9]{16,64}", ident):
+        raise AccessError("NEEDS_USER", "mailbox_not_connected", "email")
+    return ident
+
+
+def profile(store, ident, *, config=None, db=None, allow_refresh=False):
+    """Resolve verified identity locally; no token, message or network result escapes."""
+    if not isinstance(ident, str) or not PROFILE_IDENT.fullmatch(ident):
+        raise AccessError("DENIED", "unknown_mailbox", "email")
+    saved = _record(store, PROFILE_PREFIX + ident, db)
+    config = config or store.config()
+    if (not isinstance(saved, dict) or saved.get("kind") != "gmail"
+            or not isinstance(saved.get("account"), str)
+            or ident != profile_id(saved["account"])
+            or not isinstance(saved.get("username"), str)
+            or not 1 <= len(saved["username"]) <= 200 or not ADDRESS.fullmatch(saved["username"])
+            or not isinstance(saved.get("generation"), str)
+            or not re.fullmatch(r"[a-f0-9]{32}", saved["generation"])
+            or not isinstance(saved.get("label"), str) or not 1 <= len(saved["label"]) <= 100
+            or not isinstance(saved.get("connection_check"), dict)
+            or saved["connection_check"].get("status") != "VERIFIED"):
+        raise AccessError("NEEDS_USER", "mailbox_not_connected", "email")
+    checked = saved["connection_check"].get("checked")
+    if (type(checked) not in {int, float} or not math.isfinite(checked)
+            or not 0 < checked <= time.time() + 60):
+        raise AccessError("NEEDS_USER", "mailbox_not_connected", "email")
+    account = saved["account"]
+    authorization = _authorization(config, account, _record(store, "connection:" + account, db),
+                                   allow_refresh=allow_refresh)
+    if (saved.get("authorization_id") != authorization
+            or saved.get("fingerprint") != config.fingerprint(account)):
+        raise AccessError("NEEDS_USER", "mailbox_identity_check_required", "email")
+    return saved
+
+
+def reusable(store, account, config=None):
+    try:
+        saved = profile(store, profile_id(account), config=config)
+    except AccessError:
+        return None
+    return {"id": profile_id(account), "recipient": saved["username"], "label": saved["label"],
+            "kind": "gmail", "connection_check": dict(saved["connection_check"])}
+
+
+def profiles(store, config=None):
+    config = config or store.config()
+    result = []
+    for account in config.accounts:
+        if supported(config, account) and (saved := reusable(store, account, config)) is not None:
+            result.append(saved)
+        if len(result) >= 16:
+            break
+    return result
+
+
+def get_profile(url, headers):
+    """One profile request with a total ten-second deadline and bounded response."""
+    async def request():
+        async with httpx.AsyncClient(timeout=PROFILE_TIMEOUT, follow_redirects=False, trust_env=False) as client:
+            async with client.stream("GET", url, headers=headers) as response:
+                content = bytearray()
+                async for chunk in response.aiter_bytes():
+                    content.extend(chunk)
+                    if len(content) > MAX_RESPONSE:
+                        raise AccessError("DENIED", "provider_response_too_large", "email")
+                response._content = bytes(content)
+                return response_json(response)
+
+    async def bounded():
+        return await asyncio.wait_for(request(), timeout=PROFILE_TIMEOUT)
+
+    try:
+        return asyncio.run(bounded())
+    except (TimeoutError, httpx.HTTPError):
+        raise AccessError("RETRYABLE", "network_unavailable", "email") from None
+
+
+def check(broker, account, fingerprint):
+    """Verify the current Google identity, without granting a website mail access."""
+    prepare(broker, account, fingerprint)
+    store = broker.store
+    with store.lock("mailbox-profiles", timeout=2), store.lock("account:" + account, timeout=2):
+        config = prepare(broker, account, fingerprint)
+        before = _authorization(config, account, store.get("connection:" + account))
+        token = broker.oauth.token(account, config, refresh_timeout=10)
+        validate_grant(token)
+        url = (config.accounts[account].api_origins[0] + "/gmail/v1/users/me/profile")
+        try:
+            value = get_profile(url, {"Authorization": "Bearer " + token["access_token"]})
+        except AccessError as error:
+            if error.reason == "provider_rejected_access":
+                # The next explicit check (or normal login) renews through the
+                # existing grant, rather than asking for another consent.
+                connection = store.get("connection:" + account)
+                if _authorization(config, account, connection) == before:
+                    connection["token"]["expires_at"] = 0
+                    store.put("connection:" + account, connection)
+                raise AccessError("RETRYABLE", "mailbox_connection_retry_required", "email") from None
+            raise AccessError(error.status, error.reason, "email") from None
+        address = value.get("emailAddress") if isinstance(value, dict) else None
+        if not isinstance(address, str) or not 1 <= len(address) <= 200 or not ADDRESS.fullmatch(address):
+            raise AccessError("RETRYABLE", "invalid_mailbox_response", "email")
+        with store.lock("configuration", timeout=2):
+            config = prepare(broker, account, fingerprint)
+            after = _authorization(config, account, store.get("connection:" + account))
+            if after != before:
+                raise AccessError("DENIED", "verification_source_enrollment_changed", "email")
+            ident = profile_id(account)
+            previous = store.get(PROFILE_PREFIX + ident) or {}
+            authority = {"kind": "gmail", "account": account, "fingerprint": fingerprint,
+                         "authorization_id": after, "username": address.lower()}
+            same = all(previous.get(key) == item for key, item in authority.items())
+            generation = previous.get("generation") if same else None
+            if not isinstance(generation, str) or not re.fullmatch(r"[a-f0-9]{32}", generation):
+                generation = secrets.token_hex(16)
+            saved = {**authority, "generation": generation, "label": config.accounts[account].label,
+                     "connection_check": {"status": "VERIFIED", "checked": time.time()}}
+            store.put(PROFILE_PREFIX + ident, saved)
+            store.audit("owner", "", "", "mailbox_identity_checked", "gmail")
+    return {"status": "VERIFIED", "id": ident, "account": account, "recipient": address.lower(),
+            "label": saved["label"], "mailbox_identity_verified": True, "login_delivery_verified": False}
 
 
 def validate_grant(token):
@@ -88,6 +242,7 @@ def view(broker):
         issue = connection_issue(connection)
         state = broker.connection_view(account, config)
         renewable = bool(connection and not issue and connection.get("fingerprint") == config.fingerprint(account))
+        mailbox = reusable(broker.store, account, config)
         if issue:
             state.update(connected=False, connection_state="needs_attention", reason=issue)
         result.append({"account": account, "label": spec.label,
@@ -95,6 +250,7 @@ def view(broker):
                        "publisher_configured": credential_ready,
                        "environment": "controlled-demo" if config.test_mode else "personal",
                        **state, "renewable_access_saved": renewable,
+                       "reusable_mailbox": mailbox, "mailbox_identity_verified": mailbox is not None,
                        "login_delivery_verified": False})
     return result
 

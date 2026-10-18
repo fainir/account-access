@@ -173,6 +173,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     var systemSetupGeneration = 0
     var managedAgents = ManagedAgentSetup()
     var systemAgentClientID: String?
+    var systemAgentUpgradeNeeded = false
     var connectAgentsAfterSetup = false
     #if ACCOUNT_ACCESS_UI_CHECKS
     var fixtureSystemOwnerSelected = false
@@ -759,6 +760,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             "mailbox_tls_verification_failed": "The mailbox's secure connection could not be verified. Check the server settings; Account Access will not use an unverified connection.",
             "mailbox_not_connected": "Connect this email account in Verification first. No website sign-in was started.",
             "mailbox_identity_mismatch": "The connected Gmail account does not match the mailbox approved for these login messages. Connect the correct Gmail account.",
+            "mailbox_identity_check_required": "Check your saved Google connection in Verification, then review the website's email connection. You do not need to enter an app password.",
+            "mailbox_connection_retry_required": "Google access is saved. Try Check Google connection again; Account Access can renew it without another consent prompt.",
             "mailbox_uid_tracking_unavailable": "This mail server did not provide the message tracking needed to exclude old codes. No website sign-in was started.",
             "invalid_mailbox_setup": "Check the email address, mail server and application password. Other email providers require their TLS IMAP server and port.",
             "mailbox_already_connected": "This mailbox is already saved. Use Update app password or Check connection on its card.",
@@ -878,11 +881,13 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     func showSystemAgentSetup() {
         page("Connect your AI tools", "One shared connection works with your existing agents. You do not need to choose a tool or type a command in each session.")
         card("Use your AI as usual", "Account Access adds its skill and automatic session instructions for supported tools. Your existing preferences are preserved.")
-        primary("Connect automatically", #selector(connectSystemAgents))
+        if systemAgentUpgradeNeeded {
+            card("Upgrade your existing connection", "Your earlier Account Access skill was found. Upgrade connects it to the protected account store and keeps your personal instructions and tool preferences. Your earlier credentials and permissions are not copied.")
+        }
+        primary(systemAgentUpgradeNeeded ? "Upgrade AI connection" : "Connect automatically", #selector(connectSystemAgents))
     }
 
     func checkSystemAgentSetup(_ state: [String: Any]) {
-        if connectAgentsAfterSetup { connectSystemAgents(); return }
         busy = true
         page("Checking your AI connection", "Verifying the installed portable skill…")
         progress()
@@ -890,12 +895,18 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             let local = try? self.managedAgents.status()
             DispatchQueue.main.async {
                 self.busy = false
+                self.systemAgentUpgradeNeeded = local?["status"] as? String == "MIGRATION_REQUIRED"
                 let server = state["managed_client"] as? [String: Any] ?? [:]
                 if local?["status"] as? String == "INSTALLED", server["status"] as? String == "INSTALLED",
                    let identity = local?["client_id"] as? String, identity == server["client_id"] as? String {
                     self.systemAgentClientID = identity
                     self.presentSystemState(state)
-                } else { self.showSystemAgentSetup() }
+                } else if self.connectAgentsAfterSetup && !self.systemAgentUpgradeNeeded {
+                    self.connectSystemAgents()
+                } else {
+                    self.connectAgentsAfterSetup = false
+                    self.showSystemAgentSetup()
+                }
             }
         }
     }
@@ -903,23 +914,25 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     @objc func connectSystemAgents() {
         guard !busy else { return }
         connectAgentsAfterSetup = false
+        let upgrade = systemAgentUpgradeNeeded
         systemSetupGeneration += 1
         busy = true
         page("Connecting your AI tools", "Preparing one private connection and automatic skill discovery. macOS may ask you to approve this setup action.")
         progress()
         DispatchQueue.global(qos: .userInitiated).async {
             do {
-                try self.managedAgents.connect { route, body in try self.request(route, body: body) }
+                try self.managedAgents.connect(upgrade: upgrade) { route, body in try self.request(route, body: body) }
                 let state = try self.request("owner/state")
                 guard let client = state["managed_client"] as? [String: Any], client["status"] as? String == "INSTALLED",
                       let identity = client["client_id"] as? String else { throw ManagedAgentSetupFailure.invalidResponse }
                 DispatchQueue.main.async {
                     self.busy = false
                     self.systemAgentClientID = identity
+                    self.systemAgentUpgradeNeeded = false
                     self.presentSystemState(state)
                 }
             } catch {
-                self.fail(Failure.message("Automatic AI setup could not finish. Your saved accounts and existing tool preferences are preserved. Check the protected installation, then reopen Account Access. A previous installation may need migration before it can be replaced."), retry: #selector(self.reopen))
+                self.fail(Failure.message("The AI connection could not finish. Your saved accounts and existing tool preferences are preserved. Reopen Account Access to check the connection and retry its setup or upgrade."), retry: #selector(self.reopen))
             }
         }
     }
@@ -1880,7 +1893,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             }
             let candidates = setup["mailboxes"] as? [[String: Any]] ?? []
             if candidates.isEmpty {
-                panel.addArrangedSubview(makeLabel("Connect and check an email mailbox first. Gmail app-password mailboxes are supported here; a Google browser connection alone is not selected automatically.", 14, .secondaryLabelColor))
+                panel.addArrangedSubview(makeLabel("Connect and check an email mailbox first. A checked Google connection or TLS IMAP mailbox can be used without entering its password again.", 14, .secondaryLabelColor))
                 panel.addArrangedSubview(NSButton(title: "Connect a mailbox", target: self, action: #selector(showEmailSetup)))
                 continue
             }
@@ -2016,23 +2029,51 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             let connected = mailbox["connected"] as? Bool == true
                 && mailbox["renewable_access_saved"] as? Bool == true && !needsAttention
             let recipients = (mailbox["sources"] as? [[String: Any]] ?? []).compactMap { $0["recipient"] as? String }
-            let addresses = Array(Set(recipients)).sorted().joined(separator: ", ")
-            let panel = card("Gmail · " + addresses,
+            let reusable = mailbox["reusable_mailbox"] as? [String: Any]
+            let identityChecked = connected && mailbox["mailbox_identity_verified"] as? Bool == true && reusable != nil
+            let addresses = reusable?["recipient"] as? String ?? Array(Set(recipients)).sorted().joined(separator: ", ")
+            let panel = card(addresses.isEmpty ? "Gmail" : "Gmail · " + addresses,
                              "Connect in Google's own browser page. Google grants mailbox read access; Account Access uses matching login messages for your configured websites. Website permissions stay the same."
-                             + (connected ? " Renewable Google access is saved. Enable or check each website's email verification below to confirm its approved mailbox address." : "")
+                             + (identityChecked ? " Your Google mailbox address is checked. Choose it for a supported website's email verification without an app password. Code delivery is checked during sign-in."
+                                : connected ? " Google access is saved. Check its address to make this mailbox available for supported website verification; you do not need to enter an app password or reconnect Google." : "")
                              + (needsAttention ? " " + Self.mailboxOAuthRepairMessage(mailbox["reason"] as? String ?? "") : ""),
-                             status: ready ? (connected ? "Google access saved" : needsAttention ? "Google connection needs attention" : "One-time Google connection") : "Publisher setup needed", good: ready && connected)
+                             status: ready ? (identityChecked ? "Google mailbox checked" : connected ? "Google access saved · address unchecked" : needsAttention ? "Google connection needs attention" : "One-time Google connection") : "Publisher setup needed", good: ready && identityChecked)
             if mailbox["environment"] as? String == "controlled-demo" {
                 let example = NSTextField(wrappingLabelWithString: "Controlled provider fixture. This is not a real Gmail connection.")
                 panel.addArrangedSubview(example)
             }
             if ready {
+                if connected {
+                    let check = NSButton(title: "Check Google connection", target: self, action: #selector(checkGmailOAuth(_:)))
+                    check.identifier = NSUserInterfaceItemIdentifier(account)
+                    panel.addArrangedSubview(check)
+                }
                 let connect = NSButton(title: connected || needsAttention ? "Reconnect with Google" : "Connect with Google", target: self, action: #selector(connectGmailOAuth(_:)))
                 connect.identifier = NSUserInterfaceItemIdentifier(account)
                 panel.addArrangedSubview(connect)
             } else {
                 panel.addArrangedSubview(NSTextField(wrappingLabelWithString: "The publisher must finish configuring its Google application before browser sign-in is available. Never enter your normal Google password here."))
             }
+        }
+    }
+
+    @objc func checkGmailOAuth(_ sender: NSButton) {
+        guard !busy, let account = sender.identifier?.rawValue,
+              let configured = mailboxOAuth.first(where: { $0["account"] as? String == account }),
+              let fingerprint = configured["fingerprint"] as? String else { return }
+        busy = true
+        page("Checking your Google mailbox", "Confirming the connected address. No messages are fetched and no website sign-in is started.")
+        progress()
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let checked = try self.request("owner/mailbox/oauth/check", body: ["account": account, "fingerprint": fingerprint])
+                guard checked["status"] as? String == "VERIFIED" else { throw Failure.message("The Google mailbox address could not be checked. Your saved connection is preserved. Try Check Google connection again.") }
+                let state = try self.request("owner/state")
+                DispatchQueue.main.async {
+                    self.busy = false; self.accept(state); self.showFactors()
+                    self.status.stringValue = "Google mailbox checked. Choose it for a supported website's email verification. Code delivery is checked during sign-in."
+                }
+            } catch { self.fail(error, retry: #selector(self.showFactors)) }
         }
     }
 
@@ -2088,10 +2129,15 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 }
                 if cancelled { throw MailboxOAuthFailure.cancelled }
                 _ = try self.request("owner/mailbox/oauth/finish", body: ["account": account, "attempt": id, "callback": received])
+                callback.close()
+                let checked = try? self.request("owner/mailbox/oauth/check", body: ["account": account, "fingerprint": fingerprint])
+                let addressChecked = checked?["status"] as? String == "VERIFIED"
                 let state = try self.request("owner/state")
                 DispatchQueue.main.async {
                     self.activeMailboxOAuth = nil; self.busy = false; self.accept(state); self.showFactors()
-                    self.status.stringValue = "Google access saved. Enable or check the website's email verification to confirm its mailbox address. Code delivery is checked during sign-in."
+                    self.status.stringValue = addressChecked
+                        ? "Google mailbox connected and checked. Choose it for a supported website's email verification. Code delivery is checked during sign-in."
+                        : "Google access is saved. The address check could not finish; use Check Google connection to retry without entering a password or repeating consent."
                 }
             } catch {
                 listener?.close()

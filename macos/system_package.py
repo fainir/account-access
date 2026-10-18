@@ -144,6 +144,12 @@ def assemble(args):
         raise ValueError("ordinary_mac_build_context_required")
     if args.architecture != "arm64":
         raise ValueError("apple_silicon_binary_runtime_required")
+    unsigned_package = getattr(args, "unsigned_package", False)
+    if unsigned_package and (args.development or args.installer_identity):
+        raise ValueError("unsigned_package_conflicts_with_signing_mode")
+    if (not args.development and not unsigned_package and not args.installer_identity
+            and not getattr(args, "inspect_runtime", False)):
+        raise ValueError("developer_id_installer_identity_required")
     app, native, python, browsers, wheels = [
         Path(getattr(args, name)).resolve(strict=True)
         for name in ["app", "native", "python", "browsers", "wheels"]
@@ -170,12 +176,6 @@ def assemble(args):
         p.is_symlink() or not p.is_file() or p.suffix != ".whl" for p in source_wheels
     ):
         raise ValueError("binary_wheelhouse_required")
-    if (
-        not args.development
-        and not args.installer_identity
-        and not getattr(args, "inspect_runtime", False)
-    ):
-        raise ValueError("developer_id_installer_identity_required")
     output.mkdir(mode=0o700)
     with tempfile.TemporaryDirectory(prefix="account-access-system-package-") as temporary:
         scratch = Path(temporary)
@@ -369,7 +369,7 @@ def assemble(args):
         result = output / (
             "Account-Access-"
             + args.architecture
-            + ("-development" if args.development else "")
+            + ("-development" if args.development else "-unsigned" if unsigned_package else "")
             + ".pkg"
         )
         command(
@@ -379,11 +379,11 @@ def assemble(args):
                 str(xml),
                 "--package-path",
                 str(scratch),
-                *([] if args.development else ["--sign", args.installer_identity]),
+                *([] if args.development or unsigned_package else ["--sign", args.installer_identity]),
                 str(result),
             ]
         )
-        if not args.development:
+        if not args.development and not unsigned_package:
             command(["/usr/sbin/pkgutil", "--check-signature", str(result)])
         report = {
             "status": "BUILT",
@@ -406,6 +406,10 @@ def assemble(args):
             "native_manifest_preflight": True,
             "sha256": hashlib.sha256(result.read_bytes()).hexdigest(),
         }
+        if unsigned_package:
+            # The container has no Installer signature. Every payload/runtime
+            # verification above still used the production publisher policy.
+            report.update({"unsigned_package": True, "installer_signed": False})
         (output / "package.json").write_text(json.dumps(report, indent=2) + "\n")
         return report
 
@@ -415,7 +419,10 @@ def main():
     for name in ["app", "native", "python", "browsers", "wheels", "output"]:
         parser.add_argument("--" + name, required=True)
     parser.add_argument("--architecture", choices=["arm64"], required=True)
-    parser.add_argument("--development", action="store_true")
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument("--development", action="store_true")
+    modes.add_argument("--unsigned-package", action="store_true",
+                       help="Keep production-signed payload checks; omit only the Installer container signature")
     parser.add_argument("--installer-identity")
     parser.add_argument("--runtime-identity")
     parser.add_argument("--runtime-plan")

@@ -74,12 +74,27 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
     var deviceEmailRequests: [String] = []
     var deviceEmailApplyFailure = false
     var deviceEmailPreview: [String: Any] = [:]
+    var googleRequests: [String] = []
     let clientToken = String(repeating: "F", count: 43)
     var clientID: String { SHA256.hash(data: Data(clientToken.utf8)).map { String(format: "%02x", $0) }.joined() }
     var state: [String: Any] = ["accounts": [], "catalog": []]
     func prepare(reply: @escaping (Bool) -> Void) { isAvailable = true; reply(true) }
     func authorizeSetup(_ form: Data, reply: @escaping (Bool) -> Void) { reply(form.count == 32) }
     func request(_ route: String, body: Data?, reply: @escaping (Int, Data) -> Void) {
+        if route.hasPrefix("owner/mailbox/oauth/") {
+            googleRequests.append(route)
+            if route.hasSuffix("/check") {
+                let item = ["id": "gmail-mailbox-" + String(repeating: "a", count: 24),
+                    "recipient": "fictional@example.test", "label": "Google mailbox", "kind": "gmail"]
+                var connections = state["mailbox_oauth"] as? [[String: Any]] ?? []
+                if !connections.isEmpty {
+                    connections[0]["reusable_mailbox"] = item
+                    connections[0]["mailbox_identity_verified"] = true
+                }
+                state["mailbox_oauth"] = connections
+                reply(200, try! JSONSerialization.data(withJSONObject: ["status": "VERIFIED", "mailbox_identity_verified": true])); return
+            }
+        }
         if route.hasPrefix("owner/device-email/") {
             deviceEmailRequests.append(route)
             if route.hasSuffix("/preview") {
@@ -312,7 +327,9 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         owner.mailboxOAuth[0]["renewable_access_saved"] = true
         owner.showEmailSetup()
         views = descendants(owner.stack)
-        precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains(where: { $0.contains("Renewable Google access is saved") }))
+        precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains(where: { $0.contains("Google access is saved") }))
+        precondition(!views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("Google mailbox checked"))
+        precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Check Google connection"))
         precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Reconnect with Google"))
         for reason in ["connection_revoked", "provider_grant_revoked_or_expired", "refresh_outcome_uncertain",
                        "mailbox_oauth_renewal_unavailable", "mailbox_scope_missing", "mailbox_scope_not_allowed", "fictional-private-reason"] {
@@ -324,7 +341,7 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
             views = descendants(owner.stack)
             let texts = views.compactMap { ($0 as? NSTextField)?.stringValue }
             precondition(texts.contains(where: { $0.contains("Google connection needs attention") }))
-            precondition(!texts.contains(where: { $0.contains("Renewable Google access is saved") || $0.contains("fictional-private-reason") }))
+            precondition(!texts.contains(where: { $0.contains("Google access is saved") || $0.contains("Google mailbox checked") || $0.contains("fictional-private-reason") }))
             precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Reconnect with Google"))
         }
         owner.mailboxOAuth[0]["connected"] = true
@@ -626,11 +643,68 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         } catch { precondition(mismatchedRequests == 0) }
         print("PASS: changed local capability identity is refused before any native enrollment request")
 
+        let customNamespace = "~/Library/Application Support/Codex Work"
+        let ownerHome = fixtureRoot.appendingPathComponent("home")
+        for action in ["status", "prepare", "install", "prepare-upgrade", "install-upgrade"] {
+            let environment = try! ManagedAgentSetup.helperEnvironment(action: action, ownerHome: ownerHome,
+                inherited: ["CODEX_HOME": customNamespace, "OPENAI_API_KEY": "fictional", "PYTHONPATH": "/untrusted", "DYLD_INSERT_LIBRARIES": "/untrusted"])
+            precondition(environment["CODEX_HOME"] == ownerHome.path + "/Library/Application Support/Codex Work")
+            precondition(Set(environment.keys) == ["PATH", "HOME", "LANG", "CODEX_HOME"])
+        }
+        precondition(try! ManagedAgentSetup.helperEnvironment(action: "browser", ownerHome: ownerHome,
+            inherited: ["CODEX_HOME": customNamespace])["CODEX_HOME"] == nil)
+        for value in ["", "relative", "/tmp/elsewhere", "~/../other", "~/a\nother", String(repeating: "a", count: 4097)] {
+            do {
+                _ = try ManagedAgentSetup.helperEnvironment(action: "prepare", ownerHome: ownerHome, inherited: ["CODEX_HOME": value])
+                preconditionFailure("Invalid Codex namespace accepted")
+            } catch {}
+        }
+        print("PASS: all agent setup actions preserve only a bounded owner-home Codex namespace; browser setup and unrelated credential or runtime variables stay excluded")
+
+        var upgradeActions: [String] = []
+        var upgraded = false
+        owner.managedAgents = ManagedAgentSetup(helper: { action in
+            upgradeActions.append(action)
+            if action == "status" { return upgraded ? ["status": "INSTALLED", "client_id": nativeChannel.clientID] : ["status": "MIGRATION_REQUIRED", "legacy_connections": 2] }
+            if action == "prepare-upgrade" { return ["status": "PREPARED", "client_id": nativeChannel.clientID] }
+            if action == "install-upgrade" { upgraded = true; return ["status": "INSTALLED", "client_id": nativeChannel.clientID, "hosts": ["codex", "claude"]] }
+            preconditionFailure("An upgrade used the ordinary installer")
+        }, readToken: { nativeChannel.clientToken })
+        nativeChannel.state["managed_client"] = ["status": "NOT_CONNECTED"]
+        owner.systemOwnerReady = false
+        owner.connectAgentsAfterSetup = true
+        owner.presentSystemState(nativeChannel.state)
+        let migrationDeadline = Date().addingTimeInterval(5)
+        while owner.busy && Date() < migrationDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
+        precondition(owner.systemAgentUpgradeNeeded && !upgraded && upgradeActions == ["status"])
+        precondition(descendants(owner.stack).compactMap { ($0 as? NSButton)?.title }.contains("Upgrade AI connection"))
+        let priorEnrollments = nativeChannel.clientEnrollments
+        owner.connectSystemAgents()
+        let upgradeDeadline = Date().addingTimeInterval(5)
+        while owner.busy && Date() < upgradeDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
+        precondition(upgraded && owner.systemOwnerReady && !owner.systemAgentUpgradeNeeded)
+        precondition(upgradeActions == ["status", "prepare-upgrade", "install-upgrade"] && nativeChannel.clientEnrollments == priorEnrollments + 1)
+        print("PASS: a recognized preview connection offers an explicit upgrade, waits for the owner, then connects both agents through the new approved capability")
+
+        nativeChannel.state["mailbox_oauth"] = [["account": "mail", "fingerprint": String(repeating: "a", count: 64),
+            "publisher_configured": true, "connected": true, "renewable_access_saved": true, "sources": []]]
+        owner.accept(nativeChannel.state)
+        owner.showFactors()
+        let googleCheck = descendants(owner.stack).compactMap { $0 as? NSButton }.first { $0.title == "Check Google connection" }!
+        owner.checkGmailOAuth(googleCheck)
+        let googleDeadline = Date().addingTimeInterval(5)
+        while owner.busy && Date() < googleDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
+        precondition(nativeChannel.googleRequests == ["owner/mailbox/oauth/check"])
+        precondition(owner.mailboxOAuth.first?["mailbox_identity_verified"] as? Bool == true)
+        precondition(descendants(owner.stack).compactMap { ($0 as? NSTextField)?.stringValue }.contains("Google mailbox checked"))
+        print("PASS: saved Google access checks its reusable mailbox address without another consent flow or mailbox password")
+
         let fingerprint = String(repeating: "a", count: 64)
         let deviceMailboxID = "mailbox-" + String(repeating: "b", count: 24)
         let previewID = String(repeating: "c", count: 32)
         for (route, payload, needsSetup) in [
             ("owner/device-email/preview", ["account": "personal-pypi", "fingerprint": fingerprint, "mailbox": deviceMailboxID], true),
+            ("owner/device-email/preview", ["account": "personal-pypi", "fingerprint": fingerprint, "mailbox": "gmail-mailbox-" + String(repeating: "a", count: 24)], true),
             ("owner/device-email/apply", ["id": previewID], true),
             ("owner/device-email/discard", ["id": previewID], false),
             ("owner/device-email/remove", ["account": "personal-pypi", "fingerprint": fingerprint], false)

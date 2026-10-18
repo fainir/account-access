@@ -1,5 +1,6 @@
 """Provider requests happen here, never in model-visible commands."""
 
+import asyncio
 import math
 import re
 import secrets
@@ -7,7 +8,7 @@ import time
 from urllib.parse import parse_qs, urlsplit
 
 import httpx2 as httpx
-from authlib.integrations.httpx_client import OAuth2Client
+from authlib.integrations.httpx_client import AsyncOAuth2Client, OAuth2Client
 from authlib.integrations.base_client.errors import OAuthError
 
 from .errors import AccessError
@@ -84,14 +85,15 @@ class OAuth:
     def __init__(self, store):
         self.store = store
 
-    def client(self, account, config: OAuthAccount, **kwargs):
+    def client(self, account, config: OAuthAccount, *, _async=False, _timeout=15, **kwargs):
         secret = self.store.get("credential:" + account, {}).get("client_secret")
         if config.token_auth_method != "none" and not secret:
             raise AccessError("NEEDS_USER", "client_secret_not_configured")
-        return OAuth2Client(config.client_id, client_secret=secret,
-                            token_endpoint_auth_method=config.token_auth_method,
-                            scope=" ".join(config.scopes), code_challenge_method="S256",
-                            timeout=15, follow_redirects=False, trust_env=False, **kwargs)
+        factory = AsyncOAuth2Client if _async else OAuth2Client
+        return factory(config.client_id, client_secret=secret,
+                       token_endpoint_auth_method=config.token_auth_method,
+                       scope=" ".join(config.scopes), code_challenge_method="S256",
+                       timeout=_timeout, follow_redirects=False, trust_env=False, **kwargs)
 
     def begin(self, account, redirect_uri):
         config = self.store.config()
@@ -169,8 +171,11 @@ class OAuth:
             "authorization_id": authorization_id or secrets.token_hex(16),
         })
 
-    def token(self, account, config, *, force=False):
+    def token(self, account, config, *, force=False, refresh_timeout=None):
         """Caller holds the account lock throughout refresh and protected execution."""
+        if refresh_timeout is not None and (type(refresh_timeout) not in {int, float}
+                or not math.isfinite(refresh_timeout) or not 0 < refresh_timeout <= 10):
+            raise ValueError("invalid OAuth refresh budget")
         connection = self.store.get("connection:" + account)
         if not connection:
             raise AccessError("NEEDS_USER", "account_not_connected")
@@ -191,9 +196,21 @@ class OAuth:
         connection["refresh_in_flight"] = True
         self.store.put("connection:" + account, connection)
         try:
-            with self.client(account, config.accounts[account], token=token) as client:
-                refreshed = client.refresh_token(config.accounts[account].token_url,
-                                                 refresh_token=token["refresh_token"])
+            if refresh_timeout is None:
+                with self.client(account, config.accounts[account], token=token) as client:
+                    refreshed = client.refresh_token(config.accounts[account].token_url,
+                                                     refresh_token=token["refresh_token"])
+            else:
+                async def refresh():
+                    async with self.client(account, config.accounts[account], token=token,
+                                           _async=True, _timeout=refresh_timeout) as client:
+                        return await client.refresh_token(config.accounts[account].token_url,
+                                                          refresh_token=token["refresh_token"])
+
+                async def bounded():
+                    return await asyncio.wait_for(refresh(), timeout=refresh_timeout)
+
+                refreshed = asyncio.run(bounded())
             self.save(account, refreshed, config, previous=token)
             self.store.audit("service", account, "", "token_refreshed")
             return self.store.get("connection:" + account)["token"]
@@ -204,7 +221,7 @@ class OAuth:
                 self.store.put("connection:" + account, connection)
                 raise AccessError("NEEDS_USER", "provider_grant_revoked_or_expired") from None
             raise AccessError("NEEDS_USER", "refresh_outcome_uncertain") from None
-        except (httpx.HTTPError, ValueError, KeyError):
+        except (TimeoutError, httpx.HTTPError, ValueError, KeyError):
             raise AccessError("NEEDS_USER", "refresh_outcome_uncertain") from None
 
     def read(self, account, op, config):

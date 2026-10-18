@@ -114,9 +114,19 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
     def connect(account, job_id):
         try:
             config = broker.store.config().accounts[account]
+            mailbox_identity_verified = None
             if isinstance(config, OAuthAccount):
                 from .cli import connect_oauth
                 connect_oauth(broker, account)
+                from .mailbox_oauth import check, supported
+                if supported(broker.store.config(), account):
+                    # Consent is already committed. An address-check failure
+                    # must not force another password or consent prompt.
+                    try:
+                        checked = check(broker, account, broker.store.config().fingerprint(account))
+                        mailbox_identity_verified = checked.get("status") == "VERIFIED"
+                    except AccessError:
+                        mailbox_identity_verified = False
             else:
                 broker.browser.connect(account, complete=lambda page: page.locator(config.ready_selector).first.wait_for(state="visible", timeout=300000))
             try:
@@ -125,6 +135,8 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                 if exc.status != "RETRYABLE":
                     raise
             result = {"status": "CONNECTED", "account": account}
+            if mailbox_identity_verified is not None:
+                result["mailbox_identity_verified"] = mailbox_identity_verified
         except AccessError as exc:
             result = {"status": exc.status, "reason": exc.reason}
         except Exception:
@@ -487,6 +499,12 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                     if set(data) != {"account", "fingerprint", "redirect_uri"}:
                         raise ValueError()
                     self.send(200, begin(broker, data["account"], data["fingerprint"], data["redirect_uri"]))
+                    return
+                if self.path == "/owner/mailbox/oauth/check":
+                    from .mailbox_oauth import check
+                    if type(data) is not dict or set(data) != {"account", "fingerprint"}:
+                        raise ValueError()
+                    self.send(200, check(broker, data["account"], data["fingerprint"]))
                     return
                 if self.path in {"/owner/mailbox/oauth/finish", "/owner/mailbox/oauth/cancel"}:
                     from .mailbox_oauth import cancel, finish

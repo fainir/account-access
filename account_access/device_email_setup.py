@@ -1,6 +1,6 @@
 """Owner-reviewed mailbox binding for the closed PyPI device-confirmation flow.
 
-Only already checked TLS IMAP profiles are selectable.  Connecting a mailbox is
+Only already checked mailbox identities are selectable. Connecting a mailbox is
 not a grant: this repair carries forward only identical, still active reads that
 were present when the owner opened the review.  No mail is read by setup.
 """
@@ -96,6 +96,12 @@ def _database(store):
 
 
 def _profile(store, ident, *, db=None):
+    from .mailbox_oauth import PROFILE_IDENT, profile as gmail_profile
+    if isinstance(ident, str) and PROFILE_IDENT.fullmatch(ident):
+        try:
+            return gmail_profile(store, ident, db=db)
+        except AccessError:
+            fail("device_email_mailbox_unavailable", "NEEDS_USER")
     if not isinstance(ident, str) or not MAILBOX_IDENT.fullmatch(ident):
         fail("invalid_device_email_setup")
     profile = _get(store, db, MAILBOX_PREFIX + ident) if db else store.get(MAILBOX_PREFIX + ident)
@@ -121,11 +127,16 @@ def _profile(store, ident, *, db=None):
 
 def _authority(profile):
     # The digest is encrypted with the review. It is never sent to the owner UI.
-    values = {key: profile[key] for key in ["generation", "host", "port", "username", "password"]}
+    keys = (["generation", "account", "fingerprint", "authorization_id", "username"]
+            if profile.get("kind") == "gmail" else ["generation", "host", "port", "username", "password"])
+    values = {key: profile[key] for key in keys}
     return hashlib.sha256(json.dumps(values, sort_keys=True).encode()).hexdigest()
 
 
 def _definition(profile):
+    if profile.get("kind") == "gmail":
+        return CodeSource(kind="gmail", account=profile["account"], recipient=profile["username"],
+                          sender=SENDER, subject=SUBJECT, message_purpose=PURPOSE)
     return CodeSource(kind="imap", host=profile["host"], port=profile["port"],
                       recipient=profile["username"], sender=SENDER, subject=SUBJECT,
                       message_purpose=PURPOSE)
@@ -145,6 +156,9 @@ def _mailboxes(store):
             raise
         candidates.append({"id": ident, "label": profile["label"],
                            "recipient": profile["username"], "kind": "imap"})
+    from .mailbox_oauth import profiles
+    candidates.extend({key: value[key] for key in ["id", "label", "recipient", "kind"]}
+                      for value in profiles(store))
     return candidates
 
 
@@ -154,12 +168,15 @@ def _connected(store, config, account):
         return False
     source = config.code_sources.get(source_id)
     record = store.get("source:" + source_id)
-    if (not source or source.message_purpose != PURPOSE or source.kind != "imap"
+    if (not source or source.message_purpose != PURPOSE or source.kind not in {"imap", "gmail"}
             or not isinstance(record, dict) or record.get("enabled") is not True):
         return False
     try:
-        profile = _profile(store, record.get("mailbox"))
+        profile = _profile(store, record.get("gmail_mailbox" if source.kind == "gmail" else "mailbox"))
     except AccessError:
+        return False
+    if source.kind == "gmail" and (record.get("gmail_generation") != profile["generation"]
+                                   or record.get("gmail_authorization") != profile["authorization_id"]):
         return False
     return source == _definition(profile)
 
@@ -302,7 +319,7 @@ def _restore(store, previous, account, token, authorities):
 
 
 def _publish(store, previous, updated, account, reviewed_grants, *, source=None, mailbox=None,
-             old_source=None):
+             old_source=None, mailbox_profile=None):
     """Quarantine, then config first: lost publication cannot restore authority.
 
     A normal failure restores only our exact published configuration while still
@@ -317,7 +334,12 @@ def _publish(store, previous, updated, account, reviewed_grants, *, source=None,
         with _database(store) as db:
             _write_config(store, updated)
             if source:
-                replace_source(store, source, {"mailbox": mailbox, "enabled": True}, db=db)
+                key = "gmail_mailbox" if updated.code_sources[source].kind == "gmail" else "mailbox"
+                value = {key: mailbox, "enabled": True}
+                if key == "gmail_mailbox":
+                    value.update(gmail_generation=mailbox_profile["generation"],
+                                 gmail_authorization=mailbox_profile["authorization_id"])
+                replace_source(store, source, value, db=db)
                 store.put(BINDING + account, {"source": source}, db=db)
             else:
                 store.put(BINDING + account, None, db=db)
@@ -365,6 +387,14 @@ def apply(store, ident):
         for item in sorted({source, retired} - {None}):
             held.enter_context(store.lock("source:" + item, timeout=2))
             held.enter_context(store.lock("code-window:" + item, timeout=2))
+        selected = _profile(store, review["mailbox"])
+        mail_accounts = ({selected["account"]} if selected.get("kind") == "gmail" else set())
+        if retired and current.code_sources[retired].kind == "gmail":
+            mail_accounts.add(current.code_sources[retired].account)
+        # Match Codes' source -> window -> OAuth account order. Google
+        # authorization holders never wait for a source/window lock.
+        for mail_account in sorted(mail_accounts):
+            held.enter_context(store.lock("account:" + mail_account, timeout=2))
         held.enter_context(store.lock("configuration", timeout=2))
         current = store.config()
         _account(current, account, review["fingerprint"])
@@ -383,7 +413,7 @@ def apply(store, ident):
             updated.code_sources.pop(retired, None)
         updated = Configuration.model_validate(updated.model_dump())
         _publish(store, current, updated, account, review["grants"], source=source,
-                 mailbox=review["mailbox"], old_source=retired)
+                 mailbox=review["mailbox"], old_source=retired, mailbox_profile=profile)
     return {"status": "ENROLLED", "account": account, "source": source}
 
 
@@ -401,6 +431,8 @@ def remove(store, account, fingerprint):
         if retired:
             held.enter_context(store.lock("source:" + retired, timeout=2))
             held.enter_context(store.lock("code-window:" + retired, timeout=2))
+            if current.code_sources[retired].kind == "gmail":
+                held.enter_context(store.lock("account:" + current.code_sources[retired].account, timeout=2))
         held.enter_context(store.lock("configuration", timeout=2))
         current = store.config()
         _account(current, account, fingerprint)

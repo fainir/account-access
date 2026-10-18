@@ -13,6 +13,7 @@ async function call(path,body){
 }
 const friendly={account_already_added:"This account is already added. Use Manage permissions to repair it.",install_your_agent_first:"Finish automatic setup first.",existing_skill_would_be_overwritten:"Another skill uses this name. Review it before installing Account Access.",browser_execution_failed:"The website is temporarily unavailable. Use Manage permissions to try again.",connection_not_completed:"Complete sign-in using Manage permissions.",password_not_connected:"Save the login for this account first."};
 Object.assign(friendly,{mailbox_connection_failed:"The mail server did not accept this connection. Check the email address and application password.",mailbox_not_connected:"Reconnect this mailbox in Verification.",invalid_mailbox_setup:"Check the email address, TLS IMAP server, port and application password.",mailbox_already_connected:"This mailbox is already saved. Use Update app password or Check connection.",mailbox_source_mismatch:"Choose the mailbox for this website's approved email address and server."});
+Object.assign(friendly,{mailbox_identity_check_required:"Check your saved Google connection, then review the website's email connection. No app password is needed.",mailbox_connection_retry_required:"Google access is saved. Try Check Google connection again; Account Access can renew it without another consent prompt."});
 Object.assign(friendly,{password_export_encrypted:"Choose an unencrypted Bitwarden JSON export. Keep it on this computer and remove it after importing.",mailbox_scope_not_allowed:"Google returned broader access than this connection permits. The publisher must check its Google application; your existing connection is preserved.",mailbox_oauth_renewal_unavailable:"Google did not provide renewable access. Reconnect once so approved email-code logins can continue after access expires."});
 Object.assign(friendly,{password_file_too_large:"The password export is too large. Export fewer accounts and try again.",invalid_password_export:"The password file could not be read. Export a fresh UTF-8 CSV or unencrypted Bitwarden JSON file and try again.",unsupported_password_export:"Choose a supported password CSV or unencrypted Bitwarden JSON export."});
 Object.assign(friendly,{import_connector_changed:"This account's connection changed after the import review. Choose the password file again and review its current permissions.",import_authenticator_changed:"This account's authenticator changed after the import review. Choose the password file again before replacing its authenticator key."});
@@ -152,16 +153,20 @@ el("password-file").onchange=async()=>{
 function renderMailboxes(container){
  const googleConnections=state.mailbox_oauth||[];
  for(const mailbox of googleConnections){
-  const card=text("div","");card.className="account";const recipients=[...new Set(mailbox.sources.map(source=>source.recipient))];card.append(text("strong","Gmail · "+recipients.join(", ")));
+  const card=text("div","");card.className="account";card.setAttribute("aria-label","Google mailbox connection");const reusable=mailbox.reusable_mailbox;const recipients=[...new Set((mailbox.sources||[]).map(source=>source.recipient))];const address=reusable?.recipient||recipients.join(", ");card.append(text("strong",address?"Gmail · "+address:"Gmail"));
   card.append(text("p","Connect in Google's browser page. Google grants mailbox read access; Account Access uses matching login messages for your configured websites. Website permissions stay the same."));
   if(mailbox.environment==="controlled-demo")card.append(text("p","Controlled provider fixture. This is not a real Gmail connection."));
   const needsAttention=mailbox.connection_state==="needs_attention"||(mailbox.connected&&mailbox.renewable_access_saved!==true);
   const connected=mailbox.connected&&mailbox.renewable_access_saved===true&&!needsAttention;
+  const checked=connected&&mailbox.mailbox_identity_verified===true&&!!reusable;
   if(needsAttention)card.append(text("p",mailbox.reason==="mailbox_scope_not_allowed"?friendly.mailbox_scope_not_allowed:mailbox.reason==="refresh_outcome_uncertain"?"Google access renewal was interrupted. Reconnect once to restore automatic email-code access.":"The saved Google connection needs attention. Reconnect once to restore renewable email-code access."));
   if(!mailbox.publisher_configured)card.append(text("p","The publisher must finish configuring its Google application before browser sign-in is available. Never enter your normal Google password here."));
   else if(state.local_host_actions===false)card.append(text("p","Open Verification in the Account Access desktop app to connect Google in your browser."));
   else{const connect=text("button",connected||needsAttention?"Reconnect with Google":"Connect with Google");connect.type="button";connect.onclick=async()=>{connect.disabled=true;try{await call("/owner/mailbox/oauth/connect",{account:mailbox.account,fingerprint:mailbox.fingerprint});message("Choose the approved Google account in your browser. After consent, enable or check the website's email verification to confirm its mailbox address.");await refresh();}catch(e){problem(e);}finally{connect.disabled=false;}};card.append(connect);}
-  if(connected)card.append(text("p","Renewable Google access is saved. Enable or check each website's email verification below to confirm its mailbox address. Website code delivery is checked during sign-in."));container.append(card);
+  if(connected){
+   card.append(text("p",checked?"Google mailbox checked. Choose it for a supported website's email verification without an app password. Code delivery is checked during sign-in.":"Google access is saved. Check its address to use this mailbox for supported website verification; no app password or repeated consent is needed."));
+   const check=text("button","Check Google connection");check.type="button";check.onclick=async()=>{if(check.disabled)return;check.disabled=true;try{const result=await call("/owner/mailbox/oauth/check",{account:mailbox.account,fingerprint:mailbox.fingerprint});if(result.status!=="VERIFIED")throw new Error("mailbox_connection_not_completed");message("Google mailbox checked. Choose it for a supported website's email verification. Code delivery is checked during sign-in.");await refresh();}catch(error){problem(error);}finally{check.disabled=false;}};card.append(check);
+  }container.append(card);
  }
  if(!googleConnections.length)container.append(text("p","Sign in with Google needs the publisher's registered Gmail connection. This preview does not include one. Gmail app passwords are available only for accounts where Google permits them."));
  for(const mailbox of state.mailboxes||[]){
@@ -188,7 +193,7 @@ function renderDeviceEmailSetups(container){
   }
   card.append(text("p","Use an email mailbox you already connected and checked. No password or login code needs to be entered again."));
   if(!setup.mailboxes?.length){
-   card.append(text("p","Connect and check a saved email mailbox first. Gmail app-password mailboxes are supported here; a Google browser connection alone is not selected automatically."));
+   card.append(text("p","Connect and check an email mailbox first. A checked Google connection or TLS IMAP mailbox can be used without entering its password again."));
    const connect=text("button","Connect a mailbox");connect.type="button";connect.onclick=()=>{const form=container.querySelector("details");if(form){form.open=true;form.scrollIntoView({block:"start"});}};card.append(connect);continue;
   }
   const menu=document.createElement("select");menu.setAttribute("aria-label","Connected mailbox for "+setup.label+" device emails");

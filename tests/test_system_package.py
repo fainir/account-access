@@ -221,3 +221,119 @@ def test_package_refuses_privileged_or_mismatched_identity_before_any_payload_pa
     monkeypatch.setattr(package, "os", SimpleNamespace(getuid=lambda: real_uid, geteuid=lambda: effective_uid))
     with pytest.raises(ValueError, match="ordinary_mac_build_context_required"):
         package.assemble(SimpleNamespace())
+
+
+@pytest.mark.parametrize("development,installer", [(True, None), (False, "Installer identity"), (True, "Installer identity")])
+def test_unsigned_container_refuses_conflicting_modes_before_opening_payload(monkeypatch, development, installer):
+    monkeypatch.setattr(package.sys, "platform", "darwin")
+    monkeypatch.setattr(package, "os", SimpleNamespace(getuid=lambda: 501, geteuid=lambda: 501))
+    with pytest.raises(ValueError, match="unsigned_package_conflicts_with_signing_mode"):
+        package.assemble(SimpleNamespace(architecture="arm64", unsigned_package=True,
+                                         development=development, installer_identity=installer))
+
+
+def test_default_production_container_still_requires_installer_identity_before_payload_reads(monkeypatch):
+    monkeypatch.setattr(package.sys, "platform", "darwin")
+    monkeypatch.setattr(package, "os", SimpleNamespace(getuid=lambda: 501, geteuid=lambda: 501))
+    with pytest.raises(ValueError, match="developer_id_installer_identity_required"):
+        package.assemble(SimpleNamespace(architecture="arm64", development=False,
+                                         installer_identity=None))
+
+
+@pytest.mark.parametrize("reject", [None, "publisher", "runtime-signing", "audit"])
+def test_unsigned_container_keeps_genuine_payload_and_runtime_verification(tmp_path, monkeypatch, reject):
+    import hashlib
+    import plistlib
+    from pathlib import Path
+
+    from macos import runtime_image, runtime_prepare
+    from test_payload_audit import thin
+
+    app, native, python, browsers, wheels = [tmp_path / name for name in
+                                           ["owner.app", "native", "python", "browsers", "wheels"]]
+    for path in [app / "Contents/MacOS", app / "Contents/Resources", native,
+                 python / "bin", python / "lib/python3.12", browsers, wheels]:
+        path.mkdir(parents=True)
+    (app / "Contents/MacOS/AccountAccess").write_bytes(thin())
+    (python / "bin/python3.12").write_bytes(thin())
+    (python / "lib/python3.12/os.py").write_text("# fictional Python input")
+    (browsers / "browser").write_bytes(thin())
+    for name in ["broker", "bootstrap", "installerverify"]:
+        (native / ("AccountAccess-" + name)).write_bytes(thin())
+    wheel = app / "Contents/Resources/account_access.whl"
+    with zipfile.ZipFile(wheel, "w") as archive:
+        archive.writestr("account_access/runtime-requirements.txt", "fictional==1")
+    (app / "Contents/Info.plist").write_bytes(plistlib.dumps({
+        "CFBundleIdentifier": "com.fainir.accountaccess", "CFBundleShortVersionString": "0.8.0",
+        "AccountAccessSystemInstallationRequired": True,
+        "AccountAccessWheelSHA256": hashlib.sha256(wheel.read_bytes()).hexdigest(),
+    }))
+    with zipfile.ZipFile(wheels / "fictional.whl", "w") as archive:
+        archive.writestr("fictional/data", "public fictional data")
+    plan = tmp_path / "plan.json"
+    plan.write_text('{"reviewed":"fixture"}')
+    monkeypatch.setattr(package.sys, "platform", "darwin")
+    calls, policies, signatures = [], [], []
+    def signature(path, identifier, *, fixture):
+        assert fixture is False
+        signatures.append(identifier)
+        if reject == "publisher":
+            raise ValueError("invalid_payload_publisher")
+        return {"team": "ABCDEFGHIJ", "identifier": identifier, "hashes": ["a" * 40]}
+    monkeypatch.setattr(package, "signature", signature)
+    def prepare(payload, requirements, project_name, pin, identity, team, selected, command, *, development):
+        assert development is False and team == "ABCDEFGHIJ" and identity == "Application publisher"
+        assert selected == {"reviewed": "fixture"}
+        policies.append("production-runtime-signing")
+        if reject == "runtime-signing":
+            raise ValueError("matching_runtime_signing_identity_required")
+        return requirements, {"fixture": "production-signing-policy-retained"}
+    monkeypatch.setattr(runtime_prepare, "prepare", prepare)
+    def audit(*args, development):
+        assert development is False
+        policies.append("production-payload-audit")
+        if reject == "audit":
+            raise ValueError("payload_publisher_not_verified")
+        return {"publisher_signatures_verified": True}
+    monkeypatch.setattr(package, "audit_payload", audit)
+    monkeypatch.setattr(package, "native_manifest_preflight", lambda *_: policies.append("native-manifest"))
+    monkeypatch.setattr(runtime_image, "verify_origins", lambda *_: {})
+    def image(payload, *args, **kwargs):
+        node = payload / "runtime/lib/python3.12/site-packages/playwright/driver/node"
+        node.parent.mkdir(parents=True)
+        node.write_bytes(thin())
+        return {"fixture": "assembled-without-running-package-code"}
+    monkeypatch.setattr(runtime_image, "assemble", image)
+    def command(arguments, *, input_data=None):
+        calls.append(arguments)
+        name = Path(arguments[0]).name
+        if name in {"pkgbuild", "productbuild"}:
+            assert "--sign" not in arguments
+            Path(arguments[-1]).write_bytes(b"fictional installer container")
+        if name == "python3.12":
+            return SimpleNamespace(stdout=b'[[3,12,15],"arm64",true]', stderr=b"")
+        assert name in {"chmod", "pkgbuild", "productbuild", "python3.12"}
+        return SimpleNamespace(stdout=b"", stderr=b"")
+    monkeypatch.setattr(package, "command", command)
+    args = SimpleNamespace(app=app, native=native, python=python, browsers=browsers,
+        wheels=wheels, output=tmp_path / "output", architecture="arm64", development=False,
+        unsigned_package=True, installer_identity=None, runtime_identity="Application publisher",
+        runtime_plan=plan, inspect_runtime=False)
+    original = {path: path.read_bytes() for path in [wheel, python / "bin/python3.12", browsers / "browser"]}
+    if reject:
+        with pytest.raises(ValueError, match={"publisher": "invalid_payload_publisher",
+                "runtime-signing": "matching_runtime_signing_identity_required",
+                "audit": "payload_publisher_not_verified"}[reject]):
+            package.assemble(args)
+        assert not any(Path(call[0]).name in {"python3.12", "pkgbuild", "productbuild"} for call in calls)
+    else:
+        result = package.assemble(args)
+        assert result["development"] is False and result["unsigned_package"] is True
+        assert result["installer_signed"] is False and result["production_ready"] is False
+        assert result["notarized"] is False and result["installed"] is False
+        assert (args.output / "Account-Access-arm64-unsigned.pkg").is_file()
+        assert policies == ["production-runtime-signing", "production-payload-audit", "native-manifest",
+                            "production-payload-audit", "native-manifest"]
+        assert set(signatures) == {"com.fainir.accountaccess", "com.fainir.accountaccess.broker",
+                                 "com.fainir.accountaccess.bootstrap", "com.fainir.accountaccess.installerverify"}
+    assert all(path.read_bytes() == data for path, data in original.items())

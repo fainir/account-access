@@ -98,6 +98,10 @@ import Network
                                          "callback": "http://127.0.0.1:52781" + target]
         checks["native_begin_and_finish_require_owner_presence"] = route("begin", startBody)?.requiresSetup == true
             && route("finish", finishBody)?.requiresSetup == true
+        let checkBody = ["account": account, "fingerprint": String(repeating: "a", count: 64)]
+        checks["native_google_identity_check_requires_owner_presence"] = route("check", checkBody)?.requiresSetup == true
+        checks["native_google_identity_check_rejects_short_fingerprint"] = route("check", ["account": account, "fingerprint": "short"]) == nil
+        checks["native_google_identity_check_rejects_destination_injection"] = route("check", ["account": account, "fingerprint": String(repeating: "a", count: 64), "url": "https://example.test"]) == nil
         checks["native_cancellation_does_not_request_owner_presence"] = route("cancel", ["account": account, "attempt": String(repeating: "b", count: 32)])?.requiresSetup == false
         var changed = startBody; changed["redirect_uri"] = "http://localhost:52781/callback/" + account
         var injected = startBody; injected["authorization_url"] = "https://example.test"

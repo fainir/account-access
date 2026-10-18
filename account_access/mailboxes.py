@@ -49,6 +49,18 @@ def enrollment(store, source_id):
     source = store.config().code_sources[source_id]
     if source.kind == "gmail" and credential.get("enabled") is not True:
         raise AccessError("NEEDS_USER", "mailbox_not_connected", "email")
+    if credential.get("gmail_mailbox"):
+        from .mailbox_oauth import profile
+        saved = profile(store, credential["gmail_mailbox"], allow_refresh=True)
+        if (source.kind != "gmail" or source.account != saved["account"]
+                or source.recipient.lower() != saved["username"].lower()):
+            raise AccessError("NEEDS_USER", "mailbox_source_mismatch", "email")
+        if (credential.get("gmail_generation") != saved["generation"]
+                or credential.get("gmail_authorization") != saved["authorization_id"]):
+            raise AccessError("NEEDS_USER", "mailbox_identity_check_required", "email")
+        return {"enabled": True, "gmail_mailbox": credential["gmail_mailbox"],
+                "username": saved["username"], "mailbox_generation": saved["generation"],
+                "mailbox_authorization": saved["authorization_id"]}
     if not credential.get("mailbox"):
         return credential
     profile = get(store, credential["mailbox"])
