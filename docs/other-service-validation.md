@@ -125,10 +125,12 @@ uses an emailed GET link, not a six-digit code or a form. Only an observed,
 guarded TOTP response to the bare device page can start this step. The resolver
 requires fresh mail beyond the existing Gmail-ID or IMAP-UID baseline, exact
 recipient/sender/subject, the reviewed plain-text MIME template, unchanged source
-generation and current mailbox authority. It structurally compares the bounded
-confirmation token's action and user UUID to the user in PyPI's trusted password
-response. This comparison does not validate a signature: PyPI verifies its signed
-token and the device's IP when the link is used. Other users, actions, links,
+generation and current mailbox authority. It requires the fixed login-confirmation
+action, checks the unique login identifier for canonical UUID syntax, and compares the
+confirmation token's user UUID to the user in PyPI's trusted password response.
+The unique login UUID is not derived from that response, and structural inspection
+does not validate a signature: PyPI verifies its signed token and the device's IP
+when the link is used. Other users, actions, links,
 ambiguous messages and stale tokens cannot be selected.
 
 The resulting URL is a one-use, attached-main-frame capability within the

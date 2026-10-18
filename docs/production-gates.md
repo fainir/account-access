@@ -7,6 +7,20 @@ or physical-device coverage.
 
 ## Candidate 0.8 changes
 
+- Revision `6414df4` passes all eight workflows: two **2,273-test** regressions
+  with 92 skips and zero warnings, two **1,037-case** focused Mac suites with
+  one skip, and **36** native UI scenarios per Main run. All eighteen Mac reports,
+  actual Installer-context checks and paired native/Linux/Android reports pass.
+  Fresh signed build **63**, the **59-module** wheel, runtime and **28-check**
+  genuine transport review at controller `d1e0fed` pass. Gmail now requires
+  explicit source enrollment, existing 1Password links support token-only repair,
+  and the engine supports an explicitly bound PyPI confirmation email. Claude
+  passes a fresh four-account fictional request; local Codex refuses before
+  startup because its execution boundary cannot be attested. Private sign-ins
+  remain zero, consumer PyPI binding is unfinished, and personal-account,
+  physical-phone and consumer distribution gates remain open. Chrome/Bitwarden
+  continuous sync is unimplemented. Production readiness remains false.
+  [Current evidence](../artifacts/mail-source-authority-080.json) and [agent QA boundary](agent-qa-boundary.md).
 - Revision `972b800` passes all eight workflows: both **2,130-test**
   regressions with 92 platform skips and zero warnings, both **1,037-case**
   focused Macs with one skip, and **35** executed native UI scenarios per Main
@@ -20,7 +34,7 @@ or physical-device coverage.
   setup, real consent/delivery, physical phones, continuous Chrome/Bitwarden sync
   and consumer installation/notarization remain open. The owner's installed app
   and unfinished mailbox form were preserved. Production readiness is false.
-  [Exact current evidence](../artifacts/unattended-import-080.json).
+  [Evidence for source 972b800](../artifacts/unattended-import-080.json).
 - Revision `57e7702` passes both Main regressions: **1,797 tests, 92 platform
   skips, zero warnings**, in 677.48 and 603.99 seconds. Lint, locked exports,
   sandboxing, dependency audits and package builds pass. Native reports pass
@@ -149,7 +163,7 @@ or physical-device coverage.
   [18-check protected Mac composition](../artifacts/username-password-pages-080.json)
   also requires two identity/password/SMS logins, session reuse and durable
   recovery after a cold restart; its accounts/messages are synthetic.
-- Staged Mac build 62 requires macOS 14 (Sonoma) or later, matching the
+- Staged Mac build 63 requires macOS 14 (Sonoma) or later, matching the
   pinned Playwright browser runtime. App metadata, shell preflight and the direct
   Python bootstrap enforce this before downloads/runtime changes. This corrects
   the previous macOS 13 claim; it is not clean-Mac installation acceptance.

@@ -195,12 +195,14 @@ private authentication or physical phone delivery.
 
 - [Validation and production gates](docs/production-gates.md)
 - [Detailed test evidence](docs/validation.md) and [machine-readable reports](artifacts/)
-- [Current import, Gmail repair and signed transport results](artifacts/unattended-import-080.json)
+- [Current mailbox authorization, sync repair and signed transport results](artifacts/mail-source-authority-080.json)
+- [Earlier import and Gmail repair results](artifacts/unattended-import-080.json)
 - [Earlier connected setup and canonical installation results](artifacts/connected-setup-080.json)
 - [Earlier verification-authority and signed-Chrome results](artifacts/verification-authority-080.json)
 - [Resumable installer verification results](artifacts/resumable-installer-080.json)
 - [Genuine publisher and runtime checks](docs/publisher-runtime-checks.md)
 - [Preview validation history](docs/preview-validation-history.md)
+- [Current agent QA boundary](docs/agent-qa-boundary.md) — Claude passes controlled fictional login; local Codex QA stops before startup until its permissions can be attested.
 - [Advanced setup and other agents](docs/setup.md)
 - [Contributor guide](CONTRIBUTING.md) and [security reporting](SECURITY.md)
 - [Research and design](docs/research.md)

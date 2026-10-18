@@ -1,5 +1,70 @@
 # Validation of Account Access
 
+## Mailbox authorization, sync repair and device email — 18 October 2026
+
+Application revision `6414df4` passed all eight push/PR workflows. Both full
+regressions passed **2,273 tests with 92 platform skips and zero warnings**,
+in **759.12 and 782.00 seconds**. Both focused Macs
+passed **1,037 cases with one skip**, in **149.13 and 151.88
+seconds**. Lint, locked dependency exports, audits and wheel/sdist builds passed.
+[Source-bound evidence](../artifacts/mail-source-authority-080.json).
+
+Each Main run executed **36 native owner UI scenarios**. Paired reports pass
+**67 gateway, 38 desktop, 18 framing and 23 Gmail callback checks**, alongside
+**24 Linux isolation** and **6 Android emulator delivery** checks. All eighteen
+Mac reports match across their sixteen strict validators and the original
+**16-check** / prepared **23-check** package contracts. Actual Installer-context
+and native source-handoff checks passed with shared permissions preserved.
+
+Gmail authorization alone no longer enables a website's email source. Starting
+code recovery requires explicit source enrollment; pending windows recheck source
+authority before accepting delivered codes. An existing 1Password connection can
+replace just its token: the exact item, identity and
+site stay fixed, and the repair checks the original enrollment generation and
+connector authority. A failed replacement preserves the previous connection.
+Native and web repair forms clear their secret fields.
+[Sync repair](onepassword-sync.md).
+
+The PyPI engine can follow the reviewed new-device email after its native
+password/TOTP exchange, when an operator explicitly binds the mailbox. It
+matches the fresh template and recipient, checks the fixed action and canonical
+token identifiers, and compares the user UUID to the observed password response.
+PyPI verifies the link signature and IP. The original confirmation
+redirect and cookies are preserved. The automatic projects redirect is blocked
+before dispatch, then the already-approved username operation verifies session
+reuse. Account/source changes invalidate pending mail; missing TOTP stops before
+optional mail or password work. Controlled Gmail and IMAP paths pass. The
+standard account picker does not yet configure this binding, and private PyPI
+acceptance remains unverified. [Provider limits](other-service-validation.md).
+
+Fresh genuinely signed Mac build **63** passes five executable audits and
+sixteen static peer checks. Its wheel matches all **59** current Python modules.
+The prepared runtime passes native callbacks, crypto, SDK-child and sandboxed
+browser checks with library validation enabled. A fresh
+[production Chrome/native-host review](https://github.com/fainir/account-access/actions/runs/39127001363) passes **28 checks** at controller
+`d1e0fed` against exactly this source and archive. Both reads reach the
+publisher-pinned service and receive the expected pre-enrollment denial; cleanup
+passes. This does not exercise owner approval, enrollment or a website sign-in.
+
+Claude Code completed an ordinary-language task against four fictional accounts
+in **53.23 seconds**, using four password logins, one email verification, one SMS
+verification and one TOTP verification. Its invocation guard and trace checks
+passed. This uses synthetic IMAP, Messages and authenticator inputs, not private
+accounts or physical delivery.
+[Claude report](../artifacts/agent-tests/claude-verification-080-6414df4.json).
+Local Codex acceptance is **unverified**: the harness cannot attest its effective
+execution permissions and refuses before fixture or model startup.
+[Blocked report](../artifacts/agent-tests/codex-verification-080-6414df4.blocked.json),
+[boundary and next acceptance environment](agent-qa-boundary.md).
+
+New private sign-ins: **zero**. The owner's installed app and unfinished mailbox
+form were preserved. Real Google publisher setup/consent, private email/SMS/TOTP
+and password-manager acceptance, physical phones, genuine owner enrollment,
+protected installed agent journeys, and notarized consumer installation/update
+remain release gates. Chrome and Bitwarden imports are snapshots; continuous
+sync from those managers is unimplemented. Production readiness remains
+**false**. Earlier sections retain historical source-specific results.
+
 ## Password imports, Gmail repair and PyPI pilot — 18 October 2026
 
 Application revision `972b800` passed all eight push/PR workflows. Both full
