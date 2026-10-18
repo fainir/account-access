@@ -333,6 +333,18 @@ def stop_uid(uid):
     require(not uid_processes(uid), "cleanup_processes_still_running")
 
 
+def public_parent_metadata(parents):
+    observations = {}
+    for label, path in parents:
+        try:
+            info = path.lstat()
+            observations[label] = {"present": True, "owner_uid": info.st_uid,
+                                   "mode": stat.S_IMODE(info.st_mode), "symlink": stat.S_ISLNK(info.st_mode)}
+        except FileNotFoundError:
+            observations[label] = {"present": False}
+    return observations
+
+
 def child(config_path):
     guard(root=False)
     from account_access.browser_setup import prepare
@@ -401,11 +413,14 @@ def run(args):
     expected_job = None
     signatures = None
     designated = None
+    preflight_failure_type = None
     report = {"status": "FAILED", "reason": "publisher_transport_incomplete"}
     try:
         checks["hosted_arm64_mac_guard_passed"] = True
+        stage = "controller-source"
         require(git(["rev-parse", "HEAD"]).stdout.decode().strip() == os.environ["GITHUB_SHA"],
                 "controller_revision_mismatch")
+        stage = "baseline-paths"
         for path in [BASE, APP, JOB]:
             require(not path.exists() and not path.is_symlink(), "existing_production_installation")
         for lookup in [pwd.getpwnam, grp.getgrnam]:
@@ -415,11 +430,20 @@ def run(args):
                 pass
             else:
                 raise ReviewError("existing_production_identity")
+        stage = "baseline-authorization"
         require(authorization() is None, "existing_production_authorization_rule")
+        stage = "baseline-job"
         require(command(["/bin/launchctl", "print", "system/" + LABEL], check=False).returncode != 0,
                 "existing_production_job")
-        for path in [BASE.parent, APP.parent, JOB.parent, Path("/Library/PrivilegedHelperTools")]:
-            root_managed_path(path)
+        for path, label in [(BASE.parent, "support"), (APP.parent, "applications"),
+                            (JOB.parent, "launchdaemons"), (Path("/Library/PrivilegedHelperTools"), "helpers")]:
+            stage = "baseline-" + label + "-parent"
+            try:
+                root_managed_path(path)
+            except Exception as exc:
+                preflight_failure_type = type(exc).__name__ if type(exc).__name__ in {
+                    "BootstrapError", "FileNotFoundError", "PermissionError", "ValueError"} else "Exception"
+                raise ReviewError("untrusted_review_" + label + "_parent") from None
         checks["fresh_production_paths_only"] = True
         prefix = Path("/Library/PrivilegedHelperTools/account-access-publisher-qa-" + secrets.token_hex(8))
         prefix.mkdir(mode=0o755)
@@ -546,6 +570,13 @@ def run(args):
     except Exception as exc:
         report = {"status": "FAILED", "reason": str(exc) if isinstance(exc, ReviewError) else "publisher_transport_failed",
                   "stage": stage, "checks": checks, "production_ready": False, "private_signins": 0}
+        if stage.startswith("baseline-") and stage.endswith("-parent"):
+            # Fixed, public system-directory metadata only; never raw errors,
+            # user homes, environment values, account state or credentials.
+            report["preflight_failure_type"] = preflight_failure_type
+            report["public_parent_metadata"] = public_parent_metadata([
+                ("support", BASE.parent), ("applications", APP.parent),
+                ("launchdaemons", JOB.parent), ("helpers", Path("/Library/PrivilegedHelperTools"))])
     finally:
         # Every deletion is bound to a baseline-absent name created by this run.
         cleanup_ok = True

@@ -5,6 +5,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import subprocess
 import tarfile
@@ -321,3 +322,13 @@ def test_unavailable_draft_fails_before_download_with_no_raw_api_output(tmp_path
                        "--output", str(tmp_path / "must-not-exist")]) == 1
     assert json.loads(capsys.readouterr().out) == {"status": "FAILED", "reason": "review_draft_metadata_unavailable", "production_ready": False}
     assert not (tmp_path / "must-not-exist").exists()
+
+
+def test_parent_diagnostics_only_include_presence_uid_mode_and_alias_metadata(tmp_path):
+    public = tmp_path / "public"
+    public.mkdir(mode=0o775)
+    public.chmod(0o775)
+    (public / "must-never-read").write_text("unrelated contents")
+    assert probe.public_parent_metadata([("applications", public), ("helpers", tmp_path / "absent")]) == {
+        "applications": {"present": True, "owner_uid": os.getuid(), "mode": 0o775, "symlink": False},
+        "helpers": {"present": False}}
