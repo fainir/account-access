@@ -66,15 +66,33 @@ def _get(store, db, key):
 @contextmanager
 def _database(store):
     # These are owner RPCs, not the background service's long retry loop.
+    # SQLite's busy timeout accumulates sleeps; it is not a wall-clock bound.
+    # Use immediate acquisition attempts with our own monotonic deadline.
+    deadline = time.monotonic() + 2
     try:
         with store.db() as db:
-            db.execute("PRAGMA busy_timeout=2000")
-            db.execute("BEGIN IMMEDIATE")
+            db.execute("PRAGMA busy_timeout=0")
+            while True:
+                if time.monotonic() >= deadline:
+                    fail("account_busy", "RETRYABLE")
+                try:
+                    db.execute("BEGIN IMMEDIATE")
+                except sqlite3.OperationalError as error:
+                    if getattr(error, "sqlite_errorcode", 0) & 255 not in {sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED}:
+                        raise
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        fail("account_busy", "RETRYABLE")
+                    time.sleep(min(0.02, remaining))
+                else:
+                    if time.monotonic() >= deadline:
+                        fail("account_busy", "RETRYABLE")
+                    break
             yield db
-    except sqlite3.OperationalError as error:
+    except sqlite3.Error as error:
         if getattr(error, "sqlite_errorcode", 0) & 255 in {sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED}:
             fail("account_busy", "RETRYABLE")
-        raise
+        fail("device_email_setup_incomplete", "NEEDS_USER")
 
 
 def _profile(store, ident, *, db=None):

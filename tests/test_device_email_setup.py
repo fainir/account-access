@@ -1,8 +1,10 @@
 """Public owner setup fixtures; no private accounts, passwords or messages."""
 
 import json
+import sqlite3
 import threading
 import time
+from contextlib import contextmanager
 
 import httpx2 as httpx
 import pytest
@@ -393,6 +395,94 @@ def test_database_contention_is_bounded_without_consuming_an_unread_review(conne
         stop.set()
         thread.join(timeout=2)
     assert setup.apply(connected.store, value["id"])["status"] == "ENROLLED"
+
+
+@pytest.mark.parametrize("code", [sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED])
+def test_writer_deadline_uses_elapsed_time_despite_overscheduled_sleeps(monkeypatch, code):
+    clock, calls, closed = [100.0], [], []
+    error = sqlite3.OperationalError("fictional-sensitive-database-detail")
+    error.sqlite_errorcode = code
+    class Database:
+        def execute(self, query):
+            calls.append(query)
+            if query == "BEGIN IMMEDIATE":
+                raise error
+    class FictionalStore:
+        @contextmanager
+        def db(self):
+            try:
+                yield Database()
+            finally:
+                closed.append(True)
+    def delayed_sleep(seconds):
+        assert 0 < seconds <= 0.02
+        clock[0] += seconds + 1  # Scheduler delay exceeds requested sleep.
+    monkeypatch.setattr(setup.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(setup.time, "sleep", delayed_sleep)
+    with pytest.raises(AccessError, match="account_busy") as failure:
+        with setup._database(FictionalStore()):
+            pytest.fail("an expired acquisition must not publish")
+    assert failure.value.status == "RETRYABLE"
+    assert calls == ["PRAGMA busy_timeout=0", "BEGIN IMMEDIATE", "BEGIN IMMEDIATE"]
+    assert closed == [True] and clock[0] < 103
+    assert "fictional" not in str(failure.value)
+
+
+@pytest.mark.parametrize("stage", ["open", "pragma", "begin", "body", "commit"])
+def test_database_noncontention_errors_are_not_retried_or_leaked(monkeypatch, stage):
+    calls, closed = [], []
+    error = sqlite3.OperationalError("fictional-sensitive-database-detail")
+    error.sqlite_errorcode = sqlite3.SQLITE_IOERR
+    class Database:
+        def execute(self, query):
+            calls.append(query)
+            if (stage == "pragma" and query.startswith("PRAGMA")) or (stage == "begin" and query == "BEGIN IMMEDIATE"):
+                raise error
+    class FictionalStore:
+        @contextmanager
+        def db(self):
+            try:
+                if stage == "open":
+                    raise error
+                yield Database()
+                if stage == "commit":
+                    raise error
+            finally:
+                closed.append(True)
+    monkeypatch.setattr(setup.time, "sleep", lambda seconds: pytest.fail("non-contention error must not retry"))
+    with pytest.raises(AccessError, match="device_email_setup_incomplete") as failure:
+        with setup._database(FictionalStore()):
+            if stage == "body":
+                raise error
+    assert failure.value.status == "NEEDS_USER" and "fictional" not in str(failure.value)
+    assert calls.count("BEGIN IMMEDIATE") <= 1 and closed == [True]
+
+
+@pytest.mark.parametrize("acquired", [False, True])
+def test_slow_begin_cannot_pass_the_publication_deadline(monkeypatch, acquired):
+    clock, closed, calls = [100.0], [], []
+    class Database:
+        def execute(self, query):
+            calls.append(query)
+            if query == "BEGIN IMMEDIATE":
+                clock[0] += 2.1
+                if not acquired:
+                    error = sqlite3.OperationalError("fictional-sensitive-database-detail")
+                    error.sqlite_errorcode = sqlite3.SQLITE_BUSY
+                    raise error
+    class FictionalStore:
+        @contextmanager
+        def db(self):
+            try:
+                yield Database()
+            finally:
+                closed.append(True)
+    monkeypatch.setattr(setup.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(setup.time, "sleep", lambda seconds: pytest.fail("deadline is already exceeded"))
+    with pytest.raises(AccessError, match="account_busy"):
+        with setup._database(FictionalStore()):
+            pytest.fail("late acquisition must not publish")
+    assert calls == ["PRAGMA busy_timeout=0", "BEGIN IMMEDIATE"] and closed == [True]
 
 
 def test_device_setup_routes_are_owner_only_and_exact(connected):
