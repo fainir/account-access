@@ -4,6 +4,8 @@ on:
     branches: [codex/production-auth]
     paths:
       - .github/workflows/mac-publisher-transport.yml
+      - scripts/mac_publisher_processes.py
+      - tests/test_mac_publisher_processes.py
       - scripts/mac_publisher_transport_probe.py
       - scripts/check_mac_publisher_transport_report.py
       - tests/test_mac_publisher_transport.py
@@ -64,7 +66,7 @@ jobs:
       - name: Check the archive and report contracts without installing anything
         run: |
           uv sync --locked
-          uv run pytest -q tests/test_mac_publisher_transport.py
+          uv run pytest -q tests/test_mac_publisher_transport.py tests/test_mac_publisher_processes.py
           test "$(uname -m)" = arm64
           test "$RUNNER_ENVIRONMENT" = github-hosted
           test "$GITHUB_REPOSITORY" = fainir/account-access

@@ -18,16 +18,16 @@ CHECKS = {
     "no_external_website_opened", "chrome_and_native_children_stopped",
     "empty_vault_and_no_enrollment_journal", "created_system_job_removed",
     "created_authorization_rule_removed", "created_service_identity_removed",
-    "temporary_owner_identity_and_domain_removed", "fresh_public_image_removed",
+    "temporary_browser_profile_and_registration_removed", "fresh_public_image_removed",
 }
 TRUE_FLAGS = {"publisher_signed_peers", "genuine_dynamic_xpc_verified",
               "production_browser_entrypoint_verified", "production_desktop_profile_verified",
-              "actual_stable_chrome_used", "actual_native_framing_used"}
+              "actual_stable_chrome_used", "actual_native_framing_used", "runner_identity_unchanged"}
 FALSE_FLAGS = {"genuine_owner_approval_verified", "positive_enrollment_verified",
                "website_login_verified", "physical_sms_delivery_verified",
                "consumer_deployment_verified", "notarization_verified", "production_ready"}
 FIELDS = {"schema", "status", "platform", "architecture", "environment", "source_revision",
-          "controller_revision", "review_archive_sha256", "publisher_team", "chrome_version",
+          "controller_revision", "review_archive_sha256", "owner_context", "publisher_team", "chrome_version",
           "component_hashes", "extension_resources_sha256", "checks", "private_signins",
           "limits"} | TRUE_FLAGS | FALSE_FLAGS
 
@@ -35,10 +35,11 @@ FIELDS = {"schema", "status", "platform", "architecture", "environment", "source
 def validate(value):
     hashes = value.get("component_hashes") if isinstance(value, dict) else None
     resources = value.get("extension_resources_sha256") if isinstance(value, dict) else None
-    return (type(value) is dict and set(value) == FIELDS and value.get("schema") == 1
+    return (type(value) is dict and set(value) == FIELDS and value.get("schema") == 2
             and type(value["schema"]) is int and value.get("status") == "PASSED"
             and value.get("platform") == "macos" and value.get("architecture") == "arm64"
             and value.get("environment") == "disposable-hosted-ci-public-review"
+            and value.get("owner_context") == "existing-hosted-runner-fresh-browser-profile"
             and value.get("publisher_team") == "WBULD6N4NQ"
             and all(type(value.get(key)) is str and re.fullmatch(r"[a-f0-9]{40}", value[key])
                     for key in ["source_revision", "controller_revision"])

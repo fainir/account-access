@@ -172,8 +172,9 @@ def test_review_contract_rejects_wrong_source_authority_and_schema(public_image,
 
 
 def valid_report():
-    result = {"schema": 1, "status": "PASSED", "platform": "macos", "architecture": "arm64",
-              "environment": "disposable-hosted-ci-public-review", "source_revision": REVISION,
+    result = {"schema": 2, "status": "PASSED", "platform": "macos", "architecture": "arm64",
+              "environment": "disposable-hosted-ci-public-review", "owner_context": "existing-hosted-runner-fresh-browser-profile",
+              "source_revision": REVISION,
               "controller_revision": "b" * 40, "review_archive_sha256": "c" * 64,
               "publisher_team": probe.TEAM, "chrome_version": "Chrome/142.0.7444.60",
               "component_hashes": {name: ["d" * 40] for name in ["owner", "broker", "bootstrap"]},
@@ -227,54 +228,6 @@ def test_exact_registered_rule_cannot_downgrade_presence_or_forge_registrar():
         modified = copy.deepcopy(value)
         modified[field] = changed
         assert not probe.exact_rule(modified, value["requirement"])
-
-
-def test_name_collision_is_not_reused_even_when_uid_is_free(monkeypatch):
-    def absent(_value):
-        raise KeyError()
-
-    monkeypatch.setattr(probe.pwd, "getpwuid", absent)
-    monkeypatch.setattr(probe.grp, "getgrgid", absent)
-    monkeypatch.setattr(probe.pwd, "getpwnam", absent)
-    monkeypatch.setattr(probe.grp, "getgrnam", lambda name: object() if name == "aap" + "1" * 12 else absent(name))
-    tokens = iter(["1" * 12, "2" * 12])
-    monkeypatch.setattr(probe.secrets, "token_hex", lambda _size: next(tokens))
-    monkeypatch.setattr(probe.secrets, "randbelow", lambda _upper: 23)
-    assert probe.fresh_owner_identity() == (50023, "aap" + "2" * 12)
-
-
-def test_cleanup_requires_observed_uid_process_exit(monkeypatch):
-    clock, calls = [0], []
-    observations = iter([[123], [123], [123], [123], []])
-    monkeypatch.setattr(probe, "uid_processes", lambda uid: next(observations))
-    monkeypatch.setattr(probe.time, "monotonic", lambda: clock[0])
-    monkeypatch.setattr(probe.time, "sleep", lambda _seconds: clock.__setitem__(0, clock[0] + 0.6))
-    monkeypatch.setattr(probe, "command", lambda args, **_kwargs: calls.append(args))
-    probe.stop_uid(50023)
-    assert calls == [["/usr/bin/pkill", "-TERM", "-u", "50023"],
-                     ["/usr/bin/pkill", "-KILL", "-u", "50023"]]
-
-
-def test_cleanup_stuck_processes_fail_instead_of_claiming_success(monkeypatch):
-    clock = [0]
-    monkeypatch.setattr(probe, "uid_processes", lambda uid: [123])
-    monkeypatch.setattr(probe.time, "monotonic", lambda: clock[0])
-    monkeypatch.setattr(probe.time, "sleep", lambda _seconds: clock.__setitem__(0, clock[0] + 1))
-    monkeypatch.setattr(probe, "command", lambda *_args, **_kwargs: None)
-    with pytest.raises(probe.ReviewError, match="cleanup_processes_still_running"):
-        probe.stop_uid(50023)
-
-
-def test_process_query_reads_only_pid_uid_and_filters_exact_identity(monkeypatch):
-    calls = []
-
-    def command(args):
-        calls.append(args)
-        return subprocess.CompletedProcess(args, 0, b" 100 0\n 101 50023\n 102 50024\n", b"")
-
-    monkeypatch.setattr(probe, "command", command)
-    assert probe.uid_processes(50023) == [101]
-    assert calls == [["/bin/ps", "-Ao", "pid=,uid="]]
 
 
 def test_git_trust_exception_is_command_local_and_exact_checkout(monkeypatch):
@@ -427,39 +380,6 @@ def test_successful_cleanup_keeps_the_exact_strict_success_contract():
     assert checker.validate(report)
 
 
-def test_owner_domain_cleanup_waits_for_process_exit_and_transient_domain_retirement(monkeypatch):
-    clock, operations = [0], []
-    print_results, bootout_results = iter([0, 0, 3]), iter([5, 0])
-    def command(args, **kwargs):
-        operations.append(args)
-        status = next(print_results) if args[1] == "print" else next(bootout_results)
-        return subprocess.CompletedProcess(args, status, b"", b"not reported")
-    monkeypatch.setattr(probe, "command", command)
-    monkeypatch.setattr(probe, "stop_uid", lambda uid: operations.append(["stopped-fresh-uid", uid]))
-    monkeypatch.setattr(probe, "uid_processes", lambda uid: [])
-    monkeypatch.setattr(probe.time, "monotonic", lambda: clock[0])
-    monkeypatch.setattr(probe.time, "sleep", lambda _seconds: clock.__setitem__(0, clock[0] + 1))
-    probe.stop_owner_domain(50023)
-    assert operations == [["/bin/launchctl", "print", "user/50023"], ["/bin/launchctl", "bootout", "user/50023"],
-        ["stopped-fresh-uid", 50023], ["/bin/launchctl", "print", "user/50023"],
-        ["/bin/launchctl", "bootout", "user/50023"], ["/bin/launchctl", "print", "user/50023"]]
-
-
-def test_owner_domain_cleanup_is_bounded_and_never_ignores_a_persistent_domain(monkeypatch):
-    clock = [0]
-    monkeypatch.setattr(probe, "command", lambda args, **kwargs: subprocess.CompletedProcess(args, 5 if args[1] == "bootout" else 0, b"", b""))
-    monkeypatch.setattr(probe, "stop_uid", lambda uid: None)
-    monkeypatch.setattr(probe.time, "monotonic", lambda: clock[0])
-    monkeypatch.setattr(probe.time, "sleep", lambda _seconds: clock.__setitem__(0, clock[0] + 1))
-    with pytest.raises(probe.ReviewError) as caught:
-        probe.stop_owner_domain(50023)
-    assert probe.public_error(caught.value)["reason"] == "cleanup_owner_domain_still_loaded"
-    assert probe.public_error(caught.value)["command_failure"] == {"kind": "launchctl_bootout", "exitcode": 5, "timed_out": False}
-    assert clock[0] == 5
-    with pytest.raises(probe.ReviewError, match="cleanup_identity_invalid"):
-        probe.stop_owner_domain(501)
-
-
 def test_absent_rule_cleanup_does_not_write_and_foreign_rule_is_preserved(monkeypatch):
     monkeypatch.setattr(probe, "authorization", lambda: None)
     monkeypatch.setattr(probe, "command", lambda *args, **kwargs: pytest.fail("No authorization write"))
@@ -499,116 +419,18 @@ def test_owner_child_restores_only_public_environment_after_sudo(monkeypatch):
     for key in ["GH_TOKEN", "PYTHONPATH", "DYLD_LIBRARY_PATH"]:
         monkeypatch.setenv(key, "private-fixture-value")
     prefix = Path("/Library/Application Support/account-access-publisher-qa-" + "1" * 16)
-    home = prefix / "owner-home"
-    args = probe.owner_child_arguments(50023, "aap" + "1" * 12, home, prefix / "probe.py", prefix / "child.json")
+    home = Path("/Users/runner")
+    temporary = prefix / "browser-tmp"
+    args = probe.owner_child_arguments(501, "runner", home, prefix / "probe.py", prefix / "child.json", temporary=temporary)
     start = args.index("--") + 1
     assert args[start:start + 2] == ["/usr/bin/env", "-i"]
     end = args.index(str(probe.BASE / "runtime/bin/python"))
     values = dict(item.split("=", 1) for item in args[start + 2:end])
     assert set(values) == probe.ENV_KEYS | {"PATH", "LANG", "HOME", "TMPDIR"}
-    assert values["HOME"] == str(home) and values["TMPDIR"] == str(home / "tmp")
+    assert values["HOME"] == str(home) and values["TMPDIR"] == str(temporary)
     assert args[end:] == [str(probe.BASE / "runtime/bin/python"), "-I", "-B", str(prefix / "probe.py"), "chrome-child", str(prefix / "child.json")]
     assert "private-fixture-value" not in repr(args)
-    probe.guard(root=False, environment=values, system="darwin", machine="arm64", uid=50023, euid=50023)
-
-
-def owner_record():
-    return SimpleNamespace(pw_name="aap" + "1" * 12, pw_uid=50023, pw_gid=50023,
-                           pw_dir="/Library/Application Support/account-access-publisher-qa-" + "1" * 16 + "/owner-home")
-
-
-def test_early_owner_cleanup_proves_zero_processes_before_identity_retirement(monkeypatch):
-    owner, calls = owner_record(), []
-    monkeypatch.setattr(probe.pwd, "getpwnam", lambda name: owner)
-    monkeypatch.setattr(probe.grp, "getgrnam", lambda name: SimpleNamespace(gr_gid=owner.pw_gid))
-    monkeypatch.setattr(probe, "command", lambda args, **kwargs: calls.append(args) or subprocess.CompletedProcess(args, 0, b"", b""))
-    monkeypatch.setattr(probe, "stop_uid", lambda uid: calls.append(["stop-fresh-uid", uid]))
-    monkeypatch.setattr(probe, "uid_processes", lambda uid: [])
-    probe.stop_owner_processes(owner)
-    assert calls == [["/bin/launchctl", "print", "user/50023"], ["/bin/launchctl", "bootout", "user/50023"], ["stop-fresh-uid", 50023]]
-    assert not any("dscl" in str(call) for call in calls)
-
-
-def test_owner_cleanup_rejects_changed_group_before_any_process_or_directory_action(monkeypatch):
-    owner = owner_record()
-    monkeypatch.setattr(probe.pwd, "getpwnam", lambda name: owner)
-    monkeypatch.setattr(probe.grp, "getgrnam", lambda name: SimpleNamespace(gr_gid=owner.pw_gid + 1))
-    monkeypatch.setattr(probe, "command", lambda *args, **kwargs: pytest.fail("Changed identity must be preserved"))
-    with pytest.raises(probe.ReviewError, match="cleanup_identity_changed"):
-        probe.stop_owner_processes(owner)
-
-
-@pytest.fixture
-def retiring_owner(monkeypatch):
-    from account_access import system_provision
-    owner, operations = owner_record(), []
-    records = ["/Groups/" + owner.pw_name, "/Users/" + owner.pw_name]
-    present = set(records)
-    def lookup(name):
-        if not present:
-            raise KeyError(name)
-        return owner
-    def command(args, **kwargs):
-        operations.append(args)
-        if args[0] == "/usr/bin/dscl":
-            present.remove(args[-1])
-        return subprocess.CompletedProcess(args, 0, b"", b"")
-    monkeypatch.setattr(probe, "command", command)
-    monkeypatch.setattr(probe, "stop_owner_processes", lambda actual: operations.append(["zero-pid-before-delete", actual.pw_uid]))
-    monkeypatch.setattr(system_provision, "directory_value", lambda record, field: owner.pw_name if record in present else None)
-    monkeypatch.setattr(probe.pwd, "getpwnam", lookup)
-    monkeypatch.setattr(probe.grp, "getgrnam", lookup)
-    monkeypatch.setattr(probe, "uid_processes", lambda uid: [])
-    return owner, records, present, operations
-
-
-@pytest.mark.parametrize("persistent_domain", [False, True])
-def test_final_owner_cleanup_deletes_only_its_records_then_requires_domain_absence(retiring_owner, monkeypatch, persistent_domain):
-    owner, records, present, operations = retiring_owner
-    def domain(uid):
-        assert not present and uid == owner.pw_uid
-        operations.append(["strict-domain-absence-after-records", uid])
-        if persistent_domain:
-            raise probe.ReviewError("cleanup_owner_domain_still_loaded", command_failure={"kind": "launchctl_bootout", "exitcode": 0, "timed_out": False})
-    monkeypatch.setattr(probe, "stop_owner_domain", domain)
-    if persistent_domain:
-        with pytest.raises(probe.ReviewError) as caught:
-            probe.remove_owner_identity(owner, records)
-        assert probe.public_error(caught.value)["reason"] == "cleanup_owner_domain_after_identity_removal"
-        assert probe.public_error(caught.value)["command_failure"]["exitcode"] == 0
-    else:
-        probe.remove_owner_identity(owner, records)
-    assert operations == [["zero-pid-before-delete", 50023],
-        ["/usr/bin/dscl", ".", "-delete", "/Users/" + owner.pw_name],
-        ["/usr/bin/dscl", ".", "-delete", "/Groups/" + owner.pw_name],
-        ["/usr/bin/dscacheutil", "-flushcache"], ["strict-domain-absence-after-records", 50023]]
-
-
-def test_owner_cleanup_refuses_foreign_record_names_before_deleting_anything(retiring_owner):
-    owner, _, present, operations = retiring_owner
-    with pytest.raises(probe.ReviewError, match="cleanup_owner_records_changed"):
-        probe.remove_owner_identity(owner, ["/Groups/unrelated", "/Users/unrelated"])
-    assert len(present) == 2 and operations == []
-
-
-def test_owner_cleanup_requires_authoritative_directory_absence_before_domain_success(retiring_owner, monkeypatch):
-    from account_access import system_provision
-    owner, records, _, _ = retiring_owner
-    monkeypatch.setattr(system_provision, "directory_value", lambda record, field: "still present")
-    monkeypatch.setattr(probe, "stop_owner_domain", lambda uid: pytest.fail("Directory absence is required first"))
-    with pytest.raises(probe.ReviewError, match="cleanup_owner_identity_still_present"):
-        probe.remove_owner_identity(owner, records)
-
-
-def test_stale_libc_identity_cache_does_not_override_authoritative_record_removal(retiring_owner, monkeypatch):
-    owner, records, present, _ = retiring_owner
-    monkeypatch.setattr(probe.pwd, "getpwnam", lambda name: owner)
-    monkeypatch.setattr(probe.grp, "getgrnam", lambda name: SimpleNamespace(gr_gid=owner.pw_gid))
-    def domain(uid):
-        assert not present and uid == owner.pw_uid
-    monkeypatch.setattr(probe, "stop_owner_domain", domain)
-    probe.remove_owner_identity(owner, records)
-    assert not present
+    probe.guard(root=False, environment=values, system="darwin", machine="arm64", uid=501, euid=501)
 
 
 def test_real_child_configuration_failure_reports_the_fixed_inner_stage_only(monkeypatch, capsys):
@@ -644,47 +466,237 @@ def test_child_optional_diagnostics_accept_only_exact_fixed_values(field, value)
     assert probe.public_child_failure(child) is None
 
 
-def test_residual_domain_output_is_optional_bounded_diagnostics_without_names():
-    raw = b'user/50023 = {\n\tservice count = 0\n\tactive service count = 0\n\tstate = active\n\tprivate-service-name = /private/fixture\n}\n'
-    expected = {"diagnostic_only": True, "last_print_succeeded": True, "service_count": 0,
-                "active_service_count": 0, "state": "active"}
-    assert probe.residual_domain_diagnostic(raw) == expected
-    assert probe.public_domain_detail(expected) == expected
-    assert "private" not in json.dumps(expected)
-    ambiguous = probe.residual_domain_diagnostic(raw + b'\tservice count = 1\n\tstate = running\n')
-    assert ambiguous["service_count"] is None and ambiguous["state"] == "unknown"
-    unknown = probe.residual_domain_diagnostic(b'\tservice count = 999999999999\n\tstate = private-name\n')
-    assert unknown["service_count"] is None and unknown["state"] == "unknown"
-    assert probe.residual_domain_diagnostic(b'x' * 65537)["service_count"] is None
+
+def test_schema_two_explicitly_records_existing_runner_and_replaces_domain_claim():
+    report = valid_report()
+    assert len(checker.CHECKS) == 27
+    assert "temporary_owner_identity_and_domain_removed" not in checker.CHECKS
+    assert "temporary_browser_profile_and_registration_removed" in checker.CHECKS
+    assert report["runner_identity_unchanged"] is True
+    for key, value in [("schema", 1), ("owner_context", "temporary-owner"), ("runner_identity_unchanged", False)]:
+        changed = copy.deepcopy(report)
+        changed[key] = value
+        assert not checker.validate(changed)
 
 
-def test_empty_printed_domain_never_becomes_cleanup_success(monkeypatch):
-    clock = [0]
-    def command(args, **kwargs):
-        return subprocess.CompletedProcess(args, 0, b'\tservice count = 0\n\tactive service count = 0\n\tstate = active\n', b'')
-    monkeypatch.setattr(probe, "command", command)
-    monkeypatch.setattr(probe, "stop_uid", lambda uid: None)
+def runner_record(home="/Users/runner", uid=501, gid=20):
+    return SimpleNamespace(pw_name="runner", pw_uid=uid, pw_gid=gid, pw_dir=str(home))
+
+
+def test_existing_runner_is_derived_from_checkout_and_never_created(monkeypatch):
+    owner = runner_record()
+    source = SimpleNamespace(stat=lambda: SimpleNamespace(st_uid=501))
+    monkeypatch.setattr(probe.pwd, "getpwuid", lambda uid: owner)
+    monkeypatch.setattr(probe.grp, "getgrgid", lambda gid: SimpleNamespace(gr_name="staff", gr_gid=20))
+    monkeypatch.setattr(probe, "verify_runner_identity", lambda candidate: None)
+    assert probe.runner_identity(source) is owner
+    for uid in [0, 499, 50000]:
+        with pytest.raises(probe.ReviewError, match="review_runner_identity_invalid"):
+            probe.runner_identity(SimpleNamespace(stat=lambda: SimpleNamespace(st_uid=uid)))
+
+
+@pytest.mark.parametrize("field,value", [("pw_uid", 502), ("pw_gid", 21), ("pw_name", "other"), ("pw_dir", "/Users/other")])
+def test_runner_identity_change_is_rejected_before_any_cleanup(monkeypatch, field, value):
+    owner = runner_record()
+    changed = SimpleNamespace(**vars(owner))
+    setattr(changed, field, value)
+    monkeypatch.setattr(probe.pwd, "getpwuid", lambda uid: changed)
+    monkeypatch.setattr(probe.pwd, "getpwnam", lambda name: owner)
+    with pytest.raises(probe.ReviewError, match="cleanup_identity_changed"):
+        probe.verify_runner_identity(owner)
+
+
+def test_runner_metadata_binds_home_inode_and_group_without_reading_contents(tmp_path, monkeypatch):
+    owner = runner_record(tmp_path, os.getuid(), os.getgid())
+    monkeypatch.setattr(probe, "verify_runner_identity", lambda actual: None)
+    monkeypatch.setattr(probe.grp, "getgrgid", lambda gid: SimpleNamespace(gr_name="fixture", gr_gid=owner.pw_gid))
+    before = probe.runner_metadata(owner)
+    assert before[6:8] == (tmp_path.stat().st_dev, tmp_path.stat().st_ino)
+    changed = list(before)
+    changed[7] += 1
+    assert tuple(changed) != before
+
+
+@pytest.fixture
+def registration_files(tmp_path, monkeypatch):
+    owner = runner_record(tmp_path, os.getuid(), os.getgid())
+    monkeypatch.setattr(probe, "verify_runner_identity", lambda candidate: None)
+    paths = probe.registration_payloads(tmp_path)
+    for path, data, mode in paths:
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        path.write_bytes(data)
+        path.chmod(mode)
+    return owner, paths
+
+
+def test_exact_new_native_registration_is_captured_and_removed_without_browsing_reads(registration_files):
+    owner, paths = registration_files
+    sentinel = Path(owner.pw_dir) / "Library/Application Support/Google/Chrome/Default/private-placeholder"
+    sentinel.parent.mkdir()
+    sentinel.write_bytes(b"unread unrelated fixture")
+    bindings = []
+    probe.capture_registrations(owner, bindings)
+    assert len(bindings) == 2 and all(set(item) == {"path", "stamp", "parents", "sha256"} for item in bindings)
+    probe.remove_registrations(owner, bindings)
+    assert all(not path.exists() for path, _, _ in paths)
+    assert sentinel.read_bytes() == b"unread unrelated fixture"
+
+
+def test_existing_registration_is_refused_without_mutation(registration_files):
+    owner, paths = registration_files
+    before = [(path.stat().st_ino, path.read_bytes()) for path, _, _ in paths]
+    with pytest.raises(probe.ReviewError, match="existing_review_browser_registration"):
+        probe.registration_absent(owner.pw_dir)
+    assert before == [(path.stat().st_ino, path.read_bytes()) for path, _, _ in paths]
+
+
+@pytest.mark.parametrize("damage", ["contents", "inode", "mode", "hardlink", "symlink", "parent"])
+def test_substituted_registration_or_parent_is_preserved(registration_files, damage):
+    owner, paths = registration_files
+    bindings = []
+    probe.capture_registrations(owner, bindings)
+    path, data, mode = paths[0]
+    if damage == "contents":
+        path.write_bytes(b"unknown fixture")
+    elif damage == "inode":
+        replacement = path.with_name("replacement")
+        replacement.write_bytes(data)
+        replacement.chmod(mode)
+        replacement.replace(path)
+    elif damage == "mode":
+        path.chmod(0o600)
+    elif damage == "hardlink":
+        os.link(path, path.with_name("other"))
+    elif damage == "symlink":
+        path.unlink()
+        path.symlink_to(path.with_name("missing"))
+    else:
+        path.parent.rename(path.parent.with_name("original"))
+        path.parent.mkdir(mode=0o700)
+        path.write_bytes(data)
+        path.chmod(mode)
+    with pytest.raises((probe.ReviewError, OSError)):
+        probe.remove_registrations(owner, bindings)
+    assert path.exists() or path.is_symlink()
+    assert paths[1][0].exists()
+
+
+def test_partial_prepare_captures_only_recognized_created_file(registration_files):
+    owner, paths = registration_files
+    paths[1][0].unlink()
+    bindings = []
+    with pytest.raises(probe.ReviewError, match="review_registration_missing"):
+        probe.capture_registrations(owner, bindings)
+    assert [binding["path"] for binding in bindings] == [str(paths[0][0])]
+    probe.remove_registrations(owner, bindings)
+    assert not paths[0][0].exists()
+
+
+def test_unknown_partial_prepare_file_is_preserved(registration_files):
+    owner, paths = registration_files
+    paths[0][0].write_bytes(b"unrecognized fixture")
+    bindings = []
+    with pytest.raises(probe.ReviewError, match="review_registration_changed"):
+        probe.capture_registrations(owner, bindings)
+    assert [binding["path"] for binding in bindings] == [str(paths[1][0])]
+    with pytest.raises(probe.ReviewError, match="existing_review_browser_registration"):
+        probe.remove_registrations(owner, bindings)
+    assert paths[0][0].read_bytes() == b"unrecognized fixture"
+
+
+def test_browser_cleanup_rescans_late_children_and_never_signals_runner_infrastructure(monkeypatch):
+    owner = runner_record()
+    calls = []
+    scans = iter([("fresh-chrome",), ("fresh-native-child",), ()])
+    api = SimpleNamespace(snapshot=lambda uid, roots: next(scans), stop=lambda ids, roots, **kwargs: calls.append(ids) or True)
+    monkeypatch.setattr(probe, "verify_runner_identity", lambda actual: None)
+    probe.stop_browser_processes(owner, api)
+    assert calls == [("fresh-chrome",), ("fresh-native-child",)]
+
+
+def test_browser_cleanup_failure_does_not_claim_exit_or_remove_the_profile(monkeypatch, tmp_path):
+    owner = runner_record()
+    api = SimpleNamespace(snapshot=lambda uid, roots: ("still-running",), stop=lambda *args, **kwargs: False)
+    monkeypatch.setattr(probe, "verify_runner_identity", lambda actual: None)
+    with pytest.raises(probe.ReviewError, match="cleanup_processes_still_running"):
+        probe.stop_browser_processes(owner, api)
+    with pytest.raises(probe.ReviewError, match="cleanup_processes_still_running"):
+        probe.remove_browser_profile(tmp_path, (), owner, api)
+    assert tmp_path.exists()
+
+
+def test_fresh_browser_profile_removal_binds_the_original_directory(tmp_path, monkeypatch):
+    owner = runner_record(tmp_path.parent, os.getuid(), os.getgid())
+    profile = tmp_path / "browser-profile"
+    profile.mkdir(mode=0o700)
+    (profile / "fixture").write_bytes(b"test profile only")
+    info = profile.lstat()
+    stamp = (info.st_dev, info.st_ino, info.st_uid, info.st_gid, info.st_mode)
+    monkeypatch.setattr(probe, "verify_runner_identity", lambda actual: None)
+    api = SimpleNamespace(snapshot=lambda uid, roots: ())
+    probe.remove_browser_profile(profile, stamp, owner, api)
+    assert not profile.exists()
+
+
+def test_obsolete_owner_account_mutation_and_uid_wide_kill_paths_are_removed():
+    source = Path(probe.__file__).read_text()
+    assert '"/usr/bin/pkill"' not in source
+    assert '"user/"' not in source
+    assert "def fresh_owner_identity" not in source
+    assert "def remove_owner_identity" not in source
+    assert "def stop_uid" not in source
+
+
+def test_process_helper_import_requires_exact_controller_revision_bytes(monkeypatch):
+    monkeypatch.setattr(probe.sys, "modules", {})
+    monkeypatch.setenv("GITHUB_SHA", REVISION)
+    monkeypatch.setattr(probe, "git_file", lambda revision, name: b"changed helper fixture")
+    with pytest.raises(probe.ReviewError, match="review_source_tree_changed"):
+        probe.process_api()
+
+
+def test_capture_contract_matches_actual_production_prepare_bytes(tmp_path, monkeypatch):
+    from account_access.browser_setup import prepare
+    from account_access.google_messages_host import RESOURCES
+    owner = runner_record(tmp_path, os.getuid(), os.getgid())
+    prepared = prepare(tmp_path, app=probe.APP / "Contents/MacOS/AccountAccess", resources=RESOURCES, protected=lambda path: None)
+    assert prepared["status"] == "PREPARED"
+    bindings = []
+    probe.capture_registrations(owner, bindings)
+    assert len(bindings) == 2
+    monkeypatch.setattr(probe, "verify_runner_identity", lambda actual: None)
+    probe.remove_registrations(owner, bindings)
+
+
+def test_browser_cleanup_near_deadline_keeps_helper_options_inside_remaining_budget(monkeypatch):
+    clock, calls = [0.0], []
+    scans = iter([("fresh-chrome",), ()])
+    def snapshot(uid, roots):
+        clock[0] = 7.8
+        return next(scans)
+    def stop(ids, roots, **options):
+        calls.append(options)
+        assert 0 <= options["kill_after"] < options["timeout"] <= 8 - clock[0]
+        return True
+    monkeypatch.setattr(probe, "verify_runner_identity", lambda actual: None)
     monkeypatch.setattr(probe.time, "monotonic", lambda: clock[0])
-    monkeypatch.setattr(probe.time, "sleep", lambda _seconds: clock.__setitem__(0, clock[0] + 1))
-    with pytest.raises(probe.ReviewError) as caught:
-        probe.stop_owner_domain(50023)
-    details = probe.public_error(caught.value)
-    assert details["reason"] == "cleanup_owner_domain_still_loaded"
-    assert details["domain_diagnostic"]["service_count"] == 0
-    assert details["domain_diagnostic"]["diagnostic_only"] is True
+    probe.stop_browser_processes(runner_record(), SimpleNamespace(snapshot=snapshot, stop=stop))
+    assert len(calls) == 1 and calls[0]["timeout"] < 0.5
 
 
-def test_residual_domain_diagnostics_survive_final_identity_cleanup_failure(retiring_owner, monkeypatch):
-    owner, records, present, _ = retiring_owner
-    diagnostic = probe.residual_domain_diagnostic(b'\tservice count = 0\n')
-    def domain(uid):
-        assert not present
-        raise probe.ReviewError("cleanup_owner_domain_still_loaded", domain_diagnostic=diagnostic)
-    monkeypatch.setattr(probe, "stop_owner_domain", domain)
-    checks, failures, commands, domains = {}, {}, {}, {}
-    name = "temporary_owner_identity_and_domain_removed"
-    probe.cleanup_step(name, lambda: probe.remove_owner_identity(owner, records), checks, failures, commands, domains)
-    result = probe.cleanup_result(probe.failed_report(probe.ReviewError("production_chrome_journey_failed"), "chrome-owner-child", checks), failures, commands, domains)
-    assert result["status"] == "FAILED" and result["cleanup_failures"][name] == "cleanup_owner_domain_after_identity_removal"
-    assert result["cleanup_domain_diagnostics"] == {name: diagnostic}
-    assert checks[name] is False
+@pytest.mark.parametrize("reason", sorted(probe.PROCESS_ERROR_REASONS))
+def test_fixed_process_inspection_reasons_are_preserved_without_loading_the_helper(monkeypatch, reason):
+    class ProcessInspectionError(Exception):
+        pass
+    monkeypatch.setattr(probe, "process_api", lambda: pytest.fail("Error formatting must not import or inspect processes"))
+    assert probe.public_error(ProcessInspectionError(reason)) == {"reason": reason, "failure_type": "ProcessInspectionError"}
+
+
+def test_unknown_process_inspection_text_and_wrong_exception_types_remain_redacted(monkeypatch):
+    class ProcessInspectionError(Exception):
+        pass
+    monkeypatch.setattr(probe, "process_api", lambda: pytest.fail("Error formatting must not import or inspect processes"))
+    assert probe.public_error(ProcessInspectionError("private path or kernel text")) == {
+        "reason": "publisher_transport_failed", "failure_type": "ProcessInspectionError"}
+    assert probe.public_error(ValueError("process_path_read_failed")) == {
+        "reason": "publisher_transport_failed", "failure_type": "ValueError"}

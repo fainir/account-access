@@ -7,6 +7,7 @@ not enroll a vault, obtain approval, connect an account or send a login code.
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -15,6 +16,7 @@ import plistlib
 import pwd
 import grp
 import re
+import shlex
 import runpy
 import secrets
 import shutil
@@ -47,11 +49,10 @@ ENV_KEYS = {"GITHUB_ACTIONS", "GITHUB_REPOSITORY", "GITHUB_RUN_ID", "GITHUB_SHA"
 PUBLIC_REASONS = set("""
 authorization_lookup_failed broker_designated_requirement_missing cleanup_authorization_changed
 cleanup_authorization_still_present cleanup_identity_changed cleanup_identity_invalid cleanup_job_not_owned
-cleanup_job_still_loaded cleanup_owner_domain_still_loaded cleanup_process_query_invalid cleanup_processes_still_running
-cleanup_owner_identity_still_present cleanup_owner_records_changed cleanup_owner_domain_after_identity_removal
+cleanup_job_still_loaded cleanup_processes_still_running
 cleanup_public_alias_changed cleanup_public_image_changed cleanup_service_identity_changed controller_revision_mismatch
 duplicate_review_field existing_production_authorization_rule existing_production_identity existing_production_installation
-existing_production_job fresh_review_identity_unavailable hosted_arm64_mac_required hosted_review_only invalid_review_asset
+existing_production_job hosted_arm64_mac_required hosted_review_only invalid_review_asset
 invalid_review_inputs ordinary_ci_download_required packaged_extension_not_loaded production_activation_failed
 production_authorization_not_registered production_authorization_registrar_mismatch production_browser_setup_failed
 production_chrome_journey_failed production_manifest_changed production_parent_guard_failed production_profile_mismatch
@@ -63,30 +64,34 @@ review_command_timeout review_command_output_limit review_contains_nonpublic_sta
 review_download_already_exists review_download_hash_mismatch review_draft_metadata_unavailable review_draft_source_mismatch
 review_extension_changed review_extension_source_mismatch review_external_page_opened review_identity_invalid
 review_image_hash_mismatch review_installer_source_mismatch review_metadata_missing review_optional_permission_granted
-review_owner_home_not_empty review_owner_identity_mismatch review_package_files_mismatch review_package_source_mismatch
+existing_review_browser_registration existing_review_target_processes
+review_runner_identity_invalid review_registration_changed review_registration_missing cleanup_registration_changed
+cleanup_browser_profile_changed review_process_inspection_failed review_package_files_mismatch review_package_source_mismatch
 review_publisher_mismatch review_runtime_package_missing review_runtime_source_mismatch review_source_tree_changed
 shared_applications_parent_changed unexpected_vault_initialization unsafe_review_archive_entry unsafe_shared_applications_parent
 untrusted_review_support_parent untrusted_review_applications_parent untrusted_review_launchdaemons_parent
 """.split())
 PUBLIC_EXCEPTION_TYPES = {"ReviewError", "BootstrapError", "ProvisionError", "FileNotFoundError", "PermissionError",
                           "ValueError", "JSONDecodeError", "KeyError", "OSError", "TimeoutExpired",
-                          "ModuleNotFoundError", "ImportError", "AccessError", "Error", "TargetClosedError", "TimeoutError"}
+                          "ModuleNotFoundError", "ImportError", "AccessError", "Error", "TargetClosedError", "TimeoutError", "ProcessInspectionError"}
 CHILD_STAGES = set("""child-start hosted-guard production-imports playwright-import configuration owner-identity owner-home
 production-browser-prepare negative-shell-parent extension-manifest chrome-profile playwright-driver chrome-launch
 chrome-routing cdp-connection extension-load service-worker native-exchange permissions-check result-check chrome-close""".split())
 CHILD_STAGE = "child-start"
-DOMAIN_STATES = {"unknown", "active", "running", "waiting", "exited", "stopped", "terminating", "booted-out"}
+PROCESS_ERROR_REASONS = {"process_identity_invalid", "process_identity_read_failed", "process_native_layout_invalid",
+                         "process_path_read_failed", "process_platform_invalid", "process_roots_invalid",
+                         "process_scan_failed", "process_signal_failed", "process_signal_invalid", "process_stop_invalid",
+                         "process_uid_invalid"}
 PUBLIC_COMMAND_KINDS = set("""codesign_designated codesign_verify codesign_metadata authorization_read authorization_remove
 authorization_other launchctl_print launchctl_bootstrap launchctl_bootout launchctl_owner_child launchctl_other git_source
 github_metadata lipo_architecture directory_record directory_cache identity_process_stop identity_process_query other_command""".split())
 
 
 class ReviewError(Exception):
-    def __init__(self, reason, *, command_failure=None, child_failure=None, domain_diagnostic=None):
+    def __init__(self, reason, *, command_failure=None, child_failure=None):
         super().__init__(reason)
         self.command_failure = command_failure
         self.child_failure = child_failure
-        self.domain_diagnostic = domain_diagnostic
 
 
 def public_command_detail(detail):
@@ -113,19 +118,10 @@ def public_child_failure(value):
     return dict(value)
 
 
-def public_domain_detail(value):
-    if (type(value) is dict and set(value) == {"diagnostic_only", "last_print_succeeded", "service_count", "active_service_count", "state"}
-            and value["diagnostic_only"] is True and value["last_print_succeeded"] is True
-            and all(value[key] is None or type(value[key]) is int and 0 <= value[key] <= 100000
-                    for key in ["service_count", "active_service_count"])
-            and type(value["state"]) is str and value["state"] in DOMAIN_STATES):
-        return dict(value)
-    return None
-
-
 def public_error(error):
     name = type(error).__name__
-    result = {"reason": str(error) if isinstance(error, ReviewError) and str(error) in PUBLIC_REASONS
+    result = {"reason": str(error) if (isinstance(error, ReviewError) and str(error) in PUBLIC_REASONS
+                                      or name == "ProcessInspectionError" and str(error) in PROCESS_ERROR_REASONS)
               else "publisher_transport_failed", "failure_type": name if name in PUBLIC_EXCEPTION_TYPES else "Exception"}
     detail = public_command_detail(error.command_failure) if isinstance(error, ReviewError) else None
     if detail is not None:
@@ -133,9 +129,6 @@ def public_error(error):
     child = public_child_failure(error.child_failure) if isinstance(error, ReviewError) else None
     if child is not None:
         result["child_failure"] = child
-    domain = public_domain_detail(error.domain_diagnostic) if isinstance(error, ReviewError) else None
-    if domain is not None:
-        result["domain_diagnostic"] = domain
     if isinstance(error, OSError) and type(error.errno) is int and 0 < error.errno < 4096:
         result["errno"] = error.errno
     return result
@@ -146,7 +139,7 @@ def failed_report(error, stage, checks):
             "production_ready": False, "private_signins": 0}
 
 
-def cleanup_result(report, failures, command_failures, domain_diagnostics=None):
+def cleanup_result(report, failures, command_failures):
     if failures:
         report = dict(report)
         report.update(failed_stage=report.get("stage", "none"), failed_reason=report.get("reason", "none"),
@@ -154,12 +147,10 @@ def cleanup_result(report, failures, command_failures, domain_diagnostics=None):
                       cleanup_failures=failures)
         if command_failures:
             report["cleanup_command_failures"] = command_failures
-        if domain_diagnostics:
-            report["cleanup_domain_diagnostics"] = domain_diagnostics
     return report
 
 
-def cleanup_step(name, operation, checks, failures, command_failures, domain_diagnostics=None):
+def cleanup_step(name, operation, checks, failures, command_failures):
     try:
         operation()
         checks[name] = True
@@ -169,8 +160,6 @@ def cleanup_step(name, operation, checks, failures, command_failures, domain_dia
         failures[name] = details["reason"] if details["reason"] != "publisher_transport_failed" else details["failure_type"]
         if "command_failure" in details:
             command_failures[name] = details["command_failure"]
-        if domain_diagnostics is not None and "domain_diagnostic" in details:
-            domain_diagnostics[name] = details["domain_diagnostic"]
 
 
 def require(value, reason):
@@ -202,11 +191,11 @@ def guard(*, root, environment=None, system=None, machine=None, uid=None, euid=N
     require(uid == euid and (uid == 0) == root, "review_identity_invalid")
 
 
-def environment(home=None):
+def environment(home=None, temporary=None):
     result = {key: os.environ[key] for key in ENV_KEYS if key in os.environ}
     result.update(PATH="/usr/bin:/bin:/usr/sbin:/sbin", LANG="en_US.UTF-8")
     if home is not None:
-        result.update(HOME=str(home), TMPDIR=str(Path(home) / "tmp"))
+        result.update(HOME=str(home), TMPDIR=str(temporary if temporary is not None else Path(home) / "tmp"))
     return result
 
 
@@ -220,8 +209,7 @@ def command_kind(arguments):
         return {"print": "launchctl_print", "bootstrap": "launchctl_bootstrap", "bootout": "launchctl_bootout",
                 "asuser": "launchctl_owner_child"}.get(arguments[1], "launchctl_other")
     return {"/usr/bin/git": "git_source", "gh": "github_metadata", "/usr/bin/lipo": "lipo_architecture",
-            "/usr/bin/dscl": "directory_record", "/usr/bin/dscacheutil": "directory_cache",
-            "/usr/bin/pkill": "identity_process_stop", "/bin/ps": "identity_process_query"}.get(executable, "other_command")
+            "/usr/bin/dscl": "directory_record"}.get(executable, "other_command")
 
 
 def command_diagnostic(arguments, *, exitcode=None, timed_out=False):
@@ -256,14 +244,14 @@ def owner_child_command(arguments, *, env):
     return result
 
 
-def owner_child_arguments(uid, name, home, controller, configuration):
+def owner_child_arguments(uid, name, home, controller, configuration, *, mode="chrome-child", temporary=None):
     # sudo deliberately removes arbitrary caller variables. Restore only this
     # public CI/owner-home whitelist after credentials have changed; no token,
     # source interpreter override, or parent environment can reach the child.
-    values = environment(home)
+    values = environment(home, temporary)
     return ["/bin/launchctl", "asuser", str(uid), "/usr/bin/sudo", "-n", "-u", name, "--",
             "/usr/bin/env", "-i", *(key + "=" + values[key] for key in sorted(values)),
-            str(BASE / "runtime/bin/python"), "-I", "-B", str(controller), "chrome-child", str(configuration)]
+            str(BASE / "runtime/bin/python"), "-I", "-B", str(controller), mode, str(configuration)]
 
 
 def digest(path):
@@ -479,132 +467,182 @@ def remove_review_authorization(designated):
     require(authorization() is None, "cleanup_authorization_still_present")
 
 
-def fresh_owner_identity():
-    for _ in range(100):
-        uid = 50000 + secrets.randbelow(10000)
-        name = "aap" + secrets.token_hex(6)
-        for lookup, value in [(pwd.getpwuid, uid), (grp.getgrgid, uid),
-                              (pwd.getpwnam, name), (grp.getgrnam, name)]:
-            try:
-                lookup(value)
-            except KeyError:
-                continue
-            break
-        else:
-            return uid, name
-    raise ReviewError("fresh_review_identity_unavailable")
+def runner_identity(source=SOURCE):
+    uid = source.stat().st_uid
+    require(type(uid) is int and 500 <= uid < 50000, "review_runner_identity_invalid")
+    owner = pwd.getpwuid(uid)
+    require(owner.pw_uid == uid and type(owner.pw_gid) is int and 0 < owner.pw_gid < 50000
+            and re.fullmatch(r"[a-zA-Z][a-zA-Z0-9_-]{0,63}", owner.pw_name)
+            and Path(owner.pw_dir).parent == Path("/Users") and str(Path(owner.pw_dir)) == owner.pw_dir,
+            "review_runner_identity_invalid")
+    grp.getgrgid(owner.pw_gid)
+    verify_runner_identity(owner)
+    return owner
 
 
-def uid_processes(uid):
-    require(type(uid) is int and 450 <= uid < 60000, "cleanup_identity_invalid")
-    rows = command(["/bin/ps", "-Ao", "pid=,uid="]).stdout.decode().splitlines()
-    result = []
-    for row in rows:
-        fields = row.split()
-        require(len(fields) == 2 and all(item.isdecimal() for item in fields), "cleanup_process_query_invalid")
-        if int(fields[1]) == uid:
-            result.append(int(fields[0]))
-    return result
+def verify_runner_identity(owner):
+    current = pwd.getpwuid(owner.pw_uid)
+    by_name = pwd.getpwnam(owner.pw_name)
+    expected = (owner.pw_name, owner.pw_uid, owner.pw_gid, owner.pw_dir)
+    require(all((item.pw_name, item.pw_uid, item.pw_gid, item.pw_dir) == expected for item in [current, by_name]),
+            "cleanup_identity_changed")
+    grp.getgrgid(owner.pw_gid)
+    info = Path(owner.pw_dir).lstat()
+    require(stat.S_ISDIR(info.st_mode) and info.st_uid == owner.pw_uid and info.st_mode & 0o7022 == 0,
+            "review_runner_identity_invalid")
 
 
-def stop_uid(uid):
-    if not uid_processes(uid):
-        return
-    command(["/usr/bin/pkill", "-TERM", "-u", str(uid)], check=False)
-    started = time.monotonic()
-    killed = False
-    while time.monotonic() - started < 5:
-        if not uid_processes(uid):
-            return
-        if not killed and time.monotonic() - started >= 1:
-            command(["/usr/bin/pkill", "-KILL", "-u", str(uid)], check=False)
-            killed = True
-        time.sleep(0.1)
-    require(not uid_processes(uid), "cleanup_processes_still_running")
+def runner_metadata(owner):
+    verify_runner_identity(owner)
+    group = grp.getgrgid(owner.pw_gid)
+    info = Path(owner.pw_dir).lstat()
+    return (owner.pw_name, owner.pw_uid, owner.pw_gid, owner.pw_dir, group.gr_name, group.gr_gid,
+            info.st_dev, info.st_ino, info.st_uid, info.st_gid, info.st_mode)
 
 
-def residual_domain_diagnostic(raw):
-    # launchctl documents print as unstable human diagnostics, not an API.
-    # These optional observations never establish absence or cleanup success.
-    result = {"diagnostic_only": True, "last_print_succeeded": True,
-              "service_count": None, "active_service_count": None, "state": "unknown"}
-    if type(raw) is not bytes or len(raw) > 65536:
-        return result
-    text = raw.decode("utf-8", errors="replace")
-    for key, label in [("service_count", "service count"), ("active_service_count", "active service count")]:
-        matches = re.findall(r"^(?:\t| {4})" + re.escape(label) + r" = ([0-9]+)$", text, re.MULTILINE)
-        if len(matches) == 1 and len(matches[0]) <= 6 and 0 <= int(matches[0]) <= 100000:
-            result[key] = int(matches[0])
-    states = re.findall(r"^(?:\t| {4})state = ([a-z-]+)$", text, re.MULTILINE)
-    if len(states) == 1 and states[0] in DOMAIN_STATES:
-        result["state"] = states[0]
-    return result
+def process_api():
+    # Imported only after the disposable hosted/root guard. Never inspect
+    # processes during module import, ordinary download or pure contract tests.
+    name = "account_access_publisher_qa_processes"
+    if name not in sys.modules:
+        path = SOURCE / "scripts/mac_publisher_processes.py"
+        require(path.read_bytes() == git_file(os.environ["GITHUB_SHA"], "scripts/mac_publisher_processes.py"), "review_source_tree_changed")
+        spec = importlib.util.spec_from_file_location(name, path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        spec.loader.exec_module(module)
+    return sys.modules[name]
 
 
-def stop_owner_domain(uid):
-    require(type(uid) is int and 50000 <= uid < 60000, "cleanup_identity_invalid")
-    domain = "user/" + str(uid)
-    bootout = None
-    observed = command(["/bin/launchctl", "print", domain], check=False, timeout=5)
-    if observed.returncode == 0:
-        bootout = command(["/bin/launchctl", "bootout", domain], check=False, timeout=5)
-    # Domain retirement may wait for its own user processes to exit. Neither
-    # a nonzero bootout nor a transient domain is treated as cleanup success.
-    stop_uid(uid)
-    deadline = time.monotonic() + 5
-    retried = False
+def stop_browser_processes(owner, api):
+    verify_runner_identity(owner)
+    # Baseline was empty. Re-snapshot after each stop to include late children;
+    # the helper rebinds PID, UID, kernel executable path and birth timestamp
+    # immediately before each signal. Runner infrastructure is never selected.
+    deadline = time.monotonic() + 8
     while time.monotonic() < deadline:
-        observed = command(["/bin/launchctl", "print", domain], check=False, timeout=5)
-        if observed.returncode != 0:
-            require(not uid_processes(uid), "cleanup_processes_still_running")
+        identities = api.snapshot(owner.pw_uid, (BASE, CHROME))
+        if not identities:
             return
-        if not retried:
-            bootout = command(["/bin/launchctl", "bootout", domain], check=False, timeout=5)
-            retried = True
-        time.sleep(0.1)
-    raise ReviewError("cleanup_owner_domain_still_loaded", command_failure=command_diagnostic(
-        ["/bin/launchctl", "bootout"], exitcode=bootout.returncode if bootout is not None else None),
-        domain_diagnostic=residual_domain_diagnostic(observed.stdout))
+        remaining = deadline - time.monotonic()
+        require(remaining > 0 and api.stop(identities, (BASE, CHROME), timeout=min(2, remaining), kill_after=min(0.5, remaining / 2)),
+                "cleanup_processes_still_running")
+    require(not api.snapshot(owner.pw_uid, (BASE, CHROME)), "cleanup_processes_still_running")
 
 
-def verify_owner_identity(owner):
-    current = pwd.getpwnam(owner.pw_name)
-    group = grp.getgrnam(owner.pw_name)
-    require((current.pw_uid, current.pw_gid, current.pw_dir) == (owner.pw_uid, owner.pw_gid, owner.pw_dir)
-            and group.gr_gid == owner.pw_gid, "cleanup_identity_changed")
+def registration_payloads(home):
+    home = Path(home)
+    launcher = home / "Library/Application Support/Account Access/browser-v1/native-host"
+    registration = home / "Library/Application Support/Google/Chrome/NativeMessagingHosts/com.account_access.google_messages.json"
+    command = ("#!/bin/sh\nexec " + shlex.join([str(APP / "Contents/MacOS/AccountAccess"), "--browser-native-host"]) + ' "$@"\n').encode()
+    body = dict(name="com.account_access.google_messages", description="Account Access approved browser connections",
+                path=str(launcher), type="stdio", allowed_origins=[ORIGIN])
+    return [(launcher, command, 0o700), (registration, json.dumps(body).encode(), 0o600)]
 
 
-def stop_owner_processes(owner):
-    verify_owner_identity(owner)
-    require(type(owner.pw_uid) is int and 50000 <= owner.pw_uid < 60000, "cleanup_identity_invalid")
-    domain = "user/" + str(owner.pw_uid)
-    if command(["/bin/launchctl", "print", domain], check=False, timeout=5).returncode == 0:
-        command(["/bin/launchctl", "bootout", domain], check=False, timeout=5)
-    stop_uid(owner.pw_uid)
-    require(not uid_processes(owner.pw_uid), "cleanup_processes_still_running")
+def registration_absent(home):
+    # Only the two production registration names are inspected. In particular,
+    # no Chrome profile, browsing content or other native registrations are read.
+    for path, _data, _mode in registration_payloads(home):
+        require(not path.exists() and not path.is_symlink(), "existing_review_browser_registration")
 
 
-def remove_owner_identity(owner, records):
-    from account_access.system_provision import directory_value
-    require(re.fullmatch(r"aap[a-f0-9]{12}", owner.pw_name) is not None
-            and len(records) == 2 and set(records) == {"/Users/" + owner.pw_name, "/Groups/" + owner.pw_name},
-            "cleanup_owner_records_changed")
-    stop_owner_processes(owner)
-    for record in reversed(records):
-        command(["/usr/bin/dscl", ".", "-delete", record])
-    command(["/usr/bin/dscacheutil", "-flushcache"])
-    for record in records:
-        require(directory_value(record, "RecordName") is None, "cleanup_owner_identity_still_present")
-    # libc/OpenDirectory may retain a deleted record. The fixed local dscl
-    # RecordName reads above are the authoritative absence proof.
+def file_stamp(info):
+    return (info.st_dev, info.st_ino, info.st_uid, info.st_gid, info.st_mode, info.st_nlink, info.st_size,
+            info.st_mtime_ns, info.st_ctime_ns)
+
+
+def registration_parent(path, owner):
+    home = Path(owner.pw_dir)
+    relative = path.relative_to(home)
+    require(relative in {item[0].relative_to(home) for item in registration_payloads(home)}, "review_registration_changed")
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+    fd = os.open(home, flags)
+    parents = []
     try:
-        stop_owner_domain(owner.pw_uid)
-    except ReviewError as error:
-        if str(error) == "cleanup_owner_domain_still_loaded":
-            raise ReviewError("cleanup_owner_domain_after_identity_removal", command_failure=error.command_failure,
-                              domain_diagnostic=error.domain_diagnostic) from None
+        for part in [None, *relative.parts[:-1]]:
+            if part is not None:
+                next_fd = os.open(part, flags, dir_fd=fd)
+                os.close(fd)
+                fd = next_fd
+            info = os.fstat(fd)
+            require(stat.S_ISDIR(info.st_mode) and info.st_uid == owner.pw_uid and info.st_mode & 0o7022 == 0,
+                    "review_registration_changed")
+            parents.append((info.st_dev, info.st_ino, info.st_uid, info.st_gid, info.st_mode))
+        return fd, tuple(parents)
+    except BaseException:
+        os.close(fd)
         raise
-    require(not uid_processes(owner.pw_uid), "cleanup_processes_still_running")
+
+
+def capture_registration(path, data, mode, owner):
+    parent, parents = registration_parent(path, owner)
+    try:
+        fd = os.open(path.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK, dir_fd=parent)
+        try:
+            info = os.fstat(fd)
+            require(stat.S_ISREG(info.st_mode) and info.st_nlink == 1 and info.st_uid == owner.pw_uid
+                    and info.st_gid == owner.pw_gid and stat.S_IMODE(info.st_mode) == mode
+                    and info.st_size == len(data) and os.read(fd, len(data) + 1) == data,
+                    "review_registration_changed")
+            require(file_stamp(os.fstat(fd)) == file_stamp(info), "review_registration_changed")
+            return {"path": str(path), "stamp": file_stamp(info), "parents": parents, "sha256": hashlib.sha256(data).hexdigest()}
+        finally:
+            os.close(fd)
+    finally:
+        os.close(parent)
+
+
+def capture_registrations(owner, bindings):
+    first_error = None
+    for path, data, mode in registration_payloads(owner.pw_dir):
+        try:
+            binding = capture_registration(path, data, mode, owner)
+            if not any(item["path"] == str(path) for item in bindings):
+                bindings.append(binding)
+        except FileNotFoundError:
+            if first_error is None:
+                first_error = ReviewError("review_registration_missing")
+        except Exception as error:
+            if first_error is None:
+                first_error = error
+    if first_error is not None:
+        raise first_error
+
+
+def remove_registrations(owner, bindings):
+    verify_runner_identity(owner)
+    for binding in bindings:
+        path = Path(binding["path"])
+        expected = next((item for item in registration_payloads(owner.pw_dir) if item[0] == path), None)
+        require(expected is not None, "cleanup_registration_changed")
+        current = capture_registration(*expected, owner)
+        require(current == binding, "cleanup_registration_changed")
+        parent, parents = registration_parent(path, owner)
+        try:
+            require(parents == binding["parents"] and file_stamp(os.stat(path.name, dir_fd=parent, follow_symlinks=False)) == binding["stamp"],
+                    "cleanup_registration_changed")
+            os.unlink(path.name, dir_fd=parent)
+            try:
+                os.stat(path.name, dir_fd=parent, follow_symlinks=False)
+            except FileNotFoundError:
+                pass
+            else:
+                raise ReviewError("cleanup_registration_changed")
+        finally:
+            os.close(parent)
+    registration_absent(owner.pw_dir)
+
+
+def remove_browser_profile(profile, profile_stamp, owner, api):
+    verify_runner_identity(owner)
+    require(not api.snapshot(owner.pw_uid, (BASE, CHROME)), "cleanup_processes_still_running")
+    info = profile.lstat()
+    require((info.st_dev, info.st_ino, info.st_uid, info.st_gid, info.st_mode) == profile_stamp
+            and stat.S_ISDIR(info.st_mode) and stat.S_IMODE(info.st_mode) == 0o700,
+            "cleanup_browser_profile_changed")
+    shutil.rmtree(profile)
+    require(not profile.exists() and not profile.is_symlink(), "cleanup_browser_profile_changed")
 
 
 def public_parent_metadata(parents):
@@ -623,7 +661,7 @@ def shared_parent_metadata_valid(info):
     return stat.S_ISDIR(info.st_mode) and info.st_uid == 0 and info.st_mode & 0o7002 == 0
 
 
-def child(config_path):
+def child(config_path, *, prepare_only=False):
     global CHILD_STAGE
     CHILD_STAGE = "hosted-guard"
     guard(root=False)
@@ -638,34 +676,48 @@ def child(config_path):
     CHILD_STAGE = "owner-identity"
     user = pwd.getpwuid(os.getuid())
     home = Path(user.pw_dir)
-    require(set(config) == {"owner_uid", "home", "prefix"} and config["owner_uid"] == os.getuid()
-            and config["home"] == str(home) and home == Path(config["prefix"]) / "owner-home"
-            and re.fullmatch(r"/Library/Application Support/account-access-publisher-qa-[a-f0-9]{16}", config["prefix"]),
-            "review_child_identity_mismatch")
+    require(set(config) == {"owner_uid", "owner_gid", "owner_name", "home", "prefix", "profile", "temporary"}
+            and config["owner_uid"] == os.getuid() and config["owner_gid"] == user.pw_gid
+            and config["owner_name"] == user.pw_name and config["home"] == str(home)
+            and re.fullmatch(r"/Library/Application Support/account-access-publisher-qa-[a-f0-9]{16}", config["prefix"])
+            and config["profile"] == str(Path(config["prefix"]) / "browser-profile")
+            and config["temporary"] == str(Path(config["prefix"]) / "browser-tmp"), "review_child_identity_mismatch")
     CHILD_STAGE = "owner-home"
-    require(set(home.iterdir()) == {home / "tmp"}, "review_owner_home_not_empty")
-    CHILD_STAGE = "production-browser-prepare"
-    prepared = prepare(home)
-    require(prepared["extension_path"] == str(APP / "Contents/Resources/GoogleMessagesExtension")
-            and prepared["extension_id"] == EXTENSION, "production_browser_setup_failed")
-    launcher = home / "Library/Application Support/Account Access/browser-v1/native-host"
+    verify_runner_identity(user)
+    profile = Path(config["profile"])
+    temporary = Path(config["temporary"])
+    for directory in [profile, temporary]:
+        info = directory.lstat()
+        require(stat.S_ISDIR(info.st_mode) and info.st_uid == user.pw_uid and info.st_gid == user.pw_gid
+                and stat.S_IMODE(info.st_mode) == 0o700, "review_browser_profile_not_fresh")
+    if prepare_only:
+        CHILD_STAGE = "production-browser-prepare"
+        registration_absent(home)
+        prepared = prepare(home)
+        require(prepared == {"status": "PREPARED", "extension_path": str(APP / "Contents/Resources/GoogleMessagesExtension"),
+                             "extension_id": EXTENSION}, "production_browser_setup_failed")
+        print(json.dumps(prepared))
+        return
+    bindings = []
+    capture_registrations(user, bindings)
+    prepared = {"extension_path": str(APP / "Contents/Resources/GoogleMessagesExtension")}
+    launcher = registration_payloads(home)[0][0]
     CHILD_STAGE = "negative-shell-parent"
-    negative = command([str(launcher), ORIGIN], timeout=10, check=False, env=environment(home), input=b"")
+    negative = command([str(launcher), ORIGIN], timeout=10, check=False, env=environment(home, temporary), input=b"")
     require(negative.returncode == 78 and negative.stdout == b"", "production_parent_guard_failed")
     CHILD_STAGE = "extension-manifest"
     hashes = {name: digest(APP / "Contents/Resources/GoogleMessagesExtension" / name) for name in RESOURCES}
     manifest = unique_json((APP / "Contents/Resources/GoogleMessagesExtension/manifest.json").read_bytes())
     require("host_permissions" not in manifest, "production_manifest_changed")
     CHILD_STAGE = "chrome-profile"
-    profile = home / "Library/Application Support/Google/Chrome"
-    require({item.name for item in profile.iterdir()} == {"NativeMessagingHosts"}, "review_browser_profile_not_fresh")
+    require(not list(profile.iterdir()), "review_browser_profile_not_fresh")
     CHILD_STAGE = "playwright-driver"
     with sync_playwright() as playwright:
         CHILD_STAGE = "chrome-launch"
         context = playwright.chromium.launch_persistent_context(str(profile), executable_path=str(CHROME / "Contents/MacOS/Google Chrome"),
             headless=True, chromium_sandbox=True, ignore_default_args=["--disable-extensions"],
             args=["--enable-unsafe-extension-debugging", "--password-store=basic", "--use-mock-keychain"],
-            env=environment(home), timeout=25000)
+            env=environment(home, temporary), timeout=25000)
         try:
             CHILD_STAGE = "chrome-routing"
             context.route("**/*", lambda route: route.abort())
@@ -716,7 +768,12 @@ def run(args):
     prefix = None
     copied = []
     owner = None
-    owner_records = []
+    owner_metadata = None
+    process = None
+    baseline_clear = False
+    bindings = []
+    browser_profile = None
+    browser_profile_stamp = None
     expected_job = None
     signatures = None
     designated = None
@@ -808,28 +865,23 @@ def run(args):
         require(stat.S_ISLNK(info.st_mode) and info.st_uid == 0
                 and os.readlink(PUBLIC_APP) == APPLICATION_TARGET, "public_app_alias_mismatch")
         checks["public_app_alias_is_navigation_only"] = True
-        # A fresh non-login UID has its own empty Chrome profile and Mach domain.
-        stage = "owner-identity"
-        uid, name = fresh_owner_identity()
-        home = prefix / "owner-home"
-        home.mkdir(mode=0o700)
-        os.chown(home, uid, uid)
-        (home / "tmp").mkdir(mode=0o700)
-        os.chown(home / "tmp", uid, uid)
-        for kind in ["Groups", "Users"]:
-            record = "/" + kind + "/" + name
-            command(["/usr/bin/dscl", ".", "-create", record])
-            owner_records.append(record)
-            values = ({"PrimaryGroupID": str(uid)} if kind == "Groups" else {
-                "UniqueID": str(uid), "PrimaryGroupID": str(uid), "NFSHomeDirectory": str(home),
-                "UserShell": "/usr/bin/false", "IsHidden": "1", "Password": "*"})
-            for key, value in values.items():
-                command(["/usr/bin/dscl", ".", "-create", record, key, value])
-        command(["/usr/bin/dscacheutil", "-flushcache"])
-        owner = pwd.getpwnam(name)
-        require(owner.pw_uid == uid and owner.pw_gid == uid and owner.pw_dir == str(home), "review_owner_identity_mismatch")
-        stage = "owner-bootstrap-domain"
-        command(["/bin/launchctl", "bootstrap", "user/" + str(uid)])
+        stage = "runner-identity"
+        owner = runner_identity()
+        owner_metadata = runner_metadata(owner)
+        uid, name, home = owner.pw_uid, owner.pw_name, Path(owner.pw_dir)
+        stage = "browser-registration-baseline"
+        registration_absent(home)
+        stage = "target-process-baseline"
+        process = process_api()
+        require(not process.snapshot(uid, (BASE, CHROME)), "existing_review_target_processes")
+        baseline_clear = True
+        browser_profile = prefix / "browser-profile"
+        browser_tmp = prefix / "browser-tmp"
+        for directory in [browser_profile, browser_tmp]:
+            directory.mkdir(mode=0o700)
+            os.chown(directory, uid, owner.pw_gid)
+        info = browser_profile.lstat()
+        browser_profile_stamp = (info.st_dev, info.st_ino, info.st_uid, info.st_gid, info.st_mode)
         stage = "provision-prepare"
         prepare(Layout.installed(), uid)
         stage = "provision-service-job"
@@ -866,11 +918,28 @@ def run(args):
         shutil.copyfile(Path(__file__), controller)
         controller.chmod(0o644)
         configuration = prefix / "child.json"
-        configuration.write_text(json.dumps({"owner_uid": uid, "home": str(home), "prefix": str(prefix)}))
+        configuration.write_text(json.dumps({"owner_uid": uid, "owner_gid": owner.pw_gid, "owner_name": name,
+                "home": str(home), "prefix": str(prefix), "profile": str(browser_profile), "temporary": str(browser_tmp)}))
         configuration.chmod(0o644)
+        stage = "browser-registration-prepare"
+        try:
+            result = owner_child_command(owner_child_arguments(uid, name, home, controller, configuration,
+                mode="prepare-child", temporary=browser_tmp), env=environment(home, browser_tmp))
+        except BaseException:
+            # A partial production prepare may have created one exact file.
+            # Capture only known bytes; preserve every unknown/substituted name.
+            try:
+                capture_registrations(owner, bindings)
+            except Exception:
+                pass
+            raise
+        capture_registrations(owner, bindings)
+        require(unique_json(result.stdout) == {"status": "PREPARED", "extension_path": str(APP / "Contents/Resources/GoogleMessagesExtension"),
+                "extension_id": EXTENSION}, "production_browser_setup_failed")
+        checks["production_owner_browser_setup_used"] = True
         stage = "chrome-owner-child"
-        result = owner_child_command(owner_child_arguments(uid, name, home, controller, configuration),
-                         env=environment(home))
+        result = owner_child_command(owner_child_arguments(uid, name, home, controller, configuration, temporary=browser_tmp),
+                         env=environment(home, browser_tmp))
         stage = "chrome-owner-child-report"
         child_report = unique_json(result.stdout)
         require(type(child_report) is dict and set(child_report) == {"status", "chrome_version", "extension_resources_sha256"}
@@ -884,15 +953,17 @@ def run(args):
                 and not list((BASE / "broker").glob(".enrollment-*.publication"))
                 and not list((BASE / "vault").glob(".enrollment-*.publication")), "unexpected_vault_initialization")
         checks["empty_vault_and_no_enrollment_journal"] = True
-        report = {"schema": 1, "status": "PASSED", "platform": "macos", "architecture": "arm64",
-            "environment": "disposable-hosted-ci-public-review", "source_revision": args.source,
+        report = {"schema": 2, "status": "PASSED", "platform": "macos", "architecture": "arm64",
+            "environment": "disposable-hosted-ci-public-review", "owner_context": "existing-hosted-runner-fresh-browser-profile",
+            "source_revision": args.source,
             "controller_revision": os.environ["GITHUB_SHA"], "review_archive_sha256": args.sha256,
             "publisher_team": TEAM, "chrome_version": child_report["chrome_version"],
             "component_hashes": {key: value["hashes"] for key, value in signatures.items()},
             "extension_resources_sha256": child_report["extension_resources_sha256"], "checks": checks,
             "private_signins": 0, "limits": "Public signed transport before owner enrollment; no key, website login, personal account, phone, approval or consumer installation was validated."}
         checker = runpy.run_path(str(SOURCE / "scripts/check_mac_publisher_transport_report.py"))
-        report.update({key: True for key in checker["TRUE_FLAGS"]})
+        report.update({key: True for key in checker["TRUE_FLAGS"] if key != "runner_identity_unchanged"})
+        report["runner_identity_unchanged"] = False
         report.update({key: False for key in checker["FALSE_FLAGS"]})
     except Exception as exc:
         report = failed_report(exc, stage, checks)
@@ -904,12 +975,12 @@ def run(args):
                 ("support", BASE.parent), ("applications", PUBLIC_APP.parent), ("launchdaemons", JOB.parent)])
     finally:
         # Every deletion is bound to a baseline-absent name created by this run.
-        cleanup_failures, cleanup_command_failures, cleanup_domain_diagnostics = {}, {}, {}
+        cleanup_failures, cleanup_command_failures = {}, {}
         if prefix is not None:
             def cleanup(name, operation):
-                cleanup_step(name, operation, checks, cleanup_failures, cleanup_command_failures, cleanup_domain_diagnostics)
-            if owner is not None:
-                cleanup("chrome_and_native_children_stopped", lambda: stop_owner_processes(owner))
+                cleanup_step(name, operation, checks, cleanup_failures, cleanup_command_failures)
+            if owner is not None and baseline_clear:
+                cleanup("chrome_and_native_children_stopped", lambda: stop_browser_processes(owner, process))
             if JOB.exists():
                 def stop_job():
                     require(expected_job is not None and not JOB.is_symlink()
@@ -930,21 +1001,23 @@ def run(args):
                     require(value["broker_name"] == "_accountaccess" and type(uid) is int and 450 <= uid < 500
                             and pwd.getpwnam("_accountaccess").pw_uid == uid
                             and grp.getgrnam("_accountaccess").gr_gid == uid, "cleanup_service_identity_changed")
-                    command(["/bin/launchctl", "bootout", "user/" + str(uid)], check=False)
-                    stop_uid(uid)
+                    service_processes = process.snapshot(uid, (BASE,))
+                    require(process.stop(service_processes, (BASE,), timeout=5)
+                            and not process.snapshot(uid, (BASE,)), "cleanup_processes_still_running")
                     command(["/usr/bin/dscl", ".", "-delete", "/Users/_accountaccess"])
                     command(["/usr/bin/dscl", ".", "-delete", "/Groups/_accountaccess"])
                 cleanup("created_service_identity_removed", remove_broker)
-            if owner_records:
-                def remove_owner():
-                    if owner is not None:
-                        remove_owner_identity(owner, owner_records)
-                        return
-                    for record in reversed(owner_records):
-                        command(["/usr/bin/dscl", ".", "-delete", record])
-                    command(["/usr/bin/dscacheutil", "-flushcache"])
-                cleanup("temporary_owner_identity_and_domain_removed", remove_owner)
+            if browser_profile is not None:
+                def remove_browser():
+                    require(checks.get("chrome_and_native_children_stopped") is True, "cleanup_processes_still_running")
+                    remove_registrations(owner, bindings)
+                    remove_browser_profile(browser_profile, browser_profile_stamp, owner, process)
+                    require(runner_metadata(owner) == owner_metadata, "cleanup_identity_changed")
+                    report["runner_identity_unchanged"] = True
+                cleanup("temporary_browser_profile_and_registration_removed", remove_browser)
             def remove_image():
+                require(browser_profile is None or checks.get("temporary_browser_profile_and_registration_removed") is True,
+                        "cleanup_browser_profile_changed")
                 for path, identity in reversed(copied):
                     info = path.lstat()
                     require(info.st_uid == 0
@@ -962,7 +1035,7 @@ def run(args):
                         "shared_applications_parent_changed")
                 checks["shared_applications_parent_unchanged"] = True
             cleanup("fresh_public_image_removed", remove_image)
-        report = cleanup_result(report, cleanup_failures, cleanup_command_failures, cleanup_domain_diagnostics)
+        report = cleanup_result(report, cleanup_failures, cleanup_command_failures)
     if report.get("status") == "PASSED":
         require(runpy.run_path(str(SOURCE / "scripts/check_mac_publisher_transport_report.py"))["validate"](report),
                 "publisher_transport_report_incomplete")
@@ -986,14 +1059,18 @@ def main(argv=None):
     parent = commands.add_parser("run")
     for name in ["archive", "sha256", "source", "report"]:
         parent.add_argument("--" + name, required=True)
-    inner = commands.add_parser("chrome-child")
-    inner.add_argument("configuration")
+    for mode in ["chrome-child", "prepare-child"]:
+        inner = commands.add_parser(mode)
+        inner.add_argument("configuration")
     args = parser.parse_args(argv)
     try:
         if args.command == "download":
             download(args)
-        elif args.command == "chrome-child":
-            child(args.configuration)
+        elif args.command in {"chrome-child", "prepare-child"}:
+            if args.command == "prepare-child":
+                child(args.configuration, prepare_only=True)
+            else:
+                child(args.configuration)
         else:
             def expired(_signal, _frame):
                 raise ReviewError("publisher_transport_deadline")
@@ -1006,7 +1083,7 @@ def main(argv=None):
         return 0
     except Exception as exc:
         result = {"status": "FAILED", **public_error(exc), "production_ready": False}
-        if args.command == "chrome-child":
+        if args.command in {"chrome-child", "prepare-child"}:
             result["child_stage"] = CHILD_STAGE if CHILD_STAGE in CHILD_STAGES else "child-start"
         print(json.dumps(result))
         return 1
