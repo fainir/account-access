@@ -1,5 +1,72 @@
 # Validation of Account Access
 
+## In-app confirmation email and interrupted setup — 18 October 2026
+
+Application revision `1bba84f` passed all eight push/PR workflows. Both full
+regressions passed **2,339 tests with 92 platform skips and zero warnings**,
+in **824.24 and 822.08 seconds**. Both focused Macs
+passed **1,098 cases with one skip**, in **178.04 and 203.05
+seconds**. Lint, locked dependency exports, audits and wheel/sdist builds passed.
+[Exact source-bound evidence](../artifacts/consumer-mail-setup-080.json).
+
+Each Main run executed **40 native owner UI scenarios**, including mailbox
+review, cancellation, expiry, pause/navigation cleanup and broken-binding repair.
+All eighteen Mac report pairs match through their strict validators/package
+contracts; actual Installer-context and native handoff checks pass. The paired
+native, Linux isolation and Android emulator reports also match. These controlled
+phone paths do not establish physical carrier delivery.
+
+PyPI confirmation email can now be connected in native or web **Verification**.
+Choose an already checked saved TLS IMAP mailbox, review its address and the
+existing approved reads, then confirm once. Gmail app-password mailboxes are
+supported. Setup reads no messages and starts no website sign-in. A configured
+but broken connection remains disconnectable and replaceable. The picker does
+not infer a Gmail OAuth mailbox or claim that saving setup verifies delivery.
+[Consumer steps and limits](device-email-setup.md).
+
+The encrypted review is single-use, expires after ten minutes, and binds the
+current connector, mailbox authority and grants. Before connector publication,
+a durable transaction quarantines existing authority using a unique value that
+cannot match a connector fingerprint. Owner database acquisition now uses a
+monotonic deadline rather than SQLite's accumulated-sleep timeout, keeping a
+contended setup request responsive without
+relaxing its timing check. Final commit migrates only surviving
+unchanged valid reads, sessions and exact-item password-source bindings.
+Revocation wins; a failed or terminated change cannot reactivate stale authority
+when a fingerprint later cycles. Six actual ordinary-user child SIGKILL tests
+cover connection/removal after quarantine, configuration publication and final
+commit. Fresh stores check permission, session/link state, repeated cycles,
+independent presence gates and encrypted data. This proves process interruption,
+not physical power-loss recovery or real owner approval.
+
+Fresh genuinely signed Mac build **65** passes five executable audits, sixteen
+static peer checks and the **60-module** source pin. Its prepared runtime passes
+native/crypto/SDK-child and sandboxed-browser probes with library validation
+intact. The [genuine Chrome/native-host review](https://github.com/fainir/account-access/actions/runs/39134544440) passes **28 checks** at
+controller `ec80ae8`, against this exact source and archive. Both reads reach the
+publisher-pinned service and receive the expected pre-enrollment denial; cleanup
+passes. This remains transport before genuine enrollment or website login.
+
+Claude Code completed a fresh ordinary-language four-account fictional task in
+**75.85 seconds**, covering four password logins and one
+each of email, SMS and authenticator verification through the guarded fixture
+client. It does not test the protected signed worker, private accounts or
+physical delivery.
+[Claude report](../artifacts/agent-tests/claude-verification-080-1bba84f.json).
+Current Codex QA refuses before fixture/model startup because a complete
+execution/tool boundary cannot be attested.
+[Blocked report](../artifacts/agent-tests/codex-verification-080-1bba84f.blocked.json),
+[officially documented boundary](agent-qa-boundary.md).
+
+New private sign-ins remain **zero**. The owner's installed app and unfinished
+mailbox form were preserved. Real Google publisher configuration/consent,
+Gmail OAuth-only consumer mailbox selection, private email/SMS/TOTP and
+password-manager acceptance, physical phones, genuine owner enrollment,
+protected installed agent journeys, notarized consumer installation/update and
+Chrome/Bitwarden continuous sync remain release gates. Their file imports are
+snapshots. Production readiness remains **false**. Earlier sections retain
+historical source-specific results.
+
 ## Mailbox authorization, sync repair and device email — 18 October 2026
 
 Application revision `6414df4` passed all eight push/PR workflows. Both full

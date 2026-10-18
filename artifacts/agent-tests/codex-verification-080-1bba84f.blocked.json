@@ -1,0 +1,14 @@
+{
+  "agent": "codex",
+  "version": "0.8.0",
+  "passed": false,
+  "status": "UNVERIFIED",
+  "reason": "codex_effective_permissions_unverifiable",
+  "cli_selection": "explicit",
+  "cli_version": "0.163.0",
+  "fixture_started": false,
+  "model_started": false,
+  "private_signins": 0,
+  "production_ready": false,
+  "evidence_revision": "1bba84f91f69c374e717fdc86b143c1bb7f81551"
+}

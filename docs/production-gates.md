@@ -7,6 +7,20 @@ or physical-device coverage.
 
 ## Candidate 0.8 changes
 
+- Revision `1bba84f` passes all eight workflows: two **2,339-test** regressions
+  with 92 skips and zero warnings, two **1,098-case** focused Macs with one
+  skip and **40** native UI scenarios per Main run. All eighteen Mac report
+  pairs, Installer-context and native/Linux/Android reports pass. The consumer
+  PyPI email flow now selects a checked saved mailbox in the app, with explicit
+  review, cancellation and repair. Durable authority quarantine prevents stale
+  permission/session/password-source revival; six real child SIGKILL cases pass.
+  Fresh signed build **65**, its **60-module** wheel/runtime and **28-check**
+  genuine transport review at `ec80ae8` pass. Claude passes a fresh fictional
+  four-account task; Codex remains unverified before startup. Private sign-ins
+  remain zero. Gmail OAuth-only mailbox selection, real consent/delivery,
+  physical phones, protected agent/owner acceptance, continuous Chrome/Bitwarden
+  sync and consumer distribution remain open. Production readiness is false.
+  [Current evidence](../artifacts/consumer-mail-setup-080.json) and [consumer setup](device-email-setup.md).
 - Revision `6414df4` passes all eight workflows: two **2,273-test** regressions
   with 92 skips and zero warnings, two **1,037-case** focused Mac suites with
   one skip, and **36** native UI scenarios per Main run. All eighteen Mac reports,
@@ -20,7 +34,7 @@ or physical-device coverage.
   remain zero, consumer PyPI binding is unfinished, and personal-account,
   physical-phone and consumer distribution gates remain open. Chrome/Bitwarden
   continuous sync is unimplemented. Production readiness remains false.
-  [Current evidence](../artifacts/mail-source-authority-080.json) and [agent QA boundary](agent-qa-boundary.md).
+  [Evidence for source 6414df4](../artifacts/mail-source-authority-080.json) and [agent QA boundary](agent-qa-boundary.md).
 - Revision `972b800` passes all eight workflows: both **2,130-test**
   regressions with 92 platform skips and zero warnings, both **1,037-case**
   focused Macs with one skip, and **35** executed native UI scenarios per Main
@@ -163,7 +177,7 @@ or physical-device coverage.
   [18-check protected Mac composition](../artifacts/username-password-pages-080.json)
   also requires two identity/password/SMS logins, session reuse and durable
   recovery after a cold restart; its accounts/messages are synthetic.
-- Staged Mac build 63 requires macOS 14 (Sonoma) or later, matching the
+- Staged Mac build 65 requires macOS 14 (Sonoma) or later, matching the
   pinned Playwright browser runtime. App metadata, shell preflight and the direct
   Python bootstrap enforce this before downloads/runtime changes. This corrects
   the previous macOS 13 claim; it is not clean-Mac installation acceptance.

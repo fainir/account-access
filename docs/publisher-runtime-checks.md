@@ -1,6 +1,31 @@
 # Genuine publisher checks — 18 October 2026
 
-## Current mailbox-authority and sync-repair candidate
+## Current consumer confirmation-email candidate
+
+Application source `1bba84f`, Mac build **65**, has fresh genuinely signed
+universal owner/background, broker, bootstrap and Installer components. All five
+executable audits and sixteen static peer checks pass. The wheel matches all
+**60** current Python modules plus exact extension/installer/runtime-lock sources.
+
+Ordinary-user preparation signs 25 native files using a four-executable plan;
+three reviewed entries receive JIT. Library validation remains enabled. The
+original-plus-assembled audit passes 49 native files, eleven executables, one
+bundle and 34 wheels. Native callbacks, crypto/SSL/SQLite/TOTP, the isolated SDK
+child and a sandboxed synthetic browser pass. Public input trees remain unchanged.
+The pinned headless-shell/FFmpeg input differs from the full-browser CI package
+variant.
+
+The [fresh genuine production transport review](https://github.com/fainir/account-access/actions/runs/39134544440) passes **28 checks** at
+controller `ec80ae8` against the source-1bba84f archive. A temporary Chrome profile
+uses the exact production extension/native-host registration. Both reads reach
+the publisher-pinned service and receive the expected pre-enrollment denial.
+Image, registration, profile, children, service and policy cleanup passes; the
+runner identity is unchanged. The draft archive is a QA input. Owner approval,
+private website login and consumer installation/notarization remain unverified.
+No owner app was installed or launched on the owner's Mac.
+[Current source-bound evidence](../artifacts/consumer-mail-setup-080.json).
+
+## Earlier mailbox-authority and sync-repair candidate at `6414df4`
 
 Application source `6414df4`, Mac build **63**, has fresh genuinely signed
 universal owner/background, broker, bootstrap and Installer components. All
@@ -24,7 +49,7 @@ denial. Cleanup removes the image, registration, profile, children, service and
 policy; the runner identity is unchanged. The draft archive is a QA input. No
 owner app was installed or launched on the owner's Mac. Genuine owner approval,
 private website login and consumer installation/notarization remain unverified.
-[Current source-bound evidence](../artifacts/mail-source-authority-080.json).
+[Evidence for source 6414df4](../artifacts/mail-source-authority-080.json).
 
 ## Earlier import and unattended-login candidate at `972b800`
 
