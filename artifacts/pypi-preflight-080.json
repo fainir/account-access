@@ -1,0 +1,24 @@
+{
+  "service": "pypi",
+  "scope": "anonymous_form_preflight",
+  "checked_at": "2026-10-18T11:00:59.721983+00:00",
+  "warehouse_source_review": "f9ce83647318089c485c3d66378d559f0e7cdeed",
+  "private_signins": 0,
+  "credentials_submitted": false,
+  "verification_delivery_tested": false,
+  "personal_profile_used": false,
+  "production_ready": false,
+  "checks": {
+    "http_ok": true,
+    "exact_login_url": true,
+    "login_recognized": true,
+    "native_form_destination_reviewed": true,
+    "one_visible_username": true,
+    "one_visible_password": true,
+    "one_visible_submit": true,
+    "not_signed_in": true,
+    "no_post_or_code_request": true,
+    "deployed_source_commit_reviewed": true
+  },
+  "passed": true
+}

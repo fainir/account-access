@@ -76,6 +76,55 @@ by this password pilot**. A required challenge must stop for local review;
 do not disable 2FA, consume recovery codes, or substitute a browser-session
 transfer and label that a completed password/code test.
 
+## PyPI password and authenticator pilot
+
+The development candidate adds an optional **PyPI** connector. Its only operation,
+`personal-pypi:status`, returns the signed-in username from PyPI's authenticated
+navigation fragment. It does not read account settings, projects, email addresses,
+tokens or publishing permissions. Adding the connector creates an **unenrolled**
+TOTP source; it does not install a seed, enable a factor or grant an agent access.
+See the [complete configuration](../examples/pypi-browser.json).
+
+The [anonymous preflight](../artifacts/pypi-preflight-080.json) uses a fresh sandboxed
+browser and the product's network guard. It verifies the real login form, exact
+POST destination and reviewed deployment revision. It enters no username,
+password or code, and uses no personal browser profile. This proves form
+compatibility, not private authentication or delivery.
+
+The reviewed [deployed Warehouse revision](https://github.com/pypi/warehouse/tree/f9ce83647318089c485c3d66378d559f0e7cdeed)
+uses a response-generated opaque query token for its
+[TOTP page](https://github.com/pypi/warehouse/blob/f9ce83647318089c485c3d66378d559f0e7cdeed/warehouse/accounts/views.py#L298).
+The connector accepts one exact URL only from the attached main document's armed
+password POST and its first 302/303 response. The private CDP request chain,
+origin, path, bounded token grammar and 120-second lifetime must match. The
+capability permits that redirect's GET and one separately armed native TOTP POST.
+Iframes, scripts, HEAD requests, new navigations, duplicate Location headers and
+redirect replays cannot acquire or reuse it. It is never saved as a URL pattern;
+tokens remain in memory and are redacted from returned data.
+
+The [TOTP template](https://github.com/pypi/warehouse/blob/f9ce83647318089c485c3d66378d559f0e7cdeed/warehouse/templates/accounts/two-factor.html)
+can offer a security key and a recovery link alongside the authenticator form.
+The connector can use an enrolled authenticator when that form is present. A
+required security key, actual recovery-code form or new-device confirmation
+stops. It never consumes recovery codes or follows an emailed device-confirmation
+link. PyPI's
+[new-device confirmation](https://github.com/pypi/warehouse/blob/f9ce83647318089c485c3d66378d559f0e7cdeed/warehouse/templates/accounts/unrecognized-device.html)
+therefore remains a material acceptance gate.
+
+Local fictional fixtures exercise password/TOTP sign-in, saved-session reuse,
+remembered-factor sign-in, changed forms, missing sources, code rejection,
+presence challenges, redirect provenance and secret-free results. They do not
+establish a successful login to a real PyPI account. This pilot supports the
+guarded automatic path; generic manual browser setup is rejected before opening
+a window (`pypi_manual_setup_unavailable`). No private PyPI account has been
+enrolled or validated.
+
+Developers can rerun the anonymous PyPI-only check explicitly:
+
+```sh
+uv run python scripts/pypi_preflight.py
+```
+
 ## Railway discovery
 
 An anonymous inspection of Railway's current login page confirmed an email

@@ -18,7 +18,7 @@ class Browser:
         self.store = store
         self.codes = codes
 
-    def context(self, browser, config, state=None, *, login=False, account=None):
+    def context(self, browser, config, state=None, *, login=False, account=None, secret_values=None):
         context = browser.new_context(storage_state=state, java_script_enabled=config.javascript,
                                       service_workers="block", accept_downloads=False)
         context._login_code_request = None
@@ -31,6 +31,11 @@ class Browser:
         context._login_identity_request = None
         context._login_step_post_url = identity.post_url if identity else None
         context._password_blocked = False
+        policy = None
+        if login and config.login_challenge:
+            from .pypi_challenge import PyPIChallenge
+            policy = PyPIChallenge(config, test_mode=self.store.config().test_mode, secret_values=secret_values)
+        context._login_challenge = policy
         allowed = set(config.login_resources if login else config.read_resources)
         assets = set(config.login_assets) if login else set()
         asset_policy = None
@@ -49,6 +54,8 @@ class Browser:
             *(op.url for op in config.operations.values())}})
 
         def record_metadata(url, method, reason, resource_type, redirected=False):
+            if policy and (method == "POST" or resource_type == "document"):
+                policy.block()
             if (context._identity_pending and (method == "POST" or resource_type == "document")
                     and reason in {"destination", "method", "resource_type", "redirect_limit", "missing_location", "response_size"}):
                 context._identity_blocked = True
@@ -77,7 +84,9 @@ class Browser:
         def record_failure(request, url, reason, redirected=False):
             record_metadata(url, request.method, reason, request.resource_type, redirected)
 
-        def permitted(url, method, resource_type):
+        def permitted(url, method, resource_type, **provenance):
+            if policy and (method == "POST" or url == policy.url):
+                return None if policy.permitted(url, method, resource_type, **provenance) else "method" if method == "POST" else "destination"
             if url not in allowed:
                 return "destination"
             if method not in {"GET", "HEAD"} and not (
@@ -112,17 +121,25 @@ class Browser:
             allowed.update(asset_policy.urls)
 
         native = ResponseGuard(context, permitted, record_metadata, response_metadata,
-                               declared_assets if asset_policy else None)
+                               declared_assets if asset_policy else None, policy)
         context._response_guard = native
 
         def guard(route):
             request = route.request
             url, method = request.url, request.method
-            reason = permitted(url, method, request.resource_type)
+            provenance = native.provenance(request) if policy else {}
+            reason = permitted(url, method, request.resource_type, **provenance)
             if reason:
                 record_failure(request, url, reason)
                 route.abort("blockedbyclient")
                 return
+            if policy:
+                try:
+                    policy.dispatch(url, method, provenance["attachment"], provenance["main_document"])
+                except AccessError:
+                    record_failure(request, url, "method")
+                    route.abort("blockedbyclient")
+                    return
             if method == "POST" and context._identity_pending:
                 if context._identity_dispatched:
                     record_failure(request, url, "method")
@@ -152,7 +169,7 @@ class Browser:
             # native redirect in a different Chromium target.
             try:
                 for hop in range(6):
-                    reason = permitted(url, method, request.resource_type)
+                    reason = permitted(url, method, request.resource_type, **provenance)
                     if reason:
                         record_failure(request, url, reason, hop > 0)
                         route.abort("blockedbyclient")
@@ -160,6 +177,11 @@ class Browser:
                     response = route.fetch(url=url, method=method, headers=headers,
                                            post_data=body if method == "POST" else "",
                                            max_redirects=0, max_retries=0, timeout=15000)
+                    locations = [item["value"] for item in response.headers_array if item["name"].lower() == "location"]
+                    if len(locations) > 1:
+                        record_failure(request, url, "destination", hop > 0)
+                        route.abort("blockedbyclient")
+                        return
                     if hop == 0:
                         # Only fixed HTTP metadata, never response content or
                         # hidden page banners, establishes that a request ran.
@@ -393,7 +415,7 @@ class Browser:
             # A timed throttle needs waiting, not owner authentication. Keep the
             # rate limit while letting durable tasks retry without a false prompt.
             raise AccessError("RETRYABLE", "login_retry_cooldown")
-        context = self.context(browser, config, state, login=True, account=account)
+        context = self.context(browser, config, state, login=True, account=account, secret_values=secret_values)
         context._login_progress = {}
         started = None
         completed = []
@@ -450,15 +472,21 @@ class Browser:
                 # the password form. Recheck before disclosing the password.
                 self.credential_page(page, config, expected)
                 self.check_form(page, form.password_selector, config)
+            if context._login_challenge:
+                self.check_staged_native_form(page, form.password_selector, form.submit_selector, config.login_url)
             page.locator(form.password_selector).fill(credential["password"])
             # Charge the password-attempt cooldown only when submission is
             # attempted. Connecting a missing mailbox/phone after preflight
             # stopped must not require another minute or user retry.
             self.store.put("login-attempt:" + account, time.time())
+            if context._login_challenge:
+                context._login_challenge.arm_password()
             try:
                 page.locator(form.submit_selector).click(timeout=10000)
                 context._login_progress["password_submit_attempted"] = True
                 page.wait_for_load_state("domcontentloaded")
+                if context._login_challenge and context._login_challenge.failed:
+                    raise AccessError("NEEDS_USER", "login_challenge_changed", "unknown")
                 self.wait_state(page, config, after_submit=True)
             except PlaywrightError:
                 if context._password_blocked:
@@ -573,18 +601,26 @@ class Browser:
                 # Recheck presence/action markers before putting a code into it.
                 if self.challenge(page, config) != kind:
                     raise AccessError("NEEDS_USER", "verification_page_changed", "unknown")
-                self.check_form(page, factor.code_selector, config)
+                if context._login_challenge:
+                    destination = context._login_challenge.destination(page.url)
+                    self.check_staged_native_form(page, factor.code_selector, factor.code_submit_selector, destination)
+                else:
+                    self.check_form(page, factor.code_selector, config)
                 # Delivery can block while the owner revokes a source or the
                 # login window expires. Do not submit its late response.
                 self.codes.check_window(source_id, started)
                 if review_stop and review_stop.is_set():
                     raise AccessError("NEEDS_USER", "sms_setup_cancelled", kind)
+                if context._login_challenge:
+                    context._login_challenge.arm_code(page.url)
                 # In-memory only, one submission, never put in logs or task state.
                 page.locator(factor.code_selector).fill(code)
                 context._login_progress[kind + "_code_filled"] = True
                 context._login_progress[kind + "_submit_attempted"] = True
                 page.locator(factor.code_submit_selector).click(timeout=10000)
                 page.wait_for_load_state("domcontentloaded")
+                if context._login_challenge and context._login_challenge.failed:
+                    raise AccessError("NEEDS_USER", "login_challenge_changed", "unknown")
                 self.wait_state(page, config, previous_kind=kind)
                 completed.append(kind)
                 kind = self.challenge(page, config)
@@ -596,12 +632,18 @@ class Browser:
             for factor in completed:
                 self.store.audit("service", account, "", "login_factor_completed", factor)
             return state
+        except PlaywrightError:
+            if context._login_challenge and context._login_challenge.failed:
+                raise AccessError("NEEDS_USER", "login_challenge_changed", "unknown") from None
+            raise
         except AccessError as exc:
             if review_failure and review_failure(page, exc):
                 self.check(page, config)
                 return context.storage_state(indexed_db=True)
             raise
         finally:
+            if context._login_challenge:
+                context._login_challenge.clear()
             if started:
                 for source_id in config.login.sources():
                     self.codes.finish(source_id, started)
@@ -634,9 +676,10 @@ class Browser:
         button = page.locator(submit_selector).element_handle()
         destination = page.evaluate("""([field, button]) => {
             const form = field?.form;
+            const native = key => Object.getOwnPropertyDescriptor(HTMLFormElement.prototype, key).get.call(form);
             return form && button ? {same: form === button.form,
-                method: (button.hasAttribute('formmethod') ? button.formMethod : form.method).toUpperCase(),
-                action: button.hasAttribute('formaction') ? button.formAction : form.action} : null;
+                method: (button.hasAttribute('formmethod') ? button.formMethod : native('method')).toUpperCase(),
+                action: button.hasAttribute('formaction') ? button.formAction : native('action')} : null;
         }""", [field, button])
         if destination is None and allow_missing:
             return
@@ -747,7 +790,8 @@ class Browser:
             raise AccessError("NEEDS_USER", "login_destination_changed", "unknown")
         destination = page.locator(selector).evaluate("""el => {
             const form = el.form;
-            return form ? {method: form.method.toUpperCase(), action: form.action} : null;
+            const native = key => Object.getOwnPropertyDescriptor(HTMLFormElement.prototype, key).get.call(form);
+            return form ? {method: native('method').toUpperCase(), action: native('action')} : null;
         }""")
         # JavaScript connectors can submit without a native form; their exact
         # request allowlist is still enforced. Native forms must never encode a
@@ -771,6 +815,8 @@ class Browser:
     def connect(self, account, *, headless=False, complete=None):
         """Owner interactive connection. Login resources remain allowlisted; no screenshots/logs."""
         config = self.store.config().accounts[account]
+        if config.login_challenge:
+            raise AccessError("NEEDS_USER", "pypi_manual_setup_unavailable", "unknown")
         with self.store.lock("account:" + account, timeout=5):
             existing = self.store.get("connection:" + account) or {}
             with sync_playwright() as pw:
