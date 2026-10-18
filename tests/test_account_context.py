@@ -145,7 +145,7 @@ def test_owner_browser_counts_examples_separately_and_uses_explicit_example_prom
             try:
                 page = browser.new_page()
                 page.goto(f"http://127.0.0.1:{owner.server_port}/#" + token)
-                page.get_by_text("Personal shopping account · Public example", exact=True).wait_for()
+                page.locator("#connected").get_by_text("Personal shopping account · Public example", exact=True).wait_for()
                 assert page.locator("#account-count").inner_text() == "0 ready · 1 service connections · 3 ready / 3 examples"
                 assert page.get_by_text("Example connected", exact=True).count() == 3
                 assert "example accounts" in page.locator("#prompts").inner_text()
