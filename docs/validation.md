@@ -27,7 +27,7 @@ not infer a Gmail OAuth mailbox or claim that saving setup verifies delivery.
 The encrypted review is single-use, expires after ten minutes, and binds the
 current connector, mailbox authority and grants. Before connector publication,
 a durable transaction quarantines existing authority using a unique value that
-cannot match a connector fingerprint. Owner database acquisition now uses a
+cannot match a connector fingerprint. Device-email writer acquisition now uses a
 monotonic deadline rather than SQLite's accumulated-sleep timeout, keeping a
 contended setup request responsive without
 relaxing its timing check. Final commit migrates only surviving
@@ -2568,9 +2568,10 @@ uv tool install ./dist/account_access-0.3.1-py3-none-any.whl
 account-access --root "$HOME/.local/share/account-access-demo" demo --install --public-sites
 ```
 
-The current opt-in CLI acceptance harness creates its own fictional providers,
-private fixture service and client. Use a **new empty workspace** for each run,
-and satisfy existing host instructions/hooks:
+The opt-in CLI acceptance harness checks its client boundary before starting
+fictional providers, a private fixture service and client. Current Codex QA
+refuses at that preflight; the Claude run starts the fictional journey. Use a
+**new empty workspace** for each run, and satisfy existing host instructions/hooks:
 
 ```sh
 uv run python scripts/agent_verification_smoke.py codex --workspace /absolute/path/to/new-codex-test
@@ -2578,10 +2579,12 @@ uv run python scripts/agent_verification_smoke.py claude --workspace /absolute/p
 ```
 
 These use the user's existing CLI login and can consume agent usage. They create
-no API keys and do not use private website accounts. Codex uses a fixture-socket
-permission profile; Claude uses the tool gate described above. The older smoke
-scripts have been retired. For normal user testing, use the short prompts in
-README.md; no test harness is necessary.
+no API keys and do not use private website accounts. Current Codex QA refuses
+before fixture/model startup because the complete execution/tool boundary cannot
+be attested. Claude uses the tool gate described above; that fixture guard is
+not an OS sandbox. See the [current boundary](agent-qa-boundary.md). The older
+smoke scripts have been retired. For normal user testing, use the short prompts
+in README.md; no test harness is necessary.
 
 ## Remaining production work
 

@@ -341,9 +341,10 @@ acceptance, including in a mixed list. Legacy task results without recorded
 classification are unclassified. Configuration labels and a test-mode flag alone
 are not evidence of private ownership, a fresh sign-in or completed delivery.
 
-Agent CLI fixture runs must enforce their client boundary. The current harness
-uses a fixture-socket permission profile for Codex and a uniquely named temporary
-skill plus invocation-only tool gate for Claude. Successful trace tools are
+Agent CLI fixture runs must enforce their client boundary. Current Codex QA
+refuses before fixture/model startup because its complete execution/tool boundary
+cannot be attested. Claude uses a uniquely named temporary skill plus an
+invocation-only tool gate for its fictional journey; successful trace tools are
 checked against the same policy. Older unrestricted smoke entry points refuse
 before making account requests. A failed Claude global-selection incident is
 retained in [validation](validation.md); it is excluded from acceptance. This
