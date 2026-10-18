@@ -60,7 +60,11 @@ must be awake and its secure keyring available. If you pause access, reopen the
 app to resume it.
 
 The built-in catalog includes public SauceDemo and The Internet test accounts.
-Private websites require an operator-supplied reviewed connector. A provider's
+The 0.8 candidate also includes narrow Namecheap and PyPI pilots; private
+acceptance is unfinished. PyPI supports the reviewed password/authenticator
+route, while new-device email confirmation remains a stop.
+[Provider coverage and limits](docs/other-service-validation.md).
+Other private websites require an operator-supplied reviewed connector. A provider's
 mandatory passkey, biometric, phone unlock or administrator approval still needs
 the owner. [Automatic sessions and their limits](docs/automatic-sessions.md).
 
