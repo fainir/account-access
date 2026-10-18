@@ -131,6 +131,61 @@ def test_fixture_delivery_preserves_leading_zeroes_and_cached_dom_boundary():
     assert "<script" not in document
 
 
+@pytest.mark.parametrize("prepared", [True, False])
+def test_sms_cli_budget_starts_after_browser_setup_and_failed_setup_never_starts_cli(tmp_path, monkeypatch, prepared):
+    extension = tmp_path / probe.SMS_EXTENSION_NAME
+    extension.mkdir()
+    original = json.loads((Path(__file__).resolve().parents[1] /
+                           "account_access/google_messages_extension/manifest.json").read_bytes())
+    (extension / "manifest.json").write_text(json.dumps(probe.fixture_manifest(original)))
+    profile = tmp_path / probe.SMS_PROFILE_NAME
+    profile.mkdir(mode=0o700)
+    (profile / "NativeMessagingHosts").mkdir()
+    (profile / "NativeMessagingHosts" / (probe.HOST + ".json")).write_text(
+        json.dumps(probe.native_manifest(tmp_path / "root-owner-client")))
+    clock, calls, routes = [0], [], []
+    hashes = dict.fromkeys(probe.RESOURCES, "a" * 64)
+    monkeypatch.setattr(probe, "root_managed_path", lambda path: path)
+    monkeypatch.setattr(probe, "resource_hashes", lambda path: hashes)
+    monkeypatch.setattr(probe, "time", SimpleNamespace(monotonic=lambda: clock[0]))
+    monkeypatch.setattr(probe, "CURRENT_STAGE", probe.CURRENT_STAGE)
+
+    def start_client(command, env, deadline, *, account):
+        calls.append("cli")
+        assert clock[0] == 100 and deadline == 155
+        assert account == probe.SMS_ACCOUNT
+        raise RuntimeError("test_stop_after_cli_start")
+
+    monkeypatch.setattr(probe.runpy, "run_path", lambda path: {"ClientReads": start_client})
+
+    def evaluate(script):
+        if "registerContentScripts" in script:
+            calls.append("prepared")
+            clock[0] = 80
+            return prepared
+        assert script == "chrome.permissions.getAll()"
+        calls.append("permissions")
+        clock[0] = 100
+        return {"origins": [probe.MESSAGES_ORIGIN], "permissions": original["permissions"]}
+
+    def goto(url, **kwargs):
+        routes[0](SimpleNamespace(request=SimpleNamespace(url=url, resource_type="document"),
+                                  fulfill=lambda **kwargs: None, abort=lambda: pytest.fail("allowed document")))
+
+    worker = SimpleNamespace(url=probe.EXTENSION_ORIGIN + "background.js", evaluate=evaluate)
+    context = SimpleNamespace(
+        browser=SimpleNamespace(new_browser_cdp_session=lambda: SimpleNamespace(
+            send=lambda *args: {"id": probe.EXTENSION_ID})),
+        route=lambda pattern, callback: routes.append(callback), service_workers=[worker],
+        new_page=lambda: SimpleNamespace(goto=goto), close=lambda: calls.append("closed"),
+    )
+    playwright = SimpleNamespace(chromium=SimpleNamespace(launch_persistent_context=lambda **kwargs: context))
+    reason = "test_stop_after_cli_start" if prepared else "signed_chrome_fixture_prepare_failed"
+    with pytest.raises(RuntimeError, match="^" + reason + "$"):
+        probe.run_sms_journey(playwright, tmp_path, tmp_path, original, hashes)
+    assert calls == ["prepared", "permissions", *(["cli"] if prepared else []), "closed"]
+
+
 @pytest.mark.parametrize("key", sorted(VERIFIED | UNVERIFIED))
 def test_signed_chrome_native_proof_cannot_claim_dom_sms_or_consumer_acceptance(key):
     value = report()

@@ -184,12 +184,7 @@ def run_sms_journey(playwright, prefix, home, original, original_hashes):
     helper = root_managed_path(prefix / "protected-browser-fixture.py")
     client_type = runpy.run_path(str(helper))["ClientReads"]
     config = prefix / "agent-client/native-host-client.json"
-    clients = client_type(
-        [sys.executable, "-I", "-B", "-m", "account_access.cli", "run", SMS_ACCOUNT, "summary"],
-        {"PATH": "/usr/bin:/bin", "HOME": str(home), "LANG": "C.UTF-8", "ACCESS_CLIENT_CONFIG": str(config)},
-        time.monotonic() + 55,
-        account=SMS_ACCOUNT,
-    )
+    clients = None
     context = None
     checks = {"separate_empty_fixture_profile_used": True,
               "fixture_account_and_code_source_are_separate_from_prior_transport_journey": True,
@@ -243,6 +238,15 @@ def run_sms_journey(playwright, prefix, home, original, original_hashes):
         )
         if not all(checks.values()):
             raise RuntimeError("signed_chrome_fixture_prepare_failed")
+        # Browser startup and enrollment substitutes have their own bounded
+        # calls and remain inside the controller's hard 90-second cap. Give
+        # the two actual CLI reads their full budget only after setup finishes.
+        clients = client_type(
+            [sys.executable, "-I", "-B", "-m", "account_access.cli", "run", SMS_ACCOUNT, "summary"],
+            {"PATH": "/usr/bin:/bin", "HOME": str(home), "LANG": "C.UTF-8", "ACCESS_CLIENT_CONFIG": str(config)},
+            time.monotonic() + 55,
+            account=SMS_ACCOUNT,
+        )
         stage("sms-login")
         while not clients.tick():
             # This pipe carries only the fictional provider's single new code;
@@ -287,7 +291,8 @@ def run_sms_journey(playwright, prefix, home, original, original_hashes):
         previous = CURRENT_STAGE
         stage("sms-cleanup")
         try:
-            clients.close()
+            if clients is not None:
+                clients.close()
         finally:
             if context is not None:
                 context.close()
