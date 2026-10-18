@@ -14,12 +14,12 @@ defaults:
   run:
     shell: bash
 env:
-  AC_REVIEW_SOURCE: a5190c6d888f2384ac04bf574395aedb7219ef2b
-  AC_REVIEW_SHA256: a00e24b988c626e5a9db82321b8164dac6925721bfa3b1798b6695e956beadb7
-  AC_REVIEW_ASSET_ID: '652938188'
-  AC_REVIEW_RELEASE_ID: '416327595'
-  AC_REVIEW_ASSET: account-access-publisher-transport-a5190c6.tar.gz
-  AC_REVIEW_TAG: qa-a5190c6-publisher-transport
+  AC_REVIEW_SOURCE: 57e77027149af1e7dd1eaa694865a33f8313dd5e
+  AC_REVIEW_SHA256: ba332fe7bf51f229faea2900d82408905ce13990c2659fcf8bb605c27698c370
+  AC_REVIEW_ASSET_ID: '653055506'
+  AC_REVIEW_RELEASE_ID: '416350163'
+  AC_REVIEW_ASSET: account-access-publisher-transport-57e7702.tar.gz
+  AC_REVIEW_TAG: qa-57e7702-publisher-transport
 jobs:
   download-public-review:
     if: github.repository == 'fainir/account-access' && github.ref == 'refs/heads/codex/production-auth'
