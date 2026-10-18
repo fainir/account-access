@@ -1,0 +1,424 @@
+{
+  "version": "0.8.0-candidate",
+  "date": "2026-10-18",
+  "source_revision": "304df4c2e0ff5d52d3080d59eef08e4ddb410068",
+  "production_ready": false,
+  "private_signins": 0,
+  "ci": {
+    "runs": [
+      {
+        "workflow": "Account Access checks",
+        "event": "pull_request",
+        "url": "https://github.com/fainir/account-access/actions/runs/39103327644",
+        "conclusion": "success"
+      },
+      {
+        "workflow": "Account Access checks",
+        "event": "push",
+        "url": "https://github.com/fainir/account-access/actions/runs/39103324495",
+        "conclusion": "success"
+      },
+      {
+        "workflow": "Android login-code journey",
+        "event": "pull_request",
+        "url": "https://github.com/fainir/account-access/actions/runs/39103327685",
+        "conclusion": "success"
+      },
+      {
+        "workflow": "Android login-code journey",
+        "event": "push",
+        "url": "https://github.com/fainir/account-access/actions/runs/39103324447",
+        "conclusion": "success"
+      },
+      {
+        "workflow": "Mac separate-user worker acceptance",
+        "event": "pull_request",
+        "url": "https://github.com/fainir/account-access/actions/runs/39103327647",
+        "conclusion": "success"
+      },
+      {
+        "workflow": "Mac separate-user worker acceptance",
+        "event": "push",
+        "url": "https://github.com/fainir/account-access/actions/runs/39103324430",
+        "conclusion": "success"
+      },
+      {
+        "workflow": "Separate-user worker acceptance",
+        "event": "pull_request",
+        "url": "https://github.com/fainir/account-access/actions/runs/39103327697",
+        "conclusion": "success"
+      },
+      {
+        "workflow": "Separate-user worker acceptance",
+        "event": "push",
+        "url": "https://github.com/fainir/account-access/actions/runs/39103324562",
+        "conclusion": "success"
+      }
+    ],
+    "regressions": [
+      {
+        "event": "push",
+        "passed": 1517,
+        "platform_skips": 77,
+        "seconds": 609.32
+      },
+      {
+        "event": "pull_request",
+        "passed": 1517,
+        "platform_skips": 77,
+        "seconds": 606.69
+      }
+    ],
+    "focused_mac": [
+      {
+        "event": "push",
+        "passed": 799,
+        "platform_skips": 1,
+        "seconds": 89.65
+      },
+      {
+        "event": "pull_request",
+        "passed": 799,
+        "platform_skips": 1,
+        "seconds": 104.29
+      }
+    ],
+    "all_eight_workflows_passed": true,
+    "mac_report_sets_identical": true,
+    "complete_worker_reports_per_mac": 17,
+    "worker_reports": {
+      "account-access-mac-initial-gateway.json": {
+        "checks": 18,
+        "canonical_sha256": "8b6b89260a91d01e5d79fc962598fbf54162751aad9b4688243123e1cd59a97a"
+      },
+      "account-access-mac-initial-setup.json": {
+        "checks": 40,
+        "canonical_sha256": "15081758e3e9e709f927c6741a8ea6c1a2bab0c69e0dee1f67968449344eaf0d"
+      },
+      "account-access-mac-key-custody.json": {
+        "checks": 20,
+        "canonical_sha256": "ef20627fc97d1ec80513e10820ea09f6f1a6c0d87b79b286c229f85b4bce61f7"
+      },
+      "account-access-mac-key-handoff.json": {
+        "checks": 33,
+        "canonical_sha256": "da6c41338919316c40ac5ed49ada0daeb272479a40bc25e10a77dd3050930182"
+      },
+      "account-access-mac-native-browser.json": {
+        "checks": 10,
+        "canonical_sha256": "bb4a3de0f9d6b2c4cbf3c2f3b8ce2812e30e9d3b8569ab0c3f99bf53756d994e"
+      },
+      "account-access-mac-native-messages.json": {
+        "checks": 13,
+        "canonical_sha256": "92f3767bf268e7ea751c442a0fd70b284b6991eb573aadbf49741ba91192a44d"
+      },
+      "account-access-mac-native-system-browser.json": {
+        "checks": 18,
+        "canonical_sha256": "f7f02cb7afa7f3b064a2261d7d802c72e0b4f15a53fe02575eba7b4eda54faeb"
+      },
+      "account-access-mac-owner-policy.json": {
+        "checks": 16,
+        "canonical_sha256": "76eda3b98d2824200e400fe1be81b345d2bcab3a2028a47ead0a97bd215f200c"
+      },
+      "account-access-mac-package.json": {
+        "checks": 16,
+        "canonical_sha256": "de586997f2a64f51893e165aa3d2b2479ec6a1020193ae274d55d888bce28531"
+      },
+      "account-access-mac-prepared-package.json": {
+        "checks": 23,
+        "canonical_sha256": "bb05ce48219a99e1a5db2bb19aebb01b179f41f66fb910e26ac25bbcacd14dcd"
+      },
+      "account-access-mac-protected-browser.json": {
+        "checks": 18,
+        "canonical_sha256": "f42d580611cf823f0c9a502185e6636c80ee2d498728f03fe7a4d5e84fe8afa2"
+      },
+      "account-access-mac-provisioning.json": {
+        "checks": 34,
+        "canonical_sha256": "d84a4b8263b2b531028d35302cd53c38326f874bc9b1ff3cb1b6877acbb3b2ee"
+      },
+      "account-access-mac-root-coordinator.json": {
+        "checks": 31,
+        "canonical_sha256": "3f63595b364fd7ec4d677e1518d3c30f9b13ae44fdb19fc3bfce7fc512b1d3f6"
+      },
+      "account-access-mac-root-owner.json": {
+        "checks": 24,
+        "canonical_sha256": "df1eabffa22fa05055f851f51d1c0463be2dcfa1d8ab63bc2eb5683bf9466d7d"
+      },
+      "account-access-mac-root-supervisor.json": {
+        "checks": 21,
+        "canonical_sha256": "161c0cc1eb4c43b4db5d8640c69292f3e683b87a097518ef8e18640942d31866"
+      },
+      "account-access-mac-staged-enrollment.json": {
+        "checks": 28,
+        "canonical_sha256": "051cc5d11d17bfa3e57bac070eb0c27408a2b231287c6aa33a0b58f1e19ae011"
+      },
+      "account-access-mac-worker.json": {
+        "checks": 25,
+        "canonical_sha256": "bca0943b7be3c309be0b2854d79e9a0a78f6e87b6bc87a22ec6d0224a87b4863"
+      }
+    },
+    "native_gateway_checks": 67,
+    "desktop_connection_checks": 38,
+    "native_framing_component_checks": 18,
+    "linux_boundary_checks": 24,
+    "android_emulator_checks": 6,
+    "dependency_audit": "no known vulnerabilities found",
+    "warning_scope": "Focused Python suites have no warnings summary. Existing test-only SecKeychainOpen and upload-action Node deprecation notices remain."
+  },
+  "protected_native_browser": {
+    "status": "PASSED",
+    "platform": "macos",
+    "environment": "controlled-demo",
+    "production_ready": false,
+    "private_signins": 0,
+    "actual_native_framing_used": true,
+    "actual_desktop_connection_used": true,
+    "actual_native_xpc_used": true,
+    "production_composed_host_used": true,
+    "system_key_used": true,
+    "actual_distinct_uids": true,
+    "password_sms_browser_login_verified": true,
+    "signed_chrome_parent_verified": false,
+    "actual_chrome_extension_used": false,
+    "google_messages_dom_used": false,
+    "physical_sms_delivery_verified": false,
+    "genuine_owner_approval_verified": false,
+    "publisher_signed_peers": false,
+    "consumer_deployment_verified": false,
+    "checks": {
+      "framed_desktop_xpc_reaches_enrolled_worker": true,
+      "unsupported_cookie_import_refused": true,
+      "new_connection_requires_genuine_setup_proof": true,
+      "routine_poll_reconnects_after_denied_setup": true,
+      "baseline_armed_before_password_submission": true,
+      "wrong_window_delivery_refused": true,
+      "unrelated_source_delivery_refused": true,
+      "stale_message_delivery_refused": true,
+      "delivery_ack_contains_no_code": true,
+      "fresh_password_identity_sms_login_completed": true,
+      "saved_session_reused_for_second_cli_read": true,
+      "cli_returns_only_approved_data_without_code": true,
+      "consumed_window_rejects_replayed_delivery": true,
+      "completed_window_no_longer_pending": true,
+      "native_frame_process_exits_cleanly": true,
+      "fixture_system_key_removed": true,
+      "fixture_setup_policy_removed": true,
+      "temporary_jobs_removed": true
+    }
+  },
+  "private_directory_provisioning": {
+    "status": "PASSED",
+    "platform": "macos",
+    "environment": "controlled-demo",
+    "production_ready": false,
+    "private_signins": 0,
+    "actual_provisioner_used": true,
+    "actual_system_entrypoint_used": true,
+    "actual_native_xpc_used": true,
+    "consumer_package_verified": false,
+    "genuine_owner_approval_verified": false,
+    "publisher_signed_peers": false,
+    "fixture_identity_removed": true,
+    "checks": {
+      "prepared_installation_is_idempotent": true,
+      "dedicated_nonlogin_identity_created": true,
+      "broker_and_owner_identities_differ": true,
+      "broker_home_is_private": true,
+      "private_directory_crash_after_stage_creation_recovers": true,
+      "private_directory_crash_after_directory_creation_recovers": true,
+      "private_directory_crash_after_ownership_change_recovers": true,
+      "private_directory_crash_after_final_publication_recovers": true,
+      "private_directory_crash_after_staging_cleanup_recovers": true,
+      "private_directory_recovery_preserves_published_inode": true,
+      "private_directory_recovery_sets_exact_private_identity": true,
+      "private_directory_recovery_leaves_no_intermediates": true,
+      "new_store_and_stage_are_empty": true,
+      "nonlogin_user_bootstrap_domain_ready": true,
+      "public_profile_binds_owner_and_server": true,
+      "published_policies_preserve_empty_fixed_enrollment": true,
+      "exact_prepared_job_is_persisted_and_registered": true,
+      "generated_installation_starts_actual_system_entrypoint": true,
+      "fresh_install_waits_without_key_or_worker": true,
+      "system_entrypoint_recreates_nonlogin_user_domain": true,
+      "first_enrollment_invalid_os_proof_refused": true,
+      "first_enrollment_invalid_proof_cannot_create_key": true,
+      "first_enrollment_caller_configuration_refused": true,
+      "first_enrollment_state_available_without_vault": true,
+      "first_enrollment_root_peer_prepared": true,
+      "first_enrollment_health_available": true,
+      "desktop_native_read_needs_no_os_approval": true,
+      "desktop_profile_reads_protected_root_registration": true,
+      "desktop_native_invalid_os_proof_blocks_enrollment": true,
+      "first_enrollment_without_approval_refused": true,
+      "rejected_setup_keeps_new_key_absent": true,
+      "fixture_setup_policy_removed": true,
+      "created_service_identity_and_domain_removed": true,
+      "temporary_system_jobs_removed": true
+    }
+  },
+  "package_acceptance": {
+    "original": {
+      "status": "PASSED",
+      "environment": "controlled-demo",
+      "production_ready": false,
+      "private_signins": 0,
+      "actual_installer_used": true,
+      "positive_consumer_install_verified": false,
+      "publisher_signed_package": false,
+      "genuine_owner_approval_verified": false,
+      "prepared_runtime_executed": false,
+      "fixture_library_validation_exception": false,
+      "checks": {
+        "recovery_manifest_matches_complete_public_package_payload": true,
+        "actual_installer_coordinator_killed_after_protected_intent": true,
+        "actual_development_package_refused_before_owner_setup": true,
+        "native_verified_source_and_installed_image_before_provisioning": true,
+        "same_package_resumes_after_actual_process_interruption": true,
+        "same_package_rechecks_published_image_without_replacing_it": true,
+        "offline_runtime_installed_at_final_path": true,
+        "complete_runtime_image_matches_installed_public_files_and_modes": true,
+        "installed_runtime_loads_dependencies_with_protected_paths": true,
+        "relocated_package_browser_runs_sandboxed_without_credentials": true,
+        "development_package_creates_no_vault_or_registration": true,
+        "development_package_creates_no_service_user": true,
+        "development_package_creates_no_service_group": true,
+        "protected_app_payload_present": true,
+        "shared_system_parent_ownership_and_modes_preserved": true,
+        "temporary_package_payload_removed": true
+      }
+    },
+    "prepared": {
+      "status": "PASSED",
+      "environment": "controlled-demo",
+      "production_ready": false,
+      "private_signins": 0,
+      "actual_installer_used": true,
+      "positive_consumer_install_verified": false,
+      "publisher_signed_package": false,
+      "genuine_owner_approval_verified": false,
+      "prepared_runtime_executed": true,
+      "fixture_library_validation_exception": true,
+      "checks": {
+        "recovery_manifest_matches_complete_public_package_payload": true,
+        "actual_installer_coordinator_killed_after_protected_intent": true,
+        "actual_development_package_refused_before_owner_setup": true,
+        "native_verified_source_and_installed_image_before_provisioning": true,
+        "same_package_resumes_after_actual_process_interruption": true,
+        "same_package_rechecks_published_image_without_replacing_it": true,
+        "offline_runtime_installed_at_final_path": true,
+        "complete_runtime_image_matches_installed_public_files_and_modes": true,
+        "installed_runtime_loads_dependencies_with_protected_paths": true,
+        "prepared_receipt_matches_installed_package_metadata": true,
+        "derived_requirements_match_preparation_receipt": true,
+        "app_pinned_project_and_original_source_lock_preserved": true,
+        "prepared_native_bytes_preserved_at_final_install_paths": true,
+        "prepared_code_is_root_controlled_without_privileged_modes": true,
+        "prepared_signatures_and_bundle_seals_valid_after_install": true,
+        "prepared_native_callbacks_crypto_and_validation_work": true,
+        "relocated_package_browser_runs_sandboxed_without_credentials": true,
+        "development_package_creates_no_vault_or_registration": true,
+        "development_package_creates_no_service_user": true,
+        "development_package_creates_no_service_group": true,
+        "protected_app_payload_present": true,
+        "shared_system_parent_ownership_and_modes_preserved": true,
+        "temporary_package_payload_removed": true
+      }
+    }
+  },
+  "password_source_sync": {
+    "environment": "controlled-demo",
+    "provider": "1Password Connect protocol fixture",
+    "private_deployment_verified": false,
+    "rotation_preserves_unrelated_login_and_presence_gates": true,
+    "original_tasks_resume_after_verified_source_repair": true,
+    "successful_reenrollment_does_not_wait_for_next_source_poll": true,
+    "failed_reenrollment_preserves_old_link_and_gate": true,
+    "owner_changed_credential_detaches_previous_source": true,
+    "owner_unchanged_credential_keeps_source": true,
+    "historical_unbound_source_gate_preserved": true,
+    "inflight_enrollment_serialized_with_owner_edit_and_disconnect": true,
+    "busy_links_do_not_starve_later_accounts": true,
+    "record_scan_limit": 20,
+    "source_attempt_limit_per_tick": 2,
+    "source_outage_cannot_submit_cached_password": true,
+    "chrome_continuous_sync_implemented": false
+  },
+  "genuine_publisher_review": {
+    "component_audit": {
+      "status": "PASSED",
+      "source_revision": "304df4c2e0ff5d52d3080d59eef08e4ddb410068",
+      "component_executables": 5,
+      "developer_id_purpose_verified": true,
+      "secure_timestamps_verified": true,
+      "hardened_runtime_verified": true,
+      "all_architectures_verified": true,
+      "background_signature": {
+        "team": "WBULD6N4NQ",
+        "identifier": "com.fainir.accountaccess.background",
+        "hashes": [
+          "1a4e3ee62277c416fbcccc13396acad637cc25eb",
+          "c7f250e0262c2c887ca4eb1e6fa3b7a555d9873d"
+        ]
+      },
+      "wheel_sha256": "2d1b1a559810da224873ebf8d336400dd110f9b8fbc41b144c7243dcbfb8cd7a",
+      "signed_wheel_matches_current_modules": [
+        "owner.py",
+        "password_sync.py",
+        "system_provision.py",
+        "install_image.py"
+      ],
+      "protected_installation_required": true,
+      "native_sources_unchanged_since": "b2dddbc73103a8a92d4b8204f4b4c2bf213e8bee",
+      "runtime_dependencies_or_browser_verified_this_revision": false,
+      "notarization_verified": false,
+      "installed_or_launched": false,
+      "private_signins": 0,
+      "production_ready": false
+    },
+    "static_peer_checks": {
+      "checks": {
+        "bootstrap:publisher_and_pinned_hash": true,
+        "bootstrap:wrong_hash_denied": true,
+        "bootstrap:wrong_identifier_denied": true,
+        "bootstrap:wrong_team_denied": true,
+        "broker:publisher_and_pinned_hash": true,
+        "broker:wrong_hash_denied": true,
+        "broker:wrong_identifier_denied": true,
+        "broker:wrong_team_denied": true,
+        "installerverify:publisher_and_pinned_hash": true,
+        "installerverify:wrong_hash_denied": true,
+        "installerverify:wrong_identifier_denied": true,
+        "installerverify:wrong_team_denied": true,
+        "owner:publisher_and_pinned_hash": true,
+        "owner:wrong_hash_denied": true,
+        "owner:wrong_identifier_denied": true,
+        "owner:wrong_team_denied": true
+      },
+      "dynamic_xpc_or_owner_approval_executed": false,
+      "private_signins": 0,
+      "production_ready": false,
+      "scope": "ordinary-user static validation of staged public signed code",
+      "status": "PASSED"
+    },
+    "ordinary_user_only": true,
+    "owner_app_installed_or_launched": false,
+    "system_keychain_authdb_or_service_changes_on_owner_mac": false
+  },
+  "owner_state": {
+    "installed_app_replaced": false,
+    "unfinished_mailbox_form": "preserved",
+    "new_private_signin_requests": 0,
+    "installed_client_discovery_only": true,
+    "new_private_provider_validated": false,
+    "gmail_setup": "deferred_by_owner",
+    "github_private_qa": "stopped_by_owner",
+    "namecheap_private_qa": "quarantined"
+  },
+  "limits": [
+    "Native framing/desktop/XPC/worker composition uses a compile-only fixture entrypoint; signed Chrome parent, actual extension and Google Messages DOM are not exercised together.",
+    "SMS, website credentials, mailbox delivery and authenticator secrets in CI are fictional; no new private-account, physical-phone or carrier acceptance is established.",
+    "Private-directory SIGKILL checks concern empty staged directories only, not every positive provisioning step, machine power loss, migration or reboot.",
+    "Publisher review verifies the current app wheel and unchanged native peers; it neither installs the app nor re-executes the full genuine runtime audited at b2dddbc.",
+    "Genuine owner setup, signed/notarized downloaded installation, Developer ID Installer identity, isolated real-agent sessions and independent security review remain release gates.",
+    "Chrome imports are snapshots; exact-item 1Password Connect fixtures do not establish consumer Chrome password sync or a private Connect deployment."
+  ]
+}

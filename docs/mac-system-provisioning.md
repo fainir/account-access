@@ -82,6 +82,13 @@ to check recreation, then exercises pre-enrollment reads and refused setup. Clea
 checks key absence, removes the QA setup rule, temporary jobs, identity and user
 domain. It uses no private accounts or genuine positive owner approval.
 
+The [current 34-check evidence](../artifacts/protected-recovery-080.json) also
+kills actual subprocesses after five empty private-directory staging/publication
+boundaries and retries with the same reserved UID. Both Macs preserve a published
+inode, require the exact UID/GID/0700 mode and remove only empty intermediates.
+This does not establish recovery from every provisioning step or physical power
+loss; existing conflicting public directories still require repair.
+
 Exact results and revision are recorded in [validation](validation.md). A reset
 user bootstrap domain is not a full machine-reboot test. The generated job/profile
 journey is not a downloaded consumer package, bundled-runtime installation or

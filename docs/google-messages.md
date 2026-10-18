@@ -56,6 +56,12 @@ The host uses Chrome's documented framed stdin/stdout protocol, with a smaller
 
 [18 native component checks](../artifacts/mac-browser-bridge-080.json), temporary
 registration tests and a separate private worker/DOM/browser fixture passed.
+An additional [18-check composition](../artifacts/protected-recovery-080.json)
+now joins native framing, the real desktop connection and system XPC with the
+isolated System-key worker. Two disposable Macs complete a fictional fresh
+password/SMS login and saved-session CLI read, reject stale/wrong-window replies,
+and keep code values out of the exact permitted result. This fixture calls the
+framing entrypoint directly; it does not launch Chrome or its extension.
 The complete installed Chrome/native/XPC/worker path, positive parent validation,
 genuine owner approval, physical delivery and consumer installation remain
 unverified. The current parent policy does not include Chrome Beta, Chromium or

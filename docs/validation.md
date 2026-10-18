@@ -1,5 +1,55 @@
 # Validation of Account Access
 
+## Protected recovery and password-source repair — 18 October 2026
+
+Revision `304df4c` passed all eight push/PR workflows. Both full regressions
+passed **1,517 tests with 77 platform skips**, in 609.32 and 606.69 seconds.
+Both focused Mac suites passed **799 tests with one skip**, in 89.65 and
+104.29 seconds. Lint, package builds and dependency audits passed. The focused
+Python runs have no warnings summary; existing native test and upload-action
+deprecation notices remain. [Exact evidence](../artifacts/protected-recovery-080.json).
+
+All **seventeen worker reports match across the two disposable Macs**. The
+original 16-check and prepared 23-check package installations still pass. The
+provisioning report now requires **34 checks**, including actual subprocess
+SIGKILL at five empty-private-directory publication boundaries. Retry preserves
+the published inode, restores the exact private identity and leaves no staging
+container. Existing private contents are never traversed or rewritten. These
+checks do not establish recovery from every positive provisioning step, power
+loss, migration or reboot.
+
+The new **18-check composition** sends native frames through the real desktop
+connection and system XPC into the System-key worker under a separate identity.
+It completes a fictional username/password/SMS login and a second CLI read using
+the saved session. Baseline arming precedes credential submission; wrong source,
+window, stale messages, replay and unapproved setup are refused. Exact CLI reply
+shapes and bounded process cancellation are checked. Its compile-only fixture
+calls the framing entrypoint directly: signed Chrome parentage, the extension,
+Google Messages DOM, genuine approval and physical delivery remain unverified
+together. This is controlled coverage, not a private sign-in.
+
+Password-manager rotation no longer clears unrelated login challenges. Explicit
+owner credential edits detach the old source, delayed enrollment cannot undo a
+later owner action, and bounded background scans rotate past busy accounts.
+Verified source reconnection clears only its repaired prerequisite immediately,
+allowing the original task to resume without another source-poll interval.
+Failed reconnection and independent website/presence gates remain pending.
+These recovery tests use a fictional 1Password Connect endpoint.
+
+A freshly built, genuinely signed review app passes all five executable audits
+and sixteen static peer checks. Its pinned wheel matches the current owner,
+password-sync, provisioner and image modules. Native production sources are
+unchanged from `b2dddbc`; the complete genuine-runtime audit remains tied to that
+earlier revision. No review app was installed or launched on the owner's Mac.
+
+Installed-client discovery exposed no additional ready private provider for this
+QA. GitHub testing remains stopped, Namecheap remains quarantined, and Gmail and
+authenticator enrollment remain deferred or unavailable. No new private sign-in
+was requested; the installed app and unfinished mailbox form were preserved.
+Chrome live password sync, consumer installation/notarization, genuine enrollment,
+physical devices, broader providers and real isolated agent sessions remain open.
+The candidate is **not production ready**.
+
 ## Genuine publisher and runtime checks — 18 October 2026
 
 Revision `b2dddbc` passed all eight push/PR workflows. Both full regressions
