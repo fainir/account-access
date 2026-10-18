@@ -84,6 +84,19 @@ def seed_native_host_fixture(store, settings):
     store.put("credential:browser-sms", {"username": "demo@example.test", "password": DEMO_PASSWORD})
     store.put("source:browser-sms", {"enabled": True})
     Broker(store).grant("fixture-agent", "browser-sms", ["summary"])
+    # The signed-Chrome runtime has its own account/source. Expiring the prior
+    # framing journey's session must not accidentally test its one-minute
+    # password retry throttle instead of Chrome's first SMS login.
+    chrome = account.model_copy(deep=True)
+    chrome.label = "Controlled signed-Chrome SMS fixture"
+    chrome.login.factors["sms"].code_source = "chrome-sms"
+    config = store.config()
+    config.accounts["chrome-sms"] = chrome
+    config.code_sources["chrome-sms"] = config.code_sources["browser-sms"].model_copy(deep=True)
+    store.configure(config)
+    store.put("credential:chrome-sms", {"username": "demo@example.test", "password": DEMO_PASSWORD})
+    store.put("source:chrome-sms", {"enabled": True})
+    Broker(store).grant("fixture-agent", "chrome-sms", ["summary"])
 
 
 def main():

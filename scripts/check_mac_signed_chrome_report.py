@@ -39,6 +39,7 @@ UNVERIFIED = {
 }
 SMS_CHILD_CHECKS = {
     "separate_empty_fixture_profile_used",
+    "fixture_account_and_code_source_are_separate_from_prior_transport_journey",
     "only_messages_host_permission_moved_from_optional_to_required",
     "all_five_packaged_script_html_css_resources_unchanged",
     "same_extension_key_and_id_loaded",
@@ -73,8 +74,10 @@ def sms_journey(value, hashes, *, child):
     if (
         type(value) is not dict or set(value) != SMS_VERIFIED | SMS_UNVERIFIED | {
             "status", "checks", "script_resources_sha256", "synthetic_manifest_sha256",
+            "fixture_account", "fixture_code_source",
         }
         or value.get("status") != "PASSED"
+        or value.get("fixture_account") != "chrome-sms" or value.get("fixture_code_source") != "chrome-sms"
         or type(value.get("checks")) is not dict or set(value["checks"]) != expected_checks
         or not all(item is True for item in value["checks"].values())
         or not all(value.get(key) is True for key in SMS_VERIFIED)

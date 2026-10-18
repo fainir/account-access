@@ -68,7 +68,9 @@ def stop_process(process):
                     pass
 
 
-def completed_cli(raw):
+def completed_cli(raw, account="browser-sms"):
+    if account not in {"browser-sms", "chrome-sms"}:
+        raise RuntimeError("browser_fixture_cli_failed")
     def unique(pairs):
         value = {}
         for key, item in pairs:
@@ -82,7 +84,7 @@ def completed_cli(raw):
     except ValueError:
         raise RuntimeError("browser_fixture_cli_failed") from None
     expected = {
-        "status": "COMPLETED", "account": "browser-sms", "operation": "summary",
+        "status": "COMPLETED", "account": account, "operation": "summary",
         "environment": "controlled-demo", "environment_source": "connector-configuration",
         "data": {"balance": "987.65", "currency": "ILS"}, "untrusted_data": True,
     }
@@ -91,14 +93,31 @@ def completed_cli(raw):
     return value
 
 
+def cli_failure(raw):
+    """Only fixed public prerequisite reasons, never raw CLI output, escape CI."""
+    try:
+        value = json.loads(raw)
+    except (ValueError, TypeError):
+        return "browser_fixture_cli_failed"
+    if (type(value) is not dict or type(value.get("status")) is not str
+            or value["status"] not in {"RETRYABLE", "NEEDS_USER", "DENIED"}):
+        return "browser_fixture_cli_failed"
+    reason = value.get("reason")
+    if type(reason) is str and reason in {"login_retry_cooldown", "google_messages_tab_unavailable", "google_messages_tab_reloaded",
+                  "google_messages_not_connected", "service_unavailable"}:
+        return "browser_fixture_cli_" + reason
+    return "browser_fixture_cli_failed"
+
+
 class ClientReads:
     """Two sequential CLI children supervised by the framing coordinator.
 
     There is no executor/thread whose shutdown could delay cancellation. Output
     is drained while the child runs, bounded and never copied into exceptions.
     """
-    def __init__(self, arguments, environment, deadline):
+    def __init__(self, arguments, environment, deadline, *, account="browser-sms"):
         self.arguments, self.environment, self.deadline = arguments, environment, deadline
+        self.account = account
         self.process = None
         self.output = bytearray()
         self.eof = False
@@ -127,8 +146,8 @@ class ClientReads:
             return False
         self.process.wait(timeout=0)
         if self.process.returncode != 0:
-            raise RuntimeError("browser_fixture_cli_failed")
-        value = completed_cli(self.output)
+            raise RuntimeError(cli_failure(self.output))
+        value = completed_cli(self.output, self.account)
         self.values.append(value)
         stop_process(self.process)
         self.process = None

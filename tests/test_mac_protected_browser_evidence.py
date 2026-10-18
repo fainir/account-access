@@ -71,7 +71,7 @@ def test_native_browser_journey_rejects_unrelated_ci_identity_before_paths(tmp_p
     assert not list(tmp_path.iterdir())
 
 
-def test_system_key_fixture_seeds_distinct_native_and_framed_sms_accounts(tmp_path, monkeypatch):
+def test_system_key_fixture_seeds_distinct_native_framed_and_chrome_sms_accounts(tmp_path, monkeypatch):
     import secrets
 
     from account_access.models import Configuration
@@ -88,11 +88,15 @@ def test_system_key_fixture_seeds_distinct_native_and_framed_sms_accounts(tmp_pa
         "provider_url": "http://127.0.0.1:1234", "client_digest": "a" * 64,
     })
     config = store.config()
-    assert set(config.accounts) == {"native-sms", "browser-sms"}
+    assert set(config.accounts) == {"native-sms", "browser-sms", "chrome-sms"}
     assert config.accounts["native-sms"].login.factor("sms").code_source == "native-sms"
     assert config.accounts["browser-sms"].login.factor("sms").code_source == "browser-sms"
     assert config.code_sources["native-sms"].kind == "mac_messages"
     assert config.code_sources["browser-sms"].kind == "google_messages"
+    assert config.accounts["chrome-sms"].login.factor("sms").code_source == "chrome-sms"
+    assert config.code_sources["chrome-sms"].kind == "google_messages"
+    assert store.get("credential:chrome-sms") == store.get("credential:browser-sms")
+    assert store.get("source:chrome-sms") == {"enabled": True}
     assert config.test_mode is True
 
 
@@ -230,6 +234,12 @@ def test_cli_acceptance_requires_exact_public_result_and_rejects_secret_fields()
 
     value = completed_reply()
     assert completed_cli(json.dumps(value)) == value
+    chrome = {**value, "account": "chrome-sms"}
+    assert completed_cli(json.dumps(chrome), account="chrome-sms") == chrome
+    with pytest.raises(RuntimeError, match="browser_fixture_cli_failed"):
+        completed_cli(json.dumps(value), account="chrome-sms")
+    with pytest.raises(RuntimeError, match="browser_fixture_cli_failed"):
+        completed_cli(json.dumps(chrome))
     for key, secret in [("password", DEMO_PASSWORD), ("session", "fixture-session"), ("code", "123456")]:
         with pytest.raises(RuntimeError, match="browser_fixture_cli_failed"):
             completed_cli(json.dumps({**value, key: secret}))
@@ -237,3 +247,13 @@ def test_cli_acceptance_requires_exact_public_result_and_rejects_secret_fields()
         completed_cli('{"password":"' + DEMO_PASSWORD + '",' + json.dumps(value)[1:])
     with pytest.raises(RuntimeError, match="browser_fixture_cli_failed"):
         completed_cli('{"status":"private-leak",' + json.dumps(value)[1:])
+
+
+def test_cli_failure_diagnostics_allow_only_fixed_public_prerequisites():
+    from scripts.mac_protected_browser_fixture import cli_failure
+
+    assert cli_failure(json.dumps({"status": "RETRYABLE", "reason": "login_retry_cooldown"})) == "browser_fixture_cli_login_retry_cooldown"
+    for value in [None, [], {}, {"status": []}, {"status": "RETRYABLE", "reason": []},
+                  {"status": "RETRYABLE", "reason": "fictional-private-canary"}]:
+        assert cli_failure(json.dumps(value)) == "browser_fixture_cli_failed"
+    assert cli_failure(b"not JSON") == "browser_fixture_cli_failed"

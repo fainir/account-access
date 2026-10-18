@@ -44,10 +44,18 @@ SMS_PROFILE_NAME = "signed-chrome-sms-profile"
 SMS_EXTENSION_NAME = "signed-chrome-sms-extension"
 MESSAGES_ORIGIN = "https://messages.google.com/*"
 MESSAGES_URL = "https://messages.google.com/web/conversations"
+SMS_ACCOUNT = "chrome-sms"
 OUTPUT_LIMIT = 65536
 STAGES = {"guard", "profile", "signature", "negative-parent", "launch", "load", "first-pending", "reload",
           "sms-launch", "sms-load", "sms-dom", "sms-login", "sms-cleanup", "cleanup"}
 CURRENT_STAGE = "guard"
+FAILURES = {
+    "browser_fixture_cli_failed", "browser_fixture_cli_login_retry_cooldown",
+    "browser_fixture_cli_google_messages_tab_unavailable", "browser_fixture_cli_google_messages_tab_reloaded",
+    "browser_fixture_cli_google_messages_not_connected", "browser_fixture_cli_service_unavailable",
+    "browser_fixture_deadline_expired", "signed_chrome_fixture_delivery_invalid",
+    "signed_chrome_sms_journey_failed",
+}
 
 
 def stage(value):
@@ -177,12 +185,14 @@ def run_sms_journey(playwright, prefix, home, original, original_hashes):
     client_type = runpy.run_path(str(helper))["ClientReads"]
     config = prefix / "agent-client/native-host-client.json"
     clients = client_type(
-        [sys.executable, "-I", "-B", "-m", "account_access.cli", "run", "browser-sms", "summary"],
+        [sys.executable, "-I", "-B", "-m", "account_access.cli", "run", SMS_ACCOUNT, "summary"],
         {"PATH": "/usr/bin:/bin", "HOME": str(home), "LANG": "C.UTF-8", "ACCESS_CLIENT_CONFIG": str(config)},
         time.monotonic() + 55,
+        account=SMS_ACCOUNT,
     )
     context = None
     checks = {"separate_empty_fixture_profile_used": True,
+              "fixture_account_and_code_source_are_separate_from_prior_transport_journey": True,
               "only_messages_host_permission_moved_from_optional_to_required": True,
               "all_five_packaged_script_html_css_resources_unchanged": True}
     incoming = bytearray()
@@ -286,6 +296,7 @@ def run_sms_journey(playwright, prefix, home, original, original_hashes):
     if not all(value is True for value in checks.values()):
         raise RuntimeError("signed_chrome_sms_journey_failed")
     return {"status": "PASSED", "checks": checks, "script_resources_sha256": unchanged,
+            "fixture_account": SMS_ACCOUNT, "fixture_code_source": SMS_ACCOUNT,
             "synthetic_manifest_sha256": hashes["manifest.json"],
             "synthetic_manifest_pre_enrollment_used": True,
             "synthetic_google_messages_dom_used": True,
@@ -439,6 +450,10 @@ def failure_diagnostic(value):
     return diagnostic if type(diagnostic) is str and diagnostic in STAGES else None
 
 
+def failure_reason(error):
+    return str(error) if type(error) is RuntimeError and str(error) in FAILURES else "runtime_unavailable"
+
+
 def exercise_signed_chrome_gateway(prefix, roles, fixture=None, client_config=None):
     agent = require_fixture(prefix, roles)
     home = Path(agent.pw_dir)
@@ -533,7 +548,10 @@ def exercise_signed_chrome_gateway(prefix, roles, fixture=None, client_config=No
         if process.returncode != 0 or not validate_child(value):
             diagnostic = failure_diagnostic(value)
             if diagnostic is not None:
-                print(json.dumps({"stage": "signed_chrome_failed_" + diagnostic}), file=sys.stderr, flush=True)
+                detail = value.get("failure")
+                detail = detail if type(detail) is str and detail in FAILURES else "runtime_unavailable"
+                print(json.dumps({"stage": "signed_chrome_failed_" + diagnostic, "failure": detail,
+                                  "fixture_sms_forwarded": delivered == 1}), file=sys.stderr, flush=True)
             raise RuntimeError("signed_chrome_child_failed")
         value["sms_journey"]["checks"]["provider_recorded_one_fresh_password_sms_and_identity_submission"] = (
             delivered == 1 and (fixture.provider.login_count, fixture.provider.sms_count,
@@ -592,8 +610,9 @@ def main(argv=None):
             value = run_child(args.prefix)
         finally:
             signal.signal(signal.SIGTERM, previous)
-    except Exception:
-        print(json.dumps({"status": "FAILED", "reason": "signed_chrome_roundtrip_failed", "stage": CURRENT_STAGE}))
+    except Exception as error:
+        print(json.dumps({"status": "FAILED", "reason": "signed_chrome_roundtrip_failed", "stage": CURRENT_STAGE,
+                          "failure": failure_reason(error)}))
         return 1
     print(json.dumps(value, sort_keys=True))
     return 0

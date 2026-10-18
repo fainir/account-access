@@ -23,6 +23,7 @@ def child_report():
 
 def sms_report(*, child=False):
     return {"status": "PASSED", "checks": dict.fromkeys(SMS_CHILD_CHECKS if child else SMS_CHECKS, True),
+            "fixture_account": "chrome-sms", "fixture_code_source": "chrome-sms",
             "script_resources_sha256": dict.fromkeys(RESOURCES - {"manifest.json"}, "a" * 64),
             "synthetic_manifest_sha256": "b" * 64,
             **dict.fromkeys(SMS_VERIFIED, True), **dict.fromkeys(SMS_UNVERIFIED, False)}
@@ -38,7 +39,7 @@ def report():
 
 def test_real_chrome_evidence_requires_every_native_roundtrip_and_cleanup_check(tmp_path):
     assert len(CHILD_CHECKS) == 13 and len(CHECKS) == 17
-    assert len(SMS_CHILD_CHECKS) == 14 and len(SMS_CHECKS) == 16
+    assert len(SMS_CHILD_CHECKS) == 15 and len(SMS_CHECKS) == 17
     assert validate_child(child_report()) and validate(report())
     for key in CHECKS:
         for replacement in [False, None, 1, "true"]:
@@ -78,6 +79,8 @@ def test_synthetic_manifest_join_cannot_claim_owner_approval_or_production_manif
 def test_sms_join_refuses_changed_script_digests_missing_boundary_and_unknown_fields():
     for change in [
         lambda item: item.update(cookie="fictional"),
+        lambda item: item.update(fixture_account="browser-sms"),
+        lambda item: item.update(fixture_code_source="browser-sms"),
         lambda item: item.update(synthetic_manifest_sha256="a" * 64),
         lambda item: item.update(synthetic_manifest_sha256=True),
         lambda item: item["script_resources_sha256"].update({"reader.js": "b" * 64}),
@@ -272,3 +275,10 @@ def test_child_failure_diagnostics_only_accept_a_fixed_public_stage():
         assert probe.failure_diagnostic({"status": "FAILED", "stage": value}) == value
     for value in [None, [], {}, {"stage": []}, {"stage": "private-canary"}, {"stage": True}]:
         assert probe.failure_diagnostic(value) is None
+
+
+def test_child_failure_reason_never_serializes_exception_or_provider_text():
+    for value in probe.FAILURES:
+        assert probe.failure_reason(RuntimeError(value)) == value
+    for error in [RuntimeError("fictional-private-canary"), ValueError("browser_fixture_cli_login_retry_cooldown")]:
+        assert probe.failure_reason(error) == "runtime_unavailable"
