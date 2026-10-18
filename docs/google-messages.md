@@ -62,23 +62,46 @@ isolated System-key worker. Two disposable Macs complete a fictional fresh
 password/SMS login and saved-session CLI read, reject stale/wrong-window replies,
 and keep code values out of the exact permitted result. This fixture calls the
 framing entrypoint directly; it does not launch Chrome or its extension.
-A separate [17-check stable-Chrome journey](../artifacts/verification-authority-080.json)
-loads the unchanged extension into an empty profile of genuine signed stable
-Chrome. Chrome launches the fixture Mach-O directly; the production parent
-predicate is checked before and after requests. Native pending reads pass through
-the desktop connection and system XPC to the isolated worker. Shared-port reuse,
-unsupported cookie import and extension reload/reconnection are checked without
-granting any website or cookie permission. The profile and fixture services/key
-are removed afterward.
+The current [connected-setup evidence](../artifacts/connected-setup-080.json)
+adds two distinct checks with genuine signed stable Chrome. The original
+17-check native transport journey retains the production extension manifest:
+optional site/cookie permissions remain absent, and no external site is opened.
+It verifies native framing, production Chrome parent checks, XPC pending reads,
+port reuse and reload/reconnection under a compile-only fixture entrypoint.
 
-This proves the signed-parent and native transport path. It uses a compile-only
-fixture policy instead of the installed app's production profile entrypoint, and
-does not join Chrome's DOM reader to the separate password/SMS journey above.
-Genuine owner approval, complete installed setup, physical delivery and consumer
-installation remain unverified. The parent policy does not include Chrome Beta,
-Chromium or Chrome for Testing. Web Store distribution remains required for the
-final simple consumer setup; loading an unpacked folder is still a developer-preview
-step.
+A separate nested 17-check composition joins the actual DOM reader, normal
+extension polling, native framing, desktop connection and system XPC to the
+isolated worker. Two CLI reads complete a fictional password/SMS login and saved
+session reuse. Existing messages establish the baseline before the password is
+submitted; only a new matching synthetic message supplies its code. All five
+extension script/UI files remain unchanged. Its same-key test manifest moves
+only the Messages origin from optional to required, representing synthetic
+pre-enrollment without automating a consumer permission prompt. A separate
+fictional account preserves the real retry cooldown. The login deadline starts
+after browser setup, while an outer bound still limits the whole operation.
+
+Both exact-source disposable Mac workflows pass these reports, including the
+17 transport and 17 nested composition checks, with matching canonical hashes.
+The separate native source-handoff/Installer sandbox verifies the canonical
+owner app and fixed Applications alias while preserving shared-parent modes.
+
+A separate [genuine publisher transport
+review](https://github.com/fainir/account-access/actions/runs/39118694398) passes **28
+checks** at QA controller `84452a4`, with unchanged application source `57e7702`. Signed
+stable Chrome loads the unchanged production extension and launches the production
+native host, which reaches the publisher-pinned desktop/XPC service and returns the
+exact pre-enrollment denial twice. A fresh browser profile receives an exact copy of the
+production-created host registration so Chrome can discover it in the selected data
+directory. The runner identity is preserved; the temporary profile, exact registrations,
+children, service, policy and public image are removed. No owner approval, vault
+enrollment or website sign-in occurs.
+
+These tests must not be combined into a claim of one genuine authenticated
+private-account journey. Genuine owner approval, private Google Messages
+delivery, complete consumer installation and physical phones remain unverified.
+The parent policy does not include Chrome Beta, Chromium or Chrome for Testing.
+Web Store distribution remains required for final simple consumer setup;
+loading an unpacked folder is still a developer-preview step.
 
 The installed app/resources are protected from ordinary owner-user writes by
 the isolated package. Chrome's per-user registration and the browser itself

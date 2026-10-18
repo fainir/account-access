@@ -9,9 +9,19 @@ path overrides and requires root on macOS. The published preview does not use it
 ## Payload and identity
 
 Production locations are fixed under `/Library/Application Support/Account Access`.
-The owner app is `/Applications/Account Access.app`. The payload must already
-contain the managed Python runtime, browsers, signed broker and signed permanent
-identity-drop bootstrap. Static signature checks require matching publisher teams,
+The authoritative owner app is
+`/Library/Application Support/Account Access/owner.app`. The ordinary
+`/Applications/Account Access.app` entry is the exact root-owned relative alias
+`../Library/Application Support/Account Access/owner.app`, used for navigation.
+Programmatic launches, protected resources and signature checks bind the
+canonical bundle and running executable; they do not trust the shared
+Applications directory as code authority. The installer preserves that shared
+directory's existing ownership and mode. Its image permits only this specific
+root alias, verifies and copies the protected support tree first, and preserves
+unknown or substituted public entries on failure.
+
+The payload must already contain the managed Python runtime, browsers, signed
+broker and signed permanent identity-drop bootstrap. Static signature checks require matching publisher teams,
 exact identifiers and no debug task-allow entitlement. Code-directory hashes bind
 the policies and desktop profile to the verified binaries.
 
@@ -89,7 +99,7 @@ to check recreation, then exercises pre-enrollment reads and refused setup. Clea
 checks key absence, removes the QA setup rule, temporary jobs, identity and user
 domain. It uses no private accounts or genuine positive owner approval.
 
-The [current 37-check evidence](../artifacts/verification-authority-080.json) also
+The [current 37-check evidence](../artifacts/connected-setup-080.json) also
 kills actual subprocesses after five empty private-directory staging/publication
 boundaries and retries with the same reserved UID. Both Macs preserve a published
 inode, require the exact UID/GID/0700 mode and remove only empty intermediates.
@@ -102,9 +112,10 @@ loss; existing conflicting public directories still require repair.
 Exact results and revision are recorded in [validation](validation.md). A reset
 user bootstrap domain is not a full machine-reboot test. The generated job/profile
 journey is not a downloaded consumer package, bundled-runtime installation or
-notarization test. Package assembly, trusted runtime provisioning, interrupted
-package recovery, migration/update continuity, genuine owner approval and private
-email/SMS/authenticator/physical-device acceptance remain release gates. All root
+notarization test. Current controlled package assembly, runtime provisioning and
+same-image interrupted recovery pass. Signed consumer installation, interrupted
+positive provisioning, migration/update continuity, genuine owner approval and
+private email/SMS/authenticator/physical-device acceptance remain release gates. All root
 installation experiments run only in disposable CI; the installed owner app and
 its unfinished mailbox form remain untouched.
 

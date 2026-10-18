@@ -1,5 +1,59 @@
 # Validation of Account Access
 
+## Connected setup and protected app layout — 18 October 2026
+
+Application revision `57e7702` passed both Main regressions: **1,797 tests,
+92 platform skips and zero warnings**, in **677.48 seconds** for push and
+**603.99 seconds** for PR. Ruff, locked dependency exports, Chromium sandbox
+checks, dependency auditing and wheel/sdist builds passed. Both native report
+sets passed **67 gateway, 38 desktop, 18 framing and 23 Gmail callback checks**.
+Both Linux isolation reports passed **24 checks**; both Android emulator reports
+passed **6 checks**. These push/PR report pairs match canonically.
+[Candidate source and evidence](../artifacts/connected-setup-080.json).
+
+Both focused Mac suites passed **1,018 cases with one platform skip** and no
+warnings summary, in **143.21 and 158.55 seconds**. Each Mac produced eighteen
+reports; sixteen strict validators and both original **16-check** and prepared
+**23-check** package contracts pass, with matching canonical report hashes.
+The actual Installer sandbox and eight native source-handoff checks also pass;
+the canonical app and exact public alias verify without changing shared-parent
+permissions. All eight application workflows passed at this revision.
+
+A separate [genuine publisher transport
+review](https://github.com/fainir/account-access/actions/runs/39118694398) passes **28
+checks** at QA controller `84452a4`, with unchanged application source `57e7702`. Signed
+stable Chrome loads the unchanged production extension and launches the production
+native host, which reaches the publisher-pinned desktop/XPC service and returns the
+exact pre-enrollment denial twice. A fresh browser profile receives an exact copy of the
+production-created host registration so Chrome can discover it in the selected data
+directory. The runner identity is preserved; the temporary profile, exact registrations,
+children, service, policy and public image are removed. No owner approval, vault
+enrollment or website sign-in occurs.
+
+The canonical owner app now lives at
+`/Library/Application Support/Account Access/owner.app`. The public
+`/Applications/Account Access.app` entry is one fixed relative symlink, used only
+as a launcher. Execution, resources and code identity bind to the protected
+bundle. The complete canonical app is inventoried before exclusive public
+publication; recovery checks the staged/published alias inode and refuses
+substituted names. The standard shared `/Applications` permissions are preserved.
+
+The candidate adds a signed-desktop Gmail browser/PKCE handoff, complete
+Google Authenticator transfer batches with local selection of one account, and
+exact-item password updates through the official 1Password service-account SDK.
+Contract and browser fixtures cover callback cancellation/expiry, incomplete or
+mixed QR batches, source replacement and bounded SDK failure. These are setup
+and protocol checks; consumer Google consent, private manager access and actual
+factor delivery remain unverified. Chrome CSV imports remain snapshots;
+continuous Chrome password sync is unimplemented.
+
+New private sign-ins: **zero**. The installed owner app and unfinished mailbox
+form were preserved. Genuine owner approval, private password/email/SMS/TOTP
+logins, physical phones, broader providers, real isolated Codex/Claude sessions,
+signed/notarized consumer installation and clean downloaded-install QA remain
+release gates. Consumer deployment and production readiness are **false**.
+The sections below retain their historical source revisions and evidence.
+
 ## Verification authority and signed Chrome — 18 October 2026
 
 Application revision `585412e` passed all eight push/PR workflows. Both full

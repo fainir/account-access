@@ -1,5 +1,56 @@
 # Genuine publisher checks — 18 October 2026
 
+## Current connected-setup candidate
+
+Application source `57e7702` has fresh genuinely signed universal owner,
+background, broker, bootstrap and native Installer components. All five
+executables pass Developer ID purpose, secure-timestamp, hardened-runtime and
+architecture checks. Sixteen static peer checks pass. The pinned wheel matches
+all 57 Python modules, extension resources, installer resources and locked
+runtime dependencies from that same source.
+
+The current runtime includes the official pinned `onepassword-sdk==0.4.1`.
+An ordinary-user private build signed 25 native files with permissions bound to
+four executable hashes; only three reviewed runtime executables receive JIT.
+Library validation remains enabled and unsigned executable memory is refused.
+The complete audit includes 49 native files, eleven executables, one bundle and
+34 wheels. Those counts include both original and assembled runtime inputs;
+they are not counts for the smaller transport archive.
+
+Prepared callbacks, crypto, SSL/SQLite, validation, TOTP and the SDK's native
+constructor and isolated child pass. The SDK child uses an invalid synthetic
+token and performs no private account request. A sandboxed headless browser
+renders a synthetic page using a mock keychain and basic ephemeral password
+store. This build contains only pinned headless shell 153.0.8010.12 and FFmpeg,
+not the full-browser input used by the separate package CI. Original Python,
+all 33 dependency wheels and the dependency lock remain unchanged.
+
+A genuine clean-Mac probe exposed a deployment bug: the default group-writable
+Applications directory cannot be an ancestor of protected executable code.
+The canonical owner app and resources now live inside the protected support
+tree; Applications contains only a fixed relative navigation alias. Generic
+protected-path checks remain strict, and global Applications permissions are
+preserved. Python image verification, native Installer verification and
+production desktop/browser entrypoints agree on this layout.
+
+A separate [genuine publisher transport
+review](https://github.com/fainir/account-access/actions/runs/39118694398) passes **28
+checks** at QA controller `84452a4`, with unchanged application source `57e7702`. Signed
+stable Chrome loads the unchanged production extension and launches the production
+native host, which reaches the publisher-pinned desktop/XPC service and returns the
+exact pre-enrollment denial twice. A fresh browser profile receives an exact copy of the
+production-created host registration so Chrome can discover it in the selected data
+directory. The runner identity is preserved; the temporary profile, exact registrations,
+children, service, policy and public image are removed. No owner approval, vault
+enrollment or website sign-in occurs.
+
+No review app was installed or launched on the owner's Mac. The unfinished
+mailbox form was preserved. Private sign-ins, genuine positive owner approval,
+physical delivery, consumer installation and notarization are still unverified.
+[Current exact evidence](../artifacts/connected-setup-080.json).
+
+## Earlier full-browser runtime at `b2dddbc`
+
 Application revision `b2dddbc` passed all eight push/PR workflows. The two full
 regressions passed 1,445 tests with 75 platform skips, in 526.13 and 593.23
 seconds. Both disposable Macs passed the original 16-check and prepared 23-check
@@ -54,7 +105,7 @@ entries. Each supplies the local public code `path`, validated `team`,
 invocation. It reads signed code and emits boolean results; it does not launch
 the components or request setup authorization.
 
-## Genuine runtime compatibility
+## Earlier full-browser runtime compatibility at `b2dddbc`
 
 A separate ordinary-user build copied the public inputs into the builder's
 guarded private temporary directory. The existing signing code prepared 41
@@ -85,8 +136,9 @@ launched, and no System Keychain, AuthDB policy or service identity was changed.
 ## Remaining production gates
 
 These checks establish genuine signatures and ordinary-user runtime
-compatibility. A publisher-signed installed deployment, genuine owner setup and
-the complete protected Chrome/native/XPC/worker journey remain unverified.
+compatibility. The separate hosted review also proves genuine production native/desktop/XPC transport before enrollment, using the existing disposable runner and a fresh browser profile. It does not prove consumer package installation or owner approval.
+Genuine owner setup and a complete authenticated protected-worker website
+journey remain unverified.
 The local signing identities include no Developer ID Installer identity, and
 live Apple notarization/stapling is still pending. Private factor delivery,
 physical phones, installed isolated agent sessions, interrupted positive

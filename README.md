@@ -104,10 +104,13 @@ some Google accounts cannot create app passwords. Email support depends on a
 configured Gmail API or TLS IMAP connection; arbitrary webmail is not supported.
 
 Google Authenticator setup uses the website's secret key; it does not read codes
-from your phone screen. The 0.8 candidate can also import a supported complete
-Google Authenticator transfer QR image after local account review. Phone export
-authorization is an owner step. Multi-QR transfers, push approvals and
-nonstandard TOTP settings are not supported.
+from your phone screen. The 0.8 candidate also accepts a complete Google
+Authenticator transfer batch: select all QR images from the same export
+together, then review the matching account locally. Up to 16 parts and 100
+supported TOTP entries are accepted; only your selected account is enrolled.
+Missing, duplicate or mixed parts are refused. Phone export authorization is an
+owner step. Push approvals, nonstandard TOTP settings and Authenticator cloud
+sync are not supported.
 
 Codes are consumed only during an active matching login. Stale or ambiguous
 messages stop recovery. Passwords, cookies and codes are not returned through
@@ -183,7 +186,8 @@ private authentication or physical phone delivery.
 
 - [Validation and production gates](docs/production-gates.md)
 - [Detailed test evidence](docs/validation.md) and [machine-readable reports](artifacts/)
-- [Current verification-authority and signed-Chrome results](artifacts/verification-authority-080.json)
+- [Current connected setup and canonical installation results](artifacts/connected-setup-080.json)
+- [Earlier verification-authority and signed-Chrome results](artifacts/verification-authority-080.json)
 - [Resumable installer verification results](artifacts/resumable-installer-080.json)
 - [Genuine publisher and runtime checks](docs/publisher-runtime-checks.md)
 - [Preview validation history](docs/preview-validation-history.md)
