@@ -258,7 +258,19 @@ def prepared_checks(base, app, metadata):
         assert components and all(part not in {"", ".", ".."} for part in components)
         if components[0] == "wheels":
             assert len(components) >= 3 and components[1].endswith(".whl")
-            target = base / "runtime/lib/python3.12/site-packages" / "/".join(components[2:])
+            relative = components[2:]
+            if relative[0].endswith(".data"):
+                from packaging.utils import parse_wheel_filename
+
+                parse_wheel_filename(components[1])
+                wheel_parts = components[1].split("-")
+                assert len(relative) >= 3 and relative[0] == "-".join(wheel_parts[:2]) + ".data"
+                # Wheel library schemes are relocated by the static installer.
+                # Other native .data schemes need their own reviewed check.
+                if relative[1] not in {"platlib", "purelib"}:
+                    raise ValueError("prepared_wheel_data_scheme_refused")
+                relative = relative[2:]
+            target = base / "runtime/lib/python3.12/site-packages" / "/".join(relative)
         else:
             assert components[0] in {"python", "browsers"}
             target = base / value

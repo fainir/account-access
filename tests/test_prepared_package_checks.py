@@ -147,6 +147,41 @@ def test_installed_native_bytes_signatures_seals_and_both_locks_are_checked(inst
     assert sum(any(arg.startswith("-R=") for arg in call) for call in calls) == 3
 
 
+@pytest.mark.parametrize("scheme", ["platlib", "purelib"])
+def test_prepared_wheel_data_libraries_use_the_actual_installed_scheme(installed, scheme):
+    base, app, metadata, calls, protected = installed
+    target = base / "runtime/lib/python3.12/site-packages/onepassword/lib/native.dylib"
+    target.parent.mkdir(parents=True)
+    target.write_bytes(b"public SDK library fixture")
+    receipt = metadata["runtime_preparation"]
+    receipt["native_files"].append({
+        "path": "wheels/onepassword_sdk-0.4.1-cp312-cp312-macosx_11_0_arm64.whl/"
+                + "onepassword_sdk-0.4.1.data/" + scheme + "/onepassword/lib/native.dylib",
+        "kind": 6, "original_sha256": "0" * 64, "prepared_sha256": smoke.sha256(target),
+    })
+    receipt["native_files_signed"] += 1
+    (base / "runtime-preparation.json").write_text(json.dumps(receipt))
+    assert all(smoke.prepared_checks(base, app, metadata).values())
+    assert target in protected and any(str(target) in call for call in calls)
+
+
+@pytest.mark.parametrize("data,scheme", [
+    ("other-0.4.1.data", "platlib"), ("onepassword_sdk-0.4.1.data", "scripts"),
+    ("onepassword_sdk-0.4.1.data", "data"),
+])
+def test_prepared_wheel_data_cannot_select_an_unbound_distribution_or_native_scheme(installed, data, scheme):
+    base, app, metadata, calls, _ = installed
+    receipt = metadata["runtime_preparation"]
+    receipt["native_files"][0]["path"] = (
+        "wheels/onepassword_sdk-0.4.1-cp312-cp312-macosx_11_0_arm64.whl/"
+        + data + "/" + scheme + "/onepassword/lib/native.dylib"
+    )
+    (base / "runtime-preparation.json").write_text(json.dumps(receipt))
+    with pytest.raises((AssertionError, ValueError)):
+        smoke.prepared_checks(base, app, metadata)
+    assert not calls
+
+
 @pytest.mark.parametrize(
     "metadata",
     [
