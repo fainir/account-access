@@ -7,6 +7,19 @@ or physical-device coverage.
 
 ## Candidate 0.8 changes
 
+- Application revision `585412e` passes all eight workflows: two **1,605-test**
+  regressions with 79 platform skips and two **889-case** focused Mac suites
+  with one skip. All eighteen worker reports match. A new 17-check journey uses
+  genuine signed stable Chrome and the unchanged extension for native
+  framing/desktop/XPC/isolated-worker pending reads, native-port reuse and reload
+  reconnection. Its fixture entrypoint does not join Google Messages DOM or
+  password/SMS login to this path. Provisioning passes 37 checks, including seven
+  actual subprocess kill boundaries. Enrollment revisions and live mailbox
+  authorization checks reject revoked/replaced sources and stale in-flight
+  phone requests without another routine approval. A fresh signed review app
+  pins all 55 current Python modules and passes five executable audits and
+  sixteen static peer checks. No owner app was installed or new private sign-in
+  requested. [Exact current evidence](../artifacts/verification-authority-080.json).
 - Revision `304df4c` passes all eight workflows, two 1,517-test regressions with
   77 platform skips and two 799-case focused Mac suites with one skip. All
   seventeen worker reports match. A new 18-check native framing/desktop/XPC/worker
@@ -19,7 +32,7 @@ or physical-device coverage.
   another polling interval. A fresh signed review app pins the changed code and
   passes five executable audits and sixteen static peer checks. No owner app
   was installed or new private sign-in requested.
-  [Exact current evidence](../artifacts/protected-recovery-080.json).
+  [Evidence for that revision](../artifacts/protected-recovery-080.json).
 - Genuine Developer ID staging exposed a production signature-check argument
   defect: a bare `codesign -R` requirement was interpreted as a filename. The
   corrected `-R=` invocation preserves the rule and has an actual native parser
@@ -237,7 +250,7 @@ or physical-device coverage.
 | Requirement | Verified evidence | Remaining gate |
 | --- | --- | --- |
 | Simple Mac installation | Signed universal app, local update/repair flow, checksum-tamper rejection; resumable maintainer notary helper with real local preflight and protocol failure tests | Developer ID Installer identity for the protected package, valid Notary credentials, live Apple acceptance/stapling and a clean downloaded-install test on a separate Mac |
-| Dedicated Mac service provisioning | [34 checks in two disposable Macs](../artifacts/protected-recovery-080.json): non-login identity, private empty state, five empty-private-directory SIGKILL/retry boundaries, idempotent policy publication, persistent job registration, cold user-domain recreation and native pre-enrollment denials | Signed consumer deployment, migration, machine reboot, genuine positive owner approval and complete interrupted positive provisioning |
+| Dedicated Mac service provisioning | [37 checks in two disposable Macs](../artifacts/verification-authority-080.json): non-login identity, private empty state, five private-directory and two immediate public-directory SIGKILL/retry boundaries, exact modes under a restrictive inherited mask, idempotent policy publication, persistent job registration, cold user-domain recreation and native pre-enrollment denials | Signed consumer deployment, migration, machine reboot, genuine positive owner approval and complete interrupted positive provisioning |
 | Offline protected Mac package | [23 prepared-install checks in two disposable Macs](../artifacts/resumable-installer-080.json): actual Installer source verification before privileged Python, process interruption and same-package recovery, preserved published identities, installed native recheck, complete runtime files/modes/aliases, signatures/runtime flags, receipts/locks, callbacks/crypto, sandboxed browser and refusal before unsigned credential setup; original 16-check package regression passes. [Genuine ordinary-user runtime compatibility](publisher-runtime-checks.md) also passes with library validation enabled | Apple silicon only; publisher-signed installed compatibility, signed/notarized positive installation, first successful owner setup, interrupted positive provisioning, power loss/reboot, different-image updates/migration and clean downloaded-install QA; development archives are not consumer downloads |
 | System-service entrypoint | Universal service/bootstrap build and signature/ordinary-user guard checks; the actual entrypoint's separate-process native owner connection passed [18 pre-enrollment checks](../artifacts/mac-desktop-connection-080.json) | Native desktop/profile integration and unsigned negative package provisioning have controlled coverage; publisher-signed positive installed deployment and genuine approval through the screens remain |
 | First isolated vault setup | Initializer/key verification/publication passed [28 checks](../artifacts/mac-staged-enrollment-080.json); native setup-session authority → fresh System key → published store → worker passed [40 first-vault/client checks](../artifacts/mac-agent-setup-080.json), including initialized-vault Pause/Resume and missing-key repair | Positive setup authority is synthetic; genuine owner approval, positive separate-process native enrollment, full crash/power-loss recovery, complete isolated source/collector setup, consumer client provisioning/repair and installed migration |
@@ -249,7 +262,7 @@ or physical-device coverage.
 | iPhone SMS | Narrow signed Messages helper, message-selection fixtures and owner-granted Mac privacy permission | Real forwarded SMS delivery and completed private sign-in QA; the latest bounded attempt detected no new incoming text |
 | Isolated Mac SMS collector | [13 native checks](../artifacts/mac-native-messages-080.json), [10 composed checks](../artifacts/mac-native-browser-080.json) and [18 current system-host recovery checks in two Macs](../artifacts/protected-recovery-080.json): actual production host, System key, CLI, isolated worker and native reader complete two fresh password/SMS logins with session reuse and automatic durable cooldown recovery after a cold restart; restricted results and store/collector denials remain enforced | CI entrypoint and synthetic enrollment/messages/website; real agent sessions, genuine owner approval/Full Disk Access, physical delivery and installed consumer QA remain |
 | Android SMS | [Two matching emulator journeys](../artifacts/prepared-runtime-install-080.json): exact notification → certificate-pinned HTTPS relay → browser verification, including encrypted pairing and one accepted code per run | Physical Android pairing, notification delivery and reconnect QA |
-| Google Messages Web | Legacy owner-approved extension installed; exact origin, fresh-message baseline and synthetic password/SMS browser recovery. Protected bridge passed [18 native component checks](../artifacts/mac-browser-bridge-080.json), fixed-resource registration and a private-Unix/DOM/browser fixture; a new [18-check native framing/desktop/XPC/worker composition](../artifacts/protected-recovery-080.json) completes password/SMS login and session reuse | Complete protected Chrome/native/XPC/worker journey including extension/DOM, positive signed-Chrome parent check, genuine approval and installed setup, private delivery, broader language coverage and Web Store distribution |
+| Google Messages Web | Legacy owner-approved extension installed; exact origin, fresh-message baseline and synthetic password/SMS browser recovery. Protected bridge passed [18 native component checks](../artifacts/mac-browser-bridge-080.json), fixed-resource registration and a private-Unix/DOM/browser fixture. A separate [18-check framing/desktop/XPC/worker composition](../artifacts/protected-recovery-080.json) completes password/SMS login and session reuse. A new [17-check genuine stable-Chrome journey](../artifacts/verification-authority-080.json) verifies the production signed-parent predicate, unchanged extension, native pending reads through desktop/XPC, shared-port reuse and reload reconnection | Installed production profile entrypoint and complete protected Chrome/DOM/password/SMS journey, genuine approval and installed setup, private delivery, broader language coverage and Web Store distribution |
 | Authenticator app | Setup-key and transfer-import browser recovery tests | Owner-approved real authenticator export and provider login QA |
 | Passkey/security key | Real private browser sign-in identified a WebAuthn route | A reviewed browser route to an available email/SMS/authenticator method, or genuine owner presence when the provider requires it |
 | Existing browser sign-in | One private GitHub Chrome session verified locally; original task resumed; fresh Claude Code and Codex reads completed without authentication input. Wrong-user, expiry, cancellation, native framing and temporary-permission contracts tested | Chrome permission display remains unconfirmed; further GitHub QA was stopped at the owner's request. Private session expiry/recovery coverage and extension marketplace distribution remain open; session reuse does not validate fresh SMS delivery |

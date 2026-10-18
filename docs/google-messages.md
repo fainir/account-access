@@ -62,11 +62,23 @@ isolated System-key worker. Two disposable Macs complete a fictional fresh
 password/SMS login and saved-session CLI read, reject stale/wrong-window replies,
 and keep code values out of the exact permitted result. This fixture calls the
 framing entrypoint directly; it does not launch Chrome or its extension.
-The complete installed Chrome/native/XPC/worker path, positive parent validation,
-genuine owner approval, physical delivery and consumer installation remain
-unverified. The current parent policy does not include Chrome Beta, Chromium or
-Chrome for Testing. Web Store distribution remains required for the final simple
-consumer setup; loading an unpacked folder is still a developer-preview step.
+A separate [17-check stable-Chrome journey](../artifacts/verification-authority-080.json)
+loads the unchanged extension into an empty profile of genuine signed stable
+Chrome. Chrome launches the fixture Mach-O directly; the production parent
+predicate is checked before and after requests. Native pending reads pass through
+the desktop connection and system XPC to the isolated worker. Shared-port reuse,
+unsupported cookie import and extension reload/reconnection are checked without
+granting any website or cookie permission. The profile and fixture services/key
+are removed afterward.
+
+This proves the signed-parent and native transport path. It uses a compile-only
+fixture policy instead of the installed app's production profile entrypoint, and
+does not join Chrome's DOM reader to the separate password/SMS journey above.
+Genuine owner approval, complete installed setup, physical delivery and consumer
+installation remain unverified. The parent policy does not include Chrome Beta,
+Chromium or Chrome for Testing. Web Store distribution remains required for the
+final simple consumer setup; loading an unpacked folder is still a developer-preview
+step.
 
 The installed app/resources are protected from ordinary owner-user writes by
 the isolated package. Chrome's per-user registration and the browser itself

@@ -89,10 +89,13 @@ to check recreation, then exercises pre-enrollment reads and refused setup. Clea
 checks key absence, removes the QA setup rule, temporary jobs, identity and user
 domain. It uses no private accounts or genuine positive owner approval.
 
-The [current 34-check evidence](../artifacts/protected-recovery-080.json) also
+The [current 37-check evidence](../artifacts/verification-authority-080.json) also
 kills actual subprocesses after five empty private-directory staging/publication
 boundaries and retries with the same reserved UID. Both Macs preserve a published
 inode, require the exact UID/GID/0700 mode and remove only empty intermediates.
+Two further kills occur immediately after public directory creation, before
+validation or mask restoration, under an inherited 0777 mask. Retries preserve
+the published inode and exact requested 0755/0700 mode.
 This does not establish recovery from every provisioning step or physical power
 loss; existing conflicting public directories still require repair.
 

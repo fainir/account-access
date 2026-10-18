@@ -1,5 +1,65 @@
 # Validation of Account Access
 
+## Verification authority and signed Chrome — 18 October 2026
+
+Application revision `585412e` passed all eight push/PR workflows. Both full
+regressions passed **1,605 tests with 79 platform skips**, in 633.43 and 630.24
+seconds. Both focused Mac suites passed **889 tests with one skip**, in 115.63
+and 148.93 seconds. Lint, dependency auditing and package builds passed. These
+Python runs have no warnings summary; existing native-test and upload-action
+deprecation notices remain. [Exact source and evidence](../artifacts/verification-authority-080.json).
+
+All **eighteen worker reports match across the two disposable Macs**. A new
+**17-check journey uses genuine signed stable Chrome 152.0.7977.83** and the
+unchanged packaged extension. Chrome directly launches the pinned fixture
+native host; the production Chrome parent predicate is checked before and after
+requests. Pending reads reach the enrolled isolated worker through native
+framing, the desktop connection and system XPC. Native-port reuse, unsupported
+cookie-import denial and extension reload/reconnection pass. No website or
+cookie permission is granted, and no external website is opened. The temporary
+profile, setup policy, jobs and fixture key are removed afterward.
+
+This verifies the signed-parent and native transport path. Its compile-only
+fixture entrypoint does not verify the installed app's production profile
+entrypoint, Google Messages DOM, a Chrome password/SMS login, genuine owner
+approval or consumer deployment. The separate protected password/SMS composition
+remains controlled coverage; these reports must not be combined into a claim of
+one completed private browser journey.
+
+The **37-check provisioning report** now includes two actual subprocess kills
+immediately after public-directory creation, before validation or mask
+restoration, under an inherited `0777` mask. Retry preserves the published inode
+and exact requested `0755` or `0700` mode. Five private-directory staging and
+publication kill boundaries still pass. Conflicting existing directories are
+preserved and refused. Original **16-check** and prepared **23-check** actual
+Installer journeys also pass; genuine positive consumer setup remains open.
+
+Verification windows now bind to an internal enrollment revision and current
+mailbox authorization. Revoking or replacing a source, including re-enrolling
+identical values, invalidates old windows and in-flight phone pairing/sender
+matches. Source changes and window publication are serialized; pairing/source
+replacement is atomic. OAuth lock waits reload live authority, and a canceled
+Gmail read stops before mailbox requests. Normal token refresh, legacy mailbox
+profiles and health rechecks preserve compatible active windows. No extra
+routine approval was introduced. The final local source and code-resolver suites
+pass **33** and **41** cases; the full CI above includes the final source changes.
+
+A fresh genuinely signed review app passes five executable audits and sixteen
+static peer checks. Its pinned wheel matches all 55 current Python modules;
+extension and installer resources match the same source. Production native
+sources are unchanged from `b2dddbc`; the complete genuine-runtime audit remains
+tied to that earlier revision. This review app was neither installed nor
+launched on the owner's Mac.
+
+Installed-client discovery exposed no additional eligible private provider.
+GitHub testing remains stopped, Namecheap remains quarantined, and Gmail and
+authenticator enrollment remain deferred or unavailable. The installed app and
+unfinished mailbox form were preserved. New private sign-ins in this validation:
+**zero**. Chrome live password sync is unimplemented; CSV imports are snapshots.
+Signed/notarized consumer installation, genuine enrollment, private email/SMS/TOTP
+delivery, physical phones, broader providers and real isolated agent sessions
+remain release gates. The candidate is **not production ready**.
+
 ## Protected recovery and password-source repair — 18 October 2026
 
 Revision `304df4c` passed all eight push/PR workflows. Both full regressions
