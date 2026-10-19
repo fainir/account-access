@@ -558,6 +558,52 @@ def provisioned_system_broker(prefix, roles):
         while time.monotonic() < deadline and not ready.exists():
             time.sleep(0.1)
         snapshot = json.loads(ready.read_bytes())
+        # Exercise the provisioner's real launchd repair path with this same
+        # prepared fixture. The fixed consumer coordinator calls this path on
+        # completed-image retries; its dispatch is tested separately. This is
+        # not a downloaded consumer-package or genuine owner-enrollment test.
+        stage("provision_restore_removed_registration")
+        policy_paths = [
+            layout.base / "broker" / name
+            for name in [
+                "install.json", "worker.json", "stage.json", "worker-launch.json",
+                "stage-launch.json", "enrollment.json", "host.json", "service.plist",
+            ]
+        ] + [layout.base / "owner.json", persisted]
+
+        def public_identity(path):
+            info = path.stat()
+            return info.st_dev, info.st_ino, info.st_uid, info.st_gid, info.st_mode
+
+        policy_snapshot = {
+            path: (public_identity(path), path.read_bytes()) for path in policy_paths
+        }
+        private_paths = [layout.base / "home", layout.base / "vault/data", staged]
+        private_snapshot = {path: public_identity(path) for path in private_paths}
+        command(["/bin/launchctl", "bootout", target])
+        booted = False
+        assert subprocess.run(["/bin/launchctl", "print", target], capture_output=True).returncode != 0
+        ready.unlink()
+        repaired = activate(layout, roles["agent"].pw_uid)
+        booted = True
+        command(["/bin/launchctl", "print", target])
+        deadline = time.monotonic() + 60
+        while time.monotonic() < deadline and not ready.exists():
+            time.sleep(0.1)
+        restored = json.loads(ready.read_bytes())
+        checks["same_prepared_installation_restores_removed_service_registration"] = (
+            repaired == registered and restored["status"] == "READY"
+            and restored["uid"] == 0 and restored["pid"] != snapshot["pid"]
+            and restored["enrollment_state"] == "needs_owner"
+            and restored["fixture_key_absent"] is True and restored["worker_pid"] == 0
+        )
+        checks["registration_repair_preserves_policies_identity_and_empty_vault"] = (
+            pwd.getpwnam(layout.broker_name) == broker
+            and all((public_identity(path), path.read_bytes()) == value
+                    for path, value in policy_snapshot.items())
+            and all(public_identity(path) == value for path, value in private_snapshot.items())
+            and not any((layout.base / "vault/data").iterdir()) and not any(staged.iterdir())
+        )
         # Test the actual daemon's cold-domain repair, without re-running the
         # provisioner (which also prepares that domain). No vault exists yet.
         stage("provision_cold_service_restart")

@@ -24,7 +24,7 @@ def report():
 
 
 def test_every_provisioning_boundary_is_required(tmp_path):
-    assert len(CHECKS) == 37 and validate(report())
+    assert len(CHECKS) == 39 and validate(report())
     for name in CHECKS:
         for substitute in [False, None, 1]:
             value = report()

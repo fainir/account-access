@@ -1,8 +1,10 @@
 """Opt-in live CLI compatibility test using four fictional website accounts.
 
-Uses the operator's existing agent login and can consume account usage. The
-project skill, vault, mailbox and SMS fixture are isolated from personal accounts.
-No global agent configuration is changed. Raw traces remain in ignored storage.
+Current entry points refuse before setup because their effective tool boundary
+cannot be attested. The retained live fixture path uses the operator's existing
+agent login and can consume usage; its project skill, vault, mailbox and SMS
+fixture are separate from personal accounts. No global agent configuration is
+changed. Historical raw traces remain in ignored storage.
 """
 
 import argparse
@@ -35,6 +37,8 @@ from scripts.agent_qa_guard import digest, permitted
 
 CODEX_BUNDLED = Path("/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex")
 CODEX_MINIMUM = (0, 163, 0)
+CLAUDE_INSTALLED = Path("/usr/local/bin/claude")
+CLAUDE_MINIMUM = (2, 1, 112)
 
 
 class AgentQABoundaryError(RuntimeError):
@@ -63,9 +67,11 @@ def select_codex_cli(executable=None):
         raise AgentQABoundaryError("codex_cli_preflight_failed", diagnostics) from None
     if command is None:
         raise AgentQABoundaryError("codex_modern_cli_required", diagnostics)
+    public_environment = {"PATH": "/usr/bin:/bin", "HOME": os.devnull,
+                          "CODEX_HOME": os.devnull + "/account-access-qa-codex"}
     try:
         version = subprocess.run([command, "--version"], capture_output=True, text=True,
-                                 timeout=5, env={"PATH": "/usr/bin:/bin"})
+                                 timeout=5, env=public_environment)
         match = re.fullmatch(r"codex-cli ([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})(-[a-zA-Z0-9.-]{1,80})?\s*",
                              version.stdout)
         if (version.returncode or not match
@@ -73,7 +79,7 @@ def select_codex_cli(executable=None):
             raise AgentQABoundaryError("codex_modern_cli_required", diagnostics)
         diagnostics["cli_version"] = ".".join(match.groups()[:3])
         help_result = subprocess.run([command, "exec", "--help"], capture_output=True,
-                                     text=True, timeout=5, env={"PATH": "/usr/bin:/bin"})
+                                     text=True, timeout=5, env=public_environment)
         required = {"--ignore-user-config", "--strict-config", "--ephemeral", "--json"}
         if (help_result.returncode or len(help_result.stdout) > 131072
                 or any(flag not in help_result.stdout.split() for flag in required)):
@@ -100,8 +106,60 @@ def codex_fixture_preflight(executable=None):
     raise AgentQABoundaryError("codex_effective_permissions_unverifiable", diagnostics)
 
 
-def blocked_report(error):
-    return {"agent": "codex", "version": __version__, "passed": False,
+def select_claude_cli(executable=None):
+    """Inspect public CLI capabilities, not owner settings or login.
+
+    Version and help do not attest the effective hook configuration. An explicit
+    executable or the documented installed path is used, never a PATH fallback.
+    """
+    selection = "explicit" if executable is not None else "installed"
+    executable = Path(executable) if executable is not None else CLAUDE_INSTALLED
+    diagnostics = {"cli_selection": selection}
+    try:
+        valid = executable.is_absolute() and executable.is_file() and os.access(executable, os.X_OK)
+        command = str(executable.resolve()) if valid else None
+    except (OSError, RuntimeError):
+        raise AgentQABoundaryError("claude_cli_preflight_failed", diagnostics) from None
+    if command is None:
+        raise AgentQABoundaryError("claude_modern_cli_required", diagnostics)
+    public_environment = {"PATH": "/usr/local/bin:/usr/bin:/bin", "HOME": os.devnull,
+                          "CLAUDE_CONFIG_DIR": os.devnull + "/account-access-qa-claude"}
+    try:
+        version = subprocess.run([command, "--version"], capture_output=True, text=True,
+                                 timeout=5, env=public_environment)
+        match = re.fullmatch(r"([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3}) \(Claude Code\)\s*",
+                             version.stdout)
+        if (version.returncode or not match
+                or tuple(map(int, match.groups())) < CLAUDE_MINIMUM):
+            raise AgentQABoundaryError("claude_modern_cli_required", diagnostics)
+        diagnostics["cli_version"] = ".".join(match.groups())
+        help_result = subprocess.run([command, "--help"], capture_output=True,
+                                     text=True, timeout=5, env=public_environment)
+        required = {"--settings", "--setting-sources", "--tools", "--no-chrome",
+                    "--strict-mcp-config", "--mcp-config", "--no-session-persistence"}
+        if (help_result.returncode or len(help_result.stdout) > 131072
+                or any(flag not in help_result.stdout.split() for flag in required)):
+            raise AgentQABoundaryError("claude_isolation_capabilities_required", diagnostics)
+    except (OSError, subprocess.TimeoutExpired, UnicodeError):
+        raise AgentQABoundaryError("claude_cli_preflight_failed", diagnostics) from None
+    return command, diagnostics
+
+
+def claude_fixture_preflight(executable=None):
+    """Refuse before setup until Claude's effective tool gate can be attested.
+
+    Managed settings can suppress invocation hooks and can change at runtime.
+    Public CLI help, executing our hook directly, and observing a startup canary
+    do not establish that PreToolUse will guard subsequent model tool calls.
+    A controlled disposable QA environment or supported effective-hook
+    attestation is required; no owner policy is read or bypassed here.
+    """
+    _, diagnostics = select_claude_cli(executable)
+    raise AgentQABoundaryError("claude_pretool_boundary_unverifiable", diagnostics)
+
+
+def blocked_report(error, agent="codex"):
+    return {"agent": agent, "version": __version__, "passed": False,
             "status": "UNVERIFIED", "reason": error.reason, **error.diagnostics,
             "fixture_started": False, "model_started": False,
             "private_signins": 0, "production_ready": False}
@@ -227,13 +285,19 @@ def used_installed_launcher(trace, skill, workspace):
     return False
 
 
-def check(agent, workspace, codex_model=None, report_suffix="", codex_cli=None):
+def check(agent, workspace, codex_model=None, report_suffix="", codex_cli=None, claude_cli=None):
+    if agent not in ("codex", "claude"):
+        raise ValueError("Choose a supported QA agent")
     if report_suffix and not re.fullmatch(r"[a-z0-9-]{1,32}", report_suffix):
         raise ValueError("Use a short lowercase report suffix")
     if agent == "codex":
         # Before workspace writes, fixture credentials/services or model startup.
         # A prompt or a post-hoc trace is not an execution security boundary.
         codex_fixture_preflight(codex_cli)
+    elif agent == "claude":
+        # A generated hook and a later trace audit cannot attest that the host
+        # will actually enforce that hook before any model tool can run.
+        claude_fixture_preflight(claude_cli)
     suffix = "-" + report_suffix if report_suffix else ""
     workspace.mkdir(parents=True, exist_ok=True, mode=0o700)
     if any(workspace.iterdir()):
@@ -401,20 +465,22 @@ if __name__ == "__main__":
     parser.add_argument("--codex-model", help="Optional invocation-only model compatible with the existing CLI login")
     parser.add_argument("--codex-cli", type=Path,
                         help="Explicit modern Codex executable; defaults to the bundled CLI, never PATH")
+    parser.add_argument("--claude-cli", type=Path,
+                        help="Explicit modern Claude executable; defaults to /usr/local/bin/claude, never PATH")
     parser.add_argument("--report-suffix", default="", help="Keep a separate evidence record for this candidate")
     args = parser.parse_args()
     try:
         passed = check(args.agent, args.workspace.resolve(), args.codex_model,
-                       args.report_suffix, args.codex_cli)
+                       args.report_suffix, args.codex_cli, args.claude_cli)
     except AgentQABoundaryError as exc:
-        report = blocked_report(exc)
+        report = blocked_report(exc, args.agent)
         report["evidence_revision"] = subprocess.check_output(
             ["git", "-C", str(Path(__file__).resolve().parents[1]), "rev-parse", "HEAD"],
             text=True, timeout=5,
             env={"PATH": os.defpath, "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": os.devnull},
         ).strip()
         suffix = "-" + args.report_suffix if args.report_suffix else ""
-        destination = Path("artifacts/agent-tests") / ("codex-verification-080" + suffix + ".blocked.json")
+        destination = Path("artifacts/agent-tests") / (args.agent + "-verification-080" + suffix + ".blocked.json")
         destination.parent.mkdir(parents=True, exist_ok=True)
         private_file(destination, (json.dumps(report, indent=2) + "\n").encode(), replace=True)
         print(json.dumps(report, indent=2), flush=True)

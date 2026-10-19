@@ -17,7 +17,10 @@ the positional agent, workspace, optional model, and report-suffix arguments.
 checks the bundled macOS CLI. It never falls back to a potentially older `codex`
 on `PATH`. Only bounded public version/help commands run. Their sanitized output
 contains the numeric version and selection category, not configuration, auth,
-paths, command errors, or raw CLI output.
+paths, command errors, or raw CLI output. The probe sets its home and agent
+configuration paths to non-directory placeholders under `/dev/null`, preventing
+an absent home variable from falling back to the owner's home. This does not
+prove that the installed CLI cannot read machine-managed configuration.
 
 The refusal is intentional. Official OpenAI documentation establishes that:
 
@@ -79,21 +82,56 @@ from historical success reports. It records `passed: false`,
 `fixture_started: false`, `model_started: false`, and zero private sign-ins.
 There is no override flag that turns this refusal into an acceptance result.
 
-## Claude remains a guarded fixture run
+## Claude now stops before setup
 
-The Claude entry point retains its invocation-only tool guard, pinned fixture
-files, existing authentication, and inherited hook configuration. Successful
-tools must resolve to the fixture policy in both hook audit and trace checks.
-The harness sets `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1` for that invocation, so
-Claude retains credentials for its own API calls while reducing credentials in
-its tool subprocess environments. This is a partial reduction: the documented
-scrub can retain GitHub tokens, proxy credentials, and unrecognized secrets.
-It is not an OS sandbox or a complete secret boundary.
+The Claude entry point now fails closed with
+`claude_pretool_boundary_unverifiable` before creating the requested workspace,
+fixture credentials, mailbox, guard, service, or model session. Its prior
+invocation hook and trace checks were incomplete as a pre-execution boundary:
+the harness generated the guard but did not establish that Claude would load
+and enforce it. Historical successful fixture runs retain their recorded scope;
+they do not attest a current run's effective policy.
+
+`--claude-cli /absolute/path/to/claude` selects an explicit executable;
+otherwise the harness checks `/usr/local/bin/claude`. It never falls back to a
+CLI on `PATH`. Only bounded public version/help commands run with a scrubbed
+environment with home and agent configuration paths set to non-directory
+placeholders under `/dev/null`. Sanitized diagnostics retain the numeric
+version and selection category, without paths, raw output, errors, owner
+configuration, or auth data. These placeholders prevent owner-home fallback;
+they do not attest or suppress machine-managed configuration.
+
+Claude's managed settings take precedence over `--settings`. Managed
+`allowManagedHooksOnly` can exclude ordinary hooks, and `disableAllHooks` can
+disable the invocation hook. Settings can also reload during a session.
+[Settings precedence](https://code.claude.com/docs/en/settings#settings-precedence),
+[hook policy](https://code.claude.com/docs/en/hooks#hook-lifecycle).
+The installed CLI's public help does not offer a model-free resolved-hook
+attestation. Running our hook directly or observing a startup canary proves
+only that execution, not subsequent `PreToolUse` enforcement. `--bare` skips
+hooks and existing OAuth and cannot supply this boundary.
+[CLI reference](https://code.claude.com/docs/en/cli-reference).
+
+A live run requires a disposable environment with a dedicated QA login and
+controlled configuration, or a supported effective-hook attestation before
+fixture/model startup. This requirement is not yet met. No owner settings or
+authentication are inspected or copied to provision it, and there is no
+override that converts refusal into acceptance. The blocked report is saved as
+`claude-verification-080[-suffix].blocked.json`, separately from prior success
+reports, with `passed: false`, `fixture_started: false`, `model_started: false`,
+and zero private sign-ins.
+
+The historical fixture invocation set `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1`,
+reducing credential inheritance in tool subprocesses while retaining Claude's
+own authentication. That is a partial reduction: the documented scrub can
+retain GitHub tokens, proxy credentials, and unrecognized secrets. It is not an
+OS sandbox or a complete secret boundary.
 [Claude environment documentation](https://code.claude.com/docs/en/env-vars)
 
-The harness removes inherited shell/Python startup injection variables without
-changing persistent settings. Raw traces stay in ignored local artifact storage;
-the sanitized acceptance report must remain qualified to fictional accounts.
+The retained fixture code removes inherited shell/Python startup injection
+variables without changing persistent settings. Historical raw traces remain
+in ignored local artifact storage, and successful reports remain qualified to
+fictional accounts.
 
 ## Installed-preview checks on 19 October 2026
 

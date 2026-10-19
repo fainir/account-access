@@ -125,6 +125,7 @@
   },
   "residual_advisories": [
     {
+      "analysis_state": "under_investigation",
       "applicability": {
         "allowed_commands": [
           "--version",
@@ -139,6 +140,11 @@
         "bound_namespace_used": false,
         "chunk_forge_references": 0,
         "forge_runtime_imports": 1,
+        "javascript_assets_sha256": {
+          "build/344.js": "d4281ac402af4dc635696cd589127b652fb8a13e6bffbb9932c85f7cadf19715",
+          "build/685.js": "144c38ecc7168d8b9ba09a5a588977d37ccf37f13775aab32318e4e21a6a0876",
+          "build/bw.js": "7cad23262b9ca168f22c12d7cdf64ef168e57d49784377c2b8cd02707759e4d7"
+        },
         "limitation": "This is a command-scoped reachability review, not a whole-package safety or mathematical proof. Recheck official upstream releases and advisories.",
         "official_entrypoint_sha256": "7cad23262b9ca168f22c12d7cdf64ef168e57d49784377c2b8cd02707759e4d7",
         "rsa_signature_verification_calls_identified": 0,
@@ -146,10 +152,11 @@
           "https://github.com/bitwarden/clients/blob/b449ac1d255784380d75ef026343198891286be7/apps/cli/src/service-container/service-container.ts",
           "https://github.com/bitwarden/clients/blob/b449ac1d255784380d75ef026343198891286be7/libs/legacy-crypto/src/node/node-crypto-function.service.ts"
         ],
-        "transitive_forge_consumers": 0
+        "transitive_forge_consumers": 0,
+        "worker_source_sha256": "49111060e0ce513d86d6a262eff99304e3dda859c0dc47ae8c27b92879f96364"
       },
       "package": "node-forge",
-      "status": "Unpatched upstream advisory retained. No reachable RSA signature verification identified within the fixed allowed commands.",
+      "status": "Unpatched upstream advisory retained. The bounded fixed-command review identifies no reachable RSA verification, but does not establish whole-package non-exploitability.",
       "url": "https://github.com/advisories/GHSA-86w9-cpqp-85rv",
       "version": "1.4.0"
     }

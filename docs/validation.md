@@ -2692,22 +2692,24 @@ account-access --root "$HOME/.local/share/account-access-demo" demo --install --
 ```
 
 The opt-in CLI acceptance harness checks its client boundary before starting
-fictional providers, a private fixture service and client. Current Codex QA
-refuses at that preflight; the Claude run starts the fictional journey. Use a
-**new empty workspace** for each run, and satisfy existing host instructions/hooks:
+fictional providers, a private fixture service and client. Current Codex and
+Claude QA both refuse at that preflight because the effective execution/tool
+boundary cannot be attested. The commands below produce separate blocked
+reports and leave the requested workspace and fixtures uncreated:
 
 ```sh
 uv run python scripts/agent_verification_smoke.py codex --workspace /absolute/path/to/new-codex-test
 uv run python scripts/agent_verification_smoke.py claude --workspace /absolute/path/to/new-claude-test
 ```
 
-These use the user's existing CLI login and can consume agent usage. They create
-no API keys and do not use private website accounts. Current Codex QA refuses
-before fixture/model startup because the complete execution/tool boundary cannot
-be attested. Claude uses the tool gate described above; that fixture guard is
-not an OS sandbox. See the [current boundary](agent-qa-boundary.md). The older
-smoke scripts have been retired. For normal user testing, use the short prompts
-in README.md; no test harness is necessary.
+These preflights inspect only bounded public CLI version/help, create no API
+keys, and start no model, account fixture, or private website login. A future
+live run needs a disposable environment with dedicated QA authentication and
+controlled configuration, or a supported pre-execution boundary attestation;
+that requirement remains open. Historical successful reports do not override
+this refusal. See the [current boundary](agent-qa-boundary.md). The older smoke
+scripts have been retired. For normal user testing, use the short prompts in
+README.md; no test harness is necessary.
 
 ## Remaining production work
 

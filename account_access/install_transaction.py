@@ -195,11 +195,15 @@ def run(source_fd, manifest_fd, digest):
             recovery.publish_verification(proof)
             if os.stat("/dev/console").st_uid != owner:
                 raise ImageConflict("interactive_owner_changed")
+            # A completed image receipt attests to its original provisioning,
+            # not the job's current registration. Repair an identical image's
+            # missing job through the same policy and publisher checks before
+            # reporting success or opening the owner app.
+            with provision.command_lease(recovery.lease):
+                provision.activate(
+                    provision.Layout.installed(), owner, expected_signatures=peers
+                )
             if not recovery.was_complete:
-                with provision.command_lease(recovery.lease):
-                    provision.activate(
-                        provision.Layout.installed(), owner, expected_signatures=peers
-                    )
                 recovery.mark_complete()
     finally:
         for fd in handles:

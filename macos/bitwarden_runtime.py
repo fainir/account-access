@@ -24,6 +24,7 @@ ROOT = Path(__file__).parent
 LOCK = ROOT / "bitwarden-cli.lock.json"
 OVERRIDES = ROOT / "bitwarden-overrides.lock.json"
 NOTICES = ROOT / "notices/bitwarden"
+PROVIDER_WORKER = ROOT.parent / "account_access/bitwarden_source.py"
 MAX_SOURCE_BYTES = 1024 * 1024 * 1024
 MAX_MATERIAL_BYTES = 192 * 1024 * 1024
 
@@ -32,14 +33,89 @@ def locked():
     return json.loads(LOCK.read_bytes())
 
 
-def reviewed_overrides(lock):
+def _reviewed_ledger(lock):
     value = json.loads(OVERRIDES.read_bytes())
     if (value.get("schema") != 1 or type(value.get("schema")) is not int
             or value.get("official_cli_version") != lock["version"]
             or value.get("official_archive_sha256") != lock["archive_sha256"]
             or value.get("upstream_package_lock_sha256") != lock["package_lock_sha256"]):
         raise ValueError("bitwarden_dependency_overrides_changed")
-    return value["overrides"]
+    return value
+
+
+def reviewed_overrides(lock):
+    return _reviewed_ledger(lock)["overrides"]
+
+
+def review_residual_advisories(lock, *, cli=None, dependencies=None):
+    """Refuse stale forge review assumptions; this does not clear the advisory.
+
+    This guard binds the bounded review to the worker, complete official JS
+    asset set and resolved dependency graph. Updating an upstream archive pin
+    alone cannot silently reuse a review of a different program.
+    """
+    try:
+        rows = _reviewed_ledger(lock)["residual_advisories"]
+        if not isinstance(rows, list) or len(rows) != 1:
+            raise ValueError()
+        row = rows[0]
+        if not isinstance(row, dict):
+            raise ValueError()
+        review = row["applicability"]
+        if not isinstance(review, dict) or not isinstance(row.get("version"), str):
+            raise ValueError()
+        counts = ["bound_namespace_occurrences", "forge_runtime_imports", "chunk_forge_references",
+                  "transitive_forge_consumers", "rsa_signature_verification_calls_identified"]
+        if any(type(review.get(key)) is not int for key in counts):
+            raise ValueError()
+        if (row["package"] != "node-forge" or row["version"] != lock["npm_dependencies"]["node-forge"]
+                or row["url"] != "https://github.com/advisories/GHSA-86w9-cpqp-85rv"
+                or row["analysis_state"] != "under_investigation"
+                or review["allowed_commands"] != ["--version", "status", "config server", "login --apikey",
+                                                  "unlock", "sync --force", "get item EXACT_UUID"]
+                or review["official_entrypoint_sha256"] != lock["entrypoint_sha256"]
+                or review["worker_source_sha256"] != digest(PROVIDER_WORKER)
+                or review["bound_namespace_occurrences"] != 1
+                or review["bound_namespace_used"] is not False
+                or review["forge_runtime_imports"] != 1
+                or review["chunk_forge_references"] != 0
+                or review["transitive_forge_consumers"] != 0
+                or review["rsa_signature_verification_calls_identified"] != 0):
+            raise ValueError()
+        assets = review["javascript_assets_sha256"]
+        if (not isinstance(assets, dict) or not assets or lock["entrypoint"] not in assets
+                or assets[lock["entrypoint"]] != lock["entrypoint_sha256"]
+                or any(not isinstance(value, str) or not re.fullmatch(r"[a-f0-9]{64}", value)
+                       for value in assets.values())):
+            raise ValueError()
+        if cli is not None:
+            actual = {name: hashlib.sha256(raw).hexdigest() for name, raw in cli.items()
+                      if name.endswith((".js", ".cjs", ".mjs"))}
+            entry = cli[lock["entrypoint"]]
+            binding = b'const external_node_forge_namespaceObject = require("node-forge");'
+            # Apart from the unused binding, the reviewed bundle mentions the
+            # package only in its external-module label and embedded metadata.
+            remaining = entry.replace(binding, b"", 1).replace(b';// external "node-forge"', b"", 1)
+            remaining = remaining.replace(b'"node-forge":"' + row["version"].encode() + b'"', b"", 1)
+            if (actual != assets
+                    or entry.count(b"external_node_forge_namespaceObject") != 1
+                    or entry.count(binding) != 1
+                    or entry.count(b'require("node-forge")') != 1
+                    or b"node-forge" in remaining
+                    or any(b"node-forge" in cli[name] or b"external_node_forge_namespaceObject" in cli[name]
+                           for name in actual if name != lock["entrypoint"])):
+                raise ValueError()
+        if dependencies is not None:
+            forge_paths = [path for path in dependencies if path.endswith("/node_modules/node-forge")
+                           or path == "node_modules/node-forge"]
+            if (forge_paths != ["node_modules/node-forge"]
+                    or dependencies[forge_paths[0]]["version"] != row["version"]
+                    or any("node-forge" in dependency.get(kind, {})
+                           for dependency in dependencies.values()
+                           for kind in ["dependencies", "optionalDependencies", "peerDependencies"])):
+                raise ValueError()
+    except (KeyError, TypeError, ValueError, OSError):
+        raise ValueError("bitwarden_residual_advisory_review_changed") from None
 
 
 def digest(path):
@@ -109,6 +185,7 @@ def runtime_dependencies(package_lock, lock=None):
         visit("", name)
     if not set(replacements).issubset(result):
         raise ValueError("bitwarden_dependency_overrides_changed")
+    review_residual_advisories(lock, dependencies=result)
     return result
 
 
@@ -300,6 +377,7 @@ def stage(payload, archive, sources, source_sha256):
             or metadata.get("bin") != {"bw": lock["entrypoint"]}
             or hashlib.sha256(cli[lock["entrypoint"]]).hexdigest() != lock["entrypoint_sha256"]):
         raise ValueError("bitwarden_cli_archive_changed")
+    review_residual_advisories(lock, cli=cli)
     target = Path(payload) / "python/libexec/bitwarden"
     if target.parent.exists() or target.parent.is_symlink():
         raise ValueError("bitwarden_runtime_destination_must_be_new")

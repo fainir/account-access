@@ -4,7 +4,7 @@ import json
 import errno
 import os
 import stat
-from contextlib import nullcontext
+from contextlib import contextmanager
 from types import SimpleNamespace
 
 import pytest
@@ -15,7 +15,11 @@ from account_access import system_provision as provision
 from test_install_image import Crash, completed, fixture
 
 
-def test_coordinator_reads_public_alias_as_data_and_launches_only_canonical_bundle(monkeypatch):
+@pytest.mark.parametrize("was_complete", [False, True])
+@pytest.mark.parametrize("activation_fails", [False, True])
+def test_coordinator_rechecks_registration_before_opening_owner_app(
+    monkeypatch, was_complete, activation_fails
+):
     calls, descents, opened, closed = [], [], [], []
     counter = iter(range(100, 110))
 
@@ -39,17 +43,17 @@ def test_coordinator_reads_public_alias_as_data_and_launches_only_canonical_bund
     monkeypatch.setattr(transaction, "ImageManifest", lambda *args: manifest)
     monkeypatch.setattr(transaction, "_descend", descend)
     monkeypatch.setattr(transaction, "_peer_identity", lambda *args: {"public": True})
-    monkeypatch.setattr(transaction, "_fresh_identity", lambda: None)
+    monkeypatch.setattr(transaction, "_fresh_identity", lambda: calls.append("fresh-identity"))
     monkeypatch.setattr(transaction, "_native_verification", lambda *args: calls.append("native-verified"))
     monkeypatch.setattr(transaction, "root_managed_path", lambda path: calls.append(str(path)))
 
     class Recovery:
         lease = 55
-        was_complete = False
 
         def __init__(self, sources, journal, targets, observed, owner, **kwargs):
             assert set(sources) == {image.SUPPORT, image.APPLICATION} and observed is manifest
             assert owner == 501 and kwargs == {"object_uid": 0}
+            self.was_complete = was_complete
 
         def __enter__(self):
             return self
@@ -58,7 +62,8 @@ def test_coordinator_reads_public_alias_as_data_and_launches_only_canonical_bund
             pass
 
         def _read_record(self, name):
-            return None
+            assert name == "intent.json"
+            return {"public": True} if was_complete else None
 
         def materialize(self):
             calls.append("materialized")
@@ -71,13 +76,43 @@ def test_coordinator_reads_public_alias_as_data_and_launches_only_canonical_bund
             calls.append("complete")
 
     monkeypatch.setattr(transaction, "ImageRecovery", Recovery)
-    monkeypatch.setattr(provision, "command_lease", lambda lease: nullcontext())
-    monkeypatch.setattr(provision, "activate", lambda *args, **kwargs: calls.append("activate"))
+
+    @contextmanager
+    def lease(descriptor):
+        assert descriptor == Recovery.lease
+        calls.append("lease-held")
+        try:
+            yield
+        finally:
+            calls.append("lease-released")
+
+    def activate(layout, owner, *, expected_signatures):
+        assert owner == 501 and layout == provision.Layout.installed()
+        assert expected_signatures == {"public": True}
+        assert calls[-1] == "lease-held"
+        calls.append("activate")
+        if activation_fails:
+            raise provision.ProvisionError("provisioning_command_failed")
+
+    monkeypatch.setattr(provision, "command_lease", lease)
+    monkeypatch.setattr(provision, "activate", activate)
     monkeypatch.setattr(provision, "command", lambda arguments: calls.append(arguments))
-    assert transaction.run(3, 4, "a" * 64) == {"status": "REGISTERED"}
+    if activation_fails:
+        with pytest.raises(provision.ProvisionError, match="^provisioning_command_failed$"):
+            transaction.run(3, 4, "a" * 64)
+        assert calls[-1] == "lease-released"
+        assert "complete" not in calls
+        assert not any(isinstance(call, list) for call in calls)
+    else:
+        assert transaction.run(3, 4, "a" * 64) == {"status": "REGISTERED"}
+        assert calls[-1][-2:] == ["-a", "/Library/Application Support/Account Access/owner.app"]
+        assert ("complete" in calls) is not was_complete
+        if not was_complete:
+            assert calls.index("lease-released") < calls.index("complete")
     assert descents == [(3, image.SUPPORT, 0), (3, "/Applications", 0)]
-    assert calls[-1][-2:] == ["-a", "/Library/Application Support/Account Access/owner.app"]
-    assert calls.index("native-verified") < calls.index("activate") < calls.index("complete")
+    assert calls.index("native-verified") < calls.index("receipt") < calls.index("activate")
+    assert calls.count("activate") == 1
+    assert ("fresh-identity" in calls) is not was_complete
     assert set(closed) == set(range(100, 105)) and len(opened) == 3
 
 

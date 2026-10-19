@@ -1,4 +1,5 @@
 import json
+import os
 import shlex
 import subprocess
 import sys
@@ -9,7 +10,8 @@ import pytest
 from scripts.agent_qa_guard import digest, permitted
 from scripts.agent_verification_smoke import (
     AgentQABoundaryError, agent_environment, blocked_report, check,
-    claude_fixture_guard, codex_fixture_preflight, fixture_trace_boundary, select_codex_cli,
+    claude_fixture_guard, claude_fixture_preflight, codex_fixture_preflight, fixture_trace_boundary,
+    select_claude_cli, select_codex_cli,
 )
 
 
@@ -169,7 +171,9 @@ def test_codex_selector_uses_explicit_modern_cli_without_path_auth_or_config_rea
     assert selected == str(executable.resolve())
     assert diagnostics == {"cli_selection": "explicit", "cli_version": "0.163.0"}
     assert [command[1:] for command, _ in calls] == [["--version"], ["exec", "--help"]]
-    assert all(options["env"] == {"PATH": "/usr/bin:/bin"} for _, options in calls)
+    assert all(options["env"] == {"PATH": "/usr/bin:/bin", "HOME": os.devnull,
+                                  "CODEX_HOME": os.devnull + "/account-access-qa-codex"}
+               for _, options in calls)
     assert all(options["timeout"] == 5 for _, options in calls)
 
 
@@ -279,6 +283,164 @@ def test_codex_cli_refusal_report_preserves_historical_success_and_never_starts_
     assert not report["fixture_started"] and not report["model_started"]
     assert not workspace.exists()
     assert json.loads((artifacts / "codex-verification-080-fixed.blocked.json").read_text()) == report
+    assert previous.read_text() == '{"historical":true}\n'
+
+
+CLAUDE_HELP_FLAGS = {
+    "--settings", "--setting-sources", "--tools", "--no-chrome", "--strict-mcp-config",
+    "--mcp-config", "--no-session-persistence",
+}
+
+
+@pytest.fixture
+def modern_claude(tmp_path, monkeypatch):
+    executable = tmp_path / "claude"
+    executable.write_text("unused mocked executable")
+    executable.chmod(0o700)
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append((command, kwargs))
+        output = ("2.1.112 (Claude Code)\n" if command[-1] == "--version"
+                  else " ".join(sorted(CLAUDE_HELP_FLAGS)))
+        return subprocess.CompletedProcess(command, 0, output, "unreported stderr")
+
+    monkeypatch.setattr("scripts.agent_verification_smoke.subprocess.run", run)
+    return executable, calls
+
+
+def test_claude_selector_only_inspects_explicit_public_help_with_scrubbed_environment(modern_claude):
+    executable, calls = modern_claude
+    selected, diagnostics = select_claude_cli(executable)
+    assert selected == str(executable.resolve())
+    assert diagnostics == {"cli_selection": "explicit", "cli_version": "2.1.112"}
+    assert [command[1:] for command, _ in calls] == [["--version"], ["--help"]]
+    assert all(options["env"] == {"PATH": "/usr/local/bin:/usr/bin:/bin", "HOME": os.devnull,
+                                  "CLAUDE_CONFIG_DIR": os.devnull + "/account-access-qa-claude"}
+               for _, options in calls)
+    assert all(options["timeout"] == 5 for _, options in calls)
+
+
+def test_claude_selector_uses_fixed_installed_path_without_path_fallback(modern_claude, monkeypatch):
+    executable, _ = modern_claude
+    monkeypatch.setattr("scripts.agent_verification_smoke.CLAUDE_INSTALLED", executable)
+    monkeypatch.setattr("scripts.agent_verification_smoke.shutil.which",
+                        lambda name: pytest.fail("PATH CLI selection is forbidden"))
+    assert select_claude_cli()[1]["cli_selection"] == "installed"
+
+
+@pytest.mark.parametrize("name", ["claude", "./claude", "/not-present/account-access-qa-claude"])
+def test_claude_selector_refuses_missing_or_relative_paths_before_running(modern_claude, name):
+    _, calls = modern_claude
+    with pytest.raises(AgentQABoundaryError, match="^claude_modern_cli_required$"):
+        select_claude_cli(name)
+    assert calls == []
+
+
+@pytest.mark.parametrize("version", ["2.1.111 (Claude Code)", "private-output",
+                                    "2.1.112 (Claude Code)\nprivate-output", "9" * 5000],
+                         ids=["too-old", "malformed", "extra-output", "oversize"])
+def test_claude_selector_redacts_old_or_malformed_version_output(modern_claude, monkeypatch, version):
+    executable, _ = modern_claude
+    monkeypatch.setattr("scripts.agent_verification_smoke.subprocess.run", lambda *a, **k:
+                        subprocess.CompletedProcess(a[0], 0, version, "private-error"))
+    with pytest.raises(AgentQABoundaryError) as failure:
+        select_claude_cli(executable)
+    report = blocked_report(failure.value, "claude")
+    assert report["agent"] == "claude" and report["reason"] == "claude_modern_cli_required"
+    assert all(value not in json.dumps(report) for value in ["private-output", "private-error", str(executable)])
+
+
+@pytest.mark.parametrize("missing", sorted(CLAUDE_HELP_FLAGS))
+def test_claude_selector_refuses_missing_capabilities(modern_claude, monkeypatch, missing):
+    executable, _ = modern_claude
+
+    def run(command, **kwargs):
+        output = ("2.1.112 (Claude Code)\n" if command[-1] == "--version"
+                  else " ".join(sorted(CLAUDE_HELP_FLAGS - {missing})))
+        return subprocess.CompletedProcess(command, 0, output, "private-error")
+
+    monkeypatch.setattr("scripts.agent_verification_smoke.subprocess.run", run)
+    with pytest.raises(AgentQABoundaryError, match="^claude_isolation_capabilities_required$"):
+        select_claude_cli(executable)
+
+
+@pytest.mark.parametrize("error", [OSError("private-path-or-message"),
+                                  subprocess.TimeoutExpired("private-command", 5, output="private-output")])
+def test_claude_selector_redacts_cli_failures(modern_claude, monkeypatch, error):
+    executable, _ = modern_claude
+
+    def failed(*args, **kwargs):
+        raise error
+
+    monkeypatch.setattr("scripts.agent_verification_smoke.subprocess.run", failed)
+    with pytest.raises(AgentQABoundaryError) as failure:
+        select_claude_cli(executable)
+    assert failure.value.reason == "claude_cli_preflight_failed"
+    public = json.dumps(blocked_report(failure.value, "claude"))
+    assert all(value not in public for value in ["private-path-or-message", "private-command", "private-output"])
+
+
+def test_claude_refuses_before_workspace_temp_fixture_guard_or_model(modern_claude, tmp_path, monkeypatch):
+    executable, calls = modern_claude
+    workspace = tmp_path / "new-workspace"
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("Claude QA crossed its unverified pre-execution boundary")
+
+    for name in ["environment", "claude_fixture_guard", "agent_environment"]:
+        monkeypatch.setattr("scripts.agent_verification_smoke." + name, forbidden)
+    monkeypatch.setattr("scripts.agent_verification_smoke.tempfile.mkdtemp", forbidden)
+    with pytest.raises(AgentQABoundaryError) as failure:
+        check("claude", workspace, report_suffix="blocked", claude_cli=executable)
+    assert failure.value.reason == "claude_pretool_boundary_unverifiable"
+    report = blocked_report(failure.value, "claude")
+    assert report["agent"] == "claude" and not report["passed"]
+    assert not report["fixture_started"] and not report["model_started"]
+    assert report["private_signins"] == 0 and not workspace.exists()
+    assert len(calls) == 2 and all(command[-1] in {"--version", "--help"} for command, _ in calls)
+    with pytest.raises(AgentQABoundaryError, match="^claude_pretool_boundary_unverifiable$"):
+        claude_fixture_preflight(executable)
+
+
+@pytest.mark.parametrize("agent", ["unknown", "", "Claude", None, 1, [], {}])
+def test_unknown_agent_refuses_before_preflight_workspace_or_setup(tmp_path, monkeypatch, agent):
+    workspace = tmp_path / "untouched-workspace"
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("Unsupported agent crossed the QA setup boundary")
+
+    for name in ["codex_fixture_preflight", "claude_fixture_preflight", "environment", "agent_environment"]:
+        monkeypatch.setattr("scripts.agent_verification_smoke." + name, forbidden)
+    monkeypatch.setattr("scripts.agent_verification_smoke.tempfile.mkdtemp", forbidden)
+    with pytest.raises(ValueError, match="^Choose a supported QA agent$"):
+        check(agent, workspace)
+    assert not workspace.exists()
+
+
+def test_claude_refusal_report_is_agent_specific_and_preserves_historical_success(tmp_path):
+    executable = tmp_path / "claude-public-help-only"
+    executable.write_text("#!/bin/sh\ncase \"$*\" in\n"
+                          "  --version) echo '2.1.112 (Claude Code)';;\n"
+                          "  --help) echo '" + " ".join(sorted(CLAUDE_HELP_FLAGS)) + "';;\n"
+                          "  *) exit 99;;\nesac\n")
+    executable.chmod(0o700)
+    artifacts = tmp_path / "artifacts/agent-tests"
+    artifacts.mkdir(parents=True)
+    previous = artifacts / "claude-verification-080-fixed.json"
+    previous.write_text('{"historical":true}\n')
+    path = Path(__file__).resolve().parents[1] / "scripts/agent_verification_smoke.py"
+    workspace = tmp_path / "untouched-workspace"
+    result = subprocess.run([sys.executable, str(path), "claude", "--workspace", str(workspace),
+                             "--report-suffix", "fixed", "--claude-cli", str(executable)],
+                            cwd=tmp_path, capture_output=True, text=True, timeout=10)
+    assert result.returncode == 2 and result.stderr == ""
+    report = json.loads(result.stdout)
+    assert report["agent"] == "claude" and report["reason"] == "claude_pretool_boundary_unverifiable"
+    assert not report["fixture_started"] and not report["model_started"]
+    assert not workspace.exists()
+    assert json.loads((artifacts / "claude-verification-080-fixed.blocked.json").read_text()) == report
+    assert not (artifacts / "codex-verification-080-fixed.blocked.json").exists()
     assert previous.read_text() == '{"historical":true}\n'
 
 

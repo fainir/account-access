@@ -83,3 +83,21 @@ status, server configuration, API-key login, unlock, forced sync and exact-item
 get. This command-scoped review does not certify the whole package as safe.
 Recheck upstream releases/advisories before each distribution; no advisory is
 silently removed and no cryptographic implementation is patched locally.
+
+The packaging verifier now enforces these review assumptions before publishing
+a runtime. The residual advisory ledger binds the exact worker source, every
+official CLI JavaScript asset, the entrypoint and the reviewed command list.
+It checks that the sole forge namespace remains an unused binding, rejects
+another forge import in adjacent JavaScript, and checks the actual resolved
+dependency graph for additional forge consumers or versions. Updating archive
+and entrypoint pins alone cannot carry a stale review forward. Mutation tests
+exercise new direct and alias consumers, an adjacent chunk consumer, changed
+worker/command metadata and a removed or silently cleared advisory through the
+real verifier. This is a release guard for the bounded review; the advisory
+remains `under_investigation`, with no whole-package non-exploitability claim.
+
+The ledger is copied verbatim into both the runtime and corresponding-source
+asset. Its new review bindings therefore require a new corresponding-source
+archive and reviewed digest before the next package assembly. Older source
+archives and build 74 evidence retain their original hashes and are not relabeled
+as having passed this newer guard.

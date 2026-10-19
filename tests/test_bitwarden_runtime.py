@@ -33,30 +33,48 @@ def npm_archive(files, *, alias=False):
     return output.getvalue()
 
 
-def fixture(tmp_path, monkeypatch, *, source_fault=None, zip_fault=None):
-    binary = b"fictional non-executable JavaScript fixture"
+def fixture(tmp_path, monkeypatch, *, source_fault=None, zip_fault=None, cli_fault=None):
+    binary = b'const external_node_forge_namespaceObject = require("node-forge");\n'
+    if cli_fault == "forge-call":
+        binary += b"external_node_forge_namespaceObject.pki.publicKeyFromPem(input).verify(input, signature);\n"
+    elif cli_fault == "alias-consumer":
+        binary += b"const another = require('node-forge'); another.pki.publicKeyFromPem(input);\n"
     dependency = npm_archive({"index.js": b"fictional dependency not executed"})
     archive = tmp_path / "official.tgz"
     cli_files = {"package.json": json.dumps({"name": "@bitwarden/cli", "version": "2026.10.0",
-                 "dependencies": {"demo": "1.0.0"}, "bin": {"bw": "build/bw.js"}}).encode(),
+                 "dependencies": {"demo": "1.0.0", "node-forge": "1.4.0"}, "bin": {"bw": "build/bw.js"}}).encode(),
                  "build/bw.js": binary}
+    if cli_fault == "chunk-consumer":
+        cli_files["build/chunk.js"] = b'require("node-forge").pki.publicKeyFromPem(input);'
     if zip_fault == "extra":
         cli_files["../unexpected"] = b"not allowed"
     archive.write_bytes(npm_archive(cli_files, alias=zip_fault == "symlink"))
     package = json.dumps({"packages": {
         "node_modules/" + name: {"resolved": "https://registry.npmjs.org/" + name + "/-/" + name + "-1.0.0.tgz",
             "version": "1.0.0", "integrity": "sha512-" + base64.b64encode(hashlib.sha512(dependency).digest()).decode()}
-        for name in ["demo", "buffer", "debug", "proxy-agent-negotiate"]}}).encode()
+        for name in ["demo", "buffer", "debug", "proxy-agent-negotiate", "node-forge"]}}).encode()
+    package_rows = json.loads(package)
+    package_rows["packages"]["node_modules/node-forge"]["version"] = "1.4.0"
+    package = json.dumps(package_rows).encode()
     crate = b"fictional cargo source"
     cargo = ("[[package]]\nname='demo'\nversion='1.0.0'\n"
              "source='registry+https://github.com/rust-lang/crates.io-index'\nchecksum='" + sha(crate) + "'\n").encode()
     node = b"fictional node source"
     lock = dict(runtime.locked(), archive_sha256=sha(archive.read_bytes()), archive_bytes=archive.stat().st_size,
                 npm_integrity="sha512-" + base64.b64encode(hashlib.sha512(archive.read_bytes()).digest()).decode(),
-                entrypoint_sha256=sha(binary), npm_dependencies={"demo": "1.0.0"}, package_lock_sha256=sha(package),
+                entrypoint_sha256=sha(binary), npm_dependencies={"demo": "1.0.0", "node-forge": "1.4.0"}, package_lock_sha256=sha(package),
                 cargo_lock_sha256=sha(cargo), node_source_sha256=sha(node))
     monkeypatch.setattr(runtime, "locked", lambda: lock)
-    monkeypatch.setattr(runtime, "reviewed_overrides", lambda _: {})
+    ledger = json.loads(runtime.OVERRIDES.read_bytes())
+    ledger.update(official_cli_version=lock["version"], official_archive_sha256=lock["archive_sha256"],
+                  upstream_package_lock_sha256=lock["package_lock_sha256"], overrides={})
+    review = ledger["residual_advisories"][0]["applicability"]
+    review.update(official_entrypoint_sha256=sha(binary),
+                  javascript_assets_sha256={name: sha(raw) for name, raw in cli_files.items()
+                                            if name.endswith((".js", ".cjs", ".mjs"))})
+    ledger_path = tmp_path / "dependency-overrides.json"
+    ledger_path.write_text(json.dumps(ledger))
+    monkeypatch.setattr(runtime, "OVERRIDES", ledger_path)
     materials = runtime.source_materials(json.loads(package), __import__("tomllib").loads(cargo.decode()), lock)
     bodies = {name: node if name == "node-source.tar.xz" else dependency if name.startswith("npm/")
               else crate if name.startswith("cargo/") else b"fictional preferred source " + name.encode()
@@ -227,7 +245,8 @@ def test_upstream_duplicate_files_are_allowed_only_when_identical(second):
 def test_dependency_resolution_uses_nearest_lock_path_and_required_peers(tmp_path, monkeypatch):
     fixture(tmp_path, monkeypatch)
     rows = {"node_modules/" + name: {"version": "1.0.0"}
-            for name in ["demo", "buffer", "debug", "proxy-agent-negotiate", "nearest", "peer"]}
+            for name in ["demo", "buffer", "debug", "proxy-agent-negotiate", "nearest", "peer", "node-forge"]}
+    rows["node_modules/node-forge"]["version"] = "1.4.0"
     rows["node_modules/demo"].update(dependencies={"nearest": "2.0.0"}, peerDependencies={"peer": "1.0.0", "optional-peer": "1"},
                                      peerDependenciesMeta={"optional-peer": {"optional": True}}, optionalDependencies={"unavailable": "1"})
     rows["node_modules/demo/node_modules/nearest"] = {"version": "2.0.0"}
@@ -242,7 +261,8 @@ def test_dependency_resolution_uses_nearest_lock_path_and_required_peers(tmp_pat
 def test_dependency_override_replaces_graph_and_requires_the_original_version(tmp_path, monkeypatch):
     fixture(tmp_path, monkeypatch)
     rows = {"node_modules/" + name: {"version": "1.0.0"}
-            for name in ["demo", "buffer", "debug", "proxy-agent-negotiate", "old-child", "patched-child"]}
+            for name in ["demo", "buffer", "debug", "proxy-agent-negotiate", "old-child", "patched-child", "node-forge"]}
+    rows["node_modules/node-forge"]["version"] = "1.4.0"
     rows["node_modules/demo"]["dependencies"] = {"old-child": "1.0.0"}
     change = {"node_modules/demo": {"from_version": "1.0.0", "package": {
         "version": "1.0.1", "dependencies": {"patched-child": "1.0.0"}}}}
@@ -266,7 +286,8 @@ def test_override_ledger_cannot_be_used_with_another_official_cli_input():
 def test_source_plan_rejects_new_registry_or_git_authority(tmp_path, monkeypatch):
     fixture(tmp_path, monkeypatch)
     minimal = {"packages": {"node_modules/" + name: {"version": "1.0.0", "resolved": "https://attacker.example/package", "integrity": "sha512-eA=="}
-                            for name in ["demo", "buffer", "debug", "proxy-agent-negotiate"]}}
+                            for name in ["demo", "buffer", "debug", "proxy-agent-negotiate", "node-forge"]}}
+    minimal["packages"]["node_modules/node-forge"]["version"] = "1.4.0"
     with pytest.raises(ValueError, match="^bitwarden_source_dependency_needs_review$"):
         runtime.source_materials(minimal, {"package": []})
     minimal["packages"]["node_modules/demo"]["resolved"] = "https://registry.npmjs.org/demo/-/demo-1.0.0.tgz"
@@ -274,6 +295,61 @@ def test_source_plan_rejects_new_registry_or_git_authority(tmp_path, monkeypatch
         row["resolved"] = "https://registry.npmjs.org/demo/-/demo-1.0.0.tgz"
     with pytest.raises(ValueError, match="^bitwarden_source_dependency_needs_review$"):
         runtime.source_materials(minimal, {"package": [{"source": "git+https://attacker.example/code"}]})
+
+
+@pytest.mark.parametrize("fault", ["forge-call", "alias-consumer", "chunk-consumer"])
+def test_current_review_cannot_accept_new_forge_consumers_even_after_repinning_inputs(tmp_path, monkeypatch, fault):
+    # The synthetic archive, entrypoint and asset hashes all agree. The release
+    # must still reject a used namespace or a second import before publication.
+    archive, source, pin, payload, _ = fixture(tmp_path, monkeypatch, cli_fault=fault)
+    with pytest.raises(ValueError, match="^bitwarden_residual_advisory_review_changed$"):
+        runtime.stage(payload, archive, source, pin)
+    assert not (payload / "python/libexec").exists()
+
+
+@pytest.mark.parametrize("fault", ["worker", "entrypoint-review", "removed-advisory", "cleared-advisory",
+                                  "command-review", "boolean-count"])
+def test_stale_or_silently_cleared_review_is_refused_before_runtime_publication(tmp_path, monkeypatch, fault):
+    archive, source, pin, payload, _ = fixture(tmp_path, monkeypatch)
+    ledger = json.loads(runtime.OVERRIDES.read_bytes())
+    if fault == "worker":
+        changed_worker = tmp_path / "changed-worker.py"
+        changed_worker.write_bytes(runtime.PROVIDER_WORKER.read_bytes() + b"\n# unreviewed command-path change\n")
+        monkeypatch.setattr(runtime, "PROVIDER_WORKER", changed_worker)
+    elif fault == "entrypoint-review":
+        ledger["residual_advisories"][0]["applicability"]["official_entrypoint_sha256"] = "0" * 64
+    elif fault == "removed-advisory":
+        ledger["residual_advisories"] = []
+    elif fault == "cleared-advisory":
+        ledger["residual_advisories"][0]["analysis_state"] = "not_affected"
+    elif fault == "command-review":
+        ledger["residual_advisories"][0]["applicability"]["allowed_commands"].append("serve")
+    elif fault == "boolean-count":
+        ledger["residual_advisories"][0]["applicability"]["bound_namespace_occurrences"] = True
+    runtime.OVERRIDES.write_text(json.dumps(ledger))
+    with pytest.raises(ValueError, match="^bitwarden_residual_advisory_review_changed$"):
+        runtime.stage(payload, archive, source, pin)
+    assert not (payload / "python/libexec").exists()
+
+
+@pytest.mark.parametrize("kind", ["dependencies", "optionalDependencies", "peerDependencies"])
+def test_new_transitive_forge_consumers_fail_the_real_dependency_resolver(tmp_path, monkeypatch, kind):
+    fixture(tmp_path, monkeypatch)
+    rows = {"node_modules/" + name: {"version": "1.0.0"}
+            for name in ["demo", "buffer", "debug", "proxy-agent-negotiate", "node-forge"]}
+    rows["node_modules/node-forge"]["version"] = "1.4.0"
+    rows["node_modules/demo"][kind] = {"node-forge": "1.4.0"}
+    with pytest.raises(ValueError, match="^bitwarden_residual_advisory_review_changed$"):
+        runtime.runtime_dependencies({"packages": rows})
+
+
+def test_review_is_bound_to_every_official_javascript_asset(tmp_path, monkeypatch):
+    archive, _, _, _, _ = fixture(tmp_path, monkeypatch)
+    cli = runtime._npm_files(archive.read_bytes())
+    runtime.review_residual_advisories(runtime.locked(), cli=cli)
+    cli["build/unreviewed.mjs"] = b"export const unused = 1;"
+    with pytest.raises(ValueError, match="^bitwarden_residual_advisory_review_changed$"):
+        runtime.review_residual_advisories(runtime.locked(), cli=cli)
 
 
 def test_static_runtime_copies_fixed_libexec_and_notices_without_executing_them(tmp_path, monkeypatch):
