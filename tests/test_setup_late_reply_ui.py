@@ -48,7 +48,9 @@ def test_rejected_account_setup_clears_password_before_reply_and_honors_pause(
     def reject_before_connection(store, service):
         called.append(service)
         entered.set()
-        assert release.wait(20)
+        # The test's finally block always releases this gate. An independent
+        # deadline could finish the reply before the pending-state checks.
+        release.wait()
         raise AccessError("DENIED", "account_already_added")
 
     monkeypatch.setattr("account_access.catalog.add", reject_before_connection)
@@ -57,18 +59,36 @@ def test_rejected_account_setup_clears_password_before_reply_and_honors_pause(
         page.locator("#username").fill("fictional@example.test")
         page.locator("#password").fill("fictional-never-sent-to-website")
         page.locator("#allow").check()
-        page.locator("#add").click()
-        assert entered.wait(5)
-        assert page.locator("#password").input_value() == ""
-        page.locator("#account-form").evaluate("form=>form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}))")
-        assert len(called) == 1
-        if pause:
-            page.get_by_role("button", name="Pause local service", exact=True).click()
-            page.locator("#message").filter(has_text="Account Access is paused").wait_for()
+        # Observe the original handler through its finally block. A synthetic
+        # duplicate submit must not replace the first submission's completion.
+        page.locator("#account-form").evaluate("""form=>{
+            const submit=form.onsubmit;
+            window.fixtureFirstAccountSubmitFinished=false;
+            let started=0;
+            form.onsubmit=async event=>{
+                const first=++started===1;
+                try{return await submit(event);}
+                finally{if(first)window.fixtureFirstAccountSubmitFinished=true;}
+            };
+        }""")
+        # Subscribe before starting the request, rather than after the pending
+        # checks: Playwright does not replay an already completed response.
         with page.expect_response(lambda response: response.url.endswith("/owner/add")) as response:
+            page.locator("#add").click()
+            assert entered.wait(5)
+            assert page.locator("#password").input_value() == ""
+            assert page.locator("#add").is_disabled()
+            page.locator("#account-form").evaluate("form=>form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}))")
+            assert len(called) == 1
+            if pause:
+                page.get_by_role("button", name="Pause local service", exact=True).click()
+                page.locator("#message").filter(has_text="Account Access is paused").wait_for()
             release.set()
         response.value.finished()
-        page.evaluate("() => new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))")
+        assert response.value.status == 403
+        assert response.value.json()["reason"] == "account_already_added"
+        page.wait_for_function("()=>window.fixtureFirstAccountSubmitFinished===true")
+        assert len(called) == 1
         if pause:
             assert page.locator("button,input,select").evaluate_all("fields=>fields.every(field=>field.disabled)")
             assert "Account Access is paused" in page.locator("#message").inner_text()
