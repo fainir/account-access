@@ -7,6 +7,22 @@ establish that experience on personal accounts.
 
 ## Current candidate
 
+Build **76** is a controlled local installer candidate at `fbd2a73`. Its native
+mailbox retry preserves nonsecret settings, clears passwords on submission and
+navigation, requires explicit retry and rejects stale callbacks. The optimized
+native journey passed **47 checks** using fictional inputs. The actual universal
+GUI was rebuilt and signed; the complete archive and its frozen-source bindings
+were verified. [Build 76 record](../artifacts/build76-review-080.json).
+
+Exact-source full CI was still running when that record was captured; its run
+statuses and links are retained without borrowing build 75 counts. The local
+package is **unsigned, unnotarized and uninstalled**, pending owner confirmation.
+Genuine personal-account acceptance remains open. Protected different-version
+upgrades are unsupported; Chrome live sync and arbitrary website coverage are
+not implemented. This candidate is not a production release.
+
+## Preserved build 75 review
+
 Build **75** is the current source/package review candidate at `43c82fb`.
 Reapplying an otherwise unchanged prepared installation now restores its missing
 service registration while preserving the enrollment policies and identity.

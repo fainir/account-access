@@ -1,6 +1,23 @@
 # Validation of Account Access
 
-## Current build 75 review
+## Current build 76 review
+
+The [build 76 record](../artifacts/build76-review-080.json) binds the rebuilt app,
+actual offline package and **47 passing optimized native checks** to `fbd2a73`.
+The [native log](../artifacts/native-mailbox-retry-080.log) includes rejected Gmail
+and custom IMAP retries, blank passwords, clearing an unsent replacement during
+navigation, explicit retry, stale callbacks and verification shortcuts.
+The earlier baseline exit 133 remains unclassified because buffered output did
+not identify its precise failed assertion.
+
+The actual package inventory reproduces **25,281 files, 2,305 directories and
+21 aliases**; all 79 application files match source. App/runtime signatures
+verify. The provider inventory is unchanged from build 75. Full CI was pending
+at recording, and historical counts are not presented as build 76 results.
+No owner installation, private login or real-device delivery is established.
+The package remains unsigned and unnotarized.
+
+## Preserved build 75 review
 
 The [build 75 record](../artifacts/build75-review-080.json) binds application,
 QA, package and CI to `43c82fb`. All eight workflows passed their first attempt.
