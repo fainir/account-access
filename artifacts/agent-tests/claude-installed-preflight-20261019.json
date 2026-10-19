@@ -1,0 +1,64 @@
+{
+  "schema": 1,
+  "recorded_date": "2026-10-19",
+  "timezone": "Asia/Jerusalem",
+  "agent": "Claude Code",
+  "status": "UNVERIFIED",
+  "scope": "Preflight for cached public-example task retrieval through the existing installed Account Access preview",
+  "cli": {
+    "path": "/usr/local/bin/claude",
+    "version": "2.1.112",
+    "public_source": "/usr/local/lib/node_modules/@anthropic-ai/claude-code/cli.js",
+    "source_sha256": "bc3358282800e3e99daa8e71ac5b7b1566bd0d7ca7eb94f714a7859365d3163f"
+  },
+  "supported_invocation_flags": [
+    "--print",
+    "--output-format",
+    "--verbose",
+    "--no-session-persistence",
+    "--tools",
+    "--disable-slash-commands",
+    "--no-chrome",
+    "--strict-mcp-config",
+    "--mcp-config",
+    "--setting-sources",
+    "--settings"
+  ],
+  "reviewed_configuration": {
+    "setting_sources": "",
+    "tools": [
+      "Bash",
+      "Read"
+    ],
+    "skills_disabled": true,
+    "chrome_disabled": true,
+    "mcp_servers": {},
+    "session_persistence": false
+  },
+  "preflight_findings": {
+    "empty_setting_sources_excludes_user_project_local": true,
+    "managed_policy_remains_enabled": true,
+    "managed_policy_can_disable_or_replace_invocation_hooks": true,
+    "remote_managed_policy_eligibility_depends_on_existing_authentication": true,
+    "bare_mode_skips_hooks_and_existing_oauth": true,
+    "effective_pretool_guard_attested_before_startup": false
+  },
+  "reason": "claude_pretool_boundary_not_attestable_before_startup",
+  "model_started": false,
+  "installed_account_launcher_invoked_by_this_preflight": false,
+  "guard_created": false,
+  "private_auth_or_config_read": false,
+  "owner_setup_or_permissions_changed": false,
+  "private_signins": 0,
+  "cached_public_task": {
+    "id": "6e8580777b5dfa7597ef9295d4890be7",
+    "separate_evidence": "artifacts/agent-tests/installed-public-reads-20261019.json",
+    "claude_retrieval_executed": false
+  },
+  "limits": [
+    "Public help, version and installed executable source were inspected; owner authentication and account configuration were not inspected.",
+    "No Claude model or installed account operation was started for this preflight.",
+    "The separate completed public-example task is not Claude execution, fresh authentication, private-account acceptance, or protected-candidate installation evidence.",
+    "This record does not claim that Claude startup performs no internal configuration or authentication reads."
+  ]
+}

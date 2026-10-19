@@ -4,6 +4,8 @@ history.replaceState(null,"","/");
 const el=id=>document.getElementById(id);
 const message=text=>el("message").textContent=text;
 let state=null;
+let googleMessagesPreparation=null;
+let googleMessagesSetup=null;
 let healthTimer=null,healthBusy=false,locallyPaused=false;
 let deviceEmailReview=null,deviceEmailReviewNode=null,deviceEmailPreviewButton=null,deviceEmailEpoch=0;
 function clearDeviceEmailReview(){const previous=deviceEmailReview;deviceEmailReview=null;deviceEmailEpoch++;deviceEmailReviewNode?.remove();deviceEmailReviewNode=null;if(deviceEmailPreviewButton)deviceEmailPreviewButton.disabled=false;deviceEmailPreviewButton=null;if(previous?.id)call("/owner/device-email/discard",{id:previous.id}).catch(()=>{});}
@@ -101,7 +103,7 @@ el("service").onchange=()=>{permission();el("allow").checked=false;el("username"
 el("stop").onclick=async()=>{if(!confirm("Stop Account Access? Your saved connections will be kept."))return;clearDeviceEmailReview();clearBitwardenSetup();try{await call("/owner/stop",{});locallyPaused=true;clearInterval(healthTimer);message("Account Access is paused. Open the app to resume it.");el("service-status").textContent="Paused";el("recovery-health").hidden=true;document.querySelectorAll("button,input,select").forEach(x=>x.disabled=true);}catch(e){problem(e);}};
 el("manage").onclick=e=>{e.preventDefault();location.href="/manage#"+capability;};
 el("account-form").onsubmit=async e=>{e.preventDefault();el("add").disabled=true;try{if(!el("allow").checked)throw new Error("Choose the reads you want to allow.");await call("/owner/add",{service:el("service").value,username:el("username").value,password:el("password").value,agents:["generic"]});el("username").value="";el("password").value="";el("allow").checked=false;message("Signing in. You can connect another account while this finishes.");await refresh();}catch(e){problem(e);}finally{el("add").disabled=false;}};
-if(capability)call("/owner/install",{}).then(refresh).then(()=>{healthTimer=setInterval(checkRecoveryHealth,5000);document.addEventListener("visibilitychange",checkRecoveryHealth);}).catch(problem);else message("Open Account Access from its launcher to unlock your setup page.");
+if(capability)call("/owner/state").then(initial=>initial.local_host_actions===false?null:call("/owner/install",{})).then(refresh).then(()=>{healthTimer=setInterval(checkRecoveryHealth,5000);document.addEventListener("visibilitychange",checkRecoveryHealth);}).catch(problem);else message("Open Account Access from its launcher to unlock your setup page.");
 
 let importPreview=null;
 
@@ -258,11 +260,48 @@ function renderDeviceEmailSetups(container){
   };
  }
 }
+function renderGoogleMessages(container){
+ const sources=(state.code_sources||[]).filter(source=>source.kind==="google_messages");
+ if(!sources.length&&!state.sms_setups?.length){googleMessagesSetup=null;return;}
+ const context=JSON.stringify({sources:sources.map(source=>[source.id,!!source.enrolled,source.accounts.map(id=>[id,state.accounts.find(account=>account.account===id)?.label||id])]),sms_setups:(state.sms_setups||[]).map(setup=>[setup.account,setup.fingerprint])});
+ if(state.local_host_actions!==false&&googleMessagesSetup?.active&&googleMessagesSetup.context===context){container.append(googleMessagesSetup.card);return;}
+ googleMessagesSetup=null;
+ const card=text("div","");card.className="account";card.setAttribute("aria-label","Android SMS · Google Messages");
+ card.append(text("h2","Android SMS · Google Messages"),text("p","Use the Google Messages browser tab already paired to your phone for SMS login codes. This connection supports reviewed GitHub sign-ins."));
+ const saved=sources.some(source=>source.enrolled);
+ const badge=text("span",saved?"Setup saved · delivery unverified":"One-time browser connection");badge.className="badge pending";card.append(badge);
+ card.append(text("p","Chrome separately asks for access to messages.google.com. During an active approved GitHub sign-in, the helper passes only fresh matching login codes locally. GitHub rotates sender numbers, so sender identity is not independently verified. Your AI receives no codes or message contents."));
+ for(const source of sources){
+  const names=source.accounts.map(id=>state.accounts.find(account=>account.account===id)?.label||id).join(", ");
+  card.append(text("p",names+" · "+(source.enrolled?"SMS setup saved. Code delivery is checked during sign-in.":"SMS access is not enabled.")));
+  if(source.enrolled){const disable=text("button","Disable Google Messages SMS for "+names);disable.type="button";disable.onclick=async()=>{if(disable.disabled)return;disable.disabled=true;try{await call("/owner/source/revoke",{source:source.id});message("Google Messages SMS disabled for this connection.");await refresh();}catch(error){problem(error);disable.disabled=false;}};card.append(disable);}
+ }
+ if(state.local_host_actions===false){card.append(text("p","Open Verification in the Account Access desktop app and choose Set up Google Messages. Browser setup must be prepared by the local desktop app."));container.append(card);return;}
+ const setup={card,context,active:false,pending:false};googleMessagesSetup=setup;
+ const review=document.createElement("form");review.hidden=true;review.setAttribute("aria-label","Review Google Messages preparation");
+ review.append(text("h3","Prepare the SMS browser connection"),text("p","This installs the local bridge for the Account Access Chrome extension. Preparing it grants no Chrome site permission and does not confirm SMS delivery."));
+ const consent=document.createElement("input");consent.type="checkbox";consent.required=true;const label=text("label","Allow Account Access to prepare the local Google Messages bridge");label.prepend(consent);review.append(label);
+ const prepare=text("button","Prepare browser connection");prepare.type="submit";prepare.disabled=true;consent.onchange=()=>prepare.disabled=!consent.checked;
+ const cancel=text("button","Cancel browser preparation");cancel.type="button";cancel.onclick=()=>{if(setup.pending)return;setup.active=false;consent.checked=false;prepare.disabled=true;review.hidden=true;start.hidden=false;};
+ const start=text("button","Set up Google Messages");start.type="button";start.onclick=()=>{if(setup.pending||locallyPaused)return;setup.active=true;consent.checked=false;prepare.disabled=true;review.hidden=false;start.hidden=true;};
+ const instructions=text("div","");instructions.setAttribute("role","region");instructions.setAttribute("aria-label","Add the SMS browser connection");instructions.hidden=true;
+ function showPreparation(result){
+  setup.active=false;review.hidden=true;start.hidden=true;instructions.hidden=false;instructions.replaceChildren();badge.textContent="Browser bridge prepared · delivery unverified";
+  instructions.append(text("h3","Add the SMS browser connection"),text("p","The local bridge is prepared. Finish the separate Chrome extension setup to enable SMS access. No website sign-in has started."));
+  const steps=document.createElement("ol");
+  for(const step of ["In Chrome, open Extensions → Manage Extensions and turn on Developer mode.","Choose Load unpacked, then select the GoogleMessagesExtension folder shown below.","Open Account Access — Browser Connections in Chrome, choose your reviewed GitHub account, and select Connect GitHub login texts. Review Chrome's site permission request.","Keep one Google Messages conversations tab open and paired to your phone. Fresh code delivery is checked during a supported sign-in."])steps.append(text("li",step));
+  instructions.append(steps,text("p","Folder to select in Chrome:"),text("p",result.extension_path));
+  const messages=text("a","Open Google Messages");messages.href="https://messages.google.com/web/conversations";messages.target="_blank";messages.rel="noreferrer";instructions.append(messages);
+ }
+ review.onsubmit=async event=>{event.preventDefault();if(setup.pending||googleMessagesSetup!==setup||locallyPaused||prepare.disabled||!consent.checked)return;setup.active=true;setup.pending=true;prepare.disabled=true;cancel.disabled=true;consent.disabled=true;try{const result=await call("/owner/google-messages/prepare",{});if(googleMessagesSetup!==setup||locallyPaused)return;if(result.status!=="PREPARED"||typeof result.extension_path!=="string"||!result.extension_path)throw new Error("browser_connection_not_prepared");googleMessagesPreparation=result;showPreparation(result);message("Browser bridge prepared. Complete the Chrome steps below; SMS delivery is still unverified.");}catch(error){if(googleMessagesSetup===setup&&!locallyPaused)message("The browser connection could not be prepared. Open Verification in the Account Access desktop app to try again.");}finally{setup.pending=false;consent.checked=false;consent.disabled=false;cancel.disabled=false;prepare.disabled=true;}};
+ review.append(prepare,cancel);card.append(start,review,instructions);if(googleMessagesPreparation)showPreparation(googleMessagesPreparation);container.append(card);
+}
 function renderFactors(){
  const container=el("factors");container.replaceChildren();
  renderMailboxes(container);
  renderDeviceEmailSetups(container);
- for(const source of state.code_sources.filter(item=>item.message_purpose!=="pypi-device-confirmation")){
+ renderGoogleMessages(container);
+ for(const source of state.code_sources.filter(item=>item.message_purpose!=="pypi-device-confirmation"&&item.kind!=="google_messages")){
   const card=document.createElement("div");card.className="account";const kind={totp:"Authenticator",imap:"Email",gmail:"Gmail",twilio:"SMS gateway",mac_messages:"iPhone Messages",phone_relay:"Android phone"}[source.kind]||"Verification";card.append(text("strong",kind));card.append(text("p",source.accounts.map(id=>state.accounts.find(x=>x.account===id)?.label||id).join(", ")));const email=["imap","gmail"].includes(source.kind);const checked=source.connection_check?.status==="VERIFIED";const status=text("span",source.enrolled?(email&&checked?"Mailbox connection checked":"Setup saved"):"One-time setup");status.className="badge"+(source.enrolled?"":" pending");card.append(status);
   if(email&&source.enrolled){card.append(text("p",checked?"Email access passed its last check. Website code delivery is still a separate check.":"Saving these details does not verify email access or code delivery."));const check=text("button","Check email connection");check.type="button";check.onclick=async()=>{check.disabled=true;try{await call("/owner/source/check",{source:source.id});message("Mailbox connection checked. No messages fetched or website sign-in started.");await refresh();}catch(e){problem(e);}finally{check.disabled=false;}};card.append(check);}
   const form=document.createElement("form");const fields={};
@@ -279,5 +318,5 @@ function renderFactors(){
   if(source.enrolled){const disable=text("button","Disable verification");disable.type="button";disable.onclick=async()=>{try{await call("/owner/source/revoke",{source:source.id});await refresh();}catch(e){problem(e);}};card.append(disable);}
   card.append(form);container.append(card);
  }
- if(!state.code_sources.length){const empty=text("div","");empty.className="card";empty.append(text("h2","Connect a website"),text("p","You can save your mailbox now. Website verification methods appear after you connect a supported account."));container.append(empty);}
+ if(!state.code_sources.length&&!state.sms_setups?.length){const empty=text("div","");empty.className="card";empty.append(text("h2","Connect a website"),text("p","You can save your mailbox now. Website verification methods appear after you connect a supported account."));container.append(empty);}
 }

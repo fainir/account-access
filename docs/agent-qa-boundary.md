@@ -94,3 +94,20 @@ It is not an OS sandbox or a complete secret boundary.
 The harness removes inherited shell/Python startup injection variables without
 changing persistent settings. Raw traces stay in ignored local artifact storage;
 the sanitized acceptance report must remain qualified to fictional accounts.
+
+## Installed-preview checks on 19 October 2026
+
+The existing installed launcher completed three previously approved public-example
+reads from Codex in this chat. Saved sessions may have been reused; fresh password
+entry was not measured. The installed source revision was not attested, so this
+does not validate a newer protected candidate or a private account.
+[Sanitized task evidence](../artifacts/agent-tests/installed-public-reads-20261019.json).
+
+A separate preflight for Claude Code 2.1.112 did not start a model. Its public
+executable supports excluding user/project settings, Chrome and MCP servers,
+but mandatory managed policy remains and can suppress an invocation tool guard.
+The effective guard was not attested before startup. No owner authentication
+or account configuration was inspected to resolve that uncertainty.
+[Preflight evidence](../artifacts/agent-tests/claude-installed-preflight-20261019.json).
+This limits that optional QA run; it does not establish a failure of normal
+Claude Code use through the installed skill.

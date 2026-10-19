@@ -13,14 +13,21 @@ template only. It is not a Google API or a general inbox connector.
 2. Import the matching GitHub password and approve its supported read in Account
    Access. An imported password alone does not create a website connector.
 3. In **Verification**, choose **Set up Google Messages**, review the scope and
-   click **Prepare browser connection**. This registers a local native host for
-   the exact extension identity and opens its folder.
+   allow preparation of the local bridge, then click **Prepare browser connection**.
+   This registers a local native host for the exact extension identity. The
+   desktop app opens its folder; the local browser setup page displays its path.
+   If the browser page directs you to the desktop app, complete preparation there.
 4. This preview requires a local extension installation: in Chrome Extensions,
    enable Developer mode, choose **Load unpacked**, and select the
    `GoogleMessagesExtension` folder opened by Account Access.
 5. Open **Account Access — Browser Connections** in Chrome, select the reviewed GitHub
    account, click **Connect GitHub login texts**, and approve access to
    `messages.google.com` in Chrome's permission prompt.
+
+**Browser bridge prepared** means the files and local registration are ready;
+it does not grant Chrome permission, connect a phone or confirm code delivery.
+The browser setup page keeps delivery marked unverified. Preparing the bridge
+does not start a website sign-in.
 
 The service then checks the approved website sign-in automatically. Later agent
 requests use the same installed skill/CLI, with no SMS-copying command. The account
