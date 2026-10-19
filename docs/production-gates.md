@@ -7,7 +7,52 @@ establish that experience on personal accounts.
 
 ## Current candidate
 
-Build **74** is the current source/package review candidate at `def66480`.
+Build **75** is the current source/package review candidate at `43c82fb`.
+Reapplying an otherwise unchanged prepared installation now restores its missing
+service registration while preserving the enrollment policies and identity.
+Both disposable Mac provisioning reports passed all **39 checks**, including
+removed-registration recovery and preservation of the empty fixture vault.
+This does not establish recovery of an installed personal vault.
+
+All eight exact-source CI workflows passed **their first attempts**. Each Main
+regression passed **2,794 tests with 93 skips and zero warnings**; lint, Python
+dependency audits, wheel/source builds and the native checks passed.
+[Exact build 75 record](../artifacts/build75-review-080.json).
+
+The actual complete offline package was expanded and checked against its
+manifest. All 79 application files match the frozen source; the app and runtime
+payload have genuine publisher signatures. The package container remains
+**unsigned, unnotarized and uninstalled**. Its adjacent corresponding-source
+archive is required for the included Bitwarden program. The separate signed
+app ZIP requires protected registration. Neither artifact is a consumer release
+or genuine owner installation result.
+
+The provider release guard now binds the exact worker, allowed commands and
+official JavaScript assets, and checks the actual resolved dependency consumers.
+Fresh static review and **14 targeted tests** passed. The new source archive
+changes only its advisory-ledger member; staged provider code and dependencies
+match the actual build 74 package. The unpatched node-forge advisory remains
+**under investigation**. This bounded check supplies no cryptographic patch,
+blanket clean audit or whole-package non-exploitability claim.
+[Provider proof and limits](../artifacts/provider-release-guard-20261019.json).
+
+Strict QA probes of installed Codex and Claude executables are **unverified**:
+their required
+effective execution boundaries could not be attested before startup. They
+started no fixture or model and performed no private sign-in. Historical agent
+results do not validate this source. Normal installed clients do not run this optional QA preflight.
+[Agent acceptance boundary](agent-qa-boundary.md).
+
+Production readiness remains **false**. Publisher Installer/Notary configuration,
+genuine owner installation, mailbox consent, physical SMS delivery,
+authenticator enrollment and current installed-agent private journeys remain
+open. Password-manager private enrollment/rotation/revocation also remains
+unverified. Chrome password exports are snapshots; live Chrome password sync
+and arbitrary website/webmail coverage are not implemented.
+
+## Preserved build 74 review
+
+Build **74** was the source/package review candidate at `def66480`.
 Unsent masked inputs clear on actual view changes, confirmed Pause and page
 exit, while same-view refresh preserves active drafts. Rejected mailbox setup
 stays open with its nonsecret fields ready for retry and its password blank. Actively edited mailbox and authenticator setup survives unrelated background
@@ -192,7 +237,7 @@ presented as results for a later candidate.
 
 | Area | Implemented or controlled coverage | Still required |
 | --- | --- | --- |
-| Mac installation | Actual build 74 offline package inventory/source/payload-signature review and flat-PKG Notary helper; actual Installer-context and same-image recovery fixtures; build 67 adds native capacity preflight and non-destructive low-space retry | Developer ID Installer certificate, Notary credentials, Apple acceptance and stapling; clean downloaded installation, genuine owner enrollment and reboot QA |
+| Mac installation | Actual build 75 offline package inventory/source/payload-signature review; both disposable Mac provisioning artifacts pass 39 checks, including removed-registration restoration; retained flat-PKG Notary helper, Installer-context and low-space fixtures | Developer ID Installer certificate, Notary credentials, Apple acceptance and stapling; clean downloaded installation, genuine owner enrollment and reboot QA |
 | Upgrade and repair | Explicit recognized-preview agent connection upgrade; atomic launcher replacement and rollback; same-image/same-owner package recovery | Genuine installed owner upgrade and interrupted positive provisioning; different-image protected-package updates and vault migration |
 | Password import | Reviewed Chrome, Apple Passwords, compatible 1Password and Bitwarden CSV; unencrypted Bitwarden JSON; hidden-password local review | Representative real export-to-private-website acceptance, including the new protected installation |
 | Password synchronization | Approved 1Password items through service-account SDK or Connect; separately consented Bitwarden CLI source with exact-item checks, bounded updates and restrictive disconnect | Private enrollment, rotation and revocation QA. **Chrome live sync is unimplemented**; file imports remain snapshots |

@@ -1,0 +1,14 @@
+{
+  "agent": "claude",
+  "version": "0.8.0",
+  "passed": false,
+  "status": "UNVERIFIED",
+  "reason": "claude_pretool_boundary_unverifiable",
+  "cli_selection": "installed",
+  "cli_version": "2.1.112",
+  "fixture_started": false,
+  "model_started": false,
+  "private_signins": 0,
+  "production_ready": false,
+  "evidence_revision": "43c82fbda1ba71d8848368d755ed7b8564cda21e"
+}

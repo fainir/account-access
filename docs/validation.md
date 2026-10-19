@@ -1,6 +1,63 @@
 # Validation of Account Access
 
-The current [build 74 review](../artifacts/build74-review-080.json) binds application
+## Current build 75 review
+
+The [build 75 record](../artifacts/build75-review-080.json) binds application,
+QA, package and CI to `43c82fb`. All eight workflows passed their first attempt.
+Both Main regressions passed **2,794 tests, 93 skips and zero warnings** in
+**1021.90 and 1019.89 seconds**; Python dependency audits,
+lint and wheel/source builds passed. Actual run records and job logs are retained.
+
+Both exact-run Mac provisioning artifacts passed all **39 required checks**.
+Their report files, source/run API bindings, GitHub artifact digests and archive
+members were verified. The new checks remove service registration and reapply
+the same prepared installation, then confirm restored registration and unchanged
+policies, identity and empty fixture vault. These are controlled development
+installations in disposable Macs, with no genuine owner approval or consumer
+package acceptance.
+
+The actual offline package was expanded. Its **25,281 files**,
+**2,305 directories** and **21 aliases**
+match the manifest; all 79 application files match the exact source, and app/Node
+signatures verify. Node retains only its reviewed JIT entitlement with library
+validation enabled. The installer container is **unsigned, unnotarized and
+uninstalled**. The separately verified app ZIP requires protected registration.
+These archive checks do not establish consumer installation.
+
+Fresh provider source/graph guards and **14 cases** passed in **0.22 seconds**
+(console timing; retained JUnit suite timing is **0.118 seconds**).
+All 867 source materials and notices remain; the newly measured source archive
+changes only the advisory ledger. Actual provider inventory comparison finds
+only that ledger and runtime-manifest metadata changed from the preserved build
+74 package. Current review executes no provider CLI or upstream source script.
+Older execution/audit records remain explicitly historical. The remaining
+node-forge advisory stays **under investigation**; no crypto patch, blanket clean
+audit or whole-package non-exploitability is claimed.
+[Fresh guard and recovery evidence](../artifacts/provider-release-guard-20261019.json).
+
+The earlier 213-case local result (3.03 seconds) was reported from the console
+before scratch loss. Its raw log/JUnit is unavailable and is not presented as a
+retained current proof. Fresh retained guard results and exact-source full CI
+provide the independently inspectable test evidence.
+
+Strict QA probes of installed agent executables record Codex 0.163.0 and Claude
+Code 2.1.112
+as **unverified**. Neither starts a fixture, model or private login because the
+required effective invocation boundary could not be attested. This limits the
+optional strict QA run; it does not establish a normal-client failure.
+[Codex report](../artifacts/agent-tests/codex-verification-080-build75-43c82fb.blocked.json),
+[Claude report](../artifacts/agent-tests/claude-verification-080-build75-43c82fb.blocked.json).
+
+No owner app was launched/reinstalled, no owner credential files were accessed,
+and new private sign-ins remain **zero**. Publisher, owner-enrollment, physical
+mail/SMS/authenticator and installed-agent acceptance remain open. Production
+readiness remains **false**; see [production acceptance](production-gates.md).
+Build 74's original failures, later QA fix and scope are preserved below and in
+its unchanged record.
+
+## Preserved build 74 review
+
+The preserved [build 74 review](../artifacts/build74-review-080.json) binds application
 source `def66480` and QA `d089e2a`; their product files are identical. All eight
 QA workflows passed on their latest attempts; both Main regressions
 passed **2,751 tests with 93 skips and zero warnings**, with Python dependency
