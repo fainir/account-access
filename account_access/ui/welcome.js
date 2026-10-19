@@ -10,7 +10,8 @@ const setupDrafts=new Map(),setupOperations=new Map();
 let setupEpoch=0;
 function clearSetupDraft(key,cancelOperation=true){const draft=setupDrafts.get(key);if(draft){draft.secrets.forEach(field=>field.value="");draft.active=false;setupDrafts.delete(key);}if(cancelOperation&&setupOperations.has(key))setupOperations.get(key).cancelled=true;}
 function clearSetupDrafts(){setupEpoch++;for(const key of setupDrafts.keys())clearSetupDraft(key);for(const operation of setupOperations.values())operation.cancelled=true;}
-window.addEventListener("pagehide",clearSetupDrafts);
+function clearMaskedInputs(){document.querySelectorAll('input[type="password"]').forEach(field=>field.value="");}
+window.addEventListener("pagehide",()=>{clearMaskedInputs();clearSetupDrafts();});
 let healthTimer=null,healthBusy=false,locallyPaused=false;
 let deviceEmailReview=null,deviceEmailReviewNode=null,deviceEmailPreviewButton=null,deviceEmailEpoch=0;
 function clearDeviceEmailReview(){const previous=deviceEmailReview;deviceEmailReview=null;deviceEmailEpoch++;deviceEmailReviewNode?.remove();deviceEmailReviewNode=null;if(deviceEmailPreviewButton)deviceEmailPreviewButton.disabled=locallyPaused;deviceEmailPreviewButton=null;if(previous?.id)call("/owner/device-email/discard",{id:previous.id}).catch(()=>{});}
@@ -55,6 +56,7 @@ const isExample=account=>["controlled-demo","public-example"].includes(account.e
 const isReady=account=>account.connected&&account.portable_ready&&!account.challenges?.length;
 function prompt(){return state.accounts.some(x=>!isExample(x)&&isReady(x))?"Summarize the approved information from my connected services and save the results as one task.":state.accounts.some(x=>isExample(x)&&isReady(x))?"Try my connected example accounts and save the results as one task. Label the results as examples.":"Check which of my configured services are available and tell me what needs attention.";}
 function navigate(next){
+ if(next!==view)clearMaskedInputs();
  if(next!==view||next!=="verification")clearDeviceEmailReview();
  if(next!=="sync")clearBitwardenSetup();
  if(next!=="verification")clearSetupDrafts();
@@ -109,7 +111,7 @@ async function refresh(){
  if(Object.values(state.connection_jobs).some(x=>x.status==="RUNNING"))setTimeout(()=>refresh().catch(problem),1200);
 }
 el("service").onchange=()=>{permission();el("allow").checked=false;el("username").value="";el("password").value="";};
-el("stop").onclick=async()=>{if(!confirm("Stop Account Access? Your saved connections will be kept."))return;clearDeviceEmailReview();clearBitwardenSetup();clearSetupDrafts();try{await call("/owner/stop",{});locallyPaused=true;clearInterval(healthTimer);message("Account Access is paused. Open the app to resume it.");el("service-status").textContent="Paused";el("recovery-health").hidden=true;document.querySelectorAll("button,input,select").forEach(x=>x.disabled=true);}catch(e){problem(e);}};
+el("stop").onclick=async()=>{if(!confirm("Stop Account Access? Your saved connections will be kept."))return;clearMaskedInputs();clearDeviceEmailReview();clearBitwardenSetup();clearSetupDrafts();try{await call("/owner/stop",{});locallyPaused=true;clearInterval(healthTimer);message("Account Access is paused. Open the app to resume it.");el("service-status").textContent="Paused";el("recovery-health").hidden=true;document.querySelectorAll("button,input,select").forEach(x=>x.disabled=true);}catch(e){problem(e);}};
 el("manage").onclick=e=>{e.preventDefault();location.href="/manage#"+capability;};
 el("account-form").onsubmit=async e=>{e.preventDefault();if(locallyPaused||el("add").disabled)return;el("add").disabled=true;try{if(!el("allow").checked)throw new Error("Choose the reads you want to allow.");const payload={service:el("service").value,username:el("username").value,password:el("password").value,agents:["generic"]};el("password").value="";const request=call("/owner/add",payload);payload.password="";await request;if(locallyPaused)return;el("username").value="";el("allow").checked=false;message("Signing in. You can connect another account while this finishes.");await refresh();}catch(e){if(!locallyPaused)problem(e);}finally{el("add").disabled=locallyPaused;}};
 if(capability)call("/owner/state").then(initial=>initial.local_host_actions===false?null:call("/owner/install",{})).then(refresh).then(()=>{healthTimer=setInterval(checkRecoveryHealth,5000);document.addEventListener("visibilitychange",checkRecoveryHealth);}).catch(problem);else message("Open Account Access from its launcher to unlock your setup page.");

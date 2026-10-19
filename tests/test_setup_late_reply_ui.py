@@ -117,3 +117,47 @@ def test_late_google_messages_preparation_cannot_reenable_paused_controls(setup_
         assert card.get_by_role("region", name="Add the SMS browser connection", exact=True).is_hidden()
     finally:
         release.set()
+
+
+@pytest.mark.parametrize("action", ["navigate", "pause", "pagehide"])
+def test_unsent_account_password_is_cleared_at_owner_lifecycle_boundary(setup_page, action):
+    page, broker, provider = setup_page
+    before = broker.store.config().model_dump()
+    submissions = []
+    page.on("request", lambda request: submissions.append(request.url)
+            if request.url.endswith("/owner/add") else None)
+    page.get_by_role("button", name="Add an account", exact=True).click()
+    page.locator("#password").fill("fictional-unsent-account-password")
+    if action == "navigate":
+        page.get_by_role("button", name="Verification", exact=True).click()
+        assert page.locator("#password").input_value() == ""
+    elif action == "pause":
+        page.get_by_role("button", name="Pause local service", exact=True).click()
+        page.locator("#message").filter(has_text="Account Access is paused").wait_for()
+        assert page.locator("#password").input_value() == ""
+        assert page.locator("button,input,select").evaluate_all("controls=>controls.every(control=>control.disabled)")
+    else:
+        # Record only a Boolean after the app's pagehide listener, never a secret.
+        page.evaluate("window.addEventListener('pagehide',()=>sessionStorage.setItem('fixture-masked-cleared',String([...document.querySelectorAll('input[type=password]')].every(field=>field.value===''))))")
+        base = page.url.split("/#", 1)[0].rstrip("/")
+        page.goto(base + "/manage")
+        assert page.evaluate("sessionStorage.getItem('fixture-masked-cleared')") == "true"
+    assert not submissions
+    assert provider.login_count == 0
+    assert broker.store.config().model_dump() == before
+
+
+def test_unsent_account_password_survives_same_view_refresh_and_selection(setup_page):
+    page, broker, provider = setup_page
+    before = broker.store.config().model_dump()
+    page.get_by_role("button", name="Add an account", exact=True).click()
+    password = page.locator("#password")
+    password.fill("fictional-unsent-account-password")
+    page.evaluate("refresh()")
+    assert password.input_value() == "fictional-unsent-account-password"
+    page.get_by_role("button", name="Your accounts", exact=True).click()
+    assert password.input_value() == "fictional-unsent-account-password"
+    page.evaluate("refresh()")
+    assert password.input_value() == "fictional-unsent-account-password"
+    assert provider.login_count == 0
+    assert broker.store.config().model_dump() == before
