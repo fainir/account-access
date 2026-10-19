@@ -7,7 +7,73 @@ establish that experience on personal accounts.
 
 ## Current candidate
 
-Build **71** is the current review candidate at source `a5c3c6e`. Google
+Build **74** is the current source/package review candidate at `def66480`.
+Unsent masked inputs clear on actual view changes, confirmed Pause and page
+exit, while same-view refresh preserves active drafts. Rejected mailbox setup
+stays open with its nonsecret fields ready for retry and its password blank. Actively edited mailbox and authenticator setup survives unrelated background
+login refresh. Saving clears secret fields before submission; navigation,
+changed enrollment and Pause discard stale drafts and delayed replies. A
+composed fictional-account test imports a Chrome-format password, enrolls an
+authenticator through the actual owner page, completes a fresh password/TOTP
+login and reuses that session.
+
+Latest attempts of all eight QA workflows at `d089e2a` passed. Its product files match application
+source `def66480` exactly; the later commit changes tests and evidence only.
+Each Main regression passed
+**2,751 tests with 93 skips and zero warnings**. The final focused setup cleanup/retry group
+passed 35 cases. Both Main regressions for build 72 failed a mailbox
+retry race; that failure is preserved separately and is fixed here. See the
+[exact build 74 record](../artifacts/build74-review-080.json).
+
+The original application-source Main push failed waiting for a response, while
+its PR counterpart passed. A controlled experiment demonstrated that the test's
+late observer could miss an already completed correct reply. The QA-only update
+subscribes before submission, removes the fixture's independent reply deadline
+and awaits the original handler through completion. The precise ordering or
+transport cause of the original CI failure remains unestablished; its log and
+same-source results are retained.
+[QA measurement proof](../artifacts/qa-account-response-20261019.json).
+
+The first Android PR attempt at the QA revision failed SDK/emulator provisioning
+before emulator or project startup. One failed job was retried on the identical
+source; the original setup failure and log remain separate from its later result.
+The invalid archive's underlying cause is not established.
+
+After disk space was freed, the complete build 74 offline review package was
+assembled and expanded for verification. Its actual inventory matches the
+reviewed payload manifest; all 79 bundled application files, genuine publisher
+payload signatures and provider/source pins match the reviewed inputs. The
+installer container remains **unsigned, unnotarized and uninstalled**. The
+separate app ZIP also passed signature/source review and requires protected
+registration. These are maintainer review artifacts, not a consumer release.
+The preserved build 71 package contains its own earlier source only.
+
+The publisher helper now supports flat-PKG notarization and rejects modified
+submission/output bytes. A copy-only check with an already accepted public
+vendor package passed actual Apple signature, fresh stapling and install-policy
+tools; an inserted-padding case is rejected. This used no publisher credentials
+and proves neither Apple acceptance for Account Access nor installation.
+[Native public-package proof and limits](../artifacts/flat-pkg-notarization-20261019.json).
+Account Access still needs its Installer certificate, Notary credentials and
+genuine owner installation/private-account acceptance.
+
+Build **73** at `82ed5215` repaired the mailbox retry. Its exact CI results remain
+[recorded](../artifacts/build73-review-080.json). Later new tests against its
+unchanged product found that an unsent masked account password remained after
+view changes, confirmed Pause and page exit: three failed and one preservation
+case passed. Those new cases were absent from its immutable CI. Build 74 clears
+all masked inputs at those boundaries and preserves the same-view draft. No
+account-add request or website login was started by the new lifecycle cases.
+[Before/after cleanup evidence](../artifacts/owner-secret-cleanup-20261019.json).
+
+Build **72** at `028f181b` passed app signature/source review but **failed both
+Main regressions**: 1 failed, 2,746 passed and 93 skipped in each. Rejected mailbox
+setup closed its form and lost nonsecret retry details after refresh. Its local
+focused pass did not override that failure. Build 73 repaired that path by keeping
+the form open with its password blank. The regression waits for the full refresh. The failed artifact and logs remain
+[recorded](../artifacts/build72-review-080.json).
+
+Build **71** at source `a5c3c6e` is the earlier full-package review. Google
 Messages browser setup now prepares its actual local bridge, shows the Chrome
 installation steps and keeps preparation separate from permissions and code
 delivery. Active review survives background login polling; revocation or changed
@@ -29,7 +95,7 @@ that retained failure.
 
 The existing installed preview separately completed three approved public-example
 reads through Codex. Saved sessions may have been reused and its source revision
-was not attested; this does not validate build 71. A separate strict Claude
+was not attested; this does not validate these protected candidates. A separate strict Claude
 installed-preview preflight did not start a model because its optional invocation
 guard could not be attested. This is a QA boundary, not a normal-client failure.
 [Installed agent evidence and limits](agent-qa-boundary.md#installed-preview-checks-on-19-october-2026).
@@ -126,7 +192,7 @@ presented as results for a later candidate.
 
 | Area | Implemented or controlled coverage | Still required |
 | --- | --- | --- |
-| Mac installation | Offline protected package, native inventory and publisher-signature checks; actual Installer-context and same-image recovery fixtures; build 67 adds native capacity preflight and non-destructive low-space retry | Developer ID Installer certificate, Notary credentials, Apple acceptance and stapling; clean downloaded installation, genuine owner enrollment and reboot QA |
+| Mac installation | Actual build 74 offline package inventory/source/payload-signature review and flat-PKG Notary helper; actual Installer-context and same-image recovery fixtures; build 67 adds native capacity preflight and non-destructive low-space retry | Developer ID Installer certificate, Notary credentials, Apple acceptance and stapling; clean downloaded installation, genuine owner enrollment and reboot QA |
 | Upgrade and repair | Explicit recognized-preview agent connection upgrade; atomic launcher replacement and rollback; same-image/same-owner package recovery | Genuine installed owner upgrade and interrupted positive provisioning; different-image protected-package updates and vault migration |
 | Password import | Reviewed Chrome, Apple Passwords, compatible 1Password and Bitwarden CSV; unencrypted Bitwarden JSON; hidden-password local review | Representative real export-to-private-website acceptance, including the new protected installation |
 | Password synchronization | Approved 1Password items through service-account SDK or Connect; separately consented Bitwarden CLI source with exact-item checks, bounded updates and restrictive disconnect | Private enrollment, rotation and revocation QA. **Chrome live sync is unimplemented**; file imports remain snapshots |
@@ -135,7 +201,7 @@ presented as results for a later candidate.
 | Android SMS | Paired pinned HTTPS delivery and notification-listener emulator fixtures | Physical pairing, carrier/notification delivery, reconnect and private login QA |
 | Google Messages Web | Reviewed browser/desktop preparation, refresh/revocation UI checks, unchanged extension scripts in a synthetic Messages document, stable Chrome/native transport and controlled SMS-login composition | Genuine positive owner approval and complete private/physical SMS login; broader language coverage and extension distribution |
 | Authenticator | Local original-key, supported QR and complete Google Authenticator transfer-batch import; TOTP login fixtures | Owner-approved real phone export/enrollment and provider login. Push approvals, nonstandard TOTP and Google Authenticator cloud sync are unsupported |
-| Agent integration | Portable installed CLI/skill; current guarded Claude fictional-account journey; earlier source-specific Codex results | Current protected owner installation and private sessions through both agents. The optional nested Codex QA harness remains unverified before startup |
+| Agent integration | Portable installed CLI/skill; historical source-specific guarded Claude/Codex fixtures; separate revision-unattested installed-preview public reads | Current protected owner installation and private sessions through both agents. The optional nested Codex QA harness remains unverified before startup |
 | Website coverage | Reviewed public examples and narrow Namecheap, PyPI and Read the Docs pilots; password, email, SMS and TOTP engine fixtures | More reviewed connectors and representative private acceptance. Importing a password does not add arbitrary website support |
 | Security and operations | Separate service identity, native owner authorization, protected key custody, permission/revocation checks and disposable cross-user/crash fixtures | Genuine consumer deployment and owner approval, real logout/reboot and active-operation recovery; independent security review and release provenance |
 

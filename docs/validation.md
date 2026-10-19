@@ -1,6 +1,89 @@
 # Validation of Account Access
 
-The current [build 71 review](../artifacts/build71-review-080.json) binds application
+The current [build 74 review](../artifacts/build74-review-080.json) binds application
+source `def66480` and QA `d089e2a`; their product files are identical. All eight
+QA workflows passed on their latest attempts; both Main regressions
+passed **2,751 tests with 93 skips and zero warnings**, with Python dependency
+audits and wheel/source builds. The actual signed app ZIP verifies against the
+genuine publisher and all 79 bundled application source files match that commit.
+The complete build 74 offline review package was assembled after space was
+freed, then expanded to verify its actual manifest, all 79 source files, signed
+runtime payload and pinned provider materials. Its installer container remains
+**unsigned, unnotarized and uninstalled**. The separate app ZIP requires protected
+registration. Neither artifact establishes consumer installation or production
+acceptance. Build 71 remains a separate earlier package.
+
+At application source `def66480`, the setup cleanup/retry group passed **35 cases
+in 74.97 seconds**. The QA-only observer change then passed **13 focused cases
+in 43.98 seconds**.
+New cases confirm that unsubmitted masked fields clear on view changes, Pause
+and actual page exit while same-view refresh preserves the active draft.
+The full suite also checks mailbox and TOTP drafts that
+survive unrelated actual owner-job polling; submission clears masked secrets;
+Pause, navigation and changed enrollment prevent stale replies from restoring
+controls or starting verification. A composed sandboxed-browser fixture imports
+a fictional Chrome-format password, enrolls TOTP through the real owner HTTP
+page, completes a fresh password/code login and reuses the resulting session.
+It does not install or invoke an AI agent or access a physical authenticator.
+Build 72 failed both full regressions on a rejected-mailbox retry
+race. Its original failures are preserved separately from this source repair.
+
+The unchanged app/flat-package notarization helper passed **112 targeted tests**
+at source `028f181b`, including 52 flat-package cases, and is covered again in
+this source's Main regressions. The actual helper also verified a freshly stapled copy
+of an already accepted public Homebrew package with Apple tools. The original
+archive remained unchanged; a fixed inserted-padding case that native tools
+accepted was rejected by the helper's stricter framing check.
+[Public native proof](../artifacts/flat-pkg-notarization-20261019.json).
+No Account Access package was submitted to Apple or accepted for this release.
+No owner installation or app launch occurred on this Mac during this review;
+disposable CI separately installs development fixtures.
+
+Original application-source CI passed its PR Main regression but failed the push
+copy while awaiting a response. That failure remains recorded. A controlled
+experiment demonstrated a late-response-observer window; the precise failed-CI
+ordering or deadline/transport trigger remains unestablished. The QA-only change
+observes before request initiation and awaits the actual handler through finally,
+without changing product files or production timeouts. Expected rejection,
+secret clearing, duplicate prevention, Pause, unchanged configuration and zero
+website-login assertions remain enforced.
+[Measurement diagnosis and limits](../artifacts/qa-account-response-20261019.json).
+
+The QA revision's first Android PR attempt failed SDK/emulator provisioning
+before emulator or project startup. A single failed-job retry used the same
+source; the failed attempt, raw log and uncertain invalid-archive cause remain
+recorded separately from the later result.
+
+Independent bounded UI/helper review found no further concrete defect. New
+private sign-ins remain **zero**. No current protected installed Codex/Claude
+journey or physical mailbox/phone acceptance was performed. Historical agent,
+package and provider reports retain their original sources and limitations.
+Production readiness remains **false**; see [production acceptance](production-gates.md).
+
+## Preserved build 73 coverage gap
+
+The [build 73 record](../artifacts/build73-review-080.json) retains its original
+CI results and app proof. Additional newly written local regressions against
+that unchanged source had three failures and one pass in 7.77 seconds. Unsent
+account-password fields stayed masked in the owner DOM on navigation, Pause
+and page exit. These tests were not part of its frozen CI and made no account
+submission or website login. [Build 74's cleanup proof](../artifacts/owner-secret-cleanup-20261019.json)
+binds the before/after JavaScript and regression-test hashes; passing historical
+CI does not override a later reproduced gap.
+
+## Preserved build 72 regression
+
+The [build 72 record](../artifacts/build72-review-080.json) retains source
+`028f181b`, its signed app proof and both full-regression failures. Each had
+1 failed, 2,746 passed and 93 skipped. The failed mailbox retry could locally
+run before the handler's final refresh; waiting for completion exposed that
+the form had closed and lost its nonsecret fields. Build 73 fixed the product
+and made the regression await the completed handler rather than adding sleeps
+or weakening the assertion. The failed source was not rerun to replace its result.
+
+## Earlier build 71 evidence
+
+The earlier [build 71 review](../artifacts/build71-review-080.json) binds application
 and QA source `a5c3c6e`. The actual unsigned archive inventory, 79 bundled source
 files, app/runtime payload signatures and provider materials passed review.
 Seventeen focused owner-page tests passed, including seven Google Messages
