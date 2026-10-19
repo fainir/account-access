@@ -134,6 +134,10 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     var factorMailboxMenu: NSPopUpButton?
     var factorEntryViews: [NSView] = []
     var editingMailbox: String?
+    enum MailboxRetryContext {
+        case connect(provider: Int, username: String, host: String, port: String)
+        case update(id: String)
+    }
     var passwordSync: [[String: Any]] = []
     var bitwardenConnections: [[String: Any]] = []
     var bitwardenAvailable = false
@@ -292,6 +296,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     func page(_ title: String, _ subtitle: String, preservingDeviceEmailReview: Bool = false) {
         if !preservingDeviceEmailReview { clearDeviceEmailReview() }
         clearBitwardenFields()
+        for field in mailboxFields.values where field is NSSecureTextField { field.stringValue = "" }
         let shell = NSView()
         window.contentView = shell
         let haveOwner = systemOwnerReady || (!systemOwnerConfigured && base != nil && !token.isEmpty)
@@ -1519,7 +1524,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 body.addArrangedSubview(inspect)
             }
         }
-        if !issues.isEmpty && !sources.isEmpty { action("Review verification methods", #selector(showFactors)) }
+        if !issues.isEmpty && (!sources.isEmpty || !smsSetups.isEmpty || !deviceEmailSetups.isEmpty) { action("Review verification methods", #selector(showFactors)) }
         primary("Go to my accounts", #selector(showReady))
     }
 
@@ -2381,6 +2386,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
 
     @objc func showMailboxPasswordSetup() {
+        section = "verification"
         editingMailbox = nil
         page("Connect your email", "Save your mailbox once. Only supported websites with approved login-message filters can use it.")
         mailboxKind = NSPopUpButton()
@@ -2424,31 +2430,67 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
 
     @objc func saveMailbox() {
+        guard !busy else { return }
         let data: [String: Any]
+        let retryContext: MailboxRetryContext
         if let id = editingMailbox {
             data = ["id": id, "password": mailboxFields["password"]?.stringValue ?? ""]
+            retryContext = .update(id: id)
         } else {
+            let username = mailboxFields["username"]?.stringValue ?? ""
+            let host = mailboxFields["host"]?.stringValue ?? ""
+            let port = mailboxFields["port"]?.stringValue ?? ""
             data = ["label": mailboxKind.indexOfSelectedItem == 0 ? "Gmail" : "Email",
-                    "host": mailboxFields["host"]?.stringValue ?? "",
-                    "port": Int(mailboxFields["port"]?.stringValue ?? "") ?? 0,
-                    "username": mailboxFields["username"]?.stringValue ?? "",
+                    "host": host, "port": Int(port) ?? 0, "username": username,
                     "password": mailboxFields["password"]?.stringValue ?? ""]
+            retryContext = .connect(provider: mailboxKind.indexOfSelectedItem, username: username, host: host, port: port)
         }
         let route = editingMailbox == nil ? "owner/mailbox/connect" : "owner/mailbox/password"
         for field in mailboxFields.values { field.stringValue = "" }
-        mailboxRequest(route, data)
+        mailboxRequest(route, data, retryContext: retryContext)
     }
 
-    func mailboxRequest(_ route: String, _ body: [String: Any]) {
+    func mailboxRequest(_ route: String, _ body: [String: Any], retryContext: MailboxRetryContext? = nil) {
+        guard !busy else { return }
         busy = true
         page("Checking your mailbox", "Checking encrypted email access without fetching messages or starting a website sign-in.")
         progress()
+        let requestScreen = stack
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 _ = try self.request(route, body: body)
                 let state = try self.request("owner/state")
-                DispatchQueue.main.async { self.busy = false; self.accept(state); self.showFactors() }
-            } catch { self.fail(error, retry: #selector(self.backToConnections)) }
+                DispatchQueue.main.async {
+                    guard self.busy, self.stack === requestScreen else { return }
+                    self.busy = false; self.accept(state); self.showFactors()
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    guard self.busy, self.stack === requestScreen else { return }
+                    self.busy = false
+                    let explanation: String
+                    if case Failure.message(let message) = error { explanation = message }
+                    else { explanation = "The mailbox connection could not finish. Check your settings and enter the application password again." }
+                    guard let retryContext else {
+                        self.page("This step needs attention", explanation)
+                        self.action("Review email connections", #selector(self.showFactors))
+                        return
+                    }
+                    switch retryContext {
+                    case let .connect(provider, username, host, port):
+                        self.showMailboxPasswordSetup()
+                        self.mailboxKind.selectItem(at: provider)
+                        self.mailboxKindChanged()
+                        self.mailboxFields["username"]?.stringValue = username
+                        self.mailboxFields["host"]?.stringValue = host
+                        self.mailboxFields["port"]?.stringValue = port
+                    case let .update(id): self.showMailboxPasswordEdit(id)
+                    }
+                    self.mailboxFields["password"]?.stringValue = ""
+                    self.label(explanation, 14, .systemRed)
+                    self.window.makeFirstResponder(self.mailboxFields["password"])
+                }
+            }
         }
     }
 
@@ -2459,6 +2501,11 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
 
     @objc func editMailboxPassword(_ sender: NSButton) {
         guard let id = sender.identifier?.rawValue else { return }
+        showMailboxPasswordEdit(id)
+    }
+
+    func showMailboxPasswordEdit(_ id: String) {
+        section = "verification"
         editingMailbox = id
         page("Update email access", "Replace the saved application password. The email address and mail server stay fixed.")
         let field = NSSecureTextField()

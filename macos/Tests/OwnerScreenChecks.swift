@@ -75,12 +75,32 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
     var deviceEmailApplyFailure = false
     var deviceEmailPreview: [String: Any] = [:]
     var googleRequests: [String] = []
+    private let mailboxLock = NSLock()
+    private var mailboxPosts = 0
+    private var mailboxReply: ((Int, Data) -> Void)?
+    var mailboxPostCount: Int { mailboxLock.withLock { mailboxPosts } }
+    var mailboxResponsePending: Bool { mailboxLock.withLock { mailboxReply != nil } }
+    func rejectMailboxResponse() {
+        let reply = mailboxLock.withLock { () -> ((Int, Data) -> Void)? in
+            defer { mailboxReply = nil }
+            return mailboxReply
+        }
+        reply?(401, OwnerGatewaySession.failure("mailbox_connection_failed"))
+    }
     let clientToken = String(repeating: "F", count: 43)
     var clientID: String { SHA256.hash(data: Data(clientToken.utf8)).map { String(format: "%02x", $0) }.joined() }
     var state: [String: Any] = ["accounts": [], "catalog": []]
     func prepare(reply: @escaping (Bool) -> Void) { isAvailable = true; reply(true) }
     func authorizeSetup(_ form: Data, reply: @escaping (Bool) -> Void) { reply(form.count == 32) }
     func request(_ route: String, body: Data?, reply: @escaping (Int, Data) -> Void) {
+        if ["owner/mailbox/connect", "owner/mailbox/password"].contains(route) {
+            mailboxLock.withLock {
+                mailboxPosts += 1
+                precondition(mailboxReply == nil)
+                mailboxReply = reply
+            }
+            return
+        }
         if route.hasPrefix("owner/mailbox/oauth/") {
             googleRequests.append(route)
             if route.hasSuffix("/check") {
@@ -136,6 +156,7 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
 
 @main struct OwnerScreenChecks {
     static func main() {
+        setbuf(stdout, nil)
         let legacy = Bundle.main
         var attempts = 0
         precondition((try! OwnerApplicationBundle.select(system: false, main: legacy, installed: {
@@ -746,6 +767,89 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         precondition(owner.mailboxOAuth.first?["mailbox_identity_verified"] as? Bool == true)
         precondition(descendants(owner.stack).compactMap { ($0 as? NSTextField)?.stringValue }.contains("Google mailbox checked"))
         print("PASS: saved Google access checks its reusable mailbox address without another consent flow or mailbox password")
+
+        // Reject the actual native mailbox POST. Only nonsecret form context
+        // may return; a new password and explicit submit are always required.
+        let awaitMailboxReply = {
+            let deadline = Date().addingTimeInterval(5)
+            while !nativeChannel.mailboxResponsePending && Date() < deadline {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+            }
+            precondition(nativeChannel.mailboxResponsePending)
+        }
+        let finishMailboxReply = {
+            nativeChannel.rejectMailboxResponse()
+            let deadline = Date().addingTimeInterval(5)
+            while owner.busy && Date() < deadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
+            precondition(!owner.busy)
+        }
+        let initialMailboxPosts = nativeChannel.mailboxPostCount
+        for provider in [0, 1] {
+            owner.showMailboxPasswordSetup()
+            owner.mailboxKind.selectItem(at: provider)
+            owner.mailboxKindChanged()
+            owner.mailboxFields["username"]!.stringValue = "fictional@example.test"
+            if provider == 1 {
+                owner.mailboxFields["host"]!.stringValue = "imap.example.test"
+                owner.mailboxFields["port"]!.stringValue = "1993"
+            }
+            let expectedHost = owner.mailboxFields["host"]!.stringValue
+            let expectedPort = owner.mailboxFields["port"]!.stringValue
+            owner.mailboxFields["password"]!.stringValue = "fictional-rejected-app-password"
+            let submittedPassword = owner.mailboxFields["password"]!
+            owner.saveMailbox()
+            precondition(submittedPassword.stringValue.isEmpty)
+            awaitMailboxReply()
+            finishMailboxReply()
+            print("CHECK: rejected native mailbox retry preserved address: \(owner.mailboxFields["username"]?.stringValue == "fictional@example.test"); password blank: \(owner.mailboxFields["password"]?.stringValue.isEmpty == true)")
+            precondition(owner.mailboxKind.indexOfSelectedItem == provider)
+            precondition(owner.mailboxFields["username"]!.stringValue == "fictional@example.test")
+            precondition(owner.mailboxFields["host"]!.stringValue == expectedHost)
+            precondition(owner.mailboxFields["port"]!.stringValue == expectedPort)
+            precondition(owner.mailboxFields["password"] is NSSecureTextField && owner.mailboxFields["password"]!.stringValue.isEmpty)
+            precondition(descendants(owner.stack).compactMap { ($0 as? NSTextField)?.stringValue }.contains { $0.contains("email server did not accept") })
+            precondition(!nativeChannel.mailboxResponsePending)
+            let unsentRetryPassword = owner.mailboxFields["password"]!
+            unsentRetryPassword.stringValue = "fictional-unsent-retry-password"
+            owner.showFactors()
+            precondition(unsentRetryPassword.stringValue.isEmpty)
+        }
+        precondition(nativeChannel.mailboxPostCount == initialMailboxPosts + 2)
+        let editingID = "mailbox-" + String(repeating: "a", count: 24)
+        owner.editMailboxPassword({ let button = NSButton(); button.identifier = NSUserInterfaceItemIdentifier(editingID); return button }())
+        owner.mailboxFields["password"]!.stringValue = "fictional-rejected-replacement"
+        owner.saveMailbox()
+        awaitMailboxReply()
+        let postsWhilePending = nativeChannel.mailboxPostCount
+        owner.saveMailbox()
+        owner.pauseAccess()
+        precondition(owner.busy && nativeChannel.mailboxPostCount == postsWhilePending)
+        finishMailboxReply()
+        precondition(owner.editingMailbox == editingID && owner.mailboxFields["password"]!.stringValue.isEmpty)
+        owner.mailboxFields["password"]!.stringValue = "fictional-explicit-retry"
+        owner.saveMailbox()
+        awaitMailboxReply()
+        let activeMailboxScreen = owner.stack
+        owner.busy = false
+        owner.showFactors()
+        let destinationScreen = owner.stack
+        precondition(activeMailboxScreen !== destinationScreen)
+        nativeChannel.rejectMailboxResponse()
+        let staleMailboxDeadline = Date().addingTimeInterval(0.2)
+        while Date() < staleMailboxDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
+        precondition(owner.stack === destinationScreen && !owner.busy)
+        precondition(nativeChannel.mailboxPostCount == initialMailboxPosts + 4 && !nativeChannel.mailboxResponsePending)
+        print("PASS: rejected native mailbox setup retains only nonsecret context, clears passwords, requires explicit retry and cannot replace a navigated screen")
+        owner.sources = []
+        for kind in ["sms", "device-email"] {
+            owner.smsSetups = kind == "sms" ? [["account": "fixture"]] : []
+            owner.deviceEmailSetups = kind == "device-email" ? [["account": "fixture"]] : []
+            owner.showImportSummary(["fixture"], issues: [("fixture", "Verification must be connected.")])
+            precondition(descendants(owner.stack).compactMap { ($0 as? NSButton)?.title }.contains("Review verification methods"))
+        }
+        owner.smsSetups = []
+        owner.deviceEmailSetups = []
+        print("PASS: import completion offers verification for SMS-only and device-email-only setup")
 
         let fingerprint = String(repeating: "a", count: 64)
         let deviceMailboxID = "mailbox-" + String(repeating: "b", count: 24)
