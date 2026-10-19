@@ -70,3 +70,29 @@ the same owner-only import flow. That documented export format improves transfer
 compatibility; it is another snapshot, not an ongoing password-manager feed or a
 solution to the unresolved Chrome change-authority requirements.
 [Supported import formats](password-import.md).
+
+## Interface recheck — 19 October 2026
+
+The [current public extension API catalog](https://developer.chrome.com/docs/extensions/reference/api)
+and Chromium's [permission rules](https://github.com/chromium/chromium/blob/main/chrome/common/extensions/api/_permission_features.json)
+and [API contexts](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/chrome/common/extensions/api/_api_features.json)
+still provide no supported ordinary-extension password-vault feed. This is a
+conclusion about the documented interfaces, not a claim about Google's private
+integrations. The supported manager connections above remain the ongoing-update
+options implemented by Account Access.
+
+Android now documents a supported **same-device credential transfer** between
+providers. Its importer opens a system selector and waits for the selected
+provider's export. Google's Password Manager instructions require account
+selection, screen-lock verification and export approval. These are one-time
+transfer operations, not a background subscription to later Chrome edits.
+[Android transfer API](https://developer.android.com/identity/sign-in/credential-transfer),
+[Google's transfer instructions](https://support.google.com/chrome/answer/13068232?co=GENIE.Platform%3DAndroid&hl=en).
+
+An Android transfer integration could reduce plaintext-file handling during
+initial enrollment, but Account Access has not implemented or physically tested
+it. It would still require owner approval and would not close continuous Chrome
+sync. Moving logins once to a connected manager and saving later changes there
+can use that manager's existing update path; it must be described as migration,
+not Chrome synchronization. No private browser store, key or credential was read
+for this recheck.

@@ -1,6 +1,8 @@
 """Owner-managed reusable TLS IMAP connections; never exposed by the agent API."""
 
+import hashlib
 import imaplib
+import json
 import re
 import secrets
 import time
@@ -29,8 +31,16 @@ def view(store):
     for ident in ids:
         profile = store.get(PREFIX + ident)
         if profile:
+            # Owner-page draft identity, not a credential or an authorization.
+            # A check must not erase an edit, but credential replacement must.
+            context = {key: profile.get(key) for key in
+                       ["label", "host", "port", "username", "generation"]}
+            revision = hashlib.sha256(json.dumps(
+                {"id": ident, **context}, sort_keys=True, separators=(",", ":"),
+            ).encode()).hexdigest()
             result.append({"id": ident, "label": profile["label"], "host": profile["host"],
                            "port": profile["port"], "username": profile["username"],
+                           "setup_revision": revision,
                            "connection_check": profile.get("connection_check", {"status": "UNTESTED"})})
     return result
 

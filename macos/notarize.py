@@ -1,6 +1,6 @@
 """Maintainer-only, resumable notarization. Credentials stay in a Keychain profile.
 
-This never publishes a GitHub release or modifies the input app. `prepare` is
+This never publishes a GitHub release or modifies the input app/package. `prepare` is
 local-only. A successful upload is not a successful notarization or product QA.
 """
 
@@ -13,6 +13,7 @@ import plistlib
 import re
 import shutil
 import stat
+import struct
 import subprocess
 import sys
 import tempfile
@@ -29,6 +30,7 @@ BROWSER_EXTENSION = "GoogleMessagesExtension"
 BROWSER_FILES = {"manifest.json", "background.js", "reader.js", "popup.js", "popup.html", "popup.css"}
 HEX256 = re.compile(r"[a-f0-9]{64}")
 TOOLS = {name: "/usr/bin/" + name for name in ["codesign", "lipo", "ditto", "xcrun", "syspolicy_check"]}
+TOOLS.update({name: "/usr/sbin/" + name for name in ["pkgutil", "spctl"]})
 
 
 class ReleaseError(Exception):
@@ -76,7 +78,8 @@ def run_tool(argv, timeout=60):
         raise ReleaseError("unsupported_release_tool")
     try:
         return subprocess.run([TOOLS[argv[0]], *argv[1:]], capture_output=True, text=True,
-                              stdin=subprocess.DEVNULL, timeout=timeout)
+                              stdin=subprocess.DEVNULL, timeout=timeout,
+                              env={**os.environ, "LC_ALL": "C", "LANG": "C"})
     except subprocess.TimeoutExpired as exc:
         def decoded(value):
             return value.decode("utf-8", errors="replace") if isinstance(value, bytes) else value or ""
@@ -94,6 +97,10 @@ def valid_id(value):
 
 
 class Notarization:
+    kind = None  # Preserve the original app-state format.
+    metadata_key = "app"
+    report_key = "bundle"
+
     def __init__(self, root, runner=run_tool):
         raw = Path(root).expanduser().absolute()
         if raw.is_symlink():
@@ -141,17 +148,23 @@ class Notarization:
             stage = ("apple_status_check" if argv[:3] == ["xcrun", "notarytool", "info"] else
                      "apple_log_check" if argv[:3] == ["xcrun", "notarytool", "log"] else
                      "ticket_check" if argv[:2] == ["xcrun", "stapler"] else
-                     "distribution_check" if argv[0] == "syspolicy_check" else
-                     "signature_check" if argv[0] == "codesign" else "archive_or_architecture_check")
+                     "distribution_check" if argv[0] in {"syspolicy_check", "spctl"} else
+                     "signature_check" if argv[0] in {"codesign", "pkgutil"} else "archive_or_architecture_check")
             raise ReleaseError(stage + "_failed", "RETRYABLE")
         return result
 
-    def load(self):
+    def read_state(self):
         private_check(self.state_path)
         if self.state_path.stat().st_size > 65536:
             raise ReleaseError("invalid_release_state")
         state = json.loads(self.state_path.read_text())
-        if not isinstance(state, dict) or state.get("schema") != 1 or not isinstance(state.get("app"), dict):
+        if not isinstance(state, dict) or type(state.get("schema")) is not int or state["schema"] != 1:
+            raise ReleaseError("invalid_release_state")
+        return state
+
+    def load(self):
+        state = self.read_state()
+        if state.get("kind") != self.kind or not isinstance(state.get(self.metadata_key), dict):
             raise ReleaseError("invalid_release_state")
         return state
 
@@ -433,7 +446,7 @@ class Notarization:
 
     def report(self, state, *, cached=False):
         result = {"status": "CACHED_STATE" if cached else state["phase"], "submission_id": state.get("submission_id"),
-                  "apple_status": state.get("apple_status"), "bundle": state["app"],
+                  "apple_status": state.get("apple_status"), self.report_key: state[self.metadata_key],
                   "archive_sha256": state["archive_sha256"], "production_qa": "not_evaluated"}
         if cached:
             result["cached_phase"] = state["phase"]
@@ -443,11 +456,177 @@ class Notarization:
         return result
 
 
+class PackageNotarization(Notarization):
+    """Notarize the complete signed flat installer, without installing it.
+
+    Keep the submitted bytes immutable. Stapling operates on a separate copy;
+    the entire original archive must remain its unchanged prefix. Only Apple's
+    validated ticket may be appended, with a bounded size allowance.
+    """
+    kind = "flat-installer-v1"
+    metadata_key = "package"
+    report_key = "package"
+    max_package = 4 * 1024 * 1024 * 1024
+    max_ticket = 16 * 1024 * 1024
+
+    def __init__(self, root, runner=run_tool):
+        super().__init__(root, runner)
+        self.archive = self.root / "submission.pkg"
+        self.output = self.root / "Account-Access-arm64-notarized.pkg"
+
+    def package_info(self, package, team):
+        if (not isinstance(team, str) or not re.fullmatch(r"[A-Z0-9]{10}", team)
+                or any(path.is_symlink() for path in [package, *package.parents])):
+            raise ReleaseError("invalid_package_or_team")
+        info = package.lstat()
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid()
+                or info.st_nlink != 1 or info.st_mode & 0o022
+                or not 4 <= info.st_size <= self.max_package + self.max_ticket):
+            raise ReleaseError("unsafe_package_input")
+        with package.open("rb") as stream:
+            if stream.read(4) != b"xar!":
+                raise ReleaseError("signed_flat_package_required")
+        signed = self.tool(["pkgutil", "--check-signature", str(package)], allow_failure=True)
+        text = signed.stdout + signed.stderr
+        statuses = re.findall(r"^[ \t]*Status:[ \t]*(.+)$", text, re.MULTILINE)
+        trusted = {"signed by a developer certificate issued by Apple for distribution",
+                   "signed by a certificate trusted by macOS", "signed by a certificate trusted by Mac OS X"}
+        leaf = re.search(r"^[ \t]*1\.[ \t]+Developer ID Installer:[^\r\n]+ \(([A-Z0-9]{10})\)[ \t]*$",
+                         text, re.MULTILINE)
+        timestamp = re.findall(r"^[ \t]*Signed with a trusted timestamp on:[ \t]*(.+)$", text, re.MULTILINE)
+        if (signed.returncode or len(statuses) != 1 or statuses[0].strip() not in trusted
+                or leaf is None or leaf[1] != team or len(timestamp) != 1 or not timestamp[0].strip()):
+            raise ReleaseError("developer_id_installer_team_timestamp_required")
+        # Bind the first certificate, not a later chain entry or an arbitrary
+        # matching certificate name somewhere in diagnostic text.
+        block = re.split(r"^[ \t]*2\.", text[leaf.end():], maxsplit=1, flags=re.MULTILINE)[0]
+        fingerprint = re.search(r"SHA256 Fingerprint:[ \t\r\n]*([a-fA-F0-9: \t\r\n]+)", block)
+        checksum = re.sub(r"[\s:]", "", fingerprint[1]).lower() if fingerprint else ""
+        if not HEX256.fullmatch(checksum):
+            raise ReleaseError("installer_certificate_fingerprint_required")
+        return {"team": team, "certificate_sha256": checksum, "trusted_timestamp": timestamp[0].strip()}
+
+    def load(self):
+        state = super().load()
+        metadata = state["package"]
+        if (not isinstance(metadata.get("team"), str) or not re.fullmatch(r"[A-Z0-9]{10}", metadata["team"])
+                or not isinstance(metadata.get("certificate_sha256"), str)
+                or not HEX256.fullmatch(metadata["certificate_sha256"])
+                or not isinstance(metadata.get("trusted_timestamp"), str) or not metadata["trusted_timestamp"]
+                or not isinstance(state.get("archive_sha256"), str) or not HEX256.fullmatch(state["archive_sha256"])
+                or type(state.get("archive_bytes")) is not int or not 4 <= state["archive_bytes"] <= self.max_package
+                or state.get("phase") not in {"PREPARED", "SUBMISSION_UNKNOWN", "SUBMITTED", "ASSOCIATION_FAILED",
+                                              "ACCEPTED", "REJECTED", "PACKAGED", "READY_FOR_RELEASE_REVIEW"}):
+            raise ReleaseError("invalid_release_state")
+        return state
+
+    def verify(self, state):
+        private_check(self.archive)
+        if (self.archive.stat().st_size != state["archive_bytes"]
+                or sha256(self.archive) != state["archive_sha256"]):
+            raise ReleaseError("submitted_archive_changed")
+        if self.package_info(self.archive, state["package"]["team"]) != state["package"]:
+            raise ReleaseError("prepared_package_changed")
+
+    def prepare(self, source, team):
+        source = Path(source).expanduser().absolute()
+        if self.root.is_relative_to(source.resolve()) or source.stat().st_size > self.max_package:
+            raise ReleaseError("invalid_package_or_work_directory")
+        pinned = self.package_info(source, team)
+        digest = sha256(source)
+        if self.state_path.exists():
+            state = self.load()
+            self.verify(state)
+            if digest != state["archive_sha256"] or pinned != state["package"]:
+                raise ReleaseError("different_package_already_prepared")
+            return self.report(state, cached=True)
+        if any(path.exists() or path.is_symlink() for path in [self.archive, self.output]):
+            raise ReleaseError("incomplete_prepare_use_new_work_directory")
+        shutil.copyfile(source, self.archive)
+        os.chmod(self.archive, 0o600)
+        if sha256(self.archive) != digest or self.package_info(self.archive, team) != pinned:
+            raise ReleaseError("package_changed_during_copy")
+        state = {"schema": 1, "kind": self.kind, "phase": "PREPARED", "package": pinned,
+                 "archive_sha256": digest, "archive_bytes": self.archive.stat().st_size, "submission_id": None}
+        self.save(state)
+        return self.report(state)
+
+    def verify_copy(self, package, state):
+        private_check(package)
+        if not state["archive_bytes"] <= package.stat().st_size <= state["archive_bytes"] + self.max_ticket:
+            raise ReleaseError("stapled_package_size_invalid")
+        remaining = state["archive_bytes"]
+        with self.archive.open("rb") as original, package.open("rb") as stapled:
+            while remaining:
+                size = min(1024 * 1024, remaining)
+                before, after = original.read(size), stapled.read(size)
+                if len(before) != size or before != after:
+                    raise ReleaseError("stapled_package_content_changed")
+                remaining -= size
+        if self.package_info(package, state["package"]["team"]) != state["package"]:
+            raise ReleaseError("stapled_package_signature_changed")
+        extra = package.stat().st_size - state["archive_bytes"]
+        if extra:
+            # Apple's package_trailer_t is a 16-byte little-endian record on
+            # supported Macs. Fresh stapling adds a terminator, ticket data and
+            # ticket trailer. Bind both frames to the original archive boundary;
+            # native ticket validation alone need not reject unrelated padding.
+            if extra <= 32:
+                raise ReleaseError("stapled_package_framing_invalid")
+            with package.open("rb") as stream:
+                stream.seek(state["archive_bytes"])
+                start = struct.unpack("<4sHHI4s", stream.read(16))
+                stream.seek(-16, os.SEEK_END)
+                end = struct.unpack("<4sHHI4s", stream.read(16))
+            if (start != (b"t8lr", 1, 1, 0, b"\0" * 4)
+                    or end != (b"t8lr", 1, 2, extra - 32, b"\0" * 4)):
+                raise ReleaseError("stapled_package_framing_invalid")
+
+    def verify_output(self, package, state):
+        self.verify_copy(package, state)
+        self.tool(["xcrun", "stapler", "validate", "-q", str(package)])
+        self.tool(["spctl", "--assess", "--type", "install", "--ignore-cache", "--no-cache", str(package)])
+
+    def finalize(self, profile):
+        current = self.check(profile)
+        if current["status"] != "ACCEPTED":
+            return current
+        state = self.load()
+        if self.output.exists() or self.output.is_symlink():
+            private_check(self.output)
+            if not state.get("output_sha256") or sha256(self.output) != state["output_sha256"]:
+                raise ReleaseError("release_archive_already_exists")
+            self.verify_output(self.output, state)
+        else:
+            temporary = self.root / "release.tmp.pkg"
+            if temporary.exists() or temporary.is_symlink():
+                private_check(temporary)
+                if state.get("output_sha256") and sha256(temporary) != state["output_sha256"]:
+                    raise ReleaseError("incomplete_release_archive_needs_review", "NEEDS_REVIEW")
+            else:
+                shutil.copyfile(self.archive, temporary)
+                os.chmod(temporary, 0o600)
+            self.verify_copy(temporary, state)
+            ticket = self.tool(["xcrun", "stapler", "validate", "-q", str(temporary)], allow_failure=True)
+            if ticket.returncode:
+                self.tool(["xcrun", "stapler", "staple", "-q", str(temporary)])
+            self.verify(state)
+            self.verify_output(temporary, state)
+            state.update(output_sha256=sha256(temporary), phase="PACKAGED")
+            self.save(state)
+            os.replace(temporary, self.output)
+        state["phase"] = "READY_FOR_RELEASE_REVIEW"
+        self.save(state)
+        return self.report(state)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=["prepare", "submit", "check", "adopt", "finalize", "status"])
     parser.add_argument("--workdir", type=Path, required=True)
-    parser.add_argument("--app", type=Path)
+    inputs = parser.add_mutually_exclusive_group()
+    inputs.add_argument("--app", type=Path)
+    inputs.add_argument("--package", type=Path, help="Signed flat installer, not an unsigned review package")
     parser.add_argument("--team-id")
     parser.add_argument("--profile", help="Existing Keychain profile label, never an app password")
     parser.add_argument("--submission-id", help="Known Apple job ID for an uncertain upload")
@@ -457,14 +636,20 @@ def main():
         if sys.platform != "darwin":
             raise ReleaseError("macos_publisher_required")
         if args.action == "prepare":
-            if args.app is None or args.team_id is None:
+            source = args.package if args.package is not None else args.app
+            if source is None or args.team_id is None:
                 raise ReleaseError("app_and_expected_team_required")
-            if args.workdir.expanduser().resolve().is_relative_to(args.app.expanduser().resolve()):
+            if args.workdir.expanduser().resolve().is_relative_to(source.expanduser().resolve()):
                 raise ReleaseError("invalid_app_or_work_directory")
-        task = Notarization(args.workdir)
+        if args.action == "prepare" and args.package is not None:
+            task = PackageNotarization(args.workdir)
+        else:
+            task = Notarization(args.workdir)
+            if args.action != "prepare" and task.read_state().get("kind") == PackageNotarization.kind:
+                task = PackageNotarization(args.workdir)
         with task.locked():
             if args.action == "prepare":
-                result = task.prepare(args.app, args.team_id)
+                result = task.prepare(source, args.team_id)
             elif args.action == "status":
                 result = task.report(task.load(), cached=True)
             elif args.action == "submit":

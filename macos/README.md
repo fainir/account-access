@@ -171,11 +171,14 @@ Public Mac distribution needs Apple notarization as well as signing. The current
 
 ## Maintainer notarization
 
-This is release engineering, not an end-user installation step. Users still
-download, unzip and open the app. The maintainer uses a Mac running macOS 14 or
-later with Xcode tools, a Developer ID certificate and a valid Notary service
-Keychain profile. This helper requires `syspolicy_check`; it never disables
-Gatekeeper or removes quarantine to obtain a passing result.
+This is release engineering, not an end-user installation step. The current
+protected distribution is the complete **flat installer package**, which users
+download and open in Installer. It needs both the Developer ID Application
+identity used for the payload and a separate **Developer ID Installer** identity
+with its private key. A valid Notary service Keychain profile is also required.
+These Apple-issued identities and credentials cannot be created by the helper.
+Use a Mac running macOS 14 or later with Xcode tools. The helper never disables
+Gatekeeper, changes policy rules or removes quarantine to obtain a passing result.
 
 Create the Keychain profile interactively if one does not already exist:
 
@@ -188,7 +191,63 @@ Leave credentials out of command arguments, chat, source files and ordinary
 logs. The helper accepts only the existing profile **label**, not a password or
 API key. Apple's tool validates credentials before storing them by default.
 
-After building and signing, use a new private work directory outside the app:
+After assembling the complete package with `macos.system_package` and
+`--installer-identity`, use a new private work directory. The unsigned review
+packages in `dist/release-080-review-build*/` deliberately fail this preparation
+step. Passing an application-signing identity in place of an Installer identity
+does not satisfy the package check.
+
+```sh
+uv run python macos/notarize.py prepare \
+  --package 'dist/system-package/Account-Access-arm64.pkg' \
+  --workdir dist/notarization-package-current --team-id YOURTEAMID
+uv run python macos/notarize.py submit \
+  --workdir dist/notarization-package-current --profile AccountAccessPublisher
+uv run python macos/notarize.py check \
+  --workdir dist/notarization-package-current --profile AccountAccessPublisher
+uv run python macos/notarize.py finalize \
+  --workdir dist/notarization-package-current --profile AccountAccessPublisher
+```
+
+Package `prepare` is local-only. It accepts an owned, non-writable-by-others
+regular flat package, verifies the trusted Developer ID Installer signature,
+expected team, trusted timestamp and leaf-certificate fingerprint, and copies
+the input to a private `submission.pkg`. It does not run the installer or inspect
+the signing Keychain. The input remains unchanged. Package mode is remembered
+in private state for subsequent commands.
+
+The submitted archive remains immutable through Apple status and log checks.
+After exact archive acceptance, `finalize` staples a separate copy, rechecks its
+Installer signature and certificate, validates the ticket and requires
+`spctl --assess --type install` with assessment caches ignored. The accepted
+archive's bytes must remain unchanged; only a bounded appended ticket is
+permitted, with exact Apple terminator/ticket framing and lengths. A failed
+policy check cannot produce a release artifact. The output
+is `Account-Access-arm64-notarized.pkg` with its final SHA-256. This protocol is
+covered with fictional Apple responses; live Apple acceptance and a downloaded
+installation on another Mac remain separate release gates.
+
+The suffix guard is based on Apple's
+[package-trailer definition](https://github.com/apple-oss-distributions/Security/blob/db15acbe6a7f257a859ad9a3bb86097bfe0679d9/OSX/libsecurity_codesigning/lib/notarization.cpp#L27-L41)
+and [ticket reader](https://github.com/apple-oss-distributions/Security/blob/db15acbe6a7f257a859ad9a3bb86097bfe0679d9/OSX/libsecurity_codesigning/lib/notarization.cpp#L132-L222).
+A copy-only compatibility check with the official
+[Homebrew 7.0.9 package](https://github.com/Homebrew/brew/releases/tag/7.0.9)
+on macOS 27.0.1/Xcode 27.0 added a fresh 1,685-byte ticket suffix, preserved the
+original package and XAR table of contents, and passed the actual helper's
+signature, ticket and install-policy checks. That checks the current tool path;
+it is not notarization or installation acceptance for Account Access. A separate
+padding experiment passed the native checks but was rejected by the helper's
+strict framing check; native ticket validation alone does not establish that
+only ticket bytes were appended.
+[Native tool evidence and scope](../artifacts/flat-pkg-notarization-20261019.json).
+
+Keep the Bitwarden corresponding-source archive and notices beside any
+distributed package as described in [Bitwarden packaging](../docs/bitwarden-packaging.md).
+Notarizing an app ZIP alone does not notarize the complete protected installer.
+
+The earlier standalone-app ZIP mode is retained for its own distribution. It
+does not provision the current protected service. For that app mode, after
+building and signing, use a new private work directory outside the app:
 
 ```sh
 uv run python macos/notarize.py prepare \

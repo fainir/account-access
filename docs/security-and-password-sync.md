@@ -5,6 +5,15 @@ The security changes do not introduce an approval prompt for each routine login.
 Passwords, sessions and verification-source secrets are encrypted in the local vault.
 The agent interface returns approved results, never passwords or verification codes.
 
+The development owner page keeps an actively edited authenticator or mailbox
+form intact while unrelated logins update in the background. Leaving setup,
+cancelling, pausing, or changing its enrollment clears the masked secret field.
+Submission clears it before sending the local request, including on failure;
+delayed replies cannot restore secrets or enable paused controls. Authenticator
+completion checks the resulting enrollment before automatically verifying the
+website. These controls do not claim secure erasure of process memory, replace
+genuine phone approvals or establish private-account acceptance.
+
 The current [Chrome sync source review](chrome-password-sync-research.md) explains
 why a raw browser-database reader is not a shipped continuous-sync connection.
 Chrome imports remain reviewed snapshots. Configured 1Password sources and the

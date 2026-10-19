@@ -1,0 +1,246 @@
+{
+  "schema": 1,
+  "recorded_date": "2026-10-19",
+  "scope": "Copy-only public vendor flat-PKG tool compatibility; not Account Access notarization or installation",
+  "helper_source_sha256": "9abb5a76f06800fe3ee2ba85391cb2e3d93818bf5267758c16ac4006a63ffc8e",
+  "native_fresh_staple": {
+    "schema": 1,
+    "vendor": "Homebrew/brew",
+    "tag": "7.0.9",
+    "official_asset_url": "https://github.com/Homebrew/brew/releases/download/7.0.9/Homebrew.pkg",
+    "official_metadata_url": "https://api.github.com/repos/Homebrew/brew/releases/tags/7.0.9",
+    "official_sha256": "e021295947a4a9b7ca1a8eff310c9ea1db14d923c5acf7d79e325b60a81f1a15",
+    "original_bytes": 149711309,
+    "original_sha256_after": "e021295947a4a9b7ca1a8eff310c9ea1db14d923c5acf7d79e325b60a81f1a15",
+    "copy_sha256_before": "e021295947a4a9b7ca1a8eff310c9ea1db14d923c5acf7d79e325b60a81f1a15",
+    "copy_sha256_after": "b601925b82b892194f64bdc667542b9a5cf228e09d3aa76551b9495616c7429e",
+    "copy_bytes_after": 149712994,
+    "appended_bytes": 1685,
+    "unchanged_original": true,
+    "original_bytes_unchanged_prefix": true,
+    "toc_before_sha256": "b74abd523e6f8a85982552430011ccc7dfae60caf47275e5aaad71a07d4476b6",
+    "toc_after_sha256": "b74abd523e6f8a85982552430011ccc7dfae60caf47275e5aaad71a07d4476b6",
+    "toc_unchanged": true,
+    "tools": {
+      "original-ticket": {
+        "argv": [
+          "/usr/bin/xcrun",
+          "stapler",
+          "validate",
+          "-v",
+          "Homebrew-original.pkg"
+        ],
+        "returncode": 65,
+        "stdout_bytes": 604,
+        "stderr_bytes": 0
+      },
+      "copy-signature-before": {
+        "argv": [
+          "/usr/sbin/pkgutil",
+          "--check-signature",
+          "Homebrew-copy.pkg"
+        ],
+        "returncode": 0,
+        "stdout_bytes": 1097,
+        "stderr_bytes": 0
+      },
+      "copy-toc-before": {
+        "argv": [
+          "/usr/bin/xar",
+          "--dump-toc=-",
+          "-f",
+          "Homebrew-copy.pkg"
+        ],
+        "returncode": 0,
+        "stdout_bytes": 17047,
+        "stderr_bytes": 0
+      },
+      "copy-staple": {
+        "argv": [
+          "/usr/bin/xcrun",
+          "stapler",
+          "staple",
+          "-v",
+          "Homebrew-copy.pkg"
+        ],
+        "returncode": 0,
+        "stdout_bytes": 6281,
+        "stderr_bytes": 0
+      },
+      "copy-signature-after": {
+        "argv": [
+          "/usr/sbin/pkgutil",
+          "--check-signature",
+          "Homebrew-copy.pkg"
+        ],
+        "returncode": 0,
+        "stdout_bytes": 1097,
+        "stderr_bytes": 0
+      },
+      "copy-toc-after": {
+        "argv": [
+          "/usr/bin/xar",
+          "--dump-toc=-",
+          "-f",
+          "Homebrew-copy.pkg"
+        ],
+        "returncode": 0,
+        "stdout_bytes": 17047,
+        "stderr_bytes": 0
+      },
+      "copy-ticket-after": {
+        "argv": [
+          "/usr/bin/xcrun",
+          "stapler",
+          "validate",
+          "-v",
+          "Homebrew-copy.pkg"
+        ],
+        "returncode": 0,
+        "stdout_bytes": 5461,
+        "stderr_bytes": 0
+      },
+      "copy-install-policy": {
+        "argv": [
+          "/usr/sbin/spctl",
+          "--assess",
+          "--type",
+          "install",
+          "--ignore-cache",
+          "--no-cache",
+          "Homebrew-copy.pkg"
+        ],
+        "returncode": 0,
+        "stdout_bytes": 0,
+        "stderr_bytes": 0
+      }
+    },
+    "notary_submission": false,
+    "installed": false,
+    "private_signins": 0,
+    "owner_data_accessed": false,
+    "macos-version": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434",
+    "xcode-version": "Xcode 27.0\nBuild version 27A266a",
+    "xcrun-version": "xcrun version 72.",
+    "stapler_binary_sha256": "4390fac4f01f5ca3f67bb5cfbe8d041a3299838eaeec274380d2c7d78213a617",
+    "actual_helper_signature_parser_matches": true,
+    "installer_identity": {
+      "team": "927JGANW46",
+      "certificate_sha256": "3c5daa6655a8891fc1e0c0608aeb6b3d06549e05a67c1dc903cea8d52120aac0",
+      "trusted_timestamp": "2026-10-08 10:47:18 +0000"
+    },
+    "exact_helper_verify_and_verify_output_passed": true,
+    "actual_trailer": {
+      "magic": "t8lr",
+      "version": 1,
+      "type": 2,
+      "ticket_bytes": 1653,
+      "reserved_hex": "00000000"
+    },
+    "primary_format_source": {
+      "repository": "apple-oss-distributions/Security",
+      "revision": "db15acbe6a7f257a859ad9a3bb86097bfe0679d9",
+      "path": "OSX/libsecurity_codesigning/lib/notarization.cpp",
+      "source_sha256": "d0a34aacc724a198626711c4e70b04fa1b2a395739f7e2731e6cc113dea7a1e0",
+      "url": "https://github.com/apple-oss-distributions/Security/blob/db15acbe6a7f257a859ad9a3bb86097bfe0679d9/OSX/libsecurity_codesigning/lib/notarization.cpp#L27-L41",
+      "reader_url": "https://github.com/apple-oss-distributions/Security/blob/db15acbe6a7f257a859ad9a3bb86097bfe0679d9/OSX/libsecurity_codesigning/lib/notarization.cpp#L132-L222",
+      "interpretation": "Apple defines appended t8lr package ticket trailers and reads them backwards from EOF; actual fresh stapling preserved the complete original archive prefix on this toolchain."
+    }
+  },
+  "native_padding_case": {
+    "schema": 1,
+    "vendor": "Homebrew/brew",
+    "tag": "7.0.9",
+    "official_asset_url": "https://github.com/Homebrew/brew/releases/download/7.0.9/Homebrew.pkg",
+    "official_sha256": "e021295947a4a9b7ca1a8eff310c9ea1db14d923c5acf7d79e325b60a81f1a15",
+    "official_bytes": 149711309,
+    "recreated_after_prior_authorized_cleanup": true,
+    "original_unchanged": true,
+    "good_suffix_bytes": 1685,
+    "good_suffix_sha256": "bdba0c155a4a010762173784d3091c360e4ffe81cd114b141164344f5d120be8",
+    "good_copy_sha256": "b601925b82b892194f64bdc667542b9a5cf228e09d3aa76551b9495616c7429e",
+    "padding_bytes": 42,
+    "padded_copy_sha256": "0d0df773b0277b548b6cd499363b9b68fc7feb78abdfa4d387d7b52a8d93c1dc",
+    "tools": {
+      "fresh-staple": {
+        "argv": [
+          "/usr/bin/xcrun",
+          "stapler",
+          "staple",
+          "-v",
+          "Homebrew-copy.pkg"
+        ],
+        "returncode": 0,
+        "stdout_bytes": 6280,
+        "stderr_bytes": 0
+      },
+      "padding-signature": {
+        "argv": [
+          "/usr/sbin/pkgutil",
+          "--check-signature",
+          "Homebrew-copy.pkg"
+        ],
+        "returncode": 0,
+        "stdout_bytes": 1097,
+        "stderr_bytes": 0
+      },
+      "padding-ticket": {
+        "argv": [
+          "/usr/bin/xcrun",
+          "stapler",
+          "validate",
+          "-v",
+          "Homebrew-copy.pkg"
+        ],
+        "returncode": 0,
+        "stdout_bytes": 5459,
+        "stderr_bytes": 0
+      },
+      "padding-policy": {
+        "argv": [
+          "/usr/sbin/spctl",
+          "--assess",
+          "--type",
+          "install",
+          "--ignore-cache",
+          "--no-cache",
+          "Homebrew-copy.pkg"
+        ],
+        "returncode": 0,
+        "stdout_bytes": 0,
+        "stderr_bytes": 0
+      },
+      "padding-toc": {
+        "argv": [
+          "/usr/bin/xar",
+          "--dump-toc=-",
+          "-f",
+          "Homebrew-copy.pkg"
+        ],
+        "returncode": 0,
+        "stdout_bytes": 17047,
+        "stderr_bytes": 0
+      }
+    },
+    "padded_toc_unchanged": true,
+    "helper_padding_result": "stapled_package_framing_invalid",
+    "restored_copy_sha256": "b601925b82b892194f64bdc667542b9a5cf228e09d3aa76551b9495616c7429e",
+    "restored_exact_helper_passed": true,
+    "installed": false,
+    "notary_submission": false,
+    "owner_data_accessed": false,
+    "private_signins": 0
+  },
+  "original_proof_sha256": "29de0118340b02b782ee9fd4a086372d1da0d5e29b8c6ec147d4feeab338c352",
+  "original_padding_proof_sha256": "fb9cba645bf542e6cb9735123957c0eb08617fa2cf7bd5097980d2f5d953ce94",
+  "owner_credentials_used": false,
+  "account_access_submitted_to_apple": false,
+  "account_access_installed": false,
+  "private_signins": 0,
+  "production_ready": false,
+  "limits": [
+    "The public Homebrew package was already accepted by Apple; no publisher credentials or Notary upload were used.",
+    "Actual format compatibility does not establish Apple acceptance for an Account Access installer.",
+    "The two public PKG scratch files were removed after verifying original/good-copy hashes; logs, metadata and proof records remain."
+  ]
+}

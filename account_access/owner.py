@@ -308,10 +308,25 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                 state["mailbox_oauth"] = mailbox_oauth(broker)
                 source_views = []
                 for key, source in config.code_sources.items():
-                    credential = broker.store.get("source:" + key)
+                    metadata = {}
+                    if source.kind == "totp":
+                        from .factors import totp_setup_metadata
+                        # One SQLite snapshot keeps enrollment and generation together;
+                        # state reads never wait for a source's active code operation.
+                        with broker.store.db() as db:
+                            rows = db.execute("SELECT id,value FROM records WHERE id IN (?,?)",
+                                              ("source:" + key, "source-generation:" + key)).fetchall()
+                        values = {row["id"]: broker.store.unseal(row["id"], row["value"]) for row in rows}
+                        credential = values.get("source:" + key)
+                        generation = values.get("source-generation:" + key)
+                        metadata = totp_setup_metadata(config, key, generation)
+                        if totp_setup_metadata(broker.store.config(), key, generation) != metadata:
+                            metadata = {}  # A concurrent configuration change invalidates editing.
+                    else:
+                        credential = broker.store.get("source:" + key)
                     enrolled = (credential.get("enabled") is True if source.kind == "gmail"
                                 else credential.get("enabled") is not False) if isinstance(credential, dict) else False
-                    source_views.append({"id": key, "kind": source.kind,
+                    source_views.append({"id": key, "kind": source.kind, **metadata,
                                           "message_purpose": source.message_purpose,
                                           "mailbox_account": source.account,
                                           "mail_server": source.host,
