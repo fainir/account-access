@@ -7,25 +7,43 @@ establish that experience on personal accounts.
 
 ## Current candidate
 
-Build **70** is the current source candidate, adding explicit Bitwarden
-Password Manager connection, imported exact-item suggestions, unattended
-password refresh and restrictive source disconnect. Its official OSS CLI uses
-the protected Node runtime instead of the standalone client's older embedded
-runtime. Packaging requires the corresponding source and dependency notices.
-The connection retains broad vault-decryption authority with explicit owner
-consent; exact-item restrictions are enforced by Account Access. Private
-enrollment and consumer installation are not established by its controlled
-tests. Earlier build evidence below does not validate this new product tree.
-[Bitwarden setup and limits](bitwarden-sync.md).
+Build **71** is the current review candidate at source `a5c3c6e`. Google
+Messages browser setup now prepares its actual local bridge, shows the Chrome
+installation steps and keeps preparation separate from permissions and code
+delivery. Active review survives background login polling; revocation or changed
+source context discards stale review and ignores delayed completion. Restricted
+worker pages direct local preparation to the desktop app.
+[Google Messages setup and limits](google-messages.md).
 
-The actual build 70 archive passed inventory, source-binding and payload
-signature review. All eight workflows at identical-product QA `e90eaf3`
-passed; each Main regression passed 2,664 tests with 93 skips and zero
-warnings. A fresh guarded Claude Code request completed four fictional
-password logins with email, SMS and TOTP. These checks do not establish a
-genuine owner installation, private account or physical code delivery.
-The [build 70 record](../artifacts/build70-review-080.json) binds the exact
-source, tests, installer hash, remaining provider advisory and release gaps.
+The actual build 71 archive passed inventory, source-binding and payload
+signature review. Latest attempts of all eight source-specific workflows passed;
+each Main regression passed 2,671 tests with 93 skips and zero warnings. Seventeen
+focused owner-page tests passed, including seven Google Messages cases. The
+container remains **unsigned, unnotarized and uninstalled**. These checks use
+fictional accounts and do not establish genuine owner installation, private
+account sign-in or physical delivery.
+The first Android PR attempt failed Android SDK provisioning before emulator
+or project startup; the identical-source retry is recorded separately from
+that retained failure.
+[Exact build 71 record](../artifacts/build71-review-080.json).
+
+The existing installed preview separately completed three approved public-example
+reads through Codex. Saved sessions may have been reused and its source revision
+was not attested; this does not validate build 71. A separate strict Claude
+installed-preview preflight did not start a model because its optional invocation
+guard could not be attested. This is a QA boundary, not a normal-client failure.
+[Installed agent evidence and limits](agent-qa-boundary.md#installed-preview-checks-on-19-october-2026).
+
+Build **70** introduced explicit Bitwarden connection, imported exact-item
+suggestions, unattended refresh and restrictive disconnect. Its official OSS
+CLI uses protected Node; packaging includes corresponding source and notices.
+Consent discloses broad vault-decryption authority, with exact-item restrictions
+enforced by Account Access. Private enrollment remains unverified.
+[Bitwarden setup and limits](bitwarden-sync.md).
+Its source `fecb17a` and identical-product QA `e90eaf3` passed all eight workflows,
+including two Main regressions of 2,664 tests. A guarded Claude request completed
+four fictional password logins with email, SMS and TOTP at that earlier source.
+[Historical build 70 record](../artifacts/build70-review-080.json).
 
 Build **69** at application source `2fb0e54` corrected the email regression
 below and passed a fresh guarded Claude Code fictional-account journey. Its
@@ -115,7 +133,7 @@ presented as results for a later candidate.
 | Gmail and other email | Renewable Gmail authorization, checked reusable mailbox selection, and TLS IMAP; freshness, sender, template and authorization checks | Publisher-configured Google application, real owner consent/mailbox setup and actual website code delivery. Arbitrary webmail is unsupported |
 | iPhone SMS | Signed narrow Mac Messages reader and composed password/SMS/session fixtures | Genuine Full Disk Access, forwarded physical SMS and completed private login |
 | Android SMS | Paired pinned HTTPS delivery and notification-listener emulator fixtures | Physical pairing, carrier/notification delivery, reconnect and private login QA |
-| Google Messages Web | Unchanged production scripts in a synthetic Messages document, stable Chrome/native transport and controlled SMS-login composition | Genuine positive owner approval and complete private/physical SMS login; broader language coverage and extension distribution |
+| Google Messages Web | Reviewed browser/desktop preparation, refresh/revocation UI checks, unchanged extension scripts in a synthetic Messages document, stable Chrome/native transport and controlled SMS-login composition | Genuine positive owner approval and complete private/physical SMS login; broader language coverage and extension distribution |
 | Authenticator | Local original-key, supported QR and complete Google Authenticator transfer-batch import; TOTP login fixtures | Owner-approved real phone export/enrollment and provider login. Push approvals, nonstandard TOTP and Google Authenticator cloud sync are unsupported |
 | Agent integration | Portable installed CLI/skill; current guarded Claude fictional-account journey; earlier source-specific Codex results | Current protected owner installation and private sessions through both agents. The optional nested Codex QA harness remains unverified before startup |
 | Website coverage | Reviewed public examples and narrow Namecheap, PyPI and Read the Docs pilots; password, email, SMS and TOTP engine fixtures | More reviewed connectors and representative private acceptance. Importing a password does not add arbitrary website support |

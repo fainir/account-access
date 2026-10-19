@@ -114,6 +114,7 @@ connection, so sync cannot undo your edit.
 | Other email | Connect your provider's TLS IMAP mailbox | Read a fresh matching login email and submit its code |
 | iPhone SMS on Mac | Enable text forwarding to Mac Messages and grant the signed app Full Disk Access | Read a fresh incoming text matching the approved sender and template |
 | Android SMS | Pair the [Android preview](android/README.md), grant notification access and use the same private Wi-Fi | Deliver a matching SMS-app notification over pinned HTTPS |
+| Google Messages Web (0.8 candidate, GitHub only) | Pair your phone, then use [Verification → Set up Google Messages](docs/google-messages.md) to prepare and add the Chrome extension | Read a newly arriving matching login text through the local bridge |
 | Authenticator TOTP | Enroll the website's original setup key or supported QR locally | Generate and submit its changing six-digit code |
 
 See the [step-by-step Gmail, SMS and Google Authenticator guide](docs/gmail-authenticator-and-sms.md).

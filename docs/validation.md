@@ -1,16 +1,31 @@
 # Validation of Account Access
 
-The current [build 70 review](../artifacts/build70-review-080.json) records frozen
-application source `fecb17a` and identical-product QA revision `e90eaf3`. The
-actual unsigned installer inventory, 79 source files, app/Node signatures,
-provider inputs and corresponding source passed review. Targeted validation
-passed 220 existing browser compatibility cases and 27 source/browser/network
-cases. A fresh guarded Claude Code request completed four fictional password
-logins with email, SMS and TOTP verification. All eight current CI workflows
-passed. Both Main regressions passed 2,664
-tests with 93 skips and zero warnings; dependency audits and wheel/source
-builds passed. The product tree is identical to `fecb17a`.
-Production readiness and new private sign-ins remain false/zero;
+The current [build 71 review](../artifacts/build71-review-080.json) binds application
+and QA source `a5c3c6e`. The actual unsigned archive inventory, 79 bundled source
+files, app/runtime payload signatures and provider materials passed review.
+Seventeen focused owner-page tests passed, including seven Google Messages
+cases exercising preparation, restricted-worker guidance, real pending-job
+polling, duplicate prevention and revocation during a delayed response. All
+eight source-specific workflows passed on their latest attempts; both Main
+regressions passed **2,671 tests with 93 skips and zero warnings**. Python
+dependency audits and wheel/source
+builds passed. The separate provider record retains the node-forge advisory and
+its bounded call-site assessment; this is not a blanket clean dependency audit.
+The initial Android PR attempt failed SDK provisioning before the emulator or
+project journey started; its failure remains recorded alongside the
+unchanged-source retry.
+
+The existing installed preview also completed three public-example reads through
+Codex. That task may have reused sessions and does not attest the installed
+revision or validate the protected candidate. A stricter installed-preview Claude
+preflight did not start a model.
+[Agent evidence and QA boundaries](agent-qa-boundary.md#installed-preview-checks-on-19-october-2026).
+
+The [earlier build 70 review](../artifacts/build70-review-080.json) retains its
+frozen application source `fecb17a`, identical-product QA `e90eaf3`, 2,664-test
+Main regressions and guarded fictional Claude journey. Those are historical
+results, not a fresh build 71 agent run. Production readiness is **false**, owner
+installation was not performed and new private sign-ins remain **zero**;
 [production acceptance](production-gates.md) lists the open requirements.
 
 Build 69 is [quarantined](../artifacts/build69-review-080.json): disconnecting

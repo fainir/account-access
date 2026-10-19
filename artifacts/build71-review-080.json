@@ -1,0 +1,648 @@
+{
+  "schema": 1,
+  "recorded_at": "2026-10-19T09:53:58.995874+00:00",
+  "version": "0.8.0",
+  "build": 71,
+  "status": "CONTROLLED_REVIEW_CANDIDATE_VERIFIED",
+  "production_ready": false,
+  "application_source_revision": "a5c3c6e5eab67390f6c620832b90c63cb16ed094",
+  "qa_revision": "a5c3c6e5eab67390f6c620832b90c63cb16ed094",
+  "product_tree": {
+    "application_source_revision": "a5c3c6e5eab67390f6c620832b90c63cb16ed094",
+    "qa_revision": "a5c3c6e5eab67390f6c620832b90c63cb16ed094",
+    "paths": [
+      "account_access",
+      "macos",
+      "pyproject.toml",
+      "uv.lock"
+    ],
+    "sha256": "da4dc6fcc2394c42dda9ed5ba43446d4ec5ac6df13e47b8a458784a07190f64b",
+    "method": "SHA-256 of git ls-tree -r REV -- PATHS",
+    "unchanged": true
+  },
+  "changes": [
+    "Google Messages uses its actual guided local bridge preparation instead of an unusable generic credential form",
+    "Explicit preparation review and Chrome instructions keep bridge preparation separate from site permission and verified delivery",
+    "Restricted worker browser pages skip forbidden local installation and direct preparation to the desktop app",
+    "Active review survives unrelated polling; pending duplicate submissions are blocked; revocation/context changes invalidate stale reviews and delayed responses"
+  ],
+  "package": {
+    "schema": 1,
+    "status": "VERIFIED_REVIEW_PACKAGE",
+    "build": 71,
+    "source_revision": "a5c3c6e5eab67390f6c620832b90c63cb16ed094",
+    "package_sha256": "b02c4cec93d02fa3efd5bc68fa26f380ed9ad232df7771108671ea2eb9b405a8",
+    "package_bytes": 289425526,
+    "manifest_sha256": "02bf487cc7c685d888286c1c3ebb0be718823a5e6126148784aa53ec9db81964",
+    "manifest_bytes": 4989248,
+    "manifest_counts": {
+      "files": 25281,
+      "directories": 2305,
+      "aliases": 21
+    },
+    "actual_archive_inventory_matches_manifest": true,
+    "native_manifest_parser_matches": true,
+    "actual_owner_wheel_matches_source_files": 79,
+    "actual_app_signature_verified": true,
+    "actual_node_signature_verified": true,
+    "actual_node_entitlements_jit_only": true,
+    "node_library_validation_disabled": false,
+    "actual_provider_manifest_matches": true,
+    "required_install_bytes": 2077843456,
+    "installer_signed": false,
+    "notarized": false,
+    "installed": false,
+    "private_signins": 0,
+    "owner_data_accessed": false,
+    "production_ready": false,
+    "filename": "Account-Access-arm64-unsigned.pkg",
+    "wheel_sha256": "e63adb236130cb6661e2aa0a08aaf75b8b7cdf6c416054a5cb25cf9dac92879f"
+  },
+  "app_reuse": {
+    "from_application_source": "fecb17afee3613fb0ad491f84bdd68f791701e00",
+    "method": "exact Swift/compiler-input equality plus copied genuine executable and signature-stripped code comparison",
+    "all_native_compiler_inputs_unchanged": true,
+    "signature_stripped_code_identical": true,
+    "resources_source_bound": true
+  },
+  "provider_materials": {
+    "cli": "official Bitwarden CLI 2026.10.0 npm package",
+    "protected_node": "24.21.0",
+    "cli_archive_sha256": "2a04ebc02ca970bbadd2e6d6316e06d164526760e424e5c3bb050a8110197223",
+    "entry_sha256": "7cad23262b9ca168f22c12d7cdf64ef168e57d49784377c2b8cd02707759e4d7",
+    "overrides_sha256": "502c4ef8a5cf3035c314a6bdf8ea0c6d7c1c2b02b8895b640cdc51cc217b474a",
+    "corresponding_source_sha256": "0e7b3dff605724b8944c2881f469291b9af40dca514cffdbedc1f745f17ddc64",
+    "matching_source_required_for_distribution": true,
+    "remaining_advisory": "node-forge 1.4.0 GHSA-86w9-cpqp-85rv",
+    "remaining_advisory_scope": "No upstream fix; affected RSA verification path was not reachable in the fixed CLI command and import review. This is not a blanket clean dependency audit."
+  },
+  "targeted_ui_tests": {
+    "passed": 17,
+    "seconds": 36.01,
+    "files": [
+      "test_google_messages_setup_ui.py",
+      "test_gmail_mailbox_ui.py",
+      "test_bitwarden_sync_ui.py",
+      "test_connected_setup_ui.py",
+      "test_device_email_ui.py",
+      "test_password_sync_ui.py"
+    ],
+    "new_google_messages_cases": 7,
+    "independent_review": "Both discovered refresh/revocation UI defects corrected before the frozen source; no further concrete issue in bounded re-review",
+    "data": "fictional accounts; isolated local browser and private fixture HOME"
+  },
+  "ci": {
+    "qa_revision": "a5c3c6e5eab67390f6c620832b90c63cb16ed094",
+    "pending": false,
+    "all_eight_passed": true,
+    "latest_attempts": true,
+    "runs": [
+      {
+        "id": 39230092488,
+        "name": "Separate-user worker acceptance",
+        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "a5c3c6e5eab67390f6c620832b90c63cb16ed094",
+        "html_url": "https://github.com/fainir/account-access/actions/runs/39230092488",
+        "run_attempt": 1,
+        "jobs": [
+          {
+            "id": 117985688414,
+            "name": "cross-user",
+            "conclusion": "success",
+            "pytest_summaries": [],
+            "successful_steps": [
+              "Set up job",
+              "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "Run astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+              "Prepare an immutable runtime in this disposable VM",
+              "Verify approved sign-ins and attacks from a real different UID",
+              "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+              "Remove the ephemeral runtime",
+              "Post Run astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+              "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "Complete job"
+            ],
+            "dependency_audit_clean": false,
+            "wheel_built": false,
+            "sdist_built": false
+          }
+        ]
+      },
+      {
+        "id": 39230092511,
+        "name": "Mac separate-user worker acceptance",
+        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "a5c3c6e5eab67390f6c620832b90c63cb16ed094",
+        "html_url": "https://github.com/fainir/account-access/actions/runs/39230092511",
+        "run_attempt": 1,
+        "jobs": [
+          {
+            "id": 117985687439,
+            "name": "mac-installer-context",
+            "conclusion": "success",
+            "pytest_summaries": [],
+            "successful_steps": [
+              "Set up job",
+              "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "Run astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+              "Run uv sync --locked",
+              "Check the native source replacement with ordinary public fixtures",
+              "Verify the native reader inside a real Installer script sandbox",
+              "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+              "Post Run astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+              "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "Complete job"
+            ],
+            "dependency_audit_clean": false,
+            "wheel_built": false,
+            "sdist_built": false
+          },
+          {
+            "id": 117986100726,
+            "name": "mac-cross-user",
+            "conclusion": "success",
+            "pytest_summaries": [
+              {
+                "passed": 1215,
+                "skipped": 1,
+                "warnings": 0,
+                "duration": "182.99s"
+              },
+              {
+                "passed": 169,
+                "skipped": 0,
+                "warnings": 0,
+                "duration": "157.95s"
+              },
+              {
+                "passed": 22,
+                "skipped": 0,
+                "warnings": 0,
+                "duration": "62.37s"
+              },
+              {
+                "passed": 1,
+                "skipped": 0,
+                "warnings": 0,
+                "duration": "3.62s"
+              }
+            ],
+            "successful_steps": [
+              "Set up job",
+              "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "Run astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+              "Check Darwin pipe handoff and reject filesystem FIFO bootstrap",
+              "Check exact-item password sync, source containment and owner setup",
+              "Check reviewed website imports and native form destinations",
+              "Compile and check the permanent identity-drop launcher",
+              "Prepare root-owned runtime in this disposable Mac VM",
+              "Check private Node signing preparation with a sandboxed fixture browser",
+              "Verify real cross-user password, email, SMS and authenticator recovery",
+              "Verify offline and fully prepared development package installation",
+              "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+              "Remove the ephemeral runtime",
+              "Post Run astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+              "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "Complete job"
+            ],
+            "dependency_audit_clean": false,
+            "wheel_built": true,
+            "sdist_built": false
+          }
+        ]
+      },
+      {
+        "id": 39230092469,
+        "name": "Account Access checks",
+        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "a5c3c6e5eab67390f6c620832b90c63cb16ed094",
+        "html_url": "https://github.com/fainir/account-access/actions/runs/39230092469",
+        "run_attempt": 1,
+        "jobs": [
+          {
+            "id": 117985687066,
+            "name": "native-owner-ui",
+            "conclusion": "success",
+            "pytest_summaries": [],
+            "successful_steps": [
+              "Set up job",
+              "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "Check native owner screen and masked sync fields",
+              "Check signed-desktop Gmail callback parsing and listener lifetime",
+              "Check protected desktop registration and reconnect behavior",
+              "Check the protected Chrome bridge without owner credentials",
+              "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+              "Check the narrow native Messages reader",
+              "Check background helper paths and approval lifecycle",
+              "Check inert background helper entrypoint",
+              "Check optimized app startup and reopening",
+              "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "Complete job"
+            ],
+            "dependency_audit_clean": false,
+            "wheel_built": false,
+            "sdist_built": false
+          },
+          {
+            "id": 117985687536,
+            "name": "test",
+            "conclusion": "success",
+            "pytest_summaries": [
+              {
+                "passed": 2671,
+                "skipped": 93,
+                "warnings": 0,
+                "duration": "947.09s"
+              }
+            ],
+            "successful_steps": [
+              "Set up job",
+              "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "Run astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+              "Run uv sync --locked",
+              "Check that the installer uses the tested dependency hashes",
+              "Run uv run playwright install --with-deps chromium",
+              "Allow sandbox namespaces for the installed browser binaries",
+              "Verify sandboxed Chromium",
+              "Run uv run ruff check account_access tests scripts macos/notarize.py macos/system_package.py macos/payload_audit.py macos/runtime_prepare.py macos/runtime_image.py macos/bitwarden_runtime.py macos/bitwarden_sources.py macos/bitwarden_notices.py",
+              "Run uv run pytest -q",
+              "Run uv run pip-audit --local",
+              "Run uv build",
+              "Post Run astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+              "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "Complete job"
+            ],
+            "dependency_audit_clean": true,
+            "wheel_built": true,
+            "sdist_built": true
+          },
+          {
+            "id": 117985687616,
+            "name": "native-owner-gateway",
+            "conclusion": "success",
+            "pytest_summaries": [],
+            "successful_steps": [
+              "Set up job",
+              "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "Run astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+              "Run uv sync --locked",
+              "Type-check production owner channel for both Mac architectures",
+              "Exercise native XPC peers and owner broker routes with fictional data",
+              "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+              "Post Run astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+              "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "Complete job"
+            ],
+            "dependency_audit_clean": false,
+            "wheel_built": false,
+            "sdist_built": false
+          }
+        ]
+      },
+      {
+        "id": 39230092602,
+        "name": "Android login-code journey",
+        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "a5c3c6e5eab67390f6c620832b90c63cb16ed094",
+        "html_url": "https://github.com/fainir/account-access/actions/runs/39230092602",
+        "run_attempt": 2,
+        "jobs": [
+          {
+            "id": 117991454132,
+            "name": "android",
+            "conclusion": "success",
+            "pytest_summaries": [],
+            "successful_steps": [
+              "Set up job",
+              "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "Run astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+              "Run uv sync --locked",
+              "Run uv run playwright install --with-deps chromium",
+              "Enable sandboxed browser namespaces",
+              "Build the phone app and instrumentation",
+              "Enable KVM on this ephemeral runner",
+              "Run actual notification-to-browser login",
+              "Post Run astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+              "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "Complete job"
+            ],
+            "dependency_audit_clean": false,
+            "wheel_built": false,
+            "sdist_built": false
+          }
+        ]
+      },
+      {
+        "id": 39230086808,
+        "name": "Android login-code journey",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "a5c3c6e5eab67390f6c620832b90c63cb16ed094",
+        "html_url": "https://github.com/fainir/account-access/actions/runs/39230086808",
+        "run_attempt": 1,
+        "jobs": [
+          {
+            "id": 117985668728,
+            "name": "android",
+            "conclusion": "success",
+            "pytest_summaries": [],
+            "successful_steps": [
+              "Set up job",
+              "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "Run astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+              "Run uv sync --locked",
+              "Run uv run playwright install --with-deps chromium",
+              "Enable sandboxed browser namespaces",
+              "Build the phone app and instrumentation",
+              "Enable KVM on this ephemeral runner",
+              "Run actual notification-to-browser login",
+              "Post Run astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+              "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "Complete job"
+            ],
+            "dependency_audit_clean": false,
+            "wheel_built": false,
+            "sdist_built": false
+          }
+        ]
+      },
+      {
+        "id": 39230086805,
+        "name": "Separate-user worker acceptance",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "a5c3c6e5eab67390f6c620832b90c63cb16ed094",
+        "html_url": "https://github.com/fainir/account-access/actions/runs/39230086805",
+        "run_attempt": 1,
+        "jobs": [
+          {
+            "id": 117985668496,
+            "name": "cross-user",
+            "conclusion": "success",
+            "pytest_summaries": [],
+            "successful_steps": [
+              "Set up job",
+              "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "Run astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+              "Prepare an immutable runtime in this disposable VM",
+              "Verify approved sign-ins and attacks from a real different UID",
+              "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+              "Remove the ephemeral runtime",
+              "Post Run astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+              "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "Complete job"
+            ],
+            "dependency_audit_clean": false,
+            "wheel_built": false,
+            "sdist_built": false
+          }
+        ]
+      },
+      {
+        "id": 39230086845,
+        "name": "Mac separate-user worker acceptance",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "a5c3c6e5eab67390f6c620832b90c63cb16ed094",
+        "html_url": "https://github.com/fainir/account-access/actions/runs/39230086845",
+        "run_attempt": 1,
+        "jobs": [
+          {
+            "id": 117985668463,
+            "name": "mac-installer-context",
+            "conclusion": "success",
+            "pytest_summaries": [],
+            "successful_steps": [
+              "Set up job",
+              "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "Run astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+              "Run uv sync --locked",
+              "Check the native source replacement with ordinary public fixtures",
+              "Verify the native reader inside a real Installer script sandbox",
+              "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+              "Post Run astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+              "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "Complete job"
+            ],
+            "dependency_audit_clean": false,
+            "wheel_built": false,
+            "sdist_built": false
+          },
+          {
+            "id": 117986062390,
+            "name": "mac-cross-user",
+            "conclusion": "success",
+            "pytest_summaries": [
+              {
+                "passed": 1215,
+                "skipped": 1,
+                "warnings": 0,
+                "duration": "183.29s"
+              },
+              {
+                "passed": 169,
+                "skipped": 0,
+                "warnings": 0,
+                "duration": "166.49s"
+              },
+              {
+                "passed": 22,
+                "skipped": 0,
+                "warnings": 0,
+                "duration": "63.43s"
+              },
+              {
+                "passed": 1,
+                "skipped": 0,
+                "warnings": 0,
+                "duration": "3.87s"
+              }
+            ],
+            "successful_steps": [
+              "Set up job",
+              "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "Run astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+              "Check Darwin pipe handoff and reject filesystem FIFO bootstrap",
+              "Check exact-item password sync, source containment and owner setup",
+              "Check reviewed website imports and native form destinations",
+              "Compile and check the permanent identity-drop launcher",
+              "Prepare root-owned runtime in this disposable Mac VM",
+              "Check private Node signing preparation with a sandboxed fixture browser",
+              "Verify real cross-user password, email, SMS and authenticator recovery",
+              "Verify offline and fully prepared development package installation",
+              "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+              "Remove the ephemeral runtime",
+              "Post Run astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+              "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "Complete job"
+            ],
+            "dependency_audit_clean": false,
+            "wheel_built": true,
+            "sdist_built": false
+          }
+        ]
+      },
+      {
+        "id": 39230086803,
+        "name": "Account Access checks",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "a5c3c6e5eab67390f6c620832b90c63cb16ed094",
+        "html_url": "https://github.com/fainir/account-access/actions/runs/39230086803",
+        "run_attempt": 1,
+        "jobs": [
+          {
+            "id": 117985668342,
+            "name": "native-owner-gateway",
+            "conclusion": "success",
+            "pytest_summaries": [],
+            "successful_steps": [
+              "Set up job",
+              "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "Run astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+              "Run uv sync --locked",
+              "Type-check production owner channel for both Mac architectures",
+              "Exercise native XPC peers and owner broker routes with fictional data",
+              "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+              "Post Run astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+              "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "Complete job"
+            ],
+            "dependency_audit_clean": false,
+            "wheel_built": false,
+            "sdist_built": false
+          },
+          {
+            "id": 117985668617,
+            "name": "test",
+            "conclusion": "success",
+            "pytest_summaries": [
+              {
+                "passed": 2671,
+                "skipped": 93,
+                "warnings": 0,
+                "duration": "947.99s"
+              }
+            ],
+            "successful_steps": [
+              "Set up job",
+              "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "Run astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+              "Run uv sync --locked",
+              "Check that the installer uses the tested dependency hashes",
+              "Run uv run playwright install --with-deps chromium",
+              "Allow sandbox namespaces for the installed browser binaries",
+              "Verify sandboxed Chromium",
+              "Run uv run ruff check account_access tests scripts macos/notarize.py macos/system_package.py macos/payload_audit.py macos/runtime_prepare.py macos/runtime_image.py macos/bitwarden_runtime.py macos/bitwarden_sources.py macos/bitwarden_notices.py",
+              "Run uv run pytest -q",
+              "Run uv run pip-audit --local",
+              "Run uv build",
+              "Post Run astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884",
+              "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "Complete job"
+            ],
+            "dependency_audit_clean": true,
+            "wheel_built": true,
+            "sdist_built": true
+          },
+          {
+            "id": 117985668762,
+            "name": "native-owner-ui",
+            "conclusion": "success",
+            "pytest_summaries": [],
+            "successful_steps": [
+              "Set up job",
+              "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "Check native owner screen and masked sync fields",
+              "Check signed-desktop Gmail callback parsing and listener lifetime",
+              "Check protected desktop registration and reconnect behavior",
+              "Check the protected Chrome bridge without owner credentials",
+              "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+              "Check the narrow native Messages reader",
+              "Check background helper paths and approval lifecycle",
+              "Check inert background helper entrypoint",
+              "Check optimized app startup and reopening",
+              "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+              "Complete job"
+            ],
+            "dependency_audit_clean": false,
+            "wheel_built": false,
+            "sdist_built": false
+          }
+        ]
+      }
+    ],
+    "main": {
+      "pull_request": {
+        "passed": 2671,
+        "skipped": 93,
+        "warnings": 0,
+        "duration": "947.09s"
+      },
+      "push": {
+        "passed": 2671,
+        "skipped": 93,
+        "warnings": 0,
+        "duration": "947.99s"
+      }
+    }
+  },
+  "supplemental_existing_preview": {
+    "public_example_task_completed": 3,
+    "evidence": "agent-tests/installed-public-reads-20261019.json",
+    "fresh_password_entry_measured": false,
+    "installed_source_revision_attested": false,
+    "validates_build71": false,
+    "claude_cached_task_run": "Not started because the optional strict tool guard was not attested before model startup",
+    "claude_evidence": "agent-tests/claude-installed-preflight-20261019.json"
+  },
+  "preserved_current_source_failure": {
+    "schema": 1,
+    "source_revision": "a5c3c6e5eab67390f6c620832b90c63cb16ed094",
+    "workflow_run": 39230092602,
+    "run_attempt": 1,
+    "job": 117985687369,
+    "failure_class": "Android SDK provisioning failed before emulator or project journey launch",
+    "observed_error": "Android SDK Platform 30: Error on ZipFile unknown archive",
+    "project_journey_started": false,
+    "emulator_started": false,
+    "root_cause_of_invalid_archive_established": false,
+    "raw_public_log_sha256": "e07565173d56d1f1c6451f159d1172f4af41520ae6e08374316598bf93641f00",
+    "same_source_push_workflow_passed": 39230086808,
+    "retry_scope": "One failed job on the identical source; original failed attempt retained",
+    "production_ready": false,
+    "private_signins": 0,
+    "url": "https://github.com/fainir/account-access/actions/runs/39230092602/attempts/1",
+    "retained_log": "android-pr-attempt1-failed.log"
+  },
+  "preserved_history": {
+    "build70": "build70-review-080.json",
+    "build69_quarantined": "build69-review-080.json",
+    "earlier_unclassified_mac_failure_cause_established": false,
+    "new_green_runs_do_not_establish_old_failure_cause": true
+  },
+  "owner_installation_performed": false,
+  "private_signins": 0,
+  "owner_application_or_credential_files_accessed": false,
+  "open_requirements": [
+    "Developer ID Installer certificate, Apple notarization/stapling and clean genuine owner installation/reboot/upgrade",
+    "Real mailbox consent, physical SMS delivery and authenticator enrollment followed by private password/code logins through both agents",
+    "Private password-manager enrollment/rotation/revocation acceptance",
+    "Chrome live password sync remains unimplemented; exports are snapshots",
+    "Arbitrary websites and arbitrary webmail remain unsupported without reviewed connectors/provider support",
+    "Current protected installed Codex and Claude Code journeys; optional nested Codex QA refuses before startup when execution boundaries cannot be attested",
+    "Independent security review and resolution/appropriate disposition of remaining provider advisory and any new CI failure"
+  ]
+}
