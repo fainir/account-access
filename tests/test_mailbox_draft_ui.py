@@ -109,28 +109,58 @@ def test_new_gmail_draft_survives_polling_and_one_pending_submit(mailbox_page, m
         release_probe.set()
 
 
-def test_rejected_mailbox_submission_clears_secret_and_navigation_discards_draft(mailbox_page, monkeypatch):
+def test_rejected_mailbox_submission_keeps_retry_fields_but_discards_secrets(mailbox_page, monkeypatch):
     _, page, _, _ = mailbox_page
     probes = []
 
     def probe(_broker, profile):
-        probes.append(True)
-        assert profile["password"] == "fictional-rejected-password"
+        probes.append(profile["password"])
+        assert profile["password"] in {"fictional-rejected-password", "fictional-retry-password"}
         raise AccessError("NEEDS_USER", "mailbox_connection_failed", "email")
 
     monkeypatch.setattr("account_access.mailboxes.probe", probe)
     details = new_mailbox_form(page)
     fill_mailbox(details, "fictional-rejected-password")
+    details.evaluate("node=>node.dataset.fixtureIdentity='same-rejected-draft'")
+    # Await the complete actual handler, including the refresh after its error,
+    # rather than typing during the earlier error-message/render interval.
+    details.locator("form").evaluate("""form=>{
+        const submit=form.onsubmit;
+        window.fixtureMailboxSubmissions=0;
+        form.onsubmit=async event=>{
+            try{return await submit(event);}
+            finally{window.fixtureMailboxSubmissions++;}
+        };
+    }""")
     details.get_by_role("button", name="Connect mailbox", exact=True).click()
+    page.wait_for_function("()=>window.fixtureMailboxSubmissions===1")
     page.locator("#message").filter(has_text="The mail server did not accept this connection.").wait_for()
-    assert len(probes) == 1
+    assert probes == ["fictional-rejected-password"]
+    assert details.get_attribute("data-fixture-identity") == "same-rejected-draft"
+    assert details.evaluate("node=>node.open")
+    assert details.get_by_label("Email provider", exact=True).input_value() == "Gmail"
+    assert details.get_by_label("Email address", exact=True).input_value() == "owner@example.test"
+    assert details.get_by_label("IMAP server", exact=True).input_value() == "imap.gmail.com"
+    assert details.get_by_label("TLS port", exact=True).input_value() == "993"
     assert details.get_by_label("Application password", exact=True).input_value() == ""
     assert "fictional-rejected-password" not in page.locator("body").inner_text()
-    details.get_by_label("Application password", exact=True).fill("fictional-not-submitted")
+    details.get_by_label("Application password", exact=True).fill("fictional-retry-password")
+    details.get_by_role("button", name="Connect mailbox", exact=True).click()
+    page.wait_for_function("()=>window.fixtureMailboxSubmissions===2")
+    assert probes == ["fictional-rejected-password", "fictional-retry-password"]
+    assert details.get_attribute("data-fixture-identity") == "same-rejected-draft"
+    assert details.evaluate("node=>node.open")
+    assert details.get_by_label("Email address", exact=True).input_value() == "owner@example.test"
+    assert details.get_by_label("Application password", exact=True).input_value() == ""
+    details.get_by_role("button", name="Cancel mailbox setup", exact=True).click()
+    assert not details.evaluate("node=>node.open")
+    assert details.get_attribute("data-fixture-identity") is None
+    assert details.get_by_label("Email address", exact=True).input_value() == ""
+    fill_mailbox(details, "fictional-not-submitted")
     page.get_by_role("button", name="Your accounts", exact=True).click()
     page.get_by_role("button", name="Verification", exact=True).click()
     assert details.get_by_label("Application password", exact=True).input_value() == ""
-    assert len(probes) == 1
+    assert len(probes) == 2
 
 
 @pytest.mark.parametrize("change", ["replace", "remove"])

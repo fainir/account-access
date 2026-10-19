@@ -236,7 +236,22 @@ function renderMailboxes(container){
  provider.onchange=()=>{const gmail=provider.selectedIndex===0;fields.host.value=gmail?"imap.gmail.com":"";fields.port.value="993";fields.host.readOnly=fields.port.readOnly=gmail;fields.host.hidden=fields.port.hidden=gmail;if(details.isConnected)activate();};provider.onchange();
  details.append(text("p","For Gmail, create a Google app password for Account Access with 2-Step Verification enabled. If Google does not offer app passwords, use the configured Google browser connection above."));const google=text("a","Open Google App passwords");google.href="https://myaccount.google.com/apppasswords";google.target="_blank";google.rel="noreferrer";details.append(google);const save=text("button","Connect mailbox");save.type="submit";const cancel=text("button","Cancel mailbox setup");cancel.type="button";cancel.onclick=()=>{if(setupOperations.has(newKey))return;clearSetupDraft(newKey);renderFactors();};form.append(save,cancel);
  const controls=[save,cancel,provider,...Object.values(fields)];controls.forEach(control=>control.disabled=setupOperations.has(newKey));
- form.onsubmit=async event=>{event.preventDefault();if(locallyPaused||setupOperations.has(newKey)||setupDrafts.get(newKey)!==newDraft||save.disabled)return;const operation={cancelled:false,epoch:setupEpoch};setupOperations.set(newKey,operation);newDraft.active=true;controls.forEach(control=>control.disabled=true);try{const payload=Object.fromEntries(Object.entries(fields).map(([key,input])=>[key,input.value]));payload.port=Number(payload.port);payload.label=provider.selectedIndex===0?"Gmail":"Email";fields.password.value="";const request=call("/owner/mailbox/connect",payload);payload.password="";await request;if(!operation.cancelled&&operation.epoch===setupEpoch&&!locallyPaused)message("Mailbox setup saved. Its connection result is shown below; no website sign-in was started.");}catch(error){if(!operation.cancelled&&operation.epoch===setupEpoch&&!locallyPaused)problem(error);}finally{fields.password.value="";newDraft.active=false;if(setupOperations.get(newKey)===operation)setupOperations.delete(newKey);if(!locallyPaused){controls.forEach(control=>control.disabled=locallyPaused);await refresh().catch(problem);}}};details.append(form,text("p","Your app password grants mailbox access and is encrypted locally. Account Access uses read-only checks and matching login messages for approved sign-ins. Mailbox checks fetch no messages and start no website login."));container.append(details);
+ form.onsubmit=async event=>{
+  event.preventDefault();if(locallyPaused||setupOperations.has(newKey)||setupDrafts.get(newKey)!==newDraft||save.disabled)return;
+  const operation={cancelled:false,epoch:setupEpoch};setupOperations.set(newKey,operation);newDraft.active=true;controls.forEach(control=>control.disabled=true);
+  const current=()=>!operation.cancelled&&operation.epoch===setupEpoch&&!locallyPaused&&view==="verification"&&setupDrafts.get(newKey)===newDraft;
+  let retryDraft=false;
+  try{
+   const payload=Object.fromEntries(Object.entries(fields).map(([key,input])=>[key,input.value]));payload.port=Number(payload.port);payload.label=provider.selectedIndex===0?"Gmail":"Email";
+   fields.password.value="";const request=call("/owner/mailbox/connect",payload);payload.password="";await request;
+   if(current())message("Mailbox setup saved. Its connection result is shown below; no website sign-in was started.");
+  }catch(error){if(current()){retryDraft=true;problem(error);}}
+  finally{
+   fields.password.value="";newDraft.active=retryDraft&&current();
+   if(setupOperations.get(newKey)===operation)setupOperations.delete(newKey);
+   if(!locallyPaused){controls.forEach(control=>control.disabled=locallyPaused);await refresh().catch(problem);}
+  }
+ };details.append(form,text("p","Your app password grants mailbox access and is encrypted locally. Account Access uses read-only checks and matching login messages for approved sign-ins. Mailbox checks fetch no messages and start no website login."));container.append(details);
 }
 function renderDeviceEmailSetups(container){
  for(const setup of state.device_email_setups||[]){
