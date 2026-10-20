@@ -67,9 +67,27 @@ Source `9e47dfc` introduces an explicit `AALSN002` worker handoff that binds eac
 socket role to its root-validated named activation, descriptor identity, canonical
 filesystem identity and observed bind address. Directly bound sockets retain
 strict canonical-address checks. The enrollment channel is unchanged. The source
-is committed for full integration CI; it has not been installed, and the source
-record distinguishes earlier native checks from final-source acceptance.
+passed all eight required CI workflows on their first attempts, including both
+Mac service integration runs. It has not been installed. The earlier source
+review remains separate from the completed exact-source CI record.
 [Source review and limits](../artifacts/listener-v2-source-080-20261020.json).
+[Completed exact-source CI](../artifacts/ci-observations-9e47dfc-20261020.json).
+
+A dedicated build76-to-worker-v2 component updater is now source-ready. It stages
+and verifies the complete ABI group, preserves the owner and store IDs, keeps the
+fixed job persistently disabled during mutation, and publishes the verified image
+head after all files and peer pins agree. Interrupted preparation remains
+non-authoritative; a matching complete intent supports manual same-package retry.
+Original installation receipts and private account directories remain untouched.
+
+Local ordinary checks passed **142 Python tests**, **79 optimized native
+assertions** and **41 public-policy assertions**. The production entry point
+compiled and refused an ordinary caller before filesystem work. These are source
+and synthetic checks. Full exact-source CI, signed candidate assembly and actual
+base/candidate Installer acceptance in a fresh hosted Mac remain required before
+owner installation. No new root helper or account login was run on the owner Mac.
+[Source review and retained earlier attempts](../artifacts/component-update-source-080-20261020.json).
+
 
 The package remains **unsigned and unnotarized**. Successful package installation
 does not establish a working setup. Personal-account acceptance, protected

@@ -1,0 +1,289 @@
+name: Signed component update Installer review
+on:
+  push:
+    paths:
+      - .github/workflows/mac-component-update-review.yml
+      - macos/build-component-update.py
+      - scripts/mac_component_update_installer_probe.py
+      - tests/test_component_update_builder.py
+      - tests/test_component_update_review_workflow.py
+      - tests/test_mac_component_update_installer_probe.py
+  workflow_dispatch:
+    inputs:
+      component_source:
+        description: Exact frozen component source commit (controller uses this workflow revision)
+        required: true
+        type: string
+      candidate_release_id:
+        description: Maintainer QA draft release ID
+        required: true
+        type: string
+      candidate_asset_id:
+        description: Signed-native component package asset ID
+        required: true
+        type: string
+      candidate_sha256:
+        description: Component package SHA256
+        required: true
+        type: string
+      review_asset_id:
+        description: Public component review JSON asset ID
+        required: true
+        type: string
+      review_sha256:
+        description: Public review JSON SHA256
+        required: true
+        type: string
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  ordinary-contracts:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
+      - name: Validate review contracts without signing, installing or owner data
+        run: |
+          uv sync --locked
+          uv run pytest -q tests/test_component_update_builder.py tests/test_component_update_review_workflow.py tests/test_mac_component_update_installer_probe.py
+  download-public-inputs:
+    if: github.event_name == 'workflow_dispatch' && github.repository == 'fainir/account-access'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    # Draft assets need push-capable visibility. Only fixed GETs occur here;
+    # this token is never passed to the disposable Mac or its root probe.
+    permissions:
+      contents: write
+    env:
+      AC_COMPONENT_SOURCE: ${{ inputs.component_source }}
+      AC_CANDIDATE_RELEASE_ID: ${{ inputs.candidate_release_id }}
+      AC_CANDIDATE_ASSET_ID: ${{ inputs.candidate_asset_id }}
+      AC_CANDIDATE_SHA256: ${{ inputs.candidate_sha256 }}
+      AC_REVIEW_ASSET_ID: ${{ inputs.review_asset_id }}
+      AC_REVIEW_SHA256: ${{ inputs.review_sha256 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Authenticate and hash-check only public package inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -I -B - <<'PY'
+          import hashlib, json, os, pathlib, re, selectors, subprocess, time
+          REPOSITORY = 'fainir/account-access'
+          BASE_SOURCE = 'fbd2a733b60acde68e82fe796cb7abd971d5d625'
+          BASE_RELEASE = 418292574
+          BASE_TAG = 'qa-fbd2a73-build76-component-base'
+          BASE_PACKAGE = (659061910, 'e525233e74ee942a53c389babac57eee6cad25b79ea178ff9a6384b0a5c5567c', 289451807)
+          BASE_MANIFEST = (659061912, '5618053e6f8ed0a8720a9d2f7dde317425cecda6a970abd90c499fbfe27b43a8', 4989248)
+          BASE_CORRESPONDING_SOURCE = (659061965, '4b239336a11d702932c376fb7448f9dda6a1eda87c4fe678cadbf537ba137a37', 219113811)
+          def require(condition):
+              if not condition: raise ValueError('component_review_input_contract_failed')
+          def unique(pairs):
+              value = {}
+              for key, item in pairs:
+                  require(key not in value)
+                  value[key] = item
+              return value
+          def read_json(raw):
+              return json.loads(raw, object_pairs_hook=unique)
+          def request_values(environment):
+              source = environment['AC_COMPONENT_SOURCE']
+              require(re.fullmatch(r'[a-f0-9]{40}', source) is not None)
+              for key in ('AC_CANDIDATE_SHA256', 'AC_REVIEW_SHA256'):
+                  require(re.fullmatch(r'[a-f0-9]{64}', environment[key]) is not None)
+              for key in ('AC_CANDIDATE_RELEASE_ID', 'AC_CANDIDATE_ASSET_ID', 'AC_REVIEW_ASSET_ID'):
+                  require(re.fullmatch(r'[1-9][0-9]{0,19}', environment[key]) is not None)
+              require(environment['AC_CANDIDATE_ASSET_ID'] != environment['AC_REVIEW_ASSET_ID'])
+              return source
+          def api(endpoint):
+              result = subprocess.run(['gh', 'api', '--hostname', 'github.com', endpoint],
+                  stdin=subprocess.DEVNULL, capture_output=True, check=True, timeout=20)
+              require(len(result.stdout) <= 1024 * 1024)
+              return read_json(result.stdout)
+          def asset(release, identifier, sha, maximum, exact_size=None):
+              found = [item for item in release['assets'] if item.get('id') == identifier]
+              require(len(found) == 1)
+              value = found[0]
+              require(value.get('state') == 'uploaded' and value.get('digest') == 'sha256:' + sha)
+              require(type(value.get('size')) is int and 0 < value['size'] <= maximum)
+              require(exact_size is None or value['size'] == exact_size)
+              return value
+          def file_sha(path):
+              with path.open('rb') as stream: return hashlib.file_digest(stream, 'sha256').hexdigest()
+          def download(value, path, expected_sha):
+              child = subprocess.Popen(['gh', 'api', '--hostname', 'github.com',
+                  f'repos/{REPOSITORY}/releases/assets/{value["id"]}', '-H', 'Accept: application/octet-stream'],
+                  stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+              deadline, written = time.monotonic() + 240, 0
+              try:
+                  os.set_blocking(child.stdout.fileno(), False)
+                  with path.open('xb') as target, selectors.DefaultSelector() as ready:
+                      ready.register(child.stdout, selectors.EVENT_READ)
+                      while ready.get_map():
+                          remaining = deadline - time.monotonic()
+                          require(remaining > 0)
+                          for key, _ in ready.select(min(remaining, 0.1)):
+                              try: block = os.read(key.fd, 1024 * 1024)
+                              except BlockingIOError: continue
+                              if not block:
+                                  ready.unregister(key.fileobj)
+                              else:
+                                  written += len(block)
+                                  require(written <= value['size'])
+                                  target.write(block)
+                  require(child.wait(timeout=5) == 0 and written == value['size'] and file_sha(path) == expected_sha)
+              finally:
+                  if child.poll() is None: child.kill()
+                  child.wait(timeout=5)
+                  child.stdout.close()
+          source = request_values(os.environ)
+          require(os.getuid() != 0 and os.environ.get('GITHUB_REPOSITORY') == REPOSITORY)
+          controller_revision = os.environ['GITHUB_SHA']
+          require(re.fullmatch(r'[a-f0-9]{40}', controller_revision) is not None)
+          head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], timeout=5, text=True).strip()
+          require(head == controller_revision)
+          base = api(f'repos/{REPOSITORY}/releases/{BASE_RELEASE}')
+          require(base.get('id') == BASE_RELEASE and base.get('draft') is True
+              and base.get('tag_name') == BASE_TAG and base.get('target_commitish') == BASE_SOURCE)
+          base_pkg = asset(base, *BASE_PACKAGE[:2], BASE_PACKAGE[2], BASE_PACKAGE[2])
+          base_manifest = asset(base, *BASE_MANIFEST[:2], BASE_MANIFEST[2], BASE_MANIFEST[2])
+          # Preserve and authenticate corresponding-source availability; it is
+          # not needed in the Mac's executable-input artifact.
+          asset(base, *BASE_CORRESPONDING_SOURCE[:2], BASE_CORRESPONDING_SOURCE[2], BASE_CORRESPONDING_SOURCE[2])
+          candidate_release = int(os.environ['AC_CANDIDATE_RELEASE_ID'])
+          release = api(f'repos/{REPOSITORY}/releases/{candidate_release}')
+          require(release.get('id') == candidate_release and release.get('draft') is True
+              and release.get('target_commitish') == source)
+          candidate = asset(release, int(os.environ['AC_CANDIDATE_ASSET_ID']), os.environ['AC_CANDIDATE_SHA256'], 64 * 1024 * 1024)
+          review_asset = asset(release, int(os.environ['AC_REVIEW_ASSET_ID']), os.environ['AC_REVIEW_SHA256'], 128 * 1024)
+          output = pathlib.Path(os.environ['RUNNER_TEMP']) / 'account-access-component-input'
+          output.mkdir(mode=0o700)
+          for value, name, sha in [(base_pkg, 'base.pkg', BASE_PACKAGE[1]), (base_manifest, 'base-manifest.json', BASE_MANIFEST[1]),
+              (candidate, 'candidate.pkg', os.environ['AC_CANDIDATE_SHA256']), (review_asset, 'review.json', os.environ['AC_REVIEW_SHA256'])]:
+              download(value, output / name, sha)
+          review = read_json((output / 'review.json').read_bytes())
+          require(set(review) == {'schema', 'managed_by', 'component_source_commit', 'base_source_commit',
+              'package_sha256', 'package_bytes', 'plan_sha256', 'scripts', 'source_files'})
+          require(type(review['schema']) is int and review['schema'] == 1
+              and review['managed_by'] == 'account-access-component-public-review-v1'
+              and review['component_source_commit'] == source and review['base_source_commit'] == BASE_SOURCE
+              and review['package_sha256'] == os.environ['AC_CANDIDATE_SHA256'] and review['package_bytes'] == candidate['size'])
+          require(re.fullmatch(r'[a-f0-9]{64}', review['plan_sha256']) is not None)
+          require(isinstance(review['source_files'], dict) and 1 <= len(review['source_files']) <= 128)
+          for name, sha in review['source_files'].items():
+              path = pathlib.PurePosixPath(name)
+              require(not path.is_absolute() and str(path) == name and not any(part in ('.', '..') for part in path.parts))
+              require(re.fullmatch(r'[a-f0-9]{64}', sha) is not None)
+              raw = subprocess.check_output(['git', 'show', source + ':' + name], timeout=5)
+              require(len(raw) <= 2 * 1024 * 1024 and hashlib.sha256(raw).hexdigest() == sha)
+          probe = pathlib.Path('scripts/mac_component_update_installer_probe.py').read_bytes()
+          require(subprocess.check_output(['git', 'show', controller_revision + ':scripts/mac_component_update_installer_probe.py'], timeout=5) == probe)
+          controller = {'schema': 1, 'controller_revision': controller_revision, 'component_source_commit': source,
+              'probe_sha256': hashlib.sha256(probe).hexdigest(),
+              'files': {name: file_sha(output / name) for name in ('base.pkg', 'base-manifest.json', 'candidate.pkg', 'review.json')}}
+          (output / 'controller.json').write_text(json.dumps(controller, sort_keys=True) + '\n')
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: component-update-public-inputs
+          path: ${{ runner.temp }}/account-access-component-input
+          compression-level: 0
+          retention-days: 3
+          if-no-files-found: error
+  actual-installer-review:
+    needs: download-public-inputs
+    if: github.event_name == 'workflow_dispatch' && github.repository == 'fainir/account-access'
+    runs-on: macos-15
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      AC_COMPONENT_SOURCE: ${{ inputs.component_source }}
+      AC_CANDIDATE_SHA256: ${{ inputs.candidate_sha256 }}
+      AC_REVIEW_SHA256: ${{ inputs.review_sha256 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          name: component-update-public-inputs
+          path: ${{ runner.temp }}/account-access-component-input
+      - name: Verify transferred public bytes and the checked-out controller
+        run: |
+          uv python install 3.13
+          uv run --no-project --python 3.13 python -I -B - <<'PY'
+          import hashlib, json, os, pathlib, re, stat, subprocess
+          folder = pathlib.Path(os.environ['RUNNER_TEMP']) / 'account-access-component-input'
+          assert set(item.name for item in folder.iterdir()) == {'base.pkg', 'base-manifest.json', 'candidate.pkg', 'review.json', 'controller.json'}
+          for item in folder.iterdir():
+              info = item.lstat()
+              assert stat.S_ISREG(info.st_mode) and info.st_nlink == 1 and info.st_uid == os.getuid()
+          def unique(pairs):
+              result = {}
+              for key, item in pairs:
+                  assert key not in result
+                  result[key] = item
+              return result
+          assert (folder / 'controller.json').stat().st_size <= 4096
+          value = json.loads((folder / 'controller.json').read_bytes(), object_pairs_hook=unique)
+          assert set(value) == {'schema', 'controller_revision', 'component_source_commit', 'probe_sha256', 'files'}
+          source = os.environ['AC_COMPONENT_SOURCE']
+          controller_revision = os.environ['GITHUB_SHA']
+          assert type(value['schema']) is int and value['schema'] == 1
+          assert value['controller_revision'] == controller_revision and value['component_source_commit'] == source
+          assert re.fullmatch(r'[a-f0-9]{40}', source) and re.fullmatch(r'[a-f0-9]{40}', controller_revision)
+          assert subprocess.check_output(['git', 'rev-parse', 'HEAD'], timeout=5, text=True).strip() == controller_revision
+          assert set(value['files']) == {'base.pkg', 'base-manifest.json', 'candidate.pkg', 'review.json'}
+          for name, sha in value['files'].items():
+              assert re.fullmatch(r'[a-f0-9]{64}', sha)
+              path = folder / name
+              with path.open('rb') as stream: assert hashlib.file_digest(stream, 'sha256').hexdigest() == sha
+          assert value['files']['candidate.pkg'] == os.environ['AC_CANDIDATE_SHA256']
+          assert value['files']['review.json'] == os.environ['AC_REVIEW_SHA256']
+          probe = pathlib.Path('scripts/mac_component_update_installer_probe.py').read_bytes()
+          assert hashlib.sha256(probe).hexdigest() == value['probe_sha256']
+          assert subprocess.check_output(['git', 'show', controller_revision + ':scripts/mac_component_update_installer_probe.py'], timeout=5) == probe
+          PY
+      - name: Run actual Installer, normal fresh-app quit and component reapply in this disposable VM
+        run: |
+          test "$(uname -m)" = arm64
+          test "$RUNNER_ENVIRONMENT" = github-hosted
+          test "$GITHUB_REPOSITORY" = fainir/account-access
+          test ! -e '/Applications/Account Access.app'
+          test ! -e '/Library/Application Support/Account Access'
+          AC_COMPONENT_PYTHON=$(uv python find 3.13)
+          sudo -n /usr/bin/env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin LANG=C \
+            GITHUB_ACTIONS=true CI=true RUNNER_ENVIRONMENT=github-hosted RUNNER_OS=macOS RUNNER_ARCH=ARM64 \
+            GITHUB_REPOSITORY="$GITHUB_REPOSITORY" GITHUB_RUN_ID="$GITHUB_RUN_ID" \
+            GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" GITHUB_SHA="$GITHUB_SHA" \
+            GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_SYSTEM=/dev/null GIT_CONFIG_GLOBAL=/dev/null \
+            "$AC_COMPONENT_PYTHON" -I -B "$GITHUB_WORKSPACE/scripts/mac_component_update_installer_probe.py" \
+            --base "$RUNNER_TEMP/account-access-component-input/base.pkg" \
+            --base-manifest "$RUNNER_TEMP/account-access-component-input/base-manifest.json" \
+            --candidate "$RUNNER_TEMP/account-access-component-input/candidate.pkg" \
+            --review "$RUNNER_TEMP/account-access-component-input/review.json" \
+            --review-sha256 "$AC_REVIEW_SHA256" --source "$AC_COMPONENT_SOURCE" \
+            --candidate-sha256 "$AC_CANDIDATE_SHA256" --repository "$GITHUB_WORKSPACE" \
+            --report "/Library/Logs/AccountAccessComponentInstallerQA-${GITHUB_RUN_ID}/report.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: component-update-actual-installer-review
+          path: /Library/Logs/AccountAccessComponentInstallerQA-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
