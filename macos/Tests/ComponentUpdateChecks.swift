@@ -37,11 +37,190 @@ private final class FixtureStore: ComponentTransitionStorage {
     func verifyNewView() throws { try storage.verifyNewView() }
 }
 
+private enum ComponentUserDomainChecks {
+    private final class API {
+        var fixedDisabled = true, processesGone = false, keepProcesses = false
+        var bootoutDurable = false, bootstrapDurable = false
+        var failRecord: ComponentUserDomainQuiescence.Event?
+        var events: [ComponentUserDomainQuiescence.Event] = []
+        var commands: [ComponentCommands.UserDomainAction] = []
+        var timeouts: [TimeInterval] = [], pauses: [TimeInterval] = []
+        var bootout: [ComponentCommands.Result] = [], bootstrap: [ComponentCommands.Result] = []
+        var verifyModes: [Bool] = []
+        var now: TimeInterval = 0, commandDuration: TimeInterval = 0
+        var advanceClock = true
+        var beforeBootstrap: (() throws -> Void)?
+        func make() -> ComponentUserDomainQuiescence {
+            let operations = ComponentUserDomainQuiescence.Operations(command: { action, timeout in
+                guard self.fixedDisabled, timeout > 0, timeout <= 20 else { throw ComponentUpdateFailure.context }
+                self.commands.append(action); self.timeouts.append(timeout)
+                self.now += self.commandDuration
+                let result: ComponentCommands.Result
+                if action == .bootout {
+                    guard self.bootoutDurable else { throw ComponentUpdateFailure.context }
+                    result = self.bootout.isEmpty ? .init(status: 0, output: Data()) : self.bootout.removeFirst()
+                    if result.status == 0 && !self.keepProcesses { self.processesGone = true }
+                } else {
+                    guard self.bootstrapDurable else { throw ComponentUpdateFailure.context }
+                    try self.beforeBootstrap?()
+                    result = self.bootstrap.isEmpty ? .init(status: 0, output: Data()) : self.bootstrap.removeFirst()
+                    if result.status == 0 { self.processesGone = false }
+                }
+                return result
+            }, requireFixedJobDisabled: {
+                guard self.fixedDisabled else { throw ComponentUpdateFailure.disabled }
+            }, verifyAllQuiescent: { wait in
+                self.verifyModes.append(wait)
+                guard self.fixedDisabled, self.processesGone else { throw ComponentUpdateFailure.quiescence }
+            }, record: { event in
+                if self.failRecord == event { throw ComponentUpdateFailure.journal }
+                self.events.append(event)
+                if event == .bootoutIntent { self.bootoutDurable = true }
+                if event == .bootstrapIntent { self.bootstrapDurable = true }
+            })
+            return ComponentUserDomainQuiescence(operations: operations, clock: { self.now }, pause: { seconds in
+                self.pauses.append(seconds)
+                if self.advanceClock { self.now += seconds }
+            })
+        }
+    }
+    static func run() throws -> (Int, [String: Bool]) {
+        var checks = 0
+        var passed: [String: Bool] = [:]
+        func expect(_ value: Bool) throws {
+            guard value else { throw ComponentUpdateFailure.context }; checks += 1
+        }
+        func refuses(_ expected: ComponentUpdateFailure, _ body: () throws -> Void) throws {
+            do { try body() }
+            catch let actual as ComponentUpdateFailure {
+                guard actual.rawValue == expected.rawValue else { throw ComponentUpdateFailure.context }
+                checks += 1; return
+            }
+            throw ComponentUpdateFailure.context
+        }
+        do {
+            let api = API(), lifecycle = api.make()
+            try refuses(.userDomain) { try lifecycle.requireQuiescent() }
+            try lifecycle.quiesce()
+            try expect(api.events == [.bootoutIntent, .quiescenceConfirmed] && api.commands == [.bootout])
+            try expect(api.verifyModes == [true] && api.fixedDisabled)
+            try lifecycle.requireQuiescent()
+            try expect(api.verifyModes == [true, false])
+            api.beforeBootstrap = { try refuses(.userDomain) { try lifecycle.requireQuiescent() } }
+            try lifecycle.restore()
+            api.beforeBootstrap = nil
+            try expect(api.events.suffix(2) == [.bootstrapIntent, .bootstrapConfirmed] && api.fixedDisabled)
+            try refuses(.userDomain) { try lifecycle.requireQuiescent() }
+            passed["domain_durable_intent_and_local_barrier_order"] = true
+        }
+        do {
+            let api = API(); api.failRecord = .bootoutIntent
+            let lifecycle = api.make()
+            try refuses(.journal) { try lifecycle.quiesce() }
+            try expect(api.commands.isEmpty && !api.bootoutDurable && api.fixedDisabled)
+            try refuses(.userDomain) { try lifecycle.requireQuiescent() }
+            passed["failed_domain_intent_has_no_lifecycle_effect"] = true
+        }
+        do {
+            let api = API(); api.keepProcesses = true
+            let lifecycle = api.make()
+            try refuses(.quiescence) { try lifecycle.quiesce() }
+            try expect(!api.events.contains(.quiescenceConfirmed))
+            try refuses(.userDomain) { try lifecycle.requireQuiescent() }
+            api.keepProcesses = false
+            try lifecycle.quiesce()
+            try expect(api.commands == [.bootout, .bootout] && api.verifyModes == [true, true])
+            api.processesGone = false
+            try refuses(.quiescence) { try lifecycle.requireQuiescent() }
+            passed["domain_success_never_bypasses_all_process_checks"] = true
+        }
+        do {
+            let api = API(), lifecycle = api.make()
+            try lifecycle.quiesce()
+            api.bootstrap = [.init(status: 1 << 8, output: Data())]
+            try refuses(.userDomain) { try lifecycle.restore() }
+            try expect(api.fixedDisabled && !api.events.contains(.bootstrapConfirmed))
+            try refuses(.userDomain) { try lifecycle.requireQuiescent() }
+            try lifecycle.quiesce()
+            try expect(api.commands == [.bootout, .bootstrap, .bootout])
+            passed["domain_bootstrap_failure_requires_fresh_removal"] = true
+        }
+        do {
+            let api = API(), first = api.make()
+            try first.quiesce(); api.failRecord = .bootstrapConfirmed
+            try refuses(.journal) { try first.restore() }
+            try expect(!api.processesGone && api.fixedDisabled)
+            try refuses(.userDomain) { try first.requireQuiescent() }
+            api.failRecord = nil
+            let retry = api.make()
+            try refuses(.userDomain) { try retry.requireQuiescent() }
+            try retry.quiesce(); try retry.restore()
+            try expect(api.commands == [.bootout, .bootstrap, .bootout, .bootstrap] && api.fixedDisabled)
+            passed["recreated_domain_is_removed_before_retry_or_rollback"] = true
+        }
+        do {
+            let api = API(), lifecycle = api.make()
+            try lifecycle.quiesce()
+            api.failRecord = .bootstrapIntent
+            try refuses(.journal) { try lifecycle.restore() }
+            try expect(api.commands == [.bootout] && api.fixedDisabled)
+            try lifecycle.requireQuiescent() // No create was attempted; the existing barrier remains valid.
+            api.failRecord = .quiescenceConfirmed
+            try refuses(.journal) { try lifecycle.quiesce() }
+            try refuses(.userDomain) { try lifecycle.requireQuiescent() }
+            passed["domain_event_failures_preserve_safe_local_state"] = true
+        }
+        do {
+            let api = API(), lifecycle = api.make()
+            api.bootout = [.init(status: 124 << 8, output: Data("Boot-out failed: 124: Domain is tearing down\n".utf8))]
+            try lifecycle.quiesce()
+            api.bootstrap = [.init(status: 124 << 8, output: Data("Bootstrap failed: 124: Domain is tearing down\n".utf8))]
+            try lifecycle.restore()
+            try expect(api.commands == [.bootout, .bootout, .bootstrap, .bootstrap])
+            try expect(api.pauses == [0.25, 0.25] && api.now == 0.5 && api.fixedDisabled)
+            passed["only_measured_domain_teardown_responses_retry"] = true
+        }
+        for result in [
+            ComponentCommands.Result(status: 124 << 8, output: Data("Bootstrap failed: 124: Domain is tearing down\n".utf8)),
+            .init(status: 124 << 8, output: Data("Boot-out failed: 124: Domain is tearing down\nextra".utf8)),
+            .init(status: 125 << 8, output: Data("Boot-out failed: 124: Domain is tearing down\n".utf8)),
+            .init(status: 0, output: Data("unexpected".utf8)),
+        ] {
+            let api = API(); api.bootout = [result]
+            let lifecycle = api.make()
+            try refuses(.userDomain) { try lifecycle.quiesce() }
+            try expect(api.commands == [.bootout] && api.pauses.isEmpty && api.verifyModes.isEmpty)
+        }
+        passed["unknown_domain_results_never_authorize_quiescence"] = true
+        for advance in [true, false] {
+            let api = API(); api.advanceClock = advance
+            api.bootout = Array(repeating: .init(status: 124 << 8,
+                output: Data("Boot-out failed: 124: Domain is tearing down\n".utf8)), count: 200)
+            let lifecycle = api.make()
+            try refuses(.userDomain) { try lifecycle.quiesce() }
+            try expect(api.commands.count <= 161 && api.pauses.allSatisfy { $0 > 0 && $0 <= 0.25 })
+            try expect(api.now <= 40 && api.verifyModes.isEmpty && api.fixedDisabled)
+        }
+        do {
+            let api = API(); api.commandDuration = 21
+            api.bootout = [.init(status: 124 << 8, output: Data("Boot-out failed: 124: Domain is tearing down\n".utf8))]
+            let lifecycle = api.make()
+            try refuses(.userDomain) { try lifecycle.quiesce() }
+            try expect(api.timeouts == [20, 18.75] && api.verifyModes.isEmpty)
+        }
+        passed["domain_teardown_retry_has_deadline_attempt_and_child_bounds"] = true
+        return (checks, passed)
+    }
+}
+
 @main struct ComponentUpdateChecks {
     static func main() throws {
         guard getuid() != 0, getuid() == geteuid(), CommandLine.arguments.count == 1 else { exit(77) }
         var checks = 0
         var passed: [String: Bool] = [:]
+        let domain = try ComponentUserDomainChecks.run()
+        checks += domain.0
+        passed.merge(domain.1) { _, _ in true }
         let identity = try ComponentUpdateIdentityChecks.run()
         checks += identity.0
         passed.merge(identity.1) { _, _ in true }

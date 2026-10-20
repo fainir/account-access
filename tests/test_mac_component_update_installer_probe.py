@@ -635,7 +635,7 @@ def test_candidate_installer_always_captures_daemon_delta_without_masking_outcom
         assert probe.candidate_install(Path("/fixed/candidate.pkg"), **arguments) == "installer success"
     assert observed[0] == "checkpoint" and observed[1][0] == "command" and observed[2][0] == "capture"
     assert observed[1][1] == ["/usr/sbin/installer", "-dumplog", "-verboseR", "-pkg", "/fixed/candidate.pkg", "-target", "/"]
-    assert observed[1][2]["timeout"] == 180
+    assert observed[1][2]["timeout"] == 420
 
 
 def test_daemon_capture_publication_failure_remains_diagnostic(installer_daemon_log):
@@ -914,6 +914,19 @@ def test_domain_canary_rejects_foreign_or_unfinished_context_before_commands(mon
     probe.test_vm_domain_canary(report, install, "a" * 64)
     assert report["test_vm_domain_canary"]["status"] == "refused"
     assert report["test_vm_domain_canary"]["domain_mutations_attempted"] is False
+
+
+@pytest.mark.parametrize("kind", ["timeout", "invocation_failed", "output_limit"])
+def test_domain_canary_refuses_uncertain_installer_completion_before_any_metadata(monkeypatch, kind):
+    report, install = canary_context(monkeypatch)
+    report["command_failure"] = {"kind": kind, "log": "candidate-installer.log"}
+    original = copy.deepcopy(report)
+    monkeypatch.setattr(probe.pwd, "getpwnam", lambda *a: pytest.fail("no identity observation after uncertain completion"))
+    monkeypatch.setattr(probe, "ProcessDiagnosticReader", lambda: pytest.fail("no process observation after uncertain completion"))
+    monkeypatch.setattr(probe.subprocess, "run", lambda *a, **k: pytest.fail("no domain command after uncertain completion"))
+    probe.test_vm_domain_canary(report, install, "a" * 64)
+    value = report.pop("test_vm_domain_canary")
+    assert report == original and value["status"] == "refused" and value["domain_mutations_attempted"] is False
 
 
 @pytest.mark.parametrize("fail_at", [None, "first_bootout", "bootstrap", "print", "final_bootout"])

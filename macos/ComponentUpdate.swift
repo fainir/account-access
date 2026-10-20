@@ -15,6 +15,7 @@ enum ComponentUpdateFailure: String, Error {
     case unavailable = "component_update_unavailable"
     case disabled = "component_service_disable_not_confirmed"
     case quiescence = "component_service_quiescence_not_confirmed"
+    case userDomain = "component_service_user_domain_not_confirmed"
     case owner = "component_owner_app_close_required"
     case recovery = "component_manual_retry_required"
     case rollback = "component_rollback_conflict"
@@ -364,6 +365,24 @@ enum ComponentCommands {
             ["bootstrap", "system", "/Library/LaunchDaemons/com.fainir.accountaccess.broker.plist"],
         ]
         guard getuid() == 0, geteuid() == 0, allowed.contains(arguments) else { throw ComponentUpdateFailure.context }
+        return try executeLaunchctl(arguments, timeout: 20)
+    }
+    enum UserDomainAction: String { case bootout, bootstrap }
+    static func launchctlUserDomain(_ action: UserDomainAction, brokerUID: uid_t, timeout: TimeInterval) throws -> Result {
+        // The reserved nonlogin service identity is selected by the verified
+        // installed policy. No owner/user-selected domain is accepted here.
+        guard getuid() == 0, geteuid() == 0, (450..<500).contains(brokerUID),
+              let account = getpwnam("_accountaccess"), account.pointee.pw_uid == brokerUID,
+              account.pointee.pw_gid == brokerUID,
+              String(cString: account.pointee.pw_name) == "_accountaccess",
+              String(cString: account.pointee.pw_dir) == InstallerPayloadManifest.support + "/home",
+              String(cString: account.pointee.pw_shell) == "/usr/bin/false" else {
+            throw ComponentUpdateFailure.context
+        }
+        return try executeLaunchctl([action.rawValue, "user/" + String(brokerUID)], timeout: timeout)
+    }
+    private static func executeLaunchctl(_ arguments: [String], timeout: TimeInterval) throws -> Result {
+        guard timeout.isFinite, timeout > 0, timeout <= 20 else { throw ComponentUpdateFailure.context }
         // This one-shot coordinator owns all of its command children. Do not
         // inherit an ignored SIGCHLD/automatic-reaping policy from a launcher.
         _ = signal(SIGCHLD, SIG_DFL)
@@ -407,7 +426,7 @@ enum ComponentCommands {
         defer {
             if ownsChild { _ = Darwin.kill(pid, SIGKILL); _ = waitpid(pid, &status, 0) }
         }
-        let deadline = ProcessInfo.processInfo.systemUptime + 20
+        let deadline = ProcessInfo.processInfo.systemUptime + timeout
         var buffer = [UInt8](repeating: 0, count: 8192)
         while !reaped || !eof {
             guard ProcessInfo.processInfo.systemUptime < deadline else { throw ComponentUpdateFailure.unavailable }
@@ -476,9 +495,13 @@ enum ComponentCommands {
 enum ComponentProcesses {
     static func listed(_ type: UInt32, _ info: UInt32) throws -> [pid_t] {
         var pids = [pid_t](repeating: 0, count: 65_536)
-        errno = 0
-        let count = pids.withUnsafeMutableBytes { proc_listpids(type, info, $0.baseAddress, Int32($0.count)) }
-        let failure = errno
+        var failure: Int32 = 0
+        let count = pids.withUnsafeMutableBytes {
+            errno = 0
+            let result = proc_listpids(type, info, $0.baseAddress, Int32($0.count))
+            failure = errno
+            return result
+        }
         guard failure == 0, count >= 0, count < pids.count * MemoryLayout<pid_t>.size,
               count % Int32(MemoryLayout<pid_t>.size) == 0 else { throw ComponentUpdateFailure.quiescence }
         return pids.prefix(Int(count) / MemoryLayout<pid_t>.size).filter { $0 > 1 }
@@ -534,6 +557,75 @@ struct ComponentDisableOwnership {
     }
 }
 
+final class ComponentUserDomainQuiescence {
+    enum Event: String {
+        case bootoutIntent = "user_domain_bootout_intent"
+        case quiescenceConfirmed = "user_domain_quiescence_confirmed"
+        case bootstrapIntent = "user_domain_bootstrap_intent"
+        case bootstrapConfirmed = "user_domain_bootstrap_confirmed"
+    }
+    struct Operations {
+        let command: (ComponentCommands.UserDomainAction, TimeInterval) throws -> ComponentCommands.Result
+        let requireFixedJobDisabled: () throws -> Void
+        let verifyAllQuiescent: (Bool) throws -> Void
+        let record: (Event) throws -> Void
+    }
+    private let operations: Operations
+    private let clock: () -> TimeInterval
+    private let pause: (TimeInterval) -> Void
+    private var removalConfirmed = false
+    init(operations: Operations, clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
+         pause: @escaping (TimeInterval) -> Void = { usleep(useconds_t($0 * 1_000_000)) }) {
+        self.operations = operations; self.clock = clock; self.pause = pause
+    }
+    private func complete(_ action: ComponentCommands.UserDomainAction) throws {
+        let deadline = clock() + 40
+        for _ in 0..<161 {
+            let remaining = deadline - clock()
+            guard remaining.isFinite, remaining > 0 else { throw ComponentUpdateFailure.userDomain }
+            let result = try operations.command(action, min(20, remaining))
+            guard clock() <= deadline else { throw ComponentUpdateFailure.userDomain }
+            if result.status == 0 {
+                guard result.output.isEmpty else { throw ComponentUpdateFailure.userDomain }
+                return
+            }
+            let tearingDown = action == .bootout ? "Boot-out failed: 124: Domain is tearing down\n"
+                : "Bootstrap failed: 124: Domain is tearing down\n"
+            guard result.status == (124 << 8), result.output == Data(tearingDown.utf8) else {
+                throw ComponentUpdateFailure.userDomain
+            }
+            let delay = min(0.25, deadline - clock())
+            guard delay.isFinite, delay > 0 else { throw ComponentUpdateFailure.userDomain }
+            pause(delay)
+        }
+        throw ComponentUpdateFailure.userDomain
+    }
+    func quiesce() throws {
+        removalConfirmed = false
+        try operations.requireFixedJobDisabled()
+        try operations.record(.bootoutIntent) // Existing exclusive event write/fsync precedes removal.
+        try complete(.bootout)
+        try operations.verifyAllQuiescent(true)
+        removalConfirmed = true
+        do { try operations.record(.quiescenceConfirmed) }
+        catch { removalConfirmed = false; throw error }
+    }
+    func requireQuiescent() throws {
+        guard removalConfirmed else { throw ComponentUpdateFailure.userDomain }
+        try operations.verifyAllQuiescent(false)
+    }
+    func restore() throws {
+        try requireQuiescent()
+        try operations.record(.bootstrapIntent)
+        // Domain creation can launch OS agents. It invalidates the removal
+        // barrier even if the command or the following durable event fails.
+        removalConfirmed = false
+        try complete(.bootstrap)
+        try operations.requireFixedJobDisabled()
+        try operations.record(.bootstrapConfirmed)
+    }
+}
+
 final class ComponentLaunchdBarrier: ComponentServiceBarrier {
     private let brokerUID: uid_t
     private let recoveringIntent: Bool
@@ -542,6 +634,13 @@ final class ComponentLaunchdBarrier: ComponentServiceBarrier {
     private var snapshots: [ComponentJobIdentity]
     private let peers: [ComponentPeerSignature]
     private let recordSnapshot: (ComponentJobIdentity) throws -> Void
+    private lazy var userDomain = ComponentUserDomainQuiescence(operations: .init(command: { [unowned self] action, timeout in
+        try ComponentCommands.launchctlUserDomain(action, brokerUID: self.brokerUID, timeout: timeout)
+    }, requireFixedJobDisabled: { [unowned self] in
+        guard try self.isDisabled() else { throw ComponentUpdateFailure.disabled }
+    }, verifyAllQuiescent: { [unowned self] wait in
+        try self.verifyDisabledAndProcesses(wait: wait)
+    }, record: { [unowned self] event in try self.record(event.rawValue) }))
     init(brokerUID: uid_t, recoveringIntent: Bool, snapshots: [ComponentJobIdentity],
          peers: [ComponentPeerSignature], recordSnapshot: @escaping (ComponentJobIdentity) throws -> Void,
          record: @escaping (String) throws -> Void) {
@@ -582,26 +681,32 @@ final class ComponentLaunchdBarrier: ComponentServiceBarrier {
         guard ComponentCommands.definitivelyAbsent(try ComponentCommands.launchctl([
             "print", "system/com.fainir.accountaccess.broker",
         ])) else { throw ComponentUpdateFailure.quiescence }
-        let deadline = ProcessInfo.processInfo.systemUptime + 20
-        while true {
-            if (try? ComponentProcesses.requireQuiescent(brokerUID: brokerUID)) != nil { break }
-            guard ProcessInfo.processInfo.systemUptime < deadline else { throw ComponentUpdateFailure.quiescence }
-            usleep(50_000)
-        }
+        try userDomain.quiesce()
         try requireDisabledAndQuiescent()
         try record("disabled_quiescence_confirmed")
     }
     func requireDisabledAndQuiescent() throws {
+        try userDomain.requireQuiescent()
+    }
+    private func verifyDisabledAndProcesses(wait: Bool) throws {
         guard try isDisabled() else { throw ComponentUpdateFailure.disabled }
         guard ComponentCommands.definitivelyAbsent(try ComponentCommands.launchctl([
             "print", "system/com.fainir.accountaccess.broker",
         ])) else { throw ComponentUpdateFailure.quiescence }
         try ComponentProcesses.requireOwnerClosed()
+        if wait {
+            let deadline = ProcessInfo.processInfo.systemUptime + 20
+            while true {
+                if (try? ComponentProcesses.requireQuiescent(brokerUID: brokerUID)) != nil { break }
+                guard ProcessInfo.processInfo.systemUptime < deadline else { throw ComponentUpdateFailure.quiescence }
+                usleep(50_000)
+            }
+        }
         try ComponentProcesses.requireQuiescent(brokerUID: brokerUID)
         for snapshot in snapshots { try ComponentUpdateIdentity.requireGone(snapshot) }
     }
     func restoreEnabledJob() throws {
-        try requireDisabledAndQuiescent()
+        try userDomain.restore()
         try record("coherent_image_enable_intent")
         guard try ComponentCommands.launchctl(["enable", "system/com.fainir.accountaccess.broker"]).status == 0,
               try !isDisabled() else { throw ComponentUpdateFailure.disabled }
@@ -1040,7 +1145,9 @@ enum ComponentController {
         let snapshots: [ComponentJobIdentity]; let ownsDisable: Bool; let finished: Bool
     }
     private static let serviceEvents: Set<String> = ["disable_intent_prior_enabled", "disabled_confirmed",
-        "disabled_quiescence_confirmed", "coherent_image_enable_intent", "canonical_job_bootstrapped_gui_unverified"]
+        "disabled_quiescence_confirmed", "coherent_image_enable_intent", "canonical_job_bootstrapped_gui_unverified",
+        "user_domain_bootout_intent", "user_domain_quiescence_confirmed", "user_domain_bootstrap_intent",
+        "user_domain_bootstrap_confirmed"]
     private static func journalState(_ backup: Int32, operations: [ComponentOperation], source: ComponentSource,
                                      intentExists: Bool) throws -> JournalState {
         var nextEvent = 0, nextService = 0, nextJob = 0, service: [(Int, String)] = []

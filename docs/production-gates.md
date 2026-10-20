@@ -147,6 +147,27 @@ only that test installation's dedicated user-domain teardown and recreation
 after fixed-job cleanup. No owner installation or account operation is involved.
 [Process measurement and limits](../artifacts/component-update-process-attempt-080-20261020.json).
 
+The seventh run at controller `cb90937` identified the remaining process as
+`/usr/sbin/distnoted`. Dedicated-domain bootout returned 0 and cleared all
+service-identity processes, including on repetition. Immediate recreation then
+returned `124: Domain is tearing down`; the canary stopped before its later
+stages. Final process count was zero, but final bootout also returned 124, so
+completed teardown was not proven. The source repair now adds dedicated-domain
+lifecycle handling with bounded retries for only that exact action-specific
+response, preserving all existing process, group, owner and job checks. It needs
+new source qualification and successful actual apply/reapplication before owner
+installation. No update or personal sign-in has occurred on the owner Mac.
+[Measured domain lifecycle and limits](../artifacts/component-update-domain-canary-080-20261020.json).
+
+The repair passed 133 optimized ordinary native assertions across 30 groups,
+including real shared-helper failure/retry ordering. Its production entry point
+refused an ordinary caller with exit 78 before installed reads. The producer and
+builder contracts passed 95 Python tests; the controller passed 212 tests and
+now refuses its lifecycle canary after uncertain Installer completion. Source,
+logs and exact proof contracts passed independent review. These local results
+do not replace the pending new-source CI, signed-package assembly or actual
+Installer apply/reapply checks.
+
 [Source review and retained earlier attempts](../artifacts/component-update-source-080-20261020.json).
 The build gate also preserves the measured skipped state of the review push's
 two dispatch-only jobs; all applicable jobs still require first-attempt success.

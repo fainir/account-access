@@ -53,6 +53,15 @@ POLICY_CHECKS = frozenset({
 })
 # These are assertion groups in the actual native fixture, not caller flags.
 CORE_CHECKS = frozenset({
+    "domain_durable_intent_and_local_barrier_order",
+    "failed_domain_intent_has_no_lifecycle_effect",
+    "domain_success_never_bypasses_all_process_checks",
+    "domain_bootstrap_failure_requires_fresh_removal",
+    "recreated_domain_is_removed_before_retry_or_rollback",
+    "domain_event_failures_preserve_safe_local_state",
+    "only_measured_domain_teardown_responses_retry",
+    "unknown_domain_results_never_authorize_quiescence",
+    "domain_teardown_retry_has_deadline_attempt_and_child_bounds",
     "initial_owner_disabled_refused", "fresh_attempt_rollback_owned", "failed_disable_intent_not_owned",
     "missing_service_response_exact", "generic_nonzero_not_absence", "foreign_service_not_absence",
     "extra_output_not_absence", "coherent_group_before_enable", "head_after_full_verification",
@@ -217,7 +226,7 @@ def validate_native_report(files, *, source, sources, run_id):
     core, policy = report.get("core_fixture_json", {}), report.get("policy_fixture_json", {})
     if (set(core) != {"schema", "status", "checks", "ordinary_fixture_assertions", "installed_reads", "service_actions"}
             or type(core.get("schema")) is not int or core["schema"] != 1 or core.get("status") != "PASSED"
-            or type(core.get("ordinary_fixture_assertions")) is not int or core["ordinary_fixture_assertions"] != 87
+            or type(core.get("ordinary_fixture_assertions")) is not int or core["ordinary_fixture_assertions"] != 133
             or not _true_checks(core.get("checks"), CORE_CHECKS)
             or set(policy) != {"schema", "status", "checks", "count", "installed_reads", "service_actions"}
             or type(policy.get("schema")) is not int or policy["schema"] != 1 or policy.get("status") != "PASSED"

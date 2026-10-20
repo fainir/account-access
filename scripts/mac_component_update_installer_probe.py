@@ -416,8 +416,10 @@ class InstallerLogDelta:
 def candidate_install(package, *, report, output, log, daemon_log):
     checkpoint = InstallerLogDelta()
     try:
+        # Bounded domain teardown/restoration plus a failed-attempt rollback
+        # can outlast three minutes. Do not start fresh-VM cleanup prematurely.
         return command(["/usr/sbin/installer", "-dumplog", "-verboseR", "-pkg", str(package), "-target", "/"],
-                       report=report, output=output, log=log, timeout=180)
+                       report=report, output=output, log=log, timeout=420)
     finally:
         checkpoint.capture(report=report, output=output, log=daemon_log)
 
@@ -637,7 +639,8 @@ def test_vm_domain_canary(report, install, plan_sha):
     reader = uid = None
     try:
         guard()
-        require("failure_reason" in report and report["checks"].get("actual_candidate_installer") is False
+        require("failure_reason" in report and "command_failure" not in report
+                and report["checks"].get("actual_candidate_installer") is False
                 and all(report["checks"].get(name) is True for name in (
                     "fresh_hosted_vm", "reviewed_public_inputs", "candidate_expansion_matches_review",
                     "genuine_signed_helper", "actual_base_installer", "base_public_image", "created_job_stopped")))
