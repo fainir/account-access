@@ -13,9 +13,25 @@ not identify its precise failed assertion.
 The actual package inventory reproduces **25,281 files, 2,305 directories and
 21 aliases**; all 79 application files match source. App/runtime signatures
 verify. The provider inventory is unchanged from build 75. Full CI was pending
-at recording, and historical counts are not presented as build 76 results.
-No owner installation, private login or real-device delivery is established.
-The package remains unsigned and unnotarized.
+when that historical record was captured. The later
+[runtime acceptance record](../artifacts/runtime-acceptance-080-build76-20261020.json)
+preserves the completed results: all **eight workflows and 14 jobs passed their
+first attempts** at the exact build 76 source. Both Main regressions passed
+**2,794 tests with 93 skips**, in **1015.00 and 911.60 seconds**; both native UI
+jobs passed 47 checks. A retried log download was not a CI rerun.
+
+The owner-approved package installation subsequently completed in macOS
+Installer. Opening the installed app failed to reach enrollment: its protected
+service repeatedly exits **78 (`EX_CONFIG`)**, and the app reports that the
+protected app did not respond. Its stdout/stderr go to `/dev/null`, so this exit
+does not identify the underlying cause. Public code and job metadata were
+checked without reading credentials. A reviewed, source-bound diagnostic
+package is prepared and unexecuted; it is not a repair result.
+
+No protected-store enrollment, shared AI connection upgrade, personal login or
+real-device delivery was completed on this installation. Passing CI did not
+establish a working owner setup. The installer remains unsigned and
+unnotarized; production readiness remains **false**.
 
 ## Preserved build 75 review
 

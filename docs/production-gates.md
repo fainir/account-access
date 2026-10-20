@@ -14,12 +14,21 @@ native journey passed **47 checks** using fictional inputs. The actual universal
 GUI was rebuilt and signed; the complete archive and its frozen-source bindings
 were verified. [Build 76 record](../artifacts/build76-review-080.json).
 
-Exact-source full CI was still running when that record was captured; its run
-statuses and links are retained without borrowing build 75 counts. The local
-package is **unsigned, unnotarized and uninstalled**, pending owner confirmation.
-Genuine personal-account acceptance remains open. Protected different-version
-upgrades are unsupported; Chrome live sync and arbitrary website coverage are
-not implemented. This candidate is not a production release.
+All eight exact-source CI workflows subsequently passed their first attempts
+(14 jobs). Each Main regression passed **2,794 tests with 93 skips**. The original
+review's pending-CI snapshot remains unchanged.
+
+The owner-approved local installation completed through macOS Installer, but
+the installed protected service exits **78 (`EX_CONFIG`) before enrollment**.
+The app cannot connect to it; the exact startup cause is still unknown. No
+protected-store enrollment, shared AI connection upgrade or personal sign-in
+was completed on this installation. A separately reviewed startup check is
+prepared but has not run. [Installation, CI and startup record](../artifacts/runtime-acceptance-080-build76-20261020.json).
+
+The package remains **unsigned and unnotarized**. Successful package installation
+does not establish a working setup. Personal-account acceptance, protected
+different-version upgrades, Chrome live sync and arbitrary website coverage
+remain open. This candidate is not a production release.
 
 ## Preserved build 75 review
 
@@ -253,7 +262,7 @@ presented as results for a later candidate.
 
 | Area | Implemented or controlled coverage | Still required |
 | --- | --- | --- |
-| Mac installation | Actual build 75 offline package inventory/source/payload-signature review; both disposable Mac provisioning artifacts pass 39 checks, including removed-registration restoration; retained flat-PKG Notary helper, Installer-context and low-space fixtures | Developer ID Installer certificate, Notary credentials, Apple acceptance and stapling; clean downloaded installation, genuine owner enrollment and reboot QA |
+| Mac installation | Build 76 package inventory/source/payload-signature review and owner-approved local Installer completion; exact-source disposable Mac CI passes | Repair the installed service's exit 78 before enrollment; Developer ID Installer certificate, Notary credentials, Apple acceptance and stapling; clean downloaded installation, working owner enrollment and reboot QA |
 | Upgrade and repair | Explicit recognized-preview agent connection upgrade; atomic launcher replacement and rollback; same-image/same-owner package recovery | Genuine installed owner upgrade and interrupted positive provisioning; different-image protected-package updates and vault migration |
 | Password import | Reviewed Chrome, Apple Passwords, compatible 1Password and Bitwarden CSV; unencrypted Bitwarden JSON; hidden-password local review | Representative real export-to-private-website acceptance, including the new protected installation |
 | Password synchronization | Approved 1Password items through service-account SDK or Connect; separately consented Bitwarden CLI source with exact-item checks, bounded updates and restrictive disconnect | Private enrollment, rotation and revocation QA. **Chrome live sync is unimplemented**; file imports remain snapshots |

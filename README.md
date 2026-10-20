@@ -19,6 +19,10 @@ physical phone delivery and notarized consumer installation remain unverified.
 The 0.8 Mac runtime targets **Apple silicon and macOS 14 or later**. See the
 [current production gates](docs/production-gates.md).
 
+The latest local 0.8 installer completed installation, but its protected service
+fails before enrollment. It is not ready for use; the startup repair and personal
+account validation remain open. [Current installation result](artifacts/runtime-acceptance-080-build76-20261020.json).
+
 ![Account Access dashboard](docs/account-dashboard.png)
 
 ## Easy installation
@@ -206,6 +210,7 @@ private authentication or physical phone delivery.
 - [Validation and production gates](docs/production-gates.md)
 - [Detailed test evidence](docs/validation.md) and [machine-readable reports](artifacts/)
 - [Build 76 local installer and native setup review](artifacts/build76-review-080.json)
+- [Build 76 installed startup failure and completed CI](artifacts/runtime-acceptance-080-build76-20261020.json)
 - [Build 67 installer/source review and remaining release gates](artifacts/build67-review-080.json)
 - [Earlier build 66 setup validation](artifacts/setup-completion-080.json)
 - [Completed email-setup validation at source 1bba84f](artifacts/consumer-mail-setup-080.json)
