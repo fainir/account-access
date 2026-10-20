@@ -12,6 +12,7 @@ import zipfile
 import pytest
 
 from macos import bitwarden_runtime as runtime
+from macos import bitwarden_derivation as derivation
 from macos import system_package
 
 
@@ -34,7 +35,7 @@ def npm_archive(files, *, alias=False):
 
 
 def fixture(tmp_path, monkeypatch, *, source_fault=None, zip_fault=None, cli_fault=None):
-    binary = b'const external_node_forge_namespaceObject = require("node-forge");\n'
+    binary = derivation.IMPORT + b'\nconst metadata = {"node-forge":"1.4.0","demo":"1.0.0"};\n'
     if cli_fault == "forge-call":
         binary += b"external_node_forge_namespaceObject.pki.publicKeyFromPem(input).verify(input, signature);\n"
     elif cli_fault == "alias-consumer":
@@ -43,7 +44,9 @@ def fixture(tmp_path, monkeypatch, *, source_fault=None, zip_fault=None, cli_fau
     archive = tmp_path / "official.tgz"
     cli_files = {"package.json": json.dumps({"name": "@bitwarden/cli", "version": "2026.10.0",
                  "dependencies": {"demo": "1.0.0", "node-forge": "1.4.0"}, "bin": {"bw": "build/bw.js"}}).encode(),
-                 "build/bw.js": binary}
+                 "build/bw.js": binary,
+                 "build/344.js": b"// Fictional first adjacent asset; never executed.\n",
+                 "build/685.js": b"// Fictional second adjacent asset; never executed.\n"}
     if cli_fault == "chunk-consumer":
         cli_files["build/chunk.js"] = b'require("node-forge").pki.publicKeyFromPem(input);'
     if zip_fault == "extra":
@@ -64,14 +67,24 @@ def fixture(tmp_path, monkeypatch, *, source_fault=None, zip_fault=None, cli_fau
                 npm_integrity="sha512-" + base64.b64encode(hashlib.sha512(archive.read_bytes()).digest()).decode(),
                 entrypoint_sha256=sha(binary), npm_dependencies={"demo": "1.0.0", "node-forge": "1.4.0"}, package_lock_sha256=sha(package),
                 cargo_lock_sha256=sha(cargo), node_source_sha256=sha(node))
+    modified_binary = binary.replace(derivation.IMPORT, derivation.NOTICE, 1).replace(derivation.EMBEDDED_DEPENDENCY, b"", 1)
+    modified_metadata = json.loads(cli_files["package.json"])
+    modified_metadata["dependencies"].pop("node-forge")
+    modified_metadata["accountAccessModification"] = "Unused external dependency removed on 2026-10-20; upstream version unchanged."
+    lock["runtime_entrypoint_sha256"] = sha(modified_binary)
     monkeypatch.setattr(runtime, "locked", lambda: lock)
     ledger = json.loads(runtime.OVERRIDES.read_bytes())
     ledger.update(official_cli_version=lock["version"], official_archive_sha256=lock["archive_sha256"],
                   upstream_package_lock_sha256=lock["package_lock_sha256"], overrides={})
     review = ledger["residual_advisories"][0]["applicability"]
     review.update(official_entrypoint_sha256=sha(binary),
+                  worker_source_sha256=runtime.digest(runtime.PROVIDER_WORKER),
                   javascript_assets_sha256={name: sha(raw) for name, raw in cli_files.items()
                                             if name.endswith((".js", ".cjs", ".mjs"))})
+    ledger["cli_derivation"].update(official_entrypoint_sha256=sha(binary), derived_entrypoint_sha256=sha(modified_binary),
+                                    official_metadata_sha256=sha(cli_files["package.json"]),
+                                    derived_metadata_sha256=sha((json.dumps(modified_metadata, indent=2, sort_keys=True) + "\n").encode()),
+                                    source_sha256=runtime.digest(runtime.DERIVATION_SOURCE))
     ledger_path = tmp_path / "dependency-overrides.json"
     ledger_path.write_text(json.dumps(ledger))
     monkeypatch.setattr(runtime, "OVERRIDES", ledger_path)
@@ -81,11 +94,13 @@ def fixture(tmp_path, monkeypatch, *, source_fault=None, zip_fault=None, cli_fau
               for name in materials}
     index = {"schema": 1, "managed_by": "account-access-bitwarden-source-v1",
              "binary_archive_sha256": lock["archive_sha256"], "clients_commit": lock["clients_commit"],
-             "sdk_commit": lock["sdk_commit"], "notice_files_missing": [],
+             "sdk_commit": lock["sdk_commit"], "cli_derivation": derivation.DERIVATION_ID, "notice_files_missing": [],
              "materials": {name: {"url": row["url"], "sha256": sha(bodies[name]), "bytes": len(bodies[name])}
                            for name, row in materials.items()}}
     files = {"source-index.json": None, "package-lock.json": package, "Cargo.lock": cargo,
              "dependency-overrides.json": runtime.OVERRIDES.read_bytes(),
+             "account-access-cli-derivation.py": runtime.DERIVATION_SOURCE.read_bytes(),
+             "account-access-cli.lock.json": runtime.LOCK.read_bytes(),
              "BUILD.md": (runtime.NOTICES / "BUILD.md").read_bytes(),
              "GPL-3.0.txt": (runtime.NOTICES / "GPL-3.0.txt").read_bytes(),
              "THIRD_PARTY_NOTICES.txt": b"Fictional copyright/license notices", **bodies}
@@ -102,6 +117,10 @@ def fixture(tmp_path, monkeypatch, *, source_fault=None, zip_fault=None, cli_fau
         index["materials"]["node-source.tar.xz"]["url"] = "https://attacker.example/source"
     elif source_fault == "overrides":
         files["dependency-overrides.json"] += b" "
+    elif source_fault == "derivation":
+        files["account-access-cli-derivation.py"] += b"\n# unreviewed transform\n"
+    elif source_fault == "cli-lock":
+        files["account-access-cli.lock.json"] += b" "
     files["source-index.json"] = json.dumps(index).encode()
     source = tmp_path / "source.tar.gz"
     with tarfile.open(source, "w:gz") as output:
@@ -133,11 +152,19 @@ def test_pinned_cli_and_complete_source_are_staged_without_mutating_inputs(tmp_p
     before = [path.read_bytes() for path in [archive, source]]
     report = runtime.stage(payload, archive, source, pin)
     target = payload / "python/libexec/bitwarden"
-    assert (target / "build/bw.js").read_bytes() == binary
+    assert (target / "build/bw.js").read_bytes() == binary.replace(
+        derivation.IMPORT, derivation.NOTICE, 1).replace(derivation.EMBEDDED_DEPENDENCY, b"", 1)
+    assert b"node-forge" not in (target / "build/bw.js").read_bytes()
+    assert "node-forge" not in json.loads((target / "package.json").read_bytes())["dependencies"]
+    assert not (target / "node_modules/node-forge").exists()
     assert stat.S_IMODE((target / "build/bw.js").stat().st_mode) == 0o644
     assert (target / "GPL-3.0.txt").read_bytes() == (runtime.NOTICES / "GPL-3.0.txt").read_bytes()
     assert report["source_bundle_sha256"] == pin and report["source_distribution_required"] is True
     assert report["native_addons"] is False and report["node_version"] == "24.21.0"
+    assert report["official_entrypoint_sha256"] == sha(binary)
+    assert report["entrypoint_sha256"] == runtime.locked()["runtime_entrypoint_sha256"]
+    assert report["cli_derivation"] == derivation.DERIVATION_ID
+    assert report["omitted_runtime_dependencies"] == {"node-forge": "1.4.0"}
     assert not (target / "bw").exists()
     assert all(not path.stat().st_mode & 0o111 for path in target.rglob("*") if path.is_file())
     assert json.loads((target / "runtime-manifest.json").read_bytes()) == report
@@ -153,6 +180,8 @@ def test_pinned_cli_and_complete_source_are_staged_without_mutating_inputs(tmp_p
     ("lock", "bitwarden_source_lock_changed"),
     ("foreign-origin", "bitwarden_source_bundle_invalid"),
     ("overrides", "bitwarden_dependency_overrides_changed"),
+    ("derivation", "bitwarden_cli_derivation_changed"),
+    ("cli-lock", "bitwarden_cli_derivation_changed"),
     ("duplicate", "bitwarden_source_bundle_invalid"),
     ("alias", "bitwarden_source_bundle_invalid"),
 ])
@@ -253,6 +282,8 @@ def test_dependency_resolution_uses_nearest_lock_path_and_required_peers(tmp_pat
     resolved = runtime.runtime_dependencies({"packages": rows})
     assert "node_modules/demo/node_modules/nearest" in resolved
     assert "node_modules/nearest" not in resolved and "node_modules/peer" in resolved
+    assert "node_modules/node-forge" not in resolved
+    assert runtime.runtime_dependencies({"packages": rows}, include_removed=True)["node_modules/node-forge"]["version"] == "1.4.0"
     rows["node_modules/demo"]["dependencies"]["missing-required"] = "1"
     with pytest.raises(ValueError, match="^bitwarden_runtime_dependency_missing$"):
         runtime.runtime_dependencies({"packages": rows})
@@ -350,6 +381,105 @@ def test_review_is_bound_to_every_official_javascript_asset(tmp_path, monkeypatc
     cli["build/unreviewed.mjs"] = b"export const unused = 1;"
     with pytest.raises(ValueError, match="^bitwarden_residual_advisory_review_changed$"):
         runtime.review_residual_advisories(runtime.locked(), cli=cli)
+
+
+def test_derivation_is_reproducible_and_preserves_original_version_and_other_assets(tmp_path, monkeypatch):
+    archive, _, _, _, _ = fixture(tmp_path, monkeypatch)
+    original = runtime._npm_files(archive.read_bytes())
+    before = dict(original)
+    ledger = json.loads(runtime.OVERRIDES.read_bytes())
+    first = derivation.derive_cli(original, ledger)
+    assert derivation.derive_cli(original, ledger) == first
+    assert original == before
+    assert {name for name in first if first[name] != original[name]} == {"package.json", "build/bw.js"}
+    metadata = json.loads(first["package.json"])
+    assert metadata["version"] == json.loads(original["package.json"])["version"] == "2026.10.0"
+    assert metadata["dependencies"] == {"demo": "1.0.0"}
+    assert "upstream version unchanged" in metadata["accountAccessModification"]
+    assert b"Account Access modification (2026-10-20)" in first["build/bw.js"]
+    assert b"require(" not in first["build/bw.js"]
+
+
+@pytest.mark.parametrize("fault", ["output-pin", "metadata-pin", "original-metadata-pin", "source-pin",
+                                  "patched-claim", "omission-path", "modified-asset", "metadata-consumer"])
+def test_derivation_refuses_changed_output_provenance_or_original_shape(tmp_path, monkeypatch, fault):
+    archive, _, _, payload, _ = fixture(tmp_path, monkeypatch)
+    files = runtime._npm_files(archive.read_bytes())
+    ledger = json.loads(runtime.OVERRIDES.read_bytes())
+    spec = ledger["cli_derivation"]
+    if fault == "output-pin":
+        spec["derived_entrypoint_sha256"] = "0" * 64
+    elif fault == "metadata-pin":
+        spec["derived_metadata_sha256"] = "0" * 64
+    elif fault == "original-metadata-pin":
+        spec["official_metadata_sha256"] = "0" * 64
+    elif fault == "source-pin":
+        spec["source_sha256"] = "0" * 64
+    elif fault == "patched-claim":
+        spec["upstream_patched"] = True
+    elif fault == "omission-path":
+        spec["omitted_runtime_paths"].append("node_modules/demo")
+    elif fault == "modified-asset":
+        files["build/344.js"] += b"// changed\n"
+    else:
+        metadata = json.loads(files["package.json"])
+        metadata["optionalDependencies"] = {"node-forge": "1.4.0"}
+        files["package.json"] = json.dumps(metadata).encode()
+        spec["official_metadata_sha256"] = sha(files["package.json"])
+    with pytest.raises(ValueError, match="^bitwarden_cli_derivation_changed$"):
+        derivation.derive_cli(files, ledger)
+    assert not (payload / "python/libexec").exists()
+
+
+def test_data_only_reproduction_tool_writes_only_reviewed_overlay_and_refuses_reuse(tmp_path, monkeypatch, capsys):
+    archive, _, _, _, _ = fixture(tmp_path, monkeypatch)
+    original = runtime._npm_files(archive.read_bytes())
+    directory = tmp_path / "official"
+    runtime._write_npm(original, directory)
+    output = tmp_path / "derived-overlay"
+    args = ["--cli-directory", str(directory), "--output", str(output), "--ledger", str(runtime.OVERRIDES)]
+    assert derivation.main(args) == 0
+    assert json.loads(capsys.readouterr().out)["upstream_patched"] is False
+    assert sorted(str(path.relative_to(output)) for path in output.rglob("*") if path.is_file()) == ["build/bw.js", "package.json"]
+    assert {name: (directory / name).read_bytes() for name in original} == original
+    before = {path.relative_to(output): path.read_bytes() for path in output.rglob("*") if path.is_file()}
+    assert derivation.main(args) == 1
+    assert {path.relative_to(output): path.read_bytes() for path in output.rglob("*") if path.is_file()} == before
+
+
+def test_data_only_reproduction_refuses_unreviewed_adjacent_code_before_output(tmp_path, monkeypatch):
+    archive, _, _, _, _ = fixture(tmp_path, monkeypatch)
+    directory = tmp_path / "official"
+    runtime._write_npm(runtime._npm_files(archive.read_bytes()), directory)
+    (directory / "build/new.js").write_text("require('node-forge')")
+    output = tmp_path / "derived-overlay"
+    assert derivation.main(["--cli-directory", str(directory), "--output", str(output),
+                            "--ledger", str(runtime.OVERRIDES)]) == 1
+    assert not output.exists()
+
+
+@pytest.mark.parametrize("fault", ["oversize", "symlink"])
+def test_data_only_reproduction_requires_a_bounded_regular_ledger(tmp_path, monkeypatch, fault):
+    archive, _, _, _, _ = fixture(tmp_path, monkeypatch)
+    directory = tmp_path / "official"
+    runtime._write_npm(runtime._npm_files(archive.read_bytes()), directory)
+    ledger = tmp_path / "unreviewed-ledger.json"
+    if fault == "oversize":
+        ledger.write_bytes(b"x" * (128 * 1024 + 1))
+    else:
+        ledger.symlink_to(runtime.OVERRIDES)
+    output = tmp_path / "derived-overlay"
+    assert derivation.main(["--cli-directory", str(directory), "--output", str(output), "--ledger", str(ledger)]) == 1
+    assert not output.exists()
+
+
+def test_worker_and_packaging_agree_on_original_and_derived_entrypoints():
+    from account_access import bitwarden_source
+
+    lock = runtime.locked()
+    assert lock["entrypoint_sha256"] == bitwarden_source.OFFICIAL_ENTRYPOINT_SHA256
+    assert lock["runtime_entrypoint_sha256"] == bitwarden_source.ENTRYPOINT_SHA256
+    assert bitwarden_source.CLI_DERIVATION == derivation.DERIVATION_ID
 
 
 def test_static_runtime_copies_fixed_libexec_and_notices_without_executing_them(tmp_path, monkeypatch):

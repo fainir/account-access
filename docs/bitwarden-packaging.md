@@ -1,15 +1,24 @@
 # Bitwarden runtime and source assets
 
-The Mac candidate uses the official OSS npm CLI 2026.10.0, its locked JavaScript
-dependencies and WebAssembly SDK. It invokes the existing protected Playwright
+Current source derives a CLI-specific variant from the official OSS npm CLI
+2026.10.0, its locked JavaScript dependencies and WebAssembly SDK. It removes
+one unused external import and dependency declaration, then omits the unused
+node-forge runtime component. The upstream version remains unchanged. This
+source-only mitigation still needs an assembled runtime, fresh compatibility
+checks and a new corresponding-source release asset. Existing build 76 retains
+its earlier original CLI and advisory; it is not silently changed by this patch.
+
+The program invokes the existing protected Playwright
 Node 24.21.0 with `--no-global-search-paths --no-addons`. It adds no standalone
 executable, embedded Node, shell launcher, npm invocation or install script.
 
 `macos/bitwarden-cli.lock.json` fixes the official npm archive, entrypoint,
 clients/SDK commits, runtime dependencies, Playwright wheel and Node input hashes.
 `macos/bitwarden-overrides.lock.json` records exact compatible security updates
-applied to the dependency assembly; the official CLI entrypoint remains
-unchanged. The corresponding-source archive includes this ledger verbatim.
+applied to the dependency assembly and the exact original/derived CLI file
+hashes. The upstream archive and entrypoint pins remain separate from the new
+runtime entrypoint pin. The corresponding-source archive includes this ledger,
+the exact derivation script, the Account Access CLI lock and build instructions.
 Consumer assembly requires these additional maintainer inputs:
 
 ```sh
@@ -69,11 +78,12 @@ published [multer](https://github.com/advisories/GHSA-3pph-fpjx-jg34),
 [tmp](https://github.com/advisories/GHSA-ph9p-34f9-6g65),
 [ws](https://github.com/advisories/GHSA-96hv-2xvq-fx4p) and
 [qs](https://github.com/advisories/GHSA-4mjr-xmp4-gh2g) findings. A fresh audit of
-the resulting 191 packages at 222 dependency paths retains the following finding.
+the resulting 191 packages at 222 dependency paths retained the following finding.
 
 The [node-forge RSA verification advisory](https://github.com/advisories/GHSA-86w9-cpqp-85rv)
-still affects its latest official release 1.4.0; no patched version was available
-at review time. It remains in the audit report. The exact official CLI bundle's
+still affects its latest official release 1.4.0; no patched version is available
+at the 20 October recheck. It remains in the historical audit and advisory
+ledger. The exact official CLI bundle's
 forge namespace is imported but never used; the adjacent chunks contain no
 forge calls and no transitive dependency consumes forge. The CLI constructs
 NodeCryptoFunctionService, which uses native Node crypto and SDK WASM rather
@@ -83,6 +93,18 @@ status, server configuration, API-key login, unlock, forced sync and exact-item
 get. This command-scoped review does not certify the whole package as safe.
 Recheck upstream releases/advisories before each distribution; no advisory is
 silently removed and no cryptographic implementation is patched locally.
+
+The source-only derivative replaces exactly that unused import/label with a
+dated modification notice, removes its embedded dependency declaration and
+removes the same root package dependency. Only `build/bw.js` and `package.json`
+change. The runtime dependency resolver first validates the complete original
+closure, refuses any additional forge consumer or alternative path, and then
+omits only `node_modules/node-forge`. No patched forge version is invented. The
+original upstream source and forge dependency archive remain in the conservative
+corresponding-source materials; they are not staged into the derived runtime.
+The shared upstream WebCrypto implementation, which uses forge outside this
+CLI path, remains unchanged. These static guards do not establish runtime
+compatibility, whole-package non-exploitability or production readiness.
 
 The packaging verifier now enforces these review assumptions before publishing
 a runtime. The residual advisory ledger binds the exact worker source, every
@@ -97,7 +119,8 @@ real verifier. This is a release guard for the bounded review; the advisory
 remains `under_investigation`, with no whole-package non-exploitability claim.
 
 The ledger is copied verbatim into both the runtime and corresponding-source
-asset. Its new review bindings therefore require a new corresponding-source
-archive and reviewed digest before the next package assembly. Older source
+asset. The derivative's source and instruction bindings require a new
+corresponding-source archive and reviewed digest before the next package
+assembly; old assets are rejected. Older source
 archives and build 74 evidence retain their original hashes and are not relabeled
 as having passed this newer guard.

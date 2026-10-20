@@ -40,7 +40,9 @@ NODE = Path(sys.prefix) / "lib/python3.12/site-packages/playwright/driver/node"
 MANIFEST = RUNTIME / "runtime-manifest.json"
 VERSION = "2026.10.0"
 NODE_VERSION = "24.21.0"
-ENTRYPOINT_SHA256 = "7cad23262b9ca168f22c12d7cdf64ef168e57d49784377c2b8cd02707759e4d7"
+ENTRYPOINT_SHA256 = "8a346d3cd03fc01b085599561eef02f2365f1b69e6054d454a4b6879f46176a5"
+OFFICIAL_ENTRYPOINT_SHA256 = "7cad23262b9ca168f22c12d7cdf64ef168e57d49784377c2b8cd02707759e4d7"
+CLI_DERIVATION = "remove-unused-node-forge-v1"
 ARCHIVE_SHA256 = "2a04ebc02ca970bbadd2e6d6316e06d164526760e424e5c3bb050a8110197223"
 CONNECT_DEADLINE = 65
 FETCH_DEADLINE = 25
@@ -86,6 +88,8 @@ def _command(store):
                     "node_relative": "lib/python3.12/site-packages/playwright/driver/node",
                     "node_version": NODE_VERSION, "native_addons": False,
                     "entrypoint_sha256": ENTRYPOINT_SHA256,
+                    "official_entrypoint_sha256": OFFICIAL_ENTRYPOINT_SHA256,
+                    "cli_derivation": CLI_DERIVATION,
                     "upstream_archive_sha256": ARCHIVE_SHA256}
         if (not isinstance(manifest, dict)
                 or any(type(manifest.get(key)) is not type(value) or manifest[key] != value

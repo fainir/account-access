@@ -6,13 +6,20 @@ This separate program is distributed with Account Access. It is not covered by
 Account Access's MIT license. Bitwarden does not endorse Account Access.
 No Bitwarden trademarks or logos are licensed by this distribution.
 
-Account Access aggregates the official npm CLI's unmodified JavaScript and
-WebAssembly program with its locked dependency files, dated 19 October 2026.
+Account Access modifies the official npm CLI's build/bw.js and package.json,
+dated 20 October 2026, to remove an unused external import and dependency
+declarations. It omits that unused node-forge runtime component after checking
+the original consumers and exact program hashes. Adjacent JavaScript and the
+WebAssembly program remain unchanged. The upstream version stays 2026.10.0;
+this is a local derivative, not an upstream patched release. No cryptographic
+implementation or shared WebCrypto source is patched.
 The dependency assembly applies the exact compatible security updates listed
-in dependency-overrides.json. The official CLI entrypoint is unchanged.
+in dependency-overrides.json. That ledger also retains the upstream advisory
+and binds the documented derivation, original/derived bytes and removed path.
 The CLI is invoked with a fixed protected Node 24.21.0 interpreter and native
-addons disabled. The exact upstream npm archive and entrypoint hashes are in
-runtime-manifest.json. No standalone executable or its embedded Node is used.
+addons disabled. The exact original npm archive and original/derived entrypoint
+hashes are in runtime-manifest.json. No standalone executable or its embedded
+Node is used.
 
 The corresponding-source archive named in runtime-manifest.json must be
 provided alongside the Account Access installer at no additional charge. It

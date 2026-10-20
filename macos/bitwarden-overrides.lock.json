@@ -1,4 +1,17 @@
 {
+  "cli_derivation": {
+    "derived_entrypoint_sha256": "8a346d3cd03fc01b085599561eef02f2365f1b69e6054d454a4b6879f46176a5",
+    "derived_metadata_sha256": "0c7cbde7f73fc96fe89c2eaa0a89b575d9f6c79b1412fe2b81206eed90eda6af",
+    "id": "remove-unused-node-forge-v1",
+    "modified_on": "2026-10-20",
+    "official_entrypoint_sha256": "7cad23262b9ca168f22c12d7cdf64ef168e57d49784377c2b8cd02707759e4d7",
+    "official_metadata_sha256": "078c137c89f72628759d969ef93345d05a2f6b9636681633adbf31aa0ec27148",
+    "omitted_runtime_paths": [
+      "node_modules/node-forge"
+    ],
+    "source_sha256": "2adfa2c71a292444a92e05d6f0e689bbd8e5a1137aaecdcb6351e5877cc31ade",
+    "upstream_patched": false
+  },
   "official_archive_sha256": "2a04ebc02ca970bbadd2e6d6316e06d164526760e424e5c3bb050a8110197223",
   "official_cli_version": "2026.10.0",
   "overrides": {
@@ -153,15 +166,22 @@
           "https://github.com/bitwarden/clients/blob/b449ac1d255784380d75ef026343198891286be7/libs/legacy-crypto/src/node/node-crypto-function.service.ts"
         ],
         "transitive_forge_consumers": 0,
-        "worker_source_sha256": "49111060e0ce513d86d6a262eff99304e3dda859c0dc47ae8c27b92879f96364"
+        "worker_source_sha256": "385439b2030fcba7634cb585e88773a65bb44cb03c0ea23d94ad9b276159686b"
+      },
+      "mitigation": {
+        "derivation": "remove-unused-node-forge-v1",
+        "implementation_status": "source_only_pending_runtime_acceptance",
+        "method": "remove_unused_runtime_component",
+        "upstream_advisory_unchanged": true,
+        "upstream_patched": false
       },
       "package": "node-forge",
-      "status": "Unpatched upstream advisory retained. The bounded fixed-command review identifies no reachable RSA verification, but does not establish whole-package non-exploitability.",
+      "status": "Unpatched upstream advisory retained. The CLI-specific derivative removes the unused external import and omits the vulnerable runtime component; source-only guards do not establish runtime compatibility or whole-package safety.",
       "url": "https://github.com/advisories/GHSA-86w9-cpqp-85rv",
       "version": "1.4.0"
     }
   ],
-  "review_date": "2026-10-19",
+  "review_date": "2026-10-20",
   "schema": 1,
   "upstream_package_lock_sha256": "12c7fd2737679690d9e0f7c0f1aa314c5b8495eaea71847e0335c04420f9ac54"
 }

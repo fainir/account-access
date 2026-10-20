@@ -1,0 +1,69 @@
+{
+  "actual_full_runtime_built": false,
+  "actual_public_input_proof": {
+    "path": "data-only-actual-input-review.json",
+    "sha256": "32a5e357cc17f861e7130e810ad022df18740d350d39c1f43fa17e22f9da8da9"
+  },
+  "changed_source_files_sha256": {
+    "account_access/bitwarden_source.py": "385439b2030fcba7634cb585e88773a65bb44cb03c0ea23d94ad9b276159686b",
+    "docs/bitwarden-packaging.md": "e56acf23aabd97f063c2426fe564c006d413d32bd72291f6a0ab6bc4dbe06396",
+    "macos/bitwarden-cli.lock.json": "4ede81cbd536eb1f6614423fa55d9feda04a3590eab6214d258345bfda964600",
+    "macos/bitwarden-overrides.lock.json": "7625d96a7fce65353897a21185e7f623e7bbe13d5bbd42e91e44df096ff14598",
+    "macos/bitwarden_derivation.py": "2adfa2c71a292444a92e05d6f0e689bbd8e5a1137aaecdcb6351e5877cc31ade",
+    "macos/bitwarden_runtime.py": "5c2f45484ea46452443bb480db41b2655534e47ade19de825ee385ad38ff413d",
+    "macos/bitwarden_sources.py": "159ca60fe037867288e6f116c18276016a5fee346caac8b4782814e2ae42bd66",
+    "macos/notices/bitwarden/BUILD.md": "a45d9275c2d4a42ac82b1f1a2941cd7697cd1e8dd30957dd799e7aeef8df53c0",
+    "macos/notices/bitwarden/NOTICE.md": "a71ce03a75a7adce48827548763d884cfee19627c4ddff5f5a2f58224c3c23f7",
+    "tests/test_bitwarden_runtime.py": "dd18d60bc25ca7f85020fdef7235bf461d9e5ceef8ce26657c4c34281c0c0e31",
+    "tests/test_bitwarden_source.py": "20d0a7a0ae7e25c89bdea9a47927d48e4d0aa2583ab1b273c5677e43723c93e1"
+  },
+  "compatibility_attempt": {
+    "canary_exit": -6,
+    "harness_exit_code": 0,
+    "pass_signal": "Report status, not orchestrator exit code; no canary pass was established",
+    "path": "anonymous-compatibility-review.json",
+    "provider_executed": false,
+    "sha256": "51b5e2cdabf8ee5917d4d5d4663e8e94a186db98e6ba43402234037e61a55c8e",
+    "status": "CANARY_FAILED_CLI_NOT_EXECUTED"
+  },
+  "derived_entrypoint_sha256": "8a346d3cd03fc01b085599561eef02f2365f1b69e6054d454a4b6879f46176a5",
+  "focused_suites": {
+    "runtime-sources": {
+      "errors": 0,
+      "failures": 0,
+      "junit_seconds": "1.257",
+      "junit_sha256": "91e9bb6771f2e74f5d9d6fa76ca9e2fec5eb92892ed806c6b6dc587997f48a01",
+      "log_sha256": "08ef05f1689642e61f5754b7018d1e1d1e3fc0bdefd147ffd1b11c32786dc882",
+      "tests": 60
+    },
+    "worker-custody": {
+      "errors": 0,
+      "failures": 0,
+      "junit_seconds": "9.345",
+      "junit_sha256": "b69104bc56272b8c40edf14eb732635730e6b11e259bc9e5f630bad45d649854",
+      "log_sha256": "ea6062e9d3e74bb0dc76ca8c41ba94003776964a56e0051084a5b3d115fc678d",
+      "tests": 11
+    }
+  },
+  "installer_built": false,
+  "new_corresponding_source_asset_built": false,
+  "official_cli_version_unchanged": "2026.10.0",
+  "official_entrypoint_sha256": "7cad23262b9ca168f22c12d7cdf64ef168e57d49784377c2b8cd02707759e4d7",
+  "only_runtime_dependency_omitted": "node_modules/node-forge",
+  "original_source_dependency_retained": true,
+  "owner_accounts_or_secrets_accessed": false,
+  "production_ready": false,
+  "raw_proofs_location": "Maintainer local QA directory; hashes retained here for audit.",
+  "recorded_at_utc": "2026-10-20",
+  "remaining_gates": [
+    "Anonymous actual CLI compatibility with a verified isolation boundary",
+    "Fresh corresponding-source archive and reviewed digest; earlier archive cannot be reused unchanged",
+    "New full protected runtime/package build, signatures and inventory/source verification",
+    "Full exact-source CI and installed owner acceptance; existing installation is unchanged"
+  ],
+  "review_scope": "Source changes and data-only checks of pinned public input archives; no installed runtime replacement or provider compatibility pass.",
+  "root_operations": false,
+  "schema": 1,
+  "status": "SOURCE_ONLY_MITIGATION_GUARDS_VERIFIED_COMPATIBILITY_OPEN",
+  "upstream_patched": false
+}

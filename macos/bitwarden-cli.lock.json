@@ -49,5 +49,6 @@
   "node_relative": "lib/python3.12/site-packages/playwright/driver/node",
   "node_wheel_sha256": "fd1aa00631d44d55e56e0975bf3f3f285fac4a9fd2813183f0c12a488f1a1b24",
   "node_upstream_sha256": "e4b5a3af0e05c75de2eae013904145f40fe7fc2a6e6f17510128bf45cca4e79b",
-  "node_wheel_filename": "playwright-1.63.0-py3-none-macosx_11_0_arm64.whl"
+  "node_wheel_filename": "playwright-1.63.0-py3-none-macosx_11_0_arm64.whl",
+  "runtime_entrypoint_sha256": "8a346d3cd03fc01b085599561eef02f2365f1b69e6054d454a4b6879f46176a5"
 }

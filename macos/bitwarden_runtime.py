@@ -20,11 +20,14 @@ import tomllib
 from urllib.parse import urlsplit
 import zipfile
 
+from .bitwarden_derivation import DERIVATION_ID, REMOVED_PATH, derive_cli
+
 ROOT = Path(__file__).parent
 LOCK = ROOT / "bitwarden-cli.lock.json"
 OVERRIDES = ROOT / "bitwarden-overrides.lock.json"
 NOTICES = ROOT / "notices/bitwarden"
 PROVIDER_WORKER = ROOT.parent / "account_access/bitwarden_source.py"
+DERIVATION_SOURCE = ROOT / "bitwarden_derivation.py"
 MAX_SOURCE_BYTES = 1024 * 1024 * 1024
 MAX_MATERIAL_BYTES = 192 * 1024 * 1024
 
@@ -82,6 +85,20 @@ def review_residual_advisories(lock, *, cli=None, dependencies=None):
                 or review["transitive_forge_consumers"] != 0
                 or review["rsa_signature_verification_calls_identified"] != 0):
             raise ValueError()
+        ledger = _reviewed_ledger(lock)
+        derivation = ledger["cli_derivation"]
+        if (row["mitigation"] != {"method": "remove_unused_runtime_component", "derivation": DERIVATION_ID,
+                                 "implementation_status": "source_only_pending_runtime_acceptance",
+                                 "upstream_advisory_unchanged": True, "upstream_patched": False}
+                or derivation["id"] != DERIVATION_ID or derivation["modified_on"] != "2026-10-20"
+                or derivation["upstream_patched"] is not False
+                or derivation["omitted_runtime_paths"] != [REMOVED_PATH]
+                or derivation["official_entrypoint_sha256"] != lock["entrypoint_sha256"]
+                or derivation["derived_entrypoint_sha256"] != lock["runtime_entrypoint_sha256"]
+                or derivation["source_sha256"] != digest(DERIVATION_SOURCE)
+                or any(not isinstance(derivation[key], str) or not re.fullmatch(r"[a-f0-9]{64}", derivation[key])
+                       for key in ("official_metadata_sha256", "derived_metadata_sha256"))):
+            raise ValueError()
         assets = review["javascript_assets_sha256"]
         if (not isinstance(assets, dict) or not assets or lock["entrypoint"] not in assets
                 or assets[lock["entrypoint"]] != lock["entrypoint_sha256"]
@@ -132,7 +149,7 @@ def ordinary_input(path, *, maximum):
     return path
 
 
-def runtime_dependencies(package_lock, lock=None):
+def runtime_dependencies(package_lock, lock=None, *, include_removed=False):
     """Resolve only the official CLI's locked external JavaScript dependency tree."""
     lock = lock or locked()
     packages = copy.deepcopy(package_lock["packages"])
@@ -186,6 +203,10 @@ def runtime_dependencies(package_lock, lock=None):
     if not set(replacements).issubset(result):
         raise ValueError("bitwarden_dependency_overrides_changed")
     review_residual_advisories(lock, dependencies=result)
+    # Retain the original closure for source provenance. Only the validated
+    # CLI-specific derivative may omit this otherwise unused runtime component.
+    if not include_removed:
+        del result[REMOVED_PATH]
     return result
 
 
@@ -205,7 +226,7 @@ def source_materials(package_lock, cargo_lock, lock=None):
         "node-source.tar.xz": {"url": "https://nodejs.org/dist/v" + lock["node_version"] + "/node-v" + lock["node_version"] + ".tar.xz",
                                "sha256": lock["node_source_sha256"]},
     }
-    for name, row in runtime_dependencies(package_lock, lock).items():
+    for name, row in runtime_dependencies(package_lock, lock, include_removed=True).items():
         url = row.get("resolved", "")
         parsed = urlsplit(url)
         if (parsed.scheme != "https" or parsed.netloc != "registry.npmjs.org"
@@ -269,7 +290,8 @@ def source_bundle(path, expected_sha256):
                 or index.get("managed_by") != "account-access-bitwarden-source-v1"
                 or index.get("binary_archive_sha256") != lock["archive_sha256"]
                 or index.get("clients_commit") != lock["clients_commit"]
-                or index.get("sdk_commit") != lock["sdk_commit"]):
+                or index.get("sdk_commit") != lock["sdk_commit"]
+                or index.get("cli_derivation") != DERIVATION_ID):
             raise ValueError("bitwarden_source_bundle_invalid")
         if index.get("notice_files_missing") != []:
             raise ValueError("bitwarden_dependency_notices_need_review")
@@ -280,6 +302,7 @@ def source_bundle(path, expected_sha256):
             raise ValueError("bitwarden_source_lock_changed")
         expected = source_materials(json.loads(package), tomllib.loads(cargo.decode()), lock)
         required = {"source-index.json", "package-lock.json", "Cargo.lock", "dependency-overrides.json",
+                    "account-access-cli-derivation.py", "account-access-cli.lock.json",
                     "BUILD.md", "GPL-3.0.txt", "THIRD_PARTY_NOTICES.txt", *expected}
         if set(selected) != required or set(index.get("materials", {})) != set(expected):
             raise ValueError("bitwarden_corresponding_source_incomplete")
@@ -289,6 +312,10 @@ def source_bundle(path, expected_sha256):
         for name in ["BUILD.md", "GPL-3.0.txt"]:
             if _read_member(archive, selected[name], 128 * 1024) != (NOTICES / name).read_bytes():
                 raise ValueError("bitwarden_source_notices_changed")
+        for name, path in {"account-access-cli-derivation.py": DERIVATION_SOURCE,
+                           "account-access-cli.lock.json": LOCK}.items():
+            if _read_member(archive, selected[name], 128 * 1024) != path.read_bytes():
+                raise ValueError("bitwarden_cli_derivation_changed")
         for name, origin in expected.items():
             row = index["materials"][name]
             if row.get("url") != origin["url"] or type(row.get("bytes")) is not int or row["bytes"] != selected[name].size:
@@ -354,7 +381,7 @@ def _write_npm(files, target):
 
 
 def stage(payload, archive, sources, source_sha256):
-    """Stage exact npm JS/WASM using the already protected Playwright Node."""
+    """Derive the reviewed CLI from exact npm bytes using protected Node."""
     lock = locked()
     archive = ordinary_input(archive, maximum=lock["archive_bytes"])
     if archive.stat().st_size != lock["archive_bytes"] or digest(archive) != lock["archive_sha256"]:
@@ -378,6 +405,7 @@ def stage(payload, archive, sources, source_sha256):
             or hashlib.sha256(cli[lock["entrypoint"]]).hexdigest() != lock["entrypoint_sha256"]):
         raise ValueError("bitwarden_cli_archive_changed")
     review_residual_advisories(lock, cli=cli)
+    cli = derive_cli(cli, _reviewed_ledger(lock))
     target = Path(payload) / "python/libexec/bitwarden"
     if target.parent.exists() or target.parent.is_symlink():
         raise ValueError("bitwarden_runtime_destination_must_be_new")
@@ -407,7 +435,10 @@ def stage(payload, archive, sources, source_sha256):
               "node_version": lock["node_version"], "native_addons": False,
               "node_upstream_sha256": lock["node_upstream_sha256"], "node_wheel_sha256": lock["node_wheel_sha256"],
               "license": "GPL-3.0-only", "upstream_archive_sha256": lock["archive_sha256"],
-              "entrypoint_sha256": lock["entrypoint_sha256"], **provenance}
+              "official_entrypoint_sha256": lock["entrypoint_sha256"],
+              "entrypoint_sha256": lock["runtime_entrypoint_sha256"],
+              "cli_derivation": DERIVATION_ID, "derivation_source_sha256": digest(DERIVATION_SOURCE),
+              "omitted_runtime_dependencies": {"node-forge": lock["npm_dependencies"]["node-forge"]}, **provenance}
     result["dependency_overrides_sha256"] = digest(OVERRIDES)
     shutil.copyfile(OVERRIDES, target / "dependency-overrides.json")
     (target / "runtime-manifest.json").write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")

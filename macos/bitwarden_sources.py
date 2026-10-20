@@ -18,7 +18,8 @@ import tomllib
 from urllib.parse import urlsplit
 import urllib.request
 
-from .bitwarden_runtime import MAX_MATERIAL_BYTES, MAX_SOURCE_BYTES, NOTICES, OVERRIDES, digest, locked, ordinary_input, source_materials
+from .bitwarden_runtime import (DERIVATION_ID, DERIVATION_SOURCE, LOCK, MAX_MATERIAL_BYTES, MAX_SOURCE_BYTES,
+                               NOTICES, OVERRIDES, digest, locked, ordinary_input, source_materials)
 from .bitwarden_notices import supplemental_notice
 
 HOSTS = {"raw.githubusercontent.com", "codeload.github.com", "registry.npmjs.org", "static.crates.io", "nodejs.org"}
@@ -182,7 +183,7 @@ def prepare(output, *, reuse_archive=None, reuse_sha256=None):
         materials = source_materials(json.loads(package.read_bytes()), tomllib.loads(cargo.read_text()), lock)
         index = {"schema": 1, "managed_by": "account-access-bitwarden-source-v1",
                  "binary_archive_sha256": lock["archive_sha256"], "clients_commit": lock["clients_commit"],
-                 "sdk_commit": lock["sdk_commit"], "materials": {}}
+                 "sdk_commit": lock["sdk_commit"], "cli_derivation": DERIVATION_ID, "materials": {}}
         reused = reuse_materials(reuse_archive, reuse_sha256, materials, root) if reuse_archive else {}
 
         def fetch(item):
@@ -224,11 +225,14 @@ def prepare(output, *, reuse_archive=None, reuse_sha256=None):
             raise ValueError("bitwarden_dependency_notice_limit")
         (root / "THIRD_PARTY_NOTICES.txt").write_text(notice)
         shutil.copyfile(OVERRIDES, root / "dependency-overrides.json")
+        shutil.copyfile(DERIVATION_SOURCE, root / "account-access-cli-derivation.py")
+        shutil.copyfile(LOCK, root / "account-access-cli.lock.json")
         for name in ["BUILD.md", "GPL-3.0.txt"]:
             shutil.copyfile(NOTICES / name, root / name)
         (root / "source-index.json").write_text(json.dumps(index, indent=2, sort_keys=True) + "\n")
         archive = output / lock["source_asset"]
         names = ["source-index.json", "package-lock.json", "Cargo.lock", "dependency-overrides.json",
+                 "account-access-cli-derivation.py", "account-access-cli.lock.json",
                  "BUILD.md", "GPL-3.0.txt", "THIRD_PARTY_NOTICES.txt", *materials]
         with archive.open("xb") as file:
             with gzip.GzipFile(fileobj=file, mode="wb", mtime=0) as compressed:

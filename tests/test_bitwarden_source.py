@@ -60,6 +60,8 @@ def cli(tmp_path, monkeypatch, env):
         "node_relative": "lib/python3.12/site-packages/playwright/driver/node",
         "node_version": source.NODE_VERSION, "native_addons": False,
         "entrypoint_sha256": entry_hash, "upstream_archive_sha256": source.ARCHIVE_SHA256,
+        "official_entrypoint_sha256": source.OFFICIAL_ENTRYPOINT_SHA256,
+        "cli_derivation": source.CLI_DERIVATION,
     }))
     manifest.chmod(0o600)
     program.write_text(
@@ -451,7 +453,8 @@ def test_missing_or_same_user_runtime_is_unavailable_without_running_cli(cli, mo
     assert json.loads(provider.read_text())["calls"] == []
 
 
-@pytest.mark.parametrize("change", ["entry", "node-mode", "portable-profile", "manifest-node", "manifest-schema", "manifest-duplicate"])
+@pytest.mark.parametrize("change", ["entry", "node-mode", "portable-profile", "manifest-node", "manifest-schema",
+                                  "manifest-duplicate", "manifest-official-entry", "manifest-derivation", "manifest-legacy"])
 def test_runtime_requires_pinned_protected_layout_without_command_fallback(cli, change):
     store, provider = cli
     if change == "entry":
@@ -464,9 +467,17 @@ def test_runtime_requires_pinned_protected_layout_without_command_fallback(cli, 
         source.MANIFEST.write_text('{"schema":1,"schema":1}')
     else:
         manifest = json.loads(source.MANIFEST.read_text())
-        manifest["node_version" if change == "manifest-node" else "schema"] = (
-            "22.15.1" if change == "manifest-node" else True
-        )
+        if change == "manifest-legacy":
+            manifest.pop("cli_derivation")
+            manifest.pop("official_entrypoint_sha256")
+        else:
+            field, value = {
+                "manifest-node": ("node_version", "22.15.1"),
+                "manifest-schema": ("schema", True),
+                "manifest-official-entry": ("official_entrypoint_sha256", "0" * 64),
+                "manifest-derivation": ("cli_derivation", "unreviewed-local-change"),
+            }[change]
+            manifest[field] = value
         source.MANIFEST.write_text(json.dumps(manifest))
     assert source.available(store) is False
     with pytest.raises(AccessError, match="password_source_runtime_unavailable"):
