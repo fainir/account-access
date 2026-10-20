@@ -911,44 +911,55 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("Setup saved · delivery unverified"))
         print("PASS: native device-email confirmation sends one apply and reports saved setup without claiming delivery")
 
+        func requireDeviceEmail(_ condition: @autoclosure () -> Bool, _ checkpoint: String) {
+            guard condition() else {
+                fputs("FAIL: native-device-email-checkpoint " + checkpoint + "\n", stderr)
+                exit(1)
+            }
+        }
         nativeChannel.deviceEmailApplyFailure = true
         owner.presentDeviceEmailReview(nativeChannel.deviceEmailPreview, expectedAccount: "personal-pypi")
         owner.applyDeviceEmail()
         let staleDeadline = Date().addingTimeInterval(5)
         while owner.busy && Date() < staleDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
-        precondition(owner.deviceEmailReview == nil)
+        requireDeviceEmail(owner.deviceEmailReview == nil, "stale_review_consumed")
         let applyCount = nativeChannel.deviceEmailRequests.filter { $0 == "owner/device-email/apply" }.count
         owner.applyDeviceEmail()
-        precondition(nativeChannel.deviceEmailRequests.filter { $0 == "owner/device-email/apply" }.count == applyCount)
+        requireDeviceEmail(nativeChannel.deviceEmailRequests.filter { $0 == "owner/device-email/apply" }.count == applyCount, "stale_apply_not_replayed")
         var expiredReview = nativeChannel.deviceEmailPreview
         expiredReview["expires"] = Date().timeIntervalSince1970 - 1
         owner.deviceEmailReview = expiredReview
         owner.applyDeviceEmail()
-        RunLoop.current.run(until: Date().addingTimeInterval(0.02))
-        precondition(owner.deviceEmailReview == nil)
-        precondition(nativeChannel.deviceEmailRequests.filter { $0 == "owner/device-email/apply" }.count == applyCount)
-        precondition(descendants(owner.stack).compactMap { ($0 as? NSTextField)?.stringValue }.contains { $0.contains("review expired") })
+        let expiryExplanation = "This email review expired. Choose the connected mailbox again in Verification."
+        let expiryDeadline = Date().addingTimeInterval(5)
+        while !descendants(owner.stack).compactMap({ ($0 as? NSTextField)?.stringValue }).contains(expiryExplanation)
+                && Date() < expiryDeadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+        }
+        requireDeviceEmail(owner.deviceEmailReview == nil, "expired_review_consumed")
+        requireDeviceEmail(nativeChannel.deviceEmailRequests.filter { $0 == "owner/device-email/apply" }.count == applyCount, "expired_apply_not_sent")
+        requireDeviceEmail(descendants(owner.stack).compactMap { ($0 as? NSTextField)?.stringValue }.contains { $0.contains("review expired") }, "expired_message_rendered")
         owner.presentDeviceEmailReview(nativeChannel.deviceEmailPreview, expectedAccount: "personal-pypi")
         owner.showReady()
-        precondition(owner.deviceEmailReview == nil)
+        requireDeviceEmail(owner.deviceEmailReview == nil, "navigation_review_cleared")
         let deviceNavigationDeadline = Date().addingTimeInterval(5)
         while owner.busy && Date() < deviceNavigationDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
         owner.deviceEmailSetups = [["account": "personal-pypi", "label": "PyPI", "fingerprint": fingerprint, "connected": false, "mailboxes": []]]
         owner.showFactors()
         views = descendants(owner.stack)
-        precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Connect a mailbox"))
-        precondition(!views.compactMap { ($0 as? NSButton)?.title }.contains("Review email connection"))
+        requireDeviceEmail(views.compactMap { ($0 as? NSButton)?.title }.contains("Connect a mailbox"), "missing_mailbox_setup_offered")
+        requireDeviceEmail(!views.compactMap { ($0 as? NSButton)?.title }.contains("Review email connection"), "missing_mailbox_review_absent")
         owner.deviceEmailSetups[0]["configured"] = true
         owner.showFactors()
         views = descendants(owner.stack)
-        precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Disconnect device email"))
-        precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("Email connection needs attention"))
+        requireDeviceEmail(views.compactMap { ($0 as? NSButton)?.title }.contains("Disconnect device email"), "configured_disconnect_offered")
+        requireDeviceEmail(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("Email connection needs attention"), "configured_attention_shown")
         owner.presentDeviceEmailReview(nativeChannel.deviceEmailPreview, expectedAccount: "personal-pypi")
         owner.pauseAccess()
-        precondition(owner.deviceEmailReview == nil)
+        requireDeviceEmail(owner.deviceEmailReview == nil, "pause_review_cleared")
         let devicePauseDeadline = Date().addingTimeInterval(5)
         while owner.busy && Date() < devicePauseDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
-        precondition(nativeChannel.deviceEmailRequests.filter { $0 == "owner/device-email/apply" }.count == applyCount)
+        requireDeviceEmail(nativeChannel.deviceEmailRequests.filter { $0 == "owner/device-email/apply" }.count == applyCount, "pause_apply_not_replayed")
         print("PASS: stale native device-email apply is not replayed; navigation/pause clear review and missing mailboxes offer setup or restrictive disconnect")
 
 
