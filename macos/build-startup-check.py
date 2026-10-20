@@ -1,4 +1,4 @@
-"""Build a nopayload, local-only startup diagnostic package; never install it.
+"""Build a nopayload, local-only retained-capture inspection; never install it.
 
 The package uses only the already installed, exact build 76 interpreter. The
 owner must review and explicitly install the resulting unsigned package in the
@@ -26,9 +26,9 @@ PYTHON = INSTALL_ROOT / "runtime/bin/python3.12"
 PYTHON_SHA256 = "b21371592c32af6f23b2967c54ffc141f4e14fe1ce73cf45dfb69e5b71c5d762"
 PYTHON_IDENTIFIER = "com.fainir.accountaccess.runtime.3274dde21f9767655564"
 TEAM = "WBULD6N4NQ"
-IDENTIFIER = "com.fainir.accountaccess.startupcheck"
+IDENTIFIER = "com.fainir.accountaccess.startupcaptureinspect"
 VERSION = "0.1.0"
-PACKAGE_NAME = "Account-Access-Startup-Check-local-unsigned.pkg"
+PACKAGE_NAME = "Account-Access-Startup-Capture-Inspect-local-unsigned.pkg"
 ENV = {"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "LANG": "C"}
 REQUIREMENT = (
     'anchor apple generic and identifier "' + PYTHON_IDENTIFIER + '" '
@@ -106,7 +106,7 @@ done
 [ "$(/usr/bin/env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin /usr/bin/shasum -a 256 "$AC_CHECK_HELPER" | /usr/bin/awk '{{print $1}}')" = '{helper_sha256}' ] || exit 1
 [ "$(/usr/bin/env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin /usr/bin/shasum -a 256 "$AC_CHECK_PYTHON" | /usr/bin/awk '{{print $1}}')" = '{PYTHON_SHA256}' ] || exit 1
 /usr/bin/env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin /usr/bin/codesign --verify --strict -R '={REQUIREMENT}' "$AC_CHECK_PYTHON" || exit 1
-exec /usr/bin/env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin LANG=C "$AC_CHECK_PYTHON" -I -S "$AC_CHECK_HELPER"
+exec /usr/bin/env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin LANG=C "$AC_CHECK_PYTHON" -I -S "$AC_CHECK_HELPER" --inspect-retained
 '''.encode()
 
 
@@ -207,6 +207,7 @@ def build(output, source):
         "package": str(package), "package_size": package.stat().st_size,
         "package_sha256": digest(package.read_bytes()),
         "helper_executed": False, "owner_data_read": False,
+        "execution_mode": "inspect-retained", "launchctl_mutations_permitted": False,
     }
     (output / "review.json").write_text(json.dumps(record, sort_keys=True, indent=2) + "\n")
     print(json.dumps(record, sort_keys=True))
@@ -215,7 +216,7 @@ def build(output, source):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", required=True, help="Exact committed HEAD containing the helper and builder")
-    parser.add_argument("--output", type=Path, default=ROOT / "dist/qa-startup-20261020/package")
+    parser.add_argument("--output", type=Path, default=ROOT / "dist/qa-startup-20261020/package-inspect-retained")
     args = parser.parse_args()
     build(args.output.resolve(), args.source)
 
