@@ -97,6 +97,17 @@ being corrected and given bounded public metadata diagnostics. Actual
 base/candidate installation and same-package reapplication on a fresh hosted Mac
 remain required before owner installation. The failed attempt is retained.
 [Exact source CI, package review and first actual attempt](../artifacts/component-update-candidate-939fdda-20261020.json).
+
+A second fresh Mac run at controller `68c6635` passed expanded-resource
+verification, the genuine helper signature, actual base installation and complete
+base-image verification. It then stopped at the fresh GUI quit step, before the
+candidate Installer or reapplication. The exact command outcome was not retained.
+The frozen installation transaction opens the GUI, whose startup can be busy;
+the next controller will observe presence, allow bounded startup settling and
+retain timeout outcomes. The package stays unchanged. Both earlier attempts are
+preserved. A separate ordinary read on the owner Mac now confirms both public
+service output paths are `/dev/null`; private capture cleanup remains unverified.
+[Second actual attempt and source observations](../artifacts/component-update-installer-gui-attempt-080-20261020.json).
 [Source review and retained earlier attempts](../artifacts/component-update-source-080-20261020.json).
 The build gate also preserves the measured skipped state of the review push's
 two dispatch-only jobs; all applicable jobs still require first-attempt success.

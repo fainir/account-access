@@ -24,7 +24,7 @@ def script(job, name):
 
 DOWNLOAD = script("download-public-inputs", "Authenticate and hash-check only public package inputs")
 PREFLIGHT = script("actual-installer-review", "Verify transferred public bytes and the checked-out controller")
-INSTALL = script("actual-installer-review", "Run actual Installer, normal fresh-app quit and component reapply in this disposable VM")
+INSTALL = script("actual-installer-review", "Run actual Installer, verify fresh-app closure and component reapply in this disposable VM")
 
 
 def python_body(value):

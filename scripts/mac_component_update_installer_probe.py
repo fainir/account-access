@@ -1,7 +1,7 @@
 """Actual signed-native component candidate acceptance in a fresh hosted Mac VM.
 
 This is not an owner-Mac command. It installs the retained public build76 image,
-normally quits its fresh GUI, applies the exact reviewed candidate through native
+observes its fresh GUI closed, applies the exact reviewed candidate through native
 Installer, and checks public files/policies and same-package reapplication. It
 does not enroll a store, connect accounts, inspect a vault or inject a crash.
 The VM is discarded after the job; only its created job is stopped here.
@@ -23,6 +23,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 import xml.etree.ElementTree as ET
 
 BASE_SOURCE = "fbd2a733b60acde68e82fe796cb7abd971d5d625"
@@ -42,7 +43,7 @@ MAX_SOURCE = 2 * 1024 * 1024
 PRIVATE = {"broker", "home", "vault", "run", "control", "owner.json", "install-verification.json"}
 UNCHANGED_POLICIES = ("worker.json", "stage.json", "worker-launch.json", "stage-launch.json", "enrollment.json", "service.plist")
 CHECKS = frozenset({"fresh_hosted_vm", "reviewed_public_inputs", "candidate_expansion_matches_review",
-                    "genuine_signed_helper", "actual_base_installer", "base_public_image", "fresh_gui_quit",
+                    "genuine_signed_helper", "actual_base_installer", "base_public_image", "fresh_gui_closed",
                     "actual_candidate_installer", "target_public_image", "only_three_policy_values_changed",
                     "unchanged_worker_plans_and_original_journal", "verified_head", "same_package_reapplication",
                     "reapplication_preserved_bytes_and_ids", "created_job_stopped"})
@@ -281,15 +282,88 @@ def bind_sources(review, repository, source):
 
 
 def command(arguments, *, report, output, log, timeout=30, check=True):
-    result = subprocess.run(arguments, stdin=subprocess.DEVNULL, capture_output=True, timeout=timeout, env=ENV, check=False)
-    require(len(result.stdout) + len(result.stderr) <= 128 * 1024)
-    raw = json.dumps({"returncode": result.returncode, "stdout": result.stdout.decode("utf-8", errors="replace"),
-                      "stderr": result.stderr.decode("utf-8", errors="replace")}, sort_keys=True).encode() + b"\n"
-    output.write(log, raw)
-    report["logs"][log] = sha(raw)
+    def record(returncode, stdout, stderr, *, timed_out=False, invocation_failed=False):
+        limited = len(stdout) + len(stderr) > 128 * 1024
+        raw = json.dumps({"returncode": returncode, "timed_out": timed_out, "invocation_failed": invocation_failed,
+            "output_limited": limited, "stdout": stdout[:16384].decode("utf-8", errors="replace"),
+            "stderr": stderr[:16384].decode("utf-8", errors="replace"),
+            "stdout_truncated": len(stdout) > 16384, "stderr_truncated": len(stderr) > 16384,
+            "stdout_bytes": len(stdout), "stderr_bytes": len(stderr),
+            "stdout_sha256": sha(stdout), "stderr_sha256": sha(stderr)}, sort_keys=True).encode() + b"\n"
+        output.write(log, raw)
+        report["logs"][log] = sha(raw)
+        return limited
+
+    try:
+        result = subprocess.run(arguments, stdin=subprocess.DEVNULL, capture_output=True,
+                                timeout=timeout, env=ENV, check=False)
+    except subprocess.TimeoutExpired as error:
+        record(None, error.stdout or b"", error.stderr or b"", timed_out=True)
+        report["command_failure"] = {"kind": "timeout", "log": log}
+        raise
+    except OSError:
+        record(None, b"", b"", invocation_failed=True)
+        report["command_failure"] = {"kind": "invocation_failed", "log": log}
+        raise
+    if record(result.returncode, result.stdout, result.stderr):
+        report["command_failure"] = {"kind": "output_limit", "log": log}
+        require(False)
     if check:
         require(result.returncode == 0)
     return result
+
+
+def fresh_gui_present(result):
+    """pgrep is observational; no application name is resolved or launched."""
+    require(type(result.returncode) is int and isinstance(result.stdout, bytes) and result.stderr == b"")
+    if result.returncode == 1:
+        require(result.stdout == b"")
+        return False
+    require(result.returncode == 0 and re.fullmatch(rb"(?:[1-9][0-9]{0,9}\n){1,8}", result.stdout) is not None)
+    pids = [int(value) for value in result.stdout.splitlines()]
+    require(len(pids) == len(set(pids)) and all(1 < value <= 2147483647 for value in pids))
+    return True
+
+
+def close_fresh_gui(console, *, report, output):
+    require(type(console) is int and 0 < console <= 2147483647)
+    report.update(gui_startup_grace_seconds=0, gui_startup_grace_is_readiness_proof=False,
+                  normal_quit_requested=False, normal_quit_command_succeeded=False)
+
+    def present(log, timeout=3):
+        return fresh_gui_present(command(["/usr/bin/pgrep", "-u", str(console), "-x", "AccountAccess"],
+            report=report, output=output, log=log, timeout=timeout, check=False))
+
+    report["failure_stage"] = "fresh_gui_initial_presence"
+    if not present("fresh-gui-initial-presence.log"):
+        report["gui_close_outcome"] = "absent_when_checked"
+        return
+    # The retained GUI can spend two sequential 40s bounds preparing/requesting
+    # its owner channel. Its busy termination delegate otherwise opens a modal.
+    # This grace is a test precondition allowance, never GUI/account readiness.
+    report["failure_stage"] = "fresh_gui_startup_grace"
+    report["gui_startup_grace_seconds"] = 90
+    time.sleep(90)
+    report["failure_stage"] = "fresh_gui_settled_presence"
+    if not present("fresh-gui-settled-presence.log"):
+        report["gui_close_outcome"] = "absent_after_startup_grace"
+        return
+    report["failure_stage"] = "fresh_gui_normal_quit"
+    report["normal_quit_requested"] = True
+    command(["/bin/launchctl", "asuser", str(console), "/usr/bin/sudo", "-n", "-H", "-u", "#" + str(console), "--",
+             "/usr/bin/osascript", "-e", 'tell application id "com.fainir.accountaccess" to quit'],
+            report=report, output=output, log="fresh-gui-normal-quit.log", timeout=30)
+    report["normal_quit_command_succeeded"] = True
+    report["failure_stage"] = "fresh_gui_absence_after_quit"
+    deadline = time.monotonic() + 10
+    for index in range(20):
+        remaining = deadline - time.monotonic()
+        require(remaining > 0)
+        if not present(f"fresh-gui-closed-{index:02d}.log", timeout=min(3, remaining)):
+            report["gui_close_outcome"] = "normal_quit_and_absence_observed"
+            return
+        time.sleep(min(0.25, max(0, deadline - time.monotonic())))
+    require(False)
 
 
 def archive_metadata(info):
@@ -548,12 +622,10 @@ def run(args):
             report["failure_stage"] = "base_public_image"
             verify_image(json.loads(read_file(stage / "base-manifest.json")))
             report["checks"]["base_public_image"] = True
-            # This fresh CI GUI has no owner input or unsaved account setup.
-            report["failure_stage"] = "fresh_gui_quit"
-            command(["/bin/launchctl", "asuser", str(console), "/usr/bin/sudo", "-n", "-H", "-u", "#" + str(console), "--",
-                     "/usr/bin/osascript", "-e", 'tell application id "com.fainir.accountaccess" to quit'],
-                    report=report, output=output, log="fresh-gui-quit.log", timeout=30)
-            report["checks"]["fresh_gui_quit"] = True
+            # Fresh disposable GUI only; the native updater independently binds
+            # executable/PID/birth and enforces genuine absence before mutation.
+            close_fresh_gui(console, report=report, output=output)
+            report["checks"]["fresh_gui_closed"] = True
             report["failure_stage"] = "baseline_public_records"
             before, retained = policies(), fixed_records()
             report["failure_stage"] = "candidate_installer"

@@ -252,7 +252,7 @@ jobs:
           assert hashlib.sha256(probe).hexdigest() == value['probe_sha256']
           assert subprocess.check_output(['git', 'show', controller_revision + ':scripts/mac_component_update_installer_probe.py'], timeout=5) == probe
           PY
-      - name: Run actual Installer, normal fresh-app quit and component reapply in this disposable VM
+      - name: Run actual Installer, verify fresh-app closure and component reapply in this disposable VM
         run: |
           test "$(uname -m)" = arm64
           test "$RUNNER_ENVIRONMENT" = github-hosted

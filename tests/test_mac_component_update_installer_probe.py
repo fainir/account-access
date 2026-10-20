@@ -346,3 +346,96 @@ def test_expanded_metadata_has_fixed_entry_bound(public_archive):
     assert diagnostics["failure_stage"] == "candidate_expanded_metadata"
     assert diagnostics["expanded_public_metadata"]["entry_counts"]["Scripts"] == 65
     assert diagnostics["expanded_public_metadata"]["entries"]["Scripts"] == []
+
+
+def test_gui_presence_is_exact_pgrep_data_not_an_application_launch():
+    assert not probe.fresh_gui_present(subprocess.CompletedProcess([], 1, b"", b""))
+    assert probe.fresh_gui_present(subprocess.CompletedProcess([], 0, b"123\n456\n", b""))
+    for code, stdout, stderr in ((2, b"", b""), (1, b"123\n", b""), (1, b"", b"denied"),
+        (0, b"", b""), (0, b"name\n", b""), (0, b"1\n", b""), (0, b"123\n123\n", b""),
+        (0, b"2147483648\n", b""), (0, b"-123\n", b""), (0, b"123", b""),
+        (0, b"123\n" * 9, b""), (False, b"123\n", b"")):
+        with pytest.raises(ValueError):
+            probe.fresh_gui_present(subprocess.CompletedProcess([], code, stdout, stderr))
+
+
+def gui_commands(monkeypatch, observations):
+    remaining, calls, sleeps = list(observations), [], []
+
+    def command(arguments, **kwargs):
+        calls.append((arguments, kwargs))
+        if arguments[0] == "/usr/bin/pgrep":
+            assert arguments == ["/usr/bin/pgrep", "-u", "501", "-x", "AccountAccess"]
+            assert kwargs["check"] is False and 0 < kwargs["timeout"] <= 3
+            present = remaining.pop(0)
+            return subprocess.CompletedProcess(arguments, 0 if present else 1, b"123\n" if present else b"", b"")
+        assert arguments == ["/bin/launchctl", "asuser", "501", "/usr/bin/sudo", "-n", "-H", "-u", "#501", "--",
+            "/usr/bin/osascript", "-e", 'tell application id "com.fainir.accountaccess" to quit']
+        assert kwargs["timeout"] == 30
+        return subprocess.CompletedProcess(arguments, 0, b"", b"")
+
+    monkeypatch.setattr(probe, "command", command)
+    monkeypatch.setattr(probe.time, "sleep", sleeps.append)
+    return calls, sleeps
+
+
+def test_already_absent_gui_is_never_started_or_sent_quit(monkeypatch):
+    calls, sleeps = gui_commands(monkeypatch, [False])
+    report = {}
+    probe.close_fresh_gui(501, report=report, output=None)
+    assert len(calls) == 1 and sleeps == []
+    assert report["gui_close_outcome"] == "absent_when_checked" and report["normal_quit_requested"] is False
+    assert report["gui_startup_grace_is_readiness_proof"] is False
+
+
+def test_present_gui_gets_bounded_startup_grace_then_can_be_observed_absent(monkeypatch):
+    calls, sleeps = gui_commands(monkeypatch, [True, False])
+    report = {}
+    probe.close_fresh_gui(501, report=report, output=None)
+    assert len(calls) == 2 and sleeps == [90]
+    assert report["gui_close_outcome"] == "absent_after_startup_grace"
+    assert report["normal_quit_requested"] is False and report["gui_startup_grace_is_readiness_proof"] is False
+
+
+def test_normal_quit_is_followed_by_actual_absence_observation(monkeypatch):
+    calls, sleeps = gui_commands(monkeypatch, [True, True, True, False])
+    report = {}
+    probe.close_fresh_gui(501, report=report, output=None)
+    assert len(calls) == 5 and sleeps == [90, 0.25]
+    assert report["normal_quit_command_succeeded"] is True
+    assert report["gui_close_outcome"] == "normal_quit_and_absence_observed"
+
+
+def test_successful_quit_command_without_absence_is_not_closed(monkeypatch):
+    calls, sleeps = gui_commands(monkeypatch, [True] * 22)
+    report = {}
+    with pytest.raises(ValueError):
+        probe.close_fresh_gui(501, report=report, output=None)
+    assert len(calls) == 23 and sleeps[0] == 90
+    assert report["normal_quit_command_succeeded"] is True and "gui_close_outcome" not in report
+    assert report["failure_stage"] == "fresh_gui_absence_after_quit"
+
+
+@pytest.mark.parametrize("failure", ["timeout", "invocation", "oversize"])
+def test_command_failures_always_retain_bounded_closed_outcome(monkeypatch, failure):
+    logs = {}
+
+    def command(arguments, **kwargs):
+        if failure == "timeout":
+            raise subprocess.TimeoutExpired(arguments, kwargs["timeout"], output=b'"' * 100000, stderr=b"\x00" * 100000)
+        if failure == "invocation":
+            raise OSError("synthetic invocation failure")
+        return subprocess.CompletedProcess(arguments, 0, b"x" * (128 * 1024 + 1), b"")
+
+    monkeypatch.setattr(probe.subprocess, "run", command)
+    report = {"logs": {}}
+    output = SimpleNamespace(write=lambda name, raw: logs.setdefault(name, raw))
+    with pytest.raises((subprocess.TimeoutExpired, OSError, ValueError)):
+        probe.command(["public-fixture"], report=report, output=output, log="fresh-gui-normal-quit.log")
+    raw = logs["fresh-gui-normal-quit.log"]
+    assert len(raw) <= 256 * 1024 and report["logs"]["fresh-gui-normal-quit.log"] == probe.sha(raw)
+    value = json.loads(raw)
+    assert value["timed_out"] is (failure == "timeout")
+    assert value["invocation_failed"] is (failure == "invocation")
+    assert value["output_limited"] is (failure in {"timeout", "oversize"})
+    assert report["command_failure"]["log"] == "fresh-gui-normal-quit.log"
