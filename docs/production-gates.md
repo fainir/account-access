@@ -129,6 +129,15 @@ and independent review passed. The candidate package remains unchanged and
 uninstalled on the owner Mac; target verification and reapplication remain open.
 [Detailed Installer attempt and diagnostic review](../artifacts/component-update-installer-daemon-attempt-080-20261020.json).
 
+The fifth actual run at controller `d2a65d8` captured the signed helper's specific
+refusal: `component_service_quiescence_not_confirmed`. Base installation,
+base-image verification and normal GUI closure passed again. No candidate files
+were verified as updated, and reapplication was not reached. The fixed service
+was absent at cleanup, but the narrower process/API cause remains unclassified.
+The next diagnostic measures only bounded process aggregates for the dedicated
+service identity in the disposable test Mac. The update barrier remains intact.
+[Specific native refusal and retained evidence](../artifacts/component-update-quiescence-attempt-080-20261020.json).
+
 [Source review and retained earlier attempts](../artifacts/component-update-source-080-20261020.json).
 The build gate also preserves the measured skipped state of the review push's
 two dispatch-only jobs; all applicable jobs still require first-attempt success.

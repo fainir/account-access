@@ -422,6 +422,153 @@ def candidate_install(package, *, report, output, log, daemon_log):
         checkpoint.capture(report=report, output=output, log=daemon_log)
 
 
+class ProcessBSDInfo(ctypes.Structure):
+    # Fixed Darwin proc_bsdinfo from sys/proc_info.h; no argv/environment fields.
+    _fields_ = [("pbi_" + name, ctypes.c_uint32) for name in (
+        "flags", "status", "xstatus", "pid", "ppid", "uid", "gid", "ruid", "rgid", "svuid", "svgid", "reserved")]
+    _fields_ += [("comm", ctypes.c_char * 16), ("name", ctypes.c_char * 32)]
+    _fields_ += [(name, ctypes.c_uint32) for name in ("nfiles", "pgid", "jobc", "tdev", "tpgid")]
+    _fields_ += [("nice", ctypes.c_int32), ("start_sec", ctypes.c_uint64), ("start_usec", ctypes.c_uint64)]
+
+
+class ProcessDiagnosticReader:
+    """Fixed libproc metadata only; aggregate output never includes identities."""
+
+    classes = {"/usr/sbin/cfprefsd": "cfprefsd", "/usr/sbin/securityd": "securityd",
+               "/usr/libexec/trustd": "trustd", "/sbin/launchd": "launchd",
+               str(BASE / "bin/AccountAccess-broker"): "broker",
+               str(BASE / "bin/AccountAccess-bootstrap"): "bootstrap"}
+
+    def __init__(self):
+        require(ctypes.sizeof(ProcessBSDInfo) == 136)
+        self.library = ctypes.CDLL("/usr/lib/libproc.dylib", use_errno=True)
+        self.library.proc_listpids.argtypes = [ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p, ctypes.c_int]
+        self.library.proc_listpidspath.argtypes = [ctypes.c_uint32, ctypes.c_uint32, ctypes.c_char_p,
+                                                  ctypes.c_uint32, ctypes.c_void_p, ctypes.c_int]
+        self.library.proc_pidinfo.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_uint64, ctypes.c_void_p, ctypes.c_int]
+        self.library.proc_pidpath.argtypes = [ctypes.c_int, ctypes.c_void_p, ctypes.c_uint32]
+        for name in ("proc_listpids", "proc_listpidspath", "proc_pidinfo", "proc_pidpath"):
+            getattr(self.library, name).restype = ctypes.c_int
+
+    def listed(self, kind, info, *, path=None):
+        buffer = (ctypes.c_int32 * 4096)()
+        ctypes.set_errno(0)
+        if path is None:
+            count = self.library.proc_listpids(kind, info, buffer, ctypes.sizeof(buffer))
+        else:
+            count = self.library.proc_listpidspath(kind, info, os.fsencode(path), 0, buffer, ctypes.sizeof(buffer))
+        error = ctypes.get_errno()
+        value = {"status": "measured", "returned_bytes": count, "errno": error}
+        if count < 0 or count >= ctypes.sizeof(buffer) or count % ctypes.sizeof(ctypes.c_int32):
+            value["status"] = "api_failure" if count < 0 else "invalid_result"
+            return value, []
+        # proc_listpids maps syscall failure to zero with errno set. Successful
+        # proc_listpidspath may leave EINVAL from its internal region search.
+        if path is None and count == 0 and error:
+            value["status"] = "api_failure"
+            return value, []
+        pids = [pid for pid in buffer[:count // 4] if pid > 1]
+        value.update(count=len(pids), unique_count=len(set(pids)))
+        return value, sorted(set(pids))
+
+    def executable(self, pid, *, expected_uid=None):
+        before, after = ProcessBSDInfo(), ProcessBSDInfo()
+        size = ctypes.sizeof(before)
+        ctypes.set_errno(0)
+        if self.library.proc_pidinfo(pid, 3, 0, ctypes.byref(before), size) != size:
+            return "unavailable", ctypes.get_errno(), None
+        buffer = ctypes.create_string_buffer(4096)
+        ctypes.set_errno(0)
+        count = self.library.proc_pidpath(pid, buffer, ctypes.sizeof(buffer))
+        if count <= 0 or count >= ctypes.sizeof(buffer) or b"\0" not in buffer.raw[:count + 1]:
+            return "unavailable", ctypes.get_errno(), None
+        ctypes.set_errno(0)
+        if self.library.proc_pidinfo(pid, 3, 0, ctypes.byref(after), size) != size:
+            return "unavailable", ctypes.get_errno(), None
+        if (before.pbi_pid != pid or after.pbi_pid != pid or before.pbi_uid != after.pbi_uid
+                or before.start_sec != after.start_sec or before.start_usec != after.start_usec
+                or expected_uid is not None and before.pbi_uid != expected_uid):
+            return "changed", 0, None
+        try:
+            return "measured", 0, buffer.value.decode("utf-8", errors="strict")
+        except UnicodeError:
+            return "unavailable", 0, None
+
+    def observed(self, kind, info, *, path=None, expected_uid=None):
+        value, pids = self.listed(kind, info, path=path)
+        if value["status"] != "measured":
+            return value
+        if len(pids) > 256:
+            value["classification_status"] = "limit_exceeded"
+            return value
+        value.update(classification_status="measured", classes=dict.fromkeys((*self.classes.values(), "unknown"), 0),
+                     unavailable_count=0, changed_count=0, execution_matches=0, other_references=0, error_counts={})
+        for pid in pids:
+            status, error, executable = self.executable(pid, expected_uid=expected_uid)
+            if status != "measured":
+                value["changed_count" if status == "changed" else "unavailable_count"] += 1
+                key = str(error) if 0 <= error <= 255 else "other"
+                value["error_counts"][key] = value["error_counts"].get(key, 0) + 1
+                continue
+            value["classes"][self.classes.get(executable, "unknown")] += 1
+            if path is not None:
+                value["execution_matches" if executable == path else "other_references"] += 1
+        return value
+
+
+def missing_user_domain_diagnostic():
+    # -2 is Darwin's nobody identity. Check this different fixed UID really has
+    # no directory-service record before asking about its launchd domain.
+    try:
+        try:
+            pwd.getpwuid(4294967293)
+        except KeyError:
+            pass
+        else:
+            return {"status": "identity_present"}
+        result = subprocess.run(["/bin/launchctl", "print", "user/4294967293"], stdin=subprocess.DEVNULL,
+                                capture_output=True, timeout=5, env=ENV, check=False)
+        value = {"status": "measured", "returncode": result.returncode,
+                 "stdout_bytes": len(result.stdout), "stderr_bytes": len(result.stderr),
+                 "stdout_sha256": sha(result.stdout), "stderr_sha256": sha(result.stderr)}
+        if result.returncode == 0 or result.stdout:
+            value["status"] = "unexpected_present"  # Never retain a domain process dump.
+        elif len(result.stderr) > 512:
+            value["status"] = "output_limit"
+        else:
+            value["stderr"] = result.stderr.decode("utf-8", errors="replace")
+        return value
+    except subprocess.TimeoutExpired:
+        return {"status": "timeout"}
+    except OSError:
+        return {"status": "invocation_failed"}
+
+
+def quiescence_diagnostics(report, install, plan_sha):
+    value = {"status": "unavailable", "diagnostic_only": True, "affects_acceptance": False}
+    report["quiescence_diagnostics"] = value
+    try:
+        guard()  # Never load libproc/read snapshots on an owner Mac or ordinary caller.
+        require(all(report["checks"].get(name) is True for name in (
+            "fresh_hosted_vm", "reviewed_public_inputs", "candidate_expansion_matches_review",
+            "genuine_signed_helper", "actual_base_installer", "base_public_image")))
+        require(type(install) is dict and install.get("managed_by") == "account-access-system-install-v1"
+                and type(install.get("schema")) is int and install["schema"] == 1
+                and install.get("broker_name") == "_accountaccess"
+                and type(install.get("broker_uid")) is int and 450 <= install["broker_uid"] < 500
+                and hex_value(plan_sha, 64))
+        uid = install["broker_uid"]
+        reader = ProcessDiagnosticReader()
+        value["broker_identity_processes"] = reader.observed(4, uid, expected_uid=uid)
+        value["fixed_executable_references"] = {name: reader.observed(1, 0, path=str(BASE / ("bin/AccountAccess-" + name)))
+                                                for name in ("broker", "bootstrap")}
+        value["saved_group"] = {"status": "not_collected"}
+        value["missing_user_domain"] = missing_user_domain_diagnostic()
+        value["status"] = "observed"
+    except Exception:
+        pass  # Never replace the Installer exception or affect acceptance.
+
+
 def fresh_gui_present(result):
     """pgrep is observational; no application name is resolved or launched."""
     require(type(result.returncode) is int and isinstance(result.stdout, bytes) and result.stderr == b"")
@@ -682,7 +829,8 @@ def run(args):
               "personal_accounts_used": 0, "enrollment_attempted": False, "private_vault_read": False,
               "crash_injection_tested": False, "physical_delivery_verified": False, "production_ready": False,
               "filesystem_cleanup": "hosted VM teardown; created service stopped explicitly"}
-    touched = False
+    touched = candidate_attempted = False
+    diagnostic_install = diagnostic_plan = None
     try:
         for path in (BASE, COMPONENTS, JOURNAL, APP, JOB):
             require(not os.path.lexists(path))
@@ -737,7 +885,9 @@ def run(args):
             report["checks"]["fresh_gui_closed"] = True
             report["failure_stage"] = "baseline_public_records"
             before, retained = policies(), fixed_records()
+            diagnostic_install, diagnostic_plan = before["install"], review["plan_sha256"]
             report["failure_stage"] = "candidate_installer"
+            candidate_attempted = True
             candidate_install(stage / "candidate.pkg", report=report, output=output,
                               log="candidate-installer.log", daemon_log="candidate-daemon-install.log")
             report["checks"]["actual_candidate_installer"] = True
@@ -774,6 +924,8 @@ def run(args):
         report["failure_reason"] = "actual_component_installer_acceptance_failed"
     finally:
         report["measurement_failure_stage"] = report["failure_stage"] if "failure_reason" in report else None
+        if candidate_attempted and not report["checks"]["actual_candidate_installer"]:
+            quiescence_diagnostics(report, diagnostic_install, diagnostic_plan)
         if touched:
             try:
                 value = plistlib.loads(read_file(JOB, maximum=8192))

@@ -648,3 +648,216 @@ def test_daemon_capture_publication_failure_remains_diagnostic(installer_daemon_
     checkpoint.capture(report=report, output=SimpleNamespace(write=fail), log="candidate-daemon-install.log")
     assert report["installer_daemon_logs"]["candidate-daemon-install.log"]["status"] == "unavailable"
     assert not report["logs"] and checkpoint.descriptor is checkpoint.parent is None
+
+
+class FakeProcFunction:
+    def __init__(self, callback):
+        self.callback = callback
+
+    def __call__(self, *args):
+        return self.callback(*args)
+
+
+@pytest.fixture
+def process_reader(monkeypatch):
+    state = {"pids": [12345], "list_return": 4, "list_errno": 0, "uid": 450,
+             "path": "/usr/sbin/cfprefsd", "info_errno": None, "changed": False, "info_calls": 0}
+
+    def listed(*arguments):
+        buffer = arguments[-2]
+        for index, pid in enumerate(state["pids"]):
+            buffer[index] = pid
+        probe.ctypes.set_errno(state["list_errno"])
+        return state["list_return"]
+
+    def information(pid, flavor, arg, buffer, size):
+        assert flavor == 3 and arg == 0 and size == 136
+        state["info_calls"] += 1
+        if state["info_errno"] is not None:
+            probe.ctypes.set_errno(state["info_errno"])
+            return 0
+        value = probe.ctypes.cast(buffer, probe.ctypes.POINTER(probe.ProcessBSDInfo)).contents
+        value.pbi_pid, value.pbi_uid = pid, state["uid"]
+        value.start_sec = 100 + (state["changed"] and state["info_calls"] % 2 == 0)
+        value.start_usec = 5
+        return size
+
+    def executable(pid, buffer, size):
+        assert size == 4096
+        raw = state["path"].encode() + b"\0"
+        probe.ctypes.memmove(buffer, raw, len(raw))
+        return len(raw) - 1
+
+    library = SimpleNamespace(proc_listpids=FakeProcFunction(listed), proc_listpidspath=FakeProcFunction(listed),
+                              proc_pidinfo=FakeProcFunction(information), proc_pidpath=FakeProcFunction(executable))
+
+    def load(path, **kwargs):
+        assert path == "/usr/lib/libproc.dylib" and kwargs == {"use_errno": True}
+        return library
+
+    monkeypatch.setattr(probe.ctypes, "CDLL", load)
+    return probe.ProcessDiagnosticReader(), state, library
+
+
+def test_process_diagnostics_fixed_typed_apis_and_known_class_only(process_reader):
+    reader, state, library = process_reader
+    value = reader.observed(4, 450, expected_uid=450)
+    assert value["count"] == value["unique_count"] == 1 and value["classes"]["cfprefsd"] == 1
+    assert all(function.restype is probe.ctypes.c_int and function.argtypes for function in vars(library).values())
+    raw = json.dumps(value)
+    assert "12345" not in raw and "450" not in raw and "/usr/" not in raw and "pids" not in raw
+    state["path"] = "/private/unknown-executable-never-published"
+    value = reader.observed(4, 450, expected_uid=450)
+    assert value["classes"]["unknown"] == 1 and "unknown-executable" not in json.dumps(value)
+
+
+@pytest.mark.parametrize("returned,error,path,status", [(0, 0, None, "measured"), (0, 1, None, "api_failure"),
+    (4, 22, None, "measured"), (0, 22, "/fixed/public", "measured"),
+    (-1, 2, "/fixed/public", "api_failure"), (-1, 0, "/fixed/public", "api_failure"),
+    (3, 0, None, "invalid_result"), (16384, 0, None, "invalid_result")])
+def test_process_list_return_and_errno_are_retained_without_false_empty(process_reader, returned, error, path, status):
+    reader, state, _ = process_reader
+    state.update(list_return=returned, list_errno=error)
+    value, pids = reader.listed(4 if path is None else 1, 450 if path is None else 0, path=path)
+    assert value["status"] == status and value["returned_bytes"] == returned and value["errno"] == error
+    if status != "measured":
+        assert "count" not in value and pids == []
+
+
+def test_fixed_executable_reference_counts_distinguish_execution_from_open_file(process_reader):
+    reader, state, _ = process_reader
+    path = str(probe.BASE / "bin/AccountAccess-broker")
+    value = reader.observed(1, 0, path=path)
+    assert value["other_references"] == 1 and value["execution_matches"] == 0
+    state["path"] = path
+    value = reader.observed(1, 0, path=path)
+    assert value["execution_matches"] == 1 and value["classes"]["broker"] == 1
+    assert str(probe.BASE) not in json.dumps(value)
+
+
+@pytest.mark.parametrize("change", ["birth", "uid", "api"])
+def test_process_identity_changes_and_api_failures_are_counts_only(process_reader, change):
+    reader, state, _ = process_reader
+    if change == "birth":
+        state["changed"] = True
+    elif change == "uid":
+        state["uid"] = 451
+    else:
+        state["info_errno"] = 3
+    value = reader.observed(4, 450, expected_uid=450)
+    assert value["changed_count"] == (change != "api") and value["unavailable_count"] == (change == "api")
+    assert sum(value["classes"].values()) == 0
+
+
+def test_process_classification_is_bounded(process_reader):
+    reader, state, _ = process_reader
+    state.update(pids=list(range(1000, 1257)), list_return=257 * 4)
+    value = reader.observed(4, 450, expected_uid=450)
+    assert value["classification_status"] == "limit_exceeded" and state["info_calls"] == 0
+
+
+def diagnostic_context():
+    report = {"checks": dict.fromkeys(probe.CHECKS, True), "failure_reason": "original installer failure",
+              "failure_stage": "candidate_installer"}
+    install = {"managed_by": "account-access-system-install-v1", "schema": 1,
+               "broker_name": "_accountaccess", "broker_uid": 450}
+    return report, install
+
+
+def missing_test_identity(monkeypatch):
+    def absent(uid):
+        assert uid == 4294967293
+        raise KeyError(uid)
+
+    monkeypatch.setattr(probe.pwd, "getpwuid", absent)
+
+
+@pytest.mark.parametrize("bad", ["context", "image", "signature", "uid", "name"])
+def test_quiescence_diagnostic_refuses_unbound_context_before_loading_libproc(monkeypatch, bad):
+    report, install = diagnostic_context()
+    monkeypatch.setattr(probe, "guard", lambda: None)
+    if bad == "context":
+        monkeypatch.setattr(probe, "guard", lambda: probe.require(False))
+    elif bad in {"image", "signature"}:
+        report["checks"]["base_public_image" if bad == "image" else "genuine_signed_helper"] = False
+    else:
+        install["broker_uid" if bad == "uid" else "broker_name"] = 501 if bad == "uid" else "other"
+    monkeypatch.setattr(probe, "ProcessDiagnosticReader", lambda: pytest.fail("no process observation before binding"))
+    probe.quiescence_diagnostics(report, install, "a" * 64)
+    assert report["quiescence_diagnostics"]["status"] == "unavailable"
+    assert report["failure_reason"] == "original installer failure" and report["failure_stage"] == "candidate_installer"
+
+
+def test_quiescence_diagnostic_is_observational_and_preserves_original_failure(monkeypatch):
+    report, install = diagnostic_context()
+    original_checks = report["checks"].copy()
+    calls = []
+
+    class Reader:
+        def observed(self, kind, info, **kwargs):
+            calls.append((kind, info, kwargs))
+            return {"status": "measured", "count": 0, "errno": 0}
+
+    monkeypatch.setattr(probe, "guard", lambda: None)
+    monkeypatch.setattr(probe, "ProcessDiagnosticReader", Reader)
+    missing_test_identity(monkeypatch)
+
+    def missing_domain(arguments, **kwargs):
+        assert arguments == ["/bin/launchctl", "print", "user/4294967293"]
+        assert kwargs["timeout"] == 5 and kwargs["env"] == probe.ENV
+        return subprocess.CompletedProcess(arguments, 113, b"", b"fixed nonexistent domain\n")
+
+    monkeypatch.setattr(probe.subprocess, "run", missing_domain)
+    monkeypatch.setattr(probe, "read_file", lambda *a, **k: pytest.fail("no account or receipt contents read"))
+    probe.quiescence_diagnostics(report, install, "a" * 64)
+    assert calls == [(4, 450, {"expected_uid": 450}),
+        (1, 0, {"path": str(probe.BASE / "bin/AccountAccess-broker")}),
+        (1, 0, {"path": str(probe.BASE / "bin/AccountAccess-bootstrap")})]
+    value = report["quiescence_diagnostics"]
+    assert value["status"] == "observed" and value["diagnostic_only"] is True and value["affects_acceptance"] is False
+    assert value["missing_user_domain"]["returncode"] == 113
+    assert report["checks"] == original_checks and report["failure_reason"] == "original installer failure"
+    assert not probe.acceptance_passed(report)
+    monkeypatch.setattr(probe, "ProcessDiagnosticReader", lambda: probe.require(False))
+    probe.quiescence_diagnostics(report, install, "a" * 64)
+    assert report["quiescence_diagnostics"]["status"] == "unavailable" and report["checks"] == original_checks
+
+
+@pytest.mark.parametrize("outcome", ["timeout", "error", "oversize"])
+def test_missing_user_domain_probe_is_bounded_and_cannot_replace_process_evidence(monkeypatch, outcome):
+    report, install = diagnostic_context()
+    reader = SimpleNamespace(observed=lambda *a, **k: {"status": "measured", "count": 0, "errno": 0})
+    monkeypatch.setattr(probe, "guard", lambda: None)
+    monkeypatch.setattr(probe, "ProcessDiagnosticReader", lambda: reader)
+    missing_test_identity(monkeypatch)
+
+    def result(arguments, **kwargs):
+        if outcome == "timeout":
+            raise subprocess.TimeoutExpired(arguments, 5)
+        if outcome == "error":
+            raise OSError("not published")
+        return subprocess.CompletedProcess(arguments, 1, b"", b"x" * 513)
+
+    monkeypatch.setattr(probe.subprocess, "run", result)
+    probe.quiescence_diagnostics(report, install, "a" * 64)
+    value = report["quiescence_diagnostics"]
+    assert value["status"] == "observed" and value["broker_identity_processes"]["count"] == 0
+    assert value["missing_user_domain"]["status"] == {
+        "timeout": "timeout", "error": "invocation_failed", "oversize": "output_limit"}[outcome]
+    assert "stdout" not in value["missing_user_domain"] and report["failure_reason"] == "original installer failure"
+
+
+def test_missing_user_domain_requires_absent_identity_before_query(monkeypatch):
+    monkeypatch.setattr(probe.pwd, "getpwuid", lambda uid: SimpleNamespace())
+    monkeypatch.setattr(probe.subprocess, "run", lambda *a, **k: pytest.fail("known identity must not be queried"))
+    assert probe.missing_user_domain_diagnostic() == {"status": "identity_present"}
+
+
+@pytest.mark.parametrize("returncode,stdout,stderr", [(0, b"", b"unexpected domain"),
+    (0, b"private process metadata", b""), (113, b"unexpected text", b"private failure details")])
+def test_unexpected_domain_presence_never_retains_raw_output(monkeypatch, returncode, stdout, stderr):
+    missing_test_identity(monkeypatch)
+    monkeypatch.setattr(probe.subprocess, "run", lambda *a, **k: subprocess.CompletedProcess(a[0], returncode, stdout, stderr))
+    value = probe.missing_user_domain_diagnostic()
+    assert value["status"] == "unexpected_present" and "stdout" not in value and "stderr" not in value
+    assert value["stdout_bytes"] == len(stdout) and value["stderr_bytes"] == len(stderr)
