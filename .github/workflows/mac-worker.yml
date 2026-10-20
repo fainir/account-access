@@ -17,11 +17,19 @@ jobs:
         run: uv run pytest -q tests/test_installer_payload_native.py -k real_native_source_replacement
       - name: Verify the native reader inside a real Installer script sandbox
         run: uv run python scripts/mac_installer_context_probe.py --output /tmp/account-access-installer-context
+      - name: Check launchctl stdout ordering inside a real Installer script sandbox
+        run: uv run python scripts/mac_launchctl_debug_probe.py --output /tmp/account-access-launchctl-context
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: mac-installer-context
           path: /tmp/account-access-installer-context
+          if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: mac-launchctl-installer-context
+          path: /tmp/account-access-launchctl-context
           if-no-files-found: error
   mac-cross-user:
     needs: mac-installer-context
