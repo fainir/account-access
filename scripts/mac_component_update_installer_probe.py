@@ -494,7 +494,8 @@ class ProcessDiagnosticReader:
         except UnicodeError:
             return "unavailable", 0, None
 
-    def observed(self, kind, info, *, path=None, expected_uid=None):
+    def observed(self, kind, info, *, path=None, expected_uid=None, include_unknown_names=False):
+        require(not include_unknown_names or kind == 4 and expected_uid == info and 450 <= info < 500)
         value, pids = self.listed(kind, info, path=path)
         if value["status"] != "measured":
             return value
@@ -503,6 +504,7 @@ class ProcessDiagnosticReader:
             return value
         value.update(classification_status="measured", classes=dict.fromkeys((*self.classes.values(), "unknown"), 0),
                      unavailable_count=0, changed_count=0, execution_matches=0, other_references=0, error_counts={})
+        names = {}
         for pid in pids:
             status, error, executable = self.executable(pid, expected_uid=expected_uid)
             if status != "measured":
@@ -511,8 +513,15 @@ class ProcessDiagnosticReader:
                 value["error_counts"][key] = value["error_counts"].get(key, 0) + 1
                 continue
             value["classes"][self.classes.get(executable, "unknown")] += 1
+            if (include_unknown_names and executable not in self.classes and executable.startswith("/")
+                    and len(executable.encode()) <= 512 and not re.search(r"[\x00-\x1f\x7f]", executable)
+                    and (executable in names or len(names) < 8)):
+                names[executable] = names.get(executable, 0) + 1
             if path is not None:
                 value["execution_matches" if executable == path else "other_references"] += 1
+        if include_unknown_names:
+            value["unknown_executables"] = [{"path": name, "basename": Path(name).name[:128], "count": count}
+                                             for name, count in sorted(names.items())]
         return value
 
 
@@ -567,6 +576,115 @@ def quiescence_diagnostics(report, install, plan_sha):
         value["status"] = "observed"
     except Exception:
         pass  # Never replace the Installer exception or affect acceptance.
+
+
+def canary_service_identity(uid):
+    guard()
+    require(type(uid) is int and 450 <= uid < 500)
+    user, group = pwd.getpwnam("_accountaccess"), grp.getgrnam("_accountaccess")
+    require(user.pw_name == group.gr_name == "_accountaccess" and user.pw_uid == user.pw_gid == group.gr_gid == uid
+            and user.pw_dir == str(BASE / "home") and user.pw_shell == "/usr/bin/false")
+
+
+def canary_domain_command(action, uid):
+    canary_service_identity(uid)  # Recheck immediately before every fixed-domain command.
+    require(action in {"bootout", "bootstrap", "print"})
+    try:
+        result = subprocess.run(["/bin/launchctl", action, "user/" + str(uid)], stdin=subprocess.DEVNULL,
+                                capture_output=True, timeout=15, env=ENV, check=False)
+        value = {"status": "measured", "returncode": result.returncode,
+                 "stdout_bytes": len(result.stdout), "stderr_bytes": len(result.stderr),
+                 "stdout_sha256": sha(result.stdout), "stderr_sha256": sha(result.stderr)}
+        if len(result.stdout) + len(result.stderr) > 128 * 1024:
+            value["status"] = "output_limit"
+        if action == "print":
+            first = result.stdout.split(b"\n", 1)[0]
+            expected = ("user/" + str(uid) + " = {").encode()
+            value["header"] = first.decode() if first == expected else None
+            value["line_count"] = result.stdout.count(b"\n")
+            # No process dictionary, service label or PID is retained.
+            if result.returncode != 0 and not result.stdout and len(result.stderr) <= 512:
+                value["stderr"] = result.stderr.decode("utf-8", errors="replace")
+        elif len(result.stderr) <= 512:
+            value["stderr"] = result.stderr.decode("utf-8", errors="replace")
+        return value
+    except subprocess.TimeoutExpired:
+        return {"status": "timeout"}
+    except OSError:
+        return {"status": "invocation_failed"}
+
+
+def canary_wait_uid_empty(reader, uid):
+    deadline, attempts = time.monotonic() + 20, 0
+    while True:
+        attempts += 1
+        value = reader.listed(4, uid)[0]
+        if value["status"] != "measured" or value["errno"] != 0:
+            return {"status": "api_failure", "attempts": attempts, "last": value}
+        if value["count"] == 0:
+            return {"status": "empty", "attempts": attempts, "last": value}
+        if time.monotonic() >= deadline or attempts >= 81:
+            return {"status": "not_empty", "attempts": attempts, "last": value}
+        time.sleep(0.25)
+
+
+def test_vm_domain_canary(report, install, plan_sha):
+    """Explicitly authorized TEST-VM lifecycle experiment, after job cleanup."""
+    value = {"status": "refused", "test_vm_only": True, "affects_acceptance": False,
+             "domain_mutations_attempted": False, "steps": {}, "final_cleanup": {"status": "not_started"}}
+    report["test_vm_domain_canary"] = value
+    touched = False
+    reader = uid = None
+    try:
+        guard()
+        require("failure_reason" in report and report["checks"].get("actual_candidate_installer") is False
+                and all(report["checks"].get(name) is True for name in (
+                    "fresh_hosted_vm", "reviewed_public_inputs", "candidate_expansion_matches_review",
+                    "genuine_signed_helper", "actual_base_installer", "base_public_image", "created_job_stopped")))
+        require(type(install) is dict and install.get("managed_by") == "account-access-system-install-v1"
+                and type(install.get("schema")) is int and install["schema"] == 1
+                and install.get("broker_name") == "_accountaccess" and hex_value(plan_sha, 64)
+                and type(install.get("broker_uid")) is int and 450 <= install["broker_uid"] < 500
+                and type(install.get("owner_uid")) is int and install["owner_uid"] > 0
+                and install["owner_uid"] != install["broker_uid"])
+        uid = install["broker_uid"]
+        canary_service_identity(uid)
+        reader = ProcessDiagnosticReader()
+        steps = value["steps"]
+        steps["initial_processes"] = reader.observed(4, uid, expected_uid=uid, include_unknown_names=True)
+        require(steps["initial_processes"]["status"] == "measured")
+        touched = value["domain_mutations_attempted"] = True
+        for name in ("first_bootout", "repeat_bootout"):
+            steps[name] = canary_domain_command("bootout", uid)
+            require(steps[name]["status"] == "measured")
+            steps[name + "_processes"] = canary_wait_uid_empty(reader, uid)
+            require(steps[name + "_processes"]["status"] == "empty")
+        steps["bootstrap"] = canary_domain_command("bootstrap", uid)
+        require(steps["bootstrap"]["status"] == "measured" and steps["bootstrap"]["returncode"] == 0)
+        time.sleep(1)
+        steps["bootstrapped_processes"] = reader.observed(4, uid, expected_uid=uid, include_unknown_names=True)
+        steps["post_bootstrap_bootout"] = canary_domain_command("bootout", uid)
+        require(steps["post_bootstrap_bootout"]["status"] == "measured")
+        steps["post_bootstrap_bootout_processes"] = canary_wait_uid_empty(reader, uid)
+        require(steps["post_bootstrap_bootout_processes"]["status"] == "empty")
+        steps["print_after_bootout"] = canary_domain_command("print", uid)
+        require(steps["print_after_bootout"]["status"] == "measured")
+        time.sleep(1)
+        steps["after_print_processes"] = reader.observed(4, uid, expected_uid=uid, include_unknown_names=True)
+        value["status"] = "observed"
+    except Exception:
+        if touched:
+            value["status"] = "incomplete"
+    finally:
+        if touched:
+            try:
+                result = canary_domain_command("bootout", uid)
+                empty = canary_wait_uid_empty(reader, uid)
+                value["final_cleanup"] = {"command": result, "processes": empty,
+                    "status": "uid_empty" if result["status"] == "measured" and empty["status"] == "empty" else "unverified"}
+            except Exception:
+                value["final_cleanup"] = {"status": "unverified"}
+        # No print follows final bootout; observing a domain may recreate it.
 
 
 def fresh_gui_present(result):
@@ -940,6 +1058,8 @@ def run(args):
             except Exception:
                 report["cleanup_unverified"] = True
                 report["failure_stage"] = "created_job_cleanup"
+        if candidate_attempted and not report["checks"]["actual_candidate_installer"]:
+            test_vm_domain_canary(report, diagnostic_install, diagnostic_plan)
         if acceptance_passed(report):
             report["status"] = "PASSED"
             report["failure_stage"] = None

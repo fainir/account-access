@@ -861,3 +861,117 @@ def test_unexpected_domain_presence_never_retains_raw_output(monkeypatch, return
     value = probe.missing_user_domain_diagnostic()
     assert value["status"] == "unexpected_present" and "stdout" not in value and "stderr" not in value
     assert value["stdout_bytes"] == len(stdout) and value["stderr_bytes"] == len(stderr)
+
+
+def test_unknown_executable_names_are_opt_in_for_only_bound_service_uid(process_reader):
+    reader, state, _ = process_reader
+    state["path"] = "/fixed/public/python3.12"
+    value = reader.observed(4, 450, expected_uid=450, include_unknown_names=True)
+    assert value["unknown_executables"] == [{"path": state["path"], "basename": "python3.12", "count": 1}]
+    assert "12345" not in json.dumps(value)
+    with pytest.raises(ValueError):
+        reader.observed(4, 501, expected_uid=501, include_unknown_names=True)
+    state["path"] = "/untrusted/control\npath"
+    assert reader.observed(4, 450, expected_uid=450, include_unknown_names=True)["unknown_executables"] == []
+
+
+def test_three_unicode_executable_snapshots_fit_bounded_report(process_reader, monkeypatch):
+    reader, state, _ = process_reader
+    state.update(pids=list(range(1000, 1260)), list_return=256 * 4)
+    monkeypatch.setattr(reader, "executable", lambda pid, **kwargs: ("measured", 0, "/" + "😀" * 125 + chr(65 + pid % 26)))
+    value = reader.observed(4, 450, expected_uid=450, include_unknown_names=True)
+    assert len(value["unknown_executables"]) == 8
+    assert len(json.dumps({"snapshots": [value] * 3}).encode()) < 100000
+
+
+def canary_context(monkeypatch):
+    report, install = diagnostic_context()
+    report["checks"]["actual_candidate_installer"] = False
+    install["owner_uid"] = 501
+    monkeypatch.setattr(probe, "guard", lambda: None)
+    monkeypatch.setattr(probe.pwd, "getpwnam", lambda name: SimpleNamespace(
+        pw_name="_accountaccess", pw_uid=450, pw_gid=450, pw_dir=str(probe.BASE / "home"), pw_shell="/usr/bin/false"))
+    monkeypatch.setattr(probe.grp, "getgrnam", lambda name: SimpleNamespace(gr_name="_accountaccess", gr_gid=450))
+    return report, install
+
+
+@pytest.mark.parametrize("bad", ["owner_uid", "range", "image", "job_cleanup", "identity", "context"])
+def test_domain_canary_rejects_foreign_or_unfinished_context_before_commands(monkeypatch, bad):
+    report, install = canary_context(monkeypatch)
+    if bad == "owner_uid":
+        install["owner_uid"] = 450
+    elif bad == "range":
+        install["broker_uid"] = 501
+    elif bad in {"image", "job_cleanup"}:
+        report["checks"]["base_public_image" if bad == "image" else "created_job_stopped"] = False
+    elif bad == "identity":
+        monkeypatch.setattr(probe.pwd, "getpwnam", lambda name: SimpleNamespace(
+            pw_name="_accountaccess", pw_uid=451, pw_gid=451, pw_dir=str(probe.BASE / "home"), pw_shell="/usr/bin/false"))
+    else:
+        monkeypatch.setattr(probe, "guard", lambda: probe.require(False))
+    monkeypatch.setattr(probe, "ProcessDiagnosticReader", lambda: pytest.fail("no observation before context"))
+    monkeypatch.setattr(probe.subprocess, "run", lambda *a, **k: pytest.fail("no command before context"))
+    probe.test_vm_domain_canary(report, install, "a" * 64)
+    assert report["test_vm_domain_canary"]["status"] == "refused"
+    assert report["test_vm_domain_canary"]["domain_mutations_attempted"] is False
+
+
+@pytest.mark.parametrize("fail_at", [None, "first_bootout", "bootstrap", "print", "final_bootout"])
+def test_domain_canary_sequence_and_final_cleanup_never_change_candidate_failure(monkeypatch, fail_at):
+    report, install = canary_context(monkeypatch)
+    original = copy.deepcopy(report)
+    calls, sleeps = [], []
+    reader = SimpleNamespace(
+        observed=lambda *a, **k: {"status": "measured", "count": 1, "classes": {"unknown": 1}},
+        listed=lambda *a, **k: ({"status": "measured", "count": 0, "errno": 0}, []))
+    monkeypatch.setattr(probe, "ProcessDiagnosticReader", lambda: reader)
+    monkeypatch.setattr(probe.time, "sleep", sleeps.append)
+
+    def command(action, uid):
+        assert uid == 450
+        calls.append(action)
+        if ((fail_at == "first_bootout" and len(calls) == 1) or action == fail_at
+                or fail_at == "final_bootout" and len(calls) == 6):
+            return {"status": "timeout"}
+        return {"status": "measured", "returncode": 0}
+
+    monkeypatch.setattr(probe, "canary_domain_command", command)
+    probe.test_vm_domain_canary(report, install, "a" * 64)
+    value = report.pop("test_vm_domain_canary")
+    assert report == original and calls[-1] == "bootout"
+    assert value["affects_acceptance"] is False and value["domain_mutations_attempted"] is True
+    if fail_at in {None, "final_bootout"}:
+        assert calls == ["bootout", "bootout", "bootstrap", "bootout", "print", "bootout"] and sleeps == [1, 1]
+        assert value["status"] == "observed"
+    else:
+        assert value["status"] == "incomplete"
+    assert value["final_cleanup"]["status"] == ("unverified" if fail_at == "final_bootout" else "uid_empty")
+
+
+@pytest.mark.parametrize("code,stdout,stderr", [(0, b"user/450 = {\n pid = 12345\n secret = no\n}\n", b""),
+    (113, b"", b"Could not find domain for\n"), (1, b"unexpected domain", b"suppressed")])
+def test_domain_command_retains_only_header_or_bounded_absence_error(monkeypatch, code, stdout, stderr):
+    canary_context(monkeypatch)
+    calls = []
+
+    def run(arguments, **kwargs):
+        calls.append(arguments)
+        assert arguments == ["/bin/launchctl", "print", "user/450"] and kwargs["timeout"] == 15
+        return subprocess.CompletedProcess(arguments, code, stdout, stderr)
+
+    monkeypatch.setattr(probe.subprocess, "run", run)
+    value = probe.canary_domain_command("print", 450)
+    assert calls and "stdout" not in value and "12345" not in json.dumps(value) and "secret" not in json.dumps(value)
+    assert ("stderr" in value) is (code != 0 and not stdout)
+    assert value["header"] == ("user/450 = {" if code == 0 else None)
+
+
+def test_uid_empty_poll_has_bounded_attempts_and_does_not_print_or_signal(monkeypatch):
+    reader = SimpleNamespace(listed=lambda *a: ({"status": "measured", "count": 1, "errno": 0}, []))
+    sleeps = []
+    monkeypatch.setattr(probe.time, "monotonic", lambda: 0)
+    monkeypatch.setattr(probe.time, "sleep", sleeps.append)
+    value = probe.canary_wait_uid_empty(reader, 450)
+    assert value["status"] == "not_empty" and value["attempts"] == 81 and sum(sleeps) == 20
+    reader.listed = lambda *a: ({"status": "api_failure", "errno": 1}, [])
+    assert probe.canary_wait_uid_empty(reader, 450)["status"] == "api_failure"

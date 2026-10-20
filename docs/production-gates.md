@@ -138,6 +138,15 @@ The next diagnostic measures only bounded process aggregates for the dedicated
 service identity in the disposable test Mac. The update barrier remains intact.
 [Specific native refusal and retained evidence](../artifacts/component-update-quiescence-attempt-080-20261020.json).
 
+The sixth run at controller `744ee05` measured one stable unidentified process
+under the dedicated service identity after the broker/bootstrap executable
+references were gone. The candidate again refused quiescence. A sentinel
+user-domain query succeeded, so it did not establish an absent-domain response.
+The next disposable-Mac canary identifies the remaining executable and measures
+only that test installation's dedicated user-domain teardown and recreation
+after fixed-job cleanup. No owner installation or account operation is involved.
+[Process measurement and limits](../artifacts/component-update-process-attempt-080-20261020.json).
+
 [Source review and retained earlier attempts](../artifacts/component-update-source-080-20261020.json).
 The build gate also preserves the measured skipped state of the review push's
 two dispatch-only jobs; all applicable jobs still require first-attempt success.
