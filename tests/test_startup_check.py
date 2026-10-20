@@ -3,6 +3,7 @@
 import json
 import os
 from pathlib import Path
+import plistlib
 import stat
 from types import SimpleNamespace
 
@@ -125,6 +126,49 @@ def test_start_request_never_kills_an_already_running_process(monkeypatch):
     backend = object.__new__(check.InstalledCapture)
     assert backend.start_without_killing()
     assert calls == [["/bin/launchctl", "kickstart", "-p", check.SERVICE]]
+
+
+def test_job_contract_matches_provisioner_without_installed_access(monkeypatch):
+    from account_access.system_provision import Layout, plans
+
+    signatures = {name: {"team": "WBULD6N4NQ", "identifier": "fixture", "hashes": ["a" * 40]}
+                  for name in ["owner", "broker", "bootstrap"]}
+    _, profile, official_job = plans(Layout.installed(), {
+        "broker_uid": 450, "owner_uid": 1000, "vault_id": "fictional", "enrollment_id": "fictional",
+    }, signatures, 20)
+    reads = {check.BASE / "owner.json": json.dumps(profile).encode(), check.JOB: plistlib.dumps(official_job)}
+    monkeypatch.setattr(check, "PINS", {})  # This case checks configuration, not file hash cryptography.
+    monkeypatch.setattr(check, "public_bytes", lambda path, limit=0: reads[path])
+    monkeypatch.setattr(check.pwd, "getpwuid", lambda uid: SimpleNamespace(pw_gid=20))
+    monkeypatch.setattr(check, "command", lambda args: (0, b""))
+    check.validate_installation()
+
+
+def test_transient_startup_pid_is_observed_without_killing(monkeypatch):
+    calls = []
+
+    def state():
+        calls.append("read")
+        if len(calls) == 1:
+            raise check.Refused("service_is_running")
+
+    monkeypatch.setattr(check, "require_failing_service", state)
+    monkeypatch.setattr(check.time, "sleep", lambda seconds: calls.append("wait"))
+    check.wait_for_failing_service()
+    assert calls == ["read", "wait", "read"]
+
+
+def test_healthy_service_never_becomes_a_capture_target(monkeypatch):
+    clock = iter([0, 0, 4])
+    monkeypatch.setattr(check.time, "monotonic", lambda: next(clock))
+    monkeypatch.setattr(check.time, "sleep", lambda seconds: None)
+
+    def healthy():
+        raise check.Refused("service_is_running")
+
+    monkeypatch.setattr(check, "require_failing_service", healthy)
+    with pytest.raises(check.Refused, match="service_is_running"):
+        check.wait_for_failing_service()
 
 
 @pytest.mark.parametrize("mode,owner,links", [

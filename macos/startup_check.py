@@ -187,9 +187,9 @@ def validate_installation():
         "StandardOutPath": "/dev/null", "StandardErrorPath": "/dev/null",
         "MachServices": {"com.fainir.accountaccess.broker.owner": True},
         "Sockets": {
-            "AccountAccessAgent": {"SockPathName": str(BASE / "broker/agent.sock"),
+            "AccountAccessAgent": {"SockPathName": str(BASE / "run/agent.sock"),
                                    "SockPathOwner": 0, "SockPathGroup": owner_group, "SockPathMode": 0o660},
-            "AccountAccessOwner": {"SockPathName": str(BASE / "broker/control/owner.sock"),
+            "AccountAccessOwner": {"SockPathName": str(BASE / "control/owner.sock"),
                                    "SockPathOwner": 0, "SockPathGroup": 0, "SockPathMode": 0o600},
         },
     }
@@ -209,6 +209,20 @@ def require_failing_service():
         raise Refused("service_is_running")
     if not re.search(r"^\tlast exit code = 78(?:: EX_CONFIG)?$", text, re.M):
         raise Refused("service_not_failing_with_78")
+
+
+def wait_for_failing_service():
+    # A crashing job may briefly have a PID while performing startup checks.
+    # Observe its failure; never kill a process to manufacture the condition.
+    deadline = time.monotonic() + 3
+    while True:
+        try:
+            require_failing_service()
+            return
+        except Refused as error:
+            if error.args != ("service_is_running",) or time.monotonic() >= deadline:
+                raise
+            time.sleep(0.2)
 
 
 def closed_failure(data):
@@ -283,7 +297,7 @@ class InstalledCapture:
         self.original = check_fd(self.fd)
 
     def require_failing(self):
-        require_failing_service()
+        wait_for_failing_service()
 
     def redirect(self):
         path = REPORTS / self.name / "stdout"
@@ -349,7 +363,6 @@ def main():
     parent = None
     try:
         validate_installation()
-        require_failing_service()
         parent = directory(REPORTS, create=True)
         backend = InstalledCapture(parent)
         try:
