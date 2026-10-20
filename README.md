@@ -212,6 +212,7 @@ private authentication or physical phone delivery.
 - [Build 76 local installer and native setup review](artifacts/build76-review-080.json)
 - [Build 76 installed startup failure and completed CI](artifacts/runtime-acceptance-080-build76-20261020.json)
 - [Build 76 startup diagnostic attempt and unresolved capture](artifacts/startup-check-attempt-080-build76-20261020.json)
+- [Follow-up inspection of the retained startup capture](artifacts/startup-capture-inspect-attempt-080-20261020.json)
 - [Build 67 installer/source review and remaining release gates](artifacts/build67-review-080.json)
 - [Earlier build 66 setup validation](artifacts/setup-completion-080.json)
 - [Completed email-setup validation at source 1bba84f](artifacts/consumer-mail-setup-080.json)

@@ -106,7 +106,7 @@ done
 [ "$(/usr/bin/env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin /usr/bin/shasum -a 256 "$AC_CHECK_HELPER" | /usr/bin/awk '{{print $1}}')" = '{helper_sha256}' ] || exit 1
 [ "$(/usr/bin/env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin /usr/bin/shasum -a 256 "$AC_CHECK_PYTHON" | /usr/bin/awk '{{print $1}}')" = '{PYTHON_SHA256}' ] || exit 1
 /usr/bin/env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin /usr/bin/codesign --verify --strict -R '={REQUIREMENT}' "$AC_CHECK_PYTHON" || exit 1
-exec /usr/bin/env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin LANG=C "$AC_CHECK_PYTHON" -I -S "$AC_CHECK_HELPER" --inspect-retained
+exec /usr/bin/env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin LANG=C "$AC_CHECK_PYTHON" -I -B -S "$AC_CHECK_HELPER" --inspect-retained
 '''.encode()
 
 

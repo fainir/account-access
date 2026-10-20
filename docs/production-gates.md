@@ -29,8 +29,19 @@ The owner-approved startup check subsequently ran through Installer, but its
 report says `diagnostic_tool_unavailable` with no captured startup reason.
 Cleanup remains pending: capture consumption and restoration of stdout to
 `/dev/null` are unconfirmed, so the guarded private target was retained.
-Startup investigation remains open.
 [Diagnostic attempt and exact public result](../artifacts/startup-check-attempt-080-build76-20261020.json).
+
+An approved follow-up inspection recovered the historical code
+`system_broker_unavailable` without starting or changing the service. That generic
+code does not identify the failing startup stage. Cleanup and stdout restoration
+remain unverified, and owner enrollment is still blocked.
+[Capture inspection result](../artifacts/startup-capture-inspect-attempt-080-20261020.json).
+
+The diagnostic also generated root-only Python cache directories and rewrote
+three baseline cache files in the installed runtime. This happened after the
+original startup failure. The diagnostic source now disables bytecode writes;
+restoration of the exact build 76 files is being prepared separately. This cache
+repair has not run and does not establish a fix for the original failure.
 
 The package remains **unsigned and unnotarized**. Successful package installation
 does not establish a working setup. Personal-account acceptance, protected

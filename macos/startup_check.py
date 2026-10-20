@@ -1,3 +1,4 @@
+# ruff: noqa: E402 -- the bytecode guard must run before source-backed imports.
 """Bounded, owner-approved startup check for the exact installed build 76.
 
 This is a one-use Installer script, not an agent or owner API. It never opens a
@@ -7,6 +8,14 @@ It does not replace code, edit the job, change arguments, or grant account acces
 The fixed --inspect-retained mode only inspects an existing guarded target and
 publishes a closed result; it never redirects, starts, resets or deletes.
 """
+
+import sys
+
+# Refuse before importing any source-backed standard-library module. Even an
+# otherwise read-only privileged diagnostic must not create runtime bytecode.
+if __name__ == "__main__" and (not sys.flags.isolated or not sys.flags.no_site or not sys.dont_write_bytecode):
+    print('{"status":"REFUSED","reason":"trusted_installer_context_required"}')
+    raise SystemExit(1)
 
 import ctypes
 import errno
@@ -21,7 +30,6 @@ import secrets
 import selectors
 import stat
 import subprocess
-import sys
 import time
 
 BASE = Path("/Library/Application Support/Account Access")
@@ -516,7 +524,8 @@ def main():
     inspect_only = sys.argv[1:] == ["--inspect-retained"]
     if (sys.platform != "darwin" or os.getuid() != 0 or os.geteuid() != 0
             or (len(sys.argv) != 1 and not inspect_only)
-            or sys.executable != str(PYTHON) or not sys.flags.isolated or not sys.flags.no_site):
+            or sys.executable != str(PYTHON) or not sys.flags.isolated or not sys.flags.no_site
+            or not sys.dont_write_bytecode):
         print('{"status":"REFUSED","reason":"trusted_installer_context_required"}')
         return 1
     os.umask(0o077)

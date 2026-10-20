@@ -279,6 +279,31 @@ def test_command_preserves_bounded_output_and_nonzero_exit():
                          limit=4) == (7, b"abc\n")
 
 
+def test_missing_bytecode_flag_refuses_before_source_backed_imports():
+    # A privileged diagnostic must reject a missing -B before importing ctypes
+    # or any other module whose cache could be written into the managed image.
+    program = """
+import sys, builtins
+source = open(sys.argv[1]).read()
+original_import = builtins.__import__
+def guarded_import(name, *args, **kwargs):
+    if name != 'sys':
+        raise RuntimeError('source-backed import reached before refusal')
+    return original_import(name, *args, **kwargs)
+builtins.__import__ = guarded_import
+exec(compile(source, sys.argv[1], 'exec'), {'__name__': '__main__'})
+"""
+    result = check.subprocess.run(
+        [sys.executable, "-I", "-S", "-c", program, str(Path(check.__file__).resolve())],
+        capture_output=True, check=False, timeout=5,
+    )
+    assert result.returncode == 1
+    assert result.stderr == b""
+    assert json.loads(result.stdout) == {
+        "status": "REFUSED", "reason": "trusted_installer_context_required",
+    }
+
+
 @pytest.mark.parametrize("outcome", ["timeout", "output_too_large"])
 def test_bounded_command_reaps_only_its_own_child(monkeypatch, outcome):
     processes = []
@@ -452,6 +477,7 @@ def trusted_fixture_context(tmp_path, monkeypatch, ordinary_capture_metadata):
     monkeypatch.setattr(check.sys, "platform", "darwin")
     monkeypatch.setattr(check.sys, "executable", str(check.PYTHON))
     monkeypatch.setattr(check.sys, "flags", SimpleNamespace(isolated=True, no_site=True))
+    monkeypatch.setattr(check.sys, "dont_write_bytecode", True)
     monkeypatch.setattr(check.sys, "argv", ["fixture-check", "--inspect-retained"])
     # Only the fixture's context checks are substituted; the process never elevates.
     monkeypatch.setattr(check.os, "getuid", lambda: 0)

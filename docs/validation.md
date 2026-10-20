@@ -38,6 +38,21 @@ policy and establishes no repair or successful startup.
 [Diagnostic attempt](../artifacts/startup-check-attempt-080-build76-20261020.json)
 and [exact public result](../artifacts/startup-check-result-080-build76-20261020.json).
 
+The separately approved, inspection-only package then recovered
+`system_broker_unavailable` from the retained capture. Its source is `b5a0967`;
+101 ordinary fixtures and independent package expansion checks passed before
+execution. The recovered output is historical: no service start, stop, redirect
+or reset was attempted, and no exact startup stage or repair was established.
+Cleanup remains pending. [Inspection attempt and byte-exact public result](../artifacts/startup-capture-inspect-attempt-080-20261020.json).
+
+Ordinary metadata inspection subsequently found eight generated root-only cache
+directories and three rewritten baseline cache files. The first diagnostic had
+omitted Python's `-B` flag. The installed startup failure predates these writes.
+The helper and its generated invocation now require bytecode writes to be
+disabled; the focused suite passes 102 ordinary tests, including refusal before
+source-backed imports when the flag is absent. Exact-file restoration and its
+independent review remain pending. No account credentials were involved.
+
 No protected-store enrollment, shared AI connection upgrade, personal login or
 real-device delivery was completed on this installation. Passing CI did not
 establish a working owner setup. The installer remains unsigned and
