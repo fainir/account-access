@@ -2,12 +2,26 @@
 // Consumer installation, source collectors and client issuance are separate.
 import Foundation
 
+enum RootBrokerStartupPhase: String {
+    case daemonContext = "host_daemon_context"
+    case listeners = "socket_listeners"
+    case workerSupervisor = "worker_supervisor"
+    case messagesCollector = "messages_collector"
+    case enrollmentPlan = "enrollment_plan"
+    case gatewayInitialization = "owner_gateway_initialization"
+    case ownerPolicy = "owner_policy_registration"
+    case enrollmentStart = "enrollment_start"
+    case workerStart = "worker_start"
+    case gatewayStart = "owner_gateway_start"
+}
+
 final class RootBrokerHost {
     private final class GatewayReference { weak var host: OwnerGatewayHost? }
     private let worker: RootWorkerSupervisor
     private let gateway: OwnerGatewayHost
     private let enrollment: RootInitialEnrollment?
     private let messages: RootMessagesCollector
+    private let startup: (RootBrokerStartupPhase) -> Void
     private let queue = DispatchQueue(label: "com.fainir.accountaccess.broker.lifecycle")
     private let lock = NSLock()
     private var timer: DispatchSourceTimer?
@@ -15,22 +29,31 @@ final class RootBrokerHost {
     private var stopped = false
 
     convenience init(policy: String, bootstrap: String, bootstrapPeer: OwnerGatewayPeer,
-         vault: String, owner: OwnerGatewayPeer, enrollmentPolicy: String? = nil) throws {
+         vault: String, owner: OwnerGatewayPeer, enrollmentPolicy: String? = nil,
+         startup: @escaping (RootBrokerStartupPhase) -> Void = { _ in }) throws {
         try self.init(policy: policy, bootstrap: bootstrap, bootstrapPeer: bootstrapPeer,
-            vault: vault, owner: owner, enrollmentPolicy: enrollmentPolicy, collector: nil)
+            vault: vault, owner: owner, enrollmentPolicy: enrollmentPolicy, collector: nil, startup: startup)
     }
     private init(policy: String, bootstrap: String, bootstrapPeer: OwnerGatewayPeer,
-         vault: String, owner: OwnerGatewayPeer, enrollmentPolicy: String?, collector: RootMessagesCollector?) throws {
+         vault: String, owner: OwnerGatewayPeer, enrollmentPolicy: String?, collector: RootMessagesCollector?,
+         startup: @escaping (RootBrokerStartupPhase) -> Void = { _ in }) throws {
+        self.startup = startup
+        startup(.daemonContext)
         try RootVaultKeyStore.requireDaemon()
         let reference = GatewayReference()
+        startup(.listeners)
         let listeners = try RootActivatedListeners(plan: MacWorkerPlan(policy: policy))
+        startup(.workerSupervisor)
         let managedWorker = try RootWorkerSupervisor(policy: policy, bootstrap: bootstrap, peer: bootstrapPeer,
             vault: vault, listeners: listeners, invalidateOwners: { reference.host?.invalidateSessions() })
         worker = managedWorker
+        startup(.messagesCollector)
         messages = try collector ?? RootMessagesCollector(owner: owner)
+        startup(.enrollmentPlan)
         let initialSetup = try enrollmentPolicy.map { try RootInitialEnrollment(worker: managedWorker, policy: $0,
             bootstrap: bootstrap, peer: bootstrapPeer, owner: owner.uid, workerPolicy: policy, vault: vault) }
         enrollment = initialSetup
+        startup(.gatewayInitialization)
         gateway = try OwnerGatewayHost(owner: owner, backend: initialSetup ?? managedWorker)
         reference.host = gateway
     }
@@ -54,9 +77,11 @@ final class RootBrokerHost {
         guard !started, !stopped else { throw RootWorkerProcessFailure.invalidState }
         started = true
         do {
+            startup(.ownerPolicy)
             _ = try OwnerAuthorizationPolicy.installIfAbsent()
-            if let enrollment { try enrollment.start() }
-            else { try worker.start() }
+            if let enrollment { startup(.enrollmentStart); try enrollment.start() }
+            else { startup(.workerStart); try worker.start() }
+            startup(.gatewayStart)
             try gateway.start()
             let monitor = DispatchSource.makeTimerSource(queue: queue)
             monitor.schedule(deadline: .now() + 0.25, repeating: 0.25)

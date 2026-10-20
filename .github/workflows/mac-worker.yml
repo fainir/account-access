@@ -51,7 +51,8 @@ jobs:
               -target "$AC_BOOTSTRAP_ARCH-apple-macos13" -framework Foundation -framework Security -framework CryptoKit \
               -import-objc-header macos/NativeBroker.h macos/RootVaultKeyStore.swift macos/RootWorkerChannel.swift \
               macos/WorkerBootstrap.swift macos/OwnerGateway.swift macos/OwnerGatewayHost.swift macos/OwnerAuthorizationPolicy.swift \
-              macos/RootActivatedListeners.swift macos/RootWorkerProcess.swift macos/RootWorkerSupervisor.swift macos/RootMessagesCollector.swift macos/RootBrokerHost.swift macos/RootStoreInitializer.swift macos/RootStorePublication.swift macos/RootInitialEnrollment.swift macos/SystemBroker.swift
+              macos/RootActivatedListeners.swift macos/RootWorkerProcess.swift macos/RootWorkerSupervisor.swift macos/RootMessagesCollector.swift macos/RootBrokerHost.swift macos/RootStoreInitializer.swift macos/RootStorePublication.swift macos/RootInitialEnrollment.swift macos/SystemBroker.swift \
+              macos/Tests/SystemStartupDiagnosticsChecks.swift
           done
           xcrun swiftc -O -parse-as-library -framework Foundation \
             macos/WorkerBootstrap.swift macos/Tests/WorkerBootstrapChecks.swift -o /tmp/ac-worker-bootstrap-checks
@@ -67,6 +68,15 @@ jobs:
             macos/BrowserNativeHost.swift macos/Tests/BrowserGatewayJourney.swift macos/Tests/ChromeGatewayJourney.swift macos/Tests/RootOwnerGatewayChecks.swift -o /tmp/ac-root-owner-client
           xcrun clang -O2 -Wall -Wextra -Werror -c macos/KeychainInteraction.c -o /tmp/ac-keychain-interaction.o
           xcrun clang -O2 -Wall -Wextra -Werror -c macos/NativeBroker.c -o /tmp/ac-native-broker.o
+          xcrun swiftc -O -parse-as-library -warnings-as-errors \
+            -framework Foundation -framework Security -framework CryptoKit -import-objc-header macos/NativeBroker.h \
+            macos/WorkerBootstrap.swift macos/RootVaultKeyStore.swift macos/RootWorkerChannel.swift macos/OwnerGateway.swift \
+            macos/RootWorkerProcess.swift macos/RootActivatedListeners.swift macos/RootWorkerSupervisor.swift macos/RootMessagesCollector.swift macos/RootBrokerHost.swift \
+            macos/OwnerGatewayHost.swift macos/OwnerAuthorizationPolicy.swift macos/RootStoreInitializer.swift \
+            macos/RootStorePublication.swift macos/RootInitialEnrollment.swift macos/SystemBroker.swift \
+            macos/Tests/SystemStartupDiagnosticsChecks.swift \
+            /tmp/ac-keychain-interaction.o /tmp/ac-native-broker.o -o /tmp/ac-system-startup-diagnostics-checks
+          /tmp/ac-system-startup-diagnostics-checks
           xcrun swiftc -O -parse-as-library -warnings-as-errors -framework Foundation -framework Security \
             -import-objc-header macos/KeychainInteraction.h macos/RootVaultKeyStore.swift \
             macos/Tests/VaultReferenceChecks.swift /tmp/ac-keychain-interaction.o -o /tmp/ac-vault-reference-checks

@@ -3,11 +3,73 @@
 import Foundation
 import Security
 import Darwin
+import OSLog
 
 enum SystemBrokerFailure: String, Error {
     case arguments = "system_broker_invalid_arguments"
     case policy = "system_broker_invalid_policy"
     case unavailable = "system_broker_unavailable"
+}
+
+// Startup failures expose only this closed vocabulary. No error descriptions,
+// policy paths, account identities, OS-provided strings or key material reach logs.
+enum SystemBrokerStartupPhase: Equatable {
+    case daemonContext, arguments, settings, brokerDomain, hostCreation, hostStart, ready, stopping
+    case host(RootBrokerStartupPhase)
+    var name: String {
+        switch self {
+        case .daemonContext: return "daemon_context"
+        case .arguments: return "arguments"
+        case .settings: return "settings"
+        case .brokerDomain: return "broker_domain"
+        case .hostCreation: return "host_creation"
+        case .hostStart: return "host_start"
+        case .ready: return "ready"
+        case .stopping: return "stopping"
+        case .host(let value): return value.rawValue
+        }
+    }
+}
+
+struct SystemBrokerStartupDiagnostics {
+    struct Projection: Equatable { let phase: String; let reason: String }
+    private static let logger = Logger(subsystem: "com.fainir.accountaccess.broker", category: "startup")
+    static func project(_ phase: SystemBrokerStartupPhase, error: Error) -> Projection {
+        let reason: String
+        switch error {
+        case let value as RootVaultKeyFailure: reason = value.rawValue
+        case let value as SystemBrokerFailure: reason = value.rawValue
+        case let value as OwnerPolicyFailure: reason = value.rawValue
+        case let value as WorkerLaunchFailure: reason = value.rawValue
+        case let value as RootListenerFailure: reason = value.rawValue
+        case let value as RootWorkerProcessFailure: reason = value.rawValue
+        case let value as RootWorkerChannelFailure: reason = value.rawValue
+        case let value as RootStoreInitializationFailure: reason = value.rawValue
+        case let value as RootPublicationFailure: reason = value.rawValue
+        case let value as RootMessagesFailure: reason = value.rawValue
+        case let value as RootVaultRecordFailure: reason = value.stage.rawValue
+        case let value as RootKeychainFailure:
+            switch value.operation {
+            case .load: reason = "system_keychain_load_failed"
+            case .enroll: reason = "system_keychain_enroll_failed"
+            case .remove: reason = "system_keychain_remove_failed"
+            }
+        case let value as OwnerGatewayError:
+            switch value {
+            case .invalidPolicy: reason = "owner_gateway_policy_invalid"
+            case .unavailable: reason = "owner_gateway_unavailable"
+            case .invalidResponse: reason = "owner_gateway_response_invalid"
+            }
+        default: reason = "system_broker_unavailable"
+        }
+        return Projection(phase: phase.name, reason: reason)
+    }
+    static func record(_ phase: SystemBrokerStartupPhase, error: Error,
+                       emit: ((Projection) -> Void)? = nil) {
+        let value = project(phase, error: error)
+        if let emit { emit(value) }
+        else { logger.error("Broker lifecycle failure phase=\(value.phase, privacy: .public) reason=\(value.reason, privacy: .public)") }
+    }
 }
 
 struct SystemBrokerSettings {
@@ -64,12 +126,17 @@ struct SystemBrokerSettings {
 }
 
 struct SystemBrokerMain {
-    static func serve(_ settings: SystemBrokerSettings, fixtureRoot: URL? = nil) throws -> Never {
+    static func serve(_ settings: SystemBrokerSettings, fixtureRoot: URL? = nil,
+                      checkpoint: @escaping (SystemBrokerStartupPhase) -> Void = { _ in }) throws -> Never {
+        checkpoint(.brokerDomain)
         try ensureBrokerDomain(settings.brokerUID)
+        checkpoint(.hostCreation)
         let host = try RootBrokerHost(policy: settings.workerPolicy, bootstrap: settings.bootstrap,
             bootstrapPeer: settings.bootstrapPeer, vault: settings.vault, owner: settings.owner,
-            enrollmentPolicy: settings.enrollmentPolicy)
+            enrollmentPolicy: settings.enrollmentPolicy, startup: { checkpoint(.host($0)) })
+        checkpoint(.hostStart)
         try host.start()
+        checkpoint(.ready)
         #if ACCOUNT_ACCESS_GATEWAY_CHECKS && ACCOUNT_ACCESS_ROOT_KEY_CHECKS
         if let fixtureRoot {
             let ready = fixtureRoot.appendingPathComponent("system-broker-ready.json")
@@ -89,7 +156,7 @@ struct SystemBrokerMain {
         let interrupt = DispatchSource.makeSignalSource(signal: SIGINT, queue: .main)
         let stop: () -> Void = {
             do { try host.stop(); exit(0) }
-            catch { exit(78) }
+            catch { SystemBrokerStartupDiagnostics.record(.stopping, error: error); exit(78) }
         }
         term.setEventHandler(handler: stop); interrupt.setEventHandler(handler: stop)
         term.resume(); interrupt.resume()
@@ -121,8 +188,10 @@ struct SystemBrokerMain {
     }
     static func main() {
         umask(0o077)
+        var phase = SystemBrokerStartupPhase.daemonContext
         do {
             try RootVaultKeyStore.requireDaemon()
+            phase = .arguments
             #if ACCOUNT_ACCESS_GATEWAY_CHECKS && ACCOUNT_ACCESS_ROOT_KEY_CHECKS
             if CommandLine.arguments.count >= 2, CommandLine.arguments[1] == "--fixture-policy" {
                 guard [3, 4].contains(CommandLine.arguments.count),
@@ -131,6 +200,7 @@ struct SystemBrokerMain {
                     throw SystemBrokerFailure.arguments
                 }
                 let path = CommandLine.arguments[2]
+                phase = .settings
                 let settings = try SystemBrokerSettings.fixture(path: path)
                 if CommandLine.arguments.count == 4 {
                     guard CommandLine.arguments[3] == "--cleanup-fixture-policy" else { throw SystemBrokerFailure.arguments }
@@ -143,12 +213,15 @@ struct SystemBrokerMain {
                     try JSONSerialization.data(withJSONObject: result).write(to: output, options: .atomic)
                     return
                 }
-                try serve(settings, fixtureRoot: URL(fileURLWithPath: path).deletingLastPathComponent())
+                try serve(settings, fixtureRoot: URL(fileURLWithPath: path).deletingLastPathComponent(), checkpoint: { phase = $0 })
             }
             #endif
             guard CommandLine.arguments.count == 1 else { throw SystemBrokerFailure.arguments }
-            try serve(SystemBrokerSettings(path: SystemBrokerSettings.installedPolicy))
+            phase = .settings
+            let settings = try SystemBrokerSettings(path: SystemBrokerSettings.installedPolicy)
+            try serve(settings, checkpoint: { phase = $0 })
         } catch {
+            SystemBrokerStartupDiagnostics.record(phase, error: error)
             let reason = (error as? RootVaultKeyFailure)?.rawValue ?? (error as? SystemBrokerFailure)?.rawValue
                 ?? (error as? OwnerPolicyFailure)?.rawValue ?? "system_broker_unavailable"
             print("{\"status\":\"FAILED\",\"reason\":\"" + reason + "\"}")
