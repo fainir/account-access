@@ -1045,39 +1045,131 @@ enum ComponentController {
         }
     }
     private static func originalReceipt(_ journal: Int32, ownerUID: uid_t) throws {
-        let intent = try json(ComponentFiles.read(journal, "intent.json", owner: 0, mode: 0o600).0)
-        let complete = try json(ComponentFiles.read(journal, "complete.json", owner: 0, mode: 0o600).0)
-        guard Set(intent.keys) == ["managed_by", "schema", "manifest_sha256", "owner_uid"],
-              intent["managed_by"] as? String == "account-access-public-image-install-v1",
-              try InstallerPayloadManifest.integer(intent["schema"], maximum: 1) == 1,
-              intent["manifest_sha256"] as? String == ComponentSource.baseDigest,
-              try InstallerPayloadManifest.integer(intent["owner_uid"], maximum: Int64(UInt32.max)) == Int64(ownerUID),
-              Set(complete.keys) == ["manifest_sha256", "owner_uid", "status"],
-              complete["manifest_sha256"] as? String == ComponentSource.baseDigest,
-              complete["status"] as? String == "REGISTERED",
-              try InstallerPayloadManifest.integer(complete["owner_uid"], maximum: Int64(UInt32.max)) == Int64(ownerUID) else {
-            throw ComponentUpdateFailure.base
+        try InstallationRootBinding.verify(journal: journal, ownerUID: ownerUID, manifestSHA256: ComponentSource.baseDigest)
+    }
+
+    // This separate Installer entrypoint attests to the current verified image.
+    // It never rewrites a historical receipt, adopts an inode replacement,
+    // changes service state, or enters a private account directory.
+    static func revalidate(resources: Int32, planPin: String, checkpoint: (String) -> Void) throws -> String {
+        guard getuid() == 0, geteuid() == 0 else { throw ComponentUpdateFailure.context }
+        checkpoint("source")
+        let source = try ComponentSource.load(resources, planPin: planPin)
+        guard source.oldPeers["owner"]?.team == "WBULD6N4NQ", source.newPeers["owner"] == source.oldPeers["owner"] else {
+            throw ComponentUpdateFailure.source
         }
-        // Root identities from the immutable published receipt still identify
-        // this same installation. No historical record is rewritten.
-        let ready = try json(ComponentFiles.read(journal, "ready.json", owner: 0, mode: 0o600).0)
-        let published = try json(ComponentFiles.read(journal, "published.json", owner: 0, mode: 0o600).0)
-        guard Set(ready.keys) == ["manifest_sha256", "roots"],
-              ready["manifest_sha256"] as? String == ComponentSource.baseDigest,
-              NSDictionary(dictionary: ready).isEqual(to: published),
-              let roots = ready["roots"] as? [String: [NSNumber]],
-              Set(roots.keys) == [InstallerPayloadManifest.support, InstallerPayloadManifest.application] else {
-            throw ComponentUpdateFailure.base
+        for kind in ["broker", "bootstrap"] {
+            guard let delta = source.delta.first(where: { $0.path == "bin/AccountAccess-" + kind }),
+                  let peer = source.newPeers[kind], let requirement = source.designated[kind] else { throw ComponentUpdateFailure.source }
+            let path = URL(fileURLWithPath: CommandLine.arguments[0]).deletingLastPathComponent().appendingPathComponent(delta.resource).path
+            try ComponentUpdateIdentity.verifyStatic(path: path, peer: peer, designated: requirement)
         }
-        for path in roots.keys {
-            let pair = roots[path]!
-            var info = stat()
-            guard pair.count == 2, lstat(path, &info) == 0, info.st_uid == 0,
-                  try InstallerPayloadManifest.integer(pair[0], maximum: Int64(Int32.max)) == Int64(info.st_dev),
-                  try InstallerPayloadManifest.integer(pair[1], maximum: Int64.max) == Int64(info.st_ino) else {
+        let plan = try json(ComponentFiles.read(resources, "ComponentPlan.json", owner: 0, mode: 0o644).0)
+        guard let sourceCommit = plan["component_source_commit"] as? String,
+              sourceCommit.utf8.count == 40,
+              sourceCommit.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }) else {
+            throw ComponentUpdateFailure.source
+        }
+        checkpoint("legacy")
+        let (ownerUID, ownerGroup) = try owner()
+        let original = try directory(oldJournal, mode: 0o700)
+        defer { Darwin.close(original) }
+        let originalLease = try lease(original, "lock")
+        defer { Darwin.close(originalLease) }
+        let legacy = try InstallationRootBinding.readLegacy(original, ownerUID: ownerUID, manifestSHA256: source.oldManifest.sha256)
+        let hasNamespace = try InstallationRootBinding.hasSupplementNamespace()
+        if try !hasNamespace && InstallationRootBinding.exactLegacy(legacy, current: InstallationRootBinding.capture(withVolumeUUID: false)) {
+            return "ALREADY_BOUND"
+        }
+        checkpoint("current_binding")
+        let current = try InstallationRootBinding.capture(withVolumeUUID: true)
+        var existingProof: Data?
+        if hasNamespace {
+            let existing = try InstallationRootBinding.receiptDirectory(create: false)
+            defer { Darwin.close(existing) }
+            let names = try InstallerPayloadIO.contents(existing)
+            if names == [InstallationRootBinding.receiptName] {
+                existingProof = try InstallationRootBinding.readSupplement(existing)
+                try InstallationRootBinding.validateSupplement(existingProof!, legacy: legacy, current: current)
+            } else {
+                guard names.isSubset(of: [InstallationRootBinding.pendingName]) else { throw ComponentUpdateFailure.journal }
+            }
+        }
+        if existingProof == nil { try InstallationRootBinding.requireDeviceOnly(legacy, current: current) }
+        let brokerDirectory = try InstallerPayloadIO.directory(ComponentSource.support + "/broker", owner: 0)
+        defer { Darwin.close(brokerDirectory) }
+        let provisionLease = try lease(brokerDirectory, "install.lock")
+        defer { Darwin.close(provisionLease) }
+        try ComponentProcesses.requireOwnerClosed()
+        checkpoint("protected_policies")
+        let worker = try publicRead("broker/worker.json", mode: 0o644)
+        let install = try publicRead("broker/install.json", mode: 0o600)
+        let host = try publicRead("broker/host.json", mode: 0o644)
+        let profile = try publicRead("owner.json", mode: 0o644)
+        let fingerprint = try json(install.0)["payload_fingerprint"] as? String
+        let updated = existingProof != nil && fingerprint == source.newFingerprint
+        let activePeers = updated ? source.newPeers : source.oldPeers
+        let activeManifest = updated ? source.newManifest : source.oldManifest
+        let activeFingerprint = updated ? source.newFingerprint : source.oldFingerprint
+        let policy = try ComponentUpdatePolicies.derive(install: install.0, host: host.0, owner: profile.0, worker: worker.0,
+            oldPeers: activePeers, newPeers: activePeers, oldFingerprint: activeFingerprint,
+            newFingerprint: activeFingerprint, consoleOwner: ownerUID)
+        try identity(ownerUID, policy.brokerUID)
+        let plist = try jobPlist(ownerGroup: ownerGroup)
+        checkpoint("public_image")
+        _ = try InstallerPayloadIO.installedImage(activeManifest, opaquePrivateBranches: true)
+        checkpoint("installed_signatures")
+        for kind in ["owner", "broker", "bootstrap"] {
+            guard let peer = activePeers[kind] else { throw ComponentUpdateFailure.source }
+            let path = kind == "owner" ? InstallerPayloadManifest.canonicalApplication : ComponentSource.support + "/bin/AccountAccess-" + kind
+            try ComponentUpdateIdentity.verifyStatic(path: path, peer: peer, designated: nil)
+        }
+        checkpoint("service")
+        let job = try ComponentCommands.launchctl(["print", "system/" + label])
+        guard job.status == 0 else { throw ComponentUpdateFailure.base }
+        let snapshot = try ComponentUpdateIdentity.jobSnapshot(output: job.output, allowedPeers: [activePeers["broker"]!])
+        let hashes = ["install": install.1.sha256, "host": host.1.sha256, "owner": profile.1.sha256,
+                      "worker": worker.1.sha256, "service": plist.sha256]
+        let verifyCurrent = {
+            try ComponentProcesses.requireOwnerClosed()
+            guard try owner().0 == ownerUID,
+                  try InstallationRootBinding.readLegacy(original, ownerUID: ownerUID, manifestSHA256: source.oldManifest.sha256) == legacy,
+                  try InstallationRootBinding.capture(withVolumeUUID: true) == current,
+                  try publicRead("broker/worker.json", mode: 0o644).1 == worker.1,
+                  try publicRead("broker/install.json", mode: 0o600).1 == install.1,
+                  try publicRead("broker/host.json", mode: 0o644).1 == host.1,
+                  try publicRead("owner.json", mode: 0o644).1 == profile.1,
+                  try jobPlist(ownerGroup: ownerGroup) == plist else { throw ComponentUpdateFailure.base }
+            try identity(ownerUID, policy.brokerUID)
+            _ = try InstallerPayloadIO.installedImage(activeManifest, opaquePrivateBranches: true)
+            let now = try ComponentCommands.launchctl(["print", "system/" + label])
+            guard now.status == 0,
+                  try ComponentUpdateIdentity.jobSnapshot(output: now.output, allowedPeers: [activePeers["broker"]!]) == snapshot else {
                 throw ComponentUpdateFailure.base
             }
         }
+        checkpoint("publish")
+        try verifyCurrent()
+        let bindingDirectory = try InstallationRootBinding.receiptDirectory(create: true)
+        defer { Darwin.close(bindingDirectory) }
+        let names = try InstallerPayloadIO.contents(bindingDirectory)
+        if names == [InstallationRootBinding.receiptName] {
+            let proof = try InstallationRootBinding.readSupplement(bindingDirectory)
+            guard proof == existingProof else { throw ComponentUpdateFailure.base }
+            try InstallationRootBinding.validateSupplement(proof, legacy: legacy, current: current)
+            try verifyCurrent()
+            return "ALREADY_REVALIDATED"
+        }
+        guard existingProof == nil, names.isSubset(of: [InstallationRootBinding.pendingName]) else { throw ComponentUpdateFailure.journal }
+        let data = try InstallationRootBinding.supplement(legacy: legacy, current: current, planSHA256: source.planDigest,
+            sourceCommit: sourceCommit, policyHashes: hashes)
+        try InstallationRootBinding.prepareSupplement(bindingDirectory, data: data)
+        try verifyCurrent()
+        try ComponentFiles.rename(bindingDirectory, InstallationRootBinding.pendingName, bindingDirectory, InstallationRootBinding.receiptName, swap: false)
+        try InstallationRootBinding.validateSupplement(InstallationRootBinding.readSupplement(bindingDirectory), legacy: legacy, current: current)
+        try verifyCurrent()
+        checkpoint("finished")
+        return "REVALIDATED"
     }
     private static func jobPlist(ownerGroup: gid_t) throws -> ComponentObject {
         let fd = try InstallerPayloadIO.directory("/Library/LaunchDaemons", owner: 0)

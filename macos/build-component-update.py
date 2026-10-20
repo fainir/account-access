@@ -28,6 +28,8 @@ BASE = Path(component.SUPPORT)
 MANIFEST = ROOT / "dist/release-080-review-build76/actual-package-manifest.json"
 IDENTIFIER = "com.fainir.accountaccess.componentupdate76v2"
 PACKAGE_NAME = "Account-Access-Worker-v2-Component-Update-local-unsigned.pkg"
+REVALIDATION_IDENTIFIER = "com.fainir.accountaccess.installationrootrevalidation"
+REVALIDATION_PACKAGE_NAME = "Account-Access-Installation-Root-Revalidation-local-unsigned.pkg"
 ENV = {"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "LANG": "C"}
 REPOSITORY = "fainir/account-access"
 WORKFLOWS = ("check.yml", "android.yml", "worker-boundary.yml", "mac-worker.yml")
@@ -41,6 +43,8 @@ REQUIRED_JOBS = {
 NATIVE_CI_SOURCES = (
     "macos/ComponentUpdate.swift", "macos/InstallerPayload.swift", "macos/ComponentUpdatePolicies.swift",
     "macos/ComponentUpdateIdentity.swift",
+    "macos/InstallationRootBinding.swift", "macos/InstallationRootRevalidation.swift",
+    "macos/InstallationRootBindingTests.swift",
     "macos/Tests/ComponentUpdateChecks.swift", "macos/Tests/ComponentUpdatePolicyChecks.swift",
     "macos/Tests/ComponentUpdateIdentityChecks.swift",
     "scripts/mac_component_update_native_probe.py", ".github/workflows/mac-worker.yml",
@@ -73,6 +77,18 @@ CORE_CHECKS = frozenset({
     "unknown_preparation_child_refused",
     "disk_capacity_checked_on_target_volume",
     "native_disabled_enabled_tokens_and_ambiguity_checked",
+    "legacy_receipts_bound_to_original_bytes_owner_and_roots",
+    "legacy_shape_digest_owner_status_and_record_set_fail_closed",
+    "legacy_fixed_roots_require_bounded_nonboolean_integer_pairs",
+    "legacy_bounded_json_and_plain_escaped_nested_duplicates_rejected",
+    "device_only_migration_never_accepts_inode_or_root_set_changes",
+    "supplement_binds_uuid_and_both_original_inodes_across_device_renumbering",
+    "supplement_requires_supported_canonical_nonzero_volume_uuid",
+    "supplement_owner_publisher_schema_plan_source_policy_provenance_fail_closed",
+    "supplement_fixed_root_schema_uuid_and_inode_cannot_be_substituted",
+    "supplement_rejects_any_changed_original_receipt_bytes_or_digest",
+    "supplement_bounded_json_and_duplicate_members_rejected",
+    "owned_directory_volume_uuid_abi_is_canonical_and_nonzero",
 })
 ZERO_PIN = ('enum ComponentUpdateCompiledPins { static let planSHA256 = "' + "0" * 64 + '" }\n')
 MAX_ARCHIVE = 4 * 1024 * 1024
@@ -216,17 +232,20 @@ def validate_native_report(files, *, source, sources, run_id):
             or report.get("source_revision") != source
             or report.get("source_sha256") != {name: sources[name] for name in NATIVE_CI_SOURCES}
             or str(report.get("run_id")) != str(run_id) or str(report.get("run_attempt")) != "1"
-            or not _true_checks(report.get("checks"), {"core_fixture", "policy_fixture", "ordinary_main_refusal"})
+            or not _true_checks(report.get("checks"), {"core_fixture", "policy_fixture", "ordinary_main_refusal", "ordinary_revalidation_refusal"})
             or report.get("ordinary_main") != {"returncode": 78, "result": {
                 "schema": 1, "status": "REFUSED", "reason": "component_update_context_required"}}
             or type(report["ordinary_main"]["result"]["schema"]) is not int
+            or report.get("ordinary_revalidation") != {"returncode": 78, "result": {
+                "schema": 1, "status": "REFUSED", "reason": "installation_revalidation_context_required", "production_ready": False}}
+            or type(report["ordinary_revalidation"]["result"]["schema"]) is not int
             or report.get("generated_pin_source") != ZERO_PIN
             or report.get("generated_pin_source_sha256") != component.digest(ZERO_PIN.encode())):
         raise ValueError("component_native_ci_binding_changed")
     core, policy = report.get("core_fixture_json", {}), report.get("policy_fixture_json", {})
     if (set(core) != {"schema", "status", "checks", "ordinary_fixture_assertions", "installed_reads", "service_actions"}
             or type(core.get("schema")) is not int or core["schema"] != 1 or core.get("status") != "PASSED"
-            or type(core.get("ordinary_fixture_assertions")) is not int or core["ordinary_fixture_assertions"] != 133
+            or type(core.get("ordinary_fixture_assertions")) is not int or core["ordinary_fixture_assertions"] != 236
             or not _true_checks(core.get("checks"), CORE_CHECKS)
             or set(policy) != {"schema", "status", "checks", "count", "installed_reads", "service_actions"}
             or type(policy.get("schema")) is not int or policy["schema"] != 1 or policy.get("status") != "PASSED"
@@ -235,28 +254,29 @@ def validate_native_report(files, *, source, sources, run_id):
                    for item in (core, policy))):
         raise ValueError("component_native_ci_assertions_changed")
     logs = report.get("logs", {})
-    required = {f"{action}-{kind}.log" for action in ("compile", "run") for kind in ("core", "policy", "main")}
+    required = {f"{action}-{kind}.log" for action in ("compile", "run") for kind in ("core", "policy", "main", "revalidation")}
     if (not isinstance(logs, dict) or set(logs) != required
-            or any(re.fullmatch(r"(?:compile|run)-(?:core|policy|main)\.log", name) is None
+            or any(re.fullmatch(r"(?:compile|run)-(?:core|policy|main|revalidation)\.log", name) is None
                    or name not in files or component.digest(files[name]) != checksum
                    for name, checksum in logs.items())):
         raise ValueError("component_native_ci_logs_changed")
     allowed = {"report.json", *logs}
     for name, value in (("core-fixture.json", core), ("policy-fixture.json", policy),
-                        ("ordinary-main.json", report["ordinary_main"])):
+                        ("ordinary-main.json", report["ordinary_main"]), ("ordinary-revalidation.json", report["ordinary_revalidation"])):
         if name not in files or strict_json(files[name]) != value:
             raise ValueError("component_native_ci_raw_result_changed")
         allowed.add(name)
     for name in required:
         log = strict_json(files[name])
-        expected_code = 78 if name == "run-main.log" else 0
+        expected_code = 78 if name in {"run-main.log", "run-revalidation.log"} else 0
         if (set(log) != {"returncode", "stdout", "stderr"} or type(log["returncode"]) is not int
                 or log["returncode"] != expected_code or not isinstance(log["stdout"], str)
                 or not isinstance(log["stderr"], str)):
             raise ValueError("component_native_ci_log_outcome_changed")
         if name.startswith("run-"):
             expected_value = {"run-core.log": core, "run-policy.log": policy,
-                              "run-main.log": report["ordinary_main"]["result"]}[name]
+                              "run-main.log": report["ordinary_main"]["result"],
+                              "run-revalidation.log": report["ordinary_revalidation"]["result"]}[name]
             if strict_json(log["stdout"]) != expected_value:
                 raise ValueError("component_native_ci_log_outcome_changed")
     if set(files) != allowed:
@@ -587,7 +607,9 @@ def snapshot_scripts(directory):
     return result
 
 
-def review_package(package, scripts, output):
+def review_package(package, scripts, output, *, identifier=IDENTIFIER):
+    if identifier not in {IDENTIFIER, REVALIDATION_IDENTIFIER}:
+        raise ValueError("component_package_identity_changed")
     expected = snapshot_scripts(scripts)
     expanded = output / "expanded"
     result = command(["/usr/sbin/pkgutil", "--expand-full", str(package), str(expanded)])
@@ -596,7 +618,7 @@ def review_package(package, scripts, output):
         raise ValueError("component_expanded_scripts_or_payload_changed")
     info_raw = (expanded / "PackageInfo").read_bytes()
     info = ET.fromstring(info_raw)
-    if info.get("identifier") != IDENTIFIER or info.get("version") != "0.1.0":
+    if info.get("identifier") != identifier or info.get("version") != "0.1.0":
         raise ValueError("component_package_identity_changed")
     payload = info.find("payload")
     if payload is not None and any(int(payload.get(key, "0")) != 0 for key in ("numberOfFiles", "installKBytes")):
@@ -609,6 +631,79 @@ def review_package(package, scripts, output):
     (output / "container-signature.log").write_bytes(signature_output)
     return {"scripts": expected, "expanded_scripts_equal": True, "payload_files": 0,
             "package_info_sha256": component.digest(info_raw), "unsigned_container_verified": True}
+
+
+def build_root_revalidation(output, *, source, sources, gate, component_scripts,
+                            component_package_sha256, plan_raw, signing_identity):
+    """Build the matching Installer-only attestation from this invocation's resources.
+
+    This is deliberately not a CLI accepting an existing package or a supplied
+    receipt. The component producer has just compiled and checked every input.
+    No installed policies, credentials or private receipt files are read here.
+    """
+    if os.getuid() == 0 or os.getuid() != os.geteuid() or os.path.lexists(output):
+        raise ValueError("ordinary_new_revalidation_builder_required")
+    if freeze(source) != sources:
+        raise ValueError("component_sources_changed_before_revalidation_build")
+    output.mkdir(mode=0o700)
+    scripts = output / "scripts"
+    scripts.mkdir(mode=0o700)
+    source_snapshot = snapshot_scripts(component_scripts)
+    plan = strict_json(plan_raw)
+    resources = {"BaseManifest.json", "TargetManifest.json", "BaseIdentity.json", "ComponentPlan.json",
+                 *(row["resource"] for row in plan["delta"])}
+    if set(source_snapshot) != resources | {"postinstall", "AccountAccess-componentupdate"}:
+        raise ValueError("component_resource_set_changed")
+    for name in sorted(resources):
+        raw = (component_scripts / name).read_bytes()
+        if component.digest(raw) != source_snapshot[name]["sha256"] or source_snapshot[name]["mode"] != 0o644:
+            raise ValueError("component_resources_changed_before_revalidation_build")
+        (scripts / name).write_bytes(raw)
+        (scripts / name).chmod(0o644)
+    if (scripts / "ComponentPlan.json").read_bytes() != plan_raw:
+        raise ValueError("revalidation_compiled_plan_changed")
+    pin = output / "ComponentPlanPin.swift"
+    pin.write_text('enum ComponentUpdateCompiledPins { static let planSHA256 = "' + component.digest(plan_raw) + '" }\n')
+    helper = scripts / "AccountAccess-componentupdate"
+    command(["/usr/bin/xcrun", "swiftc", "-O", "-parse-as-library", "-warnings-as-errors",
+             "-module-cache-path", str(output.parent / "module-cache"),
+             "-D", "ACCOUNT_ACCESS_INSTALLATION_ROOT_REVALIDATION_MAIN", "-target", "arm64-apple-macos14",
+             "-framework", "Foundation", "-framework", "Security", "-framework", "CryptoKit",
+             *(str(ROOT / "macos" / name) for name in (
+                 "InstallerPayload.swift", "ComponentUpdate.swift", "ComponentUpdatePolicies.swift",
+                 "ComponentUpdateIdentity.swift", "InstallationRootBinding.swift", "InstallationRootRevalidation.swift")),
+             str(pin), "-o", str(helper)], timeout=300)
+    command(["/usr/bin/codesign", "--force", "--options", "runtime", "--timestamp",
+             "--identifier", "com.fainir.accountaccess.componentupdate", "--sign", signing_identity, str(helper)])
+    identity = signature(helper, "com.fainir.accountaccess.componentupdate")
+    if identity["team"] != plan["old_signatures"]["owner"]["team"]:
+        raise ValueError("component_helper_publisher_changed")
+    command(["/usr/bin/codesign", "--verify", "--strict", "--all-architectures",
+             "-R=" + publisher_requirement(identity["identifier"], identity["team"]), str(helper)])
+    helper.chmod(0o755)
+    (scripts / "postinstall").write_bytes(postinstall(component.digest(helper.read_bytes()), identity["team"]))
+    (scripts / "postinstall").chmod(0o755)
+    command(["/bin/sh", "-n", str(scripts / "postinstall")])
+    if set(snapshot_scripts(scripts)) != resources | {"postinstall", "AccountAccess-componentupdate"}:
+        raise ValueError("component_resource_set_changed")
+    package = output / REVALIDATION_PACKAGE_NAME
+    result = command(["/usr/bin/pkgbuild", "--nopayload", "--identifier", REVALIDATION_IDENTIFIER,
+                      "--version", "0.1.0", "--scripts", str(scripts), str(package)], timeout=120)
+    (output / "pkgbuild.log").write_bytes(result.stdout + result.stderr)
+    package_review = review_package(package, scripts, output, identifier=REVALIDATION_IDENTIFIER)
+    if freeze(source) != sources or snapshot_scripts(component_scripts) != source_snapshot:
+        raise ValueError("component_sources_or_resources_changed_during_revalidation_build")
+    record = {"schema": 1, "status": "ASSEMBLED_AND_EXPANSION_REVIEWED", "not_installed": True,
+              "helper_executed": False, "owner_data_read": False, "production_ready": False,
+              "actual_candidate_installer_ci_required_before_owner_install": True,
+              "base_source_commit": component.BASE_SOURCE, "component_source_commit": source,
+              "source_files": sources, "ci_gate": gate, "native_helper_identity": identity,
+              "component_package_sha256": component_package_sha256,
+              "plan_sha256": component.digest(plan_raw), "compiled_pin_source_sha256": component.digest(pin.read_bytes()),
+              "package": str(package), "package_sha256": component.digest(package.read_bytes()),
+              "package_bytes": package.stat().st_size, **package_review}
+    (output / "review.json").write_text(json.dumps(record, sort_keys=True, indent=2) + "\n")
+    return record
 
 
 def build(output, source, signing_identity):
@@ -651,6 +746,7 @@ def build(output, source, signing_identity):
              "-D", "ACCOUNT_ACCESS_COMPONENT_UPDATE_MAIN", "-target", "arm64-apple-macos14",
              "-framework", "Foundation", "-framework", "Security", "-framework", "CryptoKit",
              str(ROOT / "macos/InstallerPayload.swift"), str(ROOT / "macos/ComponentUpdate.swift"),
+             str(ROOT / "macos/InstallationRootBinding.swift"),
              str(ROOT / "macos/ComponentUpdatePolicies.swift"), str(ROOT / "macos/ComponentUpdateIdentity.swift"), str(pin),
              "-o", str(helper)], timeout=300)
     command(["/usr/bin/codesign", "--force", "--options", "runtime", "--timestamp",
@@ -684,6 +780,9 @@ def build(output, source, signing_identity):
     package_review = review_package(package, scripts, output)
     if freeze(source) != sources:
         raise ValueError("component_sources_changed_during_assembly")
+    revalidation = build_root_revalidation(output / "root-revalidation", source=source, sources=sources, gate=gate,
+        component_scripts=scripts, component_package_sha256=component.digest(package.read_bytes()),
+        plan_raw=plan_raw, signing_identity=signing_identity)
     record = {"schema": 1, "status": "ASSEMBLED_AND_EXPANSION_REVIEWED", "not_installed": True,
               "helper_executed": False, "owner_data_read": False, "production_ready": False,
               "actual_candidate_installer_ci_required_before_owner_install": True,
@@ -692,6 +791,7 @@ def build(output, source, signing_identity):
               "source_files": sources, "ci_gate": gate, "native_helper_identity": helper_identity,
               "plan_sha256": component.digest(plan_raw), "compiled_pin_source_sha256": component.digest(pin.read_bytes()),
               "package": str(package), "package_sha256": component.digest(package.read_bytes()),
+              "root_revalidation_package_sha256": revalidation["package_sha256"],
               "package_bytes": package.stat().st_size, **package_review}
     (output / "review.json").write_text(json.dumps(record, sort_keys=True, indent=2) + "\n")
     return record

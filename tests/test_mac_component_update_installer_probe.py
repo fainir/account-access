@@ -20,6 +20,7 @@ CI = {"GITHUB_ACTIONS": "true", "CI": "true", "RUNNER_ENVIRONMENT": "github-host
       "RUNNER_ARCH": "ARM64", "GITHUB_REPOSITORY": "fainir/account-access", "GITHUB_RUN_ID": "12345",
       "GITHUB_RUN_ATTEMPT": "1", "GITHUB_SHA": REVISION}
 SOURCE_NAMES = ("macos/ComponentUpdate.swift", "macos/ComponentUpdatePolicies.swift", "macos/ComponentUpdateIdentity.swift",
+                "macos/InstallationRootBinding.swift", "macos/InstallationRootRevalidation.swift",
                 "macos/InstallerPayload.swift", "macos/build-component-update.py", "account_access/worker_host.py",
                 "account_access/worker_bootstrap.py", "account_access/listener_binding.py")
 
@@ -128,6 +129,40 @@ def test_review_has_exact_shape_and_required_source_records():
         probe.validate_review(wrong, REVISION, PACKAGE)
 
 
+def test_revalidation_review_cannot_be_substituted_for_component_review():
+    value = review()
+    value["managed_by"] = "account-access-root-revalidation-public-review-v1"
+    assert probe.validate_review(value, REVISION, PACKAGE, revalidation=True) == value
+    with pytest.raises(ValueError):
+        probe.validate_review(value, REVISION, PACKAGE)
+    value["managed_by"] = "account-access-component-public-review-v1"
+    with pytest.raises(ValueError):
+        probe.validate_review(value, REVISION, PACKAGE, revalidation=True)
+
+
+def test_revalidation_arguments_are_all_or_none_and_hash_bounded():
+    assert probe.revalidation_requested(SimpleNamespace()) is False
+    args = dict(root_revalidation=Path("/fixture/package.pkg"), root_revalidation_review=Path("/fixture/review.json"),
+                root_revalidation_sha256="d" * 64, root_revalidation_review_sha256="e" * 64)
+    assert probe.revalidation_requested(SimpleNamespace(**args)) is True
+    for key in args:
+        with pytest.raises(ValueError):
+            probe.revalidation_requested(SimpleNamespace(**{**args, key: None}))
+    with pytest.raises(ValueError):
+        probe.revalidation_requested(SimpleNamespace(**{**args, "root_revalidation_sha256": "main"}))
+
+
+@pytest.mark.parametrize("fixture", ["device", "pending"])
+def test_synthetic_installation_mutation_is_unreachable_on_owner_mac(monkeypatch, fixture):
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    monkeypatch.setattr(probe.os, "open", lambda *_args, **_kwargs: pytest.fail("fixture touched filesystem before host guard"))
+    with pytest.raises(ValueError):
+        if fixture == "device":
+            probe.synthetic_device_mismatch({"root_revalidation_requested": True})
+        else:
+            probe.synthetic_pending_receipt({"root_revalidation_requested": True}, b"{}xx")
+
+
 @pytest.mark.parametrize("path", ["macos/../private.py", "macos//x.py", "/macos/x.py", "secrets/x.py"])
 def test_review_source_cannot_escape_public_repository_names(path):
     value = review()
@@ -204,6 +239,19 @@ def test_caught_failure_or_cleanup_error_can_never_become_pass():
     wrong = copy.deepcopy(value)
     wrong["checks"]["extra"] = True
     assert not probe.acceptance_passed(wrong)
+
+
+def test_revalidation_acceptance_requires_every_extra_check():
+    report = {"checks": dict.fromkeys(probe.CHECKS, True), "root_revalidation_requested": True,
+              "root_revalidation_checks": dict.fromkeys(probe.REVALIDATION_CHECKS, True)}
+    assert probe.acceptance_passed(report)
+    for key in probe.REVALIDATION_CHECKS:
+        changed = copy.deepcopy(report)
+        changed["root_revalidation_checks"][key] = False
+        assert not probe.acceptance_passed(changed)
+    changed = copy.deepcopy(report)
+    changed["root_revalidation_checks"].pop(next(iter(probe.REVALIDATION_CHECKS)))
+    assert not probe.acceptance_passed(changed)
 
 
 @pytest.fixture

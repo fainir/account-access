@@ -176,7 +176,9 @@ candidate adds a separate Mac service identity, native owner authorization,
 protected key custody and an offline installer. Controlled cross-user tests
 pass; genuine consumer setup, updates/reboot and private sign-in QA remain open.
 [Architecture](docs/architecture.md), [security boundaries](docs/security-and-password-sync.md)
-and [Mac installation work](docs/mac-system-provisioning.md).
+and [Mac installation work](docs/mac-system-provisioning.md). The development
+source also includes [explicit installation-root revalidation](docs/installation-root-revalidation.md);
+its Installer qualification and affected-Mac repair are pending.
 
 ## Troubleshooting
 

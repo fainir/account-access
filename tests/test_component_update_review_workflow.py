@@ -135,6 +135,22 @@ def test_dispatch_and_asset_positive_then_server_digest_required():
         namespace["asset"]({"assets": [item, item]}, 34, "b" * 64, 123)
 
 
+def test_revalidation_dispatch_is_all_or_none_and_uses_distinct_bound_assets():
+    validate = functions("require", "request_values")["request_values"]
+    extra = {"AC_ROOT_REVALIDATION_ASSET_ID": "78", "AC_ROOT_REVALIDATION_SHA256": "d" * 64,
+             "AC_ROOT_REVALIDATION_REVIEW_ASSET_ID": "90", "AC_ROOT_REVALIDATION_REVIEW_SHA256": "e" * 64}
+    assert validate({**request(), **extra}) == "a" * 40
+    for key in extra:
+        with pytest.raises(ValueError):
+            validate({**request(), **extra, key: ""})
+    for key, value in (("AC_ROOT_REVALIDATION_ASSET_ID", "34"), ("AC_ROOT_REVALIDATION_REVIEW_ASSET_ID", "78"),
+                       ("AC_ROOT_REVALIDATION_SHA256", "D" * 64), ("AC_ROOT_REVALIDATION_REVIEW_SHA256", "invalid")):
+        with pytest.raises(ValueError):
+            validate({**request(), **extra, key: value})
+    triggers = WORKFLOW.get("on", WORKFLOW.get(True))
+    assert len(triggers["workflow_dispatch"]["inputs"]) <= 10
+
+
 def test_duplicate_public_review_keys_are_refused():
     read = functions("require", "unique", "read_json")["read_json"]
     with pytest.raises(ValueError):
@@ -171,6 +187,25 @@ def preflight_fixture(tmp_path, monkeypatch):
 def test_preflight_accepts_distinct_bound_component_and_controller(tmp_path, monkeypatch):
     preflight_fixture(tmp_path, monkeypatch)
     exec(compile(python_body(PREFLIGHT), str(PATH), "exec"), {})
+
+
+def test_preflight_binds_optional_revalidation_files_and_rejects_partial_or_changed_bytes(tmp_path, monkeypatch):
+    folder, value = preflight_fixture(tmp_path, monkeypatch)
+    for name in ("root-revalidation.pkg", "root-revalidation-review.json"):
+        raw = name.encode()
+        (folder / name).write_bytes(raw)
+        value["files"][name] = hashlib.sha256(raw).hexdigest()
+    (folder / "controller.json").write_text(json.dumps(value))
+    monkeypatch.setenv("AC_ROOT_REVALIDATION_SHA256", value["files"]["root-revalidation.pkg"])
+    monkeypatch.setenv("AC_ROOT_REVALIDATION_REVIEW_SHA256", value["files"]["root-revalidation-review.json"])
+    exec(compile(python_body(PREFLIGHT), str(PATH), "exec"), {})
+    monkeypatch.setenv("AC_ROOT_REVALIDATION_REVIEW_SHA256", "")
+    with pytest.raises(AssertionError):
+        exec(compile(python_body(PREFLIGHT), str(PATH), "exec"), {})
+    monkeypatch.setenv("AC_ROOT_REVALIDATION_REVIEW_SHA256", value["files"]["root-revalidation-review.json"])
+    (folder / "root-revalidation.pkg").write_bytes(b"replacement")
+    with pytest.raises(AssertionError):
+        exec(compile(python_body(PREFLIGHT), str(PATH), "exec"), {})
 
 
 @pytest.mark.parametrize("mutation", ["missing_file", "extra_mapping", "bad_hash", "wrong_controller", "link", "duplicate_key"])

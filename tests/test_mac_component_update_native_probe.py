@@ -16,7 +16,7 @@ def report(kind):
     checks = probe.CORE_CHECKS if kind == "core" else probe.POLICY_CHECKS
     result = {"schema": 1, "status": "PASSED", "checks": dict.fromkeys(checks, True),
               "installed_reads": False, "service_actions": False}
-    result["ordinary_fixture_assertions" if kind == "core" else "count"] = 133 if kind == "core" else 41
+    result["ordinary_fixture_assertions" if kind == "core" else "count"] = 236 if kind == "core" else 41
     return result
 
 
@@ -55,6 +55,27 @@ def test_main_requires_actual_refusal_exit_and_exact_closed_result():
     for change in ({"schema": True}, {"status": "PASSED"}, {"extra": "unreviewed"}):
         with pytest.raises(ValueError):
             probe.main_result(78, json.dumps({**probe.MAIN_REFUSAL, **change}))
+
+
+def test_revalidation_requires_actual_context_refusal_with_no_readiness_claim():
+    raw = json.dumps(probe.REVALIDATION_REFUSAL)
+    assert probe.revalidation_result(78, raw) == {"returncode": 78, "result": probe.REVALIDATION_REFUSAL}
+    for code in (0, -9, 77):
+        with pytest.raises(ValueError):
+            probe.revalidation_result(code, raw)
+    for change in ({"schema": True}, {"production_ready": 0}, {"production_ready": True},
+                   {"status": "REVALIDATED"}, {"reason": "installation_root_revalidation_refused"},
+                   {"checkpoint": "source"}, {"extra": "unreviewed"}):
+        with pytest.raises(ValueError):
+            probe.revalidation_result(78, json.dumps({**probe.REVALIDATION_REFUSAL, **change}))
+
+
+def test_root_binding_and_dedicated_revalidation_sources_are_commit_bound():
+    assert "macos/InstallationRootBinding.swift" in probe.COMPILE_SOURCES
+    assert probe.REVALIDATION_SOURCE == "macos/InstallationRootRevalidation.swift"
+    assert probe.ROOT_FIXTURE_SOURCE == "macos/InstallationRootBindingTests.swift"
+    assert {probe.REVALIDATION_SOURCE, probe.ROOT_FIXTURE_SOURCE} <= set(probe.SOURCE_PATHS)
+    assert len(probe.SOURCE_PATHS) == len(set(probe.SOURCE_PATHS))
 
 
 def test_owner_mac_refused_before_git_compile_or_output(tmp_path, monkeypatch):

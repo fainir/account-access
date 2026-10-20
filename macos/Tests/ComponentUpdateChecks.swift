@@ -224,6 +224,9 @@ private enum ComponentUserDomainChecks {
         let identity = try ComponentUpdateIdentityChecks.run()
         checks += identity.0
         passed.merge(identity.1) { _, _ in true }
+        let roots = try InstallationRootBindingTests.run()
+        checks += roots.0
+        passed.merge(roots.1) { _, _ in true }
         let disabledHeader = "disabled services = {\n"
         guard try !ComponentCommands.disabled(Data((disabledHeader + "}\n").utf8)),
               try ComponentCommands.disabled(Data((disabledHeader + "\t\"com.fainir.accountaccess.broker\" => true\n}\n").utf8)),

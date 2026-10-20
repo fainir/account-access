@@ -19,10 +19,14 @@ ROOT = Path(__file__).resolve().parent.parent
 COMPILE_SOURCES = (
     "macos/ComponentUpdate.swift", "macos/InstallerPayload.swift",
     "macos/ComponentUpdatePolicies.swift", "macos/ComponentUpdateIdentity.swift",
+    "macos/InstallationRootBinding.swift",
 )
+REVALIDATION_SOURCE = "macos/InstallationRootRevalidation.swift"
+ROOT_FIXTURE_SOURCE = "macos/InstallationRootBindingTests.swift"
 SOURCE_PATHS = (
     *COMPILE_SOURCES, "macos/Tests/ComponentUpdateChecks.swift", "macos/Tests/ComponentUpdateIdentityChecks.swift",
-    "macos/Tests/ComponentUpdatePolicyChecks.swift", "scripts/mac_component_update_native_probe.py",
+    "macos/Tests/ComponentUpdatePolicyChecks.swift", REVALIDATION_SOURCE, ROOT_FIXTURE_SOURCE,
+    "scripts/mac_component_update_native_probe.py",
     ".github/workflows/mac-worker.yml",
 )
 CORE_CHECKS = frozenset({
@@ -45,6 +49,18 @@ CORE_CHECKS = frozenset({
     "unknown_preparation_child_refused",
     "disk_capacity_checked_on_target_volume",
     "native_disabled_enabled_tokens_and_ambiguity_checked",
+    "legacy_receipts_bound_to_original_bytes_owner_and_roots",
+    "legacy_shape_digest_owner_status_and_record_set_fail_closed",
+    "legacy_fixed_roots_require_bounded_nonboolean_integer_pairs",
+    "legacy_bounded_json_and_plain_escaped_nested_duplicates_rejected",
+    "device_only_migration_never_accepts_inode_or_root_set_changes",
+    "supplement_binds_uuid_and_both_original_inodes_across_device_renumbering",
+    "supplement_requires_supported_canonical_nonzero_volume_uuid",
+    "supplement_owner_publisher_schema_plan_source_policy_provenance_fail_closed",
+    "supplement_fixed_root_schema_uuid_and_inode_cannot_be_substituted",
+    "supplement_rejects_any_changed_original_receipt_bytes_or_digest",
+    "supplement_bounded_json_and_duplicate_members_rejected",
+    "owned_directory_volume_uuid_abi_is_canonical_and_nonzero",
 })
 POLICY_CHECKS = frozenset({
     "exact_install_record_preserved_except_fingerprint", "exact_host_policy_preserved_except_bootstrap_hashes",
@@ -54,6 +70,8 @@ POLICY_CHECKS = frozenset({
 })
 PIN_SOURCE = 'enum ComponentUpdateCompiledPins { static let planSHA256 = "' + "0" * 64 + '" }\n'
 MAIN_REFUSAL = {"schema": 1, "status": "REFUSED", "reason": "component_update_context_required"}
+REVALIDATION_REFUSAL = {"schema": 1, "status": "REFUSED", "reason": "installation_revalidation_context_required",
+                        "production_ready": False}
 ENVIRONMENT = {"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "LANG": "C"}
 MAX_LOG = 128 * 1024
 
@@ -66,7 +84,7 @@ def fixture_result(raw, *, kind):
     """A count or optimistic summary alone cannot satisfy native acceptance."""
     value = json.loads(raw)
     expected = CORE_CHECKS if kind == "core" else POLICY_CHECKS
-    count_key, count = ("ordinary_fixture_assertions", 133) if kind == "core" else ("count", 41)
+    count_key, count = ("ordinary_fixture_assertions", 236) if kind == "core" else ("count", 41)
     if (not isinstance(value, dict)
             or set(value) != {"schema", "status", "checks", count_key, "installed_reads", "service_actions"}
             or type(value["schema"]) is not int or value["schema"] != 1
@@ -82,6 +100,14 @@ def main_result(returncode, raw):
     value = json.loads(raw)
     if returncode != 78 or value != MAIN_REFUSAL or type(value.get("schema")) is not int:
         raise ValueError("native_main_refusal_failed")
+    return {"returncode": returncode, "result": value}
+
+
+def revalidation_result(returncode, raw):
+    value = json.loads(raw)
+    if (returncode != 78 or value != REVALIDATION_REFUSAL or type(value.get("schema")) is not int
+            or type(value.get("production_ready")) is not bool):
+        raise ValueError("native_revalidation_refusal_failed")
     return {"returncode": returncode, "result": value}
 
 
@@ -137,7 +163,8 @@ def main():
     report = {"schema": 1, "status": "FAILED", "environment": "ordinary-disposable-mac-ci",
               "source_revision": revision, "source_sha256": hashes,
               "run_id": os.environ["GITHUB_RUN_ID"], "run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
-              "checks": {"core_fixture": False, "policy_fixture": False, "ordinary_main_refusal": False},
+              "checks": {"core_fixture": False, "policy_fixture": False, "ordinary_main_refusal": False,
+                         "ordinary_revalidation_refusal": False},
               "logs": {}, "generated_pin_source": PIN_SOURCE, "generated_pin_source_sha256": digest(PIN_SOURCE.encode()),
               "installed_reads": False, "service_actions": False, "root_execution": False,
               "production_ready": False}
@@ -153,7 +180,8 @@ def main():
                 ("policy", "macos/Tests/ComponentUpdatePolicyChecks.swift", [str(ROOT / "macos/ComponentUpdatePolicies.swift")]),
             ):
                 executable = scratch / (kind + "-checks")
-                extra = [str(ROOT / "macos/Tests/ComponentUpdateIdentityChecks.swift")] if kind == "core" else []
+                extra = [str(ROOT / "macos/Tests/ComponentUpdateIdentityChecks.swift"),
+                         str(ROOT / ROOT_FIXTURE_SOURCE)] if kind == "core" else []
                 compiled = run([*base, *compile_sources, *extra, str(ROOT / fixtures), "-o", str(executable)],
                                output=output, log_name="compile-" + kind + ".log", report=report, timeout=120)
                 if compiled.returncode != 0:
@@ -176,6 +204,16 @@ def main():
             report["ordinary_main"] = main_result(executed.returncode, executed.stdout)
             (output / "ordinary-main.json").write_text(json.dumps(report["ordinary_main"], sort_keys=True) + "\n")
             report["checks"]["ordinary_main_refusal"] = True
+            executable = scratch / "ordinary-revalidation"
+            compiled = run([*base, "-D", "ACCOUNT_ACCESS_INSTALLATION_ROOT_REVALIDATION_MAIN", *sources,
+                            str(ROOT / REVALIDATION_SOURCE), str(pin), "-o", str(executable)],
+                           output=output, log_name="compile-revalidation.log", report=report, timeout=120)
+            if compiled.returncode != 0:
+                raise ValueError("native_revalidation_compile_failed")
+            executed = run([str(executable)], output=output, log_name="run-revalidation.log", report=report, timeout=10)
+            report["ordinary_revalidation"] = revalidation_result(executed.returncode, executed.stdout)
+            (output / "ordinary-revalidation.json").write_text(json.dumps(report["ordinary_revalidation"], sort_keys=True) + "\n")
+            report["checks"]["ordinary_revalidation_refusal"] = True
         if hashes != {name: digest((ROOT / name).read_bytes()) for name in SOURCE_PATHS}:
             raise ValueError("native_probe_source_changed")
         report["status"] = "PASSED"

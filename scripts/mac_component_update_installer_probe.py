@@ -49,6 +49,13 @@ CHECKS = frozenset({"fresh_hosted_vm", "reviewed_public_inputs", "candidate_expa
                     "actual_candidate_installer", "target_public_image", "only_three_policy_values_changed",
                     "unchanged_worker_plans_and_original_journal", "verified_head", "same_package_reapplication",
                     "reapplication_preserved_bytes_and_ids", "created_job_stopped"})
+REVALIDATION_NAMESPACE = Path("/Library/Application Support/Account Access Installation Binding")
+REVALIDATION_RECEIPT = REVALIDATION_NAMESPACE / "revalidated-v1.json"
+REVALIDATION_CHECKS = frozenset({"reviewed_revalidation_input", "genuine_signed_revalidation_helper",
+    "exact_legacy_revalidation_no_receipt", "synthetic_device_mismatch_same_inodes",
+    "actual_revalidation_installer", "protected_supplement_created", "revalidation_reapplication",
+    "original_receipts_unchanged", "supplement_preserved_by_component", "bounded_pending_receipt_recovered",
+    "revalidation_after_component"})
 
 
 def require(value):
@@ -227,12 +234,13 @@ def stage_file(source, destination, expected, maximum):
         os.close(incoming)
 
 
-def validate_review(value, source, candidate_hash):
+def validate_review(value, source, candidate_hash, *, revalidation=False):
     require(hex_value(source, 40) and hex_value(candidate_hash, 64))
     require(isinstance(value, dict) and set(value) == {"schema", "managed_by", "component_source_commit", "base_source_commit",
             "package_sha256", "package_bytes", "plan_sha256", "scripts", "source_files"}
             and type(value["schema"]) is int and value["schema"] == 1
-            and value["managed_by"] == "account-access-component-public-review-v1"
+            and value["managed_by"] == ("account-access-root-revalidation-public-review-v1" if revalidation
+                                        else "account-access-component-public-review-v1")
             and value["component_source_commit"] == source and value["base_source_commit"] == BASE_SOURCE
             and value["package_sha256"] == candidate_hash and type(value["package_bytes"]) is int
             and 0 < value["package_bytes"] <= 32 * 1024 * 1024
@@ -240,7 +248,8 @@ def validate_review(value, source, candidate_hash):
             and isinstance(value["scripts"], dict) and len(value["scripts"]) == 15
             and isinstance(value["source_files"], dict) and 8 <= len(value["source_files"]) <= 100)
     required = {"macos/ComponentUpdate.swift", "macos/ComponentUpdatePolicies.swift", "macos/ComponentUpdateIdentity.swift",
-                "macos/InstallerPayload.swift", "macos/build-component-update.py"}
+                "macos/InstallerPayload.swift", "macos/build-component-update.py",
+                "macos/InstallationRootBinding.swift", "macos/InstallationRootRevalidation.swift"}
     require(required <= set(value["source_files"]))
     for name, digest in value["source_files"].items():
         require(isinstance(name, str) and len(name) <= 512
@@ -838,14 +847,15 @@ class ArchiveExpansion:
         self.descriptors.clear()
 
 
-def candidate_scripts(expanded, review, *, staging_anchor, diagnostics):
+def candidate_scripts(expanded, review, *, staging_anchor, diagnostics, revalidation=False):
     archive = ArchiveExpansion(staging_anchor, expanded, diagnostics)
     try:
         diagnostics["failure_stage"] = "candidate_top_level"
         require({"PackageInfo", "Scripts"} <= archive.names["expanded"] <= {"PackageInfo", "Scripts", "Bom"})
         diagnostics["failure_stage"] = "candidate_package_info"
         info = ET.fromstring(archive.read("expanded", "PackageInfo", maximum=64 * 1024)[0])
-        require(info.get("identifier") == "com.fainir.accountaccess.componentupdate76v2" and info.get("version") == "0.1.0")
+        identifier = "com.fainir.accountaccess.installationrootrevalidation" if revalidation else "com.fainir.accountaccess.componentupdate76v2"
+        require(info.get("identifier") == identifier and info.get("version") == "0.1.0")
         diagnostics["failure_stage"] = "candidate_payload"
         payload = info.find("payload")
         require(payload is None or all(int(payload.get(key, "0")) == 0 for key in ("numberOfFiles", "installKBytes")))
@@ -934,18 +944,117 @@ def fixed_records():
 def acceptance_passed(report):
     return (isinstance(report.get("checks"), dict) and set(report["checks"]) == CHECKS
             and all(value is True for value in report["checks"].values())
+            and (report.get("root_revalidation_requested", False) is False or (
+                report.get("root_revalidation_requested") is True
+                and set(report.get("root_revalidation_checks", {})) == REVALIDATION_CHECKS
+                and all(value is True for value in report["root_revalidation_checks"].values())))
             and "failure_reason" not in report and "cleanup_unverified" not in report)
+
+
+def revalidation_requested(args):
+    paths = [getattr(args, key, None) for key in ("root_revalidation", "root_revalidation_review")]
+    hashes = [getattr(args, key, None) for key in ("root_revalidation_sha256", "root_revalidation_review_sha256")]
+    require(not any([*paths, *hashes]) or (all(isinstance(path, Path) for path in paths)
+                                          and all(hex_value(value, 64) for value in hashes)))
+    return bool(hashes[0])
+
+
+def synthetic_device_mismatch(report):
+    """Mutate only this run's disposable, freshly-created empty test install.
+
+    Never an owner repair API: the root/hosted-VM guard and all fresh-install
+    gates run again before the first file write. Existing installations and
+    private account enrollment cannot reach this fixture path.
+    """
+    guard()
+    require(report.get("root_revalidation_requested") is True
+            and report.get("environment") == "fresh-hosted-mac-actual-installer"
+            and report.get("personal_accounts_used") == 0 and report.get("enrollment_attempted") is False
+            and all(report["checks"].get(key) is True for key in (
+                "fresh_hosted_vm", "actual_base_installer", "base_public_image", "fresh_gui_closed"))
+            and report["checks"].get("actual_candidate_installer") is False
+            and not os.path.lexists(REVALIDATION_NAMESPACE))
+    ready = read_file(JOURNAL / "ready.json", maximum=8192)
+    require(read_file(JOURNAL / "published.json", maximum=8192) == ready)
+    value = json.loads(ready)
+    require(set(value) == {"manifest_sha256", "roots"} and value["manifest_sha256"] == BASE_MANIFEST_SHA256
+            and set(value["roots"]) == {str(BASE), str(APP)})
+    original_inodes = {}
+    for path in (BASE, APP):
+        info = path.lstat()
+        pair = value["roots"][str(path)]
+        require(info.st_uid == 0 and pair == [info.st_dev, info.st_ino]
+                and all(type(item) is int for item in pair) and 0 <= info.st_dev < 2**31 - 1)
+        original_inodes[str(path)] = info.st_ino
+        value["roots"][str(path)] = [info.st_dev + 1, info.st_ino]
+    changed = json.dumps(value, sort_keys=True).encode() + b"\n"
+    require(0 < len(changed) <= 8192)
+    for name in ("ready.json", "published.json"):
+        path = JOURNAL / name
+        fd = os.open(path, os.O_WRONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+        try:
+            info = os.fstat(fd)
+            protected_metadata(info, mode=0o600, directory=False)
+            require(stamp(info) == stamp(path.lstat()))
+            os.ftruncate(fd, 0)
+            offset = 0
+            while offset < len(changed):
+                count = os.write(fd, changed[offset:])
+                require(count > 0)
+                offset += count
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+        require(read_file(path, maximum=8192) == changed)
+    require(all(path.lstat().st_ino == original_inodes[str(path)] for path in (BASE, APP)))
+    report["synthetic_device_fixture"] = {"only_disposable_receipts_changed": True,
+        "root_inodes_unchanged": True, "old_ready_sha256": sha(ready), "fixture_ready_sha256": sha(changed)}
+
+
+def synthetic_pending_receipt(report, expected):
+    """Arrange an interrupted publication only from this VM's generated proof."""
+    guard()
+    require(report.get("root_revalidation_requested") is True
+            and report.get("environment") == "fresh-hosted-mac-actual-installer"
+            and report.get("personal_accounts_used") == 0 and report.get("enrollment_attempted") is False
+            and report["root_revalidation_checks"].get("actual_revalidation_installer") is True
+            and report["checks"].get("actual_candidate_installer") is False
+            and isinstance(expected, bytes) and 4 <= len(expected) <= 8192)
+    fd = os.open(REVALIDATION_NAMESPACE, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        protected_metadata(os.fstat(fd), mode=0o700)
+        deny_only_acl(fd)
+        require(set(os.listdir(fd)) == {"revalidated-v1.json"})
+        require(read_file(REVALIDATION_RECEIPT, maximum=8192) == expected)
+        # link is exclusive; a failed fixture leaves an inert conflict and fails QA.
+        os.link("revalidated-v1.json", "pending-revalidated-v1.json", src_dir_fd=fd, dst_dir_fd=fd, follow_symlinks=False)
+        os.unlink("revalidated-v1.json", dir_fd=fd)
+        pending = os.open("pending-revalidated-v1.json", os.O_WRONLY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=fd)
+        try:
+            protected_metadata(os.fstat(pending), mode=0o600, directory=False)
+            os.ftruncate(pending, len(expected) // 2)
+            os.fsync(pending)
+        finally:
+            os.close(pending)
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+    report["synthetic_pending_fixture"] = {"only_disposable_generated_attestation_changed": True,
+        "fixture_kind": "truncated_generated_attestation", "expected_sha256": sha(expected)}
 
 
 def run(args):
     guard()  # Before any filesystem, Installer, directory-account or job lookup.
     require(hex_value(args.source, 40) and hex_value(args.candidate_sha256, 64) and hex_value(args.review_sha256, 64))
+    root_revalidation = revalidation_requested(args)
     output = RootOutput(args.report, os.environ["GITHUB_RUN_ID"])
     report = {"schema": 1, "status": "FAILED", "environment": "fresh-hosted-mac-actual-installer",
               "source_revision": args.source, "controller_revision": os.environ["GITHUB_SHA"],
               "candidate_sha256": args.candidate_sha256, "base_package_sha256": BASE_PACKAGE_SHA256,
               "run_id": os.environ["GITHUB_RUN_ID"], "run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
               "review_sha256": args.review_sha256, "checks": dict.fromkeys(CHECKS, False), "logs": {},
+              "root_revalidation_requested": root_revalidation,
+              "root_revalidation_checks": dict.fromkeys(REVALIDATION_CHECKS, False) if root_revalidation else {},
               "failure_stage": "fresh_vm_preflight",
               "personal_accounts_used": 0, "enrollment_attempted": False, "private_vault_read": False,
               "crash_injection_tested": False, "physical_delivery_verified": False, "production_ready": False,
@@ -953,7 +1062,7 @@ def run(args):
     touched = candidate_attempted = False
     diagnostic_install = diagnostic_plan = None
     try:
-        for path in (BASE, COMPONENTS, JOURNAL, APP, JOB):
+        for path in (BASE, COMPONENTS, JOURNAL, APP, JOB, REVALIDATION_NAMESPACE):
             require(not os.path.lexists(path))
         for lookup in (pwd.getpwnam, grp.getgrnam):
             try:
@@ -992,6 +1101,30 @@ def run(args):
             command(["/usr/bin/codesign", "--verify", "--strict", "--all-architectures", "-R=" + requirement,
                      str(scripts / "AccountAccess-componentupdate")], report=report, output=output, log="signature.log")
             report["checks"]["genuine_signed_helper"] = True
+            if root_revalidation:
+                report["failure_stage"] = "root_revalidation_inputs"
+                stage_file(args.root_revalidation, stage / "root-revalidation.pkg", args.root_revalidation_sha256, 32 * 1024 * 1024)
+                stage_file(args.root_revalidation_review, stage / "root-revalidation-review.json", args.root_revalidation_review_sha256, 1024 * 1024)
+                root_review = validate_review(json.loads(read_file(stage / "root-revalidation-review.json")), args.source,
+                                              args.root_revalidation_sha256, revalidation=True)
+                require(root_review["source_files"] == review["source_files"]
+                        and root_review["plan_sha256"] == review["plan_sha256"]
+                        and (stage / "root-revalidation.pkg").stat().st_size == root_review["package_bytes"])
+                resources = set(review["scripts"]) - {"AccountAccess-componentupdate", "postinstall"}
+                require(resources == set(root_review["scripts"]) - {"AccountAccess-componentupdate", "postinstall"}
+                        and all(root_review["scripts"][name] == review["scripts"][name] for name in resources))
+                bind_sources(root_review, args.repository, args.source)
+                command(["/usr/sbin/pkgutil", "--expand-full", str(stage / "root-revalidation.pkg"), str(stage / "root-expanded")],
+                        report=report, output=output, log="root-revalidation-expand.log", timeout=60)
+                root_scripts, root_plan, root_target = candidate_scripts(stage / "root-expanded", root_review,
+                    staging_anchor=stage, diagnostics=report, revalidation=True)
+                require(root_plan == plan and root_target == target)
+                report["root_revalidation_checks"]["reviewed_revalidation_input"] = True
+                command(["/usr/bin/codesign", "--verify", "--strict", "--all-architectures", "-R=" + requirement,
+                         str(root_scripts / "AccountAccess-componentupdate")], report=report, output=output, log="root-revalidation-signature.log")
+                report["root_revalidation_checks"]["genuine_signed_revalidation_helper"] = True
+                report["root_revalidation_sha256"] = args.root_revalidation_sha256
+                report["root_revalidation_review_sha256"] = args.root_revalidation_review_sha256
             touched = True
             report["failure_stage"] = "base_installer"
             command(["/usr/sbin/installer", "-pkg", str(stage / "base.pkg"), "-target", "/"],
@@ -1004,6 +1137,42 @@ def run(args):
             # executable/PID/birth and enforces genuine absence before mutation.
             close_fresh_gui(console, report=report, output=output)
             report["checks"]["fresh_gui_closed"] = True
+            if root_revalidation:
+                report["failure_stage"] = "root_revalidation_exact_legacy"
+                candidate_install(stage / "root-revalidation.pkg", report=report, output=output,
+                    log="root-legacy-installer.log", daemon_log="root-legacy-daemon-install.log")
+                require(not os.path.lexists(REVALIDATION_NAMESPACE))
+                report["root_revalidation_checks"]["exact_legacy_revalidation_no_receipt"] = True
+                report["failure_stage"] = "synthetic_device_fixture"
+                synthetic_device_mismatch(report)
+                report["root_revalidation_checks"]["synthetic_device_mismatch_same_inodes"] = True
+                fixture_retained = fixed_records()
+                report["failure_stage"] = "root_revalidation_installer"
+                candidate_install(stage / "root-revalidation.pkg", report=report, output=output,
+                    log="root-revalidation-installer.log", daemon_log="root-revalidation-daemon-install.log")
+                report["root_revalidation_checks"]["actual_revalidation_installer"] = True
+                protected_metadata(REVALIDATION_NAMESPACE.lstat(), mode=0o700)
+                protected_metadata(REVALIDATION_RECEIPT.lstat(), mode=0o600, directory=False)
+                supplement = (sha(read_file(REVALIDATION_RECEIPT, maximum=8192)), stamp(REVALIDATION_RECEIPT.lstat()))
+                require(fixed_records() == fixture_retained)
+                report["root_revalidation_checks"]["protected_supplement_created"] = True
+                report["failure_stage"] = "root_revalidation_reapplication"
+                candidate_install(stage / "root-revalidation.pkg", report=report, output=output,
+                    log="root-revalidation-reapply-installer.log", daemon_log="root-revalidation-reapply-daemon-install.log")
+                require((sha(read_file(REVALIDATION_RECEIPT, maximum=8192)), stamp(REVALIDATION_RECEIPT.lstat())) == supplement
+                        and fixed_records() == fixture_retained)
+                report["root_revalidation_checks"]["revalidation_reapplication"] = True
+                report["root_revalidation_checks"]["original_receipts_unchanged"] = True
+                report["failure_stage"] = "root_revalidation_pending_fixture"
+                generated_supplement = read_file(REVALIDATION_RECEIPT, maximum=8192)
+                synthetic_pending_receipt(report, generated_supplement)
+                candidate_install(stage / "root-revalidation.pkg", report=report, output=output,
+                    log="root-pending-recovery-installer.log", daemon_log="root-pending-recovery-daemon-install.log")
+                require(read_file(REVALIDATION_RECEIPT, maximum=8192) == generated_supplement
+                        and not os.path.lexists(REVALIDATION_NAMESPACE / "pending-revalidated-v1.json")
+                        and fixed_records() == fixture_retained)
+                supplement = (sha(generated_supplement), stamp(REVALIDATION_RECEIPT.lstat()))
+                report["root_revalidation_checks"]["bounded_pending_receipt_recovered"] = True
             report["failure_stage"] = "baseline_public_records"
             before, retained = policies(), fixed_records()
             diagnostic_install, diagnostic_plan = before["install"], review["plan_sha256"]
@@ -1040,6 +1209,15 @@ def run(args):
             require(policies() == expected and fixed_records() == retained
                     and json.loads(read_file(COMPONENTS / "head.json", maximum=4096)) == head)
             report["checks"]["reapplication_preserved_bytes_and_ids"] = True
+            if root_revalidation:
+                require((sha(read_file(REVALIDATION_RECEIPT, maximum=8192)), stamp(REVALIDATION_RECEIPT.lstat())) == supplement)
+                report["root_revalidation_checks"]["supplement_preserved_by_component"] = True
+                report["failure_stage"] = "root_revalidation_after_component"
+                candidate_install(stage / "root-revalidation.pkg", report=report, output=output,
+                    log="root-after-component-installer.log", daemon_log="root-after-component-daemon-install.log")
+                require((sha(read_file(REVALIDATION_RECEIPT, maximum=8192)), stamp(REVALIDATION_RECEIPT.lstat())) == supplement
+                        and policies() == expected and fixed_records() == retained)
+                report["root_revalidation_checks"]["revalidation_after_component"] = True
             report["failure_stage"] = "public_staging_cleanup"
     except Exception:
         report["failure_reason"] = "actual_component_installer_acceptance_failed"
@@ -1080,6 +1258,10 @@ def main():
         parser.add_argument("--" + name, type=Path, required=True)
     for name in ("review-sha256", "source", "candidate-sha256"):
         parser.add_argument("--" + name, required=True)
+    for name in ("root-revalidation", "root-revalidation-review"):
+        parser.add_argument("--" + name, type=Path)
+    for name in ("root-revalidation-sha256", "root-revalidation-review-sha256"):
+        parser.add_argument("--" + name)
     return run(parser.parse_args())
 
 

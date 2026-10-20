@@ -27,6 +27,22 @@ on:
         description: Public review JSON SHA256
         required: true
         type: string
+      root_revalidation_asset_id:
+        description: Optional matching root-revalidation package asset ID (all four fields together)
+        required: false
+        type: string
+      root_revalidation_sha256:
+        description: Optional root-revalidation package SHA256
+        required: false
+        type: string
+      root_revalidation_review_asset_id:
+        description: Optional public root-revalidation review asset ID
+        required: false
+        type: string
+      root_revalidation_review_sha256:
+        description: Optional public root-revalidation review SHA256
+        required: false
+        type: string
 permissions:
   contents: read
 defaults:
@@ -61,6 +77,10 @@ jobs:
       AC_CANDIDATE_SHA256: ${{ inputs.candidate_sha256 }}
       AC_REVIEW_ASSET_ID: ${{ inputs.review_asset_id }}
       AC_REVIEW_SHA256: ${{ inputs.review_sha256 }}
+      AC_ROOT_REVALIDATION_ASSET_ID: ${{ inputs.root_revalidation_asset_id }}
+      AC_ROOT_REVALIDATION_SHA256: ${{ inputs.root_revalidation_sha256 }}
+      AC_ROOT_REVALIDATION_REVIEW_ASSET_ID: ${{ inputs.root_revalidation_review_asset_id }}
+      AC_ROOT_REVALIDATION_REVIEW_SHA256: ${{ inputs.root_revalidation_review_sha256 }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -98,6 +118,13 @@ jobs:
               for key in ('AC_CANDIDATE_RELEASE_ID', 'AC_CANDIDATE_ASSET_ID', 'AC_REVIEW_ASSET_ID'):
                   require(re.fullmatch(r'[1-9][0-9]{0,19}', environment[key]) is not None)
               require(environment['AC_CANDIDATE_ASSET_ID'] != environment['AC_REVIEW_ASSET_ID'])
+              extra = [environment.get(key, '') for key in ('AC_ROOT_REVALIDATION_ASSET_ID', 'AC_ROOT_REVALIDATION_SHA256',
+                  'AC_ROOT_REVALIDATION_REVIEW_ASSET_ID', 'AC_ROOT_REVALIDATION_REVIEW_SHA256')]
+              require(not any(extra) or all(extra))
+              if all(extra):
+                  require(all(re.fullmatch(r'[1-9][0-9]{0,19}', value) is not None for value in (extra[0], extra[2])))
+                  require(all(re.fullmatch(r'[a-f0-9]{64}', value) is not None for value in (extra[1], extra[3])))
+                  require(len({environment['AC_CANDIDATE_ASSET_ID'], environment['AC_REVIEW_ASSET_ID'], extra[0], extra[2]}) == 4)
               return source
           def api(endpoint):
               result = subprocess.run(['gh', 'api', '--hostname', 'github.com', endpoint],
@@ -180,11 +207,25 @@ jobs:
               require(re.fullmatch(r'[a-f0-9]{64}', sha) is not None)
               raw = subprocess.check_output(['git', 'show', source + ':' + name], timeout=5)
               require(len(raw) <= 2 * 1024 * 1024 and hashlib.sha256(raw).hexdigest() == sha)
+          names = ['base.pkg', 'base-manifest.json', 'candidate.pkg', 'review.json']
+          if os.environ.get('AC_ROOT_REVALIDATION_SHA256'):
+              extra_pkg = asset(release, int(os.environ['AC_ROOT_REVALIDATION_ASSET_ID']), os.environ['AC_ROOT_REVALIDATION_SHA256'], 32 * 1024 * 1024)
+              extra_review = asset(release, int(os.environ['AC_ROOT_REVALIDATION_REVIEW_ASSET_ID']), os.environ['AC_ROOT_REVALIDATION_REVIEW_SHA256'], 128 * 1024)
+              download(extra_pkg, output / 'root-revalidation.pkg', os.environ['AC_ROOT_REVALIDATION_SHA256'])
+              download(extra_review, output / 'root-revalidation-review.json', os.environ['AC_ROOT_REVALIDATION_REVIEW_SHA256'])
+              extra = read_json((output / 'root-revalidation-review.json').read_bytes())
+              require(set(extra) == set(review) and type(extra['schema']) is int and extra['schema'] == 1)
+              require(extra['managed_by'] == 'account-access-root-revalidation-public-review-v1'
+                  and extra['component_source_commit'] == source and extra['base_source_commit'] == BASE_SOURCE
+                  and extra['package_sha256'] == os.environ['AC_ROOT_REVALIDATION_SHA256']
+                  and type(extra['package_bytes']) is int and extra['package_bytes'] == extra_pkg['size']
+                  and extra['plan_sha256'] == review['plan_sha256'] and extra['source_files'] == review['source_files'])
+              names += ['root-revalidation.pkg', 'root-revalidation-review.json']
           probe = pathlib.Path('scripts/mac_component_update_installer_probe.py').read_bytes()
           require(subprocess.check_output(['git', 'show', controller_revision + ':scripts/mac_component_update_installer_probe.py'], timeout=5) == probe)
           controller = {'schema': 1, 'controller_revision': controller_revision, 'component_source_commit': source,
               'probe_sha256': hashlib.sha256(probe).hexdigest(),
-              'files': {name: file_sha(output / name) for name in ('base.pkg', 'base-manifest.json', 'candidate.pkg', 'review.json')}}
+              'files': {name: file_sha(output / name) for name in names}}
           (output / 'controller.json').write_text(json.dumps(controller, sort_keys=True) + '\n')
           PY
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -205,6 +246,8 @@ jobs:
       AC_COMPONENT_SOURCE: ${{ inputs.component_source }}
       AC_CANDIDATE_SHA256: ${{ inputs.candidate_sha256 }}
       AC_REVIEW_SHA256: ${{ inputs.review_sha256 }}
+      AC_ROOT_REVALIDATION_SHA256: ${{ inputs.root_revalidation_sha256 }}
+      AC_ROOT_REVALIDATION_REVIEW_SHA256: ${{ inputs.root_revalidation_review_sha256 }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -222,7 +265,11 @@ jobs:
           uv run --no-project --python 3.13 python -I -B - <<'PY'
           import hashlib, json, os, pathlib, re, stat, subprocess
           folder = pathlib.Path(os.environ['RUNNER_TEMP']) / 'account-access-component-input'
-          assert set(item.name for item in folder.iterdir()) == {'base.pkg', 'base-manifest.json', 'candidate.pkg', 'review.json', 'controller.json'}
+          files = {'base.pkg', 'base-manifest.json', 'candidate.pkg', 'review.json'}
+          extra = [os.environ.get(key, '') for key in ('AC_ROOT_REVALIDATION_SHA256', 'AC_ROOT_REVALIDATION_REVIEW_SHA256')]
+          assert not any(extra) or all(re.fullmatch(r'[a-f0-9]{64}', value) is not None for value in extra)
+          if all(extra): files |= {'root-revalidation.pkg', 'root-revalidation-review.json'}
+          assert set(item.name for item in folder.iterdir()) == files | {'controller.json'}
           for item in folder.iterdir():
               info = item.lstat()
               assert stat.S_ISREG(info.st_mode) and info.st_nlink == 1 and info.st_uid == os.getuid()
@@ -241,13 +288,16 @@ jobs:
           assert value['controller_revision'] == controller_revision and value['component_source_commit'] == source
           assert re.fullmatch(r'[a-f0-9]{40}', source) and re.fullmatch(r'[a-f0-9]{40}', controller_revision)
           assert subprocess.check_output(['git', 'rev-parse', 'HEAD'], timeout=5, text=True).strip() == controller_revision
-          assert set(value['files']) == {'base.pkg', 'base-manifest.json', 'candidate.pkg', 'review.json'}
+          assert set(value['files']) == files
           for name, sha in value['files'].items():
               assert re.fullmatch(r'[a-f0-9]{64}', sha)
               path = folder / name
               with path.open('rb') as stream: assert hashlib.file_digest(stream, 'sha256').hexdigest() == sha
           assert value['files']['candidate.pkg'] == os.environ['AC_CANDIDATE_SHA256']
           assert value['files']['review.json'] == os.environ['AC_REVIEW_SHA256']
+          if all(extra):
+              assert value['files']['root-revalidation.pkg'] == extra[0]
+              assert value['files']['root-revalidation-review.json'] == extra[1]
           probe = pathlib.Path('scripts/mac_component_update_installer_probe.py').read_bytes()
           assert hashlib.sha256(probe).hexdigest() == value['probe_sha256']
           assert subprocess.check_output(['git', 'show', controller_revision + ':scripts/mac_component_update_installer_probe.py'], timeout=5) == probe
@@ -259,6 +309,13 @@ jobs:
           test "$GITHUB_REPOSITORY" = fainir/account-access
           test ! -e '/Applications/Account Access.app'
           test ! -e '/Library/Application Support/Account Access'
+          set --
+          if [ -n "$AC_ROOT_REVALIDATION_SHA256" ]; then
+            set -- --root-revalidation "$RUNNER_TEMP/account-access-component-input/root-revalidation.pkg" \
+              --root-revalidation-review "$RUNNER_TEMP/account-access-component-input/root-revalidation-review.json" \
+              --root-revalidation-sha256 "$AC_ROOT_REVALIDATION_SHA256" \
+              --root-revalidation-review-sha256 "$AC_ROOT_REVALIDATION_REVIEW_SHA256"
+          fi
           AC_COMPONENT_PYTHON=$(uv python find 3.13)
           sudo -n /usr/bin/env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin LANG=C \
             GITHUB_ACTIONS=true CI=true RUNNER_ENVIRONMENT=github-hosted RUNNER_OS=macOS RUNNER_ARCH=ARM64 \
@@ -272,6 +329,7 @@ jobs:
             --review "$RUNNER_TEMP/account-access-component-input/review.json" \
             --review-sha256 "$AC_REVIEW_SHA256" --source "$AC_COMPONENT_SOURCE" \
             --candidate-sha256 "$AC_CANDIDATE_SHA256" --repository "$GITHUB_WORKSPACE" \
+            "$@" \
             --report "/Library/Logs/AccountAccessComponentInstallerQA-${GITHUB_RUN_ID}/report.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()

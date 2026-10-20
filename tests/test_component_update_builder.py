@@ -42,25 +42,29 @@ def evidence():
     sources["scripts/mac_launchctl_disable_probe.py"] = builder.component.digest(
         (builder.ROOT / "scripts/mac_launchctl_disable_probe.py").read_bytes())
     run_id = 1006
-    core = {"schema": 1, "status": "PASSED", "ordinary_fixture_assertions": 133,
+    core = {"schema": 1, "status": "PASSED", "ordinary_fixture_assertions": 236,
             "checks": dict.fromkeys(builder.CORE_CHECKS, True), "installed_reads": False, "service_actions": False}
     policy = {"schema": 1, "status": "PASSED", "count": 41,
               "checks": dict.fromkeys(builder.POLICY_CHECKS, True), "installed_reads": False, "service_actions": False}
     main = {"returncode": 78, "result": {"schema": 1, "status": "REFUSED", "reason": "component_update_context_required"}}
+    revalidation = {"returncode": 78, "result": {"schema": 1, "status": "REFUSED",
+        "reason": "installation_revalidation_context_required", "production_ready": False}}
     native = {"schema": 1, "status": "PASSED", "environment": "ordinary-disposable-mac-ci",
               "source_revision": SOURCE, "source_sha256": {name: sources[name] for name in builder.NATIVE_CI_SOURCES},
               "run_id": str(run_id), "run_attempt": "1", "checks": dict.fromkeys(
-                  ("core_fixture", "policy_fixture", "ordinary_main_refusal"), True),
-              "core_fixture_json": core, "policy_fixture_json": policy, "ordinary_main": main,
+                  ("core_fixture", "policy_fixture", "ordinary_main_refusal", "ordinary_revalidation_refusal"), True),
+              "core_fixture_json": core, "policy_fixture_json": policy, "ordinary_main": main, "ordinary_revalidation": revalidation,
               "logs": {}, "generated_pin_source": builder.ZERO_PIN,
               "generated_pin_source_sha256": builder.component.digest(builder.ZERO_PIN.encode()),
               "installed_reads": False, "service_actions": False, "root_execution": False, "production_ready": False}
-    native_files = {"core-fixture.json": encoded(core), "policy-fixture.json": encoded(policy), "ordinary-main.json": encoded(main)}
+    native_files = {"core-fixture.json": encoded(core), "policy-fixture.json": encoded(policy), "ordinary-main.json": encoded(main),
+                    "ordinary-revalidation.json": encoded(revalidation)}
     for action in ("compile", "run"):
-        for kind in ("core", "policy", "main"):
+        for kind in ("core", "policy", "main", "revalidation"):
             name = action + "-" + kind + ".log"
-            value = {"returncode": 78 if (action, kind) == ("run", "main") else 0,
-                     "stdout": json.dumps({"core": core, "policy": policy, "main": main["result"]}[kind]) if action == "run" else "",
+            value = {"returncode": 78 if action == "run" and kind in {"main", "revalidation"} else 0,
+                     "stdout": json.dumps({"core": core, "policy": policy, "main": main["result"],
+                        "revalidation": revalidation["result"]}[kind]) if action == "run" else "",
                      "stderr": ""}
             native_files[name] = encoded(value)
             native["logs"][name] = builder.component.digest(native_files[name])
@@ -252,7 +256,8 @@ def test_archive_provenance_cannot_be_supplied_by_optimistic_json(monkeypatch, e
 
 
 @pytest.mark.parametrize("change", ["old-source", "missing-input", "root-claim", "count-only", "missing-check",
-                                  "wrong-policy", "wrong-main", "wrong-pin", "log-digest", "raw-mismatch", "extra-member"])
+                                  "wrong-policy", "wrong-main", "wrong-revalidation", "missing-revalidation",
+                                  "missing-revalidation-check", "wrong-pin", "log-digest", "raw-mismatch", "extra-member"])
 def test_native_acceptance_requires_actual_bound_checks_and_raw_logs(evidence, change):
     report, files = evidence.native, evidence.native_files
     if change == "old-source":
@@ -269,6 +274,12 @@ def test_native_acceptance_requires_actual_bound_checks_and_raw_logs(evidence, c
         report["policy_fixture_json"]["checks"][next(iter(builder.POLICY_CHECKS))] = False
     elif change == "wrong-main":
         report["ordinary_main"]["returncode"] = 0
+    elif change == "wrong-revalidation":
+        report["ordinary_revalidation"]["returncode"] = 0
+    elif change == "missing-revalidation":
+        del report["ordinary_revalidation"]
+    elif change == "missing-revalidation-check":
+        del report["checks"]["ordinary_revalidation_refusal"]
     elif change == "wrong-pin":
         report["generated_pin_source"] += "// foreign\n"
     elif change == "log-digest":
@@ -544,18 +555,22 @@ def test_plan_is_derived_before_helper_compile_and_bound_into_its_literal_pin(mo
                 (native / ("AccountAccess-" + kind)).write_bytes(b"synthetic native bytes")
             events.append("native-pair")
         elif arguments[:2] == ["/usr/bin/xcrun", "swiftc"]:
-            assert events == ["native-pair", "derive-plan"]
-            pin = output / "ComponentPlanPin.swift"
+            root_revalidation = "ACCOUNT_ACCESS_INSTALLATION_ROOT_REVALIDATION_MAIN" in arguments
+            assert events == ["native-pair", "derive-plan"] + (["helper-compiled-with-plan"] if root_revalidation else [])
+            pin = output / ("root-revalidation/ComponentPlanPin.swift" if root_revalidation else "ComponentPlanPin.swift")
             assert builder.component.digest(builder.component.encoded(plan)) in pin.read_text()
             assert str(repository / "macos/ComponentUpdateIdentity.swift") in arguments
             assert str(repository / "macos/ComponentUpdatePolicies.swift") in arguments
+            assert str(repository / "macos/InstallationRootBinding.swift") in arguments
+            if root_revalidation:
+                assert str(repository / "macos/InstallationRootRevalidation.swift") in arguments
             Path(arguments[-1]).write_bytes(b"synthetic helper bytes")
-            events.append("helper-compiled-with-plan")
+            events.append("revalidation-compiled-with-same-plan" if root_revalidation else "helper-compiled-with-plan")
         elif arguments[0] == "/usr/bin/pkgbuild":
             Path(arguments[-1]).write_bytes(b"synthetic package, never installed")
         return SimpleNamespace(stdout=b"", stderr=b"")
 
-    def review(_package, scripts, _output):
+    def review(_package, scripts, _output, **_kwargs):
         assert (scripts / "BaseIdentity.json").read_bytes() == b"original base identity"
         assert (scripts / "ComponentPlan.json").read_bytes() == builder.component.encoded(plan)
         assert len(builder.snapshot_scripts(scripts)) == 15
@@ -566,8 +581,13 @@ def test_plan_is_derived_before_helper_compile_and_bound_into_its_literal_pin(mo
     monkeypatch.setattr(builder, "signature", lambda *_: {"team": TEAM, "identifier": "com.fainir.accountaccess.componentupdate", "hashes": ["a" * 40]})
     monkeypatch.setattr(builder, "review_package", review)
     result = builder.build(output, SOURCE, "synthetic signer; no signing executed")
-    assert events == ["native-pair", "derive-plan", "helper-compiled-with-plan"]
+    assert events == ["native-pair", "derive-plan", "helper-compiled-with-plan", "revalidation-compiled-with-same-plan"]
     assert result["not_installed"] and result["helper_executed"] is False
     assert result["plan_sha256"] == builder.component.digest((output / "scripts/ComponentPlan.json").read_bytes())
+    root_review = json.loads((output / "root-revalidation/review.json").read_bytes())
+    assert root_review["plan_sha256"] == result["plan_sha256"]
+    assert root_review["component_package_sha256"] == result["package_sha256"]
+    assert root_review["package_sha256"] == result["root_revalidation_package_sha256"]
+    assert root_review["helper_executed"] is False and root_review["owner_data_read"] is False
     assert not any("installer" == Path(arguments[0]).name or "launchctl" == Path(arguments[0]).name
                    or arguments[0] == str(output / "scripts/AccountAccess-componentupdate") for arguments in commands)
