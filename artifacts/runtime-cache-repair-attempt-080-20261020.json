@@ -1,0 +1,76 @@
+{
+  "followup_owner_app_retry": {
+    "number_of_manual_ui_retries": 1,
+    "performed_through_existing_installed_app": true,
+    "result": "protected_app_did_not_respond",
+    "separate_from_repair_package": true,
+    "service_start_stop_or_configuration_changed_by_repair": false,
+    "successful_owner_setup": false
+  },
+  "independent_public_code_verification": {
+    "eight_extra_directories_absent_from_runtime": true,
+    "file": "artifacts/runtime-cache-repair-verification-080-20261020.json",
+    "four_public_build76_pins_unchanged": true,
+    "sha256": "d00ef2c620150202e7b3c2e5d68f8fdcd26c2e3ae70af19884a25cf8adca0d5f",
+    "three_baseline_files_match_original_build76": true
+  },
+  "interpretation": {
+    "account_data_accessed": false,
+    "automatic_crash_recovery": false,
+    "cache_restore_completed": true,
+    "fresh_service_startup_verified": false,
+    "journal_recovery": "manual_review_only",
+    "native_metadata_check_not_confirmed": {
+      "check": "owner_socket",
+      "reason": "invalid_worker_launcher_descriptors"
+    },
+    "native_metadata_checks_confirmed": [
+      "policy_paths",
+      "worker_plan",
+      "enrollment_plan",
+      "broker_domain",
+      "agent_socket"
+    ],
+    "original_startup_failure_cause_identified": false,
+    "previous_capture_cleanup_verified": false,
+    "private_backup_contents_read": false,
+    "private_backups_and_journal_retained": true,
+    "private_signin_acceptance_completed": false,
+    "protected_owner_enrollment_completed": false,
+    "service_start_stop_or_configuration_changed_by_repair": false,
+    "specific_owner_socket_metadata_failure_identified": false,
+    "stdout_reset_verified": false
+  },
+  "package": {
+    "bytes": 93732,
+    "executed_via_normal_native_installer": true,
+    "filename": "Account-Access-Build76-Cache-Repair-local-unsigned.pkg",
+    "installer_reported_success": true,
+    "no_payload": true,
+    "owner_approved": true,
+    "sha256": "d05cbb47790ecd7f27e3e92286a0505d8fdb6fc9c4a1feb9ef0a98356959c048",
+    "unsigned": true
+  },
+  "prepared_record": "artifacts/runtime-cache-repair-prepared-080-20261020.json",
+  "previous_records_unchanged": true,
+  "production_ready": false,
+  "public_results": {
+    "runtime-cache-repair-public-plan-080-20261020.json": {
+      "byte_exact": true,
+      "bytes": 272,
+      "file": "artifacts/runtime-cache-repair-public-plan-080-20261020.json",
+      "sha256": "e28e5d59b1383a99cd7cd0ed5d4f289400ab81869ff2ec2a54ffddbe49f87f09"
+    },
+    "runtime-cache-repair-result-080-20261020.json": {
+      "byte_exact": true,
+      "bytes": 394,
+      "file": "artifacts/runtime-cache-repair-result-080-20261020.json",
+      "sha256": "9c178d6733072a5bab5edcb47f46d1351e3aadb3b8d2b9d94979e1ac3b691c53"
+    }
+  },
+  "recorded_at_utc": "2026-10-20T09:56:17.669859+00:00",
+  "schema": 1,
+  "source_revision": "058511de02d6b1a3b9a2d1d20334799bd5780158",
+  "status": "BUILD76_CACHES_RESTORED_OWNER_SOCKET_CHECK_NOT_CONFIRMED",
+  "target_build": 76
+}

@@ -50,8 +50,26 @@ directories and three rewritten baseline cache files. The first diagnostic had
 omitted Python's `-B` flag. The installed startup failure predates these writes.
 The helper and its generated invocation now require bytecode writes to be
 disabled; the focused suite passes 102 ordinary tests, including refusal before
-source-backed imports when the flag is absent. Exact-file restoration and its
-independent review remain pending. No account credentials were involved.
+source-backed imports when the flag is absent. No account credentials were
+involved.
+
+The separately approved cache-only repair at `058511d` subsequently completed
+through native Installer. Its byte-exact public result says
+`restored_build76_cache`: three baseline files restored, eight extra directories
+moved and private backups/journals retained. Independent public-code inspection
+confirmed all three original hashes, sizes, root ownership, mode `0644` and
+single links; all eight extra directories are absent from the runtime. Four
+public build 76 pins remain unchanged. The 16 ordinary repair fixtures and
+independent package review preceded this execution.
+[Actual repair result and public-code verification](../artifacts/runtime-cache-repair-attempt-080-20261020.json).
+
+The signed read-only metadata checker confirmed policy paths, worker and
+enrollment plans, the broker domain and the agent socket. Its owner-socket row
+reports `invalid_worker_launcher_descriptors`, which combines existence, type,
+ownership and mode checks; the specific failed property remains unknown. This
+does not identify the original startup cause or establish successful startup.
+The repair did not start/stop a service, change stdout or read account data.
+Private backups remain untouched; journal recovery requires manual review.
 
 No protected-store enrollment, shared AI connection upgrade, personal login or
 real-device delivery was completed on this installation. Passing CI did not

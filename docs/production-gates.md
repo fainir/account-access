@@ -40,9 +40,19 @@ remain unverified, and owner enrollment is still blocked.
 The diagnostic also generated root-only Python cache directories and rewrote
 three baseline cache files in the installed runtime. This happened after the
 original startup failure. The diagnostic source now disables bytecode writes;
-restoration of the exact build 76 files is being prepared separately. This cache
-repair has not run and does not establish a fix for the original failure.
-[Prepared repair and independent package review](../artifacts/runtime-cache-repair-prepared-080-20261020.json).
+the separately approved cache-only repair then completed through native
+Installer. Its report confirms three restored baseline files and eight extra
+cache directories moved to retained private backups. Independent public-code
+checks confirm the original bytes, root ownership, mode `0644`, single links,
+eight directory absences and unchanged build 76 executable pins.
+[Repair result and verification](../artifacts/runtime-cache-repair-attempt-080-20261020.json).
+
+The fixed signed metadata checker confirmed policy paths, worker and enrollment
+plans, the broker domain and the agent socket. The owner-socket check returned
+`invalid_worker_launcher_descriptors`; that combined check does not identify
+which socket property failed or establish the original startup cause. The repair
+did not start or stop the service, inspect account data or restore stdout.
+Fresh startup and owner enrollment remain unverified.
 
 The package remains **unsigned and unnotarized**. Successful package installation
 does not establish a working setup. Personal-account acceptance, protected
