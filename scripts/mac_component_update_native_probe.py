@@ -35,6 +35,7 @@ CORE_CHECKS = frozenset({
     "disabled_override_requires_closed_output", "interrupted_preparation_retained_next_publishes",
     "unknown_preparation_child_refused",
     "disk_capacity_checked_on_target_volume",
+    "native_disabled_enabled_tokens_and_ambiguity_checked",
 })
 POLICY_CHECKS = frozenset({
     "exact_install_record_preserved_except_fingerprint", "exact_host_policy_preserved_except_bootstrap_hashes",
@@ -56,7 +57,7 @@ def fixture_result(raw, *, kind):
     """A count or optimistic summary alone cannot satisfy native acceptance."""
     value = json.loads(raw)
     expected = CORE_CHECKS if kind == "core" else POLICY_CHECKS
-    count_key, count = ("ordinary_fixture_assertions", 79) if kind == "core" else ("count", 41)
+    count_key, count = ("ordinary_fixture_assertions", 87) if kind == "core" else ("count", 41)
     if (not isinstance(value, dict)
             or set(value) != {"schema", "status", "checks", count_key, "installed_reads", "service_actions"}
             or type(value["schema"]) is not int or value["schema"] != 1

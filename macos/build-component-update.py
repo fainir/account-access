@@ -63,6 +63,7 @@ CORE_CHECKS = frozenset({
     "interrupted_preparation_retained_next_publishes",
     "unknown_preparation_child_refused",
     "disk_capacity_checked_on_target_volume",
+    "native_disabled_enabled_tokens_and_ambiguity_checked",
 })
 ZERO_PIN = ('enum ComponentUpdateCompiledPins { static let planSHA256 = "' + "0" * 64 + '" }\n')
 MAX_ARCHIVE = 4 * 1024 * 1024
@@ -216,7 +217,7 @@ def validate_native_report(files, *, source, sources, run_id):
     core, policy = report.get("core_fixture_json", {}), report.get("policy_fixture_json", {})
     if (set(core) != {"schema", "status", "checks", "ordinary_fixture_assertions", "installed_reads", "service_actions"}
             or type(core.get("schema")) is not int or core["schema"] != 1 or core.get("status") != "PASSED"
-            or type(core.get("ordinary_fixture_assertions")) is not int or core["ordinary_fixture_assertions"] != 79
+            or type(core.get("ordinary_fixture_assertions")) is not int or core["ordinary_fixture_assertions"] != 87
             or not _true_checks(core.get("checks"), CORE_CHECKS)
             or set(policy) != {"schema", "status", "checks", "count", "installed_reads", "service_actions"}
             or type(policy.get("schema")) is not int or policy["schema"] != 1 or policy.get("status") != "PASSED"
@@ -260,6 +261,27 @@ def _probe_command(value, *, code=None, nonzero=False):
             and (not nonzero or value["returncode"] != 0)
             and value.get("client_reaped") is True
             and all(value.get(key) is False for key in ("timed_out", "output_limited", "invocation_failed")))
+
+
+def _override_evidence(command_result, label, expected):
+    """Bind the retained public fixture row to its measured closed state."""
+    value = command_result.get("override_evidence")
+    if (not isinstance(value, dict) or set(value) != {"target_line", "token", "normalized"}
+            or value.get("normalized") != expected
+            or type(command_result.get("output_bytes")) is not int
+            or not 0 < command_result["output_bytes"] <= 128 * 1024
+            or not isinstance(command_result.get("output_sha256"), str)
+            or re.fullmatch(r"[a-f0-9]{64}", command_result["output_sha256"]) is None):
+        return False
+    if expected == "absent":
+        return value["target_line"] is None and value["token"] is None
+    line = value["target_line"]
+    if not isinstance(line, str) or len(line) > 512:
+        return False
+    row = re.fullmatch(r'[ \t]*"' + re.escape(label) + r'"[ \t]+=>[ \t]+(disabled|enabled|true|false)[ \t]*', line)
+    return (row is not None and value["token"] == row[1]
+            and {"disabled": "true", "true": "true", "enabled": "false", "false": "false"}[row[1]] == expected
+            and len(line.encode("utf-8")) <= command_result["output_bytes"])
 
 
 def validate_disable_report(files, *, source, sources, run_id):
@@ -325,6 +347,12 @@ def validate_disable_report(files, *, source, sources, run_id):
                   and isinstance(item.value, ast.Constant) and isinstance(item.value.value, str)), None)
     if template is None or not isinstance(token, str) or re.fullmatch(r"[a-f0-9]{32}", token) is None or template.replace("__TOKEN__", token) != generated:
         raise ValueError("component_disable_ci_generated_source_changed")
+    label = "local.account-access-disable-probe." + token
+    for key, expected in (("initial_disabled_query", "absent"), ("disabled_query", "true"),
+                          ("disabled_query_after_attempt", "true"), ("enabled_query", "false"),
+                          ("cleanup_disabled_query", "false")):
+        if not _override_evidence(probe[key], label, expected):
+            raise ValueError("component_disable_ci_override_evidence_changed")
     absent_bytes = ('Bad request.\nCould not find service "local.account-access-disable-probe.' + token
                     + '" in domain for system\n').encode()
     if any(probe[key].get("output_sha256") != component.digest(absent_bytes)

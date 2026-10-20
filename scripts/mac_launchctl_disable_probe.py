@@ -25,6 +25,7 @@ import json
 import os
 from pathlib import Path
 import plistlib
+import re
 import selectors
 import stat
 import subprocess
@@ -56,18 +57,48 @@ def definitively_absent(result, output):
     return unambiguous(result) and result["returncode"] == 113 and output == ABSENT
 
 
-def disabled_override(output):
+def disabled_override(output, evidence=None):
+    if evidence is None:
+        evidence = {}
+    evidence.update(target_line=None, token=None, normalized="unverified")
+    if not isinstance(output, bytes) or not 0 < len(output) <= 128 * 1024:
+        raise ValueError("invalid_disabled_output")
     text = output.decode("utf-8")
-    matches = [line.strip() for line in text.splitlines() if '"' + LABEL + '"' in line]
-    if not matches:
-        return "absent"
-    if len(matches) != 1:
-        raise ValueError("ambiguous_override")
-    if matches[0] == '"' + LABEL + '" => true':
-        return "true"
-    if matches[0] == '"' + LABEL + '" => false':
-        return "false"
-    raise ValueError("unknown_override")
+    if any(ord(character) < 32 and character not in "\n\t" or ord(character) == 127 for character in text):
+        raise ValueError("invalid_disabled_output")
+    lines = text.split("\n")
+    # Quoted printable ASCII labels; no escape interpretation or partial rows.
+    pattern = r'[ \t]*"([\x20-\x21\x23-\x5b\x5d-\x7e]{1,255})"[ \t]+=>[ \t]+([a-z]{1,16})[ \t]*'
+    target = [(line, match[2]) for line in lines
+              if (match := re.fullmatch(pattern, line)) is not None and match[1] == LABEL]
+    if len(target) == 1:
+        # Preserve only our unique fixture line, even on a later grammar
+        # refusal. Never publish any unrelated system-service labels.
+        evidence.update(target_line=target[0][0], token=target[0][1])
+    while lines and not lines[0].strip(" \t"):
+        lines.pop(0)
+    while lines and not lines[-1].strip(" \t"):
+        lines.pop()
+    if (not 2 <= len(lines) <= 10_000 or lines[0].strip(" \t") != "disabled services = {"
+            or lines[-1].strip(" \t") != "}"):
+        raise ValueError("invalid_disabled_envelope")
+    states, labels = {"disabled": "true", "enabled": "false", "true": "true", "false": "false"}, set()
+    normalized = "absent"
+    for line in lines[1:-1]:
+        match = re.fullmatch(pattern, line)
+        if match is None or match[1] in labels or match[2] not in states:
+            raise ValueError("invalid_disabled_row")
+        labels.add(match[1])
+        if match[1] == LABEL:
+            normalized = states[match[2]]
+    evidence["normalized"] = normalized
+    return normalized
+
+
+def record_disabled(result, output):
+    evidence = {"target_line": None, "token": None, "normalized": "unverified"}
+    result["override_evidence"] = evidence
+    return disabled_override(output, evidence) if succeeded(result) else "unverified"
 
 
 def run(arguments, timeout=6):
@@ -231,9 +262,9 @@ def main():
         if not report["preflight_definitively_absent"]:
             raise RuntimeError("target_not_definitively_absent")
         report["initial_disabled_query"], raw = run(["print-disabled", "system"])
+        report["initial_disabled_override"] = record_disabled(report["initial_disabled_query"], raw)
         if not succeeded(report["initial_disabled_query"]):
             raise RuntimeError("initial_disabled_state_unavailable")
-        report["initial_disabled_override"] = disabled_override(raw)
         if report["initial_disabled_override"] != "absent":
             raise RuntimeError("unique_target_has_existing_override")
         value = {"Label": LABEL, "ProgramArguments": ["/bin/sh", "-c",
@@ -252,9 +283,9 @@ def main():
         report["failure_stage"] = "persistent_disable"
         report["disable"], _ = run(["disable", TARGET])
         report["disabled_query"], raw = run(["print-disabled", "system"])
+        report["disabled_override"] = record_disabled(report["disabled_query"], raw)
         if not succeeded(report["disable"]) or not succeeded(report["disabled_query"]):
             raise RuntimeError("disable_not_confirmed")
-        report["disabled_override"] = disabled_override(raw)
         if report["disabled_override"] != "true":
             raise RuntimeError("disable_not_confirmed")
         report["bootout"], _ = run(["bootout", TARGET])
@@ -273,8 +304,7 @@ def main():
         report["disabled_definitively_absent"] = definitively_absent(report["disabled_lookup"], raw)
         report["disabled_marker_absent_for_2000ms"] = absent_marker_window(directory)
         report["disabled_query_after_attempt"], raw = run(["print-disabled", "system"])
-        report["disabled_override_after_attempt"] = (disabled_override(raw)
-            if succeeded(report["disabled_query_after_attempt"]) else "unverified")
+        report["disabled_override_after_attempt"] = record_disabled(report["disabled_query_after_attempt"], raw)
         if (not unambiguous(report["disabled_bootstrap"]) or report["disabled_bootstrap"]["returncode"] == 0
                 or not report["disabled_definitively_absent"]
                 or not report["disabled_marker_absent_for_2000ms"]
@@ -290,7 +320,7 @@ def main():
         report["failure_stage"] = "reenabled_control"
         report["enable"], _ = run(["enable", TARGET])
         report["enabled_query"], raw = run(["print-disabled", "system"])
-        report["enabled_override"] = disabled_override(raw) if succeeded(report["enabled_query"]) else "unverified"
+        report["enabled_override"] = record_disabled(report["enabled_query"], raw)
         if not succeeded(report["enable"]) or report["enabled_override"] != "false":
             raise RuntimeError("enabled_state_not_confirmed")
         report["reenabled_bootstrap"], _ = run(["bootstrap", "system", str(ROOT / "service.plist")])
@@ -311,7 +341,7 @@ def main():
             report["cleanup_enable"], _ = run(["enable", TARGET])
             report["cleanup_disabled_query"], raw = run(["print-disabled", "system"])
             try:
-                override = disabled_override(raw) if succeeded(report["cleanup_disabled_query"]) else "unverified"
+                override = record_disabled(report["cleanup_disabled_query"], raw)
             except Exception:
                 override = "unverified"
             report["effective_enabled_restored"] = succeeded(report["cleanup_enable"]) and override == "false"

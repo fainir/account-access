@@ -57,6 +57,23 @@ private final class FixtureStore: ComponentTransitionStorage {
             catch ComponentUpdateFailure.disabled { checks += 1 }
         }
         passed["disabled_override_requires_closed_output"] = true
+        guard try ComponentCommands.disabled(Data(("\n\t" + disabledHeader + "\t\"com.fainir.accountaccess.broker\" => disabled\n\t}\n").utf8)),
+              try !ComponentCommands.disabled(Data((disabledHeader + "\t\"com.fainir.accountaccess.broker\" => enabled\n}\n").utf8)),
+              try !ComponentCommands.disabled(Data((disabledHeader + "\t\"com.example.one\" => disabled\n\t\"com.example.two\" => enabled\n}\n").utf8)) else {
+            throw ComponentUpdateFailure.context
+        }
+        checks += 3
+        for rows in [
+            "\"com.fainir.accountaccess.broker\" => unknown\n",
+            "\"com.fainir.accountaccess.broker\" => disabled\n\"com.fainir.accountaccess.broker\" => disabled\n",
+            "\"com.fainir.accountaccess.broker\" => disabled\n\"com.fainir.accountaccess.broker\" => enabled\n",
+            "\"com.example.other\" => enabled\n\"com.example.other\" => disabled\n",
+            "\"com.fainir.accountaccess.broker\" => enabled disabled\n",
+        ] {
+            do { _ = try ComponentCommands.disabled(Data((disabledHeader + rows + "}\n").utf8)); throw ComponentUpdateFailure.context }
+            catch ComponentUpdateFailure.disabled { checks += 1 }
+        }
+        passed["native_disabled_enabled_tokens_and_ambiguity_checked"] = true
         var ownership = ComponentDisableOwnership()
         guard !ownership.permits(disabled: true, recovering: false, persistedIntent: false),
               !ownership.permits(disabled: true, recovering: true, persistedIntent: false) else {

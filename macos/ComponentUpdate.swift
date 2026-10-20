@@ -433,21 +433,36 @@ enum ComponentCommands {
         return Result(status: status, output: output)
     }
     static func disabled(_ data: Data) throws -> Bool {
-        guard let text = String(data: data, encoding: .utf8), data.count <= 256 * 1024 else {
+        guard let text = String(data: data, encoding: .utf8), data.count <= 256 * 1024,
+              text.unicodeScalars.allSatisfy({ ($0.value >= 32 && $0.value != 127) || $0.value == 9 || $0.value == 10 }) else {
             throw ComponentUpdateFailure.disabled
         }
-        let lines = text.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
-        guard lines.count >= 2, lines.first == "disabled services = {", lines.last == "}",
-              lines.dropFirst().dropLast().allSatisfy({
-                  $0.range(of: #"^"[^"\x00-\x1f]+" => (true|false)$"#, options: .regularExpression) != nil
-              }) else { throw ComponentUpdateFailure.disabled }
-        let matches = lines.dropFirst().dropLast().filter { $0.contains("\"com.fainir.accountaccess.broker\"") }
-        guard matches.count <= 1 else { throw ComponentUpdateFailure.disabled }
-        if matches.isEmpty { return false } // Successful print-disabled omitted any override.
-        let value = matches[0].trimmingCharacters(in: .whitespacesAndNewlines)
-        if value == "\"com.fainir.accountaccess.broker\" => true" { return true }
-        if value == "\"com.fainir.accountaccess.broker\" => false" { return false }
-        throw ComponentUpdateFailure.disabled
+        let lines = text.components(separatedBy: "\n")
+        let horizontal = CharacterSet(charactersIn: " \t")
+        var first = 0, last = lines.count
+        while first < last && lines[first].trimmingCharacters(in: horizontal).isEmpty { first += 1 }
+        while last > first && lines[last - 1].trimmingCharacters(in: horizontal).isEmpty { last -= 1 }
+        guard (2...10_000).contains(last - first),
+              lines[first].trimmingCharacters(in: horizontal) == "disabled services = {",
+              lines[last - 1].trimmingCharacters(in: horizontal) == "}" else {
+            throw ComponentUpdateFailure.disabled
+        }
+        // Actual macOS prints disabled/enabled. Boolean spellings remain an
+        // explicit compatibility form; no arbitrary token means enabled.
+        let row = try NSRegularExpression(pattern: #"^[ \t]*"([\x20-\x21\x23-\x5b\x5d-\x7e]{1,255})"[ \t]+=>[ \t]+([a-z]{1,16})[ \t]*$"#)
+        var labels: Set<String> = [], target: Bool?
+        for line in lines[(first + 1)..<(last - 1)] {
+            let range = NSRange(line.startIndex..<line.endIndex, in: line)
+            guard let match = row.firstMatch(in: line, range: range), match.range == range,
+                  let labelRange = Range(match.range(at: 1), in: line),
+                  let tokenRange = Range(match.range(at: 2), in: line) else { throw ComponentUpdateFailure.disabled }
+            let label = String(line[labelRange]), token = String(line[tokenRange])
+            guard ["disabled", "enabled", "true", "false"].contains(token),
+                  labels.insert(label).inserted else { throw ComponentUpdateFailure.disabled }
+            if label == "com.fainir.accountaccess.broker" { target = token == "disabled" || token == "true" }
+        }
+        // Successful, completely recognized output with no override is enabled.
+        return target ?? false
     }
     static func definitivelyAbsent(_ result: Result) -> Bool {
         // Pinned macOS CLI contract, additionally required to pass the

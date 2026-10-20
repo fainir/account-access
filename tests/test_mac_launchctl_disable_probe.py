@@ -2,7 +2,9 @@
 
 import ast
 import importlib.util
+import json
 from pathlib import Path
+import re
 import subprocess
 
 import pytest
@@ -17,13 +19,13 @@ TOKEN = "0" * 32
 
 @pytest.fixture
 def contract():
-    # Execute only four pure predicate/parser definitions, never the root main,
+    # Execute only pure predicate/parser definitions, never the root main,
     # subprocess wrapper, filesystem helpers, package builder or launchctl.
     tree = ast.parse(probe.root_source(TOKEN))
-    names = {"unambiguous", "succeeded", "definitively_absent", "disabled_override"}
+    names = {"unambiguous", "succeeded", "definitively_absent", "disabled_override", "record_disabled"}
     functions = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in names]
     label = "local.account-access-disable-probe." + TOKEN
-    namespace = {"LABEL": label,
+    namespace = {"LABEL": label, "re": re,
                  "ABSENT": ("Bad request.\nCould not find service \"" + label
                             + "\" in domain for system\n").encode()}
     exec(compile(ast.Module(body=functions, type_ignores=[]), str(SOURCE), "exec"), namespace)
@@ -57,17 +59,72 @@ def test_exact_absent_response_is_required_in_addition_to_exit_code(contract):
     assert contract["succeeded"](result(113)) is False
 
 
-def test_disabled_parser_accepts_only_one_exact_unique_target(contract):
+def envelope(*rows):
+    return ("\ndisabled services = {\n" + "\n".join(rows) + ("\n" if rows else "") + "}\n").encode()
+
+
+@pytest.mark.parametrize("token,expected", [("disabled", "true"), ("enabled", "false"),
+                                           ("true", "true"), ("false", "false")])
+def test_disabled_parser_normalizes_known_tokens_with_exact_fixture_evidence(contract, token, expected):
     label = contract["LABEL"]
     parse = contract["disabled_override"]
-    assert parse(b'disabled services = {\n}\n') == "absent"
-    assert parse(('  "' + label + '" => true\n').encode()) == "true"
-    assert parse(('  "' + label + '" => false\n').encode()) == "false"
-    assert parse(('  "other.' + TOKEN + '" => true\n').encode()) == "absent"
-    for value in ('"' + label + '" => 1', '"' + label + '" => true extra',
-                  ('"' + label + '" => true\n') * 2):
+    line = '\t"' + label + '" => ' + token + '  '
+    evidence = {}
+    assert parse(envelope('  "unrelated.system.label" => enabled', line), evidence) == expected
+    assert evidence == {"target_line": line, "token": token, "normalized": expected}
+    assert "unrelated" not in json.dumps(evidence)
+
+
+def test_absent_requires_complete_valid_envelope_and_all_other_rows(contract):
+    parse = contract["disabled_override"]
+    assert parse(envelope()) == "absent"
+    evidence = {}
+    assert parse(envelope('  "unrelated.a" => disabled', '\t"unrelated.b" => false'), evidence) == "absent"
+    assert evidence == {"target_line": None, "token": None, "normalized": "absent"}
+    for raw in (b"", b"other text\n", b'disabled services = {\n', b'{\n}\n',
+                b'disabled services = {\n}\nextra', b'disabled services = {\n\n}\n',
+                envelope('"other" => unknown'), envelope('"other" => true extra'),
+                envelope('"other" => true', '"other" => true'), envelope('"other" => disabled', '"other" => enabled'),
+                envelope('"other\\escape" => true'), envelope('"other"=>true'),
+                envelope('"' + "x" * 256 + '" => true'), b"\xff", envelope() + b"\x00",
+                envelope().replace(b"\n", b"\r\n"), b"x" * (128 * 1024 + 1)):
         with pytest.raises(ValueError):
-            parse(value.encode())
+            parse(raw)
+
+
+def test_duplicate_target_or_target_substring_cannot_authorize_disable(contract):
+    label = contract["LABEL"]
+    parse = contract["disabled_override"]
+    line = '"' + label + '" => disabled'
+    for raw in (envelope(line, line), envelope(line, '"' + label + '" => enabled')):
+        evidence = {}
+        with pytest.raises(ValueError):
+            parse(raw, evidence)
+        assert evidence == {"target_line": None, "token": None, "normalized": "unverified"}
+    assert parse(envelope('"prefix.' + label + '" => disabled')) == "absent"
+
+
+def test_failed_grammar_retains_only_safe_unique_fixture_line_as_unverified(contract):
+    label = contract["LABEL"]
+    line = '\t"' + label + '" => disabled'
+    evidence = {}
+    with pytest.raises(ValueError):
+        contract["disabled_override"](("wrong envelope\n" + line + '\n"unrelated" => true\n}\n').encode(), evidence)
+    assert evidence == {"target_line": line, "token": "disabled", "normalized": "unverified"}
+    assert "unrelated" not in json.dumps(evidence)
+
+
+def test_query_evidence_needs_success_and_cannot_convert_error_output_to_absence(contract):
+    command = result()
+    assert contract["record_disabled"](command, envelope()) == "absent"
+    assert command["override_evidence"] == {"target_line": None, "token": None, "normalized": "absent"}
+    command = result(1)
+    assert contract["record_disabled"](command, envelope()) == "unverified"
+    assert command["override_evidence"] == {"target_line": None, "token": None, "normalized": "unverified"}
+    command = result()
+    with pytest.raises(ValueError):
+        contract["record_disabled"](command, b"malformed")
+    assert command["override_evidence"]["normalized"] == "unverified"
 
 
 @pytest.mark.parametrize("token", ["", "0" * 31, "0" * 33, "G" * 32, "x; id"])

@@ -1,0 +1,109 @@
+{
+  "correction": "Native and probe parsers accept observed enabled/disabled states with explicit boolean compatibility. They require the complete closed output, validate every row, reject duplicate labels and unknown states. The probe retains only its unique fixture row; the builder requires all five measured override observations.",
+  "failure_scope": "The first-attempt disposable Installer disable probes refused after disable/query both returned zero. Exact target rows were not retained in those attempts; they did not establish registration exclusion or cleanup completion. No reruns or cancellations were used.",
+  "native": {
+    "core_compile_seconds": 87.611,
+    "core_named_checks": 21,
+    "optimized_core_assertions": 87,
+    "ordinary_refusal_exit_code": 78,
+    "policy_proof": {
+      "path": "dist/qa-component-policies-20261020/result-v2.json",
+      "sha256": "511e0f57b63b44d4fe0660a8ab15d3ab2debffc149a8d1a79cdeb3b499f16d95"
+    },
+    "production_main_compile_seconds": 57.722,
+    "proof": {
+      "path": "dist/qa-component-disabled-parser-20261020/result.json",
+      "sha256": "0b2140e230c56d9842599a4fda46b2ba17ab128a130e96a8ba6f83a27cfd4a7b"
+    },
+    "unchanged_policy_assertions": 41
+  },
+  "observed_owner_mac_format": {
+    "account_data_read": false,
+    "footer": "}",
+    "header": "disabled services = {",
+    "proof": {
+      "path": "dist/qa-launchctl-disabled-format-20261020/read-only-format-v2.json",
+      "sha256": "c63b07a58269b474a918034aa8005d63465ed29241e13ae76abe02349e18661c"
+    },
+    "root_execution": false,
+    "service_changes": false,
+    "unrelated_labels_retained": false,
+    "value_token_counts": {
+      "disabled": 4,
+      "enabled": 6
+    }
+  },
+  "owner_installation_modified": false,
+  "package_assembled": false,
+  "personal_accounts_used": 0,
+  "prior_failed_mac_runs": [
+    {
+      "event": "push",
+      "run_id": 39414809591,
+      "source": "0833acda469e650c56d247db884d6fb9920cd8fe"
+    },
+    {
+      "event": "pull_request",
+      "run_id": 39414817461,
+      "source": "0833acda469e650c56d247db884d6fb9920cd8fe"
+    },
+    {
+      "event": "push",
+      "run_id": 39415152769,
+      "source": "0f82afbea1d3f2a19359fa9f5ec11afc1c0da319"
+    },
+    {
+      "event": "pull_request",
+      "run_id": 39415157943,
+      "source": "0f82afbea1d3f2a19359fa9f5ec11afc1c0da319"
+    }
+  ],
+  "prior_source_commit": "0f82afbea1d3f2a19359fa9f5ec11afc1c0da319",
+  "production_ready": false,
+  "python": {
+    "junit_sha256": "81ef218498e62191afbffd455ef7c902a5c3c83595ad943804252f3dde8403e0",
+    "proof": {
+      "path": "dist/qa-component-disable-rendering-20261020/result.json",
+      "sha256": "95e1f4777c650d2d95807277affca60d6153fe63cf67636065974e923164c9ac"
+    },
+    "ruff": "passed_no_cache",
+    "tests": 176
+  },
+  "read_only_actual_format_parser": {
+    "path": "dist/qa-launchctl-disabled-format-20261020/read-only-parser.json",
+    "sha256": "854a3ad87df6d7cbbfbe36ce8c91560f3bf53408baa51d227f29da3c63a69f6b"
+  },
+  "recorded_at_utc": "2026-10-20T11:37:18.076825+00:00",
+  "remaining_gates": [
+    "Exact-source first-attempt 8-workflow matrix plus review ordinary-contract workflow",
+    "Genuine signed candidate assembly and independent package review",
+    "Actual retained build76 Installer then candidate Installer and reapply in disposable Mac",
+    "Owner approval for new updater, normal GUI reopen and owner enrollment",
+    "Personal password/email/SMS/TOTP and agent acceptance; phone and mailbox enrollment still required"
+  ],
+  "root_execution": false,
+  "schema": 1,
+  "source_sha256": {
+    ".github/workflows/mac-component-update-review.yml": "b1eb80178ab762fc98c09a30a779b614145e949a657a443b2eba8e69db719b36",
+    ".github/workflows/mac-worker.yml": "51fcdacd314c901c193198d09df8cf671f813622ed9ed06e0df9a115547f7845",
+    "macos/ComponentUpdate.swift": "e835a1e6ec323e2ee23126fd4b00940cee367e86139d43cb748fbbb499928822",
+    "macos/ComponentUpdateIdentity.swift": "4c3bf3e29923e0a92ac9bf6a8e9752ec889d61eb26dedbafcf6e788dabd3512e",
+    "macos/ComponentUpdatePolicies.swift": "7aca759f4b9fad195851ce12d81550ec08a0753c43515574c23fc74d247060ab",
+    "macos/InstallerPayload.swift": "03876624a57cfe84d850b1998f636acaa039ce6fd4822d8df60ffeab7cd9c81d",
+    "macos/Tests/ComponentUpdateChecks.swift": "48afd4db0bcf11baa4891b19193ac626f92f9aaba4c2beecbe08ed1ffe307ba9",
+    "macos/Tests/ComponentUpdateIdentityChecks.swift": "88c2d9420b6ebed456bdc1ab9ee0ef2e3d6ec822e34a963d4051288b8e177741",
+    "macos/Tests/ComponentUpdatePolicyChecks.swift": "e51485275a534ffb53c67949334ba4a49bb32a4b71a276a609718d1c3b47ac48",
+    "macos/build-component-update.py": "856d6358c96daca1d3d1ca6ad5bb119a2a620f47a32fcea3501e3f6a2ded13c6",
+    "macos/component_update.py": "55dfb6b0ba5c71dbe33bc1c63ce663505933aed5a9bc3c00ca666674ed27588b",
+    "scripts/mac_component_update_installer_probe.py": "3a2b33c847cd4f8d3cf3fb97a7a57dea41a22f01f2dcf2ed7dc2fc4fd5d4f409",
+    "scripts/mac_component_update_native_probe.py": "2e813c0da3d9e5136cd7417fc1e4e1223b2fbeebbb0a3e8956799026e9c99c27",
+    "scripts/mac_launchctl_disable_probe.py": "18bafd0b8c6b5078443bfdf153eb290fd6d9752748ef26f2486a174518e3938c",
+    "tests/test_component_update.py": "faffd701842a2959eea88ffbd6544b44153c94ed229a9f20449294f04b276a00",
+    "tests/test_component_update_builder.py": "b43ec2df4fac141a0fe3f3e4183cdde0adabe2a43a0a7ef9be98614174734aee",
+    "tests/test_component_update_review_workflow.py": "b3cd8f314ae2ed4c3112bee3babc9d9c377c56f50fe2a3206030faf985939ade",
+    "tests/test_mac_component_update_installer_probe.py": "4690562d1f29afe6cd326c3fc88ba6adf4e6b7fb47e3e0bc3219fddd6bdee208",
+    "tests/test_mac_component_update_native_probe.py": "1624f9a5ded2d47774b6caf8ded37d9e3e4eb2b1a447c26f44f34b554b941065",
+    "tests/test_mac_launchctl_disable_probe.py": "fd8018900d1dc3a0cbab82febbb04c247b22e10dd5ad3cb6164edc135d77901f"
+  },
+  "status": "SOURCE_CHECKS_PASSED_NATIVE_DISABLE_RENDERING_CORRECTED"
+}

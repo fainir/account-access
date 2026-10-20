@@ -42,7 +42,7 @@ def evidence():
     sources["scripts/mac_launchctl_disable_probe.py"] = builder.component.digest(
         (builder.ROOT / "scripts/mac_launchctl_disable_probe.py").read_bytes())
     run_id = 1006
-    core = {"schema": 1, "status": "PASSED", "ordinary_fixture_assertions": 79,
+    core = {"schema": 1, "status": "PASSED", "ordinary_fixture_assertions": 87,
             "checks": dict.fromkeys(builder.CORE_CHECKS, True), "installed_reads": False, "service_actions": False}
     policy = {"schema": 1, "status": "PASSED", "count": 41,
               "checks": dict.fromkeys(builder.POLICY_CHECKS, True), "installed_reads": False, "service_actions": False}
@@ -96,6 +96,14 @@ def evidence():
         probe[key] = command(113, absent)
     probe["disabled_bootstrap"] = command(5)
     probe["bootout_already_absent"] = command(113)
+    label = "local.account-access-disable-probe." + token
+    for key, normalized, word in (("initial_disabled_query", "absent", None), ("disabled_query", "true", "disabled"),
+                                  ("disabled_query_after_attempt", "true", "disabled"), ("enabled_query", "false", "enabled"),
+                                  ("cleanup_disabled_query", "false", "enabled")):
+        line = '\t"' + label + '" => ' + word if word else None
+        output = ('disabled services = {\n' + (line + '\n' if line else '') + '}\n').encode()
+        probe[key] = command(output=output)
+        probe[key]["override_evidence"] = {"target_line": line, "token": word, "normalized": normalized}
     disable = {"schema": 1, "status": "PASSED", "environment": "disposable-mac-ci-installer",
                "status_scope": scope, "run_id": str(run_id), "run_attempt": "1",
                "actual_installer_used": True, "installer_exit_code": 0, "private_data_accessed": False,
@@ -272,6 +280,69 @@ def test_native_acceptance_requires_actual_bound_checks_and_raw_logs(evidence, c
     files["report.json"] = encoded(report)
     with pytest.raises(ValueError, match="component_native_ci_"):
         builder.validate_native_report(files, source=SOURCE, sources=evidence.sources, run_id=evidence.run_id)
+
+
+@pytest.mark.parametrize("query", ["initial_disabled_query", "disabled_query", "disabled_query_after_attempt",
+                                 "enabled_query", "cleanup_disabled_query"])
+def test_each_actual_disable_query_requires_retained_override_evidence(evidence, query):
+    evidence.probe[query].pop("override_evidence")
+    evidence.disable_files["report.json"] = encoded(evidence.disable)
+    evidence.disable_files["installer-context.json"] = encoded(evidence.probe)
+    with pytest.raises(ValueError, match="component_disable_ci_override_evidence_changed"):
+        builder.validate_disable_report(evidence.disable_files, source=SOURCE, sources=evidence.sources, run_id=evidence.run_id)
+
+
+@pytest.mark.parametrize("change", ["other-label", "newline", "unknown-token", "wrong-normalization", "extra-key",
+                                  "no-line", "wrong-token", "absent-with-line", "unverified", "zero-bytes",
+                                  "missing-digest", "too-many-bytes", "query-failed"])
+def test_retained_override_evidence_cannot_replace_actual_matching_success(evidence, change):
+    command = evidence.probe["disabled_query"]
+    value = command["override_evidence"]
+    if change == "other-label":
+        value["target_line"] = value["target_line"].replace("f" * 32, "e" * 32)
+    elif change == "newline":
+        value["target_line"] += "\n"
+    elif change == "unknown-token":
+        value["token"] = "unknown"
+        value["target_line"] = value["target_line"].replace("disabled", "unknown")
+    elif change == "wrong-normalization":
+        value["normalized"] = "false"
+    elif change == "extra-key":
+        value["unrelated_job"] = "private"
+    elif change == "no-line":
+        value["target_line"] = None
+    elif change == "wrong-token":
+        value["token"] = "true"
+    elif change == "absent-with-line":
+        evidence.probe["initial_disabled_query"]["override_evidence"]["target_line"] = value["target_line"]
+    elif change == "unverified":
+        value["normalized"] = "unverified"
+    elif change == "zero-bytes":
+        command["output_bytes"] = 0
+    elif change == "missing-digest":
+        command.pop("output_sha256")
+    elif change == "too-many-bytes":
+        command["output_bytes"] = 128 * 1024 + 1
+    else:
+        command["returncode"] = 1
+    evidence.disable_files["report.json"] = encoded(evidence.disable)
+    evidence.disable_files["installer-context.json"] = encoded(evidence.probe)
+    with pytest.raises(ValueError, match="component_disable_ci_"):
+        builder.validate_disable_report(evidence.disable_files, source=SOURCE, sources=evidence.sources, run_id=evidence.run_id)
+
+
+def test_retained_legacy_boolean_rows_preserve_closed_state_binding(evidence):
+    for name, normalized in (("disabled_query", "true"), ("disabled_query_after_attempt", "true"),
+                             ("enabled_query", "false"), ("cleanup_disabled_query", "false")):
+        command = evidence.probe[name]
+        value = command["override_evidence"]
+        value["target_line"] = value["target_line"].replace(value["token"], normalized)
+        value["token"] = normalized
+        raw = ("disabled services = {\n" + value["target_line"] + "\n}\n").encode()
+        command["output_bytes"], command["output_sha256"] = len(raw), builder.component.digest(raw)
+    evidence.disable_files["report.json"] = encoded(evidence.disable)
+    evidence.disable_files["installer-context.json"] = encoded(evidence.probe)
+    builder.validate_disable_report(evidence.disable_files, source=SOURCE, sources=evidence.sources, run_id=evidence.run_id)
 
 
 @pytest.mark.parametrize("change", ["timeout", "not-reaped", "bootstrap-allowed", "generic-absence", "marker-exists",
