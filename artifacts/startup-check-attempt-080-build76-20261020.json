@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "recorded_at_utc": "2026-10-20T08:42:16.493431+00:00",
+  "build": 76,
+  "status": "DIAGNOSTIC_ATTEMPT_NO_STARTUP_REASON_CAPTURED",
+  "production_ready": false,
+  "previous_runtime_record": "artifacts/runtime-acceptance-080-build76-20261020.json",
+  "previous_records_modified": false,
+  "diagnostic_package": {
+    "filename": "Account-Access-Startup-Check-local-unsigned.pkg",
+    "source_revision": "2fcf53bc993b5119d83ca52764fd583064fcab7a",
+    "sha256": "f32f9e27522d1bae7be184c3713dda4771aa0d93b02773980404099cf364937a",
+    "unsigned": true,
+    "owner_approved": true,
+    "executed_through_normal_native_installer": true,
+    "installer_reported_success": true,
+    "diagnostic_succeeded": false
+  },
+  "public_result": {
+    "file": "artifacts/startup-check-result-080-build76-20261020.json",
+    "sha256": "210fb4fc1ceab9c1c3db3ba78fb61c3ce5b814ad655a9e41aad6dab124387b08",
+    "copied_byte_for_byte": true,
+    "contents": {
+      "cleanup_pending": true,
+      "default_stdout_requested": false,
+      "failure_capture_consumed": false,
+      "managed_by": "account-access-startup-check-v1",
+      "reason": null,
+      "schema": 1,
+      "status": "diagnostic_tool_unavailable",
+      "target_build": 76,
+      "target_code_sha256": "7d025c2ed00963e3b0ee7d8aa9351d00454ed54e6d73b2b4caaa3990424bf061"
+    }
+  },
+  "interpretation": {
+    "underlying_service_startup_reason": null,
+    "failure_capture_consumption_confirmed": false,
+    "default_stdout_request_confirmed": false,
+    "current_stdout_destination_confirmed": false,
+    "cleanup_pending": true,
+    "guarded_private_capture_target_retained": true,
+    "private_capture_read": false,
+    "protected_executable_or_policy_changed": false,
+    "account_credentials_read": false,
+    "successful_service_startup_established": false,
+    "repair_established": false
+  },
+  "scope": "Only the fixed public diagnostic result was inspected; Installer success is not diagnostic success. No raw capture or private machine path is published. The exact startup cause and temporary stdout state remain unresolved."
+}

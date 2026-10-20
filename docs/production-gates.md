@@ -22,8 +22,15 @@ The owner-approved local installation completed through macOS Installer, but
 the installed protected service exits **78 (`EX_CONFIG`) before enrollment**.
 The app cannot connect to it; the exact startup cause is still unknown. No
 protected-store enrollment, shared AI connection upgrade or personal sign-in
-was completed on this installation. A separately reviewed startup check is
-prepared but has not run. [Installation, CI and startup record](../artifacts/runtime-acceptance-080-build76-20261020.json).
+was completed on this installation.
+[Installation and CI record](../artifacts/runtime-acceptance-080-build76-20261020.json).
+
+The owner-approved startup check subsequently ran through Installer, but its
+report says `diagnostic_tool_unavailable` with no captured startup reason.
+Cleanup remains pending: capture consumption and restoration of stdout to
+`/dev/null` are unconfirmed, so the guarded private target was retained.
+Startup investigation remains open.
+[Diagnostic attempt and exact public result](../artifacts/startup-check-attempt-080-build76-20261020.json).
 
 The package remains **unsigned and unnotarized**. Successful package installation
 does not establish a working setup. Personal-account acceptance, protected

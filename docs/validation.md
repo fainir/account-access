@@ -23,10 +23,20 @@ jobs passed 47 checks. A retried log download was not a CI rerun.
 The owner-approved package installation subsequently completed in macOS
 Installer. Opening the installed app failed to reach enrollment: its protected
 service repeatedly exits **78 (`EX_CONFIG`)**, and the app reports that the
-protected app did not respond. Its stdout/stderr go to `/dev/null`, so this exit
-does not identify the underlying cause. Public code and job metadata were
-checked without reading credentials. A reviewed, source-bound diagnostic
-package is prepared and unexecuted; it is not a repair result.
+protected app did not respond. The original job sends stdout/stderr to
+`/dev/null`, so this exit did not identify the underlying cause. Public code
+and job metadata were checked without reading credentials.
+
+The owner-approved, source-bound diagnostic package subsequently ran through
+normal macOS Installer, which reported installation success. Its fixed public
+report instead says **`diagnostic_tool_unavailable`**, with `reason: null`,
+`cleanup_pending: true`, `failure_capture_consumed: false` and
+`default_stdout_requested: false`. No startup reason was captured. Restoration
+of stdout is unconfirmed; the guarded private target remains retained. Only
+the public result was read. This attempt changes no protected executable or
+policy and establishes no repair or successful startup.
+[Diagnostic attempt](../artifacts/startup-check-attempt-080-build76-20261020.json)
+and [exact public result](../artifacts/startup-check-result-080-build76-20261020.json).
 
 No protected-store enrollment, shared AI connection upgrade, personal login or
 real-device delivery was completed on this installation. Passing CI did not
