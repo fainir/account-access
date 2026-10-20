@@ -108,6 +108,15 @@ retain timeout outcomes. The package stays unchanged. Both earlier attempts are
 preserved. A separate ordinary read on the owner Mac now confirms both public
 service output paths are `/dev/null`; private capture cleanup remains unverified.
 [Second actual attempt and source observations](../artifacts/component-update-installer-gui-attempt-080-20261020.json).
+
+A third fresh Mac run at controller `143788d` confirmed normal GUI quit and
+observed absence, then actually invoked the candidate Installer. That command
+returned 1 with a package-script failure; it did not time out. Candidate success,
+target-image verification and reapplication were not reached. The helper's exact
+refusal was absent from the command's ordinary output. The next controller adds
+Installer's detailed logs and bounded head/tail capture; the package remains
+unchanged. No update has been installed on the owner Mac.
+[Actual candidate refusal and retained evidence](../artifacts/component-update-installer-refusal-080-20261020.json).
 [Source review and retained earlier attempts](../artifacts/component-update-source-080-20261020.json).
 The build gate also preserves the measured skipped state of the review push's
 two dispatch-only jobs; all applicable jobs still require first-attempt success.

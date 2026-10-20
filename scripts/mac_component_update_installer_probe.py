@@ -284,9 +284,18 @@ def bind_sources(review, repository, source):
 def command(arguments, *, report, output, log, timeout=30, check=True):
     def record(returncode, stdout, stderr, *, timed_out=False, invocation_failed=False):
         limited = len(stdout) + len(stderr) > 128 * 1024
+
+        def ends(value):
+            if len(value) <= 16384:
+                return value.decode("utf-8", errors="replace"), ""
+            return (value[:8192].decode("utf-8", errors="replace"),
+                    value[-8192:].decode("utf-8", errors="replace"))
+
+        stdout_head, stdout_tail = ends(stdout)
+        stderr_head, stderr_tail = ends(stderr)
         raw = json.dumps({"returncode": returncode, "timed_out": timed_out, "invocation_failed": invocation_failed,
-            "output_limited": limited, "stdout": stdout[:16384].decode("utf-8", errors="replace"),
-            "stderr": stderr[:16384].decode("utf-8", errors="replace"),
+            "output_limited": limited, "capture_format": "full_or_8k_head_tail_v1",
+            "stdout": stdout_head, "stdout_tail": stdout_tail, "stderr": stderr_head, "stderr_tail": stderr_tail,
             "stdout_truncated": len(stdout) > 16384, "stderr_truncated": len(stderr) > 16384,
             "stdout_bytes": len(stdout), "stderr_bytes": len(stderr),
             "stdout_sha256": sha(stdout), "stderr_sha256": sha(stderr)}, sort_keys=True).encode() + b"\n"
@@ -629,7 +638,7 @@ def run(args):
             report["failure_stage"] = "baseline_public_records"
             before, retained = policies(), fixed_records()
             report["failure_stage"] = "candidate_installer"
-            command(["/usr/sbin/installer", "-pkg", str(stage / "candidate.pkg"), "-target", "/"],
+            command(["/usr/sbin/installer", "-dumplog", "-verboseR", "-pkg", str(stage / "candidate.pkg"), "-target", "/"],
                     report=report, output=output, log="candidate-installer.log", timeout=180)
             report["checks"]["actual_candidate_installer"] = True
             report["failure_stage"] = "target_public_image"
@@ -652,7 +661,7 @@ def run(args):
                 "state": "public_image_verified_gui_unverified", "automatic_reboot_recovery": False})
             report["checks"]["verified_head"] = True
             report["failure_stage"] = "candidate_reapply"
-            command(["/usr/sbin/installer", "-pkg", str(stage / "candidate.pkg"), "-target", "/"],
+            command(["/usr/sbin/installer", "-dumplog", "-verboseR", "-pkg", str(stage / "candidate.pkg"), "-target", "/"],
                     report=report, output=output, log="same-package-installer.log", timeout=180)
             report["checks"]["same_package_reapplication"] = True
             report["failure_stage"] = "reapplied_public_image"

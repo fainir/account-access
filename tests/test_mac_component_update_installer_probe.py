@@ -439,3 +439,40 @@ def test_command_failures_always_retain_bounded_closed_outcome(monkeypatch, fail
     assert value["invocation_failed"] is (failure == "invocation")
     assert value["output_limited"] is (failure in {"timeout", "oversize"})
     assert report["command_failure"]["log"] == "fresh-gui-normal-quit.log"
+
+
+def test_detailed_installer_failure_reason_at_end_of_output_is_retained(monkeypatch):
+    reason = b'{"schema":1,"status":"REFUSED","reason":"component_base_not_verified"}'
+    stdout = b"installer output begins\n" + b"x" * 40000 + b"\ninstaller output ends\n"
+    stderr = b"detailed log begins\n" + b"y" * 40000 + b"\n" + reason + b"\n"
+    monkeypatch.setattr(probe.subprocess, "run", lambda *a, **k: subprocess.CompletedProcess(a[0], 1, stdout, stderr))
+    logs, report = {}, {"logs": {}}
+    output = SimpleNamespace(write=lambda name, raw: logs.setdefault(name, raw))
+    with pytest.raises(ValueError):
+        probe.command(["public-installer-fixture"], report=report, output=output, log="candidate-installer.log")
+    raw = logs["candidate-installer.log"]
+    value = json.loads(raw)
+    assert value["capture_format"] == "full_or_8k_head_tail_v1" and len(raw) <= 256 * 1024
+    assert value["stdout"].startswith("installer output begins")
+    assert value["stderr_tail"].endswith(reason.decode() + "\n")
+    for stream, original in (("stdout", stdout), ("stderr", stderr)):
+        assert len(value[stream]) == len(value[stream + "_tail"]) == 8192
+        assert value[stream + "_truncated"] is True
+        assert value[stream + "_bytes"] == len(original)
+        assert value[stream + "_sha256"] == probe.sha(original)
+
+
+@pytest.mark.parametrize("size", [0, 100, 16384, 16385])
+def test_small_command_output_stays_complete_and_boundary_is_explicit(monkeypatch, size):
+    stdout = b"a" * size
+    monkeypatch.setattr(probe.subprocess, "run", lambda *a, **k: subprocess.CompletedProcess(a[0], 0, stdout, b""))
+    logs, report = {}, {"logs": {}}
+    output = SimpleNamespace(write=lambda name, raw: logs.setdefault(name, raw))
+    probe.command(["public-fixture"], report=report, output=output, log="public.log")
+    value = json.loads(logs["public.log"])
+    if size <= 16384:
+        assert value["stdout"] == stdout.decode() and value["stdout_tail"] == ""
+        assert value["stdout_truncated"] is False
+    else:
+        assert len(value["stdout"]) == len(value["stdout_tail"]) == 8192
+        assert value["stdout_truncated"] is True
