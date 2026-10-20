@@ -71,7 +71,9 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
     var enrollments = 0
     var lostNextEnrollment = false
     var clientEnrollments = 0
-    var deviceEmailRequests: [String] = []
+    private let deviceEmailLock = NSLock()
+    private var deviceEmailRequestLog: [String] = []
+    var deviceEmailRequests: [String] { deviceEmailLock.withLock { deviceEmailRequestLog } }
     var deviceEmailApplyFailure = false
     var deviceEmailPreview: [String: Any] = [:]
     var googleRequests: [String] = []
@@ -116,7 +118,7 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
             }
         }
         if route.hasPrefix("owner/device-email/") {
-            deviceEmailRequests.append(route)
+            deviceEmailLock.withLock { deviceEmailRequestLog.append(route) }
             if route.hasSuffix("/preview") {
                 reply(200, try! JSONSerialization.data(withJSONObject: deviceEmailPreview)); return
             }
