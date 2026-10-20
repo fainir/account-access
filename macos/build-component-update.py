@@ -224,14 +224,15 @@ def publisher_requirement(identifier, team):
             'and !(entitlement["com.apple.security.get-task-allow"] exists)')
 
 
-def validate_native_report(files, *, source, sources, run_id):
+def validate_native_report(files, *, source, sources, run_id, run_attempt=1):
     report = strict_json(files["report.json"])
     if (type(report.get("schema")) is not int or report["schema"] != 1 or report.get("status") != "PASSED"
             or report.get("environment") != "ordinary-disposable-mac-ci"
             or any(report.get(key) is not False for key in ("installed_reads", "service_actions", "root_execution", "production_ready"))
             or report.get("source_revision") != source
             or report.get("source_sha256") != {name: sources[name] for name in NATIVE_CI_SOURCES}
-            or str(report.get("run_id")) != str(run_id) or str(report.get("run_attempt")) != "1"
+            or type(run_attempt) is not int or run_attempt not in {1, 2}
+            or str(report.get("run_id")) != str(run_id) or str(report.get("run_attempt")) != str(run_attempt)
             or not _true_checks(report.get("checks"), {"core_fixture", "policy_fixture", "ordinary_main_refusal", "ordinary_revalidation_refusal"})
             or report.get("ordinary_main") != {"returncode": 78, "result": {
                 "schema": 1, "status": "REFUSED", "reason": "component_update_context_required"}}
@@ -313,7 +314,7 @@ def _override_evidence(command_result, label, expected):
             and len(line.encode("utf-8")) <= command_result["output_bytes"])
 
 
-def validate_disable_report(files, *, source, sources, run_id):
+def validate_disable_report(files, *, source, sources, run_id, run_attempt=1):
     allowed = {"report.json", "installer-context.json", "root-probe.py", "installer-stdout.txt", "installer-stderr.txt"}
     if not {"report.json", "installer-context.json", "root-probe.py"} <= set(files) or not set(files) <= allowed:
         raise ValueError("component_disable_ci_members_changed")
@@ -322,7 +323,8 @@ def validate_disable_report(files, *, source, sources, run_id):
     scope = "unique_system_job_registration_exclusion_while_disabled_no_reboot"
     if (type(report.get("schema")) is not int or report["schema"] != 1 or report.get("status") != "PASSED"
             or report.get("environment") != "disposable-mac-ci-installer" or report.get("status_scope") != scope
-            or str(report.get("run_id")) != str(run_id) or str(report.get("run_attempt")) != "1"
+            or type(run_attempt) is not int or run_attempt not in {1, 2}
+            or str(report.get("run_id")) != str(run_id) or str(report.get("run_attempt")) != str(run_attempt)
             or report.get("actual_installer_used") is not True or type(report.get("installer_exit_code")) is not int
             or report["installer_exit_code"] != 0
             or report.get("installer_timed_out", False) is not False
@@ -390,8 +392,145 @@ def validate_disable_report(files, *, source, sources, run_id):
     return report
 
 
+HOSTED_UNACQUIRED = "The job was not acquired by Runner of type hosted even after multiple attempts"
+MAC_CAPACITY = "Due to capacity constraints, jobs targeting macOS arm64 runners may experience longer queue times."
+
+
+def _retry_jobs(run, source, archives):
+    """One failed-jobs-only retry of a proven unacquired Mac runner; never rerun code failures."""
+    if (run.get("path") not in {".github/workflows/check.yml", ".github/workflows/mac-worker.yml"}
+            or type(run.get("workflow_id")) is not int or run["workflow_id"] <= 0):
+        raise ValueError("component_ci_retry_workflow_not_eligible")
+    responses = []
+
+    def read(suffix, name):
+        endpoint = f"repos/{REPOSITORY}/" + suffix
+        raw = github_bytes(endpoint)
+        value = strict_json(raw)
+        filename = f"infra-{run['id']}-{name}.json"
+        archives[filename] = raw
+        responses.append({"file": filename, "endpoint": endpoint, "sha256": component.digest(raw)})
+        return value
+
+    def jobs(attempt):
+        value = read(f"actions/runs/{run['id']}/attempts/{attempt}/jobs?per_page=100", f"jobs-{attempt}")
+        rows = value.get("jobs", [])
+        if (not isinstance(rows, list) or any(not isinstance(item, dict) for item in rows)
+                or type(value.get("total_count")) is not int or value["total_count"] != len(rows)
+                or not 1 <= len(rows) <= 16 or len({item.get("name") for item in rows}) != len(rows)
+                or len({item.get("id") for item in rows}) != len(rows)
+                or any(type(item.get("id")) is not int or item["id"] <= 0
+                       or type(item.get("run_id")) is not int or item["run_id"] != run["id"]
+                       or item.get("run_url") != f"https://api.github.com/repos/{REPOSITORY}/actions/runs/{run['id']}"
+                       or item.get("head_sha") != source or item.get("status") != "completed" for item in rows)):
+            raise ValueError("component_ci_retry_jobs_incomplete")
+        return rows
+
+    def unassigned(job):
+        return (job.get("labels") == ["macos-15"] and job.get("steps") == []
+                and all(type(job.get(key)) is int and job[key] == 0 for key in ("runner_id", "runner_group_id"))
+                and all(job.get(key) == "" for key in ("runner_name", "runner_group_name")))
+
+    def succeeded(job):
+        steps = job.get("steps")
+        return (job.get("conclusion") == "success" and type(job.get("runner_id")) is int and job["runner_id"] > 0
+                and isinstance(job.get("runner_name"), str) and bool(job["runner_name"])
+                and isinstance(steps, list) and 1 <= len(steps) <= 64
+                and all(isinstance(step, dict) and step.get("status") == "completed" and step.get("conclusion") in {"success", "skipped"}
+                        for step in steps))
+
+    def checked(job, cancelled):
+        endpoint = f"check-runs/{job['id']}"
+        url = f"https://api.github.com/repos/{REPOSITORY}/" + endpoint
+        if job.get("check_run_url") != url:
+            raise ValueError("component_ci_retry_check_identity_changed")
+        check = read(endpoint, f"check-{job['id']}")
+        output = check.get("output", {})
+        annotations = read(endpoint + "/annotations?per_page=100", f"annotations-{job['id']}")
+        if (type(check.get("id")) is not int or check["id"] != job["id"]
+                or check.get("name") != job["name"] or check.get("head_sha") != source
+                or check.get("app", {}).get("slug") != "github-actions" or check.get("status") != "completed"
+                or check.get("conclusion") != job["conclusion"] or output.get("annotations_url") != url + "/annotations"
+                or type(output.get("annotations_count")) is not int or not isinstance(annotations, list)
+                or output["annotations_count"] != len(annotations) or len(annotations) > 9):
+            raise ValueError("component_ci_retry_check_identity_changed")
+        if not cancelled:
+            if annotations:
+                raise ValueError("component_ci_retry_dependency_annotation_changed")
+            return
+        messages = []
+        for annotation in annotations:
+            if (not isinstance(annotation, dict) or set(annotation) != {"annotation_level", "blob_href", "end_column", "end_line", "message", "path",
+                                    "raw_details", "start_column", "start_line", "title"}
+                    or annotation["path"] != ".github" or annotation["raw_details"] != "" or annotation["title"] != ""
+                    or annotation["start_column"] is not None or annotation["end_column"] is not None
+                    or type(annotation["start_line"]) is not int or annotation["start_line"] != 1
+                    or type(annotation["end_line"]) is not int or annotation["end_line"] != 1
+                    or annotation["blob_href"] != f"https://github.com/{REPOSITORY}/blob/{source}/.github"):
+                raise ValueError("component_ci_retry_annotation_changed")
+            messages.append((annotation["annotation_level"], annotation["message"]))
+        if (messages.count(("failure", HOSTED_UNACQUIRED)) != 1
+                or not 1 <= messages.count(("notice", MAC_CAPACITY)) <= 8
+                or any(item not in {("failure", HOSTED_UNACQUIRED), ("notice", MAC_CAPACITY)} for item in messages)):
+            raise ValueError("component_ci_retry_not_hosted_capacity")
+
+    first = read(f"actions/runs/{run['id']}/attempts/1", "run-1")
+    if (first.get("run_attempt") != 1 or type(first.get("run_attempt")) is not int
+            or first.get("status") != "completed" or first.get("conclusion") not in {"cancelled", "failure"}
+            or any(first.get(key) != run.get(key) for key in ("id", "head_sha", "path", "event", "workflow_id"))
+            or type(first.get("workflow_id")) is not int or first["workflow_id"] <= 0
+            or any(first.get(key, {}).get("full_name") != REPOSITORY for key in ("repository", "head_repository"))):
+        raise ValueError("component_ci_retry_original_not_eligible")
+    second_run = read(f"actions/runs/{run['id']}/attempts/2", "run-2")
+    if (second_run.get("run_attempt") != 2 or type(second_run.get("run_attempt")) is not int
+            or second_run.get("status") != "completed" or second_run.get("conclusion") != "success"
+            or any(second_run.get(key) != run.get(key) for key in ("id", "head_sha", "path", "event", "workflow_id"))
+            or any(second_run.get(key, {}).get("full_name") != REPOSITORY for key in ("repository", "head_repository"))):
+        raise ValueError("component_ci_retry_second_attempt_changed")
+    original, second = jobs(1), jobs(2)
+    required = REQUIRED_JOBS[Path(run["path"]).name]
+    if {job["name"] for job in original} != required or any(job.get("run_attempt") != 1
+            or type(job.get("run_attempt")) is not int for job in original):
+        raise ValueError("component_ci_retry_original_jobs_changed")
+    cancelled = {job["name"] for job in original if job.get("conclusion") == "cancelled"}
+    if not cancelled:
+        raise ValueError("component_ci_retry_no_capacity_failure")
+    eligible, qualified = set(cancelled), {}
+    for job in original:
+        if job["name"] in cancelled:
+            if not unassigned(job):
+                raise ValueError("component_ci_retry_job_was_acquired")
+            checked(job, True)
+        elif job.get("conclusion") == "skipped":
+            if (run["path"] != ".github/workflows/mac-worker.yml" or job["name"] != "mac-cross-user"
+                    or "mac-installer-context" not in cancelled or not unassigned(job)):
+                raise ValueError("component_ci_retry_unrelated_skip")
+            checked(job, False)
+            eligible.add(job["name"])
+        elif succeeded(job):
+            qualified[job["name"]] = job
+        else:
+            raise ValueError("component_ci_retry_code_or_unknown_failure")
+    rerun = set()
+    for job in second:
+        previous = next((item for item in original if item["name"] == job["name"]), None)
+        if job["name"] in qualified and job == qualified[job["name"]]:
+            continue  # The API may include the identical retained attempt-1 record; it did not rerun.
+        if (previous is None or job["name"] not in eligible or type(job.get("run_attempt")) is not int
+                or job["run_attempt"] != 2 or job["labels"] != ["macos-15"]
+                or job["id"] in {item["id"] for item in original} or not succeeded(job)):
+            raise ValueError("component_ci_retry_not_failed_jobs_only")
+        qualified[job["name"]] = job
+        rerun.add(job["name"])
+    if rerun != eligible or set(qualified) != required:
+        raise ValueError("component_ci_retry_required_jobs_missing")
+    return original, list(qualified.values()), {"run_id": run["id"], "kind": "hosted_macos_capacity_retry",
+        "original_attempt": first, "second_attempt": second_run, "first_attempt_jobs": original, "second_attempt_jobs": second,
+        "responses": responses, "retry_attempt": 2, "first_attempt_passed": False}
+
+
 def ci_gate(source, sources):
-    """Authenticate all required first attempts and the two fixed Mac proof archives."""
+    """Authenticate first passes or one fully recorded unacquired-runner retry."""
     user = github_json("user")
     if type(user.get("id")) is not int or user["id"] <= 0:
         raise ValueError("component_authenticated_github_required")
@@ -406,7 +545,7 @@ def ci_gate(source, sources):
         key = (run.get("path"), run.get("event"))
         if key not in expected:
             continue
-        if (key in selected or run.get("head_sha") != source or type(run.get("run_attempt")) is not int or run["run_attempt"] != 1
+        if (key in selected or run.get("head_sha") != source or type(run.get("run_attempt")) is not int or run["run_attempt"] not in {1, 2}
                 or run.get("status") != "completed" or run.get("conclusion") != "success"
                 or run.get("repository", {}).get("full_name") != REPOSITORY
                 or run.get("head_repository", {}).get("full_name") != REPOSITORY
@@ -415,8 +554,15 @@ def ci_gate(source, sources):
         selected[key] = run
     if set(selected) != expected:
         raise ValueError("component_ci_required_matrix_missing")
-    jobs_by_run = {}
+    jobs_by_run, qualified_by_run, originals, retries, archives = {}, {}, {}, [], {}
     for (path, event), run in selected.items():
+        if run["run_attempt"] == 2:
+            jobs, qualified, retry = _retry_jobs(run, source, archives)
+            jobs_by_run[run["id"]] = jobs
+            qualified_by_run[run["id"]] = qualified
+            originals[run["id"]] = retry["original_attempt"]
+            retries.append(retry)
+            continue
         jobs_page = github_json(f"repos/{REPOSITORY}/actions/runs/{run['id']}/attempts/1/jobs?per_page=100")
         jobs = jobs_page.get("jobs", [])
         # These two fixed jobs only apply to workflow_dispatch. On this
@@ -437,12 +583,14 @@ def ci_gate(source, sources):
             raise ValueError("component_ci_required_jobs_not_passed")
         jobs_by_run[run["id"]] = [{"id": job["id"], "name": job["name"], "conclusion": job["conclusion"],
                                  "applicable": job["name"] not in inapplicable} for job in jobs]
+        qualified_by_run[run["id"]] = jobs
     run_id = selected[(".github/workflows/mac-worker.yml", "push")]["id"]
+    context = next(job for job in qualified_by_run[run_id] if job["name"] == "mac-installer-context")
     page = github_json(f"repos/{REPOSITORY}/actions/runs/{run_id}/artifacts?per_page=100")
     artifacts = page.get("artifacts", [])
     if type(page.get("total_count")) is not int or page["total_count"] != len(artifacts) or len(artifacts) > 100:
         raise ValueError("component_ci_artifacts_incomplete")
-    proofs, archives = [], {}
+    proofs = []
     for name, validator in (("mac-component-update-native", validate_native_report),
                             ("mac-launchctl-disable-installer-context", validate_disable_report)):
         found = [item for item in artifacts if item.get("name") == name]
@@ -459,14 +607,19 @@ def ci_gate(source, sources):
         if "sha256:" + component.digest(raw) != item["digest"]:
             raise ValueError("component_ci_artifact_server_digest_changed")
         files = archive_members(raw)
-        validator(files, source=source, sources=sources, run_id=run_id)
+        validator(files, source=source, sources=sources, run_id=run_id, run_attempt=context["run_attempt"])
         archives[name + ".zip"] = raw
-        proofs.append({"name": name, "id": item["id"], "run_id": run_id,
+        proofs.append({"name": name, "id": item["id"], "run_id": run_id, "job_id": context["id"], "run_attempt": context["run_attempt"],
                        "sha256": component.digest(raw), "members": {key: component.digest(value) for key, value in files.items()}})
     return {"source_revision": source, "authenticated_api": True,
-            "first_attempt_runs": [{"id": run["id"], "path": key[0], "event": key[1], "jobs": jobs_by_run[run["id"]]}
+            "first_attempt_runs": [{"id": run["id"], "path": key[0], "event": key[1], "jobs": jobs_by_run[run["id"]],
+                **({"run_attempt": 1, "conclusion": originals[run["id"]]["conclusion"]} if run["id"] in originals else {})}
                                    for key, run in sorted(selected.items())],
-            "artifacts": proofs}, archives
+            "artifacts": proofs, "infrastructure_retries": retries,
+            "qualification": "recorded_infrastructure_retry_passed" if retries else "first_attempts_passed",
+            "qualified_runs": [{"id": run["id"], "path": key[0], "event": key[1], "run_attempt": run["run_attempt"],
+                "conclusion": "success",
+                "jobs": qualified_by_run[run["id"]]} for key, run in sorted(selected.items())]}, archives
 
 
 def freeze(source):

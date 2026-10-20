@@ -8,8 +8,20 @@ enum InstallationRootBindingTests {
     static func run() throws -> (Int, [String: Bool]) {
         var checks = 0
         var passed: [String: Bool] = [:]
+        var group = "legacy_receipts_bound_to_original_bytes_owner_and_roots"
         func expect(_ condition: Bool) throws {
-            guard condition else { throw ComponentUpdateFailure.context }
+            guard condition else {
+                // Fixture diagnostics contain only fixed group names and a
+                // bounded assertion ordinal, never values, paths or UUIDs.
+                let failure: [String: Any] = ["schema": 1,
+                    "managed_by": "account-access-installation-root-fixture-failure-v1", "status": "FAILED",
+                    "group": group, "completed_groups": passed.keys.sorted(), "next_assertion": checks + 1,
+                    "installed_reads": false, "service_actions": false]
+                if let data = try? JSONSerialization.data(withJSONObject: failure, options: [.sortedKeys]) {
+                    FileHandle.standardError.write(data); FileHandle.standardError.write(Data([10]))
+                }
+                throw ComponentUpdateFailure.context
+            }
             checks += 1
         }
         func refuses(_ body: () throws -> Void) throws {
@@ -60,6 +72,7 @@ enum InstallationRootBindingTests {
         try expect(legacy.roots[paths[1]] == .init(device: 16_777_234, inode: 654_321))
         try expect(legacy.hashes == records.mapValues { SHA256.hash(data: $0).map { String(format: "%02x", $0) }.joined() })
         passed["legacy_receipts_bound_to_original_bytes_owner_and_roots"] = true
+        group = "legacy_shape_digest_owner_status_and_record_set_fail_closed"
 
         var missing = records; missing.removeValue(forKey: "published.json")
         try refuses { _ = try parse(missing) }
@@ -86,6 +99,7 @@ enum InstallationRootBindingTests {
         try refuses { _ = try InstallationRootBinding.parseLegacy(records: records, ownerUID: 0, manifestSHA256: manifest) }
         try refuses { _ = try InstallationRootBinding.parseLegacy(records: records, ownerUID: owner, manifestSHA256: "invalid") }
         passed["legacy_shape_digest_owner_status_and_record_set_fail_closed"] = true
+        group = "legacy_fixed_roots_require_bounded_nonboolean_integer_pairs"
 
         let malformedRoots: [[String: Any]] = [
             [paths[0]: [16_777_234, 123_456]],
@@ -118,6 +132,7 @@ enum InstallationRootBindingTests {
             try refuses { _ = try parse(modified) }
         }
         passed["legacy_fixed_roots_require_bounded_nonboolean_integer_pairs"] = true
+        group = "legacy_bounded_json_and_plain_escaped_nested_duplicates_rejected"
 
         let intentText = String(decoding: records["intent.json"]!, as: UTF8.self)
         let duplicatedSchema = "{\"schema\":1," + intentText.dropFirst()
@@ -133,6 +148,7 @@ enum InstallationRootBindingTests {
         duplicates["ready.json"] = Data(duplicatedRoot.utf8); duplicates["published.json"] = Data(duplicatedRoot.utf8)
         try refuses { _ = try parse(duplicates) }
         passed["legacy_bounded_json_and_plain_escaped_nested_duplicates_rejected"] = true
+        group = "device_only_migration_never_accepts_inode_or_root_set_changes"
 
         try expect(try InstallationRootBinding.exactLegacy(legacy, current: current(device: 16_777_234)))
         try expect(try !InstallationRootBinding.exactLegacy(legacy, current: current()))
@@ -150,6 +166,7 @@ enum InstallationRootBindingTests {
         var mixedVolumes = current(); mixedVolumes[paths[1]] = .init(device: 16_777_235, inode: 654_321, volumeUUID: differentVolume)
         try refuses { try InstallationRootBinding.requireDeviceOnly(legacy, current: mixedVolumes) }
         passed["device_only_migration_never_accepts_inode_or_root_set_changes"] = true
+        group = "supplement_binds_uuid_and_both_original_inodes_across_device_renumbering"
 
         let policies = Dictionary(uniqueKeysWithValues: ["install", "host", "owner", "worker", "service"].enumerated().map {
             ($0.element, String(repeating: String($0.offset + 1), count: 64))
@@ -175,6 +192,7 @@ enum InstallationRootBindingTests {
         try refuses { try InstallationRootBinding.validateSupplement(supplement, legacy: legacy, current: current(supportInode: 123_457)) }
         try refuses { try InstallationRootBinding.validateSupplement(supplement, legacy: legacy, current: current(applicationInode: 654_322)) }
         passed["supplement_binds_uuid_and_both_original_inodes_across_device_renumbering"] = true
+        group = "supplement_requires_supported_canonical_nonzero_volume_uuid"
 
         for uuid in ["", "unsupported", volume.uppercased(), "00000000-0000-0000-0000-000000000000"] {
             try refuses { _ = try InstallationRootBinding.supplement(legacy: legacy, current: current(uuid: uuid), planSHA256: plan,
@@ -182,6 +200,7 @@ enum InstallationRootBindingTests {
             try refuses { try InstallationRootBinding.validateSupplement(supplement, legacy: legacy, current: current(uuid: uuid)) }
         }
         passed["supplement_requires_supported_canonical_nonzero_volume_uuid"] = true
+        group = "supplement_owner_publisher_schema_plan_source_policy_provenance_fail_closed"
 
         let invalidSupplementFields: [(String, Any)] = [
             ("schema", true), ("schema", 99), ("managed_by", "foreign"),
@@ -203,6 +222,7 @@ enum InstallationRootBindingTests {
         try refuses { _ = try InstallationRootBinding.supplement(legacy: legacy, current: current(), planSHA256: plan,
                                                                 sourceCommit: "invalid", policyHashes: policies) }
         passed["supplement_owner_publisher_schema_plan_source_policy_provenance_fail_closed"] = true
+        group = "supplement_fixed_root_schema_uuid_and_inode_cannot_be_substituted"
 
         let rootMutations: [(String, Any)] = [("inode", true), ("inode", 123_457),
                                             ("volume_uuid", differentVolume), ("extra", true)]
@@ -217,6 +237,7 @@ enum InstallationRootBindingTests {
         let badRoots = try changed(supplement) { $0["roots"] = wrongRootSet }
         try refuses { try InstallationRootBinding.validateSupplement(badRoots, legacy: legacy, current: current()) }
         passed["supplement_fixed_root_schema_uuid_and_inode_cannot_be_substituted"] = true
+        group = "supplement_rejects_any_changed_original_receipt_bytes_or_digest"
 
         for name in InstallationRootBinding.receiptNames {
             var changedBytes = records; changedBytes[name] = records[name]! + Data([32])
@@ -226,6 +247,7 @@ enum InstallationRootBindingTests {
         let wrongHashes = try changed(supplement) { $0["original_receipt_sha256"] = records.mapValues { _ in String(repeating: "0", count: 64) } }
         try refuses { try InstallationRootBinding.validateSupplement(wrongHashes, legacy: legacy, current: current()) }
         passed["supplement_rejects_any_changed_original_receipt_bytes_or_digest"] = true
+        group = "supplement_bounded_json_and_duplicate_members_rejected"
 
         let supplementText = String(decoding: supplement, as: UTF8.self)
         let duplicate = "{\"owner_uid\":501," + supplementText.dropFirst()
@@ -235,6 +257,7 @@ enum InstallationRootBindingTests {
             try refuses { try InstallationRootBinding.validateSupplement(bad, legacy: legacy, current: current()) }
         }
         passed["supplement_bounded_json_and_duplicate_members_rejected"] = true
+        group = "owned_directory_volume_uuid_abi_is_canonical_and_nonzero"
 
         var template = Array("/private/tmp/account-access-volume-fixture-XXXXXX".utf8).map { CChar(bitPattern: $0) } + [0]
         guard let created = mkdtemp(&template) else { throw ComponentUpdateFailure.context }

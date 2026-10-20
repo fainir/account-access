@@ -146,16 +146,77 @@ def remote(monkeypatch, evidence):
             return {"id": 42}
         if "actions/runs?" in endpoint:
             return {"total_count": len(evidence.runs), "workflow_runs": evidence.runs}
+        if endpoint in getattr(evidence, "retry_endpoints", {}):
+            return evidence.retry_endpoints[endpoint]
         if "/attempts/1/jobs?" in endpoint:
             jobs = evidence.jobs[int(endpoint.split("/runs/")[1].split("/")[0])]
             return {"total_count": len(jobs), "jobs": jobs}
         if endpoint.endswith("/artifacts?per_page=100"):
             return {"total_count": len(evidence.artifacts), "artifacts": evidence.artifacts}
+        if endpoint.endswith("/attempts/1"):
+            run_id = int(endpoint.split("/runs/")[1].split("/")[0])
+            return dict(next(run for run in evidence.runs if run["id"] == run_id), run_attempt=1)
         raise AssertionError(endpoint)
 
     monkeypatch.setattr(builder, "github_json", get)
-    monkeypatch.setattr(builder, "github_bytes", lambda endpoint: evidence.archives[int(endpoint.split("/")[-2])])
+    monkeypatch.setattr(builder, "github_bytes", lambda endpoint: evidence.archives[int(endpoint.split("/")[-2])]
+                        if "/actions/artifacts/" in endpoint else encoded(get(endpoint)))
     return calls
+
+
+def infrastructure_retry(evidence, *, run_id=1000, cancelled="native-owner-ui", dependency=False, retained=False):
+    run = next(item for item in evidence.runs if item["id"] == run_id)
+    run.update(run_attempt=2, workflow_id=run_id + 5000)
+    first = dict(run, run_attempt=1, conclusion="cancelled")
+    prefix = f"repos/{builder.REPOSITORY}/"
+    original = copy.deepcopy(evidence.jobs[run_id])
+    endpoints = {prefix + f"actions/runs/{run_id}/attempts/1": first,
+                 prefix + f"actions/runs/{run_id}/attempts/2": copy.deepcopy(run)}
+    for job in original:
+        name = job["name"]
+        unassigned = name == cancelled or dependency and name == "mac-cross-user"
+        job.update(run_id=run_id, run_url=f"https://api.github.com/{prefix}actions/runs/{run_id}",
+                   runner_id=0 if unassigned else 42, runner_name="" if unassigned else "assigned",
+                   runner_group_id=0 if unassigned else 1, runner_group_name="" if unassigned else "hosted",
+                   labels=["macos-15"] if unassigned else ["ubuntu-latest"],
+                   steps=[] if unassigned else [{"status": "completed", "conclusion": "success"}],
+                   conclusion="cancelled" if name == cancelled else "skipped" if unassigned else "success")
+        if unassigned:
+            endpoint = prefix + f"check-runs/{job['id']}"
+            url = "https://api.github.com/" + endpoint
+            job["check_run_url"] = url
+            annotation = {"path": ".github", "start_line": 1, "end_line": 1, "start_column": None,
+                          "end_column": None, "title": "", "raw_details": "",
+                          "blob_href": f"https://github.com/{builder.REPOSITORY}/blob/{SOURCE}/.github"}
+            notes = [dict(annotation, annotation_level=level, message=message) for level, message in (
+                ("failure", builder.HOSTED_UNACQUIRED), ("notice", builder.MAC_CAPACITY))] if name == cancelled else []
+            endpoints[endpoint] = {"id": job["id"], "name": name, "head_sha": SOURCE,
+                "app": {"slug": "github-actions"}, "status": "completed", "conclusion": job["conclusion"],
+                "output": {"annotations_count": len(notes), "annotations_url": url + "/annotations"}}
+            endpoints[endpoint + "/annotations?per_page=100"] = notes
+    second = []
+    for job in original:
+        if job["conclusion"] == "success":
+            if retained:
+                second.append(copy.deepcopy(job))
+        else:
+            second.append(dict(job, id=job["id"] + 1_000_000, run_attempt=2, conclusion="success", runner_id=43,
+                               runner_name="retry-runner", steps=[{"status": "completed", "conclusion": "success"}]))
+    endpoints[prefix + f"actions/runs/{run_id}/attempts/1/jobs?per_page=100"] = {"total_count": len(original), "jobs": original}
+    endpoints[prefix + f"actions/runs/{run_id}/attempts/2/jobs?per_page=100"] = {"total_count": len(second), "jobs": second}
+    evidence.retry_endpoints = endpoints
+    return SimpleNamespace(run=run, first=first, original=original, second=second, endpoints=endpoints,
+                           cancelled=next(job for job in original if job["name"] == cancelled))
+
+
+def artifact_attempt(evidence, attempt):
+    evidence.native["run_attempt"] = evidence.disable["run_attempt"] = str(attempt)
+    evidence.native_files["report.json"] = encoded(evidence.native)
+    evidence.disable_files["report.json"] = encoded(evidence.disable)
+    evidence.archives = {5001: archive(evidence.native_files), 5002: archive(evidence.disable_files)}
+    for artifact in evidence.artifacts:
+        raw = evidence.archives[artifact["id"]]
+        artifact.update(size_in_bytes=len(raw), digest="sha256:" + builder.component.digest(raw))
 
 
 def test_gate_authenticates_complete_first_attempt_matrix_and_server_archives(monkeypatch, evidence):
@@ -168,6 +229,167 @@ def test_gate_authenticates_complete_first_attempt_matrix_and_server_archives(mo
     assert {(job["name"], job["conclusion"], job["applicable"]) for job in review["jobs"]} == {
         ("ordinary-contracts", "success", True), ("download-public-inputs", "skipped", False),
         ("actual-installer-review", "skipped", False)}
+    assert proof["qualification"] == "first_attempts_passed" and proof["infrastructure_retries"] == []
+
+
+@pytest.mark.parametrize("retained", [False, True])
+@pytest.mark.parametrize("aggregate", ["cancelled", "failure"])
+def test_one_proven_unacquired_mac_retry_retains_successful_original_jobs(monkeypatch, evidence, retained, aggregate):
+    retry = infrastructure_retry(evidence, retained=retained)
+    retry.first["conclusion"] = aggregate
+    remote(monkeypatch, evidence)
+    proof, archives = builder.ci_gate(SOURCE, evidence.sources)
+    assert proof["qualification"] == "recorded_infrastructure_retry_passed"
+    original = next(item for item in proof["first_attempt_runs"] if item["id"] == retry.run["id"])
+    assert next(job for job in original["jobs"] if job["name"] == "native-owner-ui")["conclusion"] == "cancelled"
+    assert original["run_attempt"] == 1 and original["conclusion"] == aggregate
+    selected = next(item for item in proof["qualified_runs"] if item["id"] == retry.run["id"])
+    assert {job["name"]: job["run_attempt"] for job in selected["jobs"]} == {
+        "native-owner-ui": 2, "native-owner-gateway": 1, "test": 1}
+    record, = proof["infrastructure_retries"]
+    assert record["first_attempt_passed"] is False and record["retry_attempt"] == 2
+    assert record["first_attempt_jobs"] == retry.original and record["second_attempt_jobs"] == retry.second
+    for response in record["responses"]:
+        raw = archives[response["file"]]
+        assert builder.component.digest(raw) == response["sha256"]
+        assert json.loads(raw) == retry.endpoints[response["endpoint"]]
+
+
+@pytest.mark.parametrize("context_retry", [False, True])
+def test_artifacts_bind_selected_context_attempt_not_latest_workflow_attempt(monkeypatch, evidence, context_retry):
+    infrastructure_retry(evidence, run_id=evidence.run_id,
+        cancelled="mac-installer-context" if context_retry else "mac-cross-user", dependency=context_retry)
+    artifact_attempt(evidence, 2 if context_retry else 1)
+    remote(monkeypatch, evidence)
+    proof, _ = builder.ci_gate(SOURCE, evidence.sources)
+    assert {item["run_attempt"] for item in proof["artifacts"]} == {2 if context_retry else 1}
+    selected = next(item for item in proof["qualified_runs"] if item["id"] == evidence.run_id)
+    context = next(job for job in selected["jobs"] if job["name"] == "mac-installer-context")
+    assert all(item["job_id"] == context["id"] for item in proof["artifacts"])
+
+
+@pytest.mark.parametrize("change", ["runner-id", "runner-name", "runner-group-id", "runner-group-name", "steps", "label",
+    "user-cancel", "no-capacity", "wrong-level", "extra-annotation", "annotation-path", "annotation-source", "annotation-column",
+    "annotation-line", "annotation-title", "annotation-raw", "annotation-count", "check-id", "check-name", "check-source",
+    "check-app", "check-url", "annotations-url", "original-status", "original-conclusion", "original-source", "original-repo",
+    "original-workflow", "original-job-attempt", "original-job-source", "original-job-run", "original-job-status", "code-failure",
+    "failed-step", "second-failure", "second-attempt", "second-job-attempt", "second-job-source", "second-job-run", "rerun-success",
+    "missing-second-job", "foreign-second-job", "second-label", "assigned-timeout", "third-attempt"])
+def test_infrastructure_allowance_cannot_hide_code_failures_or_unknown_provenance(monkeypatch, evidence, change):
+    retry = infrastructure_retry(evidence)
+    job = retry.cancelled
+    check_endpoint = f"repos/{builder.REPOSITORY}/check-runs/{job['id']}"
+    check = retry.endpoints[check_endpoint]
+    notes = retry.endpoints[check_endpoint + "/annotations?per_page=100"]
+    if change.startswith("runner-"):
+        job[change.replace("-", "_")] = "assigned" if change.endswith("name") else 1
+    elif change == "steps":
+        job["steps"] = [{"status": "completed", "conclusion": "success"}]
+    elif change == "label":
+        job["labels"] = ["ubuntu-latest"]
+    elif change == "user-cancel":
+        notes[0]["message"] = "The operation was canceled."
+    elif change == "no-capacity":
+        notes.pop()
+        check["output"]["annotations_count"] = len(notes)
+    elif change == "wrong-level":
+        notes[0]["annotation_level"] = "notice"
+    elif change == "extra-annotation":
+        notes.append(dict(notes[0], message="A compile failed"))
+        check["output"]["annotations_count"] = len(notes)
+    elif change.startswith("annotation-"):
+        key = change.removeprefix("annotation-")
+        if key == "count":
+            check["output"]["annotations_count"] += 1
+        else:
+            key = {"source": "blob_href", "column": "start_column", "line": "start_line", "raw": "raw_details"}.get(key, key)
+            notes[0][key] = 2 if key == "start_line" else 1 if key == "start_column" else "foreign"
+    elif change.startswith("check-"):
+        key = change.removeprefix("check-")
+        if key == "url":
+            job["check_run_url"] = "https://foreign.invalid/check"
+        elif key == "app":
+            check["app"]["slug"] = "untrusted"
+        else:
+            check[{"source": "head_sha"}.get(key, key)] = job["id"] + 1 if key == "id" else "foreign"
+    elif change == "annotations-url":
+        check["output"]["annotations_url"] = "https://foreign.invalid/annotations"
+    elif change.startswith("original-job-"):
+        job[{"attempt": "run_attempt", "source": "head_sha", "run": "run_id", "status": "status"}[
+            change.removeprefix("original-job-")]] = 2 if change.endswith(("attempt", "run")) else "foreign"
+    elif change.startswith("original-"):
+        key = change.removeprefix("original-")
+        if key == "repo":
+            retry.first["head_repository"] = {"full_name": "foreign/repo"}
+        else:
+            retry.first[{"source": "head_sha", "workflow": "workflow_id"}.get(key, key)] = 99 if key == "workflow" else "foreign"
+    elif change in {"code-failure", "failed-step"}:
+        successful = next(item for item in retry.original if item["conclusion"] == "success")
+        successful["steps"][0]["conclusion"] = "failure"
+        if change == "code-failure":
+            successful["conclusion"] = "failure"
+    elif change == "second-failure":
+        retry.run["conclusion"] = "failure"
+    elif change == "second-attempt":
+        retry.endpoints[f"repos/{builder.REPOSITORY}/actions/runs/{retry.run['id']}/attempts/2"]["run_attempt"] = 3
+    elif change.startswith("second-job-"):
+        retry.second[0][{"attempt": "run_attempt", "source": "head_sha", "run": "run_id"}[
+            change.removeprefix("second-job-")]] = 1 if change.endswith("attempt") else 999 if change.endswith("run") else "foreign"
+    elif change == "rerun-success":
+        successful = next(item for item in retry.original if item["conclusion"] == "success")
+        retry.second.append(dict(successful, id=successful["id"] + 2_000_000, run_attempt=2))
+        retry.endpoints[f"repos/{builder.REPOSITORY}/actions/runs/{retry.run['id']}/attempts/2/jobs?per_page=100"]["total_count"] += 1
+    elif change == "missing-second-job":
+        retry.second[0]["name"] = "test"
+    elif change == "foreign-second-job":
+        retry.second[0]["name"] = "unknown"
+    elif change == "second-label":
+        retry.second[0]["labels"] = ["ubuntu-latest"]
+    elif change == "assigned-timeout":
+        job.update(conclusion="timed_out", runner_id=3, runner_name="assigned")
+    else:
+        retry.run["run_attempt"] = 3
+    remote(monkeypatch, evidence)
+    with pytest.raises(ValueError, match="component_ci_"):
+        builder.ci_gate(SOURCE, evidence.sources)
+
+
+def test_dependency_skip_requires_cancelled_unacquired_context_and_no_check_annotations(monkeypatch, evidence):
+    retry = infrastructure_retry(evidence, run_id=evidence.run_id, cancelled="mac-cross-user")
+    next(job for job in retry.original if job["name"] == "mac-installer-context")["conclusion"] = "skipped"
+    remote(monkeypatch, evidence)
+    with pytest.raises(ValueError, match="component_ci_retry_unrelated_skip"):
+        builder.ci_gate(SOURCE, evidence.sources)
+
+
+def test_allowed_dependency_skip_cannot_have_an_unclassified_annotation(monkeypatch, evidence):
+    retry = infrastructure_retry(evidence, run_id=evidence.run_id, cancelled="mac-installer-context", dependency=True)
+    skipped = next(job for job in retry.original if job["name"] == "mac-cross-user")
+    endpoint = f"repos/{builder.REPOSITORY}/check-runs/{skipped['id']}"
+    retry.endpoints[endpoint]["output"]["annotations_count"] = 1
+    retry.endpoints[endpoint + "/annotations?per_page=100"] = [{"annotation_level": "notice", "message": "Unknown cause"}]
+    remote(monkeypatch, evidence)
+    with pytest.raises(ValueError, match="component_ci_retry_dependency_annotation_changed"):
+        builder.ci_gate(SOURCE, evidence.sources)
+
+
+@pytest.mark.parametrize("which", ["android.yml", "worker-boundary.yml", builder.REVIEW_WORKFLOW])
+def test_capacity_exception_is_limited_to_the_two_fixed_mac_workflows(monkeypatch, evidence, which):
+    run = next(item for item in evidence.runs if item["path"].endswith("/" + which))
+    run.update(run_attempt=2, workflow_id=5000)
+    remote(monkeypatch, evidence)
+    with pytest.raises(ValueError, match="component_ci_retry_workflow_not_eligible"):
+        builder.ci_gate(SOURCE, evidence.sources)
+
+
+@pytest.mark.parametrize("context_retry", [False, True])
+def test_report_from_wrong_attempt_cannot_replace_selected_context_evidence(monkeypatch, evidence, context_retry):
+    infrastructure_retry(evidence, run_id=evidence.run_id,
+        cancelled="mac-installer-context" if context_retry else "mac-cross-user", dependency=context_retry)
+    artifact_attempt(evidence, 1 if context_retry else 2)
+    remote(monkeypatch, evidence)
+    with pytest.raises(ValueError, match="component_native_ci_binding_changed"):
+        builder.ci_gate(SOURCE, evidence.sources)
 
 
 @pytest.mark.parametrize("change", ["applicable-skipped", "dispatch-passed", "unknown-skipped", "missing-dispatch",

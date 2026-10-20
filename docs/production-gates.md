@@ -7,6 +7,26 @@ establish that experience on personal accounts.
 
 ## Current candidate
 
+Development source now includes explicit installation-root revalidation for a
+changed device number with both original inodes still matching. It preserves
+the original receipts and requires a newly verified current volume binding.
+[Checks and limitations](installation-root-revalidation.md).
+
+Source `12306c3` remains **unqualified**: five CI workflows passed and four
+failed. Some Mac jobs never acquired a hosted runner; a separate executed native
+fixture failed after successful compilation. Those failures are retained and
+are not interchangeable. Explicit raw-NUL rejection and failure-only fixture
+markers were added for fresh verification; the older-Mac failure's cause is not
+yet established. The updated local native fixture passes 236 assertions across
+42 groups. New-source CI, signed-package Installer acceptance and repair of the
+affected personal Mac remain pending. No personal sign-in acceptance is claimed.
+
+The current builder allows one strictly proven unacquired-runner retry while
+preserving the original failed attempt. Executed code or test failures remain
+ineligible. See [CI qualification](installation-root-revalidation.md#ci-qualification).
+
+### Retained build 76 base
+
 Build **76** is a controlled local installer candidate at `fbd2a73`. Its native
 mailbox retry preserves nonsecret settings, clears passwords on submission and
 navigation, requires explicit retry and rejects stale callbacks. The optimized
@@ -170,7 +190,9 @@ Installer apply/reapply checks.
 
 [Source review and retained earlier attempts](../artifacts/component-update-source-080-20261020.json).
 The build gate also preserves the measured skipped state of the review push's
-two dispatch-only jobs; all applicable jobs still require first-attempt success.
+two dispatch-only jobs. That frozen gate required first-attempt success for all
+applicable jobs; the current narrowly bounded infrastructure exception is
+described above.
 [Earlier CI applicability correction](../artifacts/component-update-ci-applicability-080-20261020.json).
 
 The first updater CI attempts refused the disable-state output. A read-only

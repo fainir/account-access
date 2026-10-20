@@ -33,7 +33,7 @@ enum InstallationRootBinding {
     // JSONSerialization accepts duplicate keys. This bounded pass rejects them
     // at every object depth, including escaped spellings, after syntax validation.
     private static func object(_ data: Data) throws -> [String: Any] {
-        guard !data.isEmpty, data.count <= 8192,
+        guard !data.isEmpty, data.count <= 8192, !data.contains(0),
               let result = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw ComponentUpdateFailure.base
         }

@@ -89,6 +89,23 @@ refused operation into success.
 - The package is a development recovery component. Consumer Installer signing,
   notarization and release qualification remain separate requirements.
 
+## CI qualification
+
+The package builder requires successful checks for its exact source. Normally
+every required workflow passes its first attempt. One failed-jobs-only retry is
+allowed when GitHub's authenticated job and check records prove that a hosted
+Mac job never acquired a runner or executed a step, and carry its exact runner
+capacity cancellation annotations. The only permitted skipped job is that
+cancelled context job's declared dependent.
+
+Both attempts, original annotations and their hashes remain in the build
+evidence. Already successful jobs must retain their original identities; every
+retried required job must actually succeed. Native artifacts must identify the
+selected context job's real source and attempt. A test failure, executed failed
+step, assigned runner, unknown cancellation, unrelated skip, repeated successful
+job, missing history or third attempt is refused. Retrying infrastructure never
+turns the original attempt into a first-attempt pass.
+
 The implementation is in `macos/InstallationRootBinding.swift`,
 `macos/InstallationRootRevalidation.swift` and `macos/ComponentUpdate.swift`.
 See [production gates](production-gates.md) for the broader release status.
