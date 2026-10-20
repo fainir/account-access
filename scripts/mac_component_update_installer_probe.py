@@ -40,6 +40,8 @@ ENV = {"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "LANG": "C", "LC_ALL": "C"}
 GIT_ENV = {**ENV, "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_SYSTEM": "/dev/null",
            "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_ATTR_NOSYSTEM": "1", "GIT_TERMINAL_PROMPT": "0"}
 MAX_SOURCE = 2 * 1024 * 1024
+MAX_INSTALLER_LOG = 512 * 1024 * 1024
+MAX_INSTALLER_DELTA = 128 * 1024
 PRIVATE = {"broker", "home", "vault", "run", "control", "owner.json", "install-verification.json"}
 UNCHANGED_POLICIES = ("worker.json", "stage.json", "worker-launch.json", "stage-launch.json", "enrollment.json", "service.plist")
 CHECKS = frozenset({"fresh_hosted_vm", "reviewed_public_inputs", "candidate_expansion_matches_review",
@@ -320,6 +322,104 @@ def command(arguments, *, report, output, log, timeout=30, check=True):
     if check:
         require(result.returncode == 0)
     return result
+
+
+class InstallerLogDelta:
+    """Observe only the fixed daemon log's new bytes in this disposable CI VM."""
+
+    def __init__(self):
+        self.descriptor = self.parent = None
+        self.reason = "checkpoint_unavailable"
+        parent = None
+        try:
+            flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+            parent = os.open("/", flags)
+            for name in ("private", "var", "log"):
+                protected_metadata(os.fstat(parent))
+                deny_only_acl(parent)
+                child = os.open(name, flags, dir_fd=parent)
+                os.close(parent)
+                parent = child
+            protected_metadata(os.fstat(parent))
+            deny_only_acl(parent)
+            self.descriptor = os.open("install.log", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC,
+                                      dir_fd=parent)
+            before = os.fstat(self.descriptor)
+            self.validate(before)
+            self.identity = self.fixed_identity(before)
+            require(self.fixed_identity(os.stat("install.log", dir_fd=parent, follow_symlinks=False)) == self.identity)
+            self.offset = before.st_size  # No existing log content is read.
+            self.parent, parent = parent, None
+            self.reason = None
+        except Exception:
+            self.close()
+        finally:
+            if parent is not None:
+                os.close(parent)
+
+    @staticmethod
+    def fixed_identity(info):
+        return (info.st_dev, info.st_ino, info.st_mode, info.st_uid, info.st_gid, info.st_nlink)
+
+    @staticmethod
+    def validate(info):
+        protected_metadata(info, directory=False)
+        require(0 <= info.st_size <= MAX_INSTALLER_LOG)
+
+    def capture(self, *, report, output, log):
+        evidence = {"status": "unavailable", "reason": self.reason or "capture_unavailable",
+                    "existing_bytes_read": 0}
+        report.setdefault("installer_daemon_logs", {})[log] = evidence
+        try:
+            if self.reason is not None:
+                return
+            current = os.fstat(self.descriptor)
+            self.validate(current)
+            require(self.fixed_identity(current) == self.identity
+                    and self.fixed_identity(os.stat("install.log", dir_fd=self.parent,
+                                                   follow_symlinks=False)) == self.identity)
+            if current.st_size < self.offset:
+                evidence["reason"] = "log_truncated"
+                return
+            length = current.st_size - self.offset
+            if length > MAX_INSTALLER_DELTA:
+                evidence["reason"] = "append_limit_exceeded"
+                return
+            raw = os.pread(self.descriptor, length, self.offset)
+            after = os.fstat(self.descriptor)
+            self.validate(after)
+            require(len(raw) == length and self.fixed_identity(after) == self.identity
+                    and after.st_size >= current.st_size
+                    and self.fixed_identity(os.stat("install.log", dir_fd=self.parent,
+                                                   follow_symlinks=False)) == self.identity)
+            output.write(log, raw)
+            report["logs"][log] = sha(raw)
+            evidence.update(status="captured", reason=None, start_offset=self.offset,
+                            end_offset=current.st_size, observed_end_offset=after.st_size,
+                            bytes=len(raw), sha256=sha(raw))
+        except Exception:
+            pass  # Diagnostic failure must not replace the actual Installer outcome.
+        finally:
+            self.close()
+
+    def close(self):
+        for name in ("descriptor", "parent"):
+            descriptor = getattr(self, name, None)
+            if descriptor is not None:
+                try:
+                    os.close(descriptor)
+                except OSError:
+                    pass
+                setattr(self, name, None)
+
+
+def candidate_install(package, *, report, output, log, daemon_log):
+    checkpoint = InstallerLogDelta()
+    try:
+        return command(["/usr/sbin/installer", "-dumplog", "-verboseR", "-pkg", str(package), "-target", "/"],
+                       report=report, output=output, log=log, timeout=180)
+    finally:
+        checkpoint.capture(report=report, output=output, log=daemon_log)
 
 
 def fresh_gui_present(result):
@@ -638,8 +738,8 @@ def run(args):
             report["failure_stage"] = "baseline_public_records"
             before, retained = policies(), fixed_records()
             report["failure_stage"] = "candidate_installer"
-            command(["/usr/sbin/installer", "-dumplog", "-verboseR", "-pkg", str(stage / "candidate.pkg"), "-target", "/"],
-                    report=report, output=output, log="candidate-installer.log", timeout=180)
+            candidate_install(stage / "candidate.pkg", report=report, output=output,
+                              log="candidate-installer.log", daemon_log="candidate-daemon-install.log")
             report["checks"]["actual_candidate_installer"] = True
             report["failure_stage"] = "target_public_image"
             verify_image(target)
@@ -661,8 +761,8 @@ def run(args):
                 "state": "public_image_verified_gui_unverified", "automatic_reboot_recovery": False})
             report["checks"]["verified_head"] = True
             report["failure_stage"] = "candidate_reapply"
-            command(["/usr/sbin/installer", "-dumplog", "-verboseR", "-pkg", str(stage / "candidate.pkg"), "-target", "/"],
-                    report=report, output=output, log="same-package-installer.log", timeout=180)
+            candidate_install(stage / "candidate.pkg", report=report, output=output,
+                              log="same-package-installer.log", daemon_log="same-package-daemon-install.log")
             report["checks"]["same_package_reapplication"] = True
             report["failure_stage"] = "reapplied_public_image"
             verify_image(target)

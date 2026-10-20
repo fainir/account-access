@@ -476,3 +476,175 @@ def test_small_command_output_stays_complete_and_boundary_is_explicit(monkeypatc
     else:
         assert len(value["stdout"]) == len(value["stdout_tail"]) == 8192
         assert value["stdout_truncated"] is True
+
+
+@pytest.fixture
+def installer_daemon_log(tmp_path, monkeypatch):
+    """Ordinary synthetic tree; only metadata is represented as CI root-owned."""
+    directory = tmp_path / "private/var/log"
+    directory.mkdir(parents=True)
+    path = directory / "install.log"
+    path.write_bytes(b"older log bytes must never be captured\n")
+    path.chmod(0o644)
+    real_open, real_fstat, real_stat = probe.os.open, probe.os.fstat, probe.os.stat
+    fields = ("st_dev", "st_ino", "st_mode", "st_uid", "st_gid", "st_nlink", "st_size", "st_mtime_ns", "st_ctime_ns")
+
+    def logical_metadata(info):
+        return SimpleNamespace(**{**{name: getattr(info, name) for name in fields}, "st_uid": 0})
+
+    def fixed_open(name, flags, *args, **kwargs):
+        if name == "/":
+            name = tmp_path
+        return real_open(name, flags, *args, **kwargs)
+
+    monkeypatch.setattr(probe.os, "open", fixed_open)
+    monkeypatch.setattr(probe.os, "fstat", lambda *a, **k: logical_metadata(real_fstat(*a, **k)))
+    monkeypatch.setattr(probe.os, "stat", lambda *a, **k: logical_metadata(real_stat(*a, **k)))
+    monkeypatch.setattr(probe, "deny_only_acl", lambda fd: None)
+    return path
+
+
+def capture_daemon(checkpoint):
+    logs, report = {}, {"logs": {}}
+    output = SimpleNamespace(write=lambda name, raw: logs.setdefault(name, raw))
+    checkpoint.capture(report=report, output=output, log="candidate-daemon-install.log")
+    return report["installer_daemon_logs"]["candidate-daemon-install.log"], logs, report
+
+
+def test_daemon_checkpoint_reads_no_old_bytes_and_captures_only_appended_bytes(installer_daemon_log, monkeypatch):
+    path = installer_daemon_log
+    original = path.stat().st_size
+    real_pread = probe.os.pread
+    reads = []
+
+    def pread(fd, size, offset):
+        reads.append((size, offset))
+        assert offset >= original
+        return real_pread(fd, size, offset)
+
+    monkeypatch.setattr(probe.os, "pread", pread)
+    monkeypatch.setattr(probe.os, "read", lambda *a: pytest.fail("no old or sequential log read"))
+    checkpoint = probe.InstallerLogDelta()
+    assert reads == [] and checkpoint.reason is None
+    raw = b'package_script_service: {"reason":"component_base_not_verified"}\n'
+    with path.open("ab") as stream:
+        stream.write(raw)
+    value, logs, report = capture_daemon(checkpoint)
+    assert reads == [(len(raw), original)]
+    assert logs == {"candidate-daemon-install.log": raw}
+    assert value == {"status": "captured", "reason": None, "existing_bytes_read": 0,
+                     "start_offset": original, "end_offset": original + len(raw),
+                     "observed_end_offset": original + len(raw), "bytes": len(raw), "sha256": probe.sha(raw)}
+    assert report["logs"]["candidate-daemon-install.log"] == probe.sha(raw)
+    assert checkpoint.descriptor is checkpoint.parent is None
+
+
+@pytest.mark.parametrize("change", ["rotate", "truncate", "symlink", "hardlink", "writable"])
+def test_daemon_rotation_truncation_and_metadata_changes_are_unavailable(installer_daemon_log, change):
+    path = installer_daemon_log
+    checkpoint = probe.InstallerLogDelta()
+    if change == "rotate":
+        path.rename(path.with_suffix(".old"))
+        path.write_bytes(b"new log")
+    elif change == "truncate":
+        path.write_bytes(b"short")
+    elif change == "symlink":
+        retained = path.with_suffix(".retained")
+        path.rename(retained)
+        path.symlink_to(retained)
+    elif change == "hardlink":
+        probe.os.link(path, path.with_suffix(".link"))
+    else:
+        path.chmod(0o666)
+    value, logs, _ = capture_daemon(checkpoint)
+    assert value["status"] == "unavailable" and value["existing_bytes_read"] == 0 and not logs
+    assert value["reason"] == ("log_truncated" if change == "truncate" else "capture_unavailable")
+    assert checkpoint.descriptor is checkpoint.parent is None
+
+
+def test_daemon_capture_accepts_further_append_during_bounded_read(installer_daemon_log, monkeypatch):
+    path = installer_daemon_log
+    checkpoint = probe.InstallerLogDelta()
+    with path.open("ab") as stream:
+        stream.write(b"candidate bytes\n")
+    real_pread = probe.os.pread
+
+    def append_after_read(*args):
+        value = real_pread(*args)
+        with path.open("ab") as stream:
+            stream.write(b"later daemon bytes\n")
+        return value
+
+    monkeypatch.setattr(probe.os, "pread", append_after_read)
+    value, logs, _ = capture_daemon(checkpoint)
+    assert value["status"] == "captured" and value["observed_end_offset"] > value["end_offset"]
+    assert logs["candidate-daemon-install.log"] == b"candidate bytes\n"
+
+
+def test_daemon_delta_limit_refuses_without_reading_any_log_content(installer_daemon_log, monkeypatch):
+    checkpoint = probe.InstallerLogDelta()
+    with installer_daemon_log.open("ab") as stream:
+        stream.write(b"x" * (probe.MAX_INSTALLER_DELTA + 1))
+    monkeypatch.setattr(probe.os, "pread", lambda *a: pytest.fail("over-limit delta must not be read"))
+    value, logs, _ = capture_daemon(checkpoint)
+    assert value["status"] == "unavailable" and value["reason"] == "append_limit_exceeded" and not logs
+
+
+def test_daemon_checkpoint_size_and_symlink_refuse_without_old_reads(installer_daemon_log, monkeypatch):
+    monkeypatch.setattr(probe, "MAX_INSTALLER_LOG", 1)
+    checkpoint = probe.InstallerLogDelta()
+    value, logs, _ = capture_daemon(checkpoint)
+    assert value["reason"] == "checkpoint_unavailable" and not logs
+    assert checkpoint.descriptor is checkpoint.parent is None
+    monkeypatch.setattr(probe, "MAX_INSTALLER_LOG", 512 * 1024 * 1024)
+    path = installer_daemon_log
+    retained = path.with_suffix(".retained")
+    path.rename(retained)
+    path.symlink_to(retained)
+    checkpoint = probe.InstallerLogDelta()
+    value, logs, _ = capture_daemon(checkpoint)
+    assert value["reason"] == "checkpoint_unavailable" and not logs
+
+
+@pytest.mark.parametrize("fails", [False, True])
+def test_candidate_installer_always_captures_daemon_delta_without_masking_outcome(monkeypatch, fails):
+    observed = []
+    error = ValueError("original installer failure")
+
+    class Checkpoint:
+        def __init__(self):
+            observed.append("checkpoint")
+
+        def capture(self, **kwargs):
+            observed.append(("capture", kwargs))
+
+    def command(arguments, **kwargs):
+        observed.append(("command", arguments, kwargs))
+        if fails:
+            raise error
+        return "installer success"
+
+    monkeypatch.setattr(probe, "InstallerLogDelta", Checkpoint)
+    monkeypatch.setattr(probe, "command", command)
+    arguments = dict(report={}, output=None, log="candidate-installer.log", daemon_log="candidate-daemon-install.log")
+    if fails:
+        with pytest.raises(ValueError) as caught:
+            probe.candidate_install(Path("/fixed/candidate.pkg"), **arguments)
+        assert caught.value is error
+    else:
+        assert probe.candidate_install(Path("/fixed/candidate.pkg"), **arguments) == "installer success"
+    assert observed[0] == "checkpoint" and observed[1][0] == "command" and observed[2][0] == "capture"
+    assert observed[1][1] == ["/usr/sbin/installer", "-dumplog", "-verboseR", "-pkg", "/fixed/candidate.pkg", "-target", "/"]
+    assert observed[1][2]["timeout"] == 180
+
+
+def test_daemon_capture_publication_failure_remains_diagnostic(installer_daemon_log):
+    checkpoint = probe.InstallerLogDelta()
+    report = {"logs": {}}
+
+    def fail(*args):
+        raise OSError("synthetic evidence write failure")
+
+    checkpoint.capture(report=report, output=SimpleNamespace(write=fail), log="candidate-daemon-install.log")
+    assert report["installer_daemon_logs"]["candidate-daemon-install.log"]["status"] == "unavailable"
+    assert not report["logs"] and checkpoint.descriptor is checkpoint.parent is None

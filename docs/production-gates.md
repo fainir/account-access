@@ -117,6 +117,18 @@ refusal was absent from the command's ordinary output. The next controller adds
 Installer's detailed logs and bounded head/tail capture; the package remains
 unchanged. No update has been installed on the owner Mac.
 [Actual candidate refusal and retained evidence](../artifacts/component-update-installer-refusal-080-20261020.json).
+
+A fourth fresh Mac run at controller `87ccf1d` again passed base installation,
+base-image verification and observed GUI closure. Actual candidate Installer
+returned 1. Its complete detailed client output still reported only the
+package-script error, without the native refusal reason. The next controller
+captures at most 128 KiB appended to the fixed Installer daemon log during this
+fresh-VM attempt; it reads no existing log bytes and preserves the original
+Installer outcome if diagnostic capture fails. Its 165 ordinary contract tests
+and independent review passed. The candidate package remains unchanged and
+uninstalled on the owner Mac; target verification and reapplication remain open.
+[Detailed Installer attempt and diagnostic review](../artifacts/component-update-installer-daemon-attempt-080-20261020.json).
+
 [Source review and retained earlier attempts](../artifacts/component-update-source-080-20261020.json).
 The build gate also preserves the measured skipped state of the review push's
 two dispatch-only jobs; all applicable jobs still require first-attempt success.
