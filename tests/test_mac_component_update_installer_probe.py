@@ -311,6 +311,55 @@ def test_archive_uid_is_data_inside_root_private_anchor_without_global_relaxatio
         probe.read_file(scripts / "BaseManifest.json")  # Real installed-file contract still requires root.
 
 
+def test_root_revalidation_reads_its_fixed_expansion_and_preserves_archive_guards(public_archive):
+    stage, expanded, value, target = public_archive
+    root_expanded = stage / "root-expanded"
+    expanded.rename(root_expanded)
+    info = root_expanded / "PackageInfo"
+    info.write_text(info.read_text().replace("com.fainir.accountaccess.componentupdate76v2",
+                                           "com.fainir.accountaccess.installationrootrevalidation"))
+    diagnostics = {}
+    scripts, plan, verified_target = probe.candidate_scripts(
+        root_expanded, value, staging_anchor=stage, diagnostics=diagnostics, revalidation=True)
+    assert scripts == root_expanded / "Scripts" and plan["component_source_commit"] == REVISION
+    assert verified_target == json.loads(target)
+    assert diagnostics["expanded_public_metadata"]["directories"]["stage"]["uid"] == 0
+    assert all(row["uid"] == 731 for row in diagnostics["expanded_public_metadata"]["entries"]["Scripts"])
+    with pytest.raises(ValueError):
+        probe.read_file(scripts / "BaseManifest.json")
+
+
+@pytest.mark.parametrize("kind,relative", [("component", "root-expanded"), ("root-revalidation", "expanded"),
+    ("component", "other"), ("root-revalidation", "../root-expanded"),
+    ("root-revalidation", "root-expanded/child"), ("other", "expanded"), (True, "expanded"), (None, "expanded")])
+def test_expansion_kind_and_path_must_match_before_any_open(monkeypatch, tmp_path, kind, relative):
+    stage = tmp_path / "stage"
+    monkeypatch.setattr(probe.os, "open", lambda *a, **k: pytest.fail("wrong expansion kind/path must not open files"))
+    with pytest.raises(ValueError):
+        probe.ArchiveExpansion(stage, stage / relative, {}, kind=kind)
+
+
+def test_root_expansion_cannot_accept_component_package_identity(public_archive):
+    stage, expanded, value, _ = public_archive
+    root_expanded = stage / "root-expanded"
+    expanded.rename(root_expanded)
+    diagnostics = {}
+    with pytest.raises(ValueError):
+        probe.candidate_scripts(root_expanded, value, staging_anchor=stage, diagnostics=diagnostics, revalidation=True)
+    assert diagnostics["failure_stage"] == "candidate_package_info"
+
+
+def test_fixed_root_expansion_never_follows_a_symlink(public_archive):
+    stage, expanded, value, _ = public_archive
+    root_expanded = stage / "root-expanded"
+    root_expanded.symlink_to(expanded, target_is_directory=True)
+    diagnostics = {}
+    with pytest.raises((ValueError, OSError)):
+        probe.candidate_scripts(root_expanded, value, staging_anchor=stage, diagnostics=diagnostics, revalidation=True)
+    assert diagnostics["failure_stage"] == "candidate_expanded_directory"
+    assert diagnostics["expanded_public_metadata"]["directories"]["expanded"]["type"] == "symlink"
+
+
 @pytest.mark.parametrize("change,stage_name", [("extra_sidecar", "candidate_resource_set"),
     ("changed_bytes", "candidate_resource_bytes"), ("writable", "candidate_resource_bytes"),
     ("hardlink", "candidate_resource_bytes"), ("symlink", "candidate_resource_bytes"),

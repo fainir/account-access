@@ -767,8 +767,10 @@ class ArchiveExpansion:
     files and Installer's executable-resource checks keep their root contract.
     """
 
-    def __init__(self, staging_anchor, expanded, diagnostics):
-        require(expanded == staging_anchor / "expanded")
+    def __init__(self, staging_anchor, expanded, diagnostics, *, kind="component"):
+        require(type(kind) is str and kind in {"component", "root-revalidation"})
+        self.expansion_name = "root-expanded" if kind == "root-revalidation" else "expanded"
+        require(expanded == staging_anchor / self.expansion_name)
         self.descriptors = []
         self.diagnostics = diagnostics
         flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
@@ -788,14 +790,15 @@ class ArchiveExpansion:
             for name, parent in (("expanded", anchor), ("Scripts", None)):
                 diagnostics["failure_stage"] = "candidate_" + name.lower() + "_directory"
                 parent = parent if parent is not None else self.directories["expanded"][0]
-                linked = os.stat(name, dir_fd=parent, follow_symlinks=False)
+                child = self.expansion_name if name == "expanded" else name
+                linked = os.stat(child, dir_fd=parent, follow_symlinks=False)
                 diagnostics["expanded_public_metadata"]["directories"][name] = archive_metadata(linked)
-                descriptor = os.open(name, flags, dir_fd=parent)
+                descriptor = os.open(child, flags, dir_fd=parent)
                 self.descriptors.append(descriptor)
                 info = os.fstat(descriptor)
                 require(stat.S_ISDIR(info.st_mode) and not info.st_mode & 0o7022)
                 deny_only_acl(descriptor)
-                require(stamp(info) == stamp(linked) == stamp(os.stat(name, dir_fd=parent, follow_symlinks=False)))
+                require(stamp(info) == stamp(linked) == stamp(os.stat(child, dir_fd=parent, follow_symlinks=False)))
                 self.directories[name] = (descriptor, info, parent)
             diagnostics["failure_stage"] = "candidate_expanded_metadata"
             self.names = {}
@@ -818,8 +821,9 @@ class ArchiveExpansion:
         require(stamp(self.anchor_before) == stamp(os.fstat(self.descriptors[0]))
                 and stamp(self.anchor_before) == stamp(self.anchor_path.lstat()))
         for name, (descriptor, before, parent) in self.directories.items():
+            child = self.expansion_name if name == "expanded" else name
             require(stamp(before) == stamp(os.fstat(descriptor))
-                    and stamp(before) == stamp(os.stat(name, dir_fd=parent, follow_symlinks=False)))
+                    and stamp(before) == stamp(os.stat(child, dir_fd=parent, follow_symlinks=False)))
 
     def read(self, directory, name, *, maximum=16 * 1024 * 1024):
         require(name in self.names[directory])
@@ -848,7 +852,8 @@ class ArchiveExpansion:
 
 
 def candidate_scripts(expanded, review, *, staging_anchor, diagnostics, revalidation=False):
-    archive = ArchiveExpansion(staging_anchor, expanded, diagnostics)
+    archive = ArchiveExpansion(staging_anchor, expanded, diagnostics,
+                               kind="root-revalidation" if revalidation else "component")
     try:
         diagnostics["failure_stage"] = "candidate_top_level"
         require({"PackageInfo", "Scripts"} <= archive.names["expanded"] <= {"PackageInfo", "Scripts", "Bom"})
