@@ -42,6 +42,7 @@ three baseline cache files in the installed runtime. This happened after the
 original startup failure. The diagnostic source now disables bytecode writes;
 restoration of the exact build 76 files is being prepared separately. This cache
 repair has not run and does not establish a fix for the original failure.
+[Prepared repair and independent package review](../artifacts/runtime-cache-repair-prepared-080-20261020.json).
 
 The package remains **unsigned and unnotarized**. Successful package installation
 does not establish a working setup. Personal-account acceptance, protected
