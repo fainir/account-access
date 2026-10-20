@@ -12,14 +12,33 @@ changed device number with both original inodes still matching. It preserves
 the original receipts and requires a newly verified current volume binding.
 [Checks and limitations](installation-root-revalidation.md).
 
-Source `12306c3` remains **unqualified**: five CI workflows passed and four
-failed. Some Mac jobs never acquired a hosted runner; a separate executed native
-fixture failed after successful compilation. Those failures are retained and
-are not interchangeable. Explicit raw-NUL rejection and failure-only fixture
-markers were added for fresh verification; the older-Mac failure's cause is not
-yet established. The updated local native fixture passes 236 assertions across
-42 groups. New-source CI, signed-package Installer acceptance and repair of the
-affected personal Mac remain pending. No personal sign-in acceptance is claimed.
+The signed-native packages at source `93fc906` passed all nine required source
+workflows on their first attempts. Actual installation and same-package
+reapplication passed on a fresh hosted Mac (**15 checks**). A separate fresh Mac
+passed the complete recovery route (**26 checks**): a synthetic device-number
+mismatch with unchanged inodes, supplementary receipt publication, repeated
+revalidation, recovery of an interrupted pending write, component installation
+and reapplication, and revalidation after the component update. The original
+receipt files remained unchanged after the disposable test fixture was created.
+
+The recovery test's first controller refused the wrong fixed expansion folder
+before any Installer ran. The reviewed controller-only correction at `abe6e02`
+passed 291 focused checks and then qualified the **same package bytes**. The
+original failed run remains recorded; it was not rerun or relabeled as passed.
+Earlier source candidates, including `12306c3`, remain unqualified by their own
+results.
+
+On the affected personal Mac, native Installer ran and failed. Its newly
+published, root-owned public result reports `REFUSED` at checkpoint `publish`.
+That checkpoint covers several final consistency/publication operations; it
+does not identify the failed predicate or prove whether a supplementary receipt
+was created. No private installation log or journal was read to interpret it.
+The component installation was not attempted, and protected owner enrollment
+and personal sign-in acceptance remain incomplete. A narrower diagnosis is
+required before another installation attempt.
+The package containers remain unsigned and unnotarized. These clean-Mac tests
+do not validate personal email/SMS/authenticator sources or consumer distribution.
+[Exact source, package and actual Installer evidence](../artifacts/installation-root-revalidation-93fc906-20261020.json).
 
 The current builder allows one strictly proven unacquired-runner retry while
 preserving the original failed attempt. Executed code or test failures remain

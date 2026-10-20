@@ -20,8 +20,12 @@ The 0.8 Mac runtime targets **Apple silicon and macOS 14 or later**. See the
 [current production gates](docs/production-gates.md).
 
 The latest local 0.8 installer completed installation, but its protected service
-fails before enrollment. It is not ready for use; the startup repair and personal
-account validation remain open. [Current installation result](artifacts/runtime-acceptance-080-build76-20261020.json).
+fails before enrollment. Its separate startup/revalidation repair passed actual
+installation and reapplication on clean hosted Macs, but the affected Mac
+refused the recovery at its publication checkpoint. The component update was
+not attempted there. It is not ready for use until that repair and personal
+account validation succeed.
+[Current repair evidence](artifacts/installation-root-revalidation-93fc906-20261020.json).
 
 ![Account Access dashboard](docs/account-dashboard.png)
 
@@ -178,7 +182,8 @@ pass; genuine consumer setup, updates/reboot and private sign-in QA remain open.
 [Architecture](docs/architecture.md), [security boundaries](docs/security-and-password-sync.md)
 and [Mac installation work](docs/mac-system-provisioning.md). The development
 source also includes [explicit installation-root revalidation](docs/installation-root-revalidation.md);
-its Installer qualification and affected-Mac repair are pending.
+its disposable-Mac Installer qualification passed, while repair of the affected
+Mac remains unresolved.
 
 ## Troubleshooting
 

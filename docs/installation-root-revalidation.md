@@ -1,8 +1,14 @@
 # Installation root revalidation
 
-This recovery path is implemented in development source. Its actual disposable
-Mac Installer qualification and the affected personal Mac's repair are pending.
-It does not establish production readiness or successful account sign-in.
+This development recovery path passed actual disposable-Mac Installer
+qualification at package source `93fc906`, using the corrected controller
+`abe6e02`. All 26 recovery-route checks passed, including repeat installation and
+an interrupted-write fixture. On the affected personal Mac, native Installer
+failed and the protected public result reports `REFUSED` at checkpoint
+`publish`. The specific failed operation is not established, and the component
+update was not attempted. Personal repair, account sign-in and production
+readiness remain unverified.
+[Qualification record](../artifacts/installation-root-revalidation-93fc906-20261020.json).
 
 An installation receipt must keep identifying the installed software after a
 restart. The original protected Mac installer recorded each installation root's
