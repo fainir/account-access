@@ -20,6 +20,8 @@ import stat
 import sys
 import time
 
+from .listener_binding import validate_listener_binding
+
 
 class BootstrapError(Exception):
     def __init__(self, reason):
@@ -96,7 +98,7 @@ def read_bootstrap(fd, *, issuer_uid=0, timeout=3):
             pass
 
 
-def take_listener(fd, *, issuer_uid=0):
+def take_listener(fd, *, issuer_uid=0, canonical_path=None, binding=None, role=None):
     """Take ownership of an inherited, already-listening Unix stream socket."""
     if type(fd) is not int or fd < 3:
         raise BootstrapError("invalid_worker_listener")
@@ -111,6 +113,11 @@ def take_listener(fd, *, issuer_uid=0):
         if (listener.family != socket.AF_UNIX
                 or listener.getsockopt(socket.SOL_SOCKET, socket.SO_TYPE) != socket.SOCK_STREAM
                 or not isinstance(name, str) or not name.startswith("/") or "\0" in name):
+            raise BootstrapError("invalid_worker_listener")
+        if binding is not None:
+            validate_listener_binding(binding, role=role, canonical_path=canonical_path,
+                                      descriptor=info, bound_name=name, platform=sys.platform)
+        elif canonical_path is not None and name != canonical_path:
             raise BootstrapError("invalid_worker_listener")
         listener.listen(128)
         return listener

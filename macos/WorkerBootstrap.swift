@@ -389,8 +389,10 @@ enum MacWorkerBootstrap {
               Set([secretFD, agentFD, ownerFD]).count == 3 else { throw WorkerLaunchFailure.invalidArguments }
         let plan = try MacWorkerPlan(policy: argv[1])
         try checkFD(secretFD, type: S_IFIFO)
-        try checkFD(agentFD, type: S_IFSOCK, socketPath: plan.agentSocket)
-        try checkFD(ownerFD, type: S_IFSOCK, socketPath: plan.ownerSocket)
+        try checkFD(agentFD, type: S_IFSOCK)
+        try checkFD(ownerFD, type: S_IFSOCK)
+        let bindings = try WorkerListenerBindings.consume(secretFD)
+        try bindings.validate(agentFD: agentFD, ownerFD: ownerFD, plan: plan)
         // Make all three sources independent before overwriting descriptors
         // 3/4/5; the caller's descriptor numbers may overlap those targets.
         var duplicates: [Int32] = []
@@ -403,7 +405,7 @@ enum MacWorkerBootstrap {
             guard dup2(source, Int32(index + 3)) == index + 3 else { throw WorkerLaunchFailure.invalidDescriptors }
         }
         try dropIdentity(plan)
-        try replaceImage(plan.python, arguments: plan.arguments, environment: plan.environment)
+        try replaceImage(plan.python, arguments: plan.arguments + ["--listener-bindings", bindings.hex], environment: plan.environment)
     }
 
     static func dropIdentity(_ plan: MacWorkerPlan) throws {

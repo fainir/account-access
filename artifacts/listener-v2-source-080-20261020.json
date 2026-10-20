@@ -1,0 +1,54 @@
+{
+  "installed": false,
+  "native_validation": {
+    "exact_final_native_execution": "NOT_COMPLETED; final tiny fixture compile exceeded30-second bound; no compiler processes remained in subsequent PID/PPID/PGID/comm-only observation",
+    "full_broker_composition_arm64_typecheck": "PASSED before final channel payload buffer construction change",
+    "full_broker_composition_x86_64_typecheck": "PASSED before final channel payload buffer construction change",
+    "ordinary_synthetic_native_fixture": "PASSED before final record count/digest guards and Data slice normalization"
+  },
+  "production_ready": false,
+  "protocol": {
+    "enrollment_64_byte_contract_unchanged": true,
+    "magic": "AALSN002",
+    "metadata_bytes": 216,
+    "secret_suffix_bytes_unchanged": 64,
+    "worker_frame_bytes": 280
+  },
+  "python_validation": {
+    "junit_counts": {
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0,
+      "tests": 101
+    },
+    "junit_sha256": "b6f62ea43c3b5873b5ed095b5bad0ad84e6b8b17128bdcf7eb5f98d8ccca845f",
+    "ruff": "passed_no_cache",
+    "source_stable_during_run": true
+  },
+  "remaining": [
+    "Exact committed source native/Python integration and cross-user CI",
+    "Reviewed formal protected component update with disposable Mac acceptance",
+    "Owner-approved installation, owner setup and personal password/email/SMS/TOTP acceptance"
+  ],
+  "schema": 1,
+  "scope": "Ordinary fixtures and source checks; no installed changes, root execution or personal account operations. Final native compilation/integration requires exact-source CI.",
+  "source_sha256": {
+    ".github/workflows/check.yml": "d92942ff058a0b449cd754cf2c62255c6c3ad82b910659546923236861af7051",
+    ".github/workflows/mac-worker.yml": "77001f86652f0980aba2cf1418c9166dda98b98b8eec01a4a8980217e4a52dd4",
+    "account_access/listener_binding.py": "30bd8b1979804ba4460e8e223084792e2861e2cfabe7a0c64384b55b294033fd",
+    "account_access/worker_bootstrap.py": "c9e9873e08e404986fa4175cd20b7c456a27885aab5716c0996516501a6dac51",
+    "account_access/worker_host.py": "df168ee421f42e7110fbff8e44dd829bd43fbd918eb4770a2329cdb8d71a25f1",
+    "macos/README.md": "a03087c60eec5039eb883b34def8577d9fdb40b9da97ffaecd0967e248d2bf5d",
+    "macos/RootActivatedListeners.swift": "38231cf5db841ee415ee6f8d417bd8d02bfbc08da237df4d408134ae69df8c01",
+    "macos/RootWorkerChannel.swift": "457a291b57b38041b13f0bfafff43c75757742943cdb8fe0fac32ea2fc42e234",
+    "macos/RootWorkerProcess.swift": "2b3de7d0b4a0d2c27242c61eb2b3d2b08fd739b6eec6e91e042f6f829c77e9bd",
+    "macos/Tests/WorkerListenerBindingsChecks.swift": "ccbea6450110e9fdd760d53642fe99626dc37a76e36a52d3f2b38aedab7cc498",
+    "macos/WorkerBootstrap.swift": "1ca28068fd18ad972ac456da09a974d4ea4275ef22338efda370ed5bcbfdcb13",
+    "macos/WorkerListenerBindings.swift": "3816f60d7700bfd927fcc1931a0604123f88eb865ec63471cdeacbafb2431103",
+    "macos/build-broker.sh": "f6f4b09b56e156f2be465d38a371a908503f0de68b869cb3c0bbf30eea8a2700",
+    "macos/build.sh": "23ccdaed991b8f07d0dbd109f0da2dde98f7310b9112960b691f878380d19445",
+    "scripts/worker_boundary_smoke.py": "2c393df11e5e78990028edb58b1bf4222d51d07254fe649b010d38ee531d591e",
+    "tests/test_listener_binding.py": "4c1c08b876c0b5ebff620b4bd0b3cc9161e01bf48eaf3a876aaacfa07167a969"
+  },
+  "status": "SOURCE_FIX_READY_FOR_EXACT_COMMIT_CI_NOT_INSTALLED"
+}

@@ -128,15 +128,23 @@ final class RootWorkerProcess {
         var descriptors: [Int32] = []
         defer { descriptors.forEach { Darwin.close($0) } }
         do {
+            let bindings: WorkerListenerBindings
             if let listeners {
-                descriptors = try listeners.acquire(for: plan)
+                let lease = try listeners.acquire(for: plan)
+                descriptors = lease.descriptors
+                bindings = lease.bindings
                 listenersClaimed = true
             } else {
                 descriptors.append(try listener(plan.agentSocket, mode: 0o660, group: agentGroup))
                 descriptors.append(try listener(plan.ownerSocket, mode: 0o600, group: 0))
+                bindings = try WorkerListenerBindings(records: [
+                    WorkerListenerBindings.direct(fd: descriptors[0], role: 1, path: plan.agentSocket, group: agentGroup, mode: 0o660),
+                    WorkerListenerBindings.direct(fd: descriptors[1], role: 2, path: plan.ownerSocket, group: 0, mode: 0o600)
+                ])
             }
+            try bindings.validate(agentFD: descriptors[0], ownerFD: descriptors[1], plan: plan)
             let key = try RootVaultKeyStore().load(vault)
-            let channel = try RootWorkerChannel(key: key)
+            let channel = try RootWorkerChannel(key: key, listenerBindings: bindings)
             defer { channel.cancel() }
             let capability = try channel.withOwnerSecret { Data($0).base64EncodedString().replacingOccurrences(of: "+", with: "-")
                 .replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "") }

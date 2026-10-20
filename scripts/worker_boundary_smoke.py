@@ -25,6 +25,8 @@ import shutil
 import signal
 import socket
 import ssl
+import stat
+import struct
 import subprocess
 import sys
 import threading
@@ -66,6 +68,26 @@ def command(arguments, *, timeout=30):
 
 def stage(name):
     print(json.dumps({"stage": name}), file=sys.stderr, flush=True)
+
+
+def fixture_listener_prefix(agent_socket, owner_socket, agent_path, owner_path):
+    """Describe the disposable CI parent's real direct-bind descriptors.
+
+    mac-worker-bootstrap independently validates this public prefix, canonical
+    nodes and root ownership before dropping identity and consuming any keys.
+    Linux retains its existing64-byte handoff.
+    """
+    prefix = bytearray(struct.pack(">8sHBBI", b"AALSN002", 2, 2, 0, 280))
+    for role, listener, path in [(1, agent_socket, agent_path), (2, owner_socket, owner_path)]:
+        descriptor, node = os.fstat(listener.fileno()), os.lstat(path)
+        if (listener.family != socket.AF_UNIX or not stat.S_ISSOCK(descriptor.st_mode)
+                or not stat.S_ISSOCK(node.st_mode) or listener.getsockname() != path
+                or listener.getsockopt(socket.SOL_SOCKET, socket.SO_TYPE) != socket.SOCK_STREAM):
+            raise RuntimeError("fixture_listener_binding_invalid")
+        path_digest = hashlib.sha256(path.encode("utf-8")).digest()
+        prefix.extend(struct.pack(">BBHqQqQ32s32s", role, 0, 0,
+            descriptor.st_dev, descriptor.st_ino, node.st_dev, node.st_ino, path_digest, path_digest))
+    return bytes(prefix)
 
 
 @contextmanager
@@ -1328,6 +1350,7 @@ def exercise(prefix, roles):
                     "--agent-fd", str(agent_socket.fileno()), "--owner-fd", str(owner_socket.fileno()),
                     "--controlled-fixture"]
                 if sys.platform == "darwin":
+                    payload = fixture_listener_prefix(agent_socket, owner_socket, api_path, owner_path) + payload
                     launcher = {"managed_by": "account-access-mac-worker-v1", "schema": 1,
                         "python": sys.executable, "runtime": sys.prefix, "worker_policy": str(prefix / "policy.json"),
                         "broker_gid": roles["broker"].pw_gid, "broker_home": roles["broker"].pw_dir,

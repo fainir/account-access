@@ -14,15 +14,17 @@ final class RootWorkerChannel: CustomStringConvertible, CustomDebugStringConvert
     private var owner = Data(count: 32)
     private var reader: Int32 = -1
     private var writer: Int32 = -1
+    private let listenerBindings: Data?
     private var pending = true
     private var closed = false
     private let lock = NSLock()
     var description: String { "<RootWorkerChannel redacted>" }
     var debugDescription: String { description }
 
-    init(key: RootVaultKey) throws {
+    init(key: RootVaultKey, listenerBindings: WorkerListenerBindings? = nil) throws {
         try RootVaultKeyStore.requireDaemon()
         self.key = key
+        self.listenerBindings = listenerBindings?.metadata
         let status = owner.withUnsafeMutableBytes { SecRandomCopyBytes(kSecRandomDefault, $0.count, $0.baseAddress!) }
         guard status == errSecSuccess else { throw RootWorkerChannelFailure.unavailable }
         var pair: [Int32] = [-1, -1]
@@ -57,10 +59,16 @@ final class RootWorkerChannel: CustomStringConvertible, CustomDebugStringConvert
             if !sent { closed = true; owner.resetBytes(in: 0..<owner.count) }
         }
         Darwin.close(reader); reader = -1
-        var payload = try key.withUnsafeKey { Data($0) }
+        let expected = listenerBindings == nil ? 64 : WorkerListenerBindings.frameSize
+        var payload = Data()
+        payload.reserveCapacity(expected)
         defer { payload.resetBytes(in: 0..<payload.count) }
+        if let listenerBindings { payload.append(listenerBindings) }
+        try key.withUnsafeKey { payload.append(contentsOf: $0) }
         payload.append(owner)
-        guard payload.count == 64 else { throw RootWorkerChannelFailure.unavailable }
+        guard payload.count == expected, fpathconf(writer, _PC_PIPE_BUF) >= expected else {
+            throw RootWorkerChannelFailure.unavailable
+        }
         let deadline = ProcessInfo.processInfo.systemUptime + 1
         // A fresh nonblocking pipe has room for this sub-PIPE_BUF atomic write.
         // No partial write or uncertain attempt is retried with a new envelope.
@@ -68,7 +76,7 @@ final class RootWorkerChannel: CustomStringConvertible, CustomDebugStringConvert
             while ProcessInfo.processInfo.systemUptime < deadline {
                 let count = Darwin.write(writer, bytes.baseAddress, bytes.count)
                 if count < 0 && errno == EINTR { continue }
-                guard count == 64 else { throw RootWorkerChannelFailure.unavailable }
+                guard count == expected else { throw RootWorkerChannelFailure.unavailable }
                 return
             }
             throw RootWorkerChannelFailure.unavailable

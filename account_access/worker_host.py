@@ -13,6 +13,7 @@ import sys
 import threading
 
 from .worker_bootstrap import BootstrapError, read_bootstrap, read_policy, require_worker_identity, take_listener
+from .listener_binding import ListenerBindingError, parse_listener_bindings
 
 
 def serve(args):
@@ -30,13 +31,19 @@ def serve(args):
     failed = threading.Event()
     native_messages = None
     try:
+        raw_bindings = getattr(args, "listener_bindings", None)
+        if sys.platform == "darwin" and raw_bindings is None:
+            raise BootstrapError("invalid_worker_listener_bindings")
+        try:
+            bindings = parse_listener_bindings(raw_bindings) if raw_bindings is not None else None
+        except ListenerBindingError:
+            raise BootstrapError("invalid_worker_listener_bindings") from None
         unclaimed.remove(args.agent_fd)
-        agent = take_listener(args.agent_fd)
+        agent = take_listener(args.agent_fd, canonical_path=policy["agent_socket"],
+                              binding=bindings[0] if bindings is not None else None, role=1)
         unclaimed.remove(args.owner_fd)
-        owner_socket = take_listener(args.owner_fd)
-        if (agent.getsockname() != policy["agent_socket"]
-                or owner_socket.getsockname() != policy["owner_socket"]):
-            raise BootstrapError("invalid_worker_descriptors")
+        owner_socket = take_listener(args.owner_fd, canonical_path=policy["owner_socket"],
+                                     binding=bindings[1] if bindings is not None else None, role=2)
         unclaimed.remove(args.bootstrap_fd)
         secrets = read_bootstrap(args.bootstrap_fd)
         from .broker import Broker
@@ -128,6 +135,7 @@ def main(argv=None):
     parser.add_argument("--bootstrap-fd", type=int, required=True)
     parser.add_argument("--agent-fd", type=int, required=True)
     parser.add_argument("--owner-fd", type=int, required=True)
+    parser.add_argument("--listener-bindings")
     parser.add_argument("--controlled-fixture", action="store_true")
     args = parser.parse_args(argv)
     try:
