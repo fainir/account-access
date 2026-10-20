@@ -1,0 +1,417 @@
+{
+  "collected_at_utc": "2026-10-20T09:34:30.483642+00:00",
+  "corrected_probe_measurements": [
+    {
+      "artifact_id": 12252926147,
+      "artifact_name": "mac-launchctl-installer-context",
+      "artifact_sha256": "5f41290dbf20a87c86274b5c4f43c29ee7c260227aed46e0c67faa4dd4511f09",
+      "artifact_url": "https://github.com/fainir/account-access/actions/runs/39397687859/artifacts/12252926147",
+      "closed_report_sha256": "be945195f85a7a704b41871daf9b624ae2da010194d1dd5a7a2c86925e02b780",
+      "event": "push",
+      "github_artifact_digest_matches": true,
+      "original_closed_report": {
+        "actual_installer_used": true,
+        "default_stdout_state_verified": false,
+        "environment": "disposable-mac-ci-installer",
+        "installer_exit_code": 0,
+        "private_data_accessed": false,
+        "probe": {
+          "actual_installer_script": true,
+          "bootout": {
+            "elapsed_ms": 10,
+            "error": "none",
+            "numeric_pid_response": false,
+            "returncode": 0,
+            "stderr_bytes": 0,
+            "stdout_bytes": 0,
+            "timed_out": false
+          },
+          "bootstrap": {
+            "elapsed_ms": 8,
+            "error": "none",
+            "numeric_pid_response": false,
+            "returncode": 0,
+            "stderr_bytes": 0,
+            "stdout_bytes": 0,
+            "timed_out": false
+          },
+          "capture_unchanged_after_reset": true,
+          "default_stdout_state_verified": false,
+          "environment": "disposable-mac-ci-installer",
+          "failure_stage": null,
+          "fixed_stdout_captured": true,
+          "fixture": "unique-system-job-fixed-public-echo",
+          "fixture_removed": true,
+          "post_cleanup_lookup": {
+            "elapsed_ms": 6,
+            "error": "not_found",
+            "numeric_pid_response": false,
+            "returncode": 113,
+            "stderr_bytes": 130,
+            "stdout_bytes": 0,
+            "timed_out": false
+          },
+          "preflight": {
+            "elapsed_ms": 16,
+            "error": "not_found",
+            "numeric_pid_response": false,
+            "returncode": 113,
+            "stderr_bytes": 130,
+            "stdout_bytes": 0,
+            "timed_out": false
+          },
+          "private_data_accessed": false,
+          "production_namespace_accessed": false,
+          "production_ready": false,
+          "redirect": {
+            "client_deadline_ms": 12000,
+            "client_termination_bound_ms": 4000,
+            "clients_reaped": true,
+            "debug": {
+              "client_reaped": true,
+              "error": "timeout",
+              "numeric_pid_response": false,
+              "returncode": -15,
+              "stderr_bytes": 36,
+              "stdout_bytes": 0,
+              "timed_out": true
+            },
+            "debug_observed_ms": 2032,
+            "debug_pending_at_observation_bound": true,
+            "elapsed_ms": 12006,
+            "observation_bound_ms": 2000,
+            "start": {
+              "client_reaped": true,
+              "error": "none",
+              "numeric_pid_response": true,
+              "returncode": 0,
+              "stderr_bytes": 0,
+              "stdout_bytes": 5,
+              "timed_out": false
+            },
+            "start_requested_while_debug_pending": true
+          },
+          "reset": {
+            "client_deadline_ms": 12000,
+            "client_termination_bound_ms": 4000,
+            "clients_reaped": true,
+            "debug": {
+              "client_reaped": true,
+              "error": "timeout",
+              "numeric_pid_response": false,
+              "returncode": -15,
+              "stderr_bytes": 36,
+              "stdout_bytes": 0,
+              "timed_out": true
+            },
+            "debug_observed_ms": 2007,
+            "debug_pending_at_observation_bound": true,
+            "elapsed_ms": 12026,
+            "observation_bound_ms": 2000,
+            "start": {
+              "client_reaped": true,
+              "error": "none",
+              "numeric_pid_response": true,
+              "returncode": 0,
+              "stderr_bytes": 0,
+              "stdout_bytes": 5,
+              "timed_out": false
+            },
+            "start_requested_while_debug_pending": true
+          },
+          "reset_command_acceptance": "unverified",
+          "reset_is_observational": true,
+          "schema": 1,
+          "service_health_verified": false,
+          "service_removed": true,
+          "status": "PASSED",
+          "status_scope": "fixed_fixture_stdout_observed_with_bounded_clients_and_fixture_removal"
+        },
+        "production_namespace_accessed": false,
+        "production_ready": false,
+        "schema": 1,
+        "service_health_verified": false,
+        "status": "PASSED",
+        "status_scope": "fixed_fixture_stdout_observed_with_bounded_clients_and_fixture_removal"
+      },
+      "run_attempt": 1,
+      "run_id": 39397687859,
+      "run_url": "https://github.com/fainir/account-access/actions/runs/39397687859"
+    },
+    {
+      "artifact_id": 12253031316,
+      "artifact_name": "mac-launchctl-installer-context",
+      "artifact_sha256": "bd1b45c6f01b793e63ada7225b635d3f53b4be2a34652d6b758f21ab2f405393",
+      "artifact_url": "https://github.com/fainir/account-access/actions/runs/39397694472/artifacts/12253031316",
+      "closed_report_sha256": "c107ed441680c9355fd8ec087d0c655d792f8e78f577ea9b17eb2bcd257f54d3",
+      "event": "pull_request",
+      "github_artifact_digest_matches": true,
+      "original_closed_report": {
+        "actual_installer_used": true,
+        "default_stdout_state_verified": false,
+        "environment": "disposable-mac-ci-installer",
+        "installer_exit_code": 0,
+        "private_data_accessed": false,
+        "probe": {
+          "actual_installer_script": true,
+          "bootout": {
+            "elapsed_ms": 6,
+            "error": "none",
+            "numeric_pid_response": false,
+            "returncode": 0,
+            "stderr_bytes": 0,
+            "stdout_bytes": 0,
+            "timed_out": false
+          },
+          "bootstrap": {
+            "elapsed_ms": 5,
+            "error": "none",
+            "numeric_pid_response": false,
+            "returncode": 0,
+            "stderr_bytes": 0,
+            "stdout_bytes": 0,
+            "timed_out": false
+          },
+          "capture_unchanged_after_reset": true,
+          "default_stdout_state_verified": false,
+          "environment": "disposable-mac-ci-installer",
+          "failure_stage": null,
+          "fixed_stdout_captured": true,
+          "fixture": "unique-system-job-fixed-public-echo",
+          "fixture_removed": true,
+          "post_cleanup_lookup": {
+            "elapsed_ms": 5,
+            "error": "not_found",
+            "numeric_pid_response": false,
+            "returncode": 113,
+            "stderr_bytes": 130,
+            "stdout_bytes": 0,
+            "timed_out": false
+          },
+          "preflight": {
+            "elapsed_ms": 6,
+            "error": "not_found",
+            "numeric_pid_response": false,
+            "returncode": 113,
+            "stderr_bytes": 130,
+            "stdout_bytes": 0,
+            "timed_out": false
+          },
+          "private_data_accessed": false,
+          "production_namespace_accessed": false,
+          "production_ready": false,
+          "redirect": {
+            "client_deadline_ms": 12000,
+            "client_termination_bound_ms": 4000,
+            "clients_reaped": true,
+            "debug": {
+              "client_reaped": true,
+              "error": "timeout",
+              "numeric_pid_response": false,
+              "returncode": -15,
+              "stderr_bytes": 36,
+              "stdout_bytes": 0,
+              "timed_out": true
+            },
+            "debug_observed_ms": 2066,
+            "debug_pending_at_observation_bound": true,
+            "elapsed_ms": 12068,
+            "observation_bound_ms": 2000,
+            "start": {
+              "client_reaped": true,
+              "error": "none",
+              "numeric_pid_response": true,
+              "returncode": 0,
+              "stderr_bytes": 0,
+              "stdout_bytes": 5,
+              "timed_out": false
+            },
+            "start_requested_while_debug_pending": true
+          },
+          "reset": {
+            "client_deadline_ms": 12000,
+            "client_termination_bound_ms": 4000,
+            "clients_reaped": true,
+            "debug": {
+              "client_reaped": true,
+              "error": "timeout",
+              "numeric_pid_response": false,
+              "returncode": -15,
+              "stderr_bytes": 36,
+              "stdout_bytes": 0,
+              "timed_out": true
+            },
+            "debug_observed_ms": 2015,
+            "debug_pending_at_observation_bound": true,
+            "elapsed_ms": 12039,
+            "observation_bound_ms": 2000,
+            "start": {
+              "client_reaped": true,
+              "error": "none",
+              "numeric_pid_response": true,
+              "returncode": 0,
+              "stderr_bytes": 0,
+              "stdout_bytes": 5,
+              "timed_out": false
+            },
+            "start_requested_while_debug_pending": true
+          },
+          "reset_command_acceptance": "unverified",
+          "reset_is_observational": true,
+          "schema": 1,
+          "service_health_verified": false,
+          "service_removed": true,
+          "status": "PASSED",
+          "status_scope": "fixed_fixture_stdout_observed_with_bounded_clients_and_fixture_removal"
+        },
+        "production_namespace_accessed": false,
+        "production_ready": false,
+        "schema": 1,
+        "service_health_verified": false,
+        "status": "PASSED",
+        "status_scope": "fixed_fixture_stdout_observed_with_bounded_clients_and_fixture_removal"
+      },
+      "run_attempt": 1,
+      "run_id": 39397694472,
+      "run_url": "https://github.com/fainir/account-access/actions/runs/39397694472"
+    }
+  ],
+  "date": "2026-10-20",
+  "failed_runs": 1,
+  "interpretation": {
+    "corrected_fixture_effect_acceptance_verified_in_both_events": true,
+    "created_clients_bounded_and_reaped": true,
+    "debug_client_zero_exit_not_observed": true,
+    "debug_clients_timed_out_after_start": true,
+    "default_stdout_state_verified": false,
+    "fixed_stdout_redirect_effect_observed": true,
+    "fixture_service_and_scratch_removed": true,
+    "passed_scope": "Fixed fixture stdout observed inside actual Installer scripts, created clients bounded/reaped, own fixture service and scratch removed.",
+    "production_service_health_verified": false,
+    "reset_command_acceptance": "unverified",
+    "unchanged_capture_does_not_prove_reset": "The redirect is one-shot and fixture persistent stdout is already /dev/null."
+  },
+  "native_owner_ui_failure": {
+    "assertion_or_crash_cause": "unclassified; retained log contains no assertion diagnostic or crash backtrace",
+    "counterpart": {
+      "job_conclusion": "success",
+      "job_id": 118544403378,
+      "job_url": "https://github.com/fainir/account-access/actions/runs/39397694406/job/118544403378",
+      "log_sha256": "5fc13d049c0aecee0f8251476f0427ebcc052fa21f20859cf6dd6578d8d74261",
+      "native_screen_step_conclusion": "success",
+      "run_id": 39397694406,
+      "run_url": "https://github.com/fainir/account-access/actions/runs/39397694406"
+    },
+    "counterpart_success_does_not_classify_or_erase_original_failure": true,
+    "exit_code": 133,
+    "failed_log_sha256": "634a963f57e3220c114e179dcd71576708e81055e1f0de275ec5f24c1f6bedf6",
+    "job_id": 118544379918,
+    "job_url": "https://github.com/fainir/account-access/actions/runs/39397688119/job/118544379918",
+    "last_printed_pass": "native device-email confirmation sends one apply and reports saved setup without claiming delivery",
+    "run_attempt": 1,
+    "run_id": 39397688119,
+    "run_url": "https://github.com/fainir/account-access/actions/runs/39397688119",
+    "signal_rendering": "Trace/BPT trap: 5",
+    "step": "Check native owner screen and masked sync fields"
+  },
+  "owner_mac_or_production_service_modified": false,
+  "prior_historical_measurement_preserved": {
+    "its_subsequent_not_yet_ci_verified_field_is_a_historical_snapshot": true,
+    "original_failure_status_preserved": true,
+    "path": "artifacts/mac-launchctl-installer-measurement-d81a95e.json",
+    "sha256": "a8196541294abb2e575e8caae53a5b65db6bed5d1d70a03d40aa111ac90d2507"
+  },
+  "private_account_signins": 0,
+  "probe_source_sha256": "e1300f1d119f50ce3584349910ac694b6a26b0b7dbda9911c4555485277934c8",
+  "production_ready": false,
+  "raw_proof_directory": "dist/qa-ci-f43a07a",
+  "reruns_or_cancellations_performed": false,
+  "schema": 1,
+  "scope": "Exact-source first-attempt CI status and corrected disposable Installer stdout measurement; no local owner/service activity",
+  "source_revision": "f43a07a3977184a7cb04dd7a49cc7437ec71da16",
+  "status": "RECORDED_WITH_UNCLASSIFIED_NATIVE_UI_FAILURE",
+  "successful_runs": 7,
+  "workflow_run_count": 8,
+  "workflow_runs": [
+    {
+      "attempt": 1,
+      "conclusion": "success",
+      "event": "pull_request",
+      "head_sha": "f43a07a3977184a7cb04dd7a49cc7437ec71da16",
+      "run_id": 39397694429,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39397694429",
+      "workflow": "Separate-user worker acceptance"
+    },
+    {
+      "attempt": 1,
+      "conclusion": "success",
+      "event": "pull_request",
+      "head_sha": "f43a07a3977184a7cb04dd7a49cc7437ec71da16",
+      "run_id": 39397694406,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39397694406",
+      "workflow": "Account Access checks"
+    },
+    {
+      "attempt": 1,
+      "conclusion": "success",
+      "event": "pull_request",
+      "head_sha": "f43a07a3977184a7cb04dd7a49cc7437ec71da16",
+      "run_id": 39397694431,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39397694431",
+      "workflow": "Android login-code journey"
+    },
+    {
+      "attempt": 1,
+      "conclusion": "success",
+      "event": "pull_request",
+      "head_sha": "f43a07a3977184a7cb04dd7a49cc7437ec71da16",
+      "run_id": 39397694472,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39397694472",
+      "workflow": "Mac separate-user worker acceptance"
+    },
+    {
+      "attempt": 1,
+      "conclusion": "success",
+      "event": "push",
+      "head_sha": "f43a07a3977184a7cb04dd7a49cc7437ec71da16",
+      "run_id": 39397690316,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39397690316",
+      "workflow": "Separate-user worker acceptance"
+    },
+    {
+      "attempt": 1,
+      "conclusion": "failure",
+      "event": "push",
+      "head_sha": "f43a07a3977184a7cb04dd7a49cc7437ec71da16",
+      "run_id": 39397688119,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39397688119",
+      "workflow": "Account Access checks"
+    },
+    {
+      "attempt": 1,
+      "conclusion": "success",
+      "event": "push",
+      "head_sha": "f43a07a3977184a7cb04dd7a49cc7437ec71da16",
+      "run_id": 39397687833,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39397687833",
+      "workflow": "Android login-code journey"
+    },
+    {
+      "attempt": 1,
+      "conclusion": "success",
+      "event": "push",
+      "head_sha": "f43a07a3977184a7cb04dd7a49cc7437ec71da16",
+      "run_id": 39397687859,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39397687859",
+      "workflow": "Mac separate-user worker acceptance"
+    }
+  ]
+}
