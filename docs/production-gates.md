@@ -20,8 +20,9 @@ review's pending-CI snapshot remains unchanged.
 
 The owner-approved local installation completed through macOS Installer, but
 the installed protected service exits **78 (`EX_CONFIG`) before enrollment**.
-The app cannot connect to it; the exact startup cause is still unknown. No
-protected-store enrollment, shared AI connection upgrade or personal sign-in
+The app cannot connect to it. A later isolated socket reproduction identifies
+a concrete rejection mechanism described below; its causal role in the installed
+service still needs validation. No protected-store enrollment, shared AI connection upgrade or personal sign-in
 was completed on this installation.
 [Installation and CI record](../artifacts/runtime-acceptance-080-build76-20261020.json).
 
@@ -53,6 +54,22 @@ plans, the broker domain and the agent socket. The owner-socket check returned
 which socket property failed or establish the original startup cause. The repair
 did not start or stop the service, inspect account data or restore stdout.
 Fresh startup and owner enrollment remain unverified.
+
+An isolated ordinary-user LaunchAgent on this Mac returned a named socket whose
+`getsockname` was an internal launchd path, while its configured filesystem path
+and listening endpoint remained valid. The original strict path equality check
+rejects that descriptor pattern. This proves the mechanism, not the cause of the
+installed service failure. The temporary job and files were removed; no root or
+account operations were involved.
+[Reproduction and retained first attempt](../artifacts/launchd-socket-name-080-20261020.json).
+
+Source `9e47dfc` introduces an explicit `AALSN002` worker handoff that binds each
+socket role to its root-validated named activation, descriptor identity, canonical
+filesystem identity and observed bind address. Directly bound sockets retain
+strict canonical-address checks. The enrollment channel is unchanged. The source
+is committed for full integration CI; it has not been installed, and the source
+record distinguishes earlier native checks from final-source acceptance.
+[Source review and limits](../artifacts/listener-v2-source-080-20261020.json).
 
 The package remains **unsigned and unnotarized**. Successful package installation
 does not establish a working setup. Personal-account acceptance, protected
