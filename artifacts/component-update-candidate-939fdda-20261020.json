@@ -1,0 +1,164 @@
+{
+  "assembly": {
+    "expanded_scripts_equal": true,
+    "independent_review_completed": true,
+    "payload_files": 0,
+    "public_source_inputs": 42,
+    "script_resources": 15
+  },
+  "base_source_commit": "fbd2a733b60acde68e82fe796cb7abd971d5d625",
+  "component_source_commit": "939fdda5b8b29ca54abb37be3a2b7409b9a0be91",
+  "first_actual_attempt": {
+    "actual_base_installer": false,
+    "actual_candidate_installer": false,
+    "archive_metadata_observation": "Scripts CPIO resources and directory encode UID501/GID20. read_file defaults owner0; remote expanded ownership was not retained, so this remains a suspected predicate mismatch. PackageInfo XAR entry omits uid/gid/mode.",
+    "candidate_expansion_command_returncode": 0,
+    "controller_revision": "939fdda5b8b29ca54abb37be3a2b7409b9a0be91",
+    "failure_scope": "candidate_scripts guard after successful expansion; exact rejected predicate was not retained",
+    "run_attempt": 1,
+    "run_id": 39423587133,
+    "same_package_reapplication": false,
+    "source_revision": "939fdda5b8b29ca54abb37be3a2b7409b9a0be91",
+    "status": "FAILED_BEFORE_INSTALLER"
+  },
+  "first_actual_attempt_url": "https://github.com/fainir/account-access/actions/runs/39423587133",
+  "native_helper_identity": {
+    "hashes": [
+      "6120263d8467ca991ad3a16a85c12f1019408153"
+    ],
+    "identifier": "com.fainir.accountaccess.componentupdate",
+    "team": "WBULD6N4NQ"
+  },
+  "owner_component_update_installed": false,
+  "package": {
+    "package_bytes": 3415494,
+    "package_sha256": "bd855362c5f4e265e9d4cb4f7a67355af0de8855d681fa7660c8e6dfbcd613c6",
+    "plan_sha256": "2254faa47541b08a067f632d2f760a0b4a0bea708a79bfea457c80365995a0c1"
+  },
+  "personal_accounts_validated": false,
+  "production_ready": false,
+  "qa_controller_correction": {
+    "independently_reviewed": true,
+    "new_remote_installer_acceptance": "pending",
+    "ordinary_contract_tests_passed": 140,
+    "ruff_passed": true,
+    "scope": "Raw public expanded archive resources only, inside descriptor-pinned root-private staging. Protected installed file reads still require root ownership. Exact resource set, byte, mode, hash, plan and committed-source checks remain enforced.",
+    "source_review_sha256": "d93ef53eb6e06f131a3585cdc1c79932bb4a1beb364e474bba90e93a5cb4bedf",
+    "source_sha256": {
+      "scripts/mac_component_update_installer_probe.py": "29f42d6d5569ddaebfe6c1f35d88f341f5abbff78bfc709b203aa29420d7f736",
+      "tests/test_mac_component_update_installer_probe.py": "876031cfb39d632bfd03c69811750b6ca47f8d20f3a3ef3eca6d4263fd221156"
+    }
+  },
+  "qa_draft": {
+    "consumer_release": false,
+    "package_asset_id": 659286848,
+    "release_id": 418379193,
+    "review_asset_id": 659286847,
+    "review_sha256": "8d0fe85dae42ffa16a6a365d239d72b37fe7bfd4018c951a12fdca4296f5c9b1"
+  },
+  "remaining_scope": "Correct the QA controller archive-resource boundary, retain the first failed attempt, and test the same immutable package on a fresh hosted Mac before owner installation. This record establishes neither owner enrollment nor real MFA/agent acceptance.",
+  "retained_evidence_sha256": {
+    "exact_source_ci": "75eb8497fb7eeb044dc57278a9ffd320d3bc670626a4058983d16ded9e147a95",
+    "first_actual_installer_attempt": "97b1c570a5020962d762ed4a252ea39d0e721ec7a08bc1799b95961b536d9216",
+    "independent_expansion_review": "14189ec5a76fe93d680df76dc4677019852776c53d760fd6a4906348838a4d70",
+    "independent_expansion_supplement": "4496211d6a9f43aced52549f501211b96ba5de69999e25b47eb2abe391626748",
+    "local_assembly_review": "c1138a0a5920ff1860e22ca8152f1056e68410b6c9ac99b1d2e57b6c89a7e9d8",
+    "public_review": "8d0fe85dae42ffa16a6a365d239d72b37fe7bfd4018c951a12fdca4296f5c9b1"
+  },
+  "schema": 1,
+  "signing": {
+    "native_executables": "Developer ID Application",
+    "notarized": false,
+    "package_container_signed": false
+  },
+  "source_ci": {
+    "all_applicable_jobs_successful": true,
+    "dispatch_only_jobs_skipped": 2,
+    "first_attempt_only": true,
+    "required_runs": 9,
+    "runs": [
+      {
+        "attempt": 1,
+        "conclusion": "success",
+        "event": "pull_request",
+        "id": 39417535683,
+        "path": ".github/workflows/check.yml",
+        "source": "939fdda5b8b29ca54abb37be3a2b7409b9a0be91",
+        "url": "https://github.com/fainir/account-access/actions/runs/39417535683"
+      },
+      {
+        "attempt": 1,
+        "conclusion": "success",
+        "event": "pull_request",
+        "id": 39417535707,
+        "path": ".github/workflows/worker-boundary.yml",
+        "source": "939fdda5b8b29ca54abb37be3a2b7409b9a0be91",
+        "url": "https://github.com/fainir/account-access/actions/runs/39417535707"
+      },
+      {
+        "attempt": 1,
+        "conclusion": "success",
+        "event": "pull_request",
+        "id": 39417535670,
+        "path": ".github/workflows/android.yml",
+        "source": "939fdda5b8b29ca54abb37be3a2b7409b9a0be91",
+        "url": "https://github.com/fainir/account-access/actions/runs/39417535670"
+      },
+      {
+        "attempt": 1,
+        "conclusion": "success",
+        "event": "pull_request",
+        "id": 39417535834,
+        "path": ".github/workflows/mac-worker.yml",
+        "source": "939fdda5b8b29ca54abb37be3a2b7409b9a0be91",
+        "url": "https://github.com/fainir/account-access/actions/runs/39417535834"
+      },
+      {
+        "attempt": 1,
+        "conclusion": "success",
+        "event": "push",
+        "id": 39417528574,
+        "path": ".github/workflows/check.yml",
+        "source": "939fdda5b8b29ca54abb37be3a2b7409b9a0be91",
+        "url": "https://github.com/fainir/account-access/actions/runs/39417528574"
+      },
+      {
+        "attempt": 1,
+        "conclusion": "success",
+        "event": "push",
+        "id": 39417528474,
+        "path": ".github/workflows/mac-worker.yml",
+        "source": "939fdda5b8b29ca54abb37be3a2b7409b9a0be91",
+        "url": "https://github.com/fainir/account-access/actions/runs/39417528474"
+      },
+      {
+        "attempt": 1,
+        "conclusion": "success",
+        "event": "push",
+        "id": 39417528523,
+        "path": ".github/workflows/mac-component-update-review.yml",
+        "source": "939fdda5b8b29ca54abb37be3a2b7409b9a0be91",
+        "url": "https://github.com/fainir/account-access/actions/runs/39417528523"
+      },
+      {
+        "attempt": 1,
+        "conclusion": "success",
+        "event": "push",
+        "id": 39417528367,
+        "path": ".github/workflows/worker-boundary.yml",
+        "source": "939fdda5b8b29ca54abb37be3a2b7409b9a0be91",
+        "url": "https://github.com/fainir/account-access/actions/runs/39417528367"
+      },
+      {
+        "attempt": 1,
+        "conclusion": "success",
+        "event": "push",
+        "id": 39417528432,
+        "path": ".github/workflows/android.yml",
+        "source": "939fdda5b8b29ca54abb37be3a2b7409b9a0be91",
+        "url": "https://github.com/fainir/account-access/actions/runs/39417528432"
+      }
+    ]
+  },
+  "status": "ASSEMBLED_ACTUAL_INSTALLER_ACCEPTANCE_PENDING"
+}

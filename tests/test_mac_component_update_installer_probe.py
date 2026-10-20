@@ -2,6 +2,7 @@
 
 import copy
 import importlib.util
+import json
 from pathlib import Path
 import stat
 import subprocess
@@ -203,3 +204,145 @@ def test_caught_failure_or_cleanup_error_can_never_become_pass():
     wrong = copy.deepcopy(value)
     wrong["checks"]["extra"] = True
     assert not probe.acceptance_passed(wrong)
+
+
+@pytest.fixture
+def public_archive(tmp_path, monkeypatch):
+    """Ordinary files, with only metadata mocked as root anchor/archive UID731."""
+    stage = tmp_path / "stage"
+    stage.mkdir(mode=0o700)
+    expanded = stage / "expanded"
+    expanded.mkdir(mode=0o755)
+    scripts = expanded / "Scripts"
+    scripts.mkdir(mode=0o700)
+    base = b'{"roots":{}}\n'
+    target = b'{"roots":{"target":"synthetic public image"}}\n'
+    plan = {"component_source_commit": REVISION, "base_manifest_sha256": probe.sha(base),
+            "target_manifest_sha256": probe.sha(target)}
+    files = {"ComponentPlan.json": json.dumps(plan).encode(),
+             "BaseManifest.json": base, "TargetManifest.json": target,
+             **{"public-" + str(index) + ".bin": b"public fixture" for index in range(12)}}
+    for name, raw in files.items():
+        (scripts / name).write_bytes(raw)
+        (scripts / name).chmod(0o644)
+    (expanded / "PackageInfo").write_text(
+        '<pkg-info identifier="com.fainir.accountaccess.componentupdate76v2" version="0.1.0">'
+        '<scripts><postinstall file="./postinstall"/></scripts></pkg-info>')
+    (expanded / "PackageInfo").chmod(0o644)
+    value = review()
+    value["scripts"] = {name: {"sha256": probe.sha(raw), "mode": 0o644, "bytes": len(raw)}
+                        for name, raw in files.items()}
+    value["plan_sha256"] = probe.sha(files["ComponentPlan.json"])
+    monkeypatch.setattr(probe, "BASE_MANIFEST_SHA256", probe.sha(base))
+    monkeypatch.setattr(probe, "deny_only_acl", lambda fd: None)
+    anchor = stage.stat()
+    fields = ("st_dev", "st_ino", "st_mode", "st_uid", "st_gid", "st_nlink", "st_size", "st_mtime_ns", "st_ctime_ns")
+
+    def logical_metadata(info):
+        result = {name: getattr(info, name) for name in fields}
+        result["st_uid"] = 0 if (info.st_dev, info.st_ino) == (anchor.st_dev, anchor.st_ino) else 731
+        return SimpleNamespace(**result)
+
+    real_fstat, real_stat = probe.os.fstat, probe.os.stat
+    monkeypatch.setattr(probe.os, "fstat", lambda *a, **k: logical_metadata(real_fstat(*a, **k)))
+    monkeypatch.setattr(probe.os, "stat", lambda *a, **k: logical_metadata(real_stat(*a, **k)))
+    return stage, expanded, value, target
+
+
+def test_archive_uid_is_data_inside_root_private_anchor_without_global_relaxation(public_archive):
+    stage, expanded, value, target = public_archive
+    diagnostics = {}
+    scripts, plan, verified_target = probe.candidate_scripts(expanded, value, staging_anchor=stage, diagnostics=diagnostics)
+    assert scripts == expanded / "Scripts" and plan["component_source_commit"] == REVISION
+    assert verified_target == json.loads(target)
+    metadata = diagnostics["expanded_public_metadata"]
+    assert metadata["directories"]["stage"]["uid"] == 0
+    assert all(row["uid"] == 731 for row in metadata["entries"]["Scripts"])
+    assert all(set(row) == {"name", "type", "uid", "gid", "mode", "bytes"} for row in metadata["entries"]["Scripts"])
+    with pytest.raises(ValueError):
+        probe.read_file(scripts / "BaseManifest.json")  # Real installed-file contract still requires root.
+
+
+@pytest.mark.parametrize("change,stage_name", [("extra_sidecar", "candidate_resource_set"),
+    ("changed_bytes", "candidate_resource_bytes"), ("writable", "candidate_resource_bytes"),
+    ("hardlink", "candidate_resource_bytes"), ("symlink", "candidate_resource_bytes"),
+    ("payload", "candidate_top_level"), ("xml", "candidate_package_info")])
+def test_archive_byte_type_mode_set_and_xml_guards_still_refuse(public_archive, tmp_path, change, stage_name):
+    stage, expanded, value, _ = public_archive
+    resource = expanded / "Scripts/public-0.bin"
+    if change == "extra_sidecar":
+        (expanded / "Scripts/._public-0.bin").write_bytes(b"public metadata")
+    elif change == "changed_bytes":
+        resource.write_bytes(b"different")
+    elif change == "writable":
+        resource.chmod(0o666)
+    elif change == "hardlink":
+        probe.os.link(resource, tmp_path / "retained-hardlink")
+    elif change == "symlink":
+        resource.unlink()
+        resource.symlink_to(tmp_path / "absent")
+    elif change == "payload":
+        (expanded / "Payload").mkdir()
+    else:
+        (expanded / "PackageInfo").write_text("<wrong/>")
+    diagnostics = {}
+    with pytest.raises((ValueError, OSError)):
+        probe.candidate_scripts(expanded, value, staging_anchor=stage, diagnostics=diagnostics)
+    assert diagnostics["failure_stage"] == stage_name
+    if change == "extra_sidecar":
+        assert any(row["name"] == "._public-0.bin" for row in diagnostics["expanded_public_metadata"]["entries"]["Scripts"])
+
+
+def test_unprotected_stage_or_symlink_archive_directory_never_adopted(public_archive, tmp_path):
+    stage, expanded, value, _ = public_archive
+    stage.chmod(0o755)
+    diagnostics = {}
+    with pytest.raises(ValueError):
+        probe.candidate_scripts(expanded, value, staging_anchor=stage, diagnostics=diagnostics)
+    assert diagnostics["failure_stage"] == "candidate_stage_anchor"
+    stage.chmod(0o700)
+    (expanded / "Scripts").rename(expanded / "SavedScripts")
+    (expanded / "Scripts").symlink_to(expanded / "SavedScripts", target_is_directory=True)
+    diagnostics = {}
+    with pytest.raises((ValueError, OSError)):
+        probe.candidate_scripts(expanded, value, staging_anchor=stage, diagnostics=diagnostics)
+    assert diagnostics["failure_stage"] == "candidate_scripts_directory"
+    assert diagnostics["expanded_public_metadata"]["directories"]["Scripts"]["type"] == "symlink"
+
+
+def test_archive_uid_change_during_read_refused(public_archive, monkeypatch):
+    stage, expanded, _, _ = public_archive
+    diagnostics = {}
+    archive = probe.ArchiveExpansion(stage, expanded, diagnostics)
+    resource = expanded / "Scripts/public-0.bin"
+    inode = resource.stat().st_ino
+    original = probe.os.fstat
+    observations = 0
+
+    def changing_owner(fd):
+        nonlocal observations
+        info = original(fd)
+        if info.st_ino == inode:
+            observations += 1
+            if observations > 1:
+                return SimpleNamespace(**{**vars(info), "st_uid": 732})
+        return info
+
+    monkeypatch.setattr(probe.os, "fstat", changing_owner)
+    try:
+        with pytest.raises(ValueError):
+            archive.read("Scripts", resource.name)
+    finally:
+        archive.close()
+
+
+def test_expanded_metadata_has_fixed_entry_bound(public_archive):
+    stage, expanded, value, _ = public_archive
+    for index in range(50):
+        (expanded / "Scripts" / ("extra-" + str(index))).touch()
+    diagnostics = {}
+    with pytest.raises(ValueError):
+        probe.candidate_scripts(expanded, value, staging_anchor=stage, diagnostics=diagnostics)
+    assert diagnostics["failure_stage"] == "candidate_expanded_metadata"
+    assert diagnostics["expanded_public_metadata"]["entry_counts"]["Scripts"] == 65
+    assert diagnostics["expanded_public_metadata"]["entries"]["Scripts"] == []

@@ -292,29 +292,142 @@ def command(arguments, *, report, output, log, timeout=30, check=True):
     return result
 
 
-def candidate_scripts(expanded, review):
-    require(set(path.name for path in expanded.iterdir()) <= {"PackageInfo", "Scripts", "Bom"})
-    info = ET.fromstring(read_file(expanded / "PackageInfo"))
-    require(info.get("identifier") == "com.fainir.accountaccess.componentupdate76v2" and info.get("version") == "0.1.0")
-    payload = info.find("payload")
-    require(payload is None or all(int(payload.get(key, "0")) == 0 for key in ("numberOfFiles", "installKBytes")))
-    phases = info.find("scripts")
-    require(phases is not None and len(phases) == 1 and phases[0].tag == "postinstall"
-            and phases[0].get("file") in {"./postinstall", "postinstall"})
-    scripts = expanded / "Scripts"
-    actual = {}
-    for path in scripts.iterdir():
-        raw = read_file(path)
-        actual[path.name] = {"sha256": sha(raw), "mode": stat.S_IMODE(path.lstat().st_mode), "bytes": len(raw)}
-    require(actual == review["scripts"])
-    plan_raw = read_file(scripts / "ComponentPlan.json")
-    require(sha(plan_raw) == review["plan_sha256"])
-    plan = json.loads(plan_raw)
-    require(plan["component_source_commit"] == review["component_source_commit"]
-            and plan["base_manifest_sha256"] == BASE_MANIFEST_SHA256
-            and sha(read_file(scripts / "BaseManifest.json")) == BASE_MANIFEST_SHA256
-            and sha(read_file(scripts / "TargetManifest.json")) == plan["target_manifest_sha256"])
-    return scripts, plan
+def archive_metadata(info):
+    kind = ("file" if stat.S_ISREG(info.st_mode) else "directory" if stat.S_ISDIR(info.st_mode)
+            else "symlink" if stat.S_ISLNK(info.st_mode) else "other")
+    return {"type": kind, "uid": info.st_uid, "gid": info.st_gid,
+            "mode": stat.S_IMODE(info.st_mode), "bytes": info.st_size}
+
+
+class ArchiveExpansion:
+    """Read public archive bytes inside a root-private, descriptor-pinned stage.
+
+    pkgutil can preserve the build user's archive UID. That UID is metadata,
+    never installed ownership or permission to execute a resource. Installed
+    files and Installer's executable-resource checks keep their root contract.
+    """
+
+    def __init__(self, staging_anchor, expanded, diagnostics):
+        require(expanded == staging_anchor / "expanded")
+        self.descriptors = []
+        self.diagnostics = diagnostics
+        flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+        try:
+            diagnostics["failure_stage"] = "candidate_stage_anchor"
+            anchor = os.open(staging_anchor, flags)
+            self.descriptors.append(anchor)
+            protected_metadata(os.fstat(anchor), mode=0o700)
+            deny_only_acl(anchor)
+            require(stamp(os.fstat(anchor)) == stamp(staging_anchor.lstat()))
+            self.anchor_path = staging_anchor
+            self.anchor_before = os.fstat(anchor)
+            self.directories = {}
+            diagnostics["expanded_public_metadata"] = {
+                "directories": {"stage": archive_metadata(self.anchor_before)}, "entries": {}, "entry_counts": {},
+            }
+            for name, parent in (("expanded", anchor), ("Scripts", None)):
+                diagnostics["failure_stage"] = "candidate_" + name.lower() + "_directory"
+                parent = parent if parent is not None else self.directories["expanded"][0]
+                linked = os.stat(name, dir_fd=parent, follow_symlinks=False)
+                diagnostics["expanded_public_metadata"]["directories"][name] = archive_metadata(linked)
+                descriptor = os.open(name, flags, dir_fd=parent)
+                self.descriptors.append(descriptor)
+                info = os.fstat(descriptor)
+                require(stat.S_ISDIR(info.st_mode) and not info.st_mode & 0o7022)
+                deny_only_acl(descriptor)
+                require(stamp(info) == stamp(linked) == stamp(os.stat(name, dir_fd=parent, follow_symlinks=False)))
+                self.directories[name] = (descriptor, info, parent)
+            diagnostics["failure_stage"] = "candidate_expanded_metadata"
+            self.names = {}
+            for name, (descriptor, _, _) in self.directories.items():
+                names = sorted(os.listdir(descriptor))
+                diagnostics["expanded_public_metadata"]["entries"][name] = []
+                diagnostics["expanded_public_metadata"]["entry_counts"][name] = len(names)
+                require(len(names) <= 64)
+                for child in names:
+                    require(re.fullmatch(r"[A-Za-z0-9._-]{1,128}", child) is not None and child not in {".", ".."})
+                    value = archive_metadata(os.stat(child, dir_fd=descriptor, follow_symlinks=False))
+                    diagnostics["expanded_public_metadata"]["entries"][name].append({"name": child, **value})
+                self.names[name] = set(names)
+            self.stable()
+        except Exception:
+            self.close()
+            raise
+
+    def stable(self):
+        require(stamp(self.anchor_before) == stamp(os.fstat(self.descriptors[0]))
+                and stamp(self.anchor_before) == stamp(self.anchor_path.lstat()))
+        for name, (descriptor, before, parent) in self.directories.items():
+            require(stamp(before) == stamp(os.fstat(descriptor))
+                    and stamp(before) == stamp(os.stat(name, dir_fd=parent, follow_symlinks=False)))
+
+    def read(self, directory, name, *, maximum=16 * 1024 * 1024):
+        require(name in self.names[directory])
+        self.stable()
+        parent = self.directories[directory][0]
+        descriptor = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC, dir_fd=parent)
+        try:
+            before = os.fstat(descriptor)
+            require(stat.S_ISREG(before.st_mode) and before.st_nlink == 1
+                    and not before.st_mode & 0o7022 and 0 <= before.st_size <= maximum)
+            # Capture the archive UID rather than asserting active root
+            # ownership. The enclosing root0700 stage prevents build-user access.
+            with os.fdopen(os.dup(descriptor), "rb") as stream:
+                raw = stream.read(maximum + 1)
+            require(len(raw) == before.st_size and stamp(before) == stamp(os.fstat(descriptor))
+                    and stamp(before) == stamp(os.stat(name, dir_fd=parent, follow_symlinks=False)))
+            self.stable()
+            return raw, before
+        finally:
+            os.close(descriptor)
+
+    def close(self):
+        for descriptor in reversed(self.descriptors):
+            os.close(descriptor)
+        self.descriptors.clear()
+
+
+def candidate_scripts(expanded, review, *, staging_anchor, diagnostics):
+    archive = ArchiveExpansion(staging_anchor, expanded, diagnostics)
+    try:
+        diagnostics["failure_stage"] = "candidate_top_level"
+        require({"PackageInfo", "Scripts"} <= archive.names["expanded"] <= {"PackageInfo", "Scripts", "Bom"})
+        diagnostics["failure_stage"] = "candidate_package_info"
+        info = ET.fromstring(archive.read("expanded", "PackageInfo", maximum=64 * 1024)[0])
+        require(info.get("identifier") == "com.fainir.accountaccess.componentupdate76v2" and info.get("version") == "0.1.0")
+        diagnostics["failure_stage"] = "candidate_payload"
+        payload = info.find("payload")
+        require(payload is None or all(int(payload.get(key, "0")) == 0 for key in ("numberOfFiles", "installKBytes")))
+        diagnostics["failure_stage"] = "candidate_script_phase"
+        phases = info.find("scripts")
+        require(phases is not None and len(phases) == 1 and phases[0].tag == "postinstall"
+                and phases[0].get("file") in {"./postinstall", "postinstall"})
+        diagnostics["failure_stage"] = "candidate_resource_set"
+        require(archive.names["Scripts"] == set(review["scripts"]))
+        actual, resources = {}, {}
+        for name in sorted(archive.names["Scripts"]):
+            diagnostics["failure_stage"] = "candidate_resource_bytes"
+            diagnostics["candidate_resource_name"] = name
+            raw, metadata = archive.read("Scripts", name)
+            actual[name] = {"sha256": sha(raw), "mode": stat.S_IMODE(metadata.st_mode), "bytes": len(raw)}
+            require(actual[name] == review["scripts"][name])
+            if name in {"ComponentPlan.json", "BaseManifest.json", "TargetManifest.json"}:
+                resources[name] = raw
+        diagnostics["failure_stage"] = "candidate_resource_map"
+        require(actual == review["scripts"])
+        diagnostics["failure_stage"] = "candidate_plan_binding"
+        plan_raw = resources["ComponentPlan.json"]
+        require(sha(plan_raw) == review["plan_sha256"])
+        plan = json.loads(plan_raw)
+        require(plan["component_source_commit"] == review["component_source_commit"]
+                and plan["base_manifest_sha256"] == BASE_MANIFEST_SHA256
+                and sha(resources["BaseManifest.json"]) == BASE_MANIFEST_SHA256
+                and sha(resources["TargetManifest.json"]) == plan["target_manifest_sha256"])
+        archive.stable()
+        diagnostics.pop("candidate_resource_name", None)
+        return expanded / "Scripts", plan, json.loads(resources["TargetManifest.json"])
+    finally:
+        archive.close()
 
 
 def verify_image(manifest):
@@ -382,6 +495,7 @@ def run(args):
               "candidate_sha256": args.candidate_sha256, "base_package_sha256": BASE_PACKAGE_SHA256,
               "run_id": os.environ["GITHUB_RUN_ID"], "run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
               "review_sha256": args.review_sha256, "checks": dict.fromkeys(CHECKS, False), "logs": {},
+              "failure_stage": "fresh_vm_preflight",
               "personal_accounts_used": 0, "enrollment_attempted": False, "private_vault_read": False,
               "crash_injection_tested": False, "physical_delivery_verified": False, "production_ready": False,
               "filesystem_cleanup": "hosted VM teardown; created service stopped explicitly"}
@@ -401,68 +515,84 @@ def run(args):
         report["checks"]["fresh_hosted_vm"] = True
         with tempfile.TemporaryDirectory(prefix="account-access-component-installer-") as temporary:
             stage = Path(temporary)
+            report["failure_stage"] = "public_input_staging"
             stage_file(args.base, stage / "base.pkg", BASE_PACKAGE_SHA256, 300 * 1024 * 1024)
             stage_file(args.base_manifest, stage / "base-manifest.json", BASE_MANIFEST_SHA256, 16 * 1024 * 1024)
             stage_file(args.candidate, stage / "candidate.pkg", args.candidate_sha256, 32 * 1024 * 1024)
             stage_file(args.review, stage / "review.json", args.review_sha256, 1024 * 1024)
             review = validate_review(json.loads(read_file(stage / "review.json")), args.source, args.candidate_sha256)
             require((stage / "candidate.pkg").stat().st_size == review["package_bytes"])
+            report["failure_stage"] = "public_source_binding"
             bind_sources(review, args.repository, args.source)
             report["source_files"] = review["source_files"]
             report["checks"]["reviewed_public_inputs"] = True
+            report["failure_stage"] = "candidate_expand"
             command(["/usr/sbin/pkgutil", "--expand-full", str(stage / "candidate.pkg"), str(stage / "expanded")],
                     report=report, output=output, log="expand.log", timeout=60)
-            scripts, plan = candidate_scripts(stage / "expanded", review)
+            scripts, plan, target = candidate_scripts(stage / "expanded", review, staging_anchor=stage, diagnostics=report)
             report["checks"]["candidate_expansion_matches_review"] = True
             requirement = ('anchor apple generic and identifier "com.fainir.accountaccess.componentupdate" '
                 'and certificate 1[field.1.2.840.113635.100.6.2.6] exists '
                 'and certificate leaf[field.1.2.840.113635.100.6.1.13] exists '
                 'and certificate leaf[subject.OU] = "WBULD6N4NQ" '
                 'and !(entitlement["com.apple.security.get-task-allow"] exists)')
+            report["failure_stage"] = "candidate_native_signature"
             command(["/usr/bin/codesign", "--verify", "--strict", "--all-architectures", "-R=" + requirement,
                      str(scripts / "AccountAccess-componentupdate")], report=report, output=output, log="signature.log")
             report["checks"]["genuine_signed_helper"] = True
             touched = True
+            report["failure_stage"] = "base_installer"
             command(["/usr/sbin/installer", "-pkg", str(stage / "base.pkg"), "-target", "/"],
                     report=report, output=output, log="base-installer.log", timeout=360)
             report["checks"]["actual_base_installer"] = True
+            report["failure_stage"] = "base_public_image"
             verify_image(json.loads(read_file(stage / "base-manifest.json")))
             report["checks"]["base_public_image"] = True
             # This fresh CI GUI has no owner input or unsaved account setup.
+            report["failure_stage"] = "fresh_gui_quit"
             command(["/bin/launchctl", "asuser", str(console), "/usr/bin/sudo", "-n", "-H", "-u", "#" + str(console), "--",
                      "/usr/bin/osascript", "-e", 'tell application id "com.fainir.accountaccess" to quit'],
                     report=report, output=output, log="fresh-gui-quit.log", timeout=30)
             report["checks"]["fresh_gui_quit"] = True
+            report["failure_stage"] = "baseline_public_records"
             before, retained = policies(), fixed_records()
+            report["failure_stage"] = "candidate_installer"
             command(["/usr/sbin/installer", "-pkg", str(stage / "candidate.pkg"), "-target", "/"],
                     report=report, output=output, log="candidate-installer.log", timeout=180)
             report["checks"]["actual_candidate_installer"] = True
-            target = json.loads(read_file(scripts / "TargetManifest.json"))
+            report["failure_stage"] = "target_public_image"
             verify_image(target)
             report["checks"]["target_public_image"] = True
+            report["failure_stage"] = "preserved_public_policy_values"
             expected = json.loads(json.dumps(before))
             expected["install"]["payload_fingerprint"] = plan["new_fingerprint"]
             expected["host"]["bootstrap_hashes"] = plan["new_signatures"]["bootstrap"]["hashes"]
             expected["owner"]["server_hashes"] = plan["new_signatures"]["broker"]["hashes"]
             require(policies() == expected)
             report["checks"]["only_three_policy_values_changed"] = True
+            report["failure_stage"] = "preserved_original_receipts"
             require(fixed_records() == retained)
             report["checks"]["unchanged_worker_plans_and_original_journal"] = True
+            report["failure_stage"] = "verified_head"
             head = json.loads(read_file(COMPONENTS / "head.json", maximum=4096))
             require(head == {"schema": 1, "managed_by": "account-access-component-head-v1", "plan_sha256": review["plan_sha256"],
                 "base_manifest_sha256": BASE_MANIFEST_SHA256, "manifest_sha256": plan["target_manifest_sha256"],
                 "state": "public_image_verified_gui_unverified", "automatic_reboot_recovery": False})
             report["checks"]["verified_head"] = True
+            report["failure_stage"] = "candidate_reapply"
             command(["/usr/sbin/installer", "-pkg", str(stage / "candidate.pkg"), "-target", "/"],
                     report=report, output=output, log="same-package-installer.log", timeout=180)
             report["checks"]["same_package_reapplication"] = True
+            report["failure_stage"] = "reapplied_public_image"
             verify_image(target)
             require(policies() == expected and fixed_records() == retained
                     and json.loads(read_file(COMPONENTS / "head.json", maximum=4096)) == head)
             report["checks"]["reapplication_preserved_bytes_and_ids"] = True
+            report["failure_stage"] = "public_staging_cleanup"
     except Exception:
         report["failure_reason"] = "actual_component_installer_acceptance_failed"
     finally:
+        report["measurement_failure_stage"] = report["failure_stage"] if "failure_reason" in report else None
         if touched:
             try:
                 value = plistlib.loads(read_file(JOB, maximum=8192))
@@ -476,8 +606,10 @@ def run(args):
                 report["checks"]["created_job_stopped"] = True
             except Exception:
                 report["cleanup_unverified"] = True
+                report["failure_stage"] = "created_job_cleanup"
         if acceptance_passed(report):
             report["status"] = "PASSED"
+            report["failure_stage"] = None
         try:
             output.write("report.json", json.dumps(report, indent=2, sort_keys=True).encode() + b"\n")
             output.publish()

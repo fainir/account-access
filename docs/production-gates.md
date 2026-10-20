@@ -83,9 +83,20 @@ Original installation receipts and private account directories remain untouched.
 Local ordinary checks passed **177 Python tests**, **87 optimized native
 assertions** and **41 public-policy assertions**. The production entry point
 compiled and refused an ordinary caller before filesystem work. These are source
-and synthetic checks. Full exact-source CI, signed candidate assembly and actual
-base/candidate Installer acceptance in a fresh hosted Mac remain required before
-owner installation. No new root helper or account login was run on the owner Mac.
+and synthetic checks. Source `939fdda` subsequently passed all nine required
+CI workflows on their first attempts. Its signed-native component package was
+assembled, independently expanded and checked against all 42 frozen source inputs
+and 15 script resources. The package container remains unsigned and unnotarized.
+No new root helper or account login was run on the owner Mac.
+
+The first actual Installer QA run expanded the package successfully, then its
+controller refused the expanded resources before either Installer ran. Archived
+script resources carry the builder UID, while the controller expected root-owned
+files; the exact remote failed predicate was not retained. The controller is
+being corrected and given bounded public metadata diagnostics. Actual
+base/candidate installation and same-package reapplication on a fresh hosted Mac
+remain required before owner installation. The failed attempt is retained.
+[Exact source CI, package review and first actual attempt](../artifacts/component-update-candidate-939fdda-20261020.json).
 [Source review and retained earlier attempts](../artifacts/component-update-source-080-20261020.json).
 The build gate also preserves the measured skipped state of the review push's
 two dispatch-only jobs; all applicable jobs still require first-attempt success.
