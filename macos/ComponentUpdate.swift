@@ -1168,7 +1168,16 @@ enum ComponentController {
         for (index, delta) in source.delta.enumerated() { modes[String(format: "slot-%02d", index)] = delta.after.mode! }
         for (index, entry) in dynamic.enumerated() { modes[String(format: "slot-%02d", source.delta.count + index)] = entry.2 }
         let hasIntent = try InstallerPayloadIO.contents(components).contains(transitionName)
-        let reserve = hasIntent ? 0 : Int64(source.delta.reduce(0) { $0 + $1.data.count } + 4 * 4096 + 64 * 1024)
+        var reserve: Int64 = 0
+        if !hasIntent {
+            reserve = 81_920 // Four 4096-byte policy slots plus a 64 KiB intent.
+            for delta in source.delta {
+                let itemBytes = Int64(delta.data.count)
+                let addition = reserve.addingReportingOverflow(itemBytes)
+                guard !addition.overflow else { throw ComponentUpdateFailure.unavailable }
+                reserve = addition.partialValue
+            }
+        }
         let orphans = try ComponentPreparation.retained(components, plan: source.planDigest, slots: modes, owner: 0, reserve: reserve)
         let preparingName: String?
         let backup: Int32

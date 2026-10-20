@@ -94,9 +94,13 @@ two dispatch-only jobs; all applicable jobs still require first-attempt success.
 The first updater CI attempts refused the disable-state output. A read-only
 measurement confirmed that this Mac renders the states as `enabled` and
 `disabled`; the native and probe parsers now recognize those exact forms and
-retain only the unique test fixture's observations. Fresh exact-source CI still
-must verify the complete disable, registration-exclusion and reenable sequence.
-[Rendering correction and current source evidence](../artifacts/component-update-disabled-rendering-080-20261020.json).
+retain only the unique test fixture's observations. Fresh CI at `1098a2d` passed the complete
+disable, registration-exclusion, reenable and cleanup sequence. Its native
+compile then hit an older Swift compiler complexity limit in the reserve
+calculation. Explicit typed accumulation preserves the amount and passed local
+optimized checks; the new exact source still requires full CI.
+[Earlier rendering correction](../artifacts/component-update-disabled-rendering-080-20261020.json).
+[Compiler compatibility correction and current source evidence](../artifacts/component-update-swift-compat-080-20261020.json).
 
 
 The package remains **unsigned and unnotarized**. Successful package installation
