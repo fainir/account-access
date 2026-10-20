@@ -14,6 +14,19 @@ enum ComponentUpdateIdentityChecks {
     }
     static func run() throws -> (Int, [String: Bool]) {
         var count = 0
+        var stage = "valid_job_print"
+        var completed = false
+        defer {
+            if !completed {
+                let failure: [String: Any] = ["schema": 1, "status": "FAILED",
+                    "managed_by": "account-access-component-identity-fixture-failure-v1", "stage": stage,
+                    "completed_assertions": count, "next_assertion": count + 1,
+                    "installed_reads": false, "service_actions": false]
+                if let data = try? JSONSerialization.data(withJSONObject: failure, options: [.sortedKeys]) {
+                    FileHandle.standardError.write(data); FileHandle.standardError.write(Data([10]))
+                }
+            }
+        }
         var valid: [(Data, Int32?)] = [(printData(program + "\tstate = running\n\tpid = 123\n"), 123)]
         for state in ["spawn scheduled", "not running", "waiting", "exited", "stopped"] {
             valid.append((printData(program + "\tstate = " + state + "\n"), nil))
@@ -24,6 +37,7 @@ enum ComponentUpdateIdentityChecks {
             guard try ComponentUpdateIdentity.printedPID(data) == expected else { throw ComponentUpdateFailure.context }
             count += 1
         }
+        stage = "invalid_job_print"
         let running = program + "\tstate = running\n\tpid = 123\n"
         var invalid: [Data] = [
             Data(("gui/501/com.fainir.accountaccess.broker = {\n" + running + "}\n").utf8),
@@ -57,8 +71,10 @@ enum ComponentUpdateIdentityChecks {
             try rejects { _ = try ComponentUpdateIdentity.printedPID(data) }
             count += 1
         }
+        stage = "valid_process_identity"
         let good = ComponentJobIdentity(pid: 123, group: 123, birthSec: 100, birthUsec: 10, bootSession: boot)
         try ComponentUpdateIdentity.validateSnapshot(good); count += 1
+        stage = "invalid_process_identity"
         let bad: [ComponentJobIdentity] = [
             .init(pid: 1, group: 1, birthSec: 100, birthUsec: 10, bootSession: boot),
             .init(pid: -1, group: 123, birthSec: 100, birthUsec: 10, bootSession: boot),
@@ -71,13 +87,17 @@ enum ComponentUpdateIdentityChecks {
         for item in bad {
             try rejects { try ComponentUpdateIdentity.validateSnapshot(item) }; count += 1
         }
+        stage = "empty_process_group"
         try ComponentUpdateIdentity.requireEmptyProcessGroup(byteCount: 0, error: 0); count += 1
+        stage = "invalid_process_group"
         let groupResults: [(Int32, Int32)] = [(0, EPERM), (4, 0), (-1, 0)]
         for (bytes, error) in groupResults {
             try rejects { try ComponentUpdateIdentity.requireEmptyProcessGroup(byteCount: bytes, error: error) }
             count += 1
         }
+        stage = "final_count"
         guard count == 48 else { throw ComponentUpdateFailure.context }
+        completed = true
         return (count, ["fixed_job_parser_accepts_only_closed_states": true,
                         "foreign_or_malformed_job_print_rejected": true,
                         "saved_process_identity_bound_to_birth_and_boot": true,

@@ -9,17 +9,24 @@ enum InstallationRootBindingTests {
         var checks = 0
         var passed: [String: Bool] = [:]
         var group = "legacy_receipts_bound_to_original_bytes_owner_and_roots"
+        var stage = "legacy_setup", finished = false, reported = false
+        func reportFailure() {
+            guard !reported else { return }
+            reported = true
+            // Fixed source-defined stages/groups and an assertion ordinal only.
+            // A thrown positive setup/check also reaches this through defer.
+            let failure: [String: Any] = ["schema": 1,
+                "managed_by": "account-access-installation-root-fixture-failure-v1", "status": "FAILED",
+                "stage": stage, "group": group, "completed_groups": passed.keys.sorted(), "next_assertion": checks + 1,
+                "installed_reads": false, "service_actions": false]
+            if let data = try? JSONSerialization.data(withJSONObject: failure, options: [.sortedKeys]) {
+                FileHandle.standardError.write(data); FileHandle.standardError.write(Data([10]))
+            }
+        }
+        defer { if !finished { reportFailure() } }
         func expect(_ condition: Bool) throws {
             guard condition else {
-                // Fixture diagnostics contain only fixed group names and a
-                // bounded assertion ordinal, never values, paths or UUIDs.
-                let failure: [String: Any] = ["schema": 1,
-                    "managed_by": "account-access-installation-root-fixture-failure-v1", "status": "FAILED",
-                    "group": group, "completed_groups": passed.keys.sorted(), "next_assertion": checks + 1,
-                    "installed_reads": false, "service_actions": false]
-                if let data = try? JSONSerialization.data(withJSONObject: failure, options: [.sortedKeys]) {
-                    FileHandle.standardError.write(data); FileHandle.standardError.write(Data([10]))
-                }
+                reportFailure()
                 throw ComponentUpdateFailure.context
             }
             checks += 1
@@ -65,6 +72,7 @@ enum InstallationRootBindingTests {
              paths[1]: .init(device: device, inode: applicationInode, volumeUUID: uuid)]
         }
         let legacy = try parse(records)
+        stage = "checks"
         try expect(InstallationRootBinding.paths == paths)
         try expect(Set(InstallationRootBinding.receiptNames) == Set(records.keys))
         try expect(legacy.ownerUID == owner && legacy.manifestSHA256 == manifest)
@@ -259,17 +267,26 @@ enum InstallationRootBindingTests {
         passed["supplement_bounded_json_and_duplicate_members_rejected"] = true
         group = "owned_directory_volume_uuid_abi_is_canonical_and_nonzero"
 
+        stage = "scratch_create"
         var template = Array("/private/tmp/account-access-volume-fixture-XXXXXX".utf8).map { CChar(bitPattern: $0) } + [0]
-        guard let created = mkdtemp(&template) else { throw ComponentUpdateFailure.context }
-        let scratch = String(cString: created)
+        // An implicit Array-to-pointer conversion lasts only for that call.
+        // Consume mkdtemp's returned pointer while its storage is guaranteed live.
+        let scratch = try template.withUnsafeMutableBufferPointer { buffer -> String in
+            guard let base = buffer.baseAddress, let created = mkdtemp(base) else { throw ComponentUpdateFailure.context }
+            return String(cString: created)
+        }
         defer { _ = rmdir(scratch) }
+        stage = "scratch_open"
         let directory = open(scratch, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
         guard directory >= 0 else { throw ComponentUpdateFailure.context }
         defer { Darwin.close(directory) }
+        stage = "volume_uuid"
         let measuredUUID = try InstallationRootBinding.volumeUUID(directory)
+        stage = "volume_uuid_checks"
         try expect(UUID(uuidString: measuredUUID)?.uuidString.lowercased() == measuredUUID)
         try expect(measuredUUID != "00000000-0000-0000-0000-000000000000")
         passed["owned_directory_volume_uuid_abi_is_canonical_and_nonzero"] = true
+        finished = true
         return (checks, passed)
     }
 }

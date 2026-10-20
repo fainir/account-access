@@ -87,6 +87,19 @@ private enum ComponentUserDomainChecks {
     static func run() throws -> (Int, [String: Bool]) {
         var checks = 0
         var passed: [String: Bool] = [:]
+        var group = "domain_durable_intent_and_local_barrier_order"
+        var completed = false
+        defer {
+            if !completed {
+                let failure: [String: Any] = ["schema": 1, "status": "FAILED",
+                    "managed_by": "account-access-component-domain-fixture-failure-v1", "group": group,
+                    "completed_groups": passed.keys.sorted(), "completed_assertions": checks, "next_assertion": checks + 1,
+                    "installed_reads": false, "service_actions": false]
+                if let data = try? JSONSerialization.data(withJSONObject: failure, options: [.sortedKeys]) {
+                    FileHandle.standardError.write(data); FileHandle.standardError.write(Data([10]))
+                }
+            }
+        }
         func expect(_ value: Bool) throws {
             guard value else { throw ComponentUpdateFailure.context }; checks += 1
         }
@@ -112,6 +125,7 @@ private enum ComponentUserDomainChecks {
             try expect(api.events.suffix(2) == [.bootstrapIntent, .bootstrapConfirmed] && api.fixedDisabled)
             try refuses(.userDomain) { try lifecycle.requireQuiescent() }
             passed["domain_durable_intent_and_local_barrier_order"] = true
+        group = "failed_domain_intent_has_no_lifecycle_effect"
         }
         do {
             let api = API(); api.failRecord = .bootoutIntent
@@ -120,6 +134,7 @@ private enum ComponentUserDomainChecks {
             try expect(api.commands.isEmpty && !api.bootoutDurable && api.fixedDisabled)
             try refuses(.userDomain) { try lifecycle.requireQuiescent() }
             passed["failed_domain_intent_has_no_lifecycle_effect"] = true
+        group = "domain_success_never_bypasses_all_process_checks"
         }
         do {
             let api = API(); api.keepProcesses = true
@@ -133,6 +148,7 @@ private enum ComponentUserDomainChecks {
             api.processesGone = false
             try refuses(.quiescence) { try lifecycle.requireQuiescent() }
             passed["domain_success_never_bypasses_all_process_checks"] = true
+        group = "domain_bootstrap_failure_requires_fresh_removal"
         }
         do {
             let api = API(), lifecycle = api.make()
@@ -144,6 +160,7 @@ private enum ComponentUserDomainChecks {
             try lifecycle.quiesce()
             try expect(api.commands == [.bootout, .bootstrap, .bootout])
             passed["domain_bootstrap_failure_requires_fresh_removal"] = true
+        group = "recreated_domain_is_removed_before_retry_or_rollback"
         }
         do {
             let api = API(), first = api.make()
@@ -157,6 +174,7 @@ private enum ComponentUserDomainChecks {
             try retry.quiesce(); try retry.restore()
             try expect(api.commands == [.bootout, .bootstrap, .bootout, .bootstrap] && api.fixedDisabled)
             passed["recreated_domain_is_removed_before_retry_or_rollback"] = true
+        group = "domain_event_failures_preserve_safe_local_state"
         }
         do {
             let api = API(), lifecycle = api.make()
@@ -169,6 +187,7 @@ private enum ComponentUserDomainChecks {
             try refuses(.journal) { try lifecycle.quiesce() }
             try refuses(.userDomain) { try lifecycle.requireQuiescent() }
             passed["domain_event_failures_preserve_safe_local_state"] = true
+        group = "only_measured_domain_teardown_responses_retry"
         }
         do {
             let api = API(), lifecycle = api.make()
@@ -179,6 +198,7 @@ private enum ComponentUserDomainChecks {
             try expect(api.commands == [.bootout, .bootout, .bootstrap, .bootstrap])
             try expect(api.pauses == [0.25, 0.25] && api.now == 0.5 && api.fixedDisabled)
             passed["only_measured_domain_teardown_responses_retry"] = true
+        group = "unknown_domain_results_never_authorize_quiescence"
         }
         for result in [
             ComponentCommands.Result(status: 124 << 8, output: Data("Bootstrap failed: 124: Domain is tearing down\n".utf8)),
@@ -192,6 +212,7 @@ private enum ComponentUserDomainChecks {
             try expect(api.commands == [.bootout] && api.pauses.isEmpty && api.verifyModes.isEmpty)
         }
         passed["unknown_domain_results_never_authorize_quiescence"] = true
+        group = "domain_teardown_retry_has_deadline_attempt_and_child_bounds"
         for advance in [true, false] {
             let api = API(); api.advanceClock = advance
             api.bootout = Array(repeating: .init(status: 124 << 8,
@@ -209,226 +230,270 @@ private enum ComponentUserDomainChecks {
             try expect(api.timeouts == [20, 18.75] && api.verifyModes.isEmpty)
         }
         passed["domain_teardown_retry_has_deadline_attempt_and_child_bounds"] = true
+        completed = true
         return (checks, passed)
     }
 }
 
+private enum CoreFixtureStage: String {
+    case domain = "domain_checks", identity = "identity_checks", roots = "root_binding_checks"
+    case disabledBoolean = "disabled_boolean_output", disabledNative = "disabled_native_output"
+    case ownership = "disable_ownership", missingService = "missing_service_contract"
+    case scratch = "scratch_directory", capacity = "preparation_capacity", preparation = "preparation_resume"
+    case unknownPreparation = "unknown_preparation_child"
+    case transitionSuccess = "transition_success", transitionFailure = "transition_after_swap_failure"
+    case transitionRecovery = "transition_recovery_partial", transitionConflict = "transition_conflict"
+    case finalReport = "final_report"
+}
+
 @main struct ComponentUpdateChecks {
-    static func main() throws {
+    static func main() {
         guard getuid() != 0, getuid() == geteuid(), CommandLine.arguments.count == 1 else { exit(77) }
         var checks = 0
         var passed: [String: Bool] = [:]
-        let domain = try ComponentUserDomainChecks.run()
-        checks += domain.0
-        passed.merge(domain.1) { _, _ in true }
-        let identity = try ComponentUpdateIdentityChecks.run()
-        checks += identity.0
-        passed.merge(identity.1) { _, _ in true }
-        let roots = try InstallationRootBindingTests.run()
-        checks += roots.0
-        passed.merge(roots.1) { _, _ in true }
-        let disabledHeader = "disabled services = {\n"
-        guard try !ComponentCommands.disabled(Data((disabledHeader + "}\n").utf8)),
-              try ComponentCommands.disabled(Data((disabledHeader + "\t\"com.fainir.accountaccess.broker\" => true\n}\n").utf8)),
-              try !ComponentCommands.disabled(Data((disabledHeader + "\t\"com.fainir.accountaccess.broker\" => false\n}\n").utf8)) else {
-            throw ComponentUpdateFailure.context
-        }
-        checks += 3
-        for invalid in ["", disabledHeader + "garbage\n}\n"] {
-            do { _ = try ComponentCommands.disabled(Data(invalid.utf8)); throw ComponentUpdateFailure.context }
-            catch ComponentUpdateFailure.disabled { checks += 1 }
-        }
-        passed["disabled_override_requires_closed_output"] = true
-        guard try ComponentCommands.disabled(Data(("\n\t" + disabledHeader + "\t\"com.fainir.accountaccess.broker\" => disabled\n\t}\n").utf8)),
-              try !ComponentCommands.disabled(Data((disabledHeader + "\t\"com.fainir.accountaccess.broker\" => enabled\n}\n").utf8)),
-              try !ComponentCommands.disabled(Data((disabledHeader + "\t\"com.example.one\" => disabled\n\t\"com.example.two\" => enabled\n}\n").utf8)) else {
-            throw ComponentUpdateFailure.context
-        }
-        checks += 3
-        for rows in [
-            "\"com.fainir.accountaccess.broker\" => unknown\n",
-            "\"com.fainir.accountaccess.broker\" => disabled\n\"com.fainir.accountaccess.broker\" => disabled\n",
-            "\"com.fainir.accountaccess.broker\" => disabled\n\"com.fainir.accountaccess.broker\" => enabled\n",
-            "\"com.example.other\" => enabled\n\"com.example.other\" => disabled\n",
-            "\"com.fainir.accountaccess.broker\" => enabled disabled\n",
-        ] {
-            do { _ = try ComponentCommands.disabled(Data((disabledHeader + rows + "}\n").utf8)); throw ComponentUpdateFailure.context }
-            catch ComponentUpdateFailure.disabled { checks += 1 }
-        }
-        passed["native_disabled_enabled_tokens_and_ambiguity_checked"] = true
-        var ownership = ComponentDisableOwnership()
-        guard !ownership.permits(disabled: true, recovering: false, persistedIntent: false),
-              !ownership.permits(disabled: true, recovering: true, persistedIntent: false) else {
-            throw ComponentUpdateFailure.disabled
-        }
-        try ownership.persistPriorEnabled {}
-        guard ownership.permits(disabled: true, recovering: true, persistedIntent: false) else {
-            throw ComponentUpdateFailure.disabled
-        }
-        var failedOwnership = ComponentDisableOwnership()
+        var stage = CoreFixtureStage.domain
         do {
-            try failedOwnership.persistPriorEnabled { throw ComponentUpdateFailure.journal }
-            throw ComponentUpdateFailure.context
-        } catch ComponentUpdateFailure.journal {}
-        guard !failedOwnership.permits(disabled: true, recovering: true, persistedIntent: false) else {
-            throw ComponentUpdateFailure.disabled
-        }
-        checks += 4
-        passed["initial_owner_disabled_refused"] = true
-        passed["fresh_attempt_rollback_owned"] = true
-        passed["failed_disable_intent_not_owned"] = true
-        let missing = Data("Bad request.\nCould not find service \"com.fainir.accountaccess.broker\" in domain for system\n".utf8)
-        guard ComponentCommands.definitivelyAbsent(.init(status: 113 << 8, output: missing)),
-              !ComponentCommands.definitivelyAbsent(.init(status: 1 << 8, output: missing)),
-              !ComponentCommands.definitivelyAbsent(.init(status: 113 << 8, output: Data("other service".utf8))),
-              !ComponentCommands.definitivelyAbsent(.init(status: 113 << 8, output: missing + Data("unknown".utf8))) else {
-            throw ComponentUpdateFailure.quiescence
-        }
-        checks += 4
-        passed["missing_service_response_exact"] = true
-        passed["generic_nonzero_not_absence"] = true
-        passed["foreign_service_not_absence"] = true
-        passed["extra_output_not_absence"] = true
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent("component-update-fixture-" + UUID().uuidString)
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)
-        defer { try? FileManager.default.removeItem(at: root) }
-        do {
-            let preparationPath = root.appendingPathComponent("preparation")
-            try FileManager.default.createDirectory(at: preparationPath, withIntermediateDirectories: false)
-            try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: preparationPath.path)
-            let parent = open(preparationPath.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
-            guard parent >= 0 else { throw ComponentUpdateFailure.unavailable }
-            defer { Darwin.close(parent) }
-            try ComponentPreparation.capacity(parent, bytes: 1, owner: getuid(), sameDeviceAs: parent)
-            checks += 1
-            do {
-                try ComponentPreparation.capacity(parent, bytes: Int64.max, owner: getuid(), sameDeviceAs: parent)
+            let domain = try ComponentUserDomainChecks.run()
+            checks += domain.0
+            passed.merge(domain.1) { _, _ in true }
+            stage = .identity
+            let identity = try ComponentUpdateIdentityChecks.run()
+            checks += identity.0
+            passed.merge(identity.1) { _, _ in true }
+            stage = .roots
+            let roots = try InstallationRootBindingTests.run()
+            checks += roots.0
+            passed.merge(roots.1) { _, _ in true }
+            stage = .disabledBoolean
+            let disabledHeader = "disabled services = {\n"
+            guard try !ComponentCommands.disabled(Data((disabledHeader + "}\n").utf8)),
+                  try ComponentCommands.disabled(Data((disabledHeader + "\t\"com.fainir.accountaccess.broker\" => true\n}\n").utf8)),
+                  try !ComponentCommands.disabled(Data((disabledHeader + "\t\"com.fainir.accountaccess.broker\" => false\n}\n").utf8)) else {
                 throw ComponentUpdateFailure.context
-            } catch ComponentUpdateFailure.unavailable { checks += 1 }
-            passed["disk_capacity_checked_on_target_volume"] = true
-            let plan = String(repeating: "a", count: 64), modes: [String: mode_t] = ["slot-00": 0o644]
-            let orphan = try ComponentPreparation.begin(parent, plan: plan, owner: getuid())
-            defer { Darwin.close(orphan.1) }
-            _ = try ComponentFiles.writeExclusive(orphan.1, "slot-00", data: Data("partial".utf8), owner: getuid(), mode: 0o600)
-            guard try ComponentPreparation.retained(parent, plan: plan, slots: modes, owner: getuid()) == 1 else {
-                throw ComponentUpdateFailure.journal
             }
-            checks += 1
-            let next = try ComponentPreparation.begin(parent, plan: plan, owner: getuid())
-            defer { Darwin.close(next.1) }
-            _ = try ComponentFiles.writeExclusive(next.1, "slot-00", data: Data("complete".utf8), owner: getuid(), mode: 0o644)
-            _ = try ComponentFiles.writeExclusive(next.1, "intent.json", data: Data("{\"complete\":true}".utf8), owner: getuid(), mode: 0o600)
-            var before = stat(), published = stat()
-            guard fstat(next.1, &before) == 0 else { throw ComponentUpdateFailure.object }
-            try ComponentPreparation.publish(parent, name: next.0, directory: next.1, plan: plan, owner: getuid())
-            guard fstatat(parent, "transition-" + plan, &published, AT_SYMLINK_NOFOLLOW) == 0,
-                  before.st_ino == published.st_ino, before.st_dev == published.st_dev,
-                  try InstallerPayloadIO.contents(parent).contains(orphan.0),
-                  try ComponentPreparation.retained(parent, plan: plan, slots: modes, owner: getuid()) == 1 else {
-                throw ComponentUpdateFailure.journal
+            checks += 3
+            for invalid in ["", disabledHeader + "garbage\n}\n"] {
+                do { _ = try ComponentCommands.disabled(Data(invalid.utf8)); throw ComponentUpdateFailure.context }
+                catch ComponentUpdateFailure.disabled { checks += 1 }
             }
-            checks += 1
-            passed["interrupted_preparation_retained_next_publishes"] = true
-            _ = try ComponentFiles.writeExclusive(orphan.1, "unknown", data: Data(), owner: getuid(), mode: 0o600)
-            do {
-                _ = try ComponentPreparation.retained(parent, plan: plan, slots: modes, owner: getuid())
+            passed["disabled_override_requires_closed_output"] = true
+            stage = .disabledNative
+            guard try ComponentCommands.disabled(Data(("\n\t" + disabledHeader + "\t\"com.fainir.accountaccess.broker\" => disabled\n\t}\n").utf8)),
+                  try !ComponentCommands.disabled(Data((disabledHeader + "\t\"com.fainir.accountaccess.broker\" => enabled\n}\n").utf8)),
+                  try !ComponentCommands.disabled(Data((disabledHeader + "\t\"com.example.one\" => disabled\n\t\"com.example.two\" => enabled\n}\n").utf8)) else {
                 throw ComponentUpdateFailure.context
-            } catch ComponentUpdateFailure.journal { checks += 1 }
-            passed["unknown_preparation_child_refused"] = true
-        }
-        for scenario in ["success", "after_swap_failure", "recovery_partial", "conflict"] {
-            let folder = root.appendingPathComponent(scenario)
-            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false)
-            let backupPath = folder.appendingPathComponent("backup")
-            try FileManager.default.createDirectory(at: backupPath, withIntermediateDirectories: false)
-            try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: backupPath.path)
-            let parent = open(folder.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
-            let backup = open(backupPath.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
-            guard parent >= 0, backup >= 0 else { throw ComponentUpdateFailure.unavailable }
-            defer { Darwin.close(parent); Darwin.close(backup) }
-            let old = Data("old-native-worker".utf8), new = Data("new-native-worker-v2".utf8)
-            let previous = try ComponentFiles.writeExclusive(parent, "native", data: old, owner: getuid(), mode: 0o644)
-            let staged = try ComponentFiles.writeExclusive(backup, "slot-00", data: new, owner: getuid(), mode: 0o644)
-            let head = try ComponentFiles.writeExclusive(backup, "slot-01", data: Data("verified-head".utf8), owner: getuid(), mode: 0o644)
-            let operations = [ComponentOperation(target: .image, path: "native", slot: "slot-00", before: previous, after: staged),
-                              ComponentOperation(target: .head, path: "head", slot: "slot-01", before: nil, after: head)]
-            let verifyOld = {
-                guard try ComponentFiles.read(parent, "native", owner: getuid()).0 == old,
-                      try ComponentFiles.observe(parent, "head", owner: getuid()) == nil else { throw ComponentUpdateFailure.base }
             }
-            let verifyNew = {
-                guard try ComponentFiles.read(parent, "native", owner: getuid()).0 == new,
-                      try ComponentFiles.observe(parent, "head", owner: getuid()) == nil else { throw ComponentUpdateFailure.object }
+            checks += 3
+            for rows in [
+                "\"com.fainir.accountaccess.broker\" => unknown\n",
+                "\"com.fainir.accountaccess.broker\" => disabled\n\"com.fainir.accountaccess.broker\" => disabled\n",
+                "\"com.fainir.accountaccess.broker\" => disabled\n\"com.fainir.accountaccess.broker\" => enabled\n",
+                "\"com.example.other\" => enabled\n\"com.example.other\" => disabled\n",
+                "\"com.fainir.accountaccess.broker\" => enabled disabled\n",
+            ] {
+                do { _ = try ComponentCommands.disabled(Data((disabledHeader + rows + "}\n").utf8)); throw ComponentUpdateFailure.context }
+                catch ComponentUpdateFailure.disabled { checks += 1 }
             }
-            let actual = ComponentFileTransaction(operations: operations, backup: backup, owner: getuid(), target: { operation in
-                let copy = dup(parent)
-                guard copy >= 0 else { throw ComponentUpdateFailure.unavailable }
-                return (copy, operation.path)
-            }, verifyOld: verifyOld, verifyRecoverable: {
-                let data = try ComponentFiles.read(parent, "native", owner: getuid()).0
-                guard data == old || data == new else { throw ComponentUpdateFailure.object }
-            }, verifyNew: verifyNew)
-            let store = FixtureStore(actual), service = FixtureBarrier()
-            if scenario == "success" {
-                service.verifyCoherent = {
-                    guard try ComponentFiles.read(parent, "native", owner: getuid()).0 == new,
-                          try ComponentFiles.observe(parent, "head", owner: getuid()) == head else {
-                        throw ComponentUpdateFailure.object
-                    }
-                }
-                let result = try ComponentTransition(storage: store, service: service).run(recovering: false)
-                guard case .publishedGUIUnverified = result,
-                      try actual.state(operations[0]) == .applied,
-                      try actual.state(operations[1]) == .applied,
-                      service.enabledWithVerifiedImage else { throw ComponentUpdateFailure.object }
-                checks += 4
-                passed["coherent_group_before_enable"] = true
-                passed["head_after_full_verification"] = true
-            } else if scenario == "recovery_partial" {
-                try actual.apply(operations[0]) // Simulate crash after swap, before completion event.
-                service.verifyCoherent = {
-                    guard try ComponentFiles.read(parent, "native", owner: getuid()).0 == new,
-                          try ComponentFiles.observe(parent, "head", owner: getuid()) == head else {
-                        throw ComponentUpdateFailure.object
-                    }
-                }
-                let result = try ComponentTransition(storage: store, service: service).run(recovering: true)
-                guard case .publishedGUIUnverified = result,
-                      try actual.state(operations[0]) == .applied,
-                      service.enabledWithVerifiedImage else { throw ComponentUpdateFailure.object }
-                checks += 3
-                passed["partial_swap_recovery_finishes_coherent_group"] = true
-            } else {
-                store.failAfterApply = 1
-                service.verifyCoherent = verifyOld
-                if scenario == "conflict" {
-                    store.inject = {
-                        let replacement = try ComponentFiles.writeExclusive(parent, "concurrent", data: Data("preserve".utf8), owner: getuid(), mode: 0o644)
-                        _ = replacement
-                        guard renameat(parent, "concurrent", parent, "native") == 0 else { throw ComponentUpdateFailure.object }
-                    }
-                }
+            passed["native_disabled_enabled_tokens_and_ambiguity_checked"] = true
+            stage = .ownership
+            var ownership = ComponentDisableOwnership()
+            guard !ownership.permits(disabled: true, recovering: false, persistedIntent: false),
+                  !ownership.permits(disabled: true, recovering: true, persistedIntent: false) else {
+                throw ComponentUpdateFailure.disabled
+            }
+            try ownership.persistPriorEnabled {}
+            guard ownership.permits(disabled: true, recovering: true, persistedIntent: false) else {
+                throw ComponentUpdateFailure.disabled
+            }
+            var failedOwnership = ComponentDisableOwnership()
+            do {
+                try failedOwnership.persistPriorEnabled { throw ComponentUpdateFailure.journal }
+                throw ComponentUpdateFailure.context
+            } catch ComponentUpdateFailure.journal {}
+            guard !failedOwnership.permits(disabled: true, recovering: true, persistedIntent: false) else {
+                throw ComponentUpdateFailure.disabled
+            }
+            checks += 4
+            passed["initial_owner_disabled_refused"] = true
+            passed["fresh_attempt_rollback_owned"] = true
+            passed["failed_disable_intent_not_owned"] = true
+            stage = .missingService
+            let missing = Data("Bad request.\nCould not find service \"com.fainir.accountaccess.broker\" in domain for system\n".utf8)
+            guard ComponentCommands.definitivelyAbsent(.init(status: 113 << 8, output: missing)),
+                  !ComponentCommands.definitivelyAbsent(.init(status: 1 << 8, output: missing)),
+                  !ComponentCommands.definitivelyAbsent(.init(status: 113 << 8, output: Data("other service".utf8))),
+                  !ComponentCommands.definitivelyAbsent(.init(status: 113 << 8, output: missing + Data("unknown".utf8))) else {
+                throw ComponentUpdateFailure.quiescence
+            }
+            checks += 4
+            passed["missing_service_response_exact"] = true
+            passed["generic_nonzero_not_absence"] = true
+            passed["foreign_service_not_absence"] = true
+            passed["extra_output_not_absence"] = true
+            stage = .scratch
+            let root = FileManager.default.temporaryDirectory.appendingPathComponent("component-update-fixture-" + UUID().uuidString)
+            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)
+            defer { try? FileManager.default.removeItem(at: root) }
+            do {
+                let preparationPath = root.appendingPathComponent("preparation")
+                try FileManager.default.createDirectory(at: preparationPath, withIntermediateDirectories: false)
+                try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: preparationPath.path)
+                let parent = open(preparationPath.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+                guard parent >= 0 else { throw ComponentUpdateFailure.unavailable }
+                defer { Darwin.close(parent) }
+                stage = .capacity
+                try ComponentPreparation.capacity(parent, bytes: 1, owner: getuid(), sameDeviceAs: parent)
+                checks += 1
                 do {
-                    _ = try ComponentTransition(storage: store, service: service).run(recovering: false)
+                    try ComponentPreparation.capacity(parent, bytes: Int64.max, owner: getuid(), sameDeviceAs: parent)
                     throw ComponentUpdateFailure.context
-                } catch ComponentUpdateFailure.unavailable where scenario == "after_swap_failure" {
-                    try verifyOld()
-                    guard service.enabledWithVerifiedImage else { throw ComponentUpdateFailure.object }
-                    checks += 2
-                    passed["post_swap_failure_rolls_back"] = true
-                } catch ComponentUpdateFailure.rollback where scenario == "conflict" {
-                    guard service.disabled, !service.enabledWithVerifiedImage,
-                          try ComponentFiles.read(parent, "native", owner: getuid()).0 == Data("preserve".utf8),
-                          try ComponentFiles.read(backup, "slot-00", owner: getuid()).0 == old else { throw ComponentUpdateFailure.object }
+                } catch ComponentUpdateFailure.unavailable { checks += 1 }
+                passed["disk_capacity_checked_on_target_volume"] = true
+                stage = .preparation
+                let plan = String(repeating: "a", count: 64), modes: [String: mode_t] = ["slot-00": 0o644]
+                let orphan = try ComponentPreparation.begin(parent, plan: plan, owner: getuid())
+                defer { Darwin.close(orphan.1) }
+                _ = try ComponentFiles.writeExclusive(orphan.1, "slot-00", data: Data("partial".utf8), owner: getuid(), mode: 0o600)
+                guard try ComponentPreparation.retained(parent, plan: plan, slots: modes, owner: getuid()) == 1 else {
+                    throw ComponentUpdateFailure.journal
+                }
+                checks += 1
+                let next = try ComponentPreparation.begin(parent, plan: plan, owner: getuid())
+                defer { Darwin.close(next.1) }
+                _ = try ComponentFiles.writeExclusive(next.1, "slot-00", data: Data("complete".utf8), owner: getuid(), mode: 0o644)
+                _ = try ComponentFiles.writeExclusive(next.1, "intent.json", data: Data("{\"complete\":true}".utf8), owner: getuid(), mode: 0o600)
+                var before = stat(), published = stat()
+                guard fstat(next.1, &before) == 0 else { throw ComponentUpdateFailure.object }
+                try ComponentPreparation.publish(parent, name: next.0, directory: next.1, plan: plan, owner: getuid())
+                guard fstatat(parent, "transition-" + plan, &published, AT_SYMLINK_NOFOLLOW) == 0,
+                      before.st_ino == published.st_ino, before.st_dev == published.st_dev,
+                      try InstallerPayloadIO.contents(parent).contains(orphan.0),
+                      try ComponentPreparation.retained(parent, plan: plan, slots: modes, owner: getuid()) == 1 else {
+                    throw ComponentUpdateFailure.journal
+                }
+                checks += 1
+                passed["interrupted_preparation_retained_next_publishes"] = true
+                stage = .unknownPreparation
+                _ = try ComponentFiles.writeExclusive(orphan.1, "unknown", data: Data(), owner: getuid(), mode: 0o600)
+                do {
+                    _ = try ComponentPreparation.retained(parent, plan: plan, slots: modes, owner: getuid())
+                    throw ComponentUpdateFailure.context
+                } catch ComponentUpdateFailure.journal { checks += 1 }
+                passed["unknown_preparation_child_refused"] = true
+            }
+            for scenario in ["success", "after_swap_failure", "recovery_partial", "conflict"] {
+                switch scenario {
+                case "success": stage = .transitionSuccess
+                case "after_swap_failure": stage = .transitionFailure
+                case "recovery_partial": stage = .transitionRecovery
+                default: stage = .transitionConflict
+                }
+                let folder = root.appendingPathComponent(scenario)
+                try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false)
+                let backupPath = folder.appendingPathComponent("backup")
+                try FileManager.default.createDirectory(at: backupPath, withIntermediateDirectories: false)
+                try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: backupPath.path)
+                let parent = open(folder.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+                let backup = open(backupPath.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+                guard parent >= 0, backup >= 0 else { throw ComponentUpdateFailure.unavailable }
+                defer { Darwin.close(parent); Darwin.close(backup) }
+                let old = Data("old-native-worker".utf8), new = Data("new-native-worker-v2".utf8)
+                let previous = try ComponentFiles.writeExclusive(parent, "native", data: old, owner: getuid(), mode: 0o644)
+                let staged = try ComponentFiles.writeExclusive(backup, "slot-00", data: new, owner: getuid(), mode: 0o644)
+                let head = try ComponentFiles.writeExclusive(backup, "slot-01", data: Data("verified-head".utf8), owner: getuid(), mode: 0o644)
+                let operations = [ComponentOperation(target: .image, path: "native", slot: "slot-00", before: previous, after: staged),
+                                  ComponentOperation(target: .head, path: "head", slot: "slot-01", before: nil, after: head)]
+                let verifyOld = {
+                    guard try ComponentFiles.read(parent, "native", owner: getuid()).0 == old,
+                          try ComponentFiles.observe(parent, "head", owner: getuid()) == nil else { throw ComponentUpdateFailure.base }
+                }
+                let verifyNew = {
+                    guard try ComponentFiles.read(parent, "native", owner: getuid()).0 == new,
+                          try ComponentFiles.observe(parent, "head", owner: getuid()) == nil else { throw ComponentUpdateFailure.object }
+                }
+                let actual = ComponentFileTransaction(operations: operations, backup: backup, owner: getuid(), target: { operation in
+                    let copy = dup(parent)
+                    guard copy >= 0 else { throw ComponentUpdateFailure.unavailable }
+                    return (copy, operation.path)
+                }, verifyOld: verifyOld, verifyRecoverable: {
+                    let data = try ComponentFiles.read(parent, "native", owner: getuid()).0
+                    guard data == old || data == new else { throw ComponentUpdateFailure.object }
+                }, verifyNew: verifyNew)
+                let store = FixtureStore(actual), service = FixtureBarrier()
+                if scenario == "success" {
+                    service.verifyCoherent = {
+                        guard try ComponentFiles.read(parent, "native", owner: getuid()).0 == new,
+                              try ComponentFiles.observe(parent, "head", owner: getuid()) == head else {
+                            throw ComponentUpdateFailure.object
+                        }
+                    }
+                    let result = try ComponentTransition(storage: store, service: service).run(recovering: false)
+                    guard case .publishedGUIUnverified = result,
+                          try actual.state(operations[0]) == .applied,
+                          try actual.state(operations[1]) == .applied,
+                          service.enabledWithVerifiedImage else { throw ComponentUpdateFailure.object }
                     checks += 4
-                    passed["concurrent_replacement_preserved_disabled"] = true
+                    passed["coherent_group_before_enable"] = true
+                    passed["head_after_full_verification"] = true
+                } else if scenario == "recovery_partial" {
+                    try actual.apply(operations[0]) // Simulate crash after swap, before completion event.
+                    service.verifyCoherent = {
+                        guard try ComponentFiles.read(parent, "native", owner: getuid()).0 == new,
+                              try ComponentFiles.observe(parent, "head", owner: getuid()) == head else {
+                            throw ComponentUpdateFailure.object
+                        }
+                    }
+                    let result = try ComponentTransition(storage: store, service: service).run(recovering: true)
+                    guard case .publishedGUIUnverified = result,
+                          try actual.state(operations[0]) == .applied,
+                          service.enabledWithVerifiedImage else { throw ComponentUpdateFailure.object }
+                    checks += 3
+                    passed["partial_swap_recovery_finishes_coherent_group"] = true
+                } else {
+                    store.failAfterApply = 1
+                    service.verifyCoherent = verifyOld
+                    if scenario == "conflict" {
+                        store.inject = {
+                            let replacement = try ComponentFiles.writeExclusive(parent, "concurrent", data: Data("preserve".utf8), owner: getuid(), mode: 0o644)
+                            _ = replacement
+                            guard renameat(parent, "concurrent", parent, "native") == 0 else { throw ComponentUpdateFailure.object }
+                        }
+                    }
+                    do {
+                        _ = try ComponentTransition(storage: store, service: service).run(recovering: false)
+                        throw ComponentUpdateFailure.context
+                    } catch ComponentUpdateFailure.unavailable where scenario == "after_swap_failure" {
+                        try verifyOld()
+                        guard service.enabledWithVerifiedImage else { throw ComponentUpdateFailure.object }
+                        checks += 2
+                        passed["post_swap_failure_rolls_back"] = true
+                    } catch ComponentUpdateFailure.rollback where scenario == "conflict" {
+                        guard service.disabled, !service.enabledWithVerifiedImage,
+                              try ComponentFiles.read(parent, "native", owner: getuid()).0 == Data("preserve".utf8),
+                              try ComponentFiles.read(backup, "slot-00", owner: getuid()).0 == old else { throw ComponentUpdateFailure.object }
+                        checks += 4
+                        passed["concurrent_replacement_preserved_disabled"] = true
+                    }
                 }
             }
+            stage = .finalReport
+            let report: [String: Any] = ["schema": 1, "status": "PASSED", "checks": passed,
+                                       "ordinary_fixture_assertions": checks,
+                                       "installed_reads": false, "service_actions": false]
+            let data = try JSONSerialization.data(withJSONObject: report, options: [.sortedKeys])
+            FileHandle.standardOutput.write(data); FileHandle.standardOutput.write(Data([10]))
+        } catch {
+            // Every thrown fixture error is reported using only closed names,
+            // counts and known error categories. No error description or value.
+            let category = (error as? ComponentUpdateFailure)?.rawValue ?? "unclassified_fixture_error"
+            let failure: [String: Any] = ["schema": 1, "status": "FAILED",
+                "managed_by": "account-access-component-core-fixture-failure-v1", "stage": stage.rawValue,
+                "completed_groups": passed.keys.sorted(), "completed_assertions": checks, "error_category": category,
+                "installed_reads": false, "service_actions": false]
+            if let data = try? JSONSerialization.data(withJSONObject: failure, options: [.sortedKeys]) {
+                FileHandle.standardError.write(data); FileHandle.standardError.write(Data([10]))
+            }
+            exit(1)
         }
-        let report: [String: Any] = ["schema": 1, "status": "PASSED", "checks": passed,
-                                   "ordinary_fixture_assertions": checks,
-                                   "installed_reads": false, "service_actions": false]
-        let data = try JSONSerialization.data(withJSONObject: report, options: [.sortedKeys])
-        FileHandle.standardOutput.write(data); FileHandle.standardOutput.write(Data([10]))
     }
 }
