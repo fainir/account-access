@@ -1,13 +1,6 @@
 name: Signed component update Installer review
 on:
   push:
-    paths:
-      - .github/workflows/mac-component-update-review.yml
-      - macos/build-component-update.py
-      - scripts/mac_component_update_installer_probe.py
-      - tests/test_component_update_builder.py
-      - tests/test_component_update_review_workflow.py
-      - tests/test_mac_component_update_installer_probe.py
   workflow_dispatch:
     inputs:
       component_source:

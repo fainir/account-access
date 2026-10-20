@@ -60,6 +60,13 @@ def test_push_runs_only_ordinary_contracts_and_actions_are_pinned():
     assert "test_component_update_review_workflow.py" in ordinary and "sudo" not in ordinary
 
 
+def test_exact_candidate_source_contracts_run_on_every_push():
+    # Native-only fixes still need this ninth source gate. A paths/branches
+    # filter would leave a genuine frozen candidate without its required run.
+    triggers = WORKFLOW.get("on", WORKFLOW.get(True))
+    assert triggers["push"] is None
+
+
 def test_only_linux_download_has_draft_visibility_and_mac_has_no_token():
     assert WORKFLOW["permissions"] == {"contents": "read"}
     assert JOBS["download-public-inputs"]["permissions"] == {"contents": "write"}

@@ -80,7 +80,7 @@ head after all files and peer pins agree. Interrupted preparation remains
 non-authoritative; a matching complete intent supports manual same-package retry.
 Original installation receipts and private account directories remain untouched.
 
-Local ordinary checks passed **176 Python tests**, **87 optimized native
+Local ordinary checks passed **177 Python tests**, **87 optimized native
 assertions** and **41 public-policy assertions**. The production entry point
 compiled and refused an ordinary caller before filesystem work. These are source
 and synthetic checks. Full exact-source CI, signed candidate assembly and actual
@@ -100,7 +100,10 @@ compile then hit an older Swift compiler complexity limit in the reserve
 calculation. Explicit typed accumulation preserves the amount and passed local
 optimized checks; the new exact source still requires full CI.
 [Earlier rendering correction](../artifacts/component-update-disabled-rendering-080-20261020.json).
-[Compiler compatibility correction and current source evidence](../artifacts/component-update-swift-compat-080-20261020.json).
+[Compiler compatibility correction](../artifacts/component-update-swift-compat-080-20261020.json).
+The required ordinary review check now runs on every push; a native-only change
+can no longer lose its ninth exact-source gate to a path filter.
+[Trigger correction and current source evidence](../artifacts/component-update-required-push-080-20261020.json).
 
 
 The package remains **unsigned and unnotarized**. Successful package installation
