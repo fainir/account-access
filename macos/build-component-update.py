@@ -359,17 +359,27 @@ def ci_gate(source, sources):
     if set(selected) != expected:
         raise ValueError("component_ci_required_matrix_missing")
     jobs_by_run = {}
-    for (path, _event), run in selected.items():
+    for (path, event), run in selected.items():
         jobs_page = github_json(f"repos/{REPOSITORY}/actions/runs/{run['id']}/attempts/1/jobs?per_page=100")
         jobs = jobs_page.get("jobs", [])
+        # These two fixed jobs only apply to workflow_dispatch. On this
+        # required push run their measured skipped state is intentional;
+        # applicable jobs, including ordinary-contracts, must still pass.
+        inapplicable = {"download-public-inputs", "actual-installer-review"} if (
+            path == f".github/workflows/{REVIEW_WORKFLOW}" and event == "push") else set()
+        job_names = {job.get("name") for job in jobs}
         if (type(jobs_page.get("total_count")) is not int or jobs_page["total_count"] != len(jobs)
                 or not 1 <= len(jobs) <= 16
-                or not REQUIRED_JOBS[Path(path).name] <= {job.get("name") for job in jobs}
+                or len(job_names) != len(jobs)
+                or not REQUIRED_JOBS[Path(path).name] <= job_names
+                or (inapplicable and job_names != REQUIRED_JOBS[Path(path).name] | inapplicable)
                 or any(type(job.get("run_attempt")) is not int or job["run_attempt"] != 1
                        or job.get("head_sha") != source or job.get("status") != "completed"
-                       or job.get("conclusion") != "success" for job in jobs)):
+                       or job.get("conclusion") != ("skipped" if job.get("name") in inapplicable else "success")
+                       for job in jobs)):
             raise ValueError("component_ci_required_jobs_not_passed")
-        jobs_by_run[run["id"]] = [{"id": job["id"], "name": job["name"], "conclusion": "success"} for job in jobs]
+        jobs_by_run[run["id"]] = [{"id": job["id"], "name": job["name"], "conclusion": job["conclusion"],
+                                 "applicable": job["name"] not in inapplicable} for job in jobs]
     run_id = selected[(".github/workflows/mac-worker.yml", "push")]["id"]
     page = github_json(f"repos/{REPOSITORY}/actions/runs/{run_id}/artifacts?per_page=100")
     artifacts = page.get("artifacts", [])

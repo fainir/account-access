@@ -118,6 +118,8 @@ def evidence():
     jobs = {run["id"]: [{"id": run["id"] * 100 + index, "name": name, "run_attempt": 1,
                          "head_sha": SOURCE, "status": "completed", "conclusion": "success"}
                         for index, name in enumerate(sorted(builder.REQUIRED_JOBS[Path(run["path"]).name]))] for run in runs}
+    jobs[2000].extend(dict(jobs[2000][0], id=200001 + index, name=name, conclusion="skipped")
+                      for index, name in enumerate(("download-public-inputs", "actual-installer-review")))
     return SimpleNamespace(sources=sources, run_id=run_id, native=native, native_files=native_files,
                            disable=disable, probe=probe, disable_files=disable_files,
                            runs=runs, jobs=jobs, archives=archives, artifacts=artifacts)
@@ -150,6 +152,35 @@ def test_gate_authenticates_complete_first_attempt_matrix_and_server_archives(mo
     assert calls[0] == "user" and len(proof["first_attempt_runs"]) == 9
     assert len(proof["artifacts"]) == 2 and len(archives) == 2
     assert all(item["run_id"] == evidence.run_id for item in proof["artifacts"])
+    review = next(item for item in proof["first_attempt_runs"] if item["id"] == 2000)
+    assert {(job["name"], job["conclusion"], job["applicable"]) for job in review["jobs"]} == {
+        ("ordinary-contracts", "success", True), ("download-public-inputs", "skipped", False),
+        ("actual-installer-review", "skipped", False)}
+
+
+@pytest.mark.parametrize("change", ["applicable-skipped", "dispatch-passed", "unknown-skipped", "missing-dispatch",
+                                  "wrong-event", "dispatch-rerun", "dispatch-foreign-source", "duplicate-job"])
+def test_only_exact_review_push_inapplicable_jobs_may_be_skipped(monkeypatch, evidence, change):
+    jobs = evidence.jobs[2000]
+    if change == "applicable-skipped":
+        jobs[0]["conclusion"] = "skipped"
+    elif change == "dispatch-passed":
+        jobs[1]["conclusion"] = "success"
+    elif change == "unknown-skipped":
+        jobs[1]["name"] = "foreign-skipped-job"
+    elif change == "missing-dispatch":
+        jobs.pop()
+    elif change == "wrong-event":
+        evidence.runs[-1]["event"] = "pull_request"
+    elif change == "dispatch-rerun":
+        jobs[1]["run_attempt"] = 2
+    elif change == "dispatch-foreign-source":
+        jobs[1]["head_sha"] = "b" * 40
+    else:
+        jobs.append(copy.deepcopy(jobs[1]))
+    remote(monkeypatch, evidence)
+    with pytest.raises(ValueError, match="component_ci_"):
+        builder.ci_gate(SOURCE, evidence.sources)
 
 
 @pytest.mark.parametrize("change", ["rerun", "skipped", "cancelled", "pending", "failed", "duplicate", "missing", "foreign-repo", "different-source"])

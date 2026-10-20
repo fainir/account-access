@@ -80,13 +80,16 @@ head after all files and peer pins agree. Interrupted preparation remains
 non-authoritative; a matching complete intent supports manual same-package retry.
 Original installation receipts and private account directories remain untouched.
 
-Local ordinary checks passed **142 Python tests**, **79 optimized native
+Local ordinary checks passed **150 Python tests**, **79 optimized native
 assertions** and **41 public-policy assertions**. The production entry point
 compiled and refused an ordinary caller before filesystem work. These are source
 and synthetic checks. Full exact-source CI, signed candidate assembly and actual
 base/candidate Installer acceptance in a fresh hosted Mac remain required before
 owner installation. No new root helper or account login was run on the owner Mac.
 [Source review and retained earlier attempts](../artifacts/component-update-source-080-20261020.json).
+The build gate also preserves the measured skipped state of the review push's
+two dispatch-only jobs; all applicable jobs still require first-attempt success.
+[CI applicability correction and current source hashes](../artifacts/component-update-ci-applicability-080-20261020.json).
 
 
 The package remains **unsigned and unnotarized**. Successful package installation
