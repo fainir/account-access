@@ -1,0 +1,94 @@
+{
+  "actual_Installer_qualified": false,
+  "app_build": 80,
+  "app_image_and_plan_unchanged_from_actual80": true,
+  "app_source_commit": "d5741bc9912aaf907fe5c52486af18818654dda5",
+  "asset_contract_sha256": "29f4ceaed30179d0a814384edbd51df07b525fe244ed6fa7b011df0445b5dd0f",
+  "builder_sha256": "f45dfb51fdc9efa58a6dc82c4a2bd66c192a3b0f0ca237a63ca7ffc14e568550",
+  "compiled_source_count": 15,
+  "compiled_sources_sha256": {
+    "ComponentUpdate.swift": "a855832da968ca6593c9572d19d173aa24c37b8ded78713b2699554090c0a426",
+    "ComponentUpdateIdentity.swift": "4c3bf3e29923e0a92ac9bf6a8e9752ec889d61eb26dedbafcf6e788dabd3512e",
+    "ComponentUpdatePolicies.swift": "7aca759f4b9fad195851ce12d81550ec08a0753c43515574c23fc74d247060ab",
+    "FullImageGlobalJournal.swift": "b5d4121577064760e054852cb28b2e3f01bfdda92523bf30b96bf25a16db0c7e",
+    "FullImageInstalledIO.swift": "25b43b7099e8b698e48e718bd6429fa9fafe1bb118178bc661386ebd09cae613",
+    "FullImagePlan.swift": "2e44748221e9016dfa73e24a092d5e36029ddd3c5469f1ee8684024622d62ce9",
+    "FullImagePredecessorAuthority.swift": "39a6c5b35ab1614f89983c799dd603b2585b9d219d7b3d7908e73b750209f603",
+    "FullImageTransitionStorage.swift": "9f304c22212574a3b50f9edb8045fb45bc5c514feb9ce7580b7cf12a42e6bcaf",
+    "FullImageTreeAttachment.swift": "8bb445ede216844f0a32144e99c27a9f06a80b7a76f4e78fbd9f30b65ce22a65",
+    "FullImageTreeStorage.swift": "3e032a573a877ea29253db0c4f6d0fefaef17bccc6504515ac012d60ce235115",
+    "FullImageUpdateCompiledPins.swift": "ab5446aa4be2d1f65bbe6bd5fa455ca9961c7270d1edc25bc49cd408249fba32",
+    "FullImageUpdateMain.swift": "6972155e3c0f0e0bd5f9f1a8364f1b52b10e4d541c813802d126c82abfe9e53a",
+    "FullImageUpdatePolicies.swift": "67864c4c5226ee467401e1d93ec79e89ba8bb9c5a0e4608a55994e9d26f05416",
+    "InstallationRootBinding.swift": "721be745347e8f5898a76a2f1c6583bb0b153c0619d7d0afbe49a94af6203879",
+    "InstallerPayload.swift": "03876624a57cfe84d850b1998f636acaa039ce6fd4822d8df60ffeab7cd9c81d"
+  },
+  "container_signed": false,
+  "controller_source_commit": "740fe3c479a763950e98340584ea173e04522072",
+  "draft_release": {
+    "assets": [
+      {
+        "digest": "sha256:ad16754b9acdd71dd1979a2a268b005a96feec681d3392b4af90b0e464590a85",
+        "id": 663406086,
+        "name": "Account-Access-Full-Image-81-local-unsigned.pkg",
+        "size": 295938708,
+        "state": "uploaded"
+      },
+      {
+        "digest": "sha256:5872d18b2779dd11418fed2193a1f9fb18019f8b8c9bcf8e8a60c1b0760559e8",
+        "id": 663422302,
+        "name": "Account-Access-full81-source.tar.gz",
+        "size": 232976220,
+        "state": "uploaded"
+      },
+      {
+        "digest": "sha256:a7e2b63160f555ab642726b77af8e38dce4a6a9937af162cce94be006aaa8142",
+        "id": 663406087,
+        "name": "review.json",
+        "size": 60003,
+        "state": "uploaded"
+      },
+      {
+        "digest": "sha256:4d8b464fa5408baf7a219866af501abb5f64a699314a4dc49bd4750063920eee",
+        "id": 663406085,
+        "name": "scripts-inventory.json",
+        "size": 7883506,
+        "state": "uploaded"
+      }
+    ],
+    "draft": true,
+    "id": 419902915,
+    "tag": "qa-740fe3c-full-image81",
+    "target": "740fe3c479a763950e98340584ea173e04522072"
+  },
+  "failed79_and80_packages_and_results_unchanged": true,
+  "helper_Developer_ID_team": "WBULD6N4NQ",
+  "helper_sha256": "df03a986a21ccc494ec11f102d2d255940d8a9c2a9acb3d7883613ad7e734f99",
+  "independent_package_review_sha256": "78d8061e702d99880a48735ea25de89064c9dc276d0528cef0de5ff9e17ac3eb",
+  "input_manifest_sha256": "bd35f7e523cb631e830e56c54cfc7a0605bf5b365ecc8b0db4837da45fec3d2f",
+  "matching_source": {
+    "app_Git_blobs": 716,
+    "bytes": 232976220,
+    "controller_Git_blobs": 724,
+    "explicit_public_source_rows": 58,
+    "independent_stream_review_sha256": "78903039f25c95b9271a77683eb63ee9f985ff30e2a188c368501b83126870b4",
+    "matching_GPL_bundle_embedded_once": true,
+    "outer_members": 63,
+    "sha256": "5872d18b2779dd11418fed2193a1f9fb18019f8b8c9bcf8e8a60c1b0760559e8"
+  },
+  "notarized": false,
+  "ordinary_main_refusal_before_filesystem": true,
+  "owner_Mac_updated": false,
+  "package_bytes": 295938708,
+  "package_cohort": 81,
+  "package_identifier": "com.fainir.accountaccess.fullimageupdate81",
+  "package_sha256": "ad16754b9acdd71dd1979a2a268b005a96feec681d3392b4af90b0e464590a85",
+  "personal_website_email_SMS_TOTP_accepted": false,
+  "plan_sha256": "7c80a671d8b87815db127c6e7d7e8dd9db8c023d70e891185258391b2b3f14a3",
+  "production_ready": false,
+  "review_sha256": "a7e2b63160f555ab642726b77af8e38dce4a6a9937af162cce94be006aaa8142",
+  "schema": 1,
+  "scripts_inventory_sha256": "4d8b464fa5408baf7a219866af501abb5f64a699314a4dc49bd4750063920eee",
+  "status": "ACTUAL_PACKAGE81_BUILT_STATIC_REVIEW_PASSED_INSTALLER_PENDING",
+  "target_manifest_sha256": "d1f74db86890b306f989b65a8c521ce3b0879f261ded122dd409be2ca2fbe317"
+}

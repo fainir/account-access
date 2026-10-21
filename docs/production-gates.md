@@ -106,6 +106,16 @@ synthetic-fixture checks; the failed package remains unchanged and unqualified.
 [failed actual matrix](../artifacts/full-image-installer80-first-attempt-20261021.json).
 [Legacy-group source correction](../artifacts/full-image-legacy-group-20261021.json).
 
+Replacement package 81 is now built from controller `740fe3c`. It retains the
+signed app 80, complete target image and plan unchanged. Independent review
+passed its 54 inputs, 15 compiler copies, package expansion, inventory and
+signatures. The matching source archive contains both actual Git trees, the
+compiler inputs and matching GPL material; its independent stream review also
+passed. Four uploaded draft assets have exact backend hashes in a new frozen
+ten-asset Installer contract. The replacement still needs actual Installer
+qualification and is neither installed on the owner's Mac nor a production
+release. [Exact package 81 evidence](../artifacts/full-image-candidate81-20261021.json).
+
 The first build-80 source workflows at `d5741bc` found one stale test mock that
 did not accept the new optional diagnostics callback. Each full suite recorded
 3,591 passes, 107 skips and that one failure; the Mac subsets found the same

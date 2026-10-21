@@ -135,7 +135,7 @@ def main():
     revision = os.environ["GITHUB_SHA"]
     raw = args.contract.read_bytes()
     require(len(raw) < 64 * 1024 and subprocess.check_output(
-        ["git", "show", revision + ":artifacts/full-image-installer80-inputs.json"], timeout=5) == raw)
+        ["git", "show", revision + ":artifacts/full-image-installer81-inputs.json"], timeout=5) == raw)
     contract = validate(decode(raw))
     args.output.mkdir(mode=0o700)  # Never reuse a partial transfer directory.
     releases = {}

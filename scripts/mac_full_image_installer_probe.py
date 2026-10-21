@@ -456,7 +456,7 @@ def run(args):
         require(controller["controller_revision"] == revision and controller["contract_sha256"] == digest(contract_raw)
                 and contract["status"] == "FROZEN_REVIEWED_ASSETS" and contract["repository"] == REPOSITORY
                 and contract_raw == h.git_bytes(args.repository,
-                    ["show", revision + ":artifacts/full-image-installer80-inputs.json"], maximum=64 * 1024))
+                    ["show", revision + ":artifacts/full-image-installer81-inputs.json"], maximum=64 * 1024))
         require(set(contract["assets"]) == ASSET_FILES
                 and contract.get("plan_sha256") == PLAN_SHA)
         for name, row in contract["assets"].items():
@@ -490,7 +490,7 @@ def run(args):
             require({path.name for path in expanded.iterdir()} == {"PackageInfo", "Scripts"})
             info = ET.fromstring(h.read_file(expanded / "PackageInfo", owner=expanded.joinpath("PackageInfo").lstat().st_uid))
             payload, phases = info.find("payload"), info.find("scripts")
-            require(info.get("identifier") == "com.fainir.accountaccess.fullimageupdate80" and info.get("version") == "0.1.0"
+            require(info.get("identifier") == "com.fainir.accountaccess.fullimageupdate81" and info.get("version") == "0.1.0"
                     and info.get("auth") == "root" and (payload is None or
                     all(int(payload.get(key, "0")) == 0 for key in ("numberOfFiles", "installKBytes")))
                     and phases is not None and len(phases) == 1 and phases[0].tag == "postinstall"
