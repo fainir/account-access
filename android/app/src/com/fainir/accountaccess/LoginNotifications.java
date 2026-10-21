@@ -2,6 +2,7 @@ package com.fainir.accountaccess;
 
 import android.app.Notification;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
 import org.json.JSONObject;
@@ -50,13 +51,28 @@ public final class LoginNotifications extends NotificationListenerService {
    };
    SSLContext context=SSLContext.getInstance("TLS");context.init(null,new TrustManager[]{trust},null);
    byte[] data=payload.toString().getBytes("UTF-8");
-   for(int attempt=0;attempt<30;attempt++){
-    if(System.currentTimeMillis()/1000.0-payload.getDouble("received_at")>120)return;
-    HttpsURLConnection connection=(HttpsURLConnection)new URL(pair.getString("url")).openConnection();
-    connection.setSSLSocketFactory(context.getSocketFactory());connection.setConnectTimeout(3000);connection.setReadTimeout(3000);connection.setInstanceFollowRedirects(false);connection.setRequestMethod("POST");connection.setDoOutput(true);connection.setFixedLengthStreamingMode(data.length);connection.setRequestProperty("Authorization","Bearer "+pair.getString("token"));connection.setRequestProperty("Content-Type","application/json");
-    try{try(java.io.OutputStream output=connection.getOutputStream()){output.write(data);}int status=connection.getResponseCode();if(status==200){getSharedPreferences("settings",0).edit().putLong("last_delivery",System.currentTimeMillis()).putString("last_status","delivered").apply();return;}getSharedPreferences("settings",0).edit().putString("last_status","http_"+status).apply();if(status!=403)return;}finally{connection.disconnect();}
-    Thread.sleep(1000);
-   }
+   final URL destination=new URL(pair.getString("url"));
+   final String token=pair.getString("token");
+   final double received=payload.getDouble("received_at")*1000;
+   final long began=SystemClock.elapsedRealtime();
+   final long lifetime=(long)Math.max(0,Math.min(120000,received+120000-System.currentTimeMillis()));
+   boolean delivered=LoginDelivery.send(()->{
+    HttpsURLConnection connection=(HttpsURLConnection)destination.openConnection();
+    try{
+     connection.setSSLSocketFactory(context.getSocketFactory());connection.setConnectTimeout(3000);connection.setReadTimeout(3000);connection.setInstanceFollowRedirects(false);connection.setRequestMethod("POST");connection.setDoOutput(true);connection.setFixedLengthStreamingMode(data.length);connection.setRequestProperty("Authorization","Bearer "+token);connection.setRequestProperty("Content-Type","application/json");
+     try(java.io.OutputStream output=connection.getOutputStream()){output.write(data);}
+     return connection.getResponseCode();
+    }finally{connection.disconnect();}
+   },()->{
+    double age=System.currentTimeMillis()-received;
+    if(age< -5000 || age>120000 || SystemClock.elapsedRealtime()-began>lifetime)return false;
+    JSONObject current=Pairing.load(this);
+    if(current==null || !MessageDigest.isEqual(token.getBytes("UTF-8"),current.getString("token").getBytes("UTF-8")))return false;
+    for(String key:new String[]{"url","certificate_sha256","source","sender","recipient","template"})if(!pair.getString(key).equals(current.getString(key)))return false;
+    return true;
+   },Thread::sleep,value->getSharedPreferences("settings",0).edit().putString("last_status",value).apply());
+   if(delivered)getSharedPreferences("settings",0).edit().putLong("last_delivery",System.currentTimeMillis()).putString("last_status","delivered").apply();
+  }catch(InterruptedException interrupted){Thread.currentThread().interrupt();
   }catch(Exception ignored){getSharedPreferences("settings",0).edit().putString("last_status","link_error_"+ignored.getClass().getSimpleName()).apply();}
  }
  @Override public void onDestroy(){worker.shutdownNow();super.onDestroy();}

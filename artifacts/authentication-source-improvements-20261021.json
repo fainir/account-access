@@ -1,0 +1,75 @@
+{
+  "schema": 1,
+  "recorded_utc": "2026-10-21T13:07:17.383309+00:00",
+  "base_commit": "3bb48a72ad9362b31670b3ffaae7a4e20887e0a8",
+  "status": "SOURCE_CHANGES_WITH_BOUNDED_LOCAL_CHECKS",
+  "source_sha256": {
+    "account_access/mailbox_binding.py": "e36ccccf60b7353770df588c34afde7c1569b42888429d028908c3b0176dc1e9",
+    "account_access/factors.py": "4879babcaa0e4415916f17331fec24efcf9b3dafe31ccf0f65daafeffa75dad5",
+    "account_access/owner.py": "dd3ef4c983c353884aca074f9d659e0f740c57c612cb5e81eaab0332440117c0",
+    "account_access/ui/welcome.js": "02317fc0ac6f28a6c685ae2e3c491467a43cf5f6afa6e6f0ba4730a5d45a3fcd",
+    "macos/AccountAccess.swift": "4eb8d7476fe97c4b9d4ca6f1c9199661b5cdf85122c6670baf8d551d2a701dfd",
+    "macos/Tests/OwnerScreenChecks.swift": "e478c17f2cfd7092dc40dec4dde0b7cfbd1b525b2daf9bd7d4d0b1543cb8149f",
+    "tests/test_gmail_mailbox_binding.py": "27ac1d066fb1c580715952cf453b160191ceb6df62a2a985ec355992041447f4",
+    "tests/test_gmail_mailbox_ui.py": "22586359be57531c2fcbea98ea4df0fad1d6a5791dc178cc0edcd99e430082d3",
+    "android/app/src/com/fainir/accountaccess/LoginDelivery.java": "72d82de9d30dd4e5fdc3db2286c61a496b1daa301f724151fa8e2da14e988950",
+    "android/app/src/com/fainir/accountaccess/LoginNotifications.java": "de16b9af92e4975c2718f4f7f1d45a7f72ea3ee398cfa426bfb2ba16dad9d016",
+    "android/test/src/com/fainir/accountaccess/LoginDeliveryChecks.java": "f4493bf272fd4537b8830e93bc0775cd056f1ae411768ce511ef2f7c1ce1f300",
+    "android/test/src/com/fainir/accountaccess/LoginChecks.java": "f0360c63dbdafab245b03ca52ba8bbd61f4dc0042f12b20adfbaffb73b51e88d"
+  },
+  "changes": [
+    "Checked Gmail identity selection for existing ordinary email-code sources in desktop and web setup; exact source/account/filter/enrollment/consent review binding.",
+    "Revoked or changed authority rejects stale selection; no consumer UI legacy enrollment fallback; no new operations or filters granted.",
+    "One database read snapshot for Gmail picker metadata; no provider/message request during binding.",
+    "Android retries fresh login SMS after eligible transport failures with unchanged pairing and pinned destination; TLS/server refusals stop."
+  ],
+  "validation": {
+    "gmail_backend": {
+      "passed": 40,
+      "proof": {
+        "path": "dist/qa-gmail-mailbox-binding-source/result.json",
+        "sha256": "9a97e32fefd773c6543692e22b90e5fb6ae50d70eaf3932a47c3dffe9997ba45"
+      }
+    },
+    "consumer_web": {
+      "new_and_existing_gmail_ui_passed": 4,
+      "existing_imap_owner_login_failed": "5-second owner/state HTTP timeout; investigating rather than extending deadlines",
+      "whole_command_passed": false,
+      "proof": {
+        "path": "dist/qa-gmail-reuse-web-3bb48a7/checked-only-v2/result.json",
+        "sha256": "9670a4fd8eab6336c061fac03e178de0c2a965749e69ce037ba68fa61b91c928"
+      }
+    },
+    "native_owner_ui": {
+      "pass_lines": 51,
+      "optimization": "Onone",
+      "seconds": 107.857,
+      "earlier_compile_240s_and_runtime_90s_timeouts_preserved": true,
+      "proof": {
+        "path": "dist/qa-gmail-reuse-native-3bb48a7/runtime-diagnostic-v3/result.json",
+        "sha256": "dda95eda8683e5c24df593a8dcfadec10f6b6cf7617ca82218c891c353cf6837"
+      },
+      "diagnostic_sample_attempted": true,
+      "diagnostic_sample_captured": false
+    },
+    "android": {
+      "focused_java_helper_passed": true,
+      "apk_build": "timeout after app Java compilation",
+      "python_ingress_command": "assertions printed 2 passed, process timed out; not qualified",
+      "proof": {
+        "path": "dist/qa-android-network-retry-3bb48a7/checkpoint.json",
+        "sha256": "43389492047ed4d2c2d97317bf0703257b838c85ca33f4b43790804686df82d8"
+      }
+    }
+  },
+  "private_or_installed_actions": false,
+  "current_owner_fact": "Gmail mailbox enrollment and native connection check completed separately; no real website email-code login completed.",
+  "unsupported": [
+    "Namecheap device-email route",
+    "Non-GitHub consumer SMS connector discovery",
+    "Physical-phone SMS and real authenticator enrollment acceptance"
+  ],
+  "new_source_ci": "pending",
+  "consumer_package_installed": false,
+  "production_ready": false
+}

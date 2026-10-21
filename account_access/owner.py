@@ -324,6 +324,9 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                             metadata = {}  # A concurrent configuration change invalidates editing.
                     else:
                         credential = broker.store.get("source:" + key)
+                    if source.kind == "gmail":
+                        from .mailbox_binding import metadata as mailbox_binding_metadata
+                        metadata = mailbox_binding_metadata(broker.store, key, config=config)
                     enrolled = (credential.get("enabled") is True if source.kind == "gmail"
                                 else credential.get("enabled") is not False) if isinstance(credential, dict) else False
                     source_views.append({"id": key, "kind": source.kind, **metadata,
@@ -332,7 +335,11 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                                           "mail_server": source.host,
                                           "mail_port": source.port,
                                           "recipient": source.recipient if source.kind in {"imap", "gmail"} else None,
-                                          "linked_mailbox": credential.get("mailbox") if isinstance(credential, dict) else None,
+                                          "sender": source.sender if source.kind in {"imap", "gmail"} else None,
+                                          "subject": source.subject if source.kind in {"imap", "gmail"} else None,
+                                          "linked_mailbox": ((credential.get("gmail_mailbox") if source.kind == "gmail"
+                                                               else credential.get("mailbox"))
+                                                              if isinstance(credential, dict) else None),
                                           "connection_check": mailbox_health(broker.store, key),
                                           "enrolled": bool(credential) and enrolled,
                                           "accounts": [key2 for key2, spec in config.accounts.items()

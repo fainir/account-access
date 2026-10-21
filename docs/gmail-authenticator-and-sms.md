@@ -37,6 +37,21 @@ new website source or grant account operations by itself. **Google mailbox
 checked** confirms the mailbox address and access; it does not prove website
 email delivery.
 
+For an ordinary configured Gmail code source, choose its checked mailbox under
+**Use a connected Gmail mailbox**, review the displayed sender, recipient and
+subject, then choose **Connect verification**. The desktop and local web setup
+reuse the saved Google connection without another password or consent screen.
+Only the exact configured Google account and recipient are offered. The source
+must already have a reviewed website login flow and message filter; connecting
+Gmail does not add missing website support. Namecheap's device-email route is
+still outside the current connector.
+
+If the website filter, approved account, source enrollment or Google consent
+changes while setup is open, the old selection cannot enable it. Reopen
+**Verification** and choose the checked connection again. Routine access-token
+renewal keeps the selection valid. Disabling the source or revoking Google
+access stops pending code reads.
+
 Normal automatic token renewal preserves that mailbox selection. New consent,
 revocation, or a changed Google account invalidates the old selection, so it
 cannot silently switch to another mailbox. Check the connection and review the

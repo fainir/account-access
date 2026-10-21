@@ -859,6 +859,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             "invalid_mailbox_setup": "Check the email address, mail server and application password. Other email providers require their TLS IMAP server and port.",
             "mailbox_already_connected": "This mailbox is already saved. Use Update app password or Check connection on its card.",
             "mailbox_source_mismatch": "Choose the mailbox for the email address and mail server already approved for this website.",
+            "mailbox_binding_changed": "This website or mailbox connection changed. Reopen Verification and choose the checked mailbox again.",
+            "invalid_mailbox_binding": "Reopen Verification and choose a checked mailbox for this website.",
+            "mailbox_binding_unsupported": "This website's email connection needs a supported connector before it can use a saved mailbox.",
             "mailbox_scope_missing": "Reconnect the configured Gmail account with permission to read login messages.",
             "mailbox_scope_not_allowed": "Google returned broader access than this Gmail connection permits. The publisher must check its Google application; your existing connection is preserved.",
             "mailbox_oauth_renewal_unavailable": "Google did not provide renewable access. Reconnect Google once so approved email-code logins can continue after access expires.",
@@ -2832,6 +2835,27 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 stack.addArrangedSubview(menu)
             }
         }
+        if kind == "gmail", let matching = source["mailbox_options"] as? [[String: Any]], !matching.isEmpty {
+            label("Use a connected Gmail mailbox", 14)
+            let menu = NSPopUpButton()
+            menu.setAccessibilityLabel("Use a connected Gmail mailbox")
+            for mailbox in matching {
+                guard mailbox["kind"] as? String == "gmail", let id = mailbox["id"] as? String,
+                      let recipient = mailbox["recipient"] as? String else { continue }
+                menu.addItem(withTitle: (mailbox["label"] as? String ?? "Gmail") + " · " + recipient)
+                menu.lastItem?.representedObject = id
+                if id == source["linked_mailbox"] as? String
+                    || (matching.count == 1 && source["enrolled"] as? Bool != true) { menu.select(menu.lastItem) }
+            }
+            menu.target = self
+            menu.action = #selector(factorMailboxChanged)
+            factorMailboxMenu = menu
+            stack.addArrangedSubview(menu)
+        }
+        if email, let sender = source["sender"] as? String, let recipient = source["recipient"] as? String,
+           let subject = source["subject"] as? String {
+            label("Only login messages from " + sender + " to " + recipient + " with subject “" + subject + "”.", 14, .secondaryLabelColor)
+        }
         for (name, hint) in fields {
             label(hint, 15)
             if let title = stack.arrangedSubviews.last { factorEntryViews.append(title) }
@@ -2859,9 +2883,13 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             label("Pair the Android companion on the same private Wi-Fi. It forwards matching login notifications through a certificate-pinned encrypted connection.", 15, .secondaryLabelColor)
             action("Pair Android phone", #selector(pairPhone))
         } else if kind == "gmail" {
-            label("Connect the configured Gmail account through its provider consent screen in Manage permissions. The resolver reads only matching current login messages, but Gmail consent grants mailbox read access.", 15, .secondaryLabelColor)
+            label("Choose a connected, checked Gmail mailbox to avoid signing in again. Only this website's configured login messages are used. If no mailbox is offered, connect and check the configured Google account above first.", 15, .secondaryLabelColor)
         }
-        primary(source["enrolled"] as? Bool == true ? "Save changes" : "Connect verification", #selector(saveFactor))
+        let connect = primary(source["enrolled"] as? Bool == true ? "Save changes" : "Connect verification", #selector(saveFactor))
+        if kind == "gmail" {
+            connect.isEnabled = factorMailboxMenu?.selectedItem?.representedObject as? String != nil
+                && source["setup_context"] as? String != nil && source["setup_revision"] as? String != nil
+        }
         if source["enrolled"] as? Bool == true { action("Disable this verification method", #selector(disableFactor)) }
         action("Back", #selector(backToConnections))
     }
@@ -2968,7 +2996,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
 
     @objc func saveFactor() {
-        guard let source = factorMenu.selectedItem?.representedObject as? [String: Any], let id = source["id"] as? String else { return }
+        guard !busy, let source = factorMenu.selectedItem?.representedObject as? [String: Any], let id = source["id"] as? String else { return }
         let kind = source["kind"] as? String ?? ""
         if kind == "mac_messages" && !MessagesReader.hasAccess() {
             let alert = NSAlert()
@@ -2980,7 +3008,15 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             return
         }
         var credential: [String: Any] = factorFields.mapValues { $0.stringValue }
-        if let mailbox = factorMailboxMenu?.selectedItem?.representedObject as? String {
+        if kind == "gmail" {
+            guard let mailbox = factorMailboxMenu?.selectedItem?.representedObject as? String,
+                  let context = source["setup_context"] as? String,
+                  let revision = source["setup_revision"] as? String else {
+                status.stringValue = "The email setup changed. Reopen Verification and choose the checked mailbox again."
+                return
+            }
+            credential = ["mailbox": mailbox, "setup_context": context, "setup_revision": revision]
+        } else if let mailbox = factorMailboxMenu?.selectedItem?.representedObject as? String {
             credential = ["mailbox": mailbox]
         }
         if kind == "mac_messages" { credential = ["enabled": true] }

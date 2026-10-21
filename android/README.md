@@ -13,6 +13,12 @@ Android's notification-access permission grants broader access than the app's ow
 
 Pairing is encrypted using the Android Keystore. The phone pins the computer's TLS certificate and refuses public IP destinations, HTTP and redirects. Pairing rotation replaces the source's previous token. Closing/reopening the computer service preserves the certificate and endpoint while its Wi-Fi address remains unchanged; a changed address/certificate requires pairing again. Disconnect in the phone to remove its pairing, or disable the source in owner setup to reject further deliveries.
 
+The development source retries the same fresh notification after temporary
+socket, timeout or DNS failures. Each attempt checks that the pairing and login
+message are still current. Certificate failures, server refusals and changed
+pairing stop delivery; retries never switch destinations or extend freshness.
+Physical-phone delivery and the updated APK still require release validation.
+
 The preview currently uses the device's default SMS app. Some phones display a saved contact name instead of the sender number: the reviewed source must match the displayed sender. General authenticator push notifications are not supported by this companion.
 
 ## Build and verification

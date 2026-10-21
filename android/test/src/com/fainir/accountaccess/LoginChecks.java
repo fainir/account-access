@@ -17,6 +17,7 @@ public final class LoginChecks extends Instrumentation {
   Bundle result=new Bundle();
   NotificationManager manager=null;
   try{
+   LoginDeliveryChecks.run();
    Context context=getTargetContext();
    String path=args.getString("pairing_file");
    java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream();

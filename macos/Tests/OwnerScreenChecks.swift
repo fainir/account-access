@@ -85,6 +85,9 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
     var deviceEmailApplyFailure = false
     var deviceEmailPreview: [String: Any] = [:]
     var googleRequests: [String] = []
+    private let sourceRequestLock = NSLock()
+    private var sourceRequestLog: [[String: Any]] = []
+    var sourceRequests: [[String: Any]] { sourceRequestLock.withLock { sourceRequestLog } }
     private let mailboxLock = NSLock()
     private var mailboxPosts = 0
     private var mailboxReply: ((Int, Data) -> Void)?
@@ -104,6 +107,14 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
     func authorizeSetup(_ form: Data, reply: @escaping (Bool) -> Void) { reply(form.count == 32) }
     func request(_ route: String, body: Data?, reply: @escaping (Int, Data) -> Void) {
         if route == "owner/verify" { verificationRequestLock.withLock { verificationRequests += 1 } }
+        if route == "owner/source" {
+            let request = body.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } ?? [:]
+            sourceRequestLock.withLock { sourceRequestLog.append(request) }
+            reply(200, Data("{\"status\":\"ENROLLED\"}".utf8)); return
+        }
+        if route == "owner/source/check" {
+            reply(200, Data("{\"status\":\"VERIFIED\"}".utf8)); return
+        }
         if ["owner/mailbox/connect", "owner/mailbox/password"].contains(route) {
             mailboxLock.withLock {
                 mailboxPosts += 1
@@ -738,6 +749,46 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         while owner.busy && Date() < reopenDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
         precondition(owner.systemOwnerReady && preparedClients == 1 && nativeChannel.clientEnrollments == 1 && nativePrompts == promptsAfterConnection)
         print("PASS: a fresh isolated account view waits for portable client setup; both hosts connect without a selector, and reopening verifies without another enrollment or approval")
+        let gmailMailboxID = "gmail-mailbox-" + String(repeating: "b", count: 24)
+        let gmailContext = String(repeating: "c", count: 64)
+        let gmailRevision = String(repeating: "d", count: 64)
+        let gmailBlockedAccount: [String: Any] = ["account": "fixture", "label": "Fixture account", "challenges": [["kind": "unknown"]]]
+        let gmailMailboxOption: [String: Any] = ["id": gmailMailboxID, "label": "Saved Google", "kind": "gmail", "recipient": "owner@example.test"]
+        let gmailSource: [String: Any] = ["id": "ordinary-email", "kind": "gmail", "accounts": ["fixture"],
+            "sender": "login@example.test", "recipient": "owner@example.test", "subject": "Sign in",
+            "setup_context": gmailContext, "setup_revision": gmailRevision,
+            "mailbox_options": [gmailMailboxOption]]
+        nativeChannel.state["accounts"] = [gmailBlockedAccount]
+        nativeChannel.state["code_sources"] = [gmailSource]
+        owner.accept(nativeChannel.state)
+        owner.showFactors()
+        precondition(owner.factorMailboxMenu?.selectedItem?.representedObject as? String == gmailMailboxID)
+        precondition(owner.factorMailboxMenu?.numberOfItems == 1)
+        precondition(owner.factorFields.isEmpty)
+        precondition(descendants(owner.stack).compactMap { ($0 as? NSTextField)?.stringValue }
+            .contains { $0.contains("login@example.test") && $0.contains("owner@example.test") && $0.contains("Sign in") })
+        let verificationBeforeGmailBinding = nativeChannel.verificationRequestCount
+        owner.saveFactor()
+        owner.saveFactor()
+        let gmailBindingDeadline = Date().addingTimeInterval(5)
+        while owner.busy && Date() < gmailBindingDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
+        precondition(!owner.busy && nativeChannel.sourceRequests.count == 1)
+        let gmailBinding = nativeChannel.sourceRequests[0]
+        precondition(gmailBinding["source"] as? String == "ordinary-email")
+        precondition(gmailBinding["credential"] as? [String: String] == ["mailbox": gmailMailboxID, "setup_context": gmailContext, "setup_revision": gmailRevision])
+        precondition(nativeChannel.verificationRequestCount == verificationBeforeGmailBinding)
+        owner.accept(nativeChannel.state)
+        owner.sources[0].removeValue(forKey: "setup_revision")
+        owner.showFactors()
+        precondition(descendants(owner.stack).compactMap { $0 as? NSButton }
+            .first { $0.title == "Connect verification" }?.isEnabled == false)
+        owner.saveFactor()
+        precondition(!owner.busy && nativeChannel.sourceRequests.count == 1)
+        precondition(owner.status.stringValue.contains("email setup changed"))
+        nativeChannel.state["accounts"] = []
+        nativeChannel.state["code_sources"] = []
+        owner.accept(nativeChannel.state)
+        print("PASS: checked Gmail reuse submits one exact review without secrets, consent or retrying a blocked website; missing revision stops locally")
         var mismatchedRequests = 0
         let mismatched = ManagedAgentSetup(helper: { _ in ["status": "PREPARED", "client_id": String(repeating: "0", count: 64)] }, readToken: { nativeChannel.clientToken })
         do {
