@@ -6,7 +6,9 @@ import json
 import os
 from pathlib import Path
 import plistlib
+import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -21,6 +23,9 @@ from macos.payload_audit import audit_payload, binary_type, tree_files
 
 BASE = Path("Library/Application Support/Account Access")
 IDENTIFIER = "com.fainir.accountaccess.system"
+# Maintainer-only reuse of this independently reviewed complete image. Another
+# cohort requires source review; a caller-supplied digest cannot widen it.
+PREASSEMBLED_MANIFEST_SHA256 = "d1f74db86890b306f989b65a8c521ce3b0879f261ded122dd409be2ca2fbe317"
 
 # Installer provides the target volume as argument 3. The verified coordinator
 # owns all image publication and recovery; PackageKit writes no target payload.
@@ -182,7 +187,7 @@ def stage_runtime_ca(args, payload):
     return refresh(payload, wheel)
 
 
-def assemble(args):
+def build_context(args):
     if sys.platform != "darwin" or os.getuid() == 0 or os.getuid() != os.geteuid():
         raise ValueError("ordinary_mac_build_context_required")
     if args.architecture != "arm64":
@@ -193,6 +198,166 @@ def assemble(args):
     if (not args.development and not unsigned_package and not args.installer_identity
             and not getattr(args, "inspect_runtime", False)):
         raise ValueError("developer_id_installer_identity_required")
+    return unsigned_package
+
+
+def package_image(args, root, scripts, manifest, output, version):
+    """Unchanged protected same-image Installer envelope for either build route."""
+    install_bytes = ImageManifest(manifest, hashlib.sha256(manifest).hexdigest()).required_space(copies=2)
+    scripts.mkdir()
+    (scripts / "RecoveryManifest.json").write_bytes(manifest)
+    verifier = root / BASE / "bin/AccountAccess-installerverify"
+    shutil.copy2(verifier, scripts / verifier.name)
+    verifier_digest = hashlib.sha256(verifier.read_bytes()).hexdigest()
+    for name, contents in [("preinstall", PREINSTALL), ("postinstall", POSTINSTALL)]:
+        target = scripts / name
+        target.write_text(contents)
+        target.chmod(0o755)
+    root.rename(scripts / "PublicImage")
+    scratch = scripts.parent
+    command(["/usr/bin/pkgbuild", "--nopayload", "--identifier", IDENTIFIER,
+             "--version", version, "--install-location", "/", "--ownership", "recommended",
+             "--scripts", str(scripts), str(scratch / "payload.pkg")])
+    xml = scratch / "Distribution.xml"
+    xml.write_text(distribution(version, args.architecture, install_bytes=install_bytes))
+    unsigned_package = getattr(args, "unsigned_package", False)
+    result = output / ("Account-Access-" + args.architecture
+        + ("-development" if args.development else "-unsigned" if unsigned_package else "") + ".pkg")
+    command(["/usr/bin/productbuild", "--distribution", str(xml), "--package-path", str(scratch),
+             *([] if args.development or unsigned_package else ["--sign", args.installer_identity]), str(result)])
+    if not args.development and not unsigned_package:
+        command(["/usr/sbin/pkgutil", "--check-signature", str(result)])
+    return result, verifier_digest, install_bytes
+
+
+def preassembled_manifest(path, expected):
+    if (not isinstance(expected, str) or re.fullmatch("[a-f0-9]{64}", expected) is None
+            or expected != PREASSEMBLED_MANIFEST_SHA256):
+        raise ValueError("reviewed_preassembled_image_required")
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+    try:
+        before = os.fstat(descriptor)
+        if (not stat.S_ISREG(before.st_mode) or before.st_uid != os.getuid() or before.st_nlink != 1
+                or stat.S_IMODE(before.st_mode) not in {0o600, 0o644}
+                or not 0 < before.st_size <= 16 * 1024 * 1024):
+            raise ValueError("unsafe_preassembled_manifest")
+        with os.fdopen(os.dup(descriptor), "rb") as stream:
+            raw = stream.read(before.st_size + 1)
+        def fields(value):
+            return (value.st_dev, value.st_ino, value.st_mode, value.st_uid, value.st_gid,
+                    value.st_nlink, value.st_size, value.st_mtime_ns, value.st_ctime_ns)
+        if (len(raw) != before.st_size or fields(before) != fields(os.fstat(descriptor))
+                or fields(before) != fields(Path(path).lstat())):
+            raise ValueError("preassembled_manifest_changed")
+        ImageManifest(raw, expected)
+        return raw
+    finally:
+        os.close(descriptor)
+
+
+def preassembled_inventory(root, manifest):
+    from account_access.package_manifest import build as install_manifest
+
+    expected = {Path(): {"Library", "Applications"}, Path("Library"): {"Application Support"},
+                Path("Library/Application Support"): {"Account Access"}, Path("Applications"): {"Account Access.app"}}
+    for relative, children in expected.items():
+        directory = root / relative
+        info = directory.lstat()
+        if (not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o6022
+                or {path.name for path in directory.iterdir()} != children):
+            raise ValueError("preassembled_image_envelope_changed")
+    if install_manifest(root, "0.8.0", "arm64") != manifest:
+        raise ValueError("preassembled_image_changed")
+
+
+def assemble_preassembled(args):
+    """Package one reviewed immutable cohort; never transform or run its runtime."""
+    unsigned_package = build_context(args)
+    if args.development:
+        raise ValueError("preassembled_production_payload_required")
+    if (any(getattr(args, name, None) is not None for name in
+            ["app", "native", "python", "browsers", "wheels", "runtime_identity", "runtime_plan",
+             "pip_wheel", "bitwarden_archive", "bitwarden_sources", "bitwarden_source_sha256"])
+            or getattr(args, "inspect_runtime", False)):
+        raise ValueError("preassembled_and_transform_inputs_conflict")
+    if not getattr(args, "preassembled_image", None) or not getattr(args, "preassembled_manifest", None):
+        raise ValueError("reviewed_preassembled_image_required")
+    manifest_path = Path(args.preassembled_manifest).absolute()
+    manifest = preassembled_manifest(manifest_path, getattr(args, "preassembled_sha256", None))
+    source = Path(args.preassembled_image).absolute()
+    if source.is_symlink():
+        raise ValueError("unsafe_preassembled_image")
+    source = source.resolve(strict=True)
+    output = Path(args.output).absolute()
+    if output.exists() or output.is_symlink():
+        raise ValueError("new_output_directory_required")
+    if output.is_relative_to(source):
+        raise ValueError("preassembled_output_inside_source")
+    preassembled_inventory(source, manifest)
+    output.mkdir(mode=0o700)
+    with tempfile.TemporaryDirectory(prefix="account-access-preassembled-package-") as temporary:
+        scratch = Path(temporary)
+        root, scripts = scratch / "root", scratch / "scripts"
+        shutil.copytree(source, root, symlinks=True)
+        command(["/bin/chmod", "-RN", str(root)])  # Private copy only, as in raw assembly.
+        preassembled_inventory(root, manifest)
+        payload, owner_app = root / BASE, root / CANONICAL_APP
+        version, team, wheel, _ = inspect_app(owner_app, development=False)
+        identities = {"owner": signature(owner_app, "com.fainir.accountaccess", fixture=False)}
+        for name, identifier in [("broker", "com.fainir.accountaccess.broker"),
+                                 ("bootstrap", "com.fainir.accountaccess.bootstrap"),
+                                 ("installerverify", "com.fainir.accountaccess.installerverify")]:
+            signed = signature(payload / ("bin/AccountAccess-" + name), identifier, fixture=False)
+            if signed["team"] != team:
+                raise ValueError("payload_publishers_disagree")
+            if name != "installerverify":
+                identities[name] = signed
+        from account_access.install_transaction import _peer_identity
+
+        descriptor = os.open(payload, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+        try:
+            if _peer_identity(descriptor, os.getuid()) != identities:
+                raise ValueError("preassembled_peer_identity_changed")
+        finally:
+            os.close(descriptor)
+        project = payload / "wheels" / f"account_access-{version}-py3-none-any.whl"
+        if project.read_bytes() != wheel.read_bytes():
+            raise ValueError("wheelhouse_project_mismatch")
+        wheels = list((payload / "wheels").iterdir())
+        if not wheels or any(path.is_symlink() or not path.is_file() or path.suffix != ".whl" for path in wheels):
+            raise ValueError("binary_wheelhouse_required")
+        if (binary_type(payload / "python/bin/python3.12") != 2
+                or binary_type(payload / "runtime/bin/python3.12") != 2
+                or binary_type(payload / "runtime/lib/python3.12/site-packages/playwright/driver/node") != 2
+                or not any(binary_type(path) == 2 for path in tree_files(payload / "browsers"))):
+            raise ValueError("native_python_and_browser_executables_required")
+        runtime_audit = audit_payload(
+            [owner_app, payload / "python", payload / "runtime", payload / "browsers", payload / "bin"],
+            sorted(wheels), args.architecture, command, development=False)
+        native_manifest_preflight(payload / "bin/AccountAccess-installerverify", manifest)
+        preassembled_inventory(root, manifest)
+        preassembled_inventory(source, manifest)
+        result, verifier_digest, install_bytes = package_image(args, root, scripts, manifest, output, version)
+        preassembled_inventory(source, manifest)
+        if preassembled_manifest(manifest_path, args.preassembled_sha256) != manifest:
+            raise ValueError("preassembled_manifest_changed")
+        report = {"status": "BUILT", "version": version, "architecture": args.architecture,
+            "development": False, "offline_runtime": True, "fresh_install_only": False,
+            "installation_strategy": "verified-script-image-v1", "recovery_scope": "same-image-same-owner-only",
+            "preassembled_image": True, "preassembled_source_unchanged": True, "runtime_transformed": False,
+            "production_ready": False, "notarized": False, "installed": False,
+            "native_payload_audit": runtime_audit, "payload_manifest_sha256": args.preassembled_sha256,
+            "installer_verifier_sha256": verifier_digest, "payload_manifest_counts": manifest_counts(manifest),
+            "required_install_bytes": install_bytes, "native_manifest_preflight": True,
+            "sha256": hashlib.sha256(result.read_bytes()).hexdigest()}
+        if unsigned_package:
+            report.update(unsigned_package=True, installer_signed=False)
+        (output / "package.json").write_text(json.dumps(report, indent=2) + "\n")
+        return report
+
+
+def assemble(args):
+    unsigned_package = build_context(args)
     app, native, python, browsers, wheels = [
         Path(getattr(args, name)).resolve(strict=True)
         for name in ["app", "native", "python", "browsers", "wheels"]
@@ -388,58 +553,10 @@ def assemble(args):
         # --nopayload hides PublicImage's extracted runtime from PackageKit's
         # automatic size estimate. Both that source and our destination coexist
         # during installation, so declare their manifest-derived requirement.
-        install_bytes = ImageManifest(manifest, hashlib.sha256(manifest).hexdigest()).required_space(copies=2)
-        scripts.mkdir()
-        (scripts / "RecoveryManifest.json").write_bytes(manifest)
-        verifier = payload / "bin/AccountAccess-installerverify"
-        shutil.copy2(verifier, scripts / verifier.name)
-        verifier_digest = hashlib.sha256(verifier.read_bytes()).hexdigest()
-        for name, contents in [("preinstall", PREINSTALL), ("postinstall", POSTINSTALL)]:
-            target = scripts / name
-            target.write_text(contents)
-            target.chmod(0o755)
         # No PackageKit payload can overwrite existing paths before our lease,
         # journal and exclusive publication checks. The native helper verifies
         # this private source before its interpreter can run.
-        root.rename(scripts / "PublicImage")
-        command(
-            [
-                "/usr/bin/pkgbuild",
-                "--nopayload",
-                "--identifier",
-                IDENTIFIER,
-                "--version",
-                version,
-                "--install-location",
-                "/",
-                "--ownership",
-                "recommended",
-                "--scripts",
-                str(scripts),
-                str(scratch / "payload.pkg"),
-            ]
-        )
-        xml = scratch / "Distribution.xml"
-        xml.write_text(distribution(version, args.architecture, install_bytes=install_bytes))
-        result = output / (
-            "Account-Access-"
-            + args.architecture
-            + ("-development" if args.development else "-unsigned" if unsigned_package else "")
-            + ".pkg"
-        )
-        command(
-            [
-                "/usr/bin/productbuild",
-                "--distribution",
-                str(xml),
-                "--package-path",
-                str(scratch),
-                *([] if args.development or unsigned_package else ["--sign", args.installer_identity]),
-                str(result),
-            ]
-        )
-        if not args.development and not unsigned_package:
-            command(["/usr/sbin/pkgutil", "--check-signature", str(result)])
+        result, verifier_digest, install_bytes = package_image(args, root, scripts, manifest, output, version)
         report = {
             "status": "BUILT",
             "version": version,
@@ -474,8 +591,12 @@ def assemble(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ["app", "native", "python", "browsers", "wheels", "output"]:
-        parser.add_argument("--" + name, required=True)
+    for name in ["app", "native", "python", "browsers", "wheels"]:
+        parser.add_argument("--" + name)
+    parser.add_argument("--output", required=True)
+    parser.add_argument("--preassembled-image", help="Reuse only the reviewed immutable complete-image cohort")
+    parser.add_argument("--preassembled-manifest")
+    parser.add_argument("--preassembled-sha256")
     parser.add_argument("--architecture", choices=["arm64"], required=True)
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument("--development", action="store_true")
@@ -491,7 +612,15 @@ def main():
     parser.add_argument("--pip-wheel", help="Exact pinned official pip wheel for active and ensurepip CA refresh; never executed")
     args = parser.parse_args()
     try:
-        print(json.dumps(assemble(args)))
+        prepared = any(getattr(args, name) is not None for name in
+                       ["preassembled_image", "preassembled_manifest", "preassembled_sha256"])
+        if prepared:
+            report = assemble_preassembled(args)
+        else:
+            if any(getattr(args, name) is None for name in ["app", "native", "python", "browsers", "wheels"]):
+                raise ValueError("raw_package_inputs_required")
+            report = assemble(args)
+        print(json.dumps(report))
         return 0
     except Exception as exc:
         diagnostic = {

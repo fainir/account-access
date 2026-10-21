@@ -393,6 +393,15 @@ def test_unsigned_container_keeps_genuine_payload_and_runtime_verification(tmp_p
     def command(arguments, *, input_data=None):
         calls.append(arguments)
         name = Path(arguments[0]).name
+        if name == "pkgbuild":
+            scripts = Path(arguments[arguments.index("--scripts") + 1])
+            assert arguments[:-1] == ["/usr/bin/pkgbuild", "--nopayload", "--identifier", package.IDENTIFIER,
+                "--version", "0.8.0", "--install-location", "/", "--ownership", "recommended", "--scripts", str(scripts)]
+            assert {path.name for path in scripts.iterdir()} == {
+                "preinstall", "postinstall", "RecoveryManifest.json", "AccountAccess-installerverify", "PublicImage"}
+            assert (scripts / "preinstall").read_text() == package.PREINSTALL
+            assert (scripts / "postinstall").read_text() == package.POSTINSTALL
+            assert (scripts / "PublicImage" / package.CANONICAL_APP).is_dir()
         if name in {"pkgbuild", "productbuild"}:
             assert "--sign" not in arguments
             if name == "productbuild":
