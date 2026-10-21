@@ -44,10 +44,10 @@ struct FullImagePredecessorAuthority {
             worker: worker, service: service, planSHA256: source.pins.planSHA256)
     }
     func validate(_ intent: FullImageGlobalIntent, source: FullImageSource, publicOwner: uid_t, publicGroup: gid_t,
-                  device: Int32, dynamic: [FullImageFileUnit: Data]) throws {
+                  beforeGroup: gid_t? = nil, device: Int32, dynamic: [FullImageFileUnit: Data]) throws {
         guard source.pins.planSHA256 == planSHA256 else { throw FullImageFailure.predecessor }
         try intent.validate(source: source, predecessorEvidenceSHA256: proofSHA256, workerPolicy: workerPolicy,
             servicePlist: servicePlist, ownerUID: ownerUID, brokerUID: brokerUID,
-            publicOwner: publicOwner, publicGroup: publicGroup, device: device, dynamic: dynamic)
+            publicOwner: publicOwner, publicGroup: publicGroup, beforeGroup: beforeGroup, device: device, dynamic: dynamic)
     }
 }

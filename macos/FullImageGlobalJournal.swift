@@ -42,7 +42,7 @@ struct FullImageDurableOperation: Codable, Equatable {
         }
     }
     func validate(plan: String, beforeManifest: String, afterManifest: String, device: Int32,
-                  publicOwner: uid_t, publicGroup: gid_t) throws {
+                  publicOwner: uid_t, publicGroup: gid_t, beforeGroup: gid_t? = nil) throws {
         switch kind {
         case .file:
             guard let file, tree == nil, file.planSHA256 == plan else { throw FullImageFailure.journal }
@@ -51,8 +51,11 @@ struct FullImageDurableOperation: Codable, Equatable {
             guard file == nil, let tree, tree.schema == 2, let unit = PublicTreeUnit(rawValue: tree.unit),
                   tree.planSHA256 == plan, tree.beforeManifestSHA256 == beforeManifest, tree.afterManifestSHA256 == afterManifest,
                   (tree.before != nil) == unit.beforePresent, (tree.after != nil) == unit.afterPresent else { throw FullImageFailure.journal }
-            for pin in [tree.before, tree.after].compactMap({ $0 }) {
-                guard pin.device == device, pin.owner == publicOwner, pin.group == publicGroup,
+            // Existing public trees retain the qualified legacy group's exact
+            // metadata; newly staged trees remain in the strict public group.
+            for (candidate, expectedGroup) in [(tree.before, beforeGroup ?? publicGroup), (tree.after, publicGroup)] {
+                guard let pin = candidate else { continue }
+                guard pin.device == device, pin.owner == publicOwner, pin.group == expectedGroup,
                       pin.mode == 0o755, pin.inode > 0, FullImageJSON.hex(pin.inventorySHA256) else { throw FullImageFailure.journal }
             }
             if let before = tree.before, let after = tree.after {
@@ -87,7 +90,7 @@ struct FullImageGlobalIntent: Codable, Equatable {
             "state": "public_image_verified_gui_unverified", "automatic_reboot_recovery": false]
         var raw = try FullImageJSON.canonical(value); raw.append(10); return raw
     }
-    func validateStructure(device: Int32, publicOwner: uid_t, publicGroup: gid_t) throws {
+    func validateStructure(device: Int32, publicOwner: uid_t, publicGroup: gid_t, beforeGroup: gid_t? = nil) throws {
         guard schema == 2, managedBy == "account-access-full-image-transition-v2", !automaticRebootRecovery,
               [planSHA256, beforeManifestSHA256, afterManifestSHA256, predecessorEvidenceSHA256].allSatisfy({ FullImageJSON.hex($0) }),
               beforeManifestSHA256 != afterManifestSHA256, FullImageJSON.hex(targetSourceCommit, count: 40),
@@ -99,7 +102,8 @@ struct FullImageGlobalIntent: Codable, Equatable {
         }
         for operation in operations {
             try operation.validate(plan: planSHA256, beforeManifest: beforeManifestSHA256,
-                afterManifest: afterManifestSHA256, device: device, publicOwner: publicOwner, publicGroup: publicGroup)
+                afterManifest: afterManifestSHA256, device: device, publicOwner: publicOwner, publicGroup: publicGroup,
+                beforeGroup: beforeGroup)
         }
         let paths = try operations.map { try $0.path() }, slots = try operations.map { try $0.token().slot }
         guard Set(paths).count == paths.count, Set(slots).count == slots.count,
@@ -108,9 +112,9 @@ struct FullImageGlobalIntent: Codable, Equatable {
     }
     func validate(source: FullImageSource, predecessorEvidenceSHA256: String, workerPolicy: ComponentObject,
                   servicePlist: ComponentObject, ownerUID: uid_t, brokerUID: uid_t,
-                  publicOwner: uid_t, publicGroup: gid_t, device: Int32,
+                  publicOwner: uid_t, publicGroup: gid_t, beforeGroup: gid_t? = nil, device: Int32,
                   dynamic: [FullImageFileUnit: Data]) throws {
-        try validateStructure(device: device, publicOwner: publicOwner, publicGroup: publicGroup)
+        try validateStructure(device: device, publicOwner: publicOwner, publicGroup: publicGroup, beforeGroup: beforeGroup)
         guard schema == 2, managedBy == "account-access-full-image-transition-v2", !automaticRebootRecovery,
               planSHA256 == source.pins.planSHA256, beforeManifestSHA256 == source.before.sha256,
               afterManifestSHA256 == source.after.sha256, targetSourceCommit == source.pins.targetSourceCommit,
@@ -128,7 +132,8 @@ struct FullImageGlobalIntent: Codable, Equatable {
         var inodes: Set<UInt64> = []
         for (index, operation) in operations.enumerated() {
             try operation.validate(plan: planSHA256, beforeManifest: beforeManifestSHA256,
-                afterManifest: afterManifestSHA256, device: device, publicOwner: publicOwner, publicGroup: publicGroup)
+                afterManifest: afterManifestSHA256, device: device, publicOwner: publicOwner, publicGroup: publicGroup,
+                beforeGroup: beforeGroup)
             if let file = operation.file {
                 guard file.index == index else { throw FullImageFailure.journal }
                 for pin in [file.before, file.after].compactMap({ $0 }) {
@@ -377,7 +382,7 @@ final class FullImageGlobalJournal {
     // Read an existing authority record before reconstructing its typed
     // retained objects. Only the literal intent name is read, then the caller's
     // source/predecessor validator must accept it before it is returned.
-    static func readIntent(directory: Int32, owner: uid_t, group: gid_t,
+    static func readIntent(directory: Int32, owner: uid_t, group: gid_t, beforeGroup: gid_t? = nil,
                            validateIntent: (FullImageGlobalIntent) throws -> Void,
                            verifyAttachment: (Int32) throws -> Void) throws -> FullImageGlobalIntent {
         try verifyAttachment(directory)
@@ -385,7 +390,7 @@ final class FullImageGlobalJournal {
         guard identity.mode == 0o700 else { throw FullImageFailure.journal }
         let file = try inspect(directory, "intent.json", owner: owner, group: group, maximum: maximumIntent, readBody: true)
         let value = try decoded(FullImageGlobalIntent.self, raw: file.data, maximum: maximumIntent)
-        try value.validateStructure(device: identity.device, publicOwner: owner, publicGroup: group)
+        try value.validateStructure(device: identity.device, publicOwner: owner, publicGroup: group, beforeGroup: beforeGroup)
         try validateIntent(value)
         guard try inspect(directory, "intent.json", owner: owner, group: group, maximum: maximumIntent, readBody: true).pin == file.pin,
               try PublicTreeDirectoryIdentity.observe(directory, owner: owner, group: group) == identity else { throw FullImageFailure.journal }
@@ -394,7 +399,7 @@ final class FullImageGlobalJournal {
     }
     // `expected` was validated against the source, verified predecessor and
     // staged objects before this call. Reopen always requires the same bytes.
-    static func open(directory supplied: Int32, owner: uid_t, group: gid_t, expected: FullImageGlobalIntent,
+    static func open(directory supplied: Int32, owner: uid_t, group: gid_t, beforeGroup: gid_t? = nil, expected: FullImageGlobalIntent,
                      validateIntent: (FullImageGlobalIntent) throws -> Void,
                      verifyAttachment: @escaping (Int32) throws -> Void,
                      fault: @escaping (Phase) throws -> Void = { _ in }) throws -> FullImageGlobalJournal {
@@ -405,7 +410,7 @@ final class FullImageGlobalJournal {
         try verifyAttachment(fd)
         let identity = try PublicTreeDirectoryIdentity.observe(fd, owner: owner, group: group)
         guard identity.mode == 0o700 else { throw FullImageFailure.journal }
-        try expected.validateStructure(device: identity.device, publicOwner: owner, publicGroup: group)
+        try expected.validateStructure(device: identity.device, publicOwner: owner, publicGroup: group, beforeGroup: beforeGroup)
         try validateIntent(expected)
         let raw = try encoded(expected)
         guard raw.count <= maximumIntent else { throw FullImageFailure.journal }

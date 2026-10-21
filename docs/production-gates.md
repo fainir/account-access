@@ -78,7 +78,7 @@ temporary SQLite setup error alongside 155 passes; that setup test passed in an
 isolated recheck. These changes are now included in build 80, whose signed GUI,
 wheel, source correspondence and complete public image passed static review.
 The image has 404 changed manifest nodes; only the two owner-app executables
-changed among its 41 native files. Build 80 still needs actual Installer
+changed among its 41 native files. Build 80 failed actual Installer
 qualification and has not been installed on the owner's Mac.
 [Source diagnostics checks](../artifacts/authentication-first-stop-20261021.json).
 [Build 80 static evidence](../artifacts/authentication-candidate80-20261021.json).
@@ -87,8 +87,24 @@ The build 80 package and matching source archive are assembled and independently
 reviewed. Its complete staged and expanded images match; the new signed helper
 preserves the inherited-group correction. The source kit contains the actual
 compiler inputs, separate app/controller Git trees and matching GPL sources.
-The package remains unsigned and unnotarized, and actual Installer qualification
-is pending. [Exact build 80 candidate](../artifacts/full-image-candidate80-20261021.json).
+The package remains unsigned and unnotarized. Its first actual Installer matrix
+failed in all three scenarios. The base and startup component passed, and the
+predecessor check accepted the measured inherited group `80`. The full-image
+helper then refused at `preparation` with `full_image_update_unavailable`.
+Ten of eighteen checks passed in each scenario; target-image installation,
+interruption recovery and reapplication were not reached. The exact preparation
+predicate was not measured. Source inspection found a separate group-contract
+mismatch: existing tree parents and old tree contents were required to use the
+new staged tree's group. The correction pins canonical parent groups separately
+and binds old tree contents to the qualified unchanged support root's group.
+New staged trees and journals still require group `0`; uniform tree metadata,
+ownership, modes, ACL and content checks remain. Its ordinary native dispatcher
+passed 376 assertions, five argument refusals and the ordinary-user updater
+refusal. Another 195 focused Python checks passed. These are source and
+synthetic-fixture checks; the failed package remains unchanged and unqualified.
+[Exact build 80 candidate](../artifacts/full-image-candidate80-20261021.json) and
+[failed actual matrix](../artifacts/full-image-installer80-first-attempt-20261021.json).
+[Legacy-group source correction](../artifacts/full-image-legacy-group-20261021.json).
 
 The first build-80 source workflows at `d5741bc` found one stale test mock that
 did not accept the new optional diagnostics callback. Each full suite recorded

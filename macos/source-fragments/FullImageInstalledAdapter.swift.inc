@@ -4,6 +4,13 @@
 // remain private and their predicates are reused unchanged. No main is added.
 enum FullImageInstallCheckpoint: String {
     case source, payload, context, predecessor, preparation, journal, transition, complete
+    case preparationCapacity = "preparation_capacity", preparationPolicy = "preparation_policy"
+    case preparationDynamic = "preparation_dynamic", preparationBegin = "preparation_begin"
+    case preparationFileStage = "preparation_file_stage", preparationTreeStage = "preparation_tree_stage"
+    case preparationTreeCapture = "preparation_tree_capture", preparationDynamicStage = "preparation_dynamic_stage"
+    case preparationService = "preparation_service", preparationAuthority = "preparation_authority"
+    case preparationPredecessor = "preparation_predecessor_recheck", preparationPayload = "preparation_payload_recheck"
+    case preparationJournal = "preparation_journal", preparationPublish = "preparation_publish"
 }
 private final class FullImageStorageReference {
     weak var storage: FullImageMixedStorage?
@@ -189,6 +196,10 @@ extension ComponentController {
         let namespace = try FullImageNamespaceDirectory.installed(library); defer { Darwin.close(namespace) }
         let routes = try FullImageInstalledRoutes.installed()
         let support = try routes.support(), namespaceRoute = try routes.namespace()
+        // The first full-image transition preserves the original public root.
+        // Bind its qualified, unchanged group; never obtain legacy authority
+        // from intent bytes or normalize an existing installed object.
+        let beforeGroup = support.identity.group
         guard try InstallerPayloadIO.check(namespace, owner: 0, directory: true).st_ino == namespaceRoute.identity.inode else { throw FullImageFailure.object }
         let orphans = try FullImagePreparationInspector.retained(namespace, plan: pins.planSHA256, owner: 0, group: 0)
         let hasIntent = try InstallerPayloadIO.contents(namespace).contains("transition-" + pins.planSHA256)
@@ -198,7 +209,7 @@ extension ComponentController {
         let preliminary: FullImageGlobalIntent?
         if hasIntent {
             let global = try routes.globalJournal(plan: pins.planSHA256)
-            preliminary = try FullImageGlobalJournal.readIntent(directory: global.fd, owner: 0, group: 0,
+            preliminary = try FullImageGlobalJournal.readIntent(directory: global.fd, owner: 0, group: 0, beforeGroup: beforeGroup,
                 validateIntent: { try fullPreliminary($0, source: source, ownerUID: ownerUID) }, verifyAttachment: global.verify)
         } else { preliminary = nil }
         checkpoint(.predecessor)
@@ -218,13 +229,17 @@ extension ComponentController {
         if let preliminary { intent = preliminary }
         else {
             guard orphans < 8 else { throw FullImageFailure.journal }
+            checkpoint(.preparationCapacity)
             try ComponentPreparation.capacity(namespace, bytes: FullImagePublicStager.reserve(source), owner: 0, sameDeviceAs: support.fd)
             let install = try publicRead("broker/install.json", mode: 0o600)
             let host = try publicRead("broker/host.json", mode: 0o644), profile = try publicRead("owner.json", mode: 0o644)
+            checkpoint(.preparationPolicy)
             let policy = try fullPolicy(source: source, predecessor: predecessor, install: install.0, host: host.0,
                 profile: profile.0, worker: worker.0, ownerUID: ownerUID)
             guard policy.brokerUID == authority.brokerUID else { throw FullImageFailure.predecessor }
+            checkpoint(.preparationDynamic)
             let dynamic = try fullDynamic(policy, source: source, proofSHA256: authority.proofSHA256)
+            checkpoint(.preparationBegin)
             let preparation = try ComponentPreparation.begin(namespace, plan: pins.planSHA256, owner: 0)
             let preparingName = preparation.0, preparing = preparation.1; defer { Darwin.close(preparing) }
             let files = try child(preparing, "files", create: true); defer { Darwin.close(files) }
@@ -234,6 +249,7 @@ extension ComponentController {
             for (index, selected) in source.units.enumerated() {
                 switch selected {
                 case .file(let publicUnit, let beforeNode, let afterNode):
+                    checkpoint(.preparationFileStage)
                     let unit = FullImageFileUnit(publicUnit: publicUnit), slot = String(format: "slot-%02d", index)
                     let (parent, name) = try routes.resolve(unit); defer { Darwin.close(parent) }
                     let before = try ComponentFiles.observe(parent, name, owner: 0); try fullMatches(before, beforeNode)
@@ -245,6 +261,7 @@ extension ComponentController {
                     operations.append(FullImageDurableOperation(file: FullImageFileOperation(schema: 1, unit: unit,
                         planSHA256: pins.planSHA256, index: index, before: before, after: after)))
                 case .tree(let unit, let old, let new):
+                    checkpoint(.preparationTreeStage)
                     let tree = try child(trees, unit.rawValue, create: true); defer { Darwin.close(tree) }
                     let retained = try child(tree, "retained", create: true); defer { Darwin.close(retained) }
                     let localJournal = try child(tree, "journal", create: true); defer { Darwin.close(localJournal) }
@@ -258,12 +275,14 @@ extension ComponentController {
                         guard fchmod(output, 0o755) == 0, fsync(output) == 0, fsync(retained) == 0 else { throw FullImageFailure.object }
                     }
                     let target = try routes.treeParent(unit), temporary = try routes.preparing(preparingName, plan: pins.planSHA256, unit: unit)
+                    checkpoint(.preparationTreeCapture)
                     let record = try PublicTreeStorage.capture(unit: unit, targetParent: target.fd, retainedParent: retained,
                         targetAttachment: target.attachment(.target(unit)), retainedAttachment: temporary.attachment(.retained(unit)),
-                        old: old, new: new, owner: 0, group: 0, planSHA256: pins.planSHA256)
+                        old: old, new: new, owner: 0, group: 0, beforeGroup: beforeGroup, planSHA256: pins.planSHA256)
                     operations.append(FullImageDurableOperation(tree: record))
                 }
             }
+            checkpoint(.preparationDynamicStage)
             for unit in [FullImageFileUnit.hostPolicy, .ownerPolicy, .installRecord, .head] {
                 let before = [FullImageFileUnit.hostPolicy: host.1, .ownerPolicy: profile.1, .installRecord: install.1][unit]
                 let index = operations.count, slot = String(format: "slot-%02d", index)
@@ -271,6 +290,7 @@ extension ComponentController {
                 operations.append(FullImageDurableOperation(file: FullImageFileOperation(schema: 1, unit: unit,
                     planSHA256: pins.planSHA256, index: index, before: before, after: after)))
             }
+            checkpoint(.preparationService)
             let observed = try ComponentCommands.launchctl(["print", "system/" + label])
             guard observed.status == 0 else { throw FullImageFailure.predecessor }
             let initial = try ComponentUpdateIdentity.jobSnapshot(output: observed.output, allowedPeers: [source.oldPeers["broker"]!])
@@ -279,19 +299,24 @@ extension ComponentController {
                 targetSourceCommit: pins.targetSourceCommit, predecessorEvidenceSHA256: authority.proofSHA256,
                 ownerUID: ownerUID, brokerUID: authority.brokerUID, initialService: initial,
                 workerPolicy: worker.1, servicePlist: plist, operations: operations, automaticRebootRecovery: false)
-            try authority.validate(candidate, source: source, publicOwner: 0, publicGroup: 0, device: device, dynamic: dynamic)
+            checkpoint(.preparationAuthority)
+            try authority.validate(candidate, source: source, publicOwner: 0, publicGroup: 0, beforeGroup: beforeGroup, device: device, dynamic: dynamic)
+            checkpoint(.preparationPredecessor)
             _ = try revalidateCompletedPredecessor(resources: predecessorResources, planPin: pins.predecessor.planSHA256, expectedEvidence: proof.evidence)
+            checkpoint(.preparationPayload)
             _ = try InstallerPayloadIO.verifyImage(image, manifest: source.after, owner: 0)
             // This journal is closed before its parent is renamed. Reopen below
             // qualifies the final canonical route rather than adopting the old
             // preparation route after publication.
             do {
+                checkpoint(.preparationJournal)
                 let temporary = try routes.preparing(preparingName, plan: pins.planSHA256)
-                _ = try FullImageGlobalJournal.open(directory: global, owner: 0, group: 0, expected: candidate,
-                    validateIntent: { try authority.validate($0, source: source, publicOwner: 0, publicGroup: 0, device: device, dynamic: dynamic) },
+                _ = try FullImageGlobalJournal.open(directory: global, owner: 0, group: 0, beforeGroup: beforeGroup, expected: candidate,
+                    validateIntent: { try authority.validate($0, source: source, publicOwner: 0, publicGroup: 0, beforeGroup: beforeGroup, device: device, dynamic: dynamic) },
                     verifyAttachment: temporary.verify)
             }
             try routes.verify()
+            checkpoint(.preparationPublish)
             try ComponentPreparation.publish(namespace, name: preparingName, directory: preparing, plan: pins.planSHA256, owner: 0)
             intent = candidate
         }
@@ -306,8 +331,8 @@ extension ComponentController {
             profile: fullOriginal(dynamicFiles[1], files: files, routes: routes), worker: worker.0, ownerUID: ownerUID)
         guard policy.brokerUID == authority.brokerUID else { throw FullImageFailure.predecessor }
         let dynamic = try fullDynamic(policy, source: source, proofSHA256: authority.proofSHA256)
-        let journal = try FullImageGlobalJournal.open(directory: global.fd, owner: 0, group: 0, expected: intent,
-            validateIntent: { try authority.validate($0, source: source, publicOwner: 0, publicGroup: 0, device: device, dynamic: dynamic) },
+        let journal = try FullImageGlobalJournal.open(directory: global.fd, owner: 0, group: 0, beforeGroup: beforeGroup, expected: intent,
+            validateIntent: { try authority.validate($0, source: source, publicOwner: 0, publicGroup: 0, beforeGroup: beforeGroup, device: device, dynamic: dynamic) },
             verifyAttachment: global.verify)
         let recovery = try journal.recovery()
         let barrier = ComponentLaunchdBarrier(brokerUID: authority.brokerUID, recoveringIntent: recovery.ownsDisable,
@@ -328,7 +353,7 @@ extension ComponentController {
                 let storage = try PublicTreeStorage.open(operation: operation, unit: unit, targetParent: target.fd,
                     retainedParent: retained.fd, journalParent: localJournal.fd,
                     targetAttachment: target.attachment(.target(unit)), retainedAttachment: retained.attachment(.retained(unit)),
-                    journalAttachment: localJournal.attachment(.journal(unit)), old: old, new: new, owner: 0, group: 0,
+                    journalAttachment: localJournal.attachment(.journal(unit)), old: old, new: new, owner: 0, group: 0, beforeGroup: beforeGroup,
                     requireQuiescent: barrier.requireDisabledAndQuiescent)
                 units.append(.tree(storage))
             }

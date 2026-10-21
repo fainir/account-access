@@ -30,25 +30,31 @@ DEPENDENCIES = (
 FIXTURES = (
     "CombinedPredecessorAuthorityChecks.swift", "FullImagePredecessorAuthorityChecks.swift",
     "FullImageInstalledSourceFixture.swift", "FullImageInstalledChecks.swift", "FullImageNamespaceChecks.swift",
+    "FullImageLegacyGroupChecks.swift", "FullImageGlobalJournalChecks.swift",
 )
-MAIN_FIXTURES = frozenset((FIXTURES[0], FIXTURES[3], FIXTURES[4]))
+MAIN_FIXTURES = frozenset((FIXTURES[0], FIXTURES[3], FIXTURES[4], FIXTURES[5], FIXTURES[6]))
 FRAGMENTS = ("macos/source-fragments/CompletedComponentPredecessor.swift.inc",
              "macos/source-fragments/FullImageInstalledAdapter.swift.inc")
 ENTRYPOINT = "FullImageUpdateMain.swift"
 EXACT_INPUTS = {
-    "macos/ComponentUpdate.swift": "05fc4fb9ff5f2e81ddba4ffa8c4fac8ae0006ff8fdfc0b9fb6388c7fea47750a",
-    FRAGMENTS[0]: "0566511fb68973e4d01171964abd83a36c517180590c1c8505cbe721379ecbd6",
-    FRAGMENTS[1]: "49f9906a95fa5dbb8e64d37759962260682e86d08a8f285aaad80033a7aa73b7",
-    "macos/FullImageInstalledIO.swift": "25b43b7099e8b698e48e718bd6429fa9fafe1bb118178bc661386ebd09cae613",
-    "macos/FullImagePredecessorAuthority.swift": "4ba2097a5692aacdc1b4ca119f1c6824abfd332650a152d2e419decc8449d15f",
-    "macos/" + ENTRYPOINT: "6972155e3c0f0e0bd5f9f1a8364f1b52b10e4d541c813802d126c82abfe9e53a",
-    "macos/Tests/CombinedPredecessorAuthorityChecks.swift": "79b4e2479723ad52cc5deb78b070f38e5cb75a6f7b7232a098ed4b9e663bec27",
-    "macos/Tests/FullImagePredecessorAuthorityChecks.swift": "5e0a7d7677a01cd7baf778b34176d0172e06d31eade1340884270e8d12c9bb3f",
-    "macos/Tests/FullImageInstalledSourceFixture.swift": "28c438a2294ef668bf0632089c212c8b7a2706ba5edea5ea0f546504ffa5e514",
-    "macos/Tests/FullImageInstalledChecks.swift": "3ab0203f9dc00ae987770e950bf8cbc13218b3d5023b2c90c77666a52e43bde9",
-    "macos/Tests/FullImageNamespaceChecks.swift": "64b91df85ac8c72900ae180a34ee734042ababc3b35d035a9e5f32594e490ba2",
+    'macos/ComponentUpdate.swift': '05fc4fb9ff5f2e81ddba4ffa8c4fac8ae0006ff8fdfc0b9fb6388c7fea47750a',
+    'macos/source-fragments/CompletedComponentPredecessor.swift.inc': '0566511fb68973e4d01171964abd83a36c517180590c1c8505cbe721379ecbd6',
+    'macos/source-fragments/FullImageInstalledAdapter.swift.inc': '8ec51ba03d4c4336078e6442cec0330b2b04352a53d68968fb190a76343d9595',
+    'macos/FullImageInstalledIO.swift': '25b43b7099e8b698e48e718bd6429fa9fafe1bb118178bc661386ebd09cae613',
+    'macos/FullImagePredecessorAuthority.swift': '39a6c5b35ab1614f89983c799dd603b2585b9d219d7b3d7908e73b750209f603',
+    'macos/FullImageUpdateMain.swift': '6972155e3c0f0e0bd5f9f1a8364f1b52b10e4d541c813802d126c82abfe9e53a',
+    'macos/Tests/CombinedPredecessorAuthorityChecks.swift': '79b4e2479723ad52cc5deb78b070f38e5cb75a6f7b7232a098ed4b9e663bec27',
+    'macos/Tests/FullImagePredecessorAuthorityChecks.swift': '34e940e3d6acc9878c57a1f96ed8cf2f805966db857dbea03e8c8c41b0fb75b4',
+    'macos/Tests/FullImageInstalledSourceFixture.swift': '28c438a2294ef668bf0632089c212c8b7a2706ba5edea5ea0f546504ffa5e514',
+    'macos/Tests/FullImageInstalledChecks.swift': '3ab0203f9dc00ae987770e950bf8cbc13218b3d5023b2c90c77666a52e43bde9',
+    'macos/Tests/FullImageNamespaceChecks.swift': '64b91df85ac8c72900ae180a34ee734042ababc3b35d035a9e5f32594e490ba2',
+    'macos/FullImageTreeAttachment.swift': '8bb445ede216844f0a32144e99c27a9f06a80b7a76f4e78fbd9f30b65ce22a65',
+    'macos/FullImageTreeStorage.swift': '3e032a573a877ea29253db0c4f6d0fefaef17bccc6504515ac012d60ce235115',
+    'macos/FullImageGlobalJournal.swift': 'b5d4121577064760e054852cb28b2e3f01bfdda92523bf30b96bf25a16db0c7e',
+    'macos/Tests/FullImageLegacyGroupChecks.swift': '783c7166faf8844feb90dfe1c35c8a5364bb0c8328a2538ff6ab337bc5ee0992',
+    'macos/Tests/FullImageGlobalJournalChecks.swift': 'c21e8b7f8c881af7bd5bdf2c49f78afc48ce20f2f41976bd2efe942c219c6766',
 }
-COMPOSED_SHA256 = "fd191841b7088ea03b41e164e1ceaaa839742aa34e647906bbbc19e71d162345"
+COMPOSED_SHA256 = "a855832da968ca6593c9572d19d173aa24c37b8ded78713b2699554090c0a426"
 GUARD_ENV = "ACCOUNT_ACCESS_FULL_IMAGE_PROBE_GUARD"
 DISPATCHER = b'''import Foundation
 import Darwin
@@ -59,9 +65,13 @@ import Darwin
             CompletedComponentPredecessorChecks.main()
             FullImageInstalledChecks.main()
             FullImageNamespaceChecks.main()
+            FullImageLegacyGroupChecks.main()
+            FullImageGlobalJournalChecks.main()
         case "predecessor": CompletedComponentPredecessorChecks.main()
         case "installed": FullImageInstalledChecks.main()
         case "namespace": FullImageNamespaceChecks.main()
+        case "legacy-group": FullImageLegacyGroupChecks.main()
+        case "global-journal": FullImageGlobalJournalChecks.main()
         case "entrypoint": FullImageUpdateMain.main()
         default: exit(77)
         }
@@ -323,21 +333,29 @@ class Probe:
         code, stdout, stderr = self.run([binary], "runtime", RUNTIME_SECONDS)
         require(code == 0 and stderr == b"", "native_fixture_failed")
         reports = [json.loads(line) for line in stdout.decode("utf-8").splitlines() if line.startswith("{")]
-        require(len(reports) == 3 and all(report.get("status") == "PASSED" for report in reports), "fixture_reports_refused")
-        require(reports[0].get("count") == 99 and isinstance(reports[0].get("checks"), dict)
-                and len(reports[0]["checks"]) == 99 and all(value is True for value in reports[0]["checks"].values())
+        require(len(reports) == 5 and all(report.get("status") == "PASSED" for report in reports[:4]), "fixture_reports_refused")
+        require(reports[0].get("count") == 105 and isinstance(reports[0].get("checks"), dict)
+                and len(reports[0]["checks"]) == 105 and all(value is True for value in reports[0]["checks"].values())
                 and reports[1].get("checks") == 39, "fixture_assertion_count_changed")
         namespace = reports[2]
         require((namespace.get("checks"), namespace.get("supplemental_group_case")) in {
             (15, "UNAVAILABLE_NO_DISTINCT_GROUP"),
             (21, "PASSED_INHERITED_DIFFERENT_GROUP_CORRECTED_ONLY_ON_NEW_INODE")}, "namespace_report_refused")
-        require(all(report.get(key) is False for report in reports
+        legacy, journal = reports[3:]
+        require(legacy.get("checks") == 63 and legacy.get("ordinary_temp_only") is True
+                and legacy.get("supplemental_group_case") == "PASSED_DISTINCT_OLD_AND_NEW_GROUPS"
+                and legacy.get("optional_polarities") == 2 and legacy.get("recovery_polarities") == 3,
+                "legacy_group_report_refused")
+        require(journal == {"status": "FULL_IMAGE_DURABLE_JOURNAL_CHECKS_PASSED", "assertions": 148,
+                            "installed_or_provider_operations": False}
+                and journal["installed_or_provider_operations"] is False, "global_journal_report_refused")
+        require(all(report.get(key) is False for report in reports[:4]
                     for key in ["installed_reads", "root_execution", "service_actions", "production_ready"]),
                 "fixture_scope_report_refused")
         self.result["reports"] = reports
         self.result["supplemental_group_case"] = namespace["supplemental_group_case"]
         self.result["stage"] = "guarded-main-refusal"
-        for guard in ["predecessor", "installed", "namespace"]:
+        for guard in ["predecessor", "installed", "namespace", "legacy-group", "global-journal"]:
             code, stdout, stderr = self.run([binary, "--unexpected-argument"], "guard-" + guard, 10, guard=guard)
             require(code == 77 and stdout == stderr == b"", "guarded_main_refusal_failed")
         self.result["stage"] = "ordinary-updater-entrypoint-refusal"
@@ -349,7 +367,7 @@ class Probe:
                                                      "reason": "full_image_update_context_required"}
         self.stable()
         self.result.update(status="PASSED", stage="complete", sources_stable=True,
-                           combined_compile_count=1, guarded_main_refusals=3)
+                           combined_compile_count=1, guarded_main_refusals=5)
 
     def save(self):
         if self.root_fd >= 0:

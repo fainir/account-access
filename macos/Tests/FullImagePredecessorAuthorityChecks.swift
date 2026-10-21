@@ -15,7 +15,7 @@ enum FullImagePredecessorAuthorityChecks {
         }
         let component = fixture.source
         func source(plan: String? = nil, original: String? = nil, target: String? = nil, head: String? = nil,
-                    wrongBefore: Bool = false) -> FullImageSource {
+                    wrongBefore: Bool = false, units: [FullImageSource.Unit] = []) -> FullImageSource {
             let pins = FullImageSourcePins(planSHA256: String(repeating: "d", count: 64), targetSourceCommit: String(repeating: "e", count: 40),
                 targetManifestSHA256: component.oldManifest.sha256, caReceiptSHA256: String(repeating: "0", count: 64),
                 predecessor: FullImagePredecessorPins(planSHA256: plan ?? component.planDigest,
@@ -26,7 +26,7 @@ enum FullImagePredecessorAuthorityChecks {
                 providerManifestSHA256: String(repeating: "a", count: 64), providerSourceBundleSHA256: String(repeating: "b", count: 64))
             return FullImageSource(pins: pins, before: wrongBefore ? component.oldManifest : component.newManifest,
                 after: component.oldManifest, oldPeers: component.newPeers, newPeers: component.newPeers,
-                designatedRequirements: [:], units: [], changed: [])
+                designatedRequirements: [:], units: units, changed: [])
         }
         let fullSource = source(), authority = try FullImagePredecessorAuthority.bind(source: fullSource, proof: proof)
         try expect(authority.proofSHA256 == proof.sha256 && authority.ownerUID == fixture.snapshot.ownerUID &&
@@ -64,6 +64,56 @@ enum FullImagePredecessorAuthorityChecks {
             try refuses("authority_changed_" + key + "_refused") {
                 try authority.validate(altered, source: fullSource, publicOwner: 0, publicGroup: 0, device: 7, dynamic: dynamic)
             }
+        }
+        // The qualified caller supplies the existing public-tree group. It is
+        // independent of the new staged group and cannot come from a journal.
+        let legacy: gid_t = 80
+        let oldTree = try PublicTreeInventory(validatedManifest: component.newManifest, unit: .project)
+        let newTree = try PublicTreeInventory(validatedManifest: component.oldManifest, unit: .project)
+        let treeSource = source(units: [.tree(.project, oldTree, newTree)])
+        let before = PublicTreePin(device: 7, inode: 30000, owner: 0, group: legacy, mode: 0o755,
+            inventorySHA256: oldTree.inventorySHA256!)
+        let after = PublicTreePin(device: 7, inode: 40000, owner: 0, group: 0, mode: 0o755,
+            inventorySHA256: newTree.inventorySHA256!)
+        func treeIntent(before replacementBefore: PublicTreePin? = nil, after replacementAfter: PublicTreePin? = nil) -> FullImageGlobalIntent {
+            let tree = PublicTreeOperation(schema: 2, unit: PublicTreeUnit.project.rawValue, planSHA256: treeSource.pins.planSHA256,
+                beforeManifestSHA256: treeSource.before.sha256, afterManifestSHA256: treeSource.after.sha256,
+                before: replacementBefore ?? before, after: replacementAfter ?? after)
+            let files = operations.map { operation -> FullImageDurableOperation in
+                let file = operation.file!
+                return FullImageDurableOperation(file: FullImageFileOperation(schema: file.schema, unit: file.unit,
+                    planSHA256: file.planSHA256, index: file.index + 1, before: file.before, after: file.after))
+            }
+            return FullImageGlobalIntent(schema: intent.schema, managedBy: intent.managedBy, planSHA256: intent.planSHA256,
+                beforeManifestSHA256: intent.beforeManifestSHA256, afterManifestSHA256: intent.afterManifestSHA256,
+                targetSourceCommit: intent.targetSourceCommit, predecessorEvidenceSHA256: intent.predecessorEvidenceSHA256,
+                ownerUID: intent.ownerUID, brokerUID: intent.brokerUID, initialService: intent.initialService,
+                workerPolicy: intent.workerPolicy, servicePlist: intent.servicePlist,
+                operations: [FullImageDurableOperation(tree: tree)] + files, automaticRebootRecovery: false)
+        }
+        let legacyIntent = treeIntent()
+        try authority.validate(legacyIntent, source: treeSource, publicOwner: 0, publicGroup: 0,
+            beforeGroup: legacy, device: 7, dynamic: dynamic)
+        try expect(true, "authority_explicit_legacy_group_intent_accepted")
+        try expect(legacyIntent.operations[0].tree!.before?.group == legacy && legacyIntent.operations[0].tree!.after?.group == 0,
+            "authority_old_and_new_group_pins_remain_distinct")
+        try refuses("authority_default_group_cannot_adopt_legacy_tree") {
+            try authority.validate(legacyIntent, source: treeSource, publicOwner: 0, publicGroup: 0, device: 7, dynamic: dynamic)
+        }
+        try refuses("authority_wrong_legacy_context_refused") {
+            try authority.validate(legacyIntent, source: treeSource, publicOwner: 0, publicGroup: 0, beforeGroup: legacy + 1, device: 7, dynamic: dynamic)
+        }
+        let forgedBefore = PublicTreePin(device: before.device, inode: before.inode, owner: before.owner, group: 0,
+            mode: before.mode, inventorySHA256: before.inventorySHA256)
+        try refuses("authority_forged_old_group_refused") {
+            try authority.validate(treeIntent(before: forgedBefore), source: treeSource, publicOwner: 0, publicGroup: 0,
+                beforeGroup: legacy, device: 7, dynamic: dynamic)
+        }
+        let forgedAfter = PublicTreePin(device: after.device, inode: after.inode, owner: after.owner, group: legacy,
+            mode: after.mode, inventorySHA256: after.inventorySHA256)
+        try refuses("authority_forged_new_group_refused") {
+            try authority.validate(treeIntent(after: forgedAfter), source: treeSource, publicOwner: 0, publicGroup: 0,
+                beforeGroup: legacy, device: 7, dynamic: dynamic)
         }
         return checks
     }

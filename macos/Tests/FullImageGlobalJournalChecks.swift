@@ -73,9 +73,11 @@ private enum JournalCheckFailure: Error { case failed, interrupted }
         let root: Int32, fd: Int32, name: String, identity: PublicTreeDirectoryIdentity
         let source: FullImageSource, intent: FullImageGlobalIntent
         let dynamic: [FullImageFileUnit: Data]
+        let beforeGroup: gid_t
         var states: [ComponentOperationState]
-        init(root: Int32, name: String) throws {
+        init(root: Int32, name: String, beforeGroup: gid_t? = nil) throws {
             self.root = root; self.name = name; fd = try directory(root, name)
+            let legacyGroup = beforeGroup ?? getgid(); self.beforeGroup = legacyGroup
             let localIdentity = try PublicTreeDirectoryIdentity.observe(fd, owner: getuid(), group: getgid()); identity = localIdentity
             let localSource = try FullImageGlobalJournalChecks.source(); source = localSource
             let dynamic: [FullImageFileUnit: Data] = [.hostPolicy: Data("new-host-policy".utf8), .ownerPolicy: Data("new-owner-policy".utf8),
@@ -86,10 +88,10 @@ private enum JournalCheckFailure: Error { case failed, interrupted }
                 guard let node else { return nil }; serial += 1
                 return ComponentObject(device: localIdentity.device, inode: serial, mode: UInt16(node.mode!), bytes: node.size!, sha256: node.sha256!)
             }
-            func pin(_ inventory: PublicTreeInventory) -> PublicTreePin? {
+            func pin(_ inventory: PublicTreeInventory, group: gid_t) -> PublicTreePin? {
                 guard let sha = inventory.inventorySHA256 else { return nil }
                 serial += 1
-                return PublicTreePin(device: localIdentity.device, inode: serial, owner: getuid(), group: getgid(), mode: 0o755,
+                return PublicTreePin(device: localIdentity.device, inode: serial, owner: getuid(), group: group, mode: 0o755,
                     inventorySHA256: sha)
             }
             var operations: [FullImageDurableOperation] = []
@@ -101,7 +103,7 @@ private enum JournalCheckFailure: Error { case failed, interrupted }
                 case .tree(let unit, let before, let after):
                     operations.append(FullImageDurableOperation(tree: PublicTreeOperation(schema: 2, unit: unit.rawValue,
                         planSHA256: localSource.pins.planSHA256, beforeManifestSHA256: localSource.before.sha256, afterManifestSHA256: localSource.after.sha256,
-                        before: pin(before), after: pin(after))))
+                        before: pin(before, group: legacyGroup), after: pin(after, group: getgid()))))
                 }
             }
             for unit in [FullImageFileUnit.hostPolicy, .ownerPolicy, .installRecord, .head] {
@@ -126,7 +128,7 @@ private enum JournalCheckFailure: Error { case failed, interrupted }
         func validate(_ value: FullImageGlobalIntent) throws {
             try value.validate(source: source, predecessorEvidenceSHA256: String(repeating: "5", count: 64),
                 workerPolicy: intent.workerPolicy, servicePlist: intent.servicePlist, ownerUID: 501, brokerUID: 473,
-                publicOwner: getuid(), publicGroup: getgid(), device: identity.device, dynamic: dynamic)
+                publicOwner: getuid(), publicGroup: getgid(), beforeGroup: beforeGroup, device: identity.device, dynamic: dynamic)
         }
         func attached(_ candidate: Int32) throws {
             var path = stat()
@@ -134,7 +136,7 @@ private enum JournalCheckFailure: Error { case failed, interrupted }
                   try PublicTreeDirectoryIdentity.observe(candidate, owner: getuid(), group: getgid()) == identity else { throw JournalCheckFailure.failed }
         }
         func open(fault: @escaping (FullImageGlobalJournal.Phase) throws -> Void = { _ in }) throws -> FullImageGlobalJournal {
-            try FullImageGlobalJournal.open(directory: fd, owner: getuid(), group: getgid(), expected: intent,
+            try FullImageGlobalJournal.open(directory: fd, owner: getuid(), group: getgid(), beforeGroup: beforeGroup, expected: intent,
                 validateIntent: validate, verifyAttachment: attached, fault: fault)
         }
         func state(_ token: ComponentOperation) throws -> ComponentOperationState {
@@ -402,6 +404,46 @@ private enum JournalCheckFailure: Error { case failed, interrupted }
                 value["operations"] = [["kind": "file"]]
                 let malformed = try JSONDecoder().decode(FullImageGlobalIntent.self, from: JSONSerialization.data(withJSONObject: value))
                 try refuses { try malformed.validateStructure(device: f.identity.device, publicOwner: getuid(), publicGroup: getgid()) }
+            }
+            // These are synthetic group pins; no file ownership is changed.
+            // The persisted journal still belongs to this ordinary invocation.
+            do {
+                let legacy = getgid() ^ 1
+                let f = try Fixture(root: root, name: "legacy-group-journal", beforeGroup: legacy)
+                try f.validate(f.intent); try expect(true)
+                try f.intent.validateStructure(device: f.identity.device, publicOwner: getuid(), publicGroup: getgid(), beforeGroup: legacy)
+                try expect(true)
+                try refuses { try f.intent.validateStructure(device: f.identity.device, publicOwner: getuid(), publicGroup: getgid()) }
+                try refuses { try f.intent.validateStructure(device: f.identity.device, publicOwner: getuid(), publicGroup: getgid(), beforeGroup: getgid()) }
+                for (side, group) in [("before", getgid()), ("after", legacy)] {
+                    let forged = try mutateTree(f.intent, unit: .owner) { tree in
+                        var pin = tree[side] as! [String: Any]; pin["group"] = group; tree[side] = pin
+                    }
+                    try refuses { try f.validate(forged) }
+                }
+                try refuses {
+                    _ = try FullImageGlobalJournal.open(directory: f.fd, owner: getuid(), group: getgid(), expected: f.intent,
+                        validateIntent: f.validate, verifyAttachment: f.attached)
+                }
+                let journal = try f.open(); try expect(journal.intent == f.intent)
+                let loaded = try FullImageGlobalJournal.readIntent(directory: f.fd, owner: getuid(), group: getgid(), beforeGroup: legacy,
+                    validateIntent: f.validate, verifyAttachment: f.attached)
+                try expect(loaded == f.intent)
+                try refuses {
+                    _ = try FullImageGlobalJournal.readIntent(directory: f.fd, owner: getuid(), group: getgid(),
+                        validateIntent: f.validate, verifyAttachment: f.attached)
+                }
+                try refuses {
+                    _ = try FullImageGlobalJournal.readIntent(directory: f.fd, owner: getuid(), group: getgid(), beforeGroup: getgid(),
+                        validateIntent: f.validate, verifyAttachment: f.attached)
+                }
+                try journal.writeService("disable_intent_prior_enabled")
+                let resumed = try f.open(), recovery = try resumed.recovery()
+                try expect(resumed.intent == f.intent)
+                try expect(recovery.recordCount == 1 && recovery.ownsDisable && !recovery.finished)
+                try expect(f.intent.operations.compactMap(\.tree).allSatisfy {
+                    ($0.before == nil || $0.before?.group == legacy) && ($0.after == nil || $0.after?.group == getgid())
+                })
             }
             var observed = stat(); guard lstat(path, &observed) == 0, PublicTreeDirectoryIdentity(observed) == rootPin else { throw JournalCheckFailure.failed }
             try FileManager.default.removeItem(atPath: path) // Exclusive invocation-owned 0700 tree only.

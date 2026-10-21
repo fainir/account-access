@@ -71,6 +71,9 @@ final class PublicTreeAttachment {
     private let anchor: PublicTreeTrustedAnchor
     private let steps: [PublicTreeAncestorStep]
     private let leaf: PublicTreeDirectoryIdentity
+    // The caller qualified this exact canonical directory identity at bind.
+    // Its group is independent of any old/new tree moved beneath it.
+    var parentGroup: gid_t { leaf.group }
     private init(anchor: PublicTreeTrustedAnchor, steps: [PublicTreeAncestorStep], role: PublicTreeParentRole) {
         self.anchor = anchor; self.steps = steps; self.role = role
         leaf = steps.last?.identity ?? anchor.identity
