@@ -127,6 +127,7 @@ def _run(command, args, directory, expires, *, secret_environment=None):
     environment.update(secret_environment or {})
     output = bytearray()
     process = None
+    succeeded = False
     try:
         remaining = expires - time.monotonic()
         if remaining <= 0:
@@ -154,20 +155,42 @@ def _run(command, args, directory, expires, *, secret_environment=None):
             # Diagnostics can contain secrets and have no stable error schema.
             # A nonzero exit never permits a cached credential to be used.
             fail("password_source_unavailable", "RETRYABLE")
-        return bytes(output)
+        result = bytes(output)
+        succeeded = True
+        return result
     except (OSError, TimeoutError, subprocess.TimeoutExpired):
         fail("password_source_unavailable", "RETRYABLE")
     finally:
         environment.clear()
         if process is not None:
             # Also stop a helper left behind by a successfully exited CLI.
+            # Cleanup must not mask an earlier source/identity error: refresh
+            # needs that AccessError to invalidate the approved cached login.
+            cleaned = True
             try:
                 os.killpg(process.pid, signal.SIGKILL)
             except ProcessLookupError:
                 pass
-            if process.returncode is None:
-                process.wait(timeout=2)
-            process.stdout.close()
+            except Exception:
+                cleaned = False
+                if process.returncode is None:
+                    try:
+                        process.kill()  # Best effort for the direct child only.
+                    except Exception:
+                        pass
+            try:
+                if process.returncode is None:
+                    process.wait(timeout=2)
+            except Exception:
+                cleaned = False
+            try:
+                process.stdout.close()
+            except Exception:
+                cleaned = False
+            # Even a successful provider response cannot release credentials
+            # when descendant/child/pipe cleanup could not be verified.
+            if succeeded and not cleaned:
+                fail("password_source_unavailable", "RETRYABLE")
 
 
 def _pairs(pairs):

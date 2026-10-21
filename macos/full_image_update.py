@@ -36,7 +36,7 @@ PROVIDER_PINS = {
     "official_entrypoint_sha256": "7cad23262b9ca168f22c12d7cdf64ef168e57d49784377c2b8cd02707759e4d7",
     "upstream_archive_sha256": "2a04ebc02ca970bbadd2e6d6316e06d164526760e424e5c3bb050a8110197223",
     "derivation_source_sha256": "2adfa2c71a292444a92e05d6f0e689bbd8e5a1137aaecdcb6351e5877cc31ade",
-    "dependency_overrides_sha256": "7625d96a7fce65353897a21185e7f623e7bbe13d5bbd42e91e44df096ff14598",
+    "dependency_overrides_sha256": "bae5f9902bd56edbee76b6c4155c10a9580205def4f1cbf0e0ec7a41f8c71942",
     "cli_derivation": "remove-unused-node-forge-v1",
     "omitted_runtime_dependencies": {"node-forge": "1.4.0"},
     "node_upstream_sha256": "e4b5a3af0e05c75de2eae013904145f40fe7fc2a6e6f17510128bf45cca4e79b",
@@ -47,7 +47,7 @@ PROVIDER_PINS = {
     "sdk_commit": "c5e53d3e82ab80fdc9fd79ebd74058399a6444b6",
 }
 DERIVED_METADATA = "0c7cbde7f73fc96fe89c2eaa0a89b575d9f6c79b1412fe2b81206eed90eda6af"
-WORKER_SOURCE = "385439b2030fcba7634cb585e88773a65bb44cb03c0ea23d94ad9b276159686b"
+WORKER_SOURCE = "9f7e786ac8d674ba32f1ce803fd414c6e13789c6e8cf720cc1caab30e0786fa3"
 REQUIRED_SOURCES = frozenset(("macos/AccountAccess.swift", "macos/bitwarden_derivation.py",
     "macos/bitwarden-overrides.lock.json", "account_access/bitwarden_source.py",
     *("account_access/" + name for name in UNCHANGED_FORMAT)))
