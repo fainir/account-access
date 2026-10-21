@@ -116,6 +116,15 @@ ten-asset Installer contract. The replacement still needs actual Installer
 qualification and is neither installed on the owner's Mac nor a production
 release. [Exact package 81 evidence](../artifacts/full-image-candidate81-20261021.json).
 
+The QA-only head `b881873` also recorded an Android SDK setup failure:
+`sdkmanager` reported an invalid archive while installing the fixed API 30
+emulator image. Both APK builds had finished, but the emulator and actual login
+journey never started. The underlying download or cache cause is unknown. A
+small workflow change installs that same image once with verbose output before
+the unchanged emulator action, preserving failure exit codes and adding no
+retry. Its local command/exit checks passed; a fresh actual journey is still
+required. [Original SDK failure](../artifacts/android-sdk-first-failure-b881873-20261021.json).
+
 The first build-80 source workflows at `d5741bc` found one stale test mock that
 did not accept the new optional diagnostics callback. Each full suite recorded
 3,591 passes, 107 skips and that one failure; the Mac subsets found the same

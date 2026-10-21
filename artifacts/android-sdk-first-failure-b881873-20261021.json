@@ -1,0 +1,44 @@
+{
+  "APK_builds_completed": true,
+  "attempt": 1,
+  "emulator_started": false,
+  "fixed_image": "system-images;android-30;google_apis;x86_64",
+  "harness_change": {
+    "SDK_invocations_per_new_step_validation_case": 1,
+    "actual_command_temp_fake_sdk_checks_passed": true,
+    "exit_codes_preserved": [
+      0,
+      19
+    ],
+    "real_SDK_or_emulator_rerun": false,
+    "upstream_download_problem_resolved": false,
+    "validation_proof_sha256": "65669473cdfdd3fd03b568874ac566ad239a9e44e7570c325ab124038167dd19",
+    "workflow_sha256": "ffa957ef432b58c9ecb172023da99513b063fd5aae5355dd2e97c1b2ff645697"
+  },
+  "job_id": 119410396552,
+  "job_url": "https://github.com/fainir/account-access/actions/runs/39654304275/job/119410396552",
+  "observed_error": "Error on ZipFile unknown archive",
+  "pinned_action_sources": [
+    "https://raw.githubusercontent.com/ReactiveCircus/android-emulator-runner/a421e43855164a8197daf9d8d40fe71c6996bb0d/src/sdk-installer.ts",
+    "https://raw.githubusercontent.com/ReactiveCircus/android-emulator-runner/a421e43855164a8197daf9d8d40fe71c6996bb0d/src/main.ts"
+  ],
+  "planned_harness_change": "Install the identical image once with verbose output before the existing emulator action; preserve nonzero exit and unchanged journey gate.",
+  "product_failure_or_success_established_by_this_run": false,
+  "product_notification_browser_journey_started": false,
+  "production_ready": false,
+  "raw_job_log_sha256": "5917f5e06657277c55e9558a3e3336cd1418a7467c1aa6e106f2684bde5bb43f",
+  "retry_cancel_dispatch_or_guard_waiver": false,
+  "run_id": 39654304275,
+  "same_source_PR_first_attempt": {
+    "browser_SMS_verifications": 1,
+    "does_not_erase_push_failure": true,
+    "full_emulator_journey_passed": true,
+    "personal_phone_or_account_acceptance": false,
+    "proof_sha256": "d7ba82f6bda1f19d959a3c079ff3b0f252906d287c8e04204948e4d2e0455985"
+  },
+  "schema": 1,
+  "source_commit": "b881873c87373634bb5a2a15b245f7b5438bd416",
+  "status": "FIRST_ATTEMPT_ANDROID_SDK_SETUP_FAILED_BEFORE_PRODUCT_JOURNEY",
+  "unchanged_journey_can_be_assumed_passed": false,
+  "underlying_archive_download_or_cache_cause_established": false
+}
