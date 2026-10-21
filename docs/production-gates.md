@@ -112,9 +112,28 @@ passed its 54 inputs, 15 compiler copies, package expansion, inventory and
 signatures. The matching source archive contains both actual Git trees, the
 compiler inputs and matching GPL material; its independent stream review also
 passed. Four uploaded draft assets have exact backend hashes in a new frozen
-ten-asset Installer contract. The replacement still needs actual Installer
-qualification and is neither installed on the owner's Mac nor a production
-release. [Exact package 81 evidence](../artifacts/full-image-candidate81-20261021.json).
+ten-asset Installer contract. Its controller source at `740fe3c` passed all nine
+first-attempt source workflows and all fifteen executed jobs.
+[Controller source CI](../artifacts/ci-authentication-740fe3c-20261021.json).
+
+The first actual package 81 matrix passed installation/reapplication and
+creation-interruption/recovery, with all eighteen checks true in both scenarios.
+The removal scenario stopped at its test controller's coarse stopped-state
+inspection; it emitted no native refusal. The exact failed predicate was not
+recorded. Source review found a stale test requirement for group `0` on a
+retained old tree, conflicting with the qualified legacy-group contract.
+[Original matrix results](../artifacts/full-image-installer81-first-attempt-20261021.json).
+
+The corrected controller binds removal's group to the fixed support root
+observed before launching its owned helper and requalifies that root after
+stopping it. New trees still require group `0`; history, quiescence, head,
+ownership and exact-object checks remain. Sixty-nine focused checks and
+independent source review passed. A separate frozen contract contains the
+identical package/source asset bytes for a fresh corrected-controller matrix;
+the original failure is retained. Full recovery qualification remains pending.
+The package is neither installed on the owner's Mac nor a production release.
+[Controller correction](../artifacts/installer81-stopped-tree-controller-20261021.json)
+and [exact package 81 evidence](../artifacts/full-image-candidate81-20261021.json).
 
 The QA-only head `b881873` also recorded an Android SDK setup failure:
 `sdkmanager` reported an invalid archive while installing the fixed API 30

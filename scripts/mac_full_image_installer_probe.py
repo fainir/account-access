@@ -329,6 +329,53 @@ def completed_history():
     return digest(h.read_file(FULL / "head.json", maximum=4096)), h.stamp((FULL / "head.json").lstat())
 
 
+def public_directory_metadata(info):
+    """Bounded numeric evidence only; validation does not adopt these values."""
+    value = {"uid": info.st_uid, "gid": info.st_gid, "mode": stat.S_IMODE(info.st_mode),
+             "device": info.st_dev, "inode": info.st_ino, "kind": stat.S_IFMT(info.st_mode)}
+    require(all(type(item) is int for item in value.values())
+            and 0 <= value["uid"] < 2**32 and 0 <= value["gid"] < 2**32
+            and -(2**31) <= value["device"] < 2**31 and 0 < value["inode"] < 2**64)
+    return value
+
+
+def support_root_metadata():
+    """The fixed public root supplies legacy group authority before launch."""
+    guard()
+    descriptor = os.open(h.BASE, DIRECTORY)
+    try:
+        info = os.fstat(descriptor)
+        h.protected_metadata(info, mode=0o755)
+        h.deny_only_acl(descriptor)
+        require(h.stamp(info) == h.stamp(os.fstat(descriptor)) == h.stamp(h.BASE.lstat()))
+        return public_directory_metadata(info)
+    finally:
+        os.close(descriptor)
+
+
+def selected_tree_pin_metadata(pin):
+    require(isinstance(pin, dict) and all(type(pin.get(name)) is int
+            for name in ("owner", "group", "mode", "device", "inode")))
+    require(all(0 <= pin[name] < 2**32 for name in ("owner", "group"))
+            and 0 <= pin["mode"] <= 0o7777 and -(2**31) <= pin["device"] < 2**31
+            and 0 < pin["inode"] < 2**64)
+    return {name: pin[name] for name in ("owner", "group", "mode", "device", "inode")}
+
+
+def stopped_tree_metadata(scenario, support_before, support_after, pin, observed):
+    """Compare a stopped optional tree to pre-launch authority, never to a chosen GID."""
+    require(scenario in {"interrupt-remove", "interrupt-create"}
+            and support_before == support_after and support_before["uid"] == 0
+            and support_before["mode"] == 0o755 and support_before["kind"] == stat.S_IFDIR)
+    expected_group = support_before["gid"] if scenario == "interrupt-remove" else 0
+    pin = selected_tree_pin_metadata(pin)
+    require(pin["owner"] == 0 and pin["group"] == expected_group and pin["mode"] == 0o755
+            and pin["device"] == support_before["device"] and 0 < pin["inode"] < 2**64)
+    require(observed == {"uid": 0, "gid": expected_group, "mode": 0o755,
+            "device": pin["device"], "inode": pin["inode"], "kind": stat.S_IFDIR})
+    return pin
+
+
 def interrupt(scripts, scenario, report, output):
     """Stop only a Popen child created here, never a discovered/adopted PID."""
     index = 6 if scenario == "interrupt-remove" else 7
@@ -338,6 +385,10 @@ def interrupt(scripts, scenario, report, output):
     report["failure_stage"] = "owned_helper_launch"
     try:
         with stdout_path.open("xb") as stdout, stderr_path.open("xb") as stderr:
+            report["failure_stage"] = "owned_helper_support_before"
+            support_before = support_root_metadata()
+            report["interruption_support_before"] = support_before
+            report["failure_stage"] = "owned_helper_launch"
             child = subprocess.Popen([str(helper)], stdin=subprocess.DEVNULL, stdout=stdout, stderr=stderr,
                                      env=ENV, start_new_session=True)
             report["failure_stage"] = "owned_helper_checkpoint_wait"
@@ -364,25 +415,39 @@ def interrupt(scripts, scenario, report, output):
                                 stopped = True
                                 break
                             time.sleep(0.005)
-                        require(stopped and not os.path.lexists(FULL / "head.json"))
-                        report["failure_stage"] = "owned_helper_stopped_state"
+                        require(stopped)
+                        report["failure_stage"] = "owned_helper_stopped_head_absent"
+                        require(not os.path.lexists(FULL / "head.json"))
+                        report["failure_stage"] = "owned_helper_stopped_history"
                         intent, records = history()
+                        operation = intent["operations"][index]["tree"]
+                        require(operation["unit"] == unit)
+                        report["failure_stage"] = "owned_helper_stopped_applied_history"
                         require(any(row.get("transition") == "applied" and row.get("operation") == index for row in records)
                                 and not any(row.get("operation") == 28 and row.get("transition") == "applied" for row in records))
+                        report["failure_stage"] = "owned_helper_stopped_service_history"
                         require(any(row.get("service") == "disabled_quiescence_confirmed" for row in records)
                                 and not any(row.get("service") == "coherent_image_enable_intent" for row in records))
                         target = h.BASE / "python/lib/python3.12/site-packages" / (
                             "pip-26.2.1.dist-info" if index == 6 else "pip-26.2.2.dist-info")
                         retained = FULL / ("transition-" + PLAN_SHA) / "trees" / unit / "retained" / ("slot-" + unit)
+                        report["failure_stage"] = "owned_helper_stopped_optional_absence"
                         if index == 6:
                             require(not os.path.lexists(target))
                             pin, observed_path = operation["before"], retained
                         else:
                             require(not os.path.lexists(retained))
                             pin, observed_path = operation["after"], target
-                        actual = observed_path.lstat()
-                        require(stat.S_ISDIR(actual.st_mode) and actual.st_uid == actual.st_gid == 0
-                                and (actual.st_dev, actual.st_ino) == (pin["device"], pin["inode"]))
+                        report["failure_stage"] = "owned_helper_stopped_support_metadata"
+                        support_after = support_root_metadata()
+                        report["interruption_support_after"] = support_after
+                        report["failure_stage"] = "owned_helper_stopped_tree_metadata"
+                        observed = public_directory_metadata(observed_path.lstat())
+                        report["interruption_observed_tree"] = observed
+                        # Publish only bounded integers even if the immutable pin is invalid.
+                        report["interruption_selected_pin"] = selected_tree_pin_metadata(pin)
+                        stopped_tree_metadata(scenario, support_before, support_after, pin, observed)
+                        report["failure_stage"] = "owned_helper_stopped_broker_quiescence"
                         broker = h.policies()["install"]["broker_uid"]
                         observed = h.ProcessDiagnosticReader().observed(4, broker, expected_uid=broker)
                         require(observed.get("status") == "measured" and observed.get("count") == 0)
@@ -456,7 +521,7 @@ def run(args):
         require(controller["controller_revision"] == revision and controller["contract_sha256"] == digest(contract_raw)
                 and contract["status"] == "FROZEN_REVIEWED_ASSETS" and contract["repository"] == REPOSITORY
                 and contract_raw == h.git_bytes(args.repository,
-                    ["show", revision + ":artifacts/full-image-installer81-inputs.json"], maximum=64 * 1024))
+                    ["show", revision + ":artifacts/full-image-installer81-recovery-inputs.json"], maximum=64 * 1024))
         require(set(contract["assets"]) == ASSET_FILES
                 and contract.get("plan_sha256") == PLAN_SHA)
         for name, row in contract["assets"].items():

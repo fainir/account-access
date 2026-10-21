@@ -246,6 +246,7 @@ def test_owned_child_failure_retains_both_bounded_logs_without_real_process(monk
     monkeypatch.setattr(probe.subprocess, "Popen", fake_popen)
     monkeypatch.setattr(probe.os, "killpg", lambda pid, sig: signals.append((pid, sig)))
     monkeypatch.setattr(probe, "history", fake_history)
+    monkeypatch.setattr(probe, "support_root_metadata", lambda: {"fictional": True})
     monkeypatch.setattr(probe, "h", SimpleNamespace(read_file=read_owned_file), raising=False)
     report = {"logs": {}}
     with pytest.raises(ValueError):
@@ -299,3 +300,66 @@ def test_predecessor_metadata_checks_vm_guard_before_paths(monkeypatch):
     monkeypatch.setattr(Path, "lstat", lambda _path: pytest.fail("refused metadata touched a path"))
     with pytest.raises(ValueError, match="^fictional VM guard refusal$"):
         probe.predecessor_directory_metadata()
+
+
+def stopped_metadata(scenario):
+    support = {"uid": 0, "gid": 80, "mode": 0o755, "device": 4, "inode": 100, "kind": probe.stat.S_IFDIR}
+    group = 80 if scenario == "interrupt-remove" else 0
+    pin = {"owner": 0, "group": group, "mode": 0o755, "device": 4, "inode": 200,
+           "inventorySHA256": "a" * 64}
+    observed = {"uid": 0, "gid": group, "mode": 0o755, "device": 4, "inode": 200,
+                "kind": probe.stat.S_IFDIR}
+    return support, copy.deepcopy(support), pin, observed
+
+
+@pytest.mark.parametrize("scenario", ["interrupt-remove", "interrupt-create"])
+def test_stopped_optional_tree_binds_legacy_group_and_keeps_new_group_zero(scenario):
+    values = stopped_metadata(scenario)
+    original = copy.deepcopy(values)
+    assert probe.stopped_tree_metadata(scenario, *values) == {
+        name: values[2][name] for name in ("owner", "group", "mode", "device", "inode")}
+    assert values == original
+
+
+@pytest.mark.parametrize("scenario,side,field,value", [
+    ("interrupt-remove", 1, "gid", 20),
+    ("interrupt-remove", 1, "uid", 501),
+    ("interrupt-remove", 1, "mode", 0o700),
+    ("interrupt-remove", 1, "device", 5),
+    ("interrupt-remove", 1, "inode", 101),
+    ("interrupt-remove", 2, "group", 0),
+    ("interrupt-remove", 2, "owner", 501),
+    ("interrupt-remove", 2, "mode", 0o700),
+    ("interrupt-remove", 2, "device", 5),
+    ("interrupt-remove", 2, "inode", True),
+    ("interrupt-remove", 3, "gid", 0),
+    ("interrupt-remove", 3, "uid", 501),
+    ("interrupt-remove", 3, "mode", 0o700),
+    ("interrupt-remove", 3, "kind", probe.stat.S_IFLNK),
+    ("interrupt-remove", 3, "device", 5),
+    ("interrupt-remove", 3, "inode", 201),
+    ("interrupt-create", 2, "group", 80),
+    ("interrupt-create", 3, "gid", 80),
+])
+def test_stopped_tree_refuses_forged_pin_root_drift_or_object_metadata(scenario, side, field, value):
+    values = stopped_metadata(scenario)
+    values[side][field] = value
+    with pytest.raises(ValueError, match="^full_image_installer_acceptance_failed$"):
+        probe.stopped_tree_metadata(scenario, *values)
+
+
+def test_stopped_tree_does_not_adopt_matching_forged_record_and_object_group():
+    values = stopped_metadata("interrupt-remove")
+    values[2]["group"] = values[3]["gid"] = 20
+    with pytest.raises(ValueError, match="^full_image_installer_acceptance_failed$"):
+        probe.stopped_tree_metadata("interrupt-remove", *values)
+
+
+def test_support_root_group_observation_checks_vm_guard_before_open(monkeypatch):
+    def refuse():
+        raise ValueError("fictional VM guard refusal")
+
+    monkeypatch.setattr(probe, "guard", refuse)
+    monkeypatch.setattr(probe.os, "open", lambda *_args, **_kwargs: pytest.fail("refused context opened a path"))
+    with pytest.raises(ValueError, match="^fictional VM guard refusal$"):
+        probe.support_root_metadata()
