@@ -229,10 +229,20 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                             "SELECT * FROM challenges WHERE account=? AND resolved IS NULL", (account,))]
                         observed = (record("connection:" + account) or {},
                                     record("credential:" + account) or {}, pending)
+                        from .browser_diagnostics import PREFIX, owner_view
+                        try:
+                            diagnostic = owner_view(config, account, pending, record(PREFIX + account))
+                        except AccessError:
+                            diagnostic = None  # Optional evidence cannot make owner state unavailable.
+                        challenges = [broker.challenge_view(item) for item in pending]
+                        if diagnostic:
+                            for item in challenges:
+                                if item["id"] == diagnostic["challenge_id"]:
+                                    item["diagnostics"] = diagnostic["diagnostics"]
                         accounts.append({"account": account, **describe(spec, test_mode=config.test_mode), "route": spec.kind,
                                          **broker.connection_view(account, config, display_snapshot=observed),
                                          "operations": [{"name": name, "description": op.description} for name, op in spec.operations.items()],
-                                         "challenges": [broker.challenge_view(x) for x in pending]})
+                                         "challenges": challenges})
                     principals = [r[0] for r in db.execute("SELECT DISTINCT principal FROM clients WHERE revoked=0")]
                     grants = [dict(r) for r in db.execute("SELECT * FROM grants")]
                     integrations = record("agent-integrations", principals)

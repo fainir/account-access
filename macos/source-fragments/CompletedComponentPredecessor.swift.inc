@@ -88,7 +88,7 @@ extension ComponentController {
               source.delta.count == 9, Set(source.delta.map(\.path)) == ComponentSource.allowed,
               source.delta.map(\.path) == ComponentSource.allowed.sorted(),
               snapshot.ownerUID > 0, Set(snapshot.roots.keys) == ["original", "components", "transition"],
-              snapshot.roots.values.allSatisfy({ $0.owner == 0 && $0.group == 0 && $0.mode == 0o700 && $0.inode > 0 && $0.device >= 0 }),
+              snapshot.roots.values.allSatisfy({ $0.owner == 0 && $0.mode == 0o700 && $0.inode > 0 && $0.device >= 0 }),
               Set(snapshot.roots.values.map(\.device)).count == 1,
               Set(snapshot.roots.values.map(\.inode)).count == 3,
               snapshot.rootBindingSHA256.utf8.count == 64,
@@ -267,7 +267,10 @@ extension ComponentController {
     }
     private static func completedDirectory(_ fd: Int32) throws -> CompletedComponentDirectory {
         let info = try InstallerPayloadIO.check(fd, owner: 0, directory: true)
-        guard info.st_mode & 0o7777 == 0o700, info.st_gid == 0, info.st_nlink > 0 else { throw ComponentUpdateFailure.journal }
+        // The original component installer allowed mkdir's inherited group.
+        // Root ownership, 0700 and the existing ACL check protect the directory;
+        // its actual group remains part of the immutable evidence on every read.
+        guard info.st_mode & 0o7777 == 0o700, info.st_nlink > 0 else { throw ComponentUpdateFailure.journal }
         return CompletedComponentDirectory(device: info.st_dev, inode: UInt64(info.st_ino), owner: info.st_uid, group: info.st_gid, mode: UInt16(info.st_mode & 0o7777))
     }
     private static func completedServiceRecord(support: CompletedComponentRecord, validatedGlobal: CompletedComponentRecord) throws -> CompletedComponentRecord {

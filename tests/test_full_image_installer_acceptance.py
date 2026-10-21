@@ -200,3 +200,102 @@ def test_policy_expectation_changes_only_actual_two_fields_and_preserves_input(m
     expected["host"]["owner_hashes"] = original["host"]["owner_hashes"]
     expected["install"]["payload_fingerprint"] = original["install"]["payload_fingerprint"]
     assert expected == original
+
+
+@pytest.mark.parametrize("failure", ["launch", "missed-checkpoint", "history-guard"])
+def test_owned_child_failure_retains_both_bounded_logs_without_real_process(monkeypatch, tmp_path, failure):
+    scripts = tmp_path / "Scripts"
+    scripts.mkdir()
+    stdout_body = b'fictional native refusal\n' if failure != "launch" else b""
+    stderr_body = b'fictional stderr\n' if failure != "launch" else b""
+    output = {}
+    signals, waits, reads = [], [], []
+
+    class Child:
+        pid = 45678
+
+        def poll(self):
+            return None if failure == "history-guard" else 78
+
+        def wait(self, *, timeout):
+            waits.append(timeout)
+            return 78
+
+    def fake_popen(arguments, **options):
+        assert arguments == [str(scripts / "AccountAccess-fullimageupdate")]
+        assert options["env"] == probe.ENV and options["start_new_session"] is True
+        if failure == "launch":
+            raise ValueError("fictional launch failure")
+        options["stdout"].write(stdout_body)
+        options["stderr"].write(stderr_body)
+        return Child()
+
+    def read_owned_file(path, *, maximum):
+        assert path.parent == tmp_path and maximum == 128 * 1024
+        assert path.name in {"owned-helper.stdout", "owned-helper.stderr"}
+        reads.append(path.name)
+        body = path.read_bytes()
+        assert len(body) <= maximum
+        return body
+
+    def fake_history():
+        if failure == "history-guard":
+            raise ValueError("fictional checkpoint history refusal")
+        pytest.fail("exited fake child reached installed history")
+
+    monkeypatch.setattr(probe.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(probe.os, "killpg", lambda pid, sig: signals.append((pid, sig)))
+    monkeypatch.setattr(probe, "history", fake_history)
+    monkeypatch.setattr(probe, "h", SimpleNamespace(read_file=read_owned_file), raising=False)
+    report = {"logs": {}}
+    with pytest.raises(ValueError):
+        probe.interrupt(scripts, "interrupt-remove", report, SimpleNamespace(write=output.__setitem__))
+    assert output == {"owned-helper-stdout.log": stdout_body, "owned-helper-stderr.log": stderr_body}
+    assert report["logs"] == {name: probe.digest(body) for name, body in output.items()}
+    assert reads == ["owned-helper.stdout", "owned-helper.stderr"] and report["owned_helper_logs_captured"] is True
+    assert report["failure_stage"] == ("owned_helper_launch" if failure == "launch" else "owned_helper_checkpoint_wait")
+    assert signals == ([] if failure == "launch" else [(Child.pid, probe.signal.SIGKILL)])
+    assert waits == ([] if failure == "launch" else [10])
+
+
+def test_predecessor_directory_metadata_records_nonzero_groups_without_normalizing(monkeypatch):
+    original = Path("/Library/Application Support/Account Access Installer")
+    components = Path("/Library/Application Support/Account Access Components")
+    paths = [original, components, components / ("transition-" + probe.COMPONENT_PLAN)]
+    seen, guards = [], []
+
+    def fake_lstat(path):
+        assert path in paths
+        seen.append(path)
+        index = paths.index(path)
+        return SimpleNamespace(st_mode=probe.stat.S_IFDIR | 0o700, st_uid=0, st_gid=20 + index,
+                               st_dev=4, st_ino=100 + index)
+
+    monkeypatch.setattr(probe, "guard", lambda: guards.append(True))
+    monkeypatch.setattr(probe, "h", SimpleNamespace(JOURNAL=original, COMPONENTS=components), raising=False)
+    monkeypatch.setattr(Path, "lstat", fake_lstat)
+    value = probe.predecessor_directory_metadata()
+    assert seen == paths and guards == [True]
+    assert value == {name: {"uid": 0, "gid": 20 + index, "mode": 0o700, "device": 4, "inode": 100 + index}
+                     for index, name in enumerate(("original", "components", "transition"))}
+
+
+@pytest.mark.parametrize("mode,uid", [(probe.stat.S_IFDIR | 0o755, 0), (probe.stat.S_IFLNK | 0o700, 0),
+                                      (probe.stat.S_IFDIR | 0o700, 501)])
+def test_predecessor_metadata_refuses_wrong_mode_symlink_or_owner_without_real_reads(monkeypatch, mode, uid):
+    monkeypatch.setattr(probe, "guard", lambda: None)
+    monkeypatch.setattr(probe, "h", SimpleNamespace(JOURNAL=Path("/fictional/original"),
+                        COMPONENTS=Path("/fictional/components")), raising=False)
+    monkeypatch.setattr(Path, "lstat", lambda _path: SimpleNamespace(st_mode=mode, st_uid=uid))
+    with pytest.raises(ValueError, match="^full_image_installer_acceptance_failed$"):
+        probe.predecessor_directory_metadata()
+
+
+def test_predecessor_metadata_checks_vm_guard_before_paths(monkeypatch):
+    def refuse():
+        raise ValueError("fictional VM guard refusal")
+
+    monkeypatch.setattr(probe, "guard", refuse)
+    monkeypatch.setattr(Path, "lstat", lambda _path: pytest.fail("refused metadata touched a path"))
+    with pytest.raises(ValueError, match="^fictional VM guard refusal$"):
+        probe.predecessor_directory_metadata()

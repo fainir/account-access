@@ -151,6 +151,19 @@ def guard():
             and re.fullmatch("[a-f0-9]{40}", os.environ.get("GITHUB_SHA", "")) is not None)
 
 
+def predecessor_directory_metadata():
+    """Fixed completed-installation directory metadata on the guarded VM only."""
+    guard()
+    result = {}
+    for name, path in (("original", h.JOURNAL), ("components", h.COMPONENTS),
+                       ("transition", h.COMPONENTS / ("transition-" + COMPONENT_PLAN))):
+        info = path.lstat()  # Never follow a symlink or inspect directory contents.
+        require(stat.S_ISDIR(info.st_mode) and info.st_uid == 0 and stat.S_IMODE(info.st_mode) == 0o700)
+        result[name] = {"uid": info.st_uid, "gid": info.st_gid, "mode": stat.S_IMODE(info.st_mode),
+                        "device": info.st_dev, "inode": info.st_ino}
+    return result
+
+
 def hash_file(path, maximum):
     fd = os.open(path, REGULAR)
     try:
@@ -322,69 +335,83 @@ def interrupt(scripts, scenario, report, output):
     unit = "pythonOldPipInfo" if index == 6 else "pythonPipInfo"
     helper = scripts / "AccountAccess-fullimageupdate"
     stdout_path, stderr_path = scripts.parent / "owned-helper.stdout", scripts.parent / "owned-helper.stderr"
-    with stdout_path.open("xb") as stdout, stderr_path.open("xb") as stderr:
-        child = subprocess.Popen([str(helper)], stdin=subprocess.DEVNULL, stdout=stdout, stderr=stderr,
-                                 env=ENV, start_new_session=True)
-        stopped = False
-        try:
-            until = time.monotonic() + 900
-            while time.monotonic() < until and child.poll() is None:
-                require(stdout_path.stat().st_size + stderr_path.stat().st_size < 128 * 1024)
-                try:
-                    intent, records = history()
-                except FileNotFoundError:
-                    time.sleep(0.005)
-                    continue
-                operation = intent["operations"][index]["tree"]
-                require(operation["unit"] == unit)
-                if any(row.get("transition") == "applied" and row.get("operation") == index for row in records):
-                    os.killpg(child.pid, signal.SIGSTOP)
-                    until_stopped = time.monotonic() + 5
-                    while time.monotonic() < until_stopped:
-                        pid, status = os.waitpid(child.pid, os.WNOHANG | os.WUNTRACED)
-                        if pid:
-                            require(os.WIFSTOPPED(status))
-                            stopped = True
-                            break
-                        time.sleep(0.005)
-                    require(stopped and not os.path.lexists(FULL / "head.json"))
-                    intent, records = history()
-                    require(any(row.get("transition") == "applied" and row.get("operation") == index for row in records)
-                            and not any(row.get("operation") == 28 and row.get("transition") == "applied" for row in records))
-                    require(any(row.get("service") == "disabled_quiescence_confirmed" for row in records)
-                            and not any(row.get("service") == "coherent_image_enable_intent" for row in records))
-                    target = h.BASE / "python/lib/python3.12/site-packages" / (
-                        "pip-26.2.1.dist-info" if index == 6 else "pip-26.2.2.dist-info")
-                    retained = FULL / ("transition-" + PLAN_SHA) / "trees" / unit / "retained" / ("slot-" + unit)
-                    if index == 6:
-                        require(not os.path.lexists(target))
-                        pin, observed_path = operation["before"], retained
-                    else:
-                        require(not os.path.lexists(retained))
-                        pin, observed_path = operation["after"], target
-                    actual = observed_path.lstat()
-                    require(stat.S_ISDIR(actual.st_mode) and actual.st_uid == actual.st_gid == 0
-                            and (actual.st_dev, actual.st_ino) == (pin["device"], pin["inode"]))
-                    broker = h.policies()["install"]["broker_uid"]
-                    observed = h.ProcessDiagnosticReader().observed(4, broker, expected_uid=broker)
-                    require(observed.get("status") == "measured" and observed.get("count") == 0)
-                    report["interruption"] = {"status": "EXACT_OWNED_HELPER_STOPPED_BEFORE_HEAD", "optional_unit": unit,
-                        "operation": index, "durable_records": len(records), "head_absent": True,
-                        "broker_uid_processes": 0, "production_fault_flags": False,
-                        "installer_daemon_interrupted": False, "power_failure_tested": False}
-                    break
-                time.sleep(0.005)
-            require(stopped)  # A missed checkpoint fails; never retry for green.
-        finally:
+    report["failure_stage"] = "owned_helper_launch"
+    try:
+        with stdout_path.open("xb") as stdout, stderr_path.open("xb") as stderr:
+            child = subprocess.Popen([str(helper)], stdin=subprocess.DEVNULL, stdout=stdout, stderr=stderr,
+                                     env=ENV, start_new_session=True)
+            report["failure_stage"] = "owned_helper_checkpoint_wait"
+            stopped = False
             try:
-                os.killpg(child.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-            child.wait(timeout=10)
-    for name, path in [("owned-helper-stdout.log", stdout_path), ("owned-helper-stderr.log", stderr_path)]:
-        raw = h.read_file(path, maximum=128 * 1024)
-        output.write(name, raw)
-        report["logs"][name] = digest(raw)
+                until = time.monotonic() + 900
+                while time.monotonic() < until and child.poll() is None:
+                    require(stdout_path.stat().st_size + stderr_path.stat().st_size < 128 * 1024)
+                    try:
+                        intent, records = history()
+                    except FileNotFoundError:
+                        time.sleep(0.005)
+                        continue
+                    operation = intent["operations"][index]["tree"]
+                    require(operation["unit"] == unit)
+                    if any(row.get("transition") == "applied" and row.get("operation") == index for row in records):
+                        report["failure_stage"] = "owned_helper_stop_confirmation"
+                        os.killpg(child.pid, signal.SIGSTOP)
+                        until_stopped = time.monotonic() + 5
+                        while time.monotonic() < until_stopped:
+                            pid, status = os.waitpid(child.pid, os.WNOHANG | os.WUNTRACED)
+                            if pid:
+                                require(os.WIFSTOPPED(status))
+                                stopped = True
+                                break
+                            time.sleep(0.005)
+                        require(stopped and not os.path.lexists(FULL / "head.json"))
+                        report["failure_stage"] = "owned_helper_stopped_state"
+                        intent, records = history()
+                        require(any(row.get("transition") == "applied" and row.get("operation") == index for row in records)
+                                and not any(row.get("operation") == 28 and row.get("transition") == "applied" for row in records))
+                        require(any(row.get("service") == "disabled_quiescence_confirmed" for row in records)
+                                and not any(row.get("service") == "coherent_image_enable_intent" for row in records))
+                        target = h.BASE / "python/lib/python3.12/site-packages" / (
+                            "pip-26.2.1.dist-info" if index == 6 else "pip-26.2.2.dist-info")
+                        retained = FULL / ("transition-" + PLAN_SHA) / "trees" / unit / "retained" / ("slot-" + unit)
+                        if index == 6:
+                            require(not os.path.lexists(target))
+                            pin, observed_path = operation["before"], retained
+                        else:
+                            require(not os.path.lexists(retained))
+                            pin, observed_path = operation["after"], target
+                        actual = observed_path.lstat()
+                        require(stat.S_ISDIR(actual.st_mode) and actual.st_uid == actual.st_gid == 0
+                                and (actual.st_dev, actual.st_ino) == (pin["device"], pin["inode"]))
+                        broker = h.policies()["install"]["broker_uid"]
+                        observed = h.ProcessDiagnosticReader().observed(4, broker, expected_uid=broker)
+                        require(observed.get("status") == "measured" and observed.get("count") == 0)
+                        report["interruption"] = {"status": "EXACT_OWNED_HELPER_STOPPED_BEFORE_HEAD", "optional_unit": unit,
+                            "operation": index, "durable_records": len(records), "head_absent": True,
+                            "broker_uid_processes": 0, "production_fault_flags": False,
+                            "installer_daemon_interrupted": False, "power_failure_tested": False}
+                        break
+                    time.sleep(0.005)
+                require(stopped)  # A missed checkpoint fails; never retry for green.
+            finally:
+                try:
+                    os.killpg(child.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                child.wait(timeout=10)
+    finally:
+        # Closed public outputs from this invocation's direct child. Preserve
+        # them even when launch, native refusal or checkpoint observation fails.
+        captured = True
+        for name, path in [("owned-helper-stdout.log", stdout_path), ("owned-helper-stderr.log", stderr_path)]:
+            try:
+                raw = h.read_file(path, maximum=128 * 1024)
+                output.write(name, raw)
+                report["logs"][name] = digest(raw)
+            except Exception:
+                captured = False
+        report["owned_helper_logs_captured"] = captured
+        require(captured)
 
 
 def run(args):
@@ -510,14 +537,20 @@ def run(args):
             report["checks"]["actual_213_installer"] = True
             h.verify_image(predecessor_manifest)
             report["checks"]["predecessor_public_image"] = True
+            report["failure_stage"] = "predecessor_directory_metadata"
+            report["predecessor_directory_metadata"] = predecessor_directory_metadata()
+            report["failure_stage"] = "predecessor_evidence_snapshot"
             before, retained = h.policies(), public_evidence()
             roots = {str(path): (path.lstat().st_dev, path.lstat().st_ino) for path in (h.BASE, h.APP)}
             expected = expected_policies(before, plan["new_peers"])
             if args.scenario != "install-reapply":
-                report["failure_stage"] = "owned_helper_interruption"
+                report["failure_stage"] = "owned_helper_stage_before_normalization"
                 verify_owned_stage(stage)
+                report["failure_stage"] = "owned_helper_ancestor_normalization"
                 normalize_owned_resource_ancestors(stage)
+                report["failure_stage"] = "owned_helper_normalized_inventory"
                 require(inventory(scripts, normalize=True) == expected_inventory)
+                report["failure_stage"] = "owned_helper_stage_after_normalization"
                 verify_owned_stage(stage)
                 interrupt(scripts, args.scenario, report, output)
                 require(public_evidence() == retained)

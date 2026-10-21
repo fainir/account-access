@@ -597,6 +597,41 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         let afterSMS = owner.verificationMessage(["reason": "browser_action_required", "diagnostics": ["progress": ["sms_code_filled": true]]])
         precondition(afterSMS.contains("SMS code was received") && !afterSMS.contains("No SMS"))
         print("PASS: verification detail view excludes arbitrary data and admits only closed routes and known control names")
+        let fieldKeys = ["password", "one_time_code", "numeric_input", "email_input"]
+        let markerKeys = ["login", "sms", "email", "totp", "device", "passkey", "captcha", "admin", "action", "recovery", "unknown", "method"]
+        let firstStop: [String: Any] = ["schema": 1, "page": "origin_0:/?/device",
+            "forms": [["method": "POST", "visible": true, "reviewed_action": false, "controls": 3]],
+            "fields": Dictionary(uniqueKeysWithValues: fieldKeys.map { ($0, $0 == "one_time_code") }),
+            "field_counts": Dictionary(uniqueKeysWithValues: fieldKeys.map { ($0, $0 == "one_time_code" ? 1 : 0) }),
+            "visible_field_counts": Dictionary(uniqueKeysWithValues: fieldKeys.map { ($0, $0 == "one_time_code" ? 1 : 0) }),
+            "markers": Dictionary(uniqueKeysWithValues: markerKeys.map { ($0, false) }),
+            "progress": ["password_submit_attempted": true]]
+        let firstStopText = AccountAccess.verificationDetailText(firstStop)
+        precondition(firstStopText.contains("first stopped sign-in") && firstStopText.contains("One-time-code fields: 1 visible / 1 observed"))
+        precondition(firstStopText.contains("does not match a configured static login route") && !firstStopText.contains("Selected method:"))
+        for invalid in [true, 1.0, "1"] as [Any] {
+            var malformed = firstStop; malformed["schema"] = invalid
+            precondition(AccountAccess.verificationDetailText(malformed).isEmpty)
+        }
+        var malformed = firstStop
+        malformed["fields"] = ["password": "fictional-password", "one_time_code": "fictional-code", "csrf": "fictional-csrf"]
+        precondition(AccountAccess.verificationDetailText(malformed).isEmpty)
+        malformed = firstStop; malformed["page"] = "https://example.test/secret?token=fictional-token"
+        precondition(AccountAccess.verificationDetailText(malformed).isEmpty)
+        malformed = firstStop; malformed["forms"] = [["method": "POST", "visible": true, "reviewed_action": false, "controls": 3, "action": "fictional-token"]]
+        precondition(AccountAccess.verificationDetailText(malformed).isEmpty)
+        malformed = firstStop; malformed["field_counts"] = ["password": true, "one_time_code": 1, "numeric_input": 0, "email_input": 0]
+        precondition(AccountAccess.verificationDetailText(malformed).isEmpty)
+        malformed = firstStop; malformed["progress"] = ["password_submit_attempted": 1]
+        precondition(AccountAccess.verificationDetailText(malformed).isEmpty)
+        let diagnosticOwner = AccountAccess(fixtureRoot: fixtureRoot, session: fixtureSession,
+                                            managedAgents: blockedHelpers, ownerProfile: missingFixtureProfile)
+        diagnosticOwner.accept(["accounts": [["account": "fixture", "challenges": [["id": "pending", "diagnostics": firstStop]]]],
+            "connection_jobs": ["older": ["account": "fixture", "attention": ["diagnostics": ["page": "origin_0:/login"]]]]])
+        precondition(diagnosticOwner.verificationDetails["fixture"] == firstStopText)
+        diagnosticOwner.accept(["accounts": [["account": "fixture", "challenges": []]]])
+        precondition(diagnosticOwner.verificationDetails.isEmpty)
+        print("PASS: first stopped-page details reject secret-bearing or malformed data, preserve unknown methods and disappear with the current challenge")
         owner.browserSessionAccounts = [["account": "fixture", "label": "GitHub fixture", "fingerprint": "fictional", "username_hint": "fixture-owner"]]
         owner.ready()
         views = descendants(owner.stack)

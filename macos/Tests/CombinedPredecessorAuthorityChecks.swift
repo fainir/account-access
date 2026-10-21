@@ -292,6 +292,75 @@ typealias PredecessorSnapshotBuilder = CompletedPredecessorSnapshotBuilder
                 }, expectedEvidenceSHA256: proof.sha256)
             try expect(shaRecovered.evidence == proof.evidence && shaReads == 2 && shaInitial == 0,
                 "sha_recovery_recomputes_evidence_without_current_image_gate")
+            // Original213 mkdir preserves each parent's group. Different
+            // protected root groups are legitimate metadata, never authority
+            // to relax ownership/mode or alter a historical directory.
+            let mixedGroups = changed(base) { builder in
+                for (name, group) in [("original", UInt32(0)), ("components", UInt32(80)), ("transition", UInt32(20))] {
+                    let root = builder.roots[name]!
+                    builder.roots[name] = CompletedComponentDirectory(device: root.device, inode: root.inode,
+                        owner: root.owner, group: group, mode: root.mode)
+                }
+            }
+            var mixedInitial = 0
+            let mixedProof = try ComponentController.fixtureCompletedPredecessor(source: fixture.source, read: { mixedGroups },
+                verifyInitial: { _, _ in mixedInitial += 1 })
+            let mixedEvidence = try JSONSerialization.jsonObject(with: mixedProof.evidence) as! [String: Any]
+            let mixedRoots = mixedEvidence["roots"] as! [String: [String: Any]]
+            try expect(mixedInitial == 1 && mixedProof.evidence != proof.evidence &&
+                mixedRoots["original"]?["group"] as? Int == 0 && mixedRoots["components"]?["group"] as? Int == 80 &&
+                mixedRoots["transition"]?["group"] as? Int == 20,
+                "mixed_inherited_directory_groups_initial_proof_preserves_actual_metadata")
+            let mixedRecovered = try ComponentController.fixtureCompletedPredecessor(source: fixture.source,
+                read: { mixedGroups }, verifyInitial: { _, _ in throw PredecessorFixtureFailure.initial },
+                expectedEvidence: mixedProof.evidence)
+            try expect(mixedRecovered.evidence == mixedProof.evidence,
+                "stable_mixed_directory_groups_data_recovery_preserves_exact_evidence")
+            let mixedSHARecovered = try ComponentController.fixtureCompletedPredecessor(source: fixture.source,
+                read: { mixedGroups }, verifyInitial: { _, _ in throw PredecessorFixtureFailure.initial },
+                expectedEvidenceSHA256: mixedProof.sha256)
+            try expect(mixedSHARecovered.sha256 == mixedProof.sha256,
+                "stable_mixed_directory_groups_sha_recovery_preserves_exact_evidence")
+            for name in ["original", "components", "transition"] {
+                let changedGroup = changed(mixedGroups) { builder in
+                    let root = builder.roots[name]!
+                    builder.roots[name] = CompletedComponentDirectory(device: root.device, inode: root.inode,
+                        owner: root.owner, group: root.group + 1, mode: root.mode)
+                }
+                try refuses("changed_" + name + "_directory_group_data_recovery_refused") {
+                    _ = try ComponentController.fixtureCompletedPredecessor(source: fixture.source, read: { changedGroup },
+                        verifyInitial: { _, _ in throw PredecessorFixtureFailure.initial }, expectedEvidence: mixedProof.evidence)
+                }
+                try refuses("changed_" + name + "_directory_group_sha_recovery_refused") {
+                    _ = try ComponentController.fixtureCompletedPredecessor(source: fixture.source, read: { changedGroup },
+                        verifyInitial: { _, _ in throw PredecessorFixtureFailure.initial }, expectedEvidenceSHA256: mixedProof.sha256)
+                }
+            }
+            var mixedReads = 0
+            try refuses("changed_directory_group_between_snapshots_refused") {
+                _ = try ComponentController.fixtureCompletedPredecessor(source: fixture.source,
+                    read: { mixedReads += 1; return mixedReads == 1 ? base : mixedGroups }, verifyInitial: { _, _ in })
+            }
+            try expect(mixedReads == 2, "both_directory_group_snapshot_reads_reached")
+            for (name, root) in [
+                ("nonroot_owner_with_inherited_group", CompletedComponentDirectory(device: 7, inode: 103, owner: 501, group: 20, mode: 0o700)),
+                ("wrong_mode_with_inherited_group", CompletedComponentDirectory(device: 7, inode: 103, owner: 0, group: 20, mode: 0o720))
+            ] {
+                let invalid = changed(mixedGroups) { $0.roots["transition"] = root }
+                try refuses(name + "_refused") {
+                    _ = try ComponentController.fixtureCompletedPredecessor(source: fixture.source, read: { invalid },
+                        verifyInitial: { _, _ in })
+                }
+            }
+            var forgedEvidence = mixedEvidence
+            var forgedRoots = mixedRoots
+            forgedRoots["components"]?["group"] = 0
+            forgedEvidence["roots"] = forgedRoots
+            let forgedBytes = try PredecessorFixture.json(forgedEvidence)
+            try refuses("reforged_expected_evidence_directory_group_refused") {
+                _ = try ComponentController.fixtureCompletedPredecessor(source: fixture.source, read: { mixedGroups },
+                    verifyInitial: { _, _ in throw PredecessorFixtureFailure.initial }, expectedEvidence: forgedBytes)
+            }
             for (index, digest) in ["", String(repeating: "A", count: 64), String(repeating: "x", count: 64),
                                      String(repeating: "a", count: 63), String(repeating: "f", count: 64)].enumerated() {
                 try refuses("invalid_or_foreign_expected_sha_\(index)_refused") {

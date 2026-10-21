@@ -1,6 +1,7 @@
 import AppKit
 import CryptoKit
 import Foundation
+import CoreFoundation
 import Security
 import UniformTypeIdentifiers
 import CoreImage
@@ -1072,6 +1073,13 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         agents = state["integrations"] as? [String] ?? principals
         automaticSessions = state["automatic_sessions"] as? [String: [String: Any]] ?? [:]
         verificationDetails = [:]
+        for account in accounts {
+            guard let handle = account["account"] as? String else { continue }
+            for challenge in account["challenges"] as? [[String: Any]] ?? [] {
+                let detail = Self.verificationDetailText(challenge["diagnostics"] as? [String: Any] ?? [:])
+                if !detail.isEmpty { verificationDetails[handle] = detail; break }
+            }
+        }
         let jobs = state["connection_jobs"] as? [String: [String: Any]] ?? [:]
         for job in jobs.values.sorted(by: { ($0["status"] as? String == "RUNNING") && ($1["status"] as? String != "RUNNING") }) {
             guard let account = job["account"] as? String, verificationDetails[account] == nil,
@@ -1092,6 +1100,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             let parts = value[separator.upperBound...].split(separator: "/", omittingEmptySubsequences: false)
             guard parts.count <= 9, parts.allSatisfy({ $0.isEmpty || $0 == "?" || words.contains(String($0)) }) else { return nil }
             return value
+        }
+        if diagnostic["schema"] != nil {
+            return structuralVerificationDetailText(diagnostic, route: route)
         }
         var lines: [String] = []
         if let page = route(diagnostic["page"]) { lines.append("Page: " + page) }
@@ -1151,6 +1162,59 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 lines.append("Asset: " + asset)
             }
         }
+        return lines.joined(separator: "\n")
+    }
+
+    static func structuralVerificationDetailText(_ diagnostic: [String: Any], route: (Any?) -> String?) -> String {
+        func integer(_ value: Any?, maximum: Int) -> Int? {
+            guard let number = value as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID(),
+                  ["c", "C", "s", "S", "i", "I", "l", "L", "q", "Q"].contains(String(cString: number.objCType)),
+                  number.doubleValue >= 0, number.doubleValue <= Double(maximum) else { return nil }
+            return number.intValue
+        }
+        func boolean(_ value: Any?) -> Bool? {
+            guard let number = value as? NSNumber, CFGetTypeID(number) == CFBooleanGetTypeID() else { return nil }
+            return number.boolValue
+        }
+        let fields = ["password", "one_time_code", "numeric_input", "email_input"]
+        let markers = Set(["login", "sms", "email", "totp", "device", "passkey", "captcha", "admin", "action", "recovery", "unknown", "method"])
+        let phases = ["password_submit_attempted", "sms_requested", "email_requested", "sms_code_filled", "email_code_filled", "totp_code_filled", "sms_submit_attempted", "email_submit_attempted", "totp_submit_attempted"]
+        guard Set(diagnostic.keys) == Set(["schema", "page", "forms", "fields", "field_counts", "visible_field_counts", "markers", "progress"]),
+              integer(diagnostic["schema"], maximum: 1) == 1, let page = route(diagnostic["page"]),
+              let forms = diagnostic["forms"] as? [[String: Any]], forms.count <= 8,
+              let present = diagnostic["fields"] as? [String: Any], Set(present.keys) == Set(fields),
+              let counts = diagnostic["field_counts"] as? [String: Any], Set(counts.keys) == Set(fields),
+              let visible = diagnostic["visible_field_counts"] as? [String: Any], Set(visible.keys) == Set(fields),
+              let matches = diagnostic["markers"] as? [String: Any], Set(matches.keys) == markers,
+              matches.values.allSatisfy({ boolean($0) != nil }),
+              let progress = diagnostic["progress"] as? [String: Any],
+              Set(progress.keys).isSubset(of: Set(phases + ["method"])) else { return "" }
+        var lines = ["Details from the first stopped sign-in", "Page: " + page]
+        for form in forms {
+            guard Set(form.keys) == Set(["method", "visible", "reviewed_action", "controls"]),
+                  let method = form["method"] as? String, ["GET", "POST", "other"].contains(method),
+                  let shown = boolean(form["visible"]), let reviewed = boolean(form["reviewed_action"]),
+                  let controls = integer(form["controls"], maximum: 32) else { return "" }
+            lines.append("Form: " + method + (shown ? " visible" : " hidden") + "; controls: " + String(controls))
+            lines.append(reviewed ? "Form destination matches a configured static login route" : "Form destination does not match a configured static login route")
+        }
+        let labels = ["Password fields", "One-time-code fields", "Numeric input fields", "Email input fields"]
+        for (index, field) in fields.enumerated() {
+            guard let total = integer(counts[field], maximum: 8),
+                  let shown = integer(visible[field], maximum: 8), shown <= total,
+                  boolean(present[field]) == (shown > 0) else { return "" }
+            lines.append(labels[index] + ": " + String(shown) + " visible / " + String(total) + " observed")
+        }
+        for marker in markers.sorted() where boolean(matches[marker]) == true {
+            lines.append("Configured sign-in marker: " + marker)
+        }
+        for (key, value) in progress {
+            if key == "method" {
+                guard let method = value as? String, ["email", "sms", "totp"].contains(method) else { return "" }
+            } else if boolean(value) == nil { return "" }
+        }
+        if let method = progress["method"] as? String { lines.append("Selected method: " + method) }
+        for phase in phases where boolean(progress[phase]) == true { lines.append("Login stage: " + phase) }
         return lines.joined(separator: "\n")
     }
 

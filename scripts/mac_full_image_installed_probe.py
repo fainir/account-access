@@ -37,18 +37,18 @@ FRAGMENTS = ("macos/source-fragments/CompletedComponentPredecessor.swift.inc",
 ENTRYPOINT = "FullImageUpdateMain.swift"
 EXACT_INPUTS = {
     "macos/ComponentUpdate.swift": "05fc4fb9ff5f2e81ddba4ffa8c4fac8ae0006ff8fdfc0b9fb6388c7fea47750a",
-    FRAGMENTS[0]: "3ea73b73cc9e7eece8e81346d2084db10aa9efde44b22eb1e735289c70cc4663",
+    FRAGMENTS[0]: "0566511fb68973e4d01171964abd83a36c517180590c1c8505cbe721379ecbd6",
     FRAGMENTS[1]: "49f9906a95fa5dbb8e64d37759962260682e86d08a8f285aaad80033a7aa73b7",
     "macos/FullImageInstalledIO.swift": "25b43b7099e8b698e48e718bd6429fa9fafe1bb118178bc661386ebd09cae613",
     "macos/FullImagePredecessorAuthority.swift": "4ba2097a5692aacdc1b4ca119f1c6824abfd332650a152d2e419decc8449d15f",
     "macos/" + ENTRYPOINT: "6972155e3c0f0e0bd5f9f1a8364f1b52b10e4d541c813802d126c82abfe9e53a",
-    "macos/Tests/CombinedPredecessorAuthorityChecks.swift": "e7d17f2541629369a684923a1d672c31677e1916f6b8bd59c8aac1c03bab6206",
+    "macos/Tests/CombinedPredecessorAuthorityChecks.swift": "79b4e2479723ad52cc5deb78b070f38e5cb75a6f7b7232a098ed4b9e663bec27",
     "macos/Tests/FullImagePredecessorAuthorityChecks.swift": "5e0a7d7677a01cd7baf778b34176d0172e06d31eade1340884270e8d12c9bb3f",
     "macos/Tests/FullImageInstalledSourceFixture.swift": "28c438a2294ef668bf0632089c212c8b7a2706ba5edea5ea0f546504ffa5e514",
     "macos/Tests/FullImageInstalledChecks.swift": "3ab0203f9dc00ae987770e950bf8cbc13218b3d5023b2c90c77666a52e43bde9",
     "macos/Tests/FullImageNamespaceChecks.swift": "64b91df85ac8c72900ae180a34ee734042ababc3b35d035a9e5f32594e490ba2",
 }
-COMPOSED_SHA256 = "86a222d031ca683e58786b0bef983bd6327c8f8004bbd82d75c0aa73934fc1af"
+COMPOSED_SHA256 = "fd191841b7088ea03b41e164e1ceaaa839742aa34e647906bbbc19e71d162345"
 GUARD_ENV = "ACCOUNT_ACCESS_FULL_IMAGE_PROBE_GUARD"
 DISPATCHER = b'''import Foundation
 import Darwin
@@ -324,8 +324,8 @@ class Probe:
         require(code == 0 and stderr == b"", "native_fixture_failed")
         reports = [json.loads(line) for line in stdout.decode("utf-8").splitlines() if line.startswith("{")]
         require(len(reports) == 3 and all(report.get("status") == "PASSED" for report in reports), "fixture_reports_refused")
-        require(reports[0].get("count") == 85 and isinstance(reports[0].get("checks"), dict)
-                and len(reports[0]["checks"]) == 85 and all(value is True for value in reports[0]["checks"].values())
+        require(reports[0].get("count") == 99 and isinstance(reports[0].get("checks"), dict)
+                and len(reports[0]["checks"]) == 99 and all(value is True for value in reports[0]["checks"].values())
                 and reports[1].get("checks") == 39, "fixture_assertion_count_changed")
         namespace = reports[2]
         require((namespace.get("checks"), namespace.get("supplemental_group_case")) in {

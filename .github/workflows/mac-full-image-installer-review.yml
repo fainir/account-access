@@ -1,8 +1,8 @@
 name: Full image 79 disposable Installer acceptance
 on:
   # The new workflow need not be merged into default just to qualify a candidate.
-  # Only the maintainer's reviewed frozen-contract commit on this exact branch
-  # can schedule push acceptance; source-only proposal edits do not schedule it.
+  # A reviewed new asset contract schedules acceptance on this exact branch.
+  # Source-only fixes must not rerun an already-refused candidate package.
   push:
     branches: [codex/full-image-update]
     paths: [artifacts/full-image-installer79-inputs.json]

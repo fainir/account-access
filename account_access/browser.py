@@ -441,6 +441,12 @@ class Browser:
                             details = diagnostics(page)
                             details["page"] = route_hint(page.url, ["https://github.com"])
                             details["progress"] = dict(getattr(page.context, "_login_progress", {}))
+                        elif error.status == "NEEDS_USER":
+                            from .browser_diagnostics import capture
+                            try:
+                                details = capture(page, config)
+                            except Exception:
+                                pass  # A closed/changed page cannot replace the original challenge.
                         on_attention(error.status, error.reason, error.kind, details)
                     if not visible or error.status != "NEEDS_USER":
                         return False

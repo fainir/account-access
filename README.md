@@ -186,8 +186,9 @@ pass; genuine consumer setup, updates/reboot and private sign-in QA remain open.
 [Architecture](docs/architecture.md), [security boundaries](docs/security-and-password-sync.md)
 and [Mac installation work](docs/mac-system-provisioning.md). The development
 source also includes [explicit installation-root revalidation](docs/installation-root-revalidation.md);
-its disposable-Mac Installer qualification passed, while repair of the affected
-Mac remains unresolved.
+its disposable-Mac Installer qualification and the affected Mac's startup repair
+passed. Full-image upgrades and successful private password/code sign-ins
+remain separate acceptance steps.
 
 ## Troubleshooting
 

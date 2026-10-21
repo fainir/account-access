@@ -7,7 +7,7 @@ from . import __version__
 from .browser import Browser
 from .codes import Codes
 from .errors import AccessError
-from .models import BrowserAccount, OAuthAccount, TaskRequest
+from .models import BrowserAccount, OAuthAccount, TaskRequest, origin
 from .providers import OAuth, credential_values, redact
 from .account_context import aggregate, describe, environment, result_view
 
@@ -159,6 +159,17 @@ class Broker:
             return self.error(exc, account, challenge=False)
 
     def run(self, principal, account, operation):
+        attention = None
+        attention_seen = False
+        diagnostic_fingerprint = None
+
+        def stopped(status, reason, kind, diagnostics):
+            nonlocal attention, attention_seen
+            if attention_seen:
+                return
+            attention_seen = True
+            attention = {"status": status, "reason": reason, "kind": kind, "diagnostics": diagnostics}
+
         try:
             with self.store.lock("account:" + account):
                 config = self.permit(principal, account, operation)
@@ -194,7 +205,12 @@ class Broker:
                 if isinstance(spec, OAuthAccount):
                     data = self.oauth.read(account, op, config)
                 elif isinstance(spec, BrowserAccount):
-                    data = self.browser.read(account, op, spec, secret_values=secrets_seen)
+                    diagnostic_fingerprint = config.fingerprint(account)
+                    # Preserve GitHub's existing ordinary path; its legacy
+                    # owner diagnostics are separate from this closed schema.
+                    attention_callback = stopped if origin(spec.login_url) != "https://github.com" else None
+                    data = self.browser.read(account, op, spec, secret_values=secrets_seen,
+                                             on_attention=attention_callback)
                 else:
                     raise AccessError("DENIED", "unsupported_connector")
                 # Catch permission revocation that occurred concurrently during an in-flight request.
@@ -207,7 +223,11 @@ class Broker:
                         "data": redact(data, secrets_seen), "untrusted_data": True}
         except AccessError as exc:
             self.store.audit(principal, account, operation, "operation_blocked", exc.reason)
-            return self.error(exc, account, challenge=exc.status != "DENIED")
+            result = self.error(exc, account, challenge=exc.status != "DENIED")
+            if exc.status == "NEEDS_USER" and attention and result.get("challenge"):
+                from .browser_diagnostics import remember
+                remember(self.store, account, operation, diagnostic_fingerprint, result["challenge"], attention)
+            return result
         except Exception:
             self.store.audit(principal, account, operation, "operation_failed", "internal_error")
             return {"status": "RETRYABLE", "reason": "internal_error", "account": account}

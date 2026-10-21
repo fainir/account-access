@@ -56,9 +56,27 @@ The complete build 79 package is now assembled and independently reviewed.
 The package, recursive file inventory and corresponding source archives are
 pinned for a three-scenario disposable-Mac Installer run: installation and
 reapplication, interruption after optional-file removal, and interruption after
-optional-file creation. This is a QA candidate; no full-image update has run on
-the owner's Mac. The package container is unsigned and unnotarized.
+optional-file creation. **The first actual matrix failed in all three scenarios.**
+The base and startup-component installations passed. The normal full upgrade's
+signed helper refused with `component_transition_conflict` at `predecessor`;
+the interruption runs stopped within their original coarse interruption stage.
+The exact package remains unqualified and unchanged. The source correction
+accepts inherited directory groups that the prior installer allowed, while
+retaining root ownership, mode `0700`, ACL checks and exact immutable metadata.
+Whether that mismatch caused the actual refusal still needs a fresh-Mac test.
+No full-image update has run on the owner's Mac. The package container is unsigned
+and unnotarized.
 [Exact candidate evidence](../artifacts/full-image-candidate79-20261021.json).
+[Failed actual Installer matrix](../artifacts/full-image-installer79-first-attempt-20261021.json).
+[Inherited-group source checks](../artifacts/predecessor-inherited-group-20261021.json).
+
+Subsequent source also stores a bounded structural summary from a first stopped
+browser attempt for owner-only review. Pending challenge polling never retries
+the website, and the agent API receives no diagnostics or secrets. The focused
+Python checks and native UI fixture passed. A wider local run retained one
+temporary SQLite setup error alongside 155 passes; that setup test passed in an
+isolated recheck. These changes still need a newly built and qualified app.
+[Source diagnostics checks](../artifacts/authentication-first-stop-20261021.json).
 
 All nine first-attempt source workflows passed for `f073afb`, including the
 actual hosted-Mac Installer and separate-user checks. That source result does
