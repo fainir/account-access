@@ -107,7 +107,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         return URL(fileURLWithPath: ProcessInfo.processInfo.environment["ACCOUNT_ACCESS_DATA_DIR"] ?? ((try? OwnerApplicationBundle.current())?.object(forInfoDictionaryKey: "AccountAccessDataDirectory") as? String) ?? fallback.path)
     }
     lazy var runtime = runtimeOverride ?? URL(fileURLWithPath: ProcessInfo.processInfo.environment["ACCOUNT_ACCESS_INSTALL_DIR"] ?? ((try? OwnerApplicationBundle.current())?.object(forInfoDictionaryKey: "AccountAccessInstallDirectory") as? String) ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/share/account-access/runtime").path)
-    var window: NSWindow!
+    let ownerSetupContext = DesktopOwnerSetupContext()
+    var window: NSWindow! { didSet { ownerSetupContext.invalidate() } }
     var stack: NSStackView!
     var status: NSTextField!
     var button: NSButton!
@@ -190,6 +191,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     var requiresSystemInstallation: Bool
     var systemOwnerReady = false
     var systemSetupGeneration = 0
+    var systemApprovalProgress: (id: UUID, label: NSTextField)?
     var managedAgents = ManagedAgentSetup()
     var systemAgentClientID: String?
     var systemAgentUpgradeNeeded = false
@@ -239,7 +241,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             return connection
         } catch { throw Failure.message("The protected installation could not be verified. Check the Account Access installation before connecting an account.") }
     }
-    var busy = false
+    var busy = false { didSet { if busy != oldValue { ownerSetupContext.invalidate() } } }
     var backgroundRecovery: [String: Any] = [:]
     var backgroundServiceStatus = "unknown"
     var failedAccount: String?
@@ -325,6 +327,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
 
     func page(_ title: String, _ subtitle: String, preservingDeviceEmailReview: Bool = false) {
+        ownerSetupContext.invalidate()
+        systemApprovalProgress = nil
         if !preservingDeviceEmailReview { clearDeviceEmailReview() }
         clearBitwardenFields()
         for field in mailboxFields.values where field is NSSecureTextField { field.stringValue = "" }
@@ -739,13 +743,44 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         }
     }
 
+    func ownerApprovalProgress(_ phase: DesktopOwnerSetupProgress, identifier: UUID,
+                               context: DesktopOwnerSetupContext.Snapshot) {
+        // Never wait synchronously for the UI while holding transport locks.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.ownerSetupContext.isCurrent(context), self.busy,
+                  let window = self.window else { return }
+            switch phase {
+            case .requestingApproval:
+                let progressLabel: NSTextField
+                if let status = self.status, status.window === window { progressLabel = status }
+                else {
+                    progressLabel = self.label("macOS approval requested…", 17)
+                    self.status = progressLabel
+                }
+                self.systemApprovalProgress = (identifier, progressLabel)
+                progressLabel.stringValue = "macOS approval requested. Approve it on this Mac, or cancel the macOS dialog."
+                window.makeKeyAndOrderFront(nil)
+                NSApp.activate(ignoringOtherApps: true)
+            case .approvalAccepted:
+                guard let progress = self.systemApprovalProgress, progress.id == identifier,
+                      progress.label.window === window else { return }
+                progress.label.stringValue = "Mac approval accepted. Continuing setup…"
+                self.systemApprovalProgress = nil
+            }
+        }
+    }
+
     func request(_ route: String, body: [String: Any]? = nil) throws -> [String: Any] {
+        let approvalContext = ownerSetupContext.snapshot() // Before any transport lock or queued feedback.
         ownerConnectionLock.lock()
         defer { ownerConnectionLock.unlock() }
         let bitwardenRequest = route.hasPrefix("owner/bitwarden/") || (body?["connection"] as? [String: Any])?["provider"] as? String == "bitwarden"
         if let native = try nativeOwner() {
             do {
-                let response = try native.request(route, body: body)
+                let approvalProgressID = UUID()
+                let response = try native.request(route, body: body, setupProgress: { phase in
+                    self.ownerApprovalProgress(phase, identifier: approvalProgressID, context: approvalContext)
+                })
                 return try checkedOwnerResponse(response.0, response.1, pending: route == "owner/vault/enroll", bitwarden: bitwardenRequest)
             } catch DesktopOwnerFailure.approval {
                 throw Failure.message("Setup was not approved. Your saved connections are preserved. Try the setup action again when you are ready to approve it on this Mac.")

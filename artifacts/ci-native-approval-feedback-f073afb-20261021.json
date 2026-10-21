@@ -1,0 +1,67 @@
+{
+  "managed_by": "account-access-native-approval-feedback-review-v1",
+  "schema": 1,
+  "recorded_at_utc": "2026-10-21",
+  "base_source_commit": "f073afbc28c41cce63a865ac2d948adb185cf761",
+  "status": "LOCAL_ISOLATED_BEHAVIOR_VALIDATED_OPTIMIZED_UI_AND_SUCCESSOR_CI_PENDING",
+  "change": "Report Mac approval only when the existing setup lease actually requires authorization. Bind both asynchronous feedback phases to the originating page, window and operation; ignore stale feedback before any UI effect.",
+  "scope": [
+    "macos/DesktopOwnerConnection.swift",
+    "macos/AccountAccess.swift",
+    "macos/Tests/DesktopOwnerConnectionChecks.swift",
+    "macos/Tests/OwnerScreenChecks.swift"
+  ],
+  "authorization_rights_routes_deadlines_and_replay_rules_changed": false,
+  "native_broker_bootstrap_and_verifier_sources_changed": false,
+  "source_patch_sha256": "63a94dc08536ed29a7f93626a88bf3330cb1c6b26624dd0be21a7ddc57601c25",
+  "local_validation": {
+    "reported_passes": 95,
+    "counting": "45 named transport checks and 50 UI PASS lines; these are separate fixture result units.",
+    "transport": {
+      "status": "PASSED",
+      "optimization": "-O",
+      "checks_passed": 45,
+      "compile_seconds": 57.637,
+      "runtime_seconds": 1.727,
+      "stderr_empty": true
+    },
+    "first_ui_compile": {
+      "status": "TIMED_OUT_NOT_PASS",
+      "optimization": "-O",
+      "deadline_seconds": 240,
+      "elapsed_seconds": 240.012,
+      "returncode_after_deadline": -9,
+      "stdout_and_stderr_empty": true,
+      "ui_executed": false,
+      "cause_established": false,
+      "result_preserved": true
+    },
+    "ui_behavior_followup": {
+      "status": "PASSED",
+      "optimization": "-Onone",
+      "same_source_and_assertions": true,
+      "compile_seconds": 37.478,
+      "runtime_seconds": 15.484,
+      "pass_lines": 50,
+      "stderr_empty": true,
+      "delayed_first_event_after_page_replacement_checked": true,
+      "new_operation_and_window_replacement_checked": true,
+      "stale_accepted_event_checked": true,
+      "current_begin_and_accepted_pair_checked": true
+    },
+    "fixtures": "Temporary home, temporary files, fake owner channels, fake helpers, synthetic profiles and intercepted URL requests. The UI front-call spy does not invoke the real window-front implementation.",
+    "source_hashes_unchanged_during_validation": true,
+    "retained_result_sha256": {
+      "transport_pass_and_optimized_ui_timeout": "d39af27be1649e8b7bb78309ae3ef3e8050022b317aa04f2ea5ba466950a3da7",
+      "nonoptimized_ui_behavior_pass": "437593689cdfd0b8c0cdca5b595089d256e8dd76d3107d5d4d35b20b4145e768"
+    }
+  },
+  "optimized_ui_validation": "PENDING",
+  "successor_exact_source_ci": "PENDING",
+  "owner_account_or_secret_access_for_fixtures": false,
+  "installed_app_or_helpers_executed_for_fixtures": false,
+  "gui_delivered_by_this_change": false,
+  "component_package_updates_gui": false,
+  "personal_authentication_qa": false,
+  "production_ready": false
+}

@@ -64,6 +64,60 @@ final class DesktopChannelFixture: DesktopOwnerChannel {
         let malformedConnection = DesktopOwnerConnection(makeChannel: { malformed }, acquire: { Data() })
         checks["malformed_reply_closes_connection"] = fails { _ = try malformedConnection.request("owner/state") } && !malformed.isAvailable
 
+        var progressEvents: [String] = []
+        var progressTime: TimeInterval = 200
+        let progressChannel = DesktopChannelFixture()
+        let progressConnection = DesktopOwnerConnection(makeChannel: { progressChannel }, acquire: {
+            progressEvents.append("acquire")
+            return Data(repeating: 0x47, count: 32)
+        }, clock: { progressTime })
+        func recordProgress(_ phase: DesktopOwnerSetupProgress) {
+            switch phase {
+            case .requestingApproval: progressEvents.append("requesting")
+            case .approvalAccepted: progressEvents.append("accepted")
+            }
+        }
+        _ = try progressConnection.request("owner/state", setupProgress: recordProgress)
+        checks["reads_have_no_approval_progress"] = progressEvents.isEmpty && progressChannel.approvals == 0
+        _ = try progressConnection.request("owner/import/preview", body: ["csv": "synthetic"], setupProgress: recordProgress)
+        checks["approval_progress_brackets_real_acquire_and_authorization"] = progressEvents == ["requesting", "acquire", "accepted"]
+            && progressChannel.approvals == 1 && progressChannel.requests == 2
+        _ = try progressConnection.request("owner/import/preview", body: ["csv": "synthetic"], setupProgress: recordProgress)
+        checks["live_setup_lease_has_no_new_approval_progress"] = progressEvents.count == 3 && progressChannel.approvals == 1
+        progressTime += 570
+        _ = try progressConnection.request("owner/import/preview", body: ["csv": "synthetic"], setupProgress: recordProgress)
+        checks["lease_expiry_reports_new_approval_before_acquire"] = progressEvents == ["requesting", "acquire", "accepted", "requesting", "acquire", "accepted"]
+            && progressChannel.approvals == 2
+        progressConnection.close()
+        let beforePauseProgress = progressEvents
+        _ = try progressConnection.request("owner/stop", body: [:], setupProgress: recordProgress)
+        checks["restriction_never_reports_mac_approval"] = progressEvents == beforePauseProgress
+        let unverifiedProgressChannel = DesktopChannelFixture()
+        unverifiedProgressChannel.acceptsPeer = false
+        var unverifiedProgress = 0
+        let unverifiedProgressConnection = DesktopOwnerConnection(makeChannel: { unverifiedProgressChannel }, acquire: {
+            unverifiedProgress += 100
+            return Data(repeating: 0x48, count: 32)
+        })
+        checks["unverified_peer_has_no_approval_progress"] = fails {
+            _ = try unverifiedProgressConnection.request("owner/import/preview", body: ["csv": "synthetic"], setupProgress: { _ in
+                unverifiedProgress += 1
+            })
+        } && unverifiedProgress == 0 && unverifiedProgressChannel.requests == 0
+        let cancelledChannel = DesktopChannelFixture()
+        var cancelledProgress = 0
+        let cancelledConnection = DesktopOwnerConnection(makeChannel: { cancelledChannel }, acquire: {
+            throw DesktopOwnerFailure.approval
+        })
+        checks["cancelled_approval_never_reports_accepted_or_sends_body"] = fails {
+            _ = try cancelledConnection.request("owner/import/preview", body: ["csv": "synthetic"], setupProgress: { phase in
+                switch phase {
+                case .requestingApproval: cancelledProgress += 1
+                case .approvalAccepted: cancelledProgress += 100
+                }
+            })
+        } && cancelledProgress == 1 && cancelledChannel.requests == 0 && cancelledChannel.approvals == 0
+
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("ac-owner-profile-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
         defer { try? FileManager.default.removeItem(at: directory) }

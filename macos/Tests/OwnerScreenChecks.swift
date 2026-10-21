@@ -66,6 +66,11 @@ final class VerificationRetryFixture: URLProtocol {
     override func stopLoading() {}
 }
 
+final class OwnerApprovalWindowFixture: NSWindow {
+    var approvalFrontRequests = 0
+    override func makeKeyAndOrderFront(_ sender: Any?) { approvalFrontRequests += 1 }
+}
+
 final class NativeOwnerScreenFixture: DesktopOwnerChannel {
     var isAvailable = false
     var enrollments = 0
@@ -1024,6 +1029,67 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         requireLocalUX(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("Use Claude Code"), "preferred_agent_help")
         requireLocalUX(!owner.busy && nativeChannel.verificationRequestCount == verificationRequestsBeforeHelp, "preferred_agent_no_verification_request")
         print("PASS: Claude Code actions show honest local guidance; unsupported visible sign-in help makes no verification request")
+        let feedbackOwner = AccountAccess(fixtureRoot: fixtureRoot, session: fixtureSession,
+                                          managedAgents: blockedHelpers, ownerProfile: missingFixtureProfile)
+        let feedbackWindow = OwnerApprovalWindowFixture(contentRect: NSRect(x: 0, y: 0, width: 1040, height: 740),
+                                                        styleMask: [.titled], backing: .buffered, defer: false)
+        feedbackOwner.window = feedbackWindow
+        func drainApprovalFeedback(_ checkpoint: String) {
+            var drained = false
+            DispatchQueue.main.async { drained = true }
+            let deadline = Date().addingTimeInterval(5)
+            while !drained && Date() < deadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
+            requireLocalUX(drained, checkpoint)
+        }
+        feedbackOwner.busy = true
+        feedbackOwner.page("Original setup", "Synthetic approval progress")
+        feedbackOwner.progress()
+        let originalFeedback = feedbackOwner.ownerSetupContext.snapshot()
+        feedbackOwner.ownerApprovalProgress(.requestingApproval, identifier: UUID(), context: originalFeedback)
+        // The first event has been queued, but no progress label has been bound.
+        feedbackOwner.page("Replacement page", "The original request no longer owns this page")
+        feedbackOwner.progress()
+        let replacementStatus: NSTextField = feedbackOwner.status
+        drainApprovalFeedback("approval_first_event_drained")
+        requireLocalUX(replacementStatus.stringValue == "Preparing…" && feedbackWindow.approvalFrontRequests == 0
+                       && feedbackOwner.systemApprovalProgress?.id == nil, "approval_first_event_page_replacement_ignored")
+        let beforeNewOperation = feedbackOwner.ownerSetupContext.snapshot()
+        feedbackOwner.ownerApprovalProgress(.requestingApproval, identifier: UUID(), context: beforeNewOperation)
+        feedbackOwner.busy = false
+        feedbackOwner.busy = true
+        drainApprovalFeedback("approval_new_operation_drained")
+        requireLocalUX(replacementStatus.stringValue == "Preparing…" && feedbackWindow.approvalFrontRequests == 0,
+                       "approval_same_page_new_operation_ignored")
+        let beforeWindowChange = feedbackOwner.ownerSetupContext.snapshot()
+        feedbackOwner.ownerApprovalProgress(.requestingApproval, identifier: UUID(), context: beforeWindowChange)
+        let replacementWindow = OwnerApprovalWindowFixture(contentRect: NSRect(x: 0, y: 0, width: 1040, height: 740),
+                                                           styleMask: [.titled], backing: .buffered, defer: false)
+        feedbackOwner.window = replacementWindow
+        drainApprovalFeedback("approval_new_window_drained")
+        requireLocalUX(replacementStatus.stringValue == "Preparing…" && feedbackWindow.approvalFrontRequests == 0
+                       && replacementWindow.approvalFrontRequests == 0, "approval_window_replacement_ignored")
+        feedbackOwner.page("Current setup", "Synthetic approval progress")
+        feedbackOwner.progress()
+        let liveFeedback = feedbackOwner.ownerSetupContext.snapshot(), liveFeedbackID = UUID()
+        feedbackOwner.ownerApprovalProgress(.requestingApproval, identifier: liveFeedbackID, context: liveFeedback)
+        drainApprovalFeedback("approval_live_begin_drained")
+        requireLocalUX(feedbackOwner.status.stringValue.contains("macOS approval requested")
+                       && replacementWindow.approvalFrontRequests == 1, "approval_live_begin_rendered_once")
+        feedbackOwner.ownerApprovalProgress(.approvalAccepted, identifier: liveFeedbackID, context: liveFeedback)
+        feedbackOwner.page("A later page", "The accepted event must not change this page")
+        feedbackOwner.progress()
+        drainApprovalFeedback("approval_stale_accepted_drained")
+        requireLocalUX(feedbackOwner.status.stringValue == "Preparing…" && replacementWindow.approvalFrontRequests == 1,
+                       "approval_accepted_page_replacement_ignored")
+        let finalFeedback = feedbackOwner.ownerSetupContext.snapshot(), finalFeedbackID = UUID()
+        feedbackOwner.ownerApprovalProgress(.requestingApproval, identifier: finalFeedbackID, context: finalFeedback)
+        feedbackOwner.ownerApprovalProgress(.approvalAccepted, identifier: finalFeedbackID, context: finalFeedback)
+        drainApprovalFeedback("approval_live_pair_drained")
+        requireLocalUX(feedbackOwner.status.stringValue == "Mac approval accepted. Continuing setup…"
+                       && replacementWindow.approvalFrontRequests == 2 && feedbackOwner.systemApprovalProgress?.id == nil,
+                       "approval_live_pair_completes_without_extra_front")
+        feedbackOwner.busy = false
+        print("PASS: approval feedback ignores delayed first/accepted events after page, window or operation changes and fronts only its current setup")
         requireLocalUX(fixtureProfileReads == 1 && helperLock.withLock { unexpectedHelperCalls == 0 }, "fixture_dependencies_only")
         print("PASS: UI fixtures use only temporary roots, synthetic owner profiles, fake helpers and intercepted URL requests")
 

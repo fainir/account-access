@@ -5,6 +5,27 @@ import Security
 import Darwin
 
 enum DesktopOwnerFailure: Error { case profile, unavailable, approval, response }
+enum DesktopOwnerSetupProgress { case requestingApproval, approvalAccepted }
+
+// UI feedback identity only. It grants no owner or channel authority, and its
+// snapshot can be read by a worker without reading any AppKit state.
+final class DesktopOwnerSetupContext {
+    struct Snapshot: Equatable { fileprivate let generation: UUID }
+    private let lock = NSLock()
+    private var generation = UUID()
+    func invalidate() {
+        lock.lock(); defer { lock.unlock() }
+        generation = UUID()
+    }
+    func snapshot() -> Snapshot {
+        lock.lock(); defer { lock.unlock() }
+        return Snapshot(generation: generation)
+    }
+    func isCurrent(_ snapshot: Snapshot) -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        return snapshot.generation == generation
+    }
+}
 
 struct DesktopOwnerProfile {
     static let installedPath = "/Library/Application Support/Account Access/owner.json"
@@ -175,12 +196,14 @@ final class DesktopOwnerConnection {
     }
     // Reads never prompt. Setup writes originate from an explicit owner action.
     // A dropped response is returned to the UI; no operation is replayed.
-    func request(_ route: String, body: [String: Any]? = nil) throws -> (Int, [String: Any]) {
+    func request(_ route: String, body: [String: Any]? = nil,
+                 setupProgress: (DesktopOwnerSetupProgress) -> Void = { _ in }) throws -> (Int, [String: Any]) {
         lock.lock(); defer { lock.unlock() }
         let bytes = try body.map { try JSONSerialization.data(withJSONObject: $0) }
         let validated = try OwnerGatewayRoute(route, body: bytes)
         let active = try preparedChannel()
         if validated.requiresSetup && clock() >= setupUntil {
+            setupProgress(.requestingApproval)
             var form = try acquire()
             defer { form.resetBytes(in: 0..<form.count); closeApproval() }
             guard form.count == 32 else { close(); throw DesktopOwnerFailure.approval }
@@ -188,6 +211,7 @@ final class DesktopOwnerConnection {
             active.authorizeSetup(form, reply: authorized.finish)
             guard try authorized.wait() else { close(); throw DesktopOwnerFailure.approval }
             setupUntil = clock() + 570 // Shorter than the server's fixed ten-minute lease.
+            setupProgress(.approvalAccepted)
         }
         let reply = DesktopOwnerReply<(Int, Data)>()
         active.request(route, body: bytes) { reply.finish(($0, $1)) }
