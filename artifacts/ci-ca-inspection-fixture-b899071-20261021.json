@@ -1,0 +1,26 @@
+{
+  "correction": "Supply an inert explicit wheel path and a data-only refresh spy; assert the private copied payload, unchanged input path, CA-before-inspection ordering and returned receipt for both development modes.",
+  "failed_execution_retained": true,
+  "failed_jobs": [
+    119106242598,
+    119107314657
+  ],
+  "failed_mac_runs": [
+    39565027421,
+    39565132357
+  ],
+  "failed_source_commit": "b89907187999693e8431aabc2ec11e9ab6999844",
+  "failed_test": "tests/test_runtime_prepare_package.py::test_inspection_writes_a_reviewable_plan_without_running_or_signing_runtime[False]",
+  "local_diff_check": "PASSED",
+  "local_ruff": "PASSED",
+  "local_tests_passed": 71,
+  "managed_by": "account-access-ci-fixture-correction-v1",
+  "production_ready": false,
+  "production_requirement_relaxed": false,
+  "production_source_changed": false,
+  "reason": "The fictional Python tree supplied no explicit pip wheel after production packaging made that input mandatory.",
+  "retried_or_relabelled": false,
+  "schema": 1,
+  "successor_remote_ci": "PENDING",
+  "test_source_sha256": "326a91b6323f7f255d7b9757ddadf149d28c37cb179ce422657cb5254e110231"
+}
