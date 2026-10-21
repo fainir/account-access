@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "date": "2026-10-21",
+  "source_startup_component": "213509c6bd9ff40131bd71dcb1a2967e96cd76a3",
+  "component_package_sha256": "674c5df7866477e48811d002128370aaec6385aeb0565137036880de4c626bef",
+  "component_plan_sha256": "be4e1429466cc0fbe8d2e85fe9f0d54f9c93b1a1edd6dfa32b77b9c72cc4d1b7",
+  "owner_mac": {
+    "observation_method": "Native app/Installer accessibility and a read-only public-image/service observer",
+    "installer_completion_visibly_verified": true,
+    "public_targets_matching": 9,
+    "public_launchd_plist_matches": true,
+    "recognized_service_running_twice_with_same_reported_pid": true,
+    "protected_owner_setup_completed": true,
+    "shared_agent_connection_upgrade_completed": true,
+    "personal_export_selected_in_native_file_picker": true,
+    "personal_credentials_imported": 1,
+    "imported_service": "Namecheap",
+    "approved_operation": "Signed-in username check",
+    "secret_export_read_by_agent": false,
+    "gui_build": 76
+  },
+  "agent_acceptance": {
+    "codex_installed_launcher_discovered_account": true,
+    "claude_code_ordinary_request_discovered_account": true,
+    "claude_request_required_slash_or_user_cli_command": false,
+    "existing_challenge_preserved_without_login_retry": true,
+    "returned_status": "NEEDS_USER",
+    "reason": "browser_state_unrecognized",
+    "successful_personal_login": false
+  },
+  "remaining": [
+    "Reviewed Namecheap device-verification route and successful private login",
+    "Owner Gmail credential enrollment and actual website email-code delivery",
+    "Physical SMS login and authenticator enrollment/login",
+    "Complete-image upgrade delivering the newer GUI and refreshed runtime",
+    "Consumer notarization and clean downloaded installation/reboot acceptance"
+  ],
+  "source_ci": {
+    "source_commit": "f073afbc28c41cce63a865ac2d948adb185cf761",
+    "first_attempt_workflows_passed": 9,
+    "proof_scope": "Source workflows including hosted-Mac Installer fixtures; not owner account or distribution acceptance"
+  },
+  "credentials_codes_sessions_or_personal_username_published": false,
+  "production_ready": false
+}

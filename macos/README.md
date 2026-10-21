@@ -2,6 +2,14 @@
 
 This is a native installer and owner interface for macOS 14 (Sonoma) or later.
 
+**Current owner-Mac status (21 October):** the protected startup repair,
+owner setup, shared AI connection and one personal password import completed.
+The private account still needs an unsupported device-verification step;
+email/SMS/authenticator login acceptance remains open. The installed GUI is
+build 76. Build 77 is staged separately and needs the qualified complete-image
+upgrade route. Neither successful source CI nor runtime inspection establishes
+that this upgrade has been installed. See [current acceptance](../docs/production-gates.md).
+
 Consumer package builds also require the pinned Bitwarden OSS npm CLI and its
 reviewed corresponding-source release asset. Add these maintainer arguments to
 `python -m macos.system_package`:

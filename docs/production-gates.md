@@ -7,6 +7,38 @@ establish that experience on personal accounts.
 
 ## Current candidate
 
+### Latest owner-Mac result — 21 October 2026
+
+The startup component at `213509c` completed successfully in macOS Installer on
+the affected Mac. A separate public observer found all nine expected public
+files and the launchd plist matching, and observed the recognized service
+running twice with the same process identity. Native owner setup and the shared
+AI connection upgrade subsequently completed. The owner-approved personal
+Chrome export was selected through the native picker; one Namecheap credential
+was imported locally with only the username-check operation granted.
+
+The installed Codex launcher and an ordinary Claude Code request discovered
+the account and stopped at its existing `browser_state_unrecognized` challenge.
+This establishes agent discovery and challenge handling, **not a successful
+personal login**. The observed device-verification redirect remains outside the
+reviewed Namecheap flow. No further retry is justified by the passing fixture
+tests. Gmail credential enrollment, real SMS delivery and owner authenticator
+enrollment remain incomplete.
+
+[Sanitized owner-Mac observations](../artifacts/owner-startup-and-import-213509c-20261021.json).
+
+All nine first-attempt source workflows passed for `f073afb`, including the
+actual hosted-Mac Installer and separate-user checks. That source result does
+not deliver a new GUI to this Mac: the startup component deliberately retains
+build 76. A signed build 77 and its runtime inspection are prepared separately;
+the complete-image upgrade controller, actual upgrade acceptance and consumer
+distribution are still required. The later local setup-feedback proposal has
+45 passing transport checks and 50 UI PASS lines compiled without optimization;
+its optimized UI compile reached its local deadline, so it is not qualified by
+that run.
+
+### Earlier repair qualification
+
 Development source now includes explicit installation-root revalidation for a
 changed device number with both original inodes still matching. It preserves
 the original receipts and requires a newly verified current volume binding.
@@ -504,16 +536,16 @@ presented as results for a later candidate.
 
 | Area | Implemented or controlled coverage | Still required |
 | --- | --- | --- |
-| Mac installation | Build 76 package inventory/source/payload-signature review and owner-approved local Installer completion; exact-source disposable Mac CI passes | Repair the installed service's exit 78 before enrollment; Developer ID Installer certificate, Notary credentials, Apple acceptance and stapling; clean downloaded installation, working owner enrollment and reboot QA |
-| Upgrade and repair | Explicit recognized-preview agent connection upgrade; atomic launcher replacement and rollback; same-image/same-owner package recovery | Genuine installed owner upgrade and interrupted positive provisioning; different-image protected-package updates and vault migration |
-| Password import | Reviewed Chrome, Apple Passwords, compatible 1Password and Bitwarden CSV; unencrypted Bitwarden JSON; hidden-password local review | Representative real export-to-private-website acceptance, including the new protected installation |
+| Mac installation | Build 76 installation, successful startup component, owner setup and shared AI connection on the affected Mac; exact-source disposable Mac CI passes | Developer ID Installer certificate, Notary credentials, Apple acceptance and stapling; clean downloaded installation and reboot QA |
+| Upgrade and repair | Recognized-preview agent connection upgrade observed; atomic launcher replacement and rollback; same-image/same-owner package recovery; successful startup component | Complete-image protected-package upgrade and interrupted upgrade acceptance; vault migration |
+| Password import | Reviewed Chrome, Apple Passwords, compatible 1Password and Bitwarden CSV; unencrypted Bitwarden JSON; one approved personal Chrome credential imported through protected owner setup | Successful private-website sign-in from the imported credential and representative export coverage |
 | Password synchronization | Approved 1Password items through service-account SDK or Connect; separately consented Bitwarden CLI source with exact-item checks, bounded updates and restrictive disconnect | Private enrollment, rotation and revocation QA. **Chrome live sync is unimplemented**; file imports remain snapshots |
 | Gmail and other email | Renewable Gmail authorization, checked reusable mailbox selection, and TLS IMAP; freshness, sender, template and authorization checks | Publisher-configured Google application, real owner consent/mailbox setup and actual website code delivery. Arbitrary webmail is unsupported |
 | iPhone SMS | Signed narrow Mac Messages reader and composed password/SMS/session fixtures | Genuine Full Disk Access, forwarded physical SMS and completed private login |
 | Android SMS | Paired pinned HTTPS delivery and notification-listener emulator fixtures | Physical pairing, carrier/notification delivery, reconnect and private login QA |
 | Google Messages Web | Reviewed browser/desktop preparation, refresh/revocation UI checks, unchanged extension scripts in a synthetic Messages document, stable Chrome/native transport and controlled SMS-login composition | Genuine positive owner approval and complete private/physical SMS login; broader language coverage and extension distribution |
 | Authenticator | Local original-key, supported QR and complete Google Authenticator transfer-batch import; TOTP login fixtures | Owner-approved real phone export/enrollment and provider login. Push approvals, nonstandard TOTP and Google Authenticator cloud sync are unsupported |
-| Agent integration | Portable installed CLI/skill; historical source-specific guarded Claude/Codex fixtures; separate revision-unattested installed-preview public reads | Current protected owner installation and private sessions through both agents. The optional nested Codex QA harness remains unverified before startup |
+| Agent integration | Portable installed CLI/skill; protected Codex discovery and ordinary Claude Code request both preserve an existing private sign-in challenge; historical controlled login fixtures | Successful private sign-ins and session reuse through both agents. The optional nested Codex QA harness remains unverified before startup |
 | Website coverage | Reviewed public examples and narrow Namecheap, PyPI and Read the Docs pilots; password, email, SMS and TOTP engine fixtures | More reviewed connectors and representative private acceptance. Importing a password does not add arbitrary website support |
 | Security and operations | Separate service identity, native owner authorization, protected key custody, permission/revocation checks and disposable cross-user/crash fixtures | Genuine consumer deployment and owner approval, real logout/reboot and active-operation recovery; independent security review and release provenance |
 

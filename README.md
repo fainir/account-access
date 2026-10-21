@@ -19,17 +19,16 @@ physical phone delivery and notarized consumer installation remain unverified.
 The 0.8 Mac runtime targets **Apple silicon and macOS 14 or later**. See the
 [current production gates](docs/production-gates.md).
 
-The latest local 0.8 installer completed installation, but its protected service
-fails before enrollment. Its separate startup/revalidation repair passed actual
-installation and reapplication on clean hosted Macs, but the affected Mac
-refused the recovery at its publication checkpoint. The component update was
-not attempted there. A subsequent signed read-only diagnostic refused the first
-service recheck and observed no supplementary binding directory. The service
-changes between running and stopped states; the exact failed recheck predicate
-is still unconfirmed. It is not ready for use until the repair and personal
-account validation succeed.
-[Current repair evidence](artifacts/installation-root-revalidation-93fc906-20261020.json).
-[Narrow diagnostic result](artifacts/installation-root-revalidation-diagnostic-93fc906-20261021.json).
+On 21 October, the protected startup repair installed successfully on the
+affected Mac. Owner setup, the shared AI connection and one approved personal
+password import then completed. Codex and an ordinary Claude Code request both
+discovered that account and reported its existing sign-in challenge. Its
+Namecheap device-verification page is outside the reviewed connector; a
+successful private login has **not** been established. Gmail enrollment and
+physical SMS/authenticator acceptance remain pending. The newer GUI and runtime
+also need a qualified complete-image upgrade before they can replace the
+installed build 76. [Owner-Mac observations](artifacts/owner-startup-and-import-213509c-20261021.json)
+and [current acceptance status](docs/production-gates.md).
 
 ![Account Access dashboard](docs/account-dashboard.png)
 
