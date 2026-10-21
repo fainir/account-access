@@ -214,14 +214,29 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                 from .account_context import aggregate, describe
                 config = broker.store.config()
                 accounts = []
-                for account, spec in config.accounts.items():
-                    accounts.append({"account": account, **describe(spec, test_mode=config.test_mode), "route": spec.kind,
-                                     **broker.connection_view(account, config),
-                                     "operations": [{"name": name, "description": op.description} for name, op in spec.operations.items()],
-                                     "challenges": [broker.challenge_view(x) for x in broker.store.pending(account)]})
                 with broker.store.db() as db:
+                    # Keep related status/permission fields coherent without
+                    # reopening SQLite for every account field. This snapshot
+                    # is only for display and ends before other setup helpers;
+                    # mutations and actual operations recheck live authority.
+                    db.execute("BEGIN")
+                    def record(key, default=None):
+                        row = db.execute("SELECT value FROM records WHERE id=?", (key,)).fetchone()
+                        return broker.store.unseal(key, row[0]) if row else default
+
+                    for account, spec in config.accounts.items():
+                        pending = [dict(row) for row in db.execute(
+                            "SELECT * FROM challenges WHERE account=? AND resolved IS NULL", (account,))]
+                        observed = (record("connection:" + account) or {},
+                                    record("credential:" + account) or {}, pending)
+                        accounts.append({"account": account, **describe(spec, test_mode=config.test_mode), "route": spec.kind,
+                                         **broker.connection_view(account, config, display_snapshot=observed),
+                                         "operations": [{"name": name, "description": op.description} for name, op in spec.operations.items()],
+                                         "challenges": [broker.challenge_view(x) for x in pending]})
                     principals = [r[0] for r in db.execute("SELECT DISTINCT principal FROM clients WHERE revoked=0")]
                     grants = [dict(r) for r in db.execute("SELECT * FROM grants")]
+                    integrations = record("agent-integrations", principals)
+                    automatic_sessions = record("session-integrations", {})
                     failures = db.execute("""
                         WITH checks AS (
                             SELECT account, MAX(id) AS id FROM audit
@@ -263,8 +278,8 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                 state = {"accounts": accounts, "principals": principals, "grants": grants,
                          "local_host_actions": local_host_actions,
                          "background_recovery": broker.worker_health.view(),
-                         "integrations": broker.store.get("agent-integrations", principals),
-                         "automatic_sessions": broker.store.get("session-integrations", {}),
+                         "integrations": integrations,
+                         "automatic_sessions": automatic_sessions,
                          "connection_jobs": connection_jobs,
                          "navigation_failures": navigation_failures,
                          "environment": aggregate(accounts, test_mode=config.test_mode)}

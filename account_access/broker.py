@@ -116,18 +116,26 @@ class Broker:
                 "background_recovery": self.worker_health.view(),
                 "environment": aggregate(result, test_mode=config.test_mode)}
 
-    def connection_view(self, account, config):
-        """Saved credentials alone are not evidence of a successful sign-in."""
+    def connection_view(self, account, config, *, display_snapshot=None):
+        """Saved credentials alone are not evidence of a successful sign-in.
+
+        Owner rendering may supply its single-response read snapshot. Actual
+        status/operation callers keep the fresh defaults; this is not authority.
+        """
         spec = config.accounts[account]
-        saved = self.store.get("connection:" + account) or {}
-        credential = self.store.get("credential:" + account) or {}
+        if display_snapshot is None:
+            saved = self.store.get("connection:" + account) or {}
+            credential = self.store.get("credential:" + account) or {}
+            pending = None
+        else:
+            saved, credential, pending = display_snapshot
         ready = bool(isinstance(spec, BrowserAccount) and spec.login
                      and credential.get("username") and credential.get("password"))
         if saved.get("revoked"):
             state = "revoked"
         elif saved and saved.get("fingerprint") != config.fingerprint(account):
             state = "needs_review"
-        elif self.store.pending(account):
+        elif (self.store.pending(account) if display_snapshot is None else pending):
             state = "needs_attention"
         elif saved:
             state = "saved_access"

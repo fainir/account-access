@@ -344,14 +344,16 @@ def sync_suggestion(store, account, *, config=None, credential=None, hint=None):
     config = config or store.config()
     spec = config.accounts.get(account)
     hint = store.get(SYNC_HINT + account) if hint is None else hint
-    credential = store.get("credential:" + account) if credential is None else credential
     if (not isinstance(spec, BrowserAccount) or not spec.login
-            or not isinstance(hint, dict) or not isinstance(credential, dict)
+            or not isinstance(hint, dict)
             or set(hint) != {"provider", "item", "username", "origin", "fingerprint"}
             or hint.get("provider") != "bitwarden"
             or not isinstance(hint.get("item"), str) or not ITEM_UUID.fullmatch(hint["item"])
-            or not credential.get("username") or hint.get("username") != credential["username"]
             or hint.get("origin") != origin(spec.login_url)
             or hint.get("fingerprint") != config.fingerprint(account)):
+        return None
+    credential = store.get("credential:" + account) if credential is None else credential
+    if (not isinstance(credential, dict) or not credential.get("username")
+            or hint.get("username") != credential["username"]):
         return None
     return {"provider": "bitwarden", "item": hint["item"]}
