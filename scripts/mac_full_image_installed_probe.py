@@ -1,0 +1,402 @@
+"""Reproduce the fixed installed-adapter fixtures as an ordinary Mac user.
+
+Only frozen public source copies and invocation-owned temporary fixtures are
+used. This never installs an image, invokes a provider, reads account data or
+qualifies production root authority. Failed output is retained for inspection.
+"""
+
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import signal
+import stat
+import subprocess
+import sys
+import time
+
+ROOT = Path(__file__).resolve().parents[1]
+COMPILE_SECONDS = 180
+RUNTIME_SECONDS = 60
+MAX_SOURCE = 2 * 1024 * 1024
+MAX_LOG = 4 * 1024 * 1024
+DEPENDENCIES = (
+    "InstallerPayload.swift", "InstallationRootBinding.swift", "ComponentUpdateIdentity.swift",
+    "ComponentUpdatePolicies.swift", "FullImageUpdatePolicies.swift", "FullImageTreeAttachment.swift",
+    "FullImageTreeStorage.swift", "FullImagePlan.swift", "FullImageTransitionStorage.swift",
+    "FullImageGlobalJournal.swift",
+)
+FIXTURES = (
+    "CombinedPredecessorAuthorityChecks.swift", "FullImagePredecessorAuthorityChecks.swift",
+    "FullImageInstalledSourceFixture.swift", "FullImageInstalledChecks.swift", "FullImageNamespaceChecks.swift",
+)
+MAIN_FIXTURES = frozenset((FIXTURES[0], FIXTURES[3], FIXTURES[4]))
+FRAGMENTS = ("macos/source-fragments/CompletedComponentPredecessor.swift.inc",
+             "macos/source-fragments/FullImageInstalledAdapter.swift.inc")
+ENTRYPOINT = "FullImageUpdateMain.swift"
+EXACT_INPUTS = {
+    "macos/ComponentUpdate.swift": "05fc4fb9ff5f2e81ddba4ffa8c4fac8ae0006ff8fdfc0b9fb6388c7fea47750a",
+    FRAGMENTS[0]: "3ea73b73cc9e7eece8e81346d2084db10aa9efde44b22eb1e735289c70cc4663",
+    FRAGMENTS[1]: "49f9906a95fa5dbb8e64d37759962260682e86d08a8f285aaad80033a7aa73b7",
+    "macos/FullImageInstalledIO.swift": "25b43b7099e8b698e48e718bd6429fa9fafe1bb118178bc661386ebd09cae613",
+    "macos/FullImagePredecessorAuthority.swift": "4ba2097a5692aacdc1b4ca119f1c6824abfd332650a152d2e419decc8449d15f",
+    "macos/" + ENTRYPOINT: "6972155e3c0f0e0bd5f9f1a8364f1b52b10e4d541c813802d126c82abfe9e53a",
+    "macos/Tests/CombinedPredecessorAuthorityChecks.swift": "e7d17f2541629369a684923a1d672c31677e1916f6b8bd59c8aac1c03bab6206",
+    "macos/Tests/FullImagePredecessorAuthorityChecks.swift": "5e0a7d7677a01cd7baf778b34176d0172e06d31eade1340884270e8d12c9bb3f",
+    "macos/Tests/FullImageInstalledSourceFixture.swift": "28c438a2294ef668bf0632089c212c8b7a2706ba5edea5ea0f546504ffa5e514",
+    "macos/Tests/FullImageInstalledChecks.swift": "3ab0203f9dc00ae987770e950bf8cbc13218b3d5023b2c90c77666a52e43bde9",
+    "macos/Tests/FullImageNamespaceChecks.swift": "64b91df85ac8c72900ae180a34ee734042ababc3b35d035a9e5f32594e490ba2",
+}
+COMPOSED_SHA256 = "86a222d031ca683e58786b0bef983bd6327c8f8004bbd82d75c0aa73934fc1af"
+GUARD_ENV = "ACCOUNT_ACCESS_FULL_IMAGE_PROBE_GUARD"
+DISPATCHER = b'''import Foundation
+import Darwin
+@main struct FullImageInstalledProbe {
+    static func main() {
+        switch ProcessInfo.processInfo.environment["ACCOUNT_ACCESS_FULL_IMAGE_PROBE_GUARD"] {
+        case nil:
+            CompletedComponentPredecessorChecks.main()
+            FullImageInstalledChecks.main()
+            FullImageNamespaceChecks.main()
+        case "predecessor": CompletedComponentPredecessorChecks.main()
+        case "installed": FullImageInstalledChecks.main()
+        case "namespace": FullImageNamespaceChecks.main()
+        case "entrypoint": FullImageUpdateMain.main()
+        default: exit(77)
+        }
+    }
+}
+'''
+DUMMY_COMPILED_PINS = b'''// Ordinary-user refusal check only. These zeros/empty source pins never
+// represent a qualified package, predecessor or valid root authority.
+enum FullImageUpdateCompiledPins {
+    static let value = FullImageSourcePins(
+        planSHA256: String(repeating: "0", count: 64),
+        targetSourceCommit: String(repeating: "0", count: 40),
+        targetManifestSHA256: String(repeating: "0", count: 64),
+        caReceiptSHA256: String(repeating: "0", count: 64),
+        predecessor: FullImagePredecessorPins(
+            planSHA256: String(repeating: "0", count: 64),
+            originalManifestSHA256: String(repeating: "0", count: 64),
+            manifestSHA256: String(repeating: "0", count: 64),
+            headSHA256: String(repeating: "0", count: 64)),
+        predecessorSourceCommit: String(repeating: "0", count: 40),
+        targetSourceFiles: [:],
+        providerManifestSHA256: String(repeating: "0", count: 64),
+        providerSourceBundleSHA256: String(repeating: "0", count: 64))
+}
+'''
+
+
+class Refused(ValueError):
+    pass
+
+
+def require(value, reason):
+    if not value:
+        raise Refused(reason)
+
+
+def digest(raw):
+    return hashlib.sha256(raw).hexdigest()
+
+
+def stamp(info):
+    return (info.st_dev, info.st_ino, info.st_uid, info.st_mode, info.st_size,
+            info.st_mtime_ns, info.st_ctime_ns)
+
+
+def source_bytes(relative):
+    """Read only a fixed repository source, without following source aliases."""
+    parts = Path(relative).parts
+    require(parts and not Path(relative).is_absolute() and all(part not in {"", ".", ".."} for part in parts),
+            "source_path_refused")
+    parent = os.open(ROOT, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        for part in parts[:-1]:
+            child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=parent)
+            os.close(parent)
+            parent = child
+        fd = os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC, dir_fd=parent)
+        with os.fdopen(fd, "rb") as stream:
+            before = os.fstat(stream.fileno())
+            require(stat.S_ISREG(before.st_mode) and before.st_nlink == 1 and 0 < before.st_size <= MAX_SOURCE,
+                    "source_attachment_refused")
+            raw = stream.read(MAX_SOURCE + 1)
+            require(len(raw) == before.st_size and stamp(before) == stamp(os.fstat(stream.fileno()))
+                    == stamp(os.stat(parts[-1], dir_fd=parent, follow_symlinks=False)), "source_changed_during_read")
+        return raw
+    finally:
+        os.close(parent)
+
+
+def write_file(parent, name, raw):
+    require(name and "/" not in name and name not in {".", ".."}, "output_name_refused")
+    fd = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600, dir_fd=parent)
+    with os.fdopen(fd, "wb") as stream:
+        stream.write(raw)
+        stream.flush()
+        os.fsync(stream.fileno())
+
+
+def encoded(value):
+    return (json.dumps(value, sort_keys=True, indent=2) + "\n").encode()
+
+
+class Probe:
+    def __init__(self, output):
+        self.output = output
+        self.root_fd = -1
+        self.source_fd = -1
+        self.originals = {}
+        self.copies = {}
+        self.result = {"schema": 1, "status": "REFUSED", "stage": "source-freeze", "commands": [],
+                       "source_sha256": {}, "derived_source_sha256": {},
+                       "installed_reads": False, "root_execution": False, "service_actions": False,
+                       "provider_process_or_network_used": False, "production_ready": False}
+
+    def attach(self):
+        os.mkdir(self.output, mode=0o700)  # Existing directories and symlinks are refused.
+        self.root_fd = os.open(self.output, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+        info = os.fstat(self.root_fd)
+        require(info.st_uid == os.getuid() and stat.S_IMODE(info.st_mode) == 0o700, "output_attachment_refused")
+        self.root_identity = (info.st_dev, info.st_ino)
+        os.mkdir("sources", mode=0o700, dir_fd=self.root_fd)
+        self.source_fd = os.open("sources", os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+                                 dir_fd=self.root_fd)
+
+    def attached(self):
+        info = os.stat(self.output, follow_symlinks=False)
+        held = os.fstat(self.root_fd)
+        require(stat.S_ISDIR(info.st_mode) and info.st_uid == os.getuid() and stat.S_IMODE(info.st_mode) == 0o700
+                and (info.st_dev, info.st_ino) == self.root_identity == (held.st_dev, held.st_ino), "output_attachment_changed")
+        path = os.stat("sources", dir_fd=self.root_fd, follow_symlinks=False)
+        held = os.fstat(self.source_fd)
+        require(stat.S_ISDIR(path.st_mode) and path.st_uid == os.getuid() and stat.S_IMODE(path.st_mode) == 0o700
+                and (path.st_dev, path.st_ino) == (held.st_dev, held.st_ino), "source_copy_attachment_changed")
+
+    def copy(self, name, raw):
+        require(name not in self.copies, "duplicate_compiler_basename")
+        write_file(self.source_fd, name, raw)
+        self.copies[name] = raw
+        self.result["derived_source_sha256"][name] = digest(raw)
+        return str(self.output / "sources" / name)
+
+    def prepare(self):
+        names = ["macos/" + name for name in DEPENDENCIES]
+        names += ["macos/ComponentUpdate.swift", *FRAGMENTS, "macos/FullImageInstalledIO.swift",
+                  "macos/FullImagePredecessorAuthority.swift", "macos/" + ENTRYPOINT,
+                  *("macos/Tests/" + name for name in FIXTURES),
+                  "scripts/mac_full_image_installed_probe.py"]
+        require(len(names) == len(set(names)), "duplicate_source_input")
+        for name in names:
+            raw = source_bytes(name)
+            require(name not in EXACT_INPUTS or digest(raw) == EXACT_INPUTS[name], "reviewed_source_pin_changed")
+            self.originals[name] = raw
+            self.result["source_sha256"][name] = digest(raw)
+        composed = (self.originals["macos/ComponentUpdate.swift"] + b"\n"
+                    + self.originals[FRAGMENTS[0]] + b"\n" + self.originals[FRAGMENTS[1]])
+        require(digest(composed) == COMPOSED_SHA256, "source_composition_changed")
+        self.result["composition"] = {"inputs": ["macos/ComponentUpdate.swift", *FRAGMENTS],
+                                      "separator_hex": "0a", "trimmed": False, "sha256": digest(composed)}
+        paths = [self.copy(name, self.originals["macos/" + name]) for name in DEPENDENCIES]
+        paths.append(self.copy("ComponentUpdate.swift", composed))
+        for name in ["FullImageInstalledIO.swift", "FullImagePredecessorAuthority.swift"]:
+            paths.append(self.copy(name, self.originals["macos/" + name]))
+        transforms = {}
+        for name in FIXTURES:
+            raw = self.originals["macos/Tests/" + name]
+            if name in MAIN_FIXTURES:
+                require(raw.count(b"@main ") == 1, "fixture_main_annotation_changed")
+                raw = raw.replace(b"@main ", b"", 1)
+                transforms[name] = "Remove only one @main annotation; preserve the complete main body and guards"
+            paths.append(self.copy(name, raw))
+        entrypoint = self.originals["macos/" + ENTRYPOINT]
+        require(entrypoint.count(b"@main ") == 1, "entrypoint_main_annotation_changed")
+        paths.append(self.copy(ENTRYPOINT, entrypoint.replace(b"@main ", b"", 1)))
+        transforms[ENTRYPOINT] = "Remove only one @main annotation; preserve the production body and root guard"
+        paths.append(self.copy("FullImageUpdateCompiledPins.swift", DUMMY_COMPILED_PINS))
+        paths.append(self.copy("FullImageInstalledProbe.swift", DISPATCHER))
+        self.result["validation_copy_transformations"] = transforms
+        self.result["entrypoint_dummy_pins"] = "All-zero hashes/commits and empty source map; ordinary-user refusal only"
+        self.result["entrypoint_root_authority_qualified"] = False
+        self.compiler = ["/usr/bin/swiftc", "-Onone", "-D", "ACCOUNT_ACCESS_FULL_IMAGE_INSTALLED_CHECKS",
+                         "-D", "ACCOUNT_ACCESS_COMPONENT_PREDECESSOR_CHECKS", "-D",
+                         "ACCOUNT_ACCESS_COMPONENT_PREDECESSOR_FIXTURE_MAIN", "-D",
+                         "ACCOUNT_ACCESS_FULL_IMAGE_UPDATE_MAIN", *paths,
+                         "-o", str(self.output / "installed-probe")]
+        self.result["compiler_command"] = self.compiler
+        write_file(self.root_fd, "source-freeze.json", encoded({**self.result, "status": "SOURCE_FROZEN",
+                                                               "combined_compile_count": 0}))
+
+    def stable(self):
+        self.attached()
+        for name, raw in self.originals.items():
+            require(source_bytes(name) == raw, "source_drift")
+        for name, raw in self.copies.items():
+            fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC, dir_fd=self.source_fd)
+            with os.fdopen(fd, "rb") as stream:
+                info = os.fstat(stream.fileno())
+                require(stat.S_ISREG(info.st_mode) and info.st_nlink == 1 and stream.read(MAX_SOURCE + 1) == raw,
+                        "derived_source_drift")
+
+    def run(self, command, name, seconds, *, guard=None):
+        self.stable()
+        started = time.monotonic()
+        stdout_fd = os.open(name + ".stdout", os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
+                            0o600, dir_fd=self.root_fd)
+        stderr_fd = os.open(name + ".stderr", os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
+                            0o600, dir_fd=self.root_fd)
+        env = dict(os.environ)
+        env.pop(GUARD_ENV, None)
+        if guard is not None:
+            env[GUARD_ENV] = guard
+        process = None
+        stopped = None
+        try:
+            process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=stdout_fd, stderr=stderr_fd,
+                                       start_new_session=True, cwd=ROOT, env=env)
+            while process.poll() is None:
+                if time.monotonic() - started >= seconds:
+                    stopped = "deadline"
+                    break
+                if max(os.fstat(stdout_fd).st_size, os.fstat(stderr_fd).st_size) > MAX_LOG:
+                    stopped = "log_limit"
+                    break
+                time.sleep(0.05)
+            if stopped:
+                try:
+                    os.killpg(process.pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    pass
+                grace = time.monotonic() + 5
+                while time.monotonic() < grace:
+                    process.poll()  # Reap the leader; descendants may still own its process group.
+                    try:
+                        os.killpg(process.pid, 0)
+                    except ProcessLookupError:
+                        break
+                    time.sleep(0.05)
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+            code = process.wait(timeout=5)
+        finally:
+            if process is not None:
+                # A successful leader exit also must not leave an invocation-owned
+                # descendant running. Never infer group lifetime from the leader.
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                process.wait(timeout=5)
+            os.close(stdout_fd)
+            os.close(stderr_fd)
+        def log(suffix):
+            fd = os.open(name + suffix, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC,
+                         dir_fd=self.root_fd)
+            with os.fdopen(fd, "rb") as stream:
+                info = os.fstat(stream.fileno())
+                require(stat.S_ISREG(info.st_mode) and info.st_nlink == 1, "subprocess_log_attachment_refused")
+                return stream.read(MAX_LOG + 1), info.st_size
+
+        stdout, stdout_size = log(".stdout")
+        stderr, stderr_size = log(".stderr")
+        record = {"name": name, "command": command, "timeout_seconds": seconds, "exit_code": code,
+                  "stopped": stopped, "seconds": round(time.monotonic() - started, 3),
+                  "stdout_sha256": digest(stdout) if stdout_size <= MAX_LOG else None,
+                  "stderr_sha256": digest(stderr) if stderr_size <= MAX_LOG else None,
+                  "stdout_bytes": stdout_size, "stderr_bytes": stderr_size}
+        self.result["commands"].append(record)
+        self.stable()
+        require(stopped is None and max(stdout_size, stderr_size) <= MAX_LOG, "subprocess_bound_exceeded")
+        return code, stdout, stderr
+
+    def qualify(self):
+        self.result["stage"] = "compile"
+        code, _, stderr = self.run(self.compiler, "compile", COMPILE_SECONDS)
+        require(code == 0 and stderr == b"", "native_compile_failed")
+        binary = str(self.output / "installed-probe")
+        self.result["stage"] = "fixture-runtime"
+        code, stdout, stderr = self.run([binary], "runtime", RUNTIME_SECONDS)
+        require(code == 0 and stderr == b"", "native_fixture_failed")
+        reports = [json.loads(line) for line in stdout.decode("utf-8").splitlines() if line.startswith("{")]
+        require(len(reports) == 3 and all(report.get("status") == "PASSED" for report in reports), "fixture_reports_refused")
+        require(reports[0].get("count") == 85 and isinstance(reports[0].get("checks"), dict)
+                and len(reports[0]["checks"]) == 85 and all(value is True for value in reports[0]["checks"].values())
+                and reports[1].get("checks") == 39, "fixture_assertion_count_changed")
+        namespace = reports[2]
+        require((namespace.get("checks"), namespace.get("supplemental_group_case")) in {
+            (15, "UNAVAILABLE_NO_DISTINCT_GROUP"),
+            (21, "PASSED_INHERITED_DIFFERENT_GROUP_CORRECTED_ONLY_ON_NEW_INODE")}, "namespace_report_refused")
+        require(all(report.get(key) is False for report in reports
+                    for key in ["installed_reads", "root_execution", "service_actions", "production_ready"]),
+                "fixture_scope_report_refused")
+        self.result["reports"] = reports
+        self.result["supplemental_group_case"] = namespace["supplemental_group_case"]
+        self.result["stage"] = "guarded-main-refusal"
+        for guard in ["predecessor", "installed", "namespace"]:
+            code, stdout, stderr = self.run([binary, "--unexpected-argument"], "guard-" + guard, 10, guard=guard)
+            require(code == 77 and stdout == stderr == b"", "guarded_main_refusal_failed")
+        self.result["stage"] = "ordinary-updater-entrypoint-refusal"
+        code, stdout, stderr = self.run([binary], "entrypoint-ordinary", 10, guard="entrypoint")
+        require(code == 78 and stderr == b"" and stdout ==
+                b'{"schema":1,"status":"REFUSED","reason":"full_image_update_context_required"}\n',
+                "ordinary_updater_entrypoint_refusal_failed")
+        self.result["entrypoint_ordinary_refusal"] = {"exit_code": 78, "normal_argv": True,
+                                                     "reason": "full_image_update_context_required"}
+        self.stable()
+        self.result.update(status="PASSED", stage="complete", sources_stable=True,
+                           combined_compile_count=1, guarded_main_refusals=3)
+
+    def save(self):
+        if self.root_fd >= 0:
+            write_file(self.root_fd, "result.json", encoded(self.result))
+
+    def close(self):
+        for fd in [self.source_fd, self.root_fd]:
+            if fd >= 0:
+                os.close(fd)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, required=True, help="New output directory; existing paths are refused")
+    parser.add_argument("--prepare-only", action="store_true", help="Freeze public source copies without compiling or running")
+    args = parser.parse_args()
+    probe = None
+    try:
+        require(sys.platform == "darwin" and os.getuid() != 0 and os.geteuid() == os.getuid(), "ordinary_mac_required")
+        output = args.output.absolute()
+        require(output.parent.resolve(strict=True) == output.parent, "output_parent_alias_refused")
+        os.umask(0o077)
+        probe = Probe(output)
+        probe.attach()
+        probe.prepare()
+        if args.prepare_only:
+            probe.stable()
+            probe.result.update(status="PREPARED_SOURCE_ONLY", stage="prepared", sources_stable=True,
+                                combined_compile_count=0)
+        else:
+            probe.qualify()
+        probe.save()
+        print(json.dumps({"status": probe.result["status"], "output": str(output),
+                          "result_sha256": digest((output / "result.json").read_bytes()),
+                          "installed_reads": False, "production_ready": False}, sort_keys=True))
+        return 0
+    except Exception as error:
+        reason = str(error) if isinstance(error, Refused) else "installed_probe_failed"
+        if probe is not None:
+            probe.result.update(status="REFUSED", reason=reason, error_type=type(error).__name__)
+            probe.save()
+        print(json.dumps({"status": "REFUSED", "reason": reason, "production_ready": False}, sort_keys=True))
+        return 78
+    finally:
+        if probe is not None:
+            probe.close()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
