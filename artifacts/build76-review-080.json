@@ -1,0 +1,128 @@
+{
+  "schema": 1,
+  "build": 76,
+  "source_revision": "fbd2a733b60acde68e82fe796cb7abd971d5d625",
+  "recorded_at_utc": "2026-10-19T13:09:21.396577+00:00",
+  "status": "LOCAL_CANDIDATE_AWAITING_OWNER_INSTALL_CONFIRMATION",
+  "production_ready": false,
+  "installed": false,
+  "private_signins": 0,
+  "native_qa": {
+    "method": "optimized existing OwnerScreenChecks with fictional native channel",
+    "exit_code": 0,
+    "pass_lines": 47,
+    "log": "artifacts/native-mailbox-retry-080.log",
+    "log_sha256": "97043711728536cbb5a7a1aa42e99414608ed62832f82c0259e6ff02d9cddc94",
+    "source_sha256": "7b35ab1ef3f02209501995c9324c2e320186335d987a67138f37db28440b7f6b",
+    "test_sha256": "aa5076b19d4bde71d4f73a8caf188c5b8eda5cd8a7227002a29c725711184309",
+    "earlier_baseline_exit_code": 133,
+    "earlier_baseline_classification": "unclassified native assertion failure; buffered output does not identify the exact failing assertion"
+  },
+  "package": {
+    "local_bundle": "dist/release-080-review-build76",
+    "filename": "Account-Access-arm64-unsigned.pkg",
+    "bytes": 289451807,
+    "sha256": "e525233e74ee942a53c389babac57eee6cad25b79ea178ff9a6384b0a5c5567c",
+    "actual_archive_manifest_sha256": "5618053e6f8ed0a8720a9d2f7dde317425cecda6a970abd90c499fbfe27b43a8",
+    "files": 25281,
+    "directories": 2305,
+    "aliases": 21,
+    "application_files_match_frozen_source": 79,
+    "actual_gui_recompiled": true,
+    "app_and_runtime_signature_checks": true,
+    "container_signed": false,
+    "notarized": false,
+    "required_install_bytes": 2077925376,
+    "review_sha256": "ca94b55b5a47cb834c873f7bed2ea04e922c7479d889b649b417f58b0318c246",
+    "corresponding_source_archive": "account-access-bitwarden-2026.10.0-corresponding-source.tar.gz",
+    "corresponding_source_sha256": "4b239336a11d702932c376fb7448f9dda6a1eda87c4fe678cadbf537ba137a37"
+  },
+  "unchanged_inputs": {
+    "python_wheel_reused_after_all_79_source_files_equal": true,
+    "signed_system_helpers": 3,
+    "native_helper_inputs_equal": 21,
+    "provider_reference_build": 75,
+    "provider_inventory_entries_unchanged": 11020
+  },
+  "ci_snapshot": [
+    {
+      "conclusion": "success",
+      "databaseId": 39255754982,
+      "event": "pull_request",
+      "name": "Android login-code journey",
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39255754982"
+    },
+    {
+      "conclusion": "",
+      "databaseId": 39255755044,
+      "event": "pull_request",
+      "name": "Mac separate-user worker acceptance",
+      "status": "in_progress",
+      "url": "https://github.com/fainir/account-access/actions/runs/39255755044"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 39255754879,
+      "event": "pull_request",
+      "name": "Separate-user worker acceptance",
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39255754879"
+    },
+    {
+      "conclusion": "",
+      "databaseId": 39255754943,
+      "event": "pull_request",
+      "name": "Account Access checks",
+      "status": "in_progress",
+      "url": "https://github.com/fainir/account-access/actions/runs/39255754943"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 39255749730,
+      "event": "push",
+      "name": "Android login-code journey",
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39255749730"
+    },
+    {
+      "conclusion": "",
+      "databaseId": 39255749817,
+      "event": "push",
+      "name": "Account Access checks",
+      "status": "in_progress",
+      "url": "https://github.com/fainir/account-access/actions/runs/39255749817"
+    },
+    {
+      "conclusion": "",
+      "databaseId": 39255749788,
+      "event": "push",
+      "name": "Mac separate-user worker acceptance",
+      "status": "in_progress",
+      "url": "https://github.com/fainir/account-access/actions/runs/39255749788"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 39255749769,
+      "event": "push",
+      "name": "Separate-user worker acceptance",
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39255749769"
+    }
+  ],
+  "ci_scope": "Run-status snapshot only; pending workflows are not passed tests. Build75 full CI is historical evidence.",
+  "remaining_gates": [
+    "genuine owner installation and approval",
+    "private password, email, SMS and authenticator acceptance",
+    "password-manager private enrollment and rotation",
+    "notarized consumer distribution",
+    "protected different-version upgrade support",
+    "remaining node-forge advisory under investigation"
+  ],
+  "coverage_limits": [
+    "Only reviewed website connectors; importing cannot add an arbitrary website",
+    "Chrome imports are snapshots; Chrome live sync is not implemented",
+    "Mandatory passkey, push, fingerprint and administrative approvals need the owner"
+  ],
+  "owner_application_or_data_accessed_during_build": false
+}

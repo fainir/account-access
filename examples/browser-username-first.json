@@ -1,0 +1,124 @@
+{
+  "version": 1,
+  "accounts": {
+    "example-account": {
+      "kind": "browser",
+      "label": "Example two-page sign-in connector template",
+      "login_url": "https://account.example/identify",
+      "ready_selector": "#signed-in",
+      "login": {
+        "username_selector": "#username",
+        "password_selector": "#password",
+        "submit_selector": "#sign-in",
+        "choices": [
+          {
+            "kind": "totp",
+            "selector": "a#use-authenticator",
+            "url": "https://account.example/verify/authenticator"
+          },
+          {
+            "kind": "sms",
+            "selector": "a#use-sms",
+            "url": "https://account.example/verify/sms/confirm"
+          },
+          {
+            "kind": "email",
+            "selector": "a#use-email",
+            "url": "https://account.example/verify/email"
+          }
+        ],
+        "code_requests": [
+          {
+            "kind": "sms",
+            "selector": "form#request-sms button",
+            "url": "https://account.example/verify/sms/confirm"
+          }
+        ],
+        "factors": {
+          "email": {
+            "code_source": "example-email",
+            "code_selector": "#email-code",
+            "code_submit_selector": "#verify-email"
+          },
+          "sms": {
+            "code_source": "example-sms",
+            "code_selector": "#sms-code",
+            "code_submit_selector": "#verify-sms"
+          },
+          "totp": {
+            "code_source": "example-authenticator",
+            "code_selector": "#authenticator-code",
+            "code_submit_selector": "#verify-authenticator"
+          }
+        },
+        "identity_step": {
+          "submit_selector": "#continue",
+          "post_url": "https://account.example/identify",
+          "password_url": "https://account.example/password",
+          "password_post_url": "https://account.example/authenticate",
+          "scripted": false
+        }
+      },
+      "challenge_selectors": {
+        "login": "#password-login",
+        "method": "#verification-method-choice",
+        "email": "#email-verification",
+        "sms": "#sms-verification",
+        "totp": "#authenticator-verification",
+        "action": "#payment-approval",
+        "passkey": "#passkey-required"
+      },
+      "read_resources": [
+        "https://account.example/identify"
+      ],
+      "login_resources": [
+        "https://account.example/verify/method",
+        "https://account.example/verify/email",
+        "https://account.example/verify/sms",
+        "https://account.example/verify/sms/confirm",
+        "https://account.example/verify/authenticator",
+        "https://account.example/summary",
+        "https://account.example/identify",
+        "https://account.example/password",
+        "https://account.example/authenticate"
+      ],
+      "login_post_urls": [
+        "https://account.example/verify/email",
+        "https://account.example/verify/sms",
+        "https://account.example/verify/sms/confirm",
+        "https://account.example/verify/authenticator",
+        "https://account.example/identify",
+        "https://account.example/authenticate"
+      ],
+      "operations": {
+        "summary": {
+          "kind": "browser",
+          "description": "Read the signed-in page heading",
+          "url": "https://account.example/summary",
+          "fields": {
+            "heading": "h1"
+          }
+        }
+      }
+    }
+  },
+  "code_sources": {
+    "example-email": {
+      "kind": "imap",
+      "host": "imap.gmail.com",
+      "sender": "login@account.example",
+      "recipient": "owner@example.com",
+      "subject": "Your example sign-in code",
+      "template": "Your sign-in code: {code}"
+    },
+    "example-sms": {
+      "kind": "mac_messages",
+      "sender": "Example",
+      "recipient": "owner-phone",
+      "template": "Example sign-in: {code}"
+    },
+    "example-authenticator": {
+      "kind": "totp"
+    }
+  }
+}

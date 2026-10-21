@@ -1,0 +1,151 @@
+{
+  "ci": {
+    "artifact_id": 12251684334,
+    "artifact_name": "mac-launchctl-installer-context",
+    "artifact_sha256": "3c7a63ac89da54c769c7194773210b68679006206136c0fb1417ae2379b665dd",
+    "artifact_url": "https://github.com/fainir/account-access/actions/runs/39396050599/artifacts/12251684334",
+    "closed_report_sha256": "8e4822cd47942c6dbe548a0577b000300f00ffa5e55eed7a38f086b5636b250a",
+    "event": "push",
+    "github_artifact_digest_matches": true,
+    "job_id": 118538938646,
+    "job_url": "https://github.com/fainir/account-access/actions/runs/39396050599/job/118538938646",
+    "run_attempt": 1,
+    "run_id": 39396050599,
+    "run_url": "https://github.com/fainir/account-access/actions/runs/39396050599"
+  },
+  "date": "2026-10-20",
+  "environment": "disposable-mac-ci-installer",
+  "interpretation": {
+    "debug_clients_exceeded_bound_after_start": true,
+    "fixed_stdout_redirect_effect_observed": true,
+    "fixture_service_and_scratch_removed": true,
+    "original_failure_cause": "The original probe required debug client exit zero despite observing the fixed stdout redirect effect.",
+    "production_service_health_or_default_stdout_verified": false,
+    "reset_acceptance": "unverified",
+    "unchanged_capture_does_not_prove_reset": "The first redirect is one-shot and the fixture persistent stdout is already /dev/null."
+  },
+  "original_closed_report": {
+    "actual_installer_used": true,
+    "environment": "disposable-mac-ci-installer",
+    "installer_exit_code": 1,
+    "private_data_accessed": false,
+    "probe": {
+      "actual_installer_script": true,
+      "bootout": {
+        "elapsed_ms": 20,
+        "error": "none",
+        "numeric_pid_response": false,
+        "returncode": 0,
+        "stderr_bytes": 0,
+        "stdout_bytes": 0,
+        "timed_out": false
+      },
+      "bootstrap": {
+        "elapsed_ms": 6,
+        "error": "none",
+        "numeric_pid_response": false,
+        "returncode": 0,
+        "stderr_bytes": 0,
+        "stdout_bytes": 0,
+        "timed_out": false
+      },
+      "capture_unchanged_after_reset": true,
+      "environment": "disposable-mac-ci-installer",
+      "failure_stage": "redirect",
+      "fixed_stdout_captured": true,
+      "fixture": "unique-system-job-fixed-public-echo",
+      "fixture_removed": true,
+      "post_cleanup_lookup": {
+        "elapsed_ms": 12,
+        "error": "not_found",
+        "numeric_pid_response": false,
+        "returncode": 113,
+        "stderr_bytes": 130,
+        "stdout_bytes": 0,
+        "timed_out": false
+      },
+      "preflight": {
+        "elapsed_ms": 8,
+        "error": "not_found",
+        "numeric_pid_response": false,
+        "returncode": 113,
+        "stderr_bytes": 130,
+        "stdout_bytes": 0,
+        "timed_out": false
+      },
+      "private_data_accessed": false,
+      "production_namespace_accessed": false,
+      "redirect": {
+        "client_deadline_ms": 12000,
+        "client_termination_bound_ms": 4000,
+        "debug": {
+          "error": "timeout",
+          "numeric_pid_response": false,
+          "returncode": -15,
+          "stderr_bytes": 36,
+          "stdout_bytes": 0,
+          "timed_out": true
+        },
+        "debug_observed_ms": 2004,
+        "debug_pending_at_observation_bound": true,
+        "elapsed_ms": 12054,
+        "observation_bound_ms": 2000,
+        "start": {
+          "error": "none",
+          "numeric_pid_response": true,
+          "returncode": 0,
+          "stderr_bytes": 0,
+          "stdout_bytes": 5,
+          "timed_out": false
+        },
+        "start_requested_while_debug_pending": true
+      },
+      "reset": {
+        "client_deadline_ms": 12000,
+        "client_termination_bound_ms": 4000,
+        "debug": {
+          "error": "timeout",
+          "numeric_pid_response": false,
+          "returncode": -15,
+          "stderr_bytes": 36,
+          "stdout_bytes": 0,
+          "timed_out": true
+        },
+        "debug_observed_ms": 2025,
+        "debug_pending_at_observation_bound": true,
+        "elapsed_ms": 12012,
+        "observation_bound_ms": 2000,
+        "start": {
+          "error": "none",
+          "numeric_pid_response": true,
+          "returncode": 0,
+          "stderr_bytes": 0,
+          "stdout_bytes": 5,
+          "timed_out": false
+        },
+        "start_requested_while_debug_pending": true
+      },
+      "schema": 1,
+      "service_removed": true,
+      "status": "FAILED"
+    },
+    "production_namespace_accessed": false,
+    "production_ready": false,
+    "schema": 1,
+    "status": "FAILED"
+  },
+  "owner_mac_or_production_service_modified": false,
+  "private_signins": 0,
+  "probe_source_sha256": "2247cfa2084f027fc448177d78bb0ceab29de162b7673045efa892da0e275bef",
+  "production_ready": false,
+  "schema": 1,
+  "scope": "Original actual-Installer stdout measurement; failed client-exit expectation preserved",
+  "source_revision": "d81a95e98b1e38662d54c9eb0937f89866c53b1f",
+  "status": "FAILED",
+  "subsequent_expectation": {
+    "debug_zero_exit_not_required_when_fixed_stdout_observed": true,
+    "not_yet_ci_verified": true,
+    "passed_scope": "Fixed fixture stdout observed, created client processes bounded and reaped, own fixture service and scratch removed.",
+    "reset_observational_only": true
+  }
+}

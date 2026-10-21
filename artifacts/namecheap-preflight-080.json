@@ -1,0 +1,18 @@
+{
+  "service": "namecheap",
+  "checked_at": "2026-10-16T17:37:02.649055+00:00",
+  "scope": "anonymous_form_preflight",
+  "personal_login_tested": false,
+  "credentials_submitted": false,
+  "verification_delivery_tested": false,
+  "checks": {
+    "http_ok": true,
+    "exact_login_url": true,
+    "login_recognized": true,
+    "one_visible_username": true,
+    "one_visible_password": true,
+    "one_visible_submit": true,
+    "not_signed_in": true
+  },
+  "passed": true
+}

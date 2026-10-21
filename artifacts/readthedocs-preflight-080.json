@@ -1,0 +1,29 @@
+{
+  "service": "readthedocs-community",
+  "scope": "anonymous_form_preflight",
+  "checked_at": "2026-10-18T20:49:11.260379+00:00",
+  "primary_source_review": {
+    "readthedocs": "9b9a4e366097f7a86f9f23b78d066b13218e2195",
+    "dashboard": "8befc8b90cd284caf321040a294a479535ca97f7",
+    "allauth": "65.17.0"
+  },
+  "deployed_private_templates_verified": false,
+  "private_signins": 0,
+  "credentials_submitted": false,
+  "verification_delivery_tested": false,
+  "personal_profile_used": false,
+  "production_ready": false,
+  "checks": {
+    "http_ok": true,
+    "exact_login_url": true,
+    "login_recognized": true,
+    "native_form_destination_reviewed": true,
+    "one_visible_username": true,
+    "one_visible_password": true,
+    "one_visible_submit": true,
+    "not_signed_in": true,
+    "no_post_or_code_request": true,
+    "status_redirect_reviewed": true
+  },
+  "passed": true
+}

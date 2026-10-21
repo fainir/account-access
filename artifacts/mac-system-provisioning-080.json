@@ -1,0 +1,75 @@
+{
+  "version": "0.8.0-candidate",
+  "date": "2026-10-17",
+  "source_revision": "a03b2419010c94c5e5a129602e4a3f87fa05860b",
+  "production_ready": false,
+  "ci": {
+    "runs": [
+      "https://github.com/fainir/account-access/actions/runs/39021348626",
+      "https://github.com/fainir/account-access/actions/runs/39021351108"
+    ],
+    "independent_reports_identical": true
+  },
+  "acceptance": {
+    "status": "PASSED",
+    "platform": "macos",
+    "environment": "controlled-demo",
+    "production_ready": false,
+    "private_signins": 0,
+    "actual_provisioner_used": true,
+    "actual_system_entrypoint_used": true,
+    "actual_native_xpc_used": true,
+    "consumer_package_verified": false,
+    "genuine_owner_approval_verified": false,
+    "publisher_signed_peers": false,
+    "fixture_identity_removed": true,
+    "checks": {
+      "prepared_installation_is_idempotent": true,
+      "dedicated_nonlogin_identity_created": true,
+      "broker_and_owner_identities_differ": true,
+      "broker_home_is_private": true,
+      "new_store_and_stage_are_empty": true,
+      "nonlogin_user_bootstrap_domain_ready": true,
+      "public_profile_binds_owner_and_server": true,
+      "published_policies_preserve_empty_fixed_enrollment": true,
+      "exact_prepared_job_is_persisted_and_registered": true,
+      "generated_installation_starts_actual_system_entrypoint": true,
+      "fresh_install_waits_without_key_or_worker": true,
+      "system_entrypoint_recreates_nonlogin_user_domain": true,
+      "first_enrollment_without_approval_refused": true,
+      "first_enrollment_invalid_proof_cannot_create_key": true,
+      "desktop_profile_reads_protected_root_registration": true,
+      "first_enrollment_state_available_without_vault": true,
+      "first_enrollment_health_available": true,
+      "desktop_native_invalid_os_proof_blocks_enrollment": true,
+      "desktop_native_read_needs_no_os_approval": true,
+      "first_enrollment_invalid_os_proof_refused": true,
+      "first_enrollment_root_peer_prepared": true,
+      "first_enrollment_caller_configuration_refused": true,
+      "rejected_setup_keeps_new_key_absent": true,
+      "fixture_setup_policy_removed": true,
+      "created_service_identity_and_domain_removed": true,
+      "temporary_system_jobs_removed": true
+    }
+  },
+  "regression": {
+    "url": "https://github.com/fainir/account-access/actions/runs/39021348603",
+    "passed": 994,
+    "platform_skips": 5,
+    "seconds": 455.31,
+    "dependency_audit": "no known vulnerabilities found",
+    "all_eight_push_and_pr_workflows": "passed"
+  },
+  "owner_state": {
+    "installed_build": 53,
+    "installed_app_replaced": false,
+    "unfinished_mailbox_form": "preserved",
+    "new_private_signin_requests": 0
+  },
+  "limits": [
+    "No signed positive consumer installation or genuine OS approval",
+    "No notarized download, migration/update or interrupted package repair acceptance",
+    "No new private email/SMS/authenticator or physical-phone sign-in acceptance",
+    "Continuous Chrome password sync and isolated host collector deployment remain release gates"
+  ]
+}

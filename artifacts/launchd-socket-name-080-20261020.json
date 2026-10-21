@@ -1,0 +1,46 @@
+{
+  "cleanup": "Created job and socket absent after bootout; only exact owned temporary files removed; archived proofs retained.",
+  "date": "2026-10-20",
+  "first_attempt": {
+    "reason": "No main marker or final report was available; no cause inferred.",
+    "retained_directory": "dist/lsc-b0028347",
+    "status": "INCONCLUSIVE"
+  },
+  "interpretation": "The current canonical getsockname equality check rejects this actual launchd descriptor pattern. Installed failure causality and the replacement protocol still need validation.",
+  "observations": {
+    "activated_fd_count": 1,
+    "configured_address_namespace": "exclusive ordinary-user temporary directory",
+    "entered_main": true,
+    "fd_filesystem_identity_equal": false,
+    "fd_owner_uid": 0,
+    "filesystem_owner_uid": 501,
+    "getsockname_matches_declared": false,
+    "observed_bound_address_namespace": "/var/run/com.apple.launchd.<temporary>/TestSocket"
+  },
+  "production_cause_verified": false,
+  "production_fix_installed": false,
+  "root_or_account_operations": false,
+  "schema": 1,
+  "scope": "One uniquely named gui/current-user LaunchAgent with no account operations or production namespace; this is a mechanism reproduction, not installed-service acceptance.",
+  "sources": [
+    {
+      "supports": "Named socket activation returns the caller service socket entry.",
+      "url": "https://developer.apple.com/documentation/xpc/launch_activate_socket"
+    },
+    {
+      "supports": "AF_UNIX cached bind address and synthetic descriptor inode are distinct from the filesystem vnode.",
+      "url": "https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/bsd/kern/uipc_usrreq.c"
+    }
+  ],
+  "status": "ORDINARY_LAUNCHD_NAME_MISMATCH_REPRODUCED",
+  "successful_attempt": {
+    "files_sha256": {
+      "archive-cleanup.json": "af0db1f63f96524ceb09643f3655dd843f09f609c226d7e0f1287eb62fe6cf45",
+      "execution.json": "dcc9494c944ef96d1ce532fae14aadfc5f6b6c3712913c4628e45031841e214f",
+      "job.plist": "a572a3a60da13cc291308451d0d32fc48fe11cb6e842ae5c4bfbaa805114b7b3",
+      "report.json": "dc887f9fe052ad34c9e3f8595528523edbf6ed24b4b23cfd5f8508823986123c",
+      "socket-canary.c": "d8749b9f307d4b2a352a18c8b57a8388dd4a07e9e5fbe6cd6ac8a60ba5a171e1"
+    },
+    "retained_directory": "dist/lsc-revised-8977abad"
+  }
+}

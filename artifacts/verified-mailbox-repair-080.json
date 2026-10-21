@@ -1,0 +1,83 @@
+{
+  "version": "0.8.0-candidate",
+  "date": "2026-10-16",
+  "production_ready": false,
+  "changes": [
+    "Verified mailbox repair can resume the original task and retain completed steps",
+    "Private source/fingerprint context, fresh checks and active standing grants are required",
+    "Only recognized mailbox-access prerequisites clear; ordinary website authentication still runs",
+    "Delivery, ambiguity, historical unbound, changed-configuration and presence/action gates stay pending",
+    "Bounded rotating scan prevents starvation by other blocked accounts",
+    "OAuth mailbox health binds to provider configuration and authorization identity; normal refresh preserves it",
+    "New authorization, revoked access and uncertain refresh invalidate the old health check",
+    "Reusable mailbox secrets participate in provider-result redaction"
+  ],
+  "controlled_validation": {
+    "initial_mailbox_health_recovery_and_access_cases_passed": 57,
+    "initial_seconds": 41.77,
+    "final_recovery_cases_passed": 17,
+    "final_recovery_seconds": 21.38,
+    "limits": "Fictional accounts, real local TLS IMAP/browser and local OAuth provider, mocked Gmail profile; no private provider or physical device acceptance",
+    "local_full_suite_passed_before_final_binding_case": 502,
+    "local_full_seconds": 398.01,
+    "ci_suite_passed": 503,
+    "ci_seconds": 386.31,
+    "ci_url": "https://github.com/fainir/account-access/actions/runs/38956897845",
+    "android_ci_url": "https://github.com/fainir/account-access/actions/runs/38956897897",
+    "native_ui_cases_passed": 19,
+    "cold_restart_recovery_cases_passed": 2,
+    "cold_restart_seconds": 8.25,
+    "fixture_guard_and_evidence_and_recovery_cases_passed": 78,
+    "fixture_guard_and_evidence_and_recovery_seconds": 22.16,
+    "cli_codex": "passed; four fictional accounts in 25.43 seconds",
+    "cli_claude": "Guarded fixture passed in 74.18 seconds with four password logins and one email, SMS and TOTP verification; failed global-selection run retained separately",
+    "guard_evidence_cases_passed_after_legacy_retirement": 65,
+    "guard_evidence_seconds_after_legacy_retirement": 0.51,
+    "cli_claude_final": "Passed in 102.33 seconds; all successful trace tools satisfy the fixture policy, 19 guarded calls and 6 denials, audit retained privately",
+    "cli_claude_final_evidence_revision": "773568e9bda3676ae2d10753ab410eefb8dd0fa6",
+    "first_guard_revision_ci": {
+      "revision": "2ce1c9ca5f1fa6f1809c5251d4c6911d38af68ff",
+      "tests_passed": 546,
+      "seconds": 427.67,
+      "url": "https://github.com/fainir/account-access/actions/runs/38959218904"
+    },
+    "final_ci": {
+      "revision": "773568e9bda3676ae2d10753ab410eefb8dd0fa6",
+      "tests_passed": 550,
+      "seconds": 431.92,
+      "url": "https://github.com/fainir/account-access/actions/runs/38959629461",
+      "native_owner_messages_and_startup": "passed",
+      "lint": "passed",
+      "dependency_audit": "no known vulnerabilities found",
+      "package_build": "passed",
+      "android_journey": "passed",
+      "android_url": "https://github.com/fainir/account-access/actions/runs/38959629189"
+    }
+  },
+  "private_validation": {
+    "additional_namecheap_requests": 0,
+    "private_mailbox_or_carrier_test_completed": false,
+    "owner_gmail_enrollment": "pending; installed form left untouched",
+    "unintended_global_read": "Local service audit confirms two completed stopped-service profile reads during the unguarded attempts; excluded from acceptance. Guard remediation added.",
+    "confirmed_unintended_stopped_service_profile_reads": 2,
+    "uncaptured_timeout_scope": "No raw trace retained; local audit confirms one stopped-service profile read in its window. No acceptance claimed.",
+    "stopped_service_profile_reads_after_guard_began": 0
+  },
+  "distribution": {
+    "candidate_mac_build": 54,
+    "installed_build": 53,
+    "candidate_status": "Signed universal build 54 staged separately and strict/deep signature verified; not installed over pending owner credential entry",
+    "bundled_wheel_sha256": "b5a6680db531d7c160337bbd2d56d73b693d7e2652a6165220e40c59feafe86a",
+    "source_files_compared": 58,
+    "package_matches_source": true,
+    "staged_signature_check": "strict/deep passed"
+  },
+  "privacy": "Public evidence excludes personal identifiers, local file locations, credentials, cookies, codes and raw traces",
+  "static_analysis": {
+    "record": "artifacts/static-analysis-review-080.json",
+    "medium_findings_reviewed": 2,
+    "low_findings_reviewed": 25,
+    "high_findings": 0,
+    "independent_review_complete": false
+  }
+}

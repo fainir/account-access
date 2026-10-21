@@ -1,0 +1,214 @@
+{
+  "failed_runs": 0,
+  "final_observation_at_utc": "2026-10-20T10:20:05.014987+00:00",
+  "native_owner_ui_first_attempts": [
+    {
+      "event": "pull_request",
+      "final_stale_apply_check_printed": true,
+      "fixture_step": {
+        "completed_at": "2026-10-20T09:46:52Z",
+        "conclusion": "success",
+        "name": "Check native owner screen and masked sync fields",
+        "number": 3,
+        "started_at": "2026-10-20T09:45:37Z",
+        "status": "completed"
+      },
+      "job_conclusion": "success",
+      "job_id": 118561549918,
+      "job_url": "https://github.com/fainir/account-access/actions/runs/39402848340/job/118561549918",
+      "log": {
+        "path": "dist/qa-ci-058511d/native-owner-ui-pull_request-attempt1.log",
+        "sha256": "f0c6f22e22205619ac2fda447e6de689ca78e91d214aba220c823e091e116cfd"
+      },
+      "run_id": 39402848340
+    },
+    {
+      "event": "push",
+      "final_stale_apply_check_printed": true,
+      "fixture_step": {
+        "completed_at": "2026-10-20T09:45:36Z",
+        "conclusion": "success",
+        "name": "Check native owner screen and masked sync fields",
+        "number": 3,
+        "started_at": "2026-10-20T09:44:19Z",
+        "status": "completed"
+      },
+      "job_conclusion": "success",
+      "job_id": 118561524884,
+      "job_url": "https://github.com/fainir/account-access/actions/runs/39402840897/job/118561524884",
+      "log": {
+        "path": "dist/qa-ci-058511d/native-owner-ui-push-attempt1.log",
+        "sha256": "a8ee6c59d6602ccddd6239de059cfd7e24dd76c8cee7bcad8efcfecc6e156818"
+      },
+      "run_id": 39402840897
+    }
+  ],
+  "not_covered": [
+    "AALSN002 listener handoff introduced in source9e47dfc8521625dadb673868fab573badcc747fb",
+    "Component updater or owner Mac installation/enrollment",
+    "Production account/password/email/SMS/authenticator end-to-end readiness"
+  ],
+  "owner_mac_or_production_service_modified": false,
+  "prior_f43_exit133_cause": "unclassified; later058 success does not classify or erase retained f43 failure",
+  "prior_failure_record_preserved": {
+    "path": "artifacts/ci-observations-f43a07a-20261020.json",
+    "sha256": "129c2f1e708ddbbb10d498d49b61f6965d7eb956a8e770136c743b1185bfea19"
+  },
+  "private_account_signins": 0,
+  "production_ready": false,
+  "raw_proof_directory": "dist/qa-ci-058511d",
+  "recorded_at_utc": "2026-10-20T10:29:11.421197+00:00",
+  "reruns_or_cancellations_performed": false,
+  "schema": 1,
+  "scope": "Exact058 source CI outcomes only; no local owner, service or account validation.",
+  "source_revision": "058511de02d6b1a3b9a2d1d20334799bd5780158",
+  "status": "ALL_EIGHT_FIRST_ATTEMPT_WORKFLOWS_PASSED",
+  "successful_runs": 8,
+  "workflow_run_count": 8,
+  "workflow_runs": [
+    {
+      "attempt": 1,
+      "completed_raw_observation": {
+        "path": "dist/qa-ci-058511d/run-39402848334-attempt1-completed.json",
+        "sha256": "fa0b58f09fabb4c12a41455deefb07dcb5d09353c7a291bc848eb2cd3a9d8bc9"
+      },
+      "conclusion": "success",
+      "event": "pull_request",
+      "first_raw_observation": {
+        "path": "dist/qa-ci-058511d/run-39402848334-attempt1-first.json",
+        "sha256": "fa0b58f09fabb4c12a41455deefb07dcb5d09353c7a291bc848eb2cd3a9d8bc9"
+      },
+      "head_sha": "058511de02d6b1a3b9a2d1d20334799bd5780158",
+      "run_id": 39402848334,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39402848334",
+      "workflow": "Separate-user worker acceptance"
+    },
+    {
+      "attempt": 1,
+      "completed_raw_observation": {
+        "path": "dist/qa-ci-058511d/snapshot-0005-run-39402848340.json",
+        "sha256": "cb337bf124e982510d896402e8d42512162a5dd8120bb83de2f372a2ce962b1b"
+      },
+      "conclusion": "success",
+      "event": "pull_request",
+      "first_raw_observation": {
+        "path": "dist/qa-ci-058511d/run-39402848340-attempt1-first.json",
+        "sha256": "276d5a13e3130f0148ca7763d61546469deb4d52008d356c5c9c283ebab14b85"
+      },
+      "head_sha": "058511de02d6b1a3b9a2d1d20334799bd5780158",
+      "run_id": 39402848340,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39402848340",
+      "workflow": "Account Access checks"
+    },
+    {
+      "attempt": 1,
+      "completed_raw_observation": {
+        "path": "dist/qa-ci-058511d/run-39402848324-attempt1-completed.json",
+        "sha256": "be8df77c2dc917262cf2915db3663b4b2e53c14346dd4519d1eba299b7e8f098"
+      },
+      "conclusion": "success",
+      "event": "pull_request",
+      "first_raw_observation": {
+        "path": "dist/qa-ci-058511d/run-39402848324-attempt1-first.json",
+        "sha256": "6e59409e8da95c902c62d3b5db6a8bc9a8a219c87435d6ae9516fc4145970bd4"
+      },
+      "head_sha": "058511de02d6b1a3b9a2d1d20334799bd5780158",
+      "run_id": 39402848324,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39402848324",
+      "workflow": "Android login-code journey"
+    },
+    {
+      "attempt": 1,
+      "completed_raw_observation": {
+        "path": "dist/qa-ci-058511d/snapshot-0006-run-39402848419.json",
+        "sha256": "b9eabd6725660ffef72455c4b2aa4ad8400eb8f3fa982a8596301cefc0be951c"
+      },
+      "conclusion": "success",
+      "event": "pull_request",
+      "first_raw_observation": {
+        "path": "dist/qa-ci-058511d/run-39402848419-attempt1-first.json",
+        "sha256": "1a9123c6a35bc070dc019faf6c2195dba09b68544c4464e95710774aaf5defd2"
+      },
+      "head_sha": "058511de02d6b1a3b9a2d1d20334799bd5780158",
+      "run_id": 39402848419,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39402848419",
+      "workflow": "Mac separate-user worker acceptance"
+    },
+    {
+      "attempt": 1,
+      "completed_raw_observation": {
+        "path": "dist/qa-ci-058511d/run-39402840905-attempt1-completed.json",
+        "sha256": "16476ea77ebf5f3f2c3382cf739cf9bfb28d126fada868b0fe90e96385e05625"
+      },
+      "conclusion": "success",
+      "event": "push",
+      "first_raw_observation": {
+        "path": "dist/qa-ci-058511d/run-39402840905-attempt1-first.json",
+        "sha256": "16476ea77ebf5f3f2c3382cf739cf9bfb28d126fada868b0fe90e96385e05625"
+      },
+      "head_sha": "058511de02d6b1a3b9a2d1d20334799bd5780158",
+      "run_id": 39402840905,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39402840905",
+      "workflow": "Separate-user worker acceptance"
+    },
+    {
+      "attempt": 1,
+      "completed_raw_observation": {
+        "path": "dist/qa-ci-058511d/snapshot-0005-run-39402840897.json",
+        "sha256": "3ff026beeea45dfacf9b9d966896e7cc4b00158dd3a2f20d5da41ca2fcc16050"
+      },
+      "conclusion": "success",
+      "event": "push",
+      "first_raw_observation": {
+        "path": "dist/qa-ci-058511d/run-39402840897-attempt1-first.json",
+        "sha256": "0a600dc841bb70e7c4961b0546faad8eef86ce48961c71891a2c5a6e71c5e979"
+      },
+      "head_sha": "058511de02d6b1a3b9a2d1d20334799bd5780158",
+      "run_id": 39402840897,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39402840897",
+      "workflow": "Account Access checks"
+    },
+    {
+      "attempt": 1,
+      "completed_raw_observation": {
+        "path": "dist/qa-ci-058511d/run-39402840925-attempt1-completed.json",
+        "sha256": "4cd2689643db0b948cef592fbf6d578736c118f8937f38d212995e27d24dce37"
+      },
+      "conclusion": "success",
+      "event": "push",
+      "first_raw_observation": {
+        "path": "dist/qa-ci-058511d/run-39402840925-attempt1-first.json",
+        "sha256": "9efa46f7a0e494aae39a4331ef2ebb89c6afdbd50bfdb1c8281ffe70a67a2480"
+      },
+      "head_sha": "058511de02d6b1a3b9a2d1d20334799bd5780158",
+      "run_id": 39402840925,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39402840925",
+      "workflow": "Android login-code journey"
+    },
+    {
+      "attempt": 1,
+      "completed_raw_observation": {
+        "path": "dist/qa-ci-058511d/snapshot-0006-run-39402840915.json",
+        "sha256": "4e181095fcc1aa444409942ad10554d96c79ba85d4a1f3867b54a6438cb3eb0c"
+      },
+      "conclusion": "success",
+      "event": "push",
+      "first_raw_observation": {
+        "path": "dist/qa-ci-058511d/run-39402840915-attempt1-first.json",
+        "sha256": "b1b2a4c51adf64426b1c944682c9e67f2c0e5d671b037db034fa26bbffcee122"
+      },
+      "head_sha": "058511de02d6b1a3b9a2d1d20334799bd5780158",
+      "run_id": 39402840915,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39402840915",
+      "workflow": "Mac separate-user worker acceptance"
+    }
+  ]
+}

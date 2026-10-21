@@ -1,0 +1,48 @@
+{
+  "version": "0.8.0-candidate",
+  "application_build": 61,
+  "date": "2026-10-17",
+  "source_revision": "aeb1d286746886fe665285defa5e3d1e83f8f07c",
+  "environment": "local-packaging",
+  "production_ready": false,
+  "private_account_sign_ins": 0,
+  "installed": false,
+  "installed_owner_app_changed": false,
+  "minimum_macos": "14.0",
+  "package": {
+    "application_files": 63,
+    "all_application_files_match_source": true,
+    "wheel_sha256": "ad7cbb0c39b14134c4c24211214400d4a913b211bfb683af88a312b11be488d5",
+    "zip_sha256": "2da79f74909a815058d82a811c230f2d0182d133b69c037213ce380fa416c7df",
+    "prepared_archive_sha256": "3705750f75cf87731a2a6594da0d76b61e25cb7de97372e65dd492e07fccc7a2",
+    "developer_id_main_and_helper_both_architectures": "passed",
+    "hardened_runtime_and_timestamp": "passed",
+    "notarization_submitted": false
+  },
+  "validation": {
+    "installer_and_rollback_cases": 59,
+    "focused_checks": "passed",
+    "lint": "passed",
+    "shell_syntax": "passed",
+    "regression_ci": {
+      "source_revision": "aeb1d286746886fe665285defa5e3d1e83f8f07c",
+      "passed": 724,
+      "skipped": 1,
+      "seconds": 502.56,
+      "url": "https://github.com/fainir/account-access/actions/runs/38993464101",
+      "native_owner_ui_gateway_and_background_checks": "passed",
+      "dependency_audit": "no known vulnerabilities"
+    },
+    "android_emulator_journey": {
+      "passed": true,
+      "url": "https://github.com/fainir/account-access/actions/runs/38993464036"
+    }
+  },
+  "limits": [
+    "Packaging and installer preflight checks only; not fresh-Mac installation or private login acceptance",
+    "Separate-user Mac launcher and native owner gateway are not enabled by this consumer build",
+    "Installed build 53 and unfinished mailbox setup preserved",
+    "No actual logout/reboot, installed owner upgrade or Apple notarization acceptance",
+    "The separate Mac cross-user browser workflow on this revision failed at startup and is excluded; later component repairs are separate"
+  ]
+}

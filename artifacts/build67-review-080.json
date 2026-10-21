@@ -1,0 +1,241 @@
+{
+  "schema": 1,
+  "recorded_at": "2026-10-18T21:33:01.563061+00:00",
+  "status": "CONTROLLED_REVIEW_CANDIDATE_VERIFIED",
+  "production_ready": false,
+  "version": "0.8.0",
+  "build": 67,
+  "application_source_revision": "e2c8bc4b9b34937bb365bf79e6f82174cf8ba66a",
+  "package_assembly_and_validation_revision": "c2748c83a13097e0300d3b5cf8ace6b25b88a07a",
+  "product_tree": {
+    "build_source_revision": "e2c8bc4b9b34937bb365bf79e6f82174cf8ba66a",
+    "qa_revision": "c2748c83a13097e0300d3b5cf8ace6b25b88a07a",
+    "paths": [
+      "account_access",
+      "macos",
+      "pyproject.toml",
+      "uv.lock"
+    ],
+    "sha256": "4eb3a7395009c229e93497d84ca7e42434eb58793e1aa4d00b9bcc9b22abc14f",
+    "method": "SHA-256 of git ls-tree -r REV -- PATHS",
+    "unchanged": true
+  },
+  "changes": [
+    "Manifest-derived Installer capacity preflight and safe low-space/ENOSPC retry",
+    "Reviewed Read the Docs Community password/TOTP username check",
+    "Native HTTP form fragment comparison without wider network or JavaScript route grants"
+  ],
+  "all_eight_current_ci_runs_passed": true,
+  "ci_runs": [
+    {
+      "run": 39166631990,
+      "name": "Account Access checks",
+      "event": "pull_request",
+      "url": "https://github.com/fainir/account-access/actions/runs/39166631990",
+      "conclusion": "success"
+    },
+    {
+      "run": 39166632022,
+      "name": "Separate-user worker acceptance",
+      "event": "pull_request",
+      "url": "https://github.com/fainir/account-access/actions/runs/39166632022",
+      "conclusion": "success"
+    },
+    {
+      "run": 39166631989,
+      "name": "Android login-code journey",
+      "event": "pull_request",
+      "url": "https://github.com/fainir/account-access/actions/runs/39166631989",
+      "conclusion": "success"
+    },
+    {
+      "run": 39166632070,
+      "name": "Mac separate-user worker acceptance",
+      "event": "pull_request",
+      "url": "https://github.com/fainir/account-access/actions/runs/39166632070",
+      "conclusion": "success"
+    },
+    {
+      "run": 39166627731,
+      "name": "Android login-code journey",
+      "event": "push",
+      "url": "https://github.com/fainir/account-access/actions/runs/39166627731",
+      "conclusion": "success"
+    },
+    {
+      "run": 39166627762,
+      "name": "Account Access checks",
+      "event": "push",
+      "url": "https://github.com/fainir/account-access/actions/runs/39166627762",
+      "conclusion": "success"
+    },
+    {
+      "run": 39166627720,
+      "name": "Separate-user worker acceptance",
+      "event": "push",
+      "url": "https://github.com/fainir/account-access/actions/runs/39166627720",
+      "conclusion": "success"
+    },
+    {
+      "run": 39166627723,
+      "name": "Mac separate-user worker acceptance",
+      "event": "push",
+      "url": "https://github.com/fainir/account-access/actions/runs/39166627723",
+      "conclusion": "success"
+    }
+  ],
+  "main": {
+    "pull_request": {
+      "pytest": {
+        "failed": 0,
+        "passed": 2467,
+        "seconds": 764.05,
+        "skipped": 93,
+        "warnings": 0
+      },
+      "audit_clean": true,
+      "wheel_built": true,
+      "sdist_built": true
+    },
+    "push": {
+      "pytest": {
+        "failed": 0,
+        "passed": 2467,
+        "seconds": 845.92,
+        "skipped": 93,
+        "warnings": 0
+      },
+      "audit_clean": true,
+      "wheel_built": true,
+      "sdist_built": true
+    }
+  },
+  "strict_mac_evidence": {
+    "source_revision": "e2c8bc4b9b34937bb365bf79e6f82174cf8ba66a",
+    "focused_pytest": {
+      "mac-push": {
+        "passed": 1215,
+        "skipped": 1,
+        "seconds": 172.18,
+        "warning_summary_present": false
+      },
+      "mac-pr": {
+        "passed": 1215,
+        "skipped": 1,
+        "seconds": 185.06,
+        "warning_summary_present": false
+      }
+    },
+    "reviewed_browser_pytest": {
+      "mac-push": {
+        "passed": 22,
+        "seconds": 62.23,
+        "warning_summary_present": false
+      },
+      "mac-pr": {
+        "passed": 22,
+        "seconds": 66.96,
+        "warning_summary_present": false
+      }
+    },
+    "reports_per_run": 18,
+    "strict_validators_per_run": 16,
+    "package_contracts_per_run": 2,
+    "all18_canonically_identical": true,
+    "installer_context_counts": {
+      "files": 3,
+      "directories": 5,
+      "aliases": 1
+    },
+    "installer_source_handoff_checks": 8,
+    "shared_parent_permissions_preserved": true,
+    "sms_flow_passed_both": true,
+    "new_qa_product_tree_identical": true
+  },
+  "strict_mac_evidence_sha256": "3920d936ed84e7dc03dabc187e55d0b5263c401a137504aa2d0ea7275da41596",
+  "package": {
+    "actual_native_low_space_preflight_refused_root": true,
+    "actual_volume_check_matches_manifest": true,
+    "build": 67,
+    "component_review_sha256": "2749a6b74ba39464e2b287f8a2fbb755b552b00a40698ae75dcaf1d388ccf2bb",
+    "distribution_sha256": "08cb1e5a8c15db125d8fe53318ad5a4024802819b8233736b730da405f7fd3c5",
+    "external_script_permission_required": false,
+    "frozen_source_wheel_and_manifest_bindings_match": true,
+    "installed": false,
+    "installer_signed": false,
+    "manifest_bytes_streamed": 916867,
+    "manifest_counts": {
+      "aliases": 21,
+      "directories": 601,
+      "files": 4942
+    },
+    "manifest_sha256": "c86b6daca750909b64a806d25c53982019c6016c69360107de6639520da5c0a5",
+    "notarized": false,
+    "package_bytes": 257981754,
+    "package_filename": "Account-Access-arm64-unsigned.pkg",
+    "package_sha256": "c61e406d24efc5d21b60d75ef79a17e1c92979bb6b95bec3db3d4a4bee930666",
+    "payload_audit": {
+      "bundles": 1,
+      "executables": 11,
+      "native_files": 49,
+      "notarization_verified": false,
+      "publisher_signatures_verified": true,
+      "wheels": 34
+    },
+    "private_signins": 0,
+    "product_source": "e2c8bc4b9b34937bb365bf79e6f82174cf8ba66a",
+    "product_tree_equal_between_revisions": true,
+    "production_payload_audit_report_consistent": true,
+    "production_ready": false,
+    "public_inputs_unchanged_reported_and_plan_bound": true,
+    "qa_source": "c2748c83a13097e0300d3b5cf8ace6b25b88a07a",
+    "required_install_bytes_recomputed": 1502347264,
+    "reviewed_allow_jit_executables": 3,
+    "reviewed_runtime_library_validation_enabled": true,
+    "runtime_entitlements_independently_reread_from_package": false,
+    "runtime_or_full_payload_materialized": false,
+    "runtime_signing_plan_sha256": "de74b22e7335972ac4bd3887b75e42f4536cedc982629182092e6240961ec430",
+    "schema": 1,
+    "scope": "unsigned_public_offline_package_metadata_and_manifest",
+    "status": "VERIFIED_REVIEW_PACKAGE",
+    "unsigned_container_confirmed_by_pkgutil": true,
+    "wheel_sha256": "c502f5c4280db8429884db8424de63b386ca7c97ca5cf953b21fd0729b3058bf"
+  },
+  "components": {
+    "wheel_source_files_matched": 78,
+    "root_python_modules_matched": 60,
+    "wheel_sha256": "c502f5c4280db8429884db8424de63b386ca7c97ca5cf953b21fd0729b3058bf",
+    "protected_installation_required": true,
+    "all_four_publisher_signatures_verified": true
+  },
+  "previous_failures_retained": {
+    "ci_run": 39165330028,
+    "revision": "e2c8bc4b9b34937bb365bf79e6f82174cf8ba66a",
+    "result": "2466 passed, 93 skipped, one test fixture failure before TOTP submission",
+    "diagnosis": "Fixture wait matched the final-five-second rollover guard and could expire before the next poll",
+    "repair": "Fixture budget 5 to 10 seconds; production default remains 60 seconds",
+    "initial_package_attempt": "pkgbuild exited 1 during disk pressure; same product source built after space was freed",
+    "initial_package_exact_cause_confirmed": false
+  },
+  "notarization": {
+    "app_archive_prepared": true,
+    "submitted": false,
+    "accepted": false,
+    "stapled": false
+  },
+  "private_signins": 0,
+  "owner_installation_or_enrollment_performed": false,
+  "real_mailbox_or_phone_delivery_verified": false,
+  "unimplemented_requirements": [
+    "Chrome live password sync",
+    "Bitwarden live password sync",
+    "Arbitrary website support",
+    "Different-image protected upgrade and vault migration"
+  ],
+  "open_acceptance": [
+    "Apple Installer signing/notarization and clean consumer installation including macOS14",
+    "Genuine protected owner setup, upgrade, reboot and recovery",
+    "Real approved password/email/SMS/TOTP sign-ins and physical phone delivery",
+    "Current protected private sessions through both Claude Code and Codex"
+  ]
+}

@@ -1,5 +1,6 @@
 """Provider requests happen here, never in model-visible commands."""
 
+import asyncio
 import math
 import re
 import secrets
@@ -7,7 +8,7 @@ import time
 from urllib.parse import parse_qs, urlsplit
 
 import httpx2 as httpx
-from authlib.integrations.httpx_client import OAuth2Client
+from authlib.integrations.httpx_client import AsyncOAuth2Client, OAuth2Client
 from authlib.integrations.base_client.errors import OAuthError
 
 from .errors import AccessError
@@ -56,7 +57,7 @@ def credential_values(value):
     if isinstance(value, dict):
         for key, item in value.items():
             if isinstance(item, str) and (key in {"password", "seed", "access_token", "refresh_token",
-                                                 "client_secret", "id_token", "auth_token", "value"}):
+                                                 "client_secret", "id_token", "auth_token", "token", "value"}):
                 if item:
                     result.add(item)
             result.update(credential_values(item))
@@ -84,14 +85,15 @@ class OAuth:
     def __init__(self, store):
         self.store = store
 
-    def client(self, account, config: OAuthAccount, **kwargs):
+    def client(self, account, config: OAuthAccount, *, _async=False, _timeout=15, **kwargs):
         secret = self.store.get("credential:" + account, {}).get("client_secret")
         if config.token_auth_method != "none" and not secret:
             raise AccessError("NEEDS_USER", "client_secret_not_configured")
-        return OAuth2Client(config.client_id, client_secret=secret,
-                            token_endpoint_auth_method=config.token_auth_method,
-                            scope=" ".join(config.scopes), code_challenge_method="S256",
-                            timeout=15, follow_redirects=False, trust_env=False, **kwargs)
+        factory = AsyncOAuth2Client if _async else OAuth2Client
+        return factory(config.client_id, client_secret=secret,
+                       token_endpoint_auth_method=config.token_auth_method,
+                       scope=" ".join(config.scopes), code_challenge_method="S256",
+                       timeout=_timeout, follow_redirects=False, trust_env=False, **kwargs)
 
     def begin(self, account, redirect_uri):
         config = self.store.config()
@@ -101,6 +103,7 @@ class OAuth:
         verifier = secrets.token_urlsafe(48)
         with self.client(account, account_config, redirect_uri=redirect_uri) as client:
             url, state = client.create_authorization_url(account_config.authorization_url,
+                                                        state=secrets.token_urlsafe(32),
                                                         code_verifier=verifier,
                                                         **account_config.authorization_params)
         self.store.put("oauth-pending:" + account, {
@@ -111,28 +114,38 @@ class OAuth:
 
     def finish(self, account, callback_url):
         with self.store.lock("account:" + account):
-            config = self.store.config()
-            pending = self.store.get("oauth-pending:" + account)
-            params = parse_qs(urlsplit(callback_url).query)
-            if (not pending or pending["expires"] < time.time()
-                or config.fingerprint(account) != pending["fingerprint"]
-                or len(params.get("state", [])) != 1
-                or not secrets.compare_digest(params["state"][0], pending["state"])
-                or callback_url.split("?", 1)[0] != pending["redirect_uri"]
-                or len(params.get("code", [])) != 1):
-                raise AccessError("DENIED", "invalid_oauth_callback")
-            # Consume state before network I/O. Never replay an authorization code after a lost response.
-            self.store.put("oauth-pending:" + account, None)
-            try:
-                with self.client(account, config.accounts[account], state=pending["state"],
-                                 redirect_uri=pending["redirect_uri"]) as client:
-                    token = client.fetch_token(config.accounts[account].token_url,
-                                               authorization_response=callback_url,
-                                               code_verifier=pending["verifier"])
-                self.save(account, token, config)
-            except (OAuthError, httpx.HTTPError, ValueError):
-                raise AccessError("NEEDS_USER", "oauth_connection_failed") from None
-            self.store.resolve_login(account)
+            # The owner web/legacy route must enforce the same Gmail contract
+            # as the protected desktop handoff, before publication/resumption.
+            from .mailbox_oauth import supported, validate_grant
+            validator = validate_grant if supported(self.store.config(), account) else None
+            self._finish_locked(account, callback_url, validate_token=validator)
+
+    def _finish_locked(self, account, callback_url, *, validate_token=None):
+        """Caller holds the account lock, including a desktop handoff's lifetime check."""
+        config = self.store.config()
+        pending = self.store.get("oauth-pending:" + account)
+        params = parse_qs(urlsplit(callback_url).query)
+        if (not pending or pending["expires"] < time.time()
+            or config.fingerprint(account) != pending["fingerprint"]
+            or len(params.get("state", [])) != 1
+            or not secrets.compare_digest(params["state"][0], pending["state"])
+            or callback_url.split("?", 1)[0] != pending["redirect_uri"]
+            or len(params.get("code", [])) != 1):
+            raise AccessError("DENIED", "invalid_oauth_callback")
+        # Consume state before network I/O. Never replay an authorization code after a lost response.
+        self.store.put("oauth-pending:" + account, None)
+        try:
+            with self.client(account, config.accounts[account], state=pending["state"],
+                             redirect_uri=pending["redirect_uri"]) as client:
+                token = client.fetch_token(config.accounts[account].token_url,
+                                           authorization_response=callback_url,
+                                           code_verifier=pending["verifier"])
+            if validate_token is not None:
+                validate_token(token)
+            self.save(account, token, config)
+        except (OAuthError, httpx.HTTPError, ValueError):
+            raise AccessError("NEEDS_USER", "oauth_connection_failed") from None
+        self.store.resolve_login(account)
 
     def save(self, account, token, config, previous=None):
         previous = previous or {}
@@ -145,16 +158,24 @@ class OAuth:
         if not math.isfinite(float(expires)):
             raise AccessError("NEEDS_USER", "invalid_provider_token")
         scope = token.get("scope", previous.get("scope", " ".join(config.accounts[account].scopes)))
+        existing = (self.store.get("connection:" + account) or {}) if previous else {}
+        authorization_id = (existing.get("authorization_id") or existing.get("generation")) if previous else None
         self.store.put("connection:" + account, {
             "token": {"access_token": token["access_token"], "token_type": "Bearer",
                       "refresh_token": token.get("refresh_token", previous.get("refresh_token")),
                       "expires_at": float(expires), "scope": scope},
             "fingerprint": config.fingerprint(account), "refresh_in_flight": False,
             "generation": secrets.token_hex(8),
+            # Stable through refresh, replaced by a new owner authorization.
+            # Legacy connections retain their old generation on first renewal.
+            "authorization_id": authorization_id or secrets.token_hex(16),
         })
 
-    def token(self, account, config, *, force=False):
+    def token(self, account, config, *, force=False, refresh_timeout=None):
         """Caller holds the account lock throughout refresh and protected execution."""
+        if refresh_timeout is not None and (type(refresh_timeout) not in {int, float}
+                or not math.isfinite(refresh_timeout) or not 0 < refresh_timeout <= 10):
+            raise ValueError("invalid OAuth refresh budget")
         connection = self.store.get("connection:" + account)
         if not connection:
             raise AccessError("NEEDS_USER", "account_not_connected")
@@ -175,9 +196,21 @@ class OAuth:
         connection["refresh_in_flight"] = True
         self.store.put("connection:" + account, connection)
         try:
-            with self.client(account, config.accounts[account], token=token) as client:
-                refreshed = client.refresh_token(config.accounts[account].token_url,
-                                                 refresh_token=token["refresh_token"])
+            if refresh_timeout is None:
+                with self.client(account, config.accounts[account], token=token) as client:
+                    refreshed = client.refresh_token(config.accounts[account].token_url,
+                                                     refresh_token=token["refresh_token"])
+            else:
+                async def refresh():
+                    async with self.client(account, config.accounts[account], token=token,
+                                           _async=True, _timeout=refresh_timeout) as client:
+                        return await client.refresh_token(config.accounts[account].token_url,
+                                                          refresh_token=token["refresh_token"])
+
+                async def bounded():
+                    return await asyncio.wait_for(refresh(), timeout=refresh_timeout)
+
+                refreshed = asyncio.run(bounded())
             self.save(account, refreshed, config, previous=token)
             self.store.audit("service", account, "", "token_refreshed")
             return self.store.get("connection:" + account)["token"]
@@ -188,7 +221,7 @@ class OAuth:
                 self.store.put("connection:" + account, connection)
                 raise AccessError("NEEDS_USER", "provider_grant_revoked_or_expired") from None
             raise AccessError("NEEDS_USER", "refresh_outcome_uncertain") from None
-        except (httpx.HTTPError, ValueError, KeyError):
+        except (TimeoutError, httpx.HTTPError, ValueError, KeyError):
             raise AccessError("NEEDS_USER", "refresh_outcome_uncertain") from None
 
     def read(self, account, op, config):

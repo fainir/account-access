@@ -5,4 +5,7 @@ class AccessError(Exception):
         self.status = status
         self.reason = reason
         self.kind = kind
+        # Internal context for verified prerequisite repair; never serialized
+        # through the agent error/challenge API.
+        self.source_id = None
         super().__init__(reason)

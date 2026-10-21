@@ -3,6 +3,7 @@
 import hashlib
 import ipaddress
 import json
+import re
 from typing import Annotated, Literal
 from urllib.parse import urlsplit
 
@@ -81,15 +82,75 @@ class OAuthAccount(StrictModel):
         return self
 
 
+class LoginFactor(StrictModel):
+    code_selector: str = Field(min_length=1)
+    code_submit_selector: str = Field(min_length=1)
+    code_source: Handle
+
+
+class LoginChoice(StrictModel):
+    kind: Literal["email", "sms", "totp"]
+    selector: str = Field(min_length=1)
+    url: str
+
+
+class LoginCodeRequest(StrictModel):
+    kind: Literal["email", "sms"]
+    selector: str = Field(min_length=1)
+    url: str
+
+
+class LoginIdentityStep(StrictModel):
+    submit_selector: str = Field(min_length=1, max_length=500)
+    post_url: str
+    password_url: str
+    password_post_url: str
+    # Explicitly reviewed JavaScript POST instead of a native form submission.
+    scripted: bool = False
+
+
 class LoginForm(StrictModel):
     username_selector: str
     password_selector: str
     submit_selector: str
+    identity_step: LoginIdentityStep | None = None
     code_selector: str | None = None
     code_submit_selector: str | None = None
     code_source: Handle | None = None
+    device_email_source: Handle | None = None
     code_wait_ms: int = Field(default=60000, ge=5000, le=120000)
     login_only: Literal[True] = True
+    factors: dict[Literal["email", "sms", "totp"], LoginFactor] = Field(default_factory=dict)
+    choices: list[LoginChoice] = Field(default_factory=list, max_length=3)
+    code_requests: list[LoginCodeRequest] = Field(default_factory=list, max_length=2)
+    choice_toggle_selector: str | None = Field(default=None, min_length=1, max_length=500)
+
+    @model_validator(mode="after")
+    def one_factor_configuration(self):
+        if self.factors and any([self.code_source, self.code_selector, self.code_submit_selector]):
+            raise ValueError("Use per-method factors or the legacy single source, never both")
+        if len({choice.kind for choice in self.choices}) != len(self.choices):
+            raise ValueError("Configure each verification choice once")
+        if len({item.kind for item in self.code_requests}) != len(self.code_requests):
+            raise ValueError("Configure each code request once")
+        return self
+
+    def sources(self):
+        values = ({factor.code_source for factor in self.factors.values()} if self.factors
+                  else {self.code_source} if self.code_source else set())
+        return values | ({self.device_email_source} if self.device_email_source else set())
+
+    def factor(self, kind):
+        if self.factors:
+            return self.factors.get(kind)
+        if self.code_source and self.code_selector and self.code_submit_selector:
+            return LoginFactor(code_source=self.code_source, code_selector=self.code_selector,
+                               code_submit_selector=self.code_submit_selector)
+        return None
+
+    def authenticator_source(self, config):
+        factor = self.factor("totp")
+        return factor.code_source if factor and config.code_sources[factor.code_source].kind == "totp" else None
 
 
 class BrowserAccount(StrictModel):
@@ -98,11 +159,18 @@ class BrowserAccount(StrictModel):
     login_url: str
     ready_selector: str
     login: LoginForm | None = None
-    challenge_selectors: dict[Literal["login", "sms", "email", "totp", "device", "passkey",
-                                     "admin", "action", "unknown"], str] = Field(default_factory=dict)
+    # Explicit reviewed aliases for password-manager exports, never a hostname
+    # suffix match. This does not grant browser network access to an alias.
+    password_import_origins: list[str] = Field(default_factory=list, max_length=8)
+    challenge_selectors: dict[Literal["login", "sms", "email", "totp", "device", "passkey", "captcha",
+                                     "admin", "action", "recovery", "unknown", "method"], str] = Field(default_factory=dict)
     # Exact URLs, including query strings. GET alone does not prove a URL is read-only.
     read_resources: list[str] = Field(default_factory=list, max_length=100)
     login_resources: list[str] = Field(default_factory=list, max_length=100)
+    login_assets: list[str] = Field(default_factory=list, max_length=150)
+    login_asset_discovery: Literal["github"] | None = None
+    login_challenge: Literal["pypi-totp-v1"] | None = None
+    browser_channel: Literal["chrome"] | None = None
     login_post_urls: list[str] = Field(default_factory=list, max_length=32)
     javascript: bool = False
     state_timeout_ms: int = Field(default=5000, ge=0, le=15000)
@@ -110,7 +178,8 @@ class BrowserAccount(StrictModel):
 
 
 class CodeSource(StrictModel):
-    kind: Literal["totp", "gmail", "twilio", "imap", "mac_messages", "phone_relay"]
+    kind: Literal["totp", "gmail", "twilio", "imap", "mac_messages", "phone_relay", "google_messages"]
+    message_purpose: Literal["pypi-device-confirmation"] | None = None
     account: Handle | None = None
     sender: str | None = Field(default=None, max_length=200)
     recipient: str | None = Field(default=None, max_length=200)
@@ -122,7 +191,17 @@ class CodeSource(StrictModel):
 
     @model_validator(mode="after")
     def requirements(self):
-        if self.kind != "totp" and (not self.sender or not self.recipient or not self.template
+        if self.message_purpose:
+            if (self.kind not in {"gmail", "imap"} or self.sender != "noreply@pypi.org"
+                    or self.subject != "[PyPI] Unrecognized login to your PyPI account"
+                    or not self.recipient or re.fullmatch(r"[^\s<>@]+@[^\s<>@]+", self.recipient) is None
+                    or self.template is not None):
+                raise ValueError("PyPI device mail requires its reviewed sender, subject and a recipient; no code template")
+        if self.kind == "google_messages" and (
+                self.sender != "github-login-rotating-senders" or self.recipient != "paired-google-messages"
+                or self.template != "{code} is your GitHub authentication code."):
+            raise ValueError("Google Messages currently supports only the reviewed GitHub login template")
+        if self.kind != "totp" and not self.message_purpose and (not self.sender or not self.recipient or not self.template
                                     or self.template.count("{code}") != 1):
             raise ValueError("Message sources require sender, recipient and one {code} template")
         if self.kind == "gmail" and (not self.account or not self.subject):
@@ -146,9 +225,57 @@ class Configuration(StrictModel):
                 if account.revoke_url:
                     urls.append(account.revoke_url)
             else:
-                urls = [account.login_url, *account.read_resources, *account.login_resources, *account.login_post_urls]
-                if account.login and account.login.code_source not in self.code_sources and account.login.code_source:
-                    raise ValueError("Unknown login code source")
+                if account.login_challenge:
+                    from .pypi_challenge import validate_configuration
+                    validate_configuration(account, self.test_mode)
+                for alias in account.password_import_origins:
+                    validate_url(alias, self.test_mode)
+                    if alias != origin(alias):
+                        raise ValueError("Password import aliases must be exact origins")
+                if account.login_asset_discovery and (
+                        not account.javascript or origin(account.login_url) != "https://github.com"
+                        or urlsplit(account.login_url).path != "/login"
+                        or not account.login or account.login.username_selector != "#login_field"
+                        or account.login.password_selector != "#password" or account.login.identity_step is not None):
+                    raise ValueError("GitHub asset discovery requires the reviewed GitHub login form")
+                urls = [account.login_url, *account.read_resources, *account.login_resources,
+                        *account.login_assets, *account.login_post_urls]
+                if account.login:
+                    identity = account.login.identity_step
+                    if identity and (
+                            identity.post_url not in account.login_post_urls
+                            or identity.post_url not in account.login_resources
+                            or identity.password_url not in account.login_resources
+                            or identity.password_post_url not in account.login_post_urls
+                            or identity.password_post_url not in account.login_resources
+                            or any(origin(url) != origin(account.login_url)
+                                   for url in [identity.post_url, identity.password_url, identity.password_post_url])
+                            or identity.scripted and not account.javascript):
+                        raise ValueError("Identity steps require reviewed same-origin login pages and POST; scripted steps require JavaScript")
+                    if not account.login.sources() <= self.code_sources.keys():
+                        raise ValueError("Unknown login code source")
+                    if account.login.code_source and self.code_sources[account.login.code_source].message_purpose:
+                        raise ValueError("A device confirmation source cannot supply a numeric code")
+                    device = account.login.device_email_source
+                    if device and (account.login_challenge != "pypi-totp-v1"
+                                   or self.code_sources[device].message_purpose != "pypi-device-confirmation"):
+                        raise ValueError("Device confirmation mail is bound only to the reviewed PyPI login")
+                    kinds = {"totp": {"totp"}, "email": {"imap", "gmail"},
+                             "sms": {"twilio", "mac_messages", "phone_relay", "google_messages"}}
+                    for kind, factor in account.login.factors.items():
+                        if (self.code_sources[factor.code_source].kind not in kinds[kind]
+                                or self.code_sources[factor.code_source].message_purpose):
+                            raise ValueError("Verification method and source kind must match")
+                    for choice in account.login.choices:
+                        factor = account.login.factor(choice.kind)
+                        if (choice.url not in account.login_resources
+                                or origin(choice.url) != origin(account.login_url)
+                                or (factor and self.code_sources[factor.code_source].kind not in kinds[choice.kind])):
+                            raise ValueError("Verification choices require a reviewed login URL and any configured source must match")
+                    for delivery in account.login.code_requests:
+                        if (delivery.url not in account.login_resources
+                                or origin(delivery.url) != origin(account.login_url)):
+                            raise ValueError("Code requests require a reviewed same-origin login page")
             urls.extend(op.url for op in account.operations.values())
             for url in urls:
                 validate_url(url, self.test_mode)
@@ -168,16 +295,48 @@ class Configuration(StrictModel):
 
     def fingerprint(self, account: str) -> str:
         data = self.accounts[account].model_dump()
+        if isinstance(self.accounts[account], BrowserAccount) and not data.get("login_assets"):
+            data.pop("login_assets", None)
+        if isinstance(self.accounts[account], BrowserAccount) and data.get("browser_channel") is None:
+            data.pop("browser_channel", None)
+        if isinstance(self.accounts[account], BrowserAccount) and data.get("login_asset_discovery") is None:
+            data.pop("login_asset_discovery", None)
+        if isinstance(self.accounts[account], BrowserAccount) and data.get("login_challenge") is None:
+            data.pop("login_challenge", None)
+        if isinstance(self.accounts[account], BrowserAccount) and not data.get("password_import_origins"):
+            # Existing grants and saved sessions must survive an upgrade when
+            # no alias was added. A nonempty alias is still permission-bound.
+            data.pop("password_import_origins", None)
         if isinstance(self.accounts[account], BrowserAccount) and data.get("login"):
+            if data["login"].get("device_email_source") is None:
+                data["login"].pop("device_email_source", None)
+            if data["login"].get("identity_step") is None:
+                data["login"].pop("identity_step", None)
+            if not data["login"].get("factors"):
+                data["login"].pop("factors", None)
+            if not data["login"].get("choices"):
+                data["login"].pop("choices", None)
+            if not data["login"].get("code_requests"):
+                data["login"].pop("code_requests", None)
+            if data["login"].get("choice_toggle_selector") is None:
+                data["login"].pop("choice_toggle_selector", None)
             if data["login"].get("code_wait_ms") == 60000:
                 data["login"].pop("code_wait_ms", None)
         if isinstance(self.accounts[account], BrowserAccount):
             form = self.accounts[account].login
             if form and form.code_source:
                 data["code_source_config"] = self.code_sources[form.code_source].model_dump()
+                if data["code_source_config"].get("message_purpose") is None:
+                    data["code_source_config"].pop("message_purpose", None)
                 if self.code_sources[form.code_source].kind != "imap":
                     data["code_source_config"].pop("host", None)
                     data["code_source_config"].pop("port", None)
+            if form and form.factors:
+                data["code_source_configs"] = {key: self.code_sources[key].model_dump()
+                                               for key in sorted(form.sources())}
+                for source in data["code_source_configs"].values():
+                    if source.get("message_purpose") is None:
+                        source.pop("message_purpose", None)
         data["test_mode"] = self.test_mode
         return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
 

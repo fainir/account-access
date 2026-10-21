@@ -1,0 +1,68 @@
+{
+  "status": "PASSED",
+  "platform": "macos",
+  "environment": "controlled-demo",
+  "production_ready": false,
+  "private_signins": 0,
+  "system_key_used": true,
+  "actual_worker_used": true,
+  "consumer_deployment_verified": false,
+  "parent_daemon_recovery_verified": false,
+  "genuine_owner_approval_verified": false,
+  "owner_session_checks": "synthetic-in-process",
+  "controlled_monotonic_clock": true,
+  "fixture_key_removed": true,
+  "checks": {
+    "supervisor_shutdown_cleans_listeners": true,
+    "writes_during_backoff_not_replayed": true,
+    "dangling_pause_symlink_still_prevents_start": true,
+    "failed_state_does_not_restart_on_tick": true,
+    "restart_budget_exhaustion_stops_loop": true,
+    "successive_backoff_deadlines_enforced": true,
+    "backoff_deadline_enforced": true,
+    "pause_survives_future_ticks": true,
+    "existing_store_started": true,
+    "missing_key_is_terminal_without_enrollment": true,
+    "missing_key_not_recreated": true,
+    "crashed_store_reopens_automatically": true,
+    "synthetic_owner_session_active_before_crash": true,
+    "paused_start_never_launches_worker": true,
+    "paused_owner_reads_do_not_start_worker": true,
+    "pause_stops_running_worker": true,
+    "old_owner_session_retired": true,
+    "paused_native_health_remains_available": true,
+    "owned_crash_enters_backoff": true,
+    "new_session_requires_own_setup_approval": true,
+    "stable_running_period_restores_restart_budget": true
+  },
+  "date": "2026-10-17",
+  "source_revision": "e756d1861a44ef67c203f2b413790cdcbd82e890",
+  "ci_url": "https://github.com/fainir/account-access/actions/runs/39006452093/job/117319816135",
+  "installed_owner_app_changed": false,
+  "publisher_signed_peers": false,
+  "fixture_store_account_count": 0,
+  "owner_xpc_evidence": "mac-owner-gateway-080.json",
+  "related_evidence": [
+    "mac-key-handoff-080.json",
+    "mac-key-custody-080.json",
+    "mac-root-owner-080.json",
+    "mac-owner-policy-080.json",
+    "mac-worker-boundary-080.json"
+  ],
+  "limits": [
+    "Live native parent, dedicated actual workers and an empty encrypted fixture Store; controlled monotonic clock",
+    "Supervisor owner-session checks use in-process synthetic approval; composed system-host acceptance is recorded separately",
+    "Root CI peers are ad-hoc hash-pinned; genuine owner approval and publisher-signed root upgrade remain open",
+    "Standalone journey does not test parent recovery; see separate composed-host report. Reboot, active-operation/browser-descendant recovery and consumer resume remain unverified",
+    "No initial consumer enrollment, source collectors, client issuance, migration or private sign-ins"
+  ],
+  "excluded_attempts": [
+    {
+      "source_revision": "7600988ace912a4fd2087bb9d361b2680c1dd9d7",
+      "ci_url": "https://github.com/fainir/account-access/actions/runs/39003591785",
+      "reason": "The handoff phase reached its 45-second enclosing budget without a complete report. The inner operation was not identified. Readiness health probes are now separately bounded and the multi-worker phase budgets cover the full journey. This attempt is excluded."
+    }
+  ],
+  "matching_regression_evidence": "mac-root-coordinator-080.json",
+  "composed_host_evidence": "mac-root-coordinator-080.json"
+}

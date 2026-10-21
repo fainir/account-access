@@ -16,13 +16,16 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
 
-from .codes import match_code
+from .codes import Codes, match_code
 from .errors import AccessError
+from .factors import replace_source, source_mutation
 from .storage import check_private, private_file
 
 
-def deliver(store, source_id, data):
-    source = store.config().code_sources.get(source_id)
+def deliver(store, source_id, data, *, pair_token):
+    with store.lock("source:" + source_id):
+        source = store.config().code_sources.get(source_id)
+        generation = store.get("source-generation:" + source_id)
     if not source or source.kind != "phone_relay":
         raise AccessError("DENIED", "unknown_phone_source")
     if (not isinstance(data, dict) or set(data) != {"id", "sender", "recipient", "body", "received_at"}
@@ -36,10 +39,21 @@ def deliver(store, source_id, data):
     if not code:
         raise AccessError("DENIED", "phone_message_mismatch")
     with store.lock("code-window:" + source_id):
+        # A request can have passed the HTTP token check before the owner
+        # replaced its pairing. Check again at the serialized delivery boundary.
+        pair = store.get("phone-pair:" + source_id) or {}
+        if (not isinstance(pair_token, str) or not pair.get("token")
+                or not secrets.compare_digest(pair["token"], pair_token)):
+            raise AccessError("DENIED", "phone_pairing_changed")
         window = store.get("code-window:" + source_id)
         if (not window or window["expires"] < time.time() or window["consumed"]
                 or not window["started"] <= data["received_at"] <= time.time() + 5):
             raise AccessError("DENIED", "no_current_login_window")
+        current, _, _ = Codes(store, None).check_window(source_id, window["started"])
+        if current.model_dump() != source.model_dump():
+            raise AccessError("DENIED", "phone_message_mismatch")
+        if generation != store.get("source-generation:" + source_id):
+            raise AccessError("DENIED", "verification_source_enrollment_changed", "sms")
         seen = window.setdefault("seen", [])
         if data["id"] in seen:
             return {"status": "RECEIVED"}
@@ -67,8 +81,13 @@ class PhoneRelay:
             if not self.server:
                 self.start()
             token = secrets.token_urlsafe(32)
-            self.store.put("phone-pair:" + source_id, {"token": token})
-            self.store.put("source:" + source_id, {"enabled": True})
+            with source_mutation(self.store, source_id):
+                current = self.store.config().code_sources.get(source_id)
+                if current is None or current.model_dump() != source.model_dump():
+                    raise AccessError("DENIED", "unknown_phone_source")
+                with self.store.db() as db:
+                    self.store.put("phone-pair:" + source_id, {"token": token}, db=db)
+                    replace_source(self.store, source_id, {"enabled": True}, db=db)
             return {"status": "PAIRING", "version": 1, "source": source_id,
                     "url": f"https://{self.ip}:{self.server.server_port}/v1/login-code/{source_id}",
                     "token": token, "certificate_sha256": self.fingerprint,
@@ -136,7 +155,7 @@ class PhoneRelay:
                     length = int(self.headers.get("Content-Length", "0"))
                     if not 0 < length <= 4096:
                         raise ValueError()
-                    response = deliver(owner.store, ident, json.loads(self.rfile.read(length)))
+                    response = deliver(owner.store, ident, json.loads(self.rfile.read(length)), pair_token=presented)
                     status = 200
                 except (ValueError, AccessError, OSError):
                     pass

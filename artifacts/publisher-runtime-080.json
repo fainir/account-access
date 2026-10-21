@@ -1,0 +1,393 @@
+{
+  "version": "0.8.0-candidate",
+  "date": "2026-10-18",
+  "source_revision": "b2dddbc73103a8a92d4b8204f4b4c2bf213e8bee",
+  "production_ready": false,
+  "private_signins": 0,
+  "host": {
+    "context": "ordinary-user private temporary build",
+    "architecture": "arm64",
+    "macos": "27.0.1"
+  },
+  "ci": {
+    "all_eight_push_and_pr_workflows": "passed",
+    "runs": {
+      "push_main": "https://github.com/fainir/account-access/actions/runs/39068241757",
+      "push_mac": "https://github.com/fainir/account-access/actions/runs/39068241720",
+      "push_linux": "https://github.com/fainir/account-access/actions/runs/39068241857",
+      "push_android": "https://github.com/fainir/account-access/actions/runs/39068241792",
+      "pr_main": "https://github.com/fainir/account-access/actions/runs/39068244472",
+      "pr_mac": "https://github.com/fainir/account-access/actions/runs/39068244456",
+      "pr_linux": "https://github.com/fainir/account-access/actions/runs/39068244516",
+      "pr_android": "https://github.com/fainir/account-access/actions/runs/39068244454"
+    },
+    "regressions": [
+      {
+        "run": 39068241757,
+        "passed": 1445,
+        "platform_skips": 75,
+        "seconds": 526.13,
+        "warnings": 0
+      },
+      {
+        "run": 39068244472,
+        "passed": 1445,
+        "platform_skips": 75,
+        "seconds": 593.23,
+        "warnings": 0
+      }
+    ],
+    "focused_mac_suites": [
+      {
+        "run": 39068241720,
+        "passed": 745,
+        "platform_skips": 1,
+        "seconds": 95.42,
+        "warnings": 0
+      },
+      {
+        "run": 39068244456,
+        "passed": 745,
+        "platform_skips": 1,
+        "seconds": 103.3,
+        "warnings": 0
+      }
+    ],
+    "lint_and_package_builds": "passed",
+    "python_dependency_audit": "no known vulnerabilities found",
+    "reports_per_mac": 16,
+    "complete_worker_reports_identical": true,
+    "desktop_and_chrome_component_reports_identical": true,
+    "linux_cross_user_checks": 24,
+    "android_emulator_checks": 6
+  },
+  "production_requirement_correction": {
+    "problem": "codesign -R interpreted the requirement expression as a filename",
+    "correction": "pass direct source using -R= with the original predicate unchanged",
+    "ordinary_native_regression": "Actual Apple parser semantically rejects an untrusted ad-hoc publisher; no test publisher certificate is required."
+  },
+  "genuine_components": {
+    "owner": {
+      "team": "WBULD6N4NQ",
+      "identifier": "com.fainir.accountaccess",
+      "hashes": [
+        "3488412fa6bb3e178863ddc66ec3757ee4e6ff5b",
+        "5c99bfe885bde3947cbaff9118898613e8d7b6c0"
+      ],
+      "public_bytes_sha256": "4cd42261972cc4b8cb642fa49684ad380f4f457234d3c52631e085a35caafc48",
+      "digest_kind": "complete public file/mode/alias inventory"
+    },
+    "broker": {
+      "team": "WBULD6N4NQ",
+      "identifier": "com.fainir.accountaccess.broker",
+      "hashes": [
+        "56263e9729ae5193658e0e7d1d0226f0df2a4fda",
+        "a1e3ac48c449b4a1bf2fce300e14f868c5555915"
+      ],
+      "public_bytes_sha256": "284acc12f8862494ad11eb9ef56b7f7748549bb1f51ff64b5e0d8c54a4ece8ea",
+      "digest_kind": "file bytes"
+    },
+    "bootstrap": {
+      "team": "WBULD6N4NQ",
+      "identifier": "com.fainir.accountaccess.bootstrap",
+      "hashes": [
+        "44b74be0b1478df5bac2acd1d66ed06ed0a561e5",
+        "6d1547cd468997992cc6cbfd1fdb6cc28e03c830"
+      ],
+      "public_bytes_sha256": "d5738ec9f3c8ea2c2ab9556a6426f6041f94781c0264d7fd07974f16a9df652c",
+      "digest_kind": "file bytes"
+    },
+    "installerverify": {
+      "team": "WBULD6N4NQ",
+      "identifier": "com.fainir.accountaccess.installerverify",
+      "hashes": [
+        "36558720ba37451d7d20d95560be1977c9a6938c",
+        "a930b86eccdb2028e74698e906ad6ea9d0f627f3"
+      ],
+      "public_bytes_sha256": "0d5c99ba96a03c3eec0d11ef8de12622faec19b9125a9b04f6c83b7f6ba4ae70",
+      "digest_kind": "file bytes"
+    }
+  },
+  "component_audit": {
+    "status": "PASSED",
+    "component_executables": 5,
+    "developer_id_purpose_verified": true,
+    "secure_timestamps_verified": true,
+    "hardened_runtime_verified": true,
+    "all_architectures_verified": true,
+    "background_signature": {
+      "team": "WBULD6N4NQ",
+      "identifier": "com.fainir.accountaccess.background",
+      "hashes": [
+        "1a4e3ee62277c416fbcccc13396acad637cc25eb",
+        "c7f250e0262c2c887ca4eb1e6fa3b7a555d9873d"
+      ]
+    },
+    "runtime_dependencies_or_browser_verified": false,
+    "installed_or_launched": false,
+    "private_signins": 0,
+    "production_ready": false
+  },
+  "native_static_peer_checks": {
+    "checks": {
+      "bootstrap:publisher_and_pinned_hash": true,
+      "bootstrap:wrong_hash_denied": true,
+      "bootstrap:wrong_identifier_denied": true,
+      "bootstrap:wrong_team_denied": true,
+      "broker:publisher_and_pinned_hash": true,
+      "broker:wrong_hash_denied": true,
+      "broker:wrong_identifier_denied": true,
+      "broker:wrong_team_denied": true,
+      "installerverify:publisher_and_pinned_hash": true,
+      "installerverify:wrong_hash_denied": true,
+      "installerverify:wrong_identifier_denied": true,
+      "installerverify:wrong_team_denied": true,
+      "owner:publisher_and_pinned_hash": true,
+      "owner:wrong_hash_denied": true,
+      "owner:wrong_identifier_denied": true,
+      "owner:wrong_team_denied": true
+    },
+    "dynamic_xpc_or_owner_approval_executed": false,
+    "private_signins": 0,
+    "production_ready": false,
+    "scope": "ordinary-user static validation of staged public signed code",
+    "status": "PASSED"
+  },
+  "native_static_harness": {
+    "path": "macos/Tests/PublisherPeerChecks.swift",
+    "sha256": "e4258effd639b58214b1ee0c34f583afb4d63717db47d8c8f73be628dc9fbddc",
+    "production_policy_source": "macos/OwnerGateway.swift",
+    "production_policy_sha256": "bdc020a217582828221e4bf59a5a741ac9a2e38af6f4356638a52eec751d30dc"
+  },
+  "runtime_preparation": {
+    "development": false,
+    "publisher_team": "WBULD6N4NQ",
+    "native_files_signed": 41,
+    "bundle_seals_signed": 10,
+    "signing_plan_sha256": "ce36b8a7d71fd343e16634c83d170de20d4df42671941c74b35debd02b0a9991",
+    "executable_hashes": 16,
+    "jit_entries": 14,
+    "library_validation_disabled": false,
+    "unsigned_executable_memory_allowed": false,
+    "plan": {
+      "schema": 1,
+      "python_sha256": "fe75261702e47fd14f87c6a6b18a0fbde652c421ca17e29e5c99667bc6841d04",
+      "browsers_sha256": "2802587226965922448ea14c6b5b8edd026a05610e397d4beda39f15e078faf3",
+      "executables": {
+        "3274dde21f9767655564d093e63c9a5faacefbf1d41bc1e6bf8b6f6e5a441903": {
+          "paths": [
+            "python/bin/python3.12"
+          ],
+          "entitlements": {
+            "com.apple.security.cs.allow-jit": true
+          }
+        },
+        "8319963f6625accf51c0dd4f55091ceaf9f09ed39e7a52fed4fae12b2a6b668a": {
+          "paths": [
+            "browsers/chromium-1243/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"
+          ],
+          "entitlements": {
+            "com.apple.security.cs.allow-jit": true
+          }
+        },
+        "1655383123820ee44cc03d6e41f1c44ed6fce1bde512b0e803cdbfcf2a29a06b": {
+          "paths": [
+            "browsers/chromium-1243/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/153.0.8010.12/Helpers/web_app_shortcut_copier"
+          ],
+          "entitlements": {
+            "com.apple.security.cs.allow-jit": true
+          }
+        },
+        "706d3e2792d53e3b3046d7377e4905b444550016543562c9c28fe64bb7419eec": {
+          "paths": [
+            "browsers/chromium-1243/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/153.0.8010.12/Helpers/chrome_crashpad_handler"
+          ],
+          "entitlements": {}
+        },
+        "1595a85009d4d41488b507af48e1fbef1d6654f066a8c5b7c7b5aee663cde9fd": {
+          "paths": [
+            "browsers/chromium-1243/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/153.0.8010.12/Helpers/app_mode_loader"
+          ],
+          "entitlements": {
+            "com.apple.security.cs.allow-jit": true
+          }
+        },
+        "403332ebc902a0b0dbea5abfbae80bf3a53dc07eb3f22464d2bf8a9c411de379": {
+          "paths": [
+            "browsers/chromium-1243/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/153.0.8010.12/Helpers/Google Chrome for Testing Helper (Aperitif Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Aperitif Renderer)"
+          ],
+          "entitlements": {
+            "com.apple.security.cs.allow-jit": true
+          }
+        },
+        "f3f5340dd0ab7feae6cb3b0d4c3d5145421979031e4288ef80a58fe446dcfadf": {
+          "paths": [
+            "browsers/chromium-1243/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/153.0.8010.12/Helpers/Google Chrome for Testing Helper (Alerts).app/Contents/MacOS/Google Chrome for Testing Helper (Alerts)"
+          ],
+          "entitlements": {
+            "com.apple.security.cs.allow-jit": true
+          }
+        },
+        "d15aacd37fecc09c03509339682016562b54a72fdb4410f8a70ed7d22e0fd6f8": {
+          "paths": [
+            "browsers/chromium-1243/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/153.0.8010.12/Helpers/Google Chrome for Testing Helper.app/Contents/MacOS/Google Chrome for Testing Helper"
+          ],
+          "entitlements": {
+            "com.apple.security.cs.allow-jit": true
+          }
+        },
+        "b8a5701b57bc8180b0da2f1b5a2df83a272534443d5345c53eb976e8a35324d2": {
+          "paths": [
+            "browsers/chromium-1243/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/153.0.8010.12/Helpers/Google Chrome for Testing Helper (GPU).app/Contents/MacOS/Google Chrome for Testing Helper (GPU)"
+          ],
+          "entitlements": {
+            "com.apple.security.cs.allow-jit": true
+          }
+        },
+        "6635bac098acee15c3a2d38ff7c273d381b07650693dad931545b83ef6c57dbb": {
+          "paths": [
+            "browsers/chromium-1243/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/153.0.8010.12/Helpers/Google Chrome for Testing Helper (Aperitif GPU).app/Contents/MacOS/Google Chrome for Testing Helper (Aperitif GPU)"
+          ],
+          "entitlements": {
+            "com.apple.security.cs.allow-jit": true
+          }
+        },
+        "84529bc15b9914ffb09fafc74a3cac25f8903f5f5fe389911fc25a668f52019f": {
+          "paths": [
+            "browsers/chromium-1243/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/153.0.8010.12/Helpers/Google Chrome for Testing Helper (Renderer).app/Contents/MacOS/Google Chrome for Testing Helper (Renderer)"
+          ],
+          "entitlements": {
+            "com.apple.security.cs.allow-jit": true
+          }
+        },
+        "b44910edf6f6ec5265f1321af88824dacb0c888157d3990eb326f575c59ba77e": {
+          "paths": [
+            "browsers/chromium-1243/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/153.0.8010.12/Helpers/Google Chrome for Testing Helper (Aperitif Alerts).app/Contents/MacOS/Google Chrome for Testing Helper (Aperitif Alerts)"
+          ],
+          "entitlements": {
+            "com.apple.security.cs.allow-jit": true
+          }
+        },
+        "bfea4ae0223b5d02ec007b2ed4620db0fb32982077ab8d7745e27a6e396faa75": {
+          "paths": [
+            "browsers/chromium-1243/chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/Versions/153.0.8010.12/Helpers/Google Chrome for Testing Helper (Aperitif).app/Contents/MacOS/Google Chrome for Testing Helper (Aperitif)"
+          ],
+          "entitlements": {
+            "com.apple.security.cs.allow-jit": true
+          }
+        },
+        "662398c99429f5493ff0ff40cdcd97ea25132addcbdedafd0741389964147825": {
+          "paths": [
+            "browsers/ffmpeg-1011/ffmpeg-mac"
+          ],
+          "entitlements": {}
+        },
+        "a0bfe7b4da4787b66058477d696cd1d09065d25f06a548947722b9af77ee8282": {
+          "paths": [
+            "browsers/chromium_headless_shell-1243/chrome-headless-shell-mac-arm64/chrome-headless-shell"
+          ],
+          "entitlements": {
+            "com.apple.security.cs.allow-jit": true
+          }
+        },
+        "e4b5a3af0e05c75de2eae013904145f40fe7fc2a6e6f17510128bf45cca4e79b": {
+          "paths": [
+            "wheels/playwright-1.63.0-py3-none-macosx_11_0_arm64.whl/playwright/driver/node"
+          ],
+          "entitlements": {
+            "com.apple.security.cs.allow-jit": true
+          }
+        }
+      }
+    },
+    "original_requirements_sha256": "cd7873f443c4dcd9025f27eeebc9a0519bb87235689827a79cc9197410bbbaab",
+    "prepared_requirements_sha256": "3a3af79d2e1d85a7a65618044b3ff88cc87301a16f1b5bf5eb9b68d3bc259611"
+  },
+  "source_integrity": {
+    "status": "PASSED",
+    "original_python_unchanged": true,
+    "original_dependency_wheels_unchanged": 32,
+    "source_lock_unchanged": true
+  },
+  "native_source_audit": {
+    "native_files": 46,
+    "executables": 21,
+    "bundles": 11,
+    "wheels": 33,
+    "publisher_signatures_verified": true,
+    "notarization_verified": false
+  },
+  "native_final_audit": {
+    "native_files": 64,
+    "executables": 23,
+    "bundles": 11,
+    "wheels": 33,
+    "publisher_signatures_verified": true,
+    "notarization_verified": false
+  },
+  "runtime_image": {
+    "python_version": "3.12.15",
+    "distributions": 33,
+    "source_python_sha256": "a0fbf3bd81dcb7670ac3c0c8eb859e204c92144c396135b9dab1c0e446232795",
+    "runtime_sha256": "ec3d0e6b274d43999e35797acf0d902fd4f5064684232b38f7099ef29870ee88",
+    "runtime_manifest_sha256": "cfc02647d1667f07b2715e8c786cce157f974058d95781625163d3abccb10efe",
+    "wheel_installation_executes_package_code": false,
+    "bytecode_compiled": false,
+    "project_wheel": {
+      "filename": "account_access-0.8.0-py3-none-any.whl",
+      "sha256": "5d12321f09fa61f647c390905b592ffe3f906c8ee43daaf8f4bbed15661b57c3"
+    }
+  },
+  "runtime_compatibility": {
+    "status": "PASSED",
+    "checks": {
+      "prepared_callbacks_crypto_and_validation": true,
+      "headless_browser": true,
+      "browser_launch_observed": true,
+      "browser_sandbox_not_disabled": true,
+      "mock_keychain_requested": true,
+      "basic_ephemeral_password_store_requested": true
+    },
+    "native_exit_code": 0,
+    "browser_exit_code": 0,
+    "environment": "ordinary-user-private-publisher-runtime",
+    "source_revision": "b2dddbc73103a8a92d4b8204f4b4c2bf213e8bee",
+    "library_validation_disabled": false,
+    "unsigned_executable_memory_allowed": false,
+    "jit_only_for_hash_bound_reviewed_runtime_executables": true,
+    "private_signins": 0,
+    "production_ready": false,
+    "installed": false,
+    "genuine_owner_setup_or_xpc_executed": false,
+    "limits": "Public code in an ordinary-user temporary build. No package install, native approval, private accounts, phone delivery or dedicated-identity compatibility established."
+  },
+  "installation_or_launch_of_owner_app": false,
+  "system_keychain_authdb_or_service_identity_changed": false,
+  "developer_id_installer_identity_available_locally": false,
+  "apple_notarization_verified": false,
+  "limits": [
+    "Genuine signature and runtime compatibility checks ran as an ordinary user on private copies; they do not prove a publisher-signed installed deployment.",
+    "Static peer checks use the production native requirement constructor, not dynamic XPC identity or genuine owner authorization.",
+    "The browser handled only a synthetic page with a fresh profile and explicit mock-keychain/basic-password-store flags; no private website was contacted.",
+    "Valid Developer ID Installer signing and live Apple notarization/stapling remain required for a consumer package.",
+    "Genuine owner setup, interrupted positive provisioning, installed Chrome/native/XPC/worker composition, real isolated agent sessions, private factor delivery, physical phones, updates/migration and power-loss/reboot remain open.",
+    "Chrome CSV imports remain snapshots; universal password-manager synchronization is not established."
+  ],
+  "signed_entitlement_readback": {
+    "status": "PASSED",
+    "executable_locations": 22,
+    "actual_entitlements_equal_reviewed_plan": true,
+    "installed_wheel_executables_match_preparation_hashes": true,
+    "library_validation_disabled": false,
+    "unsigned_executable_memory_allowed": false,
+    "native_owner_and_broker_runtime_exceptions": false,
+    "private_signins": 0,
+    "production_ready": false
+  },
+  "temporary_build_cleanup": {
+    "temporary_runtime_image_removed": true,
+    "synthetic_browser_profile_removed": true,
+    "current_signed_components_and_provenance_retained": true,
+    "owner_installation_untouched": true
+  }
+}

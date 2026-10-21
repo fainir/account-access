@@ -63,9 +63,14 @@ class Client:
                 environment = dict(os.environ)
                 environment.pop("ACCESS_CLIENT_CONFIG", None)
                 try:
-                    result = subprocess.run([sys.executable, "-m", "account_access.cli",
-                        "--root", str(root), "start", "--no-open", "--on-demand"], capture_output=True,
+                    from .runtime_bootstrap import active_runtime_launcher
+                    activated = active_runtime_launcher(sys.executable)
+                    command = ([str(activated)] if activated else
+                               [sys.executable, "-I", "-m", "account_access.cli"])
+                    result = subprocess.run([*command, "--root", str(root), "start", "--no-open", "--on-demand"], capture_output=True,
                         timeout=35, env=environment)
+                except RuntimeError:
+                    raise AccessError("NEEDS_USER", "installation_repair_required") from None
                 except (subprocess.TimeoutExpired, OSError):
                     raise AccessError("RETRYABLE", "local_app_could_not_start") from None
                 if result.returncode == 0:

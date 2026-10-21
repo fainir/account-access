@@ -203,6 +203,13 @@ class Store:
 
     def challenge(self, account, kind, reason):
         with self.db() as db:
+            if kind == "captcha" and reason == "browser_captcha_required":
+                present = db.execute("SELECT 1 FROM challenges WHERE account=? AND kind='captcha' AND resolved IS NULL", (account,)).fetchone()
+                if not present:
+                    # Refine the same unknown login gate after an updated
+                    # connector identifies it. Preserve its ID and pending
+                    # status; this never approves or resumes authentication.
+                    db.execute("UPDATE challenges SET kind='captcha',reason=? WHERE account=? AND kind='unknown' AND reason='browser_state_unrecognized' AND resolved IS NULL", (reason, account))
             db.execute("INSERT OR IGNORE INTO challenges VALUES (?,?,?,?,?,NULL,NULL)",
                        (secrets.token_hex(16), account, kind, reason, time.time()))
             row = db.execute("SELECT * FROM challenges WHERE account=? AND kind=? AND resolved IS NULL",
@@ -214,9 +221,12 @@ class Store:
             return [dict(r) for r in db.execute("SELECT * FROM challenges WHERE account=? AND resolved IS NULL",
                                                (account,))]
 
-    def resolve_login(self, account):
-        with self.db() as db:
-            db.execute("UPDATE challenges SET resolved=? WHERE account=? AND resolved IS NULL AND kind IN ('login','sms','email','totp','device','passkey','admin','unknown')",
+    def resolve_login(self, account, db=None):
+        if db is None:
+            with self.db() as connection:
+                self.resolve_login(account, db=connection)
+        else:
+            db.execute("UPDATE challenges SET resolved=? WHERE account=? AND resolved IS NULL AND kind IN ('login','sms','email','totp','method','device','passkey','captcha','admin','recovery','unknown')",
                        (time.time(), account))
 
     def client(self, token):

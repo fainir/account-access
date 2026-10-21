@@ -1,0 +1,60 @@
+{
+  "version": "0.8.0-candidate",
+  "date": "2026-10-16",
+  "implementation_revision": "8466af1fdb0240434b8e0a61da6ebc46c4248ea5",
+  "production_ready": false,
+  "github_account_testing": "stopped at owner's request",
+  "private_follow_up_report": "site-verification-080.json",
+  "namecheap": {
+    "operation": "confirm signed-in username only",
+    "native_catalog_available": true,
+    "reviewed_export_alias": "exact account-subdomain HTTPS origin; no extra network access",
+    "anonymous_form_preflight": "passed",
+    "preflight_report": "namecheap-preflight-080.json",
+    "local_provider_shaped_fixtures": "selected encrypted import, password submission, session reuse and unknown-verification stop passed",
+    "personal_credential_imported": true,
+    "selected_private_entries_imported": 1,
+    "personal_password_submission": "not confirmed; visible review stopped before a recognized login form",
+    "private_login_validated": false,
+    "provider_email_totp_routes_implemented": false,
+    "enrollment": "owner approved; selected Chrome credential imported through native UI",
+    "private_check": "blocked at website browser verification; HTTP 429 recorded",
+    "further_website_requests": "stopped",
+    "original_task_retained": true,
+    "plaintext_export_cleanup": "normal native Trash flow completed"
+  },
+  "railway": {
+    "anonymous_login_page_inspected": true,
+    "email_option_observed": true,
+    "personal_address_entered": false,
+    "email_requested": false,
+    "connector_implemented": false
+  },
+  "mac": {
+    "signed_universal_build": 50,
+    "strict_deep_signature_check": "passed",
+    "graphical_repair": "completed",
+    "existing_connections_present_after_repair": true,
+    "native_owner_checks_passed": 14
+  },
+  "local_tests": {
+    "focused_catalog_alias_cases_passed": 12,
+    "full_run_passed": 404,
+    "full_run_failed": 1,
+    "full_run_failure": "legacy-format fixture still included new empty alias field",
+    "fixture_corrected": true,
+    "legacy_compatibility_rerun_passed": 2,
+    "lint": "passed",
+    "staged_secret_scan": "passed"
+  },
+  "ci": {
+    "revision": "8466af1fdb0240434b8e0a61da6ebc46c4248ea5",
+    "tests_passed": 405,
+    "seconds": 324.69,
+    "native_owner_checks_passed": 14,
+    "checks": "https://github.com/fainir/account-access/actions/runs/38941709228",
+    "android": "https://github.com/fainir/account-access/actions/runs/38941709131",
+    "conclusion": "success"
+  },
+  "privacy": "No private account identifiers, credentials, cookies, codes, message content or raw traces in public evidence"
+}

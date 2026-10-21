@@ -1,0 +1,143 @@
+{
+  "artifact_id": 12273845406,
+  "artifact_zip_sha256": "bb090d72a9ab10a923e1d3da8ea5e6ea029193008eb0c3f5b71b61ac0f5079ad",
+  "candidate_returncode": 1,
+  "candidate_timed_out": false,
+  "checks": {
+    "actual_base_installer": true,
+    "actual_candidate_installer": false,
+    "base_public_image": true,
+    "candidate_expansion_matches_review": true,
+    "created_job_stopped": true,
+    "fresh_gui_closed": true,
+    "fresh_hosted_vm": true,
+    "genuine_signed_helper": true,
+    "only_three_policy_values_changed": false,
+    "reapplication_preserved_bytes_and_ids": false,
+    "reviewed_public_inputs": true,
+    "same_package_reapplication": false,
+    "target_public_image": false,
+    "unchanged_worker_plans_and_original_journal": false,
+    "verified_head": false
+  },
+  "component_source_revision": "939fdda5b8b29ca54abb37be3a2b7409b9a0be91",
+  "controller_revision": "744ee0562b3aaa5fcb55fbf2239caa4e4209907c",
+  "diagnosis_scope": "One stable unidentified process remained under the dedicated service UID after the fixed broker/bootstrap executable references were gone. Exact process identity and the native failing predicate remain unestablished. The sentinel user-domain print succeeded; no absent-domain contract was established.",
+  "failure_evidence_sha256": "3bfc7b8521ff0d93d423fe0006c18e08ef3378da407c3675190af8bc8f722810",
+  "failure_stage": "candidate_installer",
+  "native_closed_result": {
+    "reason": "component_service_quiescence_not_confirmed",
+    "schema": 1,
+    "status": "REFUSED"
+  },
+  "next_controller_review": {
+    "independent_review": "clear",
+    "ordinary_contract_tests_passed": 209,
+    "owner_actions": false,
+    "production_source_changed": false,
+    "proof_sha256": "6abad029973ba6c7328e30dab4c0eb6f62ca6ba4d5ff397dbd49aef87914aefe",
+    "ruff_passed": true,
+    "scope": "Disposable fresh Mac only, after failed candidate and confirmed fixed-job cleanup; dedicated verified service-user domain lifecycle experiment. Original failure and production barriers preserved.",
+    "source_sha256": {
+      "scripts/mac_component_update_installer_probe.py": "8f37f63c0fa7b015222405496e2263960cb321e641f9fa8dc9fde865b0069e89",
+      "tests/test_mac_component_update_installer_probe.py": "b8d2a50c97fad8d5cd8f7e366c4f2ce2a6034841795f44ea012997f6b9c250a6"
+    }
+  },
+  "next_diagnostic_scope": "Only in the disposable test Mac after fixed-job cleanup: identify the dedicated process executable metadata, remove/recreate its dedicated user domain, and measure cleanup/idempotency and print behavior. No owner Mac or account operations.",
+  "observed_at": "2026-10-20T14:35:18.495250+00:00",
+  "owner_package_execution": false,
+  "personal_accounts_used": 0,
+  "production_ready": false,
+  "quiescence_diagnostics": {
+    "affects_acceptance": false,
+    "broker_identity_processes": {
+      "changed_count": 0,
+      "classes": {
+        "bootstrap": 0,
+        "broker": 0,
+        "cfprefsd": 0,
+        "launchd": 0,
+        "securityd": 0,
+        "trustd": 0,
+        "unknown": 1
+      },
+      "classification_status": "measured",
+      "count": 1,
+      "errno": 0,
+      "error_counts": {},
+      "execution_matches": 0,
+      "other_references": 0,
+      "returned_bytes": 4,
+      "status": "measured",
+      "unavailable_count": 0,
+      "unique_count": 1
+    },
+    "diagnostic_only": true,
+    "fixed_executable_references": {
+      "bootstrap": {
+        "changed_count": 0,
+        "classes": {
+          "bootstrap": 0,
+          "broker": 0,
+          "cfprefsd": 0,
+          "launchd": 0,
+          "securityd": 0,
+          "trustd": 0,
+          "unknown": 0
+        },
+        "classification_status": "measured",
+        "count": 0,
+        "errno": 22,
+        "error_counts": {},
+        "execution_matches": 0,
+        "other_references": 0,
+        "returned_bytes": 0,
+        "status": "measured",
+        "unavailable_count": 0,
+        "unique_count": 0
+      },
+      "broker": {
+        "changed_count": 0,
+        "classes": {
+          "bootstrap": 0,
+          "broker": 0,
+          "cfprefsd": 0,
+          "launchd": 0,
+          "securityd": 0,
+          "trustd": 0,
+          "unknown": 0
+        },
+        "classification_status": "measured",
+        "count": 0,
+        "errno": 22,
+        "error_counts": {},
+        "execution_matches": 0,
+        "other_references": 0,
+        "returned_bytes": 0,
+        "status": "measured",
+        "unavailable_count": 0,
+        "unique_count": 0
+      }
+    },
+    "missing_user_domain": {
+      "returncode": 0,
+      "status": "unexpected_present",
+      "stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_bytes": 507,
+      "stdout_sha256": "ad643b97e2fc9496c78c27584f427486db199e26ae0c370e0e7699bc4d58ef4a"
+    },
+    "saved_group": {
+      "status": "not_collected"
+    },
+    "status": "observed"
+  },
+  "report_log_hashes_verified": true,
+  "run_attempt": 1,
+  "run_conclusion": "failure",
+  "run_id": 39439242325,
+  "run_url": "https://github.com/fainir/account-access/actions/runs/39439242325",
+  "schema": 1,
+  "server_digest_verified": true,
+  "source_blob_hashes_verified": 42
+}

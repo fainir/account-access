@@ -119,7 +119,12 @@ def parser():
     start.add_argument("--no-open", action="store_true", help=argparse.SUPPRESS)
     start.add_argument("--on-demand", action="store_true", help=argparse.SUPPRESS)
     sub.add_parser("stop", help="Stop the guided local app while preserving saved connections")
-    sub.add_parser("desktop-host", help=argparse.SUPPRESS)
+    host = sub.add_parser("desktop-host", help=argparse.SUPPRESS)
+    host.add_argument("--generation", help=argparse.SUPPRESS)
+    supervisor = sub.add_parser("desktop-supervisor", help=argparse.SUPPRESS)
+    supervisor.add_argument("--generation", required=True, help=argparse.SUPPRESS)
+    guardian = sub.add_parser("desktop-guardian", help=argparse.SUPPRESS)
+    guardian.add_argument("--generation", required=True, help=argparse.SUPPRESS)
     sub.add_parser("metrics")
     sub.add_parser("challenges")
     sub.add_parser("grants")
@@ -210,12 +215,20 @@ def main(argv=None):
             from .desktop import stop
             stop(Path(args.root))
             return 0
+        if args.command in {"desktop-supervisor", "desktop-guardian"}:
+            from .supervisor import guard_desktop, supervise
+            if args.key_file and not args.development:
+                raise AccessError("DENIED", "file_key_requires_development_mode")
+            runner = guard_desktop if args.command == "desktop-guardian" else supervise
+            runner(Path(args.root), args.generation,
+                   key_file=Path(args.key_file).expanduser() if args.key_file else None)
+            return 0
         from .broker import Broker
         store = owner_store(args, create=args.command == "init")
         broker = Broker(store)
         if args.command == "desktop-host":
             from .desktop import host
-            host(broker)
+            host(broker, generation=args.generation)
             return 0
         if args.command in {"init", "configure"}:
             configuration = Configuration.model_validate_json(Path(args.config).read_bytes())
@@ -264,7 +277,8 @@ def main(argv=None):
             else:
                 print_json({"status": "NEEDS_USER", "reason": "connect_mailbox_oauth", "account": source.account})
                 return 2
-            store.put("source:" + args.source, value)
+            from .factors import enroll
+            enroll(store, args.source, value)
             print_json({"status": "OK", "source": args.source})
         elif args.command == "grant":
             expires = time.time() + args.days * 86400 if args.days else None
@@ -316,14 +330,24 @@ def main(argv=None):
         return 0
     except AccessError as exc:
         print_json({"status": exc.status, "reason": exc.reason})
+        if args.command == "desktop-host":
+            return 75 if exc.status == "RETRYABLE" else 78
+        if args.command == "desktop-guardian" and exc.status != "RETRYABLE":
+            return 0  # Stop OS relaunches for an owner/setup gate.
         return 2
     except (ValidationError, ValueError, KeyError, FileNotFoundError):
         print_json({"status": "NEEDS_USER", "reason": "invalid_or_missing_configuration"})
+        if args.command == "desktop-host":
+            return 78
+        if args.command == "desktop-guardian":
+            return 0
         return 2
     except KeyboardInterrupt:
         return 130
     except Exception:
         print_json({"status": "RETRYABLE", "reason": "internal_error"})
+        if args.command == "desktop-host":
+            return 75
         return 2
 
 

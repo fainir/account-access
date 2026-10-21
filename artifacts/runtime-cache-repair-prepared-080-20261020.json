@@ -1,0 +1,35 @@
+{
+  "automatic_crash_recovery": false,
+  "independent_checks": {
+    "expanded_script_names_hashes_modes": true,
+    "frozen_source_bindings": true,
+    "generated_shell_matches": true,
+    "genuine_native_checker_requirement": true,
+    "randomized_trailing_x_template": true,
+    "shell_syntax": true
+  },
+  "installed": false,
+  "journal_recovery": "manual_review_only",
+  "ordinary_tests": 16,
+  "owner_action_time_approval_received": false,
+  "package": {
+    "bytes": 93732,
+    "file": "Account-Access-Build76-Cache-Repair-local-unsigned.pkg",
+    "no_payload": true,
+    "root_postinstall": true,
+    "sha256": "d05cbb47790ecd7f27e3e92286a0505d8fdb6fc9c4a1feb9ef0a98356959c048",
+    "unsigned": true
+  },
+  "production_ready": false,
+  "schema": 1,
+  "scope": {
+    "account_data_access": false,
+    "baseline_files_restored": 3,
+    "read_only_public_plan_check": true,
+    "service_start_stop_or_configuration_change": false,
+    "validated_cache_directories_moved_to_private_backup": 8
+  },
+  "source_revision": "058511de02d6b1a3b9a2d1d20334799bd5780158",
+  "source_validation": "artifacts/runtime-cache-repair-source-080-20261020.json",
+  "status": "PREPARED_AND_INDEPENDENTLY_REVIEWED_NOT_EXECUTED"
+}

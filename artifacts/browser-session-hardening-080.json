@@ -1,0 +1,78 @@
+{
+  "version": "0.8.0-candidate",
+  "date": "2026-10-16",
+  "evidence_revision": "9e34b6cb81f553867e87b45d3ef41a04feb1bd59",
+  "production_ready": false,
+  "ci": {
+    "tests_passed": 379,
+    "seconds": 319.82,
+    "native_owner_checks_passed": 13,
+    "checks": "https://github.com/fainir/account-access/actions/runs/38927298081",
+    "android": "https://github.com/fainir/account-access/actions/runs/38927298067",
+    "conclusion": "success",
+    "other_checks": [
+      "native Messages reader",
+      "optimized startup/reopen",
+      "Ruff",
+      "dependency audit",
+      "package build"
+    ]
+  },
+  "local_targeted_session_tests_passed": 39,
+  "signed_mac_build": 44,
+  "local_graphical_repair": "completed; canonical installed build and strict/deep signature verified",
+  "session_transfer": {
+    "provider": "GitHub profile read only",
+    "owner_request_seconds": 300,
+    "max_encoded_state_bytes": 48000,
+    "verification": "exact approved website readiness and expected public username",
+    "storage": "encrypted local session; agent API never returns cookies",
+    "temporary_permission": "Chrome cookies and GitHub site access; underlying cookies permission can cover previously granted sites",
+    "implemented_cookie_read": "https://github.com/ in selected tab cookie store only",
+    "cleanup": "finally, persistent cleanup alarm and browser startup",
+    "tested": [
+      "original blocked task resumes without password or code access",
+      "independent transaction authorization preserved",
+      "wrong identity, expiry, replay and invalid state rejected",
+      "grant/config changes and late cancellation cannot replace the saved session",
+      "connection, challenge resolution and request result commit atomically",
+      "native host origin and framing checked; no cookie echo",
+      "helper cookie-store, fixed-origin and cleanup contracts",
+      "real extension load has no initial cookie or site permissions",
+      "legacy unverified import refused"
+    ],
+    "private_connection": "awaiting explicit owner permission for new Chrome cookie access",
+    "private_connection_validated": false,
+    "new_private_password_or_sms_attempt": false
+  },
+  "agents": {
+    "claude": {
+      "passed": true,
+      "seconds": 67.01,
+      "report": "agent-tests/claude-verification-080.json"
+    },
+    "codex": {
+      "passed": true,
+      "seconds": 26.87,
+      "report": "agent-tests/codex-verification-080.json"
+    },
+    "coverage_each": {
+      "fictional_accounts": 4,
+      "password_logins": 4,
+      "email_verifications": 1,
+      "sms_verifications": 1,
+      "authenticator_verifications": 1
+    },
+    "global_host_settings_changed": false
+  },
+  "remaining": [
+    "Private fresh GitHub SMS flow redirects to recovery and is unresolved",
+    "Private email and authenticator enrollment and delivery QA",
+    "Physical phone delivery, reconnect and broader website coverage",
+    "Continuous Chrome password-vault synchronization",
+    "Notarization, extension marketplace distribution and clean-machine installation",
+    "OS-isolated custody and independent security review"
+  ],
+  "snapshot": "At this revision, before the later owner-approved private connection",
+  "superseded_by": "private-github-session-080.json"
+}

@@ -1,0 +1,94 @@
+{
+  "account_data_accessed": false,
+  "baseline_files": [
+    {
+      "bytes": 12447,
+      "matches_build76": true,
+      "mode": "0644",
+      "path": "lib/python3.12/encodings/__pycache__/aliases.cpython-312.pyc",
+      "root_owned": true,
+      "sha256": "7d98c560bccf024a27125c415d12469fe8f296935fb0127d9a7138a90f1d181c",
+      "single_link": true
+    },
+    {
+      "bytes": 2186,
+      "matches_build76": true,
+      "mode": "0644",
+      "path": "lib/python3.12/encodings/__pycache__/utf_8.cpython-312.pyc",
+      "root_owned": true,
+      "sha256": "54adedeb2cbf4c01f4e93c664dbd7631bd2c9f7933c3defc9649ade272a38472",
+      "single_link": true
+    },
+    {
+      "bytes": 5814,
+      "matches_build76": true,
+      "mode": "0644",
+      "path": "lib/python3.12/encodings/__pycache__/__init__.cpython-312.pyc",
+      "root_owned": true,
+      "sha256": "6c860dcb30b447e8cfb207d4b26831c4fa8dd00add90214b9e7015603c330a62",
+      "single_link": true
+    }
+  ],
+  "extra_cache_directories": [
+    {
+      "absent_from_runtime": true,
+      "path": "lib/python3.12/ctypes/__pycache__"
+    },
+    {
+      "absent_from_runtime": true,
+      "path": "lib/python3.12/urllib/__pycache__"
+    },
+    {
+      "absent_from_runtime": true,
+      "path": "lib/python3.12/__pycache__"
+    },
+    {
+      "absent_from_runtime": true,
+      "path": "lib/python3.12/xml/parsers/__pycache__"
+    },
+    {
+      "absent_from_runtime": true,
+      "path": "lib/python3.12/xml/__pycache__"
+    },
+    {
+      "absent_from_runtime": true,
+      "path": "lib/python3.12/json/__pycache__"
+    },
+    {
+      "absent_from_runtime": true,
+      "path": "lib/python3.12/collections/__pycache__"
+    },
+    {
+      "absent_from_runtime": true,
+      "path": "lib/python3.12/re/__pycache__"
+    }
+  ],
+  "installed_writes": false,
+  "private_backup_contents_read": false,
+  "private_socket_metadata_read": false,
+  "recorded_at_utc": "2026-10-20T09:56:17.611976+00:00",
+  "schema": 1,
+  "service_start_stop_attempted": false,
+  "unchanged_build76_public_pins": [
+    {
+      "matches_build76": true,
+      "path": "bin/AccountAccess-broker",
+      "sha256": "7d025c2ed00963e3b0ee7d8aa9351d00454ed54e6d73b2b4caaa3990424bf061"
+    },
+    {
+      "matches_build76": true,
+      "path": "runtime/bin/python3.12",
+      "sha256": "b21371592c32af6f23b2967c54ffc141f4e14fe1ce73cf45dfb69e5b71c5d762"
+    },
+    {
+      "matches_build76": true,
+      "path": "owner.app/Contents/Info.plist",
+      "sha256": "f0a07fc69db047341b8eec2c86284e556fada3aeb252c91c8b8c97668ff5357b"
+    },
+    {
+      "matches_build76": true,
+      "path": "package-identity.json",
+      "sha256": "4bd0ef5cf76e51cd38cb09f969da5d33b018bf764890c225ee1d361935dfe1e0"
+    }
+  ]
+}

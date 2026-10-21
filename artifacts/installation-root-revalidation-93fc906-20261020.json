@@ -1,0 +1,185 @@
+{
+  "actual_installer_acceptance": {
+    "corrected": {
+      "artifact_id": 12291643349,
+      "artifact_sha256": "439db7020aa9d77f5c4cb0723d68e251982054b674da6400d5f0a90ec5cad709",
+      "component_checks_passed": 15,
+      "controller_revision": "abe6e02af976c477cab908a22355aba12cbeebb3",
+      "local_verification_sha256": "27f82a44cd7ec3a1a149a26eacda595fac14cbb5fb3182692f04cdae29200f27",
+      "report_sha256": "8bd091f751008c7eb0781d1de8ab49aa5e934fd637239d30f266e496b233c4e5",
+      "revalidation_checks_passed": 11,
+      "run_attempt": 1,
+      "run_id": 39481090527
+    },
+    "legacy": {
+      "artifact_id": 12290262782,
+      "artifact_sha256": "ec660d959f0cac3bba35785791ee52073e9f3a27bcd6e5169bfcfa1f034ff0af",
+      "component_checks_passed": 15,
+      "controller_revision": "93fc9069b52a56a25fe535a79ca5afefb56e840c",
+      "local_verification_sha256": "35dea2cd971745b1fca9eb46e0fbea81605beafe76629c1149340723bbcb48db",
+      "report_sha256": "7b37d93678ca3219775f53d4b33394bb91d1c65167ba7d35e4982efd5790e8ba",
+      "revalidation_checks_passed": 0,
+      "run_attempt": 1,
+      "run_id": 39479420092
+    }
+  },
+  "component_source_commit": "93fc9069b52a56a25fe535a79ca5afefb56e840c",
+  "owner_mac": {
+    "administrator_approval_completed": true,
+    "administrator_approval_pending": false,
+    "component_install_attempted": false,
+    "component_install_completed": false,
+    "further_installation_not_attempted": true,
+    "historical_failed_predicate_identified": false,
+    "installation_or_private_logs_read": false,
+    "native_installer_outcome": "FAILED",
+    "native_installer_requested": true,
+    "personal_sign_in_acceptance_completed": false,
+    "preexisting_report_slots": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ],
+    "protected_owner_enrollment_completed": false,
+    "public_result_metadata_verified": true,
+    "public_result_report_sha256": "ddb10266b7cbb06f8932639315a6578f1f2b0b7ebf7c4861eb07aa00a93ea057",
+    "public_result_slot": "00",
+    "reader_before_snapshot_sha256": "acd2a08ce1a51f1d874144a17ae979989e62bb470a941ca5a4f413e7fee1b821",
+    "reader_source_sha256": "e582a6db90e0f48c8319ab74a7507924af90affe6dfb9486a3e4fba0a4aafdf2",
+    "root_revalidation_result": {
+      "checkpoint": "publish",
+      "production_ready": false,
+      "reason": "installation_root_revalidation_refused",
+      "schema": 1,
+      "status": "REFUSED"
+    },
+    "root_revalidation_result_observed": true,
+    "supplementary_receipt_created": null
+  },
+  "packages": {
+    "component": {
+      "bytes": 3457575,
+      "sha256": "f9074af21643f11b1be5b6973d3604cc57f099def922b2d85fda05003ca19781"
+    },
+    "installer_containers_signed": false,
+    "native_helpers_developer_id_team": "WBULD6N4NQ",
+    "notarized": false,
+    "root_revalidation": {
+      "bytes": 3459135,
+      "sha256": "5efeb6b20a492c8dbcb283769798d20e762746f961abe748c7f55d3d62319f81"
+    }
+  },
+  "plan_sha256": "951ae2113b77d9a7a4bdd953a13fee67007eb8042ca9c87bd7df6cdb222c094f",
+  "production_ready": false,
+  "recorded_at_utc": "2026-10-20T19:25:17Z",
+  "retained_controller_failure": {
+    "cause": "Test controller selected expanded for the fixed root-expanded resource path. No Installer ran.",
+    "controller_revision": "93fc9069b52a56a25fe535a79ca5afefb56e840c",
+    "corrected_controller": "abe6e02af976c477cab908a22355aba12cbeebb3",
+    "failure_stage": "root_revalidation_inputs",
+    "new_attempt_reused_exact_package_bytes": true,
+    "run_attempt": 1,
+    "run_id": 39479981713
+  },
+  "schema": 1,
+  "scope": {
+    "consumer_installation_verified": false,
+    "device_mismatch_and_pending_write_are_synthetic_vm_fixtures": true,
+    "disposable_hosted_macs": true,
+    "personal_accounts_used": 0,
+    "physical_sms_or_phone_authenticator_delivery_verified": false
+  },
+  "source_ci": {
+    "all_nine_first_attempts_passed": true,
+    "observation_sha256": "fcae0878a86d92b7bdebbf1834b05329d4076b08be372206863120a3b60888ac",
+    "runs": [
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "head_sha": "93fc9069b52a56a25fe535a79ca5afefb56e840c",
+        "html_url": "https://github.com/fainir/account-access/actions/runs/39473125563",
+        "id": 39473125563,
+        "name": "Separate-user worker acceptance",
+        "run_attempt": 1
+      },
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "head_sha": "93fc9069b52a56a25fe535a79ca5afefb56e840c",
+        "html_url": "https://github.com/fainir/account-access/actions/runs/39473125440",
+        "id": 39473125440,
+        "name": "Android login-code journey",
+        "run_attempt": 1
+      },
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "head_sha": "93fc9069b52a56a25fe535a79ca5afefb56e840c",
+        "html_url": "https://github.com/fainir/account-access/actions/runs/39473125865",
+        "id": 39473125865,
+        "name": "Account Access checks",
+        "run_attempt": 1
+      },
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "head_sha": "93fc9069b52a56a25fe535a79ca5afefb56e840c",
+        "html_url": "https://github.com/fainir/account-access/actions/runs/39473125492",
+        "id": 39473125492,
+        "name": "Mac separate-user worker acceptance",
+        "run_attempt": 1
+      },
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "93fc9069b52a56a25fe535a79ca5afefb56e840c",
+        "html_url": "https://github.com/fainir/account-access/actions/runs/39473116551",
+        "id": 39473116551,
+        "name": "Signed component update Installer review",
+        "run_attempt": 1
+      },
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "93fc9069b52a56a25fe535a79ca5afefb56e840c",
+        "html_url": "https://github.com/fainir/account-access/actions/runs/39473117051",
+        "id": 39473117051,
+        "name": "Separate-user worker acceptance",
+        "run_attempt": 1
+      },
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "93fc9069b52a56a25fe535a79ca5afefb56e840c",
+        "html_url": "https://github.com/fainir/account-access/actions/runs/39473116799",
+        "id": 39473116799,
+        "name": "Android login-code journey",
+        "run_attempt": 1
+      },
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "93fc9069b52a56a25fe535a79ca5afefb56e840c",
+        "html_url": "https://github.com/fainir/account-access/actions/runs/39473116558",
+        "id": 39473116558,
+        "name": "Account Access checks",
+        "run_attempt": 1
+      },
+      {
+        "conclusion": "success",
+        "event": "push",
+        "head_sha": "93fc9069b52a56a25fe535a79ca5afefb56e840c",
+        "html_url": "https://github.com/fainir/account-access/actions/runs/39473116556",
+        "id": 39473116556,
+        "name": "Mac separate-user worker acceptance",
+        "run_attempt": 1
+      }
+    ]
+  },
+  "status": "DISPOSABLE_MAC_ACCEPTANCE_PASSED_OWNER_PUBLICATION_REFUSED"
+}

@@ -1,0 +1,66 @@
+{
+  "account_data_accessed": false,
+  "automatic_crash_recovery": false,
+  "baseline_files": 3,
+  "extra_cache_directories": 8,
+  "helper_root_execution": false,
+  "installed_writes": false,
+  "journal_recovery": "manual_review_only",
+  "native_checker_sha256": "e5e544ef218d4787ce897b82e7cef63c851b3ac3a8848c4ae1984e0b8cfefef7",
+  "native_checker_signature_review": "passed_local_static_input_check",
+  "ordinary_tests": {
+    "failed": 0,
+    "passed": 16
+  },
+  "package_built": false,
+  "production_ready": false,
+  "ruff": "passed",
+  "schema": 1,
+  "service_started_or_stopped": false,
+  "simulated_non_darwin_missing_local_artifact_test_gating": {
+    "failed": 0,
+    "passed": 3,
+    "real_linux_execution": false,
+    "skipped": 13
+  },
+  "source_files": {
+    "macos/build-runtime-cache-repair.py": {
+      "sha256": "acee9f73f908fe54055645404cb9c0235efc4a109563fa28526ccf112b9c582e",
+      "size": 11786
+    },
+    "macos/runtime-cache-repair-76/PSF-LICENSE.txt": {
+      "sha256": "3b2f81fe21d181c499c59a256c8e1968455d6689d269aa85373bfb6af41da3bf",
+      "size": 13936
+    },
+    "macos/runtime-cache-repair-76/README.md": {
+      "sha256": "80a6f2999b33c1df64fad72ea441ff30fd3298b48e11d7be623e8a08ae367f91",
+      "size": 1883
+    },
+    "macos/runtime-cache-repair-76/baseline-__init__.cpython-312.bin": {
+      "sha256": "6c860dcb30b447e8cfb207d4b26831c4fa8dd00add90214b9e7015603c330a62",
+      "size": 5814
+    },
+    "macos/runtime-cache-repair-76/baseline-aliases.cpython-312.bin": {
+      "sha256": "7d98c560bccf024a27125c415d12469fe8f296935fb0127d9a7138a90f1d181c",
+      "size": 12447
+    },
+    "macos/runtime-cache-repair-76/baseline-utf_8.cpython-312.bin": {
+      "sha256": "54adedeb2cbf4c01f4e93c664dbd7631bd2c9f7933c3defc9649ade272a38472",
+      "size": 2186
+    },
+    "macos/runtime-cache-repair-76/plan.json": {
+      "sha256": "a5eb03806270e51779ee8f570316cbf134c481240c0ed3f934230016ba2dc4b0",
+      "size": 47957
+    },
+    "macos/runtime_cache_repair.py": {
+      "sha256": "58a7f0f751fdff16406cda9bae0fe93aaf27fe6dd208f964cc1cb699f8ee6121",
+      "size": 22957
+    },
+    "tests/test_runtime_cache_repair.py": {
+      "sha256": "a9f906c354323992a75196471d8fbf7fc8c84cd8515eeb1db952ac1b10f57bbb",
+      "size": 11761
+    }
+  },
+  "status": "SOURCE_ONLY_VALIDATED_NOT_PACKAGED",
+  "target_build": 76
+}

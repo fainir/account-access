@@ -1,0 +1,5 @@
+interface:
+  display_name: "Account Access"
+  short_description: "Use connected accounts without password prompts"
+policy:
+  allow_implicit_invocation: true

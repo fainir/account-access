@@ -1,0 +1,29 @@
+{
+  "agent": "claude",
+  "version": "0.8.0",
+  "passed": true,
+  "environment": "controlled-demo",
+  "exit_code": 0,
+  "elapsed_seconds": 67.01,
+  "ordinary_prompt_without_skill_or_command": true,
+  "used_project_launcher": true,
+  "launcher_verification": "successful tool command resolves to the installed project launcher",
+  "evidence_revision": "9e34b6cb81f553867e87b45d3ef41a04feb1bd59",
+  "completed_four_account_task": true,
+  "password_logins": 4,
+  "email_verifications": 1,
+  "sms_verifications": 1,
+  "totp_verifications": 1,
+  "mailbox_fetches": 1,
+  "codex_fixture_socket_only_profile": false,
+  "limits": [
+    "Fictional accounts only",
+    "TLS IMAP fixture, Messages database fixture",
+    "Authenticator transfer import uses a fictional key",
+    "No physical phone or private mailbox validation"
+  ],
+  "host_cli_version": "2.1.112",
+  "host_distribution": "existing CLI on PATH",
+  "test_model_override": null,
+  "host_settings_changed": false
+}

@@ -28,13 +28,26 @@ The local API binds a private Unix-domain socket, with bearer authentication eve
 
 Local same-user access is appropriate for a trusted-agent pilot, not strong isolation against arbitrary shell execution. A compromised agent with owner filesystem/keychain access can bypass broker interfaces. Isolated deployment is a release requirement for that threat model. The HTTPS client can reach a broker on another host; TLS reverse-proxy configuration is supplied. Multi-tenant hosting, a token issuance UI for remote clients and native Windows transport are not shipped.
 
+An internal [separate-user worker component](isolated-worker.md) accepts a
+root-managed runtime/policy and inherited private bootstrap and listener
+descriptors. It is not connected to the consumer installer or a production
+owner enrollment gateway. Its cross-user CI acceptance uses fictional accounts;
+it does not validate isolation in the installed Mac app.
+
+The [Mac owner-channel component](mac-owner-gateway.md) adds native peer code/user
+checks, a dedicated setup authorization and bounded private owner routing. Its
+signed-process fixtures verify that layer under one OS user. Root deployment,
+genuine owner approval and wiring into the consumer UI remain required.
+
 ## Authority and operations
 
 Standing grants bind principal, account, named operation, owner configuration fingerprint and optional expiry. The owner chooses them once. Every operation and task result access rechecks them. Provider OAuth scopes are also checked before an API read. Configuration drift fails closed until reviewed, granted and reconnected. A revoked principal cannot read its earlier results. A local account revocation stops new operations but cannot retract an already issued HTTP request or invalidate a provider token by itself.
 
-Browser operation URLs/resources are exact allowlists; read mode blocks POST, external URLs, WebSockets, service workers and downloads. Login POST destinations have a separate exact allowlist. Every redirect hop is fetched with automatic redirects disabled and checked before sending the next request. This matters because ordinary Playwright routing checks only the first request of a redirect chain. A 307/308 cannot carry a password to an unapproved destination. The final response is fulfilled at the originally requested document URL; adapters must account for that document base and relative assets. At most six requests per chain are made. Responses above eight MB are rejected after buffering; this is not a streaming browser memory limit.
+Browser operation URLs/resources are exact allowlists; read mode blocks POST, external URLs, WebSockets, service workers and downloads. Login POST destinations have a separate exact allowlist. Main-frame requests use Chromium's native transport, preserving redirect URLs, browser cookies, headers and TLS behavior. A private CDP session pauses each response before Chromium follows its redirect and validates the exact destination and resulting HTTP method. Ordinary Playwright routing checks only the first request of a redirect chain, so the response check is necessary to prevent a 307/308 from carrying a password to an unapproved destination. No debugging port or browser handle is exposed to the agent. Child-frame and worker requests retain bounded fetching with automatic redirects disabled and each hop checked separately; their final response is fulfilled at the originally requested URL. At most six requests per chain are made. Responses above eight MB are rejected after buffering; this is not a streaming browser memory limit.
 
 JavaScript is off unless explicitly configured. Password entry happens only in a configured login form at the exact login URL; an unrecognized page never triggers guessing or credential entry. Configured state markers are polled for a bounded period so asynchronous applications can finish rendering. A named GET is only as read-only as the reviewed provider semantics: a website can implement side effects through GET, so arbitrary URLs are not exposed.
+
+The reviewed account configuration may select the installed stable Google Chrome channel; arbitrary executable paths and launch arguments are not accepted. The GitHub SMS repair selects it on a Mac with Chrome in its standard application location. Playwright creates a separate temporary profile: this does not adopt the owner's personal Chrome session, vault, extensions or passkeys. The Chromium sandbox and the same request/response guards remain enabled. Enterprise browser policies can affect compatibility. [Playwright's supported browser channels](https://playwright.dev/python/docs/browsers#google-chrome--microsoft-edge).
 
 Returned text is data, never authority. Model-side instructions are useful routing, but server checks are decisive. Credential keys and known secret values are redacted defensively. A provider could encode unknown secrets in business data; this mechanism is not a universal data-loss-prevention proof. Browser/network containment and minimal output selection reduce the exposure surface.
 
@@ -68,6 +81,14 @@ Schedules retain an immutable reviewed step list, principal and interval. Invali
 
 Add provider adapters with explicit operations and recorded challenge contracts. Evaluate managed OAuth infrastructure such as Nango/Composio/Pipedream behind this interface for a larger catalog. Evaluate agent-browser as a browser runtime, but do not expose its unrestricted credential/browser commands to the model or treat its opt-in policy features as a substitute for operation grants. The initial implementation reuses Playwright directly because the experiment needs fixed operation-level control.
 
-The Chrome native session bridge is an experimental owner convenience, with exact extension registration and account origin filtering. It exports no password vault, passkey or authenticator. The extension/native host is not a publicly distributed signed consumer installer and has not been exercised with live Chrome accounts.
+The Chrome session bridge requires a five-minute request from the local owner
+app and an existing approved GitHub profile read. Its optional cookie permission
+is absent by default and removed after transfer. The selected cookie store,
+origin, provider readiness and expected username are checked; changed grants,
+expiry or cancellation prevent adoption. Saving the encrypted connection,
+resolving login challenges and recording success share one transaction. The
+old unverified import path is refused. Cookies never return through the agent
+API. Device binding, private acceptance and marketplace distribution remain
+limits; see [browser session reuse](browser-sessions.md).
 
 Production release requires named live-service pilots, the intended isolated custody deployment, provider app registrations and conditions, mobile channel validation, installer/update signing and operational monitoring. See validation.md for what was actually tested.

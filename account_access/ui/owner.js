@@ -16,11 +16,12 @@ function button(label, callback, className) {
 async function refresh() {
   if(!capability){output.textContent="Open this console using the owner setup command to unlock it.";return;}
   const state=await call("/owner/state");
-  document.querySelector("#environment").textContent=state.environment==="controlled-demo" ? "Controlled demo — synthetic accounts only. No real financial or personal account is connected." : "Local account access. Permissions below apply to this service.";
+  document.querySelector("#environment").textContent=state.environment==="controlled-demo" ? "Configured local test connections. Results do not validate access to personal accounts." : state.environment==="public-example"?"Public testing accounts. Results do not validate access to personal accounts.":state.environment==="mixed"?"Mixed connections. Public examples and local tests are labeled on each account.":"Local account access. Permissions below apply to this service.";
   accounts.replaceChildren();
   if(!state.accounts.length) accounts.append(node("p","No accounts configured yet. Add a reviewed service adapter in owner setup to begin.","empty"));
   for(const account of state.accounts){
     const card=node("article",null,"account");card.append(node("h2",account.label));card.append(node("p",account.account+" · "+account.route+" · "+(account.connected?"Session saved":"Connection needed"),"status"));
+    if(["public-example","controlled-demo"].includes(account.environment))card.append(node("p","Example connection. This does not validate access to a personal account.","status"));
     const existing=state.grants.filter(x=>x.account===account.account);card.append(node("p","Granted access: "+(existing.length?existing.map(x=>x.principal+" → "+x.operation+(x.expires?" until "+new Date(x.expires*1000).toLocaleString():"")).join("; "):"none"),"status"));
     for(const challenge of account.challenges) card.append(node("p",challenge.required_action+" Reference: "+challenge.id,"challenge"));
     const row=node("div",null,"row");row.append(button("Connect or repair",()=>call("/owner/connect",{account:account.account})));row.append(button("Revoke access",()=>call("/owner/revoke",{account:account.account}),"danger"));card.append(row);

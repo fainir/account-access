@@ -1,0 +1,70 @@
+{
+  "version": "0.8.0-candidate",
+  "date": "2026-10-17",
+  "source_revision": "73b7c065e68357b0eb45dd2c108516c96c5f37c7",
+  "production_ready": false,
+  "ci": {
+    "runs": [
+      "https://github.com/fainir/account-access/actions/runs/39026369231",
+      "https://github.com/fainir/account-access/actions/runs/39026372636"
+    ],
+    "independent_reports_identical": true
+  },
+  "acceptance": {
+    "status": "PASSED",
+    "environment": "controlled-demo",
+    "production_ready": false,
+    "private_signins": 0,
+    "actual_separate_owner_uid_reader": true,
+    "real_messages_database_used": false,
+    "physical_sms_delivery_verified": false,
+    "full_worker_browser_sms_journey_verified": false,
+    "genuine_full_disk_access_verified": false,
+    "checks": {
+      "root_launches_reader_as_separate_owner_uid": true,
+      "truncated_result_set_cannot_supply_code": true,
+      "expired_native_request_refused": true,
+      "wrong_root_parent_signature_refused": true,
+      "already_used_message_excluded": true,
+      "private_socket_returns_matching_fresh_fixture_code": true,
+      "pre_request_baseline_excludes_old_messages": true,
+      "boolean_baseline_refused": true,
+      "wrong_reader_code_refused_before_launch": true,
+      "future_dated_message_excluded": true,
+      "forged_reader_pid_refused_before_request": true,
+      "ambiguous_matching_texts_refused": true,
+      "untrusted_invoker_cannot_read_codes": true
+    }
+  },
+  "browser_transport": {
+    "environment": "controlled-demo",
+    "private_signins": 0,
+    "tests": 2,
+    "private_unix_transport_used": true,
+    "automatic_password_sms_login_verified": true,
+    "saved_session_reused": true,
+    "revocation_prevents_submission": true,
+    "native_reader_used": false,
+    "actual_separate_uid_used": false
+  },
+  "regression": {
+    "url": "https://github.com/fainir/account-access/actions/runs/39026369253",
+    "passed": 1033,
+    "platform_skips": 5,
+    "seconds": 518.55,
+    "dependency_audit": "no known vulnerabilities found",
+    "all_eight_push_and_pr_workflows": "passed"
+  },
+  "owner_state": {
+    "installed_build": 53,
+    "installed_app_replaced": false,
+    "unfinished_mailbox_form": "preserved",
+    "new_private_signin_requests": 0
+  },
+  "limits": [
+    "Synthetic database and ad-hoc code-pinned peers; no personal Messages database or physical SMS delivery",
+    "Native reader process and Python/browser transport have separate composed tests; no complete isolated native-reader browser journey",
+    "No genuine Full Disk Access attribution, signed positive consumer installation, notarized download or machine reboot acceptance",
+    "Private email/SMS/authenticator login, physical Android/iPhone, isolated Chrome ingress and continuous Chrome password sync remain release gates"
+  ]
+}

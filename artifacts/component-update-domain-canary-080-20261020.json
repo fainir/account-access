@@ -1,0 +1,196 @@
+{
+  "artifact_id": 12275347796,
+  "artifact_zip_sha256": "13067fe81adb5f3451782e6f517de9271dba80686889002be19aed64cb8886cd",
+  "candidate_returncode": 1,
+  "candidate_timed_out": false,
+  "checks": {
+    "actual_base_installer": true,
+    "actual_candidate_installer": false,
+    "base_public_image": true,
+    "candidate_expansion_matches_review": true,
+    "created_job_stopped": true,
+    "fresh_gui_closed": true,
+    "fresh_hosted_vm": true,
+    "genuine_signed_helper": true,
+    "only_three_policy_values_changed": false,
+    "reapplication_preserved_bytes_and_ids": false,
+    "reviewed_public_inputs": true,
+    "same_package_reapplication": false,
+    "target_public_image": false,
+    "unchanged_worker_plans_and_original_journal": false,
+    "verified_head": false
+  },
+  "component_source_revision": "939fdda5b8b29ca54abb37be3a2b7409b9a0be91",
+  "controller_revision": "cb90937d6278d648aaceb8c8ae56df437888ef34",
+  "failure_evidence_sha256": "8f88392ee9c3439ec4ecdca8cae08f4f253bb8dd3ea0c2c7cdce8712ddf331cf",
+  "failure_stage": "candidate_installer",
+  "measured_findings": [
+    "One stable dedicated-service process was /usr/sbin/distnoted.",
+    "First and repeated dedicated-user-domain bootout returned0 with an immediate zero process count.",
+    "Immediate bootstrap returned124 with the exact Domain is tearing down error.",
+    "Final bootout also returned124 with a zero process count. Domain teardown completion was not proven.",
+    "Later bootstrap/print stages did not run; the canary remains incomplete."
+  ],
+  "native_closed_result": {
+    "reason": "component_service_quiescence_not_confirmed",
+    "schema": 1,
+    "status": "REFUSED"
+  },
+  "next_fix_scope": "Dedicated verified service-user-domain teardown before strict process quiescence, and bounded retries only for the measured action-specific124 teardown response during removal/recreation. No domain print, owner-domain actions, PID adoption or relaxed process checks.",
+  "observed_at": "2026-10-20T14:57:08.532204+00:00",
+  "owner_package_execution": false,
+  "personal_accounts_used": 0,
+  "production_ready": false,
+  "report_log_hashes_verified": true,
+  "run_attempt": 1,
+  "run_conclusion": "failure",
+  "run_id": 39441898273,
+  "run_url": "https://github.com/fainir/account-access/actions/runs/39441898273",
+  "schema": 1,
+  "server_digest_verified": true,
+  "source_blob_hashes_verified": 42,
+  "source_repair_review": {
+    "actual_apply_and_reapply": "pending",
+    "controller_proof_sha256": "9612f8f0852020e8f39053263626ec0bbff767a5cac9fd590cabb277b307edaa",
+    "diff_check_passed": true,
+    "focused_controller_python_tests": 212,
+    "focused_native_contract_python_tests": 95,
+    "independent_review_sha256": "2a2a5d921424d0effce934b5641ad489def1eca89538408933db2539a8ac2824",
+    "installed_account_reads": false,
+    "native_proof_sha256": "87f90b18ed4cb2bf7070e6c90df19117bc4e5642e4212a6464627a0dfca335bf",
+    "new_signed_package": "not assembled",
+    "new_source_ci": "pending",
+    "ordinary_main_refusal_exit": 78,
+    "ordinary_native_assertions": 133,
+    "ordinary_native_groups": 30,
+    "root_execution": false,
+    "ruff_passed": true,
+    "source_sha256": {
+      ".github/workflows/mac-worker.yml": "51fcdacd314c901c193198d09df8cf671f813622ed9ed06e0df9a115547f7845",
+      "macos/ComponentUpdate.swift": "17e7a681d9288058df450745c7b74e67df5d91f7021132a1d29f4f3a15ac2e92",
+      "macos/ComponentUpdateIdentity.swift": "4c3bf3e29923e0a92ac9bf6a8e9752ec889d61eb26dedbafcf6e788dabd3512e",
+      "macos/ComponentUpdatePolicies.swift": "7aca759f4b9fad195851ce12d81550ec08a0753c43515574c23fc74d247060ab",
+      "macos/InstallerPayload.swift": "03876624a57cfe84d850b1998f636acaa039ce6fd4822d8df60ffeab7cd9c81d",
+      "macos/Tests/ComponentUpdateChecks.swift": "88d4e5f65ca55972141bce6c88bd4db89eeb62b98e994b281f7b74ea124bc84c",
+      "macos/Tests/ComponentUpdateIdentityChecks.swift": "88c2d9420b6ebed456bdc1ab9ee0ef2e3d6ec822e34a963d4051288b8e177741",
+      "macos/Tests/ComponentUpdatePolicyChecks.swift": "e51485275a534ffb53c67949334ba4a49bb32a4b71a276a609718d1c3b47ac48",
+      "macos/build-component-update.py": "8cbec0f4ed2347cc5634c207f42567082c2f917517b08a5aa8dd0730b4ae6b02",
+      "scripts/mac_component_update_installer_probe.py": "3e6e9c8989108505a8f346efc4d7c0c3a2cb17ed43e998a120e62c4feefb4e76",
+      "scripts/mac_component_update_native_probe.py": "9aacf07f1b6fb21a64e0b9a9e289472ce8fa52347567db6e3609b556ed2d2d9d",
+      "tests/test_component_update_builder.py": "99d26a1a1693ea811e431229cd79ea2b68dac5a0933e5e415adef3afb01716bf",
+      "tests/test_mac_component_update_installer_probe.py": "03a9101779d0d30ff303ada19d7ad71c619254db244a228bb2289f6a5ae506f2",
+      "tests/test_mac_component_update_native_probe.py": "c822582d4df30b0e0f9feed66bc8ede5b74218145043c2ee88170376de52a631"
+    },
+    "source_stable": true,
+    "validation_summary_sha256": "350e4ca91527f57db7efefc3432af555d14cf837e5a0a153fab3578f28f7b0ac"
+  },
+  "test_vm_domain_canary": {
+    "affects_acceptance": false,
+    "domain_mutations_attempted": true,
+    "final_cleanup": {
+      "command": {
+        "returncode": 124,
+        "status": "measured",
+        "stderr": "Boot-out failed: 124: Domain is tearing down\n",
+        "stderr_bytes": 45,
+        "stderr_sha256": "f55c38d87391d28d6fcfa03a120fb9df26de1988fafccef479434a4c2f92361d",
+        "stdout_bytes": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "processes": {
+        "attempts": 1,
+        "last": {
+          "count": 0,
+          "errno": 0,
+          "returned_bytes": 0,
+          "status": "measured",
+          "unique_count": 0
+        },
+        "status": "empty"
+      },
+      "status": "uid_empty"
+    },
+    "status": "incomplete",
+    "steps": {
+      "bootstrap": {
+        "returncode": 124,
+        "status": "measured",
+        "stderr": "Bootstrap failed: 124: Domain is tearing down\n",
+        "stderr_bytes": 46,
+        "stderr_sha256": "e9bb8a633afbe7e643d1cd0778102149823aa5a72e041415c74a112e2a967578",
+        "stdout_bytes": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "first_bootout": {
+        "returncode": 0,
+        "status": "measured",
+        "stderr": "",
+        "stderr_bytes": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "first_bootout_processes": {
+        "attempts": 1,
+        "last": {
+          "count": 0,
+          "errno": 0,
+          "returned_bytes": 0,
+          "status": "measured",
+          "unique_count": 0
+        },
+        "status": "empty"
+      },
+      "initial_processes": {
+        "changed_count": 0,
+        "classes": {
+          "bootstrap": 0,
+          "broker": 0,
+          "cfprefsd": 0,
+          "launchd": 0,
+          "securityd": 0,
+          "trustd": 0,
+          "unknown": 1
+        },
+        "classification_status": "measured",
+        "count": 1,
+        "errno": 0,
+        "error_counts": {},
+        "execution_matches": 0,
+        "other_references": 0,
+        "returned_bytes": 4,
+        "status": "measured",
+        "unavailable_count": 0,
+        "unique_count": 1,
+        "unknown_executables": [
+          {
+            "basename": "distnoted",
+            "count": 1,
+            "path": "/usr/sbin/distnoted"
+          }
+        ]
+      },
+      "repeat_bootout": {
+        "returncode": 0,
+        "status": "measured",
+        "stderr": "",
+        "stderr_bytes": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_bytes": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "repeat_bootout_processes": {
+        "attempts": 1,
+        "last": {
+          "count": 0,
+          "errno": 0,
+          "returned_bytes": 0,
+          "status": "measured",
+          "unique_count": 0
+        },
+        "status": "empty"
+      }
+    },
+    "test_vm_only": true
+  }
+}

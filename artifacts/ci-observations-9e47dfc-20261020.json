@@ -1,0 +1,122 @@
+{
+  "component_update_package_assembled": false,
+  "component_updater_actual_installer_verified": false,
+  "failed_runs": 0,
+  "not_covered": [
+    "The separately implemented component updater and its actual candidate Installer/reapply review.",
+    "Installing worker v2 on the owner Mac and reopening the normal app.",
+    "Personal password, email, SMS or authenticator login readiness."
+  ],
+  "owner_mac_worker_v2_installed": false,
+  "personal_account_end_to_end_readiness_established_by_this_ci": false,
+  "private_account_signins_performed_by_this_audit": 0,
+  "production_ready": false,
+  "raw_completed_observation": {
+    "path": "dist/qa-ci-9e47dfc/snapshot-0004-api.json",
+    "sha256": "2e3e926dad9966b2bdaafeab04493a045c8a90ea5d22221a9bc3e41d67c27047"
+  },
+  "raw_first_observation": {
+    "path": "dist/qa-ci-9e47dfc/snapshot-0001-api.json",
+    "sha256": "6a2b1f378bbd7a85b9a9847732109d556a50997284546eba3ec821de3f28937b"
+  },
+  "raw_proof_directory": "dist/qa-ci-9e47dfc",
+  "recorded_at_utc": "2026-10-20T10:59:49.405064+00:00",
+  "reruns_or_cancellations_performed": false,
+  "schema": 1,
+  "scope": "Worker v2 exact-source first-attempt public CI only; no component update or personal account operation.",
+  "source_revision": "9e47dfc8521625dadb673868fab573badcc747fb",
+  "status": "ALL_EIGHT_FIRST_ATTEMPT_WORKFLOWS_PASSED",
+  "successful_runs": 8,
+  "worker_v2_source_ci_passed": true,
+  "workflow_run_count": 8,
+  "workflow_runs": [
+    {
+      "attempt": 1,
+      "conclusion": "success",
+      "event": "pull_request",
+      "head_sha": "9e47dfc8521625dadb673868fab573badcc747fb",
+      "path": ".github/workflows/android.yml",
+      "run_id": 39408005767,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39408005767",
+      "workflow": "Android login-code journey"
+    },
+    {
+      "attempt": 1,
+      "conclusion": "success",
+      "event": "push",
+      "head_sha": "9e47dfc8521625dadb673868fab573badcc747fb",
+      "path": ".github/workflows/android.yml",
+      "run_id": 39407999775,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39407999775",
+      "workflow": "Android login-code journey"
+    },
+    {
+      "attempt": 1,
+      "conclusion": "success",
+      "event": "pull_request",
+      "head_sha": "9e47dfc8521625dadb673868fab573badcc747fb",
+      "path": ".github/workflows/check.yml",
+      "run_id": 39408005864,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39408005864",
+      "workflow": "Account Access checks"
+    },
+    {
+      "attempt": 1,
+      "conclusion": "success",
+      "event": "push",
+      "head_sha": "9e47dfc8521625dadb673868fab573badcc747fb",
+      "path": ".github/workflows/check.yml",
+      "run_id": 39407999646,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39407999646",
+      "workflow": "Account Access checks"
+    },
+    {
+      "attempt": 1,
+      "conclusion": "success",
+      "event": "pull_request",
+      "head_sha": "9e47dfc8521625dadb673868fab573badcc747fb",
+      "path": ".github/workflows/mac-worker.yml",
+      "run_id": 39408005554,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39408005554",
+      "workflow": "Mac separate-user worker acceptance"
+    },
+    {
+      "attempt": 1,
+      "conclusion": "success",
+      "event": "push",
+      "head_sha": "9e47dfc8521625dadb673868fab573badcc747fb",
+      "path": ".github/workflows/mac-worker.yml",
+      "run_id": 39407999643,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39407999643",
+      "workflow": "Mac separate-user worker acceptance"
+    },
+    {
+      "attempt": 1,
+      "conclusion": "success",
+      "event": "pull_request",
+      "head_sha": "9e47dfc8521625dadb673868fab573badcc747fb",
+      "path": ".github/workflows/worker-boundary.yml",
+      "run_id": 39408006170,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39408006170",
+      "workflow": "Separate-user worker acceptance"
+    },
+    {
+      "attempt": 1,
+      "conclusion": "success",
+      "event": "push",
+      "head_sha": "9e47dfc8521625dadb673868fab573badcc747fb",
+      "path": ".github/workflows/worker-boundary.yml",
+      "run_id": 39407999651,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39407999651",
+      "workflow": "Separate-user worker acceptance"
+    }
+  ]
+}

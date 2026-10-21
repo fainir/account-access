@@ -1,0 +1,62 @@
+{
+  "artifact_id": 12268639815,
+  "artifact_zip_sha256": "fb69e9201df34e0c9c1e7f0539f602846f817876cc720ffbec3fdb07cbd66f8b",
+  "candidate_package_unchanged": true,
+  "candidate_returncode": 1,
+  "candidate_sha256": "bd855362c5f4e265e9d4cb4f7a67355af0de8855d681fa7660c8e6dfbcd613c6",
+  "candidate_timed_out": false,
+  "checks": {
+    "actual_base_installer": true,
+    "actual_candidate_installer": false,
+    "base_public_image": true,
+    "candidate_expansion_matches_review": true,
+    "created_job_stopped": true,
+    "fresh_gui_closed": true,
+    "fresh_hosted_vm": true,
+    "genuine_signed_helper": true,
+    "only_three_policy_values_changed": false,
+    "reapplication_preserved_bytes_and_ids": false,
+    "reviewed_public_inputs": true,
+    "same_package_reapplication": false,
+    "target_public_image": false,
+    "unchanged_worker_plans_and_original_journal": false,
+    "verified_head": false
+  },
+  "component_source_revision": "939fdda5b8b29ca54abb37be3a2b7409b9a0be91",
+  "controller_revision": "d2a65d8f90ba2c93623315d4f7dd76d822b5647e",
+  "diagnosis_scope": "The signed helper refused because service quiescence was not confirmed. Exact narrower process or API cause is not established.",
+  "existing_daemon_log_bytes_read": 0,
+  "failure_evidence_sha256": "e1c38485f9e0475a1e58741c09a8fe8b6adc3a0113e29ddb7afc76c8d3ed58c0",
+  "failure_stage": "candidate_installer",
+  "native_closed_result": {
+    "reason": "component_service_quiescence_not_confirmed",
+    "schema": 1,
+    "status": "REFUSED"
+  },
+  "native_reason_observed": true,
+  "next_controller_review": {
+    "acceptance_barrier_unchanged": true,
+    "independent_review": "clear",
+    "lifecycle_mutations_added": false,
+    "ordinary_contract_tests_passed": 192,
+    "proof_sha256": "2d35c832b875c7cf251faa6733f2e20802975803351b5c127cff67d85af2ca3b",
+    "ruff_passed": true,
+    "source_sha256": {
+      "scripts/mac_component_update_installer_probe.py": "2e57921b38b292109b4add8a921412352fe7cabb42445ce8d5e7b486cfdb0c07",
+      "tests/test_mac_component_update_installer_probe.py": "9da620646eb2cef03244cc788968007f787d94127322c67bce4ba36ee01451d1"
+    }
+  },
+  "next_diagnostic_scope": "Fresh disposable VM only: bounded aggregate checks for the already-verified dedicated service identity and fixed executable paths. No new service mutation, helper invocation, account read or relaxation of the update barrier.",
+  "observed_at": "2026-10-20T13:58:24.225704+00:00",
+  "owner_package_execution": false,
+  "personal_accounts_used": 0,
+  "production_ready": false,
+  "report_log_hashes_verified": true,
+  "run_attempt": 1,
+  "run_conclusion": "failure",
+  "run_id": 39433822006,
+  "run_url": "https://github.com/fainir/account-access/actions/runs/39433822006",
+  "schema": 1,
+  "server_digest_verified": true,
+  "source_blob_hashes_verified": 42
+}
