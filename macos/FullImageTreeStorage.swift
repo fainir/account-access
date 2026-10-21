@@ -77,6 +77,19 @@ enum PublicTreeIO {
         errno = 0
         guard acl_get_entry(acl, ACL_FIRST_ENTRY.rawValue, &entry) != 0, errno == EINVAL else { throw PublicTreeFailure.invalid }
     }
+    static func noLinkACL(_ fd: Int32) throws {
+        errno = 0
+        guard let acl = acl_get_fd_np(fd, ACL_TYPE_EXTENDED) else {
+            // ENOTSUP, EBADF and other errors refuse; there is no skip/follow fallback.
+            guard errno == ENOENT else { throw PublicTreeFailure.invalid }; return
+        }
+        defer { acl_free(UnsafeMutableRawPointer(acl)) }
+        var entry: acl_entry_t?
+        errno = 0
+        guard acl_get_entry(acl, ACL_FIRST_ENTRY.rawValue, &entry) != 0, errno == EINVAL else {
+            throw PublicTreeFailure.invalid
+        }
+    }
     static func metadata(_ fd: Int32, inventory: PublicTreeInventory, owner: uid_t, group: gid_t, name: String = "") throws {
         let before = try InstallerPayloadIO.check(fd, owner: owner, directory: true)
         try noACL(fd)
@@ -92,6 +105,18 @@ enum PublicTreeIO {
                   info.st_mode & 0o6000 == 0 else { throw PublicTreeFailure.changed }
             if node.kind == "symlink" {
                 guard info.st_mode & S_IFMT == S_IFLNK, info.st_nlink == 1 else { throw PublicTreeFailure.changed }
+                // O_SYMLINK opens this link itself; child is one validated component.
+                let link = openat(fd, child, O_RDONLY | O_SYMLINK | O_CLOEXEC | O_NONBLOCK)
+                guard link >= 0 else { throw PublicTreeFailure.changed }
+                do {
+                    var held = stat(), current = stat()
+                    guard fstat(link, &held) == 0, held.st_mode & S_IFMT == S_IFLNK,
+                          held.st_gid == group, InstallerPayloadIO.same(info, held) else { throw PublicTreeFailure.changed }
+                    try noLinkACL(link)
+                    guard fstat(link, &current) == 0, current.st_gid == group,
+                          InstallerPayloadIO.same(held, current) else { throw PublicTreeFailure.changed }
+                } catch { Darwin.close(link); throw error }
+                Darwin.close(link)
             } else {
                 let opened = openat(fd, child, O_RDONLY | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK | (node.kind == "directory" ? O_DIRECTORY : 0))
                 guard opened >= 0 else { throw PublicTreeFailure.changed }
@@ -114,7 +139,9 @@ enum PublicTreeIO {
             throw PublicTreeFailure.changed
         }
     }
-    static func observe(_ parent: Int32, name: String, inventory: PublicTreeInventory, owner: uid_t, group: gid_t) throws -> PublicTreePin {
+    static func observe(_ parent: Int32, name: String, inventory: PublicTreeInventory, owner: uid_t, group: gid_t, attachment: PublicTreeAttachment) throws -> PublicTreePin {
+        guard attachment.role.mayObserve(inventory.unit) else { throw PublicTreeFailure.invalid }
+        try attachment.verify(parent, role: attachment.role, owner: owner, group: group, mode: attachment.role.mode)
         guard try InstallerPayloadManifest.components(name).count == 1 else { throw PublicTreeFailure.invalid }
         var path = stat()
         guard fstatat(parent, name, &path, AT_SYMLINK_NOFOLLOW) == 0, path.st_mode & S_IFMT == S_IFDIR else { throw PublicTreeFailure.changed }
@@ -132,6 +159,7 @@ enum PublicTreeIO {
               InstallerPayloadIO.same(before, after), InstallerPayloadIO.same(before, current) else {
             throw PublicTreeFailure.changed
         }
+        try attachment.verify(parent, role: attachment.role, owner: owner, group: group, mode: attachment.role.mode)
         return PublicTreePin(device: before.st_dev, inode: UInt64(before.st_ino), owner: owner, group: group,
             mode: UInt16(before.st_mode & 0o7777), inventorySHA256: inventory.inventorySHA256)
     }
@@ -142,6 +170,8 @@ final class PublicTreeStorage {
     enum Phase: Equatable { case afterIntent, beforeRename, afterRename, afterAcknowledgment }
     private enum Event: String, CaseIterable { case applyIntent, applied, rollbackIntent, rolledBack }
     private struct Parent {
+        let attachment: PublicTreeAttachment
+        let role: PublicTreeParentRole
         let fd: Int32
         let device: Int32
         let inode: UInt64
@@ -175,7 +205,8 @@ final class PublicTreeStorage {
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         return try encoder.encode(value)
     }
-    private static func parent(_ supplied: Int32, owner: uid_t, group: gid_t, mode: mode_t) throws -> Parent {
+    private static func parent(_ supplied: Int32, attachment: PublicTreeAttachment, role: PublicTreeParentRole, owner: uid_t, group: gid_t, mode: mode_t) throws -> Parent {
+        try attachment.verify(supplied, role: role, owner: owner, group: group, mode: mode)
         let fd = dup(supplied)
         guard fd >= 0 else { throw PublicTreeFailure.invalid }
         do {
@@ -183,27 +214,33 @@ final class PublicTreeStorage {
             let info = try InstallerPayloadIO.check(fd, owner: owner, directory: true)
             try PublicTreeIO.noACL(fd)
             guard info.st_gid == group, info.st_nlink > 0, info.st_mode & 0o7777 == mode else { throw PublicTreeFailure.invalid }
-            return Parent(fd: fd, device: info.st_dev, inode: UInt64(info.st_ino), mode: mode)
+            return Parent(attachment: attachment, role: role, fd: fd, device: info.st_dev, inode: UInt64(info.st_ino), mode: mode)
         } catch { Darwin.close(fd); throw error }
     }
     static func capture(unit: PublicTreeUnit, targetParent: Int32, retainedParent: Int32,
+        targetAttachment: PublicTreeAttachment, retainedAttachment: PublicTreeAttachment,
         old: PublicTreeInventory, new: PublicTreeInventory, owner: uid_t, group: gid_t, planSHA256: String) throws -> PublicTreeOperation {
         guard old.unit == unit, new.unit == unit, planSHA256.count == 64,
               planSHA256.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }) else { throw PublicTreeFailure.invalid }
-        for (fd, mode) in [(targetParent, mode_t(0o755)), (retainedParent, mode_t(0o700))] {
+        for (fd, mode, attachment, role) in [(targetParent, mode_t(0o755), targetAttachment, PublicTreeParentRole.target(unit)),
+                                             (retainedParent, mode_t(0o700), retainedAttachment, PublicTreeParentRole.retained(unit))] {
+            try attachment.verify(fd, role: role, owner: owner, group: group, mode: mode)
             let info = try InstallerPayloadIO.check(fd, owner: owner, directory: true)
             try PublicTreeIO.noACL(fd)
             guard info.st_gid == group, info.st_nlink > 0, info.st_mode & 0o7777 == mode else { throw PublicTreeFailure.invalid }
         }
-        let before = try PublicTreeIO.observe(targetParent, name: unit.name, inventory: old, owner: owner, group: group)
-        let after = try PublicTreeIO.observe(retainedParent, name: unit.slot, inventory: new, owner: owner, group: group)
+        let before = try PublicTreeIO.observe(targetParent, name: unit.name, inventory: old, owner: owner, group: group, attachment: targetAttachment)
+        let after = try PublicTreeIO.observe(retainedParent, name: unit.slot, inventory: new, owner: owner, group: group, attachment: retainedAttachment)
+        try targetAttachment.verify(targetParent, role: .target(unit), owner: owner, group: group, mode: 0o755)
+        try retainedAttachment.verify(retainedParent, role: .retained(unit), owner: owner, group: group, mode: 0o700)
         guard before.device == after.device, before.inode != after.inode,
               before.inventorySHA256 != after.inventorySHA256 else { throw PublicTreeFailure.invalid }
         return PublicTreeOperation(schema: 1, unit: unit.rawValue, planSHA256: planSHA256,
             beforeManifestSHA256: old.manifestSHA256, afterManifestSHA256: new.manifestSHA256, before: before, after: after)
     }
     static func open(operation: PublicTreeOperation, unit: PublicTreeUnit, targetParent: Int32, retainedParent: Int32,
-        journalParent: Int32, old: PublicTreeInventory, new: PublicTreeInventory, owner: uid_t, group: gid_t,
+        journalParent: Int32, targetAttachment: PublicTreeAttachment, retainedAttachment: PublicTreeAttachment,
+        journalAttachment: PublicTreeAttachment, old: PublicTreeInventory, new: PublicTreeInventory, owner: uid_t, group: gid_t,
         requireQuiescent: @escaping () throws -> Void, fault: @escaping (Phase) throws -> Void = { _ in }) throws -> PublicTreeStorage {
         guard operation.schema == 1, operation.unit == unit.rawValue, old.unit == unit, new.unit == unit,
               operation.planSHA256.utf8.count == 64,
@@ -217,9 +254,9 @@ final class PublicTreeStorage {
               operation.before.inventorySHA256 != operation.after.inventorySHA256 else { throw PublicTreeFailure.invalid }
         var opened: [Int32] = [], adopted = false
         defer { if !adopted { opened.forEach { Darwin.close($0) } } }
-        let target = try parent(targetParent, owner: owner, group: group, mode: 0o755); opened.append(target.fd)
-        let retained = try parent(retainedParent, owner: owner, group: group, mode: 0o700); opened.append(retained.fd)
-        let journal = try parent(journalParent, owner: owner, group: group, mode: 0o700); opened.append(journal.fd)
+        let target = try parent(targetParent, attachment: targetAttachment, role: .target(unit), owner: owner, group: group, mode: 0o755); opened.append(target.fd)
+        let retained = try parent(retainedParent, attachment: retainedAttachment, role: .retained(unit), owner: owner, group: group, mode: 0o700); opened.append(retained.fd)
+        let journal = try parent(journalParent, attachment: journalAttachment, role: .journal(unit), owner: owner, group: group, mode: 0o700); opened.append(journal.fd)
         guard Set([target.inode, retained.inode, journal.inode]).count == 3,
               target.device == retained.device, retained.device == journal.device,
               operation.before.device == target.device, operation.after.device == target.device else { throw PublicTreeFailure.invalid }
@@ -232,6 +269,7 @@ final class PublicTreeStorage {
     }
     private func parents() throws {
         for parent in [target, retained, journal] {
+            try parent.attachment.verify(parent.fd, role: parent.role, owner: owner, group: group, mode: parent.mode)
             let info = try InstallerPayloadIO.check(parent.fd, owner: owner, directory: true)
             try PublicTreeIO.noACL(parent.fd)
             guard info.st_dev == parent.device, UInt64(info.st_ino) == parent.inode,
@@ -239,6 +277,7 @@ final class PublicTreeStorage {
         }
     }
     private func read(_ name: String) throws -> Record {
+        try parents()
         let fd = openat(journal.fd, name, O_RDONLY | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK)
         guard fd >= 0 else { throw PublicTreeFailure.journal }
         defer { Darwin.close(fd) }
@@ -250,10 +289,12 @@ final class PublicTreeStorage {
         let current = try InstallerPayloadIO.check(fd, owner: owner, directory: false)
         guard fstatat(journal.fd, name, &info, AT_SYMLINK_NOFOLLOW) == 0, info.st_gid == group, current.st_gid == group,
               InstallerPayloadIO.same(before, info), InstallerPayloadIO.same(before, current) else { throw PublicTreeFailure.journal }
+        try parents()
         return Record(data: data, device: before.st_dev, inode: UInt64(before.st_ino), mtimeSec: Int64(before.st_mtimespec.tv_sec),
             mtimeNsec: Int64(before.st_mtimespec.tv_nsec), ctimeSec: Int64(before.st_ctimespec.tv_sec), ctimeNsec: Int64(before.st_ctimespec.tv_nsec))
     }
     private func write(_ name: String, data: Data) throws -> Record {
+        try parents()
         guard data.count <= 4096 else { throw PublicTreeFailure.journal }
         let fd = openat(journal.fd, name, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0o600)
         guard fd >= 0 else { throw PublicTreeFailure.journal }
@@ -270,6 +311,7 @@ final class PublicTreeStorage {
             }
         }
         guard fsync(fd) == 0, fsync(journal.fd) == 0 else { throw PublicTreeFailure.journal }
+        try parents()
         return try read(name)
     }
     private func eventData(_ kind: Event, sequence: Int) throws -> Data {
@@ -292,6 +334,7 @@ final class PublicTreeStorage {
         }
     }
     private func loadHistory() throws -> [Record] {
+        try parents()
         let names = try InstallerPayloadIO.contents(journal.fd)
         guard names.contains("intent.json"), names.count <= 257 else { throw PublicTreeFailure.journal }
         var result: [Record] = [], previous: Event?
@@ -304,6 +347,7 @@ final class PublicTreeStorage {
             result.append(record)
             previous = kind
         }
+        try parents()
         return result
     }
     private func prepareJournal() throws {
@@ -334,15 +378,17 @@ final class PublicTreeStorage {
         if a.st_dev == operation.before.device, UInt64(a.st_ino) == operation.before.inode,
            b.st_dev == operation.after.device, UInt64(b.st_ino) == operation.after.inode {
             guard previous != .applied,
-                  try PublicTreeIO.observe(target.fd, name: unit.name, inventory: old, owner: owner, group: group) == operation.before,
-                  try PublicTreeIO.observe(retained.fd, name: unit.slot, inventory: new, owner: owner, group: group) == operation.after else { throw PublicTreeFailure.changed }
+                  try PublicTreeIO.observe(target.fd, name: unit.name, inventory: old, owner: owner, group: group, attachment: target.attachment) == operation.before,
+                  try PublicTreeIO.observe(retained.fd, name: unit.slot, inventory: new, owner: owner, group: group, attachment: retained.attachment) == operation.after else { throw PublicTreeFailure.changed }
+            try parents()
             return .staged
         }
         guard previous != nil, previous != .rolledBack,
               a.st_dev == operation.after.device, UInt64(a.st_ino) == operation.after.inode,
               b.st_dev == operation.before.device, UInt64(b.st_ino) == operation.before.inode,
-              try PublicTreeIO.observe(target.fd, name: unit.name, inventory: new, owner: owner, group: group) == operation.after,
-              try PublicTreeIO.observe(retained.fd, name: unit.slot, inventory: old, owner: owner, group: group) == operation.before else { throw PublicTreeFailure.changed }
+              try PublicTreeIO.observe(target.fd, name: unit.name, inventory: new, owner: owner, group: group, attachment: target.attachment) == operation.after,
+              try PublicTreeIO.observe(retained.fd, name: unit.slot, inventory: old, owner: owner, group: group, attachment: retained.attachment) == operation.before else { throw PublicTreeFailure.changed }
+        try parents()
         return .applied
     }
     func apply() throws { try exchange(forward: true) }
@@ -356,8 +402,10 @@ final class PublicTreeStorage {
         guard try state() == wanted else { throw PublicTreeFailure.changed }
         try fault(.beforeRename); try requireQuiescent()
         guard try state() == wanted else { throw PublicTreeFailure.changed }
+        try parents()
         guard renameatx_np(retained.fd, unit.slot, target.fd, unit.name, UInt32(RENAME_SWAP)) == 0,
               fsync(retained.fd) == 0, fsync(target.fd) == 0 else { throw PublicTreeFailure.changed }
+        try parents()
         try fault(.afterRename); try requireQuiescent()
         guard try state() != wanted else { throw PublicTreeFailure.changed }
         try append(forward ? .applied : .rolledBack)

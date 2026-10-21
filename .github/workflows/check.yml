@@ -28,7 +28,7 @@ jobs:
       - name: Check complete-image subtree storage in fresh ordinary temp directories
         run: |
           xcrun swiftc -O -parse-as-library -warnings-as-errors -framework Foundation -framework CryptoKit \
-            macos/InstallerPayload.swift macos/FullImageTreeStorage.swift \
+            macos/InstallerPayload.swift macos/FullImageTreeAttachment.swift macos/FullImageTreeStorage.swift \
             macos/Tests/FullImageTreeStorageChecks.swift -o /tmp/account-access-full-image-tree-checks
           /tmp/account-access-full-image-tree-checks > /tmp/account-access-full-image-tree.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

@@ -1,4 +1,4 @@
-// In-development ordinary temp-only fixture; this is not an installed updater.
+// Ordinary owned-temp attachment/storage fixture; not an installed updater.
 // No account database, Keychain, service or real owner policy is accessed.
 import Foundation
 import CryptoKit
@@ -71,24 +71,38 @@ private enum FixtureFailure: Error { case failed, interruption }
         let unit: PublicTreeUnit
         let parent: Int32, target: Int32, retained: Int32, journal: Int32
         let old: PublicTreeInventory, new: PublicTreeInventory
+        let targetAttachment: PublicTreeAttachment, retainedAttachment: PublicTreeAttachment, journalAttachment: PublicTreeAttachment
         let operation: PublicTreeOperation
         var quiescent = true
-        init(root: Int32, name: String, unit: PublicTreeUnit) throws {
+        init(root: Int32, anchor: PublicTreeTrustedAnchor, name: String, unit: PublicTreeUnit) throws {
             self.unit = unit
             parent = try directory(root, name, 0o700)
             target = try directory(parent, "target-parent", 0o755)
             retained = try directory(parent, "retained-parent", 0o700)
             journal = try directory(parent, "journal", 0o700)
+            let prefix = PublicTreeAncestorStep(name: try PublicTreeAncestorName(name),
+                identity: try PublicTreeDirectoryIdentity.observe(parent, owner: getuid(), group: getgid()))
+            func bind(_ fd: Int32, _ child: String, _ role: PublicTreeParentRole) throws -> PublicTreeAttachment {
+                try PublicTreeAttachment.bind(anchor: anchor, steps: [prefix,
+                    PublicTreeAncestorStep(name: try PublicTreeAncestorName(child),
+                        identity: try PublicTreeDirectoryIdentity.observe(fd, owner: getuid(), group: getgid()))],
+                    role: role, parentFD: fd, owner: getuid(), group: getgid())
+            }
+            targetAttachment = try bind(target, "target-parent", .target(unit))
+            retainedAttachment = try bind(retained, "retained-parent", .retained(unit))
+            journalAttachment = try bind(journal, "journal", .journal(unit))
             let a = Data("old-tree".utf8), b = Data("new-tree-longer".utf8)
             old = try manifest(unit, a); new = try manifest(unit, b)
             try tree(target, unit.name, unit, a); try tree(retained, unit.slot, unit, b)
             operation = try PublicTreeStorage.capture(unit: unit, targetParent: target, retainedParent: retained,
+                targetAttachment: targetAttachment, retainedAttachment: retainedAttachment,
                 old: old, new: new, owner: getuid(), group: getgid(), planSHA256: String(repeating: "a", count: 64))
         }
         deinit { [parent, target, retained, journal].forEach { Darwin.close($0) } }
         func storage(fault: @escaping (PublicTreeStorage.Phase) throws -> Void = { _ in }) throws -> PublicTreeStorage {
             try PublicTreeStorage.open(operation: operation, unit: unit, targetParent: target, retainedParent: retained,
-                journalParent: journal, old: old, new: new, owner: getuid(), group: getgid(), requireQuiescent: {
+                journalParent: journal, targetAttachment: targetAttachment, retainedAttachment: retainedAttachment,
+                journalAttachment: journalAttachment, old: old, new: new, owner: getuid(), group: getgid(), requireQuiescent: {
                     guard self.quiescent else { throw PublicTreeFailure.barrier }
                 }, fault: fault)
         }
@@ -96,6 +110,45 @@ private enum FixtureFailure: Error { case failed, interruption }
             let fd = openat(retained, unit.slot, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
             guard fd >= 0 else { throw FixtureFailure.failed }; return fd
         }
+    }
+    private static func oldTargetUnchanged(_ scenario: Scenario) throws -> Bool {
+        try targetMatches(scenario, inventory: scenario.old, pin: scenario.operation.before)
+    }
+    private static func targetMatches(_ scenario: Scenario, inventory: PublicTreeInventory, pin: PublicTreePin) throws -> Bool {
+        let fd = openat(scenario.target, scenario.unit.name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard fd >= 0 else { throw FixtureFailure.failed }
+        defer { Darwin.close(fd) }
+        _ = try InstallerPayloadIO.verify(fd, tree: inventory.tree, owner: getuid())
+        let info = try InstallerPayloadIO.check(fd, owner: getuid(), directory: true)
+        return info.st_dev == pin.device && UInt64(info.st_ino) == pin.inode
+            && info.st_gid == getgid()
+    }
+    private static func addNonemptyLinkACL(_ fd: Int32) throws -> Bool {
+        var acl: acl_t? = acl_init(1)
+        guard acl != nil else { throw FixtureFailure.failed }
+        defer { if let acl { acl_free(UnsafeMutableRawPointer(acl)) } }
+        var entry: acl_entry_t?
+        guard acl_create_entry(&acl, &entry) == 0, let acl, let entry,
+              acl_set_tag_type(entry, ACL_EXTENDED_ALLOW) == 0 else { throw FixtureFailure.failed }
+        // A synthetic principal UUID; this fixture does not resolve an owner account.
+        var principal = UUID().uuid
+        guard withUnsafeBytes(of: &principal, { acl_set_qualifier(entry, $0.baseAddress!) }) == 0 else {
+            throw FixtureFailure.failed
+        }
+        var permissions: acl_permset_t?
+        guard acl_get_permset(entry, &permissions) == 0, let permissions,
+              acl_clear_perms(permissions) == 0, acl_add_perm(permissions, ACL_READ_DATA) == 0,
+              acl_set_permset(entry, permissions) == 0, acl_valid(acl) == 0 else { throw FixtureFailure.failed }
+        // Some macOS/filesystem combinations refuse ACL creation on a link.
+        // That is an unqualified fixture case, never a relaxed production guard.
+        guard acl_set_fd_np(fd, acl, ACL_TYPE_EXTENDED) == 0 else { return false }
+        guard let observed = acl_get_fd_np(fd, ACL_TYPE_EXTENDED) else { throw FixtureFailure.failed }
+        defer { acl_free(UnsafeMutableRawPointer(observed)) }
+        var first: acl_entry_t?
+        guard acl_get_entry(observed, ACL_FIRST_ENTRY.rawValue, &first) == 0, first != nil else {
+            throw FixtureFailure.failed
+        }
+        return true
     }
     private static func cleanup(_ fd: Int32) throws {
         // Only descendants of this invocation's newly owned random temp root.
@@ -133,18 +186,20 @@ private enum FixtureFailure: Error { case failed, interruption }
             // This descriptor belongs to this invocation's exclusive new root.
             // BSD directory inheritance may otherwise preserve /private/tmp's GID.
             guard fchown(root, uid_t.max, getgid()) == 0, fchmod(root, 0o700) == 0 else { throw FixtureFailure.failed }
+            let anchor = try PublicTreeTrustedAnchor.acceptVerifiedDescriptor(root,
+                expected: PublicTreeDirectoryIdentity.observe(root, owner: getuid(), group: getgid()))
             for (index, unit) in PublicTreeUnit.allCases.enumerated() {
-                let scenario = try Scenario(root: root, name: "roundtrip-\(index)", unit: unit)
+                let scenario = try Scenario(root: root, anchor: anchor, name: "roundtrip-\(index)", unit: unit)
                 let storage = try scenario.storage()
                 try expect(try storage.state() == .staged)
                 try storage.apply(); try expect(try storage.state() == .applied)
                 try storage.apply(); try expect(try storage.state() == .applied)
                 try storage.reverse(); try expect(try storage.state() == .staged)
                 try expect(try PublicTreeIO.observe(scenario.target, name: unit.name, inventory: scenario.old,
-                    owner: getuid(), group: getgid()) == scenario.operation.before)
+                    owner: getuid(), group: getgid(), attachment: scenario.targetAttachment) == scenario.operation.before)
             }
             do {
-                let scenario = try Scenario(root: root, name: "interrupted", unit: .owner)
+                let scenario = try Scenario(root: root, anchor: anchor, name: "interrupted", unit: .owner)
                 let storage = try scenario.storage { phase in
                     if phase == .afterRename { throw FixtureFailure.interruption }
                 }
@@ -155,7 +210,7 @@ private enum FixtureFailure: Error { case failed, interruption }
                 try retry.reverse(); try expect(try retry.state() == .staged)
             }
             for (index, mutation) in ["extra-member", "symlink-file", "hardlink-file", "bad-link-target", "wrong-mode", "wrong-bytes"].enumerated() {
-                let scenario = try Scenario(root: root, name: "refusal-\(index)", unit: .project)
+                let scenario = try Scenario(root: root, anchor: anchor, name: "refusal-\(index)", unit: .project)
                 let storage = try scenario.storage(), staged = try scenario.stagedFD()
                 defer { Darwin.close(staged) }
                 if mutation == "extra-member" { try file(staged, "unknown", Data("x".utf8)) }
@@ -173,23 +228,96 @@ private enum FixtureFailure: Error { case failed, interruption }
                 }
                 try refuses { try storage.apply() }
                 try expect(try PublicTreeIO.observe(scenario.target, name: scenario.unit.name, inventory: scenario.old,
-                    owner: getuid(), group: getgid()) == scenario.operation.before)
+                    owner: getuid(), group: getgid(), attachment: scenario.targetAttachment) == scenario.operation.before)
             }
             do {
-                let scenario = try Scenario(root: root, name: "barrier", unit: .provider)
+                let scenario = try Scenario(root: root, anchor: anchor, name: "barrier", unit: .provider)
                 let storage = try scenario.storage(); scenario.quiescent = false
                 try refuses { try storage.apply() }
                 scenario.quiescent = true; try expect(try storage.state() == .staged)
                 try refuses {
                     _ = try PublicTreeStorage.capture(unit: .provider, targetParent: scenario.target, retainedParent: scenario.retained,
+                        targetAttachment: scenario.targetAttachment, retainedAttachment: scenario.retainedAttachment,
                         old: scenario.old, new: scenario.new, owner: getuid() + 1, group: getgid(), planSHA256: String(repeating: "a", count: 64))
                 }
             }
+            for (index, mutation) in ["target-parent", "retained-parent", "ancestor", "journal-after-intent"].enumerated() {
+                let name = "attachment-\(index)"
+                let scenario = try Scenario(root: root, anchor: anchor, name: name, unit: .project)
+                if mutation == "journal-after-intent" {
+                    var detached = false
+                    let storage = try scenario.storage { phase in
+                        if phase == .afterIntent && !detached {
+                            guard renameat(scenario.parent, "journal", scenario.parent, "detached-journal") == 0 else { throw FixtureFailure.failed }
+                            let replacement = try directory(scenario.parent, "journal", 0o700)
+                            Darwin.close(replacement); detached = true
+                        }
+                    }
+                    try refuses { try storage.apply() }
+                } else {
+                    let storage = try scenario.storage()
+                    if mutation == "ancestor" {
+                        guard renameat(root, name, root, name + "-detached") == 0 else { throw FixtureFailure.failed }
+                        let replacement = try directory(root, name, 0o700); Darwin.close(replacement)
+                    } else {
+                        guard renameat(scenario.parent, mutation, scenario.parent, "detached-" + mutation) == 0 else { throw FixtureFailure.failed }
+                        let replacement = try directory(scenario.parent, mutation, mutation == "target-parent" ? 0o755 : 0o700)
+                        Darwin.close(replacement)
+                    }
+                    try refuses { try storage.apply() }
+                }
+                try expect(try oldTargetUnchanged(scenario))
+            }
+            // These two cases detach the ancestor after the actual forward or
+            // reverse swap, rather than only before the first exchange.
+            for forward in [true, false] {
+                let name = forward ? "detached-after-apply" : "detached-after-rollback"
+                let scenario = try Scenario(root: root, anchor: anchor, name: name, unit: .project)
+                var armed = forward, detached = false
+                let storage = try scenario.storage { phase in
+                    if phase == .afterRename && armed && !detached {
+                        guard renameat(root, name, root, name + "-original") == 0 else { throw FixtureFailure.failed }
+                        let replacement = try directory(root, name, 0o700)
+                        Darwin.close(replacement); detached = true
+                    }
+                }
+                if !forward { try storage.apply(); armed = true }
+                try refuses { if forward { try storage.apply() } else { try storage.reverse() } }
+                let inventory = forward ? scenario.new : scenario.old
+                let pin = forward ? scenario.operation.after : scenario.operation.before
+                try expect(detached && (try targetMatches(scenario, inventory: inventory, pin: pin)))
+                try refuses { _ = try storage.state() }
+                try refuses { try storage.apply() }
+                try refuses { try storage.reverse() }
+                try expect(try targetMatches(scenario, inventory: inventory, pin: pin))
+                guard unlinkat(root, name, AT_REMOVEDIR) == 0,
+                      renameat(root, name + "-original", root, name) == 0 else { throw FixtureFailure.failed }
+                try expect(try storage.state() == (forward ? .applied : .staged))
+                if forward { try storage.reverse() } else { try storage.apply(); try storage.reverse() }
+                try expect(try storage.state() == .staged)
+            }
+            var symlinkACLQualified = false
+            do {
+                let scenario = try Scenario(root: root, anchor: anchor, name: "nonempty-link-acl", unit: .project)
+                let storage = try scenario.storage(), staged = try scenario.stagedFD()
+                defer { Darwin.close(staged) }
+                let link = openat(staged, "alias", O_RDONLY | O_SYMLINK | O_CLOEXEC | O_NONBLOCK)
+                guard link >= 0 else { throw FixtureFailure.failed }
+                defer { Darwin.close(link) }
+                symlinkACLQualified = try addNonemptyLinkACL(link)
+                if symlinkACLQualified {
+                    try refuses { try storage.apply() }
+                    try expect(try oldTargetUnchanged(scenario))
+                }
+            }
+            guard count == 63 + (symlinkACLQualified ? 2 : 0) else { throw FixtureFailure.failed }
             try cleanup(root)
             var current = stat()
             guard lstat(path, &current) == 0, current.st_dev == original.st_dev, current.st_ino == original.st_ino,
                   current.st_uid == getuid(), rmdir(path) == 0 else { throw FixtureFailure.failed }
-            print("{\"schema\":1,\"status\":\"PASSED\",\"ordinary_temp_only\":true,\"checks\":\(count),\"installed_reads\":false,\"root_execution\":false,\"service_actions\":false,\"production_ready\":false}")
+            let status = symlinkACLQualified ? "PASSED" : "PASSED_WITH_UNQUALIFIED_CASE"
+            let aclCase = symlinkACLQualified ? "PASSED" : "UNQUALIFIED_OS_DECLINED_CREATION"
+            print("{\"schema\":1,\"status\":\"\(status)\",\"ordinary_temp_only\":true,\"checks\":\(count),\"original_checks_preserved\":47,\"post_exchange_ancestor_cases\":2,\"nonempty_symlink_acl_refusal\":\"\(aclCase)\",\"installed_reads\":false,\"root_execution\":false,\"service_actions\":false,\"production_ready\":false}")
         } catch {
             print("{\"schema\":1,\"status\":\"REFUSED\",\"reason\":\"public_tree_temp_fixture_failed\",\"production_ready\":false}")
             exit(78)

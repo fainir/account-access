@@ -1,0 +1,46 @@
+{
+  "managed_by": "account-access-full-image-tree-attachment-review-v1",
+  "schema": 1,
+  "date": "2026-10-21",
+  "status": "NATIVE_PRIMITIVE_OWNED_TEMP_VALIDATED_CONTROLLER_AND_INSTALLER_PENDING",
+  "change": "Require a caller-qualified anchor and pinned no-follow ancestor route for target, retained and journal parents. Recheck attachment around observation, journal I/O, state checks, forward exchange and rollback. Reject nonempty ACLs on symlinks through link descriptors.",
+  "scope": {
+    "anchor_qualification": "External precondition; a descriptor alone does not prove attachment above the anchor.",
+    "parent_roles": ["target", "retained", "journal"],
+    "units_unchanged": ["owner", "project", "distInfo", "provider"],
+    "canonical_installed_path_loader_added": false,
+    "controller_or_installer_entrypoint_added": false,
+    "arbitrary_unit_or_path_allowlist_added": false
+  },
+  "reviewed_proposal": {
+    "source_commit": "f073afbc28c41cce63a865ac2d948adb185cf761",
+    "historical_optimized_checks_passed": 47,
+    "production_logic_changed_during_promotion": false,
+    "only_production_header_and_source_filename_adapted": true
+  },
+  "actual_local_validation": {
+    "optimization": "-O",
+    "warnings_as_errors": true,
+    "checks_passed": 65,
+    "original_checks_preserved": 47,
+    "compile_seconds": 180.095,
+    "runtime_seconds": 5.219,
+    "compile_and_runtime_returncode": 0,
+    "stderr_empty": true,
+    "sources_unchanged_during_validation": true,
+    "post_exchange_ancestor_detachment_cases_passed": 2,
+    "detached_state_apply_and_reverse_refused": true,
+    "original_ancestor_reattachment_and_recovery_passed": true,
+    "nonempty_symlink_acl_created_and_read_back": true,
+    "nonempty_symlink_acl_refusal": "PASSED",
+    "symlink_acl_skip_fallback_in_fixture": "Report an unqualified case if the OS declines ACL creation; production ACL checks remain mandatory.",
+    "ordinary_owned_temp_only": true,
+    "result_sha256": "e87172aa059fcdfa3b19d1ee7c347478726e5233072a714cfd9b5693c592cfaf"
+  },
+  "ci": "The existing optimized ordinary-temp storage check now compiles the attachment primitive too; successor exact-source CI is pending.",
+  "installed_paths_or_owner_account_data_read": false,
+  "root_execution_or_service_actions": false,
+  "personal_authentication_qa": false,
+  "complete_image_upgrade_qualified": false,
+  "production_ready": false
+}
