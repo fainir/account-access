@@ -36,9 +36,10 @@ bounded Android delivery retries. A subsequent display-only status snapshot
 fix passed 56 focused checks. The complete-image upgrade core passed 127 Python
 planner checks, 217 native storage assertions, 11 actual-image plan checks,
 24 mixed-transition checks and 134 durable-journal assertions. These checks
-use controlled public data; the fixed installed adapter and actual upgrade
-acceptance are unfinished. Build 79, from the authentication and status source
-at `5ba276b`, compiled and signed for Apple Silicon and Intel. Independent
+use controlled public data. The fixed installed adapter at `4deaacc` now passed
+its ordinary-entrypoint checks and all nine first-attempt source workflows;
+actual upgrade acceptance is still pending. Build 79, from the authentication
+and status source at `5ba276b`, compiled and signed for Apple Silicon and Intel. Independent
 source, wheel, signature and compiled-slice verification passed. The complete
 target image and its 402-node update plan also passed actual data verification
 and Python/native agreement checks. Installed adapter qualification is separate,
@@ -50,6 +51,14 @@ and the installed app remains build 76.
 and [build 79 review](../artifacts/build79-review-20261021.json). The
 [complete build 79 image record](../artifacts/full-image-build79-20261021.json)
 preserves its assembly and plan checks without claiming installation.
+
+The complete build 79 package is now assembled and independently reviewed.
+The package, recursive file inventory and corresponding source archives are
+pinned for a three-scenario disposable-Mac Installer run: installation and
+reapplication, interruption after optional-file removal, and interruption after
+optional-file creation. This is a QA candidate; no full-image update has run on
+the owner's Mac. The package container is unsigned and unnotarized.
+[Exact candidate evidence](../artifacts/full-image-candidate79-20261021.json).
 
 All nine first-attempt source workflows passed for `f073afb`, including the
 actual hosted-Mac Installer and separate-user checks. That source result does
