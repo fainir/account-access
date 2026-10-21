@@ -1,11 +1,11 @@
-name: Full image 79 disposable Installer acceptance
+name: Full image 80 disposable Installer acceptance
 on:
   # The new workflow need not be merged into default just to qualify a candidate.
   # A reviewed new asset contract schedules acceptance on this exact branch.
   # Source-only fixes must not rerun an already-refused candidate package.
   push:
     branches: [codex/full-image-update]
-    paths: [artifacts/full-image-installer79-inputs.json]
+    paths: [artifacts/full-image-installer80-inputs.json]
   workflow_dispatch:
 permissions:
   contents: read
@@ -32,11 +32,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           python3 -I -B scripts/download_full_image_installer_inputs.py \
-            --contract artifacts/full-image-installer79-inputs.json \
+            --contract artifacts/full-image-installer80-inputs.json \
             --output "$RUNNER_TEMP/account-access-full-image-input"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: full-image79-reviewed-inputs
+          name: full-image80-reviewed-inputs
           path: ${{ runner.temp }}/account-access-full-image-input
           compression-level: 0
           retention-days: 3
@@ -60,7 +60,7 @@ jobs:
           ref: ${{ github.sha }}
       - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
         with:
-          name: full-image79-reviewed-inputs
+          name: full-image80-reviewed-inputs
           path: ${{ runner.temp }}/account-access-full-image-input
       - name: Verify disposable ARM64 host and invoke only the guarded root probe
         env:
@@ -81,7 +81,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: full-image79-installer-${{ matrix.scenario }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: full-image80-installer-${{ matrix.scenario }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: /Library/Logs/AccountAccessComponentInstallerQA-${{ github.run_id }}
           retention-days: 7
           if-no-files-found: error

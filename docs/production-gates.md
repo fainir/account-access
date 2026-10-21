@@ -75,8 +75,32 @@ browser attempt for owner-only review. Pending challenge polling never retries
 the website, and the agent API receives no diagnostics or secrets. The focused
 Python checks and native UI fixture passed. A wider local run retained one
 temporary SQLite setup error alongside 155 passes; that setup test passed in an
-isolated recheck. These changes still need a newly built and qualified app.
+isolated recheck. These changes are now included in build 80, whose signed GUI,
+wheel, source correspondence and complete public image passed static review.
+The image has 404 changed manifest nodes; only the two owner-app executables
+changed among its 41 native files. Build 80 still needs actual Installer
+qualification and has not been installed on the owner's Mac.
 [Source diagnostics checks](../artifacts/authentication-first-stop-20261021.json).
+[Build 80 static evidence](../artifacts/authentication-candidate80-20261021.json).
+
+The build 80 package and matching source archive are assembled and independently
+reviewed. Its complete staged and expanded images match; the new signed helper
+preserves the inherited-group correction. The source kit contains the actual
+compiler inputs, separate app/controller Git trees and matching GPL sources.
+The package remains unsigned and unnotarized, and actual Installer qualification
+is pending. [Exact build 80 candidate](../artifacts/full-image-candidate80-20261021.json).
+
+The first build-80 source workflows at `d5741bc` found one stale test mock that
+did not accept the new optional diagnostics callback. Each full suite recorded
+3,591 passes, 107 skips and that one failure; the Mac subsets found the same
+failure. The fixture now accepts the callback and retains its token-redaction
+assertions. Its isolated check passed. Fresh source CI and the new package's
+actual Installer matrix are separate gates; the earlier failures remain
+recorded and do not establish personal authentication acceptance.
+The corrected source at `d503ac3` has since passed all nine first-attempt source
+workflows and all 15 executed jobs. Both full suites recorded 3,592 passes and
+107 skips; the separate Mac worker and offline-package checks also passed.
+[Exact source CI results](../artifacts/ci-authentication-d503ac3-20261021.json).
 
 All nine first-attempt source workflows passed for `f073afb`, including the
 actual hosted-Mac Installer and separate-user checks. That source result does

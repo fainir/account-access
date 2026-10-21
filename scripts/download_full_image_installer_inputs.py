@@ -59,8 +59,8 @@ def validate(value):
             and type(value["schema"]) is int and value["schema"] == 1
             and value["status"] == "FROZEN_REVIEWED_ASSETS" and value["repository"] == REPOSITORY
             and value["component_source"] == COMPONENT_SOURCE
-            and value["target_source"] == "5ba276b1369edf29eab59d3670b122975b350cca"
-            and value["plan_sha256"] == "5b6fbf102ab1e4133bce915f6af787301cb92a4d4b16efa55ebd1c47c7db9065"
+            and value["target_source"] == "d5741bc9912aaf907fe5c52486af18818654dda5"
+            and value["plan_sha256"] == "7c80a671d8b87815db127c6e7d7e8dd9db8c023d70e891185258391b2b3f14a3"
             and isinstance(value["assets"], dict) and set(value["assets"]) == FILES)
     identities = set()
     for name, row in value["assets"].items():
@@ -135,7 +135,7 @@ def main():
     revision = os.environ["GITHUB_SHA"]
     raw = args.contract.read_bytes()
     require(len(raw) < 64 * 1024 and subprocess.check_output(
-        ["git", "show", revision + ":artifacts/full-image-installer79-inputs.json"], timeout=5) == raw)
+        ["git", "show", revision + ":artifacts/full-image-installer80-inputs.json"], timeout=5) == raw)
     contract = validate(decode(raw))
     args.output.mkdir(mode=0o700)  # Never reuse a partial transfer directory.
     releases = {}

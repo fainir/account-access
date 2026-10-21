@@ -18,7 +18,7 @@ def module(name, filename):
 
 downloader = module("full_image_inputs", "download_full_image_installer_inputs.py")
 probe = module("full_image_installer_probe", "mac_full_image_installer_probe.py")
-PLAN = "5b6fbf102ab1e4133bce915f6af787301cb92a4d4b16efa55ebd1c47c7db9065"
+PLAN = "7c80a671d8b87815db127c6e7d7e8dd9db8c023d70e891185258391b2b3f14a3"
 COMPONENT_SOURCE = "213509c6bd9ff40131bd71dcb1a2967e96cd76a3"
 ASSETS = {
     "base.pkg", "base-manifest.json", "base-source.tar.gz", "component.pkg",
@@ -50,7 +50,7 @@ def contract():
     return {
         "schema": 1, "status": "FROZEN_REVIEWED_ASSETS", "repository": "fainir/account-access",
         "component_source": COMPONENT_SOURCE,
-        "target_source": "5ba276b1369edf29eab59d3670b122975b350cca", "plan_sha256": PLAN,
+        "target_source": "d5741bc9912aaf907fe5c52486af18818654dda5", "plan_sha256": PLAN,
         "assets": {
             "base.pkg": row(659061910,
                 "e525233e74ee942a53c389babac57eee6cad25b79ea178ff9a6384b0a5c5567c", 289451807, base),

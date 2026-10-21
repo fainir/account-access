@@ -29,11 +29,11 @@ COMPONENT_SOURCE = "213509c6bd9ff40131bd71dcb1a2967e96cd76a3"
 COMPONENT_SHA = "674c5df7866477e48811d002128370aaec6385aeb0565137036880de4c626bef"
 COMPONENT_PLAN = "be4e1429466cc0fbe8d2e85fe9f0d54f9c93b1a1edd6dfa32b77b9c72cc4d1b7"
 BEFORE_MANIFEST = "9f0d1274928702dd4d5064b4d3bc8ac7df3bf81c3f70be2f9ccad410785d810c"
-TARGET_SOURCE = "5ba276b1369edf29eab59d3670b122975b350cca"
+TARGET_SOURCE = "d5741bc9912aaf907fe5c52486af18818654dda5"
 # Genuine static DR derivation + exact native data proof are independently
 # verified; package/release assets remain pending. The fixture-DR plan is refused.
-PLAN_SHA = "5b6fbf102ab1e4133bce915f6af787301cb92a4d4b16efa55ebd1c47c7db9065"
-TARGET_SHA = "65f51d99c0f77394a6c9a26862ff0e104f21a8bb867714465fdff154af4c06ef"
+PLAN_SHA = "7c80a671d8b87815db127c6e7d7e8dd9db8c023d70e891185258391b2b3f14a3"
+TARGET_SHA = "d1f74db86890b306f989b65a8c521ce3b0879f261ded122dd409be2ca2fbe317"
 FULL = Path("/Library/Application Support/Account Access Full Images")
 SCENARIOS = {"install-reapply", "interrupt-remove", "interrupt-create"}
 RESOURCE_NAMES = {"FullImagePlan.json", "BaseManifest.json", "TargetManifest.json", "BaseIdentity.json",
@@ -456,7 +456,7 @@ def run(args):
         require(controller["controller_revision"] == revision and controller["contract_sha256"] == digest(contract_raw)
                 and contract["status"] == "FROZEN_REVIEWED_ASSETS" and contract["repository"] == REPOSITORY
                 and contract_raw == h.git_bytes(args.repository,
-                    ["show", revision + ":artifacts/full-image-installer79-inputs.json"], maximum=64 * 1024))
+                    ["show", revision + ":artifacts/full-image-installer80-inputs.json"], maximum=64 * 1024))
         require(set(contract["assets"]) == ASSET_FILES
                 and contract.get("plan_sha256") == PLAN_SHA)
         for name, row in contract["assets"].items():
@@ -490,7 +490,7 @@ def run(args):
             require({path.name for path in expanded.iterdir()} == {"PackageInfo", "Scripts"})
             info = ET.fromstring(h.read_file(expanded / "PackageInfo", owner=expanded.joinpath("PackageInfo").lstat().st_uid))
             payload, phases = info.find("payload"), info.find("scripts")
-            require(info.get("identifier") == "com.fainir.accountaccess.fullimageupdate79" and info.get("version") == "0.1.0"
+            require(info.get("identifier") == "com.fainir.accountaccess.fullimageupdate80" and info.get("version") == "0.1.0"
                     and info.get("auth") == "root" and (payload is None or
                     all(int(payload.get(key, "0")) == 0 for key in ("numberOfFiles", "installKBytes")))
                     and phases is not None and len(phases) == 1 and phases[0].tag == "postinstall"
