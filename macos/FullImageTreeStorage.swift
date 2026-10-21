@@ -6,14 +6,30 @@ import Darwin
 
 enum PublicTreeFailure: Error { case invalid, changed, journal, barrier }
 enum PublicTreeUnit: String, CaseIterable {
-    case owner, project, distInfo, provider
+    case owner, project, distInfo, pythonProvider, provider
+    case pythonPip, pythonOldPipInfo, pythonPipInfo, pythonEnsurePip
+    case runtimePip, runtimeOldPipInfo, runtimePipInfo, runtimeEnsurePip
     var path: String {
         switch self {
         case .owner: return "owner.app"
         case .project: return "runtime/lib/python3.12/site-packages/account_access"
         case .distInfo: return "runtime/lib/python3.12/site-packages/account_access-0.8.0.dist-info"
+        case .pythonProvider: return "python/libexec/bitwarden"
         case .provider: return "runtime/libexec/bitwarden"
+        case .pythonPip: return "python/lib/python3.12/site-packages/pip"
+        case .pythonOldPipInfo: return "python/lib/python3.12/site-packages/pip-26.2.1.dist-info"
+        case .pythonPipInfo: return "python/lib/python3.12/site-packages/pip-26.2.2.dist-info"
+        case .pythonEnsurePip: return "python/lib/python3.12/ensurepip"
+        case .runtimePip: return "runtime/lib/python3.12/site-packages/pip"
+        case .runtimeOldPipInfo: return "runtime/lib/python3.12/site-packages/pip-26.2.1.dist-info"
+        case .runtimePipInfo: return "runtime/lib/python3.12/site-packages/pip-26.2.2.dist-info"
+        case .runtimeEnsurePip: return "runtime/lib/python3.12/ensurepip"
         }
+    }
+    var beforePresent: Bool { ![Self.pythonPipInfo, .runtimePipInfo].contains(self) }
+    var afterPresent: Bool { ![Self.pythonOldPipInfo, .runtimeOldPipInfo].contains(self) }
+    func accepts(old: PublicTreeInventory, new: PublicTreeInventory) -> Bool {
+        old.unit == self && new.unit == self && old.isPresent == beforePresent && new.isPresent == afterPresent
     }
     var name: String { String(path.split(separator: "/").last!) }
     var slot: String { "slot-" + rawValue }
@@ -21,11 +37,16 @@ enum PublicTreeUnit: String, CaseIterable {
 
 struct PublicTreeInventory {
     let unit: PublicTreeUnit
-    let tree: InstallerPayloadTree
+    let tree: InstallerPayloadTree?
     let manifestSHA256: String
-    let inventorySHA256: String
+    let inventorySHA256: String?
+    var isPresent: Bool { tree != nil }
     init(manifest: Data, unit: PublicTreeUnit) throws {
-        let parsed = try InstallerPayloadManifest(manifest)
+        try self.init(validatedManifest: InstallerPayloadManifest(manifest), unit: unit)
+    }
+    // Reuse the already strict immutable manifest loaded by the plan parser;
+    // this does not introduce a second unvalidated JSON or path authority.
+    init(validatedManifest parsed: InstallerPayloadManifest, unit: PublicTreeUnit) throws {
         let source = parsed.trees[InstallerPayloadManifest.support]!
         var nodes: [String: InstallerPayloadNode] = [:], children: [String: Set<String>] = [:]
         var rows: [String: [String: Any]] = [:]
@@ -40,10 +61,17 @@ struct PublicTreeInventory {
             else if node.kind == "directory" { rows[name] = ["kind": node.kind, "mode": node.mode!] }
             else { rows[name] = ["kind": node.kind, "target": node.target!] }
         }
-        guard nodes[""]?.kind == "directory", nodes[""]?.mode == 0o755 else { throw PublicTreeFailure.invalid }
-        self.unit = unit; tree = InstallerPayloadTree(nodes: nodes, children: children)
-        manifestSHA256 = parsed.sha256
-        inventorySHA256 = Self.digest(try JSONSerialization.data(withJSONObject: rows, options: [.sortedKeys, .withoutEscapingSlashes]))
+        self.unit = unit; manifestSHA256 = parsed.sha256
+        if nodes.isEmpty {
+            let parent = unit.path.split(separator: "/").dropLast().joined(separator: "/")
+            guard unit.beforePresent != unit.afterPresent,
+                  source.nodes[parent]?.kind == "directory", source.nodes[parent]?.mode == 0o755 else { throw PublicTreeFailure.invalid }
+            tree = nil; inventorySHA256 = nil
+        } else {
+            guard nodes[""]?.kind == "directory", nodes[""]?.mode == 0o755 else { throw PublicTreeFailure.invalid }
+            tree = InstallerPayloadTree(nodes: nodes, children: children)
+            inventorySHA256 = Self.digest(try JSONSerialization.data(withJSONObject: rows, options: [.sortedKeys, .withoutEscapingSlashes]))
+        }
     }
     static func digest(_ data: Data) -> String { SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() }
 }
@@ -62,8 +90,44 @@ struct PublicTreeOperation: Codable, Equatable {
     let planSHA256: String
     let beforeManifestSHA256: String
     let afterManifestSHA256: String
-    let before: PublicTreePin
-    let after: PublicTreePin
+    let before: PublicTreePin?
+    let after: PublicTreePin?
+    private enum Keys: String, CodingKey, CaseIterable {
+        case schema, unit, planSHA256, beforeManifestSHA256, afterManifestSHA256, before, after
+    }
+    private struct AnyKey: CodingKey {
+        let stringValue: String
+        var intValue: Int? { nil }
+        init?(stringValue: String) { self.stringValue = stringValue }
+        init?(intValue: Int) { return nil }
+    }
+    init(schema: Int, unit: String, planSHA256: String, beforeManifestSHA256: String,
+         afterManifestSHA256: String, before: PublicTreePin?, after: PublicTreePin?) {
+        self.schema = schema; self.unit = unit; self.planSHA256 = planSHA256
+        self.beforeManifestSHA256 = beforeManifestSHA256; self.afterManifestSHA256 = afterManifestSHA256
+        self.before = before; self.after = after
+    }
+    init(from decoder: Decoder) throws {
+        let all = try decoder.container(keyedBy: AnyKey.self)
+        guard Set(all.allKeys.map(\.stringValue)) == Set(Keys.allCases.map(\.rawValue)) else { throw PublicTreeFailure.invalid }
+        let values = try decoder.container(keyedBy: Keys.self)
+        schema = try values.decode(Int.self, forKey: .schema)
+        unit = try values.decode(String.self, forKey: .unit)
+        planSHA256 = try values.decode(String.self, forKey: .planSHA256)
+        beforeManifestSHA256 = try values.decode(String.self, forKey: .beforeManifestSHA256)
+        afterManifestSHA256 = try values.decode(String.self, forKey: .afterManifestSHA256)
+        before = try values.decodeIfPresent(PublicTreePin.self, forKey: .before)
+        after = try values.decodeIfPresent(PublicTreePin.self, forKey: .after)
+    }
+    func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: Keys.self)
+        try values.encode(schema, forKey: .schema); try values.encode(unit, forKey: .unit)
+        try values.encode(planSHA256, forKey: .planSHA256)
+        try values.encode(beforeManifestSHA256, forKey: .beforeManifestSHA256)
+        try values.encode(afterManifestSHA256, forKey: .afterManifestSHA256)
+        if let before { try values.encode(before, forKey: .before) } else { try values.encodeNil(forKey: .before) }
+        if let after { try values.encode(after, forKey: .after) } else { try values.encodeNil(forKey: .after) }
+    }
 }
 
 enum PublicTreeIO {
@@ -91,14 +155,15 @@ enum PublicTreeIO {
         }
     }
     static func metadata(_ fd: Int32, inventory: PublicTreeInventory, owner: uid_t, group: gid_t, name: String = "") throws {
+        guard let tree = inventory.tree else { throw PublicTreeFailure.invalid }
         let before = try InstallerPayloadIO.check(fd, owner: owner, directory: true)
         try noACL(fd)
-        guard before.st_gid == group, before.st_mode & 0o7777 == inventory.tree.nodes[name]?.mode,
+        guard before.st_gid == group, before.st_mode & 0o7777 == tree.nodes[name]?.mode,
               before.st_nlink > 0,
-              try InstallerPayloadIO.contents(fd) == (inventory.tree.children[name] ?? []) else { throw PublicTreeFailure.changed }
-        for child in (inventory.tree.children[name] ?? []).sorted() {
+              try InstallerPayloadIO.contents(fd) == (tree.children[name] ?? []) else { throw PublicTreeFailure.changed }
+        for child in (tree.children[name] ?? []).sorted() {
             let relative = name.isEmpty ? child : name + "/" + child
-            let node = inventory.tree.nodes[relative]!
+            let node = tree.nodes[relative]!
             var info = stat()
             guard fstatat(fd, child, &info, AT_SYMLINK_NOFOLLOW) == 0, info.st_uid == owner,
                   info.st_gid == group, info.st_dev == before.st_dev,
@@ -140,7 +205,8 @@ enum PublicTreeIO {
         }
     }
     static func observe(_ parent: Int32, name: String, inventory: PublicTreeInventory, owner: uid_t, group: gid_t, attachment: PublicTreeAttachment) throws -> PublicTreePin {
-        guard attachment.role.mayObserve(inventory.unit) else { throw PublicTreeFailure.invalid }
+        guard attachment.role.mayObserve(inventory.unit), let tree = inventory.tree,
+              let inventorySHA256 = inventory.inventorySHA256 else { throw PublicTreeFailure.invalid }
         try attachment.verify(parent, role: attachment.role, owner: owner, group: group, mode: attachment.role.mode)
         guard try InstallerPayloadManifest.components(name).count == 1 else { throw PublicTreeFailure.invalid }
         var path = stat()
@@ -151,7 +217,7 @@ enum PublicTreeIO {
         let before = try InstallerPayloadIO.check(fd, owner: owner, directory: true)
         guard path.st_gid == group, InstallerPayloadIO.same(path, before), before.st_gid == group else { throw PublicTreeFailure.changed }
         try metadata(fd, inventory: inventory, owner: owner, group: group)
-        _ = try InstallerPayloadIO.verify(fd, tree: inventory.tree, owner: owner)
+        _ = try InstallerPayloadIO.verify(fd, tree: tree, owner: owner)
         var after = stat()
         let current = try InstallerPayloadIO.check(fd, owner: owner, directory: true)
         guard fstatat(parent, name, &after, AT_SYMLINK_NOFOLLOW) == 0,
@@ -161,8 +227,22 @@ enum PublicTreeIO {
         }
         try attachment.verify(parent, role: attachment.role, owner: owner, group: group, mode: attachment.role.mode)
         return PublicTreePin(device: before.st_dev, inode: UInt64(before.st_ino), owner: owner, group: group,
-            mode: UInt16(before.st_mode & 0o7777), inventorySHA256: inventory.inventorySHA256)
+            mode: UInt16(before.st_mode & 0o7777), inventorySHA256: inventorySHA256)
     }
+    static func observeOptional(_ parent: Int32, name: String, inventory: PublicTreeInventory,
+        owner: uid_t, group: gid_t, attachment: PublicTreeAttachment) throws -> PublicTreePin? {
+        if inventory.isPresent { return try observe(parent, name: name, inventory: inventory, owner: owner, group: group, attachment: attachment) }
+        guard attachment.role.mayObserve(inventory.unit), try InstallerPayloadManifest.components(name).count == 1 else { throw PublicTreeFailure.invalid }
+        try attachment.verify(parent, role: attachment.role, owner: owner, group: group, mode: attachment.role.mode)
+        var info = stat()
+        errno = 0
+        guard fstatat(parent, name, &info, AT_SYMLINK_NOFOLLOW) != 0, errno == ENOENT else { throw PublicTreeFailure.changed }
+        try attachment.verify(parent, role: attachment.role, owner: owner, group: group, mode: attachment.role.mode)
+        errno = 0
+        guard fstatat(parent, name, &info, AT_SYMLINK_NOFOLLOW) != 0, errno == ENOENT else { throw PublicTreeFailure.changed }
+        return nil
+    }
+
 }
 
 final class PublicTreeStorage {
@@ -220,7 +300,7 @@ final class PublicTreeStorage {
     static func capture(unit: PublicTreeUnit, targetParent: Int32, retainedParent: Int32,
         targetAttachment: PublicTreeAttachment, retainedAttachment: PublicTreeAttachment,
         old: PublicTreeInventory, new: PublicTreeInventory, owner: uid_t, group: gid_t, planSHA256: String) throws -> PublicTreeOperation {
-        guard old.unit == unit, new.unit == unit, planSHA256.count == 64,
+        guard unit.accepts(old: old, new: new), planSHA256.count == 64,
               planSHA256.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }) else { throw PublicTreeFailure.invalid }
         for (fd, mode, attachment, role) in [(targetParent, mode_t(0o755), targetAttachment, PublicTreeParentRole.target(unit)),
                                              (retainedParent, mode_t(0o700), retainedAttachment, PublicTreeParentRole.retained(unit))] {
@@ -229,29 +309,38 @@ final class PublicTreeStorage {
             try PublicTreeIO.noACL(fd)
             guard info.st_gid == group, info.st_nlink > 0, info.st_mode & 0o7777 == mode else { throw PublicTreeFailure.invalid }
         }
-        let before = try PublicTreeIO.observe(targetParent, name: unit.name, inventory: old, owner: owner, group: group, attachment: targetAttachment)
-        let after = try PublicTreeIO.observe(retainedParent, name: unit.slot, inventory: new, owner: owner, group: group, attachment: retainedAttachment)
+        let before = try PublicTreeIO.observeOptional(targetParent, name: unit.name, inventory: old, owner: owner, group: group, attachment: targetAttachment)
+        let after = try PublicTreeIO.observeOptional(retainedParent, name: unit.slot, inventory: new, owner: owner, group: group, attachment: retainedAttachment)
         try targetAttachment.verify(targetParent, role: .target(unit), owner: owner, group: group, mode: 0o755)
         try retainedAttachment.verify(retainedParent, role: .retained(unit), owner: owner, group: group, mode: 0o700)
-        guard before.device == after.device, before.inode != after.inode,
-              before.inventorySHA256 != after.inventorySHA256 else { throw PublicTreeFailure.invalid }
-        return PublicTreeOperation(schema: 1, unit: unit.rawValue, planSHA256: planSHA256,
+        var targetInfo = stat(), retainedInfo = stat()
+        guard fstat(targetParent, &targetInfo) == 0, fstat(retainedParent, &retainedInfo) == 0,
+              targetInfo.st_dev == retainedInfo.st_dev, targetInfo.st_ino != retainedInfo.st_ino else { throw PublicTreeFailure.invalid }
+        if let before, let after {
+            guard before.device == after.device, before.inode != after.inode,
+                  before.inventorySHA256 != after.inventorySHA256 else { throw PublicTreeFailure.invalid }
+        }
+        return PublicTreeOperation(schema: 2, unit: unit.rawValue, planSHA256: planSHA256,
             beforeManifestSHA256: old.manifestSHA256, afterManifestSHA256: new.manifestSHA256, before: before, after: after)
     }
     static func open(operation: PublicTreeOperation, unit: PublicTreeUnit, targetParent: Int32, retainedParent: Int32,
         journalParent: Int32, targetAttachment: PublicTreeAttachment, retainedAttachment: PublicTreeAttachment,
         journalAttachment: PublicTreeAttachment, old: PublicTreeInventory, new: PublicTreeInventory, owner: uid_t, group: gid_t,
         requireQuiescent: @escaping () throws -> Void, fault: @escaping (Phase) throws -> Void = { _ in }) throws -> PublicTreeStorage {
-        guard operation.schema == 1, operation.unit == unit.rawValue, old.unit == unit, new.unit == unit,
+        guard operation.schema == 2, operation.unit == unit.rawValue, unit.accepts(old: old, new: new),
               operation.planSHA256.utf8.count == 64,
               operation.planSHA256.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }),
               operation.beforeManifestSHA256 == old.manifestSHA256, operation.afterManifestSHA256 == new.manifestSHA256,
-              operation.before.inventorySHA256 == old.inventorySHA256, operation.after.inventorySHA256 == new.inventorySHA256,
-              operation.before.owner == owner, operation.after.owner == owner,
-              operation.before.group == group, operation.after.group == group,
-              operation.before.mode == 0o755, operation.after.mode == 0o755,
-              operation.before.inode != operation.after.inode,
-              operation.before.inventorySHA256 != operation.after.inventorySHA256 else { throw PublicTreeFailure.invalid }
+              (operation.before != nil) == old.isPresent, (operation.after != nil) == new.isPresent else { throw PublicTreeFailure.invalid }
+        for (pin, inventory) in [(operation.before, old), (operation.after, new)] {
+            if let pin {
+                guard pin.inventorySHA256 == inventory.inventorySHA256, pin.owner == owner, pin.group == group,
+                      pin.mode == 0o755, pin.inode > 0 else { throw PublicTreeFailure.invalid }
+            }
+        }
+        if let before = operation.before, let after = operation.after {
+            guard before.inode != after.inode, before.inventorySHA256 != after.inventorySHA256 else { throw PublicTreeFailure.invalid }
+        }
         var opened: [Int32] = [], adopted = false
         defer { if !adopted { opened.forEach { Darwin.close($0) } } }
         let target = try parent(targetParent, attachment: targetAttachment, role: .target(unit), owner: owner, group: group, mode: 0o755); opened.append(target.fd)
@@ -259,7 +348,7 @@ final class PublicTreeStorage {
         let journal = try parent(journalParent, attachment: journalAttachment, role: .journal(unit), owner: owner, group: group, mode: 0o700); opened.append(journal.fd)
         guard Set([target.inode, retained.inode, journal.inode]).count == 3,
               target.device == retained.device, retained.device == journal.device,
-              operation.before.device == target.device, operation.after.device == target.device else { throw PublicTreeFailure.invalid }
+              [operation.before, operation.after].compactMap({ $0 }).allSatisfy({ $0.device == target.device }) else { throw PublicTreeFailure.invalid }
         let value = PublicTreeStorage(operation: operation, unit: unit, old: old, new: new, target: target,
             retained: retained, journal: journal, owner: owner, group: group, requireQuiescent: requireQuiescent, fault: fault)
         adopted = true
@@ -372,25 +461,30 @@ final class PublicTreeStorage {
     func state() throws -> State {
         try parents(); try journalUnchanged()
         let previous = try history.last.map { try event($0, sequence: history.count - 1) }
-        var a = stat(), b = stat()
-        guard fstatat(target.fd, unit.name, &a, AT_SYMLINK_NOFOLLOW) == 0,
-              fstatat(retained.fd, unit.slot, &b, AT_SYMLINK_NOFOLLOW) == 0 else { throw PublicTreeFailure.changed }
-        if a.st_dev == operation.before.device, UInt64(a.st_ino) == operation.before.inode,
-           b.st_dev == operation.after.device, UInt64(b.st_ino) == operation.after.inode {
+        func identity(_ parent: Parent, _ name: String, _ pin: PublicTreePin?) throws -> Bool {
+            var info = stat(); errno = 0
+            if fstatat(parent.fd, name, &info, AT_SYMLINK_NOFOLLOW) != 0 {
+                guard errno == ENOENT else { throw PublicTreeFailure.changed }
+                return pin == nil
+            }
+            guard let pin else { return false }
+            return info.st_mode & S_IFMT == S_IFDIR && info.st_dev == pin.device && UInt64(info.st_ino) == pin.inode
+        }
+        if try identity(target, unit.name, operation.before), try identity(retained, unit.slot, operation.after) {
             guard previous != .applied,
-                  try PublicTreeIO.observe(target.fd, name: unit.name, inventory: old, owner: owner, group: group, attachment: target.attachment) == operation.before,
-                  try PublicTreeIO.observe(retained.fd, name: unit.slot, inventory: new, owner: owner, group: group, attachment: retained.attachment) == operation.after else { throw PublicTreeFailure.changed }
+                  try PublicTreeIO.observeOptional(target.fd, name: unit.name, inventory: old, owner: owner, group: group, attachment: target.attachment) == operation.before,
+                  try PublicTreeIO.observeOptional(retained.fd, name: unit.slot, inventory: new, owner: owner, group: group, attachment: retained.attachment) == operation.after else { throw PublicTreeFailure.changed }
             try parents()
             return .staged
         }
         guard previous != nil, previous != .rolledBack,
-              a.st_dev == operation.after.device, UInt64(a.st_ino) == operation.after.inode,
-              b.st_dev == operation.before.device, UInt64(b.st_ino) == operation.before.inode,
-              try PublicTreeIO.observe(target.fd, name: unit.name, inventory: new, owner: owner, group: group, attachment: target.attachment) == operation.after,
-              try PublicTreeIO.observe(retained.fd, name: unit.slot, inventory: old, owner: owner, group: group, attachment: retained.attachment) == operation.before else { throw PublicTreeFailure.changed }
+              try identity(target, unit.name, operation.after), try identity(retained, unit.slot, operation.before),
+              try PublicTreeIO.observeOptional(target.fd, name: unit.name, inventory: new, owner: owner, group: group, attachment: target.attachment) == operation.after,
+              try PublicTreeIO.observeOptional(retained.fd, name: unit.slot, inventory: old, owner: owner, group: group, attachment: retained.attachment) == operation.before else { throw PublicTreeFailure.changed }
         try parents()
         return .applied
     }
+
     func apply() throws { try exchange(forward: true) }
     func reverse() throws { try exchange(forward: false) }
     private func exchange(forward: Bool) throws {
@@ -403,8 +497,15 @@ final class PublicTreeStorage {
         try fault(.beforeRename); try requireQuiescent()
         guard try state() == wanted else { throw PublicTreeFailure.changed }
         try parents()
-        guard renameatx_np(retained.fd, unit.slot, target.fd, unit.name, UInt32(RENAME_SWAP)) == 0,
-              fsync(retained.fd) == 0, fsync(target.fd) == 0 else { throw PublicTreeFailure.changed }
+        let renamed: Int32
+        if operation.before != nil && operation.after != nil {
+            renamed = renameatx_np(retained.fd, unit.slot, target.fd, unit.name, UInt32(RENAME_SWAP))
+        } else if (operation.before == nil) == forward {
+            renamed = renameatx_np(retained.fd, unit.slot, target.fd, unit.name, UInt32(RENAME_EXCL))
+        } else {
+            renamed = renameatx_np(target.fd, unit.name, retained.fd, unit.slot, UInt32(RENAME_EXCL))
+        }
+        guard renamed == 0, fsync(retained.fd) == 0, fsync(target.fd) == 0 else { throw PublicTreeFailure.changed }
         try parents()
         try fault(.afterRename); try requireQuiescent()
         guard try state() != wanted else { throw PublicTreeFailure.changed }

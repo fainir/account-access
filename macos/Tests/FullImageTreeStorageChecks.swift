@@ -39,15 +39,17 @@ private enum FixtureFailure: Error { case failed, interruption }
     private static func row(_ data: Data) -> [String: Any] {
         ["kind": "file", "mode": 0o644, "size": data.count, "sha256": PublicTreeInventory.digest(data)]
     }
-    private static func manifest(_ unit: PublicTreeUnit, _ data: Data) throws -> PublicTreeInventory {
+    private static func manifest(_ unit: PublicTreeUnit, _ data: Data, present: Bool = true) throws -> PublicTreeInventory {
         let dir: [String: Any] = ["kind": "directory", "mode": 0o755]
         var rows: [String: [String: Any]] = ["": dir, "owner.app": dir, "owner.app/Contents": dir,
             "owner.app/Contents/MacOS": dir, "owner.app/Contents/MacOS/AccountAccess": row(Data("dummy-not-executed".utf8))]
         let parts = unit.path.split(separator: "/").map(String.init)
-        for index in 1...parts.count { rows[parts.prefix(index).joined(separator: "/")] = dir }
-        rows[unit.path + "/value.txt"] = row(data)
-        rows[unit.path + "/aux.txt"] = row(Data("aux".utf8))
-        rows[unit.path + "/alias"] = ["kind": "symlink", "target": "value.txt"]
+        for index in 1...parts.count where present || index < parts.count { rows[parts.prefix(index).joined(separator: "/")] = dir }
+        if present {
+            rows[unit.path + "/value.txt"] = row(data)
+            rows[unit.path + "/aux.txt"] = row(Data("aux".utf8))
+            rows[unit.path + "/alias"] = ["kind": "symlink", "target": "value.txt"]
+        }
         let value: [String: Any] = ["schema": 1, "managed_by": "account-access-install-payload-v1",
             "package_identifier": "com.fainir.accountaccess.system", "version": "0.8.0", "architecture": "arm64",
             "roots": [InstallerPayloadManifest.support: rows,
@@ -92,8 +94,9 @@ private enum FixtureFailure: Error { case failed, interruption }
             retainedAttachment = try bind(retained, "retained-parent", .retained(unit))
             journalAttachment = try bind(journal, "journal", .journal(unit))
             let a = Data("old-tree".utf8), b = Data("new-tree-longer".utf8)
-            old = try manifest(unit, a); new = try manifest(unit, b)
-            try tree(target, unit.name, unit, a); try tree(retained, unit.slot, unit, b)
+            old = try manifest(unit, a, present: unit.beforePresent); new = try manifest(unit, b, present: unit.afterPresent)
+            if unit.beforePresent { try tree(target, unit.name, unit, a) }
+            if unit.afterPresent { try tree(retained, unit.slot, unit, b) }
             operation = try PublicTreeStorage.capture(unit: unit, targetParent: target, retainedParent: retained,
                 targetAttachment: targetAttachment, retainedAttachment: retainedAttachment,
                 old: old, new: new, owner: getuid(), group: getgid(), planSHA256: String(repeating: "a", count: 64))
@@ -114,11 +117,15 @@ private enum FixtureFailure: Error { case failed, interruption }
     private static func oldTargetUnchanged(_ scenario: Scenario) throws -> Bool {
         try targetMatches(scenario, inventory: scenario.old, pin: scenario.operation.before)
     }
-    private static func targetMatches(_ scenario: Scenario, inventory: PublicTreeInventory, pin: PublicTreePin) throws -> Bool {
+    private static func targetMatches(_ scenario: Scenario, inventory: PublicTreeInventory, pin: PublicTreePin?) throws -> Bool {
+        guard let pin, let tree = inventory.tree else {
+            var info = stat(); errno = 0
+            return fstatat(scenario.target, scenario.unit.name, &info, AT_SYMLINK_NOFOLLOW) != 0 && errno == ENOENT
+        }
         let fd = openat(scenario.target, scenario.unit.name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
         guard fd >= 0 else { throw FixtureFailure.failed }
         defer { Darwin.close(fd) }
-        _ = try InstallerPayloadIO.verify(fd, tree: inventory.tree, owner: getuid())
+        _ = try InstallerPayloadIO.verify(fd, tree: tree, owner: getuid())
         let info = try InstallerPayloadIO.check(fd, owner: getuid(), directory: true)
         return info.st_dev == pin.device && UInt64(info.st_ino) == pin.inode
             && info.st_gid == getgid()
@@ -195,7 +202,7 @@ private enum FixtureFailure: Error { case failed, interruption }
                 try storage.apply(); try expect(try storage.state() == .applied)
                 try storage.apply(); try expect(try storage.state() == .applied)
                 try storage.reverse(); try expect(try storage.state() == .staged)
-                try expect(try PublicTreeIO.observe(scenario.target, name: unit.name, inventory: scenario.old,
+                try expect(try PublicTreeIO.observeOptional(scenario.target, name: unit.name, inventory: scenario.old,
                     owner: getuid(), group: getgid(), attachment: scenario.targetAttachment) == scenario.operation.before)
             }
             do {
@@ -310,16 +317,93 @@ private enum FixtureFailure: Error { case failed, interruption }
                     try expect(try oldTargetUnchanged(scenario))
                 }
             }
-            guard count == 63 + (symlinkACLQualified ? 2 : 0) else { throw FixtureFailure.failed }
+            let originalChecks = 63 + (symlinkACLQualified ? 2 : 0)
+            // Nine additional fixed units contribute the same five round-trip checks.
+            try expect(count == originalChecks + 45)
+            let optional = PublicTreeUnit.allCases.filter { $0.beforePresent != $0.afterPresent }
+            try expect(optional.count == 4 && PublicTreeUnit.allCases.count == 13)
+            for (index, unit) in optional.enumerated() {
+                // Both inode polarities survive a crash after the real exclusive move.
+                for forward in [true, false] {
+                    let scenario = try Scenario(root: root, anchor: anchor, name: "optional-crash-\(index)-\(forward)", unit: unit)
+                    var armed = forward
+                    let storage = try scenario.storage { phase in
+                        if phase == .afterRename && armed { throw FixtureFailure.interruption }
+                    }
+                    if !forward { try storage.apply(); armed = true }
+                    try refuses { if forward { try storage.apply() } else { try storage.reverse() } }
+                    try expect(try storage.state() == (forward ? .applied : .staged))
+                    let resumed = try scenario.storage()
+                    if forward { try resumed.apply(); try resumed.reverse() } else { try resumed.reverse() }
+                    try expect(try resumed.state() == .staged)
+                    try expect(try oldTargetUnchanged(scenario))
+                }
+                // A newly occupied destination must never be replaced by EXCL.
+                for (kindIndex, kind) in ["file", "link", "directory"].enumerated() {
+                    let scenario = try Scenario(root: root, anchor: anchor, name: "optional-poison-\(index)-\(kindIndex)", unit: unit)
+                    var injected = false
+                    let receiver = unit.beforePresent ? scenario.retained : scenario.target
+                    let name = unit.beforePresent ? unit.slot : unit.name
+                    let storage = try scenario.storage { phase in
+                        if phase == .beforeRename && !injected {
+                            if kind == "file" { try file(receiver, name, Data("foreign".utf8)) }
+                            else if kind == "link" {
+                                guard symlinkat("missing", receiver, name) == 0 else { throw FixtureFailure.failed }
+                            } else { Darwin.close(try directory(receiver, name, 0o755)) }
+                            injected = true
+                        }
+                    }
+                    try refuses { try storage.apply() }
+                    try expect(injected)
+                    // The present side still has its exact original tree/inode.
+                    let presentFD = unit.beforePresent ? scenario.target : scenario.retained
+                    let presentName = unit.beforePresent ? unit.name : unit.slot
+                    let inventory = unit.beforePresent ? scenario.old : scenario.new
+                    let expectedPin = unit.beforePresent ? scenario.operation.before : scenario.operation.after
+                    try expect(try PublicTreeIO.observe(presentFD, name: presentName, inventory: inventory,
+                        owner: getuid(), group: getgid(), attachment: unit.beforePresent ? scenario.targetAttachment : scenario.retainedAttachment) == expectedPin)
+                }
+                let scenario = try Scenario(root: root, anchor: anchor, name: "optional-schema-\(index)", unit: unit)
+                let encoded = try JSONEncoder().encode(scenario.operation)
+                let value = try JSONSerialization.jsonObject(with: encoded) as! [String: Any]
+                try expect(value[unit.beforePresent ? "after" : "before"] is NSNull)
+                try expect(try JSONDecoder().decode(PublicTreeOperation.self, from: encoded) == scenario.operation)
+                for missing in ["before", "after"] {
+                    var omitted = value; omitted.removeValue(forKey: missing)
+                    try refuses { _ = try JSONDecoder().decode(PublicTreeOperation.self,
+                        from: JSONSerialization.data(withJSONObject: omitted)) }
+                }
+                var foreign = value; foreign["unknown"] = true
+                try refuses { _ = try JSONDecoder().decode(PublicTreeOperation.self,
+                    from: JSONSerialization.data(withJSONObject: foreign)) }
+                let storage = try scenario.storage(); scenario.quiescent = false
+                try refuses { try storage.apply() }
+                scenario.quiescent = true
+                try expect(try storage.state() == .staged)
+                // An operation with both pins absent cannot use manifest absence as authority.
+                let empty = PublicTreeOperation(schema: 2, unit: unit.rawValue, planSHA256: scenario.operation.planSHA256,
+                    beforeManifestSHA256: scenario.old.manifestSHA256, afterManifestSHA256: scenario.new.manifestSHA256,
+                    before: nil, after: nil)
+                try refuses { _ = try PublicTreeStorage.open(operation: empty, unit: unit, targetParent: scenario.target,
+                    retainedParent: scenario.retained, journalParent: scenario.journal, targetAttachment: scenario.targetAttachment,
+                    retainedAttachment: scenario.retainedAttachment, journalAttachment: scenario.journalAttachment,
+                    old: scenario.old, new: scenario.new, owner: getuid(), group: getgid(), requireQuiescent: {}) }
+                try refuses { _ = try PublicTreeStorage.capture(unit: unit, targetParent: scenario.target,
+                    retainedParent: scenario.retained, targetAttachment: scenario.targetAttachment,
+                    retainedAttachment: scenario.retainedAttachment, old: scenario.new, new: scenario.old,
+                    owner: getuid(), group: getgid(), planSHA256: scenario.operation.planSHA256) }
+            }
+            try refuses { _ = try manifest(.project, Data(), present: false) }
+            guard count == originalChecks + 45 + 2 + 4 * 26 + 1 else { throw FixtureFailure.failed }
             try cleanup(root)
             var current = stat()
             guard lstat(path, &current) == 0, current.st_dev == original.st_dev, current.st_ino == original.st_ino,
                   current.st_uid == getuid(), rmdir(path) == 0 else { throw FixtureFailure.failed }
             let status = symlinkACLQualified ? "PASSED" : "PASSED_WITH_UNQUALIFIED_CASE"
             let aclCase = symlinkACLQualified ? "PASSED" : "UNQUALIFIED_OS_DECLINED_CREATION"
-            print("{\"schema\":1,\"status\":\"\(status)\",\"ordinary_temp_only\":true,\"checks\":\(count),\"original_checks_preserved\":47,\"post_exchange_ancestor_cases\":2,\"nonempty_symlink_acl_refusal\":\"\(aclCase)\",\"installed_reads\":false,\"root_execution\":false,\"service_actions\":false,\"production_ready\":false}")
+            print("{\"schema\":1,\"status\":\"\(status)\",\"ordinary_temp_only\":true,\"checks\":\(count),\"original_checks_preserved\":65,\"fixed_tree_units\":13,\"optional_units\":4,\"post_exchange_ancestor_cases\":2,\"nonempty_symlink_acl_refusal\":\"\(aclCase)\",\"installed_reads\":false,\"root_execution\":false,\"service_actions\":false,\"production_ready\":false}")
         } catch {
-            print("{\"schema\":1,\"status\":\"REFUSED\",\"reason\":\"public_tree_temp_fixture_failed\",\"production_ready\":false}")
+            print("{\"schema\":1,\"status\":\"REFUSED\",\"reason\":\"public_tree_temp_fixture_failed\",\"completed_checks\":\(count),\"production_ready\":false}")
             exit(78)
         }
     }

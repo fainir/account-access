@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "base_commit": "5ba276b1369edf29eab59d3670b122975b350cca",
+  "change": "Strict complete-image CA plan agreement, fixed optional tree transitions and durable mixed file/tree recovery. Installed entrypoint and service integration remain under development.",
+  "source_sha256": {
+    ".github/workflows/check.yml": "7ea854b5e047bc5aa98deb1ffdbbdf6254b1b627eb4a91d48c38e503e8e636d6",
+    "macos/FullImageGlobalJournal.swift": "714f858990bc7c2e91691aa10f86b63a268508eb54018e56b81c2935adb29db6",
+    "macos/FullImagePlan.swift": "2e44748221e9016dfa73e24a092d5e36029ddd3c5469f1ee8684024622d62ce9",
+    "macos/FullImageTransitionStorage.swift": "9f304c22212574a3b50f9edb8045fb45bc5c514feb9ce7580b7cf12a42e6bcaf",
+    "macos/FullImageTreeStorage.swift": "6c795e4f4851723b6df9c1b50fdaec5d388a204e897e2e5e74af0ed9cbde235f",
+    "macos/Tests/FullImageGlobalJournalChecks.swift": "3d38cace7272ce4589d7e4e3a274461a03804ea72f33449da9be661620124597",
+    "macos/Tests/FullImagePlanChecks.swift": "c1296c727f7cf29aaad6538a89fc4210373a15b747c2026578ad0123f4fb527d",
+    "macos/Tests/FullImageTransitionStorageChecks.swift": "e3eabcab6dfacd864eb544faf56f13f37c8a0c898795006ccfe095b35ded254e",
+    "macos/Tests/FullImageTreeStorageChecks.swift": "52a3f8c022279d839cc54bebf6270d2d24b7e4ed0e37d27c11041b7ac33bcc12",
+    "scripts/mac_full_image_plan_fixture.py": "a284d68c57bd8857ff9132052cc9feaf861c052298756c493c18d9c01b831a6b",
+    "macos/full_image_update.py": "d0af0aa2844cfa6ae02bbaa05082199f668bb95d5a55832b03ac57b6b548493e",
+    "tests/test_full_image_ca_update.py": "4c476a56294846cc7acc0d9cb9df16ef53cd0f33938a1bd00abd7baa11dae1e3"
+  },
+  "validation": {
+    "native_checks": {
+      "actual_public_data_plan": 11,
+      "journal": 134,
+      "mixed": 24,
+      "storage": 217,
+      "synthetic_plan": 11
+    },
+    "python_checks_passed": 127,
+    "optimized_native_compile_and_runtime_passed": true,
+    "actual_prepared_public_image_tested": true,
+    "closed_plan_tree_units": 13,
+    "closed_plan_file_units": 12,
+    "earlier_unoptimized_timeouts_preserved": true,
+    "checkpoint_seal_sha256": "551d6d7615896f8b6eef4bc5ee6fe55208164d9448055657c5cf2a5c34fd4389",
+    "python_planner_proof_sha256": "cce01521420fb2c2d79a05d254ae07af7e62e2a758ce5be59c0a9430f38bb7b7"
+  },
+  "ci_for_new_source": "pending",
+  "installed_entrypoint_qualified": false,
+  "installed_private_root_or_provider_actions": false,
+  "production_ready": false
+}

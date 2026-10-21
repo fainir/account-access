@@ -31,6 +31,27 @@ jobs:
             macos/InstallerPayload.swift macos/FullImageTreeAttachment.swift macos/FullImageTreeStorage.swift \
             macos/Tests/FullImageTreeStorageChecks.swift -o /tmp/account-access-full-image-tree-checks
           /tmp/account-access-full-image-tree-checks > /tmp/account-access-full-image-tree.json
+      - name: Check Python and native complete-image CA plan agreement with fictional data
+        run: |
+          uv run python scripts/mac_full_image_plan_fixture.py --output /tmp/account-access-full-image-plan-inputs > /tmp/account-access-full-image-plan-inputs.json
+          xcrun swiftc -O -parse-as-library -warnings-as-errors -framework Foundation -framework CryptoKit \
+            macos/InstallerPayload.swift macos/ComponentUpdatePolicies.swift \
+            macos/FullImageTreeAttachment.swift macos/FullImageTreeStorage.swift macos/FullImagePlan.swift \
+            macos/Tests/FullImagePlanChecks.swift -o /tmp/account-access-full-image-plan-checks
+          /tmp/account-access-full-image-plan-checks /tmp/account-access-full-image-plan-inputs > /tmp/account-access-full-image-plan.log
+          tail -n 1 /tmp/account-access-full-image-plan.log > /tmp/account-access-full-image-plan.json
+      - name: Check mixed complete-image transitions and durable recovery with fictional data
+        run: |
+          sources=(macos/InstallerPayload.swift macos/ComponentUpdate.swift macos/ComponentUpdatePolicies.swift
+            macos/ComponentUpdateIdentity.swift macos/InstallationRootBinding.swift macos/InstallationRootRevalidation.swift
+            macos/FullImageTreeAttachment.swift macos/FullImageTreeStorage.swift macos/FullImagePlan.swift
+            macos/FullImageTransitionStorage.swift macos/FullImageGlobalJournal.swift)
+          xcrun swiftc -O -parse-as-library -warnings-as-errors -framework Foundation -framework CryptoKit -framework Security \
+            "${sources[@]}" macos/Tests/FullImageTransitionStorageChecks.swift -o /tmp/account-access-full-image-mixed-checks
+          /tmp/account-access-full-image-mixed-checks > /tmp/account-access-full-image-mixed.json
+          xcrun swiftc -O -parse-as-library -warnings-as-errors -framework Foundation -framework CryptoKit -framework Security \
+            "${sources[@]}" macos/Tests/FullImageGlobalJournalChecks.swift -o /tmp/account-access-full-image-journal-checks
+          /tmp/account-access-full-image-journal-checks > /tmp/account-access-full-image-journal.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
@@ -39,6 +60,11 @@ jobs:
             /tmp/account-access-owner-gateway.json
             /tmp/account-access-full-image-policy.json
             /tmp/account-access-full-image-tree.json
+            /tmp/account-access-full-image-plan-inputs.json
+            /tmp/account-access-full-image-plan.json
+            /tmp/account-access-full-image-plan.log
+            /tmp/account-access-full-image-mixed.json
+            /tmp/account-access-full-image-journal.json
           if-no-files-found: ignore
   native-owner-ui:
     runs-on: macos-15
