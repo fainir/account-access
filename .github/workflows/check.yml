@@ -99,6 +99,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
       - run: uv sync --locked
+      - name: Audit dependencies before browser setup and long-running tests
+        run: uv run pip-audit --local
       - name: Check that the installer uses the tested dependency hashes
         run: |
           uv export --locked --no-dev --no-emit-project --no-annotate --no-header --format requirements.txt --output-file /tmp/account-access-runtime.txt > /dev/null
@@ -126,5 +128,4 @@ jobs:
           PY
       - run: uv run ruff check account_access tests scripts macos/notarize.py macos/system_package.py macos/payload_audit.py macos/runtime_prepare.py macos/runtime_image.py macos/bitwarden_runtime.py macos/bitwarden_sources.py macos/bitwarden_notices.py
       - run: uv run pytest -q
-      - run: uv run pip-audit --local
       - run: uv build

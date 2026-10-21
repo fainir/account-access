@@ -52,8 +52,21 @@ observation, allowing authentic restarts between observations without retaining
 process authority. All installation and image checks remain, and the component
 transaction's separate process-ownership rules are unchanged. Its ordinary
 optimized native fixture passed **257 assertions**, including 21 new lifecycle
-and refusal checks; **183 focused Python checks** also passed. Exact-source CI
-and actual Installer qualification of this correction are still pending.
+and refusal checks; **183 focused Python checks** also passed. Its exact-source
+CI at `5b09c50` finished with seven successful workflows and two failed security
+audits. Both audits reported development dependency `certifi 2026.7.22`
+(`PYSEC-2026-4320`); the native checks and full Python suites passed. That source
+is unqualified, and the failed attempts remain recorded.
+
+The successor updates only certifi to `2026.10.19`, with published archive
+hashes. All other locked packages and the exported runtime requirements are
+unchanged. The local dependency audit now reports zero known vulnerabilities
+among its external dependencies; the unpublished project itself is skipped by
+that tool. CI now performs the same audit before browser setup and long tests.
+This correction does not assess or replace the frozen runtime's pip-vendored
+certificate bundle; that remains a separate full-image security check.
+The successor still needs exact-source CI and actual Installer qualification.
+[Failed candidate and dependency correction](../artifacts/ci-certifi-refusal-5b09c50-20261021.json).
 
 The owner-app source also corrects its Claude Code action and unsupported
 visible-sign-in help. Its optimized UI fixture passed **49 checks** using
