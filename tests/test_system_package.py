@@ -92,6 +92,24 @@ def test_package_assembly_never_runs_under_root_or_on_another_platform(monkeypat
         package.assemble(SimpleNamespace())
 
 
+def test_consumer_package_requires_explicit_pinned_ca_refresh_input_before_provider(tmp_path):
+    with pytest.raises(ValueError, match="runtime_ca_pinned_pip_wheel_required"):
+        package.stage_runtime_ca(SimpleNamespace(development=False), tmp_path)
+    assert list(tmp_path.iterdir()) == []
+    assert package.stage_runtime_ca(SimpleNamespace(development=True), tmp_path) is None
+
+
+def test_explicit_ca_refresh_uses_the_same_path_for_inspection_and_assembly(tmp_path, monkeypatch):
+    from macos import runtime_ca
+
+    seen = []
+    monkeypatch.setattr(runtime_ca, "refresh", lambda payload, wheel: seen.append((payload, wheel)) or {"fixture": True})
+    for inspection in (True, False):
+        assert package.stage_runtime_ca(SimpleNamespace(development=False, inspect_runtime=inspection,
+                                                       pip_wheel="public-pinned.whl"), tmp_path) == {"fixture": True}
+    assert seen == [(tmp_path, "public-pinned.whl"), (tmp_path, "public-pinned.whl")]
+
+
 @pytest.mark.parametrize("architecture", ["x86_64", "i386", "unknown"])
 def test_package_refuses_unavailable_intel_runtime_before_opening_any_supplied_payload(monkeypatch, architecture):
     monkeypatch.setattr(package.sys, "platform", "darwin")
@@ -193,6 +211,9 @@ def test_supplied_python_cannot_run_before_private_payload_inventory(
     # This case isolates the prior native payload inventory; standalone-provider
     # input/source completeness has its own real archive tests.
     monkeypatch.setattr(package, "stage_bitwarden", lambda *a: {"fixture": "separate-provider-input-tests"})
+    # Pinned packaging-tool input validation has its own real and synthetic
+    # archive checks. This fake image deliberately has no Python packaging tree.
+    monkeypatch.setattr(package, "stage_runtime_ca", lambda *a: None)
 
     def command(args):
         calls.append(args)
@@ -343,6 +364,9 @@ def test_unsigned_container_keeps_genuine_payload_and_runtime_verification(tmp_p
         return {"team": "ABCDEFGHIJ", "identifier": identifier, "hashes": ["a" * 40]}
     monkeypatch.setattr(package, "signature", signature)
     monkeypatch.setattr(package, "stage_bitwarden", lambda *a: {"fixture": "separate-provider-input-tests"})
+    # This image is inert fictional data; pinned CA archive checks have their
+    # own tests, while this case isolates the genuine unsigned-container gates.
+    monkeypatch.setattr(package, "stage_runtime_ca", lambda *a: None)
     def prepare(payload, requirements, project_name, pin, identity, team, selected, command, *, development):
         assert development is False and team == "ABCDEFGHIJ" and identity == "Application publisher"
         assert selected == {"reviewed": "fixture"}

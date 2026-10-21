@@ -171,6 +171,17 @@ def stage_bitwarden(args, payload):
     return stage(payload, *values)
 
 
+def stage_runtime_ca(args, payload):
+    wheel = getattr(args, "pip_wheel", None)
+    if args.development and not wheel:
+        return None  # Unrelated inert CI fixtures do not ship consumer Python.
+    if not wheel:
+        raise ValueError("runtime_ca_pinned_pip_wheel_required")
+    from .runtime_ca import refresh
+
+    return refresh(payload, wheel)
+
+
 def assemble(args):
     if sys.platform != "darwin" or os.getuid() == 0 or os.getuid() != os.geteuid():
         raise ValueError("ordinary_mac_build_context_required")
@@ -233,6 +244,7 @@ def assemble(args):
             raise ValueError("wheelhouse_project_mismatch")
         shutil.copy2(wheel, project)
         pin = hashlib.sha256(project.read_bytes()).hexdigest()
+        runtime_ca_refresh = stage_runtime_ca(args, payload)
         bitwarden_runtime = stage_bitwarden(args, payload)
         # Do not ship ACL grants inherited from a maintainer's build folders.
         # This changes only our private copied payload, never source artifacts.
@@ -257,6 +269,7 @@ def assemble(args):
                 "status": "INSPECTED",
                 "plan_file": str(plan_file),
                 "bitwarden_runtime": bitwarden_runtime,
+                "runtime_ca_refresh": runtime_ca_refresh,
                 "production_ready": False,
                 "notarized": False,
                 "installed": False,
@@ -356,6 +369,10 @@ def assemble(args):
             raise ValueError("matching_standalone_python_required")
         image = runtime_image(payload, requirements, project.name, pin, args.architecture,
                               ".".join(map(str, found[0])), origins=origins)
+        if runtime_ca_refresh is not None:
+            from .runtime_ca import verify_generated_runtime
+
+            verify_generated_runtime(payload, runtime_ca_refresh)
         (payload / "runtime-image.json").write_text(json.dumps(image, indent=2) + "\n")
         if binary_type(payload / "runtime/lib/python3.12/site-packages/playwright/driver/node") != 2:
             raise ValueError("runtime_image_native_browser_driver_required")
@@ -438,6 +455,7 @@ def assemble(args):
             "native_payload_audit": runtime_audit,
             "runtime_preparation": runtime_preparation,
             "bitwarden_runtime": bitwarden_runtime,
+            "runtime_ca_refresh": runtime_ca_refresh,
             "runtime_image": image,
             "payload_manifest_sha256": hashlib.sha256(manifest).hexdigest(),
             "installer_verifier_sha256": verifier_digest,
@@ -470,6 +488,7 @@ def main():
     parser.add_argument("--bitwarden-archive", help="Exact pinned official OSS npm CLI tgz; never downloaded during packaging")
     parser.add_argument("--bitwarden-sources", help="Complete corresponding-source release archive prepared before packaging")
     parser.add_argument("--bitwarden-source-sha256", help="Explicit reviewed digest of the corresponding-source release archive")
+    parser.add_argument("--pip-wheel", help="Exact pinned official pip wheel for active and ensurepip CA refresh; never executed")
     args = parser.parse_args()
     try:
         print(json.dumps(assemble(args)))

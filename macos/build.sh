@@ -3,6 +3,18 @@
 # for local development; public distribution requires signing and notarization.
 set -eu
 AC_SOURCE=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+# Build 76 is the frozen historical package. New full targets need an explicit
+# distinct decimal build identity before any artifact or compiler is touched.
+AC_BUILD=${ACCOUNT_ACCESS_MAC_BUILD:-}
+case "$AC_BUILD" in
+  ''|*[!0123456789]*|0*)
+    echo "Set ACCOUNT_ACCESS_MAC_BUILD to a decimal build number greater than 76." >&2
+    exit 1 ;;
+esac
+if [ "${#AC_BUILD}" -gt 9 ] || [ "$AC_BUILD" -le 76 ]; then
+  echo "Set ACCOUNT_ACCESS_MAC_BUILD to a decimal build number greater than 76." >&2
+  exit 1
+fi
 AC_OUTPUT=${ACCOUNT_ACCESS_MAC_OUTPUT:-"$AC_SOURCE/dist/macos"}
 AC_APP="$AC_OUTPUT/Account Access.app"
 AC_WHEEL="$AC_SOURCE/dist/account_access-0.8.0-py3-none-any.whl"
@@ -51,13 +63,14 @@ cat > "$AC_APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleExecutable</key><string>AccountAccess</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>0.8.0</string>
-<key>CFBundleVersion</key><string>76</string>
+<key>CFBundleVersion</key><string>0</string>
 <key>AccountAccessBackgroundFormat</key><integer>1</integer>
 <key>AccountAccessBrowserExtensionFormat</key><integer>1</integer>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 PLIST
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $AC_BUILD" "$AC_APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Add :AccountAccessWheelSHA256 string $AC_WHEEL_HASH" "$AC_APP/Contents/Info.plist"
 if [ "${ACCOUNT_ACCESS_SYSTEM_INSTALL:-0}" = 1 ]; then
   /usr/libexec/PlistBuddy -c 'Add :AccountAccessSystemInstallationRequired bool true' "$AC_APP/Contents/Info.plist"

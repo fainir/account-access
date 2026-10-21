@@ -19,11 +19,26 @@ jobs:
           done
       - name: Exercise native XPC peers and owner broker routes with fictional data
         run: uv run python scripts/mac_owner_gateway_smoke.py --report /tmp/account-access-owner-gateway.json
+      - name: Check complete-image owner pin rotation with fictional policies
+        run: |
+          xcrun swiftc -O -parse-as-library -warnings-as-errors -framework Foundation \
+            macos/ComponentUpdatePolicies.swift macos/FullImageUpdatePolicies.swift \
+            macos/Tests/FullImageUpdatePolicyChecks.swift -o /tmp/account-access-full-image-policy-checks
+          /tmp/account-access-full-image-policy-checks > /tmp/account-access-full-image-policy.json
+      - name: Check complete-image subtree storage in fresh ordinary temp directories
+        run: |
+          xcrun swiftc -O -parse-as-library -warnings-as-errors -framework Foundation -framework CryptoKit \
+            macos/InstallerPayload.swift macos/FullImageTreeStorage.swift \
+            macos/Tests/FullImageTreeStorageChecks.swift -o /tmp/account-access-full-image-tree-checks
+          /tmp/account-access-full-image-tree-checks > /tmp/account-access-full-image-tree.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: native-owner-gateway
-          path: /tmp/account-access-owner-gateway.json
+          path: |
+            /tmp/account-access-owner-gateway.json
+            /tmp/account-access-full-image-policy.json
+            /tmp/account-access-full-image-tree.json
           if-no-files-found: ignore
   native-owner-ui:
     runs-on: macos-15
@@ -126,6 +141,6 @@ jobs:
           with sync_playwright() as pw:
               pw.chromium.launch(headless=True, chromium_sandbox=True).close()
           PY
-      - run: uv run ruff check account_access tests scripts macos/notarize.py macos/system_package.py macos/payload_audit.py macos/runtime_prepare.py macos/runtime_image.py macos/bitwarden_runtime.py macos/bitwarden_sources.py macos/bitwarden_notices.py
+      - run: uv run ruff check account_access tests scripts macos/notarize.py macos/system_package.py macos/payload_audit.py macos/runtime_prepare.py macos/runtime_image.py macos/runtime_ca.py macos/full_image_update.py macos/bitwarden_runtime.py macos/bitwarden_sources.py macos/bitwarden_notices.py
       - run: uv run pytest -q
       - run: uv build

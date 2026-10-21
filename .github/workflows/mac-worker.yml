@@ -251,7 +251,7 @@ jobs:
       - name: Verify offline and fully prepared development package installation
         run: |
           uv build --wheel
-          ACCOUNT_ACCESS_SYSTEM_INSTALL=1 ACCOUNT_ACCESS_MAC_OUTPUT=/tmp/account-access-system-owner bash macos/build.sh
+          ACCOUNT_ACCESS_SYSTEM_INSTALL=1 ACCOUNT_ACCESS_MAC_BUILD=77 ACCOUNT_ACCESS_MAC_OUTPUT=/tmp/account-access-system-owner bash macos/build.sh
           AC_PACKAGE_PYTHON=$("$AC_MAC_WORKER_PREFIX/runtime/bin/python" -I -B -c 'import sys; print(sys.base_prefix)')
           "$AC_PACKAGE_PYTHON/bin/python3.12" -I -B -m pip download --only-binary=:all: --require-hashes -r account_access/runtime-requirements.txt --dest /tmp/account-access-package-wheels
           AC_PACKAGE_ARCH=$(uname -m)
