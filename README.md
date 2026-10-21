@@ -23,9 +23,13 @@ The latest local 0.8 installer completed installation, but its protected service
 fails before enrollment. Its separate startup/revalidation repair passed actual
 installation and reapplication on clean hosted Macs, but the affected Mac
 refused the recovery at its publication checkpoint. The component update was
-not attempted there. It is not ready for use until that repair and personal
+not attempted there. A subsequent signed read-only diagnostic refused the first
+service recheck and observed no supplementary binding directory. The service
+changes between running and stopped states; the exact failed recheck predicate
+is still unconfirmed. It is not ready for use until the repair and personal
 account validation succeed.
 [Current repair evidence](artifacts/installation-root-revalidation-93fc906-20261020.json).
+[Narrow diagnostic result](artifacts/installation-root-revalidation-diagnostic-93fc906-20261021.json).
 
 ![Account Access dashboard](docs/account-dashboard.png)
 
@@ -191,7 +195,7 @@ Mac remains unresolved.
 | --- | --- |
 | Agent cannot find Account Access | Start a fresh session. See [automatic setup](docs/automatic-sessions.md). |
 | Imported entry is unsupported | A reviewed website connector is required; importing alone cannot add one. |
-| Password saved, account not connected | Open **Show sign-in problem** in the app and complete the specified repair. |
+| Password saved, account not connected | Open **Review sign-in help** for connection and verification options. This version cannot open a visible sign-in window. |
 | `NEEDS_USER` | Complete the specific owner step locally. Keep the same task; do not send secrets in chat. |
 | `DENIED` | Review account permissions locally. The agent must respect the denial. |
 | Service unavailable or deliberately paused | Reopen Account Access and resume it. |

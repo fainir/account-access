@@ -74,6 +74,9 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
     private let deviceEmailLock = NSLock()
     private var deviceEmailRequestLog: [String] = []
     var deviceEmailRequests: [String] { deviceEmailLock.withLock { deviceEmailRequestLog } }
+    private let verificationRequestLock = NSLock()
+    private var verificationRequests = 0
+    var verificationRequestCount: Int { verificationRequestLock.withLock { verificationRequests } }
     var deviceEmailApplyFailure = false
     var deviceEmailPreview: [String: Any] = [:]
     var googleRequests: [String] = []
@@ -95,6 +98,7 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
     func prepare(reply: @escaping (Bool) -> Void) { isAvailable = true; reply(true) }
     func authorizeSetup(_ form: Data, reply: @escaping (Bool) -> Void) { reply(form.count == 32) }
     func request(_ route: String, body: Data?, reply: @escaping (Int, Data) -> Void) {
+        if route == "owner/verify" { verificationRequestLock.withLock { verificationRequests += 1 } }
         if ["owner/mailbox/connect", "owner/mailbox/password"].contains(route) {
             mailboxLock.withLock {
                 mailboxPosts += 1
@@ -204,7 +208,31 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         try! Data(repeating: 65, count: 4_000_001).write(to: export)
         precondition(rejectedExport(export))
         print("PASS: password files are bounded regular UTF-8 files; symlinks, pipes, directories and oversized exports are refused")
-        let owner = AccountAccess()
+        let sessionConfig = URLSessionConfiguration.ephemeral
+        sessionConfig.httpCookieStorage = nil
+        sessionConfig.urlCredentialStorage = nil
+        sessionConfig.urlCache = nil
+        sessionConfig.connectionProxyDictionary = [:]
+        sessionConfig.protocolClasses = [VerificationRetryFixture.self]
+        let fixtureSession = URLSession(configuration: sessionConfig)
+        let helperLock = NSLock()
+        var unexpectedHelperCalls = 0
+        let blockedHelpers = ManagedAgentSetup(helper: { _ in
+            helperLock.withLock { unexpectedHelperCalls += 1 }
+            throw ManagedAgentSetupFailure.unavailable
+        }, readToken: {
+            helperLock.withLock { unexpectedHelperCalls += 1 }
+            throw ManagedAgentSetupFailure.unavailable
+        })
+        var fixtureProfileReads = 0
+        let missingFixtureProfile: () throws -> DesktopOwnerProfile = {
+            fixtureProfileReads += 1
+            throw DesktopOwnerFailure.profile
+        }
+        let owner = AccountAccess(fixtureRoot: fixtureRoot, session: fixtureSession,
+                                  managedAgents: blockedHelpers, ownerProfile: missingFixtureProfile)
+        precondition(owner.root == fixtureRoot && owner.runtime == fixtureRoot.appendingPathComponent("runtime"))
+        precondition(!owner.requiresSystemInstallation && !owner.systemOwnerConfigured && fixtureProfileReads == 0)
         owner.window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1040, height: 740),
                                 styleMask: [.titled, .resizable], backing: .buffered, defer: false)
         owner.base = URL(string: "http://127.0.0.1:1/")!
@@ -320,7 +348,7 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         var views = descendants(owner.stack)
         precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("Saved · Sign-in needs attention"))
         precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("Verification must be connected."))
-        precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Show sign-in problem"))
+        precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Review sign-in help"))
         precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Review verification methods"))
         precondition(!views.contains { $0 is NSSecureTextField })
         owner.showImportSummary(["fixture"], issues: [])
@@ -330,7 +358,7 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         owner.showImportSummary(["fixture"], issues: [])
         views = descendants(owner.stack)
         precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("Connected"))
-        precondition(!views.compactMap { ($0 as? NSButton)?.title }.contains("Show sign-in problem"))
+        precondition(!views.compactMap { ($0 as? NSButton)?.title }.contains("Review sign-in help"))
         print("PASS: import summary distinguishes saved credentials from verified sign-in and exposes repair without blank credential fields")
         owner.accounts = [["account": "fixture", "label": "Fixture account", "route": "browser",
                            "portable_ready": true, "connected": false,
@@ -453,9 +481,6 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         views = descendants(owner.stack)
         precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Update sign-in connection"))
         print("PASS: reviewed sign-in repairs are available without entering the password again")
-        let sessionConfig = URLSessionConfiguration.ephemeral
-        sessionConfig.protocolClasses = [VerificationRetryFixture.self]
-        owner.session = URLSession(configuration: sessionConfig)
         // Simulate the endpoint/capability rotation after a service crash. The
         // real request method must verify the new owner before using it, while
         // leaving an unsaved native credential form intact.
@@ -631,7 +656,8 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         views = descendants(owner.stack)
         precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Resume Account Access"))
         print("PASS: native Pause sends one stop request, clears local setup secrets and offers explicit Resume")
-        let packaged = AccountAccess()
+        let packaged = AccountAccess(fixtureRoot: fixtureRoot, session: fixtureSession,
+                                     managedAgents: blockedHelpers, ownerProfile: missingFixtureProfile)
         packaged.requiresSystemInstallation = true
         precondition(packaged.systemOwnerConfigured)
         let legacyRequestsBefore = VerificationRetryFixture.ownerRequests
@@ -640,6 +666,7 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
             precondition(packaged.systemOwnerSelected && packaged.systemOwner == nil)
             precondition(packaged.token.isEmpty && packaged.base == nil)
             precondition(VerificationRetryFixture.ownerRequests == legacyRequestsBefore)
+            precondition(fixtureProfileReads == 1)
         }
         print("PASS: protected package refuses missing registration without starting legacy credential storage")
         owner.fixtureSystemOwnerSelected = true
@@ -961,6 +988,44 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         while owner.busy && Date() < devicePauseDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
         requireDeviceEmail(nativeChannel.deviceEmailRequests.filter { $0 == "owner/device-email/apply" }.count == applyCount, "pause_apply_not_replayed")
         print("PASS: stale native device-email apply is not replayed; navigation/pause clear review and missing mailboxes offer setup or restrictive disconnect")
+
+        func requireLocalUX(_ condition: @autoclosure () -> Bool, _ checkpoint: String) {
+            guard condition() else {
+                fputs("FAIL: native-local-ux-checkpoint " + checkpoint + "\n", stderr)
+                exit(1)
+            }
+        }
+        owner.accounts = [["account": "fixture", "label": "Fixture account", "route": "browser",
+                           "portable_ready": true, "connected": false, "challenges": [["kind": "unknown"]]]]
+        owner.agents = ["claude", "codex"]
+        owner.ready()
+        views = descendants(owner.stack)
+        requireLocalUX(views.compactMap { ($0 as? NSButton)?.title }.contains("Use Claude Code"), "claude_action_label")
+        requireLocalUX(!views.compactMap { ($0 as? NSButton)?.title }.contains("Open Claude Code"), "desktop_action_absent")
+        requireLocalUX(views.compactMap { ($0 as? NSButton)?.title }.contains("Open Codex"), "codex_action_label")
+        let help = views.compactMap { $0 as? NSButton }.first { $0.title == "Review sign-in help" }
+        requireLocalUX(help?.action == #selector(AccountAccess.inspectSavedSignIn), "help_action_present")
+        let verificationRequestsBeforeHelp = nativeChannel.verificationRequestCount
+        owner.inspectSavedSignIn(help!)
+        views = descendants(owner.stack)
+        requireLocalUX(!owner.busy && nativeChannel.verificationRequestCount == verificationRequestsBeforeHelp, "help_no_verification_request")
+        requireLocalUX(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("This version cannot open a website sign-in window for you. Review the saved connection and its verification methods here."), "visible_handoff_unavailable")
+        requireLocalUX(views.compactMap { ($0 as? NSButton)?.title }.contains("Review account connection"), "connection_navigation_present")
+        requireLocalUX(views.compactMap { ($0 as? NSButton)?.title }.contains("Review verification methods"), "verification_navigation_present")
+        let claudeButton = NSButton()
+        claudeButton.identifier = NSUserInterfaceItemIdentifier("claude")
+        owner.openAgent(claudeButton)
+        views = descendants(owner.stack)
+        requireLocalUX(views.compactMap { ($0 as? NSButton)?.title }.contains("Open Terminal"), "terminal_action_label")
+        requireLocalUX(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains { $0.contains("Opening Terminal alone does not start Claude Code.") }, "terminal_launch_honest")
+        requireLocalUX(!owner.busy && nativeChannel.verificationRequestCount == verificationRequestsBeforeHelp, "claude_no_verification_request")
+        owner.openPreferredAgent()
+        views = descendants(owner.stack)
+        requireLocalUX(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("Use Claude Code"), "preferred_agent_help")
+        requireLocalUX(!owner.busy && nativeChannel.verificationRequestCount == verificationRequestsBeforeHelp, "preferred_agent_no_verification_request")
+        print("PASS: Claude Code actions show honest local guidance; unsupported visible sign-in help makes no verification request")
+        requireLocalUX(fixtureProfileReads == 1 && helperLock.withLock { unexpectedHelperCalls == 0 }, "fixture_dependencies_only")
+        print("PASS: UI fixtures use only temporary roots, synthetic owner profiles, fake helpers and intercepted URL requests")
 
 
     }

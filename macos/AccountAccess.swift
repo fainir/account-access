@@ -94,14 +94,19 @@ final class LocalRequests: NSObject, URLSessionTaskDelegate {
 // All connections and permissions go through the existing authenticated owner API.
 final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate {
     let files = FileManager.default
-    let root: URL = {
+    let root: URL
+    private let runtimeOverride: URL?
+    private let installedOwnerProfile: () -> Bool
+    private let loadOwnerProfile: () throws -> DesktopOwnerProfile
+
+    private static func defaultRoot() -> URL {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let canonical = home.appendingPathComponent(".local/share/account-access")
         let legacy = home.appendingPathComponent("Library/Application Support/AccountAccess")
         let fallback = !FileManager.default.fileExists(atPath: canonical.appendingPathComponent("config.json").path) && FileManager.default.fileExists(atPath: legacy.appendingPathComponent("config.json").path) ? legacy : canonical
         return URL(fileURLWithPath: ProcessInfo.processInfo.environment["ACCOUNT_ACCESS_DATA_DIR"] ?? ((try? OwnerApplicationBundle.current())?.object(forInfoDictionaryKey: "AccountAccessDataDirectory") as? String) ?? fallback.path)
-    }()
-    lazy var runtime = URL(fileURLWithPath: ProcessInfo.processInfo.environment["ACCOUNT_ACCESS_INSTALL_DIR"] ?? ((try? OwnerApplicationBundle.current())?.object(forInfoDictionaryKey: "AccountAccessInstallDirectory") as? String) ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/share/account-access/runtime").path)
+    }
+    lazy var runtime = runtimeOverride ?? URL(fileURLWithPath: ProcessInfo.processInfo.environment["ACCOUNT_ACCESS_INSTALL_DIR"] ?? ((try? OwnerApplicationBundle.current())?.object(forInfoDictionaryKey: "AccountAccessInstallDirectory") as? String) ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/share/account-access/runtime").path)
     var window: NSWindow!
     var stack: NSStackView!
     var status: NSTextField!
@@ -182,7 +187,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     let ownerConnectionLock = NSRecursiveLock()
     var systemOwner: DesktopOwnerConnection?
     var systemOwnerSelected = false
-    var requiresSystemInstallation = OwnerApplicationBundle.systemRequired
+    var requiresSystemInstallation: Bool
     var systemOwnerReady = false
     var systemSetupGeneration = 0
     var managedAgents = ManagedAgentSetup()
@@ -192,18 +197,44 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     #if ACCOUNT_ACCESS_UI_CHECKS
     var fixtureSystemOwnerSelected = false
     #endif
+
+    override init() {
+        root = Self.defaultRoot()
+        runtimeOverride = nil
+        requiresSystemInstallation = OwnerApplicationBundle.systemRequired
+        installedOwnerProfile = { DesktopOwnerProfile.isInstalled }
+        loadOwnerProfile = { try DesktopOwnerProfile() }
+        super.init()
+    }
+
+    #if ACCOUNT_ACCESS_UI_CHECKS
+    // Compile-time fixture dependency injection. No production default is
+    // evaluated, even while stored properties are initialized.
+    init(fixtureRoot: URL, session: URLSession, managedAgents: ManagedAgentSetup,
+         ownerProfile: @escaping () throws -> DesktopOwnerProfile) {
+        root = fixtureRoot
+        runtimeOverride = fixtureRoot.appendingPathComponent("runtime")
+        requiresSystemInstallation = false
+        installedOwnerProfile = { false }
+        loadOwnerProfile = ownerProfile
+        super.init()
+        self.session = session
+        self.managedAgents = managedAgents
+    }
+    #endif
+
     var systemOwnerConfigured: Bool {
         #if ACCOUNT_ACCESS_UI_CHECKS
         if fixtureSystemOwnerSelected { return true }
         #endif
-        return requiresSystemInstallation || systemOwnerSelected || DesktopOwnerProfile.isInstalled
+        return requiresSystemInstallation || systemOwnerSelected || installedOwnerProfile()
     }
     func nativeOwner() throws -> DesktopOwnerConnection? {
         guard systemOwnerConfigured else { return nil }
         systemOwnerSelected = true // Never fall back after selecting a protected registration.
         if let systemOwner { return systemOwner }
         do {
-            let connection = try DesktopOwnerConnection(profile: DesktopOwnerProfile())
+            let connection = try DesktopOwnerConnection(profile: loadOwnerProfile())
             systemOwner = connection
             return connection
         } catch { throw Failure.message("The protected installation could not be verified. Check the Account Access installation before connecting an account.") }
@@ -1519,7 +1550,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             let body = card(name, issue ?? explanation,
                             status: ready ? (Self.isExample(saved) ? "Example connected" : "Connected") : "Saved · Sign-in needs attention", good: ready)
             if !ready {
-                let inspect = NSButton(title: "Show sign-in problem", target: self, action: #selector(inspectSavedSignIn))
+                let inspect = NSButton(title: "Review sign-in help", target: self, action: #selector(inspectSavedSignIn))
                 inspect.identifier = NSUserInterfaceItemIdentifier(account)
                 body.addArrangedSubview(inspect)
             }
@@ -1529,17 +1560,15 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
 
     @objc func inspectSavedSignIn(_ sender: NSButton) {
-        guard let account = sender.identifier?.rawValue else { return }
-        busy = true
-        page("Checking your saved sign-in", "The website opens on this Mac. If the sign-in stops, its page stays open for up to five minutes so you can review the problem. Close that browser window when finished. Your permissions stay the same.")
-        progress()
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                let job = try self.request("owner/verify", body: ["account": account, "visible": true])
-                let state = try self.waitForConnection(job, account: account, timeout: 360, visible: true)
-                DispatchQueue.main.async { self.busy = false; self.accept(state); self.ready() }
-            } catch { self.fail(error, retry: #selector(self.showReady)) }
-        }
+        guard !busy, let account = sender.identifier?.rawValue,
+              accounts.contains(where: { $0["account"] as? String == account }) else { return }
+        section = "accounts"
+        page("Sign-in help", "This version cannot open a website sign-in window for you. Review the saved connection and its verification methods here.")
+        card("Your saved connection", "Review account connection shows the existing reconnect and access options. Connect any missing verification method before retrying the supported sign-in check.")
+        let review = primary("Review account connection", #selector(reviewAccount))
+        review.identifier = NSUserInterfaceItemIdentifier(account)
+        action("Review verification methods", #selector(showFactors))
+        action("Back to my accounts", #selector(showReady))
     }
 
     @objc func showBrowserSession(_ sender: NSButton) {
@@ -3060,7 +3089,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             let fix = NSButton(title: "Finish automatic setup", target: self, action: #selector(installAgents))
             setup.addArrangedSubview(fix)
         }
-        if !detected.isEmpty { primary("Open " + preferredAgent, #selector(openClaude)) }
+        if !detected.isEmpty { primary(agents.contains("claude") ? "Use Claude Code" : "Open Codex", #selector(openPreferredAgent)) }
         label(String(connected.count) + " ready · " + String(serviceAccounts.count) + " service connections", 14, .secondaryLabelColor)
         if !examples.isEmpty {
             label(String(examples.filter(Self.isReady).count) + " ready · " + String(examples.count) + " example connections", 14, .secondaryLabelColor)
@@ -3122,7 +3151,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 repair.identifier = NSUserInterfaceItemIdentifier(account["account"] as? String ?? "")
                 body.addArrangedSubview(repair)
                 if allowed && pending {
-                    let inspect = NSButton(title: "Show sign-in problem", target: self, action: #selector(inspectSavedSignIn))
+                    let inspect = NSButton(title: "Review sign-in help", target: self, action: #selector(inspectSavedSignIn))
                     inspect.identifier = NSUserInterfaceItemIdentifier(account["account"] as? String ?? "")
                     body.addArrangedSubview(inspect)
                 }
@@ -3133,7 +3162,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         let copy = NSButton(title: "Copy example", target: self, action: #selector(copyRequest))
         row.addArrangedSubview(copy)
         for agent in detected {
-            let open = NSButton(title: "Open " + (agent == "claude" ? "Claude Code" : "Codex"), target: self, action: #selector(openAgent))
+            let open = NSButton(title: agent == "claude" ? "Use Claude Code" : "Open Codex", target: self, action: #selector(openAgent))
             open.identifier = NSUserInterfaceItemIdentifier(agent)
             row.addArrangedSubview(open)
         }
@@ -3185,10 +3214,35 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
 
     @objc func openAgent(_ sender: NSButton) {
-        let identifier = sender.identifier?.rawValue == "claude" ? "com.anthropic.claudefordesktop" : "com.openai.codex"
-        if let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: identifier) {
-            NSWorkspace.shared.openApplication(at: app, configuration: NSWorkspace.OpenConfiguration())
+        guard let agent = sender.identifier?.rawValue, ["claude", "codex"].contains(agent) else { return }
+        useAgent(agent)
+    }
+
+    func useAgent(_ agent: String) {
+        if agent == "claude" {
+            page("Use Claude Code", "Open your usual Claude Code terminal or editor and start a new session. Once automatic setup is complete, the installed Account Access skill is available in new sessions.")
+            card("Ask normally", "Describe your task in Claude Code. No Account Access command or slash command is needed. Your approved accounts and reads determine what it can do.")
+            card("Already have a session open?", "Start a new session after setup so Claude Code loads the installed guidance. Opening Terminal alone does not start Claude Code.")
+            action("Open Terminal", #selector(openTerminal))
+            action("Back to my accounts", #selector(showReady))
+            return
         }
+        guard agent == "codex" else { return }
+        guard let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.openai.codex") else {
+            page("Open Codex", "Open your existing Codex installation, or install it before using this connection.")
+            action("Back to my accounts", #selector(showReady))
+            return
+        }
+        NSWorkspace.shared.openApplication(at: app, configuration: NSWorkspace.OpenConfiguration())
+    }
+
+    @objc func openTerminal() {
+        guard let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal") else {
+            page("Open your terminal", "Open your usual terminal or editor to use your existing Claude Code installation.")
+            action("Back to my accounts", #selector(showReady))
+            return
+        }
+        NSWorkspace.shared.openApplication(at: app, configuration: NSWorkspace.OpenConfiguration())
     }
 
     @objc func copyRequest() {
@@ -3196,16 +3250,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         NSPasteboard.general.setString(requestText, forType: .string)
     }
 
-    @objc func openClaude() {
-        let identifier = agents.contains("claude") ? "com.anthropic.claudefordesktop" : "com.openai.codex"
-        guard let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: identifier) else {
-            let alert = NSAlert()
-            alert.messageText = "Install " + preferredAgent + " first"
-            alert.informativeText = "Account Access works with your existing AI tool installation."
-            alert.runModal()
-            return
-        }
-        NSWorkspace.shared.openApplication(at: app, configuration: NSWorkspace.OpenConfiguration())
+    @objc func openPreferredAgent() {
+        if agents.contains("claude") { useAgent("claude") }
+        else if agents.contains("codex") { useAgent("codex") }
     }
 
     func fail(_ error: Error, retry: Selector) {

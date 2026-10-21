@@ -34,8 +34,33 @@ That checkpoint covers several final consistency/publication operations; it
 does not identify the failed predicate or prove whether a supplementary receipt
 was created. No private installation log or journal was read to interpret it.
 The component installation was not attempted, and protected owner enrollment
-and personal sign-in acceptance remain incomplete. A narrower diagnosis is
-required before another installation attempt.
+and personal sign-in acceptance remain incomplete.
+
+A separate signed read-only diagnostic subsequently published `REFUSED` at
+`first_service_job`, with `namespace_state: absent`. This is the first repeated
+service check after the initial one succeeded. It can fail on the fixed command,
+the individual live-process attestation, or a changed process identity. Ordinary
+public service observations showed running-to-stopped transitions. These results
+identify a concrete lifecycle-stability overconstraint for correction, but do
+not establish which branch failed. The diagnostic Installer transaction's
+completion was not independently verified; the newly published result was
+inspected without claiming transaction completion. No private log or journal
+was read. [Diagnostic and observation record](../artifacts/installation-root-revalidation-diagnostic-93fc906-20261021.json).
+
+The development correction independently attests each current service
+observation, allowing authentic restarts between observations without retaining
+process authority. All installation and image checks remain, and the component
+transaction's separate process-ownership rules are unchanged. Its ordinary
+optimized native fixture passed **257 assertions**, including 21 new lifecycle
+and refusal checks; **183 focused Python checks** also passed. Exact-source CI
+and actual Installer qualification of this correction are still pending.
+
+The owner-app source also corrects its Claude Code action and unsupported
+visible-sign-in help. Its optimized UI fixture passed **49 checks** using
+temporary files and injected channels, profiles and helpers. Those UI changes
+are not delivered by the startup component, which retains the frozen build 76
+GUI; a full owner-image update still needs separate qualification.
+
 The package containers remain unsigned and unnotarized. These clean-Mac tests
 do not validate personal email/SMS/authenticator sources or consumer distribution.
 [Exact source, package and actual Installer evidence](../artifacts/installation-root-revalidation-93fc906-20261020.json).

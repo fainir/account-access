@@ -72,6 +72,10 @@ CORE_CHECKS = frozenset({
     "partial_swap_recovery_finishes_coherent_group", "post_swap_failure_rolls_back", "concurrent_replacement_preserved_disabled",
     "fixed_job_parser_accepts_only_closed_states", "foreign_or_malformed_job_print_rejected",
     "saved_process_identity_bound_to_birth_and_boot", "process_group_error_not_empty",
+    "root_revalidation_attests_each_current_lifecycle_independently",
+    "root_revalidation_command_failure_never_reuses_prior_authority",
+    "root_revalidation_malformed_or_forged_observation_refused",
+    "root_revalidation_live_attestation_failure_propagates",
     "disabled_override_requires_closed_output",
     "interrupted_preparation_retained_next_publishes",
     "unknown_preparation_child_refused",
@@ -246,7 +250,7 @@ def validate_native_report(files, *, source, sources, run_id, run_attempt=1):
     core, policy = report.get("core_fixture_json", {}), report.get("policy_fixture_json", {})
     if (set(core) != {"schema", "status", "checks", "ordinary_fixture_assertions", "installed_reads", "service_actions"}
             or type(core.get("schema")) is not int or core["schema"] != 1 or core.get("status") != "PASSED"
-            or type(core.get("ordinary_fixture_assertions")) is not int or core["ordinary_fixture_assertions"] != 236
+            or type(core.get("ordinary_fixture_assertions")) is not int or core["ordinary_fixture_assertions"] != 257
             or not _true_checks(core.get("checks"), CORE_CHECKS)
             or set(policy) != {"schema", "status", "checks", "count", "installed_reads", "service_actions"}
             or type(policy.get("schema")) is not int or policy["schema"] != 1 or policy.get("status") != "PASSED"

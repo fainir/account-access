@@ -352,6 +352,20 @@ enum ComponentViews {
     }
 }
 
+// Revalidation only observes the currently authentic fixed job. It never
+// acquires authority over a PID or process group, so it keeps no historical
+// snapshot. A live observation must still pass every existing identity check.
+struct ComponentRevalidationServiceObserver {
+    let observe: () throws -> ComponentCommands.Result
+    let attest: (Data) throws -> ComponentJobIdentity?
+
+    func verify() throws {
+        let current = try observe()
+        guard current.status == 0 else { throw ComponentUpdateFailure.base }
+        _ = try attest(current.output)
+    }
+}
+
 enum ComponentCommands {
     struct Result { let status: Int32; let output: Data }
     // This parent owns and reaps its exact child. A PID cannot be reused before
@@ -1125,9 +1139,12 @@ enum ComponentController {
             try ComponentUpdateIdentity.verifyStatic(path: path, peer: peer, designated: nil)
         }
         checkpoint("service")
-        let job = try ComponentCommands.launchctl(["print", "system/" + label])
-        guard job.status == 0 else { throw ComponentUpdateFailure.base }
-        let snapshot = try ComponentUpdateIdentity.jobSnapshot(output: job.output, allowedPeers: [activePeers["broker"]!])
+        let service = ComponentRevalidationServiceObserver(observe: {
+            try ComponentCommands.launchctl(["print", "system/" + label])
+        }, attest: {
+            try ComponentUpdateIdentity.jobSnapshot(output: $0, allowedPeers: [activePeers["broker"]!])
+        })
+        try service.verify()
         let hashes = ["install": install.1.sha256, "host": host.1.sha256, "owner": profile.1.sha256,
                       "worker": worker.1.sha256, "service": plist.sha256]
         let verifyCurrent = {
@@ -1142,11 +1159,7 @@ enum ComponentController {
                   try jobPlist(ownerGroup: ownerGroup) == plist else { throw ComponentUpdateFailure.base }
             try identity(ownerUID, policy.brokerUID)
             _ = try InstallerPayloadIO.installedImage(activeManifest, opaquePrivateBranches: true)
-            let now = try ComponentCommands.launchctl(["print", "system/" + label])
-            guard now.status == 0,
-                  try ComponentUpdateIdentity.jobSnapshot(output: now.output, allowedPeers: [activePeers["broker"]!]) == snapshot else {
-                throw ComponentUpdateFailure.base
-            }
+            try service.verify()
         }
         checkpoint("publish")
         try verifyCurrent()

@@ -10,6 +10,16 @@ update was not attempted. Personal repair, account sign-in and production
 readiness remain unverified.
 [Qualification record](../artifacts/installation-root-revalidation-93fc906-20261020.json).
 
+A later signed read-only diagnostic published a refusal at `first_service_job`
+and observed that the supplementary binding directory was absent. The initial
+service check had passed; the repeated check still combines command success,
+individual process attestation and identity equality. Separate public metadata
+observations showed the service changing from running to stopped. This supports
+correcting the cross-observation lifecycle requirement, while leaving the exact
+failed predicate unconfirmed. Publication of this diagnostic result does not
+attest completion of its Installer transaction.
+[Read-only diagnostic record](../artifacts/installation-root-revalidation-diagnostic-93fc906-20261021.json).
+
 An installation receipt must keep identifying the installed software after a
 restart. The original protected Mac installer recorded each installation root's
 device number and inode. A device number is a mount-time identifier; it is not
@@ -40,9 +50,17 @@ the supplemental receipt, it checks:
   and bootstrap signatures. Private account directories remain opaque.
 - The typed protected policies, reserved operating-system service identity,
   fixed system job and matching service process identity.
-- The same receipts, roots, public image, policies and service state again
+- The same receipts, roots, public image and policies again, and a fresh
+  independent attestation of the current fixed service job,
   immediately before and after publication, while installation leases remain
   held and the owner app is closed.
+
+The development correction permits an authentic service to stop or restart
+between complete observations. Every running observation still requires the
+exact approved broker signature and its individual process-identity checks.
+Revalidation does not store, adopt or signal a process identity. The component
+updater's separate process-ownership and quiescence rules remain unchanged.
+This correction still needs its own exact-source and Installer qualification.
 
 The native code queries volume metadata from pinned directory descriptors. It
 does not follow the application alias to discover its volume or read account
