@@ -24,8 +24,9 @@ affected Mac. Owner setup, the shared AI connection and one approved personal
 password import then completed. Codex and an ordinary Claude Code request both
 discovered that account and reported its existing sign-in challenge. Its
 Namecheap device-verification page is outside the reviewed connector; a
-successful private login has **not** been established. Gmail enrollment and
-physical SMS/authenticator acceptance remain pending. The newer GUI and runtime
+successful private login has **not** been established. Gmail enrollment and its
+mailbox check passed; actual website email-code delivery and physical
+SMS/authenticator acceptance remain pending. The newer GUI and runtime
 also need a qualified complete-image upgrade before they can replace the
 installed build 76. [Owner-Mac observations](artifacts/owner-startup-and-import-213509c-20261021.json)
 and [current acceptance status](docs/production-gates.md).

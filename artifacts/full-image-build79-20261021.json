@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "build": 79,
+  "source_commit": "5ba276b1369edf29eab59d3670b122975b350cca",
+  "target_manifest_sha256": "65f51d99c0f77394a6c9a26862ff0e104f21a8bb867714465fdff154af4c06ef",
+  "base_manifest_sha256": "9f0d1274928702dd4d5064b4d3bc8ac7df3bf81c3f70be2f9ccad410785d810c",
+  "changed_nodes": 402,
+  "tree_units": 13,
+  "file_units": 12,
+  "counts": {
+    "aliases": 21,
+    "directories": 2297,
+    "files": 25164
+  },
+  "source_base_unchanged": true,
+  "native_changed": [
+    "owner.app/Contents/MacOS/AccountAccess",
+    "owner.app/Contents/MacOS/AccountAccessBackground"
+  ],
+  "native_unchanged": 39,
+  "plan_sha256": "8eb5193656b08e105476e0524890e206db2c23d62bc805ed62d1c94623fc06fa",
+  "planner_source_sha256": "119583f10ea7c2a3504c18ddd556918fca0e6d78cd9ae0346ba623c3d80ba8c7",
+  "python_planner_checks": 127,
+  "native_plan_checks": 11,
+  "plan_downgrade_without_ca_receipt_refused": true,
+  "independent_gui_proof_sha256": "f49819e315c971e7a6000787417ba2dd063f2df076190d452be45d1358b7014c",
+  "proof_sha256": {
+    "assembly": "2eb919d3717680f03b0d39022ae5ddb3a20aced5a5dddb1ae9139beb95039665",
+    "image_checkpoint": "8bbc350e2d0be93c8a91502ecdcfef7d4db28d9f8200738c11176407636b6c57",
+    "plan": "e4cb1df7718d1d8ec4c84fcfc3a655900aa986c0aef1df68ec86274bea50ad11",
+    "native": "eea8d345adb3057cd781837bcd27348df93f6f9ed65d779975bc4146b84e4f83",
+    "python": "4a712bcc105d4272594baf21a1f713668ed7cb86d16b682abf84e7b124733b93"
+  },
+  "installed_adapter_qualification": "separate and unfinished",
+  "installed_or_private_actions": false,
+  "production_ready": false
+}

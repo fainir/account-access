@@ -35,7 +35,7 @@ FILES = frozenset((PROJECT_WHEEL, "package-identity.json", "runtime-image.json",
 CA_FILES = FILES | {"runtime-ca-refresh.json",
                     *(prefix + "/bin/" + name for prefix in ("python", "runtime") for name in ("pip", "pip3", "pip3.12"))}
 CA_BASE_MANIFEST = "9f0d1274928702dd4d5064b4d3bc8ac7df3bf81c3f70be2f9ccad410785d810c"
-CA_TARGET_MANIFEST = "ecb39f380b9666babab4384a24c6fcddce6c13274e7d9b25d75013a2464dd3d5"
+CA_TARGET_MANIFEST = "65f51d99c0f77394a6c9a26862ff0e104f21a8bb867714465fdff154af4c06ef"
 PRIVATE = frozenset(("broker", "home", "vault", "run", "control", "owner.json", "install-verification.json"))
 UNCHANGED_FORMAT = ("storage.py", "models.py", "worker_enroll.py", "agent_setup.py")
 MAX_PLAN_BYTES = 2 * MAX_MANIFEST_BYTES + 256 * 1024

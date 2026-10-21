@@ -22,10 +22,34 @@ the account and stopped at its existing `browser_state_unrecognized` challenge.
 This establishes agent discovery and challenge handling, **not a successful
 personal login**. The observed device-verification redirect remains outside the
 reviewed Namecheap flow. No further retry is justified by the passing fixture
-tests. Gmail credential enrollment, real SMS delivery and owner authenticator
-enrollment remain incomplete.
+tests. The owner subsequently enrolled Gmail locally, and the installed native
+app independently displayed **Mailbox connection checked**. No credential or
+message was read for that observation. Actual website email-code delivery,
+real SMS delivery and owner authenticator enrollment remain incomplete.
 
-[Sanitized owner-Mac observations](../artifacts/owner-startup-and-import-213509c-20261021.json).
+[Sanitized owner-Mac observations](../artifacts/owner-startup-and-import-213509c-20261021.json)
+and [Gmail connection observation](../artifacts/gmail-owner-check-20261021.json).
+
+The authentication improvements at `cba1dfc` passed all nine first-attempt
+workflows and all 15 required jobs. They add checked Gmail-source reuse and
+bounded Android delivery retries. A subsequent display-only status snapshot
+fix passed 56 focused checks. The complete-image upgrade core passed 127 Python
+planner checks, 217 native storage assertions, 11 actual-image plan checks,
+24 mixed-transition checks and 134 durable-journal assertions. These checks
+use controlled public data; the fixed installed adapter and actual upgrade
+acceptance are unfinished. Build 79, from the authentication and status source
+at `5ba276b`, compiled and signed for Apple Silicon and Intel. Independent
+source, wheel, signature and compiled-slice verification passed. The complete
+target image and its 402-node update plan also passed actual data verification
+and Python/native agreement checks. Installed adapter qualification is separate,
+and the installed app remains build 76.
+
+[Authentication CI](../artifacts/ci-authentication-cba1dfc-20261021.json),
+[status snapshot checks](../artifacts/owner-status-snapshot-20261021.json), and
+[complete-image core checks](../artifacts/full-image-transition-core-20261021.json),
+and [build 79 review](../artifacts/build79-review-20261021.json). The
+[complete build 79 image record](../artifacts/full-image-build79-20261021.json)
+preserves its assembly and plan checks without claiming installation.
 
 All nine first-attempt source workflows passed for `f073afb`, including the
 actual hosted-Mac Installer and separate-user checks. That source result does
@@ -540,7 +564,7 @@ presented as results for a later candidate.
 | Upgrade and repair | Recognized-preview agent connection upgrade observed; atomic launcher replacement and rollback; same-image/same-owner package recovery; successful startup component | Complete-image protected-package upgrade and interrupted upgrade acceptance; vault migration |
 | Password import | Reviewed Chrome, Apple Passwords, compatible 1Password and Bitwarden CSV; unencrypted Bitwarden JSON; one approved personal Chrome credential imported through protected owner setup | Successful private-website sign-in from the imported credential and representative export coverage |
 | Password synchronization | Approved 1Password items through service-account SDK or Connect; separately consented Bitwarden CLI source with exact-item checks, bounded updates and restrictive disconnect | Private enrollment, rotation and revocation QA. **Chrome live sync is unimplemented**; file imports remain snapshots |
-| Gmail and other email | Renewable Gmail authorization, checked reusable mailbox selection, and TLS IMAP; freshness, sender, template and authorization checks | Publisher-configured Google application, real owner consent/mailbox setup and actual website code delivery. Arbitrary webmail is unsupported |
+| Gmail and other email | Renewable Gmail authorization, checked reusable mailbox selection, and TLS IMAP; one real Gmail app-password mailbox check passed; freshness, sender, template and authorization checks | Actual website code delivery and login. Consumer OAuth also needs a publisher-configured Google application and real consent/renewal QA. Arbitrary webmail is unsupported |
 | iPhone SMS | Signed narrow Mac Messages reader and composed password/SMS/session fixtures | Genuine Full Disk Access, forwarded physical SMS and completed private login |
 | Android SMS | Paired pinned HTTPS delivery and notification-listener emulator fixtures | Physical pairing, carrier/notification delivery, reconnect and private login QA |
 | Google Messages Web | Reviewed browser/desktop preparation, refresh/revocation UI checks, unchanged extension scripts in a synthetic Messages document, stable Chrome/native transport and controlled SMS-login composition | Genuine positive owner approval and complete private/physical SMS login; broader language coverage and extension distribution |
@@ -580,8 +604,9 @@ supported sign-ins should then use the enrolled access.
 
 Private GitHub testing was stopped at the owner's request. Namecheap's blocked
 private attempt is quarantined. Neither should be retried merely to increase
-test counts. Gmail setup and real authenticator enrollment remain incomplete;
-fictional substitutes cannot close those gates.
+test counts. Gmail's mailbox check passed, while real website email-code
+delivery and authenticator enrollment remain incomplete; fictional substitutes
+cannot close those gates.
 
 Keep passwords, exports, cookies, QR images, message contents and raw agent
 traces out of public evidence. Publish sanitized failure classes and coverage,
