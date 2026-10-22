@@ -94,18 +94,26 @@ def main():
                     worker.join(timeout=100)
                     assert not worker.is_alive(), "Android instrumentation did not stop"
                 diagnostics = [[line for line in output.splitlines() if "INSTRUMENTATION_RESULT: result=" in line] for output in results]
-                assert completed["status"] == "COMPLETED", {"result": completed, "instrumentation": diagnostics}
+                if android_api >= 35:
+                    assert completed["status"] == "NEEDS_USER" and completed["reason"] == "login_code_not_received", {"result": completed, "instrumentation": diagnostics}
+                    assert results and "PASS_BLOCKED:" in results[0], results
+                else:
+                    assert completed["status"] == "COMPLETED", {"result": completed, "instrumentation": diagnostics}
+                    assert results and "PASS:" in results[0], results
                 assert provider.sms_count == 1
-                assert results and "PASS:" in results[0], results
                 assert DEMO_PASSWORD not in json.dumps(completed)
-                report = {"status": "COMPLETED", "browser_sms_verifications": provider.sms_count,
+                report = {"status": "BLOCKED_AS_EXPECTED" if android_api >= 35 else "COMPLETED",
+                          "browser_sms_verifications": 0 if android_api >= 35 else provider.sms_count,
                           "android_api": str(android_api),
-                          "computer_association_system_consent_checked": android_api >= 35,
-                          "computer_association_cancel_revoke_replace_disconnect_checked": android_api >= 35,
-                          "checks": ["Keystore encrypted pairing", "Private destination restriction",
-                                     "Actual Android notification listener", "Certificate-pinned HTTPS ingress",
-                                     "Browser code submission", "No code in agent result"],
-                          "limits": "Synthetic login notification on an emulator; no physical phone or carrier delivery validated."}
+                          "notification_forwarding_without_association_refused": android_api >= 35,
+                          "positive_bluetooth_computer_association_qualified": False,
+                          "physical_phone_delivery_qualified": False,
+                          "checks": (["Keystore encrypted pairing", "Legacy QR requests new discovery", "Invalid discovery UUID rejected",
+                                      "QR alone cannot grant permission", "Actual Android notification refused without association"]
+                                     if android_api >= 35 else
+                                     ["Keystore encrypted pairing", "Private destination restriction", "Actual Android notification listener",
+                                      "Certificate-pinned HTTPS ingress", "Browser code submission", "No code in agent result"]),
+                          "limits": "Synthetic emulator checks only. Android 15 positive Bluetooth pairing and all physical-phone delivery remain unqualified."}
                 Path("artifacts/android-journey.json").write_text(json.dumps(report, indent=2) + "\n")
                 print(json.dumps(report))
             finally:

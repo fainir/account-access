@@ -5,8 +5,64 @@ import CoreFoundation
 import Security
 import UniformTypeIdentifiers
 import CoreImage
+import CoreBluetooth
 import ServiceManagement
 import Darwin
+
+// Advertise only a fresh public discovery UUID while the owner displays this QR.
+// Login messages still use the QR's certificate-pinned HTTPS endpoint.
+final class PhonePairingAdvertiser: NSObject, CBPeripheralManagerDelegate {
+    let service: UUID
+    let update: (String) -> Void
+    private var manager: CBPeripheralManager!
+    private var expiry: Timer?
+    private var stopped = false
+
+    init(service: UUID, update: @escaping (String) -> Void) {
+        self.service = service
+        self.update = update
+        super.init()
+        manager = CBPeripheralManager(delegate: self, queue: .main)
+        expiry = Timer.scheduledTimer(withTimeInterval: 300, repeats: false) { [weak self] _ in
+            guard let self else { return }
+            self.stop()
+            self.update("Bluetooth discovery expired. Go back and create a new pairing QR.")
+        }
+    }
+
+    func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
+        guard !stopped else { return }
+        switch peripheral.state {
+        case .poweredOn:
+            peripheral.startAdvertising([CBAdvertisementDataServiceUUIDsKey: [CBUUID(nsuuid: service)]])
+            update("Preparing Bluetooth discovery for your phone…")
+        case .poweredOff:
+            update("Turn on Bluetooth on this Mac and your phone to connect Android 15 or newer.")
+        case .unauthorized:
+            update("Allow Account Access Bluetooth access in System Settings to connect Android 15 or newer.")
+        case .unsupported:
+            update("This Mac cannot advertise Bluetooth devices. Android 15 or newer cannot complete this pairing.")
+        default:
+            update("Waiting for Bluetooth. Keep this pairing screen open.")
+        }
+    }
+
+    func peripheralManagerDidStartAdvertising(_ peripheral: CBPeripheralManager, error: Error?) {
+        guard !stopped else { return }
+        update(error == nil
+            ? "Computer discoverable. On your phone, choose Connect computer with Android and confirm the matching device."
+            : "Bluetooth discovery could not start. Go back and try pairing again.")
+    }
+
+    func stop() {
+        stopped = true
+        expiry?.invalidate()
+        expiry = nil
+        manager?.stopAdvertising()
+    }
+
+    deinit { expiry?.invalidate(); manager?.stopAdvertising() }
+}
 
 // The public /Applications entry is a convenience alias in a shared directory.
 // Bind system resources once to the protected bundle, independently of how
@@ -184,6 +240,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     var importAuthenticators: NSButton!
     var factorMenu: NSPopUpButton!
     var factorFields: [String: NSTextField] = [:]
+    var phonePairingAdvertiser: PhonePairingAdvertiser?
+    private var phonePairingPayload: String?
     var base: URL!
     var token = ""
     let ownerConnectionLock = NSRecursiveLock()
@@ -328,6 +386,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
 
     func page(_ title: String, _ subtitle: String, preservingDeviceEmailReview: Bool = false) {
+        phonePairingAdvertiser?.stop()
+        phonePairingAdvertiser = nil
+        phonePairingPayload = nil
         ownerSetupContext.invalidate()
         systemApprovalProgress = nil
         if !preservingDeviceEmailReview { clearDeviceEmailReview() }
@@ -3162,11 +3223,19 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         busy = true
         DispatchQueue.global(qos: .userInitiated).async {
             do {
-                let result = try self.request("owner/phone/pair", body: ["source": id])
+                var result = try self.request("owner/phone/pair", body: ["source": id])
+                let discovery = UUID()
+                result["bluetooth_service_uuid"] = discovery.uuidString.lowercased()
                 let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
                 DispatchQueue.main.async {
                     self.busy = false
-                    self.page("Pair your Android phone", "Scan this pairing QR with the Account Access companion. Keep both devices on the same private Wi-Fi.")
+                    self.page("Pair your Android phone", "Scan this QR with the Account Access companion. Keep both devices on the same private Wi-Fi. Android 15 or newer also needs Bluetooth discovery and Android's device confirmation; keep this screen open while connecting.")
+                    self.phonePairingPayload = String(data: data, encoding: .utf8)
+                    let discoveryStatus = self.makeLabel("Preparing Bluetooth discovery…", 14, .secondaryLabelColor)
+                    self.stack.addArrangedSubview(discoveryStatus)
+                    self.phonePairingAdvertiser = PhonePairingAdvertiser(service: discovery) { [weak discoveryStatus] message in
+                        discoveryStatus?.stringValue = message
+                    }
                     if let filter = CIFilter(name: "CIQRCodeGenerator") {
                         filter.setValue(data, forKey: "inputMessage")
                         if let output = filter.outputImage {
@@ -3183,7 +3252,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                     let paste = NSButton(title: "Copy pairing for the companion", target: nil, action: nil)
                     paste.target = self
                     paste.action = #selector(self.copyPhonePairing)
-                    paste.identifier = NSUserInterfaceItemIdentifier(String(data: data, encoding: .utf8) ?? "")
+                    paste.identifier = NSUserInterfaceItemIdentifier("copy-phone-pairing")
                     self.stack.addArrangedSubview(paste)
                     self.action("Back", #selector(self.backToConnections))
                 }
@@ -3192,8 +3261,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
 
     @objc func copyPhonePairing(_ sender: NSButton) {
+        guard let pairing = phonePairingPayload else { return }
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(sender.identifier?.rawValue ?? "", forType: .string)
+        NSPasteboard.general.setString(pairing, forType: .string)
     }
 
     func ready() {

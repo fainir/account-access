@@ -95,10 +95,38 @@ The first build refused a changed device number in the staged inventory; a full
 public-content check found only that metadata change. The second stopped at its
 disk reserve. Both attempts are retained, and the successful third attempt keeps
 the same guards. This device-number change is a lead, not a confirmed explanation
-of the owner's failure. Package 82 still needs actual Installer qualification and
-does not repair the protected store. Its source CI passed 3,777 tests with 107
+of the owner's failure. Package 82 passed all three actual hosted Installer
+scenarios in run `39852501340`: normal installation/reapplication and interruption
+before both optional creation and removal. Each exact downloaded report passed
+all 18 checks; package, controller and recorded-log hashes match. This does not
+repair or qualify the owner's protected store. The owner's public predecessor
+still matches all 25,283 files, 2,305 directories and 21 aliases. A first local
+checker wrongly expected a mode field in alias records; its failed observation
+is retained and the corrected complete check passed. Package 82 is open in
+native Installer pending the owner's system authentication.
+[Installer acceptance](../artifacts/full-image-installer82-acceptance-20261022.json)
+and [owner preflight](../artifacts/owner-mac-update82-preflight-20261022.json).
+Its source CI passed 3,777 tests with 107
 skipped, plus native UI and gateway checks; the new installer-controller selector
 passed 98 focused checks. [Candidate evidence](../artifacts/full-image82-diagnostic-package-20261022.json).
+
+The exact Android 11-tested APK at `0823275` was downloaded and independently
+checked for archive/APK hashes, v2/v3 signatures, package metadata and manifest
+permissions. It remains a development preview with no physical-phone acceptance.
+The requested phone runs Android 15 or newer, where Android may redact OTPs from
+ordinary notification listeners. The first implementation at `e098c6f` attempted
+a self-managed association. Android 15 rejected it before consent because that
+permission is reserved for privileged apps. The failed run and diagnostic
+follow-up are retained. The replacement uses ordinary Bluetooth LE discovery,
+with a short-lived public UUID added by the Mac's pairing screen. It requests
+no privileged self-managed, computer or watch permission. Pairing payloads are
+also removed from the copy button's accessibility identifier. New tests separate
+successful Android 11 delivery from Android 15 refusal without an association;
+the latter is not a positive pairing result. Bluetooth permission/discovery,
+actual system consent and physical phone delivery remain release gates.
+[Tested old APK](../artifacts/android-phone-preview-0823275.json),
+[first Android 15 result](../artifacts/android-computer-association-first-run-e098c6f.json),
+and [Android's OTP restriction](https://developer.android.com/about/versions/15/behavior-changes-all#otp-redaction).
 
 Public-page research and the personal acceptance requirements for Harel/Phoenix
 are recorded in [insurer login acceptance](insurer-login-acceptance.md).

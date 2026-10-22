@@ -1,0 +1,22 @@
+{
+  "android_11_expected_coverage": "Actual synthetic notification to browser login.",
+  "android_15_expected_coverage": "Actual notification must stop without a confirmed computer association. This is not positive Bluetooth pairing.",
+  "android_app_and_instrumentation_compiled": true,
+  "android_permissions": [
+    "android.permission.INTERNET",
+    "android.permission.CAMERA"
+  ],
+  "android_privileged_permissions_requested": false,
+  "association": "Ordinary Bluetooth LE discovery filtered by the UUID in the Mac pairing QR, no device profile or self-managed role.",
+  "included_in_frozen_package82": false,
+  "mac_discovery": "Fresh public UUID; stops after five minutes or on leaving the pairing page. QR secrets are not placed in accessibility identifiers.",
+  "native_first_compile": "Failed because an input changed during compilation; retained in dist/qa-android-ble-source/first-compile-failure.json. Fresh frozen-copy check pending.",
+  "native_source_pins_sha256": "a5e40f37b95759535e31ee0a165f0bb1f0679d5ae8ad3522e300ec333aac8f80",
+  "physical_bluetooth_pairing_qualified": false,
+  "physical_phone_delivery_qualified": false,
+  "previous_failure_evidence": "artifacts/android-computer-association-first-run-e098c6f.json",
+  "production_ready": false,
+  "schema": 1,
+  "status": "SOURCE_CANDIDATE_PENDING_NATIVE_AND_CI_CHECKS",
+  "transport": "Unchanged certificate-pinned private-Wi-Fi HTTPS with existing source/template/freshness checks."
+}

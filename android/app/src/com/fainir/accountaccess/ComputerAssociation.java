@@ -4,10 +4,13 @@ import android.app.Activity;
 import android.companion.AssociationInfo;
 import android.companion.AssociationRequest;
 import android.companion.CompanionDeviceManager;
+import android.companion.BluetoothLeDeviceFilter;
+import android.bluetooth.le.ScanFilter;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.IntentSender;
 import android.os.Build;
+import android.os.ParcelUuid;
 import android.service.notification.NotificationListenerService;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -24,7 +27,7 @@ final class ComputerAssociation {
  // A binding to every scoped pairing field, never a saved token or phone number.
  static String binding(JSONObject pair) throws Exception {
   JSONArray fields = new JSONArray();
-  for (String key : new String[]{"url", "certificate_sha256", "source", "token", "sender", "recipient", "template"}) {
+  for (String key : new String[]{"url", "certificate_sha256", "source", "token", "sender", "recipient", "template", "bluetooth_service_uuid"}) {
    fields.put(pair.getString(key));
   }
   return LoginNotifications.hex(MessageDigest.getInstance("SHA-256").digest(fields.toString().getBytes("UTF-8")));
@@ -40,7 +43,7 @@ final class ComputerAssociation {
    CompanionDeviceManager manager = context.getSystemService(CompanionDeviceManager.class);
    if (manager == null) return false;
    for (AssociationInfo info : manager.getMyAssociations()) {
-    if (info.getId() == id && info.isSelfManaged() && info.getDeviceProfile() == null) return true;
+    if (info.getId() == id && !info.isSelfManaged() && info.getDeviceProfile() == null) return true;
    }
   } catch (Exception ignored) { }
   return false;
@@ -64,15 +67,22 @@ final class ComputerAssociation {
   try {
    JSONObject pair = Pairing.load(activity);
    if (pair == null) { update.show("Scan your computer's pairing QR first."); return; }
+   if (!pair.has("bluetooth_service_uuid")) {
+    update.show("Create a new pairing QR in an updated Account Access Mac app. Android needs Bluetooth discovery for this computer.");
+    return;
+   }
    if (ready(activity)) { update.show("Computer already connected with Android."); return; }
    final String expected = binding(pair);
    clear(activity);
    final long requestedGeneration = generation;
    CompanionDeviceManager manager = activity.getSystemService(CompanionDeviceManager.class);
-   // No watch/computer role or privileged profile. Android must show its consent UI.
+   // Ordinary BLE discovery needs no privileged self-managed/computer/watch role.
+   // The single scanned service is a fresh UUID from this Mac's pairing QR.
+   BluetoothLeDeviceFilter device = new BluetoothLeDeviceFilter.Builder()
+     .setScanFilter(new ScanFilter.Builder().setServiceUuid(
+       ParcelUuid.fromString(pair.getString("bluetooth_service_uuid"))).build()).build();
    AssociationRequest request = new AssociationRequest.Builder()
-     .setSelfManaged(true).setDisplayName("Account Access computer")
-     .setForceConfirmation(true).build();
+     .addDeviceFilter(device).setSingleDevice(true).build();
    manager.associate(request, activity.getMainExecutor(), new CompanionDeviceManager.Callback() {
     @Override public void onAssociationPending(IntentSender consent) {
      try {
@@ -87,7 +97,7 @@ final class ComputerAssociation {
       JSONObject current = Pairing.load(activity);
       if (activity.isDestroyed() || requestedGeneration != generation
           || current == null || !expected.equals(binding(current))
-          || !info.isSelfManaged() || info.getDeviceProfile() != null) {
+          || info.isSelfManaged() || info.getDeviceProfile() != null) {
        manager.disassociate(info.getId());
        update.show("Pairing changed. Connect the current computer again.");
        return;

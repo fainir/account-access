@@ -24,7 +24,7 @@ public final class MainActivity extends Activity {
   EditText paste=new EditText(this);paste.setHint("Or paste pairing from your computer");paste.setInputType(129);view.addView(paste);
   add(view,"Use pasted pairing",()->{try{Pairing.save(this,paste.getText().toString());paste.setText("");refreshStatus();}catch(Exception e){status.setText("Pairing failed. Scan the QR from Account Access on your computer.");}});
   if(ComputerAssociation.required()){
-   TextView consent=new TextView(this);consent.setText("Android needs your permission to connect this computer before it can share login notifications. Confirm the connection in Android, then enable notification access. Disconnect removes this computer permission.");view.addView(consent);
+   TextView consent=new TextView(this);consent.setText("Keep the Mac pairing screen open and enable Bluetooth on both devices. Android discovers the computer from your QR and asks you to confirm it before sharing login notifications. Enable notification access afterwards. Disconnect removes this computer permission.");view.addView(consent);
    add(view,"Connect computer with Android",()->ComputerAssociation.request(this,message->status.setText(message)));
   }
   String defaultPackage=Telephony.Sms.getDefaultSmsPackage(this);

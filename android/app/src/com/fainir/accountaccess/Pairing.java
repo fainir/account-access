@@ -25,6 +25,7 @@ final class Pairing {
   if(p.getInt("version")!=1 || !p.getString("certificate_sha256").matches("[0-9a-f]{64}") || !p.getString("source").matches("[a-z][a-z0-9_-]{0,63}") || !p.getString("token").matches("[A-Za-z0-9_-]{40,100}"))throw new Exception("Invalid pairing");
   String template=p.getString("template");if(template.length()>2000 || !template.contains("{code}") || template.indexOf("{code}")!=template.lastIndexOf("{code}"))throw new Exception("Invalid login template");
   if(p.getString("sender").isEmpty() || p.getString("recipient").isEmpty())throw new Exception("Missing login source");
+  if(p.has("bluetooth_service_uuid") && !p.getString("bluetooth_service_uuid").matches("[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"))throw new Exception("Invalid computer discovery identity");
  }
  static SecretKey key() throws Exception {
   KeyStore store=KeyStore.getInstance("AndroidKeyStore");store.load(null);

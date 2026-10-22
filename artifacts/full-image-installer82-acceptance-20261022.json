@@ -1,0 +1,153 @@
+{
+  "asset_contract_sha256": "c0225039a352a1ab058ae207c10d5b053c128b0872d4b14cd5a07aced53ccf32",
+  "controller_revision": "4c801ea5f5c38faacb2d25a04f61947f5438c368",
+  "owner_installation_qualified": false,
+  "package_sha256": "44851003ea314782ab8109c64467005e12015984a914a0c463a7c548bd153a56",
+  "personal_authentication_verified": false,
+  "production_ready": false,
+  "protected_store_repaired": false,
+  "run": 39852501340,
+  "scenarios": {
+    "install-reapply": {
+      "all_18_checks": true,
+      "all_recorded_log_hashes_match": true,
+      "artifact_digest": "sha256:396799230503cefe2e8c62842be781fb5b00ce0757c0893209568d16ebffa1b3",
+      "artifact_id": 12459397770,
+      "controller_revision": "4c801ea5f5c38faacb2d25a04f61947f5438c368",
+      "installer_attempts": {
+        "base-installer": {
+          "budget_seconds": 420,
+          "completed_successfully": true,
+          "elapsed_seconds": 84.171
+        },
+        "component-installer": {
+          "budget_seconds": 420,
+          "completed_successfully": true,
+          "elapsed_seconds": 31.392
+        },
+        "full-installer": {
+          "budget_seconds": 840,
+          "completed_successfully": true,
+          "elapsed_seconds": 297.26
+        },
+        "full-reapply-installer": {
+          "budget_seconds": 420,
+          "completed_successfully": true,
+          "elapsed_seconds": 123.546
+        }
+      },
+      "interruption": {
+        "installer_daemon_interrupted": false,
+        "power_failure_tested": false,
+        "status": "NOT_REQUESTED"
+      },
+      "owner_installation_qualified": false,
+      "package_sha256": "44851003ea314782ab8109c64467005e12015984a914a0c463a7c548bd153a56",
+      "production_ready": false,
+      "report_sha256": "8f1752ac5fde571478005acf98e0d6589b6322de4a2a05f204330661f3e9f914",
+      "run": 39852501340,
+      "scenario": "install-reapply",
+      "schema": 1,
+      "status": "ACTUAL_SCENARIO_ARTIFACT_VERIFIED"
+    },
+    "interrupt-create": {
+      "all_18_checks": true,
+      "all_recorded_log_hashes_match": true,
+      "artifact_digest": "sha256:954fb16d50ed0b4147e5388a0db9f6e0cca2a069cf77129e96de62bf5281f497",
+      "artifact_id": 12458907262,
+      "controller_revision": "4c801ea5f5c38faacb2d25a04f61947f5438c368",
+      "installer_attempts": {
+        "base-installer": {
+          "budget_seconds": 420,
+          "completed_successfully": true,
+          "elapsed_seconds": 75.007
+        },
+        "component-installer": {
+          "budget_seconds": 420,
+          "completed_successfully": true,
+          "elapsed_seconds": 25.456
+        },
+        "full-installer": {
+          "budget_seconds": 420,
+          "completed_successfully": true,
+          "elapsed_seconds": 202.556
+        },
+        "full-reapply-installer": {
+          "budget_seconds": 420,
+          "completed_successfully": true,
+          "elapsed_seconds": 107.31
+        }
+      },
+      "interruption": {
+        "broker_uid_processes": 0,
+        "durable_records": 22,
+        "head_absent": true,
+        "installer_daemon_interrupted": false,
+        "operation": 7,
+        "optional_unit": "pythonPipInfo",
+        "power_failure_tested": false,
+        "production_fault_flags": false,
+        "status": "EXACT_OWNED_HELPER_STOPPED_BEFORE_HEAD"
+      },
+      "owner_installation_qualified": false,
+      "package_sha256": "44851003ea314782ab8109c64467005e12015984a914a0c463a7c548bd153a56",
+      "production_ready": false,
+      "report_sha256": "00c0ebf5089be7a19b14b42c789674e60ff65abb639d0a8fd7a415d526dff029",
+      "run": 39852501340,
+      "scenario": "interrupt-create",
+      "schema": 1,
+      "status": "ACTUAL_SCENARIO_ARTIFACT_VERIFIED"
+    },
+    "interrupt-remove": {
+      "all_18_checks": true,
+      "all_recorded_log_hashes_match": true,
+      "artifact_digest": "sha256:0bd8a1b5fa67c3439eba2ccc9ed3331ec965e32b9c736c9d23bbf6e6de0c0f2d",
+      "artifact_id": 12460286872,
+      "controller_revision": "4c801ea5f5c38faacb2d25a04f61947f5438c368",
+      "installer_attempts": {
+        "base-installer": {
+          "budget_seconds": 420,
+          "completed_successfully": true,
+          "elapsed_seconds": 114.525
+        },
+        "component-installer": {
+          "budget_seconds": 420,
+          "completed_successfully": true,
+          "elapsed_seconds": 52.659
+        },
+        "full-installer": {
+          "budget_seconds": 420,
+          "completed_successfully": true,
+          "elapsed_seconds": 312.665
+        },
+        "full-reapply-installer": {
+          "budget_seconds": 420,
+          "completed_successfully": true,
+          "elapsed_seconds": 152.229
+        }
+      },
+      "interruption": {
+        "broker_uid_processes": 0,
+        "durable_records": 20,
+        "head_absent": true,
+        "installer_daemon_interrupted": false,
+        "operation": 6,
+        "optional_unit": "pythonOldPipInfo",
+        "power_failure_tested": false,
+        "production_fault_flags": false,
+        "status": "EXACT_OWNED_HELPER_STOPPED_BEFORE_HEAD"
+      },
+      "owner_installation_qualified": false,
+      "package_sha256": "44851003ea314782ab8109c64467005e12015984a914a0c463a7c548bd153a56",
+      "production_ready": false,
+      "report_sha256": "61b7f2de993c5c9c2b9649755f1db2c6f7420b67bc084614704775b6be82e242",
+      "run": 39852501340,
+      "scenario": "interrupt-remove",
+      "schema": 1,
+      "status": "ACTUAL_SCENARIO_ARTIFACT_VERIFIED"
+    }
+  },
+  "schema": 1,
+  "status": "ALL_THREE_ACTUAL_INSTALLER_SCENARIOS_VERIFIED",
+  "url": "https://github.com/fainir/account-access/actions/runs/39852501340"
+}

@@ -4,6 +4,7 @@ permissions:
   contents: read
 jobs:
   android:
+    name: "${{ matrix.api == 35 && 'Android 15 refusal without computer permission' || 'Android 11 notification-to-browser login' }}"
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -32,7 +33,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm
       - name: Install the Android test image with diagnostics
         run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --verbose --install "system-images;android-${{ matrix.api }};google_apis;x86_64"'
-      - name: Run actual notification-to-browser login
+      - name: "${{ matrix.api == 35 && 'Refuse unassociated Android 15 notifications' || 'Complete Android 11 notification-to-browser login' }}"
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
         with:
           api-level: ${{ matrix.api }}
@@ -57,9 +58,10 @@ jobs:
               "apk": apk.name,
               "sha256": hashlib.sha256(apk.read_bytes()).hexdigest(),
               "bytes": apk.stat().st_size,
-              "emulator_notification_to_browser_journey_passed": True,
+              "emulator_notification_to_browser_journey_passed": ${{ matrix.api }} < 35,
               "android_api": ${{ matrix.api }},
-              "computer_association_system_consent_checked": ${{ matrix.api }} >= 35,
+              "notification_forwarding_without_association_refused": ${{ matrix.api }} >= 35,
+              "positive_bluetooth_computer_association_qualified": False,
               "development_signing": True,
               "physical_phone_delivery_qualified": False,
               "production_ready": False,

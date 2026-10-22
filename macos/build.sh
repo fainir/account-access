@@ -36,7 +36,7 @@ AC_WHEEL_HASH=$(shasum -a 256 "$AC_WHEEL" | awk '{ print $1 }')
 mkdir -p "$AC_APP/Contents/MacOS" "$AC_APP/Contents/Resources" "$AC_APP/Contents/Library/LaunchAgents"
 for AC_ARCH in arm64 x86_64; do
   xcrun swiftc -O -parse-as-library -target "$AC_ARCH-apple-macos14" \
-    -framework AppKit -framework CryptoKit -framework ServiceManagement -lsqlite3 -lbsm \
+    -framework AppKit -framework CryptoKit -framework CoreBluetooth -framework ServiceManagement -lsqlite3 -lbsm \
     "$AC_SOURCE/macos/AccountAccess.swift" "$AC_SOURCE/macos/MailboxOAuthLoopback.swift" "$AC_SOURCE/macos/OwnerGateway.swift" "$AC_SOURCE/macos/DesktopOwnerConnection.swift" "$AC_SOURCE/macos/BrowserNativeHost.swift" "$AC_SOURCE/macos/ManagedAgentSetup.swift" "$AC_SOURCE/macos/WorkerBootstrap.swift" "$AC_SOURCE/macos/WorkerListenerBindings.swift" "$AC_SOURCE/macos/BackgroundRecovery.swift" "$AC_SOURCE/macos/MessageText.swift" "$AC_SOURCE/macos/MessagesReader.swift" "$AC_SOURCE/macos/SystemMessagesReader.swift" -o "$AC_OUTPUT/AccountAccess-$AC_ARCH"
   xcrun swiftc -O -parse-as-library -target "$AC_ARCH-apple-macos14" \
     -framework Foundation -framework CryptoKit -framework ServiceManagement \
@@ -68,6 +68,7 @@ cat > "$AC_APP/Contents/Info.plist" <<'PLIST'
 <key>AccountAccessBrowserExtensionFormat</key><integer>1</integer>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>NSHighResolutionCapable</key><true/>
+<key>NSBluetoothAlwaysUsageDescription</key><string>Account Access uses Bluetooth while you pair an Android phone, so Android can ask you to confirm this computer. Login messages use encrypted private Wi-Fi.</string>
 </dict></plist>
 PLIST
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $AC_BUILD" "$AC_APP/Contents/Info.plist"

@@ -2,9 +2,9 @@
  <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="36"/>
  <uses-permission android:name="android.permission.INTERNET"/>
  <uses-permission android:name="android.permission.CAMERA"/>
- <uses-permission android:name="android.permission.REQUEST_COMPANION_SELF_MANAGED"/>
  <uses-feature android:name="android.hardware.camera" android:required="false"/>
  <uses-feature android:name="android.software.companion_device_setup" android:required="false"/>
+ <uses-feature android:name="android.hardware.bluetooth_le" android:required="false"/>
  <application android:label="Account Access Phone" android:allowBackup="false" android:usesCleartextTraffic="false" android:theme="@android:style/Theme.Material.Light.NoActionBar">
   <activity android:name="com.fainir.accountaccess.MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
   <activity android:name="com.fainir.accountaccess.ScanActivity" android:exported="false"/>
