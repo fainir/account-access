@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "status": "PASSED",
+  "manifest_sha256": "9f0d1274928702dd4d5064b4d3bc8ac7df3bf81c3f70be2f9ccad410785d810c",
+  "private_data_read": false,
+  "counts": {
+    "symlink": 21,
+    "directory": 2305,
+    "file": 25283
+  },
+  "mismatches": [],
+  "elapsed_seconds": 23.897,
+  "free_bytes": 15037927424,
+  "phase": "PUBLIC_PREDECESSOR_VERIFIED_INSTALLER_AWAITING_OWNER_AUTHENTICATION",
+  "installed_update": false,
+  "production_ready": false,
+  "package_sha256": "ad16754b9acdd71dd1979a2a268b005a96feec681d3392b4af90b0e464590a85",
+  "preflight_report_sha256": "94c515efee798f4ebf1288b08464e267ab2785690a2f47af4655288cdbe4f6c9",
+  "observed_date": "2026-10-22"
+}

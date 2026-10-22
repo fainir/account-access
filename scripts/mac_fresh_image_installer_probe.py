@@ -206,16 +206,28 @@ def validate_expansion(expanded, expected, scripts_expected):
         require(h.read_file(scripts / name, owner=(scripts / name).lstat().st_uid, maximum=16384) == raw)
     validate_package_info(h.read_file(expanded / "payload.pkg/PackageInfo",
         owner=(expanded / "payload.pkg/PackageInfo").lstat().st_uid, maximum=64 * 1024))
-    distribution = ET.fromstring(h.read_file(expanded / "Distribution",
+    validate_distribution(h.read_file(expanded / "Distribution",
         owner=(expanded / "Distribution").lstat().st_uid, maximum=64 * 1024))
-    require(distribution.tag == "installer-gui-script"
-        and distribution.find("options").get("hostArchitectures") == "arm64"
-        and distribution.find("domains").attrib == {"enable_anywhere": "false",
-            "enable_currentUserHome": "false", "enable_localSystem": "true"}
-        and distribution.find("pkg-ref").text == "payload.pkg")
     require(hash_file(scripts / "RecoveryManifest.json", 16 * 1024**2)[0] == MANIFEST_SHA
         and hash_file(scripts / "AccountAccess-installerverify", 32 * 1024**2)[0] == VERIFIER_SHA)
     return scripts
+
+
+def validate_distribution(raw):
+    distribution = ET.fromstring(raw)
+    options, domains = distribution.find("options"), distribution.find("domains")
+    references = distribution.findall("pkg-ref")
+    payloads = [item for item in references if (item.text or "").strip()]
+    # productbuild embeds the component with a fragment reference and adds a
+    # separate bundle-version metadata reference. Do not accept URLs, another
+    # component, or another nonempty reference when checking that envelope.
+    require(distribution.tag == "installer-gui-script" and options is not None
+        and options.get("hostArchitectures") == "arm64"
+        and domains is not None and domains.attrib == {"enable_anywhere": "false",
+            "enable_currentUserHome": "false", "enable_localSystem": "true"}
+        and len(payloads) == 1 and payloads[0].text == "#payload.pkg"
+        and all(item.get("id") == "com.fainir.accountaccess.system"
+                for item in distribution.iter("pkg-ref")))
 
 
 def validate_packaged_image(manifest, rows):

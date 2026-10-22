@@ -219,6 +219,31 @@ def test_expansion_mismatch_refuses_before_reading_scripts(monkeypatch):
         probe.validate_expansion(Path("/fictional/expanded"), {"": {"kind": "directory", "mode": 0o700}}, {})
 
 
+def test_actual_productbuild_fragment_reference_and_bundle_metadata_are_supported():
+    # Captured from the unchanged c607e267 fresh package produced by productbuild.
+    raw = (Path(__file__).parent / "fixtures/fresh-product-distribution.xml").read_bytes()
+    assert probe.validate_distribution(raw) is None
+
+
+@pytest.mark.parametrize("mutation", ["remote", "other-component", "second-payload", "other-id", "architecture", "user-domain"])
+def test_product_distribution_refuses_another_payload_or_installation_scope(mutation):
+    raw = (Path(__file__).parent / "fixtures/fresh-product-distribution.xml").read_bytes()
+    if mutation == "remote":
+        raw = raw.replace(b"#payload.pkg", b"https://example.test/payload.pkg")
+    elif mutation == "other-component":
+        raw = raw.replace(b"#payload.pkg", b"#other.pkg")
+    elif mutation == "second-payload":
+        raw = raw.replace(b"<bundle-version/>", b"#other.pkg")
+    elif mutation == "other-id":
+        raw = raw.replace(b"com.fainir.accountaccess.system", b"com.other.package")
+    elif mutation == "architecture":
+        raw = raw.replace(b'hostArchitectures="arm64"', b'hostArchitectures="x86_64"')
+    else:
+        raw = raw.replace(b'enable_currentUserHome="false"', b'enable_currentUserHome="true"')
+    with pytest.raises(ValueError, match="^fresh_image_installer_acceptance_failed$"):
+        probe.validate_distribution(raw)
+
+
 def test_script_source_literals_are_read_without_importing_or_executing():
     raw = b'raise RuntimeError("must not execute")\nPREINSTALL = "first"\nPOSTINSTALL = "second"\n'
     assert probe.install_script_bodies(raw) == {"preinstall": b"first", "postinstall": b"second"}

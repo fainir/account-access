@@ -15,12 +15,15 @@ scenarios passed all 18 checks, while the normal installation hit the controller
 normal installation of these exact package bytes completed in 398 seconds; this
 does not prove the cause of the later timeout or make it a pass.
 
-A new normal-only QA workflow preserves the exact asset contract and all 18
-checks. Its initial full upgrade has an 840-second deadline and records monotonic
-duration and completion for each Installer invocation. Other Installer phases
-retain 420 seconds. Package and product bytes are unchanged. This new attempt
-still requires successful execution before owner installation.
+A new normal-only QA workflow preserved the exact asset contract and passed all
+18 checks. Its initial full upgrade completed in 455.702 seconds under an
+840-second deadline; reapplication completed in 188.211 seconds under the
+unchanged 420-second deadline. Package and product bytes were unchanged. Both
+interruption/recovery scenarios had already passed all 18 checks on the corrected
+controller, so the three scenarios now have verified successful results. No
+personal account or owner enrollment was used by these tests.
 [Bound results and new acceptance scope](../artifacts/full-image-installer81-normal-acceptance.json).
+[Verified terminal results](../artifacts/full-image-installer81-acceptance-20261022.json).
 
 The requested personal acceptance targets now include Harel and Phoenix SMS
 sign-in using an Android phone. Neither insurer currently has a reviewed bundled
@@ -43,12 +46,31 @@ test run reported a rollback-repair failure; the focused recovery case passed
 30 repetitions and the complete agent/mailbox selection passed 58 checks. The
 original failed observation is retained; its cause is not established.
 
-Fresh-install packaging is being built on a disposable hosted Mac from the
-unchanged signed image inside package81, using packaging source `56f83bb`.
-The build job cannot install or publish. It produces a package and expanded
-inventory for separate review before an exact fresh-install acceptance contract
-can be frozen. The accepted installer and recovery checks remain separate from
-real provider authentication and public release signing/notarization.
+Fresh-install packaging was built on a disposable hosted Mac from the unchanged
+signed image inside package81, using packaging source `56f83bb`. The build run
+failed its static envelope check: the controller expected `payload.pkg`, while
+native `productbuild` emitted the embedded reference `#payload.pkg` and a separate
+bundle-version metadata reference. That failed run is retained. The corrected
+review accepts that exact embedded reference and still refuses remote URLs,
+other components, additional payloads and altered installation scope. All 74
+focused checks passed. Expansion and public-image validation of the unchanged
+package also passed locally, without installing it. Its exact package, inventory,
+manifest and source hashes are now frozen for a separate clean-Mac install and
+reapplication test. [Fresh package review](../artifacts/fresh-image80-static-review-20261022.json).
+The accepted installer and recovery checks remain separate from real provider
+authentication and public release signing/notarization.
+
+After package81 passed upgrade/reapplication and both interruption scenarios,
+read-only inspection of the owner's installed public software matched the exact
+predecessor manifest: 25,283 files, 2,305 directories and 21 aliases, with no
+mismatches. No private store, credential, token or owner configuration was read.
+The exact package was opened in macOS Installer. The owner approved system
+authentication. Installer is still displaying “Writing files”; no terminal
+installation result has been observed. This is not an installed-update result.
+[Owner-Mac preflight](../artifacts/owner-mac-update81-preflight-20261022.json).
+
+Public-page research and the personal acceptance requirements for Harel/Phoenix
+are recorded in [insurer login acceptance](insurer-login-acceptance.md).
 
 ### Latest owner-Mac result — 21 October 2026
 

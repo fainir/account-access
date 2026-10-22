@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "status": "ACTUAL_UPGRADE_REAPPLY_AND_OWNED_INTERRUPTION_CHECKS_PASSED",
+  "package_sha256": "ad16754b9acdd71dd1979a2a268b005a96feec681d3392b4af90b0e464590a85",
+  "date": "2026-10-22",
+  "scenarios": [
+    {
+      "scenario": "install-reapply",
+      "run_url": "https://github.com/fainir/account-access/actions/runs/39834728622",
+      "controller_revision": "3d75be9ea5d68db6f6e1dd8361eecc540ec67a8f",
+      "report_sha256": "4fcf728b08b41854842af7d2ffac8ec5ce3a068e1952b732c82a2bb2e76a376e",
+      "passed_checks": 18,
+      "installer_attempts": {
+        "base-installer": {
+          "budget_seconds": 420,
+          "completed_successfully": true,
+          "elapsed_seconds": 109.815
+        },
+        "component-installer": {
+          "budget_seconds": 420,
+          "completed_successfully": true,
+          "elapsed_seconds": 49.909
+        },
+        "full-installer": {
+          "budget_seconds": 840,
+          "completed_successfully": true,
+          "elapsed_seconds": 455.702
+        },
+        "full-reapply-installer": {
+          "budget_seconds": 420,
+          "completed_successfully": true,
+          "elapsed_seconds": 188.211
+        }
+      }
+    },
+    {
+      "scenario": "interrupt-create",
+      "run_url": "https://github.com/fainir/account-access/actions/runs/39659043970",
+      "controller_revision": "abc8544f4a12d5d719747db2fbc4650c9b42b2d7",
+      "report_sha256": "2d26d2011d1ed5e233902a6a61550c795e69262d9b81e525bbf042564b740b57",
+      "passed_checks": 18,
+      "installer_attempts": {}
+    },
+    {
+      "scenario": "interrupt-remove",
+      "run_url": "https://github.com/fainir/account-access/actions/runs/39659043970",
+      "controller_revision": "abc8544f4a12d5d719747db2fbc4650c9b42b2d7",
+      "report_sha256": "0412631b5a969e2a197c9f205df1e8116f339477a36586751e2df1918164ce54",
+      "passed_checks": 18,
+      "installer_attempts": {}
+    }
+  ],
+  "retained_failed_normal": {
+    "run": 39659043970,
+    "status": "FAILED_TIMEOUT",
+    "budget_seconds": 420,
+    "report_sha256": "991f647c80c76dc405c4dee3c076dd5d6e433dd6a0a2d7ad2dd67382307895b0"
+  },
+  "personal_accounts_used": 0,
+  "owner_GUI_qualified": false,
+  "physical_phone_delivery_qualified": false,
+  "installer_container_signed": false,
+  "notarized": false,
+  "production_ready": false
+}
