@@ -46,3 +46,26 @@ Synthetic tests and public form inspection cannot satisfy items 2, 3 or 5.
 Do not ship a provider as supported until its exact flow and personal acceptance
 have both passed. Do not persist Phoenix's ephemeral anonymous state URL as a
 connector destination or treat its broad auth host as an unrestricted allowlist.
+
+## Public implementation observations
+
+The Harel page's import map identifies its customer-header component at
+`https://d1oqsep8o8n0bq.cloudfront.net/apps-customer-portal-frontend/customer-main-header.js?ver=61`.
+The anonymous download was 3,150,247 bytes with SHA-256
+`bbad9c6180acdfbdd7af09e3538f6dc94e1c7b63e47a1ff5bfe35be2c15bf0de`.
+Source inspection, without executing the downloaded code or submitting a login,
+shows that Continue performs several ordered POST requests below
+`/_vti_bin/webapi/CustomersAuthentication/PostAuthenticate/`: `ContextConfig`,
+two `ElasticLogger` calls, `PortalLogger`, then `StartProcess`. The last call
+includes the locally entered identity and phone. A separate page-start call to
+`GetCurrentDetails` also exists. These are observations, not an approved network
+allowlist, and do not establish the next challenge or authenticated marker.
+Blocking the prerequisite requests while allowing only `StartProcess` would not
+reproduce the reviewed page's flow. Broadly allowing every POST on this host is
+not an acceptable replacement.
+
+Phoenix's anonymous login page has no native form element. It loads a component
+from `auth0-login.fnx-public.com/index.js`; a separate anonymous source download
+returned HTTP 403, so that source was not reviewed. The current browser adapter's
+native username/password-form checks do not qualify either insurer's JavaScript
+flow. No personal login attempt was made during this review.

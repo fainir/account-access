@@ -52,7 +52,14 @@ class BrowserOperation(StrictModel):
     kind: Literal["browser"] = "browser"
     description: str = Field(min_length=1, max_length=240)
     url: str
-    fields: dict[Handle, str] = Field(min_length=1, max_length=16)
+    fields: dict[Handle, str] = Field(default_factory=dict, max_length=16)
+    session_only: bool = False
+
+    @model_validator(mode="after")
+    def one_result_kind(self):
+        if self.session_only == bool(self.fields):
+            raise ValueError("Choose a session-status result or nonempty read fields, never both")
+        return self
 
 
 class OAuthAccount(StrictModel):
@@ -295,6 +302,12 @@ class Configuration(StrictModel):
 
     def fingerprint(self, account: str) -> str:
         data = self.accounts[account].model_dump()
+        if isinstance(self.accounts[account], BrowserAccount):
+            for operation in data["operations"].values():
+                if operation.get("session_only") is False:
+                    # Adding this explicit result kind must not revoke existing
+                    # field-read grants or their saved sessions on upgrade.
+                    operation.pop("session_only", None)
         if isinstance(self.accounts[account], BrowserAccount) and not data.get("login_assets"):
             data.pop("login_assets", None)
         if isinstance(self.accounts[account], BrowserAccount) and data.get("browser_channel") is None:

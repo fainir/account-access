@@ -54,9 +54,14 @@ bundle-version metadata reference. That failed run is retained. The corrected
 review accepts that exact embedded reference and still refuses remote URLs,
 other components, additional payloads and altered installation scope. All 74
 focused checks passed. Expansion and public-image validation of the unchanged
-package also passed locally, without installing it. Its exact package, inventory,
-manifest and source hashes are now frozen for a separate clean-Mac install and
-reapplication test. [Fresh package review](../artifacts/fresh-image80-static-review-20261022.json).
+package also passed locally, without installing it. The exact package subsequently
+passed all 13 checks in clean-Mac install/reapplication run `39841274212`. The
+installed public image matched all 27,483 nodes, the service was observed running,
+and identical-package reapplication preserved public bytes and inodes, original
+receipts and policies. The GUI was observed starting and quitting normally;
+owner enrollment and personal authentication were not part of this test.
+[Fresh package review](../artifacts/fresh-image80-static-review-20261022.json) and
+[actual fresh-install result](../artifacts/fresh-image80-installer-acceptance-20261022.json).
 The accepted installer and recovery checks remain separate from real provider
 authentication and public release signing/notarization.
 
@@ -71,6 +76,20 @@ installation result has been observed. This is not an installed-update result.
 
 Public-page research and the personal acceptance requirements for Harel/Phoenix
 are recorded in [insurer login acceptance](insurer-login-acceptance.md).
+The owner selected Lemon Squeezy for authenticator-app acceptance. Its official
+documentation confirms authenticator support, and anonymous form inspection
+confirms email/password POST to `https://auth.lemonsqueezy.com/login`. The actual
+challenge, authenticated marker and local enrollment remain unqualified. No
+personal identifier is stored in this repository and no login was submitted.
+
+Source now supports an explicitly granted browser session-status operation that
+returns only `{"authenticated": true}` after the ordinary ready-marker and
+presence/transaction checks pass. It cannot include page-read fields. Existing
+field-read fingerprints remain unchanged; changing the result kind requires a
+new grant. Controlled tests cover recovery, reuse, expiry, TOTP, unknown pages,
+transaction challenges and refusal of unapproved field reads. This enables
+limited provider login acceptance but does not itself qualify any new provider,
+and it is not part of the frozen image80 packages.
 
 ### Latest owner-Mac result — 21 October 2026
 

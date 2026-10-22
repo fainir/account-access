@@ -501,8 +501,7 @@ class Browser:
                         page.goto(op.url, timeout=15000, wait_until="domcontentloaded")
                         self.wait_state(page, config)
                         self.check(page, config)
-                    data = {name: page.locator(selector).first.inner_text(timeout=5000)[:100_000]
-                            for name, selector in op.fields.items()}
+                    data = self.result(page, op, config)
                     self.save(account, context.storage_state(indexed_db=True), authorization=authorization)
                     return data
                 except AccessError as exc:
@@ -510,14 +509,22 @@ class Browser:
                         page.goto(op.url, timeout=15000, wait_until="domcontentloaded")
                         self.wait_state(page, config)
                         self.check(page, config)
-                        return {name: page.locator(selector).first.inner_text(timeout=5000)[:100_000]
-                                for name, selector in op.fields.items()}
+                        return self.result(page, op, config)
                     raise
                 finally:
                     browser.close()
         except PlaywrightError:
             authorization.check()
             raise AccessError("RETRYABLE", "browser_execution_failed") from None
+
+    def result(self, page, op, config):
+        # A status-only operation still requires the normal authenticated marker
+        # and presence/transaction checks. No page text is an agent result.
+        self.check(page, config)
+        if op.session_only:
+            return {"authenticated": True}
+        return {name: page.locator(selector).first.inner_text(timeout=5000)[:100_000]
+                for name, selector in op.fields.items()}
 
     def login(self, browser, account, config, state=None, *, secret_values=None, review_failure=None,
               setup_method=None, on_code_request=None, review_stop=None, authorization=None):

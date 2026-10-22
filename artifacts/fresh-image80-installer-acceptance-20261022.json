@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "date": "2026-10-22",
+  "status": "ACTUAL_FRESH_INSTALL_AND_REAPPLY_PASSED",
+  "run_url": "https://github.com/fainir/account-access/actions/runs/39841274212",
+  "controller_revision": "a57c213b7daeb09013460b5a48997561e0f15089",
+  "package_sha256": "c607e267f7aa691e7607635b07e9897201ff9c01dc0279d7a4790200825829a3",
+  "report_sha256": "0217cbc430fc819ec4e65be52c57bf080aa6c064967880b4109a2370f30f857f",
+  "artifact_id": 12454890009,
+  "artifact_sha256": "5d39bd2825974f697c87f65c3f7351f30ce81c6da22cdeadfaaf8ee993c2495a",
+  "checks": {
+    "actual_fresh_installer": true,
+    "closed_product_envelope": true,
+    "created_job_stopped": true,
+    "exact_public_image": true,
+    "fixed_public_assets_and_sources": true,
+    "fresh_gui_closed": true,
+    "fresh_hosted_vm": true,
+    "genuine_production_signatures": true,
+    "identical_package_reapply": true,
+    "live_service": true,
+    "original_image_receipts": true,
+    "reapplied_gui_closed": true,
+    "reapply_preserves_bytes_and_inodes": true
+  },
+  "public_node_count": 27483,
+  "personal_accounts_used": 0,
+  "owner_GUI_qualified": false,
+  "physical_phone_delivery_qualified": false,
+  "installer_container_signed": false,
+  "notarized": false,
+  "production_ready": false
+}
