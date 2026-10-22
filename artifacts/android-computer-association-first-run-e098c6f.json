@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "source_commit": "e098c6f104cd77cb0dd99d30ef0a9172e4900e7f",
+  "run": 39856788254,
+  "job": 120096945569,
+  "android_api": 35,
+  "status": "FAILED",
+  "instrumentation_failure": "Android computer consent button unavailable",
+  "browser_result": "NEEDS_USER",
+  "browser_reason": "login_code_not_received",
+  "cause_established": false,
+  "local_app_and_instrumentation_compilation": "passed",
+  "production_ready": false,
+  "physical_phone_delivery_qualified": false,
+  "follow_up": "Record consent phase, fixed app callback message and bounded visible resource IDs on this disposable emulator; do not treat the initial run as passing."
+}
