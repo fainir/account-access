@@ -6,6 +6,7 @@ import Darwin
 #if ACCOUNT_ACCESS_FULL_IMAGE_UPDATE_MAIN
 @main struct FullImageUpdateMain {
     private static func reason(_ error: Error) -> String {
+        if let diagnostic = error as? CompletedPredecessorDiagnostic { return reason(diagnostic.failure) }
         if let failure = error as? ComponentUpdateFailure { return failure.rawValue }
         guard let failure = error as? FullImageFailure else { return "full_image_update_unavailable" }
         switch failure {
@@ -15,6 +16,12 @@ import Darwin
         case .journal: return "full_image_transition_conflict"
         case .unavailable: return "full_image_update_unavailable"
         }
+    }
+    static func refusal(_ error: Error, checkpoint: FullImageInstallCheckpoint) -> String {
+        let category = (error as? CompletedPredecessorDiagnostic).map { "predecessor_" + $0.checkpoint.rawValue }
+            ?? checkpoint.rawValue
+        return "{\"schema\":1,\"status\":\"REFUSED\",\"reason\":\"" + reason(error)
+            + "\",\"checkpoint\":\"" + category + "\"}"
     }
     static func main() {
         // Keep the ordinary-user refusal ahead of all filesystem/identity work.
@@ -43,8 +50,7 @@ import Darwin
             print("{\"schema\":1,\"status\":\"" + result + "\",\"checkpoint\":\"" + checkpoint.rawValue
                 + "\",\"gui_verified\":false,\"account_qa_verified\":false}")
         } catch {
-            print("{\"schema\":1,\"status\":\"REFUSED\",\"reason\":\"" + reason(error)
-                + "\",\"checkpoint\":\"" + checkpoint.rawValue + "\"}")
+            print(refusal(error, checkpoint: checkpoint))
             exit(78)
         }
     }

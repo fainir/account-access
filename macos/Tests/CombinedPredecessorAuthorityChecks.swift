@@ -249,6 +249,48 @@ typealias PredecessorSnapshotBuilder = CompletedPredecessorSnapshotBuilder
                 try expect(refusedBeforeRead, recovery ? "ordinary_recovery_refuses_before_native_reads" : "ordinary_initial_refuses_before_native_reads")
             }
             let fixture = try PredecessorFixture(), base = fixture.snapshot
+            // Identify failed comparisons without publishing record values.
+            // A changed runtime device still refuses: diagnostics do not grant
+            // authority to normalize historical state or bypass a binding.
+            for (name, expected, mutate) in [
+                ("worker", CompletedPredecessorCheckpoint.workerBinding, { (b: inout PredecessorSnapshotBuilder) in
+                    let old = b.worker
+                    b.worker = CompletedComponentRecord(data: old.data, object: ComponentObject(device: 8,
+                        inode: old.object.inode, mode: old.object.mode, bytes: old.object.bytes, sha256: old.object.sha256))
+                }),
+                ("service", CompletedPredecessorCheckpoint.serviceBinding, { (b: inout PredecessorSnapshotBuilder) in
+                    let old = b.service
+                    b.service = CompletedComponentRecord(data: old.data, object: ComponentObject(device: 8,
+                        inode: old.object.inode, mode: old.object.mode, bytes: old.object.bytes, sha256: old.object.sha256))
+                }),
+                ("head", CompletedPredecessorCheckpoint.head, { (b: inout PredecessorSnapshotBuilder) in
+                    b.head = PredecessorFixture.record(b.head.data, inode: 9999, mode: 0o644)
+                }),
+                ("journal", CompletedPredecessorCheckpoint.journal, { (b: inout PredecessorSnapshotBuilder) in
+                    b.records.removeValue(forKey: "service-0002.json")
+                }),
+            ] {
+                let invalid = changed(base, mutate)
+                var observed: CompletedPredecessorCheckpoint?
+                do {
+                    _ = try ComponentController.fixtureCompletedPredecessor(source: fixture.source,
+                        read: { invalid }, verifyInitial: { _, _ in throw PredecessorFixtureFailure.initial })
+                } catch let failure as CompletedPredecessorDiagnostic {
+                    observed = failure.checkpoint
+                    try expect(failure.failure is ComponentUpdateFailure, "diagnostic_preserves_" + name + "_refusal")
+                }
+                try expect(observed == expected, "diagnostic_identifies_" + name + "_binding")
+            }
+            var diagnosticRead = 0
+            var secondReadDiagnosed = false
+            do {
+                _ = try ComponentController.fixtureCompletedPredecessor(source: fixture.source,
+                    read: { diagnosticRead += 1; if diagnosticRead == 2 { throw PredecessorFixtureFailure.read }; return base },
+                    verifyInitial: { _, _ in })
+            } catch let failure as CompletedPredecessorDiagnostic {
+                secondReadDiagnosed = failure.checkpoint == .snapshotAfter && diagnosticRead == 2
+            }
+            try expect(secondReadDiagnosed, "diagnostic_identifies_second_read")
             var shaContextRefused = false
             do {
                 _ = try ComponentController.revalidateCompletedPredecessor(resources: -1,

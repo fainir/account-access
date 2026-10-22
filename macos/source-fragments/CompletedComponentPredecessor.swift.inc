@@ -2,6 +2,32 @@
 // IGNORED completed-predecessor companion. No installed entrypoint is added.
 // Production construction is root-context/fixed-reader only. The caller must
 // hold the full-image maintenance locks before qualification/revalidation.
+// Only these fixed categories may leave the helper. Never export an underlying
+// error description, record contents, paths, identities or filesystem values.
+enum CompletedPredecessorCheckpoint: String, CaseIterable {
+    case snapshotBefore = "snapshot_before", snapshotAfter = "snapshot_after"
+    case snapshotRoots = "snapshot_roots", rootBinding = "root_binding"
+    case retainedNamespace = "retained_namespace", retainedRecords = "retained_records"
+    case currentPolicies = "current_policies", currentIntent = "current_intent"
+    case structure, preparations, recordBounds = "record_bounds", originalReceipts = "original_receipts"
+    case intentEncoding = "intent_encoding", intentContract = "intent_contract"
+    case workerBinding = "worker_binding", serviceBinding = "service_binding"
+    case operations, head, journal, retainedSlots = "retained_slots", audits
+    case policyDerivation = "policy_derivation", dynamicBytes = "dynamic_bytes", evidence
+    case currentImage = "current_image", currentHostPolicy = "current_host_policy"
+    case currentOwnerPolicy = "current_owner_policy", currentInstallRecord = "current_install_record"
+    case currentHead = "current_head", publicView = "public_view", signatures, service
+    case evidenceStability = "evidence_stability", expectedEvidence = "expected_evidence"
+}
+struct CompletedPredecessorDiagnostic: Error {
+    let checkpoint: CompletedPredecessorCheckpoint
+    let failure: Error
+    static func checked<T>(_ checkpoint: CompletedPredecessorCheckpoint, _ operation: () throws -> T) throws -> T {
+        do { return try operation() }
+        catch let diagnostic as CompletedPredecessorDiagnostic { throw diagnostic }
+        catch { throw CompletedPredecessorDiagnostic(checkpoint: checkpoint, failure: error) }
+    }
+}
 struct CompletedComponentRecord {
     let data: Data
     let object: ComponentObject
@@ -83,122 +109,144 @@ extension ComponentController {
         guard record.data.count <= maximum else { throw ComponentUpdateFailure.journal }
     }
     private static func completedValidated(_ source: ComponentSource, _ snapshot: CompletedComponentSnapshot) throws -> (ComponentTransitionIntent, Data) {
-        guard source.oldPeers["owner"]?.team == "WBULD6N4NQ", source.newPeers["owner"] == source.oldPeers["owner"],
-              source.planDigest.utf8.count == 64, source.planDigest.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }),
-              source.delta.count == 9, Set(source.delta.map(\.path)) == ComponentSource.allowed,
-              source.delta.map(\.path) == ComponentSource.allowed.sorted(),
-              snapshot.ownerUID > 0, Set(snapshot.roots.keys) == ["original", "components", "transition"],
-              snapshot.roots.values.allSatisfy({ $0.owner == 0 && $0.mode == 0o700 && $0.inode > 0 && $0.device >= 0 }),
-              Set(snapshot.roots.values.map(\.device)).count == 1,
-              Set(snapshot.roots.values.map(\.inode)).count == 3,
-              snapshot.rootBindingSHA256.utf8.count == 64,
-              snapshot.rootBindingSHA256.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }),
-              snapshot.namespaceNames == Array(Set(snapshot.namespaceNames)).sorted(),
-              snapshot.namespaceNames.contains("head.json"),
-              snapshot.namespaceNames.contains("transition-" + source.planDigest),
-              Set(snapshot.original.keys) == Set(InstallationRootBinding.receiptNames),
-              let savedIntent = snapshot.records["intent.json"], snapshot.records.count <= 2048 else { throw ComponentUpdateFailure.journal }
-        let preparationPrefix = ".preparing-" + source.planDigest + "-"
-        let preparations = snapshot.namespaceNames.filter { $0 != "head.json" && $0 != "transition-" + source.planDigest }
-        guard preparations.count <= 8, preparations.allSatisfy({ name in
-            guard name.hasPrefix(preparationPrefix), let uuid = UUID(uuidString: String(name.dropFirst(preparationPrefix.count))) else { return false }
-            return uuid.uuidString.lowercased() == String(name.dropFirst(preparationPrefix.count))
-        }) else { throw ComponentUpdateFailure.journal }
-        var bytes: Int64 = 0
-        for record in snapshot.records.values {
-            let sum = bytes.addingReportingOverflow(Int64(record.data.count)); guard !sum.overflow, sum.partialValue <= ComponentPreparation.byteLimit else { throw ComponentUpdateFailure.journal }
-            bytes = sum.partialValue
-        }
-        for record in snapshot.original.values { try completedRecord(record, mode: 0o600, maximum: 8192) }
-        _ = try InstallationRootBinding.parseLegacy(records: snapshot.original.mapValues(\.data), ownerUID: snapshot.ownerUID, manifestSHA256: source.oldManifest.sha256)
-        try completedRecord(savedIntent, mode: 0o600, maximum: 64 * 1024)
-        let value = try completedStrictJSON(savedIntent.data, maximum: 64 * 1024)
-        let intent = try JSONDecoder().decode(ComponentTransitionIntent.self, from: savedIntent.data)
-        guard NSDictionary(dictionary: value).isEqual(to: try json(encoded(intent), maximum: 64 * 1024)) else { throw ComponentUpdateFailure.journal }
-        let ownerUID = snapshot.ownerUID
-        try completedRecord(snapshot.worker, mode: 0o644, maximum: 4096)
-        try completedRecord(snapshot.service, mode: 0o644, maximum: 8192)
-        guard intent.schema == 1, intent.planSHA256 == source.planDigest,
-              intent.baseManifestSHA256 == source.oldManifest.sha256, intent.targetManifestSHA256 == source.newManifest.sha256,
-              !intent.automaticRebootRecovery, intent.ownerUID == ownerUID, intent.workerPolicy == snapshot.worker.object,
-              intent.servicePlist == snapshot.service.object, intent.operations.count == source.delta.count + dynamic.count else {
-            throw ComponentUpdateFailure.journal
-        }
-        guard ownerUID > 0, ownerUID != intent.brokerUID, (450..<500).contains(intent.brokerUID) else { throw ComponentUpdateFailure.base }
-        if let snapshot = intent.service { try ComponentUpdateIdentity.validateSnapshot(snapshot) }
-        var device: Int32?
-        for (index, operation) in intent.operations.enumerated() {
-            guard operation.slot == String(format: "slot-%02d", index) else { throw ComponentUpdateFailure.journal }
-            if index < source.delta.count {
-                let delta = source.delta[index]
-                guard operation.target == .image, operation.path == delta.path,
-                      (operation.before == nil) == (delta.before == nil) else { throw ComponentUpdateFailure.journal }
-                try object(operation.after, mode: delta.after.mode!, hash: delta.after.sha256, size: delta.after.size)
-                if let before = operation.before, let node = delta.before {
-                    try object(before, mode: node.mode!, hash: node.sha256, size: node.size)
-                }
-            } else {
-                let entry = dynamic[index - source.delta.count]
-                guard operation.target == entry.0, operation.path == entry.1,
-                      (operation.before == nil) == (entry.0 == .head) else { throw ComponentUpdateFailure.journal }
-                try object(operation.after, mode: entry.2, hash: nil, size: nil)
-                if let before = operation.before { try object(before, mode: entry.2, hash: nil, size: nil) }
+        var checkpoint: CompletedPredecessorCheckpoint = .structure
+        do {
+            guard source.oldPeers["owner"]?.team == "WBULD6N4NQ", source.newPeers["owner"] == source.oldPeers["owner"],
+                  source.planDigest.utf8.count == 64, source.planDigest.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }),
+                  source.delta.count == 9, Set(source.delta.map(\.path)) == ComponentSource.allowed,
+                  source.delta.map(\.path) == ComponentSource.allowed.sorted(),
+                  snapshot.ownerUID > 0, Set(snapshot.roots.keys) == ["original", "components", "transition"],
+                  snapshot.roots.values.allSatisfy({ $0.owner == 0 && $0.mode == 0o700 && $0.inode > 0 && $0.device >= 0 }),
+                  Set(snapshot.roots.values.map(\.device)).count == 1,
+                  Set(snapshot.roots.values.map(\.inode)).count == 3,
+                  snapshot.rootBindingSHA256.utf8.count == 64,
+                  snapshot.rootBindingSHA256.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }),
+                  snapshot.namespaceNames == Array(Set(snapshot.namespaceNames)).sorted(),
+                  snapshot.namespaceNames.contains("head.json"),
+                  snapshot.namespaceNames.contains("transition-" + source.planDigest),
+                  Set(snapshot.original.keys) == Set(InstallationRootBinding.receiptNames),
+                  let savedIntent = snapshot.records["intent.json"], snapshot.records.count <= 2048 else { throw ComponentUpdateFailure.journal }
+            checkpoint = .preparations
+            let preparationPrefix = ".preparing-" + source.planDigest + "-"
+            let preparations = snapshot.namespaceNames.filter { $0 != "head.json" && $0 != "transition-" + source.planDigest }
+            guard preparations.count <= 8, preparations.allSatisfy({ name in
+                guard name.hasPrefix(preparationPrefix), let uuid = UUID(uuidString: String(name.dropFirst(preparationPrefix.count))) else { return false }
+                return uuid.uuidString.lowercased() == String(name.dropFirst(preparationPrefix.count))
+            }) else { throw ComponentUpdateFailure.journal }
+            checkpoint = .recordBounds
+            var bytes: Int64 = 0
+            for record in snapshot.records.values {
+                let sum = bytes.addingReportingOverflow(Int64(record.data.count)); guard !sum.overflow, sum.partialValue <= ComponentPreparation.byteLimit else { throw ComponentUpdateFailure.journal }
+                bytes = sum.partialValue
             }
-            if device == nil { device = operation.after.device }
-            guard operation.after.device == device, operation.before == nil || operation.before?.device == device else {
+            checkpoint = .originalReceipts
+            for record in snapshot.original.values { try completedRecord(record, mode: 0o600, maximum: 8192) }
+            _ = try InstallationRootBinding.parseLegacy(records: snapshot.original.mapValues(\.data), ownerUID: snapshot.ownerUID, manifestSHA256: source.oldManifest.sha256)
+            checkpoint = .intentEncoding
+            try completedRecord(savedIntent, mode: 0o600, maximum: 64 * 1024)
+            let value = try completedStrictJSON(savedIntent.data, maximum: 64 * 1024)
+            let intent = try JSONDecoder().decode(ComponentTransitionIntent.self, from: savedIntent.data)
+            guard NSDictionary(dictionary: value).isEqual(to: try json(encoded(intent), maximum: 64 * 1024)) else { throw ComponentUpdateFailure.journal }
+            let ownerUID = snapshot.ownerUID
+            try completedRecord(snapshot.worker, mode: 0o644, maximum: 4096)
+            try completedRecord(snapshot.service, mode: 0o644, maximum: 8192)
+            checkpoint = .intentContract
+            guard intent.schema == 1, intent.planSHA256 == source.planDigest,
+                  intent.baseManifestSHA256 == source.oldManifest.sha256, intent.targetManifestSHA256 == source.newManifest.sha256,
+                  !intent.automaticRebootRecovery, intent.ownerUID == ownerUID,
+                  intent.operations.count == source.delta.count + dynamic.count else {
                 throw ComponentUpdateFailure.journal
             }
-        }
+            checkpoint = .workerBinding
+            guard intent.workerPolicy == snapshot.worker.object else { throw ComponentUpdateFailure.journal }
+            checkpoint = .serviceBinding
+            guard intent.servicePlist == snapshot.service.object else { throw ComponentUpdateFailure.journal }
+            checkpoint = .intentContract
+            guard ownerUID > 0, ownerUID != intent.brokerUID, (450..<500).contains(intent.brokerUID) else { throw ComponentUpdateFailure.base }
+            if let snapshot = intent.service { try ComponentUpdateIdentity.validateSnapshot(snapshot) }
+            checkpoint = .operations
+            var device: Int32?
+            for (index, operation) in intent.operations.enumerated() {
+                guard operation.slot == String(format: "slot-%02d", index) else { throw ComponentUpdateFailure.journal }
+                if index < source.delta.count {
+                    let delta = source.delta[index]
+                    guard operation.target == .image, operation.path == delta.path,
+                          (operation.before == nil) == (delta.before == nil) else { throw ComponentUpdateFailure.journal }
+                    try object(operation.after, mode: delta.after.mode!, hash: delta.after.sha256, size: delta.after.size)
+                    if let before = operation.before, let node = delta.before {
+                        try object(before, mode: node.mode!, hash: node.sha256, size: node.size)
+                    }
+                } else {
+                    let entry = dynamic[index - source.delta.count]
+                    guard operation.target == entry.0, operation.path == entry.1,
+                          (operation.before == nil) == (entry.0 == .head) else { throw ComponentUpdateFailure.journal }
+                    try object(operation.after, mode: entry.2, hash: nil, size: nil)
+                    if let before = operation.before { try object(before, mode: entry.2, hash: nil, size: nil) }
+                }
+                if device == nil { device = operation.after.device }
+                guard operation.after.device == device, operation.before == nil || operation.before?.device == device else {
+                    throw ComponentUpdateFailure.journal
+                }
+            }
 
-        guard let headOp = intent.operations.last, headOp.target == .head,
-              snapshot.head.object == headOp.after, snapshot.head.data == (try head(source)) else { throw ComponentUpdateFailure.journal }
-        try completedRecord(snapshot.head, mode: 0o644, maximum: 4096)
-        let state = try completedJournal(snapshot, operations: intent.operations, source: source, intentExists: true)
-        guard state.finished, !state.ownsDisable else { throw ComponentUpdateFailure.journal }
-        for operation in intent.operations {
-            if let before = operation.before {
-                guard let slot = snapshot.records[operation.slot], slot.object == before else { throw ComponentUpdateFailure.journal }
-                try completedRecord(slot, mode: mode_t(before.mode), maximum: ComponentFiles.maximumFile)
-            } else { guard snapshot.records[operation.slot] == nil else { throw ComponentUpdateFailure.journal } }
-        }
-        for (name, record) in snapshot.records where name != "intent.json" && !intent.operations.contains(where: { $0.slot == name }) {
-            try completedRecord(record, mode: 0o600, maximum: 4096)
-            // Complete JSON audits receive the same checks as legacy recovery;
-            // incomplete audit bytes are immutable evidence, never authority.
-            if (try? JSONSerialization.jsonObject(with: record.data, options: [.fragmentsAllowed])) != nil {
-                let audit = try completedStrictJSON(record.data, maximum: 4096)
-                if name.hasPrefix("event-") {
-                    let allowed: Set<String> = ["apply_intent", "applied", "rollback_intent", "rolled_back", "rollback_conflict", "old_image_restored", "new_image_verified_gui_unverified"]
-                    guard Set(audit.keys) == ["schema", "event", "operation"],
-                          try InstallerPayloadManifest.integer(audit["schema"], maximum: 1) == 1,
-                          let event = audit["event"] as? String, allowed.contains(event),
-                          let number = audit["operation"] as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID(),
-                          number.doubleValue.isFinite, number.doubleValue == Double(number.int64Value) else { throw ComponentUpdateFailure.journal }
-                    let global = event == "old_image_restored" || event == "new_image_verified_gui_unverified"
-                    guard (global ? number.int64Value == -1 : (number.int64Value >= 0 && number.int64Value < Int64(intent.operations.count))) else {
-                        throw ComponentUpdateFailure.journal
+            checkpoint = .head
+            guard let headOp = intent.operations.last, headOp.target == .head,
+                  snapshot.head.object == headOp.after, snapshot.head.data == (try head(source)) else { throw ComponentUpdateFailure.journal }
+            try completedRecord(snapshot.head, mode: 0o644, maximum: 4096)
+            checkpoint = .journal
+            let state = try completedJournal(snapshot, operations: intent.operations, source: source, intentExists: true)
+            guard state.finished, !state.ownsDisable else { throw ComponentUpdateFailure.journal }
+            checkpoint = .retainedSlots
+            for operation in intent.operations {
+                if let before = operation.before {
+                    guard let slot = snapshot.records[operation.slot], slot.object == before else { throw ComponentUpdateFailure.journal }
+                    try completedRecord(slot, mode: mode_t(before.mode), maximum: ComponentFiles.maximumFile)
+                } else { guard snapshot.records[operation.slot] == nil else { throw ComponentUpdateFailure.journal } }
+            }
+            checkpoint = .audits
+            for (name, record) in snapshot.records where name != "intent.json" && !intent.operations.contains(where: { $0.slot == name }) {
+                try completedRecord(record, mode: 0o600, maximum: 4096)
+                // Complete JSON audits receive the same checks as legacy recovery;
+                // incomplete audit bytes are immutable evidence, never authority.
+                if (try? JSONSerialization.jsonObject(with: record.data, options: [.fragmentsAllowed])) != nil {
+                    let audit = try completedStrictJSON(record.data, maximum: 4096)
+                    if name.hasPrefix("event-") {
+                        let allowed: Set<String> = ["apply_intent", "applied", "rollback_intent", "rolled_back", "rollback_conflict", "old_image_restored", "new_image_verified_gui_unverified"]
+                        guard Set(audit.keys) == ["schema", "event", "operation"],
+                              try InstallerPayloadManifest.integer(audit["schema"], maximum: 1) == 1,
+                              let event = audit["event"] as? String, allowed.contains(event),
+                              let number = audit["operation"] as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID(),
+                              number.doubleValue.isFinite, number.doubleValue == Double(number.int64Value) else { throw ComponentUpdateFailure.journal }
+                        let global = event == "old_image_restored" || event == "new_image_verified_gui_unverified"
+                        guard (global ? number.int64Value == -1 : (number.int64Value >= 0 && number.int64Value < Int64(intent.operations.count))) else {
+                            throw ComponentUpdateFailure.journal
+                        }
                     }
                 }
             }
-        }
-        let hostOp = intent.operations[source.delta.count], ownerOp = intent.operations[source.delta.count + 1], installOp = intent.operations[source.delta.count + 2]
-        let policy = try ComponentUpdatePolicies.derive(install: snapshot.records[installOp.slot]!.data,
-            host: snapshot.records[hostOp.slot]!.data, owner: snapshot.records[ownerOp.slot]!.data, worker: snapshot.worker.data,
-            oldPeers: source.oldPeers, newPeers: source.newPeers, oldFingerprint: source.oldFingerprint,
-            newFingerprint: source.newFingerprint, consoleOwner: ownerUID)
-        guard policy.brokerUID == intent.brokerUID else { throw ComponentUpdateFailure.journal }
-        let expectedDynamic = try [policy.host, policy.owner, policy.install, head(source)]
-        for (index, data) in expectedDynamic.enumerated() {
-            let operation = intent.operations[source.delta.count + index]
-            guard operation.after.sha256 == ComponentFiles.digest(data), operation.after.bytes == data.count else { throw ComponentUpdateFailure.journal }
-        }
-        let evidence = CompletedEvidence(schema: 1, managedBy: "account-access-completed-component-predecessor-v1",
-            planSHA256: source.planDigest, baseManifestSHA256: source.oldManifest.sha256, targetManifestSHA256: source.newManifest.sha256,
-            ownerUID: snapshot.ownerUID, ownerGroup: snapshot.ownerGroup, brokerUID: intent.brokerUID,
-            roots: snapshot.roots, namespaceNames: snapshot.namespaceNames, originalReceipts: snapshot.original.mapValues(\.object),
-            rootBindingSHA256: snapshot.rootBindingSHA256, records: snapshot.records.mapValues(\.object), head: snapshot.head.object,
-            worker: snapshot.worker.object, service: snapshot.service.object)
-        return (intent, try encoded(evidence))
+            checkpoint = .policyDerivation
+            let hostOp = intent.operations[source.delta.count], ownerOp = intent.operations[source.delta.count + 1], installOp = intent.operations[source.delta.count + 2]
+            let policy = try ComponentUpdatePolicies.derive(install: snapshot.records[installOp.slot]!.data,
+                host: snapshot.records[hostOp.slot]!.data, owner: snapshot.records[ownerOp.slot]!.data, worker: snapshot.worker.data,
+                oldPeers: source.oldPeers, newPeers: source.newPeers, oldFingerprint: source.oldFingerprint,
+                newFingerprint: source.newFingerprint, consoleOwner: ownerUID)
+            guard policy.brokerUID == intent.brokerUID else { throw ComponentUpdateFailure.journal }
+            checkpoint = .dynamicBytes
+            let expectedDynamic = try [policy.host, policy.owner, policy.install, head(source)]
+            for (index, data) in expectedDynamic.enumerated() {
+                let operation = intent.operations[source.delta.count + index]
+                guard operation.after.sha256 == ComponentFiles.digest(data), operation.after.bytes == data.count else { throw ComponentUpdateFailure.journal }
+            }
+            checkpoint = .evidence
+            let evidence = CompletedEvidence(schema: 1, managedBy: "account-access-completed-component-predecessor-v1",
+                planSHA256: source.planDigest, baseManifestSHA256: source.oldManifest.sha256, targetManifestSHA256: source.newManifest.sha256,
+                ownerUID: snapshot.ownerUID, ownerGroup: snapshot.ownerGroup, brokerUID: intent.brokerUID,
+                roots: snapshot.roots, namespaceNames: snapshot.namespaceNames, originalReceipts: snapshot.original.mapValues(\.object),
+                rootBindingSHA256: snapshot.rootBindingSHA256, records: snapshot.records.mapValues(\.object), head: snapshot.head.object,
+                worker: snapshot.worker.object, service: snapshot.service.object)
+            return (intent, try encoded(evidence))
+        } catch let diagnostic as CompletedPredecessorDiagnostic { throw diagnostic }
+        catch { throw CompletedPredecessorDiagnostic(checkpoint: checkpoint, failure: error) }
     }
     private static func completedProof(source: ComponentSource, read: () throws -> CompletedComponentSnapshot,
         verifyInitial: (CompletedComponentSnapshot, ComponentTransitionIntent) throws -> Void, expectedEvidence: Data?,
@@ -208,12 +256,18 @@ extension ComponentController {
             guard expectedEvidenceSHA256.utf8.count == 64,
                   expectedEvidenceSHA256.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }) else { throw ComponentUpdateFailure.journal }
         }
-        let before = try read(), validated = try completedValidated(source, before)
+        let before = try CompletedPredecessorDiagnostic.checked(.snapshotBefore, read)
+        let validated = try completedValidated(source, before)
         if expectedEvidence == nil && expectedEvidenceSHA256 == nil { try verifyInitial(before, validated.0) }
-        let after = try read(), revalidated = try completedValidated(source, after)
-        guard revalidated.1 == validated.1 else { throw ComponentUpdateFailure.journal }
-        if let expectedEvidence { guard expectedEvidence == validated.1 else { throw ComponentUpdateFailure.journal } }
-        if let expectedEvidenceSHA256 { guard ComponentFiles.digest(validated.1) == expectedEvidenceSHA256 else { throw ComponentUpdateFailure.journal } }
+        let after = try CompletedPredecessorDiagnostic.checked(.snapshotAfter, read)
+        let revalidated = try completedValidated(source, after)
+        try CompletedPredecessorDiagnostic.checked(.evidenceStability) {
+            guard revalidated.1 == validated.1 else { throw ComponentUpdateFailure.journal }
+        }
+        try CompletedPredecessorDiagnostic.checked(.expectedEvidence) {
+            if let expectedEvidence { guard expectedEvidence == validated.1 else { throw ComponentUpdateFailure.journal } }
+            if let expectedEvidenceSHA256 { guard ComponentFiles.digest(validated.1) == expectedEvidenceSHA256 else { throw ComponentUpdateFailure.journal } }
+        }
         return CompletedComponentProof(validated.1)
     }
     private static func completedJournal(_ snapshot: CompletedComponentSnapshot, operations: [ComponentOperation], source: ComponentSource,
@@ -282,65 +336,88 @@ extension ComponentController {
         return validatedGlobal
     }
     private static func completedNativeSnapshot(_ source: ComponentSource) throws -> CompletedComponentSnapshot {
-        let (ownerUID, ownerGroup) = try owner()
-        let original = try directory(oldJournal, mode: 0o700)
-        defer { Darwin.close(original) }
-        let components = try directory(namespace, mode: 0o700)
-        defer { Darwin.close(components) }
-        let transition = try child(components, "transition-" + source.planDigest, create: false)
-        defer { Darwin.close(transition) }
-        try originalReceipt(original, ownerUID: ownerUID)
-        let legacy = try InstallationRootBinding.readLegacy(original, ownerUID: ownerUID, manifestSHA256: source.oldManifest.sha256)
-        let current = try InstallationRootBinding.capture(withVolumeUUID: true)
-        var supplementHash: String? = nil
-        if try InstallationRootBinding.hasSupplementNamespace() {
-            let directory = try InstallationRootBinding.receiptDirectory(create: false); defer { Darwin.close(directory) }
-            let proof = try InstallationRootBinding.readSupplement(directory)
-            try InstallationRootBinding.validateSupplement(proof, legacy: legacy, current: current)
-            supplementHash = ComponentFiles.digest(proof)
-        } else { guard try InstallationRootBinding.exactLegacy(legacy, current: current) else { throw ComponentUpdateFailure.base } }
-        let rootBindings: [String: [String: Any]] = current.mapValues { ["inode": $0.inode, "volume_uuid": $0.volumeUUID] }
-        var binding: [String: Any] = ["receipts": legacy.hashes, "roots": rootBindings]
-        binding["supplement_sha256"] = supplementHash.map { $0 as Any } ?? NSNull()
-        var modes: [String: mode_t] = [:]
-        for (i, delta) in source.delta.enumerated() { modes[String(format: "slot-%02d", i)] = delta.after.mode! }
-        for (i, entry) in dynamic.enumerated() { modes[String(format: "slot-%02d", source.delta.count + i)] = entry.2 }
-        _ = try ComponentPreparation.retained(components, plan: source.planDigest, slots: modes, owner: 0)
-        func record(_ fd: Int32, _ name: String, _ mode: mode_t) throws -> CompletedComponentRecord {
-            let read = try ComponentFiles.read(fd, name, owner: 0, mode: mode); return CompletedComponentRecord(data: read.0, object: read.1)
-        }
-        var originals: [String: CompletedComponentRecord] = [:], records: [String: CompletedComponentRecord] = [:]
-        for name in InstallationRootBinding.receiptNames { originals[name] = try record(original, name, 0o600) }
-        let names = try InstallerPayloadIO.contents(transition); guard names.count <= 2048 else { throw ComponentUpdateFailure.journal }
-        for name in names { records[name] = try record(transition, name, modes[name] ?? 0o600) }
-        let workerRead = try publicRead("broker/worker.json", mode: 0o644), serviceRead = try publicRead("broker/service.plist", mode: 0o644)
-        let globalPlist = try jobPlist(ownerGroup: ownerGroup) // Validates global typed bytes and equality to the support copy.
-        let service = try completedServiceRecord(support: CompletedComponentRecord(data: serviceRead.0, object: serviceRead.1),
-            validatedGlobal: CompletedComponentRecord(data: serviceRead.0, object: globalPlist))
-        let intent = try loadIntent(transition); try identity(ownerUID, intent.brokerUID)
-        let roots = try ["original": completedDirectory(original), "components": completedDirectory(components), "transition": completedDirectory(transition)]
-        return CompletedComponentSnapshot(ownerUID: ownerUID, ownerGroup: ownerGroup, roots: roots,
-            namespaceNames: try InstallerPayloadIO.contents(components).sorted(), original: originals,
-            rootBindingSHA256: ComponentFiles.digest(try JSONSerialization.data(withJSONObject: binding, options: [.sortedKeys, .withoutEscapingSlashes])),
-            records: records, head: try record(components, "head.json", 0o644),
-            worker: CompletedComponentRecord(data: workerRead.0, object: workerRead.1), service: service)
+        var checkpoint: CompletedPredecessorCheckpoint = .snapshotRoots
+        do {
+            let (ownerUID, ownerGroup) = try owner()
+            let original = try directory(oldJournal, mode: 0o700)
+            defer { Darwin.close(original) }
+            let components = try directory(namespace, mode: 0o700)
+            defer { Darwin.close(components) }
+            let transition = try child(components, "transition-" + source.planDigest, create: false)
+            defer { Darwin.close(transition) }
+            checkpoint = .rootBinding
+            try originalReceipt(original, ownerUID: ownerUID)
+            let legacy = try InstallationRootBinding.readLegacy(original, ownerUID: ownerUID, manifestSHA256: source.oldManifest.sha256)
+            let current = try InstallationRootBinding.capture(withVolumeUUID: true)
+            var supplementHash: String? = nil
+            if try InstallationRootBinding.hasSupplementNamespace() {
+                let directory = try InstallationRootBinding.receiptDirectory(create: false); defer { Darwin.close(directory) }
+                let proof = try InstallationRootBinding.readSupplement(directory)
+                try InstallationRootBinding.validateSupplement(proof, legacy: legacy, current: current)
+                supplementHash = ComponentFiles.digest(proof)
+            } else { guard try InstallationRootBinding.exactLegacy(legacy, current: current) else { throw ComponentUpdateFailure.base } }
+            let rootBindings: [String: [String: Any]] = current.mapValues { ["inode": $0.inode, "volume_uuid": $0.volumeUUID] }
+            var binding: [String: Any] = ["receipts": legacy.hashes, "roots": rootBindings]
+            binding["supplement_sha256"] = supplementHash.map { $0 as Any } ?? NSNull()
+            checkpoint = .retainedNamespace
+            var modes: [String: mode_t] = [:]
+            for (i, delta) in source.delta.enumerated() { modes[String(format: "slot-%02d", i)] = delta.after.mode! }
+            for (i, entry) in dynamic.enumerated() { modes[String(format: "slot-%02d", source.delta.count + i)] = entry.2 }
+            _ = try ComponentPreparation.retained(components, plan: source.planDigest, slots: modes, owner: 0)
+            func record(_ fd: Int32, _ name: String, _ mode: mode_t) throws -> CompletedComponentRecord {
+                let read = try ComponentFiles.read(fd, name, owner: 0, mode: mode); return CompletedComponentRecord(data: read.0, object: read.1)
+            }
+            checkpoint = .retainedRecords
+            var originals: [String: CompletedComponentRecord] = [:], records: [String: CompletedComponentRecord] = [:]
+            for name in InstallationRootBinding.receiptNames { originals[name] = try record(original, name, 0o600) }
+            let names = try InstallerPayloadIO.contents(transition); guard names.count <= 2048 else { throw ComponentUpdateFailure.journal }
+            for name in names { records[name] = try record(transition, name, modes[name] ?? 0o600) }
+            checkpoint = .currentPolicies
+            let workerRead = try publicRead("broker/worker.json", mode: 0o644), serviceRead = try publicRead("broker/service.plist", mode: 0o644)
+            let globalPlist = try jobPlist(ownerGroup: ownerGroup) // Validates global typed bytes and equality to the support copy.
+            let service = try completedServiceRecord(support: CompletedComponentRecord(data: serviceRead.0, object: serviceRead.1),
+                validatedGlobal: CompletedComponentRecord(data: serviceRead.0, object: globalPlist))
+            checkpoint = .currentIntent
+            let intent = try loadIntent(transition); try identity(ownerUID, intent.brokerUID)
+            let roots = try ["original": completedDirectory(original), "components": completedDirectory(components), "transition": completedDirectory(transition)]
+            return CompletedComponentSnapshot(ownerUID: ownerUID, ownerGroup: ownerGroup, roots: roots,
+                namespaceNames: try InstallerPayloadIO.contents(components).sorted(), original: originals,
+                rootBindingSHA256: ComponentFiles.digest(try JSONSerialization.data(withJSONObject: binding, options: [.sortedKeys, .withoutEscapingSlashes])),
+                records: records, head: try record(components, "head.json", 0o644),
+                worker: CompletedComponentRecord(data: workerRead.0, object: workerRead.1), service: service)
+        } catch let diagnostic as CompletedPredecessorDiagnostic { throw diagnostic }
+        catch { throw CompletedPredecessorDiagnostic(checkpoint: checkpoint, failure: error) }
     }
     private static func completedInitialCurrent(_ source: ComponentSource, _ snapshot: CompletedComponentSnapshot, _ intent: ComponentTransitionIntent) throws {
-        for operation in intent.operations {
-            let (parent, name) = try target(operation); defer { Darwin.close(parent) }
-            guard try ComponentFiles.observe(parent, name, owner: 0) == operation.after else { throw ComponentUpdateFailure.journal }
-        }
-        try assertView(source, operations: intent.operations, new: true)
-        for kind in ["owner", "broker", "bootstrap"] {
-            guard let peer = source.newPeers[kind] else { throw ComponentUpdateFailure.source }
-            let path = kind == "owner" ? ComponentSource.support + "/owner.app" : ComponentSource.support + "/bin/AccountAccess-" + kind
-            try ComponentUpdateIdentity.verifyStatic(path: path, peer: peer, designated: source.designated[kind])
-        }
-        let observed = try ComponentCommands.launchctl(["print", "system/" + label])
-        guard observed.status == 0 else { throw ComponentUpdateFailure.base }
-        // A canonical KeepAlive=false job may be idle with no PID. Attest any
-        // present process; static broker/image signatures remain mandatory.
-        _ = try ComponentUpdateIdentity.jobSnapshot(output: observed.output, allowedPeers: [source.newPeers["broker"]!])
+        var checkpoint: CompletedPredecessorCheckpoint = .currentImage
+        do {
+            for operation in intent.operations {
+                switch operation.target {
+                case .image: checkpoint = .currentImage
+                case .hostPolicy: checkpoint = .currentHostPolicy
+                case .ownerPolicy: checkpoint = .currentOwnerPolicy
+                case .installRecord: checkpoint = .currentInstallRecord
+                case .head: checkpoint = .currentHead
+                }
+                let (parent, name) = try target(operation); defer { Darwin.close(parent) }
+                guard try ComponentFiles.observe(parent, name, owner: 0) == operation.after else { throw ComponentUpdateFailure.journal }
+            }
+            checkpoint = .publicView
+            try assertView(source, operations: intent.operations, new: true)
+            checkpoint = .signatures
+            for kind in ["owner", "broker", "bootstrap"] {
+                guard let peer = source.newPeers[kind] else { throw ComponentUpdateFailure.source }
+                let path = kind == "owner" ? ComponentSource.support + "/owner.app" : ComponentSource.support + "/bin/AccountAccess-" + kind
+                try ComponentUpdateIdentity.verifyStatic(path: path, peer: peer, designated: source.designated[kind])
+            }
+            checkpoint = .service
+            let observed = try ComponentCommands.launchctl(["print", "system/" + label])
+            guard observed.status == 0 else { throw ComponentUpdateFailure.base }
+            // A canonical KeepAlive=false job may be idle with no PID. Attest any
+            // present process; static broker/image signatures remain mandatory.
+            _ = try ComponentUpdateIdentity.jobSnapshot(output: observed.output, allowedPeers: [source.newPeers["broker"]!])
+        } catch let diagnostic as CompletedPredecessorDiagnostic { throw diagnostic }
+        catch { throw CompletedPredecessorDiagnostic(checkpoint: checkpoint, failure: error) }
     }
     static func initialCompletedPredecessor(resources: Int32, planPin: String) throws -> CompletedComponentProof {
         guard getuid() == 0, geteuid() == 0 else { throw ComponentUpdateFailure.context }

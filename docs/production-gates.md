@@ -70,9 +70,24 @@ read-only inspection of the owner's installed public software matched the exact
 predecessor manifest: 25,283 files, 2,305 directories and 21 aliases, with no
 mismatches. No private store, credential, token or owner configuration was read.
 The exact package was opened in macOS Installer. The owner approved system
-authentication. Installer is still displaying “Writing files”; no terminal
-installation result has been observed. This is not an installed-update result.
+authentication. Installer subsequently reached its package scripts, then failed
+with error 112. The helper's closed result was `component_transition_conflict`
+at `predecessor`. A separate read-only public-image check still matches the
+complete predecessor exactly and does not match the target. The exact failing
+predecessor predicate is not yet known; the passing hosted-Mac matrix does not
+qualify this owner-Mac attempt. No private account store was inspected or changed.
 [Owner-Mac preflight](../artifacts/owner-mac-update81-preflight-20261022.json).
+[Terminal owner-Mac result](../artifacts/owner-mac-update81-result-20261022.json).
+
+The next controller source identifies predecessor refusals with fixed categories
+for receipt, policy, object and journal checks. It retains the same validation
+predicates and never includes underlying error text or record values. All 488
+native assertions and ordinary-user entrypoint/argument refusals passed, along
+with 236 focused Python checks and the 21 updated report-contract checks. The
+first diagnostic controller run retained a stale assertion-count expectation;
+its native checks passed, and a fresh complete run with the corrected expected
+counts passed. This qualifies source diagnostics, not an owner repair or another
+installed package. [Diagnostic source evidence](../artifacts/predecessor-diagnostics-20261022.json).
 
 Public-page research and the personal acceptance requirements for Harel/Phoenix
 are recorded in [insurer login acceptance](insurer-login-acceptance.md).

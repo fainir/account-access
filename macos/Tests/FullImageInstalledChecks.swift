@@ -91,6 +91,22 @@ private enum InstalledFixtureFailure: Error { case failed }
             var checkpoints: [FullImageInstallCheckpoint] = []
             try refuses { _ = try ComponentController.runFullImage(resources: -1, pins: source.pins, checkpoint: { checkpoints.append($0) }) }
             try expect(checkpoints == [.context])
+            for category in CompletedPredecessorCheckpoint.allCases {
+                let privateFailure = NSError(domain: "fictional-private-path-and-record", code: 123,
+                    userInfo: [NSLocalizedDescriptionKey: "fictional-private-account-value"])
+                let result = FullImageUpdateMain.refusal(
+                    CompletedPredecessorDiagnostic(checkpoint: category, failure: privateFailure), checkpoint: .predecessor)
+                let data = try JSONSerialization.jsonObject(with: Data(result.utf8)) as! [String: Any]
+                try expect(Set(data.keys) == ["schema", "status", "reason", "checkpoint"])
+                try expect(data["status"] as? String == "REFUSED"
+                    && data["reason"] as? String == "full_image_update_unavailable"
+                    && data["checkpoint"] as? String == "predecessor_" + category.rawValue)
+                try expect(!result.contains("fictional-private"))
+            }
+            let fixedRefusal = FullImageUpdateMain.refusal(
+                CompletedPredecessorDiagnostic(checkpoint: .workerBinding, failure: ComponentUpdateFailure.journal),
+                checkpoint: .predecessor)
+            try expect(fixedRefusal.contains("component_transition_conflict") && fixedRefusal.contains("predecessor_worker_binding"))
             var peers: [String: ComponentPeerSignature] = [:]
             for kind in ["owner", "broker", "bootstrap"] {
                 peers[kind] = ComponentPeerSignature(team: "WBULD6N4NQ", identifier: "com.fainir.accountaccess" + (kind == "owner" ? "" : "." + kind),
