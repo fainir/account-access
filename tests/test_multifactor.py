@@ -480,6 +480,9 @@ def test_legacy_connector_fingerprint_survives_new_factor_schema(env):
     old.pop("login_asset_discovery")
     old.pop("login_challenge")
     old.pop("password_import_origins")
+    # This expected value represents the pre-session-status connector schema.
+    for operation in old["operations"].values():
+        operation.pop("session_only")
     old["login"].pop("factors")
     old["login"].pop("choices")
     old["login"].pop("code_requests")

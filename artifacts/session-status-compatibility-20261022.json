@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "date": "2026-10-22",
+  "source_commit": "20fc61560d49cb2f44ba5e7713258adaaacdabab",
+  "run_url": "https://github.com/fainir/account-access/actions/runs/39844614627",
+  "full_suite_status": "FAILED",
+  "passed": 3776,
+  "skipped": 107,
+  "failed": 1,
+  "failure": "tests/test_multifactor.py::test_legacy_connector_fingerprint_survives_new_factor_schema",
+  "cause": "The historical-schema fixture retained the newly added session_only default, while the production fingerprint correctly excludes it for existing field operations.",
+  "correction": "Remove session_only from each operation in the historical expected schema; production fingerprint behavior remains unchanged.",
+  "focused_recheck_passed": 8,
+  "native_owner_ui": "PASSED",
+  "native_owner_gateway": "PASSED",
+  "full_corrected_source_CI_pending": true,
+  "production_ready": false
+}
