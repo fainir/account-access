@@ -7,6 +7,27 @@ establish that experience on personal accounts.
 
 ## Current candidate
 
+### Resumed acceptance — 22 October 2026
+
+The corrected-controller package 81 matrix is now terminal: both interruption
+scenarios passed all 18 checks, while the normal installation hit the controller's
+420-second deadline after 10 checks. The failed normal result is retained. A prior
+normal installation of these exact package bytes completed in 398 seconds; this
+does not prove the cause of the later timeout or make it a pass.
+
+A new normal-only QA workflow preserves the exact asset contract and all 18
+checks. Its initial full upgrade has an 840-second deadline and records monotonic
+duration and completion for each Installer invocation. Other Installer phases
+retain 420 seconds. Package and product bytes are unchanged. This new attempt
+still requires successful execution before owner installation.
+[Bound results and new acceptance scope](../artifacts/full-image-installer81-normal-acceptance.json).
+
+The requested personal acceptance targets now include Harel and Phoenix SMS
+sign-in using an Android phone. Neither insurer currently has a reviewed bundled
+connector. Public login-page review, local owner enrollment, physical SMS delivery
+and completed sign-in are separate remaining gates; they are not covered by the
+existing fictional-password/email/SMS/TOTP journey.
+
 ### Latest owner-Mac result — 21 October 2026
 
 The startup component at `213509c` completed successfully in macOS Installer on

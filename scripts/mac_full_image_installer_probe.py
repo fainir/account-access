@@ -57,6 +57,34 @@ def require(value):
         raise ValueError("full_image_installer_acceptance_failed")
 
 
+def install_package(package, *, scenario, report, output, log):
+    """Fixed QA budgets, preserving Installer failure and daemon diagnostics.
+
+    The normal first upgrade has measured 398 seconds on a passing hosted Mac;
+    another run exceeded the former 420-second budget. Only that phase receives
+    840 seconds. Package code, recovery, reapplication and validation are unchanged.
+    """
+    require(scenario in SCENARIOS and (package.name, log) in {
+        ("base.pkg", "base-installer"), ("component.pkg", "component-installer"),
+        ("full.pkg", "full-installer"), ("full.pkg", "full-reapply-installer")})
+    budget = 840 if scenario == "install-reapply" and log == "full-installer" else 420
+    attempts = report.setdefault("installer_attempts", {})
+    require(log not in attempts)
+    attempt = {"budget_seconds": budget, "completed_successfully": False}
+    attempts[log] = attempt
+    checkpoint = h.InstallerLogDelta()
+    started = time.monotonic()
+    try:
+        result = h.command(
+            ["/usr/sbin/installer", "-dumplog", "-verboseR", "-pkg", str(package), "-target", "/"],
+            report=report, output=output, log=log + ".log", timeout=budget)
+        attempt["completed_successfully"] = True
+        return result
+    finally:
+        attempt["elapsed_seconds"] = round(time.monotonic() - started, 3)
+        checkpoint.capture(report=report, output=output, log=log + "-daemon.log")
+
+
 def digest(raw):
     return hashlib.sha256(raw).hexdigest()
 
@@ -538,7 +566,8 @@ def run(args):
             def command(arguments, log, timeout=120, check=True):
                 return h.command(arguments, report=report, output=output, log=log, timeout=timeout, check=check)
             def install(name, log):
-                h.candidate_install(stage / name, report=report, output=output, log=log + ".log", daemon_log=log + "-daemon.log")
+                return install_package(stage / name, scenario=args.scenario,
+                    report=report, output=output, log=log)
             report["failure_stage"] = "candidate_expansion"
             component_review = h.validate_review(decode(h.read_file(stage / "component-review.json")), COMPONENT_SOURCE, COMPONENT_SHA)
             h.bind_sources(component_review, args.repository, COMPONENT_SOURCE)

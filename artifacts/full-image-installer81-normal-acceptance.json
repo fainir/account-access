@@ -1,0 +1,50 @@
+{
+  "actual_new_run_passed": false,
+  "asset_contract_sha256": "29f4ceaed30179d0a814384edbd51df07b525fe244ed6fa7b011df0445b5dd0f",
+  "installer_timing_recorded": true,
+  "new_scenarios": [
+    "install-reapply"
+  ],
+  "normal_first_upgrade_budget_seconds": 840,
+  "original_failure_retained": true,
+  "other_installer_budgets_seconds": 420,
+  "package_sha256": "ad16754b9acdd71dd1979a2a268b005a96feec681d3392b4af90b0e464590a85",
+  "personal_accounts_verified": false,
+  "prior_controller_source": "abc8544f4a12d5d719747db2fbc4650c9b42b2d7",
+  "prior_results": {
+    "install-reapply": {
+      "checks_passed": 10,
+      "checks_total": 18,
+      "command_failure": {
+        "kind": "timeout",
+        "log": "full-installer.log"
+      },
+      "failure_stage": "actual_full_installer",
+      "report_sha256": "991f647c80c76dc405c4dee3c076dd5d6e433dd6a0a2d7ad2dd67382307895b0",
+      "status": "FAILED"
+    },
+    "interrupt-create": {
+      "checks_passed": 18,
+      "checks_total": 18,
+      "command_failure": null,
+      "failure_stage": null,
+      "report_sha256": "2d26d2011d1ed5e233902a6a61550c795e69262d9b81e525bbf042564b740b57",
+      "status": "PASSED"
+    },
+    "interrupt-remove": {
+      "checks_passed": 18,
+      "checks_total": 18,
+      "command_failure": null,
+      "failure_stage": null,
+      "report_sha256": "0412631b5a969e2a197c9f205df1e8116f339477a36586751e2df1918164ce54",
+      "status": "PASSED"
+    }
+  },
+  "prior_run_id": 39659043970,
+  "product_or_package_bytes_changed": false,
+  "production_ready": false,
+  "required_checks_unchanged": 18,
+  "schema": 1,
+  "status": "NEW_NORMAL_ACCEPTANCE_REQUIRED",
+  "unchanged_asset_contract": "artifacts/full-image-installer81-recovery-inputs.json"
+}

@@ -363,3 +363,97 @@ def test_support_root_group_observation_checks_vm_guard_before_open(monkeypatch)
     monkeypatch.setattr(probe.os, "open", lambda *_args, **_kwargs: pytest.fail("refused context opened a path"))
     with pytest.raises(ValueError, match="^fictional VM guard refusal$"):
         probe.support_root_metadata()
+
+
+@pytest.mark.parametrize("scenario", sorted(probe.SCENARIOS))
+@pytest.mark.parametrize("name,log", [
+    ("base.pkg", "base-installer"), ("component.pkg", "component-installer"),
+    ("full.pkg", "full-installer"), ("full.pkg", "full-reapply-installer"),
+])
+def test_install_budget_only_changes_normal_first_upgrade_and_records_real_duration(monkeypatch, scenario, name, log):
+    observed = []
+    clock = iter([10.0, 408.125])
+    monkeypatch.setattr(probe.time, "monotonic", lambda: next(clock))
+
+    class Checkpoint:
+        def __init__(self):
+            observed.append("checkpoint")
+
+        def capture(self, **kwargs):
+            observed.append(("capture", kwargs["log"]))
+
+    def command(arguments, **kwargs):
+        observed.append(("command", arguments, kwargs["timeout"]))
+        return "Installer completed"
+
+    monkeypatch.setattr(probe, "h", SimpleNamespace(InstallerLogDelta=Checkpoint, command=command), raising=False)
+    report = {}
+    result = probe.install_package(Path("/fictional") / name, scenario=scenario, report=report, output=None, log=log)
+    budget = 840 if scenario == "install-reapply" and log == "full-installer" else 420
+    assert result == "Installer completed"
+    assert observed == ["checkpoint", ("command", ["/usr/sbin/installer", "-dumplog", "-verboseR",
+        "-pkg", "/fictional/" + name, "-target", "/"], budget), ("capture", log + "-daemon.log")]
+    assert report["installer_attempts"][log] == {
+        "budget_seconds": budget, "elapsed_seconds": 398.125, "completed_successfully": True}
+
+
+def test_install_timeout_remains_failure_and_captures_duration_and_daemon_delta(monkeypatch):
+    import subprocess
+    error = subprocess.TimeoutExpired("fictional Installer", 840)
+    clock = iter([10.0, 850.0])
+    captured = []
+    monkeypatch.setattr(probe.time, "monotonic", lambda: next(clock))
+
+    def fail(*args, **kwargs):
+        raise error
+
+    monkeypatch.setattr(probe, "h", SimpleNamespace(command=fail,
+        InstallerLogDelta=lambda: SimpleNamespace(capture=lambda **kwargs: captured.append(kwargs["log"]))), raising=False)
+    report = {}
+    with pytest.raises(subprocess.TimeoutExpired) as caught:
+        probe.install_package(Path("/fictional/full.pkg"), scenario="install-reapply",
+            report=report, output=None, log="full-installer")
+    assert caught.value is error and captured == ["full-installer-daemon.log"]
+    assert report["installer_attempts"]["full-installer"] == {
+        "budget_seconds": 840, "elapsed_seconds": 840.0, "completed_successfully": False}
+
+
+@pytest.mark.parametrize("scenario,name,log,existing", [
+    ("other", "full.pkg", "full-installer", False),
+    ("install-reapply", "unknown.pkg", "full-installer", False),
+    ("install-reapply", "base.pkg", "full-installer", False),
+    ("install-reapply", "full.pkg", "unknown", False),
+    ("install-reapply", "full.pkg", "full-installer", True),
+])
+def test_invalid_or_repeated_install_phase_cannot_start_or_overwrite_evidence(monkeypatch, scenario, name, log, existing):
+    def forbidden():
+        pytest.fail("unrecognized phase accessed the Installer log")
+
+    monkeypatch.setattr(probe, "h", SimpleNamespace(InstallerLogDelta=forbidden), raising=False)
+    report = {"installer_attempts": {log: {"retained": True}}} if existing else {}
+    before = copy.deepcopy(report)
+    with pytest.raises(ValueError, match="^full_image_installer_acceptance_failed$"):
+        probe.install_package(Path("/fictional") / name, scenario=scenario, report=report, output=None, log=log)
+    if existing:
+        assert report == before
+
+
+def test_new_normal_workflow_preserves_frozen_assets_and_failed_matrix():
+    import json
+    import yaml
+    root = Path(__file__).resolve().parents[1]
+    workflow = yaml.safe_load((root / '.github/workflows/mac-full-image-normal-installer-review.yml').read_text())
+    events = workflow.get('on', workflow.get(True))
+    gate = 'artifacts/full-image-installer81-normal-acceptance.json'
+    assert events['push']['paths'] == [gate]
+    assert workflow['jobs']['actual-installer']['strategy']['matrix']['scenario'] == ['install-reapply']
+    assert workflow['jobs']['actual-installer']['timeout-minutes'] == 45
+    commands = '\n'.join(step.get('run', '') for step in workflow['jobs']['download-reviewed-inputs']['steps'])
+    assert '--contract artifacts/full-image-installer81-recovery-inputs.json' in commands
+    evidence = json.loads((root / gate).read_text())
+    original = (root / evidence['unchanged_asset_contract']).read_bytes()
+    assert probe.digest(original) == evidence['asset_contract_sha256']
+    assert json.loads(original)['assets']['full.pkg']['sha256'] == evidence['package_sha256']
+    assert evidence['prior_results']['install-reapply']['status'] == 'FAILED'
+    assert evidence['actual_new_run_passed'] is False and evidence['production_ready'] is False
+    assert len(probe.CHECKS) == evidence['required_checks_unchanged'] == 18
