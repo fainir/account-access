@@ -148,8 +148,15 @@ The final identity/security/session suite passed 35 checks, and the native UI
 compiled with warnings treated as errors and passed its checks. An earlier
 focused run passed 82 checks. The broader run passed 324 and exposed one stale
 historical-schema fixture; the corrected old-fingerprint checks passed
-separately. The new source still requires full CI.
+separately. Full CI at `8a4e290` subsequently passed 3,804 tests with 107 skipped,
+lint, the dependency audit and source/wheel builds in run `39864084255`.
+Native UI and gateway jobs passed. The same source's Android run `39864084266`
+completed one synthetic browser SMS verification on Android 11 and refused
+forwarding without association on Android 15, accepting zero codes. Neither
+result qualifies physical Bluetooth pairing or carrier delivery. The separate-user
+Mac recovery job remains running at the time of this record.
 [Identity/phone foundation evidence](../artifacts/identity-phone-login-foundation-20261022.json).
+[Current source CI evidence](../artifacts/identity-phone-source-ci-20261022.json).
 The owner selected Lemon Squeezy for authenticator-app acceptance. Its official
 documentation confirms authenticator support, and anonymous form inspection
 confirms email/password POST to `https://auth.lemonsqueezy.com/login`. The actual

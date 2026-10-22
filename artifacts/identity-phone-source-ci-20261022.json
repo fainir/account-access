@@ -1,0 +1,102 @@
+{
+  "android": {
+    "reports": {
+      "120121771501": {
+        "android_api": "35",
+        "browser_sms_verifications": 0,
+        "checks": [
+          "Keystore encrypted pairing",
+          "Legacy QR requests new discovery",
+          "Invalid discovery UUID rejected",
+          "QR alone cannot grant permission",
+          "Actual Android notification refused without association"
+        ],
+        "limits": "Synthetic emulator checks only. Android 15 positive Bluetooth pairing and all physical-phone delivery remain unqualified.",
+        "notification_forwarding_without_association_refused": true,
+        "physical_phone_delivery_qualified": false,
+        "positive_bluetooth_computer_association_qualified": false,
+        "status": "BLOCKED_AS_EXPECTED"
+      },
+      "120121771718": {
+        "android_api": "30",
+        "browser_sms_verifications": 1,
+        "checks": [
+          "Keystore encrypted pairing",
+          "Private destination restriction",
+          "Actual Android notification listener",
+          "Certificate-pinned HTTPS ingress",
+          "Browser code submission",
+          "No code in agent result"
+        ],
+        "limits": "Synthetic emulator checks only. Android 15 positive Bluetooth pairing and all physical-phone delivery remain unqualified.",
+        "notification_forwarding_without_association_refused": false,
+        "physical_phone_delivery_qualified": false,
+        "positive_bluetooth_computer_association_qualified": false,
+        "status": "COMPLETED"
+      }
+    },
+    "run": 39864084266,
+    "url": "https://github.com/fainir/account-access/actions/runs/39864084266"
+  },
+  "foundation_source_pins_verified": 16,
+  "limits": {
+    "harel_phoenix_connector_qualified": false,
+    "owner_package82_includes_source": false,
+    "owner_store_repaired": false,
+    "personal_lemon_squeezy_totp_qualified": false,
+    "physical_android15_association_qualified": false,
+    "physical_phone_sms_qualified": false,
+    "production_ready": false
+  },
+  "linux_separate_user": {
+    "conclusion": "success",
+    "job": 120121770918,
+    "run": 39864084243
+  },
+  "mac": {
+    "jobs": [
+      {
+        "conclusion": "success",
+        "id": 120121771774,
+        "name": "mac-installer-context",
+        "status": "completed"
+      },
+      {
+        "conclusion": null,
+        "id": 120123781624,
+        "name": "mac-cross-user",
+        "status": "in_progress"
+      }
+    ],
+    "run": 39864084288,
+    "url": "https://github.com/fainir/account-access/actions/runs/39864084288"
+  },
+  "main": {
+    "audit_exclusion": "Local account-access package was not on PyPI and was not audited.",
+    "conclusion": "success",
+    "dependency_audit": "no known vulnerabilities found in audited dependencies",
+    "job": 120121771665,
+    "passed": 3804,
+    "ruff": "passed",
+    "run": 39864084255,
+    "sdist_build": "passed",
+    "seconds": 1069.65,
+    "skipped": 107,
+    "url": "https://github.com/fainir/account-access/actions/runs/39864084255",
+    "wheel_build": "passed"
+  },
+  "native": {
+    "gateway": {
+      "conclusion": "success",
+      "job": 120121771370
+    },
+    "owner_ui": {
+      "conclusion": "success",
+      "job": 120121771830
+    }
+  },
+  "recorded_utc": "2026-10-22T22:39:28.616Z",
+  "schema": 1,
+  "source_commit": "8a4e29015c47035f0cc5d64247f2da48f4adc63d",
+  "status": "MAIN_REGRESSION_AND_ANDROID_PASSED_MAC_SEPARATE_USER_RUNNING"
+}

@@ -1,0 +1,77 @@
+{
+  "schema": 1,
+  "review_date_utc": "2026-10-22",
+  "source_commit": "8a4e29015c47035f0cc5d64247f2da48f4adc63d",
+  "status": "PUBLIC_RESEARCH_ONLY",
+  "sources": [
+    {
+      "url": "https://www.harel-group.co.il/Pages/login-page/Login.aspx",
+      "bytes": 206652,
+      "sha256": "9870b1f8948a9577e4230ddd2e53b20889f7000d1e9efd21c87d41a06d254914"
+    },
+    {
+      "url": "https://digital.harel-group.co.il/portal-config-backend/api/v1/micro-frontends/get-config/cus",
+      "bytes": 5674,
+      "sha256": "92cd2813fb2b4c8e0c20b962d6f927344f13e37ca70f636446900340415fa9cb"
+    },
+    {
+      "url": "https://d1oqsep8o8n0bq.cloudfront.net/apps-customer-portal-frontend/customer-main-header.js?ver=61",
+      "bytes": 3150247,
+      "sha256": "bbad9c6180acdfbdd7af09e3538f6dc94e1c7b63e47a1ff5bfe35be2c15bf0de"
+    },
+    {
+      "url": "https://d1oqsep8o8n0bq.cloudfront.net/apps-scanovate-frontend/scanovate.js?ver=61",
+      "bytes": 1633635,
+      "sha256": "20f9366c8dbce751cb0d78fe2a82c3b9c97fedfe4a0c43a8824c70e3046a7117"
+    }
+  ],
+  "visible_anonymous_dialog": {
+    "url": "https://www.harel-group.co.il/Pages/login-page/Login.aspx?isshowlogin=true",
+    "identity_selector": "#uid",
+    "phone_selector": "#phone",
+    "fields_have_native_form": false,
+    "sms_selector": "#otp-channel-sms",
+    "email_selector": "#otp-channel-email",
+    "default_channel": "sms",
+    "inputs_filled": false,
+    "login_submitted": false
+  },
+  "static_source_observations": {
+    "api_path_prefix": "/_vti_bin/webapi/CustomersAuthentication/PostAuthenticate/",
+    "direct_route_open": {
+      "first": "ContextConfig",
+      "subsequent_calls": ["ElasticLogger", "ElasticLogger", "PortalLogger"],
+      "subsequent_completion_order_established": false
+    },
+    "direct_dialog_submit": {
+      "first": "ContextConfig",
+      "sms_channel_value": 0,
+      "then": "StartProcess",
+      "credential_keys": ["UserId", "FullPhone"]
+    },
+    "otp_selector": "#otp",
+    "otp_request": "SCValidateOTP",
+    "otp_request_key": "OTP",
+    "distinct_resend_and_channel_requests": ["CreateOTP", "UpdateOtpChannel"],
+    "candidate_ready_marker_only": "[data-hrl-bo=\"atm-personalMenuLogout\"] a[href=\"/_layouts/15/HarelWebSite/ApplicationPages/HarelAuthenticate.aspx?ActionSource=LogOut\"]",
+    "unqualified_branches": [
+      "identity_issuance_date",
+      "credit_card_verification",
+      "stronger_identity_verification",
+      "password_change",
+      "declaration",
+      "representative_access",
+      "open_service_requests"
+    ]
+  },
+  "limits": {
+    "network_allowlist_approved": false,
+    "live_request_sequence_captured": false,
+    "actual_otp_screen_observed": false,
+    "authenticated_marker_qualified": false,
+    "personal_accounts_accessed": 0,
+    "physical_phone_delivery_qualified": false,
+    "connector_implemented": false,
+    "production_ready": false
+  }
+}

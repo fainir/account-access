@@ -7,7 +7,7 @@ password or code, and did not access an insurance account.
 
 | Provider | Official entry | Public login observed | Remaining provider evidence |
 | --- | --- | --- | --- |
-| Harel | [Personal area](https://www.harel-group.co.il/Pages/login-page/Login.aspx) | Identity number and phone; SMS/email choice. Visible identity input `#idUser` and phone input `#phone`. | Exact send-code endpoint, code screen, sender/template, authenticated marker, session expiry and read scope. |
+| Harel | [Personal area](https://www.harel-group.co.il/Pages/login-page/Login.aspx) | Header controls `#idUser` / `#phone`; the direct login dialog uses `#uid` / `#phone` and defaults to SMS. | Bound request sequence, live code screen, sender/template, authenticated marker, session expiry and session-status scope. |
 | Phoenix | [Personal area](https://my.fnx.co.il/policies) | Redirect to `auth.fnx.co.il/u/login` with a per-attempt state. Identity type and number, then phone or email, followed by Send code. | Bound redirect/state handling, exact send-code endpoint, code screen, sender/template, authenticated marker, session expiry and read scope. |
 
 Harel's [official FAQ](https://www.harel-group.co.il/long-term-savings/independent-and-employees/information/faq)
@@ -69,8 +69,38 @@ Blocking the prerequisite requests while allowing only `StartProcess` would not
 reproduce the reviewed page's flow. Broadly allowing every POST on this host is
 not an acceptable replacement.
 
+The [direct login dialog](https://www.harel-group.co.il/Pages/login-page/Login.aspx?isshowlogin=true)
+was also observed anonymously. Its visible identity and phone inputs have no
+associated native form. The SMS radio `#otp-channel-sms` is selected initially;
+`#otp-channel-email` is a separate choice. No input was filled and Continue was
+not pressed. These controls belong to the Scanovate component identified by
+Harel's [public portal configuration](https://digital.harel-group.co.il/portal-config-backend/api/v1/micro-frontends/get-config/cus):
+`https://d1oqsep8o8n0bq.cloudfront.net/apps-scanovate-frontend/scanovate.js?ver=61`.
+The anonymous component download was 1,633,635 bytes with SHA-256
+`20f9366c8dbce751cb0d78fe2a82c3b9c97fedfe4a0c43a8824c70e3046a7117`.
+
+Static review distinguishes two phases of this direct route. Opening it calls
+`ContextConfig`, followed by two `ElasticLogger` calls and `PortalLogger`.
+The dialog's submission handler separately calls `ContextConfig` with an SMS
+channel value of zero, then `StartProcess` with the entered identity and phone.
+Thus the direct route does not remove the need to review preparatory requests.
+The source defines an OTP control `#otp` and `SCValidateOTP` with an `OTP` field;
+`CreateOTP` and `UpdateOtpChannel` are separate resend/change-channel operations.
+These are source observations, not a captured successful login or a network
+permission grant. No request bodies containing owner data were produced.
+
+The same component branches to identity-issuance-date checks, credit-card
+verification, stronger identity checks, password changes, declarations,
+representative access and open-service-request handling. A connector must stop
+for unqualified branches; a generic Continue action could exceed login QA.
+The header's logout link and personal-area destination are only candidate
+authenticated markers until verified after an actual, service-owned SMS attempt.
+Raw page HTML and vendor bundles are not committed: the page contains transient
+anonymous form tokens, and public source alone cannot prove account acceptance.
+[Bound public evidence](../artifacts/harel-public-login-review-20261022.json).
+
 Phoenix's anonymous login page has no native form element. It loads a component
 from `auth0-login.fnx-public.com/index.js`; a separate anonymous source download
-returned HTTP 403, so that source was not reviewed. The current browser adapter's
-native username/password-form checks do not qualify either insurer's JavaScript
+returned HTTP 403, so that source was not reviewed. The current identity/phone
+engine's one initial POST does not qualify either insurer's full JavaScript
 flow. No personal login attempt was made during this review.
