@@ -38,7 +38,7 @@ def _resolve_source_prerequisites(db, account, now):
 
 def validate_link(store, account, data):
     spec = store.config().accounts.get(account)
-    if not isinstance(spec, BrowserAccount) or not spec.login:
+    if not isinstance(spec, BrowserAccount) or not spec.login or spec.login.identity_contact:
         raise AccessError("DENIED", "password_sync_account_unsupported")
     if not isinstance(data, dict):
         raise AccessError("DENIED", "invalid_password_sync_link")

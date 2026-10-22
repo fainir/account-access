@@ -122,14 +122,34 @@ with a short-lived public UUID added by the Mac's pairing screen. It requests
 no privileged self-managed, computer or watch permission. Pairing payloads are
 also removed from the copy button's accessibility identifier. New tests separate
 successful Android 11 delivery from Android 15 refusal without an association;
-the latter is not a positive pairing result. Bluetooth permission/discovery,
-actual system consent and physical phone delivery remain release gates.
+the latter is not a positive pairing result. Both corrected PR jobs passed at
+`07ce7b0` in run `39860255127`: Android 11 completed one synthetic browser SMS
+verification, and Android 15 refused the actual notification with zero accepted
+codes. The first replacement run had a stale positive-only count assertion; that
+failure remains recorded. The exact Android 15 APK was downloaded and its hash,
+v2/v3 signature and two manifest permissions independently checked. Native Mac
+UI and gateway checks also passed for the Bluetooth source; its full regression
+passed 3,787 tests with 107 skipped, dependency audit and source/wheel builds
+in run `39859402352`. Bluetooth
+permission/discovery, actual system consent and physical phone delivery remain
+release gates. [Scoped source and APK evidence](../artifacts/android-ble-discovery-source-20261022.json).
 [Tested old APK](../artifacts/android-phone-preview-0823275.json),
 [first Android 15 result](../artifacts/android-computer-association-first-run-e098c6f.json),
 and [Android's OTP restriction](https://developer.android.com/about/versions/15/behavior-changes-all#otp-redaction).
 
 Public-page research and the personal acceptance requirements for Harel/Phoenix
 are recorded in [insurer login acceptance](insurer-login-acceptance.md).
+A distinct identity/phone/SMS login model and masked native/browser enrollment
+now support controlled session-status checks. Password imports and sync are
+excluded; existing password fingerprints stay unchanged. This is an engine
+foundation, not a supported Harel or Phoenix connector. Their ordered JavaScript
+requests, real code screens and authenticated markers still need qualification.
+The final identity/security/session suite passed 35 checks, and the native UI
+compiled with warnings treated as errors and passed its checks. An earlier
+focused run passed 82 checks. The broader run passed 324 and exposed one stale
+historical-schema fixture; the corrected old-fingerprint checks passed
+separately. The new source still requires full CI.
+[Identity/phone foundation evidence](../artifacts/identity-phone-login-foundation-20261022.json).
 The owner selected Lemon Squeezy for authenticator-app acceptance. Its official
 documentation confirms authenticator support, and anonymous form inspection
 confirms email/password POST to `https://auth.lemonsqueezy.com/login`. The actual

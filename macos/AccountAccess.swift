@@ -173,6 +173,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     var services: NSPopUpButton!
     var username: NSTextField!
     var password: NSSecureTextField!
+    var loginIdentityLabel: NSTextField?
+    var loginSecretLabel: NSTextField?
     var permission: NSButton!
     var connectAction: NSButton?
     var savedSignInAction: NSButton?
@@ -1239,7 +1241,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         }
         let fields = ["password", "one_time_code", "numeric_input", "email_input"]
         let markers = Set(["login", "sms", "email", "totp", "device", "passkey", "captcha", "admin", "action", "recovery", "unknown", "method"])
-        let phases = ["password_submit_attempted", "sms_requested", "email_requested", "sms_code_filled", "email_code_filled", "totp_code_filled", "sms_submit_attempted", "email_submit_attempted", "totp_submit_attempted"]
+        let phases = ["password_submit_attempted", "identity_submit_attempted", "sms_requested", "email_requested", "sms_code_filled", "email_code_filled", "totp_code_filled", "sms_submit_attempted", "email_submit_attempted", "totp_submit_attempted"]
         guard Set(diagnostic.keys) == Set(["schema", "page", "forms", "fields", "field_counts", "visible_field_counts", "markers", "progress"]),
               integer(diagnostic["schema"], maximum: 1) == 1, let page = route(diagnostic["page"]),
               let forms = diagnostic["forms"] as? [[String: Any]], forms.count <= 8,
@@ -1320,7 +1322,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         services.action = #selector(serviceChanged)
         services.font = .systemFont(ofSize: 17)
         stack.addArrangedSubview(services)
-        label("Email or username", 14, .secondaryLabelColor)
+        loginIdentityLabel = label("Email or username", 14, .secondaryLabelColor)
         username = NSTextField()
         username.placeholderString = "Email or username"
         username.font = .systemFont(ofSize: 18)
@@ -1328,7 +1330,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         username.heightAnchor.constraint(equalToConstant: 40).isActive = true
         stack.addArrangedSubview(username)
         username.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
-        label("Password", 14, .secondaryLabelColor)
+        loginSecretLabel = label("Password", 14, .secondaryLabelColor)
         password = NSSecureTextField()
         password.placeholderString = "Password"
         password.font = .systemFont(ofSize: 18)
@@ -1360,12 +1362,37 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
 
     @objc func serviceChanged() {
         let entry = services.selectedItem?.representedObject as? [String: Any] ?? [:]
+        let identityPhone = entry["login_method"] as? String == "identity_phone_sms"
+        if (username is NSSecureTextField) != identityPhone,
+           let index = stack.arrangedSubviews.firstIndex(of: username) {
+            let replacement: NSTextField = identityPhone ? NSSecureTextField() : NSTextField()
+            replacement.font = username.font
+            replacement.delegate = self
+            stack.removeArrangedSubview(username)
+            username.removeFromSuperview()
+            username.stringValue = ""
+            username = replacement
+            stack.insertArrangedSubview(replacement, at: index)
+            replacement.heightAnchor.constraint(equalToConstant: 40).isActive = true
+            replacement.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        }
+        loginIdentityLabel?.stringValue = identityPhone ? "Identity number" : "Email or username"
+        loginSecretLabel?.stringValue = identityPhone ? "Phone number for login SMS" : "Password"
+        username.placeholderString = identityPhone ? "Identity number" : "Email or username"
+        password.placeholderString = identityPhone ? "Phone number" : "Password"
         let operations = entry["operations"] as? [[String: Any]] ?? []
         permission.title = "Allow your AI to: " + operations.compactMap { $0["description"] as? String }.joined(separator: "; ")
         permission.state = .off
         username.stringValue = ""
         password.stringValue = ""
         connectionInputChanged()
+    }
+
+    static func loginCredential(entry: [String: Any], identity: String, secret: String) -> [String: String] {
+        if entry["login_method"] as? String == "identity_phone_sms" {
+            return ["identity": identity, "phone": secret]
+        }
+        return ["username": identity, "password": secret]
     }
 
     func controlTextDidChange(_ notification: Notification) { connectionInputChanged() }
@@ -1381,10 +1408,13 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         guard permission.state == .on, !username.stringValue.isEmpty, !password.stringValue.isEmpty,
               let entry = services.selectedItem?.representedObject as? [String: Any],
               let service = entry["id"] as? String else { return }
-        let body: [String: Any] = ["service": service, "username": username.stringValue,
-                                   "password": password.stringValue, "agents": ["generic"]]
+        let credential = Self.loginCredential(entry: entry, identity: username.stringValue, secret: password.stringValue)
+        var body: [String: Any] = credential
+        body["service"] = service
+        body["agents"] = ["generic"]
         let existing = accounts.contains { $0["account"] as? String == service }
         failedAccount = service
+        username.stringValue = ""
         password.stringValue = ""
         busy = true
         page("Connecting your account", "Checking the saved login and the read you approved…")
@@ -1393,8 +1423,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             do {
                 let job: [String: Any]
                 if existing {
-                    _ = try self.request("owner/credential", body: ["account": service,
-                        "username": body["username"]!, "password": body["password"]!])
+                    var edit: [String: Any] = credential
+                    edit["account"] = service
+                    _ = try self.request("owner/credential", body: edit)
                     let names = (entry["operations"] as? [[String: Any]] ?? []).compactMap { $0["name"] as? String }
                     _ = try self.request("owner/grant", body: ["account": service, "principal": "generic", "operations": names])
                     job = try self.request("owner/verify", body: ["account": service])
@@ -1413,14 +1444,14 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         let isSMS = attention["kind"] as? String == "sms"
             || (diagnostic["page"] as? String ?? "").contains("/two-factor/sms")
         let delivery = progress["sms_code_filled"] as? Bool == true
-            ? "A fresh matching SMS code was received locally. Your saved password is preserved."
+            ? "A fresh matching SMS code was received locally. Your saved sign-in details are preserved."
             : progress["sms_requested"] as? Bool == true
-                ? "The website accepted the SMS request, but delivery is unconfirmed. Your saved password is preserved."
-                : isSMS ? "No SMS delivery was tested. Your saved password is preserved."
-                    : "Your saved password is preserved."
+                ? "The website accepted the SMS request, but delivery is unconfirmed. Your saved sign-in details are preserved."
+                : isSMS ? "No SMS delivery was tested. Your saved sign-in details are preserved."
+                    : "Your saved sign-in details are preserved."
         switch attention["reason"] as? String ?? "" {
         case "browser_captcha_required":
-            return "The website requires a browser security check that this connector cannot complete automatically. Your saved password is preserved."
+            return "The website requires a browser security check that this connector cannot complete automatically. Your saved sign-in details are preserved."
         case "browser_recovery_required":
             return "The website opened account recovery. Use an available sign-in method in its window. " + delivery
         case "browser_passkey_required", "browser_device_required", "browser_admin_required", "browser_action_required":
@@ -1452,7 +1483,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
 
     static func smsTimeoutMessage(deliveryStarted: Bool, incoming: Int, unreadable: Int) -> String {
         if !deliveryStarted {
-            return "The sign-in did not reach a confirmed SMS request. No SMS delivery was tested and no filter was enabled. Your saved password is preserved."
+            return "The sign-in did not reach a confirmed SMS request. No SMS delivery was tested and no filter was enabled. Your saved sign-in details are preserved."
         }
         if unreadable > 0 {
             return "New texts arrived, but some messages could not be decoded. No SMS filter was enabled. Update Account Access before trying again."
@@ -1511,7 +1542,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 }
                 let reason = result["reason"] as? String ?? ""
                 if reason == "browser_captcha_required" {
-                    throw Failure.message("The website requires a browser security check that this connector cannot complete automatically. Your saved password is preserved; this sign-in remains unverified.")
+                    throw Failure.message("The website requires a browser security check that this connector cannot complete automatically. Your saved sign-in details are preserved; this sign-in remains unverified.")
                 }
                 if ["mailbox_result_limit", "mailbox_scope_missing", "phone_not_paired"].contains(reason) {
                     throw Failure.message(verificationMessage(["reason": reason]))
@@ -1894,7 +1925,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         showBitwardenSyncCards()
         card("Connect 1Password", "Use a service account with read-only access to a dedicated vault, or an existing Connect server. Choose the exact login item for an account you already imported. Tokens stay encrypted locally; the app cannot add accounts or permissions through sync.")
         syncAccounts = NSPopUpButton()
-        for account in accounts where account["route"] as? String == "browser" && account["portable_ready"] as? Bool == true {
+        for account in accounts where account["route"] as? String == "browser" && account["portable_ready"] as? Bool == true && account["login_method"] as? String != "identity_phone_sms" {
             syncAccounts.addItem(withTitle: account["label"] as? String ?? "Account")
             syncAccounts.lastItem?.representedObject = account["account"]
         }
@@ -1982,7 +2013,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         }
         card("Connect Bitwarden once", "Bitwarden JSON imports are snapshots. Connect your vault once to keep selected, already-approved passwords current automatically. Your master password is used only to unlock setup and is never saved.")
         action("Connect Bitwarden", #selector(showBitwardenConnect))
-        let choices = accounts.filter { $0["route"] as? String == "browser" && $0["portable_ready"] as? Bool == true }
+        let choices = accounts.filter { $0["route"] as? String == "browser" && $0["portable_ready"] as? Bool == true && $0["login_method"] as? String != "identity_phone_sms" }
         let connectedVaults = bitwardenConnections.filter { ($0["status"] as? String ?? "CONNECTED") == "CONNECTED" }
         guard !connectedVaults.isEmpty, !choices.isEmpty else {
             label("Import and approve a supported login, then select it here after connecting Bitwarden.", 14, .secondaryLabelColor)
@@ -2860,7 +2891,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                     } else if let outcome = job["status"] as? String, outcome != "RUNNING" {
                         throw Failure.message(job["reason"] as? String == "login_retry_cooldown"
                             ? "The website's sign-in cooldown is active. Wait one minute and connect SMS again."
-                            : "The website did not accept its reviewed SMS request. No delivery was confirmed. Your saved password is preserved.")
+                            : "The website did not accept its reviewed SMS request. No delivery was confirmed. Your saved sign-in details are preserved.")
                     }
                     Thread.sleep(forTimeInterval: 1)
                 }
@@ -3401,7 +3432,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         let fields = reason.components(separatedBy: ":")
         guard fields.count == 4 else { return "The sign-in check could not finish." }
         switch fields[1] {
-        case "destination": return "The website sent this sign-in outside its reviewed login flow. Your saved password is preserved."
+        case "destination": return "The website sent this sign-in outside its reviewed login flow. Your saved sign-in details are preserved."
         case "method": return "The website requested a sign-in action that this connection does not permit."
         case "transport": return "The sign-in request could not reach the website."
         case "response_size": return "The website returned a response larger than this connection permits."

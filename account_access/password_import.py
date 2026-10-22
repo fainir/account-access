@@ -28,7 +28,8 @@ def available(store):
 
 
 def matching_origin(spec, url):
-    return origin(url) in {origin(spec.login_url), *spec.password_import_origins}
+    return (not (spec.login and spec.login.identity_contact)
+            and origin(url) in {origin(spec.login_url), *spec.password_import_origins})
 
 
 def _login_row(ident, url, username, password, authenticator=None):

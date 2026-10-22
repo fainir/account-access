@@ -36,8 +36,11 @@ def environment(spec, *, test_mode=False):
 
 def describe(spec, *, test_mode=False):
     context = environment(spec, test_mode=test_mode)
-    return {"label": spec.label + (" · Public example" if context == "public-example" else ""),
-            "environment": context, "environment_source": "connector-configuration"}
+    result = {"label": spec.label + (" · Public example" if context == "public-example" else ""),
+              "environment": context, "environment_source": "connector-configuration"}
+    if isinstance(spec, BrowserAccount) and spec.login and spec.login.identity_contact:
+        result["login_method"] = "identity_phone_sms"
+    return result
 
 
 def aggregate(accounts, *, test_mode=False):

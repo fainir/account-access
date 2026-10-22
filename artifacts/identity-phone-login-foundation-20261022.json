@@ -1,0 +1,74 @@
+{
+  "base_commit": "07ce7b09c9adc49b3e167a9861564cfed091bedb",
+  "behavior": [
+    "Separate encrypted identity and phone credentials; no password aliases or synchronization.",
+    "One armed same-origin initial POST, HTTP confirmation, redirect/replay refusal and a required SMS factor.",
+    "Session-status-only grants; ID/phone/code values excluded from agent results and defense-in-depth redaction.",
+    "Masked native and browser owner enrollment; ordinary password grant fingerprints remain stable."
+  ],
+  "limits": {
+    "full_head_ci": "not_yet_run",
+    "harel_connector_qualified": false,
+    "installed_in_owner_package82": false,
+    "personal_accounts_used": 0,
+    "phoenix_connector_qualified": false,
+    "physical_android_sms_qualified": false,
+    "production_ready": false
+  },
+  "recorded_utc": "2026-10-22T22:19:10.500528+00:00",
+  "schema": 1,
+  "source_sha256": {
+    "account_access/account_context.py": "e5f9e495c62855d68465df739a0eebb1fb001540620362686dcccef81ffe6760",
+    "account_access/broker.py": "0c0917d63e51e941736888b056eedbb0b0f497e4472f13bf9f11eb53d65f6de1",
+    "account_access/browser.py": "b8f8b4ae70135636d5df9cb4d788a66a6206f6eb47440ed0704695c4c6bbf266",
+    "account_access/browser_diagnostics.py": "fc319e4690943076af2eaa3898f69b8bd672b3190ee9647c85483d0413666978",
+    "account_access/demo.py": "2377d36c8a5024c4b581a6c98f152b79b930da3a280570ffd536c46ceb7d42bb",
+    "account_access/models.py": "7723ad953db811bef0ce3bc503fb35dcd69e5ae5b60b8861ec6849f174e5477d",
+    "account_access/owner.py": "1043f577c031881290c56f0f06a988bdd06a95d7f7e4d00ee0c6aefece7c07de",
+    "account_access/password_import.py": "45a4c4b389935017962b3e62c1fa22742caa9bf7913af7f1e682a95ef9ae92d7",
+    "account_access/password_sync.py": "9e8749ee307a39c13cdcfbe39919a86080a4bc132b2e426925f6b81d9e71a132",
+    "account_access/providers.py": "d0cabfb0430916e21858e3097959ee3bde3167373f6ea1c518f58582231e54c6",
+    "account_access/ui/owner.js": "950ec5a50b096b310ec8f324edb1e7863f4a0739c05818cd767c1dc2151d2463",
+    "account_access/ui/welcome.js": "e47383f853861cbb51d922c653e7d947b897e7681ba66ae9d059b57ad1ac2f24",
+    "macos/AccountAccess.swift": "37251c6bf507cd92d831b8252373cd044fc6c48dc8a4550fd716c56a470990c3",
+    "macos/Tests/OwnerScreenChecks.swift": "37730b90799a4c6fbf11de1a6c4842a6f4a44db1db5ac8962e3cd1992e00699f",
+    "tests/test_identity_contact_login.py": "215ff2828637fcfe6ad6921df242f01a47c6592ff0731d502706e2e45b7d4bbe",
+    "tests/test_multifactor.py": "0dab50f530ae67a42e31e2b4f05ccbdbce0a765f395c65aa2475728f4535a5d8"
+  },
+  "status": "FOUNDATION_QUALIFIED_WITH_SYNTHETIC_ACCOUNTS",
+  "validation": {
+    "broader_password_mfa_regression_before_final_redaction": {
+      "failed": 1,
+      "failure": "Historical expected-schema fixture accidentally included new identity_contact=None; production fingerprint omitted it correctly. Fixture corrected separately.",
+      "log_sha256": "e8afbe00e3dc698e58b59b8dc44a4def93e0bd8a8e7a055b3d9d87598e6477a8",
+      "passed": 324
+    },
+    "corrected_legacy_fingerprints": {
+      "log_sha256": "e01c9bea9c7df24384e14b238657ae26c885d0cd59a25408ddee6b39cc864b84",
+      "passed": 2
+    },
+    "diff_whitespace": "passed",
+    "final_identity_security_session_suite": {
+      "log_sha256": "64dd92e322af4a37ebd035cf037e9d4665e4b9e8844b3b17da89db702a7b46e3",
+      "passed": 35
+    },
+    "focused_before_final_redaction": {
+      "log_sha256": "f16846c2e2a8d9fee7324354d0121efc16b1e290d9567853190c910959658667",
+      "passed": 82
+    },
+    "javascript_syntax": "passed",
+    "native_owner_ui": {
+      "checks_lines": 55,
+      "checks_log_sha256": "ecca4c9c97bfd1a297174ae1251ca3627223c06fcc4bf82dcf7c8b41c818503c",
+      "compile_exit": 0,
+      "compile_log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "native_ui_exit": 0,
+      "private_accounts": 0,
+      "production_ready": false,
+      "source_pins_sha256": "e85042e0a8f34d871d963c7697710c3e68248f70fdda93f505b9b9116401666e",
+      "source_still_matches": true,
+      "warnings_as_errors": true
+    },
+    "ruff": "passed"
+  }
+}

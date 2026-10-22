@@ -48,7 +48,16 @@ async function checkRecoveryHealth(){
  healthBusy=true;
  try{renderRecoveryHealth(await call("/owner/health"));}catch{renderRecoveryHealth({status:"UNAVAILABLE"});}finally{healthBusy=false;}
 }
-function permission(){const choice=state.catalog.find(x=>x.id===el("service").value);el("permission").textContent=choice?"Allowed: "+choice.operations.map(x=>x.description).join("; "):"";}
+function permission(){
+ const choice=state.catalog.find(x=>x.id===el("service").value),identityPhone=choice?.login_method==="identity_phone_sms";
+ el("permission").textContent=choice?"Allowed: "+choice.operations.map(x=>x.description).join("; "):"";
+ const username=el("username"),password=el("password"),nextType=identityPhone?"password":"text";
+ if(username.type!==nextType){username.value="";password.value="";}username.type=nextType;
+ username.parentElement.firstChild.textContent=identityPhone?"Identity number":"Email or username";
+ password.parentElement.firstChild.textContent=identityPhone?"Phone number for login SMS":"Password";
+ username.autocomplete=identityPhone?"off":"username";password.autocomplete=identityPhone?"off":"current-password";
+ username.maxLength=password.maxLength=identityPhone?128:4096;
+}
 let view="accounts";
 let adding=false;
 const labels={codex:"Codex",claude:"Claude Code"};
@@ -113,7 +122,7 @@ async function refresh(){
 el("service").onchange=()=>{permission();el("allow").checked=false;el("username").value="";el("password").value="";};
 el("stop").onclick=async()=>{if(!confirm("Stop Account Access? Your saved connections will be kept."))return;clearMaskedInputs();clearDeviceEmailReview();clearBitwardenSetup();clearSetupDrafts();try{await call("/owner/stop",{});locallyPaused=true;clearInterval(healthTimer);message("Account Access is paused. Open the app to resume it.");el("service-status").textContent="Paused";el("recovery-health").hidden=true;document.querySelectorAll("button,input,select").forEach(x=>x.disabled=true);}catch(e){problem(e);}};
 el("manage").onclick=e=>{e.preventDefault();location.href="/manage#"+capability;};
-el("account-form").onsubmit=async e=>{e.preventDefault();if(locallyPaused||el("add").disabled)return;el("add").disabled=true;try{if(!el("allow").checked)throw new Error("Choose the reads you want to allow.");const payload={service:el("service").value,username:el("username").value,password:el("password").value,agents:["generic"]};el("password").value="";const request=call("/owner/add",payload);payload.password="";await request;if(locallyPaused)return;el("username").value="";el("allow").checked=false;message("Signing in. You can connect another account while this finishes.");await refresh();}catch(e){if(!locallyPaused)problem(e);}finally{el("add").disabled=locallyPaused;}};
+el("account-form").onsubmit=async e=>{e.preventDefault();if(locallyPaused||el("add").disabled)return;el("add").disabled=true;try{if(!el("allow").checked)throw new Error("Choose the reads you want to allow.");const service=el("service").value,identityPhone=state.catalog.find(x=>x.id===service)?.login_method==="identity_phone_sms";const fields=identityPhone?{identity:el("username").value,phone:el("password").value}:{username:el("username").value,password:el("password").value};const payload={service,...fields,agents:["generic"]};el("username").value="";el("password").value="";const request=call("/owner/add",payload);for(const key of Object.keys(fields)){fields[key]="";payload[key]="";}await request;if(locallyPaused)return;el("username").value="";el("allow").checked=false;message("Signing in. You can connect another account while this finishes.");await refresh();}catch(e){if(!locallyPaused)problem(e);}finally{el("add").disabled=locallyPaused;}};
 if(capability)call("/owner/state").then(initial=>initial.local_host_actions===false?null:call("/owner/install",{})).then(refresh).then(()=>{healthTimer=setInterval(checkRecoveryHealth,5000);document.addEventListener("visibilitychange",checkRecoveryHealth);}).catch(problem);else message("Open Account Access from its launcher to unlock your setup page.");
 
 let importPreview=null;
@@ -141,7 +150,7 @@ function renderPasswordSync(){
   }else card.append(text("p","A check is in progress. Reopen Password sync to refresh this connection before replacing its token."));
   const remove=text("button","Disconnect and remove saved login");remove.type="button";remove.onclick=async()=>{if(!confirm("Disconnect this source and remove its locally saved password and session? Your existing read permissions remain."))return;try{await call("/owner/password-sync/disconnect",{account:link.account});await refresh();}catch(error){problem(error);}};card.append(remove);container.append(card);
  }
- const choices=state.accounts.filter(item=>item.route==="browser"&&item.portable_ready);
+ const choices=state.accounts.filter(item=>item.route==="browser"&&item.portable_ready&&item.login_method!=="identity_phone_sms");
  renderBitwardenSync(container,choices);
  const card=text("div","");card.className="card";card.append(text("h2","Connect 1Password"),text("p","Use a service account with read-only access to a dedicated vault, or an existing Connect server. Select the exact item for a login you already imported. Tokens stay encrypted locally and out of AI chat."));container.append(card);
  if(!choices.length){card.append(text("p","Import and approve a supported login first."));return;}

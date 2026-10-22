@@ -550,6 +550,33 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         precondition(stoppedJobs["first"]?["status"] as? String == "NEEDS_USER")
         VerificationRetryFixture.stopped = false
         print("PASS: finishing a stopped review returns the failed account state without claiming connection")
+        let savedCatalog = owner.catalog
+        let savedAccounts = owner.accounts
+        owner.accounts = []
+        owner.catalog = [
+            ["id": "identity-fixture", "label": "Fictional identity login", "login_method": "identity_phone_sms",
+             "operations": [["name": "status", "description": "Confirm the signed-in session"]]],
+            ["id": "password-fixture", "label": "Fictional password login",
+             "operations": [["name": "status", "description": "Confirm the signed-in session"]]]
+        ]
+        owner.connections()
+        precondition(owner.username is NSSecureTextField && owner.password != nil)
+        precondition(owner.loginIdentityLabel?.stringValue == "Identity number")
+        precondition(owner.loginSecretLabel?.stringValue == "Phone number for login SMS")
+        owner.username.stringValue = "fictional-identity"
+        owner.password.stringValue = "fictional-phone"
+        let identityEntry = owner.services.selectedItem!.representedObject as! [String: Any]
+        precondition(AccountAccess.loginCredential(entry: identityEntry, identity: owner.username.stringValue,
+            secret: owner.password.stringValue) == ["identity": "fictional-identity", "phone": "fictional-phone"])
+        owner.services.selectItem(at: 1)
+        owner.serviceChanged()
+        precondition(!(owner.username is NSSecureTextField) && owner.username.stringValue.isEmpty && owner.password.stringValue.isEmpty)
+        precondition(owner.loginIdentityLabel?.stringValue == "Email or username" && owner.loginSecretLabel?.stringValue == "Password")
+        precondition(AccountAccess.loginCredential(entry: [:], identity: "fictional-user", secret: "fictional-password")
+            == ["username": "fictional-user", "password": "fictional-password"])
+        owner.catalog = savedCatalog
+        owner.accounts = savedAccounts
+        print("PASS: identity and phone enrollment uses distinct masked fields; changing login kind clears values and restores password labels")
         owner.sources = []
         owner.smsSetups = [["account": "fixture", "fingerprint": "fictional"]]
         owner.showFactors()
@@ -564,7 +591,7 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         precondition(owner.verificationMessage(["reason": "browser_passkey_required"]).contains("requires owner approval"))
         precondition(owner.verificationMessage(["reason": "browser_recovery_required"]).contains("opened account recovery"))
         let browserCheck = owner.verificationMessage(["reason": "browser_captcha_required"])
-        precondition(browserCheck.contains("cannot complete automatically") && browserCheck.contains("password is preserved"))
+        precondition(browserCheck.contains("cannot complete automatically") && browserCheck.contains("sign-in details are preserved"))
         print("PASS: pre-request failures cannot claim SMS delivery was tested; owner attention distinguishes unknown pages and required presence")
         let mailboxLimit = owner.verificationMessage(["kind": "email", "reason": "mailbox_result_limit"])
         precondition(mailboxLimit.contains("instead of guessing") && !mailboxLimit.contains("SMS"))

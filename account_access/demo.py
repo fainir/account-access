@@ -47,6 +47,11 @@ class DemoProvider:
         self.last_login_code = ""
         self.password = DEMO_PASSWORD
         self.login_redirect = None
+        self.identity_contact_mode = False
+        self.identity_contact_form_method = "post"
+        self.identity_contact_submit_target = None
+        self.identity_contact_skip_sms = False
+        self.identity_contact_received = False
         self.lock = threading.Lock()
         provider = self
 
@@ -76,6 +81,13 @@ class DemoProvider:
 
             def login_form(self, mfa=False, prefix=None):
                 path = (prefix or ("/mfa" if mfa else "/web")) + "/login"
+                if provider.identity_contact_mode and path == "/sms/login":
+                    return ('<h1>Fictional identity and phone login</h1><form id="identity-login" '
+                            f'action="/sms/login" method="{provider.identity_contact_form_method}">'
+                            '<label>Identity<input name="identity" id="identity"></label>'
+                            '<label>Phone<input name="phone" id="phone" type="tel"></label>'
+                            '<button id="login-submit"' + (f' formaction="{provider.identity_contact_submit_target}"'
+                            if provider.identity_contact_submit_target else '') + '>Send login code</button></form>')
                 return f'<h1>Example account sign-in</h1><p>Controlled testing account</p><form id="password-login" action="{path}" method="post"><label>Email<input name="username" id="username"></label><label>Password<input name="password" id="password" type="password"></label><button id="login-submit">Sign in</button></form>'
 
             def do_GET(self):
@@ -147,9 +159,17 @@ class DemoProvider:
                     if provider.login_redirect:
                         self.send(307, {}, {"Location": provider.login_redirect})
                         return
-                    if data.get("username") != "demo@example.test" or data.get("password") != provider.password:
+                    identity_mode = provider.identity_contact_mode and self.path == "/sms/login"
+                    valid = (data == {"identity": "fixture-identity", "phone": "fixture-phone"} if identity_mode
+                             else data.get("username") == "demo@example.test" and data.get("password") == provider.password)
+                    if not valid:
                         self.page(self.login_form())
                         return
+                    if identity_mode:
+                        provider.identity_contact_received = True
+                        if provider.identity_contact_skip_sms:
+                            self.finish_login("/sms/summary")
+                            return
                     if not self.path.startswith("/web"):
                         token = secrets.token_urlsafe(24)
                         provider.pending_mfa.add(token)

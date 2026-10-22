@@ -21,7 +21,7 @@ FIELDS = {
 }
 MARKERS = frozenset({"login", "sms", "email", "totp", "device", "passkey", "captcha",
                      "admin", "action", "recovery", "unknown", "method"})
-PROGRESS = frozenset({"password_submit_attempted", "sms_requested", "email_requested",
+PROGRESS = frozenset({"password_submit_attempted", "identity_submit_attempted", "sms_requested", "email_requested",
                       "sms_code_filled", "email_code_filled", "totp_code_filled",
                       "sms_submit_attempted", "email_submit_attempted", "totp_submit_attempted"})
 

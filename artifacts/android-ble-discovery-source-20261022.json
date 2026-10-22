@@ -8,6 +8,53 @@
   ],
   "android_privileged_permissions_requested": false,
   "association": "Ordinary Bluetooth LE discovery filtered by the UUID in the Mac pairing QR, no device profile or self-managed role.",
+  "corrected_android_pr": {
+    "jobs": {
+      "android11": {
+        "conclusion": "success",
+        "job": 120108822029,
+        "report": {
+          "android_api": "30",
+          "browser_sms_verifications": 1,
+          "checks": [
+            "Keystore encrypted pairing",
+            "Private destination restriction",
+            "Actual Android notification listener",
+            "Certificate-pinned HTTPS ingress",
+            "Browser code submission",
+            "No code in agent result"
+          ],
+          "limits": "Synthetic emulator checks only. Android 15 positive Bluetooth pairing and all physical-phone delivery remain unqualified.",
+          "notification_forwarding_without_association_refused": false,
+          "physical_phone_delivery_qualified": false,
+          "positive_bluetooth_computer_association_qualified": false,
+          "status": "COMPLETED"
+        }
+      },
+      "android15": {
+        "conclusion": "success",
+        "job": 120108822499,
+        "report": {
+          "android_api": "35",
+          "browser_sms_verifications": 0,
+          "checks": [
+            "Keystore encrypted pairing",
+            "Legacy QR requests new discovery",
+            "Invalid discovery UUID rejected",
+            "QR alone cannot grant permission",
+            "Actual Android notification refused without association"
+          ],
+          "limits": "Synthetic emulator checks only. Android 15 positive Bluetooth pairing and all physical-phone delivery remain unqualified.",
+          "notification_forwarding_without_association_refused": true,
+          "physical_phone_delivery_qualified": false,
+          "positive_bluetooth_computer_association_qualified": false,
+          "status": "BLOCKED_AS_EXPECTED"
+        }
+      }
+    },
+    "run": 39860255127
+  },
+  "corrected_source_commit": "07ce7b09c9adc49b3e167a9861564cfed091bedb",
   "hosted_android_pr_run": 39859406984,
   "hosted_android_run": 39859402398,
   "hosted_first_replacement_result": {
@@ -24,6 +71,26 @@
     "cause": "sms_count counts accepted verifications; the no-association scenario correctly has zero. The harness retained a positive-only expectation.",
     "correction": "Require zero accepted SMS verifications on Android15, one on Android11; preserve all other assertions.",
     "run": 39859402398
+  },
+  "hosted_native_checks": {
+    "native_owner_gateway": {
+      "conclusion": "success",
+      "job": 120105894512
+    },
+    "native_owner_ui": {
+      "conclusion": "success",
+      "job": 120105893919
+    },
+    "python_regression": {
+      "conclusion": "success",
+      "dependency_audit": "success",
+      "job": 120105894388,
+      "passed": 3787,
+      "sdist_wheel": "success",
+      "skipped": 107
+    },
+    "run": 39859402352,
+    "source_commit": "d90d14fe09cc6d46f90dc9f54a78de03af82b4c0"
   },
   "included_in_frozen_package82": false,
   "mac_discovery": "Fresh public UUID; stops after five minutes or on leaving the pairing page. QR secrets are not placed in accessibility identifiers.",
@@ -91,8 +158,52 @@
       "phone-preview-evidence.json"
     ]
   },
+  "retained_api35_apk": {
+    "android_api": 35,
+    "apk_bytes": 291241,
+    "apk_sha256": "efd37011cc09c060453a80e111601a698e21a00d2c3ea0ac0beb756832dcb973",
+    "artifact_id": 12460909941,
+    "artifact_zip_sha256": "63ef980fb023357485a2a3b408cbc52657fc2d84d70ddb028582a867446db881",
+    "certificate_sha256": "54166dcd62ceebffcf3ba4065b0da4f9cee07f7d601866d78bd8797ffee208a6",
+    "commands": {
+      "badging": {
+        "returncode": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_sha256": "a4d79505d6db9074e385fc01088fb67acb0b95a0c6195beaddb807b891ee5e3a"
+      },
+      "manifest": {
+        "returncode": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_sha256": "97205d03f9b7fe27035971bcc0ca3a957941fc03817b0d5b6260c1de233bb9a3"
+      },
+      "signature": {
+        "returncode": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_sha256": "782dc55408a29104cc5f01a3955205dd4277b756ac1bb882a0d85775b50fb5ff"
+      }
+    },
+    "emulator_journey_passed": false,
+    "installed_or_executed_on_phone": false,
+    "notification_forwarding_without_association_refused": true,
+    "permissions": [
+      "android.permission.CAMERA",
+      "android.permission.INTERNET"
+    ],
+    "physical_phone_delivery_qualified": false,
+    "positive_bluetooth_computer_association_qualified": false,
+    "production_ready": false,
+    "production_signing": false,
+    "schema": 1,
+    "source_commit": "07ce7b09c9adc49b3e167a9861564cfed091bedb",
+    "status": "TESTED_PREVIEW_ARTIFACT_REVIEWED",
+    "workflow_run": 39860249683,
+    "zip_members": [
+      "Account-Access-Phone-preview.apk",
+      "phone-preview-evidence.json"
+    ]
+  },
   "schema": 1,
   "source_commit": "d90d14fe09cc6d46f90dc9f54a78de03af82b4c0",
-  "status": "SOURCE_CHECKS_PASSED_ANDROID15_ASSERTION_CORRECTION_REQUIRED",
+  "status": "SOURCE_CHECKS_AND_ANDROID_SCOPED_TESTS_PASSED",
   "transport": "Unchanged certificate-pinned private-Wi-Fi HTTPS with existing source/template/freshness checks."
 }

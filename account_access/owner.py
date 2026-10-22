@@ -649,13 +649,14 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                     with broker.store.db() as db:
                         installed = {r[0] for r in db.execute("SELECT DISTINCT principal FROM clients WHERE revoked=0")}
                     agents = data.get("agents", sorted(installed))
-                    if (set(data) not in [{"service", "username", "password", "agents"},
-                                         {"service", "username", "password"}]
-                            or not isinstance(service, str) or service not in entries()
+                    spec = entries().get(service) if isinstance(service, str) else None
+                    fields = spec.login.credential_fields() if spec and spec.login else ()
+                    credential = {key: data.get(key) for key in fields}
+                    if (not spec or not fields
+                            or set(data) not in [set(fields) | {"service", "agents"}, set(fields) | {"service"}]
                             or not isinstance(agents, list) or not 1 <= len(agents) <= 32
                             or any(x not in installed for x in agents)
-                            or any(not isinstance(data[x], str) or not 0 < len(data[x]) <= 4096
-                                   for x in ["username", "password"])):
+                            or not spec.login.credential_ready(credential)):
                         raise ValueError()
                     if not set(agents) <= installed:
                         raise AccessError("DENIED", "install_your_agent_first")
@@ -663,8 +664,7 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                     try:
                         add(broker.store, service)
                         with broker.store.lock("account:" + service):
-                            broker.store.put("credential:" + service,
-                                             {"username": data["username"], "password": data["password"]})
+                            broker.store.put("credential:" + service, credential)
                         for agent in sorted(set(agents)):
                             broker.grant(agent, service, list(broker.store.config().accounts[service].operations))
                     except Exception:
@@ -734,7 +734,15 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                     if isinstance(config.accounts[account], OAuthAccount):
                         value = {"client_secret": data["client_secret"]}
                     else:
-                        value = {"username": data["username"], "password": data["password"]}
+                        form = config.accounts[account].login
+                        if form and form.identity_contact:
+                            if set(data) != {"account", "identity", "phone"}:
+                                raise ValueError()
+                            value = {key: data[key] for key in form.credential_fields()}
+                            if not form.credential_ready(value):
+                                raise ValueError()
+                        else:
+                            value = {"username": data["username"], "password": data["password"]}
                     if not all(isinstance(v, str) and 0 < len(v) <= 4096 for v in value.values()):
                         raise ValueError()
                     with broker.store.lock("account:" + account):
@@ -762,7 +770,7 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                             # Saving a credential is not verified login and
                             # cannot clear presence, CAPTCHA, unknown-page or
                             # transaction challenges or restart their tasks.
-                            db.execute("UPDATE challenges SET resolved=? WHERE account=? AND resolved IS NULL AND kind='login' AND reason IN ('password_not_connected','browser_login_required','client_secret_not_configured')",
+                            db.execute("UPDATE challenges SET resolved=? WHERE account=? AND resolved IS NULL AND kind='login' AND reason IN ('password_not_connected','identity_contact_not_connected','browser_login_required','client_secret_not_configured')",
                                        (time.time(), account))
                     self.send(200, {"status": "SAVED"})
                 elif self.path == "/owner/connect":

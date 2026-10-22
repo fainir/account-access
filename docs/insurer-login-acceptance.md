@@ -16,12 +16,17 @@ date verification. Phoenix's [security information](https://www.fnx.co.il/custom
 describes personal-area login using an identity number and an SMS code.
 
 These are identity-and-contact flows followed by a code. They must not be
-represented as imported Chrome passwords. The current browser-login model
-requires a username and password. A reviewed extension must support locally
-encrypted identity/contact inputs, preserve existing password connectors and
-their grant fingerprints, and exclude identity/contact values from agent
-results, diagnostics and logs. Native enrollment must label these fields
-accurately and never ask for them in a chat.
+represented as imported Chrome passwords. The login engine now has a separate identity/phone credential shape, masked
+local enrollment, and a required SMS factor. Existing password connector
+fingerprints are preserved; password imports and synchronization cannot populate
+identity/phone accounts. These accounts can grant only session status. The
+initial request has one explicit same-origin POST destination, which is armed
+only for submission and must return a successful HTTP response; POST redirects
+and a ready marker without SMS verification are refused. Synthetic browser tests
+cover these boundaries, session reuse/expiry and source revocation. This does
+not yet implement the insurers' complete JavaScript flows or establish a
+physical-phone login. Identity/contact values must stay out of agent results,
+diagnostics, logs and chat.
 
 The request to support these sites does not specify permission to read policies,
 medical details or make changes. Initial personal acceptance should prove only

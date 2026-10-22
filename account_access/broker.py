@@ -129,8 +129,7 @@ class Broker:
             pending = None
         else:
             saved, credential, pending = display_snapshot
-        ready = bool(isinstance(spec, BrowserAccount) and spec.login
-                     and credential.get("username") and credential.get("password"))
+        ready = bool(isinstance(spec, BrowserAccount) and spec.login and spec.login.credential_ready(credential))
         if saved.get("revoked"):
             state = "revoked"
         elif saved and saved.get("fingerprint") != config.fingerprint(account):
@@ -174,7 +173,7 @@ class Broker:
             with self.store.lock("account:" + account):
                 config = self.permit(principal, account, operation)
                 spec = config.accounts[account]
-                if isinstance(spec, BrowserAccount):
+                if isinstance(spec, BrowserAccount) and not (spec.login and spec.login.identity_contact):
                     from .password_sync import refresh
                     refresh(self.store, account)
                 pending = self.store.pending(account)
