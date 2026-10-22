@@ -34,4 +34,10 @@ The build downloads checksum-pinned [ZXing Core 3.5.3](https://github.com/zxing/
 
 `scripts/android_journey.py` installs the app and instrumentation on a running emulator, exercises Keystore storage, posts an actual Android notification, and verifies HTTPS delivery plus a real browser verification form. Its identities, message and website are synthetic. The CI workflow runs this separately from the Python regression suite. The [Android emulator journey passed on 14 October 2026](https://github.com/fainir/account-access/actions/runs/38543728385). A passing emulator check does not establish carrier delivery or physical-device reliability.
 
+After that journey passes, CI retains the exact preview APK and a JSON record of
+its source revision, run, size and SHA-256 for seven days. These two files support
+physical-phone acceptance of the tested binary. The signing keystore and test
+instrumentation APK are excluded from the artifact. The preview uses a development
+signing identity and is not an upgrade-stable production distribution.
+
 For iPhone on Mac, use the separate Messages reader after configuring text forwarding and granting the signed Account Access app Full Disk Access. An iPhone companion cannot be assumed to read arbitrary SMS inboxes.
