@@ -89,6 +89,17 @@ its native checks passed, and a fresh complete run with the corrected expected
 counts passed. This qualifies source diagnostics, not an owner repair or another
 installed package. [Diagnostic source evidence](../artifacts/predecessor-diagnostics-20261022.json).
 
+Diagnostic package 82 now builds and passes an independent read-only review of
+its staged and expanded trees, all 15 compiled inputs and original command logs.
+The first build refused a changed device number in the staged inventory; a full
+public-content check found only that metadata change. The second stopped at its
+disk reserve. Both attempts are retained, and the successful third attempt keeps
+the same guards. This device-number change is a lead, not a confirmed explanation
+of the owner's failure. Package 82 still needs actual Installer qualification and
+does not repair the protected store. Its source CI passed 3,777 tests with 107
+skipped, plus native UI and gateway checks; the new installer-controller selector
+passed 98 focused checks. [Candidate evidence](../artifacts/full-image82-diagnostic-package-20261022.json).
+
 Public-page research and the personal acceptance requirements for Harel/Phoenix
 are recorded in [insurer login acceptance](insurer-login-acceptance.md).
 The owner selected Lemon Squeezy for authenticator-app acceptance. Its official

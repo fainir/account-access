@@ -27,6 +27,10 @@ BASE_RELEASE = {"id": 418292574, "tag": "qa-fbd2a73-build76-component-base",
 COMPONENT = "674c5df7866477e48811d002128370aaec6385aeb0565137036880de4c626bef"
 COMPONENT_SOURCE = "213509c6bd9ff40131bd71dcb1a2967e96cd76a3"
 PROBES = ("scripts/mac_full_image_installer_probe.py", "scripts/mac_component_update_installer_probe.py")
+COHORT_CONTRACTS = {
+    81: "artifacts/full-image-installer81-recovery-inputs.json",
+    82: "artifacts/full-image-installer82-inputs.json",
+}
 
 
 def require(value):
@@ -129,13 +133,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--contract", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--cohort", type=int, choices=sorted(COHORT_CONTRACTS), default=81)
     args = parser.parse_args()
     require(os.getuid() != 0 and os.environ.get("GITHUB_REPOSITORY") == REPOSITORY
             and os.environ.get("GITHUB_ACTIONS") == "true" and hex_value(os.environ.get("GITHUB_SHA"), 40))
     revision = os.environ["GITHUB_SHA"]
+    contract_path = COHORT_CONTRACTS[args.cohort]
     raw = args.contract.read_bytes()
     require(len(raw) < 64 * 1024 and subprocess.check_output(
-        ["git", "show", revision + ":artifacts/full-image-installer81-recovery-inputs.json"], timeout=5) == raw)
+        ["git", "show", revision + ":" + contract_path], timeout=5) == raw)
     contract = validate(decode(raw))
     args.output.mkdir(mode=0o700)  # Never reuse a partial transfer directory.
     releases = {}

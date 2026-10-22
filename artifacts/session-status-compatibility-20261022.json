@@ -13,6 +13,18 @@
   "focused_recheck_passed": 8,
   "native_owner_ui": "PASSED",
   "native_owner_gateway": "PASSED",
-  "full_corrected_source_CI_pending": true,
-  "production_ready": false
+  "full_corrected_source_CI_pending": false,
+  "production_ready": false,
+  "corrected_source_ci": {
+    "commit": "14ff4e0c2b0878aabfb5dee5916a65eac97a424f",
+    "does_not_establish_owner_installation_or_real_provider_acceptance": true,
+    "failed": 0,
+    "native_owner_gateway": "success",
+    "native_owner_ui": "success",
+    "passed": 3777,
+    "run_url": "https://github.com/fainir/account-access/actions/runs/39847493302",
+    "sdist_and_wheel_build": "success",
+    "skipped": 107,
+    "test_job": 120064671650
+  }
 }

@@ -510,6 +510,7 @@ def interrupt(scripts, scenario, report, output):
 def run(args):
     guard()
     require(args.scenario in SCENARIOS)
+    contract_path, package_identifier = cohort_contract(getattr(args, "cohort", 81))
     revision = os.environ["GITHUB_SHA"]
     old_path = args.repository / "scripts/mac_component_update_installer_probe.py"
     old_raw = old_path.read_bytes()
@@ -549,7 +550,7 @@ def run(args):
         require(controller["controller_revision"] == revision and controller["contract_sha256"] == digest(contract_raw)
                 and contract["status"] == "FROZEN_REVIEWED_ASSETS" and contract["repository"] == REPOSITORY
                 and contract_raw == h.git_bytes(args.repository,
-                    ["show", revision + ":artifacts/full-image-installer81-recovery-inputs.json"], maximum=64 * 1024))
+                    ["show", revision + ":" + contract_path], maximum=64 * 1024))
         require(set(contract["assets"]) == ASSET_FILES
                 and contract.get("plan_sha256") == PLAN_SHA)
         for name, row in contract["assets"].items():
@@ -584,7 +585,7 @@ def run(args):
             require({path.name for path in expanded.iterdir()} == {"PackageInfo", "Scripts"})
             info = ET.fromstring(h.read_file(expanded / "PackageInfo", owner=expanded.joinpath("PackageInfo").lstat().st_uid))
             payload, phases = info.find("payload"), info.find("scripts")
-            require(info.get("identifier") == "com.fainir.accountaccess.fullimageupdate81" and info.get("version") == "0.1.0"
+            require(info.get("identifier") == package_identifier and info.get("version") == "0.1.0"
                     and info.get("auth") == "root" and (payload is None or
                     all(int(payload.get(key, "0")) == 0 for key in ("numberOfFiles", "installKBytes")))
                     and phases is not None and len(phases) == 1 and phases[0].tag == "postinstall"
@@ -694,11 +695,19 @@ def run(args):
     return 0 if report["status"] == "PASSED" else 1
 
 
+def cohort_contract(cohort):
+    contracts = {81: "artifacts/full-image-installer81-recovery-inputs.json",
+                 82: "artifacts/full-image-installer82-inputs.json"}
+    require(type(cohort) is int and cohort in contracts)
+    return contracts[cohort], f"com.fainir.accountaccess.fullimageupdate{cohort}"
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repository", type=Path, required=True)
     parser.add_argument("--bundle", type=Path, required=True)
     parser.add_argument("--scenario", choices=sorted(SCENARIOS), required=True)
+    parser.add_argument("--cohort", type=int, choices=[81, 82], default=81)
     return run(parser.parse_args())
 
 

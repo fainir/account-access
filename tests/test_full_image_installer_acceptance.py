@@ -18,6 +18,22 @@ def module(name, filename):
 
 downloader = module("full_image_inputs", "download_full_image_installer_inputs.py")
 probe = module("full_image_installer_probe", "mac_full_image_installer_probe.py")
+
+
+@pytest.mark.parametrize("cohort", [81, 82])
+def test_installer_cohort_binds_one_committed_contract_and_package_identity(cohort):
+    path, identity = probe.cohort_contract(cohort)
+    assert path == downloader.COHORT_CONTRACTS[cohort]
+    assert identity == f"com.fainir.accountaccess.fullimageupdate{cohort}"
+    assert path != downloader.COHORT_CONTRACTS[163 - cohort]
+
+
+@pytest.mark.parametrize("cohort", [None, True, "82", 80, 83, 82.0, "../../foreign"])
+def test_installer_cohort_refuses_unreviewed_or_ambiguous_selector(cohort):
+    with pytest.raises(ValueError):
+        probe.cohort_contract(cohort)
+
+
 PLAN = "7c80a671d8b87815db127c6e7d7e8dd9db8c023d70e891185258391b2b3f14a3"
 COMPONENT_SOURCE = "213509c6bd9ff40131bd71dcb1a2967e96cd76a3"
 ASSETS = {
@@ -457,3 +473,20 @@ def test_new_normal_workflow_preserves_frozen_assets_and_failed_matrix():
     assert evidence['prior_results']['install-reapply']['status'] == 'FAILED'
     assert evidence['actual_new_run_passed'] is False and evidence['production_ready'] is False
     assert len(probe.CHECKS) == evidence['required_checks_unchanged'] == 18
+
+
+def test_diagnostic_package_workflow_keeps_host_and_asset_boundaries():
+    import yaml
+    root = Path(__file__).resolve().parents[1]
+    workflow = yaml.safe_load((root / '.github/workflows/mac-full-image82-installer-review.yml').read_text())
+    events = workflow.get('on', workflow.get(True))
+    assert events['push']['paths'] == ['artifacts/full-image-installer82-inputs.json']
+    download = workflow['jobs']['download-reviewed-inputs']
+    actual = workflow['jobs']['actual-installer']
+    assert actual['strategy']['matrix']['scenario'] == ['install-reapply', 'interrupt-remove', 'interrupt-create']
+    commands = '\n'.join(step.get('run', '') for step in download['steps'])
+    assert '--contract artifacts/full-image-installer82-inputs.json --cohort 82' in commands
+    commands = '\n'.join(step.get('run', '') for step in actual['steps'])
+    assert '--scenario "$AC_SCENARIO" --cohort 82' in commands
+    assert 'sudo -n /usr/bin/env -i' in commands and 'test "$RUNNER_ENVIRONMENT" = github-hosted' in commands
+    assert 'GH_TOKEN' not in commands and actual['permissions'] == {'contents': 'read'}
