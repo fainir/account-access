@@ -28,6 +28,28 @@ connector. Public login-page review, local owner enrollment, physical SMS delive
 and completed sign-in are separate remaining gates; they are not covered by the
 existing fictional-password/email/SMS/TOTP journey.
 
+The resumed local four-account journey passed: Chrome CSV import, mailbox/SMS
+fixture enrollment, authenticator enrollment, fresh logins, session expiry and
+durable task resumption. Physical Android delivery remains untested. The installed
+owner app currently reports that it cannot safely open its protected account
+store; no private store was inspected or modified to bypass that refusal.
+
+Source now refuses a preview install or skill refresh that would change an
+existing connection's client configuration. All detected aliases are checked
+before client rotation or skill writes. Focused tests verify preservation of
+both protected and other-preview connections, existing tokens and launchers.
+This change is not in the frozen image80 payload. One earlier combined local
+test run reported a rollback-repair failure; the focused recovery case passed
+30 repetitions and the complete agent/mailbox selection passed 58 checks. The
+original failed observation is retained; its cause is not established.
+
+Fresh-install packaging is being built on a disposable hosted Mac from the
+unchanged signed image inside package81, using packaging source `56f83bb`.
+The build job cannot install or publish. It produces a package and expanded
+inventory for separate review before an exact fresh-install acceptance contract
+can be frozen. The accepted installer and recovery checks remain separate from
+real provider authentication and public release signing/notarization.
+
 ### Latest owner-Mac result — 21 October 2026
 
 The startup component at `213509c` completed successfully in macOS Installer on

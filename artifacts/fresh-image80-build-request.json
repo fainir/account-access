@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "status": "BUILD_ONLY_NO_INSTALL_OR_PUBLICATION",
+  "packaging_source": "56f83bbe89217cbfc9b591a4e8ac8a9525cb80b6",
+  "app_source": "d5741bc9912aaf907fe5c52486af18818654dda5",
+  "target_manifest_sha256": "d1f74db86890b306f989b65a8c521ce3b0879f261ded122dd409be2ca2fbe317",
+  "input_package_sha256": "ad16754b9acdd71dd1979a2a268b005a96feec681d3392b4af90b0e464590a85",
+  "production_ready": false
+}
