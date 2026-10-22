@@ -34,15 +34,20 @@ final class Pairing {
   }
   return (SecretKey)store.getKey(ALIAS,null);
  }
- static void save(Context c,String raw) throws Exception {
+ static synchronized void save(Context c,String raw) throws Exception {
   JSONObject object=new JSONObject(raw);validate(object);
   Cipher cipher=Cipher.getInstance("AES/GCM/NoPadding");cipher.init(Cipher.ENCRYPT_MODE,key());
-  c.getSharedPreferences("link",0).edit().putString("iv",Base64.encodeToString(cipher.getIV(),Base64.NO_WRAP)).putString("payload",Base64.encodeToString(cipher.doFinal(object.toString().getBytes("UTF-8")),Base64.NO_WRAP)).commit();
+  byte[] encrypted=cipher.doFinal(object.toString().getBytes("UTF-8"));
+  ComputerAssociation.clear(c);
+  if(!c.getSharedPreferences("link",0).edit().putString("iv",Base64.encodeToString(cipher.getIV(),Base64.NO_WRAP)).putString("payload",Base64.encodeToString(encrypted,Base64.NO_WRAP)).commit())throw new Exception("Pairing could not be saved");
  }
- static JSONObject load(Context c) throws Exception {
+ static synchronized JSONObject load(Context c) throws Exception {
   android.content.SharedPreferences prefs=c.getSharedPreferences("link",0);String payload=prefs.getString("payload",null);if(payload==null)return null;
   Cipher cipher=Cipher.getInstance("AES/GCM/NoPadding");cipher.init(Cipher.DECRYPT_MODE,key(),new GCMParameterSpec(128,Base64.decode(prefs.getString("iv",""),Base64.NO_WRAP)));
   JSONObject object=new JSONObject(new String(cipher.doFinal(Base64.decode(payload,Base64.NO_WRAP)),"UTF-8"));validate(object);return object;
  }
- static void clear(Context c){c.getSharedPreferences("link",0).edit().clear().commit();}
+ static synchronized void clear(Context c) throws Exception {
+  if(!c.getSharedPreferences("link",0).edit().clear().commit())throw new Exception("Pairing could not be removed");
+  ComputerAssociation.clear(c);
+ }
 }

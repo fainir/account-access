@@ -2,6 +2,7 @@
 
 import json
 import os
+import shlex
 import subprocess
 import tempfile
 import threading
@@ -25,7 +26,11 @@ def main():
         return subprocess.run([str(adb), *args], capture_output=True, text=True, timeout=60, check=True)
     for name in ["Account-Access-Phone-preview.apk", "Account-Access-Phone-tests.apk"]:
         command("install", "-r", str(build / name))
+    android_api = int(command("shell", "getprop", "ro.build.version.sdk").stdout.strip())
+    if android_api >= 33:
+        command("shell", "pm", "grant", "com.fainir.accountaccess.phone.tests", "android.permission.POST_NOTIFICATIONS")
     listener = "com.fainir.accountaccess.phone/com.fainir.accountaccess.LoginNotifications"
+    fixture = "com.fainir.accountaccess.phone.tests/com.fainir.accountaccess.NotificationFixture"
     command("shell", "cmd", "notification", "disallow_listener", listener)
     with tempfile.TemporaryDirectory(prefix="aa-phone-", dir="/tmp") as temporary:
         root = Path(temporary)
@@ -55,15 +60,30 @@ def main():
                         process = subprocess.Popen([str(adb), "shell", "am", "instrument", "-w", "-e", "pairing_file", "/data/local/tmp/account-access-pairing.json", "-e", "login_code", code,
                                "com.fainir.accountaccess.phone.tests/com.fainir.accountaccess.LoginChecks"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
                         output = []
+                        timed_out = threading.Event()
+                        def stop_instrumentation():
+                            timed_out.set()
+                            process.kill()
+                        deadline = threading.Timer(90, stop_instrumentation)
+                        deadline.start()
                         try:
                             for line in process.stdout:
                                 output.append(line)
                                 if "phase=PAIRING_AND_FILTER_READY" in line:
                                     command("shell", "cmd", "notification", "allow_listener", listener)
+                                if "phase=NOTIFICATION_READY" in line:
+                                    command("shell", shlex.join([
+                                        "am", "broadcast", "-n", fixture,
+                                        "--es", "sender", pairing["sender"],
+                                        "--es", "body", pairing["template"].replace("{code}", code),
+                                    ]))
                             assert process.wait(timeout=30) == 0
+                            assert not timed_out.is_set(), "Android instrumentation exceeded 90 seconds"
                         finally:
+                            deadline.cancel()
                             if process.poll() is None:
                                 process.kill()
+                            process.wait(timeout=5)
                             results.append("".join(output))
                     worker = threading.Thread(target=instrument)
                     workers.append(worker)
@@ -71,14 +91,17 @@ def main():
                 provider.delivery = deliver
                 completed = broker.run("generic", "example-sms", "summary")
                 for worker in workers:
-                    worker.join(timeout=30)
+                    worker.join(timeout=100)
+                    assert not worker.is_alive(), "Android instrumentation did not stop"
                 diagnostics = [[line for line in output.splitlines() if "INSTRUMENTATION_RESULT: result=" in line] for output in results]
                 assert completed["status"] == "COMPLETED", {"result": completed, "instrumentation": diagnostics}
                 assert provider.sms_count == 1
                 assert results and "PASS:" in results[0], results
                 assert DEMO_PASSWORD not in json.dumps(completed)
                 report = {"status": "COMPLETED", "browser_sms_verifications": provider.sms_count,
-                          "android_api": command("shell", "getprop", "ro.build.version.sdk").stdout.strip(),
+                          "android_api": str(android_api),
+                          "computer_association_system_consent_checked": android_api >= 35,
+                          "computer_association_cancel_revoke_replace_disconnect_checked": android_api >= 35,
                           "checks": ["Keystore encrypted pairing", "Private destination restriction",
                                      "Actual Android notification listener", "Certificate-pinned HTTPS ingress",
                                      "Browser code submission", "No code in agent result"],
@@ -86,6 +109,7 @@ def main():
                 Path("artifacts/android-journey.json").write_text(json.dumps(report, indent=2) + "\n")
                 print(json.dumps(report))
             finally:
+                command("shell", "am", "broadcast", "-n", fixture, "--ez", "cancel", "true")
                 command("shell", "cmd", "notification", "disallow_listener", listener)
                 command("shell", "rm", "-f", "/data/local/tmp/account-access-pairing.json")
                 server.shutdown()

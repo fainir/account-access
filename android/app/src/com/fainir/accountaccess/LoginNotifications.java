@@ -26,6 +26,7 @@ public final class LoginNotifications extends NotificationListenerService {
  @Override public void onNotificationPosted(StatusBarNotification notification){
   if(!notification.getPackageName().equals(getSharedPreferences("settings",0).getString("sms_package",""))){getSharedPreferences("settings",0).edit().putString("last_status","ignored_other_app").apply();return;}
   if(Math.abs(System.currentTimeMillis()-notification.getPostTime())>120000)return;
+  if(!ComputerAssociation.ready(this)){getSharedPreferences("settings",0).edit().putString("last_status","computer_permission_required").apply();return;}
   try{
    getSharedPreferences("settings",0).edit().putString("last_status","notification_seen").apply();
    JSONObject pair=Pairing.load(this);if(pair==null){getSharedPreferences("settings",0).edit().putString("last_status","pairing_unavailable").apply();return;}
@@ -64,6 +65,7 @@ public final class LoginNotifications extends NotificationListenerService {
      return connection.getResponseCode();
     }finally{connection.disconnect();}
    },()->{
+    if(!ComputerAssociation.ready(this))return false;
     double age=System.currentTimeMillis()-received;
     if(age< -5000 || age>120000 || SystemClock.elapsedRealtime()-began>lifetime)return false;
     JSONObject current=Pairing.load(this);

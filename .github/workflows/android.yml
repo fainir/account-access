@@ -6,6 +6,10 @@ jobs:
   android:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [30, 35]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
@@ -27,11 +31,11 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
       - name: Install the Android test image with diagnostics
-        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --verbose --install "system-images;android-30;google_apis;x86_64"'
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --verbose --install "system-images;android-${{ matrix.api }};google_apis;x86_64"'
       - name: Run actual notification-to-browser login
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
         with:
-          api-level: 30
+          api-level: ${{ matrix.api }}
           target: google_apis
           arch: x86_64
           disable-animations: true
@@ -54,6 +58,8 @@ jobs:
               "sha256": hashlib.sha256(apk.read_bytes()).hexdigest(),
               "bytes": apk.stat().st_size,
               "emulator_notification_to_browser_journey_passed": True,
+              "android_api": ${{ matrix.api }},
+              "computer_association_system_consent_checked": ${{ matrix.api }} >= 35,
               "development_signing": True,
               "physical_phone_delivery_qualified": False,
               "production_ready": False,
@@ -65,7 +71,7 @@ jobs:
       - name: Retain the tested APK for physical-phone acceptance
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: phone-preview-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: phone-preview-api${{ matrix.api }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           # Do not upload dist/android as a whole: it also holds the signing key.
           path: |
             dist/android/Account-Access-Phone-preview.apk
