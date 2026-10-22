@@ -8,15 +8,91 @@
   ],
   "android_privileged_permissions_requested": false,
   "association": "Ordinary Bluetooth LE discovery filtered by the UUID in the Mac pairing QR, no device profile or self-managed role.",
+  "hosted_android_pr_run": 39859406984,
+  "hosted_android_run": 39859402398,
+  "hosted_first_replacement_result": {
+    "android11_job": 120105918365,
+    "android11_result": "COMPLETED",
+    "android11_sms_verifications": 1,
+    "android15_failed_line": "assert provider.sms_count == 1",
+    "android15_job": 120105918674,
+    "android15_prior_assertions_passed": [
+      "browser NEEDS_USER/login_code_not_received",
+      "instrumentation PASS_BLOCKED"
+    ],
+    "android15_result": "FAILED",
+    "cause": "sms_count counts accepted verifications; the no-association scenario correctly has zero. The harness retained a positive-only expectation.",
+    "correction": "Require zero accepted SMS verifications on Android15, one on Android11; preserve all other assertions.",
+    "run": 39859402398
+  },
   "included_in_frozen_package82": false,
   "mac_discovery": "Fresh public UUID; stops after five minutes or on leaving the pairing page. QR secrets are not placed in accessibility identifiers.",
-  "native_first_compile": "Failed because an input changed during compilation; retained in dist/qa-android-ble-source/first-compile-failure.json. Fresh frozen-copy check pending.",
+  "native_first_compile": "Failed because an input changed during compilation; original failure retained. The frozen-copy second attempt compiled and passed the native UI suite.",
+  "native_owner_ui": {
+    "checks_lines": 54,
+    "checks_log_sha256": "1eb196a41f45f52894300d1fc403221e68dae35b409f4fdda47a814dae38887b",
+    "compile_log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "compiled_frozen_copy": true,
+    "current_source_matches": true,
+    "owner_ui_test_exit_code": 0,
+    "positive_bluetooth_qualified": false,
+    "production_ready": false,
+    "result_sha256": "5ec152107fcb15fe40b3503090911e3cf23aa2e029a5a73a92e308319fbb8abd",
+    "schema": 1,
+    "source_files": 13,
+    "status": "PASSED"
+  },
   "native_source_pins_sha256": "a5e40f37b95759535e31ee0a165f0bb1f0679d5ae8ad3522e300ec333aac8f80",
+  "original_failed_run_retained": true,
   "physical_bluetooth_pairing_qualified": false,
   "physical_phone_delivery_qualified": false,
   "previous_failure_evidence": "artifacts/android-computer-association-first-run-e098c6f.json",
   "production_ready": false,
+  "retained_api30_apk": {
+    "android_api": 30,
+    "apk_bytes": 291241,
+    "apk_sha256": "b6945623fb35366821f0307466cca73fa77b1fd7d90d107affbb40f9e28bc381",
+    "artifact_id": 12460324611,
+    "artifact_zip_sha256": "a818e7f496e019406a465d7a3362778659ff502ad7cd84cc4c3b742e360674fd",
+    "certificate_sha256": "fcac484fec9a24a92daa03fe35e9c4699cc7e59f673a01fbffd1f110e5a000d4",
+    "commands": {
+      "badging": {
+        "returncode": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_sha256": "a4d79505d6db9074e385fc01088fb67acb0b95a0c6195beaddb807b891ee5e3a"
+      },
+      "manifest": {
+        "returncode": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_sha256": "97205d03f9b7fe27035971bcc0ca3a957941fc03817b0d5b6260c1de233bb9a3"
+      },
+      "signature": {
+        "returncode": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_sha256": "00ebb6607b0dd0ef46ce901d2b594ea2e3ab4a9ee333738c7a7f713d82b36b9b"
+      }
+    },
+    "emulator_journey_passed": true,
+    "installed_or_executed_on_phone": false,
+    "permissions": [
+      "android.permission.CAMERA",
+      "android.permission.INTERNET"
+    ],
+    "physical_phone_delivery_qualified": false,
+    "positive_bluetooth_computer_association_qualified": false,
+    "production_ready": false,
+    "production_signing": false,
+    "schema": 1,
+    "source_commit": "d90d14fe09cc6d46f90dc9f54a78de03af82b4c0",
+    "status": "TESTED_PREVIEW_ARTIFACT_REVIEWED",
+    "workflow_run": 39859402398,
+    "zip_members": [
+      "Account-Access-Phone-preview.apk",
+      "phone-preview-evidence.json"
+    ]
+  },
   "schema": 1,
-  "status": "SOURCE_CANDIDATE_PENDING_NATIVE_AND_CI_CHECKS",
+  "source_commit": "d90d14fe09cc6d46f90dc9f54a78de03af82b4c0",
+  "status": "SOURCE_CHECKS_PASSED_ANDROID15_ASSERTION_CORRECTION_REQUIRED",
   "transport": "Unchanged certificate-pinned private-Wi-Fi HTTPS with existing source/template/freshness checks."
 }

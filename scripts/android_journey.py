@@ -100,10 +100,10 @@ def main():
                 else:
                     assert completed["status"] == "COMPLETED", {"result": completed, "instrumentation": diagnostics}
                     assert results and "PASS:" in results[0], results
-                assert provider.sms_count == 1
+                assert provider.sms_count == (0 if android_api >= 35 else 1)
                 assert DEMO_PASSWORD not in json.dumps(completed)
                 report = {"status": "BLOCKED_AS_EXPECTED" if android_api >= 35 else "COMPLETED",
-                          "browser_sms_verifications": 0 if android_api >= 35 else provider.sms_count,
+                          "browser_sms_verifications": provider.sms_count,
                           "android_api": str(android_api),
                           "notification_forwarding_without_association_refused": android_api >= 35,
                           "positive_bluetooth_computer_association_qualified": False,
