@@ -32,6 +32,7 @@ COHORT_CONTRACTS = {
     82: "artifacts/full-image-installer82-inputs.json",
     83: "artifacts/full-image-installer83-inputs.json",
     84: "artifacts/full-image-installer84-inputs.json",
+    85: "artifacts/full-image-installer85-inputs.json",
 }
 LEGACY_TARGET = ("d5741bc9912aaf907fe5c52486af18818654dda5", "7c80a671d8b87815db127c6e7d7e8dd9db8c023d70e891185258391b2b3f14a3")
 CONFIGURATION_TARGET = ("d30fda732c589b9ac4dc339a7237ad8ba00d0016", "9dbd37cf8282fe605de7d73a828b6e4d6379e021177cc089a0b21f522f8edd85")
@@ -64,7 +65,7 @@ def hex_value(value, length=64):
 
 def validate(value, cohort=81):
     require(type(cohort) is int and cohort in COHORT_CONTRACTS)
-    target_source, plan_sha = CONFIGURATION_TARGET if cohort == 84 else LEGACY_TARGET
+    target_source, plan_sha = CONFIGURATION_TARGET if cohort in {84, 85} else LEGACY_TARGET
     require(set(value) == {"schema", "status", "repository", "component_source", "target_source", "plan_sha256", "assets"}
             and type(value["schema"]) is int and value["schema"] == 1
             and value["status"] == "FROZEN_REVIEWED_ASSETS" and value["repository"] == REPOSITORY
@@ -91,6 +92,11 @@ def validate(value, cohort=81):
             require(row["sha256"] == COMPONENT and row["bytes"] == 3457184)
     # A full image may be assembled with newer controller source than its GUI.
     require(len({value["assets"][name]["release"]["id"] for name in FILES if name.startswith("full")}) == 1)
+    if cohort == 85:
+        require(value["assets"]["full.pkg"]["sha256"] == "a01657042819ff5f7ff5166f11b221291bde44f331c643a60ba3ebe120f1489b"
+                and value["assets"]["full.pkg"]["bytes"] == 295994278
+                and value["assets"]["full-scripts-inventory.json"]["sha256"] == "bb035f32e14b14406a601748eb09043aed7a8ae29e79edfe7aca669db35da4c7"
+                and value["assets"]["full-source.tar.gz"]["sha256"] == "5f262e8a9b9016dded2a0ac5a68966bca3332948c403363799dbdf4dddeba2d5")
     return value
 
 

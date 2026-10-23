@@ -42,6 +42,7 @@ content changes. The exact candidate passes its source contract, and 13 altered
 inputs are refused. Actual candidate installation/reapplication and interruption
 acceptance remain pending. The native deadline experiment alone cannot qualify
 this package or repair the owner installation.
+[Exact derivative and draft assets](../artifacts/full-image85-deadline-package-20261023.json).
 
 The configuration-model change has one fixed source-hash profile. Storage,
 enrollment and agent-setup sources remain byte-identical. Seven public examples

@@ -61,17 +61,20 @@ def require(value):
         raise ValueError("full_image_installer_acceptance_failed")
 
 
-def install_package(package, *, scenario, report, output, log):
+def install_package(package, *, scenario, report, output, log, cohort=81):
     """Fixed QA budgets, preserving Installer failure and daemon diagnostics.
 
     The normal first upgrade has measured 398 seconds on a passing hosted Mac;
     another run exceeded the former 420-second budget. Only that phase receives
     840 seconds. Package code, recovery, reapplication and validation are unchanged.
     """
+    cohort_contract(cohort)
     require(scenario in SCENARIOS and (package.name, log) in {
         ("base.pkg", "base-installer"), ("component.pkg", "component-installer"),
         ("full.pkg", "full-installer"), ("full.pkg", "full-reapply-installer")})
     budget = 840 if scenario == "install-reapply" and log == "full-installer" else 420
+    if cohort == 85 and package.name == "full.pkg":
+        budget = 2100  # Includes the qualified 1800-second native script deadline.
     attempts = report.setdefault("installer_attempts", {})
     require(log not in attempts)
     attempt = {"budget_seconds": budget, "completed_successfully": False}
@@ -107,6 +110,29 @@ def decode(raw):
 
 def asset_name(value):
     return isinstance(value, str) and value in ASSET_FILES
+
+
+def validate_deadline_repack(review, package_info, repacker_source):
+    """One frozen container derivative; compiled app, helper and script tree are unchanged."""
+    require(digest(package_info) == "d5a5ac883c690ad25648b395cf01458ea913d2676f8326304432ac14a6bfdbf9"
+            and digest(repacker_source) == "63a21ee22d2af3176831e19b32f8125012e3e8d0d7c19a6b0bb7a7a749b598c0"
+            and review["package_sha256"] == "a01657042819ff5f7ff5166f11b221291bde44f331c643a60ba3ebe120f1489b"
+            and review["package_bytes"] == 295994278
+            and review["scripts_inventory_sha256"] == "bb035f32e14b14406a601748eb09043aed7a8ae29e79edfe7aca669db35da4c7")
+    parent = review["original_build_review_json"]
+    require(type(parent) is str and len(parent.encode()) <= 128 * 1024
+            and digest(parent.encode()) == "837e416d835a240b602d4f2e468179891443c7adbde10336fddfed3ad2787ab4")
+    proof = review["deadline_repack"]
+    require(proof["status"] == "REPACKED_REQUIRES_INDEPENDENT_REVIEW_AND_INSTALLER_QA"
+            and proof["parent_package_sha256"] == "de6769837c00f41e307b5342ab86021c6e2aac27ba7fd99914f670ab2bd99d95"
+            and proof["package_sha256"] == review["package_sha256"] and proof["package_bytes"] == review["package_bytes"]
+            and proof["repacker_sha256"] == digest(repacker_source)
+            and proof["old_timeout_seconds"] == 600 and proof["new_timeout_seconds"] == 1800
+            and proof["compressed_scripts_unchanged"] is True and proof["only_timeout_attribute_changed"] is True
+            and proof["script_archive_sha256"] == "99d6b7c1b649bdd3a5139eccb0a362dcabf44ee8e9987d8c181f2f2b4265a008"
+            and proof["script_archive_bytes"] == 295993047
+            and proof["installed_or_helper_executed"] is False and proof["owner_data_read"] is False
+            and proof["actual_installer_qualified"] is False and proof["production_ready"] is False)
 
 
 def canonical_stage_name(value):
@@ -577,7 +603,7 @@ def run(args):
                 return h.command(arguments, report=report, output=output, log=log, timeout=timeout, check=check)
             def install(name, log):
                 return install_package(stage / name, scenario=args.scenario,
-                    report=report, output=output, log=log)
+                    report=report, output=output, log=log, cohort=getattr(args, "cohort", 81))
             report["failure_stage"] = "candidate_expansion"
             component_review = h.validate_review(decode(h.read_file(stage / "component-review.json")), COMPONENT_SOURCE, COMPONENT_SHA)
             h.bind_sources(component_review, args.repository, COMPONENT_SOURCE)
@@ -592,7 +618,8 @@ def run(args):
             command(["/usr/sbin/pkgutil", "--expand-full", str(stage / "full.pkg"), str(full_stage / "expanded")], "full-expand.log", 300)
             expanded = full_stage / "expanded"
             require({path.name for path in expanded.iterdir()} == {"PackageInfo", "Scripts"})
-            info = ET.fromstring(h.read_file(expanded / "PackageInfo", owner=expanded.joinpath("PackageInfo").lstat().st_uid))
+            info_raw = h.read_file(expanded / "PackageInfo", owner=expanded.joinpath("PackageInfo").lstat().st_uid)
+            info = ET.fromstring(info_raw)
             payload, phases = info.find("payload"), info.find("scripts")
             require(info.get("identifier") == package_identifier and info.get("version") == "0.1.0"
                     and info.get("auth") == "root" and (payload is None or
@@ -610,6 +637,11 @@ def run(args):
                     and full_review["target_gui_source_commit"] == TARGET_SOURCE
                     and full_review["scripts_inventory_sha256"] == contract["assets"]["full-scripts-inventory.json"]["sha256"]
                     and full_review["production_ready"] is False and full_review["actual_Installer_qualified"] is False)
+            if getattr(args, "cohort", 81) == 85:
+                repacker = h.git_bytes(args.repository,
+                    ["show", revision + ":scripts/repack_full_image84_timeout.py"], maximum=65536)
+                validate_deadline_repack(full_review, info_raw, repacker)
+                report["script_timeout_seconds"] = 1800
             def resource(name):
                 return h.read_file(scripts / name, owner=(scripts / name).lstat().st_uid)
             require(digest(resource("FullImagePlan.json")) == PLAN_SHA and digest(resource("TargetManifest.json")) == TARGET_SHA
@@ -708,14 +740,15 @@ def cohort_contract(cohort):
     contracts = {81: "artifacts/full-image-installer81-recovery-inputs.json",
                  82: "artifacts/full-image-installer82-inputs.json",
                  83: "artifacts/full-image-installer83-inputs.json",
-                 84: "artifacts/full-image-installer84-inputs.json"}
+                 84: "artifacts/full-image-installer84-inputs.json",
+                 85: "artifacts/full-image-installer85-inputs.json"}
     require(type(cohort) is int and cohort in contracts)
-    return contracts[cohort], f"com.fainir.accountaccess.fullimageupdate{cohort}"
+    return contracts[cohort], f"com.fainir.accountaccess.fullimageupdate{84 if cohort == 85 else cohort}"
 
 
 def cohort_pins(cohort):
     cohort_contract(cohort)
-    return CONFIGURATION_PINS if cohort == 84 else LEGACY_PINS
+    return CONFIGURATION_PINS if cohort in {84, 85} else LEGACY_PINS
 
 
 def main():
@@ -723,7 +756,7 @@ def main():
     parser.add_argument("--repository", type=Path, required=True)
     parser.add_argument("--bundle", type=Path, required=True)
     parser.add_argument("--scenario", choices=sorted(SCENARIOS), required=True)
-    parser.add_argument("--cohort", type=int, choices=[81, 82, 83, 84], default=81)
+    parser.add_argument("--cohort", type=int, choices=[81, 82, 83, 84, 85], default=81)
     return run(parser.parse_args())
 
 

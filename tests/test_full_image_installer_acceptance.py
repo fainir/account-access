@@ -28,10 +28,28 @@ def test_installer_cohort_binds_one_committed_contract_and_package_identity(coho
     assert all(path != other for key, other in downloader.COHORT_CONTRACTS.items() if key != cohort)
 
 
-@pytest.mark.parametrize("cohort", [None, True, "82", 80, 85, 82.0, "../../foreign"])
+@pytest.mark.parametrize("cohort", [None, True, "82", 80, 86, 82.0, "../../foreign"])
 def test_installer_cohort_refuses_unreviewed_or_ambiguous_selector(cohort):
     with pytest.raises(ValueError):
         probe.cohort_contract(cohort)
+
+
+def test_deadline_cohort_preserves_application_and_package_identity():
+    assert probe.cohort_contract(85) == (
+        "artifacts/full-image-installer85-inputs.json", "com.fainir.accountaccess.fullimageupdate84")
+    assert probe.cohort_pins(85) == probe.cohort_pins(84)
+    value = contract()
+    value["target_source"], value["plan_sha256"] = downloader.CONFIGURATION_TARGET
+    value["assets"]["full.pkg"].update(
+        sha256="a01657042819ff5f7ff5166f11b221291bde44f331c643a60ba3ebe120f1489b", bytes=295994278)
+    value["assets"]["full-scripts-inventory.json"]["sha256"] = "bb035f32e14b14406a601748eb09043aed7a8ae29e79edfe7aca669db35da4c7"
+    value["assets"]["full-source.tar.gz"]["sha256"] = "5f262e8a9b9016dded2a0ac5a68966bca3332948c403363799dbdf4dddeba2d5"
+    assert downloader.validate(value, 85) is value
+    for name in ("full.pkg", "full-scripts-inventory.json", "full-source.tar.gz"):
+        wrong = copy.deepcopy(value)
+        wrong["assets"][name]["sha256"] = "0" * 64
+        with pytest.raises(ValueError):
+            downloader.validate(wrong, 85)
 
 
 PLAN = "7c80a671d8b87815db127c6e7d7e8dd9db8c023d70e891185258391b2b3f14a3"
@@ -399,12 +417,13 @@ def test_support_root_group_observation_checks_vm_guard_before_open(monkeypatch)
         probe.support_root_metadata()
 
 
+@pytest.mark.parametrize("cohort", [81, 85])
 @pytest.mark.parametrize("scenario", sorted(probe.SCENARIOS))
 @pytest.mark.parametrize("name,log", [
     ("base.pkg", "base-installer"), ("component.pkg", "component-installer"),
     ("full.pkg", "full-installer"), ("full.pkg", "full-reapply-installer"),
 ])
-def test_install_budget_only_changes_normal_first_upgrade_and_records_real_duration(monkeypatch, scenario, name, log):
+def test_install_budget_only_changes_qualified_package_phases_and_records_real_duration(monkeypatch, scenario, name, log, cohort):
     observed = []
     clock = iter([10.0, 408.125])
     monkeypatch.setattr(probe.time, "monotonic", lambda: next(clock))
@@ -422,8 +441,10 @@ def test_install_budget_only_changes_normal_first_upgrade_and_records_real_durat
 
     monkeypatch.setattr(probe, "h", SimpleNamespace(InstallerLogDelta=Checkpoint, command=command), raising=False)
     report = {}
-    result = probe.install_package(Path("/fictional") / name, scenario=scenario, report=report, output=None, log=log)
+    result = probe.install_package(Path("/fictional") / name, scenario=scenario, report=report, output=None, log=log, cohort=cohort)
     budget = 840 if scenario == "install-reapply" and log == "full-installer" else 420
+    if cohort == 85 and name == "full.pkg":
+        budget = 2100
     assert result == "Installer completed"
     assert observed == ["checkpoint", ("command", ["/usr/sbin/installer", "-dumplog", "-verboseR",
         "-pkg", "/fictional/" + name, "-target", "/"], budget), ("capture", log + "-daemon.log")]
@@ -493,14 +514,14 @@ def test_new_normal_workflow_preserves_frozen_assets_and_failed_matrix():
     assert len(probe.CHECKS) == evidence['required_checks_unchanged'] == 18
 
 
-@pytest.mark.parametrize("cohort", [82, 83, 84])
+@pytest.mark.parametrize("cohort", [82, 83, 84, 85])
 def test_diagnostic_package_workflow_keeps_host_and_asset_boundaries(cohort):
     import yaml
     root = Path(__file__).resolve().parents[1]
     workflow = yaml.safe_load((root / f'.github/workflows/mac-full-image{cohort}-installer-review.yml').read_text())
     events = workflow.get('on', workflow.get(True))
     expected_paths = [f'artifacts/full-image-installer{cohort}-inputs.json']
-    if cohort in (83, 84):
+    if cohort in (83, 84, 85):
         expected_paths.append(f'.github/workflows/mac-full-image{cohort}-installer-review.yml')
     assert events['push']['paths'] == expected_paths
     download = workflow['jobs']['download-reviewed-inputs']

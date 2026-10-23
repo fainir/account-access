@@ -26,7 +26,7 @@ FULL84_SOURCE = {"id": 668422660, "bytes": 252473415,
     "release": {"id": 421585825, "tag": "qa-d5cd6b7-full-image84",
                 "source": "d5cd6b7018481733674d1127b36e9f9a5f335bda"}}
 TRANSFER_SOURCE = "scripts/download_full_image_installer_inputs.py"
-TRANSFER_SHA = "e13c3a815b5a96c968287973b1e8b86755cb158bbaaa89e2157dcfa590c3578d"
+TRANSFER_SHA = "573783db0627f0768606b75d847f03cff92783b96c683ac2dc2869f93798a14b"
 PROBES = ("scripts/mac_fresh_image_installer_probe.py", "scripts/download_fresh_image_installer_inputs.py",
           "scripts/mac_component_update_installer_probe.py", TRANSFER_SOURCE)
 
