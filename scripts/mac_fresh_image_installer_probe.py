@@ -196,7 +196,7 @@ def install_script_bodies(raw):
     return result
 
 
-def validate_expansion(expanded, expected, scripts_expected):
+def validate_expansion(expanded, expected, scripts_expected, *, manifest_sha=MANIFEST_SHA):
     require(type(expected) is dict and 0 < len(expected) < 100000 and inventory(expanded) == expected)
     # Exact entire membership comes from the reviewed frozen inventory; no guessed
     # optional Resources/Bom members are accepted by a separate loose allowlist.
@@ -208,7 +208,7 @@ def validate_expansion(expanded, expected, scripts_expected):
         owner=(expanded / "payload.pkg/PackageInfo").lstat().st_uid, maximum=64 * 1024))
     validate_distribution(h.read_file(expanded / "Distribution",
         owner=(expanded / "Distribution").lstat().st_uid, maximum=64 * 1024))
-    require(hash_file(scripts / "RecoveryManifest.json", 16 * 1024**2)[0] == MANIFEST_SHA
+    require(hash_file(scripts / "RecoveryManifest.json", 16 * 1024**2)[0] == manifest_sha
         and hash_file(scripts / "AccountAccess-installerverify", 32 * 1024**2)[0] == VERIFIER_SHA)
     return scripts
 

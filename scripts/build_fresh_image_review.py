@@ -22,6 +22,15 @@ APP_SOURCE = "d5741bc9912aaf907fe5c52486af18818654dda5"
 MANIFEST = "d1f74db86890b306f989b65a8c521ce3b0879f261ded122dd409be2ca2fbe317"
 PACKAGE = "ad16754b9acdd71dd1979a2a268b005a96feec681d3392b4af90b0e464590a85"
 REQUEST = "artifacts/fresh-image80-build-request.json"
+PROFILES = {
+    80: (APP_SOURCE, MANIFEST, PACKAGE, REQUEST,
+         "artifacts/full-image-installer81-recovery-inputs.json", "full81-source.tar.gz"),
+    84: ("d30fda732c589b9ac4dc339a7237ad8ba00d0016",
+         "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da",
+         "de6769837c00f41e307b5342ab86021c6e2aac27ba7fd99914f670ab2bd99d95",
+         "artifacts/fresh-image84-build-request.json", "artifacts/full-image-installer84-inputs.json",
+         "full84-source.tar.gz"),
+}
 
 
 def require(value):
@@ -46,23 +55,32 @@ def command(args, **kwargs):
     return subprocess.run(args, check=True, capture_output=True, timeout=900, **kwargs).stdout
 
 
-def validate_request(value):
+def build_profile(cohort):
+    require(type(cohort) is int and cohort in PROFILES)
+    return PROFILES[cohort]
+
+
+def validate_request(value, cohort=80):
+    APP_SOURCE, MANIFEST, PACKAGE, _, _, _ = build_profile(cohort)
     require(value == {"schema": 1, "status": "BUILD_ONLY_NO_INSTALL_OR_PUBLICATION",
         "packaging_source": PACKAGING_SOURCE, "app_source": APP_SOURCE,
         "target_manifest_sha256": MANIFEST, "input_package_sha256": PACKAGE,
         "production_ready": False})
 
 
-def build(repository, bundle, output):
+def build(repository, bundle, output, cohort=80):
     guard()
+    APP_SOURCE, MANIFEST, PACKAGE, REQUEST, contract_path, source_name = build_profile(cohort)
     repository, bundle, output = [path.absolute() for path in (repository, bundle, output)]
     revision = os.environ["GITHUB_SHA"]
     require(command(["git", "rev-parse", "HEAD"], cwd=repository).decode().strip() == revision)
     raw = (repository / REQUEST).read_bytes()
     require(raw == command(["git", "show", revision + ":" + REQUEST], cwd=repository))
-    validate_request(json.loads(raw))
+    validate_request(json.loads(raw), cohort)
     require(sha(bundle / "full.pkg") == PACKAGE and not output.exists())
-    contract = json.loads((repository / "artifacts/full-image-installer81-recovery-inputs.json").read_bytes())
+    contract_raw = (repository / contract_path).read_bytes()
+    require(contract_raw == command(["git", "show", revision + ":" + contract_path], cwd=repository))
+    contract = json.loads(contract_raw)
     for name in ("full.pkg", "full-source.tar.gz"):
         row = contract["assets"][name]
         require(sha(bundle / name) == row["sha256"] and (bundle / name).stat().st_size == row["bytes"])
@@ -109,7 +127,7 @@ def build(repository, bundle, output):
         probe["inventory"].__globals__["h"] = SimpleNamespace(**helper)
         inventory = probe["inventory"](candidate)
         scripts = probe["install_script_bodies"]((source / "macos/system_package.py").read_bytes())
-        probe["validate_expansion"](candidate, inventory, scripts)
+        probe["validate_expansion"](candidate, inventory, scripts, manifest_sha=MANIFEST)
         probe["validate_packaged_image"](json.loads(manifest.read_bytes()), inventory)
         inventory_path = output / "fresh-expanded-inventory.json"
         inventory_path.write_text(json.dumps(inventory, sort_keys=True, separators=(",", ":")) + "\n")
@@ -120,7 +138,7 @@ def build(repository, bundle, output):
             "expanded_inventory_sha256": sha(inventory_path),
             "actual_Installer_qualified": False, "production_ready": False}
         (output / "fresh-review.json").write_text(json.dumps(review, indent=2) + "\n")
-        shutil.copy2(bundle / "full-source.tar.gz", output / "full81-source.tar.gz")
+        shutil.copy2(bundle / "full-source.tar.gz", output / source_name)
         print(json.dumps(review))
 
 
@@ -129,5 +147,6 @@ if __name__ == "__main__":
     parser.add_argument("--repository", type=Path, required=True)
     parser.add_argument("--bundle", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--cohort", type=int, choices=sorted(PROFILES), default=80)
     args = parser.parse_args()
-    build(args.repository, args.bundle, args.output)
+    build(args.repository, args.bundle, args.output, args.cohort)
