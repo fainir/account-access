@@ -138,6 +138,68 @@ def test_initial_feature_cannot_silently_migrate_private_format(inputs, name):
         plan.derive(**arguments(inputs))
 
 
+def configuration_extension(inputs):
+    path = plan.PACKAGE + "/models.py"
+    inputs["before"]["roots"][plan.SUPPORT][path] = dict(plan.CONFIGURATION_MODEL_BEFORE)
+    inputs["after"]["roots"][plan.SUPPORT][path] = dict(plan.CONFIGURATION_MODEL_AFTER)
+    inputs["provenance"]["target_source_files"]["account_access/models.py"] = plan.CONFIGURATION_MODEL_AFTER["sha256"]
+    return inputs
+
+
+def test_configuration_upgrade_profile_matches_reviewed_model_source():
+    raw = (Path(__file__).parents[1] / "account_access/models.py").read_bytes()
+    assert plan.CONFIGURATION_MODEL_AFTER == file_node(raw)
+
+
+def test_explicit_configuration_extension_does_not_claim_unchanged_source(inputs):
+    args = arguments(configuration_extension(inputs))
+    raw = plan.derive(**args)
+    value = plan.parse(raw, expected_plan_sha256=plan.digest(raw), **args)
+    assert value["configuration_model_upgrade"] == "identity-contact-session-status-v1"
+    assert value["private_format_source_unchanged"] is False
+    assert plan.PACKAGE + "/models.py" in value["changed"]
+
+
+@pytest.mark.parametrize("fault", ["old-hash", "new-hash", "old-size", "new-size", "old-mode", "new-mode",
+                                  "source-pin", "storage.py", "worker_enroll.py", "agent_setup.py", "reverse"])
+def test_configuration_extension_cannot_authorize_other_source_or_metadata(inputs, fault):
+    configuration_extension(inputs)
+    path = plan.PACKAGE + "/models.py"
+    old = inputs["before"]["roots"][plan.SUPPORT]
+    new = inputs["after"]["roots"][plan.SUPPORT]
+    if fault == "source-pin":
+        inputs["provenance"]["target_source_files"]["account_access/models.py"] = "0" * 64
+    elif fault.endswith(".py"):
+        new[plan.PACKAGE + "/" + fault] = file_node(b"unrelated private-format change")
+        inputs["provenance"]["target_source_files"]["account_access/" + fault] = new[plan.PACKAGE + "/" + fault]["sha256"]
+    elif fault == "reverse":
+        old[path], new[path] = new[path], old[path]
+        inputs["provenance"]["target_source_files"]["account_access/models.py"] = new[path]["sha256"]
+    else:
+        side, field = fault.split("-")
+        node = (old if side == "old" else new)[path]
+        node[{"hash": "sha256", "size": "size", "mode": "mode"}[field]] = "0" * 64 if field == "hash" else 1
+    with pytest.raises(plan.Refused):
+        plan.derive(**arguments(inputs))
+
+
+@pytest.mark.parametrize("fault", ["missing-profile", "unknown-profile", "claims-unchanged", "extra-permission"])
+def test_resealed_configuration_plan_cannot_change_compatibility_authority(inputs, fault):
+    args = arguments(configuration_extension(inputs))
+    value = json.loads(plan.derive(**args))
+    if fault == "missing-profile":
+        value.pop("configuration_model_upgrade")
+    elif fault == "unknown-profile":
+        value["configuration_model_upgrade"] = "arbitrary-model-migration"
+    elif fault == "claims-unchanged":
+        value["private_format_source_unchanged"] = True
+    else:
+        value["private_data_migration_allowed"] = True
+    raw = plan.encoded(value)
+    with pytest.raises(plan.Refused):
+        plan.parse(raw, expected_plan_sha256=plan.digest(raw), **args)
+
+
 @pytest.mark.parametrize("name,bad", [("cli_derivation", "upstream-patched"), ("schema", True),
                                     ("native_addons", 0), ("entrypoint_sha256", "0" * 64),
                                     ("dependency_overrides_sha256", "0" * 64),

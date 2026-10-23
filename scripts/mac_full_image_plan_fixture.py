@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--configuration-extension", action="store_true")
     args = parser.parse_args()
     if os.getuid() == 0 or os.geteuid() != os.getuid():
         raise ValueError("ordinary_fixture_required")
@@ -25,6 +26,11 @@ def main():
     import test_full_image_ca_update as fixture
 
     value = fixture.ca_inputs.__wrapped__(fixture.inputs.__wrapped__())
+    if args.configuration_extension:
+        path = fixture.plan.PACKAGE + "/models.py"
+        value["before"]["roots"][fixture.plan.SUPPORT][path] = dict(fixture.plan.CONFIGURATION_MODEL_BEFORE)
+        value["after"]["roots"][fixture.plan.SUPPORT][path] = dict(fixture.plan.CONFIGURATION_MODEL_AFTER)
+        value["provenance"]["target_source_files"]["account_access/models.py"] = fixture.plan.CONFIGURATION_MODEL_AFTER["sha256"]
     data = fixture.ca_arguments(value)
     model = fixture.plan
     model.CA_BASE_MANIFEST = model.digest(data["before_manifest"])

@@ -40,6 +40,9 @@ jobs:
             macos/Tests/FullImagePlanChecks.swift -o /tmp/account-access-full-image-plan-checks
           /tmp/account-access-full-image-plan-checks /tmp/account-access-full-image-plan-inputs > /tmp/account-access-full-image-plan.log
           tail -n 1 /tmp/account-access-full-image-plan.log > /tmp/account-access-full-image-plan.json
+          uv run python scripts/mac_full_image_plan_fixture.py --configuration-extension --output /tmp/account-access-configuration-plan-inputs > /tmp/account-access-configuration-plan-inputs.json
+          /tmp/account-access-full-image-plan-checks /tmp/account-access-configuration-plan-inputs > /tmp/account-access-configuration-plan.log
+          tail -n 1 /tmp/account-access-configuration-plan.log > /tmp/account-access-configuration-plan.json
       - name: Check mixed complete-image transitions and durable recovery with fictional data
         run: |
           sources=(macos/InstallerPayload.swift macos/ComponentUpdate.swift macos/ComponentUpdatePolicies.swift
@@ -65,6 +68,9 @@ jobs:
             /tmp/account-access-full-image-plan-inputs.json
             /tmp/account-access-full-image-plan.json
             /tmp/account-access-full-image-plan.log
+            /tmp/account-access-configuration-plan-inputs.json
+            /tmp/account-access-configuration-plan.json
+            /tmp/account-access-configuration-plan.log
             /tmp/account-access-full-image-mixed.json
             /tmp/account-access-full-image-journal.json
             /private/tmp/account-access-full-image-installed-probe

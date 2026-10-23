@@ -1,5 +1,32 @@
 {
-  "actual_Installer_qualified": false,
+  "actual_Installer_qualified": true,
+  "actual_installer_ci": {
+    "owner_mac_qualified": false,
+    "run_id": 39915497523,
+    "scenarios": [
+      {
+        "checks": 18,
+        "report_sha256": "db20ea81547deaee096a4867b2bf9b123dcc2c880df86e9c769875cd7fa62aa6",
+        "scenario": "install-reapply",
+        "status": "PASSED"
+      },
+      {
+        "checks": 18,
+        "report_sha256": "de3c4d5e9388327ac57d1a81f4a961d01de066eb51348ccc54e0a99074b23fe6",
+        "scenario": "interrupt-create",
+        "status": "PASSED"
+      },
+      {
+        "checks": 18,
+        "report_sha256": "283bdde3d232a2ba6fab4013759ebc7ab7cdef6e25f973f0df17bdf4183198cb",
+        "scenario": "interrupt-remove",
+        "status": "PASSED"
+      }
+    ],
+    "source_commit": "16bdbb9829f7b455d381bf3c06e54880a32928b0",
+    "status": "PASSED",
+    "url": "https://github.com/fainir/account-access/actions/runs/39915497523"
+  },
   "app_image_source_commit": "d5741bc9912aaf907fe5c52486af18818654dda5",
   "builder_sha256": "b553c1ff6ca381346bee5a5ea56282eabf743cd8e2bd432690d8c96cf6cd81f5",
   "compiled_sources": 15,
@@ -48,5 +75,5 @@
     "sha256": "038c6db8497720d416c6165f305286dc3aa5b1072706c0dab1d05982bbe16f0e"
   },
   "source_commit": "662692d283e94c9a2bc22e25c54eea62e51bf2d2",
-  "status": "PACKAGE_BUILT_AND_INDEPENDENTLY_REVIEWED_NOT_INSTALL_QUALIFIED"
+  "status": "DRAFT_UNSIGNED_PACKAGE_PASSED_THREE_DISPOSABLE_MAC_INSTALLER_SCENARIOS"
 }

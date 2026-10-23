@@ -38,6 +38,13 @@ CA_BASE_MANIFEST = "9f0d1274928702dd4d5064b4d3bc8ac7df3bf81c3f70be2f9ccad410785d
 CA_TARGET_MANIFEST = "d1f74db86890b306f989b65a8c521ce3b0879f261ded122dd409be2ca2fbe317"
 PRIVATE = frozenset(("broker", "home", "vault", "run", "control", "owner.json", "install-verification.json"))
 UNCHANGED_FORMAT = ("storage.py", "models.py", "worker_enroll.py", "agent_setup.py")
+# One reviewed configuration-model extension; storage/enrollment code and
+# arbitrary future model changes remain outside this upgrade contract.
+CONFIGURATION_MODEL_UPGRADE = "identity-contact-session-status-v1"
+CONFIGURATION_MODEL_BEFORE = {"kind": "file", "mode": 0o644, "size": 18921,
+    "sha256": "010c09ec0263e359c12fe0e7fa429698775c5816412448f04d07e96cce54d551"}
+CONFIGURATION_MODEL_AFTER = {"kind": "file", "mode": 0o644, "size": 22350,
+    "sha256": "7a152c833f450f3364d2b297a9561ac6cbed556121892b64027d5a41f83847cf"}
 MAX_PLAN_BYTES = 2 * MAX_MANIFEST_BYTES + 256 * 1024
 ORIGINAL_MANIFEST = "5618053e6f8ed0a8720a9d2f7dde317425cecda6a970abd90c499fbfe27b43a8"
 PROVIDER_PINS = {
@@ -259,10 +266,16 @@ def _derive(before_manifest, after_manifest, old_identity, new_identity, provena
             _require(bool(subtree) is present)
             if present:
                 _require(rows.get(path, {}).get("kind") == "directory")
+    configuration_upgrade = False
     for name in UNCHANGED_FORMAT:
         path = PACKAGE + "/" + name
-        _require(old.get(path) == new.get(path) and new.get(path, {}).get("kind") == "file"
+        _require(new.get(path, {}).get("kind") == "file"
                  and provenance["target_source_files"]["account_access/" + name] == new[path]["sha256"])
+        if name == "models.py" and old.get(path) != new.get(path):
+            _require(old.get(path) == CONFIGURATION_MODEL_BEFORE and new[path] == CONFIGURATION_MODEL_AFTER)
+            configuration_upgrade = True
+        else:
+            _require(old.get(path) == new.get(path))
     for name, node in new.items():
         if _below(name, PACKAGE) and name.endswith((".pyc", ".pyo")):
             raise Refused("full_image_plan_refused")
@@ -303,9 +316,11 @@ def _derive(before_manifest, after_manifest, old_identity, new_identity, provena
     result = {"schema": 1, "managed_by": CA_MARKER if ca else MARKER, "provenance": provenance,
               "old_peers": old_peers, "new_peers": new_peers, "provider": provider,
               "project_wheel_sha256": wheel["sha256"], "changed": changed, "units": units,
-              "private_format_source_unchanged": True, "support_and_alias_inode_preservation_required": True,
+              "private_format_source_unchanged": not configuration_upgrade, "support_and_alias_inode_preservation_required": True,
               "native_signature_and_payload_verification_required": True,
               "predecessor_receipt_verification_required": True, "production_ready": False}
+    if configuration_upgrade:
+        result["configuration_model_upgrade"] = CONFIGURATION_MODEL_UPGRADE
     if ca:
         result.update(closed_CA_profile=ca_profile, standalone_provider_matches_active=True,
                       native_optional_tree_moves_and_loader_review_required=True)

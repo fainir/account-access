@@ -270,10 +270,14 @@ struct FullImageSource {
         let plan = try FullImageJSON.object(raw, maximum: 2 * InstallerPayloadManifest.maximumManifest + 256 * 1024)
         var canonicalPlan = try FullImageJSON.canonical(plan); canonicalPlan.append(10)
         guard canonicalPlan == raw else { throw FullImageFailure.source }
-        let keys: Set<String> = ["schema", "managed_by", "provenance", "old_peers", "new_peers", "provider", "project_wheel_sha256", "changed", "units", "private_format_source_unchanged", "support_and_alias_inode_preservation_required", "native_signature_and_payload_verification_required", "predecessor_receipt_verification_required", "production_ready", "closed_CA_profile", "standalone_provider_matches_active", "native_optional_tree_moves_and_loader_review_required"]
+        let configurationUpgrade = plan["configuration_model_upgrade"] != nil
+        var keys: Set<String> = ["schema", "managed_by", "provenance", "old_peers", "new_peers", "provider", "project_wheel_sha256", "changed", "units", "private_format_source_unchanged", "support_and_alias_inode_preservation_required", "native_signature_and_payload_verification_required", "predecessor_receipt_verification_required", "production_ready", "closed_CA_profile", "standalone_provider_matches_active", "native_optional_tree_moves_and_loader_review_required"]
+        if configurationUpgrade { keys.insert("configuration_model_upgrade") }
         guard Set(plan.keys) == keys, try InstallerPayloadManifest.integer(plan["schema"], maximum: 1) == 1,
               plan["managed_by"] as? String == "account-access-full-image-ca-plan-proposal-v2",
-              ["private_format_source_unchanged", "support_and_alias_inode_preservation_required", "native_signature_and_payload_verification_required", "predecessor_receipt_verification_required", "standalone_provider_matches_active", "native_optional_tree_moves_and_loader_review_required"].allSatisfy({ FullImageJSON.bool(plan[$0], true) }),
+              FullImageJSON.bool(plan["private_format_source_unchanged"], !configurationUpgrade),
+              !configurationUpgrade || plan["configuration_model_upgrade"] as? String == "identity-contact-session-status-v1",
+              ["support_and_alias_inode_preservation_required", "native_signature_and_payload_verification_required", "predecessor_receipt_verification_required", "standalone_provider_matches_active", "native_optional_tree_moves_and_loader_review_required"].allSatisfy({ FullImageJSON.bool(plan[$0], true) }),
               FullImageJSON.bool(plan["production_ready"], false) else { throw FullImageFailure.source }
         // The same strict duplicate pass applies to complete manifests, not just
         // the top-level plan. InstallerPayloadManifest validates every node.
@@ -335,9 +339,18 @@ struct FullImageSource {
         guard requiredSources.isSubset(of: Set(pins.targetSourceFiles.keys)) else { throw FullImageFailure.source }
         for name in ["storage.py", "models.py", "worker_enroll.py", "agent_setup.py"] {
             let path = "runtime/lib/python3.12/site-packages/account_access/" + name
-            guard try FullImageJSON.same(node(old.nodes[path]), node(new.nodes[path])),
-                  new.nodes[path]?.sha256 == pins.targetSourceFiles["account_access/" + name],
+            guard new.nodes[path]?.sha256 == pins.targetSourceFiles["account_access/" + name],
                   new.nodes[path]?.kind == "file" else { throw FullImageFailure.source }
+            if name == "models.py" && configurationUpgrade {
+                // Exact source bytes and metadata, not an arbitrary migration
+                // permission. All other private-format sources stay identical.
+                guard try FullImageJSON.same(node(old.nodes[path]), ["kind": "file", "mode": 420, "size": 18921,
+                    "sha256": "010c09ec0263e359c12fe0e7fa429698775c5816412448f04d07e96cce54d551"]),
+                    try FullImageJSON.same(node(new.nodes[path]), ["kind": "file", "mode": 420, "size": 22350,
+                    "sha256": "7a152c833f450f3364d2b297a9561ac6cbed556121892b64027d5a41f83847cf"]) else { throw FullImageFailure.source }
+            } else {
+                guard try FullImageJSON.same(node(old.nodes[path]), node(new.nodes[path])) else { throw FullImageFailure.source }
+            }
         }
         for (name, pin) in pins.targetSourceFiles {
             guard name.range(of: "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$", options: .regularExpression) != nil else { throw FullImageFailure.source }

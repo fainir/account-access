@@ -2,6 +2,7 @@
 
 from contextlib import contextmanager
 import json
+from pathlib import Path
 import threading
 import time
 
@@ -205,6 +206,30 @@ def test_identity_schema_preserves_existing_password_fingerprints(env, monkeypat
 
     monkeypatch.setattr(BrowserAccount, "model_dump", old_dump)
     assert config.fingerprint("demo-web") == before
+
+
+@pytest.mark.parametrize(("empty_fields", "expected"), [
+    (("username_selector",), "38a680b076f4ec072387fa92d68967529643e716c730dd2135b409a875985e21"),
+    (("password_selector",), "7d909a55414edb8db1813df600a77d444988f8c3b4ec7786d68b0c9af26726df"),
+    (("username_selector", "password_selector"), "0a6b342e5856b3ffa5cced69ca59affd0e08cee5d95de41a83e9e9d3d8b94339"),
+])
+def test_existing_empty_controls_do_not_block_configuration_upgrade(empty_fields, expected):
+    # Golden fingerprints were generated with the frozen build80 model. An
+    # unusable old connector must not stop unrelated accounts loading on update.
+    data = json.loads((Path(__file__).parents[1] / "examples/browser-verification.json").read_text())
+    for name in empty_fields:
+        data["accounts"]["example-account"]["login"][name] = ""
+    config = Configuration.model_validate(data)
+    assert config.fingerprint("example-account") == expected
+    assert Configuration.model_validate_json(config.model_dump_json()).fingerprint("example-account") == expected
+
+
+@pytest.mark.parametrize("missing", ["username_selector", "password_selector"])
+def test_password_login_still_requires_both_control_fields(missing):
+    fields = {"username_selector": "#username", "password_selector": "#password", "submit_selector": "#sign-in"}
+    fields.pop(missing)
+    with pytest.raises(ValidationError):
+        LoginForm.model_validate(fields)
 
 
 def test_identity_login_never_reads_a_password_manager(env, monkeypatch):

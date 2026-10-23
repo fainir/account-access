@@ -73,6 +73,21 @@ private enum PlanFixtureFailure: Error { case failed }
             try expect(files.count == 12 && Set(files.map(\.path)) == Set(FullImagePlanFileUnit.allCases.map(\.path)))
             try expect(source.pins.targetManifestSHA256 == expectedTarget)
             var plan = try FullImageJSON.object(raw, maximum: 34 * 1024 * 1024)
+            // Re-pin every mutation to test semantic scope, not just hashing.
+            for value in ["unreviewed-model-migration", NSNull(), true] as [Any] {
+                var changedPlan = plan
+                changedPlan["configuration_model_upgrade"] = value
+                var changedRaw = try FullImageJSON.canonical(changedPlan); changedRaw.append(10)
+                try refuses { _ = try load(changedRaw) }
+            }
+            if plan["configuration_model_upgrade"] != nil {
+                var missingProfile = plan; missingProfile.removeValue(forKey: "configuration_model_upgrade")
+                var changedRaw = try FullImageJSON.canonical(missingProfile); changedRaw.append(10)
+                try refuses { _ = try load(changedRaw) }
+                var falseClaim = plan; falseClaim["private_format_source_unchanged"] = true
+                changedRaw = try FullImageJSON.canonical(falseClaim); changedRaw.append(10)
+                try refuses { _ = try load(changedRaw) }
+            }
             // Re-pin mutated plan bytes: these are semantic refusals, not only
             // a plan SHA mismatch. Nullable sides must agree exactly with data.
             var units = plan["units"] as! [[String: Any]]

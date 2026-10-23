@@ -1,0 +1,63 @@
+{
+  "all_existing_configuration_variants_qualified": false,
+  "focused_python_total": 326,
+  "installed_fixture_check_total": 516,
+  "installed_fixture_checks": [
+    142,
+    142,
+    21,
+    63,
+    148
+  ],
+  "installed_fixture_result_sha256": "7829d8cf1fba8a3a57e7c7720e041c5519e95f4c36cf0c7690b7904043a7a072",
+  "installed_fixture_status": "PASSED",
+  "model_after_sha256": "7a152c833f450f3364d2b297a9561ac6cbed556121892b64027d5a41f83847cf",
+  "model_before_sha256": "010c09ec0263e359c12fe0e7fa429698775c5816412448f04d07e96cce54d551",
+  "native_plan_extension": {
+    "changed_nodes": 51,
+    "checks": 16,
+    "file_units": 12,
+    "production_ready": false,
+    "python_canonical_agreement": true,
+    "schema": 1,
+    "signature_or_installed_authority_established": false,
+    "status": "PASSED",
+    "tree_units": 13
+  },
+  "native_plan_legacy": {
+    "changed_nodes": 50,
+    "checks": 14,
+    "file_units": 12,
+    "production_ready": false,
+    "python_canonical_agreement": true,
+    "schema": 1,
+    "signature_or_installed_authority_established": false,
+    "status": "PASSED",
+    "tree_units": 13
+  },
+  "owner_data_read": false,
+  "owner_install_tested": false,
+  "production_ready": false,
+  "profile": "identity-contact-session-status-v1",
+  "python_related": {
+    "passed": 160,
+    "seconds": 58.76
+  },
+  "python_targeted": {
+    "passed": 166,
+    "seconds": 34.02
+  },
+  "schema": 1,
+  "scope": "Exact model-source transition; storage and enrollment sources must remain byte-identical. No private-data migration permission.",
+  "source_pins": {
+    ".github/workflows/check.yml": "b07bc650943e1f8ae878b8e8790756efb6743769cd425048147efbf0d5386968",
+    "account_access/models.py": "7a152c833f450f3364d2b297a9561ac6cbed556121892b64027d5a41f83847cf",
+    "macos/FullImagePlan.swift": "476afded52312882b0c0b984ea99bdbfe1c9927563878203d94e95635766d0a1",
+    "macos/Tests/FullImagePlanChecks.swift": "bd431587fd2c1dbef965e6b3a857b8ce67d4d9723fe75c451579c498444450cf",
+    "macos/full_image_update.py": "ae10aabf3e1e819e114a1b742c04f61f7472654768067cc60d6ee1d572c42f72",
+    "scripts/mac_full_image_plan_fixture.py": "c6309771b7636eef1fb280c9d6acb1cff30bc2f2ce561bbb654d4beaaa0e1b18",
+    "tests/test_full_image_update.py": "1e6d5eaa8d01dce059b931dd215ad561c07e53aea239bd25bc59d909663613a2",
+    "tests/test_identity_contact_login.py": "b4c68b85a961a922523f49d4c085e5cfc46fd80a9775fd4c8091d9566c88bd53"
+  },
+  "status": "CONFIGURATION_EXTENSION_SOURCE_CHECKS_PASSED"
+}

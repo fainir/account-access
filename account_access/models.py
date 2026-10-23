@@ -148,7 +148,10 @@ class LoginForm(StrictModel):
                 raise ValueError("Identity and phone login requires its own fields and a single SMS factor")
             if self.identity_contact.identity_selector == self.identity_contact.phone_selector:
                 raise ValueError("Identity and phone must use distinct controls")
-        elif not self.username_selector or not self.password_selector:
+        elif not {"username_selector", "password_selector"} <= self.model_fields_set:
+            # These fields were required before identity/contact enrollment.
+            # Preserve already-serialized empty selectors: the browser refuses
+            # unusable controls when connecting, without blocking config load.
             raise ValueError("Password login requires username and password controls")
         if self.factors and any([self.code_source, self.code_selector, self.code_submit_selector]):
             raise ValueError("Use per-method factors or the legacy single source, never both")
