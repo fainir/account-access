@@ -1,5 +1,7 @@
 import importlib.util
 from pathlib import Path
+import stat
+from types import SimpleNamespace
 import xml.etree.ElementTree as ET
 
 import pytest
@@ -89,3 +91,30 @@ def test_root_alone_cannot_authorize_probe(monkeypatch, missing):
     monkeypatch.setattr(Path, "read_bytes", lambda *_: pytest.fail("read before host guard"))
     with pytest.raises(ValueError):
         probe.run(Path("/not-a-repository"))
+
+
+def test_expanded_script_directory_preserves_exact_program(tmp_path):
+    def metadata(info, mode, directory=True):
+        assert (stat.S_ISDIR(info.st_mode) if directory else stat.S_ISREG(info.st_mode))
+        assert stat.S_IMODE(info.st_mode) == mode
+    h = SimpleNamespace(protected_metadata=metadata, read_file=lambda p, **_: p.read_bytes())
+    tmp_path.chmod(0o755)
+    leaf = tmp_path / "postinstall"
+    leaf.write_bytes(probe.script("short"))
+    leaf.chmod(0o755)
+    probe.verify_scripts(h, tmp_path, "short")
+    leaf.write_bytes(b"#!/bin/sh\nexit 0\n")
+    with pytest.raises(ValueError):
+        probe.verify_scripts(h, tmp_path, "short")
+    leaf.write_bytes(probe.script("short"))
+    sidecar = tmp_path / "._postinstall"
+    sidecar.write_bytes(bytes.fromhex("0005160700020000"))
+    sidecar.chmod(0o644)
+    assert set(probe.verify_scripts(h, tmp_path, "short")) == {"postinstall", "._postinstall"}
+    sidecar.write_bytes(b"not metadata")
+    with pytest.raises(ValueError):
+        probe.verify_scripts(h, tmp_path, "short")
+    sidecar.unlink()
+    (tmp_path / "unexpected").touch()
+    with pytest.raises(ValueError):
+        probe.verify_scripts(h, tmp_path, "short")

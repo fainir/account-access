@@ -79,6 +79,26 @@ def accepted(case, returncode, elapsed):
     return returncode == 0 and 610 <= elapsed < 960
 
 
+def verify_scripts(h, directory, case):
+    # pkgutil --expand expands Scripts into a directory even without --expand-full.
+    h.protected_metadata(directory.lstat(), mode=0o755)
+    names = {path.name for path in directory.iterdir()}
+    require(names in ({"postinstall"}, {"postinstall", "._postinstall"}))
+    leaf = directory / "postinstall"
+    h.protected_metadata(leaf.lstat(), mode=0o755, directory=False)
+    require(h.read_file(leaf, maximum=4096) == script(case))
+    result = {"postinstall": hashlib.sha256(script(case)).hexdigest()}
+    if "._postinstall" in names:
+        # macOS may preserve its provenance attribute in an AppleDouble sidecar.
+        # It is never referenced as a script; preserve its exact bytes across flatten.
+        sidecar = directory / "._postinstall"
+        h.protected_metadata(sidecar.lstat(), mode=0o644, directory=False)
+        raw = h.read_file(sidecar, maximum=65536)
+        require(raw.startswith(bytes.fromhex("0005160700020000")))
+        result["._postinstall"] = hashlib.sha256(raw).hexdigest()
+    return result
+
+
 def run(repository):
     guard()
     require(repository.is_absolute())
@@ -125,7 +145,7 @@ def run(repository):
                          "--version", "1", "--scripts", str(scripts), str(package)], case + "-build.log")
                 command(["/usr/sbin/pkgutil", "--expand", str(package), str(expanded)], case + "-expand.log")
                 require({path.name for path in expanded.iterdir()} == {"PackageInfo", "Scripts"})
-                archive = h.read_file(expanded / "Scripts", maximum=1024**2)
+                script_inventory = verify_scripts(h, expanded / "Scripts", case)
                 info = expanded / "PackageInfo"
                 altered = with_deadline(h.read_file(info, maximum=65536), case)
                 info.write_bytes(altered)
@@ -134,8 +154,8 @@ def run(repository):
                 check = folder / "reexpanded"
                 command(["/usr/sbin/pkgutil", "--expand", str(package), str(check)], case + "-reexpand.log")
                 require({path.name for path in check.iterdir()} == {"PackageInfo", "Scripts"}
-                        and h.read_file(check / "Scripts", maximum=1024**2) == archive
                         and h.read_file(check / "PackageInfo", maximum=65536) == altered)
+                require(verify_scripts(h, check / "Scripts", case) == script_inventory)
                 report["checks"][case + "_exact_package"] = True
                 report["failure_stage"] = case + "_actual_installer"
                 start = time.monotonic()
