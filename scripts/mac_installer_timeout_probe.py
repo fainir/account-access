@@ -137,7 +137,8 @@ def run(repository):
                 folder = stage / case
                 folder.mkdir(mode=0o700)
                 scripts = folder / "scripts"
-                scripts.mkdir(mode=0o700)
+                scripts.mkdir(mode=0o755)
+                scripts.chmod(0o755)
                 (scripts / "postinstall").write_bytes(script(case))
                 (scripts / "postinstall").chmod(0o755)
                 package, expanded = folder / "original.pkg", folder / "expanded"
@@ -145,9 +146,14 @@ def run(repository):
                          "--version", "1", "--scripts", str(scripts), str(package)], case + "-build.log")
                 command(["/usr/sbin/pkgutil", "--expand", str(package), str(expanded)], case + "-expand.log")
                 require({path.name for path in expanded.iterdir()} == {"PackageInfo", "Scripts"})
+                report.setdefault("generated_scripts_modes", {})[case] = (expanded / "Scripts").lstat().st_mode & 0o7777
+                envelope = h.read_file(expanded / "PackageInfo", maximum=65536)
+                envelope_log = case + "-generated-envelope.log"
+                output.write(envelope_log, envelope)
+                report["logs"][envelope_log] = hashlib.sha256(envelope).hexdigest()
                 script_inventory = verify_scripts(h, expanded / "Scripts", case)
                 info = expanded / "PackageInfo"
-                altered = with_deadline(h.read_file(info, maximum=65536), case)
+                altered = with_deadline(envelope, case)
                 info.write_bytes(altered)
                 package = folder / "deadline.pkg"
                 command(["/usr/sbin/pkgutil", "--flatten", str(expanded), str(package)], case + "-flatten.log")
