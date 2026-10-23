@@ -27,8 +27,11 @@ unqualified. No private store, key or client capability was inspected.
 
 The source diagnostic changes passed hosted Mac acceptance, including all 43
 initial-store/restart checks. They have not been installed on the owner Mac.
-A smaller read-only registration diagnostic package is ready in native Installer
-and awaits local approval. It does not repair or reset the store.
+A corrected read-only registration diagnostic completed in native Installer and
+confirmed a changed device number with the original directory inode pair. It did
+not repair or reset the store. New persistent-volume binding source passed 30
+ordinary native checks; legacy migration and a qualified successor package are
+still required. [Repair scope](store-volume-repair.md).
 [Diagnostic scope](store-registration-diagnostic.md).
 
 See [current production gates](production-gates.md),

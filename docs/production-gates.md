@@ -52,16 +52,21 @@ paths are absent. This qualifies the public image, not account access.
 The native owner app still refuses to open the protected store, including after
 one Check again. Public Python imports and the native public runtime/ACL checks
 pass. The exact store failure is not yet exposed by the installed broker.
+The corrected read-only native diagnostic now confirms that the directory inode
+pair matches the registration but the filesystem device number has changed.
 The installed skill launcher also discovers only a legacy controlled demo at
 service version 0.6.0. It has not been reconnected to this protected installation.
-No owner credential file, vault, client token or private account configuration
-was inspected. [Owner result](../artifacts/owner-mac-update85-result-20261023.json).
+Only root-owned registration metadata and directory stat metadata were inspected;
+credential contents, client tokens and private account configuration were not.
+[Owner result](../artifacts/owner-mac-update85-result-20261023.json).
+[Registration result](../artifacts/store-registration-device-result-20261023.json).
 
 New source retains fixed store-startup checkpoints and failure categories for
 native owner state/health and system diagnostics. Known categories get fixed
 UI explanations; arbitrary error text is never rendered. Device-only changes
 in the publication record are distinguished from changed directories, but both
-remain refused. A remounted device number is an unconfirmed lead on this Mac.
+remain refused without an independent volume binding. The device-number mismatch
+has now been observed on this Mac.
 This diagnostic source has not been installed and does not perform migration,
 replace keys, reset a store, retry a login or authorize new account access.
 Its source suite passed 3,906 tests with 107 skipped. Native UI/gateway, Mac,
@@ -70,12 +75,15 @@ report passed all 43 checks, including a device-change refusal with a fixed
 diagnostic and a missing-key refusal without creating a replacement key.
 [Native diagnostic evidence](../artifacts/store-startup-diagnostics-native-ci-20261023.json).
 
-A separate no-payload registration diagnostic is prepared for the exact installed
-image. Its 60 synthetic tests passed, and package expansion and the Desktop copy
-were independently verified. It reads only root-owned registration metadata and
-stats the two store directories; no credential, configuration, Keychain, service
-or network APIs are used. The package is unsigned and requires local approval
-in native Installer. No owner result has been obtained yet.
+A separate no-payload registration diagnostic ran on the exact installed image.
+The first version refused before reading policies because it incorrectly
+required a `0700` broker directory. The corrected version matches the provisioner's
+`0755` mode, passed 65 tests and independent package review, and completed with
+`device_number_changed`. It read only root-owned registration metadata and stats
+for the two store directories; it used no credential, configuration, Keychain,
+service or network APIs. New broker source adds persistent volume binding, with
+30 native checks passing; legacy migration and successor installation remain
+unqualified. [Repair scope](store-volume-repair.md).
 [Diagnostic scope](store-registration-diagnostic.md).
 
 The configuration-model change has one fixed source-hash profile. Storage,

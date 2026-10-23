@@ -42,6 +42,9 @@ import Darwin
         let enrollmentCases: [(Error, String)] = [
             (RootPublicationFailure.deviceChanged, "vault_publication_device_number_changed"),
             (RootPublicationFailure.identityMismatch, "vault_publication_directory_identity_mismatch"),
+            (RootStoreVolumeFailure.invalid, "vault_publication_volume_binding_invalid"),
+            (RootStoreVolumeFailure.changed, "vault_publication_volume_binding_changed"),
+            (RootStoreVolumeFailure.unavailable, "vault_publication_volume_binding_unavailable"),
             (RootVaultKeyFailure.missing, "vault_key_missing"),
             (RootKeychainFailure(operation: .load, status: -12345), "system_keychain_load_failed"),
             (RootVaultRecordFailure(.data, result: ["private": "fictional-secret"] as CFDictionary), "vault_key_data_result_invalid"),

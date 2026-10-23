@@ -25,6 +25,7 @@ struct RootEnrollmentDiagnostic: Equatable {
         self.checkpoint = checkpoint
         switch error {
         case let value as RootPublicationFailure: reason = value.rawValue
+        case let value as RootStoreVolumeFailure: reason = value.rawValue
         case let value as RootVaultKeyFailure: reason = value.rawValue
         case let value as RootVaultRecordFailure: reason = value.stage.rawValue
         case let value as RootKeychainFailure:
