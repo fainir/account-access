@@ -9,10 +9,10 @@ import runpy
 import subprocess
 
 REPOSITORY = "fainir/account-access"
-SOURCE = "5f4926a33883d6234f2538a5d0969e3b70c883b0"
-PACKAGE = "79672a7a659948dcefa7c94573d882a9bec4f7febf62597551fa088f4f8861f8"
+SOURCE = "c4cf1b0918c1a51cbd4a38880364fcb71fa5980e"
+PACKAGE = "27ee29eea45992461d0d8e5d2f36878a784b15f52713066f9710647715420994"
 ROOT_PACKAGE = "97c5109627a6f218fa935196f668739ca1bdfe45005fab2ae72cb4e159677d3d"
-CONTRACT = "artifacts/broker-repair-installer86-inputs.json"
+CONTRACT = "artifacts/broker-repair-installer87-inputs.json"
 FILES = {"repair.pkg", "repair-review.json", "repair-scripts-inventory.json",
          "root-revalidation.pkg", "root-revalidation-review.json"}
 
@@ -39,10 +39,10 @@ def validate(value):
         release = row["release"]
         require(isinstance(release, dict) and set(release) == {"id", "tag", "source"}
                 and type(release["id"]) is int and release["id"] > 0
-                and release["source"] == SOURCE and release["tag"] == "qa-5f4926a-broker-repair86")
+                and release["source"] == SOURCE and release["tag"] == "qa-c4cf1b0-broker-repair87")
         releases.add(release["id"])
     require(len(releases) == 1 and value["assets"]["repair.pkg"]["sha256"] == PACKAGE
-            and value["assets"]["repair.pkg"]["bytes"] == 299586489
+            and value["assets"]["repair.pkg"]["bytes"] == 299586792
             and value["assets"]["root-revalidation.pkg"]["sha256"] == ROOT_PACKAGE
             and value["assets"]["root-revalidation.pkg"]["bytes"] == 3459002)
     return value

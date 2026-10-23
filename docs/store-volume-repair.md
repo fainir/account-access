@@ -137,3 +137,9 @@ job found a standalone tree-test compile dependency introduced by the read-only
 fixture. That test now uses its existing payload reader directly; the original
 failure remains part of the evidence. Hosted run 39971114489 passed Installer
 context checks and was still running cross-user acceptance at this checkpoint.
+
+Package 87 now contains the corrected controller from `c4cf1b0`; its independent
+expansion matches all 27,523 resource entries. Exact package review is retained in
+`artifacts/broker-repair-package87-20261023.json`. Actual Installer qualification
+and owner GUI verification remain pending. The cancelled package-86 interruption
+report records a closed predecessor-phase refusal, not a completed repair.

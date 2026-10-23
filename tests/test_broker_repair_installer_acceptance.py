@@ -38,6 +38,37 @@ def test_scope_cannot_be_upgraded(key, value):
     assert not PROBE["acceptance_passed"](report)
 
 
+def test_foreign_binding_requires_observed_rollback_on_both_attempts():
+    report = passing()
+    report["scenario"] = "foreign-binding"
+    assert not PROBE["acceptance_passed"](report)
+    report["foreign_binding_rollback"] = {"verified_attempts": 2, "applied_per_attempt": 5,
+        "restored_per_attempt": 5, "head_published": False}
+    assert PROBE["acceptance_passed"](report)
+    report["foreign_binding_rollback"]["verified_attempts"] = 1
+    assert not PROBE["acceptance_passed"](report)
+
+
+def test_rollback_evidence_cannot_be_early_refusal_or_partial_rollback():
+    cycle = [{"schema": 1, "event": event, "operation": i}
+        for i in range(5) for event in ("apply_intent", "applied")]
+    cycle += [{"schema": 1, "event": event, "operation": i}
+        for i in reversed(range(5)) for event in ("rollback_intent", "rolled_back")]
+    cycle.append({"schema": 1, "event": "old_image_restored", "operation": -1})
+    PROBE["verify_rollback_events"](cycle, 1)
+    PROBE["verify_rollback_events"](cycle * 2, 2)
+    for events in ([], cycle[:-1], list(reversed(cycle)), cycle + cycle[:-1]):
+        with pytest.raises(ValueError):
+            PROBE["verify_rollback_events"](events, 2)
+    for index in range(len(cycle)):
+        with pytest.raises(ValueError):
+            PROBE["verify_rollback_events"](cycle[:index] + cycle[index + 1:], 1)
+    altered = copy.deepcopy(cycle)
+    altered[0]["operation"] = False
+    with pytest.raises(ValueError):
+        PROBE["verify_rollback_events"](altered, 1)
+
+
 def test_ordinary_run_refuses_before_any_path_read(monkeypatch):
     monkeypatch.setattr(PROBE["os"], "getuid", lambda: 501)
     def forbidden(*args, **kwargs):
@@ -103,7 +134,7 @@ def test_asset_substitution_refused(mutation):
 
 def test_workflow_has_no_token_on_mac_and_three_scenarios():
     import yaml
-    workflow = yaml.safe_load((ROOT / ".github/workflows/mac-broker-repair86-installer-review.yml").read_text())
+    workflow = yaml.safe_load((ROOT / ".github/workflows/mac-broker-repair87-installer-review.yml").read_text())
     mac = workflow["jobs"]["actual-installer"]
     assert mac["permissions"] == {"contents": "read"}
     assert set(mac["strategy"]["matrix"]["scenario"]) == PROBE["SCENARIOS"]

@@ -22,10 +22,10 @@ from types import SimpleNamespace
 import uuid
 import xml.etree.ElementTree as ET
 
-SOURCE = "5f4926a33883d6234f2538a5d0969e3b70c883b0"
-PLAN = "7561a8143eec0ca7d547035479d5edb0ab977e853ead1728083db7afd153b4ea"
+SOURCE = "c4cf1b0918c1a51cbd4a38880364fcb71fa5980e"
+PLAN = "3741aae23c6c23c9da33ae233d0657800454514042d59cba951e7bbf7d1d8ec1"
 BEFORE = "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da"
-AFTER = "5ed672b30df100e830af79fad75009e2a50e53c27983a526165470d405e9287f"
+AFTER = "5a732de4623ba50aefa6d31c54e7b1eae660b2921341f95042c5675d922d808b"
 NAMESPACE = Path("/Library/Application Support/Account Access Broker Repair")
 SCENARIOS = {"install-reapply", "interrupt-broker", "foreign-binding"}
 CHECKS = {"fresh_predecessor_acceptance", "pinned_assets_and_sources", "exact_repair_resources", "native_signatures",
@@ -69,7 +69,31 @@ def acceptance_passed(report):
     return (report.get("scenario") in SCENARIOS and set(report.get("checks", {})) == CHECKS
             and all(value is True for value in report["checks"].values()) and "failure_reason" not in report
             and report.get("personal_accounts_used") == 0 and report.get("owner_GUI_qualified") is False
-            and report.get("production_ready") is False)
+            and report.get("production_ready") is False
+            and (report.get("scenario") != "foreign-binding" or report.get("foreign_binding_rollback") == {
+                "verified_attempts": 2, "applied_per_attempt": 5, "restored_per_attempt": 5,
+                "head_published": False}))
+
+
+def verify_rollback_events(events, attempts):
+    require(type(attempts) is int and attempts in {1, 2} and isinstance(events, list))
+    expected = []
+    for _ in range(attempts):
+        expected.extend({"schema": 1, "event": event, "operation": i}
+            for i in range(5) for event in ("apply_intent", "applied"))
+        expected.extend({"schema": 1, "event": event, "operation": i}
+            for i in reversed(range(5)) for event in ("rollback_intent", "rolled_back"))
+        expected.append({"schema": 1, "event": "old_image_restored", "operation": -1})
+    require(all(isinstance(row, dict) and type(row.get("schema")) is int
+                and type(row.get("operation")) is int for row in events) and events == expected)
+
+
+def read_rollback_evidence(attempts):
+    transition = NAMESPACE / ("transition-" + PLAN)
+    paths = sorted(transition.glob("event-*.json"))
+    require([p.name for p in paths] == [f"event-{i:04d}.json" for i in range(21 * attempts)])
+    verify_rollback_events([json.loads(h.read_file(p, maximum=4096)) for p in paths], attempts)
+    require(not os.path.lexists(NAMESPACE / "head.json"))
 
 
 def snapshot(path, *, maximum=8192, owner=0):
@@ -221,7 +245,7 @@ def run(args):
             value.__globals__["h"] = h
     download = runpy.run_path(str(args.repository / "scripts/download_broker_repair_installer_inputs.py"))
     rid = os.environ["GITHUB_RUN_ID"]
-    output = h.RootOutput(h.report_path(rid + "86"), rid + "86")
+    output = h.RootOutput(h.report_path(rid + "87"), rid + "87")
     report = {"schema": 1, "status": "FAILED", "scenario": args.scenario, "controller_revision": revision,
         "checks": dict.fromkeys(CHECKS, False), "logs": {}, "failure_stage": "inputs", "personal_accounts_used": 0,
         "owner_GUI_qualified": False, "production_ready": False, "fixture": "fictional-publication-metadata-only",
@@ -278,7 +302,7 @@ def run(args):
             command(["/usr/sbin/pkgutil", "--expand-full", str(stage / "repair.pkg"), str(expanded)], "repair-expand.log", 600)
             require({p.name for p in expanded.iterdir()} == {"PackageInfo", "Scripts"})
             info = ET.fromstring((expanded / "PackageInfo").read_bytes())
-            require(info.get("identifier") == "com.fainir.accountaccess.brokerrepair86" and info.get("version") == "0.1.0"
+            require(info.get("identifier") == "com.fainir.accountaccess.brokerrepair87" and info.get("version") == "0.1.0"
                     and info.get("auth") == "root" and info.find("scripts/postinstall").attrib == {"file": "./postinstall", "timeout": "1800"})
             scripts = expanded / "Scripts"
             require(f.inventory(scripts) == f.decode(h.read_file(stage / "repair-scripts-inventory.json", maximum=64 * 1024**2))
@@ -339,6 +363,7 @@ def run(args):
             h.verify_image(expected)
             if foreign_case:
                 require(not os.path.lexists(NAMESPACE / "head.json") and h.policies() == original_policy and snapshot(binding) == foreign)
+                read_rollback_evidence(1)
             else:
                 head = json.loads(h.read_file(NAMESPACE / "head.json"))
                 require(head.get("plan_sha256") == PLAN and head.get("manifest_sha256") == AFTER
@@ -359,6 +384,10 @@ def run(args):
                 stable["head"] = snapshot(NAMESPACE / "head.json")
             report["failure_stage"] = "repair_reapply"
             install("repair.pkg", "repair-reapply", 1 if foreign_case else 0)
+            if foreign_case:
+                read_rollback_evidence(2)
+                report["foreign_binding_rollback"] = {"verified_attempts": 2, "applied_per_attempt": 5,
+                    "restored_per_attempt": 5, "head_published": False}
             report["checks"]["same_package_reapplication"] = True
             h.verify_image(expected)
             require(snapshot(binding) == stable["binding"] and snapshot(h.BASE / "bin/AccountAccess-broker", maximum=16 * 1024**2) == stable["broker"]

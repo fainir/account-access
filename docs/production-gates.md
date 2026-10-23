@@ -32,12 +32,19 @@ physical SMS. The first new Installer harness stopped before installation due
 to a filename-list mistake; that failure is retained. Corrected run
 `39984715262` was cancelled after discovering the native namespace defect. It
 does not qualify installation, interruption recovery or rollback. A replacement
-package and fresh actual Installer acceptance remain pending.
+package 87 is built from `c4cf1b0` and independently verified against all
+27,523 expanded resources. Its container SHA-256 is
+`27ee29eea45992461d0d8e5d2f36878a784b15f52713066f9710647715420994`.
+Fresh actual Installer acceptance remains pending. The foreign-binding scenario
+now requires exact apply-and-rollback journal evidence for all five non-head
+operations on both attempts; an early refusal cannot qualify rollback.
 
 [Package review](../artifacts/broker-repair-package86-independent-review-20261023.json) ·
 [Native source evidence](../artifacts/broker-repair-source-mac-ci-20261023.json) ·
 [Harness refusal](../artifacts/broker-repair-installer86-harness-refusal-20261023.json).
-[Candidate withdrawal](../artifacts/broker-repair86-withdrawal-20261023.json).
+[Candidate withdrawal](../artifacts/broker-repair86-withdrawal-20261023.json) ·
+[Replacement package](../artifacts/broker-repair-package87-20261023.json) ·
+[Cancelled partial report](../artifacts/broker-repair86-cancelled-partial-20261023.json).
 
 ### Current application candidate — 23 October 2026
 
