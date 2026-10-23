@@ -21,8 +21,12 @@ FULL81_SOURCE = {"id": 663422302, "bytes": 232976220,
     "sha256": "5872d18b2779dd11418fed2193a1f9fb18019f8b8c9bcf8e8a60c1b0760559e8",
     "release": {"id": 419902915, "tag": "qa-740fe3c-full-image81",
                 "source": "740fe3c479a763950e98340584ea173e04522072"}}
+FULL84_SOURCE = {"id": 668422660, "bytes": 252473415,
+    "sha256": "5f262e8a9b9016dded2a0ac5a68966bca3332948c403363799dbdf4dddeba2d5",
+    "release": {"id": 421585825, "tag": "qa-d5cd6b7-full-image84",
+                "source": "d5cd6b7018481733674d1127b36e9f9a5f335bda"}}
 TRANSFER_SOURCE = "scripts/download_full_image_installer_inputs.py"
-TRANSFER_SHA = "e3f995727d5a5e3b9780df25d232bf856c4f9ae2c0a0c7fac881fa4208f60057"
+TRANSFER_SHA = "e13c3a815b5a96c968287973b1e8b86755cb158bbaaa89e2157dcfa590c3578d"
 PROBES = ("scripts/mac_fresh_image_installer_probe.py", "scripts/download_fresh_image_installer_inputs.py",
           "scripts/mac_component_update_installer_probe.py", TRANSFER_SOURCE)
 
@@ -52,14 +56,25 @@ def hex_value(value, length=64):
     return isinstance(value, str) and re.fullmatch("[a-f0-9]{" + str(length) + "}", value) is not None
 
 
-def validate(value):
+def cohort_pins(cohort):
+    require(type(cohort) is int and cohort in {80, 84})
+    if cohort == 80:
+        return MANIFEST, APP_SOURCE, PACKAGING_SOURCE, CONTRACT, "full81-source.tar.gz", FULL81_SOURCE
+    return ("05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da",
+        "d30fda732c589b9ac4dc339a7237ad8ba00d0016", "47eac17c811ca27a12660d30f94ec955ad09df70",
+        "artifacts/fresh-image84-installer-inputs.json", "full84-source.tar.gz", FULL84_SOURCE)
+
+
+def validate(value, cohort=80):
+    manifest, app_source, packaging_source, _, source_name, source_asset = cohort_pins(cohort)
+    files = FILES - {"full81-source.tar.gz"} | {source_name}
     require(type(value) is dict and set(value) == {"schema", "status", "repository", "target_source",
         "packaging_source", "target_manifest_sha256", "installer_verifier_sha256", "assets"}
         and type(value["schema"]) is int and value["schema"] == 1
         and value["status"] == "FROZEN_REVIEWED_ASSETS" and value["repository"] == REPOSITORY
-        and value["target_source"] == APP_SOURCE and value["target_manifest_sha256"] == MANIFEST
-        and value["installer_verifier_sha256"] == VERIFIER and value["packaging_source"] == PACKAGING_SOURCE
-        and type(value["assets"]) is dict and set(value["assets"]) == FILES)
+        and value["target_source"] == app_source and value["target_manifest_sha256"] == manifest
+        and value["installer_verifier_sha256"] == VERIFIER and value["packaging_source"] == packaging_source
+        and type(value["assets"]) is dict and set(value["assets"]) == files)
     identifiers, releases = set(), []
     for name, row in value["assets"].items():
         require(type(row) is dict and set(row) == {"release", "id", "sha256", "bytes"}
@@ -71,13 +86,13 @@ def validate(value):
             and isinstance(release["tag"], str) and re.fullmatch("qa-[a-zA-Z0-9.-]{1,100}", release["tag"])
             and hex_value(release["source"], 40))
         identifiers.add(row["id"])
-        if name == "full81-source.tar.gz":
-            require(row == FULL81_SOURCE)
+        if name == source_name:
+            require(row == source_asset)
         else:
             require(release["source"] == value["packaging_source"])
             releases.append(release)
         if name == "fresh-manifest.json":
-            require(row["sha256"] == MANIFEST)
+            require(row["sha256"] == manifest)
     require(all(release == releases[0] for release in releases))
     return value
 
@@ -92,13 +107,16 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--contract", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--cohort", type=int, choices=[80, 84], default=80)
     args = parser.parse_args()
     context()  # Before consulting a path, loading source, or invoking Git/gh.
+    cohort = getattr(args, "cohort", 80)
+    contract_path = cohort_pins(cohort)[3]
     revision = os.environ["GITHUB_SHA"]
     raw = args.contract.read_bytes()
     require(len(raw) < 64 * 1024 and subprocess.check_output(
-        ["git", "show", revision + ":" + CONTRACT], timeout=5) == raw)
-    contract = validate(decode(raw))  # Missing/pending contract cannot reach the network.
+        ["git", "show", revision + ":" + contract_path], timeout=5) == raw)
+    contract = validate(decode(raw), cohort)  # Missing/pending contract cannot reach the network.
     transfer_raw = Path(TRANSFER_SOURCE).read_bytes()
     require(TRANSFER_SHA and digest(transfer_raw) == TRANSFER_SHA and subprocess.check_output(
         ["git", "show", revision + ":" + TRANSFER_SOURCE], timeout=5) == transfer_raw)

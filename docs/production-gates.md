@@ -7,6 +7,39 @@ establish that experience on personal accounts.
 
 ## Current candidate
 
+### Current application candidate — 23 October 2026
+
+Installer 84 combines the protected-volume repair with app source `d30fda7`
+and updater source `d5cd6b7`. Its complete image, signed application, exact
+16-check native plan, package contents and corresponding-source archive passed
+separate reviews. The app-source suite passed 3,828 tests with 107 skipped;
+native UI/gateway, Android, Linux and Mac acceptance workflows passed within
+their existing controlled-account scopes. The new Installer cohort passed 106
+focused checks. Actual install/reapply and both interruption scenarios each
+passed all 18 checks in run `39922461687` against those exact draft assets.
+Owner installation is pending; its public predecessor still matches all
+25,283 files, 2,305 directories and 21 aliases.
+
+The configuration-model change has one fixed source-hash profile. Storage,
+enrollment and agent-setup sources remain byte-identical. Seven public examples
+and three legacy empty-selector cases preserve account fingerprints through
+serialization and reload. The current app has not been tested against every
+possible owner configuration. Installer 84 is unsigned and unnotarized, and
+physical Android delivery and real-provider acceptance remain open gates.
+[Candidate evidence](../artifacts/full-image84-current-app-package-20261023.json).
+[Configuration transition](../artifacts/configuration-extension-source-20261023.json).
+
+A separate build request now packages the same reviewed image for a first
+installation. The first build refused because the old packager admitted only
+image 80. Packaging source `47eac17` adds only the exact reviewed image 84 to
+that allowlist; its other 15 functions are unchanged. Packaging tests passed
+81 checks and build/controller tests passed 87 checks. Corrected build run
+`39925295516` passed. An independent local review matched all 27,496 expanded
+nodes, the complete packaging source snapshot and four genuine peer signatures.
+The fresh acceptance controller passed 98 checks; actual clean installation
+and reapplication are pending. No production release has been published.
+[Fresh-image request](../artifacts/fresh-image84-build-request.json).
+
 ### Owner-approved diagnostic update — 23 October 2026
 
 The owner completed macOS authentication for package 82. Native Installer ran
@@ -37,8 +70,10 @@ read-only review of its 15 compiled inputs and 27,513 script-tree nodes. Its
 matching source archive also passed a separate stream review of both complete
 Git snapshots and the embedded third-party corresponding source. All four draft
 release asset digests match the local files. The installer controller's 100
-focused checks passed. Actual installation, reapplication and interrupted-create
-and interrupted-remove recovery are being qualified with those exact bytes.
+focused checks passed. Actual installation/reapplication, interrupted-create
+recovery and interrupted-remove recovery each passed all 18 checks in run
+`39915497523` with those exact bytes. These controlled-Mac results do not
+qualify an owner-Mac installation.
 The application image remains build 80; newer application features are not
 included in this controller repair. The container is unsigned and unnotarized.
 [Package evidence](../artifacts/full-image83-volume-binding-package-20261023.json).

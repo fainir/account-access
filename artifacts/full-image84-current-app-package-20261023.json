@@ -1,5 +1,89 @@
 {
-  "actual_Installer_qualified": false,
+  "actual_Installer_qualified": true,
+  "actual_installer_reports": [
+    {
+      "checks_passed": 18,
+      "installer_attempts": {
+        "base-installer": {
+          "budget_seconds": 420,
+          "completed_successfully": true,
+          "elapsed_seconds": 156.834
+        },
+        "component-installer": {
+          "budget_seconds": 420,
+          "completed_successfully": true,
+          "elapsed_seconds": 58.028
+        },
+        "full-installer": {
+          "budget_seconds": 840,
+          "completed_successfully": true,
+          "elapsed_seconds": 560.08
+        },
+        "full-reapply-installer": {
+          "budget_seconds": 420,
+          "completed_successfully": true,
+          "elapsed_seconds": 242.22
+        }
+      },
+      "report_sha256": "52d60e9ddb297eb177abb4189a97bb2e4ba4652c974f00c8e5645038ac4dafbc",
+      "scenario": "install-reapply"
+    },
+    {
+      "checks_passed": 18,
+      "installer_attempts": {
+        "base-installer": {
+          "budget_seconds": 420,
+          "completed_successfully": true,
+          "elapsed_seconds": 181.807
+        },
+        "component-installer": {
+          "budget_seconds": 420,
+          "completed_successfully": true,
+          "elapsed_seconds": 68.593
+        },
+        "full-installer": {
+          "budget_seconds": 420,
+          "completed_successfully": true,
+          "elapsed_seconds": 341.521
+        },
+        "full-reapply-installer": {
+          "budget_seconds": 420,
+          "completed_successfully": true,
+          "elapsed_seconds": 192.328
+        }
+      },
+      "report_sha256": "a92d4b85acc229b1312f67c1c60b899323c2dc3eb805913c9dbbd83aafe42f8a",
+      "scenario": "interrupt-create"
+    },
+    {
+      "checks_passed": 18,
+      "installer_attempts": {
+        "base-installer": {
+          "budget_seconds": 420,
+          "completed_successfully": true,
+          "elapsed_seconds": 99.159
+        },
+        "component-installer": {
+          "budget_seconds": 420,
+          "completed_successfully": true,
+          "elapsed_seconds": 37.572
+        },
+        "full-installer": {
+          "budget_seconds": 420,
+          "completed_successfully": true,
+          "elapsed_seconds": 292.076
+        },
+        "full-reapply-installer": {
+          "budget_seconds": 420,
+          "completed_successfully": true,
+          "elapsed_seconds": 164.601
+        }
+      },
+      "report_sha256": "d01ebc4c2cc4f0f8774a6375b31b60ec520a64c6be041618312d0c5ddf53f66e",
+      "scenario": "interrupt-remove"
+    }
+  ],
+  "actual_installer_run": 39922461687,
   "app_source_commit": "d30fda732c589b9ac4dc339a7237ad8ba00d0016",
   "app_source_python_suite": {
     "passed": 3828,
@@ -23,6 +107,13 @@
   "notarized": false,
   "owner_account_reads": false,
   "owner_installed": false,
+  "owner_preflight_counts": {
+    "aliases": 21,
+    "directories": 2305,
+    "files": 25283
+  },
+  "owner_preflight_public_manifest_sha256": "9f0d1274928702dd4d5064b4d3bc8ac7df3bf81c3f70be2f9ccad410785d810c",
+  "owner_update_handoff": "Exact package copied to owner Desktop after native file picker could not activate the path. No successful owner install claimed.",
   "package_bytes": 295994062,
   "package_review_sha256": "837e416d835a240b602d4f2e468179891443c7adbde10336fddfed3ad2787ab4",
   "package_sha256": "de6769837c00f41e307b5342ab86021c6e2aac27ba7fd99914f670ab2bd99d95",
@@ -37,6 +128,6 @@
     "outer_regular_members": 182,
     "sha256": "5f262e8a9b9016dded2a0ac5a68966bca3332948c403363799dbdf4dddeba2d5"
   },
-  "status": "DRAFT_CANDIDATE_BUILT_REVIEWED_ACTUAL_INSTALLER_PENDING",
+  "status": "ACTUAL_INSTALLER_QUALIFIED_OWNER_UPDATE_PENDING",
   "target_manifest_sha256": "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da"
 }

@@ -153,7 +153,16 @@ def inventory(directory):
     return rows
 
 
-def validate_review(review, contract):
+def cohort_pins(cohort):
+    require(type(cohort) is int and cohort in {80, 84})
+    if cohort == 80:
+        return MANIFEST_SHA, APP_SOURCE, CONTRACT
+    return ("05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da",
+        "d30fda732c589b9ac4dc339a7237ad8ba00d0016", "artifacts/fresh-image84-installer-inputs.json")
+
+
+def validate_review(review, contract, cohort=80):
+    manifest_sha, app_source, _ = cohort_pins(cohort)
     require(type(review) is dict and set(review) == {"schema", "status", "package_sha256", "package_bytes",
         "target_manifest_sha256", "target_source", "packaging_source", "installer_verifier_sha256",
         "expanded_inventory_sha256", "actual_Installer_qualified", "production_ready"}
@@ -161,7 +170,7 @@ def validate_review(review, contract):
         and review["status"] == "BUILT_NOT_INSTALLED_NOT_INSTALL_QUALIFIED"
         and review["package_sha256"] == contract["assets"]["fresh.pkg"]["sha256"]
         and type(review["package_bytes"]) is int and review["package_bytes"] == contract["assets"]["fresh.pkg"]["bytes"]
-        and review["target_manifest_sha256"] == MANIFEST_SHA and review["target_source"] == APP_SOURCE
+        and review["target_manifest_sha256"] == manifest_sha and review["target_source"] == app_source
         and review["packaging_source"] == contract["packaging_source"]
         and review["installer_verifier_sha256"] == VERIFIER_SHA
         and review["expanded_inventory_sha256"] == contract["assets"]["fresh-expanded-inventory.json"]["sha256"]
@@ -279,12 +288,12 @@ def public_snapshot(manifest):
     return result
 
 
-def original_receipts(owner):
+def original_receipts(owner, *, manifest_sha=MANIFEST_SHA):
     intent = decode(h.read_file(h.JOURNAL / "intent.json", maximum=8192))
     require(intent == {"managed_by": "account-access-public-image-install-v1", "schema": 1,
-        "manifest_sha256": MANIFEST_SHA, "owner_uid": owner})
+        "manifest_sha256": manifest_sha, "owner_uid": owner})
     require(decode(h.read_file(h.JOURNAL / "complete.json", maximum=8192)) == {
-        "manifest_sha256": MANIFEST_SHA, "owner_uid": owner, "status": "REGISTERED"})
+        "manifest_sha256": manifest_sha, "owner_uid": owner, "status": "REGISTERED"})
     records = h.fixed_records()
     require(not any(path.name.startswith(".pending-") for path in h.JOURNAL.iterdir()))
     return records
@@ -323,6 +332,8 @@ def close_gui(console, phase, report, output):
 
 def run(args):
     guard()  # First action: no paths, helper import, process or network before this.
+    cohort = getattr(args, "cohort", 80)
+    manifest_sha, _, contract_path = cohort_pins(cohort)
     revision = os.environ["GITHUB_SHA"]
     helper_raw = (args.repository / HELPER).read_bytes()
     require(digest(helper_raw) == HELPER_SHA)
@@ -362,8 +373,8 @@ def run(args):
         report["failure_stage"] = "fixed_input_contract"
         contract_raw = (args.bundle / "asset-contract.json").read_bytes()
         require(len(contract_raw) < 64 * 1024 and contract_raw == h.git_bytes(args.repository,
-            ["show", revision + ":" + CONTRACT], maximum=64 * 1024))
-        contract = inputs.validate(decode(contract_raw))
+            ["show", revision + ":" + contract_path], maximum=64 * 1024))
+        contract = inputs.validate(decode(contract_raw), cohort)
         controller = decode((args.bundle / "controller.json").read_bytes())
         require(controller == {"schema": 1, "controller_revision": revision,
             "contract_sha256": digest(contract_raw), "probe_sources": source_pins,
@@ -386,15 +397,15 @@ def run(args):
                     log=log + ".log", daemon_log=log + "-daemon.log")
 
             report["failure_stage"] = "closed_product_expansion"
-            validate_review(decode(h.read_file(stage / "fresh-review.json", maximum=2 * 1024**2)), contract)
+            validate_review(decode(h.read_file(stage / "fresh-review.json", maximum=2 * 1024**2)), contract, cohort)
             scripts_expected = install_script_bodies(h.git_bytes(args.repository,
                 ["show", contract["packaging_source"] + ":macos/system_package.py"], maximum=2 * 1024**2))
             expanded = stage / "expanded"
             command(["/usr/sbin/pkgutil", "--expand-full", str(stage / "fresh.pkg"), str(expanded)], "expand.log", 300)
             expected_inventory = decode(h.read_file(stage / "fresh-expanded-inventory.json", maximum=64 * 1024**2))
-            scripts = validate_expansion(expanded, expected_inventory, scripts_expected)
+            scripts = validate_expansion(expanded, expected_inventory, scripts_expected, manifest_sha=manifest_sha)
             manifest_raw = h.read_file(stage / "fresh-manifest.json", maximum=16 * 1024**2)
-            require(digest(manifest_raw) == MANIFEST_SHA)
+            require(digest(manifest_raw) == manifest_sha)
             manifest = decode(manifest_raw)
             validate_packaged_image(manifest, expected_inventory)
             require({kind: sum(node["kind"] == word for tree in manifest["roots"].values() for node in tree.values())
@@ -413,14 +424,15 @@ def run(args):
             report["failure_stage"] = "fresh_gui_normal_quit"
             close_gui(console, "fresh", report, output)
             report["checks"]["fresh_gui_closed"] = True
-            receipts, policies = original_receipts(console), h.policies()
+            receipts, policies = original_receipts(console, manifest_sha=manifest_sha), h.policies()
             report["checks"]["original_image_receipts"] = True
             live_service(command, "fresh")
             report["checks"]["live_service"] = True
             report["failure_stage"] = "identical_package_reapply"
             install("reapply-installer")
             report["checks"]["identical_package_reapply"] = True
-            require(public_snapshot(manifest) == before and original_receipts(console) == receipts and h.policies() == policies)
+            require(public_snapshot(manifest) == before
+                and original_receipts(console, manifest_sha=manifest_sha) == receipts and h.policies() == policies)
             require(hash_file(stage / "fresh.pkg", 1024**3)[0] == report["package_sha256"])
             report["public_node_count"] = len(before)
             report["public_identity_snapshot_sha256"] = digest(json.dumps(before, sort_keys=True).encode())
@@ -463,6 +475,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repository", type=Path, required=True)
     parser.add_argument("--bundle", type=Path, required=True)
+    parser.add_argument("--cohort", type=int, choices=[80, 84], default=80)
     return run(parser.parse_args())
 
 

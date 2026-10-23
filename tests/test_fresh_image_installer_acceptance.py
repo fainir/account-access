@@ -59,6 +59,83 @@ def test_positive_contract_and_review_preserve_inputs_and_reuse_exact_public_sou
     assert not any(name.startswith(("base", "component")) for name in inputs.FILES)
 
 
+def current_contract_and_review():
+    value, report = contract(), review()
+    manifest = "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da"
+    app = "d30fda732c589b9ac4dc339a7237ad8ba00d0016"
+    packaging = "47eac17c811ca27a12660d30f94ec955ad09df70"
+    for item in (value, report):
+        item.update(target_manifest_sha256=manifest, target_source=app, packaging_source=packaging)
+    del value["assets"]["full81-source.tar.gz"]
+    for asset in value["assets"].values():
+        asset["release"]["source"] = packaging
+    value["assets"]["fresh-manifest.json"]["sha256"] = manifest
+    value["assets"]["full84-source.tar.gz"] = copy.deepcopy(inputs.FULL84_SOURCE)
+    return value, report
+
+
+def test_current_image_is_bound_without_mutating_legacy_profile():
+    value, report = current_contract_and_review()
+    assert inputs.validate(value, 84) is value
+    assert probe.validate_review(report, value, 84) is report
+    for wrong in (80, 85, True, "84", 84.0):
+        with pytest.raises(ValueError):
+            inputs.validate(value, wrong)
+        with pytest.raises(ValueError):
+            probe.validate_review(report, value, wrong)
+    with pytest.raises(ValueError):
+        inputs.validate(contract(), 84)
+    with pytest.raises(ValueError):
+        probe.validate_review(review(), contract(), 84)
+    assert inputs.validate(contract()) and probe.validate_review(review(), contract())
+
+
+@pytest.mark.parametrize("changed", ["source", "manifest", "packager", "archive", "asset-source"])
+def test_current_contract_rejects_mixed_image_or_source(changed):
+    value, _ = current_contract_and_review()
+    if changed == "source":
+        value["target_source"] = inputs.APP_SOURCE
+    elif changed == "manifest":
+        value["target_manifest_sha256"] = inputs.MANIFEST
+    elif changed == "packager":
+        value["packaging_source"] = inputs.PACKAGING_SOURCE
+    elif changed == "archive":
+        value["assets"]["full84-source.tar.gz"] = copy.deepcopy(inputs.FULL81_SOURCE)
+    else:
+        value["assets"]["fresh.pkg"]["release"]["source"] = inputs.PACKAGING_SOURCE
+    with pytest.raises(ValueError):
+        inputs.validate(value, 84)
+
+
+def test_pinned_transfer_and_native_helper_match_current_reviewed_source():
+    root = Path(__file__).resolve().parents[1]
+    assert inputs.digest((root / inputs.TRANSFER_SOURCE).read_bytes()) == inputs.TRANSFER_SHA
+    assert probe.digest((root / probe.HELPER).read_bytes()) == probe.HELPER_SHA
+
+
+@pytest.mark.parametrize("cohort", [80, 84])
+def test_committed_asset_contract_matches_only_its_reviewed_cohort(cohort):
+    root = Path(__file__).resolve().parents[1]
+    value = inputs.decode((root / inputs.cohort_pins(cohort)[3]).read_bytes())
+    assert inputs.validate(value, cohort) is value
+    with pytest.raises(ValueError):
+        inputs.validate(value, 84 if cohort == 80 else 80)
+
+
+def test_fresh_receipts_are_bound_to_the_selected_image(monkeypatch, tmp_path):
+    import json
+    manifest = probe.cohort_pins(84)[0]
+    values = {"intent.json": {"managed_by": "account-access-public-image-install-v1", "schema": 1,
+        "manifest_sha256": manifest, "owner_uid": 501}, "complete.json": {
+        "manifest_sha256": manifest, "owner_uid": 501, "status": "REGISTERED"}}
+    monkeypatch.setattr(probe, "h", SimpleNamespace(JOURNAL=tmp_path,
+        read_file=lambda path, **_kwargs: json.dumps(values[path.name]).encode(),
+        fixed_records=lambda: {"fixture": "unchanged"}), raising=False)
+    assert probe.original_receipts(501, manifest_sha=manifest) == {"fixture": "unchanged"}
+    with pytest.raises(ValueError):
+        probe.original_receipts(501)
+
+
 @pytest.mark.parametrize("path,value", [
     (("schema",), True), (("status",), "PENDING_ASSETS"), (("repository",), "other/repo"),
     (("target_source",), "1" * 40), (("target_manifest_sha256",), "2" * 64),
@@ -295,13 +372,21 @@ def test_public_identity_snapshot_preserves_observed_gid_and_detects_inode_chang
     assert checked == [manifest] * 4
 
 
-def test_workflow_has_one_fresh_host_and_only_committed_contract_trigger():
+@pytest.mark.parametrize("cohort", [80, 84])
+def test_workflow_has_one_fresh_host_and_only_committed_contract_trigger(cohort):
     root = Path(__file__).resolve().parents[1]
-    workflow = yaml.safe_load((root / ".github/workflows/mac-fresh-image-installer-review.yml").read_text())
+    filename = "mac-fresh-image-installer-review.yml" if cohort == 80 else "mac-fresh-image84-installer-review.yml"
+    workflow = yaml.safe_load((root / ".github/workflows" / filename).read_text())
     trigger = workflow.get("on", workflow.get(True))
-    assert trigger == {"push": {"branches": ["codex/full-image-update"], "paths": [inputs.CONTRACT]}}
+    assert trigger == {"push": {"branches": ["codex/full-image-update"], "paths": [inputs.cohort_pins(cohort)[3]]}}
     actual = workflow["jobs"]["actual-installer"]
     assert actual["runs-on"] == "macos-15" and "strategy" not in actual
     shell = next(step["run"] for step in actual["steps"] if "run" in step)
     assert "env -i" in shell and "mac_fresh_image_installer_probe.py" in shell and "GH_TOKEN" not in shell
     assert "base.pkg" not in shell and "component.pkg" not in shell
+    for job in workflow["jobs"].values():
+        for step in job["steps"]:
+            if "uses" in step:
+                assert inputs.hex_value(step["uses"].split("@")[-1], 40)
+            if cohort == 84 and "run" in step and "scripts/" in step["run"]:
+                assert "--cohort 84" in step["run"]
