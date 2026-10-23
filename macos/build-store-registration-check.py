@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import re
+import stat
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
@@ -15,8 +16,8 @@ ROOT = Path(__file__).resolve().parent.parent
 HELPER = ROOT / "macos/store_registration_check.py"
 TEMPLATE = ROOT / "macos/build-startup-check.py"
 IDENTIFIER = "com.fainir.accountaccess.registrationcheck85"
-VERSION = "0.1.0"
-PACKAGE = "Account Access Registration Check.pkg"
+VERSION = "0.1.1"
+PACKAGE = "Account Access Registration Check 2.pkg"
 ENV = {"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "LANG": "C"}
 MANIFEST = ROOT / "dist/qa-full-image-package84/build-v1/scripts/TargetManifest.json"
 MANIFEST_SHA256 = "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da"
@@ -89,6 +90,19 @@ def review_python(template):
     }
 
 
+def review_public_broker_directory(template):
+    """Check public directory metadata only, before asking the owner to install."""
+    path = template.INSTALL_ROOT / "broker"
+    info = path.lstat()
+    if info.st_uid != 0 or not stat.S_ISDIR(info.st_mode) or stat.S_IMODE(info.st_mode) != 0o755:
+        raise ValueError("installed_public_broker_directory_mismatch")
+    if len(command(["/bin/ls", "-lde", str(path)]).stdout.splitlines()) != 1:
+        raise ValueError("installed_public_broker_directory_has_acl")
+    if path.lstat() != info:
+        raise ValueError("installed_public_broker_directory_changed")
+    return {"root_owned": True, "mode": 0o755, "policy_contents_read": False}
+
+
 def build(output, source):
     if sys.platform != "darwin" or os.getuid() == 0 or os.geteuid() != os.getuid():
         raise ValueError("ordinary_mac_build_required")
@@ -99,6 +113,7 @@ def build(output, source):
     template = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(template)
     python = review_python(template)  # Public interpreter only; no owner data.
+    public_broker = review_public_broker_directory(template)
     raw = HELPER.read_bytes()
     compile(raw, str(HELPER), "exec")  # Syntax only; never import or execute the helper.
     output.mkdir(mode=0o700, parents=True)
@@ -165,6 +180,7 @@ def build(output, source):
         "package_sha256": digest(package.read_bytes()),
         "package_bytes": package.stat().st_size,
         "installed_python": python,
+        "installed_public_broker_directory": public_broker,
         "unsigned": True,
         "helper_executed": False,
         "owner_data_read": False,

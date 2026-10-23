@@ -15,6 +15,7 @@ if __name__ == "__main__" and (
     raise SystemExit(1)
 
 import ctypes
+from contextvars import ContextVar
 import errno
 import fcntl
 import hashlib
@@ -49,6 +50,22 @@ REASONS = frozenset(
         "registration_not_authorized",
     }
 )
+CHECKPOINTS = frozenset(
+    "context public_root public_image broker_directory program_policies vault_parent "
+    "enrollment_lock publication_record authorization pause ready directories stability completed".split()
+)
+_checkpoint = ContextVar("registration_checkpoint", default="context")
+
+
+def failure(error):
+    reason = error.args[0] if isinstance(error, Refused) and len(error.args) == 1 else None
+    point = _checkpoint.get()
+    return {
+        "schema": 1,
+        "status": "REFUSED",
+        "reason": reason if type(reason) is str and reason in REASONS else "metadata_unavailable",
+        "checkpoint": point if type(point) is str and point in CHECKPOINTS else "context",
+    }
 
 
 class Refused(Exception):
@@ -313,8 +330,10 @@ def inspect(support):
     """Caller supplies the already checked fixed installation directory."""
     handles = []
     try:
-        broker_fd = child(support, "broker", mode=0o700)
+        _checkpoint.set("broker_directory")
+        broker_fd = child(support, "broker", mode=0o755)
         handles.append(broker_fd)
+        _checkpoint.set("program_policies")
         raw = {
             name: read(broker_fd, name, mode=0o644)
             for name in ["enrollment.json", "worker.json", "worker-launch.json"]
@@ -322,8 +341,10 @@ def inspect(support):
         vault_id, enrollment_id, broker_uid, owner_uid = policy(
             *(object(raw[name]) for name in raw)
         )
+        _checkpoint.set("vault_parent")
         vault_parent = child(support, "vault", mode=0o755)
         handles.append(vault_parent)
+        _checkpoint.set("enrollment_lock")
         lock = os.open(".account-access-enrollment.lock", REGULAR, dir_fd=vault_parent)
         handles.append(lock)
         require(check(lock, mode=0o600).st_size == 0, "unsafe_metadata")
@@ -331,12 +352,14 @@ def inspect(support):
             fcntl.flock(lock, fcntl.LOCK_SH | fcntl.LOCK_NB)
         except BlockingIOError:
             raise Refused("registration_busy") from None
+        _checkpoint.set("publication_record")
         journal = child(vault_parent, ".enrollment-" + enrollment_id + ".publication", mode=0o700)
         handles.append(journal)
         raw_record = read(journal, "plan.json")
         original = registration(
             object(raw_record), vault=vault_id, enrollment_id=enrollment_id, broker=broker_uid
         )
+        _checkpoint.set("authorization")
         authorized = object(read(journal, "authorized"))
         require(
             authorized == {"schema": 1, "owner_uid": owner_uid}
@@ -344,16 +367,19 @@ def inspect(support):
             and type(authorized["owner_uid"]) is int,
             "registration_not_authorized",
         )
+        _checkpoint.set("pause")
         try:
             require(read(journal, "paused") == b"paused\n")
             return "registration_paused"
         except FileNotFoundError:
             pass
+        _checkpoint.set("ready")
         try:
             require(read(journal, "ready") == b"account-access-publication-ready-v1\n")
             ready = True
         except FileNotFoundError:
             ready = False
+        _checkpoint.set("directories")
         names = [".enrollment-" + enrollment_id, "data"]
         observed = []
         for name in names:
@@ -370,6 +396,7 @@ def inspect(support):
             "unsafe_metadata",
         )
         result = classify(original, [(item.st_dev, item.st_ino) for item in observed], ready=ready)
+        _checkpoint.set("stability")
         require(read(journal, "plan.json") == raw_record, "metadata_changed")
         for name, prior in zip(names, observed):
             require(
@@ -378,6 +405,7 @@ def inspect(support):
             )
         for name, prior in raw.items():
             require(read(broker_fd, name, mode=0o644) == prior, "metadata_changed")
+        _checkpoint.set("completed")
         return result
     finally:
         for fd in reversed(handles):
@@ -433,7 +461,9 @@ def main():
         return 1
     support = None
     try:
+        _checkpoint.set("public_root")
         support = open_support()
+        _checkpoint.set("public_image")
         validate_public_image(support)
         reason = inspect(support)
         require(reason in REASONS)
@@ -443,6 +473,7 @@ def main():
                     "schema": 1,
                     "status": "CHECK_COMPLETED",
                     "reason": reason,
+                    "checkpoint": _checkpoint.get(),
                     "credential_contents_read": False,
                     "keychain_accessed": False,
                     "files_modified": False,
@@ -452,18 +483,7 @@ def main():
         )
         return 0
     except Exception as error:
-        reason = error.args[0] if isinstance(error, Refused) and len(error.args) == 1 else None
-        print(
-            json.dumps(
-                {
-                    "schema": 1,
-                    "status": "REFUSED",
-                    "reason": reason
-                    if type(reason) is str and reason in REASONS
-                    else "metadata_unavailable",
-                }
-            )
-        )
+        print(json.dumps(failure(error)))
         return 1
     finally:
         if support is not None:

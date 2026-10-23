@@ -39,7 +39,17 @@ matches the observed directory pair and ready marker. It does not prove that the
 key can be loaded or a worker can start. `device_number_changed` is a refusal;
 matching inode values alone do not prove the same persistent volume.
 
-The 60 ordinary-user tests use fictional registration files and simulated broker
+The first owner run refused before reading program policies: the diagnostic
+incorrectly required a `0700` broker directory, while the real provisioner creates
+the protected public directory as `0755`. This is a diagnostic defect, not proof
+of unsafe owner metadata. Version 0.1.1 requires the provisioner's exact `0755`
+mode, checks that public directory during ordinary package assembly, and reports
+a fixed checkpoint with any metadata refusal. No ownership or permission is
+changed to accommodate the diagnostic.
+
+The 65 ordinary-user tests use fictional registration files and simulated broker
 ownership. They cover both classifications, concurrent enrollment, pause,
 malformed bindings, unsafe file substitution and the prohibition on opening or
-enumerating store contents. They are not owner-Mac diagnostic acceptance.
+enumerating store contents. They also test actual provisioner-generated policies,
+directory-mode refusals before policy reads, and removal of arbitrary error text
+from the checkpoint projection. They are not owner-Mac diagnostic acceptance.

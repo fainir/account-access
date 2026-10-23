@@ -74,6 +74,29 @@ def test_exact_fixed_program_policy_and_registration():
     ]
 
 
+def test_policy_reader_accepts_actual_provisioner_output():
+    from account_access import system_provision
+
+    signatures = {
+        name: {"team": "FIXTURETEAM", "identifier": name, "hashes": ["a" * 40]}
+        for name in ["owner", "broker", "bootstrap"]
+    }
+    values, _, _ = system_provision.plans(
+        system_provision.Layout.installed(),
+        {"broker_uid": 450, "owner_uid": 501, "vault_id": VAULT, "enrollment_id": ENROLLMENT},
+        signatures,
+        20,
+    )
+    assert c.policy(
+        *(values[name] for name in ["enrollment.json", "worker.json", "worker-launch.json"])
+    ) == (
+        VAULT,
+        ENROLLMENT,
+        450,
+        501,
+    )
+
+
 @pytest.mark.parametrize(
     "index,key,value",
     [
@@ -172,7 +195,7 @@ def metadata(tmp_path, monkeypatch):
     support = tmp_path / "support"
     support.mkdir(mode=0o755)
     broker = support / "broker"
-    broker.mkdir(mode=0o700)
+    broker.mkdir(mode=0o755)
     vault = support / "vault"
     vault.mkdir(mode=0o755)
     stage = vault / (".enrollment-" + ENROLLMENT)
@@ -242,7 +265,7 @@ def metadata(tmp_path, monkeypatch):
     )
     fd = real_open(support, c.DIRECTORY)
     yield SimpleNamespace(
-        fd=fd, journal=journal, vault=vault, record=value, write=write, opened=opened
+        fd=fd, broker=broker, journal=journal, vault=vault, record=value, write=write, opened=opened
     )
     os.close(fd)
 
@@ -261,6 +284,34 @@ def test_real_file_reader_never_opens_or_enumerates_private_store(metadata):
         "authorized",
         "ready",
     }
+
+
+@pytest.mark.parametrize("mode", [0o700, 0o775, 0o777])
+def test_broker_mode_must_match_installer_before_policy_read(metadata, mode):
+    metadata.broker.chmod(mode)
+    with pytest.raises(c.Refused) as error:
+        c.inspect(metadata.fd)
+    assert c.failure(error.value) == {
+        "schema": 1,
+        "status": "REFUSED",
+        "reason": "unsafe_metadata",
+        "checkpoint": "broker_directory",
+    }
+    assert metadata.opened == ["broker"]
+
+
+def test_failure_projection_discards_unknown_details():
+    token = c._checkpoint.set("PRIVATE-PATH")
+    try:
+        for error in [OSError("PRIVATE-PASSWORD"), c.Refused("PRIVATE-CODE"), c.Refused([])]:
+            assert c.failure(error) == {
+                "schema": 1,
+                "status": "REFUSED",
+                "reason": "metadata_unavailable",
+                "checkpoint": "context",
+            }
+    finally:
+        c._checkpoint.reset(token)
 
 
 def test_reader_reports_device_change_without_writing_registration(metadata):
