@@ -20,8 +20,9 @@
     "native_root_fixture_typecheck_passed": true,
     "native_root_fixture_existing_deprecation_warning": true,
     "ordinary_diagnostic_projection_passed": true,
-    "diagnostic_logging_followup_link_pending": true,
-    "lint_passed": true
+    "diagnostic_logging_followup_link_pending": false,
+    "lint_passed": true,
+    "redundant_final_local_link_cancelled": true
   },
   "proposed_native_ci_assertions": 43,
   "owner_installed": false,
@@ -29,5 +30,14 @@
   "owner_failure_cause_confirmed": false,
   "volume_migration_implemented": false,
   "personal_accounts_tested": 0,
-  "production_ready": false
+  "production_ready": false,
+  "hosted_native_source": {
+    "commit": "473ad72fe4ef58ff670f9224c5b70efd5217db1f",
+    "checks_run": 39955585370,
+    "owner_ui_passed": true,
+    "owner_gateway_passed": true,
+    "mac_worker_run": 39955585451,
+    "compilation_and_ordinary_diagnostics_passed": true,
+    "root_restart_fixture_pending": true
+  }
 }
