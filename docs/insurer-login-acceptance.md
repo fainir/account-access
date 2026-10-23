@@ -81,6 +81,12 @@ The anonymous component download was 1,633,635 bytes with SHA-256
 
 Static review distinguishes two phases of this direct route. Opening it calls
 `ContextConfig`, followed by two `ElasticLogger` calls and `PortalLogger`.
+Those three logging calls are launched from the configuration promise's success
+callback without awaiting one another; their response order is not established.
+The login dialog is also displayed without awaiting all logging responses. A
+connector must account for this overlap rather than assume four sequential
+completed requests. The separate `CustomerRouting` entry has different promise
+handling and is not interchangeable with the reviewed direct entry.
 The dialog's submission handler separately calls `ContextConfig` with an SMS
 channel value of zero, then `StartProcess` with the entered identity and phone.
 Thus the direct route does not remove the need to review preparatory requests.

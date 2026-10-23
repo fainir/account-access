@@ -39,6 +39,50 @@ import Darwin
             precondition(!text.contains("fictional") && !text.contains("-12345"))
         }
         print("PASS: startup diagnostics project typed failures once and discard arbitrary errors, record values, paths, identities and OS-provided strings")
+        let enrollmentCases: [(Error, String)] = [
+            (RootPublicationFailure.deviceChanged, "vault_publication_device_number_changed"),
+            (RootPublicationFailure.identityMismatch, "vault_publication_directory_identity_mismatch"),
+            (RootVaultKeyFailure.missing, "vault_key_missing"),
+            (RootKeychainFailure(operation: .load, status: -12345), "system_keychain_load_failed"),
+            (RootVaultRecordFailure(.data, result: ["private": "fictional-secret"] as CFDictionary), "vault_key_data_result_invalid"),
+            (RootWorkerProcessFailure.unavailable, "worker_process_unavailable"),
+            (UntrustedFailure(), "store_startup_unavailable"),
+            (NSError(domain: "fictional-private-path", code: -12345,
+                userInfo: [NSLocalizedDescriptionKey: "fictional-secret"]), "store_startup_unavailable")
+        ]
+        for checkpoint in RootEnrollmentCheckpoint.allCases {
+            for (error, expected) in enrollmentCases {
+                let diagnostic = RootEnrollmentDiagnostic(checkpoint, error: error)
+                precondition(diagnostic.value == ["checkpoint": checkpoint.rawValue, "reason": expected])
+                let text = String(decoding: try JSONSerialization.data(withJSONObject: diagnostic.value), as: UTF8.self)
+                precondition(!text.contains("fictional") && !text.contains("-12345"))
+            }
+        }
+        print("PASS: store startup failures retain only a closed checkpoint and reason, without evaluating arbitrary error descriptions")
+        let originalStage = RootPublicationIdentity(device: 10, inode: 101)
+        let originalEmpty = RootPublicationIdentity(device: 10, inode: 102)
+        func order(_ stage: RootPublicationIdentity, _ destination: RootPublicationIdentity) throws -> Bool {
+            try RootPublicationDirectoryOrder.published(stage: stage, destination: destination,
+                originalStage: originalStage, originalEmpty: originalEmpty)
+        }
+        let beforePublication = try order(originalStage, originalEmpty)
+        let afterPublication = try order(originalEmpty, originalStage)
+        precondition(!beforePublication && afterPublication)
+        for swapped in [false, true] {
+            let stage = RootPublicationIdentity(device: 11, inode: swapped ? 102 : 101)
+            let destination = RootPublicationIdentity(device: 11, inode: swapped ? 101 : 102)
+            do { _ = try order(stage, destination); preconditionFailure("Device change accepted") }
+            catch RootPublicationFailure.deviceChanged {}
+        }
+        for (stage, destination) in [
+            (RootPublicationIdentity(device: 11, inode: 999), RootPublicationIdentity(device: 11, inode: 101)),
+            (RootPublicationIdentity(device: 10, inode: 102), RootPublicationIdentity(device: 11, inode: 101)),
+            (RootPublicationIdentity(device: 10, inode: 101), RootPublicationIdentity(device: 10, inode: 101))
+        ] {
+            do { _ = try order(stage, destination); preconditionFailure("Changed directory accepted") }
+            catch RootPublicationFailure.identityMismatch {}
+        }
+        print("PASS: device-only changes receive a distinct refusal; changed inodes, mixed devices and substitutions remain refused")
         let hostPhases: [RootBrokerStartupPhase] = [.daemonContext, .listeners, .workerSupervisor,
             .messagesCollector, .enrollmentPlan, .gatewayInitialization, .ownerPolicy,
             .enrollmentStart, .workerStart, .gatewayStart]

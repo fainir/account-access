@@ -765,6 +765,15 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         views = descendants(owner.stack)
         precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Check again"))
         precondition(!views.compactMap { ($0 as? NSTextField)?.stringValue }.contains { $0.contains("fictional-private-error") })
+        owner.presentSystemState(["vault_setup": ["status": "needs_repair", "diagnostic": [
+            "checkpoint": "stage_status", "reason": "vault_publication_device_number_changed"]]])
+        views = descendants(owner.stack)
+        precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains { $0.contains("disk reference changed") })
+        precondition(views.compactMap { ($0 as? NSButton)?.title } == ["Check again"])
+        owner.presentSystemState(["vault_setup": ["status": "needs_repair", "diagnostic": [
+            "checkpoint": "stage_status", "reason": "fictional-private-error"]]])
+        views = descendants(owner.stack)
+        precondition(!views.compactMap { ($0 as? NSTextField)?.stringValue }.contains { $0.contains("fictional-private-error") })
         print("PASS: isolated first setup and durable pause have explicit owner actions; repair never exposes raw errors or offers reset")
         try! FileManager.default.removeItem(at: fixtureRoot.appendingPathComponent("desktop.json"))
         owner.enrollSystemVault()

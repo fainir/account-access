@@ -248,3 +248,25 @@ enum DesktopVaultScreen: Equatable {
         } else { self = .repair }
     }
 }
+
+enum DesktopVaultRepair {
+    static func detail(_ state: [String: Any]) -> String? {
+        guard let setup = state["vault_setup"] as? [String: Any], setup["status"] as? String == "needs_repair",
+              let diagnostic = setup["diagnostic"] as? [String: String],
+              Set(diagnostic.keys) == ["checkpoint", "reason"] else { return nil }
+        // Render fixed explanations only, never a daemon-supplied string.
+        switch (diagnostic["checkpoint"], diagnostic["reason"]) {
+        case ("stage_status", "vault_publication_device_number_changed"):
+            return "The saved store's disk reference changed. The existing store needs its location revalidated before it can reopen."
+        case ("stage_status", "vault_publication_directory_identity_mismatch"):
+            return "The saved store's directory does not match its original registration. Its existing data has not been replaced."
+        case ("key_access", "vault_key_missing"):
+            return "The encryption key for this existing store is unavailable. Account Access has not created a replacement key."
+        case ("key_access", "system_keychain_load_failed"):
+            return "macOS could not provide access to the existing encryption key."
+        case ("worker_start", "worker_process_unavailable"):
+            return "The protected account service did not finish starting."
+        default: return nil
+        }
+    }
+}

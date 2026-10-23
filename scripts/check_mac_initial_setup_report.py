@@ -25,6 +25,8 @@ CHECKS = {
     "enrolled_owner_state_reaches_published_store", "completed_enrollment_is_idempotent",
     "authorized_published_setup_reopens_without_new_approval", "missing_key_after_publication_requires_repair",
     "published_vault_key_never_recreated", "repair_state_keeps_native_owner_reads_available", "new_fixture_key_removed",
+    "changed_publication_device_remains_refused_before_worker",
+    "changed_publication_device_has_closed_diagnostic", "missing_key_has_closed_diagnostic_without_replacement",
 }
 
 

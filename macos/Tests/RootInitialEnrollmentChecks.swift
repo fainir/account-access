@@ -173,6 +173,32 @@ enum RootInitialEnrollmentChecks {
         checks["enrolled_client_survives_worker_reopening"] = restoredClient?["status"] as? String == "INSTALLED"
             && restoredClient?["client_id"] as? String == clientID
         try reopened.stop()
+        // Only this disposable fixture's own publication metadata is changed.
+        // Simulate a mount-device renumbering while retaining both inode values;
+        // the production coordinator must refuse before key/worker startup.
+        let journalPlan = URL(fileURLWithPath: plan.stage).deletingLastPathComponent()
+            .appendingPathComponent(".enrollment-" + plan.enrollment + ".publication/plan.json")
+        let originalRecord = try Data(contentsOf: journalPlan)
+        var renumbered = try JSONSerialization.jsonObject(with: originalRecord) as! [String: Any]
+        for name in ["stagedIdentity", "emptyIdentity"] {
+            var identity = renumbered[name] as! [String: Any]
+            identity["device"] = (identity["device"] as! NSNumber).int64Value + 1
+            renumbered[name] = identity
+        }
+        try JSONSerialization.data(withJSONObject: renumbered).write(to: journalPlan)
+        do {
+            defer { try! originalRecord.write(to: journalPlan) }
+            let (movedWorker, moved) = try make()
+            defer { try? moved.stop() }
+            try moved.start()
+            checks["changed_publication_device_remains_refused_before_worker"] = moved.state == .needsRepair
+                && movedWorker.pid == nil && !moved.workInProgressForChecks
+            let reply = try moved.request(OwnerGatewayRoute("owner/state", body: nil))
+            let state = try JSONSerialization.jsonObject(with: reply.1) as? [String: Any]
+            let setup = state?["vault_setup"] as? [String: Any]
+            checks["changed_publication_device_has_closed_diagnostic"] = setup?["diagnostic"] as? [String: String]
+                == ["checkpoint": "stage_status", "reason": "vault_publication_device_number_changed"]
+        }
         try provider.removeFixture(plan.vault)
         removed = true
         let (brokenWorker, broken) = try make()
@@ -182,6 +208,11 @@ enum RootInitialEnrollmentChecks {
         checks["missing_key_after_publication_requires_repair"] = broken.state == .needsRepair && brokenWorker.pid == nil
         checks["published_vault_key_never_recreated"] = try missing()
         checks["repair_state_keeps_native_owner_reads_available"] = try broken.request(OwnerGatewayRoute("owner/state", body: nil)).0 == 200
+        let missingHealth = try broken.request(OwnerGatewayRoute("owner/health", body: nil))
+        let missingState = try JSONSerialization.jsonObject(with: missingHealth.1) as? [String: Any]
+        checks["missing_key_has_closed_diagnostic_without_replacement"] =
+            (missingState?["vault_setup"] as? [String: Any])?["diagnostic"] as? [String: String]
+            == ["checkpoint": "key_access", "reason": "vault_key_missing"]
         checks["new_fixture_key_removed"] = try missing()
         return checks
     }

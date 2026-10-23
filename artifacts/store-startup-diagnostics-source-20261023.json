@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "status": "SOURCE_DIAGNOSTICS_NATIVE_CI_PENDING",
+  "source_file_sha256": {
+    "macos/RootInitialEnrollment.swift": "bcd43a52e1855714c36e650330ad9785d88c27939550f8a51509fe47089ce129",
+    "macos/RootStorePublication.swift": "4258e7aa54084e0dab1c13753be48780e284988cff469e9df959504dc32b330a",
+    "macos/DesktopOwnerConnection.swift": "1776f14c5537f253aa667d489f95a6db0fd0e0848a5188cff7553e32c0bde1fb",
+    "macos/AccountAccess.swift": "1be8f0e20ddee556082cfa1801a18d50e48ad8b3f78601f85798b41b3785b21f",
+    "macos/Tests/SystemStartupDiagnosticsChecks.swift": "1ad3917d3a0cf4cffa6250edd33dd1465257aac43399ce21954bbc8f7170cb04",
+    "macos/Tests/RootInitialEnrollmentChecks.swift": "95b91a9780e681881edf0d705c5132aff7442522cc6f0f599e7a7456899b975d",
+    "macos/Tests/RootEnrollmentChecks.swift": "044a5a6b76ba957b06cf380a0ba865aa7f1e4ae0a5bc45da4d1cde3d8b753097",
+    "macos/Tests/OwnerScreenChecks.swift": "4ff691d912b358727561ad18a91cf189848dc2ca76be9cbb1c04e9f960c016b2",
+    "scripts/check_mac_initial_setup_report.py": "df549520dd99b1b7cb1b3dabe2278fd1f1e78cf881cfda2aa27e1d3175fa8d47",
+    "tests/test_mac_initial_setup_evidence.py": "b64fc5ea96306640da57d3a7ca82a1333881332d6e8a74b1a32414bb756c72a8"
+  },
+  "scope": "Closed store-startup diagnostics only; existing refusal checks and enrollment authority retained.",
+  "local_checks": {
+    "focused_python_passed": 73,
+    "native_owner_screen_passed": true,
+    "native_root_fixture_typecheck_passed": true,
+    "native_root_fixture_existing_deprecation_warning": true,
+    "ordinary_diagnostic_projection_passed": true,
+    "diagnostic_logging_followup_link_pending": true,
+    "lint_passed": true
+  },
+  "proposed_native_ci_assertions": 43,
+  "owner_installed": false,
+  "owner_store_read": false,
+  "owner_failure_cause_confirmed": false,
+  "volume_migration_implemented": false,
+  "personal_accounts_tested": 0,
+  "production_ready": false
+}

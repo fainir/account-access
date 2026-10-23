@@ -1015,6 +1015,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             pollSystemSetup(generation: systemSetupGeneration, remaining: 60)
         case .repair:
             page("Your installation needs attention", "The protected account store could not be opened safely. Your saved data is preserved. Check the installation before connecting more accounts.")
+            if let detail = DesktopVaultRepair.detail(state) { card("Startup check", detail) }
             action("Check again", #selector(reopen))
         }
     }

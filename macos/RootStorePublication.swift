@@ -6,18 +6,40 @@ import Darwin
 enum RootPublicationFailure: String, Error {
     case busy = "vault_publication_busy"
     case unsafeState = "vault_publication_unsafe_state"
+    case identityMismatch = "vault_publication_directory_identity_mismatch"
+    case deviceChanged = "vault_publication_device_number_changed"
     case notVerified = "vault_publication_requires_verified_stage"
     case unavailable = "vault_publication_unavailable"
 }
 
 enum RootPublicationPhase { case empty, incomplete, ready, published }
 
-final class RootStorePublication {
-    private struct Identity: Equatable, Codable {
-        let device: Int64
-        let inode: UInt64
-        init(_ info: stat) { device = Int64(info.st_dev); inode = UInt64(info.st_ino) }
+struct RootPublicationIdentity: Equatable, Codable {
+    let device: Int64
+    let inode: UInt64
+    init(device: Int64, inode: UInt64) { self.device = device; self.inode = inode }
+    init(_ info: stat) { device = Int64(info.st_dev); inode = UInt64(info.st_ino) }
+}
+
+enum RootPublicationDirectoryOrder {
+    static func published(stage: RootPublicationIdentity, destination: RootPublicationIdentity,
+                          originalStage: RootPublicationIdentity, originalEmpty: RootPublicationIdentity) throws -> Bool {
+        if stage == originalStage && destination == originalEmpty { return false }
+        if stage == originalEmpty && destination == originalStage { return true }
+        // This is a diagnostic distinction only. A changed mount-device number
+        // remains refused; matching inodes alone never authorize opening data.
+        if originalStage.device == originalEmpty.device, stage.device == destination.device,
+           stage.device != originalStage.device,
+           (stage.inode == originalStage.inode && destination.inode == originalEmpty.inode
+            || stage.inode == originalEmpty.inode && destination.inode == originalStage.inode) {
+            throw RootPublicationFailure.deviceChanged
+        }
+        throw RootPublicationFailure.identityMismatch
     }
+}
+
+final class RootStorePublication {
+    private typealias Identity = RootPublicationIdentity
     private struct Record: Codable, Equatable {
         let schema: Int
         let vault: String
@@ -165,9 +187,9 @@ final class RootStorePublication {
     private func swapped() throws -> Bool {
         let stage = Identity(try Self.directory(parentFD, stageName, uid: plan.base.uid, gid: plan.base.gid))
         let destination = Identity(try Self.directory(parentFD, destinationName, uid: plan.base.uid, gid: plan.base.gid))
-        if stage == record.stagedIdentity && destination == record.emptyIdentity { return false }
-        guard stage == record.emptyIdentity, destination == record.stagedIdentity,
-              try ready() else { throw RootPublicationFailure.unsafeState }
+        guard try RootPublicationDirectoryOrder.published(stage: stage, destination: destination,
+            originalStage: record.stagedIdentity, originalEmpty: record.emptyIdentity) else { return false }
+        guard try ready() else { throw RootPublicationFailure.unsafeState }
         return true
     }
     private func marker(_ name: String, equals data: Data) throws -> Bool {

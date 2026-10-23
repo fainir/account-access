@@ -1,5 +1,39 @@
 # Full-image update development status
 
+## Current status — 23 October 2026
+
+The controller described below has since been implemented. The current
+reviewed application image is source `d30fda7`, with controller `d5cd6b7`.
+Its exact package passed installation/reapplication and both interrupted-update
+scenarios on disposable Macs. The original package did not complete on the owner's Mac: two
+attempts reached the package-script deadline, leaving five owner-app files at
+the target version and the remaining changed entries at the predecessor.
+Those incomplete public files have now been repaired by package 85.
+
+A reviewed derivative changes only the native package script deadline from
+600 to 1,800 seconds. Its compressed script archive, including the application
+and updater, is byte-identical. The native deadline experiment passed, and
+actual installation/reapplication and both interruption scenarios in run
+`39945206041` passed all 18 checks each. Native Installer then completed on the
+owner Mac. An independent read-only check matched all 25,165 files, 2,297
+directories and 21 aliases and confirmed removal of all 237 obsolete paths.
+The public image is qualified. The native app still reports that the protected
+account store cannot be opened safely; one Check again returned the same result.
+The discovered agent launcher connects to a legacy controlled demo, not the
+protected personal installation. GUI startup and personal end-to-end use remain
+unqualified. No private store, key or client capability was inspected.
+[Exact installation results](../artifacts/full-image-installer85-acceptance-20261023.json).
+[Owner result](../artifacts/owner-mac-update85-result-20261023.json).
+
+See [current production gates](production-gates.md),
+[owner failure evidence](../artifacts/owner-mac-update84-result-20261023.json),
+and [exact derivative identity](../artifacts/full-image85-deadline-package-20261023.json).
+
+## Historical primitive proposal
+
+The remainder records the initial proposal before controller integration; its
+statements about missing integration describe that historical source only.
+
 The repository contains an in-development directory-storage primitive in `macos/FullImageTreeStorage.swift` and its ordinary-user fixture in `macos/Tests/FullImageTreeStorageChecks.swift`. A full-image updater does not yet exist. The primitive is not connected to installation or an update controller.
 
 The primitive accepts held parent descriptors, one of four fixed public subtree units, complete before/after inventories, an exact plan digest, and an injected quiescence callback. The units are the owner application, the project package, its dist-info, and the provider tree. It verifies exact member sets, file bytes and modes, owner/group metadata, directory metadata, symlink targets, device membership, and no-follow descriptor/path identity. It writes an immutable intent and bounded event journal before an atomic directory exchange, retains the old directory, and supports same-intent observation and rollback. These are properties of this one-unit primitive.

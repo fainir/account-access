@@ -14,5 +14,24 @@
   "root_cause_established": false,
   "change": "Add fixed stage and refusal labels, including explicit queue rejection and notification parsing failure; preserve pinning, freshness, pairing checks and existing budgets.",
   "production_ready": false,
-  "physical_phone_delivery_qualified": false
+  "physical_phone_delivery_qualified": false,
+  "diagnostic_source": "ba5e0400e7b02902592337f9f07f7e0e4e0ff3c7",
+  "diagnostic_source_checks": {
+    "app_and_instrumentation_build": "PASSED",
+    "delivery_retry_checks": "PASSED",
+    "pull_request_run": 39946607922,
+    "push_run": 39946599151,
+    "both_api30_positive_passed": true,
+    "both_api35_unassociated_refusal_passed": true,
+    "failure_reproduced_after_stage_diagnostics": false
+  },
+  "api35_reviewed_preview": {
+    "source_commit": "cc8bbff5f1085681ac148c536f51170238a71b2d",
+    "sha256": "07ce13af35dec4dc83c5c8849e2496913b913b6ad5e27b300acbc72a16735e38",
+    "bytes": 291241,
+    "v2_v3_signature_verified": true,
+    "signer_sha256": "d3fb552a2cb24666def2518b119750b820c98cc8ad2677c1230bee39651c0479",
+    "development_signing": true,
+    "positive_bluetooth_computer_association_qualified": false
+  }
 }

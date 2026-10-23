@@ -39,10 +39,31 @@ A deadline-only derivative sets the existing package's timeout to 1,800 seconds.
 An independent XAR-header, checksum and streamed-member review confirms that
 the compressed Scripts archive is byte-identical; only the PackageInfo timeout
 content changes. The exact candidate passes its source contract, and 13 altered
-inputs are refused. Actual candidate installation/reapplication and interruption
-acceptance remain pending. The native deadline experiment alone cannot qualify
-this package or repair the owner installation.
+inputs are refused. Actual candidate installation/reapplication and both
+interruption scenarios passed all 18 checks each in run `39945206041`. Each
+downloaded report and its retained log digests were independently checked. The
+controller suite passed 3,906 tests with 107 skipped, with native UI/gateway,
+lint, dependency audit and source/wheel builds passing. Native Installer completed
+the verified repair on the owner Mac. Independent verification matched 25,165
+files, 2,297 directories and 21 aliases and confirmed all 237 removed public
+paths are absent. This qualifies the public image, not account access.
 [Exact derivative and draft assets](../artifacts/full-image85-deadline-package-20261023.json).
+
+The native owner app still refuses to open the protected store, including after
+one Check again. Public Python imports and the native public runtime/ACL checks
+pass. The exact store failure is not yet exposed by the installed broker.
+The installed skill launcher also discovers only a legacy controlled demo at
+service version 0.6.0. It has not been reconnected to this protected installation.
+No owner credential file, vault, client token or private account configuration
+was inspected. [Owner result](../artifacts/owner-mac-update85-result-20261023.json).
+
+New source retains fixed store-startup checkpoints and failure categories for
+native owner state/health and system diagnostics. Known categories get fixed
+UI explanations; arbitrary error text is never rendered. Device-only changes
+in the publication record are distinguished from changed directories, but both
+remain refused. A remounted device number is an unconfirmed lead on this Mac.
+This diagnostic source has not been installed and does not perform migration,
+replace keys, reset a store, retry a login or authorize new account access.
 
 The configuration-model change has one fixed source-hash profile. Storage,
 enrollment and agent-setup sources remain byte-identical. Seven public examples

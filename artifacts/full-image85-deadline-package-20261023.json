@@ -1,5 +1,5 @@
 {
-  "actual_Installer_qualified": false,
+  "actual_Installer_qualified": true,
   "application_source": "d30fda732c589b9ac4dc339a7237ad8ba00d0016",
   "candidate_contract_mutations_refused": 13,
   "cohort": 85,
@@ -25,5 +25,6 @@
   "repacker_sha256": "63a21ee22d2af3176831e19b32f8125012e3e8d0d7c19a6b0bb7a7a749b598c0",
   "repacker_source": "0f94f7e5235843ecfdcbf22af6698b4a7b01514d",
   "schema": 1,
-  "status": "REVIEWED_DRAFT_ACTUAL_INSTALLER_PENDING"
+  "status": "QUALIFIED_FOR_OWNER_REPAIR_GUI_AND_ACCOUNT_QA_PENDING",
+  "actual_Installer_run": 39945206041
 }
