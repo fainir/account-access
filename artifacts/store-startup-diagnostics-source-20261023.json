@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "status": "SOURCE_DIAGNOSTICS_NATIVE_CI_PENDING",
+  "status": "SOURCE_DIAGNOSTICS_NATIVE_CI_PASSED_NOT_OWNER_INSTALLED",
   "source_file_sha256": {
     "macos/RootInitialEnrollment.swift": "bcd43a52e1855714c36e650330ad9785d88c27939550f8a51509fe47089ce129",
     "macos/RootStorePublication.swift": "4258e7aa54084e0dab1c13753be48780e284988cff469e9df959504dc32b330a",
@@ -38,6 +38,13 @@
     "owner_gateway_passed": true,
     "mac_worker_run": 39955585451,
     "compilation_and_ordinary_diagnostics_passed": true,
-    "root_restart_fixture_pending": true
+    "root_restart_fixture_pending": false,
+    "root_restart_fixture_passed": true,
+    "root_restart_assertions_passed": 43,
+    "full_suite_passed": 3906,
+    "full_suite_skipped": 107,
+    "android_run": 39955585331,
+    "android_workflow_passed": true,
+    "native_report": "artifacts/store-startup-diagnostics-native-ci-20261023.json"
   }
 }

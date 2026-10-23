@@ -25,6 +25,12 @@ unqualified. No private store, key or client capability was inspected.
 [Exact installation results](../artifacts/full-image-installer85-acceptance-20261023.json).
 [Owner result](../artifacts/owner-mac-update85-result-20261023.json).
 
+The source diagnostic changes passed hosted Mac acceptance, including all 43
+initial-store/restart checks. They have not been installed on the owner Mac.
+A smaller read-only registration diagnostic package is ready in native Installer
+and awaits local approval. It does not repair or reset the store.
+[Diagnostic scope](store-registration-diagnostic.md).
+
 See [current production gates](production-gates.md),
 [owner failure evidence](../artifacts/owner-mac-update84-result-20261023.json),
 and [exact derivative identity](../artifacts/full-image85-deadline-package-20261023.json).

@@ -64,6 +64,19 @@ in the publication record are distinguished from changed directories, but both
 remain refused. A remounted device number is an unconfirmed lead on this Mac.
 This diagnostic source has not been installed and does not perform migration,
 replace keys, reset a store, retry a login or authorize new account access.
+Its source suite passed 3,906 tests with 107 skipped. Native UI/gateway, Mac,
+Android and Linux workflows passed. The disposable-Mac first-store/restart
+report passed all 43 checks, including a device-change refusal with a fixed
+diagnostic and a missing-key refusal without creating a replacement key.
+[Native diagnostic evidence](../artifacts/store-startup-diagnostics-native-ci-20261023.json).
+
+A separate no-payload registration diagnostic is prepared for the exact installed
+image. Its 60 synthetic tests passed, and package expansion and the Desktop copy
+were independently verified. It reads only root-owned registration metadata and
+stats the two store directories; no credential, configuration, Keychain, service
+or network APIs are used. The package is unsigned and requires local approval
+in native Installer. No owner result has been obtained yet.
+[Diagnostic scope](store-registration-diagnostic.md).
 
 The configuration-model change has one fixed source-hash profile. Storage,
 enrollment and agent-setup sources remain byte-identical. Seven public examples
