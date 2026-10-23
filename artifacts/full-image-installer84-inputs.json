@@ -1,0 +1,110 @@
+{
+  "assets": {
+    "base-manifest.json": {
+      "bytes": 4989248,
+      "id": 659061912,
+      "release": {
+        "id": 418292574,
+        "source": "fbd2a733b60acde68e82fe796cb7abd971d5d625",
+        "tag": "qa-fbd2a73-build76-component-base"
+      },
+      "sha256": "5618053e6f8ed0a8720a9d2f7dde317425cecda6a970abd90c499fbfe27b43a8"
+    },
+    "base-source.tar.gz": {
+      "bytes": 219113811,
+      "id": 659061965,
+      "release": {
+        "id": 418292574,
+        "source": "fbd2a733b60acde68e82fe796cb7abd971d5d625",
+        "tag": "qa-fbd2a73-build76-component-base"
+      },
+      "sha256": "4b239336a11d702932c376fb7448f9dda6a1eda87c4fe678cadbf537ba137a37"
+    },
+    "base.pkg": {
+      "bytes": 289451807,
+      "id": 659061910,
+      "release": {
+        "id": 418292574,
+        "source": "fbd2a733b60acde68e82fe796cb7abd971d5d625",
+        "tag": "qa-fbd2a73-build76-component-base"
+      },
+      "sha256": "e525233e74ee942a53c389babac57eee6cad25b79ea178ff9a6384b0a5c5567c"
+    },
+    "component-review.json": {
+      "bytes": 7673,
+      "id": 661714816,
+      "release": {
+        "id": 419271327,
+        "source": "213509c6bd9ff40131bd71dcb1a2967e96cd76a3",
+        "tag": "qa-213509c-worker-v2-component"
+      },
+      "sha256": "277e85e317bd70e4d4e74e1954a0c4451b49b658ca7de900aaa24f23104aab64"
+    },
+    "component-source.tar.gz": {
+      "bytes": 6196025,
+      "id": 663000028,
+      "release": {
+        "id": 419271327,
+        "source": "213509c6bd9ff40131bd71dcb1a2967e96cd76a3",
+        "tag": "qa-213509c-worker-v2-component"
+      },
+      "sha256": "b5986fd3a2f9d3a9f809770957474656dca3b6b5b86e804907cae84c6adbcb09"
+    },
+    "component.pkg": {
+      "bytes": 3457184,
+      "id": 661714841,
+      "release": {
+        "id": 419271327,
+        "source": "213509c6bd9ff40131bd71dcb1a2967e96cd76a3",
+        "tag": "qa-213509c-worker-v2-component"
+      },
+      "sha256": "674c5df7866477e48811d002128370aaec6385aeb0565137036880de4c626bef"
+    },
+    "full-review.json": {
+      "bytes": 60003,
+      "id": 668422661,
+      "release": {
+        "id": 421585825,
+        "source": "d5cd6b7018481733674d1127b36e9f9a5f335bda",
+        "tag": "qa-d5cd6b7-full-image84"
+      },
+      "sha256": "837e416d835a240b602d4f2e468179891443c7adbde10336fddfed3ad2787ab4"
+    },
+    "full-scripts-inventory.json": {
+      "bytes": 7883506,
+      "id": 668422675,
+      "release": {
+        "id": 421585825,
+        "source": "d5cd6b7018481733674d1127b36e9f9a5f335bda",
+        "tag": "qa-d5cd6b7-full-image84"
+      },
+      "sha256": "bb035f32e14b14406a601748eb09043aed7a8ae29e79edfe7aca669db35da4c7"
+    },
+    "full-source.tar.gz": {
+      "bytes": 252473415,
+      "id": 668422660,
+      "release": {
+        "id": 421585825,
+        "source": "d5cd6b7018481733674d1127b36e9f9a5f335bda",
+        "tag": "qa-d5cd6b7-full-image84"
+      },
+      "sha256": "5f262e8a9b9016dded2a0ac5a68966bca3332948c403363799dbdf4dddeba2d5"
+    },
+    "full.pkg": {
+      "bytes": 295994062,
+      "id": 668422663,
+      "release": {
+        "id": 421585825,
+        "source": "d5cd6b7018481733674d1127b36e9f9a5f335bda",
+        "tag": "qa-d5cd6b7-full-image84"
+      },
+      "sha256": "de6769837c00f41e307b5342ab86021c6e2aac27ba7fd99914f670ab2bd99d95"
+    }
+  },
+  "component_source": "213509c6bd9ff40131bd71dcb1a2967e96cd76a3",
+  "plan_sha256": "9dbd37cf8282fe605de7d73a828b6e4d6379e021177cc089a0b21f522f8edd85",
+  "repository": "fainir/account-access",
+  "schema": 1,
+  "status": "FROZEN_REVIEWED_ASSETS",
+  "target_source": "d30fda732c589b9ac4dc339a7237ad8ba00d0016"
+}

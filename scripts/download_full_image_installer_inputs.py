@@ -31,7 +31,10 @@ COHORT_CONTRACTS = {
     81: "artifacts/full-image-installer81-recovery-inputs.json",
     82: "artifacts/full-image-installer82-inputs.json",
     83: "artifacts/full-image-installer83-inputs.json",
+    84: "artifacts/full-image-installer84-inputs.json",
 }
+LEGACY_TARGET = ("d5741bc9912aaf907fe5c52486af18818654dda5", "7c80a671d8b87815db127c6e7d7e8dd9db8c023d70e891185258391b2b3f14a3")
+CONFIGURATION_TARGET = ("d30fda732c589b9ac4dc339a7237ad8ba00d0016", "9dbd37cf8282fe605de7d73a828b6e4d6379e021177cc089a0b21f522f8edd85")
 
 
 def require(value):
@@ -59,13 +62,15 @@ def hex_value(value, length=64):
     return isinstance(value, str) and re.fullmatch("[a-f0-9]{" + str(length) + "}", value) is not None
 
 
-def validate(value):
+def validate(value, cohort=81):
+    require(type(cohort) is int and cohort in COHORT_CONTRACTS)
+    target_source, plan_sha = CONFIGURATION_TARGET if cohort == 84 else LEGACY_TARGET
     require(set(value) == {"schema", "status", "repository", "component_source", "target_source", "plan_sha256", "assets"}
             and type(value["schema"]) is int and value["schema"] == 1
             and value["status"] == "FROZEN_REVIEWED_ASSETS" and value["repository"] == REPOSITORY
             and value["component_source"] == COMPONENT_SOURCE
-            and value["target_source"] == "d5741bc9912aaf907fe5c52486af18818654dda5"
-            and value["plan_sha256"] == "7c80a671d8b87815db127c6e7d7e8dd9db8c023d70e891185258391b2b3f14a3"
+            and value["target_source"] == target_source
+            and value["plan_sha256"] == plan_sha
             and isinstance(value["assets"], dict) and set(value["assets"]) == FILES)
     identities = set()
     for name, row in value["assets"].items():
@@ -143,7 +148,7 @@ def main():
     raw = args.contract.read_bytes()
     require(len(raw) < 64 * 1024 and subprocess.check_output(
         ["git", "show", revision + ":" + contract_path], timeout=5) == raw)
-    contract = validate(decode(raw))
+    contract = validate(decode(raw), args.cohort)
     args.output.mkdir(mode=0o700)  # Never reuse a partial transfer directory.
     releases = {}
     for name, row in sorted(contract["assets"].items()):

@@ -34,6 +34,10 @@ TARGET_SOURCE = "d5741bc9912aaf907fe5c52486af18818654dda5"
 # verified; package/release assets remain pending. The fixture-DR plan is refused.
 PLAN_SHA = "7c80a671d8b87815db127c6e7d7e8dd9db8c023d70e891185258391b2b3f14a3"
 TARGET_SHA = "d1f74db86890b306f989b65a8c521ce3b0879f261ded122dd409be2ca2fbe317"
+LEGACY_PINS = (TARGET_SOURCE, PLAN_SHA, TARGET_SHA)
+CONFIGURATION_PINS = ("d30fda732c589b9ac4dc339a7237ad8ba00d0016",
+    "9dbd37cf8282fe605de7d73a828b6e4d6379e021177cc089a0b21f522f8edd85",
+    "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da")
 FULL = Path("/Library/Application Support/Account Access Full Images")
 SCENARIOS = {"install-reapply", "interrupt-remove", "interrupt-create"}
 RESOURCE_NAMES = {"FullImagePlan.json", "BaseManifest.json", "TargetManifest.json", "BaseIdentity.json",
@@ -320,7 +324,8 @@ def expected_policies(before, peers):
     return value
 
 
-def history():
+def history(pins=LEGACY_PINS):
+    TARGET_SOURCE, PLAN_SHA, TARGET_SHA = pins
     directory = FULL / ("transition-" + PLAN_SHA) / "global"
     intent_raw = h.read_file(directory / "intent.json", maximum=256 * 1024)
     intent = decode(intent_raw)
@@ -343,8 +348,9 @@ def history():
     return intent, records
 
 
-def completed_history():
-    intent, records = history()
+def completed_history(pins=LEGACY_PINS):
+    TARGET_SOURCE, PLAN_SHA, TARGET_SHA = pins
+    intent, records = history(pins)
     applied = [row["operation"] for row in records if row.get("transition") == "applied"]
     require(applied == list(range(29)) and any(row.get("transition") == "new_image_verified_gui_unverified" for row in records))
     require(any(row.get("service") == "disabled_quiescence_confirmed" for row in records)
@@ -404,9 +410,10 @@ def stopped_tree_metadata(scenario, support_before, support_after, pin, observed
     return pin
 
 
-def interrupt(scripts, scenario, report, output):
+def interrupt(scripts, scenario, report, output, *, pins=LEGACY_PINS):
     """Stop only a Popen child created here, never a discovered/adopted PID."""
     index = 6 if scenario == "interrupt-remove" else 7
+    _, PLAN_SHA, _ = pins
     unit = "pythonOldPipInfo" if index == 6 else "pythonPipInfo"
     helper = scripts / "AccountAccess-fullimageupdate"
     stdout_path, stderr_path = scripts.parent / "owned-helper.stdout", scripts.parent / "owned-helper.stderr"
@@ -426,7 +433,7 @@ def interrupt(scripts, scenario, report, output):
                 while time.monotonic() < until and child.poll() is None:
                     require(stdout_path.stat().st_size + stderr_path.stat().st_size < 128 * 1024)
                     try:
-                        intent, records = history()
+                        intent, records = history(pins)
                     except FileNotFoundError:
                         time.sleep(0.005)
                         continue
@@ -447,7 +454,7 @@ def interrupt(scripts, scenario, report, output):
                         report["failure_stage"] = "owned_helper_stopped_head_absent"
                         require(not os.path.lexists(FULL / "head.json"))
                         report["failure_stage"] = "owned_helper_stopped_history"
-                        intent, records = history()
+                        intent, records = history(pins)
                         operation = intent["operations"][index]["tree"]
                         require(operation["unit"] == unit)
                         report["failure_stage"] = "owned_helper_stopped_applied_history"
@@ -511,6 +518,8 @@ def run(args):
     guard()
     require(args.scenario in SCENARIOS)
     contract_path, package_identifier = cohort_contract(getattr(args, "cohort", 81))
+    pins = cohort_pins(getattr(args, "cohort", 81))
+    TARGET_SOURCE, PLAN_SHA, TARGET_SHA = pins
     revision = os.environ["GITHUB_SHA"]
     old_path = args.repository / "scripts/mac_component_update_installer_probe.py"
     old_raw = old_path.read_bytes()
@@ -552,7 +561,7 @@ def run(args):
                 and contract_raw == h.git_bytes(args.repository,
                     ["show", revision + ":" + contract_path], maximum=64 * 1024))
         require(set(contract["assets"]) == ASSET_FILES
-                and contract.get("plan_sha256") == PLAN_SHA)
+                and contract.get("plan_sha256") == PLAN_SHA and contract.get("target_source") == TARGET_SOURCE)
         for name, row in contract["assets"].items():
             require(asset_name(name))
             require(hash_file(args.bundle / name, 1024**3) == (row["sha256"], row["bytes"]))
@@ -647,7 +656,7 @@ def run(args):
                 require(inventory(scripts, normalize=True) == expected_inventory)
                 report["failure_stage"] = "owned_helper_stage_after_normalization"
                 verify_owned_stage(stage)
-                interrupt(scripts, args.scenario, report, output)
+                interrupt(scripts, args.scenario, report, output, pins=pins)
                 require(public_evidence() == retained)
             report["failure_stage"] = "actual_full_installer"
             install("full.pkg", "full-installer")
@@ -659,7 +668,7 @@ def run(args):
             require(public_evidence() == retained and all(
                 (Path(path).lstat().st_dev, Path(path).lstat().st_ino) == identity for path, identity in roots.items()))
             report["checks"]["original_and_predecessor_evidence_unchanged"] = True
-            head = completed_history()
+            head = completed_history(pins)
             report["checks"]["head_last_history"] = True
             command(["/bin/launchctl", "print", "system/" + h.LABEL], "live-job.log")
             report["checks"]["live_canonical_job"] = True
@@ -667,7 +676,7 @@ def run(args):
             install("full.pkg", "full-reapply-installer")
             report["checks"]["same_package_reapplication"] = True
             h.verify_image(target)
-            require(h.policies() == expected and public_evidence() == retained and completed_history() == head)
+            require(h.policies() == expected and public_evidence() == retained and completed_history(pins) == head)
             require(hash_file(stage / "full.pkg", 1024**3)[0] == report["package_sha256"])
             report["checks"]["reapply_preserves_bytes_and_inodes"] = True
     except Exception:
@@ -698,9 +707,15 @@ def run(args):
 def cohort_contract(cohort):
     contracts = {81: "artifacts/full-image-installer81-recovery-inputs.json",
                  82: "artifacts/full-image-installer82-inputs.json",
-                 83: "artifacts/full-image-installer83-inputs.json"}
+                 83: "artifacts/full-image-installer83-inputs.json",
+                 84: "artifacts/full-image-installer84-inputs.json"}
     require(type(cohort) is int and cohort in contracts)
     return contracts[cohort], f"com.fainir.accountaccess.fullimageupdate{cohort}"
+
+
+def cohort_pins(cohort):
+    cohort_contract(cohort)
+    return CONFIGURATION_PINS if cohort == 84 else LEGACY_PINS
 
 
 def main():
@@ -708,7 +723,7 @@ def main():
     parser.add_argument("--repository", type=Path, required=True)
     parser.add_argument("--bundle", type=Path, required=True)
     parser.add_argument("--scenario", choices=sorted(SCENARIOS), required=True)
-    parser.add_argument("--cohort", type=int, choices=[81, 82, 83], default=81)
+    parser.add_argument("--cohort", type=int, choices=[81, 82, 83, 84], default=81)
     return run(parser.parse_args())
 
 

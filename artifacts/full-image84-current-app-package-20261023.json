@@ -1,0 +1,42 @@
+{
+  "actual_Installer_qualified": false,
+  "app_source_commit": "d30fda732c589b9ac4dc339a7237ad8ba00d0016",
+  "app_source_python_suite": {
+    "passed": 3828,
+    "run_id": 39919627553,
+    "seconds": 1065.68,
+    "skipped": 107
+  },
+  "builder_sha256": "5a51f3ba075ace7e94496de7bfc90f55b49edc45232c867194a32001a0ddaa90",
+  "container_signed": false,
+  "controller_source_commit": "d5cd6b7018481733674d1127b36e9f9a5f335bda",
+  "draft_release_id": 421585825,
+  "draft_release_tag": "qa-d5cd6b7-full-image84",
+  "focused_installer_controller_tests": 106,
+  "generated_copy_cleanup": "Expanded package copies and compiler caches were removed after independent review. Sealed packages, sources, logs, inventories and review evidence remain.",
+  "helper_sha256": "ac2e617b0cb61d9b5d49466894693958e3243dcce5f3b6982db0ce4be514ad9e",
+  "independent_package_review_sha256": "955d7b6689a797c594167dcf625259cb5917253ba2cad6d9eedd194e9b3188ef",
+  "input_manifest_sha256": "2cfbdf2bc1682bdf56b3141c76ce04f8d3480437f22ddf11a5f1459c7a249a88",
+  "installer_contract_sha256": "0fc61132df67efdf6515775ccdf80acaf4d4891cd419235d563d34168748a20f",
+  "native_installed_fixture_checks": 516,
+  "native_plan_checks": 16,
+  "notarized": false,
+  "owner_account_reads": false,
+  "owner_installed": false,
+  "package_bytes": 295994062,
+  "package_review_sha256": "837e416d835a240b602d4f2e468179891443c7adbde10336fddfed3ad2787ab4",
+  "package_sha256": "de6769837c00f41e307b5342ab86021c6e2aac27ba7fd99914f670ab2bd99d95",
+  "plan_sha256": "9dbd37cf8282fe605de7d73a828b6e4d6379e021177cc089a0b21f522f8edd85",
+  "production_ready": false,
+  "schema": 1,
+  "source_archive": {
+    "GPL_embedded_once": true,
+    "bytes": 252473415,
+    "explicit_source_members": 177,
+    "independent_review_sha256": "a3ad78a95ff697301fd94c6c77f74faf08d82eb00fb4ed48075b683e58643a2b",
+    "outer_regular_members": 182,
+    "sha256": "5f262e8a9b9016dded2a0ac5a68966bca3332948c403363799dbdf4dddeba2d5"
+  },
+  "status": "DRAFT_CANDIDATE_BUILT_REVIEWED_ACTUAL_INSTALLER_PENDING",
+  "target_manifest_sha256": "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da"
+}

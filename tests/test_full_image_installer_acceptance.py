@@ -20,7 +20,7 @@ downloader = module("full_image_inputs", "download_full_image_installer_inputs.p
 probe = module("full_image_installer_probe", "mac_full_image_installer_probe.py")
 
 
-@pytest.mark.parametrize("cohort", [81, 82, 83])
+@pytest.mark.parametrize("cohort", [81, 82, 83, 84])
 def test_installer_cohort_binds_one_committed_contract_and_package_identity(cohort):
     path, identity = probe.cohort_contract(cohort)
     assert path == downloader.COHORT_CONTRACTS[cohort]
@@ -28,7 +28,7 @@ def test_installer_cohort_binds_one_committed_contract_and_package_identity(coho
     assert all(path != other for key, other in downloader.COHORT_CONTRACTS.items() if key != cohort)
 
 
-@pytest.mark.parametrize("cohort", [None, True, "82", 80, 84, 82.0, "../../foreign"])
+@pytest.mark.parametrize("cohort", [None, True, "82", 80, 85, 82.0, "../../foreign"])
 def test_installer_cohort_refuses_unreviewed_or_ambiguous_selector(cohort):
     with pytest.raises(ValueError):
         probe.cohort_contract(cohort)
@@ -96,6 +96,23 @@ def test_pending_or_unpublished_candidate_cannot_validate(pending):
         value["assets"]["full.pkg"]["id"] = None
     with pytest.raises(ValueError, match="^full_image_installer_input_contract_failed$"):
         downloader.validate(value)
+
+
+@pytest.mark.parametrize("cohort", [81, 82, 83, 84])
+def test_each_cohort_binds_its_app_plan_without_mutating_other_cohorts(cohort):
+    value = contract()
+    pins = probe.cohort_pins(cohort)
+    value["target_source"], value["plan_sha256"] = pins[:2]
+    assert downloader.validate(value, cohort) is value
+    assert pins[:2] == (downloader.CONFIGURATION_TARGET if cohort == 84 else downloader.LEGACY_TARGET)
+    assert probe.cohort_pins(81) == probe.LEGACY_PINS
+    assert probe.cohort_pins(84) == probe.CONFIGURATION_PINS
+    other = probe.cohort_pins(81 if cohort == 84 else 84)
+    for field, replacement in zip(("target_source", "plan_sha256"), other[:2]):
+        wrong = copy.deepcopy(value)
+        wrong[field] = replacement
+        with pytest.raises(ValueError):
+            downloader.validate(wrong, cohort)
 
 
 @pytest.mark.parametrize("raw", [
@@ -254,7 +271,8 @@ def test_owned_child_failure_retains_both_bounded_logs_without_real_process(monk
         assert len(body) <= maximum
         return body
 
-    def fake_history():
+    def fake_history(pins):
+        assert pins == probe.LEGACY_PINS
         if failure == "history-guard":
             raise ValueError("fictional checkpoint history refusal")
         pytest.fail("exited fake child reached installed history")
@@ -475,15 +493,15 @@ def test_new_normal_workflow_preserves_frozen_assets_and_failed_matrix():
     assert len(probe.CHECKS) == evidence['required_checks_unchanged'] == 18
 
 
-@pytest.mark.parametrize("cohort", [82, 83])
+@pytest.mark.parametrize("cohort", [82, 83, 84])
 def test_diagnostic_package_workflow_keeps_host_and_asset_boundaries(cohort):
     import yaml
     root = Path(__file__).resolve().parents[1]
     workflow = yaml.safe_load((root / f'.github/workflows/mac-full-image{cohort}-installer-review.yml').read_text())
     events = workflow.get('on', workflow.get(True))
     expected_paths = [f'artifacts/full-image-installer{cohort}-inputs.json']
-    if cohort == 83:
-        expected_paths.append('.github/workflows/mac-full-image83-installer-review.yml')
+    if cohort in (83, 84):
+        expected_paths.append(f'.github/workflows/mac-full-image{cohort}-installer-review.yml')
     assert events['push']['paths'] == expected_paths
     download = workflow['jobs']['download-reviewed-inputs']
     actual = workflow['jobs']['actual-installer']
