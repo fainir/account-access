@@ -5,7 +5,7 @@ on:
   # Source-only fixes must not rerun an already-refused candidate package.
   push:
     branches: [codex/full-image-update]
-    paths: [artifacts/full-image-installer83-inputs.json]
+    paths: [artifacts/full-image-installer83-inputs.json, .github/workflows/mac-full-image83-installer-review.yml]
   workflow_dispatch:
 permissions:
   contents: read
@@ -22,7 +22,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805835da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -53,7 +53,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805835da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
           persist-credentials: false

@@ -481,9 +481,21 @@ def test_diagnostic_package_workflow_keeps_host_and_asset_boundaries(cohort):
     root = Path(__file__).resolve().parents[1]
     workflow = yaml.safe_load((root / f'.github/workflows/mac-full-image{cohort}-installer-review.yml').read_text())
     events = workflow.get('on', workflow.get(True))
-    assert events['push']['paths'] == [f'artifacts/full-image-installer{cohort}-inputs.json']
+    expected_paths = [f'artifacts/full-image-installer{cohort}-inputs.json']
+    if cohort == 83:
+        expected_paths.append('.github/workflows/mac-full-image83-installer-review.yml')
+    assert events['push']['paths'] == expected_paths
     download = workflow['jobs']['download-reviewed-inputs']
     actual = workflow['jobs']['actual-installer']
+    assert [step['uses'] for step in download['steps'] if 'uses' in step] == [
+        'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1',
+        'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02',
+    ]
+    assert [step['uses'] for step in actual['steps'] if 'uses' in step] == [
+        'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1',
+        'actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0',
+        'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02',
+    ]
     assert actual['strategy']['matrix']['scenario'] == ['install-reapply', 'interrupt-remove', 'interrupt-create']
     commands = '\n'.join(step.get('run', '') for step in download['steps'])
     assert f'--contract artifacts/full-image-installer{cohort}-inputs.json --cohort {cohort}' in commands

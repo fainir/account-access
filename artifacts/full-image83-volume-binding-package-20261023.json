@@ -28,6 +28,13 @@
   "real_provider_acceptance": false,
   "recorded_utc": "2026-10-23T07:03:24.061739+00:00",
   "recursive_script_nodes": 27513,
+  "retained_ci_setup_failure": {
+    "correction": "Restore exact action pins and verify all action references in the focused workflow test.",
+    "job": 120287621954,
+    "package_executed": false,
+    "reason": "Cohort string replacement accidentally changed a checkout SHA. Job setup failed before checkout or package download.",
+    "run": 39915362493
+  },
   "schema": 1,
   "scripts_inventory_sha256": "65e1fe0489a473fab4a58cb7f48cba960eb56e2a1df85c3a5caa63c35c28aefd",
   "source_archive": {
