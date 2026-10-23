@@ -62,6 +62,22 @@ def test_exact_frozen_assets():
     assert DOWNLOAD["validate"](value) == value
 
 
+def test_new_assets_use_their_own_closed_filename_set():
+    value = contract()
+    observed = []
+    def measure(path, maximum):
+        assert path.parent == Path("/fixture") and maximum == 1024**3
+        observed.append(path.name)
+        row = value["assets"][path.name]
+        return row["sha256"], row["bytes"]
+    PROBE["verify_assets"](Path("/fixture"), value, DOWNLOAD["FILES"], measure)
+    assert set(observed) == DOWNLOAD["FILES"]
+    with pytest.raises(ValueError):
+        PROBE["verify_assets"](Path("/fixture"), value, {"base.pkg"}, measure)
+    with pytest.raises(ValueError):
+        PROBE["verify_assets"](Path("/fixture"), value, DOWNLOAD["FILES"], lambda *_: ("0" * 64, 1))
+
+
 @pytest.mark.parametrize("mutation", ["package", "root", "source", "extra", "boolean_id", "duplicate_id", "release", "size"])
 def test_asset_substitution_refused(mutation):
     value = contract()

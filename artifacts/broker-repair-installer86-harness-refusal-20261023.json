@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "run": 39983373607,
+  "controller": "50ae5fdb365fcfcf5b4df07ad505ead5dd7b92f5",
+  "package_changed": false,
+  "installer_attempted": false,
+  "failure": "new repair filenames incorrectly checked against predecessor-only allowlist",
+  "correction": "Use each committed asset contract own closed filename set, with hash and byte checks unchanged.",
+  "reports": [
+    {
+      "scenario": "foreign-binding",
+      "status": "FAILED",
+      "failure_stage": "inputs",
+      "locations": [
+        {
+          "file": "mac_broker_repair_installer_probe.py",
+          "function": "run",
+          "line": 236
+        },
+        {
+          "file": "mac_broker_repair_installer_probe.py",
+          "function": "require",
+          "line": 40
+        }
+      ],
+      "report_sha256": "5894efa892c6c045d01c9f8a15a5ec1bdb265607e093cc62d8a38e079485baaf"
+    },
+    {
+      "scenario": "interrupt-broker",
+      "status": "FAILED",
+      "failure_stage": "inputs",
+      "locations": [
+        {
+          "file": "mac_broker_repair_installer_probe.py",
+          "function": "run",
+          "line": 236
+        },
+        {
+          "file": "mac_broker_repair_installer_probe.py",
+          "function": "require",
+          "line": 40
+        }
+      ],
+      "report_sha256": "711e68eec066c42016961c63e7d90fb1a23cd2e1e88917ba12abfdea3551c13e"
+    },
+    {
+      "scenario": "install-reapply",
+      "status": "FAILED",
+      "failure_stage": "inputs",
+      "locations": [
+        {
+          "file": "mac_broker_repair_installer_probe.py",
+          "function": "run",
+          "line": 236
+        },
+        {
+          "file": "mac_broker_repair_installer_probe.py",
+          "function": "require",
+          "line": 40
+        }
+      ],
+      "report_sha256": "b22427c908bf2f4a82b2ff80e71e97ce1d6313bb6618063f70b357c1687717d6"
+    }
+  ],
+  "production_ready": false
+}

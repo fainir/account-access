@@ -5,6 +5,7 @@ on:
     paths:
       - artifacts/broker-repair-installer86-inputs.json
       - .github/workflows/mac-broker-repair86-installer-review.yml
+      - scripts/mac_broker_repair_installer_probe.py
   workflow_dispatch:
 permissions:
   contents: read

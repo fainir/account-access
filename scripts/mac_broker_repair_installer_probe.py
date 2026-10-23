@@ -58,6 +58,13 @@ def encoded(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
 
 
+def verify_assets(folder, contract, allowed, hash_file):
+    require(isinstance(contract.get("assets"), dict) and set(contract["assets"]) == set(allowed))
+    for name, row in contract["assets"].items():
+        require(isinstance(name, str) and "/" not in name and name not in {"", ".", ".."}
+                and hash_file(folder / name, 1024**3) == (row["sha256"], row["bytes"]))
+
+
 def acceptance_passed(report):
     return (report.get("scenario") in SCENARIOS and set(report.get("checks", {})) == CHECKS
             and all(value is True for value in report["checks"].values()) and "failure_reason" not in report
@@ -228,12 +235,11 @@ def run(args):
         base_raw = (args.bundle / "asset-contract.json").read_bytes()
         require(base_raw == h.git_bytes(args.repository, ["show", revision + ":artifacts/full-image-installer85-inputs.json"], maximum=65536))
         base = f.decode(base_raw)
-        for folder, contract in ((args.bundle, base), (args.repair, extra)):
+        for folder, contract, allowed in ((args.bundle, base, f.ASSET_FILES), (args.repair, extra, download["FILES"])):
             controller = f.decode((folder / "controller.json").read_bytes())
             require(controller["controller_revision"] == revision
                     and controller["contract_sha256"] == digest((folder / "asset-contract.json").read_bytes()))
-            for name, row in contract["assets"].items():
-                require(f.asset_name(name) and f.hash_file(folder / name, 1024**3) == (row["sha256"], row["bytes"]))
+            verify_assets(folder, contract, allowed, f.hash_file)
         with tempfile.TemporaryDirectory(prefix="account-access-full-image-acceptance-", dir="/private/tmp") as temporary:
             stage = Path(temporary)
             f.verify_owned_stage(stage)
