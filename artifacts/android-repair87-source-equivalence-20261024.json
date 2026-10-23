@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "status": "PASSED",
+  "check": "unchanged_android_sources_and_retained_apk_hash",
+  "apk_sha256": "07ce13af35dec4dc83c5c8849e2496913b913b6ad5e27b300acbc72a16735e38",
+  "apk_source": "cc8bbff5f1085681ac148c536f51170238a71b2d",
+  "mac_candidate_source": "c4cf1b0918c1a51cbd4a38880364fcb71fa5980e",
+  "source_paths_compared": [
+    "android",
+    "scripts/android_journey.py",
+    ".github/workflows/android.yml"
+  ],
+  "phone_sources_unchanged": true,
+  "positive_bluetooth_association_qualified": false,
+  "physical_phone_qualified": false,
+  "production_ready": false
+}

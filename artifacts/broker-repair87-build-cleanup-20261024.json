@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "status": "PASSED",
+  "removed_generated_duplicates": [
+    {
+      "path": "dist/qa-broker-repair-package-c4cf1b0/Account-Access-Broker-Repair-87-local-unsigned.pkg",
+      "bytes": 299586584,
+      "sha256": "33727aae3e97895c49cc93e21c7e54f24d9d22af786de5f81fc903d51a269439",
+      "reason": "identical_scripts_in_retained_package"
+    },
+    {
+      "path": "dist/qa-broker-repair-package-5f4926a/Account-Access-Broker-Repair-86-local-unsigned.pkg",
+      "bytes": 299586283,
+      "sha256": "4fc7f1744b89dcdec0b06d92785863c7362efbe5ae0ab32cf930e14ee9d2e28b",
+      "reason": "identical_scripts_in_retained_package"
+    },
+    {
+      "path": "dist/qa-broker-repair-package-c4cf1b0/build/scripts/CompletedImage/TargetImage",
+      "bytes": 710296589,
+      "entries": 27487,
+      "reason": "verified_expansion_of_retained_package87"
+    }
+  ],
+  "retained_packages": [
+    {
+      "path": "dist/qa-broker-repair-package-c4cf1b0/Account-Access-Broker-Repair-87-local-unsigned-1800.pkg",
+      "sha256": "27ee29eea45992461d0d8e5d2f36878a784b15f52713066f9710647715420994"
+    },
+    {
+      "path": "dist/qa-broker-repair-package-5f4926a/Account-Access-Broker-Repair-86-local-unsigned-1800.pkg",
+      "sha256": "79672a7a659948dcefa7c94573d882a9bec4f7febf62597551fa088f4f8861f8"
+    }
+  ],
+  "private_data_read": false,
+  "installed_software_changed": false,
+  "before_free_bytes": 121798656,
+  "after_free_bytes": 1532088320
+}

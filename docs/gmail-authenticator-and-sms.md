@@ -192,4 +192,12 @@ Fingerprint, passkey, push, device and administrator approvals remain owner acti
 
 **Android:** Install and pair the [Account Access phone companion](../android/README.md), permit notification access, and keep it on the same private Wi-Fi as the computer. Its job is to relay matching SMS-app login notifications to Account Access's pinned HTTPS endpoint. It does not connect Google Authenticator.
 
+**Android 15 or newer also needs computer association.** Keep the Mac's **Pair
+Android phone** screen open, enable Bluetooth on both devices, scan its current
+QR, then choose **Connect computer with Android** on the phone and confirm the
+matching discovered device. Notification access alone is insufficient. Bluetooth
+is used for discovery; messages still travel over private Wi-Fi. This physical
+pairing and delivery flow remains a release test, not a verified capability on
+your phone.
+
 These OS permissions are broader than the app's sender/template filter. Account Access uses matching fresh codes during an active supported login. The video shows setup instructions; physical phone delivery has not been validated. The recorded SMS login uses a test Messages database, and the separate Android emulator journey is described in the phone companion's documentation.
