@@ -29,9 +29,10 @@ The source diagnostic changes passed hosted Mac acceptance, including all 43
 initial-store/restart checks. They have not been installed on the owner Mac.
 A corrected read-only registration diagnostic completed in native Installer and
 confirmed a changed device number with the original directory inode pair. It did
-not repair or reset the store. New persistent-volume binding source passed 30
-ordinary native checks; legacy migration and a qualified successor package are
-still required. [Repair scope](store-volume-repair.md).
+not repair or reset the store. Persistent-volume binding source passed all 46 hosted initial-store/restart
+checks. New atomic publication, migration authority and read-only predecessor
+verification passed local native fixtures. The successor update controller and
+installed legacy migration still require integration and qualification. [Repair scope](store-volume-repair.md).
 [Diagnostic scope](store-registration-diagnostic.md).
 
 See [current production gates](production-gates.md),

@@ -335,7 +335,8 @@ final class PublicTreeStorage {
         journalParent: Int32, targetAttachment: PublicTreeAttachment, retainedAttachment: PublicTreeAttachment,
         journalAttachment: PublicTreeAttachment, old: PublicTreeInventory, new: PublicTreeInventory, owner: uid_t, group: gid_t,
         beforeGroup: gid_t? = nil,
-        requireQuiescent: @escaping () throws -> Void, fault: @escaping (Phase) throws -> Void = { _ in }) throws -> PublicTreeStorage {
+        requireQuiescent: @escaping () throws -> Void, createIfMissing: Bool = true,
+        fault: @escaping (Phase) throws -> Void = { _ in }) throws -> PublicTreeStorage {
         let beforeGroup = beforeGroup ?? group
         guard operation.schema == 2, operation.unit == unit.rawValue, unit.accepts(old: old, new: new),
               operation.planSHA256.utf8.count == 64,
@@ -362,7 +363,7 @@ final class PublicTreeStorage {
         let value = PublicTreeStorage(operation: operation, unit: unit, old: old, new: new, target: target,
             retained: retained, journal: journal, owner: owner, group: group, beforeGroup: beforeGroup, requireQuiescent: requireQuiescent, fault: fault)
         adopted = true
-        try value.prepareJournal()
+        try value.prepareJournal(createIfMissing: createIfMissing)
         _ = try value.state()
         return value
     }
@@ -449,10 +450,13 @@ final class PublicTreeStorage {
         try parents()
         return result
     }
-    private func prepareJournal() throws {
+    private func prepareJournal(createIfMissing: Bool) throws {
         try parents()
         let names = try InstallerPayloadIO.contents(journal.fd), expected = try Self.encode(operation)
-        if names.isEmpty { intentRecord = try write("intent.json", data: expected) }
+        if names.isEmpty {
+            guard createIfMissing else { throw PublicTreeFailure.journal }
+            intentRecord = try write("intent.json", data: expected)
+        }
         else { intentRecord = try read("intent.json") }
         guard intentRecord?.data == expected else { throw PublicTreeFailure.journal }
         history = try loadHistory()

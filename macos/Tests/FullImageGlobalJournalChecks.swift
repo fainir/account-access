@@ -135,9 +135,9 @@ private enum JournalCheckFailure: Error { case failed, interrupted }
             guard fstatat(root, name, &path, AT_SYMLINK_NOFOLLOW) == 0, PublicTreeDirectoryIdentity(path) == identity,
                   try PublicTreeDirectoryIdentity.observe(candidate, owner: getuid(), group: getgid()) == identity else { throw JournalCheckFailure.failed }
         }
-        func open(fault: @escaping (FullImageGlobalJournal.Phase) throws -> Void = { _ in }) throws -> FullImageGlobalJournal {
+        func open(createIfMissing: Bool = true, fault: @escaping (FullImageGlobalJournal.Phase) throws -> Void = { _ in }) throws -> FullImageGlobalJournal {
             try FullImageGlobalJournal.open(directory: fd, owner: getuid(), group: getgid(), beforeGroup: beforeGroup, expected: intent,
-                validateIntent: validate, verifyAttachment: attached, fault: fault)
+                validateIntent: validate, verifyAttachment: attached, createIfMissing: createIfMissing, fault: fault)
         }
         func state(_ token: ComponentOperation) throws -> ComponentOperationState {
             let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
@@ -291,7 +291,10 @@ private enum JournalCheckFailure: Error { case failed, interrupted }
             }
             do {
                 let f = try Fixture(root: root, name: "complete"); try f.validate(f.intent)
+                try refuses { _ = try f.open(createIfMissing: false) }
+                try expect(try InstallerPayloadIO.contents(f.fd).isEmpty)
                 let journal = try f.open(); try expect(try journal.recovery().recordCount == 0)
+                try refuses { _ = try journal.completedEvidence() }
                 let loaded = try FullImageGlobalJournal.readIntent(directory: f.fd, owner: getuid(), group: getgid(),
                     validateIntent: f.validate, verifyAttachment: f.attached)
                 try expect(loaded == f.intent && loaded.operations.last?.file?.before == nil)
@@ -317,6 +320,10 @@ private enum JournalCheckFailure: Error { case failed, interrupted }
                 try journal.writeService("canonical_job_bootstrapped_gui_unverified")
                 let recovered = try f.open().recovery()
                 try expect(recovered.finished && !recovered.ownsDisable && recovered.snapshots == [job])
+                let beforeReadOnly = try InstallerPayloadIO.contents(f.fd)
+                let readOnly = try f.open(createIfMissing: false)
+                try expect(try readOnly.completedEvidence() == journal.completedEvidence())
+                try expect(try InstallerPayloadIO.contents(f.fd) == beforeReadOnly)
                 try refuses { try journal.writeTransition("apply_intent", operation: -1, state: f.state) }
                 try refuses { try journal.writeTransition("old_image_restored", operation: -1, state: f.state) }
             }

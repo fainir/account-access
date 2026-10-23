@@ -15,6 +15,20 @@ enum FullImageInstallCheckpoint: String {
 private final class FullImageStorageReference {
     weak var storage: FullImageMixedStorage?
 }
+// An installed successor can obtain this only after the existing transition's
+// complete public image, retained objects and history all verify. It has no
+// ordinary constructor and makes no claim about GUI/account readiness.
+struct CompletedFullImageProof {
+    let evidence: Data
+    var sha256: String { FullImageJSON.hash(evidence) }
+    let ownerUID: uid_t, brokerUID: uid_t
+    fileprivate init(evidence: Data, ownerUID: uid_t, brokerUID: uid_t) {
+        self.evidence = evidence; self.ownerUID = ownerUID; self.brokerUID = brokerUID
+    }
+}
+private enum FullImageInstalledResult {
+    case updated(String), completed(CompletedFullImageProof)
+}
 
 extension ComponentController {
     private static func fullResourceDirectory(_ parent: Int32, _ name: String) throws -> Int32 {
@@ -165,6 +179,18 @@ extension ComponentController {
     // package's protected resource FD; no environment/path/JSON destination.
     static func runFullImage(resources: Int32, pins: FullImageSourcePins,
                              checkpoint: (FullImageInstallCheckpoint) -> Void = { _ in }) throws -> String {
+        guard case .updated(let status) = try fullImage(resources: resources, pins: pins,
+            verificationOnly: false, checkpoint: checkpoint) else { throw FullImageFailure.predecessor }
+        return status
+    }
+    static func completedFullImage(resources: Int32, pins: FullImageSourcePins,
+                                  checkpoint: (FullImageInstallCheckpoint) -> Void = { _ in }) throws -> CompletedFullImageProof {
+        guard case .completed(let proof) = try fullImage(resources: resources, pins: pins,
+            verificationOnly: true, checkpoint: checkpoint) else { throw FullImageFailure.predecessor }
+        return proof
+    }
+    private static func fullImage(resources: Int32, pins: FullImageSourcePins, verificationOnly: Bool,
+                                  checkpoint: (FullImageInstallCheckpoint) -> Void) throws -> FullImageInstalledResult {
         checkpoint(.context)
         guard getuid() == 0, geteuid() == 0 else { throw ComponentUpdateFailure.context }
         checkpoint(.source)
@@ -193,7 +219,7 @@ extension ComponentController {
         let provisionLease = try lease(brokerDirectory, "install.lock"); defer { Darwin.close(provisionLease) }
         try ComponentProcesses.requireOwnerClosed()
         let library = try InstallerPayloadIO.directory("/Library/Application Support", owner: 0); defer { Darwin.close(library) }
-        let namespace = try FullImageNamespaceDirectory.installed(library); defer { Darwin.close(namespace) }
+        let namespace = try FullImageNamespaceDirectory.installed(library, create: !verificationOnly); defer { Darwin.close(namespace) }
         let routes = try FullImageInstalledRoutes.installed()
         let support = try routes.support(), namespaceRoute = try routes.namespace()
         // The first full-image transition preserves the original public root.
@@ -203,6 +229,7 @@ extension ComponentController {
         guard try InstallerPayloadIO.check(namespace, owner: 0, directory: true).st_ino == namespaceRoute.identity.inode else { throw FullImageFailure.object }
         let orphans = try FullImagePreparationInspector.retained(namespace, plan: pins.planSHA256, owner: 0, group: 0)
         let hasIntent = try InstallerPayloadIO.contents(namespace).contains("transition-" + pins.planSHA256)
+        guard !verificationOnly || hasIntent else { throw FullImageFailure.predecessor }
         // This is exactly the first full-image transition. A foreign/newer head
         // cannot select another predecessor or authorize a second transition.
         if !hasIntent { guard try ComponentFiles.observe(namespace, "head.json", owner: 0) == nil else { throw FullImageFailure.journal } }
@@ -333,7 +360,7 @@ extension ComponentController {
         let dynamic = try fullDynamic(policy, source: source, proofSHA256: authority.proofSHA256)
         let journal = try FullImageGlobalJournal.open(directory: global.fd, owner: 0, group: 0, beforeGroup: beforeGroup, expected: intent,
             validateIntent: { try authority.validate($0, source: source, publicOwner: 0, publicGroup: 0, beforeGroup: beforeGroup, device: device, dynamic: dynamic) },
-            verifyAttachment: global.verify)
+            verifyAttachment: global.verify, createIfMissing: !verificationOnly)
         let recovery = try journal.recovery()
         let barrier = ComponentLaunchdBarrier(brokerUID: authority.brokerUID, recoveringIntent: recovery.ownsDisable,
             snapshots: (intent.initialService.map { [$0] } ?? []) + recovery.snapshots,
@@ -354,7 +381,7 @@ extension ComponentController {
                     retainedParent: retained.fd, journalParent: localJournal.fd,
                     targetAttachment: target.attachment(.target(unit)), retainedAttachment: retained.attachment(.retained(unit)),
                     journalAttachment: localJournal.attachment(.journal(unit)), old: old, new: new, owner: 0, group: 0, beforeGroup: beforeGroup,
-                    requireQuiescent: barrier.requireDisabledAndQuiescent)
+                    requireQuiescent: barrier.requireDisabledAndQuiescent, createIfMissing: !verificationOnly)
                 units.append(.tree(storage))
             }
         }
@@ -389,12 +416,36 @@ extension ComponentController {
         if try storage.state(storage.operations.last!) == .applied {
             guard try storage.operations.allSatisfy({ try storage.state($0) == .applied }) else { throw FullImageFailure.journal }
             try storage.verifyNewView()
-            if recovery.finished { checkpoint(.complete); return "ALREADY_UPDATED_GUI_UNVERIFIED" }
+            if recovery.finished {
+                if verificationOnly {
+                    let roots = try InstallationRootBinding.capture(withVolumeUUID: true)
+                    let rootEvidence = roots.mapValues { ["device": Int64($0.device), "inode": $0.inode,
+                        "volume_uuid": $0.volumeUUID] as [String: Any] }
+                    let history = try journal.completedEvidence()
+                    let head = try ComponentFiles.read(namespace, "head.json", owner: 0, mode: 0o644)
+                    let evidence = try FullImageJSON.encode(["schema": 1,
+                        "managed_by": "account-access-completed-full-image-v1", "plan_sha256": pins.planSHA256,
+                        "manifest_sha256": source.after.sha256, "source_commit": pins.targetSourceCommit,
+                        "predecessor_sha256": authority.proofSHA256, "owner_uid": ownerUID, "broker_uid": authority.brokerUID,
+                        "roots": rootEvidence, "history_sha256": FullImageJSON.hash(history), "head_sha256": head.1.sha256,
+                        "worker_sha256": worker.1.sha256, "service_sha256": plist.sha256] as [String: Any])
+                    try storage.verifyNewView()
+                    guard try journal.completedEvidence() == history,
+                          try InstallationRootBinding.capture(withVolumeUUID: true) == roots,
+                          try ComponentFiles.read(namespace, "head.json", owner: 0, mode: 0o644).1 == head.1 else {
+                        throw FullImageFailure.predecessor
+                    }
+                    checkpoint(.complete)
+                    return .completed(CompletedFullImageProof(evidence: evidence, ownerUID: ownerUID, brokerUID: authority.brokerUID))
+                }
+                checkpoint(.complete); return .updated("ALREADY_UPDATED_GUI_UNVERIFIED")
+            }
         }
+        guard !verificationOnly else { throw FullImageFailure.predecessor }
         try ComponentPreparation.capacity(namespace, bytes: 2 * 1024 * 1024, owner: 0, sameDeviceAs: support.fd)
         checkpoint(.transition)
         _ = try ComponentTransition(storage: storage, service: barrier).run(recovering: hasIntent)
         checkpoint(.complete)
-        return "UPDATED_GUI_UNVERIFIED"
+        return .updated("UPDATED_GUI_UNVERIFIED")
     }
 }

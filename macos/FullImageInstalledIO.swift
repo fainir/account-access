@@ -7,11 +7,12 @@ import Darwin
 
 enum FullImageNamespaceDirectory {
     private static let name = "Account Access Full Images"
-    private static func open(_ parent: Int32, owner: uid_t, group: gid_t) throws -> Int32 {
+    private static func open(_ parent: Int32, owner: uid_t, group: gid_t, create: Bool) throws -> Int32 {
         let ancestor = try InstallerPayloadIO.check(parent, owner: owner, directory: true)
         try PublicTreeIO.noACL(parent)
         let created: Bool
-        if mkdirat(parent, name, 0o700) == 0 { created = true }
+        if !create { created = false }
+        else if mkdirat(parent, name, 0o700) == 0 { created = true }
         else { guard errno == EEXIST else { throw FullImageFailure.journal }; created = false }
         let fd = openat(parent, name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
         guard fd >= 0 else { throw FullImageFailure.journal }
@@ -38,14 +39,14 @@ enum FullImageNamespaceDirectory {
               InstallerPayloadIO.same(after, path) else { throw FullImageFailure.journal }
         adopted = true; return fd
     }
-    static func installed(_ parent: Int32) throws -> Int32 {
+    static func installed(_ parent: Int32, create: Bool = true) throws -> Int32 {
         guard getuid() == 0, geteuid() == 0 else { throw ComponentUpdateFailure.context }
-        return try open(parent, owner: 0, group: 0)
+        return try open(parent, owner: 0, group: 0, create: create)
     }
 #if ACCOUNT_ACCESS_FULL_IMAGE_INSTALLED_CHECKS
-    static func fixture(_ parent: Int32, owner: uid_t, group: gid_t) throws -> Int32 {
+    static func fixture(_ parent: Int32, owner: uid_t, group: gid_t, create: Bool = true) throws -> Int32 {
         guard getuid() != 0, geteuid() == getuid(), owner == getuid(), group == getgid() else { throw ComponentUpdateFailure.context }
-        return try open(parent, owner: owner, group: group)
+        return try open(parent, owner: owner, group: group, create: create)
     }
 #endif
 }

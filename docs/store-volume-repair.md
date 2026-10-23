@@ -54,3 +54,25 @@ after creation, partial write, sync and publication. The component fixture passe
 330 assertions including the migration authority checks; 223 focused Python tests
 also passed. Hosted verification is required for these exact new bytes. None of
 this new source has repaired the owner's installed store yet.
+
+Hosted Mac run 39964787681 at source 07d4c73 passed all 46 initial-store/restart
+checks, including real fixture-worker reopening with simulated device renumbering,
+preservation of the original registration, and refusal of another volume UUID.
+This run predates the atomic writer and migration adapter. It is not an owner
+installation, a physical remount test, or a positive legacy migration test.
+
+The installed metadata migration adapter now typechecks and rejects ordinary-user
+calls before reading metadata or invoking its service-barrier callback. It has no
+entrypoint. Its successor controller still needs to supply verified update
+authority and prove the broker is disabled and quiescent. The adapter retains the
+enrollment lock, reads protected receipt metadata, stats both store directories,
+and revalidates before atomically publishing the binding.
+
+A separate read-only completed-full-image verifier reuses the full-image checks.
+Verification cannot create a missing namespace, intent or per-tree journal, and
+cannot stage an update or call its service transition. It emits an opaque proof
+only for an already completed, verified image. Ordinary native fixtures passed:
+namespace checks 24, durable journal checks 153, and tree storage checks 221.
+The combined full-image fixtures and ordinary entrypoint refusal passed. Root
+execution of the successor and migration adapter still requires disposable-Mac
+acceptance before an owner installation is offered.

@@ -39,22 +39,22 @@ ENTRYPOINT = "FullImageUpdateMain.swift"
 EXACT_INPUTS = {
     'macos/ComponentUpdate.swift': '05fc4fb9ff5f2e81ddba4ffa8c4fac8ae0006ff8fdfc0b9fb6388c7fea47750a',
     'macos/source-fragments/CompletedComponentPredecessor.swift.inc': '73bb28db2c204a95a67b8e7ca0cb86cac93f2aa4428bd70c25c4248553cf536d',
-    'macos/source-fragments/FullImageInstalledAdapter.swift.inc': '8ec51ba03d4c4336078e6442cec0330b2b04352a53d68968fb190a76343d9595',
-    'macos/FullImageInstalledIO.swift': '25b43b7099e8b698e48e718bd6429fa9fafe1bb118178bc661386ebd09cae613',
+    'macos/source-fragments/FullImageInstalledAdapter.swift.inc': '26c98791a931124bf4fffaf476cbae26b69a7ab8c1f2f61cf89f757f1a1623f3',
+    'macos/FullImageInstalledIO.swift': 'e7c5d8652e9bab9ccdf45007c91e0f5d563d5c9e45dd3d6009b9a80b436fa5a0',
     'macos/FullImagePredecessorAuthority.swift': '39a6c5b35ab1614f89983c799dd603b2585b9d219d7b3d7908e73b750209f603',
     'macos/FullImageUpdateMain.swift': '80e8dff1dfd9aa04396cfc149087763365ebce801b3af42a6ff1bc7741d9ab5d',
     'macos/Tests/CombinedPredecessorAuthorityChecks.swift': '3902afa5ff6329c56a82368d678b47fbe10ca5a973c54da841c10c52fcb4e8c9',
     'macos/Tests/FullImagePredecessorAuthorityChecks.swift': '34e940e3d6acc9878c57a1f96ed8cf2f805966db857dbea03e8c8c41b0fb75b4',
     'macos/Tests/FullImageInstalledSourceFixture.swift': '28c438a2294ef668bf0632089c212c8b7a2706ba5edea5ea0f546504ffa5e514',
     'macos/Tests/FullImageInstalledChecks.swift': '21d007dce00a58d2d3e691b6382d63de8e005035d4542f58e78c448f9ea7a3ca',
-    'macos/Tests/FullImageNamespaceChecks.swift': '64b91df85ac8c72900ae180a34ee734042ababc3b35d035a9e5f32594e490ba2',
+    'macos/Tests/FullImageNamespaceChecks.swift': '7a09708088f2099c84cb1cbc9c9e18d7127dc44fc1e1a7d89092fe6204ae6e83',
     'macos/FullImageTreeAttachment.swift': '8bb445ede216844f0a32144e99c27a9f06a80b7a76f4e78fbd9f30b65ce22a65',
-    'macos/FullImageTreeStorage.swift': '3e032a573a877ea29253db0c4f6d0fefaef17bccc6504515ac012d60ce235115',
-    'macos/FullImageGlobalJournal.swift': 'b5d4121577064760e054852cb28b2e3f01bfdda92523bf30b96bf25a16db0c7e',
+    'macos/FullImageTreeStorage.swift': 'a23b2ae241933c33ab3de5be309546fd66f2e9b6bc5e5c37b625cfb85ef08547',
+    'macos/FullImageGlobalJournal.swift': '4949ab9c92b230ecea30660c7c1fc3edc7637c5c6e22bbd2bc44bc24c5c13ea4',
     'macos/Tests/FullImageLegacyGroupChecks.swift': '783c7166faf8844feb90dfe1c35c8a5364bb0c8328a2538ff6ab337bc5ee0992',
-    'macos/Tests/FullImageGlobalJournalChecks.swift': 'c21e8b7f8c881af7bd5bdf2c49f78afc48ce20f2f41976bd2efe942c219c6766',
+    'macos/Tests/FullImageGlobalJournalChecks.swift': '9b171692667e3af5d56bed2ba97ae9e584ad03568f6c4e6591ef6033a5cc3433',
 }
-COMPOSED_SHA256 = "361a95c0af87e97d97560009f7ff81aa91470bbe6e3e1c589ad6ea03c74f9568"
+COMPOSED_SHA256 = "57db5ab4a3a6500a9881eb78e027ee82bcbb118b9ae1fee9eb771ae719a25645"
 GUARD_ENV = "ACCOUNT_ACCESS_FULL_IMAGE_PROBE_GUARD"
 DISPATCHER = b'''import Foundation
 import Darwin
@@ -339,14 +339,14 @@ class Probe:
                 and reports[1].get("checks") == 142, "fixture_assertion_count_changed")
         namespace = reports[2]
         require((namespace.get("checks"), namespace.get("supplemental_group_case")) in {
-            (15, "UNAVAILABLE_NO_DISTINCT_GROUP"),
-            (21, "PASSED_INHERITED_DIFFERENT_GROUP_CORRECTED_ONLY_ON_NEW_INODE")}, "namespace_report_refused")
+            (18, "UNAVAILABLE_NO_DISTINCT_GROUP"),
+            (24, "PASSED_INHERITED_DIFFERENT_GROUP_CORRECTED_ONLY_ON_NEW_INODE")}, "namespace_report_refused")
         legacy, journal = reports[3:]
         require(legacy.get("checks") == 63 and legacy.get("ordinary_temp_only") is True
                 and legacy.get("supplemental_group_case") == "PASSED_DISTINCT_OLD_AND_NEW_GROUPS"
                 and legacy.get("optional_polarities") == 2 and legacy.get("recovery_polarities") == 3,
                 "legacy_group_report_refused")
-        require(journal == {"status": "FULL_IMAGE_DURABLE_JOURNAL_CHECKS_PASSED", "assertions": 148,
+        require(journal == {"status": "FULL_IMAGE_DURABLE_JOURNAL_CHECKS_PASSED", "assertions": 153,
                             "installed_or_provider_operations": False}
                 and journal["installed_or_provider_operations"] is False, "global_journal_report_refused")
         require(all(report.get(key) is False for report in reports[:4]

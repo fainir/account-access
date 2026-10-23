@@ -402,6 +402,7 @@ final class FullImageGlobalJournal {
     static func open(directory supplied: Int32, owner: uid_t, group: gid_t, beforeGroup: gid_t? = nil, expected: FullImageGlobalIntent,
                      validateIntent: (FullImageGlobalIntent) throws -> Void,
                      verifyAttachment: @escaping (Int32) throws -> Void,
+                     createIfMissing: Bool = true,
                      fault: @escaping (Phase) throws -> Void = { _ in }) throws -> FullImageGlobalJournal {
         let fd = fcntl(supplied, F_DUPFD_CLOEXEC, 0)
         guard fd >= 0 else { throw FullImageFailure.journal }
@@ -416,6 +417,7 @@ final class FullImageGlobalJournal {
         guard raw.count <= maximumIntent else { throw FullImageFailure.journal }
         let names = try InstallerPayloadIO.contents(fd)
         if !names.contains("intent.json") {
+            guard createIfMissing else { throw FullImageFailure.journal }
             guard names.count <= maximumOrphans, names.allSatisfy({ pending($0)?.sequence == nil && pending($0) != nil }) else { throw FullImageFailure.journal }
             for name in names { _ = try inspect(fd, name, owner: owner, group: group, maximum: maximumIntent, readBody: false) }
             try publish(fd, target: "intent.json", pendingPrefix: "pending-intent-", raw: raw,
@@ -515,5 +517,15 @@ final class FullImageGlobalJournal {
         // owner pause. This preserves the existing component barrier contract.
         return Recovery(recordCount: records.count, snapshots: recordValues.compactMap(\.job),
             ownsDisable: state.ownsDisable, finished: state.targetFinished)
+    }
+    // Read-only evidence for a successor. No unfinished history is promoted to
+    // a completed predecessor, and retained pending files remain part of it.
+    func completedEvidence() throws -> Data {
+        guard try recovery().finished else { throw FullImageFailure.predecessor }
+        let data = try FullImageJSON.encode(["intent_sha256": intentPin.sha256,
+            "record_sha256": records.map { $0.pin.sha256 },
+            "pending_sha256": pendingPins.mapValues(\.sha256)] as [String: Any])
+        try unchanged()
+        return data
     }
 }

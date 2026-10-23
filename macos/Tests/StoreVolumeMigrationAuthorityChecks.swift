@@ -42,6 +42,13 @@ enum StoreVolumeMigrationAuthorityChecks {
         func expect(_ value: Bool) throws {
             guard value else { throw ComponentUpdateFailure.context }; assertions += 1
         }
+        var barrierCalled = false, refused = false
+        do {
+            _ = try StoreVolumeMigration.prepare(ownerUID: 501, brokerUID: 470,
+                vaultID: "11111111-2222-4333-8444-555555555555",
+                enrollmentID: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee", requireQuiescent: { barrierCalled = true })
+        } catch ComponentUpdateFailure.context { refused = true }
+        try expect(refused && !barrierCalled)
         let paths = InstallationRootBinding.paths
         let manifest = StoreVolumeMigrationAuthority.originalManifest
         let published = try encoded(["manifest_sha256": manifest, "roots": [paths[0]: [20, 100], paths[1]: [20, 101]]])
@@ -135,6 +142,7 @@ enum StoreVolumeMigrationAuthorityChecks {
         }
         return (assertions, ["store_migration_binds_original_epoch_to_existing_volume_receipt": true,
             "store_migration_requires_authorized_completed_unchanged_directory_pair": true,
-            "store_migration_rejects_foreign_roots_policies_and_ambiguous_records": true])
+            "store_migration_rejects_foreign_roots_policies_and_ambiguous_records": true,
+            "store_migration_ordinary_call_refused_before_metadata_or_service_access": true])
     }
 }

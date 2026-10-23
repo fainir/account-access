@@ -45,6 +45,17 @@ private enum NamespaceFixtureFailure: Error { case failed }
             try refuses { _ = try FullImageNamespaceDirectory.installed(-1) }
             try refuses { _ = try FullImageNamespaceDirectory.fixture(-1, owner: getuid() + 1, group: getgid()) }
             do {
+                let parent = try directory(root, "read-only"); defer { Darwin.close(parent) }
+                try refuses { _ = try FullImageNamespaceDirectory.fixture(parent, owner: getuid(), group: getgid(), create: false) }
+                try expect(try InstallerPayloadIO.contents(parent).isEmpty)
+                let existing = try open(parent); defer { Darwin.close(existing) }
+                let before = try info(existing), parentBefore = try info(parent)
+                let observed = try FullImageNamespaceDirectory.fixture(parent, owner: getuid(), group: getgid(), create: false)
+                defer { Darwin.close(observed) }
+                try expect(InstallerPayloadIO.same(before, try info(observed))
+                    && InstallerPayloadIO.same(parentBefore, try info(parent)))
+            }
+            do {
                 let resources = try directory(root, "resources"); defer { Darwin.close(resources) }
                 for name in ["FullImagePlan.json", "BaseManifest.json", "TargetManifest.json", "BaseIdentity.json",
                     "TargetIdentity.json", "ProviderManifest.json", "RuntimeCAReceipt.json", "Predecessor", "TargetImage",

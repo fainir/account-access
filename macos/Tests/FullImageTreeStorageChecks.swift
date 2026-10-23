@@ -102,12 +102,12 @@ private enum FixtureFailure: Error { case failed, interruption }
                 old: old, new: new, owner: getuid(), group: getgid(), planSHA256: String(repeating: "a", count: 64))
         }
         deinit { [parent, target, retained, journal].forEach { Darwin.close($0) } }
-        func storage(fault: @escaping (PublicTreeStorage.Phase) throws -> Void = { _ in }) throws -> PublicTreeStorage {
+        func storage(createIfMissing: Bool = true, fault: @escaping (PublicTreeStorage.Phase) throws -> Void = { _ in }) throws -> PublicTreeStorage {
             try PublicTreeStorage.open(operation: operation, unit: unit, targetParent: target, retainedParent: retained,
                 journalParent: journal, targetAttachment: targetAttachment, retainedAttachment: retainedAttachment,
                 journalAttachment: journalAttachment, old: old, new: new, owner: getuid(), group: getgid(), requireQuiescent: {
                     guard self.quiescent else { throw PublicTreeFailure.barrier }
-                }, fault: fault)
+                }, createIfMissing: createIfMissing, fault: fault)
         }
         func stagedFD() throws -> Int32 {
             let fd = openat(retained, unit.slot, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
@@ -195,6 +195,16 @@ private enum FixtureFailure: Error { case failed, interruption }
             guard fchown(root, uid_t.max, getgid()) == 0, fchmod(root, 0o700) == 0 else { throw FixtureFailure.failed }
             let anchor = try PublicTreeTrustedAnchor.acceptVerifiedDescriptor(root,
                 expected: PublicTreeDirectoryIdentity.observe(root, owner: getuid(), group: getgid()))
+            do {
+                let scenario = try Scenario(root: root, anchor: anchor, name: "read-only", unit: .owner)
+                try refuses { _ = try scenario.storage(createIfMissing: false) }
+                try expect(try InstallerPayloadIO.contents(scenario.journal).isEmpty)
+                let storage = try scenario.storage()
+                let before = try ComponentFiles.read(scenario.journal, "intent.json", owner: getuid(), mode: 0o600)
+                let readOnly = try scenario.storage(createIfMissing: false)
+                try expect(try readOnly.state() == storage.state())
+                try expect(try ComponentFiles.read(scenario.journal, "intent.json", owner: getuid(), mode: 0o600).1 == before.1)
+            }
             for (index, unit) in PublicTreeUnit.allCases.enumerated() {
                 let scenario = try Scenario(root: root, anchor: anchor, name: "roundtrip-\(index)", unit: unit)
                 let storage = try scenario.storage()
@@ -318,8 +328,8 @@ private enum FixtureFailure: Error { case failed, interruption }
                 }
             }
             let originalChecks = 63 + (symlinkACLQualified ? 2 : 0)
-            // Nine additional fixed units contribute the same five round-trip checks.
-            try expect(count == originalChecks + 45)
+            // Nine additional units add 45 round-trip checks; read-only reopen adds four.
+            try expect(count == originalChecks + 49)
             let optional = PublicTreeUnit.allCases.filter { $0.beforePresent != $0.afterPresent }
             try expect(optional.count == 4 && PublicTreeUnit.allCases.count == 13)
             for (index, unit) in optional.enumerated() {
@@ -394,7 +404,7 @@ private enum FixtureFailure: Error { case failed, interruption }
                     owner: getuid(), group: getgid(), planSHA256: scenario.operation.planSHA256) }
             }
             try refuses { _ = try manifest(.project, Data(), present: false) }
-            guard count == originalChecks + 45 + 2 + 4 * 26 + 1 else { throw FixtureFailure.failed }
+            guard count == originalChecks + 49 + 2 + 4 * 26 + 1 else { throw FixtureFailure.failed }
             try cleanup(root)
             var current = stat()
             guard lstat(path, &current) == 0, current.st_dev == original.st_dev, current.st_ino == original.st_ino,

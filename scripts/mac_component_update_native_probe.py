@@ -21,6 +21,7 @@ COMPILE_SOURCES = (
     "macos/ComponentUpdatePolicies.swift", "macos/ComponentUpdateIdentity.swift",
     "macos/InstallationRootBinding.swift",
     "macos/RootStoreVolumeBinding.swift", "macos/StoreVolumeMigrationAuthority.swift",
+    "macos/RootStoreVolumePublication.swift", "macos/StoreVolumeMigration.swift",
 )
 REVALIDATION_SOURCE = "macos/InstallationRootRevalidation.swift"
 ROOT_FIXTURE_SOURCE = "macos/InstallationRootBindingTests.swift"
@@ -70,6 +71,7 @@ CORE_CHECKS = frozenset({
     "store_migration_binds_original_epoch_to_existing_volume_receipt",
     "store_migration_requires_authorized_completed_unchanged_directory_pair",
     "store_migration_rejects_foreign_roots_policies_and_ambiguous_records",
+    "store_migration_ordinary_call_refused_before_metadata_or_service_access",
 })
 POLICY_CHECKS = frozenset({
     "exact_install_record_preserved_except_fingerprint", "exact_host_policy_preserved_except_bootstrap_hashes",
