@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "status": "INTERRUPTED_UPDATE_RECOVERY_PENDING",
+  "package_sha256": "de6769837c00f41e307b5342ab86021c6e2aac27ba7fd99914f670ab2bd99d95",
+  "before_manifest_sha256": "9f0d1274928702dd4d5064b4d3bc8ac7df3bf81c3f70be2f9ccad410785d810c",
+  "target_manifest_sha256": "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da",
+  "first_attempt": {
+    "native_installer_result": "FAILED",
+    "package_script_timeout_observed": true,
+    "updater_closed_result_available": false,
+    "public_files_checked": 25283,
+    "public_directories_checked": 2305,
+    "public_aliases_checked": 21,
+    "public_files_differing_from_predecessor": 5,
+    "all_five_changed_files_match_target": true,
+    "changed_component": "owner.app",
+    "all_other_predecessor_manifest_entries_match": true,
+    "verification_seconds": 379.065
+  },
+  "recovery": {
+    "same_package": true,
+    "native_installer_started": true,
+    "terminal_result": null
+  },
+  "owner_data_read": false,
+  "raw_installer_logs_exported": false,
+  "installed_image_qualified": false,
+  "owner_GUI_qualified": false,
+  "personal_account_login_qualified": false,
+  "production_ready": false
+}

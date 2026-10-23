@@ -17,8 +17,18 @@ native UI/gateway, Android, Linux and Mac acceptance workflows passed within
 their existing controlled-account scopes. The new Installer cohort passed 106
 focused checks. Actual install/reapply and both interruption scenarios each
 passed all 18 checks in run `39922461687` against those exact draft assets.
-Owner installation is pending; its public predecessor still matches all
-25,283 files, 2,305 directories and 21 aliases.
+The first owner-Mac attempt failed with a package-script timeout. A subsequent
+public-image check found exactly five owner-app files changed, all matching the
+target image; the remaining predecessor files, directories and aliases still
+matched. This is an interrupted update, not an intact predecessor or a completed
+installation. Native Installer is retrying the same package through its recovery
+path. [Owner attempt](../artifacts/owner-mac-update84-result-20261023.json).
+
+Apple's installed `pkgbuild(1)` documentation specifies a ten-minute default for
+top-level scripts. A separate disposable-Mac probe tests a fixed script timeout
+in the native package envelope, first requiring a short deadline to terminate a
+sleep and then requiring a longer deadline to complete beyond ten minutes. Its
+result is pending and cannot qualify a modified application installer.
 
 The configuration-model change has one fixed source-hash profile. Storage,
 enrollment and agent-setup sources remain byte-identical. Seven public examples
@@ -36,8 +46,11 @@ that allowlist; its other 15 functions are unchanged. Packaging tests passed
 81 checks and build/controller tests passed 87 checks. Corrected build run
 `39925295516` passed. An independent local review matched all 27,496 expanded
 nodes, the complete packaging source snapshot and four genuine peer signatures.
-The fresh acceptance controller passed 98 checks; actual clean installation
-and reapplication are pending. No production release has been published.
+The fresh acceptance controller passed 98 checks. Actual clean installation
+and identical-package reapplication passed all 13 checks in run `39927710046`,
+including public-file identity preservation and service startup. The complete
+controller suite passed 3,865 tests with 107 skipped; native UI/gateway, Mac,
+Android and Linux workflows also passed. No production release has been published.
 [Fresh-image request](../artifacts/fresh-image84-build-request.json).
 
 ### Owner-approved diagnostic update — 23 October 2026

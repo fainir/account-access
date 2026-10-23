@@ -1,0 +1,39 @@
+name: Installer script deadline qualification
+on:
+  push:
+    branches: [codex/full-image-update]
+    paths: [scripts/mac_installer_timeout_probe.py, .github/workflows/mac-installer-timeout-review.yml]
+permissions:
+  contents: read
+jobs:
+  deadline:
+    if: github.repository == 'fainir/account-access'
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Test only fixed no-payload sleeps on a fresh hosted Mac
+        shell: bash
+        run: |
+          test "$(uname -m)" = arm64
+          test "$RUNNER_ENVIRONMENT" = github-hosted
+          test "$GITHUB_REPOSITORY" = fainir/account-access
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          PYTHON=$(command -v python3)
+          sudo -n /usr/bin/env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin LANG=C LC_ALL=C \
+            GITHUB_ACTIONS=true CI=true RUNNER_ENVIRONMENT=github-hosted RUNNER_OS=macOS RUNNER_ARCH=ARM64 \
+            GITHUB_REPOSITORY="$GITHUB_REPOSITORY" GITHUB_RUN_ID="$GITHUB_RUN_ID" \
+            GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" GITHUB_SHA="$GITHUB_SHA" \
+            "$PYTHON" -I -B "$GITHUB_WORKSPACE/scripts/mac_installer_timeout_probe.py" \
+              --repository "$GITHUB_WORKSPACE"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: installer-timeout-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /Library/Logs/AccountAccessComponentInstallerQA-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: error
