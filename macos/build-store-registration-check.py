@@ -18,6 +18,8 @@ IDENTIFIER = "com.fainir.accountaccess.registrationcheck85"
 VERSION = "0.1.0"
 PACKAGE = "Account Access Registration Check.pkg"
 ENV = {"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "LANG": "C"}
+MANIFEST = ROOT / "dist/qa-full-image-package84/build-v1/scripts/TargetManifest.json"
+MANIFEST_SHA256 = "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da"
 
 
 def digest(data):
@@ -59,6 +61,34 @@ def wrapper(template, helper_sha):
     )
 
 
+def review_python(template):
+    raw = MANIFEST.read_bytes()
+    if digest(raw) != MANIFEST_SHA256:
+        raise ValueError("reviewed_image_manifest_changed")
+    node = json.loads(raw)["roots"][str(template.INSTALL_ROOT)]["runtime/bin/python3.12"]
+    if node["kind"] != "file" or node["sha256"] != template.PYTHON_SHA256 or node["mode"] != 0o755:
+        raise ValueError("reviewed_python_pin_changed")
+    template.protected_metadata(template.PYTHON)
+    if digest(template.PYTHON.read_bytes()) != template.PYTHON_SHA256:
+        raise ValueError("installed_public_python_changed")
+    command(
+        [
+            "/usr/bin/codesign",
+            "--verify",
+            "--strict",
+            "-R",
+            "=" + template.REQUIREMENT,
+            str(template.PYTHON),
+        ]
+    )
+    return {
+        "path": str(template.PYTHON),
+        "sha256": template.PYTHON_SHA256,
+        "signature_requirement": template.REQUIREMENT,
+        "manifest_sha256": MANIFEST_SHA256,
+    }
+
+
 def build(output, source):
     if sys.platform != "darwin" or os.getuid() == 0 or os.geteuid() != os.getuid():
         raise ValueError("ordinary_mac_build_required")
@@ -68,7 +98,7 @@ def build(output, source):
     spec = importlib.util.spec_from_file_location("registration_package_wrapper", TEMPLATE)
     template = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(template)
-    python = template.review_installed_python()  # Public interpreter only; no owner data.
+    python = review_python(template)  # Public interpreter only; no owner data.
     raw = HELPER.read_bytes()
     compile(raw, str(HELPER), "exec")  # Syntax only; never import or execute the helper.
     output.mkdir(mode=0o700, parents=True)
