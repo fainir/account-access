@@ -179,14 +179,28 @@ struct CompletedPredecessorSnapshotBuilder {
     var rootBindingSHA256: String
     var records: [String: CompletedComponentRecord]
     var head: CompletedComponentRecord, worker: CompletedComponentRecord, service: CompletedComponentRecord
+    var volumeBinding: CompletedComponentVolumeBinding?
     init(_ value: CompletedComponentSnapshot) {
         ownerUID = value.ownerUID; ownerGroup = value.ownerGroup; roots = value.roots; namespaceNames = value.namespaceNames
         original = value.original; rootBindingSHA256 = value.rootBindingSHA256; records = value.records
         head = value.head; worker = value.worker; service = value.service
+        volumeBinding = value.volumeBinding
     }
     var value: CompletedComponentSnapshot {
         CompletedComponentSnapshot(ownerUID: ownerUID, ownerGroup: ownerGroup, roots: roots, namespaceNames: namespaceNames,
-            original: original, rootBindingSHA256: rootBindingSHA256, records: records, head: head, worker: worker, service: service)
+            original: original, rootBindingSHA256: rootBindingSHA256, records: records, head: head, worker: worker, service: service,
+            volumeBinding: volumeBinding)
+    }
+    mutating func observedDevice(_ device: Int32) {
+        func moved(_ record: CompletedComponentRecord) -> CompletedComponentRecord {
+            let old = record.object
+            return CompletedComponentRecord(data: record.data, object: ComponentObject(device: device,
+                inode: old.inode, mode: old.mode, bytes: old.bytes, sha256: old.sha256))
+        }
+        roots = roots.mapValues { CompletedComponentDirectory(device: device, inode: $0.inode,
+            owner: $0.owner, group: $0.group, mode: $0.mode) }
+        original = original.mapValues(moved); records = records.mapValues(moved)
+        head = moved(head); worker = moved(worker); service = moved(service)
     }
     mutating func intent(_ change: (inout [String: Any]) -> Void) throws {
         let saved = records["intent.json"]!
@@ -249,6 +263,140 @@ typealias PredecessorSnapshotBuilder = CompletedPredecessorSnapshotBuilder
                 try expect(refusedBeforeRead, recovery ? "ordinary_recovery_refuses_before_native_reads" : "ordinary_initial_refuses_before_native_reads")
             }
             let fixture = try PredecessorFixture(), base = fixture.snapshot
+            let volumeLegacy = try InstallationRootBinding.parseLegacy(records: base.original.mapValues(\.data),
+                ownerUID: base.ownerUID, manifestSHA256: fixture.source.oldManifest.sha256)
+            let volumeUUID = "12345678-1234-1234-1234-123456789abc"
+            let volumeRoots = volumeLegacy.roots.mapValues {
+                InstallationRootBinding.CurrentRoot(device: 8, inode: $0.inode, volumeUUID: volumeUUID)
+            }
+            let volumePolicies = ["install": String(repeating: "a", count: 64), "host": String(repeating: "b", count: 64),
+                "owner": String(repeating: "c", count: 64), "worker": base.worker.object.sha256, "service": base.service.object.sha256]
+            let volumeReceipt = try InstallationRootBinding.supplement(legacy: volumeLegacy, current: volumeRoots,
+                planSHA256: fixture.source.planDigest, sourceCommit: String(repeating: "e", count: 40), policyHashes: volumePolicies)
+            let volumeIntent = try JSONDecoder().decode(ComponentTransitionIntent.self, from: base.records["intent.json"]!.data)
+            let volumeAuthority = try CompletedComponentVolumeBinding.qualified(supplement: volumeReceipt, legacy: volumeLegacy,
+                current: volumeRoots, source: fixture.source, intent: volumeIntent)
+            var volumeBuilder = PredecessorSnapshotBuilder(base)
+            volumeBuilder.observedDevice(8)
+            try refuses("renumbered_volume_without_prior_receipt_authority_refused") {
+                _ = try ComponentController.fixtureCompletedPredecessor(source: fixture.source,
+                    read: { volumeBuilder.value }, verifyInitial: { _, _ in })
+            }
+            volumeBuilder.volumeBinding = volumeAuthority
+            let rebound = volumeBuilder.value
+            var volumeInitialChecks = 0
+            let volumeProof = try ComponentController.fixtureCompletedPredecessor(source: fixture.source,
+                read: { rebound }, verifyInitial: { _, intent in
+                    volumeInitialChecks += 1
+                    try expect(try PredecessorFixture.encoded(intent) == base.records["intent.json"]!.data,
+                        "volume_revalidation_keeps_original_intent_bytes")
+                })
+            try expect(volumeInitialChecks == 1, "validated_volume_device_change_reaches_current_image_verification")
+            try expect(rebound.records.mapValues(\.data) == base.records.mapValues(\.data)
+                && rebound.original.mapValues(\.data) == base.original.mapValues(\.data),
+                "volume_revalidation_preserves_all_saved_receipt_bytes")
+            let volumeRecovery = try ComponentController.fixtureCompletedPredecessor(source: fixture.source,
+                read: { rebound }, verifyInitial: { _, _ in throw PredecessorFixtureFailure.initial }, expectedEvidence: volumeProof.evidence)
+            try expect(volumeRecovery.sha256 == volumeProof.sha256, "volume_proof_recovery_uses_same_immutable_evidence")
+            let recordedImage = volumeIntent.operations[0].after
+            let currentImage = ComponentObject(device: 8, inode: recordedImage.inode, mode: recordedImage.mode,
+                bytes: recordedImage.bytes, sha256: recordedImage.sha256)
+            try expect(volumeAuthority.matches(recorded: recordedImage, observed: currentImage),
+                "volume_binding_compares_live_image_in_current_device_epoch")
+            try expect(!volumeAuthority.matches(recorded: recordedImage, observed: ComponentObject(device: 8,
+                inode: recordedImage.inode + 1, mode: recordedImage.mode, bytes: recordedImage.bytes, sha256: recordedImage.sha256)),
+                "volume_binding_never_adopts_an_equal_byte_replacement_inode")
+            var volumeFileReads = 0, volumePublicScans = 0
+            func currentFile(_ operation: ComponentOperation, changed: Bool = false) -> ComponentObject {
+                let old = operation.after
+                return ComponentObject(device: 8, inode: changed ? old.inode + 1 : old.inode,
+                    mode: old.mode, bytes: old.bytes, sha256: old.sha256)
+            }
+            try ComponentController.fixtureCompletedInitialFiles(rebound, volumeIntent,
+                observe: { volumeFileReads += 1; return currentFile($0) },
+                verifyPublicImage: { volumePublicScans += 1 })
+            try expect(volumePublicScans == 1 && volumeFileReads == volumeIntent.operations.count + 3,
+                "volume_file_verifier_checks_full_image_and_rechecks_three_dynamic_policies")
+            try refuses("volume_file_verifier_rejects_policy_replacement_during_image_scan") {
+                var scanned = false
+                try ComponentController.fixtureCompletedInitialFiles(rebound, volumeIntent,
+                    observe: { currentFile($0, changed: scanned && $0.target == .hostPolicy) },
+                    verifyPublicImage: { scanned = true })
+            }
+            try refuses("volume_file_verifier_rejects_current_image_replacement") {
+                try ComponentController.fixtureCompletedInitialFiles(rebound, volumeIntent,
+                    observe: { currentFile($0, changed: $0.target == .image) }, verifyPublicImage: {})
+            }
+            try refuses("volume_file_verifier_preserves_public_manifest_refusal") {
+                try ComponentController.fixtureCompletedInitialFiles(rebound, volumeIntent,
+                    observe: { currentFile($0) }, verifyPublicImage: { throw PredecessorFixtureFailure.initial })
+            }
+            for field in ["inode", "mode", "bytes", "sha256"] {
+                try refuses("volume_binding_changed_worker_" + field + "_refused") {
+                    let altered = changed(rebound) { b in
+                        let old = b.worker.object
+                        b.worker = CompletedComponentRecord(data: b.worker.data, object: ComponentObject(device: old.device,
+                            inode: field == "inode" ? old.inode + 1 : old.inode,
+                            mode: field == "mode" ? 0o600 : old.mode,
+                            bytes: field == "bytes" ? old.bytes + 1 : old.bytes,
+                            sha256: field == "sha256" ? String(repeating: "f", count: 64) : old.sha256))
+                    }
+                    _ = try ComponentController.fixtureCompletedPredecessor(source: fixture.source,
+                        read: { altered }, verifyInitial: { _, _ in })
+                }
+            }
+            for target in ["service", "head", "retained_slot", "current_device", "root_device", "historical_device"] {
+                try refuses("volume_binding_changed_" + target + "_refused") {
+                    let altered = try changed(rebound) { b in
+                        func replaced(_ record: CompletedComponentRecord, device: Int32? = nil) -> CompletedComponentRecord {
+                            let old = record.object
+                            return CompletedComponentRecord(data: record.data, object: ComponentObject(device: device ?? old.device,
+                                inode: device == nil ? old.inode + 1 : old.inode, mode: old.mode, bytes: old.bytes, sha256: old.sha256))
+                        }
+                        switch target {
+                        case "service": b.service = replaced(b.service)
+                        case "head": b.head = replaced(b.head)
+                        case "retained_slot": b.records["slot-00"] = replaced(b.records["slot-00"]!)
+                        case "current_device": b.worker = replaced(b.worker, device: 9)
+                        case "root_device":
+                            let old = b.roots["original"]!
+                            b.roots["original"] = CompletedComponentDirectory(device: 9, inode: old.inode,
+                                owner: old.owner, group: old.group, mode: old.mode)
+                        default: try b.intentOperation(0) { operation in
+                            var after = operation["after"] as! [String: Any]; after["device"] = 6; operation["after"] = after
+                        }
+                        }
+                        // intent() creates an ordinary fixture record at device 7;
+                        // retain the actual observed device for this specific mutation.
+                        if target == "historical_device" { b.observedDevice(8) }
+                    }
+                    _ = try ComponentController.fixtureCompletedPredecessor(source: fixture.source,
+                        read: { altered }, verifyInitial: { _, _ in })
+                }
+            }
+            for field in ["authorizing_plan_sha256", "worker", "service", "volume_uuid", "inode", "receipt", "missing"] {
+                try refuses("volume_authority_foreign_" + field + "_refused") {
+                    var value = try JSONSerialization.jsonObject(with: volumeReceipt) as! [String: Any]
+                    if field == "authorizing_plan_sha256" { value[field] = String(repeating: "f", count: 64) }
+                    if field == "worker" || field == "service" {
+                        var policies = value["policy_sha256"] as! [String: String]
+                        policies[field] = String(repeating: "f", count: 64); value["policy_sha256"] = policies
+                    }
+                    if field == "volume_uuid" || field == "inode" {
+                        var roots = value["roots"] as! [String: [String: Any]]
+                        roots[InstallerPayloadManifest.support]![field] = field == "inode" ? 999 as Any
+                            : "abcdefab-1234-1234-1234-123456789abc" as Any
+                        value["roots"] = roots
+                    }
+                    if field == "receipt" {
+                        var receipts = value["original_receipt_sha256"] as! [String: String]
+                        receipts["intent.json"] = String(repeating: "f", count: 64); value["original_receipt_sha256"] = receipts
+                    }
+                    let data = field == "missing" ? Data() : try PredecessorFixture.json(value)
+                    _ = try CompletedComponentVolumeBinding.qualified(supplement: data, legacy: volumeLegacy,
+                        current: volumeRoots, source: fixture.source, intent: volumeIntent)
+                }
+            }
             // Identify failed comparisons without publishing record values.
             // A changed runtime device still refuses: diagnostics do not grant
             // authority to normalize historical state or bypass a binding.

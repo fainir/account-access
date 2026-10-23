@@ -38,12 +38,12 @@ FRAGMENTS = ("macos/source-fragments/CompletedComponentPredecessor.swift.inc",
 ENTRYPOINT = "FullImageUpdateMain.swift"
 EXACT_INPUTS = {
     'macos/ComponentUpdate.swift': '05fc4fb9ff5f2e81ddba4ffa8c4fac8ae0006ff8fdfc0b9fb6388c7fea47750a',
-    'macos/source-fragments/CompletedComponentPredecessor.swift.inc': 'ce6f445a22d29a0a2c837cee26fabfdec0d6fb02c541bd19ec1e5a510bea7959',
+    'macos/source-fragments/CompletedComponentPredecessor.swift.inc': '73bb28db2c204a95a67b8e7ca0cb86cac93f2aa4428bd70c25c4248553cf536d',
     'macos/source-fragments/FullImageInstalledAdapter.swift.inc': '8ec51ba03d4c4336078e6442cec0330b2b04352a53d68968fb190a76343d9595',
     'macos/FullImageInstalledIO.swift': '25b43b7099e8b698e48e718bd6429fa9fafe1bb118178bc661386ebd09cae613',
     'macos/FullImagePredecessorAuthority.swift': '39a6c5b35ab1614f89983c799dd603b2585b9d219d7b3d7908e73b750209f603',
     'macos/FullImageUpdateMain.swift': '80e8dff1dfd9aa04396cfc149087763365ebce801b3af42a6ff1bc7741d9ab5d',
-    'macos/Tests/CombinedPredecessorAuthorityChecks.swift': '29d2465aa1c939aa36b8475dee0e5f42e7af8e16d1c90a7be645ad7ca26c9aa7',
+    'macos/Tests/CombinedPredecessorAuthorityChecks.swift': '3902afa5ff6329c56a82368d678b47fbe10ca5a973c54da841c10c52fcb4e8c9',
     'macos/Tests/FullImagePredecessorAuthorityChecks.swift': '34e940e3d6acc9878c57a1f96ed8cf2f805966db857dbea03e8c8c41b0fb75b4',
     'macos/Tests/FullImageInstalledSourceFixture.swift': '28c438a2294ef668bf0632089c212c8b7a2706ba5edea5ea0f546504ffa5e514',
     'macos/Tests/FullImageInstalledChecks.swift': '21d007dce00a58d2d3e691b6382d63de8e005035d4542f58e78c448f9ea7a3ca',
@@ -54,7 +54,7 @@ EXACT_INPUTS = {
     'macos/Tests/FullImageLegacyGroupChecks.swift': '783c7166faf8844feb90dfe1c35c8a5364bb0c8328a2538ff6ab337bc5ee0992',
     'macos/Tests/FullImageGlobalJournalChecks.swift': 'c21e8b7f8c881af7bd5bdf2c49f78afc48ce20f2f41976bd2efe942c219c6766',
 }
-COMPOSED_SHA256 = "1583836174ee3e68fddb66d9b4040b0583d9f032f61e7de9b27fe16b38fdd1cb"
+COMPOSED_SHA256 = "361a95c0af87e97d97560009f7ff81aa91470bbe6e3e1c589ad6ea03c74f9568"
 GUARD_ENV = "ACCOUNT_ACCESS_FULL_IMAGE_PROBE_GUARD"
 DISPATCHER = b'''import Foundation
 import Darwin
@@ -334,8 +334,8 @@ class Probe:
         require(code == 0 and stderr == b"", "native_fixture_failed")
         reports = [json.loads(line) for line in stdout.decode("utf-8").splitlines() if line.startswith("{")]
         require(len(reports) == 5 and all(report.get("status") == "PASSED" for report in reports[:4]), "fixture_reports_refused")
-        require(reports[0].get("count") == 114 and isinstance(reports[0].get("checks"), dict)
-                and len(reports[0]["checks"]) == 114 and all(value is True for value in reports[0]["checks"].values())
+        require(reports[0].get("count") == 142 and isinstance(reports[0].get("checks"), dict)
+                and len(reports[0]["checks"]) == 142 and all(value is True for value in reports[0]["checks"].values())
                 and reports[1].get("checks") == 142, "fixture_assertion_count_changed")
         namespace = reports[2]
         require((namespace.get("checks"), namespace.get("supplemental_group_case")) in {

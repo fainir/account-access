@@ -158,6 +158,20 @@ enum InstallationRootBinding {
             }
         }
     }
+    // A completed component intent may predate a mount-device renumbering.
+    // Only its existing, independently published root-volume receipt can join
+    // those epochs. The component plan and unchanged worker/service bytes must
+    // also be the exact ones authorized by that receipt.
+    static func componentVolume(_ data: Data, legacy: Legacy, current: [String: CurrentRoot],
+                                planSHA256: String, workerSHA256: String, serviceSHA256: String) throws -> CurrentRoot {
+        try validateSupplement(data, legacy: legacy, current: current)
+        let value = try object(data)
+        guard value["authorizing_plan_sha256"] as? String == planSHA256,
+              let policies = value["policy_sha256"] as? [String: String],
+              policies["worker"] == workerSHA256, policies["service"] == serviceSHA256,
+              let support = current[InstallerPayloadManifest.support] else { throw ComponentUpdateFailure.base }
+        return support
+    }
     static func readLegacy(_ journal: Int32, ownerUID: uid_t, manifestSHA256: String) throws -> Legacy {
         var records: [String: Data] = [:]
         for name in receiptNames { records[name] = try ComponentFiles.read(journal, name, owner: 0, mode: 0o600).0 }

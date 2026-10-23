@@ -54,6 +54,7 @@
     "run": 39864084243
   },
   "mac": {
+    "controlled_cross_user_recovery": "passed",
     "jobs": [
       {
         "conclusion": "success",
@@ -62,12 +63,14 @@
         "status": "completed"
       },
       {
-        "conclusion": null,
+        "conclusion": "success",
         "id": 120123781624,
         "name": "mac-cross-user",
-        "status": "in_progress"
+        "status": "completed"
       }
     ],
+    "offline_and_prepared_development_installation": "passed",
+    "personal_accounts_used": 0,
     "run": 39864084288,
     "url": "https://github.com/fainir/account-access/actions/runs/39864084288"
   },
@@ -95,8 +98,8 @@
       "job": 120121771830
     }
   },
-  "recorded_utc": "2026-10-22T22:39:28.616Z",
+  "recorded_utc": "2026-10-23T06:36:57.678822+00:00",
   "schema": 1,
   "source_commit": "8a4e29015c47035f0cc5d64247f2da48f4adc63d",
-  "status": "MAIN_REGRESSION_AND_ANDROID_PASSED_MAC_SEPARATE_USER_RUNNING"
+  "status": "SOURCE_CI_PASSED"
 }

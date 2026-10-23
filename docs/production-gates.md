@@ -7,6 +7,31 @@ establish that experience on personal accounts.
 
 ## Current candidate
 
+### Owner-approved diagnostic update — 23 October 2026
+
+The owner completed macOS authentication for package 82. Native Installer ran
+the package scripts and then failed. The bounded observer returned only
+`component_transition_conflict` at `predecessor_worker_binding`; no raw Installer
+log or private account store was exported. A subsequent public-image check still
+matches all 25,283 predecessor files, 2,305 directories and 21 aliases.
+[Owner result](../artifacts/owner-mac-update82-result-20261023.json).
+
+The failing comparison binds the saved worker-policy file's device number,
+inode, mode, byte count and content hash. Its exact differing field is not yet
+established on the owner Mac. Source now supports a device-number change only
+through the existing validated root-volume receipt, matching the component plan
+and unchanged worker/service hashes. All historical objects must share one
+device number and all observed objects must belong to the validated current
+volume. Inodes and bytes remain exact; no receipt is rewritten. Current dynamic
+policies are checked again after the full public-image scan.
+
+The final ordinary-user native fixture passed 516 assertions, including changed
+volume, plan, policy, inode, metadata and mixed-device refusals. A broader Python
+selection passed 353 checks before the final dynamic-file recheck, and the final
+21 report-contract tests, lint and whitespace checks passed. This is a source
+candidate: no replacement package or owner repair has yet been qualified.
+[Source evidence](../artifacts/completed-volume-binding-source-20261023.json).
+
 ### Resumed acceptance — 22 October 2026
 
 The corrected-controller package 81 matrix is now terminal: both interruption
@@ -154,7 +179,9 @@ Native UI and gateway jobs passed. The same source's Android run `39864084266`
 completed one synthetic browser SMS verification on Android 11 and refused
 forwarding without association on Android 15, accepting zero codes. Neither
 result qualifies physical Bluetooth pairing or carrier delivery. The separate-user
-Mac recovery job remains running at the time of this record.
+Mac run `39864084288` also passed, including controlled password/email/SMS/TOTP
+recovery and offline/prepared development package installation. No personal
+account or physical phone was used in those checks.
 [Identity/phone foundation evidence](../artifacts/identity-phone-login-foundation-20261022.json).
 [Current source CI evidence](../artifacts/identity-phone-source-ci-20261022.json).
 The owner selected Lemon Squeezy for authenticator-app acceptance. Its official

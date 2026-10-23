@@ -16,7 +16,7 @@ SPEC.loader.exec_module(probe)
 def reports():
     scope = dict.fromkeys(["installed_reads", "root_execution", "service_actions", "production_ready"], False)
     return [
-        dict(scope, status="PASSED", count=114, checks=dict.fromkeys(map(str, range(114)), True)),
+        dict(scope, status="PASSED", count=142, checks=dict.fromkeys(map(str, range(142)), True)),
         dict(scope, status="PASSED", checks=142),
         dict(scope, status="PASSED", checks=21,
              supplemental_group_case="PASSED_INHERITED_DIFFERENT_GROUP_CORRECTED_ONLY_ON_NEW_INODE"),
@@ -68,7 +68,7 @@ def test_one_compile_requires_every_fixture_and_all_five_guards():
 
 
 @pytest.mark.parametrize("index,key,value", [
-    (0, "count", 113),
+    (0, "count", 141),
     (1, "checks", 141),
     (2, "supplemental_group_case", "UNREVIEWED"),
     (3, "status", "SKIPPED"),
