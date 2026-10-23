@@ -120,6 +120,18 @@ metadata and a synthetic sentinel; it cannot establish real credential, provider
 physical remount or owner GUI readiness. This package has not been installed on
 the owner Mac and remains pending actual Installer qualification.
 
+Package 86 was withdrawn before owner installation after source review found
+that its new namespace used the legacy child creator and could inherit group
+`admin`, conflicting with the required `wheel` group. Corrected hosted run
+39984715262 was cancelled and is not counted as acceptance. The replacement
+uses the already protected namespace creator with a fixed repair name. Only a
+directory exclusively created by this call is normalized; existing wrong-group,
+symlink and ACL-bearing directories are still refused without writes. Forty
+ordinary-user native namespace checks passed, including inherited-group
+normalization and read-only reopen. The complete six-suite probe and both
+entrypoint refusals also passed. A replacement package still needs actual
+Installer acceptance.
+
 Hosted run 39971114599 passed Python tests and owner UI checks, but its gateway
 job found a standalone tree-test compile dependency introduced by the read-only
 fixture. That test now uses its existing payload reader directly; the original

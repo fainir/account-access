@@ -7,6 +7,38 @@ establish that experience on personal accounts.
 
 ## Current candidate
 
+### Broker store repair candidate — 23 October 2026
+
+The installed public image is still the verified full image 85. The protected
+store remains unavailable because its original publication record contains a
+changed device number. Broker repair 86 is now built from source `5f4926a`; it
+adds a persistent-volume binding while retaining the original publication and
+credentials. Its exact package, all 27,523 expanded entries, both native
+signatures and ordinary-user refusal passed independent checks. The Installer
+container is unsigned and remains a draft QA candidate.
+
+Package 86 was subsequently withdrawn before any owner installation. Source
+review found that its new repair directory inherits the parent group on macOS,
+while the controller requires group `wheel`. The replacement reuses protected
+namespace creation, normalizing only an exclusively created directory and
+refusing existing wrong-group directories. The expanded native namespace fixture
+passed all 40 checks, including the inherited-group case and read-only reopening.
+
+The original source's hosted native repair checks passed 54 source, 49 intent and 74
+transaction assertions. Hosted Mac reports also passed 46 initial-store/restart,
+25 isolated-worker/authentication and 23 development-package checks, all using
+controlled accounts. They do not qualify legacy owner-store migration or
+physical SMS. The first new Installer harness stopped before installation due
+to a filename-list mistake; that failure is retained. Corrected run
+`39984715262` was cancelled after discovering the native namespace defect. It
+does not qualify installation, interruption recovery or rollback. A replacement
+package and fresh actual Installer acceptance remain pending.
+
+[Package review](../artifacts/broker-repair-package86-independent-review-20261023.json) ·
+[Native source evidence](../artifacts/broker-repair-source-mac-ci-20261023.json) ·
+[Harness refusal](../artifacts/broker-repair-installer86-harness-refusal-20261023.json).
+[Candidate withdrawal](../artifacts/broker-repair86-withdrawal-20261023.json).
+
 ### Current application candidate — 23 October 2026
 
 Installer 84 combines the protected-volume repair with app source `d30fda7`

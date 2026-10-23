@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "source_commit": "5f4926a33883d6234f2538a5d0969e3b70c883b0",
+  "run": 39977298832,
+  "artifact": 12512833938,
+  "artifact_sha256": "e765a8f9d5f4792188fe70fb01c22dde33c7418679e8f2604aecd5b029fa4d6f",
+  "reports": [
+    {
+      "name": "account-access-mac-initial-setup.json",
+      "sha256": "26ca26f2441a348c7bd8928fb77e2c993122357cf1f7b39049567c82ed6f6487",
+      "passed_checks": 46,
+      "environment": "controlled-demo",
+      "private_signins": 0,
+      "production_ready": false
+    },
+    {
+      "name": "account-access-mac-worker.json",
+      "sha256": "6ce442225c82c5fb004b3616837b0e4f527dd6f889a3a05a19f15d4b565d6711",
+      "passed_checks": 25,
+      "environment": "controlled-demo",
+      "private_signins": 0,
+      "production_ready": false
+    },
+    {
+      "name": "account-access-mac-prepared-package.json",
+      "sha256": "3d0ba4c01540c3366e69fb35f437fe3565032561a5e4a73902f7c122e1cb6049",
+      "passed_checks": 23,
+      "environment": "controlled-demo",
+      "private_signins": 0,
+      "production_ready": false
+    }
+  ],
+  "root_legacy_migration_qualified": false,
+  "physical_phone_tested": false,
+  "owner_repair_installed": false,
+  "production_ready": false
+}

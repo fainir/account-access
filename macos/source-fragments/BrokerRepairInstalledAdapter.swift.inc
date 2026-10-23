@@ -67,7 +67,8 @@ extension ComponentController {
         let provisionLease = try lease(broker, "install.lock"); defer { Darwin.close(provisionLease) }
         try ComponentProcesses.requireOwnerClosed()
         let library = try InstallerPayloadIO.directory("/Library/Application Support", owner: 0); defer { Darwin.close(library) }
-        let namespace = try child(library, "Account Access Broker Repair", create: !recovering); defer { Darwin.close(namespace) }
+        let namespace = try FullImageNamespaceDirectory.installedBrokerRepair(library, create: !recovering)
+        defer { Darwin.close(namespace) }
         let routes = try BrokerRepairRoutes(plan: pins.planSHA256, predecessorPlan: pins.predecessorPlanSHA256)
         guard try routes.namespace().identity.inode == InstallerPayloadIO.check(namespace, owner: 0, directory: true).st_ino else {
             throw ComponentUpdateFailure.object

@@ -55,7 +55,7 @@ EXACT_INPUTS = {
     'macos/ComponentUpdateIdentity.swift': '4c3bf3e29923e0a92ac9bf6a8e9752ec889d61eb26dedbafcf6e788dabd3512e',
     'macos/ComponentUpdatePolicies.swift': '7aca759f4b9fad195851ce12d81550ec08a0753c43515574c23fc74d247060ab',
     'macos/FullImageGlobalJournal.swift': '4949ab9c92b230ecea30660c7c1fc3edc7637c5c6e22bbd2bc44bc24c5c13ea4',
-    'macos/FullImageInstalledIO.swift': 'e7c5d8652e9bab9ccdf45007c91e0f5d563d5c9e45dd3d6009b9a80b436fa5a0',
+    'macos/FullImageInstalledIO.swift': '03f22dc6a57cb736ee1608161b0d40fe13ffe65938344165690ff789890ea61a',
     'macos/FullImagePlan.swift': '476afded52312882b0c0b984ea99bdbfe1c9927563878203d94e95635766d0a1',
     'macos/FullImagePredecessorAuthority.swift': '39a6c5b35ab1614f89983c799dd603b2585b9d219d7b3d7908e73b750209f603',
     'macos/FullImageTransitionStorage.swift': '9f304c22212574a3b50f9edb8045fb45bc5c514feb9ce7580b7cf12a42e6bcaf',
@@ -77,13 +77,13 @@ EXACT_INPUTS = {
     'macos/Tests/FullImageInstalledChecks.swift': '21d007dce00a58d2d3e691b6382d63de8e005035d4542f58e78c448f9ea7a3ca',
     'macos/Tests/FullImageInstalledSourceFixture.swift': '28c438a2294ef668bf0632089c212c8b7a2706ba5edea5ea0f546504ffa5e514',
     'macos/Tests/FullImageLegacyGroupChecks.swift': '783c7166faf8844feb90dfe1c35c8a5364bb0c8328a2538ff6ab337bc5ee0992',
-    'macos/Tests/FullImageNamespaceChecks.swift': '7a09708088f2099c84cb1cbc9c9e18d7127dc44fc1e1a7d89092fe6204ae6e83',
+    'macos/Tests/FullImageNamespaceChecks.swift': '86a7cdc1063f8bcb497b0decc5dcc3025f8639f3f2c9d0de5e72945fdca7be92',
     'macos/Tests/FullImagePredecessorAuthorityChecks.swift': '34e940e3d6acc9878c57a1f96ed8cf2f805966db857dbea03e8c8c41b0fb75b4',
-    'macos/source-fragments/BrokerRepairInstalledAdapter.swift.inc': 'b094844346077040d5f3f10c4b29b105bd224086865f56bbf21af0afdbfa2c3f',
+    'macos/source-fragments/BrokerRepairInstalledAdapter.swift.inc': '0ca30647ac0ea0bfecfaf2784d0f4313ee5f16582f277f84bc819d57c3c196ad',
     'macos/source-fragments/CompletedComponentPredecessor.swift.inc': '73bb28db2c204a95a67b8e7ca0cb86cac93f2aa4428bd70c25c4248553cf536d',
     'macos/source-fragments/FullImageInstalledAdapter.swift.inc': '26c98791a931124bf4fffaf476cbae26b69a7ab8c1f2f61cf89f757f1a1623f3',
 }
-COMPOSED_SHA256 = "76ceaceb91227f9aabf92d9ddc30dd8dba80c695e77a311deab8380c9fb18fc7"
+COMPOSED_SHA256 = "5114e1726ec49ed591f2f44e99a244bd5e484e57f46a610b8f35738495d034b2"
 GUARD_ENV = "ACCOUNT_ACCESS_FULL_IMAGE_PROBE_GUARD"
 DISPATCHER = b'''import Foundation
 import Darwin
@@ -376,8 +376,8 @@ class Probe:
                 and reports[1].get("checks") == 142, "fixture_assertion_count_changed")
         namespace = reports[2]
         require((namespace.get("checks"), namespace.get("supplemental_group_case")) in {
-            (18, "UNAVAILABLE_NO_DISTINCT_GROUP"),
-            (24, "PASSED_INHERITED_DIFFERENT_GROUP_CORRECTED_ONLY_ON_NEW_INODE")}, "namespace_report_refused")
+            (29, "UNAVAILABLE_NO_DISTINCT_GROUP"),
+            (40, "PASSED_INHERITED_DIFFERENT_GROUP_CORRECTED_ONLY_ON_NEW_INODE")}, "namespace_report_refused")
         legacy, journal, repair = reports[3:]
         require(legacy.get("checks") == 63 and legacy.get("ordinary_temp_only") is True
                 and legacy.get("supplemental_group_case") == "PASSED_DISTINCT_OLD_AND_NEW_GROUPS"

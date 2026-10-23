@@ -18,7 +18,7 @@ def reports():
     return [
         dict(scope, status="PASSED", count=142, checks=dict.fromkeys(map(str, range(142)), True)),
         dict(scope, status="PASSED", checks=142),
-        dict(scope, status="PASSED", checks=24,
+        dict(scope, status="PASSED", checks=40,
              supplemental_group_case="PASSED_INHERITED_DIFFERENT_GROUP_CORRECTED_ONLY_ON_NEW_INODE"),
         dict(scope, status="PASSED", checks=63, ordinary_temp_only=True,
              supplemental_group_case="PASSED_DISTINCT_OLD_AND_NEW_GROUPS", optional_polarities=2, recovery_polarities=3),

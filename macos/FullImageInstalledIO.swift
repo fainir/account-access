@@ -7,7 +7,7 @@ import Darwin
 
 enum FullImageNamespaceDirectory {
     private static let name = "Account Access Full Images"
-    private static func open(_ parent: Int32, owner: uid_t, group: gid_t, create: Bool) throws -> Int32 {
+    private static func open(_ parent: Int32, name: String, owner: uid_t, group: gid_t, create: Bool) throws -> Int32 {
         let ancestor = try InstallerPayloadIO.check(parent, owner: owner, directory: true)
         try PublicTreeIO.noACL(parent)
         let created: Bool
@@ -41,12 +41,20 @@ enum FullImageNamespaceDirectory {
     }
     static func installed(_ parent: Int32, create: Bool = true) throws -> Int32 {
         guard getuid() == 0, geteuid() == 0 else { throw ComponentUpdateFailure.context }
-        return try open(parent, owner: 0, group: 0, create: create)
+        return try open(parent, name: name, owner: 0, group: 0, create: create)
+    }
+    static func installedBrokerRepair(_ parent: Int32, create: Bool = true) throws -> Int32 {
+        guard getuid() == 0, geteuid() == 0 else { throw ComponentUpdateFailure.context }
+        return try open(parent, name: "Account Access Broker Repair", owner: 0, group: 0, create: create)
     }
 #if ACCOUNT_ACCESS_FULL_IMAGE_INSTALLED_CHECKS
     static func fixture(_ parent: Int32, owner: uid_t, group: gid_t, create: Bool = true) throws -> Int32 {
         guard getuid() != 0, geteuid() == getuid(), owner == getuid(), group == getgid() else { throw ComponentUpdateFailure.context }
-        return try open(parent, owner: owner, group: group, create: create)
+        return try open(parent, name: name, owner: owner, group: group, create: create)
+    }
+    static func fixtureBrokerRepair(_ parent: Int32, owner: uid_t, group: gid_t, create: Bool = true) throws -> Int32 {
+        guard getuid() != 0, geteuid() == getuid(), owner == getuid(), group == getgid() else { throw ComponentUpdateFailure.context }
+        return try open(parent, name: "Account Access Broker Repair", owner: owner, group: group, create: create)
     }
 #endif
 }

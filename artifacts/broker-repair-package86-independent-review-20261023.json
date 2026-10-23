@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "status": "PASSED",
+  "scope": "ordinary-user independent package expansion and public-file review",
+  "package_sha256": "79672a7a659948dcefa7c94573d882a9bec4f7febf62597551fa088f4f8861f8",
+  "inventory_sha256": "e40746ab3aa0b9b98061f7c59579c5d982df2c1276fd191fa349e5be6271f62c",
+  "expanded_nodes": 27523,
+  "signatures": {
+    "AccountAccess-brokerrepair": "genuine-signature-verified",
+    "AccountAccess-broker": "genuine-signature-verified"
+  },
+  "ordinary_entrypoint_exit": 78,
+  "postinstall_timeout": 1800,
+  "owner_installed": false,
+  "root_migration_tested": false,
+  "production_ready": false
+}

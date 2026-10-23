@@ -29,6 +29,57 @@ private enum NamespaceFixtureFailure: Error { case failed }
               acl_set_permset(entry, permissions) == 0, acl_valid(value) == 0,
               acl_set_fd(fd, value) == 0 else { throw NamespaceFixtureFailure.failed }
     }
+    static func repairChecks(_ root: Int32, otherGroup: gid_t?) throws {
+        let name = "Account Access Broker Repair"
+        func openRepair(_ parent: Int32, create: Bool = true) throws -> Int32 {
+            try FullImageNamespaceDirectory.fixtureBrokerRepair(parent, owner: getuid(), group: getgid(), create: create)
+        }
+        try refuses { _ = try FullImageNamespaceDirectory.installedBrokerRepair(-1) }
+        try refuses { _ = try FullImageNamespaceDirectory.fixtureBrokerRepair(-1, owner: getuid() + 1, group: getgid()) }
+        do {
+            let parent = try directory(root, "repair-fresh"); defer { Darwin.close(parent) }
+            try refuses { _ = try openRepair(parent, create: false) }
+            try expect(try InstallerPayloadIO.contents(parent).isEmpty)
+            let created = try openRepair(parent); defer { Darwin.close(created) }
+            let before = try info(created), parentBefore = try info(parent)
+            try expect(before.st_gid == getgid() && before.st_mode & 0o7777 == 0o700)
+            try expect(try InstallerPayloadIO.contents(parent) == [name])
+            let existing = try openRepair(parent, create: false); defer { Darwin.close(existing) }
+            try expect(InstallerPayloadIO.same(before, try info(existing)) && InstallerPayloadIO.same(parentBefore, try info(parent)))
+        }
+        do {
+            let parent = try directory(root, "repair-symlink"); defer { Darwin.close(parent) }
+            let foreign = try directory(parent, "foreign"); defer { Darwin.close(foreign) }
+            let before = try info(foreign)
+            guard symlinkat("foreign", parent, name) == 0 else { throw NamespaceFixtureFailure.failed }
+            try refuses { _ = try openRepair(parent) }
+            try expect(InstallerPayloadIO.same(before, try info(foreign)))
+        }
+        do {
+            let parent = try directory(root, "repair-acl"); defer { Darwin.close(parent) }
+            let existing = try directory(parent, name); defer { Darwin.close(existing) }
+            try acl(existing)
+            var before = stat(), after = stat()
+            guard fstat(existing, &before) == 0 else { throw NamespaceFixtureFailure.failed }
+            try refuses { _ = try openRepair(parent) }
+            guard fstat(existing, &after) == 0 else { throw NamespaceFixtureFailure.failed }
+            try expect(InstallerPayloadIO.same(before, after) && before.st_gid == after.st_gid)
+        }
+        if let other = otherGroup {
+            let parent = try directory(root, "repair-inherited-group"); defer { Darwin.close(parent) }
+            guard fchown(parent, uid_t.max, other) == 0 else { throw NamespaceFixtureFailure.failed }
+            let created = try openRepair(parent); defer { Darwin.close(created) }
+            try expect(try info(created).st_gid == getgid())
+            try expect(try info(parent).st_gid == other)
+            let wrongParent = try directory(root, "repair-existing-wrong-group"); defer { Darwin.close(wrongParent) }
+            let wrong = try directory(wrongParent, name); defer { Darwin.close(wrong) }
+            guard fchown(wrong, uid_t.max, other) == 0 else { throw NamespaceFixtureFailure.failed }
+            let before = try info(wrong), parentBefore = try info(wrongParent)
+            try refuses { _ = try openRepair(wrongParent) }
+            try expect(InstallerPayloadIO.same(before, try info(wrong)) && (try info(wrong)).st_gid == other)
+            try expect(InstallerPayloadIO.same(parentBefore, try info(wrongParent)))
+        }
+    }
     static func main() {
         guard getuid() != 0, geteuid() == getuid(), CommandLine.arguments.count == 1 else { exit(77) }
         umask(0o077)
@@ -127,6 +178,7 @@ private enum NamespaceFixtureFailure: Error { case failed }
                 supplemental = inherited ? "PASSED_INHERITED_DIFFERENT_GROUP_CORRECTED_ONLY_ON_NEW_INODE" : "PASSED_DIFFERENT_GROUP_CHECKS_OS_DID_NOT_INHERIT"
                 try expect(inherited) // This macOS qualification specifically proves inherited-GID correction.
             }
+            try repairChecks(root, otherGroup: groups.first(where: { $0 != getgid() }))
             var final = stat()
             guard lstat(ownPath, &final) == 0, PublicTreeDirectoryIdentity(final) == rootPin else { throw NamespaceFixtureFailure.failed }
             try FileManager.default.removeItem(atPath: ownPath) // Exclusive invocation-owned tree only.
