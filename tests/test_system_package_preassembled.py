@@ -14,6 +14,22 @@ from macos import system_package as package
 from test_payload_audit import thin
 
 
+@pytest.mark.parametrize("digest", [
+    "d1f74db86890b306f989b65a8c521ce3b0879f261ded122dd409be2ca2fbe317",
+    "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da",
+])
+def test_both_reviewed_images_reach_manifest_validation(tmp_path, digest):
+    # The exact image 84 was previously refused before its manifest was read.
+    with pytest.raises(FileNotFoundError):
+        package.preassembled_manifest(tmp_path / "missing-manifest", digest)
+
+
+@pytest.mark.parametrize("digest", [None, True, "f" * 64, "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55db"])
+def test_unreviewed_images_refuse_before_manifest_paths(tmp_path, digest):
+    with pytest.raises(ValueError, match="reviewed_preassembled_image_required"):
+        package.preassembled_manifest(tmp_path / "missing-manifest", digest)
+
+
 def fixture_image(tmp_path, monkeypatch):
     root = tmp_path / "PublicImage"
     payload = root / package.BASE

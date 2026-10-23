@@ -23,9 +23,10 @@ from macos.payload_audit import audit_payload, binary_type, tree_files
 
 BASE = Path("Library/Application Support/Account Access")
 IDENTIFIER = "com.fainir.accountaccess.system"
-# Maintainer-only reuse of this independently reviewed complete image. Another
+# Maintainer-only reuse of these independently reviewed complete images. Another
 # cohort requires source review; a caller-supplied digest cannot widen it.
 PREASSEMBLED_MANIFEST_SHA256 = "d1f74db86890b306f989b65a8c521ce3b0879f261ded122dd409be2ca2fbe317"
+PREASSEMBLED_CONFIGURATION_MANIFEST_SHA256 = "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da"
 
 # Installer provides the target volume as argument 3. The verified coordinator
 # owns all image publication and recovery; PackageKit writes no target payload.
@@ -232,7 +233,7 @@ def package_image(args, root, scripts, manifest, output, version):
 
 def preassembled_manifest(path, expected):
     if (not isinstance(expected, str) or re.fullmatch("[a-f0-9]{64}", expected) is None
-            or expected != PREASSEMBLED_MANIFEST_SHA256):
+            or expected not in {PREASSEMBLED_MANIFEST_SHA256, PREASSEMBLED_CONFIGURATION_MANIFEST_SHA256}):
         raise ValueError("reviewed_preassembled_image_required")
     descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
     try:
