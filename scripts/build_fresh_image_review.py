@@ -24,12 +24,12 @@ PACKAGE = "ad16754b9acdd71dd1979a2a268b005a96feec681d3392b4af90b0e464590a85"
 REQUEST = "artifacts/fresh-image80-build-request.json"
 PROFILES = {
     80: (APP_SOURCE, MANIFEST, PACKAGE, REQUEST,
-         "artifacts/full-image-installer81-recovery-inputs.json", "full81-source.tar.gz"),
+         "artifacts/full-image-installer81-recovery-inputs.json", "full81-source.tar.gz", PACKAGING_SOURCE),
     84: ("d30fda732c589b9ac4dc339a7237ad8ba00d0016",
          "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da",
          "de6769837c00f41e307b5342ab86021c6e2aac27ba7fd99914f670ab2bd99d95",
          "artifacts/fresh-image84-build-request.json", "artifacts/full-image-installer84-inputs.json",
-         "full84-source.tar.gz"),
+         "full84-source.tar.gz", "47eac17c811ca27a12660d30f94ec955ad09df70"),
 }
 
 
@@ -61,16 +61,16 @@ def build_profile(cohort):
 
 
 def validate_request(value, cohort=80):
-    APP_SOURCE, MANIFEST, PACKAGE, _, _, _ = build_profile(cohort)
+    APP_SOURCE, MANIFEST, PACKAGE, _, _, _, packaging_source = build_profile(cohort)
     require(value == {"schema": 1, "status": "BUILD_ONLY_NO_INSTALL_OR_PUBLICATION",
-        "packaging_source": PACKAGING_SOURCE, "app_source": APP_SOURCE,
+        "packaging_source": packaging_source, "app_source": APP_SOURCE,
         "target_manifest_sha256": MANIFEST, "input_package_sha256": PACKAGE,
         "production_ready": False})
 
 
 def build(repository, bundle, output, cohort=80):
     guard()
-    APP_SOURCE, MANIFEST, PACKAGE, REQUEST, contract_path, source_name = build_profile(cohort)
+    APP_SOURCE, MANIFEST, PACKAGE, REQUEST, contract_path, source_name, packaging_source = build_profile(cohort)
     repository, bundle, output = [path.absolute() for path in (repository, bundle, output)]
     revision = os.environ["GITHUB_SHA"]
     require(command(["git", "rev-parse", "HEAD"], cwd=repository).decode().strip() == revision)
@@ -96,7 +96,7 @@ def build(repository, bundle, output, cohort=80):
         require(sha(manifest) == MANIFEST)
         # Import only the exact committed packaging implementation into this build.
         archive = output / "packaging-source.tar.gz"
-        archive.write_bytes(command(["git", "archive", "--format=tar.gz", PACKAGING_SOURCE], cwd=repository))
+        archive.write_bytes(command(["git", "archive", "--format=tar.gz", packaging_source], cwd=repository))
         source.mkdir()
         command(["/usr/bin/tar", "-xzf", str(archive), "-C", str(source)])
         sys.path.insert(0, str(source))
@@ -134,7 +134,7 @@ def build(repository, bundle, output, cohort=80):
         review = {"schema": 1, "status": "BUILT_NOT_INSTALLED_NOT_INSTALL_QUALIFIED",
             "package_sha256": sha(package), "package_bytes": package.stat().st_size,
             "target_manifest_sha256": MANIFEST, "target_source": APP_SOURCE,
-            "packaging_source": PACKAGING_SOURCE, "installer_verifier_sha256": report["installer_verifier_sha256"],
+            "packaging_source": packaging_source, "installer_verifier_sha256": report["installer_verifier_sha256"],
             "expanded_inventory_sha256": sha(inventory_path),
             "actual_Installer_qualified": False, "production_ready": False}
         (output / "fresh-review.json").write_text(json.dumps(review, indent=2) + "\n")

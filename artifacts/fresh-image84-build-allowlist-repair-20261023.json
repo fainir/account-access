@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "status": "FIXED_BUILD_RERUN_REQUIRED",
+  "failed_workflow_run": 39923550174,
+  "failed_job": 120314418976,
+  "failure_before_package_creation": "Packager permitted image80 only; exact reviewed image84 refused in preassembled_manifest.",
+  "packaging_source": "47eac17c811ca27a12660d30f94ec955ad09df70",
+  "old_packager_sha256": "b2316990862da77c9a57d14590c0604c1eeffd29d9a4f5ada481e829215c6ad8",
+  "new_packager_sha256": "c077fdad3e1faf2541a87c831ea7fedbef908218ef201ba23c4968a8844142e0",
+  "changed_functions": [
+    "preassembled_manifest"
+  ],
+  "unchanged_function_count": 15,
+  "admitted_target_manifest_sha256": "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da",
+  "packaging_tests_passed": 81,
+  "fresh_build_acceptance_tests_passed": 87,
+  "actual_fresh_installer_qualified": false,
+  "production_ready": false
+}
