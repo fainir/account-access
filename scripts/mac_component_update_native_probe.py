@@ -95,7 +95,7 @@ def fixture_result(raw, *, kind):
     """A count or optimistic summary alone cannot satisfy native acceptance."""
     value = json.loads(raw)
     expected = CORE_CHECKS if kind == "core" else POLICY_CHECKS
-    count_key, count = ("ordinary_fixture_assertions", 257) if kind == "core" else ("count", 41)
+    count_key, count = ("ordinary_fixture_assertions", 331) if kind == "core" else ("count", 41)
     if (not isinstance(value, dict)
             or set(value) != {"schema", "status", "checks", count_key, "installed_reads", "service_actions"}
             or type(value["schema"]) is not int or value["schema"] != 1

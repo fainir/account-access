@@ -16,7 +16,7 @@ def report(kind):
     checks = probe.CORE_CHECKS if kind == "core" else probe.POLICY_CHECKS
     result = {"schema": 1, "status": "PASSED", "checks": dict.fromkeys(checks, True),
               "installed_reads": False, "service_actions": False}
-    result["ordinary_fixture_assertions" if kind == "core" else "count"] = 257 if kind == "core" else 41
+    result["ordinary_fixture_assertions" if kind == "core" else "count"] = 331 if kind == "core" else 41
     return result
 
 

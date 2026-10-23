@@ -42,7 +42,7 @@ def evidence():
     sources["scripts/mac_launchctl_disable_probe.py"] = builder.component.digest(
         (builder.ROOT / "scripts/mac_launchctl_disable_probe.py").read_bytes())
     run_id = 1006
-    core = {"schema": 1, "status": "PASSED", "ordinary_fixture_assertions": 257,
+    core = {"schema": 1, "status": "PASSED", "ordinary_fixture_assertions": 331,
             "checks": dict.fromkeys(builder.CORE_CHECKS, True), "installed_reads": False, "service_actions": False}
     policy = {"schema": 1, "status": "PASSED", "count": 41,
               "checks": dict.fromkeys(builder.POLICY_CHECKS, True), "installed_reads": False, "service_actions": False}

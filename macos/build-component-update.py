@@ -250,7 +250,7 @@ def validate_native_report(files, *, source, sources, run_id, run_attempt=1):
     core, policy = report.get("core_fixture_json", {}), report.get("policy_fixture_json", {})
     if (set(core) != {"schema", "status", "checks", "ordinary_fixture_assertions", "installed_reads", "service_actions"}
             or type(core.get("schema")) is not int or core["schema"] != 1 or core.get("status") != "PASSED"
-            or type(core.get("ordinary_fixture_assertions")) is not int or core["ordinary_fixture_assertions"] != 257
+            or type(core.get("ordinary_fixture_assertions")) is not int or core["ordinary_fixture_assertions"] != 331
             or not _true_checks(core.get("checks"), CORE_CHECKS)
             or set(policy) != {"schema", "status", "checks", "count", "installed_reads", "service_actions"}
             or type(policy.get("schema")) is not int or policy["schema"] != 1 or policy.get("status") != "PASSED"
