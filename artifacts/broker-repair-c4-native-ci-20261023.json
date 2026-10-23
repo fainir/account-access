@@ -1,0 +1,103 @@
+{
+  "android_workflow": {
+    "api30_scope": "fictional notification-to-browser login",
+    "api35_scope": "refusal without companion-device association",
+    "physical_phone_qualified": false,
+    "run_id": 39988010405,
+    "status": "PASSED"
+  },
+  "artifact_id": 12516187942,
+  "artifact_sha256": "456bf7a170b4ab2102e82ecde48ab18d1885948461caf4ba0520290dfc844f4f",
+  "entrypoint_ordinary_refusal": {
+    "exit_code": 78,
+    "normal_argv": true,
+    "reason": "full_image_update_context_required"
+  },
+  "guarded_main_refusals": 6,
+  "job_id": 120532125570,
+  "main_suite": {
+    "dependency_audit": "No known vulnerabilities found",
+    "job_id": 120532125264,
+    "passed": 4000,
+    "ruff": "PASSED",
+    "seconds": 1060.55,
+    "skipped": 107,
+    "status": "PASSED",
+    "wheel_and_sdist_built": true,
+    "workflow_run_id": 39988010387
+  },
+  "owner_installation_qualified": false,
+  "production_ready": false,
+  "repair_entrypoint_ordinary_refusal": {
+    "exit_code": 78,
+    "normal_argv": true,
+    "reason": "broker_repair_installer_context_required"
+  },
+  "reports": [
+    {
+      "count": 142,
+      "fictional_in_memory_only": true,
+      "fixture_proof_not_native_qualification": true,
+      "installed_reads": false,
+      "passed_checks": 142,
+      "production_ready": false,
+      "provider_process_or_network_used": false,
+      "root_execution": false,
+      "schema": 1,
+      "service_actions": false,
+      "status": "PASSED"
+    },
+    {
+      "installed_reads": false,
+      "ordinary_owned_temp_only": true,
+      "passed_checks": 142,
+      "production_ready": false,
+      "root_execution": false,
+      "service_actions": false,
+      "status": "PASSED"
+    },
+    {
+      "installed_reads": false,
+      "passed_checks": 40,
+      "production_ready": false,
+      "root_execution": false,
+      "service_actions": false,
+      "status": "PASSED",
+      "supplemental_group_case": "PASSED_INHERITED_DIFFERENT_GROUP_CORRECTED_ONLY_ON_NEW_INODE"
+    },
+    {
+      "installed_reads": false,
+      "optional_polarities": 2,
+      "ordinary_temp_only": true,
+      "passed_checks": 63,
+      "production_ready": false,
+      "recovery_polarities": 3,
+      "root_execution": false,
+      "schema": 1,
+      "service_actions": false,
+      "status": "PASSED",
+      "supplemental_group_case": "PASSED_DISTINCT_OLD_AND_NEW_GROUPS"
+    },
+    {
+      "assertions": 153,
+      "installed_or_provider_operations": false,
+      "status": "FULL_IMAGE_DURABLE_JOURNAL_CHECKS_PASSED"
+    },
+    {
+      "installed_reads": false,
+      "payload_executed": false,
+      "production_ready": false,
+      "recovery_assertions": 49,
+      "schema": 1,
+      "source_assertions": 54,
+      "status": "PASSED",
+      "transaction_assertions": 74
+    }
+  ],
+  "result_sha256": "b3c2cb1dc070d2a96738e81669a70148898aea6f698f90a6f39e9f33b1079f8a",
+  "schema": 1,
+  "scope": "native ordinary-user fixtures and entrypoint guards",
+  "source_commit": "c4cf1b0918c1a51cbd4a38880364fcb71fa5980e",
+  "status": "PASSED",
+  "workflow_run_id": 39988010387
+}

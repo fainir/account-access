@@ -1,0 +1,17 @@
+{
+  "counts": {
+    "directory": 2297,
+    "file": 25165,
+    "symlink": 21
+  },
+  "elapsed_seconds": 14.413,
+  "free_bytes": 2624942080,
+  "installed_update": false,
+  "manifest_sha256": "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da",
+  "mismatches": [],
+  "package_sha256": "27ee29eea45992461d0d8e5d2f36878a784b15f52713066f9710647715420994",
+  "private_data_read": false,
+  "production_ready": false,
+  "schema": 1,
+  "status": "PASSED"
+}

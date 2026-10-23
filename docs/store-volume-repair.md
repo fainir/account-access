@@ -143,3 +143,11 @@ expansion matches all 27,523 resource entries. Exact package review is retained 
 `artifacts/broker-repair-package87-20261023.json`. Actual Installer qualification
 and owner GUI verification remain pending. The cancelled package-86 interruption
 report records a closed predecessor-phase refusal, not a completed repair.
+
+Package 87 subsequently passed all three actual Installer scenarios in run
+39989349794. The foreign-binding scenario verified five changes applied and
+restored on both attempts and closed migration refusals; the original binding
+and metadata remained unchanged. The exact package and all report/log hashes
+are recorded in `artifacts/broker-repair87-installer-acceptance-20261023.json`.
+This qualifies the disposable-Mac installer repair, with owner GUI and real
+account verification still pending. The owner installation has not yet run.

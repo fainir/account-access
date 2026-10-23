@@ -9,42 +9,45 @@ establish that experience on personal accounts.
 
 ### Broker store repair candidate — 23 October 2026
 
-The installed public image is still the verified full image 85. The protected
-store remains unavailable because its original publication record contains a
-changed device number. Broker repair 86 is now built from source `5f4926a`; it
-adds a persistent-volume binding while retaining the original publication and
-credentials. Its exact package, all 27,523 expanded entries, both native
-signatures and ordinary-user refusal passed independent checks. The Installer
-container is unsigned and remains a draft QA candidate.
+The owner's installed public image is still full image 85. A read-only check of
+25,165 files, 2,297 directories and 21 links found no mismatches. The store still
+needs the qualified persistent-volume repair; no owner repair installation has
+been performed yet.
 
-Package 86 was subsequently withdrawn before any owner installation. Source
-review found that its new repair directory inherits the parent group on macOS,
-while the controller requires group `wheel`. The replacement reuses protected
-namespace creation, normalizing only an exclusively created directory and
-refusing existing wrong-group directories. The expanded native namespace fixture
-passed all 40 checks, including the inherited-group case and read-only reopening.
+Package **87**, built from `c4cf1b0`, passed all three actual Installer scenarios
+in run `39989349794`: installation/reapplication, interruption after broker
+replacement followed by recovery/reapplication, and foreign-binding rollback.
+Each passed all 13 repair checks, plus the predecessor installation and volume
+revalidation checks. Downloaded report ZIPs and every referenced log were
+hash-verified. The foreign-binding case proves five changes applied and five
+restored on each of two attempts, with no head published and the foreign binding
+unchanged. Both native refusals occurred at migration. Interruption uses an
+owned helper child; it is not a machine power-loss test.
 
-The original source's hosted native repair checks passed 54 source, 49 intent and 74
-transaction assertions. Hosted Mac reports also passed 46 initial-store/restart,
-25 isolated-worker/authentication and 23 development-package checks, all using
-controlled accounts. They do not qualify legacy owner-store migration or
-physical SMS. The first new Installer harness stopped before installation due
-to a filename-list mistake; that failure is retained. Corrected run
-`39984715262` was cancelled after discovering the native namespace defect. It
-does not qualify installation, interruption recovery or rollback. A replacement
-package 87 is built from `c4cf1b0` and independently verified against all
-27,523 expanded resources. Its container SHA-256 is
+The package SHA-256 is
 `27ee29eea45992461d0d8e5d2f36878a784b15f52713066f9710647715420994`.
-Fresh actual Installer acceptance remains pending. The foreign-binding scenario
-now requires exact apply-and-rollback journal evidence for all five non-head
-operations on both attempts; an early refusal cannot qualify rollback.
+Its independent expansion verified 27,523 entries. The exact source passed
+4,000 Python tests with 107 skipped tests, lint, dependency auditing, the native
+suite including 40 namespace and 74 repair-transaction checks, Android CI, and
+the Mac fixture suite. Android 15 coverage proves refusal without association;
+it does not qualify physical delivery.
 
-[Package review](../artifacts/broker-repair-package86-independent-review-20261023.json) ·
-[Native source evidence](../artifacts/broker-repair-source-mac-ci-20261023.json) ·
-[Harness refusal](../artifacts/broker-repair-installer86-harness-refusal-20261023.json).
-[Candidate withdrawal](../artifacts/broker-repair86-withdrawal-20261023.json) ·
-[Replacement package](../artifacts/broker-repair-package87-20261023.json) ·
-[Cancelled partial report](../artifacts/broker-repair86-cancelled-partial-20261023.json).
+Package 86 was withdrawn before owner installation. Its new directory could
+inherit the parent's group on macOS; package 87 normalizes only its exclusively
+created directory and refuses existing mismatches. Failed and cancelled runs
+remain recorded. The container is unsigned, and no Developer ID Installer
+identity is currently available locally. The release remains draft.
+
+Owner GUI, agent connection, personal-account login and physical-phone QA,
+production signing and notarization remain open. No fixture result establishes
+those outcomes.
+
+[Exact Installer evidence](../artifacts/broker-repair87-installer-acceptance-20261023.json) ·
+[Package review](../artifacts/broker-repair-package87-20261023.json) ·
+[Native and Python CI](../artifacts/broker-repair-c4-native-ci-20261023.json) ·
+[Mac fixture CI](../artifacts/broker-repair-c4-mac-ci-20261023.json) ·
+[Owner preflight](../artifacts/owner-mac-broker-repair87-preflight-20261023.json) ·
+[Withdrawn candidate](../artifacts/broker-repair86-withdrawal-20261023.json).
 
 ### Current application candidate — 23 October 2026
 
