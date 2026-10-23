@@ -97,11 +97,28 @@ journals containing pending audit files.
 The transaction uses the existing persistent launchd disable/quiescence barrier,
 publishes the additive volume binding before its head, and releases the enrollment
 lock before restoring the service. Exact completed retry verifies the public image
-without claiming GUI health. New history/audit and ordinary-root-refusal fixtures
-have been added but have not yet qualified this controller. The local controller
-compile hit its deadline during severe host load; the runner now bounds compiler
-parallelism and allows a longer bounded deadline. No repair package has been
-built or installed from this source.
+without claiming GUI health. Hosted run 39977299032 at source 5f4926a passed
+54 source, 49 intent and 74 transaction assertions, all six argument guards,
+and both ordinary-user entrypoint refusals. The source-pinned artifact is
+`artifacts/broker-repair-native-controller-20261023.json`. Earlier local deadline
+failures remain recorded and are not counted as acceptance.
+
+Broker repair package 86 has been assembled from those exact native sources.
+Its final SHA-256 is
+`79672a7a659948dcefa7c94573d882a9bec4f7febf62597551fa088f4f8861f8`.
+The signed universal broker and signed repair helper were independently verified;
+the Installer container remains unsigned. A failed initial package expansion was
+retained in the build receipt. Repackaging preserved the compressed Scripts
+member byte-for-byte while changing only the script deadline to 1800 seconds.
+
+The committed draft-asset contract now drives three fresh hosted-Mac scenarios:
+installation/reapplication, interruption after broker replacement before the head,
+and refusal/rollback for a conflicting volume binding. Every scenario first runs
+the existing actual base/component/root-revalidation acceptance, then actual
+full-image 85 Installer. The migration fixture contains only fictional publication
+metadata and a synthetic sentinel; it cannot establish real credential, provider,
+physical remount or owner GUI readiness. This package has not been installed on
+the owner Mac and remains pending actual Installer qualification.
 
 Hosted run 39971114599 passed Python tests and owner UI checks, but its gateway
 job found a standalone tree-test compile dependency introduced by the read-only
