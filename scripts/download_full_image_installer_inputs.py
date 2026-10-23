@@ -30,6 +30,7 @@ PROBES = ("scripts/mac_full_image_installer_probe.py", "scripts/mac_component_up
 COHORT_CONTRACTS = {
     81: "artifacts/full-image-installer81-recovery-inputs.json",
     82: "artifacts/full-image-installer82-inputs.json",
+    83: "artifacts/full-image-installer83-inputs.json",
 }
 
 

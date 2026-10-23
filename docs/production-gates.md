@@ -29,8 +29,19 @@ The final ordinary-user native fixture passed 516 assertions, including changed
 volume, plan, policy, inode, metadata and mixed-device refusals. A broader Python
 selection passed 353 checks before the final dynamic-file recheck, and the final
 21 report-contract tests, lint and whitespace checks passed. This is a source
-candidate: no replacement package or owner repair has yet been qualified.
+candidate; owner repair has not yet been qualified.
 [Source evidence](../artifacts/completed-volume-binding-source-20261023.json).
+
+Package 83 was built from controller commit `662692d` and passed a separate
+read-only review of its 15 compiled inputs and 27,513 script-tree nodes. Its
+matching source archive also passed a separate stream review of both complete
+Git snapshots and the embedded third-party corresponding source. All four draft
+release asset digests match the local files. The installer controller's 100
+focused checks passed. Actual installation, reapplication and interrupted-create
+and interrupted-remove recovery are being qualified with those exact bytes.
+The application image remains build 80; newer application features are not
+included in this controller repair. The container is unsigned and unnotarized.
+[Package evidence](../artifacts/full-image83-volume-binding-package-20261023.json).
 
 ### Resumed acceptance — 22 October 2026
 

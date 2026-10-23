@@ -697,7 +697,8 @@ def run(args):
 
 def cohort_contract(cohort):
     contracts = {81: "artifacts/full-image-installer81-recovery-inputs.json",
-                 82: "artifacts/full-image-installer82-inputs.json"}
+                 82: "artifacts/full-image-installer82-inputs.json",
+                 83: "artifacts/full-image-installer83-inputs.json"}
     require(type(cohort) is int and cohort in contracts)
     return contracts[cohort], f"com.fainir.accountaccess.fullimageupdate{cohort}"
 
@@ -707,7 +708,7 @@ def main():
     parser.add_argument("--repository", type=Path, required=True)
     parser.add_argument("--bundle", type=Path, required=True)
     parser.add_argument("--scenario", choices=sorted(SCENARIOS), required=True)
-    parser.add_argument("--cohort", type=int, choices=[81, 82], default=81)
+    parser.add_argument("--cohort", type=int, choices=[81, 82, 83], default=81)
     return run(parser.parse_args())
 
 
