@@ -204,6 +204,17 @@ def metadata(tmp_path, monkeypatch):
     data.mkdir(mode=0o700)
     journal = vault / (".enrollment-" + ENROLLMENT + ".publication")
     journal.mkdir(mode=0o700)
+    # Other security tests deliberately use a restrictive process umask. This
+    # fixture models the provisioner's final modes, independent of that mask.
+    for path, mode in [
+        (support, 0o755),
+        (broker, 0o755),
+        (vault, 0o755),
+        (stage, 0o700),
+        (data, 0o700),
+        (journal, 0o700),
+    ]:
+        path.chmod(mode)
 
     def write(path, value, mode=0o600):
         path.write_bytes(value if isinstance(value, bytes) else json.dumps(value).encode())

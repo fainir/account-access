@@ -304,7 +304,9 @@ def test_guided_browser_adds_identity_login_with_owner_selected_sms_scope(env, m
             with page.expect_response(lambda response: response.url == base + "/owner/add") as reply:
                 page.locator("#add").click()
             assert reply.value.status == 200
-            assert identity.input_value() == phone.input_value() == ""
+            # Refresh removes the newly connected catalog entry and may relabel
+            # these same controls for the next service before this assertion.
+            assert page.locator("#username").input_value() == page.locator("#password").input_value() == ""
             deadline = time.monotonic() + 15
             while time.monotonic() < deadline and not broker.store.get("connection:" + ACCOUNT):
                 time.sleep(.05)

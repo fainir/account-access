@@ -1541,6 +1541,9 @@ def main():
         if frames:
             diagnostic["source"] = {"file": Path(frames[-1].filename).name,
                                     "line": frames[-1].lineno, "function": frames[-1].name}
+        if len(frames) > 1:
+            diagnostic["caller"] = {"file": Path(frames[-2].filename).name,
+                                    "line": frames[-2].lineno, "function": frames[-2].name}
         from account_access.system_provision import ProvisionError
         if isinstance(exc, ProvisionError) and str(exc) in {
             "provisioning_command_failed", "service_identity_conflict",
