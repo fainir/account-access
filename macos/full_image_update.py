@@ -36,6 +36,7 @@ CA_FILES = FILES | {"runtime-ca-refresh.json",
                     *(prefix + "/bin/" + name for prefix in ("python", "runtime") for name in ("pip", "pip3", "pip3.12"))}
 CA_BASE_MANIFEST = "9f0d1274928702dd4d5064b4d3bc8ac7df3bf81c3f70be2f9ccad410785d810c"
 CA_TARGET_MANIFEST = "d1f74db86890b306f989b65a8c521ce3b0879f261ded122dd409be2ca2fbe317"
+CA_CONFIGURATION_TARGET_MANIFEST = "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da"
 PRIVATE = frozenset(("broker", "home", "vault", "run", "control", "owner.json", "install-verification.json"))
 UNCHANGED_FORMAT = ("storage.py", "models.py", "worker_enroll.py", "agent_setup.py")
 # One reviewed configuration-model extension; storage/enrollment code and
@@ -248,9 +249,11 @@ def _derive(before_manifest, after_manifest, old_identity, new_identity, provena
     before, after = _manifest(before_manifest), _manifest(after_manifest)
     ca = ca_receipt is not None
     if ca:
-        # The expanded CA target has one reviewed, complete inventory cohort.
+        # Only the two reviewed complete inventories qualify: build80 and the
+        # configuration-compatible build84. There is no caller-selected cohort.
         # Omitting its receipt cannot downgrade it to the narrower v1 units.
-        _require(digest(before_manifest) == CA_BASE_MANIFEST and digest(after_manifest) == CA_TARGET_MANIFEST)
+        _require(digest(before_manifest) == CA_BASE_MANIFEST
+                 and digest(after_manifest) in (CA_TARGET_MANIFEST, CA_CONFIGURATION_TARGET_MANIFEST))
     old, new = before["roots"][SUPPORT], after["roots"][SUPPORT]
     _require(before["roots"][APPLICATION] == after["roots"][APPLICATION] and old[""] == new[""])
     provenance = _provenance(provenance, before_manifest, after_manifest)

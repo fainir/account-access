@@ -10,7 +10,7 @@ import json
 
 import pytest
 
-from test_full_image_update import arguments, file_node, inputs, plan, put  # noqa: F401
+from test_full_image_update import arguments, configuration_extension, file_node, inputs, plan, put  # noqa: F401
 
 SOURCE_PROFILE = {
     "lib/python3.12/site-packages/pip/__init__.py": "04aa76ceab0f4341e292daae35637f2f8718b183313cc2fb588d1304cb9c0443",
@@ -108,6 +108,19 @@ def test_ca_cohort_cannot_be_selected_by_caller_or_silently_downgraded(ca_inputs
     args.pop("ca_receipt")
     with pytest.raises(plan.Refused):
         plan.derive(**args)
+
+
+def test_reviewed_configuration_cohort_requires_complete_manifest_and_model_pins(ca_inputs, monkeypatch):
+    configuration_extension(ca_inputs)
+    args = ca_arguments(ca_inputs)
+    monkeypatch.setattr(plan, "CA_BASE_MANIFEST", plan.digest(args["before_manifest"]))
+    monkeypatch.setattr(plan, "CA_CONFIGURATION_TARGET_MANIFEST", plan.digest(args["after_manifest"]))
+    raw = plan.derive(**args)
+    assert plan.parse(raw, expected_plan_sha256=plan.digest(raw), **args)["configuration_model_upgrade"] == plan.CONFIGURATION_MODEL_UPGRADE
+    # Changing a file cannot select another target, even with fresh provenance.
+    ca_inputs["after"]["roots"][plan.SUPPORT][plan.PACKAGE + "/data.txt"] = file_node(b"different-build")
+    with pytest.raises(plan.Refused):
+        plan.derive(**ca_arguments(ca_inputs))
 
 
 @pytest.mark.parametrize("side", ["before", "after"])
