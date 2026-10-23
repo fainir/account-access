@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "status": "INTERRUPTED_UPDATE_RECOVERY_PENDING",
+  "status": "TWO_SCRIPT_TIMEOUTS_INTERRUPTED_UPDATE",
   "package_sha256": "de6769837c00f41e307b5342ab86021c6e2aac27ba7fd99914f670ab2bd99d95",
   "before_manifest_sha256": "9f0d1274928702dd4d5064b4d3bc8ac7df3bf81c3f70be2f9ccad410785d810c",
   "target_manifest_sha256": "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da",
@@ -20,7 +20,12 @@
   "recovery": {
     "same_package": true,
     "native_installer_started": true,
-    "terminal_result": null
+    "terminal_result": "PACKAGE_SCRIPT_TIMEOUT",
+    "changed_manifest_entries_checked": 411,
+    "target_entries": 5,
+    "predecessor_entries": 406,
+    "unrecognized_entries": 0,
+    "complete_image_qualified": false
   },
   "owner_data_read": false,
   "raw_installer_logs_exported": false,

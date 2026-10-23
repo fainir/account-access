@@ -21,14 +21,27 @@ The first owner-Mac attempt failed with a package-script timeout. A subsequent
 public-image check found exactly five owner-app files changed, all matching the
 target image; the remaining predecessor files, directories and aliases still
 matched. This is an interrupted update, not an intact predecessor or a completed
-installation. Native Installer is retrying the same package through its recovery
-path. [Owner attempt](../artifacts/owner-mac-update84-result-20261023.json).
+installation. The same-package recovery attempt also timed out. A subsequent
+check of all 411 changed manifest entries found five matching the target and
+406 matching the predecessor, with no unrecognized entry. This limited delta
+check does not qualify the complete installed image.
+[Owner attempts](../artifacts/owner-mac-update84-result-20261023.json).
 
 Apple's installed `pkgbuild(1)` documentation specifies a ten-minute default for
 top-level scripts. A separate disposable-Mac probe tests a fixed script timeout
-in the native package envelope, first requiring a short deadline to terminate a
-sleep and then requiring a longer deadline to complete beyond ten minutes. Its
-result is pending and cannot qualify a modified application installer.
+in the native package envelope. All five checks passed in run `39940826551`
+on macOS 15.7.9: a 15-second deadline terminated the short fixture in 16.621
+seconds, while a 900-second deadline allowed the 610-second fixture to complete
+in 612.428 seconds. Both earlier preparation failures are retained.
+[Deadline evidence](../artifacts/installer-deadline-acceptance-20261023.json).
+
+A deadline-only derivative sets the existing package's timeout to 1,800 seconds.
+An independent XAR-header, checksum and streamed-member review confirms that
+the compressed Scripts archive is byte-identical; only the PackageInfo timeout
+content changes. The exact candidate passes its source contract, and 13 altered
+inputs are refused. Actual candidate installation/reapplication and interruption
+acceptance remain pending. The native deadline experiment alone cannot qualify
+this package or repair the owner installation.
 
 The configuration-model change has one fixed source-hash profile. Storage,
 enrollment and agent-setup sources remain byte-identical. Seven public examples
