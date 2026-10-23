@@ -14,12 +14,14 @@ import java.net.URL;
 import java.security.MessageDigest;
 import java.security.cert.X509Certificate;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 public final class LoginNotifications extends NotificationListenerService {
- final ThreadPoolExecutor worker=new ThreadPoolExecutor(1,1,0,TimeUnit.SECONDS,new ArrayBlockingQueue<>(8),new ThreadPoolExecutor.DiscardPolicy());
+ final ThreadPoolExecutor worker=new ThreadPoolExecutor(1,1,0,TimeUnit.SECONDS,new ArrayBlockingQueue<>(8),new ThreadPoolExecutor.AbortPolicy());
+ void status(String value){getSharedPreferences("settings",0).edit().putString("last_status",value).apply();}
  static String hex(byte[] bytes){StringBuilder s=new StringBuilder();for(byte b:bytes)s.append(String.format("%02x",b&255));return s.toString();}
  @Override public void onListenerConnected(){getSharedPreferences("settings",0).edit().putBoolean("listener_ready",true).apply();}
  @Override public void onListenerDisconnected(){getSharedPreferences("settings",0).edit().putBoolean("listener_ready",false).apply();}
@@ -28,7 +30,7 @@ public final class LoginNotifications extends NotificationListenerService {
   if(Math.abs(System.currentTimeMillis()-notification.getPostTime())>120000)return;
   if(!ComputerAssociation.ready(this)){getSharedPreferences("settings",0).edit().putString("last_status","computer_permission_required").apply();return;}
   try{
-   getSharedPreferences("settings",0).edit().putString("last_status","notification_seen").apply();
+   status("notification_reading_pairing");
    JSONObject pair=Pairing.load(this);if(pair==null){getSharedPreferences("settings",0).edit().putString("last_status","pairing_unavailable").apply();return;}
    Bundle extras=notification.getNotification().extras;
    String sender=String.valueOf(extras.getCharSequence(Notification.EXTRA_TITLE,""));
@@ -37,11 +39,14 @@ public final class LoginNotifications extends NotificationListenerService {
    String regex=Pattern.quote(template.substring(0,split))+"[0-9]{6}"+Pattern.quote(template.substring(split+6));
    if(!sender.equals(pair.getString("sender")) || !body.matches(regex)){getSharedPreferences("settings",0).edit().putString("last_status","filter_mismatch").apply();return;}
    JSONObject payload=new JSONObject();payload.put("id",hex(MessageDigest.getInstance("SHA-256").digest((notification.getKey()+body).getBytes("UTF-8"))));payload.put("sender",sender);payload.put("recipient",pair.getString("recipient"));payload.put("body",body);payload.put("received_at",notification.getPostTime()/1000.0);
+   status("delivery_queued");
    worker.execute(()->send(pair,payload));
-  }catch(Exception ignored){}
+  }catch(RejectedExecutionException ignored){status("delivery_queue_unavailable");
+  }catch(Exception ignored){status("notification_unavailable");}
  }
  void send(JSONObject pair,JSONObject payload){
   try{
+   status("delivery_preparing");
    final String fingerprint=pair.getString("certificate_sha256");
    X509TrustManager trust=new X509TrustManager(){
     public X509Certificate[] getAcceptedIssuers(){return new X509Certificate[0];}
@@ -58,6 +63,7 @@ public final class LoginNotifications extends NotificationListenerService {
    final long began=SystemClock.elapsedRealtime();
    final long lifetime=(long)Math.max(0,Math.min(120000,received+120000-System.currentTimeMillis()));
    boolean delivered=LoginDelivery.send(()->{
+    status("delivery_connecting");
     HttpsURLConnection connection=(HttpsURLConnection)destination.openConnection();
     try{
      connection.setSSLSocketFactory(context.getSocketFactory());connection.setConnectTimeout(3000);connection.setReadTimeout(3000);connection.setInstanceFollowRedirects(false);connection.setRequestMethod("POST");connection.setDoOutput(true);connection.setFixedLengthStreamingMode(data.length);connection.setRequestProperty("Authorization","Bearer "+token);connection.setRequestProperty("Content-Type","application/json");
@@ -65,12 +71,13 @@ public final class LoginNotifications extends NotificationListenerService {
      return connection.getResponseCode();
     }finally{connection.disconnect();}
    },()->{
-    if(!ComputerAssociation.ready(this))return false;
+    status("delivery_checking_pairing");
+    if(!ComputerAssociation.ready(this)){status("computer_permission_required");return false;}
     double age=System.currentTimeMillis()-received;
-    if(age< -5000 || age>120000 || SystemClock.elapsedRealtime()-began>lifetime)return false;
+    if(age< -5000 || age>120000 || SystemClock.elapsedRealtime()-began>lifetime){status("delivery_expired");return false;}
     JSONObject current=Pairing.load(this);
-    if(current==null || !MessageDigest.isEqual(token.getBytes("UTF-8"),current.getString("token").getBytes("UTF-8")))return false;
-    for(String key:new String[]{"url","certificate_sha256","source","sender","recipient","template"})if(!pair.getString(key).equals(current.getString(key)))return false;
+    if(current==null || !MessageDigest.isEqual(token.getBytes("UTF-8"),current.getString("token").getBytes("UTF-8"))){status("delivery_pairing_changed");return false;}
+    for(String key:new String[]{"url","certificate_sha256","source","sender","recipient","template"})if(!pair.getString(key).equals(current.getString(key))){status("delivery_pairing_changed");return false;}
     return true;
    },Thread::sleep,value->getSharedPreferences("settings",0).edit().putString("last_status",value).apply());
    if(delivered)getSharedPreferences("settings",0).edit().putLong("last_delivery",System.currentTimeMillis()).putString("last_status","delivered").apply();
