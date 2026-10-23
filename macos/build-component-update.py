@@ -99,7 +99,7 @@ MAX_ARCHIVE = 4 * 1024 * 1024
 NATIVE_SOURCES = (
     "RootVaultKeyStore RootWorkerChannel WorkerBootstrap WorkerListenerBindings OwnerGateway OwnerGatewayHost "
     "OwnerAuthorizationPolicy RootActivatedListeners RootWorkerProcess RootWorkerSupervisor RootMessagesCollector "
-    "RootBrokerHost RootStoreInitializer RootStoreVolumeBinding RootStorePublication RootInitialEnrollment SystemBroker"
+    "RootBrokerHost RootStoreInitializer RootStoreVolumeBinding RootStoreVolumePublication RootStorePublication RootInitialEnrollment SystemBroker"
 ).split()
 
 

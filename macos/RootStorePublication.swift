@@ -153,7 +153,29 @@ final class RootStorePublication {
                 // both directory identities are still exact. An already changed
                 // legacy record requires a separately reviewed migration proof.
                 let data = try RootStoreVolumeBinding(record: recordData, context: context).encoded()
-                try Self.create(journalHandle, RootStoreVolumeBinding.name, data: data)
+                let savedRecord = recordData
+                let savedJournalName = journalName, savedStageName = stageName, savedDestinationName = destinationName
+                let savedUID = plan.base.uid, savedGID = plan.base.gid
+                try RootStoreVolumePublication.publish(directory: journalHandle, data: data, verify: {
+                    var heldParent = stat(), attachedParent = stat(), heldJournal = stat(), attachedJournal = stat()
+                    var heldLock = stat(), attachedLock = stat()
+                    guard try WorkerLaunchPaths.protected(parent.path) == parent,
+                          fstat(parentHandle, &heldParent) == 0, lstat(parent.path, &attachedParent) == 0,
+                          heldParent.st_dev == attachedParent.st_dev, heldParent.st_ino == attachedParent.st_ino,
+                          fstat(journalHandle, &heldJournal) == 0,
+                          fstatat(parentHandle, savedJournalName, &attachedJournal, AT_SYMLINK_NOFOLLOW) == 0,
+                          heldJournal.st_dev == attachedJournal.st_dev, heldJournal.st_ino == attachedJournal.st_ino,
+                          fstat(lockHandle, &heldLock) == 0,
+                          fstatat(parentHandle, ".account-access-enrollment.lock", &attachedLock, AT_SYMLINK_NOFOLLOW) == 0,
+                          heldLock.st_dev == attachedLock.st_dev, heldLock.st_ino == attachedLock.st_ino,
+                          try Self.read(journalHandle, "plan.json") == savedRecord,
+                          try RootStoreVolumeBinding.capture(parentHandle) == context,
+                          Identity(try Self.directory(parentHandle, savedStageName, uid: savedUID, gid: savedGID)) == Identity(stageInfo),
+                          Identity(try Self.directory(parentHandle, savedDestinationName, uid: savedUID, gid: savedGID)) == Identity(destinationInfo) else {
+                        throw RootStoreVolumeFailure.changed
+                    }
+                    try Self.noACL(parentHandle); try Self.noACL(journalHandle); try Self.privateRootFile(lockHandle)
+                })
                 volumeData = data
             } else { volumeData = nil }
         }

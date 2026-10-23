@@ -6,7 +6,7 @@ AC_BROKER_OUTPUT=${1:-"$AC_BROKER_SOURCE/dist/system-broker"}
 mkdir -p "$AC_BROKER_OUTPUT"
 AC_BROKER_TEMP=$(mktemp -d)
 trap 'rm -rf -- "$AC_BROKER_TEMP"' EXIT
-AC_BROKER_SWIFT=(RootVaultKeyStore RootWorkerChannel WorkerBootstrap WorkerListenerBindings OwnerGateway OwnerGatewayHost OwnerAuthorizationPolicy RootActivatedListeners RootWorkerProcess RootWorkerSupervisor RootMessagesCollector RootBrokerHost RootStoreInitializer RootStoreVolumeBinding RootStorePublication RootInitialEnrollment SystemBroker)
+AC_BROKER_SWIFT=(RootVaultKeyStore RootWorkerChannel WorkerBootstrap WorkerListenerBindings OwnerGateway OwnerGatewayHost OwnerAuthorizationPolicy RootActivatedListeners RootWorkerProcess RootWorkerSupervisor RootMessagesCollector RootBrokerHost RootStoreInitializer RootStoreVolumeBinding RootStoreVolumePublication RootStorePublication RootInitialEnrollment SystemBroker)
 AC_BROKER_FILES=()
 for AC_BROKER_FILE in "${AC_BROKER_SWIFT[@]}"; do AC_BROKER_FILES+=("$AC_BROKER_SOURCE/macos/$AC_BROKER_FILE.swift"); done
 for AC_BROKER_ARCH in arm64 x86_64; do

@@ -264,6 +264,9 @@ private enum CoreFixtureStage: String {
             let roots = try InstallationRootBindingTests.run()
             checks += roots.0
             passed.merge(roots.1) { _, _ in true }
+            let migration = try StoreVolumeMigrationAuthorityChecks.run()
+            checks += migration.0
+            passed.merge(migration.1) { _, _ in true }
             stage = .disabledBoolean
             let disabledHeader = "disabled services = {\n"
             guard try !ComponentCommands.disabled(Data((disabledHeader + "}\n").utf8)),

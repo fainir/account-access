@@ -34,3 +34,23 @@ volume receipt, qualify a successor update from the repaired public image, and
 test installation, recovery and owner startup. Directly editing the owner's
 publication record, replacing keys, resetting the store, or manually swapping
 native binaries is not a repair path.
+
+The migration authority validator now checks the exact original installation
+receipts, the already published volume receipt, the fixed component plan/source,
+unchanged worker/service policies, and both currently attached installation roots.
+The publication record must use the original installation's device epoch and both
+store directory inodes must be present in the completed, reversed order. It also
+requires the existing owner authorization and ready marker. A different volume,
+changed policies, substituted directories, ambiguous records, paused enrollment,
+or unrelated historical device epoch is refused. The validator is data-only;
+its installed adapter and successor broker delivery are still unfinished.
+
+Binding publication now stages a bounded, root-owned pending file, syncs it, and
+publishes through exclusive rename. An interrupted matching prefix can resume;
+existing or foreign files are never overwritten. The broker rechecks the journal,
+lock, original record, volume and directory identities before publication. Local
+ordinary-user tests passed 61 binding/interruption assertions, including failures
+after creation, partial write, sync and publication. The component fixture passed
+330 assertions including the migration authority checks; 223 focused Python tests
+also passed. Hosted verification is required for these exact new bytes. None of
+this new source has repaired the owner's installed store yet.

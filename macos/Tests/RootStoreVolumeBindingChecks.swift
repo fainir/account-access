@@ -64,6 +64,65 @@ import Darwin
         let measured = try RootStoreVolumeBinding(record: record, context: first)
         check(try RootStoreVolumeBinding.decode(measured.encoded(), record: record, context: second) == measured)
         try refuses { _ = try RootStoreVolumeBinding.capture(-1) }
+        #if ACCOUNT_ACCESS_STORE_VOLUME_CHECKS
+        let content = try measured.encoded()
+        func fixture(_ body: (URL, Int32) throws -> Void) throws {
+            let child = directory.appendingPathComponent(UUID().uuidString)
+            try FileManager.default.createDirectory(at: child, withIntermediateDirectories: false)
+            precondition(chmod(child.path, 0o700) == 0)
+            let handle = open(child.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+            precondition(handle >= 0); defer { Darwin.close(handle) }
+            try body(child, handle)
+        }
+        enum Interrupted: Error { case injected }
+        for point: RootStoreVolumePublication.Phase in [.created, .partial, .synced, .published] {
+            try fixture { child, handle in
+                var injected = false
+                do {
+                    try RootStoreVolumePublication.fixture(directory: handle, data: content, fault: { phase in
+                        if phase == point && !injected { injected = true; throw Interrupted.injected }
+                    })
+                    preconditionFailure("Interruption seam did not run")
+                } catch Interrupted.injected { check(injected) }
+                let published = child.appendingPathComponent(RootStoreVolumeBinding.name)
+                check(FileManager.default.fileExists(atPath: published.path) == (point == .published))
+                try RootStoreVolumePublication.fixture(directory: handle, data: content)
+                check(try Data(contentsOf: published) == content)
+                let before = try FileManager.default.attributesOfItem(atPath: published.path)[.systemFileNumber] as! NSNumber
+                try RootStoreVolumePublication.fixture(directory: handle, data: content)
+                let after = try FileManager.default.attributesOfItem(atPath: published.path)[.systemFileNumber] as! NSNumber
+                check(before == after)
+                check(!FileManager.default.fileExists(atPath: child.appendingPathComponent(RootStoreVolumePublication.pendingName).path))
+            }
+        }
+        for name in [RootStoreVolumePublication.pendingName, RootStoreVolumeBinding.name] {
+            try fixture { child, handle in
+                let target = child.appendingPathComponent(name), foreign = Data("foreign bytes".utf8)
+                try foreign.write(to: target); precondition(chmod(target.path, 0o600) == 0)
+                try refuses { try RootStoreVolumePublication.fixture(directory: handle, data: content) }
+                check(try Data(contentsOf: target) == foreign)
+            }
+            try fixture { child, handle in
+                let target = child.appendingPathComponent(name), outside = directory.appendingPathComponent(UUID().uuidString)
+                try content.write(to: outside); precondition(chmod(outside.path, 0o600) == 0)
+                precondition(symlink(outside.path, target.path) == 0)
+                try refuses { try RootStoreVolumePublication.fixture(directory: handle, data: content) }
+                check(try Data(contentsOf: outside) == content)
+            }
+        }
+        try fixture { child, handle in
+            var validations = 0
+            do {
+                try RootStoreVolumePublication.fixture(directory: handle, data: content, verify: {
+                    validations += 1
+                    if validations == 3 { throw Interrupted.injected }
+                })
+                preconditionFailure("Changed authority accepted")
+            } catch Interrupted.injected { check(validations == 3) }
+            check(!FileManager.default.fileExists(atPath: child.appendingPathComponent(RootStoreVolumeBinding.name).path))
+            check(try Data(contentsOf: child.appendingPathComponent(RootStoreVolumePublication.pendingName)) == content)
+        }
+        #endif
         print("PASS: \(assertions) persistent-volume checks; device changes retain the binding, changed volumes, parent directories and records are refused; only a new temporary directory was inspected")
     }
 }

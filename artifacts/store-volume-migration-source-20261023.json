@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "status": "LOCAL_SOURCE_CHECKS_HOSTED_AND_INSTALLER_INTEGRATION_PENDING",
+  "based_on_commit": "9b969f7158db5da8a4835f8acbaa46c4ad27a047",
+  "source_sha256": {
+    "macos/InstallationRootBinding.swift": "bdfd959f69ce60f2c1d573d3e165b97f3303f66d9347f959f0662cf06dad0a58",
+    "macos/StoreVolumeMigrationAuthority.swift": "03d9a2dcd785fd360fcfa7502475edae44981e989a63ec0e277f0a73312d0175",
+    "macos/RootStoreVolumeBinding.swift": "850cae7fd1653e873c3d851953219ceae83b2a96a7c44d2861c4982b63cf0d6a",
+    "macos/RootStoreVolumePublication.swift": "523fcd2507ec5f956178cc1951e55b0882ea385db373f17ea32b4f308c510c15",
+    "macos/RootStorePublication.swift": "d03930a00d4e0fc6dece954feec30b3922de02c3cbebf1df06a51e9cc0bd66f9",
+    "macos/Tests/StoreVolumeMigrationAuthorityChecks.swift": "45c1272fb3e944fa5705f4c1b24bd7d35f6c240e04f883d73be1c8ca5040b17b",
+    "macos/Tests/RootStoreVolumeBindingChecks.swift": "5f314bc897342e99436e85d6a76a8597cf377daec74411660f56e1c35af67c26",
+    "macos/Tests/ComponentUpdateChecks.swift": "215776c086707b360a2b8292050c575bfcc6de5b5ae6704a8f53275f210055f8",
+    "scripts/mac_component_update_native_probe.py": "a33dcc4eb94bbc51436707caa93f98a4585bcb6fa981461572d25cfa2577df9c",
+    ".github/workflows/mac-worker.yml": "e990cfa5838cc3ce945383adb56c6a57c807a92fef14d970bbb34a1892ec84b0"
+  },
+  "ordinary_component_fixture_assertions": 330,
+  "ordinary_volume_and_interruption_assertions": 61,
+  "focused_python_tests_passed": 223,
+  "migration_authority": "original publication epoch and reversed directory inode pair joined to existing installation volume receipt; original receipts, owner, fixed component plan/source, worker/service policy hashes and current roots verified",
+  "atomic_publication": "exclusive rename after fsync; matching pending prefix resumes after interruption; changed, symlinked or conflicting metadata refused",
+  "legacy_migration_installed": false,
+  "legacy_migration_adapter_complete": false,
+  "successor_update_qualified": false,
+  "owner_store_repaired": false,
+  "credential_contents_read": false,
+  "keychain_accessed": false,
+  "production_ready": false
+}
