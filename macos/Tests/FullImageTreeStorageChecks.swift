@@ -39,6 +39,17 @@ private enum FixtureFailure: Error { case failed, interruption }
     private static func row(_ data: Data) -> [String: Any] {
         ["kind": "file", "mode": 0o644, "size": data.count, "sha256": PublicTreeInventory.digest(data)]
     }
+    private static func journalSnapshot(_ parent: Int32) throws -> (Data, stat) {
+        let fd = openat(parent, "intent.json", O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC)
+        guard fd >= 0 else { throw FixtureFailure.failed }; defer { Darwin.close(fd) }
+        let before = try InstallerPayloadIO.check(fd, owner: getuid(), directory: false)
+        let bytes = try InstallerPayloadIO.read(fd, maximum: 65536, owner: getuid())
+        var current = stat()
+        guard before.st_mode & 0o7777 == 0o600,
+              fstatat(parent, "intent.json", &current, AT_SYMLINK_NOFOLLOW) == 0,
+              InstallerPayloadIO.same(before, current) else { throw FixtureFailure.failed }
+        return (bytes, before)
+    }
     private static func manifest(_ unit: PublicTreeUnit, _ data: Data, present: Bool = true) throws -> PublicTreeInventory {
         let dir: [String: Any] = ["kind": "directory", "mode": 0o755]
         var rows: [String: [String: Any]] = ["": dir, "owner.app": dir, "owner.app/Contents": dir,
@@ -200,10 +211,11 @@ private enum FixtureFailure: Error { case failed, interruption }
                 try refuses { _ = try scenario.storage(createIfMissing: false) }
                 try expect(try InstallerPayloadIO.contents(scenario.journal).isEmpty)
                 let storage = try scenario.storage()
-                let before = try ComponentFiles.read(scenario.journal, "intent.json", owner: getuid(), mode: 0o600)
+                let before = try journalSnapshot(scenario.journal)
                 let readOnly = try scenario.storage(createIfMissing: false)
                 try expect(try readOnly.state() == storage.state())
-                try expect(try ComponentFiles.read(scenario.journal, "intent.json", owner: getuid(), mode: 0o600).1 == before.1)
+                let after = try journalSnapshot(scenario.journal)
+                try expect(before.0 == after.0 && InstallerPayloadIO.same(before.1, after.1))
             }
             for (index, unit) in PublicTreeUnit.allCases.enumerated() {
                 let scenario = try Scenario(root: root, anchor: anchor, name: "roundtrip-\(index)", unit: unit)

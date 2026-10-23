@@ -76,3 +76,35 @@ namespace checks 24, durable journal checks 153, and tree storage checks 221.
 The combined full-image fixtures and ordinary entrypoint refusal passed. Root
 execution of the successor and migration adapter still requires disposable-Mac
 acceptance before an owner installation is offered.
+
+The broker-repair source contract passed 54 native checks and its immutable
+recovery intent passed 49 checks in the combined ordinary-user suite. The suite
+also passed all six argument-refusal guards and the ordinary full-image updater
+refusal. The report is bound in
+`artifacts/broker-repair-source-contracts-20261023.json`. Two earlier runtime
+attempts failed and are retained; they are not counted as acceptance.
+
+The successor controller and Installer entrypoint are now implemented as
+unqualified candidate source. Its public delta is exactly the broker executable,
+package signature metadata and a new provenance file. It derives only owner and
+installation policies, preserves the bootstrap policy, and retains before/after
+objects in a separate protected namespace. Initial acceptance requires the
+opaque completed-full-image proof. Recovery checks the exact saved history,
+head, policies, persistent volume UUID and root inodes before translating a
+transient device number. This initial successor deliberately refuses predecessor
+journals containing pending audit files.
+
+The transaction uses the existing persistent launchd disable/quiescence barrier,
+publishes the additive volume binding before its head, and releases the enrollment
+lock before restoring the service. Exact completed retry verifies the public image
+without claiming GUI health. New history/audit and ordinary-root-refusal fixtures
+have been added but have not yet qualified this controller. The local controller
+compile hit its deadline during severe host load; the runner now bounds compiler
+parallelism and allows a longer bounded deadline. No repair package has been
+built or installed from this source.
+
+Hosted run 39971114599 passed Python tests and owner UI checks, but its gateway
+job found a standalone tree-test compile dependency introduced by the read-only
+fixture. That test now uses its existing payload reader directly; the original
+failure remains part of the evidence. Hosted run 39971114489 passed Installer
+context checks and was still running cross-user acceptance at this checkpoint.

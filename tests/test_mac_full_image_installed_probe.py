@@ -24,6 +24,8 @@ def reports():
              supplemental_group_case="PASSED_DISTINCT_OLD_AND_NEW_GROUPS", optional_polarities=2, recovery_polarities=3),
         {"status": "FULL_IMAGE_DURABLE_JOURNAL_CHECKS_PASSED", "assertions": 153,
          "installed_or_provider_operations": False},
+        {"schema": 1, "status": "PASSED", "source_assertions": 54, "recovery_assertions": 49, "transaction_assertions": 74,
+         "installed_reads": False, "payload_executed": False, "production_ready": False},
     ]
 
 
@@ -51,20 +53,23 @@ class InertProbe:
             return 0, b"", b""
         if guard == "entrypoint":
             return 78, b'{"schema":1,"status":"REFUSED","reason":"full_image_update_context_required"}\n', b""
+        if guard == "repair-entrypoint":
+            return 78, b'{"schema":1,"status":"REFUSED","reason":"broker_repair_installer_context_required"}\n', b""
         return 77, b"", b""
 
 
-def test_one_compile_requires_every_fixture_and_all_five_guards():
+def test_one_compile_requires_every_fixture_and_all_six_guards():
     inert = InertProbe()
     probe.Probe.qualify(inert)
     assert inert.result["status"] == "PASSED"
     assert inert.result["combined_compile_count"] == 1
-    assert inert.result["guarded_main_refusals"] == 5
+    assert inert.result["guarded_main_refusals"] == 6
     assert [name for name, _, _ in inert.calls].count("compile") == 1
     assert [guard for name, guard, _ in inert.calls if name.startswith("guard-")] == [
-        "predecessor", "installed", "namespace", "legacy-group", "global-journal",
+        "predecessor", "installed", "namespace", "legacy-group", "global-journal", "broker-repair",
     ]
     assert inert.result["entrypoint_ordinary_refusal"]["exit_code"] == 78
+    assert inert.result["repair_entrypoint_ordinary_refusal"]["exit_code"] == 78
 
 
 @pytest.mark.parametrize("index,key,value", [
@@ -81,6 +86,14 @@ def test_one_compile_requires_every_fixture_and_all_five_guards():
     (4, "assertions", 147),
     (4, "installed_or_provider_operations", 0),
     (4, "extra", "unreviewed"),
+    (5, "source_assertions", 53),
+    (5, "recovery_assertions", 48),
+    (5, "transaction_assertions", 73),
+    (5, "installed_reads", 0),
+    (5, "payload_executed", 0),
+    (5, "production_ready", 0),
+    (5, "schema", True),
+    (5, "extra", "unreviewed"),
 ])
 def test_changed_or_optimistic_fixture_reports_cannot_qualify(index, key, value):
     values = reports()
@@ -98,7 +111,7 @@ def test_missing_journal_report_and_truthy_named_assertion_are_refused():
         probe.Probe.qualify(InertProbe(values))
 
 
-@pytest.mark.parametrize("guard", ["predecessor", "installed", "namespace", "legacy-group", "global-journal", "entrypoint"])
+@pytest.mark.parametrize("guard", ["predecessor", "installed", "namespace", "legacy-group", "global-journal", "broker-repair", "entrypoint", "repair-entrypoint"])
 def test_a_missing_actual_refusal_cannot_pass(guard):
     with pytest.raises(probe.Refused):
         probe.Probe.qualify(InertProbe(refusal=guard))

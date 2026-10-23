@@ -17,44 +17,73 @@ import sys
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
-COMPILE_SECONDS = 180
-RUNTIME_SECONDS = 60
+# The fixtures are also run on busy owner Macs. Bound parallel compilation so
+# this validation does not compete with every active desktop task at once.
+COMPILE_SECONDS = 900
+RUNTIME_SECONDS = 300
 MAX_SOURCE = 2 * 1024 * 1024
 MAX_LOG = 4 * 1024 * 1024
 DEPENDENCIES = (
     "InstallerPayload.swift", "InstallationRootBinding.swift", "ComponentUpdateIdentity.swift",
     "ComponentUpdatePolicies.swift", "FullImageUpdatePolicies.swift", "FullImageTreeAttachment.swift",
     "FullImageTreeStorage.swift", "FullImagePlan.swift", "FullImageTransitionStorage.swift",
-    "FullImageGlobalJournal.swift",
+    "FullImageGlobalJournal.swift", "BrokerRepairSource.swift", "BrokerRepairIntent.swift",
+    "BrokerRepairHistory.swift", "BrokerRepairJournal.swift", "BrokerRepairRoutes.swift",
+    "RootStoreVolumeBinding.swift", "RootStoreVolumePublication.swift", "StoreVolumeMigrationAuthority.swift", "StoreVolumeMigration.swift",
 )
 FIXTURES = (
     "CombinedPredecessorAuthorityChecks.swift", "FullImagePredecessorAuthorityChecks.swift",
     "FullImageInstalledSourceFixture.swift", "FullImageInstalledChecks.swift", "FullImageNamespaceChecks.swift",
     "FullImageLegacyGroupChecks.swift", "FullImageGlobalJournalChecks.swift",
+    "BrokerRepairIntentChecks.swift", "BrokerRepairSourceChecks.swift",
+    "BrokerRepairRecoveryChecks.swift",
 )
-MAIN_FIXTURES = frozenset((FIXTURES[0], FIXTURES[3], FIXTURES[4], FIXTURES[5], FIXTURES[6]))
+MAIN_FIXTURES = frozenset((FIXTURES[0], FIXTURES[3], FIXTURES[4], FIXTURES[5], FIXTURES[6], FIXTURES[8]))
 FRAGMENTS = ("macos/source-fragments/CompletedComponentPredecessor.swift.inc",
-             "macos/source-fragments/FullImageInstalledAdapter.swift.inc")
+             "macos/source-fragments/FullImageInstalledAdapter.swift.inc",
+             "macos/source-fragments/BrokerRepairInstalledAdapter.swift.inc")
 ENTRYPOINT = "FullImageUpdateMain.swift"
+REPAIR_ENTRYPOINT = "BrokerRepairMain.swift"
 EXACT_INPUTS = {
+    'macos/BrokerRepairMain.swift': 'e2818e9911a46470f7036026ba8ab5992e7d89c6e4e30a6e07a47578eef48460',
+    'macos/BrokerRepairHistory.swift': '162597fe43479ba7c35e533a779b2766c1f740d6071c988b93aa931c74f06fb4',
+    'macos/BrokerRepairIntent.swift': 'b1a54ef15d3f9c082da7f276e9818f2b46a0d1dbc139b0ba492a7884d7b9a9dd',
+    'macos/BrokerRepairJournal.swift': 'eb1b78d285790d4e5d5a411ae455397c2fe51ebdee83314b7722b3d3867be5cd',
+    'macos/BrokerRepairRoutes.swift': 'b49184efd4298198b16628a526b14253b5a3202a1370018b2a0c3f5b17d1b8aa',
+    'macos/BrokerRepairSource.swift': '4202b1f7e9b2d08c2797037351d745798c0ab9bfcbdf4d0ee4970779c8db3fc0',
     'macos/ComponentUpdate.swift': '05fc4fb9ff5f2e81ddba4ffa8c4fac8ae0006ff8fdfc0b9fb6388c7fea47750a',
-    'macos/source-fragments/CompletedComponentPredecessor.swift.inc': '73bb28db2c204a95a67b8e7ca0cb86cac93f2aa4428bd70c25c4248553cf536d',
-    'macos/source-fragments/FullImageInstalledAdapter.swift.inc': '26c98791a931124bf4fffaf476cbae26b69a7ab8c1f2f61cf89f757f1a1623f3',
+    'macos/ComponentUpdateIdentity.swift': '4c3bf3e29923e0a92ac9bf6a8e9752ec889d61eb26dedbafcf6e788dabd3512e',
+    'macos/ComponentUpdatePolicies.swift': '7aca759f4b9fad195851ce12d81550ec08a0753c43515574c23fc74d247060ab',
+    'macos/FullImageGlobalJournal.swift': '4949ab9c92b230ecea30660c7c1fc3edc7637c5c6e22bbd2bc44bc24c5c13ea4',
     'macos/FullImageInstalledIO.swift': 'e7c5d8652e9bab9ccdf45007c91e0f5d563d5c9e45dd3d6009b9a80b436fa5a0',
+    'macos/FullImagePlan.swift': '476afded52312882b0c0b984ea99bdbfe1c9927563878203d94e95635766d0a1',
     'macos/FullImagePredecessorAuthority.swift': '39a6c5b35ab1614f89983c799dd603b2585b9d219d7b3d7908e73b750209f603',
-    'macos/FullImageUpdateMain.swift': '80e8dff1dfd9aa04396cfc149087763365ebce801b3af42a6ff1bc7741d9ab5d',
-    'macos/Tests/CombinedPredecessorAuthorityChecks.swift': '3902afa5ff6329c56a82368d678b47fbe10ca5a973c54da841c10c52fcb4e8c9',
-    'macos/Tests/FullImagePredecessorAuthorityChecks.swift': '34e940e3d6acc9878c57a1f96ed8cf2f805966db857dbea03e8c8c41b0fb75b4',
-    'macos/Tests/FullImageInstalledSourceFixture.swift': '28c438a2294ef668bf0632089c212c8b7a2706ba5edea5ea0f546504ffa5e514',
-    'macos/Tests/FullImageInstalledChecks.swift': '21d007dce00a58d2d3e691b6382d63de8e005035d4542f58e78c448f9ea7a3ca',
-    'macos/Tests/FullImageNamespaceChecks.swift': '7a09708088f2099c84cb1cbc9c9e18d7127dc44fc1e1a7d89092fe6204ae6e83',
+    'macos/FullImageTransitionStorage.swift': '9f304c22212574a3b50f9edb8045fb45bc5c514feb9ce7580b7cf12a42e6bcaf',
     'macos/FullImageTreeAttachment.swift': '8bb445ede216844f0a32144e99c27a9f06a80b7a76f4e78fbd9f30b65ce22a65',
     'macos/FullImageTreeStorage.swift': 'a23b2ae241933c33ab3de5be309546fd66f2e9b6bc5e5c37b625cfb85ef08547',
-    'macos/FullImageGlobalJournal.swift': '4949ab9c92b230ecea30660c7c1fc3edc7637c5c6e22bbd2bc44bc24c5c13ea4',
-    'macos/Tests/FullImageLegacyGroupChecks.swift': '783c7166faf8844feb90dfe1c35c8a5364bb0c8328a2538ff6ab337bc5ee0992',
+    'macos/FullImageUpdateMain.swift': '80e8dff1dfd9aa04396cfc149087763365ebce801b3af42a6ff1bc7741d9ab5d',
+    'macos/FullImageUpdatePolicies.swift': '67864c4c5226ee467401e1d93ec79e89ba8bb9c5a0e4608a55994e9d26f05416',
+    'macos/InstallationRootBinding.swift': 'bdfd959f69ce60f2c1d573d3e165b97f3303f66d9347f959f0662cf06dad0a58',
+    'macos/InstallerPayload.swift': '03876624a57cfe84d850b1998f636acaa039ce6fd4822d8df60ffeab7cd9c81d',
+    'macos/RootStoreVolumeBinding.swift': '850cae7fd1653e873c3d851953219ceae83b2a96a7c44d2861c4982b63cf0d6a',
+    'macos/RootStoreVolumePublication.swift': '523fcd2507ec5f956178cc1951e55b0882ea385db373f17ea32b4f308c510c15',
+    'macos/StoreVolumeMigration.swift': '8b3a09e4ca91c288182d3f1ef81b9c0fa2f6a2bc0e6ffdfe40e99227633b816b',
+    'macos/StoreVolumeMigrationAuthority.swift': '03d9a2dcd785fd360fcfa7502475edae44981e989a63ec0e277f0a73312d0175',
+    'macos/Tests/BrokerRepairIntentChecks.swift': 'f3dc81b84c635f4ada2987d033996608522dcb1c473a2fe85d8d4e3a1235a405',
+    'macos/Tests/BrokerRepairRecoveryChecks.swift': 'f2010776d5fe80ae7526034dec45dfc1785ca3c96a44693682f406ad86e3970b',
+    'macos/Tests/BrokerRepairSourceChecks.swift': 'ad6def26f6519fdc3d3b4f829ccb79b6c4134a7622983e64aabca3f14c6bb5ac',
+    'macos/Tests/CombinedPredecessorAuthorityChecks.swift': '3902afa5ff6329c56a82368d678b47fbe10ca5a973c54da841c10c52fcb4e8c9',
     'macos/Tests/FullImageGlobalJournalChecks.swift': '9b171692667e3af5d56bed2ba97ae9e584ad03568f6c4e6591ef6033a5cc3433',
+    'macos/Tests/FullImageInstalledChecks.swift': '21d007dce00a58d2d3e691b6382d63de8e005035d4542f58e78c448f9ea7a3ca',
+    'macos/Tests/FullImageInstalledSourceFixture.swift': '28c438a2294ef668bf0632089c212c8b7a2706ba5edea5ea0f546504ffa5e514',
+    'macos/Tests/FullImageLegacyGroupChecks.swift': '783c7166faf8844feb90dfe1c35c8a5364bb0c8328a2538ff6ab337bc5ee0992',
+    'macos/Tests/FullImageNamespaceChecks.swift': '7a09708088f2099c84cb1cbc9c9e18d7127dc44fc1e1a7d89092fe6204ae6e83',
+    'macos/Tests/FullImagePredecessorAuthorityChecks.swift': '34e940e3d6acc9878c57a1f96ed8cf2f805966db857dbea03e8c8c41b0fb75b4',
+    'macos/source-fragments/BrokerRepairInstalledAdapter.swift.inc': 'b094844346077040d5f3f10c4b29b105bd224086865f56bbf21af0afdbfa2c3f',
+    'macos/source-fragments/CompletedComponentPredecessor.swift.inc': '73bb28db2c204a95a67b8e7ca0cb86cac93f2aa4428bd70c25c4248553cf536d',
+    'macos/source-fragments/FullImageInstalledAdapter.swift.inc': '26c98791a931124bf4fffaf476cbae26b69a7ab8c1f2f61cf89f757f1a1623f3',
 }
-COMPOSED_SHA256 = "57db5ab4a3a6500a9881eb78e027ee82bcbb118b9ae1fee9eb771ae719a25645"
+COMPOSED_SHA256 = "76ceaceb91227f9aabf92d9ddc30dd8dba80c695e77a311deab8380c9fb18fc7"
 GUARD_ENV = "ACCOUNT_ACCESS_FULL_IMAGE_PROBE_GUARD"
 DISPATCHER = b'''import Foundation
 import Darwin
@@ -67,12 +96,15 @@ import Darwin
             FullImageNamespaceChecks.main()
             FullImageLegacyGroupChecks.main()
             FullImageGlobalJournalChecks.main()
+            do { try BrokerRepairSourceChecks.main() } catch { exit(78) }
         case "predecessor": CompletedComponentPredecessorChecks.main()
         case "installed": FullImageInstalledChecks.main()
         case "namespace": FullImageNamespaceChecks.main()
         case "legacy-group": FullImageLegacyGroupChecks.main()
         case "global-journal": FullImageGlobalJournalChecks.main()
+        case "broker-repair": do { try BrokerRepairSourceChecks.main() } catch { exit(78) }
         case "entrypoint": FullImageUpdateMain.main()
+        case "repair-entrypoint": BrokerRepairMain.main()
         default: exit(77)
         }
     }
@@ -95,6 +127,11 @@ enum FullImageUpdateCompiledPins {
         targetSourceFiles: [:],
         providerManifestSHA256: String(repeating: "0", count: 64),
         providerSourceBundleSHA256: String(repeating: "0", count: 64))
+}
+enum BrokerRepairCompiledPins {
+    static let value = BrokerRepairSource.Pins(planSHA256: String(repeating: "0", count: 64),
+        predecessorPlanSHA256: String(repeating: "0", count: 64), beforeManifestSHA256: String(repeating: "0", count: 64),
+        afterManifestSHA256: String(repeating: "0", count: 64), sourceCommit: String(repeating: "0", count: 40))
 }
 '''
 
@@ -196,7 +233,7 @@ class Probe:
     def prepare(self):
         names = ["macos/" + name for name in DEPENDENCIES]
         names += ["macos/ComponentUpdate.swift", *FRAGMENTS, "macos/FullImageInstalledIO.swift",
-                  "macos/FullImagePredecessorAuthority.swift", "macos/" + ENTRYPOINT,
+                  "macos/FullImagePredecessorAuthority.swift", "macos/" + ENTRYPOINT, "macos/" + REPAIR_ENTRYPOINT,
                   *("macos/Tests/" + name for name in FIXTURES),
                   "scripts/mac_full_image_installed_probe.py"]
         require(len(names) == len(set(names)), "duplicate_source_input")
@@ -205,8 +242,7 @@ class Probe:
             require(name not in EXACT_INPUTS or digest(raw) == EXACT_INPUTS[name], "reviewed_source_pin_changed")
             self.originals[name] = raw
             self.result["source_sha256"][name] = digest(raw)
-        composed = (self.originals["macos/ComponentUpdate.swift"] + b"\n"
-                    + self.originals[FRAGMENTS[0]] + b"\n" + self.originals[FRAGMENTS[1]])
+        composed = b"\n".join(self.originals[name] for name in ["macos/ComponentUpdate.swift", *FRAGMENTS])
         require(digest(composed) == COMPOSED_SHA256, "source_composition_changed")
         self.result["composition"] = {"inputs": ["macos/ComponentUpdate.swift", *FRAGMENTS],
                                       "separator_hex": "0a", "trimmed": False, "sha256": digest(composed)}
@@ -222,19 +258,20 @@ class Probe:
                 raw = raw.replace(b"@main ", b"", 1)
                 transforms[name] = "Remove only one @main annotation; preserve the complete main body and guards"
             paths.append(self.copy(name, raw))
-        entrypoint = self.originals["macos/" + ENTRYPOINT]
-        require(entrypoint.count(b"@main ") == 1, "entrypoint_main_annotation_changed")
-        paths.append(self.copy(ENTRYPOINT, entrypoint.replace(b"@main ", b"", 1)))
-        transforms[ENTRYPOINT] = "Remove only one @main annotation; preserve the production body and root guard"
+        for name in [ENTRYPOINT, REPAIR_ENTRYPOINT]:
+            entrypoint = self.originals["macos/" + name]
+            require(entrypoint.count(b"@main ") == 1, "entrypoint_main_annotation_changed")
+            paths.append(self.copy(name, entrypoint.replace(b"@main ", b"", 1)))
+            transforms[name] = "Remove only one @main annotation; preserve the production body and root guard"
         paths.append(self.copy("FullImageUpdateCompiledPins.swift", DUMMY_COMPILED_PINS))
         paths.append(self.copy("FullImageInstalledProbe.swift", DISPATCHER))
         self.result["validation_copy_transformations"] = transforms
         self.result["entrypoint_dummy_pins"] = "All-zero hashes/commits and empty source map; ordinary-user refusal only"
         self.result["entrypoint_root_authority_qualified"] = False
-        self.compiler = ["/usr/bin/swiftc", "-Onone", "-D", "ACCOUNT_ACCESS_FULL_IMAGE_INSTALLED_CHECKS",
+        self.compiler = ["/usr/bin/swiftc", "-j", "2", "-Onone", "-D", "ACCOUNT_ACCESS_FULL_IMAGE_INSTALLED_CHECKS",
                          "-D", "ACCOUNT_ACCESS_COMPONENT_PREDECESSOR_CHECKS", "-D",
                          "ACCOUNT_ACCESS_COMPONENT_PREDECESSOR_FIXTURE_MAIN", "-D",
-                         "ACCOUNT_ACCESS_FULL_IMAGE_UPDATE_MAIN", *paths,
+                         "ACCOUNT_ACCESS_FULL_IMAGE_UPDATE_MAIN", "-D", "ACCOUNT_ACCESS_BROKER_REPAIR_MAIN", *paths,
                          "-o", str(self.output / "installed-probe")]
         self.result["compiler_command"] = self.compiler
         write_file(self.root_fd, "source-freeze.json", encoded({**self.result, "status": "SOURCE_FROZEN",
@@ -333,7 +370,7 @@ class Probe:
         code, stdout, stderr = self.run([binary], "runtime", RUNTIME_SECONDS)
         require(code == 0 and stderr == b"", "native_fixture_failed")
         reports = [json.loads(line) for line in stdout.decode("utf-8").splitlines() if line.startswith("{")]
-        require(len(reports) == 5 and all(report.get("status") == "PASSED" for report in reports[:4]), "fixture_reports_refused")
+        require(len(reports) == 6 and all(report.get("status") == "PASSED" for report in reports[:4]), "fixture_reports_refused")
         require(reports[0].get("count") == 142 and isinstance(reports[0].get("checks"), dict)
                 and len(reports[0]["checks"]) == 142 and all(value is True for value in reports[0]["checks"].values())
                 and reports[1].get("checks") == 142, "fixture_assertion_count_changed")
@@ -341,7 +378,7 @@ class Probe:
         require((namespace.get("checks"), namespace.get("supplemental_group_case")) in {
             (18, "UNAVAILABLE_NO_DISTINCT_GROUP"),
             (24, "PASSED_INHERITED_DIFFERENT_GROUP_CORRECTED_ONLY_ON_NEW_INODE")}, "namespace_report_refused")
-        legacy, journal = reports[3:]
+        legacy, journal, repair = reports[3:]
         require(legacy.get("checks") == 63 and legacy.get("ordinary_temp_only") is True
                 and legacy.get("supplemental_group_case") == "PASSED_DISTINCT_OLD_AND_NEW_GROUPS"
                 and legacy.get("optional_polarities") == 2 and legacy.get("recovery_polarities") == 3,
@@ -349,13 +386,18 @@ class Probe:
         require(journal == {"status": "FULL_IMAGE_DURABLE_JOURNAL_CHECKS_PASSED", "assertions": 153,
                             "installed_or_provider_operations": False}
                 and journal["installed_or_provider_operations"] is False, "global_journal_report_refused")
+        require(repair == {"schema": 1, "status": "PASSED", "source_assertions": 54, "recovery_assertions": 49, "transaction_assertions": 74,
+                           "installed_reads": False, "payload_executed": False, "production_ready": False}
+                and type(repair["schema"]) is int
+                and all(repair[key] is False for key in ("installed_reads", "payload_executed", "production_ready")),
+                "broker_repair_report_refused")
         require(all(report.get(key) is False for report in reports[:4]
                     for key in ["installed_reads", "root_execution", "service_actions", "production_ready"]),
                 "fixture_scope_report_refused")
         self.result["reports"] = reports
         self.result["supplemental_group_case"] = namespace["supplemental_group_case"]
         self.result["stage"] = "guarded-main-refusal"
-        for guard in ["predecessor", "installed", "namespace", "legacy-group", "global-journal"]:
+        for guard in ["predecessor", "installed", "namespace", "legacy-group", "global-journal", "broker-repair"]:
             code, stdout, stderr = self.run([binary, "--unexpected-argument"], "guard-" + guard, 10, guard=guard)
             require(code == 77 and stdout == stderr == b"", "guarded_main_refusal_failed")
         self.result["stage"] = "ordinary-updater-entrypoint-refusal"
@@ -365,9 +407,15 @@ class Probe:
                 "ordinary_updater_entrypoint_refusal_failed")
         self.result["entrypoint_ordinary_refusal"] = {"exit_code": 78, "normal_argv": True,
                                                      "reason": "full_image_update_context_required"}
+        code, stdout, stderr = self.run([binary], "repair-entrypoint-ordinary", 10, guard="repair-entrypoint")
+        require(code == 78 and stderr == b"" and stdout ==
+                b'{"schema":1,"status":"REFUSED","reason":"broker_repair_installer_context_required"}\n',
+                "ordinary_broker_repair_entrypoint_refusal_failed")
+        self.result["repair_entrypoint_ordinary_refusal"] = {"exit_code": 78, "normal_argv": True,
+                                                           "reason": "broker_repair_installer_context_required"}
         self.stable()
         self.result.update(status="PASSED", stage="complete", sources_stable=True,
-                           combined_compile_count=1, guarded_main_refusals=5)
+                           combined_compile_count=1, guarded_main_refusals=6)
 
     def save(self):
         if self.root_fd >= 0:
