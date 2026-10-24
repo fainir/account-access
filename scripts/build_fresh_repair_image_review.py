@@ -70,7 +70,8 @@ def guard(*, build):
 def validate_request(value):
     require(type(value) is dict and type(value.get("schema")) is int
         and value.get("production_ready") is False
-        and value == {"schema": 1, "status": "BUILD_ONLY_NO_INSTALL_OR_PUBLICATION",
+        and type(value.get("build_attempt")) is int
+        and value == {"schema": 1, "build_attempt": 2, "status": "BUILD_ONLY_NO_INSTALL_OR_PUBLICATION",
         "packaging_source": PACKAGING_SOURCE, "repair_source": SOURCE,
         "app_source": APP_SOURCE, "broker_compilation_source": BROKER_SOURCE,
         "before_manifest_sha256": BEFORE, "target_manifest_sha256": AFTER,
@@ -162,6 +163,16 @@ def materialize(scripts, target, inventory):
     return after
 
 
+def verify_repair_inventory(repository, scripts, expected):
+    # Repair's frozen inventory includes an empty-ACL assertion on every node.
+    # Use its original reader/schema; the fresh-package reader has a different
+    # schema and permits a deny-only ACL for its exclusive output directory.
+    helper = runpy.run_path(str(repository / "scripts/mac_component_update_installer_probe.py"))
+    repair = runpy.run_path(str(repository / "scripts/mac_full_image_installer_probe.py"))
+    repair["inventory"].__globals__["h"] = SimpleNamespace(**helper)
+    require(repair["inventory"](scripts) == expected)
+
+
 def build(repository, bundle, output):
     guard(build=True)
     rows, _ = inputs(repository)
@@ -188,7 +199,8 @@ def build(repository, bundle, output):
         helper = runpy.run_path(str(repository / "scripts/mac_component_update_installer_probe.py"))
         probe = runpy.run_path(str(repository / "scripts/mac_fresh_image_installer_probe.py"))
         probe["inventory"].__globals__["h"] = SimpleNamespace(**helper)
-        require(probe["inventory"](expanded / "Scripts") == json.loads((bundle / "repair-scripts-inventory.json").read_bytes()))
+        verify_repair_inventory(repository, expanded / "Scripts",
+            json.loads((bundle / "repair-scripts-inventory.json").read_bytes()))
         archive = output / "packaging-source.tar.gz"
         archive.write_bytes(command(["git", "archive", "--format=tar.gz", PACKAGING_SOURCE], cwd=repository))
         packaging.mkdir()

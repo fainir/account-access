@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import runpy
 import shutil
+import sys
 
 import pytest
 
@@ -122,3 +123,25 @@ def test_frozen_request_and_each_identity_pin():
         changed = not value if isinstance(value, bool) else "changed"
         with pytest.raises(ValueError, match="fresh_repair_image_build_refused"):
             module["validate_request"]({**request, key: changed})
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="native public-package ACL reader")
+def test_repair_inventory_checks_empty_acl_schema_and_exact_bytes(tmp_path):
+    module = controller()
+    scripts = tmp_path / "scripts"
+    scripts.mkdir(mode=0o755)
+    (scripts / "postinstall").write_bytes(b"fictional public package")
+    (scripts / "postinstall").chmod(0o755)
+    expected = {
+        "": {"kind": "directory", "mode": 0o755, "acl": "empty"},
+        "postinstall": {"kind": "file", "mode": 0o755, "acl": "empty",
+            "bytes": 24, "sha256": hashlib.sha256(b"fictional public package").hexdigest()},
+    }
+    module["verify_repair_inventory"](ROOT, scripts, expected)
+    for changed in ({k: {a: b for a, b in v.items() if a != "acl"} for k, v in expected.items()},
+                    {**expected, "": {**expected[""], "acl": "deny-only"}}):
+        with pytest.raises(ValueError):
+            module["verify_repair_inventory"](ROOT, scripts, changed)
+    (scripts / "postinstall").write_bytes(b"altered public package!!")
+    with pytest.raises(ValueError):
+        module["verify_repair_inventory"](ROOT, scripts, expected)

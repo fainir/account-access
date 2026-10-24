@@ -1,5 +1,6 @@
 {
   "schema": 1,
+  "build_attempt": 2,
   "status": "BUILD_ONLY_NO_INSTALL_OR_PUBLICATION",
   "packaging_source": "39b3bfbfe6b5ceb3fccb0f635b806220ae11007b",
   "repair_source": "c4cf1b0918c1a51cbd4a38880364fcb71fa5980e",
