@@ -80,6 +80,7 @@ def main():
         if scratch is not None:
             scratch.cleanup()
         output.write("report.json", c["encoded"](report))
+        output.publish()
         output.close()
 
 
