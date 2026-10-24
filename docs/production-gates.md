@@ -35,6 +35,21 @@ public image also remains unqualified.
 
 ### Broker store repair candidate — 24 October 2026
 
+Package **91** is the next candidate, built from `6d47154`. It accepts store
+registration in the original installation epoch or the original component epoch,
+which must be independently recovered by the completed-component verifier under
+the repair's maintenance locks. It still checks the exact predecessor evidence,
+volume receipt, directory order, inodes and owner approval. More precise closed
+migration diagnostics contain no protected values. Its package SHA-256 is
+`ed747b1ce30364f42c9d1b4f702d098722cec10eee7a97a3618f7cae2ba12d80`.
+Native checks passed (159 predecessor, 351 installed-adapter, 343 core), along
+with 212 focused Python checks. The owner-90 failure's precise predicate remains
+unconfirmed. Installer qualification must include an actual package-90 failure
+and package-91 recovery of that same rollback in a fictional later-enrollment
+fixture, plus the three existing scenarios. Owner retry is not yet offered.
+[Source qualification](../artifacts/repair91-component-epoch-source-20261024.json) ·
+[Package review](../artifacts/broker-repair-package91-20261024.json).
+
 The next controller removes redundant recovery-view and operation-state walks
 only when reading an already completed predecessor. Both full new-image
 verification passes remain, around the completion evidence read; the head is

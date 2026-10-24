@@ -103,12 +103,12 @@ def test_closed_controller_profiles_preserve_frozen_payload_source():
     assert selected["controller_source"] == "4807187226c9701ca615634c2ad570f343dccc91"
     assert selected["identifier"] == "com.fainir.accountaccess.brokerrepair90"
     assert selected["download"] == "download_broker_repair_progress_inputs.py"
-    for invalid in (True, "88", 86, 89, 91, None, {}):
+    for invalid in (True, "88", 86, 89, 92, None, {}):
         with pytest.raises(ValueError):
             PROBE["profile"](invalid)
 
 
-@pytest.mark.parametrize("cohort", [87, 88, 90])
+@pytest.mark.parametrize("cohort", [87, 88, 90, 91])
 def test_review_separates_controller_and_unchanged_public_image(cohort):
     selected = PROBE["profile"](cohort)
     review = {"status": "BUILT_PENDING_INSTALLER_QA", "source_commit": PROBE["SOURCE"],
@@ -170,6 +170,63 @@ def test_workflow_has_no_token_on_mac_and_three_scenarios():
     workflow = yaml.safe_load((ROOT / ".github/workflows/mac-broker-repair87-installer-review.yml").read_text())
     mac = workflow["jobs"]["actual-installer"]
     assert mac["permissions"] == {"contents": "read"}
-    assert set(mac["strategy"]["matrix"]["scenario"]) == PROBE["SCENARIOS"]
+    assert set(mac["strategy"]["matrix"]["scenario"]) == PROBE["SCENARIOS"] - {"later-enrollment"}
     assert "GH_TOKEN" not in json.dumps(mac)
     assert all(step.get("with", {}).get("persist-credentials") is False for step in mac["steps"] if "checkout@" in step.get("uses", ""))
+
+
+def test_component_epoch_fixture_refuses_owner_host_before_reads(monkeypatch):
+    monkeypatch.setattr(PROBE["os"], "geteuid", lambda: 501)
+    with pytest.raises(ValueError):
+        PROBE["fictional_component_epoch"]({}, {})
+
+
+def test_later_enrollment_requires_old_failure_and_successful_recovery():
+    value = passing()
+    value.update(scenario="later-enrollment", repair_cohort=91)
+    assert not PROBE["acceptance_passed"](value)
+    regression = dict.fromkeys(("package90_migration_refused", "five_changes_restored",
+        "binding_and_head_absent", "original_metadata_preserved", "package91_recovered_same_transition"), True)
+    value["old_repair_regression"] = regression
+    assert PROBE["acceptance_passed"](value)
+    for key in regression:
+        value["old_repair_regression"] = {**regression, key: False}
+        assert not PROBE["acceptance_passed"](value)
+
+
+def test_component_epoch_changes_only_historical_device_values(monkeypatch):
+    operation = {"device": 10, "inode": 99, "mode": 384, "bytes": 20, "sha256": "a" * 64}
+    value = {"schema": 1, "planSHA256": "b" * 64, "workerPolicy": operation,
+        "servicePlist": operation, "operations": [{"after": operation, "before": operation} for _ in range(13)]}
+    fn = PROBE["component_epoch_intent"]
+    monkeypatch.setitem(fn.__globals__, "f", SimpleNamespace(COMPONENT_PLAN="b" * 64))
+    raw = json.dumps(value).encode()
+    changed, epoch = fn(raw, 10)
+    assert epoch == 12
+    expected = json.loads(raw)
+    for item in [expected["workerPolicy"], expected["servicePlist"],
+                 *(o[k] for o in expected["operations"] for k in ("before", "after"))]:
+        item["device"] = 12
+    assert json.loads(changed) == expected
+    for device in (True, -1, 2**31-2, 11):
+        with pytest.raises(ValueError):
+            fn(raw, device)
+    altered = json.loads(raw)
+    altered["workerPolicy"]["device"] = 11
+    with pytest.raises(ValueError):
+        fn(json.dumps(altered).encode(), 10)
+
+
+def test_later_enrollment_workflow_keeps_action_pins_and_requires_old_package():
+    import yaml
+    base = yaml.safe_load((ROOT / ".github/workflows/mac-broker-repair90-installer-review.yml").read_text())
+    current = yaml.safe_load((ROOT / ".github/workflows/mac-broker-repair91-installer-review.yml").read_text())
+    mac = current["jobs"]["actual-installer"]
+    assert set(mac["strategy"]["matrix"]["scenario"]) == PROBE["SCENARIOS"]
+    assert mac["permissions"] == {"contents": "read"}
+    for name, job in current["jobs"].items():
+        assert [s["uses"] for s in job["steps"] if "uses" in s] == [
+            s["uses"] for s in base["jobs"][name]["steps"] if "uses" in s]
+    assert "--previous-repair" in next(s["run"] for s in mac["steps"] if "run" in s)
+    downloads = current["jobs"]["download-reviewed-inputs"]
+    assert "download_broker_repair_progress_inputs.py" in next(s["run"] for s in downloads["steps"] if "run" in s)

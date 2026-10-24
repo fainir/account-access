@@ -10,13 +10,13 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 
 
-@pytest.fixture(params=[88, 90])
+@pytest.fixture(params=[88, 90, 91])
 def cohort(request):
     return request.param
 
 
 def downloader(cohort=88):
-    name = "restart" if cohort == 88 else "progress"
+    name = {88: "restart", 90: "progress", 91: "epoch"}[cohort]
     return runpy.run_path(str(ROOT / f"scripts/download_broker_repair_{name}_inputs.py"))
 
 
@@ -90,7 +90,8 @@ def test_restart_workflow_is_guarded_and_tests_all_three_scenarios(cohort):
     job = value["jobs"]["actual-installer"]
     assert job["permissions"] == {"contents": "read"}
     assert job["strategy"]["fail-fast"] is False
-    assert set(job["strategy"]["matrix"]["scenario"]) == {"install-reapply", "interrupt-broker", "foreign-binding"}
+    assert set(job["strategy"]["matrix"]["scenario"]) == ({"install-reapply", "interrupt-broker", "foreign-binding"}
+        | ({"later-enrollment"} if cohort == 91 else set()))
     assert "GH_TOKEN" not in json.dumps(job)
     assert f"--cohort {cohort}" in json.dumps(job)
     assert all(step.get("with", {}).get("persist-credentials") is False
@@ -103,4 +104,4 @@ def test_successor_workflow_preserves_reviewed_action_versions():
         value = yaml.safe_load((ROOT / f".github/workflows/mac-broker-repair{cohort}-installer-review.yml").read_text())
         return [(name, step["uses"]) for name, job in value["jobs"].items()
                 for step in job["steps"] if "uses" in step]
-    assert actions(90) == actions(88)
+    assert actions(91) == actions(90) == actions(88)

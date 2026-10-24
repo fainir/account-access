@@ -27,7 +27,7 @@ PLAN = "3741aae23c6c23c9da33ae233d0657800454514042d59cba951e7bbf7d1d8ec1"
 BEFORE = "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da"
 AFTER = "5a732de4623ba50aefa6d31c54e7b1eae660b2921341f95042c5675d922d808b"
 NAMESPACE = Path("/Library/Application Support/Account Access Broker Repair")
-SCENARIOS = {"install-reapply", "interrupt-broker", "foreign-binding"}
+SCENARIOS = {"install-reapply", "interrupt-broker", "foreign-binding", "later-enrollment"}
 CHECKS = {"fresh_predecessor_acceptance", "pinned_assets_and_sources", "exact_repair_resources", "native_signatures",
           "actual_full_image_installer", "completed_full_image", "fictional_legacy_publication",
           "scenario_exercised", "expected_public_image", "original_metadata_preserved",
@@ -35,6 +35,7 @@ CHECKS = {"fresh_predecessor_acceptance", "pinned_assets_and_sources", "exact_re
 ENV = {"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "LANG": "C", "LC_ALL": "C"}
 CONTROLLER88 = "eba805729025caa1dc0754112e21d6d5592e0113"
 CONTROLLER90 = "4807187226c9701ca615634c2ad570f343dccc91"
+CONTROLLER91 = "6d471547f1a58135aae6cfe3a8417dae66373f78"
 
 
 def require(value):
@@ -43,11 +44,12 @@ def require(value):
 
 
 def profile(cohort):
-    require(type(cohort) is int and cohort in {87, 88, 90})
-    sources = {87: SOURCE, 88: CONTROLLER88, 90: CONTROLLER90}
+    require(type(cohort) is int and cohort in {87, 88, 90, 91})
+    sources = {87: SOURCE, 88: CONTROLLER88, 90: CONTROLLER90, 91: CONTROLLER91}
     downloads = {87: "download_broker_repair_installer_inputs.py",
                  88: "download_broker_repair_restart_inputs.py",
-                 90: "download_broker_repair_progress_inputs.py"}
+                 90: "download_broker_repair_progress_inputs.py",
+                 91: "download_broker_repair_epoch_inputs.py"}
     return {"cohort": cohort, "controller_source": sources[cohort],
             "identifier": f"com.fainir.accountaccess.brokerrepair{cohort}",
             "download": downloads[cohort]}
@@ -94,7 +96,12 @@ def acceptance_passed(report):
             and report.get("production_ready") is False
             and (report.get("scenario") != "foreign-binding" or report.get("foreign_binding_rollback") == {
                 "verified_attempts": 2, "applied_per_attempt": 5, "restored_per_attempt": 5,
-                "head_published": False}))
+                "head_published": False})
+            and (report.get("scenario") != "later-enrollment" or (
+                report.get("repair_cohort") == 91 and report.get("old_repair_regression") == {
+                    "package90_migration_refused": True, "five_changes_restored": True,
+                    "binding_and_head_absent": True, "original_metadata_preserved": True,
+                    "package91_recovered_same_transition": True})))
 
 
 def verify_rollback_events(events, attempts):
@@ -138,7 +145,61 @@ def create_file(path, data, mode=0o600, uid=0):
         os.close(fd)
 
 
-def fictional_publication(report, predecessor):
+def component_epoch_intent(raw, current_device):
+    """Pure fictional transformation; only device fields change, never inodes."""
+    require(type(current_device) is int and 0 <= current_device < 2**31 - 3)
+    value = json.loads(raw)
+    require(type(value.get("schema")) is int and value["schema"] == 1 and value.get("planSHA256") == f.COMPONENT_PLAN
+            and type(value.get("operations")) is list and len(value["operations"]) == 13)
+    epoch = current_device + 2
+    objects = [value["workerPolicy"], value["servicePlist"]]
+    for operation in value["operations"]:
+        objects.append(operation["after"])
+        if operation.get("before") is not None:
+            objects.append(operation["before"])
+    for item in objects:
+        require(type(item) is dict and set(item) == {"device", "inode", "mode", "bytes", "sha256"}
+                and type(item["device"]) is int and item["device"] == current_device)
+        item["device"] = epoch
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode(), epoch
+
+
+def fictional_component_epoch(report, predecessor):
+    """Only this run's freshly accepted empty hosted VM can reach the write."""
+    guard()
+    require(report.get("repair_cohort") == 91 and report.get("scenario") == "later-enrollment"
+            and report.get("personal_accounts_used") == 0
+            and report["checks"].get("fresh_predecessor_acceptance") is True
+            and report["checks"].get("actual_full_image_installer") is False
+            and predecessor.get("environment") == "fresh-hosted-mac-actual-installer"
+            and predecessor.get("personal_accounts_used") == 0 and predecessor.get("enrollment_attempted") is False
+            and h.acceptance_passed(predecessor) and not os.path.lexists(f.FULL)
+            and not os.path.lexists(NAMESPACE))
+    path = h.COMPONENTS / ("transition-" + f.COMPONENT_PLAN) / "intent.json"
+    raw = h.read_file(path, maximum=65536)
+    original = path.lstat()
+    h.protected_metadata(original, mode=0o600, directory=False)
+    changed, epoch = component_epoch_intent(raw, original.st_dev)
+    require(0 < len(changed) <= 65536)
+    fd = os.open(path, os.O_WRONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+    try:
+        require(h.stamp(os.fstat(fd)) == h.stamp(original) == h.stamp(path.lstat()))
+        os.ftruncate(fd, 0)
+        offset = 0
+        while offset < len(changed):
+            count = os.write(fd, changed[offset:])
+            require(count > 0)
+            offset += count
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+    require(h.read_file(path, maximum=65536) == changed and path.lstat().st_ino == original.st_ino)
+    report["component_epoch_fixture"] = {"fresh_empty_vm_only": True, "only_component_intent_devices_changed": True,
+        "original_sha256": digest(raw), "fictional_sha256": digest(changed), "physical_reboot_tested": False}
+    return epoch
+
+
+def fictional_publication(report, predecessor, *, component_epoch=None):
     guard()
     require(predecessor.get("status") == "PASSED" and h.acceptance_passed(predecessor)
             and all(predecessor["root_revalidation_checks"].values())
@@ -179,6 +240,11 @@ def fictional_publication(report, predecessor):
     require(lock.stat().st_size == 0)
     legacy = json.loads(h.read_file(h.JOURNAL / "ready.json"))["roots"][str(h.BASE)][0]
     require(legacy != parent.stat().st_dev and legacy == parent.stat().st_dev + 1)
+    if component_epoch is not None:
+        require(report.get("repair_cohort") == 91 and report.get("scenario") == "later-enrollment"
+                and report.get("component_epoch_fixture", {}).get("only_component_intent_devices_changed") is True
+                and type(component_epoch) is int and component_epoch == parent.stat().st_dev + 2)
+        legacy = component_epoch
     record = {"schema": 1, "vault": vault, "enrollment": enrollment, "stage": stage.name, "destination": "data",
         "uid": uid, "gid": uid, "stagedIdentity": {"device": legacy, "inode": data.stat().st_ino},
         "emptyIdentity": {"device": legacy, "inode": stage.stat().st_ino}}
@@ -254,6 +320,7 @@ def run(args):
     guard()  # Before any file read or installed-state access.
     require(args.scenario in SCENARIOS)
     selected = profile(getattr(args, "cohort", 87))
+    require(args.scenario != "later-enrollment" or selected["cohort"] == 91)
     revision = os.environ["GITHUB_SHA"]
     global h, f
     h_path = args.repository / "scripts/mac_component_update_installer_probe.py"
@@ -297,6 +364,14 @@ def run(args):
                                             (args.repair, extra, download["FILES"])):
                 for name in names:
                     h.stage_file(folder / name, stage / name, contract["assets"][name]["sha256"], 1024**3)
+            if args.scenario == "later-enrollment":
+                prior = runpy.run_path(str(args.repository / "scripts/download_broker_repair_progress_inputs.py"))
+                prior_raw = (args.previous_repair / "asset-contract.json").read_bytes()
+                require(prior_raw == h.git_bytes(args.repository, ["show", revision + ":" + prior["CONTRACT"]], maximum=65536))
+                prior_contract = prior["validate"](f.decode(prior_raw))
+                verify_assets(args.previous_repair, prior_contract, prior["FILES"], f.hash_file)
+                h.stage_file(args.previous_repair / "repair.pkg", stage / "previous-repair.pkg",
+                    prior_contract["assets"]["repair.pkg"]["sha256"], 1024**3)
             def command(arguments, log, timeout=120, check=True):
                 return h.command(arguments, report=report, output=output, log=log, timeout=timeout, check=check)
             def install(name, label, expected=0):
@@ -355,6 +430,7 @@ def run(args):
             predecessor = json.loads(h.read_file(h.report_path(rid), maximum=256 * 1024))
             require(predecessor["status"] == "PASSED" and h.acceptance_passed(predecessor))
             report["checks"]["fresh_predecessor_acceptance"] = True
+            component_epoch = fictional_component_epoch(report, predecessor) if args.scenario == "later-enrollment" else None
             command(["/bin/launchctl", "bootstrap", "system", str(h.JOB)], "predecessor-bootstrap.log")
             report["failure_stage"] = "actual_full_image_installer"
             install("full.pkg", "full-installer")
@@ -366,13 +442,26 @@ def run(args):
             report["checks"]["completed_full_image"] = True
             report["failure_stage"] = "fictional_publication"
             command(["/bin/launchctl", "bootout", "system/" + h.LABEL], "fixture-bootout.log")
-            journal, sentinel, uid, preserved = fictional_publication(report, predecessor)
+            journal, sentinel, uid, preserved = fictional_publication(report, predecessor, component_epoch=component_epoch)
             binding = journal / "volume-v1.json"
             if args.scenario == "foreign-binding":
                 create_file(binding, b'{"schema":1,"foreign":true}')
                 foreign = snapshot(binding)
             command(["/bin/launchctl", "bootstrap", "system", str(h.JOB)], "fixture-bootstrap.log")
             report["checks"]["fictional_legacy_publication"] = True
+            if args.scenario == "later-enrollment":
+                report["failure_stage"] = "old_repair_regression"
+                previous = install("previous-repair.pkg", "previous-repair", 1)
+                daemon = h.read_file(h.report_path(rid + suffix).parent / "previous-repair-daemon.log", maximum=4 * 1024**2)
+                refusal = b'{"schema":1,"status":"REFUSED","reason":"component_base_not_verified","checkpoint":"migration"}'
+                require(refusal in previous.stdout + previous.stderr + daemon)
+                h.verify_image(f.decode((scripts / "BaseManifest.json").read_bytes()))
+                read_rollback_evidence(1)
+                require(not os.path.lexists(binding) and h.policies() == original_policy
+                        and preserved_publication(journal, sentinel, uid) == preserved and f.public_evidence() == retained)
+                report["old_repair_regression"] = {"package90_migration_refused": True, "five_changes_restored": True,
+                    "binding_and_head_absent": True, "original_metadata_preserved": True,
+                    "package91_recovered_same_transition": False}
             report["failure_stage"] = "repair_scenario"
             if args.scenario == "interrupt-broker":
                 f.normalize_owned_resource_ancestors(stage)
@@ -401,6 +490,8 @@ def run(args):
             require(preserved_publication(journal, sentinel, uid) == preserved and f.public_evidence() == retained
                     and f.completed_history(f.CONFIGURATION_PINS) == full_head)
             report["checks"]["original_metadata_preserved"] = True
+            if args.scenario == "later-enrollment":
+                report["old_repair_regression"]["package91_recovered_same_transition"] = True
             stable = {"binding": snapshot(binding), "broker": snapshot(h.BASE / "bin/AccountAccess-broker", maximum=16 * 1024**2),
                 "owner": snapshot(h.BASE / "owner.json"), "install": snapshot(h.BASE / "broker/install.json")}
             if not foreign_case:
@@ -451,8 +542,9 @@ def main():
     parser.add_argument("--repository", type=Path, required=True)
     parser.add_argument("--bundle", type=Path, required=True)
     parser.add_argument("--repair", type=Path, required=True)
+    parser.add_argument("--previous-repair", type=Path)
     parser.add_argument("--scenario", choices=sorted(SCENARIOS), required=True)
-    parser.add_argument("--cohort", type=int, choices=[87, 88, 90], default=87)
+    parser.add_argument("--cohort", type=int, choices=[87, 88, 90, 91], default=87)
     args = parser.parse_args()
     try:
         return run(args)
