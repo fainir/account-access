@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import runpy
 import signal
+import stat
 import subprocess
 import time
 import xml.etree.ElementTree as ET
@@ -28,6 +29,38 @@ def acceptance_passed(value):
             and set(value.get("checks", {})) == CHECKS and all(v is True for v in value["checks"].values())
             and value.get("production_ready") is False and value.get("real_account_login_tested") is False
             and value.get("installed_owner_machine") is False and value.get("failure_stage") is None)
+
+
+def normalize_expansion(controller, stage):
+    """Normalize only this fresh VM's independently verified package expansion."""
+    controller.guard()
+    f, h, require = controller.f, controller.h, controller.require
+    f.verify_owned_stage(stage)
+    fd = os.open(stage, f.DIRECTORY)
+    try:
+        # Both names are fixed here; no installed path or caller-selected
+        # descendant can be normalized through this fixture seam.
+        for name in ("runtime-upgrade-expanded", "Scripts"):
+            child = os.open(name, f.DIRECTORY, dir_fd=fd)
+            try:
+                before = os.fstat(child)
+                require(stat.S_ISDIR(before.st_mode) and not before.st_mode & 0o7022
+                        and h.stamp(before) == h.stamp(os.stat(name, dir_fd=fd, follow_symlinks=False)))
+                f.empty_acl(child)
+                if (before.st_uid, before.st_gid) != (0, 0):
+                    os.fchown(child, 0, 0)
+                    os.fsync(child)
+                after = os.fstat(child)
+                require(after.st_uid == after.st_gid == 0
+                        and h.stamp(after) == h.stamp(os.stat(name, dir_fd=fd, follow_symlinks=False)))
+            except Exception:
+                os.close(child)
+                raise
+            os.close(fd)
+            fd = child
+    finally:
+        os.close(fd)
+    f.verify_owned_stage(stage)
 
 
 def run(*, controller, args, stage, report, output, command, publication=None):
@@ -74,8 +107,13 @@ def run(*, controller, args, stage, report, output, command, publication=None):
             and info.find("scripts/postinstall").attrib == {"file": "./postinstall", "timeout": "1800"})
     scripts = expanded / "Scripts"
     expected_inventory = f.decode(h.read_file(stage / "upgrade-scripts-inventory.json", maximum=32 * 1024**2))
-    require(f.inventory(scripts) == expected_inventory
-            and c.digest(h.read_file(scripts / "RuntimeUpgradePlan.json", maximum=34 * 1024**2)) == PLAN
+    require(f.inventory(scripts) == expected_inventory)
+    # pkgutil preserves archive ownership. Qualify all bytes first, then apply
+    # the existing root-only fixture normalization inside our exclusive scratch
+    # tree. Actual Installer performs a separate extraction for installation.
+    normalize_expansion(c, stage)
+    require(f.inventory(scripts, normalize=True) == expected_inventory)
+    require(c.digest(h.read_file(scripts / "RuntimeUpgradePlan.json", maximum=34 * 1024**2)) == PLAN
             and c.digest(h.read_file(scripts / "TargetManifest.json", maximum=16 * 1024**2)) == AFTER)
     result["checks"]["fixed_inputs"] = True
     command(["/usr/bin/codesign", "--verify", "--strict", "-R=anchor apple generic and identifier "
@@ -103,8 +141,6 @@ def run(*, controller, args, stage, report, output, command, publication=None):
         finally:
             delta.capture(report=report, output=output, log=label + "-daemon.log")
     if args.runtime_scenario != "install-reapply":
-        f.normalize_owned_resource_ancestors(stage)
-        f.inventory(scripts, normalize=True)
         selected = "owner.app" if args.runtime_scenario == "interrupt-owner" else "runtime"
         target = h.BASE / selected
         old_inode = target.lstat().st_ino

@@ -53,6 +53,8 @@ def test_host_guard_precedes_all_paths_and_callbacks():
         raise Refused()
     with pytest.raises(Refused):
         probe["run"](controller=SimpleNamespace(guard=guard), args=None, stage=None, report=None, output=None, command=None)
+    with pytest.raises(Refused):
+        probe["normalize_expansion"](SimpleNamespace(guard=guard), None)
 
 
 def test_fixed_download_contract_refuses_every_changed_asset_identity():

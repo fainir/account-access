@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "source": "32dc10e3ed4ec6d1992be326b4c4a55b2ff012f6",
+  "run_id": 40118701349,
+  "job_id": 120945358484,
+  "artifact_id": 12570089644,
+  "artifact_bytes": 1819422,
+  "artifact_sha256": "b7bf3b032aced1a305e473305b55977862a3edbe628cb41a222a08c14a3a2e51",
+  "report_sha256": "86178bdd0a012856f65309d8669996ba2738f54a7625e83ffee6a65b362037f1",
+  "checks": 68,
+  "entrypoint_ordinary_refusal": true,
+  "controller_sources_match_package93": true,
+  "installed_reads": false,
+  "production_ready": false
+}
