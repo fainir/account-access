@@ -230,7 +230,8 @@ def probe(prefix, roles, worker, policy, phase, *, client_config=None):
         # This harness is also executed as an isolated standalone script; it
         # cannot import a sibling script through a user-controlled search path.
         diagnostic_stages = {"account_discovery", "revoked_read", "ungranted_read", "boundary_checks",
-                             "demo-api", "demo-web", "demo-mfa", "example-email", "example-sms", "native-sms"}
+                             "demo-api", "demo-web", "demo-mfa", "example-email", "example-sms", "native-sms",
+                             "native-sms-recover", "native-sms-retry-check", "native-sms-task-submit", "native-sms-task-wait"}
         safe_reasons = {"browser_guard_unavailable", "internal_error", "service_unavailable", "worker_unavailable",
                        "login_failed", "verification_code_unavailable", "invalid_credentials", "request_failed",
                        "browser_execution_failed", "login_code_not_received", "verification_code_rejected",
@@ -239,10 +240,12 @@ def probe(prefix, roles, worker, policy, phase, *, client_config=None):
         # Closed fixture labels only. Never copy raw CLI/provider output.
         if result.get("stage") in diagnostic_stages:
             stage("probe_" + result["stage"])
-        if result.get("operation_status") in {"COMPLETED", "DENIED", "NEEDS_USER", "RETRYABLE", "OK"}:
+        if result.get("operation_status") in {"COMPLETED", "DENIED", "NEEDS_USER", "RETRYABLE", "OK", "QUEUED", "RUNNING", "FAILED"}:
             stage("operation_" + result["operation_status"])
         if result.get("operation_reason") in safe_reasons:
             stage(result["operation_reason"])
+        if result.get("wait_timed_out") is True:
+            stage("task_wait_timed_out")
         raise RuntimeError("fixture_boundary_probe_failed")
     assert result["status"] == "PASSED", "fixture_boundary_probe_failed"
     return result["checks"]

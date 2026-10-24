@@ -17,7 +17,10 @@ import sys
 
 
 ACCOUNTS = ("demo-api", "demo-web", "demo-mfa", "example-email", "example-sms")
-DIAGNOSTIC_STAGES = {"account_discovery", "revoked_read", "ungranted_read", "boundary_checks", *ACCOUNTS, "native-sms", "native-sms-recover"}
+DIAGNOSTIC_STAGES = {"account_discovery", "revoked_read", "ungranted_read", "boundary_checks", *ACCOUNTS,
+                     "native-sms", "native-sms-recover", "native-sms-retry-check",
+                     "native-sms-task-submit", "native-sms-task-wait"}
+DIAGNOSTIC_STATUSES = {"COMPLETED", "DENIED", "NEEDS_USER", "RETRYABLE", "OK", "QUEUED", "RUNNING", "FAILED"}
 SAFE_REASONS = {"browser_guard_unavailable", "internal_error", "service_unavailable", "worker_unavailable",
                 "login_failed", "verification_code_unavailable", "invalid_credentials", "request_failed",
                 "browser_execution_failed", "login_code_not_received", "verification_code_rejected",
@@ -30,7 +33,20 @@ class ProbeFailure(Exception):
         self.stage = stage if stage in DIAGNOSTIC_STAGES else "boundary_checks"
         self.status = result.get("status") if isinstance(result, dict) else None
         reason = result.get("reason") if isinstance(result, dict) else None
+        blocked = result.get("blocked") if isinstance(result, dict) else None
+        if reason is None and isinstance(blocked, dict):
+            reason = blocked.get("reason")
         self.reason = reason if reason in SAFE_REASONS else "not_reported"
+        self.wait_timed_out = isinstance(result, dict) and result.get("wait_timed_out") is True
+
+    def report(self):
+        report = {"status": "FAILED", "reason": "worker_boundary_probe_failed", "stage": self.stage,
+                  "operation_reason": self.reason}
+        if self.status in DIAGNOSTIC_STATUSES:
+            report["operation_status"] = self.status
+        if self.wait_timed_out:
+            report["wait_timed_out"] = True
+        return report
 
 
 def require_result(condition, stage, result):
@@ -105,13 +121,13 @@ def run(args):
         if args.phase == "native-sms-recover":
             delayed = cli(config, "run", "native-sms", "summary")
             require_result(delayed.get("status") == "RETRYABLE" and delayed.get("reason") == "login_retry_cooldown"
-                and "challenge" not in delayed, "native-sms", delayed)
+                and "challenge" not in delayed, "native-sms-retry-check", delayed)
             submitted = cli(config, "task", "submit", "--key", "native-sms-cold-" + str(args.worker_pid),
                 "--steps", "native-sms:summary")
-            require_result(submitted.get("status") in {"QUEUED", "RUNNING", "RETRYABLE", "COMPLETED"}, "native-sms", submitted)
+            require_result(submitted.get("status") in {"QUEUED", "RUNNING", "RETRYABLE", "COMPLETED"}, "native-sms-task-submit", submitted)
             task_view = cli(config, "task", "wait", submitted["task_id"], "--timeout", "90")
             require_result(task_view.get("status") == "COMPLETED" and task_view.get("progress") == 1
-                and len(task_view.get("results", [])) == 1, "native-sms", task_view)
+                and len(task_view.get("results", [])) == 1, "native-sms-task-wait", task_view)
             results = [task_view["results"][0], cli(config, "run", "native-sms", "summary")]
         else:
             results = [cli(config, "run", "native-sms", "summary") for _ in range(2)]
@@ -206,11 +222,7 @@ def main():
     try:
         result = run(args)
     except ProbeFailure as exc:
-        report = {"status": "FAILED", "reason": "worker_boundary_probe_failed", "stage": exc.stage,
-                  "operation_reason": exc.reason}
-        if exc.status in {"COMPLETED", "DENIED", "NEEDS_USER", "RETRYABLE", "OK"}:
-            report["operation_status"] = exc.status
-        print(json.dumps(report))
+        print(json.dumps(exc.report()))
         return 1
     except Exception:
         print(json.dumps({"status": "FAILED", "reason": "worker_boundary_probe_failed"}))

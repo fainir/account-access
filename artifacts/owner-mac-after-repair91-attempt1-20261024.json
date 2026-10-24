@@ -1,0 +1,17 @@
+{
+  "counts": {
+    "directory": 2297,
+    "file": 25166,
+    "symlink": 21
+  },
+  "elapsed_seconds": 6.531,
+  "image": "after",
+  "installation_changed": false,
+  "manifest_sha256": "5a732de4623ba50aefa6d31c54e7b1eae660b2921341f95042c5675d922d808b",
+  "observed_at": "2026-10-24T16:10:33.855511+00:00",
+  "package_sha256": "ed747b1ce30364f42c9d1b4f702d098722cec10eee7a97a3618f7cae2ba12d80",
+  "private_data_read": false,
+  "production_ready": false,
+  "schema": 1,
+  "status": "PASSED"
+}

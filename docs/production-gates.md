@@ -43,12 +43,42 @@ volume receipt, directory order, inodes and owner approval. More precise closed
 migration diagnostics contain no protected values. Its package SHA-256 is
 `ed747b1ce30364f42c9d1b4f702d098722cec10eee7a97a3618f7cae2ba12d80`.
 Native checks passed (159 predecessor, 351 installed-adapter, 343 core), along
-with 212 focused Python checks. The owner-90 failure's precise predicate remains
-unconfirmed. Installer qualification must include an actual package-90 failure
-and package-91 recovery of that same rollback in a fictional later-enrollment
-fixture, plus the three existing scenarios. Owner retry is not yet offered.
+with 212 focused Python checks. All four actual Installer scenarios passed in
+run `40107896257` at qualification source `155c0a7`; all 162 referenced log hashes
+were verified. The new fictional later-enrollment fixture reproduced package
+90's migration refusal, verified rollback of all five changes, then recovered
+and reapplied package 91 on that same transition. Installation/reapplication,
+owned-helper interruption recovery and foreign-binding rollback also passed.
+The interruption test does not simulate physical power loss. Controller source
+`6d47154` passed 4,077 Python tests with 108 skipped, lint, dependency auditing,
+native UI/gateway and Mac/Linux/Android workflows. Qualification source `155c0a7`
+passed 4,091 Python tests with 108 skipped. The owner-90 failure's precise
+predicate remains unconfirmed. The owner then installed package 91 successfully.
+Its helper reported completion after 36 seconds, and macOS Installer showed
+success. Independent read-only verification matched the updated public image:
+25,166 files, 2,297 directories and 21 links. The app now opens to **Connect your
+AI tools**, but the owner's connection attempt failed. Read-only skill metadata
+identified a named preview root that the installed upgrade checker does not
+recognize. Three new custom-root regressions reproduce the refusal, while their
+default-root controls pass. The local agent connection and account acceptance
+remain pending; the repair package does not contain this subsequent source fix.
 [Source qualification](../artifacts/repair91-component-epoch-source-20261024.json) ·
-[Package review](../artifacts/broker-repair-package91-20261024.json).
+[Package review](../artifacts/broker-repair-package91-20261024.json) ·
+[Actual Installer acceptance](../artifacts/broker-repair91-installer-acceptance-20261024.json) ·
+[Controller CI](../artifacts/repair91-controller-source-ci-20261024.json) ·
+[Owner preflight](../artifacts/owner-mac-repair91-preflight-20261024.json) ·
+[Owner installation](../artifacts/owner-mac-repair91-attempt1-result-20261024.json) ·
+[Installed public image](../artifacts/owner-mac-after-repair91-attempt1-20261024.json).
+
+Qualification-source Mac run `40107896223` later failed during the second
+synthetic SMS login after restarting the composed service. The first login and
+native collection fixtures passed. Its verified report does not identify the
+specific task result; source now adds closed task substages, pending statuses
+and allowlisted nested reasons without changing retry behavior. This later
+failure is retained separately from the passing controller-source run and the
+four passing Installer scenarios.
+[Mac failure](../artifacts/repair91-qualification-mac-failure-20261024.json) ·
+[Owner connection failure](../artifacts/owner-mac-agent-setup-after-repair91-20261024.json).
 
 The next controller removes redundant recovery-view and operation-state walks
 only when reading an already completed predecessor. Both full new-image

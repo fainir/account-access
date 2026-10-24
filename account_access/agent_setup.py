@@ -204,6 +204,13 @@ def _legacy_skill(home, target, *, launcher_target=None):
         principal = client.parent.name
         roots = [home / ".local/share/account-access",
                  home / "Library/Application Support/AccountAccess"]
+        # Preview installs could use a named root beneath the same owner-local
+        # namespace. Recognize its exact managed templates and coherent paths;
+        # never execute its runtime or reuse its credentials or permissions.
+        candidate = client.parent.parent.parent
+        if (candidate.parent == home / ".local/share"
+                and re.fullmatch(r"account-access-[A-Za-z0-9][A-Za-z0-9_-]{0,79}", candidate.name)):
+            roots.append(candidate)
         root = next((value for value in roots
                      if client == value / "clients" / principal / "client.json"), None)
         allowed = {"generic", "claude" if launcher_target.parent.parent.name == ".claude" else "codex"}
@@ -222,7 +229,8 @@ def _legacy_skill(home, target, *, launcher_target=None):
         finally:
             os.close(descriptor)
         python = Path(installed["python"])
-        runtime = home / ".local/share/account-access/runtime"
+        runtime = (root if root.parent == home / ".local/share"
+                   else home / ".local/share/account-access") / "runtime"
         if (str(python) != installed["python"] or python.parent.name != "bin"
                 or re.fullmatch(r"python(?:3(?:\.[0-9]{1,2})?)?", python.name) is None
                 or not (python.parent.parent == runtime / "tools/account-access"

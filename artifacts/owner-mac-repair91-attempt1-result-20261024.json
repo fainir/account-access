@@ -1,0 +1,75 @@
+{
+  "attempt": "package91-attempt1",
+  "diagnostic_only": true,
+  "installer_ui_success_observed": true,
+  "observed_at": "2026-10-24T16:10:34.459818+00:00",
+  "owner_action_observed": "macOS Installer ran after handoff request",
+  "owner_gui_accepted": false,
+  "owner_installation_passed": true,
+  "package_sha256": "ed747b1ce30364f42c9d1b4f702d098722cec10eee7a97a3618f7cae2ba12d80",
+  "personal_accounts_tested": false,
+  "production_ready": false,
+  "public_image_evidence": "artifacts/owner-mac-after-repair91-attempt1-20261024.json",
+  "public_image_verified": true,
+  "raw_logs_retained": false,
+  "read_window_truncated": false,
+  "results": [
+    {
+      "checkpoint": "context",
+      "elapsed_seconds": 0,
+      "schema": 1,
+      "status": "RUNNING"
+    },
+    {
+      "checkpoint": "source",
+      "elapsed_seconds": 0,
+      "schema": 1,
+      "status": "RUNNING"
+    },
+    {
+      "checkpoint": "predecessor",
+      "elapsed_seconds": 3,
+      "schema": 1,
+      "status": "RUNNING"
+    },
+    {
+      "checkpoint": "preparation",
+      "elapsed_seconds": 3,
+      "schema": 1,
+      "status": "RUNNING"
+    },
+    {
+      "checkpoint": "journal",
+      "elapsed_seconds": 3,
+      "schema": 1,
+      "status": "RUNNING"
+    },
+    {
+      "checkpoint": "transition",
+      "elapsed_seconds": 12,
+      "schema": 1,
+      "status": "RUNNING"
+    },
+    {
+      "checkpoint": "migration",
+      "elapsed_seconds": 26,
+      "schema": 1,
+      "status": "RUNNING"
+    },
+    {
+      "checkpoint": "complete",
+      "elapsed_seconds": 36,
+      "schema": 1,
+      "status": "RUNNING"
+    },
+    {
+      "account_qa_verified": false,
+      "checkpoint": "complete",
+      "gui_verified": false,
+      "schema": 1,
+      "status": "UPDATED_GUI_UNVERIFIED"
+    }
+  ],
+  "status": "CLOSED_RESULTS_OBSERVED",
+  "user_report": "Installed"
+}

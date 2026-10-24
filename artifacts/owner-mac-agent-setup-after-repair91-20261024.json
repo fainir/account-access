@@ -1,0 +1,27 @@
+{
+  "agent_connected": false,
+  "initial_screen": "Connect your AI tools",
+  "known_preview_file_permissions_match": true,
+  "known_preview_template_pairs_match": true,
+  "legacy_root_check_rejects_named_root": true,
+  "observed_at": "2026-10-24T16:19:37.775089+00:00",
+  "old_credentials_or_tokens_read": false,
+  "owner_app_opened": true,
+  "owner_enrollment_retried": false,
+  "owner_installation_passed": true,
+  "owner_selected": "Connect automatically",
+  "personal_accounts_tested": false,
+  "preview_client_and_runtime_same_root": true,
+  "preview_uses_named_owner_local_root": true,
+  "production_ready": false,
+  "public_image_passed": true,
+  "reopen_only_performed": true,
+  "reopened_screen": "Connect your AI tools",
+  "schema": 1,
+  "source_regression_before_fix": {
+    "custom_root_failures": 3,
+    "default_root_passes": 3
+  },
+  "status": "FAILED",
+  "visible_error": "The AI connection could not finish."
+}

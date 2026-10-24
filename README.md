@@ -31,7 +31,10 @@ still require owner-store and private-login acceptance. On 24 October, a complet
 read-only check confirmed installed public image 85 after a repair attempt timed
 out. Repair 90 passed disposable-Mac Installer qualification but failed during
 owner store migration. The previous public image was restored and verified.
-Fresh runtime 89 has
+Repair 91 then passed four disposable-Mac Installer scenarios and installed
+successfully on the owner's Mac. The updated public image verified, and the app
+opens to agent setup; agent connection and personal-account acceptance remain
+open. Fresh runtime 89 has
 passed disposable-Mac installation, but upgrading the owner's existing image to
 that runtime is not yet qualified. [Initial owner-Mac observations](artifacts/owner-startup-and-import-213509c-20261021.json)
 and [current acceptance status](docs/production-gates.md).

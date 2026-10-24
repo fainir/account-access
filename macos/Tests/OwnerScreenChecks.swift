@@ -886,6 +886,30 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         }
         print("PASS: all agent setup actions preserve only a bounded owner-home Codex namespace; browser setup and unrelated credential or runtime variables stay excluded")
 
+        nativeChannel.state["managed_client"] = ["status": "NOT_CONNECTED"]
+        for malformed in [false, true] {
+            var discoveryActions: [String] = []
+            let previousEnrollments = nativeChannel.clientEnrollments
+            owner.managedAgents = ManagedAgentSetup(helper: { action in
+                discoveryActions.append(action)
+                if malformed { return ["status": "PRIVATE_UNKNOWN_STATUS"] }
+                throw ManagedAgentSetupFailure.unavailable
+            }, readToken: { preconditionFailure("Failed discovery cannot read a capability") })
+            owner.systemOwnerReady = false
+            owner.connectAgentsAfterSetup = true
+            owner.presentSystemState(nativeChannel.state)
+            let discoveryDeadline = Date().addingTimeInterval(5)
+            while owner.busy && Date() < discoveryDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
+            let discoveryViews = descendants(owner.stack)
+            let labels = discoveryViews.compactMap { ($0 as? NSTextField)?.stringValue }.joined(separator: " ")
+            let buttons = discoveryViews.compactMap { ($0 as? NSButton)?.title }
+            precondition(discoveryActions == ["status"] && nativeChannel.clientEnrollments == previousEnrollments)
+            precondition(!owner.connectAgentsAfterSetup && !owner.systemOwnerReady)
+            precondition(labels.contains("The existing AI connection could not be verified") && !labels.contains("PRIVATE_UNKNOWN_STATUS"))
+            precondition(!buttons.contains("Connect automatically") && !buttons.contains("Upgrade AI connection"))
+        }
+        print("PASS: failed or unknown client discovery cannot become fresh setup, read a capability or silently enroll")
+
         var upgradeActions: [String] = []
         var upgraded = false
         owner.managedAgents = ManagedAgentSetup(helper: { action in

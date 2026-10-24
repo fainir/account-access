@@ -1053,13 +1053,27 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         page("Checking your AI connection", "Verifying the installed portable skill…")
         progress()
         DispatchQueue.global(qos: .userInitiated).async {
-            let local = try? self.managedAgents.status()
+            let local: [String: Any]
+            do {
+                local = try self.managedAgents.status()
+                guard let status = local["status"] as? String,
+                      ["INSTALLED", "NOT_INSTALLED", "MIGRATION_REQUIRED"].contains(status) else {
+                    throw ManagedAgentSetupFailure.invalidResponse
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self.connectAgentsAfterSetup = false
+                    self.systemAgentUpgradeNeeded = false
+                }
+                self.fail(Failure.message("The existing AI connection could not be verified. It needs review before setup can continue. Your saved accounts and tool preferences are preserved."), retry: #selector(self.reopen))
+                return
+            }
             DispatchQueue.main.async {
                 self.busy = false
-                self.systemAgentUpgradeNeeded = local?["status"] as? String == "MIGRATION_REQUIRED"
+                self.systemAgentUpgradeNeeded = local["status"] as? String == "MIGRATION_REQUIRED"
                 let server = state["managed_client"] as? [String: Any] ?? [:]
-                if local?["status"] as? String == "INSTALLED", server["status"] as? String == "INSTALLED",
-                   let identity = local?["client_id"] as? String, identity == server["client_id"] as? String {
+                if local["status"] as? String == "INSTALLED", server["status"] as? String == "INSTALLED",
+                   let identity = local["client_id"] as? String, identity == server["client_id"] as? String {
                     self.systemAgentClientID = identity
                     self.presentSystemState(state)
                 } else if self.connectAgentsAfterSetup && !self.systemAgentUpgradeNeeded {

@@ -188,5 +188,15 @@ original installation epoch or this independently verified component epoch,
 while retaining receipt, volume, owner, directory-order and inode checks. Closed
 migration subcategories identify a remaining refusal without exporting metadata.
 The native fixtures passed 159 predecessor, 351 installed-adapter and 343 core
-assertions. Actual Installer recovery from the old failure and owner acceptance
-remain pending; the owner failure cause is still a hypothesis.
+assertions. Package 91 passed all four actual Installer scenarios in run
+`40107896257`, with 162 referenced log hashes verified. The later-enrollment
+fixture first ran package 90 and verified its migration refusal and complete
+rollback, then successfully recovered and reapplied package 91 on that same
+transition. This uses fictional publication metadata in a disposable Mac; it
+does not establish real account access or physical restart acceptance. Package
+91 subsequently installed successfully on the owner's Mac, completing in 36
+seconds. The updated public image passed full read-only verification, and the
+app opens to its agent connection step. Agent connection and account acceptance
+remain pending; the owner's exact package-90 failure predicate was not captured.
+See
+[Installer evidence](../artifacts/broker-repair91-installer-acceptance-20261024.json).
