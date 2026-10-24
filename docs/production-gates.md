@@ -16,11 +16,18 @@ paths unmatched; all unchanged entries in the inventory of 25,165 files,
 2,297 directories and 21 links matched. Those three paths were independently checked against image
 85 and matched that predecessor, including the expected absent repair-identity
 file. Together these checks establish an intact image 85, not a completed repair
-or a mixed image. No private store was read. A retry of the same hash-verified
-package is in progress; store access and GUI acceptance remain unqualified.
+or a mixed image. No private store was read. The retry of the same hash-verified
+package reached its native helper and refused with `broker_repair_not_verified`
+at `predecessor`; Installer displayed failure. Another complete public-image
+check plus the three-path predecessor comparison again establishes intact image
+85. The repair namespace is absent. Store access and GUI acceptance remain
+unqualified. Source review identifies a completed full-image journal's transient
+device-number requirement as a restart compatibility gap; the coarse owner
+checkpoint does not identify which nested predicate failed.
 
 [Post-restart target comparison](../artifacts/repair87-restart-owner-mac-after-repair87.json) ·
-[Predecessor confirmation](../artifacts/repair87-restart-owner-mac-restart87-predecessor.json).
+[Predecessor confirmation](../artifacts/repair87-restart-owner-mac-restart87-predecessor.json) ·
+[Retry result](../artifacts/owner-mac-repair87-retry1-result-20261024.json).
 
 Package **87**, built from `c4cf1b0`, passed all three actual Installer scenarios
 in run `39989349794`: installation/reapplication, interruption after broker
