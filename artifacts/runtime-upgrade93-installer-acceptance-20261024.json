@@ -1,0 +1,422 @@
+{
+  "schema": 1,
+  "status": "PASSED",
+  "run_id": 40122587841,
+  "qualification_source": "bd933a8c549f87d3a2d6c3d26b117f2818f73644",
+  "controller_source": "f9c0a80fd5bf28e4e92d005ef3777a6b44de1ab6",
+  "application_source": "7051ef225ff2f35d67576d0ddbbc3e0b107e00bf",
+  "package_sha256": "f5db4c6c35ca1efe62bac0b572256b500f59032d9885a7bebb7b43b6702a9b23",
+  "results": [
+    {
+      "scenario": "interrupt-runtime",
+      "accepted": true,
+      "artifact_id": 12573431198,
+      "artifact_bytes": 69775,
+      "artifact_sha256": "c2d5072e12866554546847324ed171d2208f1c67a6c54494954241f2e0e99b4f",
+      "reports": [
+        {
+          "sha256": "620960b6245a9cea48e119fc406b3a1d9ad1a1a9a6f7a7d2e8cd3d7968b76a90",
+          "status": "PASSED",
+          "checks_total": 15,
+          "checks_passed": 15,
+          "failure_locations": null
+        },
+        {
+          "sha256": "203a50451c0b068ed967629ad06d46f3b100f3eb69d6af9e58cea12d070e5afb",
+          "status": "PASSED",
+          "checks_total": 13,
+          "checks_passed": 13,
+          "failure_locations": null
+        }
+      ],
+      "referenced_log_hashes_verified": 52,
+      "runtime_upgrade": {
+        "application_source": "7051ef225ff2f35d67576d0ddbbc3e0b107e00bf",
+        "checks": {
+          "actual_installer": true,
+          "exact_public_image": true,
+          "exact_reapply": true,
+          "fixed_inputs": true,
+          "foreign_audit_refused": true,
+          "live_service": true,
+          "policy_rotation": true,
+          "predecessor_fixture_accepted": true,
+          "roots_and_history_preserved": true,
+          "scenario_exercised": true,
+          "service_after_refusal": true,
+          "signature_verified": true,
+          "unchanged_reapply": true
+        },
+        "controller_source": "f9c0a80fd5bf28e4e92d005ef3777a6b44de1ab6",
+        "failure_stage": null,
+        "historical_cache_repair_fixture": {
+          "after": [
+            {
+              "gid": 0,
+              "public_path": "runtime/lib/python3.12/encodings/__pycache__/__init__.cpython-312.pyc"
+            },
+            {
+              "gid": 0,
+              "public_path": "runtime/lib/python3.12/encodings/__pycache__/aliases.cpython-312.pyc"
+            },
+            {
+              "gid": 0,
+              "public_path": "runtime/lib/python3.12/encodings/__pycache__/utf_8.cpython-312.pyc"
+            }
+          ],
+          "after_tree_groups": {
+            "issues": [],
+            "legacy_group": 80,
+            "nodes_checked": 27472
+          },
+          "before": [
+            {
+              "gid": 80,
+              "public_path": "runtime/lib/python3.12/encodings/__pycache__/__init__.cpython-312.pyc"
+            },
+            {
+              "gid": 80,
+              "public_path": "runtime/lib/python3.12/encodings/__pycache__/aliases.cpython-312.pyc"
+            },
+            {
+              "gid": 80,
+              "public_path": "runtime/lib/python3.12/encodings/__pycache__/utf_8.cpython-312.pyc"
+            }
+          ],
+          "before_tree_groups": {
+            "issues": [
+              {
+                "expected_gid": 0,
+                "gid": 80,
+                "public_path": "runtime/lib/python3.12/encodings/__pycache__/__init__.cpython-312.pyc"
+              },
+              {
+                "expected_gid": 0,
+                "gid": 80,
+                "public_path": "runtime/lib/python3.12/encodings/__pycache__/aliases.cpython-312.pyc"
+              },
+              {
+                "expected_gid": 0,
+                "gid": 80,
+                "public_path": "runtime/lib/python3.12/encodings/__pycache__/utf_8.cpython-312.pyc"
+              }
+            ],
+            "legacy_group": 80,
+            "nodes_checked": 27472
+          },
+          "bytes_and_inodes_preserved": true,
+          "owner_machine": false,
+          "scope": "three fixed public cache files in disposable VM"
+        },
+        "installed_owner_machine": false,
+        "interruption": {
+          "head_not_published": true,
+          "installer_daemon_interrupted": false,
+          "owned_child_only": true,
+          "power_failure_tested": false,
+          "tree": "runtime"
+        },
+        "production_ready": false,
+        "real_account_login_tested": false,
+        "scenario": "interrupt-runtime"
+      },
+      "helper_results": [
+        {
+          "schema": 1,
+          "status": "REFUSED",
+          "reason": "full_image_transition_conflict",
+          "checkpoint": "journal"
+        },
+        {
+          "schema": 1,
+          "status": "UPDATED_GUI_UNVERIFIED",
+          "checkpoint": "complete",
+          "gui_verified": false,
+          "account_qa_verified": false
+        },
+        {
+          "schema": 1,
+          "status": "ALREADY_UPDATED_GUI_UNVERIFIED",
+          "checkpoint": "complete",
+          "gui_verified": false,
+          "account_qa_verified": false
+        }
+      ],
+      "root_revalidation_checks_passed": 11
+    },
+    {
+      "scenario": "interrupt-owner",
+      "accepted": true,
+      "artifact_id": 12573290688,
+      "artifact_bytes": 69984,
+      "artifact_sha256": "7be1dfbdbb53976130c41be7bfe5aa59ab0fe36034f0ffca9255fe4da4fe2187",
+      "reports": [
+        {
+          "sha256": "eff4c00e13fb03ad6a42cf81361f853114713f54c2ad68b9cd4b92d157b6fa52",
+          "status": "PASSED",
+          "checks_total": 15,
+          "checks_passed": 15,
+          "failure_locations": null
+        },
+        {
+          "sha256": "0f4c314a2dee0c471ea12067f28e163ea4a623a4ffd2e8634ad3ddaaeb8d11f2",
+          "status": "PASSED",
+          "checks_total": 13,
+          "checks_passed": 13,
+          "failure_locations": null
+        }
+      ],
+      "referenced_log_hashes_verified": 52,
+      "runtime_upgrade": {
+        "application_source": "7051ef225ff2f35d67576d0ddbbc3e0b107e00bf",
+        "checks": {
+          "actual_installer": true,
+          "exact_public_image": true,
+          "exact_reapply": true,
+          "fixed_inputs": true,
+          "foreign_audit_refused": true,
+          "live_service": true,
+          "policy_rotation": true,
+          "predecessor_fixture_accepted": true,
+          "roots_and_history_preserved": true,
+          "scenario_exercised": true,
+          "service_after_refusal": true,
+          "signature_verified": true,
+          "unchanged_reapply": true
+        },
+        "controller_source": "f9c0a80fd5bf28e4e92d005ef3777a6b44de1ab6",
+        "failure_stage": null,
+        "historical_cache_repair_fixture": {
+          "after": [
+            {
+              "gid": 0,
+              "public_path": "runtime/lib/python3.12/encodings/__pycache__/__init__.cpython-312.pyc"
+            },
+            {
+              "gid": 0,
+              "public_path": "runtime/lib/python3.12/encodings/__pycache__/aliases.cpython-312.pyc"
+            },
+            {
+              "gid": 0,
+              "public_path": "runtime/lib/python3.12/encodings/__pycache__/utf_8.cpython-312.pyc"
+            }
+          ],
+          "after_tree_groups": {
+            "issues": [],
+            "legacy_group": 80,
+            "nodes_checked": 27472
+          },
+          "before": [
+            {
+              "gid": 80,
+              "public_path": "runtime/lib/python3.12/encodings/__pycache__/__init__.cpython-312.pyc"
+            },
+            {
+              "gid": 80,
+              "public_path": "runtime/lib/python3.12/encodings/__pycache__/aliases.cpython-312.pyc"
+            },
+            {
+              "gid": 80,
+              "public_path": "runtime/lib/python3.12/encodings/__pycache__/utf_8.cpython-312.pyc"
+            }
+          ],
+          "before_tree_groups": {
+            "issues": [
+              {
+                "expected_gid": 0,
+                "gid": 80,
+                "public_path": "runtime/lib/python3.12/encodings/__pycache__/__init__.cpython-312.pyc"
+              },
+              {
+                "expected_gid": 0,
+                "gid": 80,
+                "public_path": "runtime/lib/python3.12/encodings/__pycache__/aliases.cpython-312.pyc"
+              },
+              {
+                "expected_gid": 0,
+                "gid": 80,
+                "public_path": "runtime/lib/python3.12/encodings/__pycache__/utf_8.cpython-312.pyc"
+              }
+            ],
+            "legacy_group": 80,
+            "nodes_checked": 27472
+          },
+          "bytes_and_inodes_preserved": true,
+          "owner_machine": false,
+          "scope": "three fixed public cache files in disposable VM"
+        },
+        "installed_owner_machine": false,
+        "interruption": {
+          "head_not_published": true,
+          "installer_daemon_interrupted": false,
+          "owned_child_only": true,
+          "power_failure_tested": false,
+          "tree": "owner.app"
+        },
+        "production_ready": false,
+        "real_account_login_tested": false,
+        "scenario": "interrupt-owner"
+      },
+      "helper_results": [
+        {
+          "schema": 1,
+          "status": "REFUSED",
+          "reason": "full_image_transition_conflict",
+          "checkpoint": "journal"
+        },
+        {
+          "schema": 1,
+          "status": "UPDATED_GUI_UNVERIFIED",
+          "checkpoint": "complete",
+          "gui_verified": false,
+          "account_qa_verified": false
+        },
+        {
+          "schema": 1,
+          "status": "ALREADY_UPDATED_GUI_UNVERIFIED",
+          "checkpoint": "complete",
+          "gui_verified": false,
+          "account_qa_verified": false
+        }
+      ],
+      "root_revalidation_checks_passed": 11
+    },
+    {
+      "scenario": "install-reapply",
+      "accepted": true,
+      "artifact_id": 12573186617,
+      "artifact_bytes": 69700,
+      "artifact_sha256": "b4315ba0d8074fe93f9e4924d6e7e1b9150f85f9e573c1535d21bef005b3d279",
+      "reports": [
+        {
+          "sha256": "2c3371e542c061b31408e8372a9b63b565148b13e837b953709a6105c2311fed",
+          "status": "PASSED",
+          "checks_total": 15,
+          "checks_passed": 15,
+          "failure_locations": null
+        },
+        {
+          "sha256": "122f841a8ac9b2845730a71a541ce50d5e35f4d9bc6ce86b6251dca32bf02884",
+          "status": "PASSED",
+          "checks_total": 13,
+          "checks_passed": 13,
+          "failure_locations": null
+        }
+      ],
+      "referenced_log_hashes_verified": 51,
+      "runtime_upgrade": {
+        "application_source": "7051ef225ff2f35d67576d0ddbbc3e0b107e00bf",
+        "checks": {
+          "actual_installer": true,
+          "exact_public_image": true,
+          "exact_reapply": true,
+          "fixed_inputs": true,
+          "foreign_audit_refused": true,
+          "live_service": true,
+          "policy_rotation": true,
+          "predecessor_fixture_accepted": true,
+          "roots_and_history_preserved": true,
+          "scenario_exercised": true,
+          "service_after_refusal": true,
+          "signature_verified": true,
+          "unchanged_reapply": true
+        },
+        "controller_source": "f9c0a80fd5bf28e4e92d005ef3777a6b44de1ab6",
+        "failure_stage": null,
+        "historical_cache_repair_fixture": {
+          "after": [
+            {
+              "gid": 0,
+              "public_path": "runtime/lib/python3.12/encodings/__pycache__/__init__.cpython-312.pyc"
+            },
+            {
+              "gid": 0,
+              "public_path": "runtime/lib/python3.12/encodings/__pycache__/aliases.cpython-312.pyc"
+            },
+            {
+              "gid": 0,
+              "public_path": "runtime/lib/python3.12/encodings/__pycache__/utf_8.cpython-312.pyc"
+            }
+          ],
+          "after_tree_groups": {
+            "issues": [],
+            "legacy_group": 80,
+            "nodes_checked": 27472
+          },
+          "before": [
+            {
+              "gid": 80,
+              "public_path": "runtime/lib/python3.12/encodings/__pycache__/__init__.cpython-312.pyc"
+            },
+            {
+              "gid": 80,
+              "public_path": "runtime/lib/python3.12/encodings/__pycache__/aliases.cpython-312.pyc"
+            },
+            {
+              "gid": 80,
+              "public_path": "runtime/lib/python3.12/encodings/__pycache__/utf_8.cpython-312.pyc"
+            }
+          ],
+          "before_tree_groups": {
+            "issues": [
+              {
+                "expected_gid": 0,
+                "gid": 80,
+                "public_path": "runtime/lib/python3.12/encodings/__pycache__/__init__.cpython-312.pyc"
+              },
+              {
+                "expected_gid": 0,
+                "gid": 80,
+                "public_path": "runtime/lib/python3.12/encodings/__pycache__/aliases.cpython-312.pyc"
+              },
+              {
+                "expected_gid": 0,
+                "gid": 80,
+                "public_path": "runtime/lib/python3.12/encodings/__pycache__/utf_8.cpython-312.pyc"
+              }
+            ],
+            "legacy_group": 80,
+            "nodes_checked": 27472
+          },
+          "bytes_and_inodes_preserved": true,
+          "owner_machine": false,
+          "scope": "three fixed public cache files in disposable VM"
+        },
+        "installed_owner_machine": false,
+        "production_ready": false,
+        "real_account_login_tested": false,
+        "scenario": "install-reapply"
+      },
+      "helper_results": [
+        {
+          "schema": 1,
+          "status": "REFUSED",
+          "reason": "full_image_transition_conflict",
+          "checkpoint": "journal"
+        },
+        {
+          "schema": 1,
+          "status": "UPDATED_GUI_UNVERIFIED",
+          "checkpoint": "complete",
+          "gui_verified": false,
+          "account_qa_verified": false
+        },
+        {
+          "schema": 1,
+          "status": "ALREADY_UPDATED_GUI_UNVERIFIED",
+          "checkpoint": "complete",
+          "gui_verified": false,
+          "account_qa_verified": false
+        }
+      ],
+      "root_revalidation_checks_passed": 11
+    }
+  ],
+  "installed_owner_machine": false,
+  "real_account_login_tested": false,
+  "production_ready": false,
+  "referenced_log_hashes_verified": 155,
+  "successor_checks_passed": 39,
+  "diagnosis_confirmed_by_exact_metadata_reproduction": true,
+  "scope": "Three fresh hosted Macs: install/reapply, owner-app interruption recovery and runtime interruption recovery, exact public image and policy rotation, preserved roots/history, live service, unchanged reapplication and foreign-audit refusal. No physical power-loss test, owner installation, private account login or phone delivery."
+}
