@@ -73,7 +73,7 @@ EXACT_INPUTS = {
     'macos/Tests/BrokerRepairRecoveryChecks.swift': 'f2010776d5fe80ae7526034dec45dfc1785ca3c96a44693682f406ad86e3970b',
     'macos/Tests/BrokerRepairSourceChecks.swift': 'ad6def26f6519fdc3d3b4f829ccb79b6c4134a7622983e64aabca3f14c6bb5ac',
     'macos/Tests/CombinedPredecessorAuthorityChecks.swift': '3902afa5ff6329c56a82368d678b47fbe10ca5a973c54da841c10c52fcb4e8c9',
-    'macos/Tests/FullImageGlobalJournalChecks.swift': '9b171692667e3af5d56bed2ba97ae9e584ad03568f6c4e6591ef6033a5cc3433',
+    'macos/Tests/FullImageGlobalJournalChecks.swift': '86996978d5d73a74a9077ab81d2c251ae696dcdcd556d0c991cea0ca25b6d160',
     'macos/Tests/FullImageInstalledChecks.swift': '21d007dce00a58d2d3e691b6382d63de8e005035d4542f58e78c448f9ea7a3ca',
     'macos/Tests/FullImageInstalledSourceFixture.swift': '28c438a2294ef668bf0632089c212c8b7a2706ba5edea5ea0f546504ffa5e514',
     'macos/Tests/FullImageLegacyGroupChecks.swift': '783c7166faf8844feb90dfe1c35c8a5364bb0c8328a2538ff6ab337bc5ee0992',
@@ -383,7 +383,7 @@ class Probe:
                 and legacy.get("supplemental_group_case") == "PASSED_DISTINCT_OLD_AND_NEW_GROUPS"
                 and legacy.get("optional_polarities") == 2 and legacy.get("recovery_polarities") == 3,
                 "legacy_group_report_refused")
-        require(journal == {"status": "FULL_IMAGE_DURABLE_JOURNAL_CHECKS_PASSED", "assertions": 153,
+        require(journal == {"status": "FULL_IMAGE_DURABLE_JOURNAL_CHECKS_PASSED", "assertions": 156,
                             "installed_or_provider_operations": False}
                 and journal["installed_or_provider_operations"] is False, "global_journal_report_refused")
         require(repair == {"schema": 1, "status": "PASSED", "source_assertions": 54, "recovery_assertions": 49, "transaction_assertions": 74,

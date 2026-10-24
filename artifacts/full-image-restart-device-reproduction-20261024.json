@@ -1,0 +1,18 @@
+{
+  "compile_exit": 0,
+  "source_sha256": "0c6f3293f7baa45aac85b9366f8725665542ce40cd1192e6213d775ea5911727",
+  "compile_seconds": 259.605,
+  "exit_code": 0,
+  "output": "{\"status\":\"HISTORICAL_DEVICE_REFUSAL_REPRODUCED\",\"before_authority_callback\":true,\"fixture_only\":true,\"actual_reboot\":false,\"owner_data_read\":false}\n{\"status\":\"FULL_IMAGE_DURABLE_JOURNAL_CHECKS_PASSED\",\"assertions\":156,\"installed_or_provider_operations\":false}\n",
+  "schema": 1,
+  "status": "RESTART_DEVICE_GAP_REPRODUCED",
+  "tested_repository_source": "7316bd02678f5901880c7614c5c52a9b4d7cb018",
+  "fixture_only": true,
+  "actual_reboot": false,
+  "owner_data_read": false,
+  "installation_changed": false,
+  "production_ready": false,
+  "scope": "Coherent historical device pins pass structural validation for their recorded device but native readIntent rejects them before the authority callback on the current device. This reproduces a source compatibility gap, not the exact nested owner refusal.",
+  "compile_log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "result_log_sha256": "5c32e2d7c374e4a5d52d3cedeac9d4239fe4e9471bb6903b1e05838d4204d132"
+}

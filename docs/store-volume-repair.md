@@ -149,5 +149,17 @@ Package 87 subsequently passed all three actual Installer scenarios in run
 restored on both attempts and closed migration refusals; the original binding
 and metadata remained unchanged. The exact package and all report/log hashes
 are recorded in `artifacts/broker-repair87-installer-acceptance-20261023.json`.
-This qualifies the disposable-Mac installer repair, with owner GUI and real
-account verification still pending. The owner installation has not yet run.
+This qualifies the disposable-Mac installer repair. The first owner attempt did
+not complete before a Mac restart. The same-package retry subsequently refused
+at `predecessor` with `broker_repair_not_verified`; Installer displayed failure.
+A full public-image comparison followed by the three-path predecessor check
+confirmed intact image 85, with no repair namespace created. No private store
+was read. See `artifacts/owner-mac-repair87-retry1-result-20261024.json`.
+
+A native temporary-directory fixture reproduced a restart compatibility gap:
+the completed full-image reader rejects a coherent historical device number
+before reaching predecessor authority validation. Its 156 assertions passed
+without changing the fixture's recorded bytes or inode. This identifies a source
+gap, not the exact nested predicate behind the coarse owner refusal. Evidence is
+in `artifacts/full-image-restart-device-reproduction-20261024.json`. Owner GUI,
+real account verification and restart-safe successor installation remain open.

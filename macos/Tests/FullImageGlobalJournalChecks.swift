@@ -179,6 +179,32 @@ private enum JournalCheckFailure: Error { case failed, interrupted }
             defer { Darwin.close(root) }
             let rootPin = try PublicTreeDirectoryIdentity.observe(root, owner: getuid(), group: getgid())
             do {
+                let f = try Fixture(root: root, name: "historical-device-readonly")
+                _ = try f.open()
+                let historicalDevice: Int32 = f.identity.device == 123 ? 124 : 123
+                func translated(_ value: Any) -> Any {
+                    if let fields = value as? [String: Any] {
+                        return fields.mapValues { translated($0) }.merging(fields.keys.contains("device")
+                            ? ["device": NSNumber(value: historicalDevice)] : [:]) { _, replacement in replacement }
+                    }
+                    if let array = value as? [Any] { return array.map { translated($0) } }
+                    return value
+                }
+                let raw = try JSONSerialization.data(withJSONObject: translated(try encoded(f.intent)), options: [.sortedKeys, .withoutEscapingSlashes])
+                let historical = try JSONDecoder().decode(FullImageGlobalIntent.self, from: raw)
+                try historical.validateStructure(device: historicalDevice, publicOwner: getuid(), publicGroup: getgid())
+                try rewrite(f.fd, "intent.json", raw)
+                let before = try ComponentFiles.read(f.fd, "intent.json", owner: getuid(), mode: 0o600)
+                var reachedAuthority = false
+                try refuses {
+                    _ = try FullImageGlobalJournal.readIntent(directory: f.fd, owner: getuid(), group: getgid(),
+                        validateIntent: { _ in reachedAuthority = true }, verifyAttachment: f.attached)
+                }
+                try expect(!reachedAuthority)
+                let after = try ComponentFiles.read(f.fd, "intent.json", owner: getuid(), mode: 0o600)
+                try expect(before.0 == after.0 && before.1 == after.1)
+            }
+            do {
                 let f = try Fixture(root: root, name: "optional-contract")
                 try f.validate(f.intent)
                 try expect(f.source.units.count == 25 && f.intent.operations.count == 29)
