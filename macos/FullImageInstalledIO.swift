@@ -39,18 +39,19 @@ enum FullImageNamespaceDirectory {
               InstallerPayloadIO.same(after, path) else { throw FullImageFailure.journal }
         adopted = true; return fd
     }
-    static func installed(_ parent: Int32, create: Bool = true) throws -> Int32 {
+    static func installed(_ parent: Int32, create: Bool = true, kind: PublicImageNamespace = .fullImage) throws -> Int32 {
         guard getuid() == 0, geteuid() == 0 else { throw ComponentUpdateFailure.context }
-        return try open(parent, name: name, owner: 0, group: 0, create: create)
+        return try open(parent, name: kind.name, owner: 0, group: 0, create: create)
     }
     static func installedBrokerRepair(_ parent: Int32, create: Bool = true) throws -> Int32 {
         guard getuid() == 0, geteuid() == 0 else { throw ComponentUpdateFailure.context }
         return try open(parent, name: "Account Access Broker Repair", owner: 0, group: 0, create: create)
     }
 #if ACCOUNT_ACCESS_FULL_IMAGE_INSTALLED_CHECKS
-    static func fixture(_ parent: Int32, owner: uid_t, group: gid_t, create: Bool = true) throws -> Int32 {
+    static func fixture(_ parent: Int32, owner: uid_t, group: gid_t, create: Bool = true,
+                        kind: PublicImageNamespace = .fullImage) throws -> Int32 {
         guard getuid() != 0, geteuid() == getuid(), owner == getuid(), group == getgid() else { throw ComponentUpdateFailure.context }
-        return try open(parent, name: name, owner: owner, group: group, create: create)
+        return try open(parent, name: kind.name, owner: owner, group: group, create: create)
     }
     static func fixtureBrokerRepair(_ parent: Int32, owner: uid_t, group: gid_t, create: Bool = true) throws -> Int32 {
         guard getuid() != 0, geteuid() == getuid(), owner == getuid(), group == getgid() else { throw ComponentUpdateFailure.context }
@@ -175,24 +176,25 @@ final class FullImageAttachedDirectory {
 final class FullImageInstalledRoutes {
     private let root: Int32, anchor: PublicTreeTrustedAnchor
     private let owner: uid_t
+    private let kind: PublicImageNamespace
     private var held: [String: FullImageAttachedDirectory] = [:]
-    private init(root supplied: Int32, owner: uid_t) throws {
+    private init(root supplied: Int32, owner: uid_t, kind: PublicImageNamespace) throws {
         let copy = fcntl(supplied, F_DUPFD_CLOEXEC, 0)
         guard copy >= 0 else { throw FullImageFailure.object }
         var adopted = false; defer { if !adopted { Darwin.close(copy) } }
         let info = try InstallerPayloadIO.check(copy, owner: owner, directory: true)
         let identity = try PublicTreeDirectoryIdentity.observe(copy, owner: owner, group: info.st_gid)
         guard identity.mode == 0o755 || identity.mode == 0o700 else { throw FullImageFailure.object }
-        root = copy; self.owner = owner
+        root = copy; self.owner = owner; self.kind = kind
         anchor = try PublicTreeTrustedAnchor.acceptVerifiedDescriptor(copy, expected: identity)
         adopted = true
     }
     deinit { Darwin.close(root) }
-    static func installed() throws -> FullImageInstalledRoutes {
+    static func installed(kind: PublicImageNamespace = .fullImage) throws -> FullImageInstalledRoutes {
         guard getuid() == 0, geteuid() == 0 else { throw ComponentUpdateFailure.context }
         let fd = open("/", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
         guard fd >= 0 else { throw FullImageFailure.object }; defer { Darwin.close(fd) }
-        return try FullImageInstalledRoutes(root: fd, owner: 0)
+        return try FullImageInstalledRoutes(root: fd, owner: 0, kind: kind)
     }
     private func directory(_ path: String) throws -> FullImageAttachedDirectory {
         if let existing = held[path] { try existing.verify(existing.fd); return existing }
@@ -200,15 +202,15 @@ final class FullImageInstalledRoutes {
         held[path] = value; return value
     }
     func support() throws -> FullImageAttachedDirectory { try directory(InstallerPayloadManifest.support) }
-    func namespace() throws -> FullImageAttachedDirectory { try directory(FullImageFixedNamespace.namespace) }
-    func transition(plan: String) throws -> FullImageAttachedDirectory { try directory(FullImageFixedNamespace.transition(plan)) }
-    func files(plan: String) throws -> FullImageAttachedDirectory { try directory(FullImageFixedNamespace.transition(plan) + "/files") }
-    func globalJournal(plan: String) throws -> FullImageAttachedDirectory { try directory(FullImageFixedNamespace.transition(plan) + "/global") }
+    func namespace() throws -> FullImageAttachedDirectory { try directory(kind.path) }
+    func transition(plan: String) throws -> FullImageAttachedDirectory { try directory(kind.transition(plan)) }
+    func files(plan: String) throws -> FullImageAttachedDirectory { try directory(kind.transition(plan) + "/files") }
+    func globalJournal(plan: String) throws -> FullImageAttachedDirectory { try directory(kind.transition(plan) + "/global") }
     func retained(_ unit: PublicTreeUnit, plan: String) throws -> FullImageAttachedDirectory {
-        try directory(FullImageFixedNamespace.transition(plan) + "/trees/" + unit.rawValue + "/retained")
+        try directory(kind.transition(plan) + "/trees/" + unit.rawValue + "/retained")
     }
     func treeJournal(_ unit: PublicTreeUnit, plan: String) throws -> FullImageAttachedDirectory {
-        try directory(FullImageFixedNamespace.transition(plan) + "/trees/" + unit.rawValue + "/journal")
+        try directory(kind.transition(plan) + "/trees/" + unit.rawValue + "/journal")
     }
     func preparing(_ name: String, plan: String, unit: PublicTreeUnit? = nil) throws -> FullImageAttachedDirectory {
         let prefix = ".preparing-" + plan + "-"
@@ -217,7 +219,7 @@ final class FullImageInstalledRoutes {
               uuid.uuidString.lowercased() == String(name.dropFirst(prefix.count)) else { throw FullImageFailure.journal }
         let suffix = unit.map { "/trees/" + $0.rawValue + "/retained" } ?? "/global"
         return try FullImageAttachedDirectory(root: root, anchor: anchor,
-            absolute: FullImageFixedNamespace.namespace + "/" + name + suffix, owner: owner)
+            absolute: kind.path + "/" + name + suffix, owner: owner)
     }
     func treeParent(_ unit: PublicTreeUnit) throws -> FullImageAttachedDirectory {
         let parent = unit.path.split(separator: "/").dropLast().joined(separator: "/")
@@ -235,9 +237,9 @@ final class FullImageInstalledRoutes {
     // Do not cache a route to a preparation name that will be published under a
     // different name. Construct installed routes only after exclusive publish.
 #if ACCOUNT_ACCESS_FULL_IMAGE_INSTALLED_CHECKS
-    static func fixture(root: Int32, owner: uid_t) throws -> FullImageInstalledRoutes {
+    static func fixture(root: Int32, owner: uid_t, kind: PublicImageNamespace = .fullImage) throws -> FullImageInstalledRoutes {
         guard getuid() != 0, owner == getuid(), geteuid() == owner else { throw ComponentUpdateFailure.context }
-        return try FullImageInstalledRoutes(root: root, owner: owner)
+        return try FullImageInstalledRoutes(root: root, owner: owner, kind: kind)
     }
 #endif
 }
@@ -343,7 +345,7 @@ enum FullImagePublicStager {
         guard node.kind == "file", let size = node.size, size >= 0, size <= InstallerPayloadManifest.maximumFile else { throw FullImageFailure.source }
         return size
     }
-    static func reserve(_ source: FullImageSource) throws -> Int64 {
+    static func reserve(_ source: any PublicImageTransitionSource) throws -> Int64 {
         var total: Int64 = 2 * 1024 * 1024
         for unit in source.units {
             let nodes: [InstallerPayloadNode]
@@ -445,7 +447,7 @@ enum FullImagePublicView {
     // A complete projection, rather than a broad skip list: each qualified unit
     // contributes exactly its staged or applied side; every other public node
     // remains the immutable predecessor node. Missing removal sides stay absent.
-    static func projection(source: FullImageSource, states: [ComponentOperationState]) throws -> InstallerPayloadTree {
+    static func projection(source: any PublicImageTransitionSource, states: [ComponentOperationState]) throws -> InstallerPayloadTree {
         guard states.count == source.units.count, !states.contains(.conflict),
               let base = source.before.trees[InstallerPayloadManifest.support] else { throw FullImageFailure.object }
         var nodes = base.nodes
@@ -468,7 +470,7 @@ enum FullImagePublicView {
         }
         return InstallerPayloadTree(nodes: nodes, children: children)
     }
-    static func verify(source: FullImageSource, states: [ComponentOperationState], support: Int32, owner: uid_t) throws {
+    static func verify(source: any PublicImageTransitionSource, states: [ComponentOperationState], support: Int32, owner: uid_t) throws {
         let projected = try projection(source: source, states: states)
         // Same exact opaque private branches as InstallerPayloadIO.verifyImage;
         // they are separately governed by existing policy/identity helpers.

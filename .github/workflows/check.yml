@@ -57,6 +57,8 @@ jobs:
           /tmp/account-access-full-image-journal-checks > /tmp/account-access-full-image-journal.json
       - name: Check fixed installed-adapter sources and ordinary temporary fixtures
         run: uv run python scripts/mac_full_image_installed_probe.py --output /private/tmp/account-access-full-image-installed-probe
+      - name: Check repaired-image runtime plan and shared storage projection
+        run: uv run python scripts/mac_runtime_upgrade_probe.py --output /private/tmp/account-access-runtime-upgrade-probe
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
@@ -74,6 +76,9 @@ jobs:
             /tmp/account-access-full-image-mixed.json
             /tmp/account-access-full-image-journal.json
             /private/tmp/account-access-full-image-installed-probe
+            /private/tmp/account-access-runtime-upgrade-probe/result.json
+            /private/tmp/account-access-runtime-upgrade-probe/*.stdout
+            /private/tmp/account-access-runtime-upgrade-probe/*.stderr
           if-no-files-found: ignore
   native-owner-ui:
     runs-on: macos-15

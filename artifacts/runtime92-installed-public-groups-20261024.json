@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "status": "PASSED",
+  "scope": "lstat only of five public installed trees selected by the package91 manifest",
+  "before_manifest_sha256": "5a732de4623ba50aefa6d31c54e7b1eae660b2921341f95042c5675d922d808b",
+  "legacy_group": 80,
+  "published_group": 0,
+  "nodes": {
+    "owner.app": 21,
+    "python": 12775,
+    "runtime": 14607,
+    "browsers": 34,
+    "wheels": 35
+  },
+  "issues": [],
+  "private_records_read": false,
+  "files_changed": false,
+  "root_controller_qualified": false,
+  "production_ready": false,
+  "fixed_cache_repair_files": [
+    "runtime/lib/python3.12/encodings/__pycache__/__init__.cpython-312.pyc",
+    "runtime/lib/python3.12/encodings/__pycache__/aliases.cpython-312.pyc",
+    "runtime/lib/python3.12/encodings/__pycache__/utf_8.cpython-312.pyc"
+  ],
+  "cache_repair_source_evidence": "artifacts/runtime-cache-repair-verification-080-20261020.json",
+  "source_evidence_sha256": "d00ef2c620150202e7b3c2e5d68f8fdcd26c2e3ae70af19884a25cf8adca0d5f",
+  "fixed_cache_repair_group": 0
+}

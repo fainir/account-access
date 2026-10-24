@@ -72,7 +72,7 @@ private enum FixtureFailure: Error { case failed, interruption }
         defer { Darwin.close(root) }
         try file(root, "value.txt", data); try file(root, "aux.txt", Data("aux".utf8))
         guard symlinkat("value.txt", root, "alias") == 0 else { throw FixtureFailure.failed }
-        if unit == .owner {
+        if unit.path == PublicTreeUnit.owner.path {
             let contents = try directory(root, "Contents", 0o755)
             defer { Darwin.close(contents) }
             let macOS = try directory(contents, "MacOS", 0o755)
@@ -218,7 +218,7 @@ private enum FixtureFailure: Error { case failed, interruption }
                 let after = try journalSnapshot(scenario.journal)
                 try expect(before.0 == after.0 && InstallerPayloadIO.same(before.1, after.1))
             }
-            for (index, unit) in PublicTreeUnit.allCases.enumerated() {
+            for (index, unit) in PublicTreeUnit.fullImageCases.enumerated() {
                 let scenario = try Scenario(root: root, anchor: anchor, name: "roundtrip-\(index)", unit: unit)
                 let storage = try scenario.storage()
                 try expect(try storage.state() == .staged)
@@ -343,8 +343,8 @@ private enum FixtureFailure: Error { case failed, interruption }
             let originalChecks = 63 + (symlinkACLQualified ? 2 : 0)
             // Nine additional units add 45 round-trip checks; read-only reopen adds four.
             try expect(count == originalChecks + 49)
-            let optional = PublicTreeUnit.allCases.filter { $0.beforePresent != $0.afterPresent }
-            try expect(optional.count == 4 && PublicTreeUnit.allCases.count == 13)
+            let optional = PublicTreeUnit.fullImageCases.filter { $0.beforePresent != $0.afterPresent }
+            try expect(optional.count == 4 && PublicTreeUnit.fullImageCases.count == 13)
             for (index, unit) in optional.enumerated() {
                 // Both inode polarities survive a crash after the real exclusive move.
                 for forward in [true, false] {
@@ -420,7 +420,7 @@ private enum FixtureFailure: Error { case failed, interruption }
             guard count == originalChecks + 49 + 2 + 4 * 26 + 1 else { throw FixtureFailure.failed }
             // Fictional historical journal bytes, never an installed receipt.
             // Cover replacement, creation and removal on both sides of rename.
-            for (index, unit) in PublicTreeUnit.allCases.enumerated() {
+            for (index, unit) in PublicTreeUnit.fullImageCases.enumerated() {
                 for applied in [false, true] {
                     let scenario = try Scenario(root: root, anchor: anchor, name: "historical-\(index)-\(applied)", unit: unit)
                     let originalStorage = try scenario.storage()
@@ -458,6 +458,23 @@ private enum FixtureFailure: Error { case failed, interruption }
                     try tree(parent, name, unit, Data((unit.afterPresent ? "new-tree-longer" : "old-tree").utf8))
                     try refuses { _ = try readOnly.state() }
                 }
+            }
+            // Whole runtime trees use the same inode-bound atomic exchange.
+            // Verify real moves, interrupted retry, and reverse for each new role.
+            let runtimeUnits: [PublicTreeUnit] = [.runtimeOwner, .pythonRoot, .runtimeRoot, .browsers, .wheels]
+            for (index, unit) in runtimeUnits.enumerated() {
+                let scenario = try Scenario(root: root, anchor: anchor, name: "runtime-\(index)", unit: unit)
+                try expect(!PublicTreeUnit.fullImageCases.contains(unit))
+                let interrupted = try scenario.storage { phase in
+                    if phase == .afterRename { throw FixtureFailure.interruption }
+                }
+                try refuses { try interrupted.apply() }
+                try expect(try interrupted.state() == .applied)
+                let resumed = try scenario.storage()
+                try resumed.apply(); try expect(try resumed.state() == .applied)
+                try resumed.reverse(); try expect(try resumed.state() == .staged)
+                try expect(try PublicTreeIO.observeOptional(scenario.target, name: unit.name, inventory: scenario.old,
+                    owner: getuid(), group: getgid(), attachment: scenario.targetAttachment) == scenario.operation.before)
             }
             try cleanup(root)
             var current = stat()

@@ -62,7 +62,7 @@ private enum PlanFixtureFailure: Error { case failed }
             let trees = source.units.compactMap { unit -> PublicTreeUnit? in
                 if case .tree(let tree, _, _) = unit { return tree }; return nil
             }
-            try expect(trees == PublicTreeUnit.allCases)
+            try expect(trees == PublicTreeUnit.fullImageCases)
             let optional = source.units.compactMap { unit -> PublicTreeUnit? in
                 if case .tree(let tree, let old, let new) = unit, old.isPresent != new.isPresent { return tree }; return nil
             }
@@ -70,7 +70,7 @@ private enum PlanFixtureFailure: Error { case failed }
             let files = source.units.compactMap { unit -> FullImagePlanFileUnit? in
                 if case .file(let file, _, _) = unit { return file }; return nil
             }
-            try expect(files.count == 12 && Set(files.map(\.path)) == Set(FullImagePlanFileUnit.allCases.map(\.path)))
+            try expect(files.count == 12 && Set(files.map(\.path)) == Set(FullImagePlanFileUnit.fullImageCases.map(\.path)))
             try expect(source.pins.targetManifestSHA256 == expectedTarget)
             var plan = try FullImageJSON.object(raw, maximum: 34 * 1024 * 1024)
             // Re-pin every mutation to test semantic scope, not just hashing.

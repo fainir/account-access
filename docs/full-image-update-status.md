@@ -1,3 +1,7 @@
+Runtime successor source (2026-10-24): a closed package91-to-runtime92 controller, separate recovery namespace, completed-repair history revalidation and Installer-only entry point now compile. Ordinary native checks pass (68 successor checks, 459 tree-storage checks, plus existing adapter regressions). The fixed group mapping matches 27,472 public installed nodes, including the earlier three cache repairs. Package93 still requires a build and actual hosted Installer/recovery acceptance before owner use. This does not qualify real account login or Android delivery.
+
+Latest validation (2026-10-24): runtime92 fresh Installer and exact reapplication passed all 13 checks in hosted run 40113282658. Completed package91 predecessor validation passed all four scenarios in run 40113010696, including interruption recovery and refusal of a foreign volume binding. Downloaded reports and referenced logs were hash-verified; see `artifacts/runtime92-fresh-installer-20261024.json` and `artifacts/completed-repair-hosted-20261024.json`. The owner successor upgrade controller and real-account acceptance remain unqualified.
+
 # Full-image update development status
 
 ## Latest status — 24 October 2026

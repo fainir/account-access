@@ -20,6 +20,22 @@ extension ComponentController {
     static func completedBrokerRepair(resources: Int32, pins: BrokerRepairSource.Pins,
                                      predecessorPins: FullImageSourcePins) throws -> CompletedBrokerRepairProof {
         guard getuid() == 0, geteuid() == 0 else { throw ComponentUpdateFailure.context }
+        let original = try directory(oldJournal, mode: 0o700); defer { Darwin.close(original) }
+        let originalLease = try lease(original, "lock"); defer { Darwin.close(originalLease) }
+        let broker = try directory(InstallerPayloadManifest.support + "/broker", mode: 0o755); defer { Darwin.close(broker) }
+        let provisionLease = try lease(broker, "install.lock"); defer { Darwin.close(provisionLease) }
+        return try completedBrokerRepairLocked(resources: resources, pins: pins, predecessorPins: predecessorPins)
+    }
+    // The runtime controller holds the maintenance leases and supplies only
+    // typed current-or-retained before records from its fully validated intent.
+    // No callback can select a path, and the completed proof must match the
+    // digest already bound into that protected successor intent.
+    private static func completedBrokerRepairLocked(resources: Int32, pins: BrokerRepairSource.Pins,
+            predecessorPins: FullImageSourcePins, expectedEvidenceSHA256: String? = nil,
+            historical: ((FullImageFileUnit) throws -> (Data, ComponentObject))? = nil) throws -> CompletedBrokerRepairProof {
+        guard getuid() == 0, geteuid() == 0 else { throw ComponentUpdateFailure.context }
+        guard (historical == nil) == (expectedEvidenceSHA256 == nil),
+              expectedEvidenceSHA256.map({ FullImageJSON.hex($0) }) ?? true else { throw ComponentUpdateFailure.journal }
         let source = try repairSource(resources, pins: pins)
         guard pins.predecessorPlanSHA256 == predecessorPins.planSHA256,
               pins.beforeManifestSHA256 == predecessorPins.targetManifestSHA256 else { throw ComponentUpdateFailure.source }
@@ -29,10 +45,7 @@ extension ComponentController {
         }
         let (ownerUID, ownerGroup) = try owner()
         let original = try directory(oldJournal, mode: 0o700); defer { Darwin.close(original) }
-        let originalLease = try lease(original, "lock"); defer { Darwin.close(originalLease) }
         try originalReceipt(original, ownerUID: ownerUID)
-        let broker = try directory(InstallerPayloadManifest.support + "/broker", mode: 0o755); defer { Darwin.close(broker) }
-        let provisionLease = try lease(broker, "install.lock"); defer { Darwin.close(provisionLease) }
         try ComponentProcesses.requireOwnerClosed()
         let routes = try BrokerRepairRoutes(plan: pins.planSHA256, predecessorPlan: pins.predecessorPlanSHA256)
         let namespace = try routes.namespace(), backup = try routes.transition()
@@ -40,7 +53,9 @@ extension ComponentController {
         guard try InstallerPayloadIO.contents(namespace.fd) == namespaceNames else { throw ComponentUpdateFailure.journal }
         let mount = try routes.mount(), history = try routes.history()
         let predecessorHead = try ComponentFiles.read(routes.predecessor().fd, "head.json", owner: 0, mode: 0o644).1
-        let worker = try publicRead("broker/worker.json", mode: 0o644), host = try publicRead("broker/host.json", mode: 0o644)
+        let worker = try publicRead("broker/worker.json", mode: 0o644)
+        let host = try historical?(.hostPolicy) ?? publicRead("broker/host.json", mode: 0o644)
+        guard host.1.bytes == host.0.count, host.1.sha256 == FullImageJSON.hash(host.0) else { throw ComponentUpdateFailure.object }
         let service = try jobPlist(ownerGroup: ownerGroup)
         let intentBytes = try ComponentFiles.read(backup.fd, "intent.json", owner: 0, mode: 0o600).0
         let intent = try BrokerRepairIntent.decode(intentBytes)
@@ -53,8 +68,14 @@ extension ComponentController {
               operations.enumerated().allSatisfy({ index, operation in
                 operation.target == BrokerRepairIntent.targets[index].0 && operation.path == BrokerRepairIntent.targets[index].1
                 && operation.slot == String(format: "slot-%02d", index) }) else { throw ComponentUpdateFailure.journal }
-        let policy = try ComponentUpdatePolicies.derive(install: repairOriginal(operations[4], routes: routes, backup: backup.fd),
-            host: host.0, owner: repairOriginal(operations[3], routes: routes, backup: backup.fd), worker: worker.0,
+        func retainedOriginal(_ operation: ComponentOperation) throws -> Data {
+            guard let expected = operation.before else { throw ComponentUpdateFailure.journal }
+            let saved = try ComponentFiles.read(backup.fd, operation.slot, owner: 0)
+            guard saved.1 == expected else { throw ComponentUpdateFailure.journal }
+            return saved.0
+        }
+        let policy = try ComponentUpdatePolicies.derive(install: retainedOriginal(operations[4]),
+            host: host.0, owner: retainedOriginal(operations[3]), worker: worker.0,
             oldPeers: source.oldPeers, newPeers: source.newPeers, oldFingerprint: source.oldFingerprint,
             newFingerprint: source.newFingerprint, consoleOwner: ownerUID)
         try identity(ownerUID, policy.brokerUID)
@@ -78,17 +99,34 @@ extension ComponentController {
                   try ComponentFiles.read(backup.fd, "intent.json", owner: 0, mode: 0o600).0 == intentBytes,
                   try ComponentFiles.read(routes.predecessor().fd, "head.json", owner: 0, mode: 0o644).1 == predecessorHead,
                   try publicRead("broker/worker.json", mode: 0o644).1 == worker.1,
-                  try publicRead("broker/host.json", mode: 0o644).1 == host.1,
+                  try (historical?(.hostPolicy) ?? publicRead("broker/host.json", mode: 0o644)).1 == host.1,
                   try jobPlist(ownerGroup: ownerGroup) == service, try owner().0 == ownerUID else { throw ComponentUpdateFailure.object }
             try originalReceipt(original, ownerUID: ownerUID)
         }
         func completeView() throws {
             try unchanged()
-            _ = try InstallerPayloadIO.installedImage(source.after, opaquePrivateBranches: true)
-            try repairSignatures(source, after: true)
+            if historical == nil {
+                _ = try InstallerPayloadIO.installedImage(source.after, opaquePrivateBranches: true)
+                try repairSignatures(source, after: true)
+            }
+            // A successor may have moved these four old files into its own
+            // retained slots. Broker and repair-head objects remain installed.
+            let moved: [String: FullImageFileUnit] = ["package-identity.json": .packageIdentity,
+                "broker-repair-identity.json": .repairIdentityRemoval,
+                "owner.json": .ownerPolicy, "broker/install.json": .installRecord]
             for operation in operations {
-                let (parent, name) = try routes.resolve(operation); defer { Darwin.close(parent) }
-                guard try ComponentFiles.observe(parent, name, owner: 0) == operation.after,
+                let current: ComponentObject?
+                if let historical, let unit = moved[operation.path], operation.target != .head {
+                    let read = try historical(unit)
+                    guard read.1.bytes == read.0.count, FullImageJSON.hash(read.0) == read.1.sha256 else {
+                        throw ComponentUpdateFailure.object
+                    }
+                    current = read.1
+                } else {
+                    let (parent, name) = try routes.resolve(operation); defer { Darwin.close(parent) }
+                    current = try ComponentFiles.observe(parent, name, owner: 0)
+                }
+                guard current == operation.after,
                       try ComponentFiles.observe(backup.fd, operation.slot, owner: 0) == operation.before else {
                     throw ComponentUpdateFailure.object
                 }
@@ -106,6 +144,9 @@ extension ComponentController {
             "head_sha256": operations.last!.after.sha256,
             "mount_sha256": FullImageJSON.hash(try BrokerRepairJournal.encode(intent.mount)),
             "worker_sha256": worker.1.sha256, "service_sha256": service.sha256, "host_sha256": host.1.sha256] as [String: Any])
+        if let expectedEvidenceSHA256 {
+            guard FullImageJSON.hash(evidence) == expectedEvidenceSHA256 else { throw ComponentUpdateFailure.journal }
+        }
         try completeView()
         guard try journalEvidence() == completedHistory else { throw ComponentUpdateFailure.journal }
         try unchanged()

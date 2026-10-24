@@ -1,0 +1,82 @@
+{
+  "schema": 1,
+  "status": "PASSED",
+  "run_id": 40113010696,
+  "controller_source": "aef2ba73dc2130162c6133650579f400b63e0e88",
+  "scenarios": [
+    {
+      "artifact_id": 12568155951,
+      "artifact_sha256": "46661981f0446ef3dead78ec5dd02ef15767f9e30dfe5dc5cd705c29c2dea7e9",
+      "referenced_log_hashes_verified": 46,
+      "scenario": "later-enrollment",
+      "controller_revision": "aef2ba73dc2130162c6133650579f400b63e0e88",
+      "repair_checks": 13,
+      "completed_predecessor": {
+        "expected_state_verified": true,
+        "foreign_audit_refused": true,
+        "native_source_verified": true,
+        "production_ready": false,
+        "public_metadata_unchanged": true,
+        "requested": true,
+        "same_evidence_twice": true
+      },
+      "report_sha256": "6425a448abe907ad47e76037d28143395aae0e9d0002c925790764f08451c119"
+    },
+    {
+      "artifact_id": 12567414464,
+      "artifact_sha256": "2aa44a7453422ef489f883007fc786510c09f8673e3d5307ee2fad0b29fdac48",
+      "referenced_log_hashes_verified": 44,
+      "scenario": "install-reapply",
+      "controller_revision": "aef2ba73dc2130162c6133650579f400b63e0e88",
+      "repair_checks": 13,
+      "completed_predecessor": {
+        "expected_state_verified": true,
+        "foreign_audit_refused": true,
+        "native_source_verified": true,
+        "production_ready": false,
+        "public_metadata_unchanged": true,
+        "requested": true,
+        "same_evidence_twice": true
+      },
+      "report_sha256": "88373f0d8b13e81f2a0cec9e24b0fb956c1f1c79ae4c3677d1f48226e4d256cd"
+    },
+    {
+      "scenario": "foreign-binding",
+      "checks": 13,
+      "completed_predecessor": {
+        "expected_state_verified": true,
+        "foreign_audit_refused": false,
+        "native_source_verified": true,
+        "production_ready": false,
+        "public_metadata_unchanged": true,
+        "requested": true,
+        "same_evidence_twice": false
+      },
+      "report_sha256": "9efaa4fcf74e3522b3b4e03758e44606f39536bbbde83068a5f9ab7b8562c4f1",
+      "artifact_id": 12567948379,
+      "artifact_sha256": "674af5c2fa63731147a1aaa21f83fef788465f15514e02fe71efbb06b751491b",
+      "referenced_log_hashes_verified": 52
+    },
+    {
+      "scenario": "interrupt-broker",
+      "checks": 13,
+      "completed_predecessor": {
+        "expected_state_verified": true,
+        "foreign_audit_refused": true,
+        "native_source_verified": true,
+        "production_ready": false,
+        "public_metadata_unchanged": true,
+        "requested": true,
+        "same_evidence_twice": true
+      },
+      "report_sha256": "a804dc5615468b6d158b1ab969e31e998ffa50ef3733760e245c6d0d129596f4",
+      "artifact_id": 12568465008,
+      "artifact_sha256": "ff1dc9b82574da3f3d2f1a0b38a39d6916d184482fcf0522036f804bbec77ca3",
+      "referenced_log_hashes_verified": 54
+    }
+  ],
+  "scope": "Read-only completed repair authority on fresh hosted Macs after actual package 91 Installer acceptance. Foreign volume binding must refuse.",
+  "owner_machine_changed": false,
+  "successor_upgrade_qualified": false,
+  "production_ready": false
+}

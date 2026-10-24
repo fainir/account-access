@@ -35,10 +35,59 @@ import Darwin
         let accepted = try load(raw)
         check(accepted.changed == value["changed"] as? [String])
         check(accepted.units.count == (value["units"] as? [Any])?.count)
+        check(accepted.units.map(\.path) == (value["units"] as? [[String: Any]])?.compactMap { $0["path"] as? String })
+        check(PublicTreeUnit.fullImageCases.count == 13 && FullImagePlanFileUnit.fullImageCases.count == 12)
+        func rows(_ tree: InstallerPayloadTree) throws -> Data {
+            let values = tree.nodes.mapValues { node -> [String: Any] in
+                switch node.kind {
+                case "directory": return ["kind": node.kind, "mode": node.mode!]
+                case "file": return ["kind": node.kind, "mode": node.mode!, "size": node.size!, "sha256": node.sha256!]
+                default: return ["kind": node.kind, "target": node.target!]
+                }
+            }
+            return try FullImageJSON.canonical(values)
+        }
+        let count = accepted.units.count
+        check(try rows(FullImagePublicView.projection(source: accepted, states: Array(repeating: .staged, count: count)))
+            == rows(accepted.before.trees[InstallerPayloadManifest.support]!))
+        check(try rows(FullImagePublicView.projection(source: accepted, states: Array(repeating: .applied, count: count)))
+            == rows(accepted.after.trees[InstallerPayloadManifest.support]!))
+        check(try FullImagePublicStager.reserve(accepted) > 2 * 1024 * 1024)
+        refuses { _ = try FullImagePublicView.projection(source: accepted, states: Array(repeating: .conflict, count: count)) }
+        refuses { _ = try FullImagePublicView.projection(source: accepted, states: []) }
+        for (index, unit) in accepted.units.enumerated() {
+            if case .file(let selected, let old, let new) = unit {
+                func object(_ node: InstallerPayloadNode?, inode: UInt64) -> ComponentObject? {
+                    node.map { .init(device: 5, inode: inode, mode: $0.mode!, bytes: $0.size!, sha256: $0.sha256!) }
+                }
+                let operation = FullImageFileOperation(schema: 1, unit: .init(publicUnit: selected),
+                    planSHA256: accepted.planSHA256, index: index,
+                    before: object(old, inode: 10), after: object(new, inode: 11))
+                try operation.validate(ownerDevice: 5); check(true)
+                let inverted = FullImageFileOperation(schema: 1, unit: operation.unit, planSHA256: operation.planSHA256,
+                    index: index, before: operation.after, after: operation.before)
+                if selected == .repairIdentityRemoval { refuses { try inverted.validate(ownerDevice: 5) } }
+            }
+        }
         if CommandLine.arguments.count == 3 {
             print("{\"status\":\"PASSED\",\"checks\":" + String(checks) + ",\"installed_reads\":false,\"production_ready\":false}")
             return
         }
+        checks += try RuntimeUpgradeNamespaceChecks.run()
+        checks += try RuntimeUpgradeMetadataChecks.run(source: accepted)
+        // These intentionally invalid pins cannot confer authority: the root
+        // guard must refuse before consulting any pin or resource descriptor.
+        let zero = String(repeating: "0", count: 64), commit = String(repeating: "0", count: 40)
+        let predecessor = FullImageSourcePins(planSHA256: zero, targetSourceCommit: commit,
+            targetManifestSHA256: zero, caReceiptSHA256: zero,
+            predecessor: .init(planSHA256: zero, originalManifestSHA256: zero, manifestSHA256: zero, headSHA256: zero),
+            predecessorSourceCommit: commit, targetSourceFiles: [:], providerManifestSHA256: zero, providerSourceBundleSHA256: zero)
+        let repair = BrokerRepairSource.Pins(planSHA256: zero, predecessorPlanSHA256: zero,
+            beforeManifestSHA256: zero, afterManifestSHA256: zero, sourceCommit: commit)
+        var stages: [FullImageInstallCheckpoint] = []
+        refuses { _ = try ComponentController.runRuntimeUpgrade(resources: -1, pins: accepted.pins,
+            repairPins: repair, predecessorPins: predecessor, checkpoint: { stages.append($0) }) }
+        check(stages == [.context])
         for key in Array(value.keys) + ["extra"] {
             var changed = value; changed[key] = "foreign"
             var bytes = try FullImageJSON.canonical(changed); bytes.append(10)

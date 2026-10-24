@@ -9,9 +9,15 @@ enum PublicTreeUnit: String, CaseIterable {
     case owner, project, distInfo, pythonProvider, provider
     case pythonPip, pythonOldPipInfo, pythonPipInfo, pythonEnsurePip
     case runtimePip, runtimeOldPipInfo, runtimePipInfo, runtimeEnsurePip
+    case runtimeOwner, pythonRoot, runtimeRoot, browsers, wheels
+    // The first complete-image release has a separate closed set. Adding a
+    // successor tree must never expand that release's accepted plan.
+    static let fullImageCases: [Self] = [.owner, .project, .distInfo, .pythonProvider, .provider,
+        .pythonPip, .pythonOldPipInfo, .pythonPipInfo, .pythonEnsurePip,
+        .runtimePip, .runtimeOldPipInfo, .runtimePipInfo, .runtimeEnsurePip]
     var path: String {
         switch self {
-        case .owner: return "owner.app"
+        case .owner, .runtimeOwner: return "owner.app"
         case .project: return "runtime/lib/python3.12/site-packages/account_access"
         case .distInfo: return "runtime/lib/python3.12/site-packages/account_access-0.8.0.dist-info"
         case .pythonProvider: return "python/libexec/bitwarden"
@@ -24,10 +30,31 @@ enum PublicTreeUnit: String, CaseIterable {
         case .runtimeOldPipInfo: return "runtime/lib/python3.12/site-packages/pip-26.2.1.dist-info"
         case .runtimePipInfo: return "runtime/lib/python3.12/site-packages/pip-26.2.2.dist-info"
         case .runtimeEnsurePip: return "runtime/lib/python3.12/ensurepip"
+        case .pythonRoot: return "python"
+        case .runtimeRoot: return "runtime"
+        case .browsers: return "browsers"
+        case .wheels: return "wheels"
         }
     }
     var beforePresent: Bool { ![Self.pythonPipInfo, .runtimePipInfo].contains(self) }
     var afterPresent: Bool { ![Self.pythonOldPipInfo, .runtimeOldPipInfo].contains(self) }
+    var runtimeUpgrade: Bool { [.runtimeOwner, .pythonRoot, .runtimeRoot, .browsers, .wheels].contains(self) }
+    // Package85 and the preceding cache repair published these exact nodes as
+    // root:wheel; other nodes kept the original support group's metadata. This closed
+    // mapping validates each old node without changing it or allowing any GID.
+    func precedingGroup(_ relative: String, legacy: gid_t, published: gid_t) -> gid_t {
+        guard runtimeUpgrade else { return legacy }
+        let absolute = path + (relative.isEmpty ? "" : "/" + relative)
+        for unit in Self.fullImageCases where unit.afterPresent {
+            if absolute == unit.path || absolute.hasPrefix(unit.path + "/") { return published }
+        }
+        let files: Set<String> = ["wheels/account_access-0.8.0-py3-none-any.whl",
+            "python/bin/pip", "python/bin/pip3", "runtime/bin/pip", "runtime/bin/pip3",
+            "runtime/lib/python3.12/encodings/__pycache__/__init__.cpython-312.pyc",
+            "runtime/lib/python3.12/encodings/__pycache__/aliases.cpython-312.pyc",
+            "runtime/lib/python3.12/encodings/__pycache__/utf_8.cpython-312.pyc"]
+        return files.contains(absolute) ? published : legacy
+    }
     func accepts(old: PublicTreeInventory, new: PublicTreeInventory) -> Bool {
         old.unit == self && new.unit == self && old.isPresent == beforePresent && new.isPresent == afterPresent
     }
@@ -154,11 +181,14 @@ enum PublicTreeIO {
             throw PublicTreeFailure.invalid
         }
     }
-    static func metadata(_ fd: Int32, inventory: PublicTreeInventory, owner: uid_t, group: gid_t, name: String = "") throws {
-        guard let tree = inventory.tree else { throw PublicTreeFailure.invalid }
+    static func metadata(_ fd: Int32, inventory: PublicTreeInventory, owner: uid_t, group: gid_t, name: String = "", priorReleaseGroup: gid_t? = nil) throws {
+        guard let tree = inventory.tree, priorReleaseGroup == nil || inventory.unit.runtimeUpgrade else { throw PublicTreeFailure.invalid }
+        func expectedGroup(_ path: String) -> gid_t {
+            priorReleaseGroup.map { inventory.unit.precedingGroup(path, legacy: group, published: $0) } ?? group
+        }
         let before = try InstallerPayloadIO.check(fd, owner: owner, directory: true)
         try noACL(fd)
-        guard before.st_gid == group, before.st_mode & 0o7777 == tree.nodes[name]?.mode,
+        guard before.st_gid == expectedGroup(name), before.st_mode & 0o7777 == tree.nodes[name]?.mode,
               before.st_nlink > 0,
               try InstallerPayloadIO.contents(fd) == (tree.children[name] ?? []) else { throw PublicTreeFailure.changed }
         for child in (tree.children[name] ?? []).sorted() {
@@ -166,7 +196,7 @@ enum PublicTreeIO {
             let node = tree.nodes[relative]!
             var info = stat()
             guard fstatat(fd, child, &info, AT_SYMLINK_NOFOLLOW) == 0, info.st_uid == owner,
-                  info.st_gid == group, info.st_dev == before.st_dev,
+                  info.st_gid == expectedGroup(relative), info.st_dev == before.st_dev,
                   info.st_mode & 0o6000 == 0 else { throw PublicTreeFailure.changed }
             if node.kind == "symlink" {
                 guard info.st_mode & S_IFMT == S_IFLNK, info.st_nlink == 1 else { throw PublicTreeFailure.changed }
@@ -176,9 +206,9 @@ enum PublicTreeIO {
                 do {
                     var held = stat(), current = stat()
                     guard fstat(link, &held) == 0, held.st_mode & S_IFMT == S_IFLNK,
-                          held.st_gid == group, InstallerPayloadIO.same(info, held) else { throw PublicTreeFailure.changed }
+                          held.st_gid == expectedGroup(relative), InstallerPayloadIO.same(info, held) else { throw PublicTreeFailure.changed }
                     try noLinkACL(link)
-                    guard fstat(link, &current) == 0, current.st_gid == group,
+                    guard fstat(link, &current) == 0, current.st_gid == expectedGroup(relative),
                           InstallerPayloadIO.same(held, current) else { throw PublicTreeFailure.changed }
                 } catch { Darwin.close(link); throw error }
                 Darwin.close(link)
@@ -188,23 +218,24 @@ enum PublicTreeIO {
                 do {
                     let observed = try InstallerPayloadIO.check(opened, owner: owner, directory: node.kind == "directory")
                     try noACL(opened)
-                    guard observed.st_gid == group, InstallerPayloadIO.same(info, observed) else { throw PublicTreeFailure.changed }
-                    if node.kind == "directory" { try metadata(opened, inventory: inventory, owner: owner, group: group, name: relative) }
+                    guard observed.st_gid == expectedGroup(relative), InstallerPayloadIO.same(info, observed) else { throw PublicTreeFailure.changed }
+                    if node.kind == "directory" { try metadata(opened, inventory: inventory, owner: owner, group: group, name: relative, priorReleaseGroup: priorReleaseGroup) }
                 } catch { Darwin.close(opened); throw error }
                 Darwin.close(opened)
             }
             var after = stat()
-            guard fstatat(fd, child, &after, AT_SYMLINK_NOFOLLOW) == 0, after.st_gid == group,
+            guard fstatat(fd, child, &after, AT_SYMLINK_NOFOLLOW) == 0, after.st_gid == expectedGroup(relative),
                   InstallerPayloadIO.same(info, after) else {
                 throw PublicTreeFailure.changed
             }
         }
         let current = try InstallerPayloadIO.check(fd, owner: owner, directory: true)
-        guard current.st_gid == group, InstallerPayloadIO.same(before, current) else {
+        guard current.st_gid == expectedGroup(name), InstallerPayloadIO.same(before, current) else {
             throw PublicTreeFailure.changed
         }
     }
-    static func observe(_ parent: Int32, name: String, inventory: PublicTreeInventory, owner: uid_t, group: gid_t, attachment: PublicTreeAttachment) throws -> PublicTreePin {
+    static func observe(_ parent: Int32, name: String, inventory: PublicTreeInventory, owner: uid_t, group: gid_t, attachment: PublicTreeAttachment, priorReleaseGroup: gid_t? = nil) throws -> PublicTreePin {
+        let rootGroup = priorReleaseGroup.map { inventory.unit.precedingGroup("", legacy: group, published: $0) } ?? group
         guard attachment.role.mayObserve(inventory.unit), let tree = inventory.tree,
               let inventorySHA256 = inventory.inventorySHA256 else { throw PublicTreeFailure.invalid }
         try attachment.verify(parent, role: attachment.role, owner: owner, group: attachment.parentGroup, mode: attachment.role.mode)
@@ -215,23 +246,23 @@ enum PublicTreeIO {
         guard fd >= 0 else { throw PublicTreeFailure.changed }
         defer { Darwin.close(fd) }
         let before = try InstallerPayloadIO.check(fd, owner: owner, directory: true)
-        guard path.st_gid == group, InstallerPayloadIO.same(path, before), before.st_gid == group else { throw PublicTreeFailure.changed }
-        try metadata(fd, inventory: inventory, owner: owner, group: group)
+        guard path.st_gid == rootGroup, InstallerPayloadIO.same(path, before), before.st_gid == rootGroup else { throw PublicTreeFailure.changed }
+        try metadata(fd, inventory: inventory, owner: owner, group: group, priorReleaseGroup: priorReleaseGroup)
         _ = try InstallerPayloadIO.verify(fd, tree: tree, owner: owner)
         var after = stat()
         let current = try InstallerPayloadIO.check(fd, owner: owner, directory: true)
         guard fstatat(parent, name, &after, AT_SYMLINK_NOFOLLOW) == 0,
-              after.st_gid == group, current.st_gid == group,
+              after.st_gid == rootGroup, current.st_gid == rootGroup,
               InstallerPayloadIO.same(before, after), InstallerPayloadIO.same(before, current) else {
             throw PublicTreeFailure.changed
         }
         try attachment.verify(parent, role: attachment.role, owner: owner, group: attachment.parentGroup, mode: attachment.role.mode)
-        return PublicTreePin(device: before.st_dev, inode: UInt64(before.st_ino), owner: owner, group: group,
+        return PublicTreePin(device: before.st_dev, inode: UInt64(before.st_ino), owner: owner, group: rootGroup,
             mode: UInt16(before.st_mode & 0o7777), inventorySHA256: inventorySHA256)
     }
     static func observeOptional(_ parent: Int32, name: String, inventory: PublicTreeInventory,
-        owner: uid_t, group: gid_t, attachment: PublicTreeAttachment) throws -> PublicTreePin? {
-        if inventory.isPresent { return try observe(parent, name: name, inventory: inventory, owner: owner, group: group, attachment: attachment) }
+        owner: uid_t, group: gid_t, attachment: PublicTreeAttachment, priorReleaseGroup: gid_t? = nil) throws -> PublicTreePin? {
+        if inventory.isPresent { return try observe(parent, name: name, inventory: inventory, owner: owner, group: group, attachment: attachment, priorReleaseGroup: priorReleaseGroup) }
         guard attachment.role.mayObserve(inventory.unit), try InstallerPayloadManifest.components(name).count == 1 else { throw PublicTreeFailure.invalid }
         try attachment.verify(parent, role: attachment.role, owner: owner, group: attachment.parentGroup, mode: attachment.role.mode)
         var info = stat()
@@ -320,7 +351,7 @@ final class PublicTreeStorage {
             try PublicTreeIO.noACL(fd)
             guard info.st_gid == attachment.parentGroup, info.st_nlink > 0, info.st_mode & 0o7777 == mode else { throw PublicTreeFailure.invalid }
         }
-        let before = try PublicTreeIO.observeOptional(targetParent, name: unit.name, inventory: old, owner: owner, group: beforeGroup, attachment: targetAttachment)
+        let before = try PublicTreeIO.observeOptional(targetParent, name: unit.name, inventory: old, owner: owner, group: beforeGroup, attachment: targetAttachment, priorReleaseGroup: unit.runtimeUpgrade ? group : nil)
         let after = try PublicTreeIO.observeOptional(retainedParent, name: unit.slot, inventory: new, owner: owner, group: group, attachment: retainedAttachment)
         try targetAttachment.verify(targetParent, role: .target(unit), owner: owner, group: targetAttachment.parentGroup, mode: 0o755)
         try retainedAttachment.verify(retainedParent, role: .retained(unit), owner: owner, group: retainedAttachment.parentGroup, mode: 0o700)
@@ -348,7 +379,7 @@ final class PublicTreeStorage {
               operation.planSHA256.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }),
               operation.beforeManifestSHA256 == old.manifestSHA256, operation.afterManifestSHA256 == new.manifestSHA256,
               (operation.before != nil) == old.isPresent, (operation.after != nil) == new.isPresent else { throw PublicTreeFailure.invalid }
-        for (pin, inventory, contentGroup) in [(operation.before, old, beforeGroup), (operation.after, new, group)] {
+        for (pin, inventory, contentGroup) in [(operation.before, old, unit.precedingGroup("", legacy: beforeGroup, published: group)), (operation.after, new, group)] {
             if let pin {
                 guard pin.inventorySHA256 == inventory.inventorySHA256, pin.owner == owner, pin.group == contentGroup,
                       pin.mode == 0o755, pin.inode > 0 else { throw PublicTreeFailure.invalid }
@@ -499,7 +530,7 @@ final class PublicTreeStorage {
         }
         if try identity(target, unit.name, operation.before), try identity(retained, unit.slot, operation.after) {
             guard previous != .applied,
-                  try PublicTreeIO.observeOptional(target.fd, name: unit.name, inventory: old, owner: owner, group: beforeGroup, attachment: target.attachment) == expected(operation.before),
+                  try PublicTreeIO.observeOptional(target.fd, name: unit.name, inventory: old, owner: owner, group: beforeGroup, attachment: target.attachment, priorReleaseGroup: unit.runtimeUpgrade ? group : nil) == expected(operation.before),
                   try PublicTreeIO.observeOptional(retained.fd, name: unit.slot, inventory: new, owner: owner, group: group, attachment: retained.attachment) == expected(operation.after) else { throw PublicTreeFailure.changed }
             try parents()
             return .staged
@@ -507,7 +538,7 @@ final class PublicTreeStorage {
         guard previous != nil, previous != .rolledBack,
               try identity(target, unit.name, operation.after), try identity(retained, unit.slot, operation.before),
               try PublicTreeIO.observeOptional(target.fd, name: unit.name, inventory: new, owner: owner, group: group, attachment: target.attachment) == expected(operation.after),
-              try PublicTreeIO.observeOptional(retained.fd, name: unit.slot, inventory: old, owner: owner, group: beforeGroup, attachment: retained.attachment) == expected(operation.before) else { throw PublicTreeFailure.changed }
+              try PublicTreeIO.observeOptional(retained.fd, name: unit.slot, inventory: old, owner: owner, group: beforeGroup, attachment: retained.attachment, priorReleaseGroup: unit.runtimeUpgrade ? group : nil) == expected(operation.before) else { throw PublicTreeFailure.changed }
         try parents()
         return .applied
     }

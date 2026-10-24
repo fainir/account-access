@@ -111,7 +111,7 @@ extension ComponentController {
             oldPeers: source.oldPeers, newPeers: source.newPeers, oldFingerprint: oldFingerprint,
             newFingerprint: FullImagePolicyFingerprint.value(source.newPeers), consoleOwner: ownerUID)
     }
-    private static func fullDynamic(_ policy: ComponentPolicyResult, source: FullImageSource,
+    private static func fullDynamic(_ policy: ComponentPolicyResult, source: any PublicImageTransitionSource,
                                     proofSHA256: String) throws -> [FullImageFileUnit: Data] {
         [.hostPolicy: policy.host, .ownerPolicy: policy.owner, .installRecord: policy.install,
          .head: try FullImageGlobalIntent.newHead(source: source, predecessorEvidenceSHA256: proofSHA256)]
@@ -141,24 +141,24 @@ extension ComponentController {
             try ComponentUpdateIdentity.verifyStatic(path: root + "/" + relative, peer: peer, designated: designated)
         }
     }
-    private static func fullPreliminary(_ intent: FullImageGlobalIntent, source: FullImageSource, ownerUID: uid_t) throws {
+    private static func fullPreliminary(_ intent: FullImageGlobalIntent, source: any PublicImageTransitionSource, ownerUID: uid_t) throws {
         // Structure, protected inode, canonical bytes and attachment are checked
         // by readIntent. This is only enough to obtain the evidence digest for
         // opaque predecessor revalidation. Full authority/dynamic validation is
         // mandatory below before opening any transition storage or service.
-        guard intent.planSHA256 == source.pins.planSHA256, intent.beforeManifestSHA256 == source.before.sha256,
-              intent.afterManifestSHA256 == source.after.sha256, intent.targetSourceCommit == source.pins.targetSourceCommit,
+        guard intent.planSHA256 == source.planSHA256, intent.beforeManifestSHA256 == source.before.sha256,
+              intent.afterManifestSHA256 == source.after.sha256, intent.targetSourceCommit == source.targetSourceCommit,
               intent.ownerUID == ownerUID, intent.operations.count == source.units.count + 4 else { throw FullImageFailure.journal }
     }
-    private static func fullLayout(source: FullImageSource, routes: FullImageInstalledRoutes,
+    private static func fullLayout(source: any PublicImageTransitionSource, routes: FullImageInstalledRoutes,
                                     storage: FullImageMixedStorage, intent: FullImageGlobalIntent) throws {
-        let transition = try routes.transition(plan: source.pins.planSHA256)
+        let transition = try routes.transition(plan: source.planSHA256)
         guard try InstallerPayloadIO.contents(transition.fd) == ["files", "trees", "global"] else { throw FullImageFailure.journal }
         let trees = openat(transition.fd, "trees", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
         guard trees >= 0 else { throw FullImageFailure.journal }; defer { Darwin.close(trees) }
         let info = try InstallerPayloadIO.check(trees, owner: 0, directory: true); try PublicTreeIO.noACL(trees)
         guard info.st_gid == 0, info.st_mode & 0o7777 == 0o700,
-              try InstallerPayloadIO.contents(trees) == Set(PublicTreeUnit.allCases.map(\.rawValue)) else { throw FullImageFailure.journal }
+              try InstallerPayloadIO.contents(trees) == Set(source.units.compactMap { if case .tree(let unit, _, _) = $0 { return unit.rawValue }; return nil }) else { throw FullImageFailure.journal }
         var fileSlots: Set<String> = []
         for (index, operation) in intent.operations.enumerated() {
             let state = try storage.state(storage.operations[index])
@@ -172,12 +172,12 @@ extension ComponentController {
                 let pin = try InstallerPayloadIO.check(parent, owner: 0, directory: true); try PublicTreeIO.noACL(parent)
                 guard pin.st_gid == 0, pin.st_mode & 0o7777 == 0o700,
                       try InstallerPayloadIO.contents(parent) == ["retained", "journal"] else { throw FullImageFailure.journal }
-                let retained = try routes.retained(unit, plan: source.pins.planSHA256)
+                let retained = try routes.retained(unit, plan: source.planSHA256)
                 let present = (state == .staged ? record.after : record.before) != nil
                 guard try InstallerPayloadIO.contents(retained.fd) == (present ? [unit.slot] : []) else { throw FullImageFailure.journal }
             }
         }
-        guard try InstallerPayloadIO.contents(routes.files(plan: source.pins.planSHA256).fd) == fileSlots else { throw FullImageFailure.journal }
+        guard try InstallerPayloadIO.contents(routes.files(plan: source.planSHA256).fd) == fileSlots else { throw FullImageFailure.journal }
         try routes.verify()
     }
 

@@ -4,26 +4,43 @@ import Foundation
 
 enum RuntimeUpgradeTree: String, CaseIterable {
     case owner = "owner.app", python, runtime, browsers, wheels
+    var storageUnit: PublicTreeUnit {
+        switch self {
+        case .owner: return .runtimeOwner
+        case .python: return .pythonRoot
+        case .runtime: return .runtimeRoot
+        case .browsers: return .browsers
+        case .wheels: return .wheels
+        }
+    }
 }
 enum RuntimeUpgradeFile: String, CaseIterable {
     case identity = "package-identity.json", requirements = "package-requirements.txt"
     case image = "runtime-image.json", preparation = "runtime-preparation.json"
     case ca = "runtime-ca-refresh.json", repairIdentity = "broker-repair-identity.json"
+    var storageUnit: FullImagePlanFileUnit {
+        switch self {
+        case .identity: return .packageIdentity
+        case .requirements: return .requirements
+        case .image: return .runtimeImage
+        case .preparation: return .runtimePreparation
+        case .ca: return .caReplacement
+        case .repairIdentity: return .repairIdentityRemoval
+        }
+    }
 }
-struct RuntimeUpgradeSource {
+struct RuntimeUpgradeSource: PublicImageTransitionSource {
     struct Pins {
         let planSHA256: String, beforeSHA256: String, afterSHA256: String
         let repairPlan: String, repairSource: String, targetSource: String
         let sourceFiles: [String: String]
     }
-    enum Unit {
-        case tree(RuntimeUpgradeTree), file(RuntimeUpgradeFile)
-        var path: String { switch self { case .tree(let unit): return unit.rawValue; case .file(let unit): return unit.rawValue } }
-    }
     let pins: Pins
+    var planSHA256: String { pins.planSHA256 }
+    var targetSourceCommit: String { pins.targetSource }
     let before: InstallerPayloadManifest, after: InstallerPayloadManifest
     let oldPeers: [String: ComponentPeerSignature], newPeers: [String: ComponentPeerSignature]
-    let units: [Unit]
+    let units: [FullImageSource.Unit]
     let changed: [String]
     private static let support = InstallerPayloadManifest.support
     private static let site = "runtime/lib/python3.12/site-packages/"
@@ -110,7 +127,7 @@ struct RuntimeUpgradeSource {
             changed.append(name)
         }
         changed.sort()
-        var units: [Unit] = [], expectedUnits: [[String: Any]] = [], covered: [String] = []
+        var units: [FullImageSource.Unit] = [], expectedUnits: [[String: Any]] = [], covered: [String] = []
         for unit in RuntimeUpgradeTree.allCases {
             let path = unit.rawValue
             guard old.nodes[path]?.kind == "directory", old.nodes[path]?.mode == 0o755,
@@ -119,7 +136,10 @@ struct RuntimeUpgradeSource {
             let a = rows(old, prefix: path), b = rows(new, prefix: path)
             expectedUnits.append(["kind": "public_tree", "path": path, "before": a, "after": b,
                 "before_inventory_sha256": try digestRows(a), "after_inventory_sha256": try digestRows(b), "changed": owned])
-            units.append(.tree(unit)); covered += owned
+            units.append(.tree(unit.storageUnit,
+                try PublicTreeInventory(validatedManifest: before, unit: unit.storageUnit),
+                try PublicTreeInventory(validatedManifest: after, unit: unit.storageUnit)))
+            covered += owned
         }
         for unit in RuntimeUpgradeFile.allCases {
             let path = unit.rawValue, a = old.nodes[unit.rawValue], b = new.nodes[unit.rawValue]
@@ -127,7 +147,7 @@ struct RuntimeUpgradeSource {
                   unit == .repairIdentity ? b == nil : (b?.kind == "file" && b?.mode == 0o644) else { throw FullImageFailure.source }
             if try FullImageJSON.same(node(a), node(b)) { continue }
             expectedUnits.append(["kind": "public_file", "path": path, "before": node(a), "after": node(b), "changed": [path]])
-            units.append(.file(unit)); covered.append(path)
+            units.append(.file(unit.storageUnit, a, b)); covered.append(path)
         }
         guard !changed.isEmpty, covered.sorted() == changed, Set(covered).count == covered.count else { throw FullImageFailure.source }
         let encoder = JSONEncoder()

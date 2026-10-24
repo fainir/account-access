@@ -41,10 +41,10 @@ private enum InstalledFixtureFailure: Error { case failed }
     }
     static func put(_ tree: InstallerPayloadTree, in root: Int32) throws {
         var bytes: [String: Data] = [:]
-        for unit in PublicTreeUnit.allCases {
+        for unit in PublicTreeUnit.fullImageCases {
             for prefix in ["old-", "new-"] { let data = Data((prefix + unit.rawValue).utf8); bytes[FullImageJSON.hash(data)] = data }
         }
-        for unit in FullImagePlanFileUnit.allCases {
+        for unit in FullImagePlanFileUnit.fullImageCases {
             for prefix in ["old-", "new-"] { let data = Data((prefix + unit.rawValue).utf8); bytes[FullImageJSON.hash(data)] = data }
         }
         let fictional = Data("fictional-owner-not-executed".utf8); bytes[FullImageJSON.hash(fictional)] = fictional

@@ -129,6 +129,9 @@ struct FullImagePredecessorPins {
 enum FullImagePlanFileUnit: String, CaseIterable {
     case wheel, packageIdentity, runtimeImage, requirements, componentIdentity, caReceipt
     case pythonPip, pythonPip3, pythonPip312, runtimePip, runtimePip3, runtimePip312
+    case runtimePreparation, repairIdentityRemoval, caReplacement
+    static let fullImageCases: [Self] = [.wheel, .packageIdentity, .runtimeImage, .requirements,
+        .componentIdentity, .caReceipt, .pythonPip, .pythonPip3, .pythonPip312, .runtimePip, .runtimePip3, .runtimePip312]
     var path: String {
         switch self {
         case .wheel: return "wheels/account_access-0.8.0-py3-none-any.whl"
@@ -143,11 +146,14 @@ enum FullImagePlanFileUnit: String, CaseIterable {
         case .runtimePip: return "runtime/bin/pip"
         case .runtimePip3: return "runtime/bin/pip3"
         case .runtimePip312: return "runtime/bin/pip3.12"
+        case .runtimePreparation: return "runtime-preparation.json"
+        case .repairIdentityRemoval: return "broker-repair-identity.json"
+        case .caReplacement: return "runtime-ca-refresh.json"
         }
     }
     var mode: UInt16 { path.contains("/bin/") ? 0o755 : 0o644 }
     var beforePresent: Bool { self != .caReceipt }
-    var afterPresent: Bool { ![Self.componentIdentity, .pythonPip312, .runtimePip312].contains(self) }
+    var afterPresent: Bool { ![Self.componentIdentity, .pythonPip312, .runtimePip312, .repairIdentityRemoval].contains(self) }
 }
 
 struct FullImageSourcePins {
@@ -162,7 +168,17 @@ struct FullImageSourcePins {
     let providerSourceBundleSHA256: String
 }
 
-struct FullImageSource {
+// Only independently validated native source types supply this projection.
+// It shares storage/journal mechanics, never predecessor or root authority.
+protocol PublicImageTransitionSource {
+    var planSHA256: String { get }
+    var targetSourceCommit: String { get }
+    var before: InstallerPayloadManifest { get }
+    var after: InstallerPayloadManifest { get }
+    var units: [FullImageSource.Unit] { get }
+}
+
+struct FullImageSource: PublicImageTransitionSource {
     enum Unit {
         case tree(PublicTreeUnit, PublicTreeInventory, PublicTreeInventory)
         case file(FullImagePlanFileUnit, InstallerPayloadNode?, InstallerPayloadNode?)
@@ -171,14 +187,16 @@ struct FullImageSource {
         }
     }
     let pins: FullImageSourcePins
+    var planSHA256: String { pins.planSHA256 }
+    var targetSourceCommit: String { pins.targetSourceCommit }
     let before: InstallerPayloadManifest, after: InstallerPayloadManifest
     let oldPeers: [String: ComponentPeerSignature], newPeers: [String: ComponentPeerSignature]
     let designatedRequirements: [String: String]
     let units: [Unit]
     let changed: [String]
     private static let support = InstallerPayloadManifest.support
-    private static let trees = PublicTreeUnit.allCases
-    private static let files = FullImagePlanFileUnit.allCases
+    private static let trees = PublicTreeUnit.fullImageCases
+    private static let files = FullImagePlanFileUnit.fullImageCases
     private static let privateNames: Set<String> = ["broker", "home", "vault", "run", "control", "owner.json", "install-verification.json"]
     private static func below(_ path: String, _ prefix: String) -> Bool { path == prefix || path.hasPrefix(prefix + "/") }
     private static func node(_ value: InstallerPayloadNode?) -> Any {

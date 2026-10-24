@@ -9,6 +9,7 @@ import Darwin
 enum FullImageFileUnit: String, Codable, CaseIterable {
     case wheel, packageIdentity, runtimeImage, requirements, componentIdentity, caReceipt
     case pythonPip, pythonPip3, pythonPip312, runtimePip, runtimePip3, runtimePip312
+    case runtimePreparation, repairIdentityRemoval, caReplacement
     case hostPolicy, ownerPolicy, installRecord, head
     var path: String {
         switch self {
@@ -24,6 +25,9 @@ enum FullImageFileUnit: String, Codable, CaseIterable {
         case .runtimePip: return "runtime/bin/pip"
         case .runtimePip3: return "runtime/bin/pip3"
         case .runtimePip312: return "runtime/bin/pip3.12"
+        case .runtimePreparation: return "runtime-preparation.json"
+        case .repairIdentityRemoval: return "broker-repair-identity.json"
+        case .caReplacement: return "runtime-ca-refresh.json"
         case .hostPolicy: return "broker/host.json"
         case .ownerPolicy: return "owner.json"
         case .installRecord: return "broker/install.json"

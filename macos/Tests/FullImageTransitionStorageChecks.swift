@@ -66,7 +66,7 @@ private enum MixedCheckFailure: Error { case failed, interrupted }
             let anchor = try PublicTreeTrustedAnchor.acceptVerifiedDescriptor(root,
                 expected: PublicTreeDirectoryIdentity.observe(root, owner: getuid(), group: getgid()))
             let localBarrier = barrier
-            for (index, unit) in PublicTreeUnit.allCases.enumerated() {
+            for (index, unit) in PublicTreeUnit.fullImageCases.enumerated() {
                 let tName = "target-\(index)", rName = "retained-\(index)", jName = "journal-\(index)"
                 let t = try directory(root, tName, 0o755), r = try directory(root, rName, 0o700), j = try directory(root, jName, 0o700)
                 descriptors += [t, r, j]
@@ -91,7 +91,7 @@ private enum MixedCheckFailure: Error { case failed, interrupted }
             let targetFD = target, retainedFD = retained
             let targetPin = try PublicTreeDirectoryIdentity.observe(target, owner: getuid(), group: getgid())
             let retainedPin = try PublicTreeDirectoryIdentity.observe(retained, owner: getuid(), group: getgid())
-            let units = FullImagePlanFileUnit.allCases.map { FullImageFileUnit(publicUnit: $0) } + [.hostPolicy, .ownerPolicy, .installRecord, .head]
+            let units = FullImagePlanFileUnit.fullImageCases.map { FullImageFileUnit(publicUnit: $0) } + [.hostPolicy, .ownerPolicy, .installRecord, .head]
             for (offset, unit) in units.enumerated() {
                 let index = trees.count + offset
                 let beforePresent = unit.publicUnit?.beforePresent ?? (unit != .head)
@@ -144,7 +144,7 @@ private enum MixedCheckFailure: Error { case failed, interrupted }
                 let scenario = try Scenario(parent: root, name: mode, crashUnit: crashUnit), storage = try scenario.storage()
                 try expect(storage.operations.count == 29 && scenario.trees.count == 13 && scenario.files.count == 16)
                 if let crashUnit {
-                    let index = PublicTreeUnit.allCases.firstIndex(of: crashUnit)!
+                    let index = PublicTreeUnit.fullImageCases.firstIndex(of: crashUnit)!
                     scenario.barrier.disabled = true
                     try refuses { try scenario.trees[index].apply() }
                     try expect(try storage.state(storage.operations[index]) == .applied)

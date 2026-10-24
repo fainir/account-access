@@ -14,11 +14,11 @@ enum FullImageInstalledSourceFixture {
             let data = Data(text.utf8)
             return ["kind": "file", "mode": mode, "size": data.count, "sha256": FullImageJSON.hash(data)]
         }
-        for unit in PublicTreeUnit.allCases {
+        for unit in PublicTreeUnit.fullImageCases {
             if unit.beforePresent { put(&old, unit.path + "/entry.txt", node("old-" + unit.rawValue)) }
             if unit.afterPresent { put(&new, unit.path + "/entry.txt", node("new-" + unit.rawValue)) }
         }
-        for unit in FullImagePlanFileUnit.allCases {
+        for unit in FullImagePlanFileUnit.fullImageCases {
             if unit.beforePresent { put(&old, unit.path, node("old-" + unit.rawValue, mode: unit.mode)) }
             if unit.afterPresent { put(&new, unit.path, node("new-" + unit.rawValue, mode: unit.mode)) }
         }
@@ -42,11 +42,11 @@ enum FullImageInstalledSourceFixture {
             predecessorSourceCommit: String(repeating: "3", count: 40), targetSourceFiles: [:],
             providerManifestSHA256: String(repeating: "7", count: 64), providerSourceBundleSHA256: String(repeating: "1", count: 64))
         var units: [FullImageSource.Unit] = []
-        for unit in PublicTreeUnit.allCases {
+        for unit in PublicTreeUnit.fullImageCases {
             units.append(.tree(unit, try PublicTreeInventory(validatedManifest: before, unit: unit),
                                try PublicTreeInventory(validatedManifest: after, unit: unit)))
         }
-        for unit in FullImagePlanFileUnit.allCases.sorted(by: { $0.path < $1.path }) {
+        for unit in FullImagePlanFileUnit.fullImageCases.sorted(by: { $0.path < $1.path }) {
             units.append(.file(unit, before.trees[InstallerPayloadManifest.support]!.nodes[unit.path],
                                after.trees[InstallerPayloadManifest.support]!.nodes[unit.path]))
         }

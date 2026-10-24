@@ -4,6 +4,22 @@
 import Foundation
 import Darwin
 
+// Closed native selection; journal or package JSON never supplies a root path.
+enum PublicImageNamespace {
+    case fullImage, runtimeUpgrade
+    var name: String {
+        switch self {
+        case .fullImage: return "Account Access Full Images"
+        case .runtimeUpgrade: return "Account Access Runtime Updates"
+        }
+    }
+    var path: String { "/Library/Application Support/" + name }
+    func transition(_ plan: String) throws -> String {
+        guard FullImageJSON.hex(plan) else { throw FullImageFailure.journal }
+        return path + "/transition-" + plan
+    }
+}
+
 // First complete-image transition only. The predecessor component namespace
 // stays untouched. These literals are future fixed-adapter roots, never data
 // accepted from a journal, manifest, command argument or owner request.
@@ -53,7 +69,8 @@ struct FullImageDurableOperation: Codable, Equatable {
                   (tree.before != nil) == unit.beforePresent, (tree.after != nil) == unit.afterPresent else { throw FullImageFailure.journal }
             // Existing public trees retain the qualified legacy group's exact
             // metadata; newly staged trees remain in the strict public group.
-            for (candidate, expectedGroup) in [(tree.before, beforeGroup ?? publicGroup), (tree.after, publicGroup)] {
+            let oldGroup = unit.precedingGroup("", legacy: beforeGroup ?? publicGroup, published: publicGroup)
+            for (candidate, expectedGroup) in [(tree.before, oldGroup), (tree.after, publicGroup)] {
                 guard let pin = candidate else { continue }
                 guard pin.device == device, pin.owner == publicOwner, pin.group == expectedGroup,
                       pin.mode == 0o755, pin.inode > 0, FullImageJSON.hex(pin.inventorySHA256) else { throw FullImageFailure.journal }
@@ -81,11 +98,11 @@ struct FullImageGlobalIntent: Codable, Equatable {
     let operations: [FullImageDurableOperation]
     let automaticRebootRecovery: Bool
 
-    static func newHead(source: FullImageSource, predecessorEvidenceSHA256: String) throws -> Data {
+    static func newHead(source: any PublicImageTransitionSource, predecessorEvidenceSHA256: String) throws -> Data {
         guard FullImageJSON.hex(predecessorEvidenceSHA256) else { throw FullImageFailure.predecessor }
         let value: [String: Any] = ["schema": 1, "managed_by": "account-access-full-image-head-v1",
-            "plan_sha256": source.pins.planSHA256, "before_manifest_sha256": source.before.sha256,
-            "manifest_sha256": source.after.sha256, "source_commit": source.pins.targetSourceCommit,
+            "plan_sha256": source.planSHA256, "before_manifest_sha256": source.before.sha256,
+            "manifest_sha256": source.after.sha256, "source_commit": source.targetSourceCommit,
             "predecessor_evidence_sha256": predecessorEvidenceSHA256,
             "state": "public_image_verified_gui_unverified", "automatic_reboot_recovery": false]
         var raw = try FullImageJSON.canonical(value); raw.append(10); return raw
@@ -110,14 +127,14 @@ struct FullImageGlobalIntent: Codable, Equatable {
               try operations.filter({ try $0.token().target == .head }).count == 1,
               try operations.last?.token().target == .head else { throw FullImageFailure.journal }
     }
-    func validate(source: FullImageSource, predecessorEvidenceSHA256: String, workerPolicy: ComponentObject,
+    func validate(source: any PublicImageTransitionSource, predecessorEvidenceSHA256: String, workerPolicy: ComponentObject,
                   servicePlist: ComponentObject, ownerUID: uid_t, brokerUID: uid_t,
                   publicOwner: uid_t, publicGroup: gid_t, beforeGroup: gid_t? = nil, device: Int32,
                   dynamic: [FullImageFileUnit: Data]) throws {
         try validateStructure(device: device, publicOwner: publicOwner, publicGroup: publicGroup, beforeGroup: beforeGroup)
         guard schema == 2, managedBy == "account-access-full-image-transition-v2", !automaticRebootRecovery,
-              planSHA256 == source.pins.planSHA256, beforeManifestSHA256 == source.before.sha256,
-              afterManifestSHA256 == source.after.sha256, targetSourceCommit == source.pins.targetSourceCommit,
+              planSHA256 == source.planSHA256, beforeManifestSHA256 == source.before.sha256,
+              afterManifestSHA256 == source.after.sha256, targetSourceCommit == source.targetSourceCommit,
               FullImageJSON.hex(predecessorEvidenceSHA256), self.predecessorEvidenceSHA256 == predecessorEvidenceSHA256,
               self.ownerUID == ownerUID, self.brokerUID == brokerUID, ownerUID > 0, ownerUID != brokerUID,
               (450..<500).contains(brokerUID), self.workerPolicy == workerPolicy, self.servicePlist == servicePlist,
