@@ -35,6 +35,20 @@ public image also remains unqualified.
 
 ### Broker store repair candidate — 24 October 2026
 
+The next controller removes redundant recovery-view and operation-state walks
+only when reading an already completed predecessor. Both full new-image
+verification passes remain, around the completion evidence read; the head is
+also checked against the exact intent. Mutable repair and recovery retain their
+existing sequence. Fixed stage names and monotonic elapsed seconds now report
+progress without paths, account data or underlying errors. Native source
+validation passed, including 250 installed-adapter checks and the existing
+predecessor, journal, namespace and repair suites; 86 focused Python tests passed.
+This is source qualification, not a successful owner installation. Severe system
+load was observed during the timeout; redundant scans are a possible contributor,
+not a measured root cause. Package 90 must still pass independent package review
+and actual Installer scenarios before an owner attempt.
+[Source validation](../artifacts/repair90-progress-source-20261024.json).
+
 Package **88** is built from repair-controller source `eba8057`, while preserving
 package 87's exact application payload and repair plan. Independent expansion
 verified all 27,523 entries, with only the repair helper and its hash-checking
@@ -45,9 +59,14 @@ owned-helper interruption/recovery, and foreign-binding rollback. Each passed
 13 repair, 15 predecessor and 11 root-revalidation checks. All 120 referenced
 log hashes were independently verified. The foreign-binding case applied and
 restored five changes on each of two attempts without publishing a head. This
-is not a power-loss test. Owner installation and store/GUI acceptance remain
-pending; the exact package is open in Installer for owner authentication. The
-container remains unsigned; this is not a production runtime update.
+is not a power-loss test. The owner installation failed on 24 October after
+the package script exceeded its 1,800-second deadline. A full read-only check
+confirmed the previous image 85 remained intact: 25,165 files, 2,297 directories
+and 21 links matched. No private account store was read. Store/GUI acceptance
+remains unqualified. The container remains unsigned; this is not a production
+runtime update.
+[Owner timeout](../artifacts/owner-mac-repair88-attempt1-result-20261024.json) ·
+[Post-attempt image verification](../artifacts/owner-mac-after-repair88-attempt1-20261024.json).
 [Package 88 build evidence](../artifacts/broker-repair-package88-20261024.json) ·
 [Actual Installer acceptance](../artifacts/broker-repair88-installer-acceptance-20261024.json) ·
 [Owner public-image preflight](../artifacts/owner-mac-broker-repair88-preflight-20261024.json).
@@ -73,7 +92,8 @@ volume receipt and exact predecessor evidence without rewriting the records.
 The corrected native fixtures passed, including 429 directory-storage and 312
 mixed file/tree checks. The initial reproduction had a missing canonical newline;
 that limitation is retained alongside the corrected evidence. Successor package
-88 passed actual Installer acceptance; owner verification remains pending.
+88 passed actual Installer acceptance but timed out on the owner Mac; owner
+verification remains unqualified.
 [Restart source evidence](../artifacts/full-image-restart-source-20261024.json).
 
 [Post-restart target comparison](../artifacts/repair87-restart-owner-mac-after-repair87.json) ·

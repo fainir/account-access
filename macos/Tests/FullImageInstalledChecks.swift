@@ -133,6 +133,21 @@ private enum InstalledFixtureFailure: Error { case failed }
                 completedContextRefused = diagnostic.checkpoint == .context && diagnostic.failure as? ComponentUpdateFailure == .context
             }
             try expect(completedContextRefused)
+            let progressCases = BrokerRepairCheckpoint.allCases.map { BrokerRepairProgressCheckpoint.repair($0) }
+                + FullImageInstallCheckpoint.allCases.map { BrokerRepairProgressCheckpoint.predecessor($0) }
+            for category in progressCases {
+                for elapsed in [0.0, 1800.9, 86400.0] {
+                    let text = BrokerRepairProgress.encoded(category, elapsed: elapsed)!
+                    let value = try JSONSerialization.jsonObject(with: Data(text.utf8)) as! [String: Any]
+                    try expect(Set(value.keys) == ["schema", "status", "checkpoint", "elapsed_seconds"]
+                        && value["schema"] as? Int == 1 && value["status"] as? String == "RUNNING"
+                        && value["checkpoint"] as? String == category.value
+                        && value["elapsed_seconds"] as? Int == Int(elapsed))
+                }
+            }
+            for invalid in [Double.nan, Double.infinity, -1.0, 86400.1] {
+                try expect(BrokerRepairProgress.encoded(.repair(.context), elapsed: invalid) == nil)
+            }
             var peers: [String: ComponentPeerSignature] = [:]
             for kind in ["owner", "broker", "bootstrap"] {
                 peers[kind] = ComponentPeerSignature(team: "WBULD6N4NQ", identifier: "com.fainir.accountaccess" + (kind == "owner" ? "" : "." + kind),

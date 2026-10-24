@@ -2,7 +2,7 @@
 // Candidate fixed complete-image wiring, appended to the exact qualified
 // ComponentUpdate + completed-predecessor source so private existing helpers
 // remain private and their predicates are reused unchanged. No main is added.
-enum FullImageInstallCheckpoint: String {
+enum FullImageInstallCheckpoint: String, CaseIterable {
     case source, payload, context, predecessor, preparation, journal, transition, complete
     case preparationCapacity = "preparation_capacity", preparationPolicy = "preparation_policy"
     case preparationDynamic = "preparation_dynamic", preparationBegin = "preparation_begin"
@@ -11,6 +11,8 @@ enum FullImageInstallCheckpoint: String {
     case preparationService = "preparation_service", preparationAuthority = "preparation_authority"
     case preparationPredecessor = "preparation_predecessor_recheck", preparationPayload = "preparation_payload_recheck"
     case preparationJournal = "preparation_journal", preparationPublish = "preparation_publish"
+    case verificationFirstView = "verification_first_view", verificationEvidence = "verification_evidence"
+    case verificationFinalView = "verification_final_view"
 }
 private final class FullImageStorageReference {
     weak var storage: FullImageMixedStorage?
@@ -436,23 +438,35 @@ extension ComponentController {
         }, verifyOld: verifyPublic, verifyRecoverable: verifyPublic, verifyNew: verifyPublic)
         reference.storage = storage
         try intent.verifyStorage(storage)
-        try storage.verifyRecoverableView()
+        // A completed predecessor must pass the stricter complete-image view
+        // below. Do not first repeat the recoverable-image walk, which checks
+        // the same trees while allowing a mixture of staged/applied units.
+        // Mutable recovery retains its existing verification sequence.
+        if !verificationOnly { try storage.verifyRecoverableView() }
         if try storage.state(storage.operations.last!) == .applied {
-            guard try storage.operations.allSatisfy({ try storage.state($0) == .applied }) else { throw FullImageFailure.journal }
+            // verifyNewView checks every non-head unit; the head was checked
+            // immediately above. The mutable path keeps its existing guard.
+            if !verificationOnly {
+                guard try storage.operations.allSatisfy({ try storage.state($0) == .applied }) else { throw FullImageFailure.journal }
+            } else { checkpoint(.verificationFirstView) }
             try storage.verifyNewView()
             if recovery.finished {
                 if verificationOnly {
+                    checkpoint(.verificationEvidence)
                     let roots = try InstallationRootBinding.capture(withVolumeUUID: true)
                     let rootEvidence = roots.mapValues { ["device": Int64($0.device), "inode": $0.inode,
                         "volume_uuid": $0.volumeUUID] as [String: Any] }
                     let history = try journal.completedEvidence()
                     let head = try ComponentFiles.read(namespace, "head.json", owner: 0, mode: 0o644)
+                    guard let expectedHead = intent.operations.last?.file?.after,
+                          matches(head.1, expectedHead) else { throw FullImageFailure.predecessor }
                     let evidence = try FullImageJSON.encode(["schema": 1,
                         "managed_by": "account-access-completed-full-image-v1", "plan_sha256": pins.planSHA256,
                         "manifest_sha256": source.after.sha256, "source_commit": pins.targetSourceCommit,
                         "predecessor_sha256": authority.proofSHA256, "owner_uid": ownerUID, "broker_uid": authority.brokerUID,
                         "roots": rootEvidence, "history_sha256": FullImageJSON.hash(history), "head_sha256": head.1.sha256,
                         "worker_sha256": worker.1.sha256, "service_sha256": plist.sha256] as [String: Any])
+                    checkpoint(.verificationFinalView)
                     try storage.verifyNewView()
                     guard try journal.completedEvidence() == history,
                           try InstallationRootBinding.capture(withVolumeUUID: true) == roots,

@@ -4,6 +4,24 @@ import Foundation
 import Darwin
 
 #if ACCOUNT_ACCESS_BROKER_REPAIR_MAIN
+enum BrokerRepairProgressCheckpoint {
+    case repair(BrokerRepairCheckpoint), predecessor(FullImageInstallCheckpoint)
+    var value: String {
+        switch self {
+        case .repair(let checkpoint): return checkpoint.rawValue
+        case .predecessor(let checkpoint): return "predecessor_full_image_" + checkpoint.rawValue
+        }
+    }
+}
+enum BrokerRepairProgress {
+    static func encoded(_ checkpoint: BrokerRepairProgressCheckpoint, elapsed: Double) -> String? {
+        guard elapsed.isFinite, elapsed >= 0, elapsed <= 86400 else { return nil }
+        // No strings from an error, record, account or filesystem enter this
+        // progress record. Invalid timing suppresses diagnostics, not the repair.
+        return "{\"schema\":1,\"status\":\"RUNNING\",\"checkpoint\":\"" + checkpoint.value
+            + "\",\"elapsed_seconds\":" + String(Int(elapsed)) + "}"
+    }
+}
 @main struct BrokerRepairMain {
     static func refusal(_ error: Error, checkpoint: BrokerRepairCheckpoint) -> String {
         let image = error as? CompletedFullImageDiagnostic
@@ -33,6 +51,14 @@ import Darwin
             exit(78)
         }
         var checkpoint = BrokerRepairCheckpoint.context
+        let started = ProcessInfo.processInfo.systemUptime
+        var lastProgress: String?
+        func progress(_ value: BrokerRepairProgressCheckpoint) {
+            guard value.value != lastProgress,
+                  let line = BrokerRepairProgress.encoded(value, elapsed: ProcessInfo.processInfo.systemUptime - started) else { return }
+            lastProgress = value.value
+            print(line); fflush(stdout)
+        }
         do {
             guard CommandLine.arguments[0].hasPrefix("/"),
                   CommandLine.arguments[0].hasSuffix("/AccountAccess-brokerrepair") else { throw ComponentUpdateFailure.context }
@@ -42,7 +68,9 @@ import Darwin
             let resources = try InstallerPayloadIO.directory(path, owner: 0, installerResources: true)
             defer { Darwin.close(resources) }
             let result = try ComponentController.runBrokerRepair(resources: resources, pins: BrokerRepairCompiledPins.value,
-                predecessorPins: FullImageUpdateCompiledPins.value, checkpoint: { checkpoint = $0 })
+                predecessorPins: FullImageUpdateCompiledPins.value,
+                checkpoint: { checkpoint = $0; progress(.repair($0)) },
+                predecessorCheckpoint: { progress(.predecessor($0)) })
             guard ["UPDATED_GUI_UNVERIFIED", "ALREADY_UPDATED_GUI_UNVERIFIED"].contains(result) else {
                 throw ComponentUpdateFailure.unavailable
             }

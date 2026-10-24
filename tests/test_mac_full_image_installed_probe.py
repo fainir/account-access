@@ -17,7 +17,7 @@ def reports():
     scope = dict.fromkeys(["installed_reads", "root_execution", "service_actions", "production_ready"], False)
     return [
         dict(scope, status="PASSED", count=156, checks=dict.fromkeys(map(str, range(156)), True)),
-        dict(scope, status="PASSED", checks=147),
+        dict(scope, status="PASSED", checks=250),
         dict(scope, status="PASSED", checks=40,
              supplemental_group_case="PASSED_INHERITED_DIFFERENT_GROUP_CORRECTED_ONLY_ON_NEW_INODE"),
         dict(scope, status="PASSED", checks=63, ordinary_temp_only=True,

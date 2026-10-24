@@ -25,7 +25,6 @@ PLAN = "3741aae23c6c23c9da33ae233d0657800454514042d59cba951e7bbf7d1d8ec1"
 PREDECESSOR = "9dbd37cf8282fe605de7d73a828b6e4d6379e021177cc089a0b21f522f8edd85"
 BEFORE = "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da"
 AFTER = "5a732de4623ba50aefa6d31c54e7b1eae660b2921341f95042c5675d922d808b"
-IDENTIFIER = "com.fainir.accountaccess.brokerrepair88"
 
 
 def require(condition):
@@ -35,6 +34,12 @@ def require(condition):
 
 def digest(raw):
     return hashlib.sha256(raw).hexdigest()
+
+
+def package_profile(cohort):
+    require(type(cohort) is int and cohort in {88, 90})
+    return (f"com.fainir.accountaccess.brokerrepair{cohort}",
+            f"Account-Access-Broker-Repair-{cohort}-local-unsigned-1800.pkg")
 
 
 def sha(path):
@@ -67,6 +72,7 @@ def build(args):
     require(sys.platform == "darwin" and os.getuid() == os.geteuid() != 0
             and re.fullmatch("[a-f0-9]{40}", args.source)
             and re.fullmatch("[A-F0-9]{40}", args.signing_identity))
+    identifier, package_name = package_profile(getattr(args, "cohort", 88))
     root, output = args.repository.resolve(strict=True), args.output.absolute()
     require(output.parent.is_dir() and not output.exists() and not output.is_symlink())
     require(sha(args.package87) == PACKAGE_SHA and sha(args.inventory87) == INVENTORY_SHA
@@ -155,16 +161,16 @@ def build(args):
     inventory = inspect["inventory"](scripts)
     unchanged_resources(original, inventory, binary.read_bytes(), wrapper)
     raw_package = output / "raw.pkg"
-    command("package", ["/usr/bin/pkgbuild", "--nopayload", "--identifier", IDENTIFIER,
+    command("package", ["/usr/bin/pkgbuild", "--nopayload", "--identifier", identifier,
         "--version", "0.1.0", "--scripts", str(scripts), str(raw_package)])
     container = output / "container"
     container.mkdir(mode=0o700)
     command("extract-container", ["/usr/bin/xar", "-xf", str(raw_package), "-C", str(container)])
     require({p.name for p in container.iterdir()} == {"PackageInfo", "Scripts"})
     info = (container / "PackageInfo").read_bytes()
-    require(info.count(b'timeout="600"') == 1 and IDENTIFIER.encode() in info)
+    require(info.count(b'timeout="600"') == 1 and identifier.encode() in info)
     (container / "PackageInfo").write_bytes(info.replace(b'timeout="600"', b'timeout="1800"'))
-    package = output / "Account-Access-Broker-Repair-88-local-unsigned-1800.pkg"
+    package = output / package_name
     command("repack", ["/usr/bin/xar", "--compression=none", "-cf", str(package), "PackageInfo", "Scripts"], cwd=container)
     independent = output / "independent"
     command("expand-final", ["/usr/sbin/pkgutil", "--expand-full", str(package), str(independent)])
@@ -190,4 +196,5 @@ if __name__ == "__main__":
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--source", required=True)
     parser.add_argument("--signing-identity", required=True)
+    parser.add_argument("--cohort", type=int, choices=[88, 90], default=88)
     build(parser.parse_args())

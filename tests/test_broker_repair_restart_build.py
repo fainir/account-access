@@ -14,6 +14,16 @@ def controller():
     return runpy.run_path(str(ROOT / "scripts/build_broker_repair_restart_review.py"))
 
 
+def test_package_profile_is_closed_and_preserves_previous_name():
+    select = controller()["package_profile"]
+    for cohort in [88, 90]:
+        assert select(cohort) == (f"com.fainir.accountaccess.brokerrepair{cohort}",
+                                 f"Account-Access-Broker-Repair-{cohort}-local-unsigned-1800.pkg")
+    for invalid in [True, "90", 89, 91, None, {}]:
+        with pytest.raises(ValueError):
+            select(invalid)
+
+
 def resources():
     def file(raw):
         return {"kind": "file", "mode": 0o755, "acl": "empty", "bytes": len(raw),

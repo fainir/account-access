@@ -1,6 +1,6 @@
 // Composed after the existing controller and full-image adapter. No main or
 // ordinary-user authority. Packaging must independently pin this controller.
-enum BrokerRepairCheckpoint: String { case context, source, predecessor, preparation, journal, transition, migration, complete }
+enum BrokerRepairCheckpoint: String, CaseIterable { case context, source, predecessor, preparation, journal, transition, migration, complete }
 
 extension ComponentController {
     private static func repairSource(_ resources: Int32, pins: BrokerRepairSource.Pins) throws -> BrokerRepairSource {
@@ -34,7 +34,8 @@ extension ComponentController {
         guard retained.1 == before else { throw ComponentUpdateFailure.journal }; return retained.0
     }
     static func runBrokerRepair(resources: Int32, pins: BrokerRepairSource.Pins, predecessorPins: FullImageSourcePins,
-                                checkpoint: @escaping (BrokerRepairCheckpoint) -> Void = { _ in }) throws -> String {
+                                checkpoint: @escaping (BrokerRepairCheckpoint) -> Void = { _ in },
+                                predecessorCheckpoint: (FullImageInstallCheckpoint) -> Void = { _ in }) throws -> String {
         checkpoint(.context)
         guard getuid() == 0, geteuid() == 0 else { throw ComponentUpdateFailure.context }
         checkpoint(.source)
@@ -57,7 +58,7 @@ extension ComponentController {
         if recovering { proof = nil }
         else {
             let image = try fullResourceDirectory(resources, "CompletedImage"); defer { Darwin.close(image) }
-            proof = try completedFullImage(resources: image, pins: predecessorPins)
+            proof = try completedFullImage(resources: image, pins: predecessorPins, checkpoint: predecessorCheckpoint)
         }
         let (ownerUID, ownerGroup) = try owner()
         let original = try directory(oldJournal, mode: 0o700); defer { Darwin.close(original) }
