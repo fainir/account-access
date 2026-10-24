@@ -24,7 +24,7 @@ BEFORE = "5a732de4623ba50aefa6d31c54e7b1eae660b2921341f95042c5675d922d808b"
 AFTER = "03fb35eb2787ebd67079dd1cbe4dda125f430964540bdd2f2e9c81eda602fd7a"
 TARGET = "7051ef225ff2f35d67576d0ddbbc3e0b107e00bf"
 FULL_PINS = "dab62cbad1c11821681be4ab480d8153457da7b16a6ec2e012a5d341555c0ba4"
-IDENTIFIER = "com.fainir.accountaccess.runtimeupgrade93"
+IDENTIFIER = "com.fainir.accountaccess.runtimeupgrade94"
 
 
 def require(value):
@@ -183,7 +183,7 @@ def build(args):
     info = (container / "PackageInfo").read_bytes()
     require(info.count(b'timeout="600"') == 1 and IDENTIFIER.encode() in info)
     (container / "PackageInfo").write_bytes(info.replace(b'timeout="600"', b'timeout="1800"'))
-    package = output / "Account-Access-Runtime-Upgrade-93-local-unsigned-1800.pkg"
+    package = output / "Account-Access-Runtime-Upgrade-94-local-unsigned-1800.pkg"
     command("repack", ["/usr/bin/xar", "--compression=none", "-cf", str(package), "PackageInfo", "Scripts"], cwd=container)
     independent = output / "independent"
     command("expand-final", ["/usr/sbin/pkgutil", "--expand-full", str(package), str(independent)])

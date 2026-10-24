@@ -54,8 +54,8 @@ EXACT_INPUTS = {
     'macos/BrokerRepairJournal.swift': '434d3c3e10a8c85806ce8248036838ea55c20028a8576593386e91b99b304371',
     'macos/BrokerRepairRoutes.swift': 'b49184efd4298198b16628a526b14253b5a3202a1370018b2a0c3f5b17d1b8aa',
     'macos/BrokerRepairSource.swift': '4202b1f7e9b2d08c2797037351d745798c0ab9bfcbdf4d0ee4970779c8db3fc0',
-    'macos/ComponentUpdate.swift': '05fc4fb9ff5f2e81ddba4ffa8c4fac8ae0006ff8fdfc0b9fb6388c7fea47750a',
-    'macos/ComponentUpdateIdentity.swift': '4c3bf3e29923e0a92ac9bf6a8e9752ec889d61eb26dedbafcf6e788dabd3512e',
+    'macos/ComponentUpdate.swift': '944d1689ca7c350ebf43bf32811de02442748b9a7b4c7bd96f63e1a14bee0f94',
+    'macos/ComponentUpdateIdentity.swift': '815e9043ca55ae59436f68c2ec8d802267562af1cc863c331f3b401da5decb08',
     'macos/ComponentUpdatePolicies.swift': '7aca759f4b9fad195851ce12d81550ec08a0753c43515574c23fc74d247060ab',
     'macos/FullImageGlobalJournal.swift': '0523dd4c7cd3333e0e29938a0a07e67fc7278d5a1cf5aad4a3207479aaffc1ca',
     'macos/FullImageInstalledIO.swift': '3480e19fd375003beede9305369a51c6a941b7cf57721c293defe102b0953e49',
@@ -86,7 +86,7 @@ EXACT_INPUTS = {
     'macos/source-fragments/CompletedComponentPredecessor.swift.inc': 'bda8f8138e64f4f1bad0a05e35f63a4d05922ff19d12a1e0d8371ac8cb886be7',
     'macos/source-fragments/FullImageInstalledAdapter.swift.inc': '4ecb24b2abc03b617626eea0b6f9ea3e2febaea06158b54c905ce23e20f3d734',
 }
-COMPOSED_SHA256 = "f26f8c33b0d4b174f8eb5cd0e91076ccb61a51674b4ebeed83d1e281aba83060"
+COMPOSED_SHA256 = "66be6a4db33d31a4758aeb627f921ed4d6943f7ea562f0e4f700bf5828d27661"
 GUARD_ENV = "ACCOUNT_ACCESS_FULL_IMAGE_PROBE_GUARD"
 DISPATCHER = b'''import Foundation
 import Darwin

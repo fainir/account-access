@@ -60,6 +60,11 @@ POLICY_CHECKS = frozenset({
 })
 # These are assertion groups in the actual native fixture, not caller flags.
 CORE_CHECKS = frozenset({
+    "only_fixed_apple_process_paths_and_dedicated_identity_eligible",
+    "system_process_signature_failure_refuses",
+    "system_process_pid_birth_path_uid_races_refuse",
+    "system_process_new_duplicate_or_unobservable_pids_refuse",
+    "system_process_attestation_repeats_at_every_barrier",
     "domain_durable_intent_and_local_barrier_order",
     "failed_domain_intent_has_no_lifecycle_effect",
     "domain_success_never_bypasses_all_process_checks",
@@ -258,7 +263,7 @@ def validate_native_report(files, *, source, sources, run_id, run_attempt=1):
     core, policy = report.get("core_fixture_json", {}), report.get("policy_fixture_json", {})
     if (set(core) != {"schema", "status", "checks", "ordinary_fixture_assertions", "installed_reads", "service_actions"}
             or type(core.get("schema")) is not int or core["schema"] != 1 or core.get("status") != "PASSED"
-            or type(core.get("ordinary_fixture_assertions")) is not int or core["ordinary_fixture_assertions"] != 343
+            or type(core.get("ordinary_fixture_assertions")) is not int or core["ordinary_fixture_assertions"] != 377
             or not _true_checks(core.get("checks"), CORE_CHECKS)
             or set(policy) != {"schema", "status", "checks", "count", "installed_reads", "service_actions"}
             or type(policy.get("schema")) is not int or policy["schema"] != 1 or policy.get("status") != "PASSED"

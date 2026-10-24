@@ -33,6 +33,11 @@ SOURCE_PATHS = (
     ".github/workflows/mac-worker.yml",
 )
 CORE_CHECKS = frozenset({
+    "only_fixed_apple_process_paths_and_dedicated_identity_eligible",
+    "system_process_signature_failure_refuses",
+    "system_process_pid_birth_path_uid_races_refuse",
+    "system_process_new_duplicate_or_unobservable_pids_refuse",
+    "system_process_attestation_repeats_at_every_barrier",
     "domain_durable_intent_and_local_barrier_order",
     "failed_domain_intent_has_no_lifecycle_effect",
     "domain_success_never_bypasses_all_process_checks",
@@ -96,7 +101,7 @@ def fixture_result(raw, *, kind):
     """A count or optimistic summary alone cannot satisfy native acceptance."""
     value = json.loads(raw)
     expected = CORE_CHECKS if kind == "core" else POLICY_CHECKS
-    count_key, count = ("ordinary_fixture_assertions", 343) if kind == "core" else ("count", 41)
+    count_key, count = ("ordinary_fixture_assertions", 377) if kind == "core" else ("count", 41)
     if (not isinstance(value, dict)
             or set(value) != {"schema", "status", "checks", count_key, "installed_reads", "service_actions"}
             or type(value["schema"]) is not int or value["schema"] != 1
