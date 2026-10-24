@@ -62,9 +62,15 @@ Controller source `4807187` passed 4,065 Python tests (108 skipped), lint,
 dependency auditing, native UI/gateway and Mac/Linux/Android suites. The latest
 qualification controller's Python suite passed 4,076 tests (108 skipped). An owner
 public-image preflight still matched image 85; the installed account launcher
-returned `RETRYABLE / service_unavailable`. Package 90 is open at the Install step
-for owner authentication. Owner installation, store access and personal sign-ins
-remain unqualified. The first workflow attempt stopped before tests because an
+returned `RETRYABLE / service_unavailable`. The owner installation then passed both
+full-image verification passes and reached migration at 163 seconds, where it
+refused with `component_base_not_verified`. The user confirmed Installer failure.
+A complete public-image comparison confirmed image 85 was restored: 25,165 files,
+2,297 directories and 21 links matched. It read no private store and does not
+prove service health. The failing migration predicate remains unidentified;
+owner installation, store access and personal sign-ins remain unqualified.
+[Owner failure](../artifacts/owner-mac-repair90-attempt1-result-20261024.json) ·
+[Public rollback verification](../artifacts/owner-mac-after-repair90-attempt1-20261024.json). The first workflow attempt stopped before tests because an
 action pin was altered during copying; the corrected run and regression check
 are recorded separately.
 [Package review](../artifacts/broker-repair-package90-20261024.json) ·

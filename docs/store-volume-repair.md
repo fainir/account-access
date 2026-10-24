@@ -173,3 +173,20 @@ argument guards and both ordinary-user Installer entrypoints also refused as
 expected. These are ordinary-user synthetic fixtures, not an actual reboot or
 Installer test. Evidence is in `artifacts/full-image-restart-source-20261024.json`.
 Owner GUI, real account verification and successor installation remain open.
+
+
+Owner package 90 failed at migration after both full-image verification passes.
+The previous public image 85 was restored and verified without reading the
+private store. Its coarse failure does not identify the predicate. Historical
+owner acceptance records show enrollment after the component update, so it may
+use the component epoch instead of the original installation epoch.
+
+Candidate source now obtains that original component epoch from the completed
+component verifier after matching the exact protected full-image predecessor
+evidence. It keeps historical evidence bytes unchanged. Migration accepts the
+original installation epoch or this independently verified component epoch,
+while retaining receipt, volume, owner, directory-order and inode checks. Closed
+migration subcategories identify a remaining refusal without exporting metadata.
+The native fixtures passed 159 predecessor, 351 installed-adapter and 343 core
+assertions. Actual Installer recovery from the old failure and owner acceptance
+remain pending; the owner failure cause is still a hypothesis.

@@ -16,10 +16,10 @@ def controller():
 
 def test_package_profile_is_closed_and_preserves_previous_name():
     select = controller()["package_profile"]
-    for cohort in [88, 90]:
+    for cohort in [88, 90, 91]:
         assert select(cohort) == (f"com.fainir.accountaccess.brokerrepair{cohort}",
                                  f"Account-Access-Broker-Repair-{cohort}-local-unsigned-1800.pkg")
-    for invalid in [True, "90", 89, 91, None, {}]:
+    for invalid in [True, "90", 89, 92, None, {}]:
         with pytest.raises(ValueError):
             select(invalid)
 

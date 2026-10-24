@@ -33,6 +33,36 @@ extension ComponentController {
         let retained = try ComponentFiles.read(backup, operation.slot, owner: 0)
         guard retained.1 == before else { throw ComponentUpdateFailure.journal }; return retained.0
     }
+    private static func repairComponentDevice(resources: Int32, pins: FullImageSourcePins,
+                                               intent: BrokerRepairIntent, routes: BrokerRepairRoutes) throws -> Int32 {
+        // The repair intent was already bound to the exact completed-image
+        // history. Revalidate that image's component proof before using its
+        // original epoch; never infer authority from a matching device number.
+        let evidence = try FullImageJSON.object(intent.predecessorEvidence, maximum: 8192)
+        guard let expected = evidence["predecessor_sha256"] as? String, FullImageJSON.hex(expected) else {
+            throw ComponentUpdateFailure.journal
+        }
+        let history = try routes.predecessorHistory(), support = try routes.support()
+        let fullIntent = try FullImageGlobalJournal.readIntent(directory: history.fd, owner: 0, group: 0,
+            beforeGroup: support.identity.group, historicalObservation: true, validateIntent: { value in
+                guard value.planSHA256 == pins.planSHA256, value.afterManifestSHA256 == pins.targetManifestSHA256,
+                      value.targetSourceCommit == pins.targetSourceCommit, value.predecessorEvidenceSHA256 == expected,
+                      value.ownerUID == intent.transition.ownerUID, value.brokerUID == intent.transition.brokerUID,
+                      value.workerPolicy.sha256 == intent.transition.workerPolicy.sha256,
+                      value.servicePlist.sha256 == intent.transition.servicePlist.sha256 else {
+                    throw ComponentUpdateFailure.journal
+                }
+            }, verifyAttachment: history.verify)
+        let image = try fullResourceDirectory(resources, "CompletedImage"); defer { Darwin.close(image) }
+        let component = try fullResourceDirectory(image, "Predecessor"); defer { Darwin.close(component) }
+        let proof = try revalidateCompletedPredecessor(resources: component, planPin: pins.predecessor.planSHA256,
+            expectedEvidenceSHA256: expected, recordedDevice: fullIntent.workerPolicy.device)
+        guard pins.predecessor.planSHA256 == StoreVolumeMigrationAuthority.componentPlan,
+              pins.predecessorSourceCommit == StoreVolumeMigrationAuthority.componentSource else {
+            throw ComponentUpdateFailure.source
+        }
+        return proof.componentDevice
+    }
     static func runBrokerRepair(resources: Int32, pins: BrokerRepairSource.Pins, predecessorPins: FullImageSourcePins,
                                 checkpoint: @escaping (BrokerRepairCheckpoint) -> Void = { _ in },
                                 predecessorCheckpoint: (FullImageInstallCheckpoint) -> Void = { _ in }) throws -> String {
@@ -211,8 +241,12 @@ extension ComponentController {
                 }
                 // This local lifetime releases the enrollment lock before
                 // ComponentTransition restores the broker's launchd service.
+                let componentDevice = try repairComponentDevice(resources: resources, pins: predecessorPins,
+                    intent: intent, routes: routes)
+                try verifyUnchanged()
                 let migration = try StoreVolumeMigration.prepare(ownerUID: ownerUID, brokerUID: policy.brokerUID,
-                    vaultID: vault, enrollmentID: enrollment, requireQuiescent: barrier.requireDisabledAndQuiescent)
+                    vaultID: vault, enrollmentID: enrollment, verifiedComponentDevice: componentDevice,
+                    requireQuiescent: barrier.requireDisabledAndQuiescent)
                 try migration.publish()
                 try verifyUnchanged()
             })

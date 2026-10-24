@@ -37,7 +37,7 @@ def digest(raw):
 
 
 def package_profile(cohort):
-    require(type(cohort) is int and cohort in {88, 90})
+    require(type(cohort) is int and cohort in {88, 90, 91})
     return (f"com.fainir.accountaccess.brokerrepair{cohort}",
             f"Account-Access-Broker-Repair-{cohort}-local-unsigned-1800.pkg")
 
@@ -196,5 +196,5 @@ if __name__ == "__main__":
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--source", required=True)
     parser.add_argument("--signing-identity", required=True)
-    parser.add_argument("--cohort", type=int, choices=[88, 90], default=88)
+    parser.add_argument("--cohort", type=int, choices=[88, 90, 91], default=88)
     build(parser.parse_args())

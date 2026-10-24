@@ -49,10 +49,12 @@ final class StoreVolumeMigration {
     private let lockIdentity: stat
     private let ownerUID: uid_t, brokerUID: uid_t
     private let vaultID: String, enrollmentID: String
+    private let verifiedComponentDevice: Int32?
     private let requireQuiescent: () throws -> Void
     private var captured: StoreVolumeMigrationAuthority?
 
     private init(ownerUID: uid_t, brokerUID: uid_t, vaultID: String, enrollmentID: String,
+                 verifiedComponentDevice: Int32?,
                  requireQuiescent: @escaping () throws -> Void) throws {
         guard getuid() == 0, geteuid() == 0,
               let enrollment = UUID(uuidString: enrollmentID), enrollment.uuidString.lowercased() == enrollmentID else {
@@ -60,29 +62,40 @@ final class StoreVolumeMigration {
         }
         try requireQuiescent()
         self.ownerUID = ownerUID; self.brokerUID = brokerUID; self.vaultID = vaultID; self.enrollmentID = enrollmentID
+        self.verifiedComponentDevice = verifiedComponentDevice
         self.requireQuiescent = requireQuiescent
-        support = try Directory(InstallerPayloadManifest.support, mode: 0o755)
-        parent = try Directory(StoreVolumeMigrationAuthority.parentPath, mode: 0o755)
-        journal = try Directory(parent.path + "/.enrollment-" + enrollmentID + ".publication", mode: 0o700)
-        original = try Directory("/Library/Application Support/Account Access Installer", mode: 0o700)
-        volume = try Directory(InstallationRootBinding.namespace, mode: 0o700)
-        broker = try Directory(InstallerPayloadManifest.support + "/broker", mode: 0o755)
-        services = try Directory("/Library/LaunchDaemons")
+        func directory(_ path: String, mode: mode_t? = nil) throws -> Directory {
+            try StoreVolumeMigrationDiagnostic.checked(.directories) { try Directory(path, mode: mode) }
+        }
+        support = try directory(InstallerPayloadManifest.support, mode: 0o755)
+        parent = try directory(StoreVolumeMigrationAuthority.parentPath, mode: 0o755)
+        journal = try directory(parent.path + "/.enrollment-" + enrollmentID + ".publication", mode: 0o700)
+        original = try directory("/Library/Application Support/Account Access Installer", mode: 0o700)
+        volume = try directory(InstallationRootBinding.namespace, mode: 0o700)
+        broker = try directory(InstallerPayloadManifest.support + "/broker", mode: 0o755)
+        services = try directory("/Library/LaunchDaemons")
         let handle = openat(parent.fd, ".account-access-enrollment.lock", O_RDWR | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK)
-        guard handle >= 0 else { throw ComponentUpdateFailure.journal }
+        guard handle >= 0 else {
+            throw StoreVolumeMigrationDiagnostic(checkpoint: .enrollmentLock, failure: ComponentUpdateFailure.journal)
+        }
         do {
             let info = try InstallerPayloadIO.check(handle, owner: 0, directory: false)
             try InstallationRootBinding.noACL(handle)
             guard info.st_mode & 0o7777 == 0o600, info.st_size == 0,
                   flock(handle, LOCK_EX | LOCK_NB) == 0 else { throw ComponentUpdateFailure.journal }
             lockIdentity = info; lock = handle
-        } catch { Darwin.close(handle); throw error }
+        } catch {
+            Darwin.close(handle)
+            throw StoreVolumeMigrationDiagnostic(checkpoint: .enrollmentLock, failure: error)
+        }
     }
     deinit { if lock >= 0 { Darwin.close(lock) } }
     static func prepare(ownerUID: uid_t, brokerUID: uid_t, vaultID: String, enrollmentID: String,
+                        verifiedComponentDevice: Int32? = nil,
                         requireQuiescent: @escaping () throws -> Void) throws -> StoreVolumeMigration {
         let prepared = try StoreVolumeMigration(ownerUID: ownerUID, brokerUID: brokerUID,
-            vaultID: vaultID, enrollmentID: enrollmentID, requireQuiescent: requireQuiescent)
+            vaultID: vaultID, enrollmentID: enrollmentID, verifiedComponentDevice: verifiedComponentDevice,
+            requireQuiescent: requireQuiescent)
         prepared.captured = try prepared.observe()
         return prepared
     }
@@ -93,6 +106,8 @@ final class StoreVolumeMigration {
                      group: info.st_gid, mode: info.st_mode)
     }
     private func observe() throws -> StoreVolumeMigrationAuthority {
+        var checkpoint = StoreVolumeMigrationCheckpoint.attachments
+        do {
         try requireQuiescent()
         let directories = [support, parent, journal, original, volume, broker, services]
         for directory in directories { try directory.verify() }
@@ -105,18 +120,27 @@ final class StoreVolumeMigration {
               try InstallerPayloadIO.contents(volume.fd) == [InstallationRootBinding.receiptName] else {
             throw ComponentUpdateFailure.journal
         }
+        checkpoint = .roots
         let roots = try InstallationRootBinding.capture(withVolumeUUID: true)
+        checkpoint = .volumeContext
         let context = try RootStoreVolumeBinding.capture(parent.fd)
+        checkpoint = .originalReceipts
         var receipts: [String: Data] = [:]
         for name in InstallationRootBinding.receiptNames { receipts[name] = try original.read(name) }
+        checkpoint = .volumeReceipt
         let supplement = try volume.read(InstallationRootBinding.receiptName)
+        checkpoint = .publication
         let record = try journal.read("plan.json", maximum: 4096)
+        checkpoint = .authorization
         let authorized = try journal.read("authorized", maximum: 1024)
+        checkpoint = .ready
         let ready = try journal.read("ready", maximum: 1024)
+        checkpoint = .pause
         var paused = stat()
         guard fstatat(journal.fd, "paused", &paused, AT_SYMLINK_NOFOLLOW) == -1, errno == ENOENT else {
             throw ComponentUpdateFailure.base
         }
+        checkpoint = .enrollment
         let worker = try broker.read("worker.json", mode: 0o644, maximum: 4096)
         let service = try services.read("com.fainir.accountaccess.broker.plist", mode: 0o644)
         let enrollment = try InstallationRootBinding.object(broker.read("enrollment.json", mode: 0o644, maximum: 4096))
@@ -128,20 +152,26 @@ final class StoreVolumeMigration {
               enrollment["vault_id"] as? String == vaultID, enrollment["enrollment_id"] as? String == enrollmentID else {
             throw ComponentUpdateFailure.base
         }
+        checkpoint = .storeDirectories
         let stage = try directory(".enrollment-" + enrollmentID), destination = try directory("data")
         let result = try StoreVolumeMigrationAuthority.qualify(originalReceipts: receipts, volumeReceipt: supplement,
             roots: roots, ownerUID: ownerUID, brokerUID: brokerUID,
             workerSHA256: ComponentFiles.digest(worker), serviceSHA256: ComponentFiles.digest(service),
             publication: record, authorization: authorized, ready: ready, paused: false,
-            vaultID: vaultID, enrollmentID: enrollmentID, path: parent.path, parent: context, stage: stage, destination: destination)
+            vaultID: vaultID, enrollmentID: enrollmentID, path: parent.path, parent: context, stage: stage, destination: destination,
+            verifiedComponentDevice: verifiedComponentDevice)
+        checkpoint = .stability
         for directory in directories { try directory.verify() }
         guard try InstallationRootBinding.capture(withVolumeUUID: true) == roots,
               try RootStoreVolumeBinding.capture(parent.fd) == context else { throw ComponentUpdateFailure.object }
         try requireQuiescent()
         return result
+        } catch let diagnostic as StoreVolumeMigrationDiagnostic { throw diagnostic }
+        catch { throw StoreVolumeMigrationDiagnostic(checkpoint: checkpoint, failure: error) }
     }
     func publish() throws {
         guard let captured else { throw ComponentUpdateFailure.context }
+        try StoreVolumeMigrationDiagnostic.checked(.publish) {
         try RootStoreVolumePublication.publish(directory: journal.fd, data: captured.bindingData, verify: {
             let current = try self.observe()
             guard current.bindingData == captured.bindingData,
@@ -150,5 +180,6 @@ final class StoreVolumeMigration {
                 throw ComponentUpdateFailure.object
             }
         })
+        }
     }
 }

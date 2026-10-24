@@ -69,6 +69,7 @@ CORE_CHECKS = frozenset({
     "supplement_bounded_json_and_duplicate_members_rejected",
     "owned_directory_volume_uuid_abi_is_canonical_and_nonzero",
     "store_migration_binds_original_epoch_to_existing_volume_receipt",
+    "store_migration_accepts_only_independently_verified_later_component_epoch",
     "store_migration_requires_authorized_completed_unchanged_directory_pair",
     "store_migration_rejects_foreign_roots_policies_and_ambiguous_records",
     "store_migration_ordinary_call_refused_before_metadata_or_service_access",
@@ -95,7 +96,7 @@ def fixture_result(raw, *, kind):
     """A count or optimistic summary alone cannot satisfy native acceptance."""
     value = json.loads(raw)
     expected = CORE_CHECKS if kind == "core" else POLICY_CHECKS
-    count_key, count = ("ordinary_fixture_assertions", 331) if kind == "core" else ("count", 41)
+    count_key, count = ("ordinary_fixture_assertions", 343) if kind == "core" else ("count", 41)
     if (not isinstance(value, dict)
             or set(value) != {"schema", "status", "checks", count_key, "installed_reads", "service_actions"}
             or type(value["schema"]) is not int or value["schema"] != 1

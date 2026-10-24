@@ -1,0 +1,138 @@
+{
+  "attempt": "package90-attempt1",
+  "diagnostic_only": true,
+  "limitation": "The closed migration checkpoint does not identify the failing predicate. The public-image comparison does not inspect private store metadata or prove service health.",
+  "observed_at": "2026-10-24T15:20:21.143311+00:00",
+  "owner_installation_passed": false,
+  "package_sha256": "a9830e12cbaaf95ce2fe80add81d116498d571c57bbd9509b70f20a59f62f0a4",
+  "production_ready": false,
+  "public_image_restored": true,
+  "raw_logs_retained": false,
+  "read_window_truncated": false,
+  "results": [
+    {
+      "checkpoint": "context",
+      "elapsed_seconds": 0,
+      "schema": 1,
+      "status": "RUNNING"
+    },
+    {
+      "checkpoint": "source",
+      "elapsed_seconds": 0,
+      "schema": 1,
+      "status": "RUNNING"
+    },
+    {
+      "checkpoint": "predecessor",
+      "elapsed_seconds": 2,
+      "schema": 1,
+      "status": "RUNNING"
+    },
+    {
+      "checkpoint": "predecessor_full_image_context",
+      "elapsed_seconds": 2,
+      "schema": 1,
+      "status": "RUNNING"
+    },
+    {
+      "checkpoint": "predecessor_full_image_source",
+      "elapsed_seconds": 2,
+      "schema": 1,
+      "status": "RUNNING"
+    },
+    {
+      "checkpoint": "predecessor_full_image_payload",
+      "elapsed_seconds": 15,
+      "schema": 1,
+      "status": "RUNNING"
+    },
+    {
+      "checkpoint": "predecessor_full_image_context",
+      "elapsed_seconds": 27,
+      "schema": 1,
+      "status": "RUNNING"
+    },
+    {
+      "checkpoint": "predecessor_full_image_journal",
+      "elapsed_seconds": 28,
+      "schema": 1,
+      "status": "RUNNING"
+    },
+    {
+      "checkpoint": "predecessor_full_image_predecessor",
+      "elapsed_seconds": 28,
+      "schema": 1,
+      "status": "RUNNING"
+    },
+    {
+      "checkpoint": "predecessor_full_image_preparation",
+      "elapsed_seconds": 30,
+      "schema": 1,
+      "status": "RUNNING"
+    },
+    {
+      "checkpoint": "predecessor_full_image_journal",
+      "elapsed_seconds": 30,
+      "schema": 1,
+      "status": "RUNNING"
+    },
+    {
+      "checkpoint": "predecessor_full_image_verification_first_view",
+      "elapsed_seconds": 44,
+      "schema": 1,
+      "status": "RUNNING"
+    },
+    {
+      "checkpoint": "predecessor_full_image_verification_evidence",
+      "elapsed_seconds": 95,
+      "schema": 1,
+      "status": "RUNNING"
+    },
+    {
+      "checkpoint": "predecessor_full_image_verification_final_view",
+      "elapsed_seconds": 95,
+      "schema": 1,
+      "status": "RUNNING"
+    },
+    {
+      "checkpoint": "predecessor_full_image_complete",
+      "elapsed_seconds": 142,
+      "schema": 1,
+      "status": "RUNNING"
+    },
+    {
+      "checkpoint": "preparation",
+      "elapsed_seconds": 145,
+      "schema": 1,
+      "status": "RUNNING"
+    },
+    {
+      "checkpoint": "journal",
+      "elapsed_seconds": 148,
+      "schema": 1,
+      "status": "RUNNING"
+    },
+    {
+      "checkpoint": "transition",
+      "elapsed_seconds": 150,
+      "schema": 1,
+      "status": "RUNNING"
+    },
+    {
+      "checkpoint": "migration",
+      "elapsed_seconds": 163,
+      "schema": 1,
+      "status": "RUNNING"
+    },
+    {
+      "checkpoint": "migration",
+      "reason": "component_base_not_verified",
+      "schema": 1,
+      "status": "REFUSED"
+    }
+  ],
+  "rollback_evidence": "artifacts/owner-mac-after-repair90-attempt1-20261024.json",
+  "schema": 1,
+  "status": "CLOSED_RESULTS_OBSERVED",
+  "user_report": "Installation failed"
+}

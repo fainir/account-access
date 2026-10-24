@@ -42,7 +42,7 @@ def evidence():
     sources["scripts/mac_launchctl_disable_probe.py"] = builder.component.digest(
         (builder.ROOT / "scripts/mac_launchctl_disable_probe.py").read_bytes())
     run_id = 1006
-    core = {"schema": 1, "status": "PASSED", "ordinary_fixture_assertions": 331,
+    core = {"schema": 1, "status": "PASSED", "ordinary_fixture_assertions": 343,
             "checks": dict.fromkeys(builder.CORE_CHECKS, True), "installed_reads": False, "service_actions": False}
     policy = {"schema": 1, "status": "PASSED", "count": 41,
               "checks": dict.fromkeys(builder.POLICY_CHECKS, True), "installed_reads": False, "service_actions": False}
@@ -813,3 +813,10 @@ def test_plan_is_derived_before_helper_compile_and_bound_into_its_literal_pin(mo
     assert root_review["helper_executed"] is False and root_review["owner_data_read"] is False
     assert not any("installer" == Path(arguments[0]).name or "launchctl" == Path(arguments[0]).name
                    or arguments[0] == str(output / "scripts/AccountAccess-componentupdate") for arguments in commands)
+
+
+def test_builder_contract_matches_actual_native_probe():
+    import runpy
+    probe = runpy.run_path(str(builder.ROOT / "scripts/mac_component_update_native_probe.py"))
+    assert builder.CORE_CHECKS == probe["CORE_CHECKS"]
+    assert set(builder.NATIVE_CI_SOURCES) == set(probe["SOURCE_PATHS"])

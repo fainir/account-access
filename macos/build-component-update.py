@@ -45,6 +45,9 @@ NATIVE_CI_SOURCES = (
     "macos/ComponentUpdateIdentity.swift",
     "macos/InstallationRootBinding.swift", "macos/InstallationRootRevalidation.swift",
     "macos/InstallationRootBindingTests.swift",
+    "macos/RootStoreVolumeBinding.swift", "macos/RootStoreVolumePublication.swift",
+    "macos/StoreVolumeMigrationAuthority.swift", "macos/StoreVolumeMigration.swift",
+    "macos/Tests/StoreVolumeMigrationAuthorityChecks.swift",
     "macos/Tests/ComponentUpdateChecks.swift", "macos/Tests/ComponentUpdatePolicyChecks.swift",
     "macos/Tests/ComponentUpdateIdentityChecks.swift",
     "scripts/mac_component_update_native_probe.py", ".github/workflows/mac-worker.yml",
@@ -93,6 +96,11 @@ CORE_CHECKS = frozenset({
     "supplement_rejects_any_changed_original_receipt_bytes_or_digest",
     "supplement_bounded_json_and_duplicate_members_rejected",
     "owned_directory_volume_uuid_abi_is_canonical_and_nonzero",
+    "store_migration_binds_original_epoch_to_existing_volume_receipt",
+    "store_migration_requires_authorized_completed_unchanged_directory_pair",
+    "store_migration_rejects_foreign_roots_policies_and_ambiguous_records",
+    "store_migration_ordinary_call_refused_before_metadata_or_service_access",
+    "store_migration_accepts_only_independently_verified_later_component_epoch",
 })
 ZERO_PIN = ('enum ComponentUpdateCompiledPins { static let planSHA256 = "' + "0" * 64 + '" }\n')
 MAX_ARCHIVE = 4 * 1024 * 1024
@@ -250,7 +258,7 @@ def validate_native_report(files, *, source, sources, run_id, run_attempt=1):
     core, policy = report.get("core_fixture_json", {}), report.get("policy_fixture_json", {})
     if (set(core) != {"schema", "status", "checks", "ordinary_fixture_assertions", "installed_reads", "service_actions"}
             or type(core.get("schema")) is not int or core["schema"] != 1 or core.get("status") != "PASSED"
-            or type(core.get("ordinary_fixture_assertions")) is not int or core["ordinary_fixture_assertions"] != 331
+            or type(core.get("ordinary_fixture_assertions")) is not int or core["ordinary_fixture_assertions"] != 343
             or not _true_checks(core.get("checks"), CORE_CHECKS)
             or set(policy) != {"schema", "status", "checks", "count", "installed_reads", "service_actions"}
             or type(policy.get("schema")) is not int or policy["schema"] != 1 or policy.get("status") != "PASSED"

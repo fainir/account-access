@@ -127,6 +127,30 @@ private enum InstalledFixtureFailure: Error { case failed }
                     && value["status"] as? String == "REFUSED" && value["reason"] as? String == reason
                     && value["checkpoint"] as? String == category && !text.contains("fictional-private"))
             }
+            for category in StoreVolumeMigrationCheckpoint.allCases {
+                for (error, reason): (Error, String) in [
+                    (privateError, "broker_repair_not_verified"),
+                    (ComponentUpdateFailure.base, "component_base_not_verified"),
+                    (RootStoreVolumeFailure.invalid, "vault_publication_volume_binding_invalid"),
+                    (RootStoreVolumeFailure.changed, "vault_publication_volume_binding_changed")
+                ] {
+                    let failure = StoreVolumeMigrationDiagnostic(checkpoint: category, failure: error)
+                    let text = BrokerRepairMain.refusal(failure, checkpoint: .migration)
+                    let value = try JSONSerialization.jsonObject(with: Data(text.utf8)) as! [String: Any]
+                    try expect(Set(value.keys) == ["schema", "status", "reason", "checkpoint"]
+                        && value["status"] as? String == "REFUSED" && value["reason"] as? String == reason
+                        && value["checkpoint"] as? String == "migration_" + category.rawValue
+                        && !text.contains("fictional-private"))
+                }
+            }
+            do {
+                try StoreVolumeMigrationDiagnostic.checked(.publish) {
+                    try StoreVolumeMigrationDiagnostic.checked(.deviceEpoch) { throw ComponentUpdateFailure.base }
+                }
+                throw InstalledFixtureFailure.failed
+            } catch let diagnostic as StoreVolumeMigrationDiagnostic {
+                try expect(diagnostic.checkpoint == .deviceEpoch && diagnostic.failure as? ComponentUpdateFailure == .base)
+            }
             var completedContextRefused = false
             do { _ = try ComponentController.completedFullImage(resources: -1, pins: source.pins) }
             catch let diagnostic as CompletedFullImageDiagnostic {

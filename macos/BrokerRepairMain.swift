@@ -24,13 +24,16 @@ enum BrokerRepairProgress {
 }
 @main struct BrokerRepairMain {
     static func refusal(_ error: Error, checkpoint: BrokerRepairCheckpoint) -> String {
+        let migration = error as? StoreVolumeMigrationDiagnostic
         let image = error as? CompletedFullImageDiagnostic
         let component = (image?.failure ?? error) as? CompletedPredecessorDiagnostic
-        let failure = component?.failure ?? image?.failure ?? error
-        let category = component.map { "predecessor_component_" + $0.checkpoint.rawValue }
+        let failure = migration?.failure ?? component?.failure ?? image?.failure ?? error
+        let category = migration.map { "migration_" + $0.checkpoint.rawValue }
+            ?? component.map { "predecessor_component_" + $0.checkpoint.rawValue }
             ?? image.map { "predecessor_full_image_" + $0.checkpoint.rawValue } ?? checkpoint.rawValue
         let reason: String
         if let known = failure as? ComponentUpdateFailure { reason = known.rawValue }
+        else if let known = failure as? RootStoreVolumeFailure { reason = known.rawValue }
         else if let known = failure as? FullImageFailure {
             switch known {
             case .source: reason = "full_image_source_not_verified"

@@ -29,8 +29,9 @@ mailbox check passed; actual website email-code delivery and physical
 SMS/authenticator acceptance remain pending. The newer GUI and runtime
 still require owner-store and private-login acceptance. On 24 October, a complete
 read-only check confirmed installed public image 85 after a repair attempt timed
-out. Successor repair 90 passed disposable-Mac Installer qualification and awaits
-owner installation; fresh runtime 89 has
+out. Repair 90 passed disposable-Mac Installer qualification but failed during
+owner store migration. The previous public image was restored and verified.
+Fresh runtime 89 has
 passed disposable-Mac installation, but upgrading the owner's existing image to
 that runtime is not yet qualified. [Initial owner-Mac observations](artifacts/owner-startup-and-import-213509c-20261021.json)
 and [current acceptance status](docs/production-gates.md).

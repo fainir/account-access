@@ -326,6 +326,8 @@ typealias PredecessorSnapshotBuilder = CompletedPredecessorSnapshotBuilder
                     expectedEvidenceSHA256: earlierProof.sha256, recordedDevice: device)
                 try expect(observedProof.evidence == earlierProof.evidence,
                     "completed_full_image_reconstructs_exact_evidence_from_mount_\(device)")
+                try expect(observedProof.componentDevice == 7 && earlierProof.componentDevice == 7,
+                    "component_epoch_is_retained_intent_epoch_not_observation_epoch_\(device)")
                 try expect(currentMount.records.mapValues(\.data) == earlier.records.mapValues(\.data)
                     && currentMount.original.mapValues(\.data) == earlier.original.mapValues(\.data),
                     "historical_observation_preserves_all_immutable_bytes_\(device)")

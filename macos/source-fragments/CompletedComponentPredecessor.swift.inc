@@ -131,7 +131,13 @@ struct CompletedComponentHistoricalBinding {
 struct CompletedComponentProof {
     let evidence: Data
     let sha256: String
-    fileprivate init(_ evidence: Data) { self.evidence = evidence; sha256 = ComponentFiles.digest(evidence) }
+    // This is the original intent's epoch, not the epoch used when rendering
+    // historical evidence for a later full-image transition.
+    let componentDevice: Int32
+    fileprivate init(_ evidence: Data, componentDevice: Int32) {
+        self.evidence = evidence; sha256 = ComponentFiles.digest(evidence)
+        self.componentDevice = componentDevice
+    }
 }
 
 extension ComponentController {
@@ -365,7 +371,7 @@ extension ComponentController {
             if let expectedEvidence { guard expectedEvidence == evidence else { throw ComponentUpdateFailure.journal } }
             if let expectedEvidenceSHA256 { guard ComponentFiles.digest(evidence) == expectedEvidenceSHA256 else { throw ComponentUpdateFailure.journal } }
         }
-        return CompletedComponentProof(evidence)
+        return CompletedComponentProof(evidence, componentDevice: validated.0.workerPolicy.device)
     }
     private static func historicalCompletedEvidence(_ evidence: Data, snapshot: CompletedComponentSnapshot,
                                                      recordedDevice: Int32?) throws -> Data {

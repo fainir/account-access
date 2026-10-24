@@ -25,6 +25,7 @@ enum StoreVolumeMigrationAuthorityChecks {
         var service = String(repeating: "2", count: 64)
         var vault = "11111111-2222-4333-8444-555555555555"
         var enrollment = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
+        var componentDevice: Int32? = nil
         var path = StoreVolumeMigrationAuthority.parentPath
         var parent = RootStoreVolumeBinding.Context(device: 21, parentInode: 200,
             volumeUUID: "11111111-2222-4333-8444-55555555555a")
@@ -34,7 +35,8 @@ enum StoreVolumeMigrationAuthorityChecks {
             try StoreVolumeMigrationAuthority.qualify(originalReceipts: original, volumeReceipt: receipt, roots: roots,
                 ownerUID: owner, brokerUID: broker, workerSHA256: worker, serviceSHA256: service,
                 publication: record, authorization: authorization, ready: ready, paused: paused,
-                vaultID: vault, enrollmentID: enrollment, path: path, parent: parent, stage: stage, destination: destination)
+                vaultID: vault, enrollmentID: enrollment, path: path, parent: parent, stage: stage, destination: destination,
+                verifiedComponentDevice: componentDevice)
         }
     }
     static func run() throws -> (Int, [String: Bool]) {
@@ -77,6 +79,40 @@ enum StoreVolumeMigrationAuthorityChecks {
         try expect(authority.originalRecordSHA256 == ComponentFiles.digest(record)
             && authority.installationReceiptSHA256 == ComponentFiles.digest(receipt))
         try expect(try input.qualify().bindingData == authority.bindingData)
+        // Enrollment can follow the original installation's reboot. The
+        // component epoch is separately verified by the predecessor reader;
+        // arbitrary or current device numbers cannot authorize this migration.
+        var later = input
+        later.record = try changed(changed(record, "stagedIdentity", ["device": 19, "inode": 301]),
+                                   "emptyIdentity", ["device": 19, "inode": 302])
+        do { _ = try later.qualify(); throw ComponentUpdateFailure.context }
+        catch let diagnostic as StoreVolumeMigrationDiagnostic {
+            try expect(diagnostic.checkpoint == .deviceEpoch)
+        }
+        later.componentDevice = 19
+        let laterAuthority = try later.qualify()
+        try expect(try RootStoreVolumeBinding.decode(laterAuthority.bindingData, record: later.record,
+            context: later.parent).parentInode == later.parent.parentInode)
+        try expect(laterAuthority.originalRecordSHA256 == ComponentFiles.digest(later.record)
+            && laterAuthority.installationReceiptSHA256 == authority.installationReceiptSHA256)
+        for epoch: Int32 in [-1, 18, 20, 21] {
+            var altered = later; altered.componentDevice = epoch
+            do { _ = try altered.qualify(); throw ComponentUpdateFailure.context }
+            catch let diagnostic as StoreVolumeMigrationDiagnostic { try expect(diagnostic.checkpoint == .deviceEpoch) }
+        }
+        for changedInput in 0..<4 {
+            var altered = later
+            switch changedInput {
+            case 0: altered.worker = String(repeating: "a", count: 64)
+            case 1: altered.receipt = try changed(altered.receipt, "authorizing_source_commit", String(repeating: "a", count: 40))
+            case 2: altered.stage = altered.destination
+            default: altered.parent = .init(device: 21, parentInode: 200, volumeUUID: UUID().uuidString.lowercased())
+            }
+            do { _ = try altered.qualify(); throw ComponentUpdateFailure.context }
+            catch is StoreVolumeMigrationDiagnostic { try expect(true) }
+        }
+        var originalWithComponent = input; originalWithComponent.componentDevice = 19
+        try expect(try originalWithComponent.qualify().bindingData == authority.bindingData)
         func refuses(_ modify: (inout Input) throws -> Void) throws {
             var candidate = input; try modify(&candidate)
             var rejected = false
@@ -141,6 +177,7 @@ enum StoreVolumeMigrationAuthorityChecks {
             try refuses { $0.stage = directory }
         }
         return (assertions, ["store_migration_binds_original_epoch_to_existing_volume_receipt": true,
+            "store_migration_accepts_only_independently_verified_later_component_epoch": true,
             "store_migration_requires_authorized_completed_unchanged_directory_pair": true,
             "store_migration_rejects_foreign_roots_policies_and_ambiguous_records": true,
             "store_migration_ordinary_call_refused_before_metadata_or_service_access": true])
