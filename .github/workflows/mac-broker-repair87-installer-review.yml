@@ -1,11 +1,5 @@
 name: Broker repair 87 Installer acceptance
 on:
-  push:
-    branches: [codex/full-image-update]
-    paths:
-      - artifacts/broker-repair-installer87-inputs.json
-      - .github/workflows/mac-broker-repair87-installer-review.yml
-      - scripts/mac_broker_repair_installer_probe.py
   workflow_dispatch:
 permissions:
   contents: read

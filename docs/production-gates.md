@@ -14,11 +14,20 @@ against the runtime's filelock 3.32.7. Source now requires filelock 4.2.4 and
 regenerates the hash-pinned runtime requirements. The local dependency audit
 reports no known vulnerabilities. Supervisor/provisioning checks and password
 sync contention tests passed with the new dependency. A rebuilt runtime and
-installer acceptance are still required; packages 85/87 retain their frozen
+installer acceptance are still required; packages 85/87/88 retain their frozen
 older runtime and are not production release candidates. The fresh-87 build is
 only a packaging/installation investigation of those exact historical bytes.
 
 ### Broker store repair candidate — 24 October 2026
+
+Package **88** is built from repair-controller source `eba8057`, while preserving
+package 87's exact application payload and repair plan. Independent expansion
+verified all 27,523 entries, with only the repair helper and its hash-checking
+wrapper changed. The helper's Developer ID signature and ordinary-user refusal
+passed. Its draft assets are pinned by ID, size and SHA-256 for the three actual
+Installer scenarios. Those scenarios and owner installation are pending. The
+container remains unsigned; this is not a production runtime update.
+[Package 88 build evidence](../artifacts/broker-repair-package88-20261024.json).
 
 The owner's installed public image was still full image 85 after a Mac restart
 on 24 October. The first owner attempt at package 87 did not complete. A fresh

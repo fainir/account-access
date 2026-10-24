@@ -1,0 +1,32 @@
+{
+  "artifact_id": 12542269858,
+  "artifact_sha256": "60f630f12591b5dce3bbd7797e006c31e03ffb3f5cae0b102c8b4766f0b7fc8d",
+  "build_controller": "6c50ad638a4f0245d53c2b6b1e3cee865ba6875d",
+  "build_report": {
+    "actual_Installer_qualified": false,
+    "app_source": "d30fda732c589b9ac4dc339a7237ad8ba00d0016",
+    "broker_compilation_source": "5f4926a33883d6234f2538a5d0969e3b70c883b0",
+    "corresponding_sources": {
+      "broker-source.tar.gz": "d6b16a3d954abd4ab5e18533f845050cad4489f608eac8785174f39d13faaaa9",
+      "full84-source.tar.gz": "5f262e8a9b9016dded2a0ac5a68966bca3332948c403363799dbdf4dddeba2d5",
+      "packaging-source.tar.gz": "d2d1568fd80347895d35d8f6350c396102ba113c0ecdde5bf78451d6d76ee996",
+      "repair-source.tar.gz": "98c5418aa2ed416b688740eafb4e7efa6b5a87db7bc5cf6b5bc44ba0f98af620"
+    },
+    "expanded_inventory_sha256": "652c091be90032b87bf60bde70ed1152b4d859141f6dec30c92397e989bc5ad9",
+    "installer_verifier_sha256": "cce66e7499a755a4bd5dba098059012860d5e0fcf54ae8e461708b4ac4ef8534",
+    "package_bytes": 287985110,
+    "package_sha256": "807538749345a5ef654aa8d6656b733541818b8dc03cc36813c3d46f54adcb11",
+    "packaging_source": "39b3bfbfe6b5ceb3fccb0f635b806220ae11007b",
+    "production_ready": false,
+    "schema": 1,
+    "status": "BUILT_NOT_INSTALLED_NOT_INSTALL_QUALIFIED",
+    "target_manifest_sha256": "5a732de4623ba50aefa6d31c54e7b1eae660b2921341f95042c5675d922d808b",
+    "target_source": "c4cf1b0918c1a51cbd4a38880364fcb71fa5980e"
+  },
+  "download_and_all_referenced_content_hashes_verified": true,
+  "installed": false,
+  "production_ready": false,
+  "run_id": 40048890615,
+  "runtime_update_required": true,
+  "schema": 1
+}

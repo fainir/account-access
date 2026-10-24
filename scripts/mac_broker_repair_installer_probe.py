@@ -33,11 +33,20 @@ CHECKS = {"fresh_predecessor_acceptance", "pinned_assets_and_sources", "exact_re
           "scenario_exercised", "expected_public_image", "original_metadata_preserved",
           "same_package_reapplication", "reapplication_preserved_bytes_and_ids", "created_job_stopped"}
 ENV = {"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "LANG": "C", "LC_ALL": "C"}
+CONTROLLER88 = "eba805729025caa1dc0754112e21d6d5592e0113"
 
 
 def require(value):
     if not value:
         raise ValueError("broker_repair_installer_acceptance_failed")
+
+
+def profile(cohort):
+    require(type(cohort) is int and cohort in {87, 88})
+    return {"cohort": cohort, "controller_source": SOURCE if cohort == 87 else CONTROLLER88,
+            "identifier": f"com.fainir.accountaccess.brokerrepair{cohort}",
+            "download": "download_broker_repair_installer_inputs.py" if cohort == 87
+            else "download_broker_repair_restart_inputs.py"}
 
 
 def guard():
@@ -63,6 +72,15 @@ def verify_assets(folder, contract, allowed, hash_file):
     for name, row in contract["assets"].items():
         require(isinstance(name, str) and "/" not in name and name not in {"", ".", ".."}
                 and hash_file(folder / name, 1024**3) == (row["sha256"], row["bytes"]))
+
+
+def verify_review_identity(review, selected, *, package_sha256, inventory_sha256):
+    require(review["status"] == "BUILT_PENDING_INSTALLER_QA" and review["source_commit"] == SOURCE
+            and review.get("controller_source_commit", SOURCE) == selected["controller_source"]
+            and review["plan_sha256"] == PLAN and review["before_manifest_sha256"] == BEFORE
+            and review["after_manifest_sha256"] == AFTER and review["postinstall_timeout"] == 1800
+            and review["package_sha256"] == package_sha256
+            and review["scripts_inventory_sha256"] == inventory_sha256 and review["production_ready"] is False)
 
 
 def acceptance_passed(report):
@@ -231,25 +249,29 @@ def interrupt(scripts, report, output, new_broker):
 def run(args):
     guard()  # Before any file read or installed-state access.
     require(args.scenario in SCENARIOS)
+    selected = profile(getattr(args, "cohort", 87))
     revision = os.environ["GITHUB_SHA"]
     global h, f
     h_path = args.repository / "scripts/mac_component_update_installer_probe.py"
     require(digest(h_path.read_bytes()) == "a4507756990cf6ff96e666653dab7aa7d636f1c37a01027dce9fae0e465311da")
     h = SimpleNamespace(**runpy.run_path(str(h_path)))
-    for name in ("mac_broker_repair_installer_probe.py", "mac_full_image_installer_probe.py", "download_broker_repair_installer_inputs.py"):
+    for name in ("mac_broker_repair_installer_probe.py", "mac_full_image_installer_probe.py", selected["download"]):
         path = args.repository / "scripts" / name
         require(h.git_bytes(args.repository, ["show", revision + ":scripts/" + name], maximum=2 * 1024**2) == path.read_bytes())
     f = SimpleNamespace(**runpy.run_path(str(args.repository / "scripts/mac_full_image_installer_probe.py")))
     for value in vars(f).values():
         if callable(value) and hasattr(value, "__globals__"):
             value.__globals__["h"] = h
-    download = runpy.run_path(str(args.repository / "scripts/download_broker_repair_installer_inputs.py"))
+    download = runpy.run_path(str(args.repository / "scripts" / selected["download"]))
     rid = os.environ["GITHUB_RUN_ID"]
-    output = h.RootOutput(h.report_path(rid + "87"), rid + "87")
+    suffix = str(selected["cohort"])
+    output = h.RootOutput(h.report_path(rid + suffix), rid + suffix)
     report = {"schema": 1, "status": "FAILED", "scenario": args.scenario, "controller_revision": revision,
         "checks": dict.fromkeys(CHECKS, False), "logs": {}, "failure_stage": "inputs", "personal_accounts_used": 0,
         "owner_GUI_qualified": False, "production_ready": False, "fixture": "fictional-publication-metadata-only",
-        "real_account_login_tested": False, "private_credential_database_read": False}
+        "real_account_login_tested": False, "private_credential_database_read": False,
+        "repair_cohort": selected["cohort"], "tested_controller_source": selected["controller_source"],
+        "application_source": SOURCE}
     touched = False
     try:
         require(not os.path.lexists(NAMESPACE) and not os.path.lexists(f.FULL))
@@ -283,17 +305,14 @@ def run(args):
                 finally:
                     delta.capture(report=report, output=output, log=label + "-daemon.log")
             review = f.decode(h.read_file(stage / "repair-review.json"))
-            require(review["status"] == "BUILT_PENDING_INSTALLER_QA" and review["source_commit"] == SOURCE
-                    and review["plan_sha256"] == PLAN and review["before_manifest_sha256"] == BEFORE
-                    and review["after_manifest_sha256"] == AFTER and review["postinstall_timeout"] == 1800
-                    and review["package_sha256"] == extra["assets"]["repair.pkg"]["sha256"]
-                    and review["scripts_inventory_sha256"] == extra["assets"]["repair-scripts-inventory.json"]["sha256"]
-                    and review["production_ready"] is False)
-            for source_map in (review["controller_sources"], review["native_sources"]):
+            verify_review_identity(review, selected, package_sha256=extra["assets"]["repair.pkg"]["sha256"],
+                inventory_sha256=extra["assets"]["repair-scripts-inventory.json"]["sha256"])
+            for source_map, source_commit in ((review["controller_sources"], selected["controller_source"]),
+                                              (review["native_sources"], SOURCE)):
                 require(isinstance(source_map, dict) and 1 <= len(source_map) <= 128)
                 for path, sha in source_map.items():
                     require(re.fullmatch(r"macos/(?:source-fragments/)?[A-Za-z0-9_.-]+\.(?:swift|h|c|inc)", path)
-                            and digest(h.git_bytes(args.repository, ["show", SOURCE + ":" + path], maximum=2 * 1024**2)) == sha)
+                            and digest(h.git_bytes(args.repository, ["show", source_commit + ":" + path], maximum=2 * 1024**2)) == sha)
             report["checks"]["pinned_assets_and_sources"] = True
             report["failure_stage"] = "repair_expansion"
             full_stage = stage / "full-stage"
@@ -302,7 +321,7 @@ def run(args):
             command(["/usr/sbin/pkgutil", "--expand-full", str(stage / "repair.pkg"), str(expanded)], "repair-expand.log", 600)
             require({p.name for p in expanded.iterdir()} == {"PackageInfo", "Scripts"})
             info = ET.fromstring((expanded / "PackageInfo").read_bytes())
-            require(info.get("identifier") == "com.fainir.accountaccess.brokerrepair87" and info.get("version") == "0.1.0"
+            require(info.get("identifier") == selected["identifier"] and info.get("version") == "0.1.0"
                     and info.get("auth") == "root" and info.find("scripts/postinstall").attrib == {"file": "./postinstall", "timeout": "1800"})
             scripts = expanded / "Scripts"
             require(f.inventory(scripts) == f.decode(h.read_file(stage / "repair-scripts-inventory.json", maximum=64 * 1024**2))
@@ -429,6 +448,7 @@ def main():
     parser.add_argument("--bundle", type=Path, required=True)
     parser.add_argument("--repair", type=Path, required=True)
     parser.add_argument("--scenario", choices=sorted(SCENARIOS), required=True)
+    parser.add_argument("--cohort", type=int, choices=[87, 88], default=87)
     args = parser.parse_args()
     try:
         return run(args)
