@@ -1,0 +1,27 @@
+{
+  "closed_result": {
+    "checkpoint": "predecessor_worker_binding",
+    "owner_store_read": false,
+    "raw_logs_exported": false,
+    "reason": "component_transition_conflict",
+    "status": "REFUSED"
+  },
+  "native_installer_status": "FAILED",
+  "observed_date": "2026-10-23",
+  "owner_approved_this_package": true,
+  "package_sha256": "44851003ea314782ab8109c64467005e12015984a914a0c463a7c548bd153a56",
+  "post_failure_public_predecessor": {
+    "counts": {
+      "directory": 2305,
+      "file": 25283,
+      "symlink": 21
+    },
+    "mismatches": [],
+    "private_data_read": false,
+    "report_sha256": "5c5fb4ae48989a7a586557c312a8efe303dbe1552f3edacc847cc5ff2edcfdff",
+    "status": "PASSED"
+  },
+  "production_ready": false,
+  "protected_store_repaired": false,
+  "schema": 1
+}

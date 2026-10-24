@@ -1,0 +1,77 @@
+name: Fresh image 84 Installer acceptance
+on:
+  push:
+    branches: [codex/full-image-update]
+    # Source-only changes cannot schedule an unreviewed or repeated package.
+    paths: [artifacts/fresh-image84-installer-inputs.json]
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  download-reviewed-inputs:
+    if: github.repository == 'fainir/account-access'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Draft visibility only; the source performs fixed GETs and transfers no token.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Download the committed exact fresh-image contract
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -I -B scripts/download_fresh_image_installer_inputs.py \
+            --contract artifacts/fresh-image84-installer-inputs.json --cohort 84 \
+            --output "$RUNNER_TEMP/account-access-fresh-image-input"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fresh-image84-reviewed-inputs
+          path: ${{ runner.temp }}/account-access-fresh-image-input
+          compression-level: 0
+          retention-days: 3
+          if-no-files-found: error
+  actual-installer:
+    needs: download-reviewed-inputs
+    if: github.repository == 'fainir/account-access'
+    runs-on: macos-15
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          name: fresh-image84-reviewed-inputs
+          path: ${{ runner.temp }}/account-access-fresh-image-input
+      - name: Invoke only the guarded fresh install and identical-package reapply
+        run: |
+          test "$(uname -m)" = arm64
+          test "$RUNNER_ENVIRONMENT" = github-hosted
+          test "$GITHUB_REPOSITORY" = fainir/account-access
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          PYTHON=$(command -v python3)
+          sudo -n /usr/bin/env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin LANG=C LC_ALL=C \
+            GITHUB_ACTIONS=true CI=true RUNNER_ENVIRONMENT=github-hosted RUNNER_OS=macOS RUNNER_ARCH=ARM64 \
+            GITHUB_REPOSITORY="$GITHUB_REPOSITORY" GITHUB_RUN_ID="$GITHUB_RUN_ID" \
+            GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" GITHUB_SHA="$GITHUB_SHA" \
+            "$PYTHON" -I -B "$GITHUB_WORKSPACE/scripts/mac_fresh_image_installer_probe.py" \
+              --repository "$GITHUB_WORKSPACE" --bundle "$RUNNER_TEMP/account-access-fresh-image-input" --cohort 84
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: fresh-image84-installer-${{ github.run_id }}-${{ github.run_attempt }}
+          # Reuse the reviewed RootOutput's fixed evidence namespace verbatim.
+          path: /Library/Logs/AccountAccessComponentInstallerQA-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: error

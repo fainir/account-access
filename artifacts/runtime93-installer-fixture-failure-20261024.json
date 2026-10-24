@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "source": "dbff2cf6d30d276de05310a06f44efb93e37f9eb",
+  "run_id": 40118233268,
+  "job_id": 120944083736,
+  "artifact_id": 12571150030,
+  "artifact_bytes": 54373,
+  "artifact_sha256": "b7d60a022f1abc233a6381addb35b6cc759e0d244e98a897b8bb04b5da4201e7",
+  "reports": [
+    {
+      "file": "AccountAccessComponentInstallerQA-40118233268/report.json",
+      "sha256": "78cb87b782b9f47a166a1baf06420802f13b794b64c7f3047e1e18123725ec87",
+      "status": "PASSED"
+    },
+    {
+      "file": "AccountAccessComponentInstallerQA-4011823326891/report.json",
+      "sha256": "838e916657849500c3e832c133e50b1c9cf5dd0bd1bc455e8591a8bc1dcfa977",
+      "status": "FAILED"
+    }
+  ],
+  "referenced_log_hashes_verified": 41,
+  "failure_locations": [
+    {
+      "file": "mac_broker_repair_installer_probe.py",
+      "function": "run",
+      "line": 540
+    },
+    {
+      "file": "mac_runtime_upgrade_installer_probe.py",
+      "function": "run",
+      "line": 78
+    },
+    {
+      "file": "mac_component_update_installer_probe.py",
+      "function": "read_file",
+      "line": 207
+    },
+    {
+      "file": "mac_component_update_installer_probe.py",
+      "function": "require",
+      "line": 63
+    }
+  ],
+  "new_installer_invoked": false,
+  "diagnosis": "pkgutil expansion preserves archived ownership; root-only reader was called before normalizing the independently verified invocation-owned resource tree",
+  "fixed_hosted_validation_passed": false,
+  "installed_owner_machine": false,
+  "production_ready": false,
+  "archive_metadata_confirmed": {
+    "tool": "/usr/bin/tar -tvf",
+    "scripts_archive_sha256": "c687e9ddf246c31541ebc00324a64583d20c8765a05c0e33b8b76dcb2b42518b",
+    "members": {
+      "AccountAccess-runtimeupgrade": {
+        "uid": 501,
+        "gid": 20,
+        "mode": "0755"
+      },
+      "RuntimeUpgradePlan.json": {
+        "uid": 501,
+        "gid": 20,
+        "mode": "0644"
+      },
+      "TargetManifest.json": {
+        "uid": 501,
+        "gid": 20,
+        "mode": "0644"
+      }
+    }
+  }
+}

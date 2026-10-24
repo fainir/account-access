@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "source": "bf44e24fe42f8f5234fa6ab11d819f81d31d0838",
+  "workflow_run": 39945212456,
+  "passed": 3906,
+  "skipped": 107,
+  "test_seconds": 1009.9,
+  "native_owner_ui_passed": true,
+  "native_owner_gateway_passed": true,
+  "dependency_audit": "no_known_vulnerabilities",
+  "lint_passed": true,
+  "source_and_wheel_build_passed": true,
+  "personal_accounts_tested": 0,
+  "owner_installed_image_qualified": false,
+  "production_ready": false,
+  "phone_diagnostics_followup": {
+    "source": "ba5e0400e7b02902592337f9f07f7e0e4e0ff3c7",
+    "workflow_run": 39946607956,
+    "passed": 3906,
+    "skipped": 107,
+    "test_seconds": 1049.88,
+    "native_owner_ui_passed": true,
+    "native_owner_gateway_passed": true,
+    "dependency_audit": "no_known_vulnerabilities",
+    "lint_passed": true,
+    "source_and_wheel_build_passed": true,
+    "mac_worker_run": 39946607972,
+    "mac_worker_passed": true,
+    "linux_worker_run": 39946608143,
+    "linux_worker_passed": true
+  }
+}

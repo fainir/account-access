@@ -1,0 +1,67 @@
+name: Fresh repaired image 87 build and static review
+on:
+  push:
+    branches: [codex/full-image-update]
+    paths: [artifacts/fresh-image87-build-request.json]
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  download-reviewed-inputs:
+    if: github.repository == 'fainir/account-access'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Download exact repair and corresponding source assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -I -B scripts/build_fresh_repair_image_review.py download \
+            --repository "$GITHUB_WORKSPACE" --output "$RUNNER_TEMP/reviewed-input"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fresh87-build-reviewed-inputs
+          path: ${{ runner.temp }}/reviewed-input
+          compression-level: 0
+          retention-days: 3
+          if-no-files-found: error
+  build-and-inspect:
+    needs: download-reviewed-inputs
+    runs-on: macos-15
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
+      - run: uv sync --locked
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          name: fresh87-build-reviewed-inputs
+          path: ${{ runner.temp }}/reviewed-input
+      - name: Compose exact successor, build and inspect without installation
+        run: |
+          .venv/bin/python -I -B scripts/build_fresh_repair_image_review.py build \
+            --repository "$GITHUB_WORKSPACE" --bundle "$RUNNER_TEMP/reviewed-input" \
+            --output "$RUNNER_TEMP/fresh-build"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: fresh-image87-build-${{ github.run_id }}
+          path: ${{ runner.temp }}/fresh-build
+          compression-level: 0
+          retention-days: 7
+          if-no-files-found: error

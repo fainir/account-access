@@ -1,0 +1,31 @@
+{
+  "account_storage_formats_changed": false,
+  "actual_build79_failure_cause_confirmed": false,
+  "actual_installer_qualified": false,
+  "change": "Accept and bind inherited GIDs on root-owned mode-0700 predecessor directories, matching the original installer contract; never rewrite historical metadata.",
+  "native_qualification": {
+    "compile_count": 1,
+    "installed_adapter_assertions": 39,
+    "namespace_assertions": 21,
+    "optimization": "Onone",
+    "ordinary_guard_exit_codes": [
+      77,
+      77,
+      77,
+      78
+    ],
+    "predecessor_assertions": 99,
+    "proof_sha256": "992ab442098aac9389c2c0a56194207c927d3cad2f07d3faef0ef58ab26ec08c",
+    "source_stable": true
+  },
+  "owner_mac_installed_paths_read": false,
+  "production_ready": false,
+  "root_ownership_mode_acl_and_exact_evidence_checks_preserved": true,
+  "schema": 1,
+  "source_sha256": {
+    "macos/Tests/CombinedPredecessorAuthorityChecks.swift": "79b4e2479723ad52cc5deb78b070f38e5cb75a6f7b7232a098ed4b9e663bec27",
+    "macos/source-fragments/CompletedComponentPredecessor.swift.inc": "0566511fb68973e4d01171964abd83a36c517180590c1c8505cbe721379ecbd6",
+    "scripts/mac_full_image_installed_probe.py": "9ebccbc87e48088b8fad2847e9eb83fea64c6379bb72e8080f448c4aa79a19c2"
+  },
+  "status": "SOURCE_CONTRACT_CORRECTION_TESTED_NOT_INSTALLED"
+}

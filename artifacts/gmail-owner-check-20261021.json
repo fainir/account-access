@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "observed_utc": "2026-10-21T12:11:14.399523+00:00",
+  "environment": "personal owner Mac",
+  "installed_gui": "retained build 76",
+  "owner_completed_local_enrollment": true,
+  "independent_native_observation": "Mailbox connection checked",
+  "provider": "Gmail",
+  "credentials_or_messages_read_by_observer": false,
+  "website_code_delivery_tested": false,
+  "personal_website_login_completed": false,
+  "local_observation_sha256": "d84085a5b47dee72fcda8b550bb5675d82f44bed475ae9804ae7e451a4693a0d",
+  "production_ready": false
+}

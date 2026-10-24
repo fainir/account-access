@@ -1,0 +1,80 @@
+{
+  "artifact_id": 12515808552,
+  "artifact_sha256": "10758ecb09e31ba177e7e7c7e044d929e63487bb7ab907dbb427eb7d6fdb6f43",
+  "owned_helper_closed_status": {
+    "checkpoint": "predecessor",
+    "reason": "component_object_changed",
+    "status": "REFUSED"
+  },
+  "owner_installation_attempted": false,
+  "production_ready": false,
+  "qualification": "NOT_ACCEPTED",
+  "reason": "Package86 withdrawn after namespace ownership defect found; partial output retained as failure evidence.",
+  "reports": {
+    "AccountAccessComponentInstallerQA-39984715262/report.json": {
+      "checks": {
+        "actual_base_installer": true,
+        "actual_candidate_installer": true,
+        "base_public_image": true,
+        "candidate_expansion_matches_review": true,
+        "created_job_stopped": true,
+        "fresh_gui_closed": true,
+        "fresh_hosted_vm": true,
+        "genuine_signed_helper": true,
+        "only_three_policy_values_changed": true,
+        "reapplication_preserved_bytes_and_ids": true,
+        "reviewed_public_inputs": true,
+        "same_package_reapplication": true,
+        "target_public_image": true,
+        "unchanged_worker_plans_and_original_journal": true,
+        "verified_head": true
+      },
+      "failure_locations": null,
+      "failure_reason": null,
+      "failure_stage": null,
+      "sha256": "df37011418e1785966c57f4b7fd12b5cf6e54cd026c673ee1877431260eabdd9",
+      "status": "PASSED"
+    },
+    "AccountAccessComponentInstallerQA-3998471526286/report.json": {
+      "checks": {
+        "actual_full_image_installer": true,
+        "completed_full_image": true,
+        "created_job_stopped": true,
+        "exact_repair_resources": true,
+        "expected_public_image": false,
+        "fictional_legacy_publication": true,
+        "fresh_predecessor_acceptance": true,
+        "native_signatures": true,
+        "original_metadata_preserved": false,
+        "pinned_assets_and_sources": true,
+        "reapplication_preserved_bytes_and_ids": false,
+        "same_package_reapplication": false,
+        "scenario_exercised": false
+      },
+      "failure_locations": [
+        {
+          "file": "mac_broker_repair_installer_probe.py",
+          "function": "run",
+          "line": 333
+        },
+        {
+          "file": "mac_broker_repair_installer_probe.py",
+          "function": "interrupt",
+          "line": 194
+        },
+        {
+          "file": "mac_broker_repair_installer_probe.py",
+          "function": "require",
+          "line": 40
+        }
+      ],
+      "failure_reason": "actual_broker_repair_installer_acceptance_failed",
+      "failure_stage": "repair_scenario",
+      "sha256": "ad45e6a558080da7f3644dfcd4da7f956f9537ee9091ffee4d91bbb42b9eaa8a",
+      "status": "FAILED"
+    }
+  },
+  "run_conclusion": "cancelled",
+  "run_id": 39984715262,
+  "schema": 1
+}

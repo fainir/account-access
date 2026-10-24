@@ -56,7 +56,7 @@ def credential_values(value):
     result = set()
     if isinstance(value, dict):
         for key, item in value.items():
-            if isinstance(item, str) and (key in {"password", "seed", "access_token", "refresh_token",
+            if isinstance(item, str) and (key in {"password", "identity", "phone", "seed", "access_token", "refresh_token",
                                                  "client_secret", "id_token", "auth_token", "token", "value"}):
                 if item:
                     result.add(item)

@@ -1,0 +1,65 @@
+{
+  "full_image_updater_implemented": false,
+  "local_checks": {
+    "diff_check": "PASSED",
+    "ordinary_temp_subtree_assertions": 39,
+    "owner_policy_fictional_assertions": 46,
+    "owner_policy_proof_sha256": "55e21b070b87d9bf5fd90a7fb231ad8d9c7c0fec459ba83bd1b472ec0b1be482",
+    "python_integration_proof_sha256": "970313685574ec911ed76c8e601c76037b0a31b93faf9107c2fffcdbca21b58e",
+    "python_tests_passed": 143,
+    "ruff": "PASSED",
+    "subtree_promotion_body_equality_proof_sha256": "94ba490a21e93f227b5dfc47529d29f31b6ae40cd6e23c4224092a06d05f6556",
+    "subtree_proposal_proof_sha256": "7dcdb45721837a8d60fcc246f1021dc22f1255a00a53f112a686fe0f1f2bcfa7",
+    "unrelated_existing_native_volume_test_repeated": false
+  },
+  "managed_by": "account-access-full-image-preparation-evidence-v1",
+  "new_full_target_built": false,
+  "new_workflow_registration": {
+    "remote_execution": "PENDING",
+    "review": "Source-only registration of the previously validated native source bodies; local integration proof predates this final workflow-only edit."
+  },
+  "official_pip_data_validation": {
+    "ca_certificates": 120,
+    "certifi_version": "2026.10.19",
+    "package_code_executed": false,
+    "record_verified_members": 478,
+    "source_mutated": false,
+    "version": "26.2.2",
+    "wheel_sha256": "fd7f4dfa8190e014013b9f08f3e973f4e4c26ffd179a204895533a7254813a70"
+  },
+  "owner_installed": false,
+  "parent_source_commit": "213509c6bd9ff40131bd71dcb1a2967e96cd76a3",
+  "personal_account_acceptance": false,
+  "production_ready": false,
+  "remaining": [
+    "Frozen actual full target and complete changed-manifest coverage",
+    "Signed-plan and predecessor trust loader with ancestor attachment verification",
+    "Complete update controller, policy/head coordination and rollback",
+    "Symlink ACL policy and real owner/runtime-client quiescence",
+    "Qualified genuine-Installer full upgrade with enrolled fictional continuity",
+    "Owner update and real password/email/SMS/authenticator/agent acceptance"
+  ],
+  "retained_initial_integration_refusal": {
+    "cause": "Existing fictional unsigned-container fixtures did not isolate the newly required pinned-CA input stage. Test-only isolation was updated; production CA requirement remains enforced.",
+    "failed_tests": 3,
+    "proof_sha256": "b16998d1f7d3178165b94677f88e392ed21540e9f2c25ca4b5a2580b5de95a4f"
+  },
+  "schema": 1,
+  "source_sha256": {
+    ".github/workflows/check.yml": "ab1459acafbb1b57ac3496ced95570571eb4d9b28428519cb7c71e8a014913e5",
+    ".github/workflows/mac-worker.yml": "25358f35c0d0f172054773cc92729995b775db857f10fccc86871a419faba69a",
+    "macos/FullImageTreeStorage.swift": "0e976da72ba340d21c8fa99bfdf3dd50e93080b31359219d0efd6b89410d3fc8",
+    "macos/FullImageUpdatePolicies.swift": "67864c4c5226ee467401e1d93ec79e89ba8bb9c5a0e4608a55994e9d26f05416",
+    "macos/Tests/FullImageTreeStorageChecks.swift": "06e955b02eaa9691092b90d9790b9ac58fb5796e3c055f58b2979964a9f095eb",
+    "macos/Tests/FullImageUpdatePolicyChecks.swift": "ad98abb3ee14bc435d6ea299417e96ad3c4842bb0000f92b5783637edee93d03",
+    "macos/build.sh": "f1670afcadc3770512376b78283c0150ce059cd464442efe3b36b7708d12408e",
+    "macos/full_image_update.py": "000621479782216c1908f8f8a0ad7c1cf2b2c35bdc5a134ceaa24518324f1ac9",
+    "macos/runtime_ca.py": "54579fce404a5d64a64147b5aa3e37bf263c4c163d90d50834b2d688e4c88c36",
+    "macos/system_package.py": "da54a558abef08307e7b5329b6b9e4f4f05b38ff6c98f720c6478062876cc5cd",
+    "tests/test_full_image_update.py": "50f0394296ac06c72e2d72ed5106b957b532a09ef1b63d7cdb4228f4392dff90",
+    "tests/test_mac_build_number.py": "15adbf7ac66077a94f59fa47e18b1acd179a7614bb2e23f8f1c5d1a1a7157c0a",
+    "tests/test_runtime_ca.py": "593cd2145243586e25586766c537da08825e343f32540844b0387c5f45d69028",
+    "tests/test_system_package.py": "6a09ecf499f2ed4850a7a74e372b77bcdf5f48feddeba288bc8f77bd1a4107b7"
+  },
+  "status": "VALIDATED_PACKAGING_AND_UPDATE_PRIMITIVES"
+}

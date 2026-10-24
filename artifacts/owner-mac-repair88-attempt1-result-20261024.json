@@ -1,0 +1,20 @@
+{
+  "helper_completion_observed": false,
+  "helper_exited": true,
+  "installer_error_code": 112,
+  "installer_error_domain": "PKInstallErrorDomain",
+  "owner_GUI_qualified": false,
+  "package_cohort": 88,
+  "package_sha256": "8f6415ecf1fad46cb77bfacd37576555d300c8e702ea971bc08e7ec2e9f74e04",
+  "previous_public_image_intact": true,
+  "private_data_read": false,
+  "production_ready": false,
+  "public_image_evidence": "owner-mac-after-repair88-attempt1-20261024.json",
+  "raw_logs_retained": false,
+  "schema": 1,
+  "script_started_local": "2026-10-24T16:47:29+03:00",
+  "script_timeout_seconds": 1800,
+  "status": "FAILED_TIMEOUT",
+  "timeout_confirmed_by_same_package_script_service": true,
+  "timeout_observed_local": "2026-10-24T17:17:29+03:00"
+}

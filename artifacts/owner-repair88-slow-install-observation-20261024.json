@@ -1,0 +1,58 @@
+{
+  "closed_helper_result_observed": false,
+  "earlier_public_three_file_check": "matches_predecessor",
+  "helper_samples": [
+    {
+      "cpu_seconds": 54.23,
+      "elapsed_seconds": 180,
+      "state": "R"
+    },
+    {
+      "cpu_seconds": 93.63,
+      "elapsed_seconds": 334,
+      "state": "R"
+    },
+    {
+      "cpu_seconds": 121.77,
+      "elapsed_seconds": 488,
+      "state": "R"
+    },
+    {
+      "cpu_seconds": 214.21,
+      "elapsed_seconds": 877,
+      "repair_namespace_present": false,
+      "state": "R"
+    },
+    {
+      "cpu_seconds": 259.87,
+      "elapsed_seconds": 1343,
+      "repair_namespace_present": false,
+      "state": "R"
+    }
+  ],
+  "installer_script_started_local": "2026-10-24T16:47:29+03:00",
+  "installer_ui_estimate": "About 2 minutes",
+  "installer_ui_stage": "Running package scripts",
+  "owner_store_qualified": false,
+  "package_cohort": 88,
+  "package_sha256": "8f6415ecf1fad46cb77bfacd37576555d300c8e702ea971bc08e7ec2e9f74e04",
+  "performance_qualified": false,
+  "private_data_read": false,
+  "production_ready": false,
+  "recorded_at": "2026-10-24T14:06:16.970993+00:00",
+  "schema": 1,
+  "source_review_inference": "Repeated full-tree verification may contribute, but severe concurrent CPU/memory pressure confounds owner-Mac latency; no runtime profiling establishes the cause.",
+  "status": "OBSERVED_SLOW_OWNER_INSTALL_PENDING",
+  "system_pressure_observation": {
+    "arguments_read": false,
+    "encrypted_swap_used_mb": 8396.12,
+    "load_average": [
+      165.86279296875,
+      93.3798828125,
+      62.5576171875
+    ],
+    "logical_cpus": 8,
+    "other_processes_changed": false
+  },
+  "updated_at": "2026-10-24T14:12:51.505638+00:00"
+}

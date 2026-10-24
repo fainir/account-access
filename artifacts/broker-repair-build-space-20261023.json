@@ -1,0 +1,29 @@
+{
+  "free_bytes_after": 4595023872,
+  "production_ready": false,
+  "removed": [
+    {
+      "bytes": 710134581,
+      "files": 25163,
+      "path": "dist/full-image-overlay-build78-3bb48a7/PublicImage",
+      "reason": "obsolete generated public image or compiler cache; source and QA records retained"
+    },
+    {
+      "bytes": 137159241,
+      "files": 219,
+      "path": "dist/full-target-build77-f073afbc28c4/modules",
+      "reason": "obsolete generated public image or compiler cache; source and QA records retained"
+    }
+  ],
+  "retained_nonidentical": [
+    {
+      "path": "dist/qa-bitwarden-cleanup-source-d332320/current-corresponding-source/account-access-bitwarden-2026.10.0-corresponding-source.tar.gz",
+      "sha256": "8d31c19571b032bfd557716b4b7c124f6a4624b917eca25cda359944c1fe2753"
+    },
+    {
+      "path": "dist/qa-runtime-ca-proposal-213509c/current-corresponding-source/account-access-bitwarden-2026.10.0-corresponding-source.tar.gz",
+      "sha256": "618680957bd267bd2ce483c0bda1b0b4d277e82923a4c697eb256873e08f7274"
+    }
+  ],
+  "schema": 1
+}

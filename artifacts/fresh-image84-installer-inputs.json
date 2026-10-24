@@ -1,0 +1,71 @@
+{
+  "assets": {
+    "fresh-expanded-inventory.json": {
+      "bytes": 7055351,
+      "id": 668534332,
+      "release": {
+        "id": 421625583,
+        "source": "47eac17c811ca27a12660d30f94ec955ad09df70",
+        "tag": "qa-47eac17-fresh-image84"
+      },
+      "sha256": "71e618b7002c1323c5dbc29e37600b2c805e7feacf1e13b889cb8ed9993b1fe2"
+    },
+    "fresh-manifest.json": {
+      "bytes": 4967644,
+      "id": 668534328,
+      "release": {
+        "id": 421625583,
+        "source": "47eac17c811ca27a12660d30f94ec955ad09df70",
+        "tag": "qa-47eac17-fresh-image84"
+      },
+      "sha256": "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da"
+    },
+    "fresh-review.json": {
+      "bytes": 684,
+      "id": 668534334,
+      "release": {
+        "id": 421625583,
+        "source": "47eac17c811ca27a12660d30f94ec955ad09df70",
+        "tag": "qa-47eac17-fresh-image84"
+      },
+      "sha256": "3dc8ec34db22f97958ce03156bd34681faddd87198741b088dc6813b38ea5bbf"
+    },
+    "fresh.pkg": {
+      "bytes": 288027276,
+      "id": 668534329,
+      "release": {
+        "id": 421625583,
+        "source": "47eac17c811ca27a12660d30f94ec955ad09df70",
+        "tag": "qa-47eac17-fresh-image84"
+      },
+      "sha256": "c4836d88d8785ea283ca39190e64a6849f4cff57913d31d59ccac157aec52bb6"
+    },
+    "full84-source.tar.gz": {
+      "bytes": 252473415,
+      "id": 668422660,
+      "release": {
+        "id": 421585825,
+        "source": "d5cd6b7018481733674d1127b36e9f9a5f335bda",
+        "tag": "qa-d5cd6b7-full-image84"
+      },
+      "sha256": "5f262e8a9b9016dded2a0ac5a68966bca3332948c403363799dbdf4dddeba2d5"
+    },
+    "packaging-source.tar.gz": {
+      "bytes": 3938031,
+      "id": 668534330,
+      "release": {
+        "id": 421625583,
+        "source": "47eac17c811ca27a12660d30f94ec955ad09df70",
+        "tag": "qa-47eac17-fresh-image84"
+      },
+      "sha256": "8a93c28e899f0988db801160467a43d572100ea041803a17de6128c891f7ff81"
+    }
+  },
+  "installer_verifier_sha256": "cce66e7499a755a4bd5dba098059012860d5e0fcf54ae8e461708b4ac4ef8534",
+  "packaging_source": "47eac17c811ca27a12660d30f94ec955ad09df70",
+  "repository": "fainir/account-access",
+  "schema": 1,
+  "status": "FROZEN_REVIEWED_ASSETS",
+  "target_manifest_sha256": "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da",
+  "target_source": "d30fda732c589b9ac4dc339a7237ad8ba00d0016"
+}

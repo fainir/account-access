@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "observed_at": "2026-10-24T20:10:13.664232+00:00",
+  "status": "REGRESSION_RETAINED_FIX_AWAITING_EMULATOR",
+  "failed_run_id": 40127326805,
+  "failed_job": "Android 15 refusal without computer permission",
+  "failed_source": "b5ea8a20b0bb71e99698b444af8c5d19fa6a9921",
+  "failure": "Unassociated notification did not stop safely",
+  "failure_log_sha256": "804857f8213d597186fd5fe2642c0630b5516c53aad689458e2e88b2518962a0",
+  "same_change_pr_run_passed": 40127329660,
+  "diagnosis": "The failure did not include the observed status. Source inspection found that unrelated notification callbacks overwrite the blocked login status. This is a concrete race, but the historical failure cause is not proven.",
+  "change": "Ignore unrelated applications without overwriting the last login status; clear stale fixture state; post an acknowledged real shell notification after the blocked result and require the status and zero delivery timestamp to remain unchanged.",
+  "local_application_and_instrumentation_builds": "passed",
+  "physical_phone_tested": false,
+  "production_ready": false
+}

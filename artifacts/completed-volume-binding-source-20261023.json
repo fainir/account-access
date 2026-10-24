@@ -1,0 +1,59 @@
+{
+  "base_commit": "2eb12a293beec6b914bc9af3e6a0ec3ad21d89ae",
+  "behavior": [
+    "Prior root-volume receipt must bind original roots and receipt bytes, the component plan, and unchanged worker/service digests.",
+    "Only a uniform historical device number can map to the validated current volume; inode, mode, size and digest stay exact.",
+    "Current image objects and retained records remain checked; dynamic policies are rechecked after the complete public-image scan.",
+    "Original receipts and intent bytes are preserved. No owner account store is read by this QA."
+  ],
+  "limits": {
+    "actual_installer_qualified": false,
+    "owner_failure_checkpoint": "predecessor_worker_binding",
+    "owner_failure_exact_object_field_confirmed": false,
+    "owner_store_repaired": false,
+    "package_built": false,
+    "production_ready": false
+  },
+  "prior_v2_scope": {
+    "assertions": 512,
+    "limits": "Before preserving the second dynamic-policy observation after the public-image scan.",
+    "status": "passed"
+  },
+  "recorded_utc": "2026-10-23T06:51:49.363470+00:00",
+  "retained_failures": [
+    {
+      "attempt": "initial command",
+      "reason": "Output parent directory missing; no probe created."
+    },
+    {
+      "attempt": "v1",
+      "reason": "New test fixture had a missing switch brace; compile refused; corrected before v2."
+    }
+  ],
+  "schema": 1,
+  "source_sha256": {
+    "macos/InstallationRootBinding.swift": "8b0f85b8be6d11b89b03a555040c86619c4512b4a89a799a37b0dedc9ff44825",
+    "macos/Tests/CombinedPredecessorAuthorityChecks.swift": "3902afa5ff6329c56a82368d678b47fbe10ca5a973c54da841c10c52fcb4e8c9",
+    "macos/source-fragments/CompletedComponentPredecessor.swift.inc": "73bb28db2c204a95a67b8e7ca0cb86cac93f2aa4428bd70c25c4248553cf536d",
+    "scripts/mac_full_image_installed_probe.py": "c4afc7882e01867de27e0238ecf7af37ce12737bc6aa7bf0c24638e97260a07f",
+    "tests/test_mac_full_image_installed_probe.py": "10e375f4afda7a2026489b3b3f4cf44956c52c49549500246c398352edb8ab15"
+  },
+  "status": "SOURCE_FIXTURE_QUALIFIED_NOT_INSTALLED",
+  "validation": {
+    "broader_python_checks_before_final_file_recheck": 353,
+    "final_report_contract_checks": 21,
+    "lint": "passed",
+    "native_fixture_assertions": 516,
+    "native_group_counts": [
+      142,
+      142,
+      21,
+      63,
+      148
+    ],
+    "native_result_sha256": "d3fabd17c0972f0a6375390e9730aebb9b3e5671e3ac34bb8185ba5231e64374",
+    "native_source_pins_verified": 24,
+    "ordinary_entrypoint_refusal": "passed",
+    "whitespace": "passed"
+  }
+}

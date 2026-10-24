@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "run_id": 40047733018,
+  "source": "bd108d3cfe5efa96ef9a43dd68cccacb32d75714",
+  "status": "FAILED_BEFORE_PACKAGE_BUILD",
+  "stage": "repair_scripts_inventory",
+  "reason": "Fresh package inventory schema omitted the empty ACL field required by the frozen repair inventory. Use the existing repair inventory reader unchanged.",
+  "replacement_build_attempt": 2,
+  "installed": false,
+  "published": false,
+  "production_ready": false
+}

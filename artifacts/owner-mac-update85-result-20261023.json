@@ -1,0 +1,60 @@
+{
+  "schema": 1,
+  "status": "PUBLIC_IMAGE_REPAIRED_OWNER_UI_STORE_UNAVAILABLE",
+  "package_sha256": "a01657042819ff5f7ff5166f11b221291bde44f331c643a60ba3ebe120f1489b",
+  "native_installer_result": "SUCCESS",
+  "updater_result": {
+    "status": "UPDATED_GUI_UNVERIFIED",
+    "checkpoint": "complete",
+    "gui_verified": false,
+    "account_qa_verified": false
+  },
+  "owner_data_read": false,
+  "raw_installer_logs_exported": false,
+  "installed_image_qualified": true,
+  "owner_GUI_qualified": false,
+  "personal_account_login_qualified": false,
+  "production_ready": false,
+  "public_manifest_sha256": "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da",
+  "public_image_report_sha256": "cf6cefa323d4b7b655d5c73d125981d8b9dfd7c6e2b5b91949da28a3ba918003",
+  "public_files_checked": 25165,
+  "public_directories_checked": 2297,
+  "public_aliases_checked": 21,
+  "removed_public_paths_checked": 237,
+  "public_image_check_seconds": 17.211,
+  "owner_UI_observed": "protected_account_store_could_not_be_opened_safely",
+  "agent_discovery": {
+    "environment": "controlled-demo",
+    "service_version": "0.6.0",
+    "personal_accounts_qualified": false
+  },
+  "public_module_imports_passed": [
+    "account_access.worker_host",
+    "account_access.broker",
+    "account_access.owner",
+    "account_access.service",
+    "account_access.worker_enroll",
+    "account_access.native_messages",
+    "uvicorn"
+  ],
+  "native_public_runtime_checks": {
+    "checks": [
+      {
+        "public_component": "runtime",
+        "seconds": 0.29280070833920036,
+        "status": "OK"
+      },
+      {
+        "public_component": "python",
+        "seconds": 0.21312733333616052,
+        "status": "OK"
+      },
+      {
+        "public_component": "browsers",
+        "seconds": 0.0015632916620234028,
+        "status": "OK"
+      }
+    ],
+    "owner_store_read": false
+  }
+}

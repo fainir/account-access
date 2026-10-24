@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "status": "OWNER_INSTALLATION_REFUSED",
+  "observed_at": "2026-10-24T19:47:52.973531+00:00",
+  "package_sha256": "f5db4c6c35ca1efe62bac0b572256b500f59032d9885a7bebb7b43b6702a9b23",
+  "controller_source": "f9c0a80fd5bf28e4e92d005ef3777a6b44de1ab6",
+  "closed_result": {
+    "status": "REFUSED",
+    "reason": "component_service_quiescence_not_confirmed",
+    "checkpoint": "transition"
+  },
+  "previous_public_image": {
+    "schema": 1,
+    "status": "PASSED",
+    "observed_at": "2026-10-24T19:47:52.973531+00:00",
+    "manifest_sha256": "5a732de4623ba50aefa6d31c54e7b1eae660b2921341f95042c5675d922d808b",
+    "private_data_read": false,
+    "counts": {
+      "symlink": 21,
+      "directory": 2297,
+      "file": 25166
+    },
+    "mismatches": [],
+    "elapsed_seconds": 8.657,
+    "free_bytes": 7792009216,
+    "package_sha256": "f5db4c6c35ca1efe62bac0b572256b500f59032d9885a7bebb7b43b6702a9b23",
+    "checker_changed_installation": false,
+    "production_ready": false,
+    "phase": "before",
+    "scope": "manifest-listed public file bytes, types, modes, root ownership and alias targets; no private records, policy contents or service readiness"
+  },
+  "native_public_trees": {
+    "installed_writes": false,
+    "ordinary_user": true,
+    "private_records_read": false,
+    "production_ready": false,
+    "schema": 1,
+    "service_control": false,
+    "status": "PASSED",
+    "trees": [
+      {
+        "status": "PASSED",
+        "unit": "runtimeOwner"
+      },
+      {
+        "status": "PASSED",
+        "unit": "pythonRoot"
+      },
+      {
+        "status": "PASSED",
+        "unit": "runtimeRoot"
+      },
+      {
+        "status": "PASSED",
+        "unit": "browsers"
+      },
+      {
+        "status": "PASSED",
+        "unit": "wheels"
+      }
+    ]
+  },
+  "service": {
+    "disabled": true,
+    "fixed_job_absent": true,
+    "worker_running": false
+  },
+  "remaining_dedicated_uid_public_processes": [
+    "/usr/sbin/distnoted",
+    "/usr/libexec/lsd"
+  ],
+  "diagnosis": "The barrier requires an empty dedicated UID. Two Apple system executable paths remain; their live signature identity is not yet attested. The exact pre-failure process observation is unavailable.",
+  "private_records_read": false,
+  "owner_installed_successfully": false,
+  "production_ready": false
+}

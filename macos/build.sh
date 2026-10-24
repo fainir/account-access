@@ -3,6 +3,18 @@
 # for local development; public distribution requires signing and notarization.
 set -eu
 AC_SOURCE=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+# Build 76 is the frozen historical package. New full targets need an explicit
+# distinct decimal build identity before any artifact or compiler is touched.
+AC_BUILD=${ACCOUNT_ACCESS_MAC_BUILD:-}
+case "$AC_BUILD" in
+  ''|*[!0123456789]*|0*)
+    echo "Set ACCOUNT_ACCESS_MAC_BUILD to a decimal build number greater than 76." >&2
+    exit 1 ;;
+esac
+if [ "${#AC_BUILD}" -gt 9 ] || [ "$AC_BUILD" -le 76 ]; then
+  echo "Set ACCOUNT_ACCESS_MAC_BUILD to a decimal build number greater than 76." >&2
+  exit 1
+fi
 AC_OUTPUT=${ACCOUNT_ACCESS_MAC_OUTPUT:-"$AC_SOURCE/dist/macos"}
 AC_APP="$AC_OUTPUT/Account Access.app"
 AC_WHEEL="$AC_SOURCE/dist/account_access-0.8.0-py3-none-any.whl"
@@ -24,7 +36,7 @@ AC_WHEEL_HASH=$(shasum -a 256 "$AC_WHEEL" | awk '{ print $1 }')
 mkdir -p "$AC_APP/Contents/MacOS" "$AC_APP/Contents/Resources" "$AC_APP/Contents/Library/LaunchAgents"
 for AC_ARCH in arm64 x86_64; do
   xcrun swiftc -O -parse-as-library -target "$AC_ARCH-apple-macos14" \
-    -framework AppKit -framework CryptoKit -framework ServiceManagement -lsqlite3 -lbsm \
+    -framework AppKit -framework CryptoKit -framework CoreBluetooth -framework ServiceManagement -lsqlite3 -lbsm \
     "$AC_SOURCE/macos/AccountAccess.swift" "$AC_SOURCE/macos/MailboxOAuthLoopback.swift" "$AC_SOURCE/macos/OwnerGateway.swift" "$AC_SOURCE/macos/DesktopOwnerConnection.swift" "$AC_SOURCE/macos/BrowserNativeHost.swift" "$AC_SOURCE/macos/ManagedAgentSetup.swift" "$AC_SOURCE/macos/WorkerBootstrap.swift" "$AC_SOURCE/macos/WorkerListenerBindings.swift" "$AC_SOURCE/macos/BackgroundRecovery.swift" "$AC_SOURCE/macos/MessageText.swift" "$AC_SOURCE/macos/MessagesReader.swift" "$AC_SOURCE/macos/SystemMessagesReader.swift" -o "$AC_OUTPUT/AccountAccess-$AC_ARCH"
   xcrun swiftc -O -parse-as-library -target "$AC_ARCH-apple-macos14" \
     -framework Foundation -framework CryptoKit -framework ServiceManagement \
@@ -51,13 +63,15 @@ cat > "$AC_APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleExecutable</key><string>AccountAccess</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>0.8.0</string>
-<key>CFBundleVersion</key><string>76</string>
+<key>CFBundleVersion</key><string>0</string>
 <key>AccountAccessBackgroundFormat</key><integer>1</integer>
 <key>AccountAccessBrowserExtensionFormat</key><integer>1</integer>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>NSHighResolutionCapable</key><true/>
+<key>NSBluetoothAlwaysUsageDescription</key><string>Account Access uses Bluetooth while you pair an Android phone, so Android can ask you to confirm this computer. Login messages use encrypted private Wi-Fi.</string>
 </dict></plist>
 PLIST
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $AC_BUILD" "$AC_APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Add :AccountAccessWheelSHA256 string $AC_WHEEL_HASH" "$AC_APP/Contents/Info.plist"
 if [ "${ACCOUNT_ACCESS_SYSTEM_INSTALL:-0}" = 1 ]; then
   /usr/libexec/PlistBuddy -c 'Add :AccountAccessSystemInstallationRequired bool true' "$AC_APP/Contents/Info.plist"

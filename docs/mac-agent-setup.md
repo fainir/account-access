@@ -39,6 +39,11 @@ new broker confirms that capability before any launcher changes. Unknown or
 modified skills remain preserved for review.
 
 The upgrade replaces only known managed skill files and instruction blocks.
+Recognized owner-local preview roots may use the default `account-access` name
+or a bounded `account-access-` suffix beneath `.local/share`. The old client
+descriptor and runtime must belong to that same root. Exact reviewed templates,
+launcher bytes, private file metadata and no-follow directory checks still apply;
+the old runtime is never executed and its credentials are never imported.
 Publication failures restore the old launchers; an interrupted upgrade can be
 retried. Existing personal instructions, hooks, settings and unrelated command
 rules are preserved. The preview vault, website passwords, old tokens and old
@@ -74,6 +79,9 @@ requests use the skill in new sessions; no per-session command is required.
 Existing conversations may have cached their instructions. Other agents must
 support the portable skill/CLI convention; this does not intercept arbitrary
 browser tools or resume an entire stopped AI conversation.
+
+An unsuccessful or unknown local discovery result stops setup with a review
+message. It cannot be treated as a missing connection or trigger enrollment.
 
 ## Files, interruption and revocation
 

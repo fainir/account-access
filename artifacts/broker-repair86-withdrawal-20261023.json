@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "status": "WITHDRAWN_BEFORE_OWNER_INSTALL",
+  "package_sha256": "79672a7a659948dcefa7c94573d882a9bec4f7febf62597551fa088f4f8861f8",
+  "source_commit": "5f4926a33883d6234f2538a5d0969e3b70c883b0",
+  "reason": "new_repair_namespace_inherits_parent_group_but_controller_requires_wheel",
+  "owner_parent_public_metadata": {
+    "uid": 0,
+    "gid": 80,
+    "mode": "0755"
+  },
+  "discovery": "source review and public parent stat; not a terminal Installer failure diagnosis",
+  "cancelled_run": 39984715262,
+  "owner_installation_attempted": false,
+  "candidate_correction": "reuse protected namespace creation; normalize group only following this invocation successful mkdir; reject existing wrong group",
+  "production_ready": false
+}

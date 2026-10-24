@@ -1,0 +1,93 @@
+{
+  "schema": 1,
+  "status": "PASSED_EMULATOR_ONLY",
+  "source_commit": "df12c479842f1d7fb1acb6e05947b5426316b244",
+  "run_id": 40128583358,
+  "additional_pr_run_passed": 40128591173,
+  "job_log_sha256": "f7968201578142b705c2312a8d60f0ea07431c80a622d810e14f5892d8cfd203",
+  "artifacts": [
+    {
+      "artifact_id": 12574661003,
+      "archive_sha256": "c01d7a2407f02c27406065fe1dc76322591d74ea5f92bb339377eff441257ecc",
+      "evidence": {
+        "android_api": 35,
+        "apk": "Account-Access-Phone-preview.apk",
+        "bytes": 291241,
+        "development_signing": true,
+        "emulator_notification_to_browser_journey_passed": false,
+        "notification_forwarding_without_association_refused": true,
+        "physical_phone_delivery_qualified": false,
+        "positive_bluetooth_computer_association_qualified": false,
+        "production_ready": false,
+        "schema": 1,
+        "sha256": "1f38c3ca3cbea45fe6edc879298238255ccebd43d5f2b6017d8af9934d487572",
+        "source_commit": "df12c479842f1d7fb1acb6e05947b5426316b244",
+        "workflow_attempt": 1,
+        "workflow_run": 40128583358
+      }
+    },
+    {
+      "artifact_id": 12573886467,
+      "archive_sha256": "1a40f05dba899deecc7c732665cb76f0b1bab7cb30e319e08ab6d614a0ac6a37",
+      "evidence": {
+        "android_api": 30,
+        "apk": "Account-Access-Phone-preview.apk",
+        "bytes": 291241,
+        "development_signing": true,
+        "emulator_notification_to_browser_journey_passed": true,
+        "notification_forwarding_without_association_refused": false,
+        "physical_phone_delivery_qualified": false,
+        "positive_bluetooth_computer_association_qualified": false,
+        "production_ready": false,
+        "schema": 1,
+        "sha256": "dc1e183e6a1dc01d961a4f855cc68b1cfa70eb1c57682d40ac99feadf01cb91f",
+        "source_commit": "df12c479842f1d7fb1acb6e05947b5426316b244",
+        "workflow_attempt": 1,
+        "workflow_run": 40128583358
+      }
+    }
+  ],
+  "journeys": [
+    {
+      "status": "COMPLETED",
+      "browser_sms_verifications": 1,
+      "android_api": "30",
+      "notification_forwarding_without_association_refused": false,
+      "positive_bluetooth_computer_association_qualified": false,
+      "physical_phone_delivery_qualified": false,
+      "test_notification_posting_acknowledged": true,
+      "blocked_status_preserved_after_unrelated_notification": false,
+      "checks": [
+        "Keystore encrypted pairing",
+        "Private destination restriction",
+        "Actual Android notification listener",
+        "Certificate-pinned HTTPS ingress",
+        "Browser code submission",
+        "No code in agent result"
+      ],
+      "limits": "Synthetic emulator checks only. Android 15 positive Bluetooth pairing and all physical-phone delivery remain unqualified."
+    },
+    {
+      "status": "BLOCKED_AS_EXPECTED",
+      "browser_sms_verifications": 0,
+      "android_api": "35",
+      "notification_forwarding_without_association_refused": true,
+      "positive_bluetooth_computer_association_qualified": false,
+      "physical_phone_delivery_qualified": false,
+      "test_notification_posting_acknowledged": true,
+      "blocked_status_preserved_after_unrelated_notification": true,
+      "checks": [
+        "Keystore encrypted pairing",
+        "Legacy QR requests new discovery",
+        "Invalid discovery UUID rejected",
+        "QR alone cannot grant permission",
+        "Actual Android notification refused without association",
+        "Unrelated notification preserves blocked login status"
+      ],
+      "limits": "Synthetic emulator checks only. Android 15 positive Bluetooth pairing and all physical-phone delivery remain unqualified."
+    }
+  ],
+  "prior_failure": "artifacts/android-status-race-20261024.json",
+  "physical_phone_delivery_qualified": false,
+  "production_ready": false
+}

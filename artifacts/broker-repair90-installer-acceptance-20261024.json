@@ -1,0 +1,606 @@
+{
+  "controller": "17cd442d0e3f8161a0eea7676e5ae26349bfd8e3",
+  "installer_signed": false,
+  "notarized": false,
+  "observed_at": "2026-10-24T15:15:26.259877+00:00",
+  "owner_installation_tested": false,
+  "package_controller_source": "4807187226c9701ca615634c2ad570f343dccc91",
+  "package_release_id": 422786527,
+  "package_sha256": "a9830e12cbaaf95ce2fe80add81d116498d571c57bbd9509b70f20a59f62f0a4",
+  "personal_accounts_tested": false,
+  "production_ready": false,
+  "runtime_update_required": true,
+  "scenarios": [
+    {
+      "archive_bytes": 53808,
+      "archive_sha256": "c9b8effa36c593e0a275818c56621165117c412f7fe0d2452d3ba7f0cc81be3b",
+      "artifact_id": 12564861292,
+      "closed_progress": {
+        "repair-installer-daemon.log": [
+          {
+            "checkpoint": "context",
+            "elapsed_seconds": 0,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "source",
+            "elapsed_seconds": 0,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor",
+            "elapsed_seconds": 4,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_context",
+            "elapsed_seconds": 4,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_source",
+            "elapsed_seconds": 4,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_payload",
+            "elapsed_seconds": 21,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_context",
+            "elapsed_seconds": 38,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_journal",
+            "elapsed_seconds": 38,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_predecessor",
+            "elapsed_seconds": 38,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_preparation",
+            "elapsed_seconds": 41,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_journal",
+            "elapsed_seconds": 41,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_verification_first_view",
+            "elapsed_seconds": 50,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_verification_evidence",
+            "elapsed_seconds": 103,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_verification_final_view",
+            "elapsed_seconds": 103,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_complete",
+            "elapsed_seconds": 140,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "preparation",
+            "elapsed_seconds": 143,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "journal",
+            "elapsed_seconds": 147,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "transition",
+            "elapsed_seconds": 151,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "migration",
+            "elapsed_seconds": 167,
+            "schema": 1,
+            "status": "RUNNING"
+          }
+        ],
+        "repair-reapply-daemon.log": [
+          {
+            "checkpoint": "context",
+            "elapsed_seconds": 0,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "source",
+            "elapsed_seconds": 0,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor",
+            "elapsed_seconds": 3,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "preparation",
+            "elapsed_seconds": 3,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "journal",
+            "elapsed_seconds": 3,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "transition",
+            "elapsed_seconds": 8,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "migration",
+            "elapsed_seconds": 19,
+            "schema": 1,
+            "status": "RUNNING"
+          }
+        ]
+      },
+      "extra_archive_logs": {},
+      "foreign_binding_rollback": {
+        "applied_per_attempt": 5,
+        "head_published": false,
+        "restored_per_attempt": 5,
+        "verified_attempts": 2
+      },
+      "interruption": null,
+      "predecessor_checks": 15,
+      "repair_checks": 13,
+      "root_revalidation_checks": 11,
+      "scenario": "foreign-binding",
+      "status": "PASSED",
+      "verified_log_hashes": 40
+    },
+    {
+      "archive_bytes": 53625,
+      "archive_sha256": "a348ce487474d3266ce03ffa22830e21a6864090f6eea5067698eb811a346cab",
+      "artifact_id": 12564826034,
+      "closed_progress": {
+        "repair-installer-daemon.log": [
+          {
+            "checkpoint": "context",
+            "elapsed_seconds": 0,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "source",
+            "elapsed_seconds": 0,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor",
+            "elapsed_seconds": 3,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_context",
+            "elapsed_seconds": 3,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_source",
+            "elapsed_seconds": 3,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_payload",
+            "elapsed_seconds": 18,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_context",
+            "elapsed_seconds": 34,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_journal",
+            "elapsed_seconds": 34,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_predecessor",
+            "elapsed_seconds": 34,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_preparation",
+            "elapsed_seconds": 37,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_journal",
+            "elapsed_seconds": 37,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_verification_first_view",
+            "elapsed_seconds": 47,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_verification_evidence",
+            "elapsed_seconds": 86,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_verification_final_view",
+            "elapsed_seconds": 86,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_complete",
+            "elapsed_seconds": 127,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "preparation",
+            "elapsed_seconds": 132,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "journal",
+            "elapsed_seconds": 138,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "transition",
+            "elapsed_seconds": 143,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "migration",
+            "elapsed_seconds": 162,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "complete",
+            "elapsed_seconds": 167,
+            "schema": 1,
+            "status": "RUNNING"
+          }
+        ],
+        "repair-reapply-daemon.log": [
+          {
+            "checkpoint": "context",
+            "elapsed_seconds": 0,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "source",
+            "elapsed_seconds": 0,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor",
+            "elapsed_seconds": 3,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "preparation",
+            "elapsed_seconds": 4,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "journal",
+            "elapsed_seconds": 4,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "complete",
+            "elapsed_seconds": 13,
+            "schema": 1,
+            "status": "RUNNING"
+          }
+        ]
+      },
+      "extra_archive_logs": {},
+      "foreign_binding_rollback": null,
+      "interruption": null,
+      "predecessor_checks": 15,
+      "repair_checks": 13,
+      "root_revalidation_checks": 11,
+      "scenario": "install-reapply",
+      "status": "PASSED",
+      "verified_log_hashes": 40
+    },
+    {
+      "archive_bytes": 54087,
+      "archive_sha256": "e23f70f1f48b440852593974f48366b6b7b16f5dbd2df07d1e356854116d5209",
+      "artifact_id": 12563989632,
+      "closed_progress": {
+        "owned-helper-stdout.log": [
+          {
+            "checkpoint": "context",
+            "elapsed_seconds": 0,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "source",
+            "elapsed_seconds": 0,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor",
+            "elapsed_seconds": 3,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_context",
+            "elapsed_seconds": 3,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_source",
+            "elapsed_seconds": 3,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_payload",
+            "elapsed_seconds": 20,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_context",
+            "elapsed_seconds": 36,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_journal",
+            "elapsed_seconds": 36,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_predecessor",
+            "elapsed_seconds": 36,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_preparation",
+            "elapsed_seconds": 39,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_journal",
+            "elapsed_seconds": 39,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_verification_first_view",
+            "elapsed_seconds": 54,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_verification_evidence",
+            "elapsed_seconds": 93,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_verification_final_view",
+            "elapsed_seconds": 93,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor_full_image_complete",
+            "elapsed_seconds": 144,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "preparation",
+            "elapsed_seconds": 151,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "journal",
+            "elapsed_seconds": 157,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "transition",
+            "elapsed_seconds": 162,
+            "schema": 1,
+            "status": "RUNNING"
+          }
+        ],
+        "repair-installer-daemon.log": [
+          {
+            "checkpoint": "context",
+            "elapsed_seconds": 0,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "source",
+            "elapsed_seconds": 0,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor",
+            "elapsed_seconds": 3,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "preparation",
+            "elapsed_seconds": 3,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "journal",
+            "elapsed_seconds": 3,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "transition",
+            "elapsed_seconds": 8,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "migration",
+            "elapsed_seconds": 22,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "complete",
+            "elapsed_seconds": 27,
+            "schema": 1,
+            "status": "RUNNING"
+          }
+        ],
+        "repair-reapply-daemon.log": [
+          {
+            "checkpoint": "context",
+            "elapsed_seconds": 0,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "source",
+            "elapsed_seconds": 0,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "predecessor",
+            "elapsed_seconds": 3,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "preparation",
+            "elapsed_seconds": 3,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "journal",
+            "elapsed_seconds": 3,
+            "schema": 1,
+            "status": "RUNNING"
+          },
+          {
+            "checkpoint": "complete",
+            "elapsed_seconds": 12,
+            "schema": 1,
+            "status": "RUNNING"
+          }
+        ]
+      },
+      "extra_archive_logs": {
+        "owned-helper-stderr.log": {
+          "binding": "verified_whole_archive_sha256",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "owned-helper-stdout.log": {
+          "binding": "verified_whole_archive_sha256",
+          "bytes": 1707,
+          "sha256": "2c41cc56aeab738dfb2f2548bbbd1df34ef4f7c4410fb951f0fcf407a31a6358"
+        }
+      },
+      "foreign_binding_rollback": null,
+      "interruption": {
+        "broker_replaced_before_head": true,
+        "installer_daemon_interrupted": false,
+        "owned_child_only": true,
+        "power_failure_tested": false
+      },
+      "predecessor_checks": 15,
+      "repair_checks": 13,
+      "root_revalidation_checks": 11,
+      "scenario": "interrupt-broker",
+      "status": "PASSED",
+      "verified_log_hashes": 40
+    }
+  ],
+  "schema": 1,
+  "status": "PASSED",
+  "verified_referenced_log_hashes": 120,
+  "workflow_run": 40103870112
+}

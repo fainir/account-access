@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "status": "HARNESS_COUNT_FIXED_NEW_CI_REQUIRED",
+  "source": "71cf54e9673ed058065389f08f59a79f5135e29a",
+  "run_id": 39967884816,
+  "job_id": 120462443523,
+  "artifact_id": 12507779712,
+  "artifact_zip_sha256": "fe570e913503f6989ce113245c246f20b5af1800f9534e390ff5d778ff2b7a62",
+  "native_exit_code": 0,
+  "native_status": "PASSED",
+  "native_assertions": 330,
+  "native_named_checks_all_true": true,
+  "failure_cause": "probe and builder still required the pre-migration assertion count 257",
+  "current_count": 331,
+  "current_actual_native_output_accepted": true,
+  "installed_migration_tested": false,
+  "production_ready": false
+}

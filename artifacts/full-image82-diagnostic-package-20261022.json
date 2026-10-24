@@ -1,0 +1,68 @@
+{
+  "actual_Installer_qualified": false,
+  "app_image_source_commit": "d5741bc9912aaf907fe5c52486af18818654dda5",
+  "builder_sha256": "ca53d46e1a8f1544a344d92fc4612204d23e35c2fd9519c7f1f3aeca210d1a72",
+  "compiled_sources": 15,
+  "container_signed": false,
+  "draft_release": {
+    "all_four_backend_digests_match_local_files": true,
+    "contract_sha256": "c0225039a352a1ab058ae207c10d5b053c128b0872d4b14cd5a07aced53ccf32",
+    "id": 421188504,
+    "source_commit": "14ff4e0c2b0878aabfb5dee5916a65eac97a424f",
+    "tag": "qa-14ff4e0-full-image82"
+  },
+  "focused_installer_controller_tests": 98,
+  "helper_sha256": "aabcdbabc80a2f222805f287361a2740d7c6114fd1cbf672f8ed2b32bf599759",
+  "independent_review_sha256": "cc39ca2520a079fefa09da4ece3310d5c660edebdb1e4e5217cffcd55f533b3c",
+  "independent_review_source_sha256": "6b2208f2c42dd999a3b6007c8c61f8b750407dc5d719dffa8cd6819cc169c356",
+  "input_manifest_sha256": "bfc993ce9661d06ee143d8518a554269bb5a004bfbc4469d2d22ccf195c5ae60",
+  "native_diagnostic_assertions": 488,
+  "notarized": false,
+  "owner_installation_repaired": false,
+  "package_bytes": 295982024,
+  "package_review_sha256": "64d20e495741c5b35ac66e290544d22754a57ce52ae2beedc21a4c4223c54fef",
+  "package_sha256": "44851003ea314782ab8109c64467005e12015984a914a0c463a7c548bd153a56",
+  "private_account_store_read": false,
+  "production_ready": false,
+  "real_provider_acceptance": false,
+  "recursive_script_nodes": 27513,
+  "retained_build_failures": [
+    {
+      "attempt": "v1",
+      "reason": "target_inventory_pin"
+    },
+    {
+      "attempt": "v2",
+      "reason": "space_reserve"
+    }
+  ],
+  "schema": 1,
+  "scripts_inventory_sha256": "befb9e0e10a4e8867807dddbdda5bfcf829709d06cf31d4a6a2a1a6e9d2265da",
+  "source_archive": {
+    "both_Git_snapshots_verified": true,
+    "bytes": 234776299,
+    "embedded_matching_GPL_source": true,
+    "explicit_source_members": 64,
+    "independent_review_sha256": "3e89816148fb8b8286b0976d4374ea56531f3c5f0e9f5a9082a8510b62b77e2b",
+    "input_sha256": "ddcd6763d0f03ceff9abf96d3667458ef3606564490fb86cf980fdb9b1ee9e4f",
+    "outer_members": 69,
+    "sha256": "af9e63193a7944a31cc253e27235ee10dd6aed733bc983694836b47d6f62d839"
+  },
+  "source_ci": {
+    "failed": 0,
+    "native_owner_gateway": "success",
+    "native_owner_ui": "success",
+    "passed": 3777,
+    "run": 39847493302,
+    "skipped": 107
+  },
+  "source_commit": "14ff4e0c2b0878aabfb5dee5916a65eac97a424f",
+  "source_requalification": {
+    "all_public_content_verified": true,
+    "historical_inventory_preserved": true,
+    "metadata_changes": "device number only on all 27486 staged nodes",
+    "owner_failure_cause_confirmed": false,
+    "requalified_inventory_sha256": "0dd2ef8be25c63b61bc0f9259254f09f77697b651309ffb726509d6020793adf"
+  },
+  "status": "PACKAGE_BUILT_AND_INDEPENDENTLY_REVIEWED_NOT_INSTALL_QUALIFIED"
+}

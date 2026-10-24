@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "status": "REMOVED_REPRODUCIBLE_BUILD_COPIES",
+  "observed_at": "2026-10-24T14:33:48.137813+00:00",
+  "removed": [
+    "dist/runtime89-57663aa/expanded",
+    "dist/runtime89-57663aa/upload"
+  ],
+  "retained_assets": [
+    {
+      "name": "fresh.pkg",
+      "bytes": 288780315,
+      "sha256": "501f0b461a7872f4c0129a9c36a49dfe032a490f807f51c56a4b023ab4416141",
+      "retained_original": "dist/runtime89-57663aa/package/Account-Access-arm64-unsigned.pkg"
+    },
+    {
+      "name": "fresh-review.json",
+      "bytes": 639,
+      "sha256": "6b296805a69f3fe16cde5558167c17e2430d39a5b403b3476b01b1f0364352ee",
+      "retained_original": "dist/runtime89-57663aa/fresh-review.json"
+    },
+    {
+      "name": "fresh-expanded-inventory.json",
+      "bytes": 7055871,
+      "sha256": "f47e83b2f6b8ac89015f1c1f309d6db20ae5143b3e7fbc5167d5e7553c62da1b",
+      "retained_original": "dist/runtime89-57663aa/fresh-expanded-inventory.json"
+    },
+    {
+      "name": "fresh-manifest.json",
+      "bytes": 4968012,
+      "sha256": "c2c6c1fd525a2a43d55fb17ed750b64a1432f1aa8bcbc63a4b73ae476596d3fc",
+      "retained_original": "dist/runtime89-57663aa/fresh-manifest.json"
+    },
+    {
+      "name": "project-source.tar.gz",
+      "bytes": 4069349,
+      "sha256": "903a3543854d6646b424c97e1c7fbdc936c7608d88336186ff39f229e84189fe",
+      "retained_original": "dist/runtime89-57663aa/project-source.tar.gz"
+    },
+    {
+      "name": "bitwarden-source.tar.gz",
+      "bytes": 219117936,
+      "sha256": "8d31c19571b032bfd557716b4b7c124f6a4624b917eca25cda359944c1fe2753",
+      "retained_original": "dist/qa-bitwarden-cleanup-source-d332320/current-corresponding-source/account-access-bitwarden-2026.10.0-corresponding-source.tar.gz"
+    },
+    {
+      "name": "BUILD.md",
+      "bytes": 2486,
+      "sha256": "bd32b591b8b7ee15a830f040078fd9eb70a13e4dcae7a55f66e6573d7f1c8f56",
+      "retained_original": "dist/runtime89-57663aa/BUILD.md"
+    }
+  ],
+  "installed_paths_accessed": false,
+  "final_packages_removed": false,
+  "evidence_removed": false
+}

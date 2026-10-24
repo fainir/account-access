@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "status": "PASSED",
+  "scope": "read-only stronger hosted-fixture liveness predicate; no package changes",
+  "focused_python_tests": 138,
+  "lint_passed": true,
+  "source_sha256": {
+    "scripts/mac_fresh_image_installer_probe.py": "93350a5e1550988c58941ce8db5646451f9193b4ad52f886330148829e407f39",
+    "tests/test_fresh_image_installer_acceptance.py": "a0c47a06aeaff6be798d891a5fc27367b39d2f2d30416e324bbd86f3c1c9ab39"
+  },
+  "historical_runtime93_observations": [
+    {
+      "archive": "12573186617.zip",
+      "log": "AccountAccessComponentInstallerQA-4012258784191/live-job-after-runtime-refusal.log",
+      "sha256": "e2b3074f40ab979a396874a037708cfd10237911af471b672c06f07aeb005569",
+      "fixed_running_job_verified": true
+    },
+    {
+      "archive": "12573186617.zip",
+      "log": "AccountAccessComponentInstallerQA-4012258784191/live-job-runtime-upgrade.log",
+      "sha256": "e2b3074f40ab979a396874a037708cfd10237911af471b672c06f07aeb005569",
+      "fixed_running_job_verified": true
+    },
+    {
+      "archive": "12573290688.zip",
+      "log": "AccountAccessComponentInstallerQA-4012258784191/live-job-after-runtime-refusal.log",
+      "sha256": "55da512b887c01c72eb236f47a2bd0379724f25787169927e24dd839d548bb79",
+      "fixed_running_job_verified": true
+    },
+    {
+      "archive": "12573290688.zip",
+      "log": "AccountAccessComponentInstallerQA-4012258784191/live-job-runtime-upgrade.log",
+      "sha256": "55da512b887c01c72eb236f47a2bd0379724f25787169927e24dd839d548bb79",
+      "fixed_running_job_verified": true
+    },
+    {
+      "archive": "12573431198.zip",
+      "log": "AccountAccessComponentInstallerQA-4012258784191/live-job-after-runtime-refusal.log",
+      "sha256": "b4fee942ac563f9cb615c051999f90617bea6f91d2fe7928a3ea524dfa08e158",
+      "fixed_running_job_verified": true
+    },
+    {
+      "archive": "12573431198.zip",
+      "log": "AccountAccessComponentInstallerQA-4012258784191/live-job-runtime-upgrade.log",
+      "sha256": "b4fee942ac563f9cb615c051999f90617bea6f91d2fe7928a3ea524dfa08e158",
+      "fixed_running_job_verified": true
+    }
+  ],
+  "runtime94_artifacts_verified": false,
+  "new_hosted_installer_run": false,
+  "owner_recovery_verified": false,
+  "production_ready": false
+}

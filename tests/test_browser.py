@@ -166,7 +166,9 @@ def test_visible_review_reports_attention_before_waiting_for_owner(env, monkeypa
     with pytest.raises(AccessError, match="browser_state_unrecognized"):
         broker.browser.read("demo-web", config.operations["summary"], config,
                             visible=True, review_stop=stopped, on_attention=attention)
-    assert reports == [("NEEDS_USER", "browser_state_unrecognized", "unknown", {})]
+    assert len(reports) == 1
+    assert reports[0][:3] == ("NEEDS_USER", "browser_state_unrecognized", "unknown")
+    assert reports[0][3]["schema"] == 1 and reports[0][3]["fields"]["password"] is True
     assert provider.login_count == 0
 
 

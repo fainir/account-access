@@ -1,11 +1,68 @@
 import AppKit
 import CryptoKit
 import Foundation
+import CoreFoundation
 import Security
 import UniformTypeIdentifiers
 import CoreImage
+import CoreBluetooth
 import ServiceManagement
 import Darwin
+
+// Advertise only a fresh public discovery UUID while the owner displays this QR.
+// Login messages still use the QR's certificate-pinned HTTPS endpoint.
+final class PhonePairingAdvertiser: NSObject, CBPeripheralManagerDelegate {
+    let service: UUID
+    let update: (String) -> Void
+    private var manager: CBPeripheralManager!
+    private var expiry: Timer?
+    private var stopped = false
+
+    init(service: UUID, update: @escaping (String) -> Void) {
+        self.service = service
+        self.update = update
+        super.init()
+        manager = CBPeripheralManager(delegate: self, queue: .main)
+        expiry = Timer.scheduledTimer(withTimeInterval: 300, repeats: false) { [weak self] _ in
+            guard let self else { return }
+            self.stop()
+            self.update("Bluetooth discovery expired. Go back and create a new pairing QR.")
+        }
+    }
+
+    func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
+        guard !stopped else { return }
+        switch peripheral.state {
+        case .poweredOn:
+            peripheral.startAdvertising([CBAdvertisementDataServiceUUIDsKey: [CBUUID(nsuuid: service)]])
+            update("Preparing Bluetooth discovery for your phone…")
+        case .poweredOff:
+            update("Turn on Bluetooth on this Mac and your phone to connect Android 15 or newer.")
+        case .unauthorized:
+            update("Allow Account Access Bluetooth access in System Settings to connect Android 15 or newer.")
+        case .unsupported:
+            update("This Mac cannot advertise Bluetooth devices. Android 15 or newer cannot complete this pairing.")
+        default:
+            update("Waiting for Bluetooth. Keep this pairing screen open.")
+        }
+    }
+
+    func peripheralManagerDidStartAdvertising(_ peripheral: CBPeripheralManager, error: Error?) {
+        guard !stopped else { return }
+        update(error == nil
+            ? "Computer discoverable. On your phone, choose Connect computer with Android and confirm the matching device."
+            : "Bluetooth discovery could not start. Go back and try pairing again.")
+    }
+
+    func stop() {
+        stopped = true
+        expiry?.invalidate()
+        expiry = nil
+        manager?.stopAdvertising()
+    }
+
+    deinit { expiry?.invalidate(); manager?.stopAdvertising() }
+}
 
 // The public /Applications entry is a convenience alias in a shared directory.
 // Bind system resources once to the protected bundle, independently of how
@@ -107,7 +164,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         return URL(fileURLWithPath: ProcessInfo.processInfo.environment["ACCOUNT_ACCESS_DATA_DIR"] ?? ((try? OwnerApplicationBundle.current())?.object(forInfoDictionaryKey: "AccountAccessDataDirectory") as? String) ?? fallback.path)
     }
     lazy var runtime = runtimeOverride ?? URL(fileURLWithPath: ProcessInfo.processInfo.environment["ACCOUNT_ACCESS_INSTALL_DIR"] ?? ((try? OwnerApplicationBundle.current())?.object(forInfoDictionaryKey: "AccountAccessInstallDirectory") as? String) ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/share/account-access/runtime").path)
-    var window: NSWindow!
+    let ownerSetupContext = DesktopOwnerSetupContext()
+    var window: NSWindow! { didSet { ownerSetupContext.invalidate() } }
     var stack: NSStackView!
     var status: NSTextField!
     var button: NSButton!
@@ -115,6 +173,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     var services: NSPopUpButton!
     var username: NSTextField!
     var password: NSSecureTextField!
+    var loginIdentityLabel: NSTextField?
+    var loginSecretLabel: NSTextField?
     var permission: NSButton!
     var connectAction: NSButton?
     var savedSignInAction: NSButton?
@@ -182,6 +242,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     var importAuthenticators: NSButton!
     var factorMenu: NSPopUpButton!
     var factorFields: [String: NSTextField] = [:]
+    var phonePairingAdvertiser: PhonePairingAdvertiser?
+    private var phonePairingPayload: String?
     var base: URL!
     var token = ""
     let ownerConnectionLock = NSRecursiveLock()
@@ -190,6 +252,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     var requiresSystemInstallation: Bool
     var systemOwnerReady = false
     var systemSetupGeneration = 0
+    var systemApprovalProgress: (id: UUID, label: NSTextField)?
     var managedAgents = ManagedAgentSetup()
     var systemAgentClientID: String?
     var systemAgentUpgradeNeeded = false
@@ -239,7 +302,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             return connection
         } catch { throw Failure.message("The protected installation could not be verified. Check the Account Access installation before connecting an account.") }
     }
-    var busy = false
+    var busy = false { didSet { if busy != oldValue { ownerSetupContext.invalidate() } } }
     var backgroundRecovery: [String: Any] = [:]
     var backgroundServiceStatus = "unknown"
     var failedAccount: String?
@@ -325,6 +388,11 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
 
     func page(_ title: String, _ subtitle: String, preservingDeviceEmailReview: Bool = false) {
+        phonePairingAdvertiser?.stop()
+        phonePairingAdvertiser = nil
+        phonePairingPayload = nil
+        ownerSetupContext.invalidate()
+        systemApprovalProgress = nil
         if !preservingDeviceEmailReview { clearDeviceEmailReview() }
         clearBitwardenFields()
         for field in mailboxFields.values where field is NSSecureTextField { field.stringValue = "" }
@@ -739,13 +807,44 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         }
     }
 
+    func ownerApprovalProgress(_ phase: DesktopOwnerSetupProgress, identifier: UUID,
+                               context: DesktopOwnerSetupContext.Snapshot) {
+        // Never wait synchronously for the UI while holding transport locks.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.ownerSetupContext.isCurrent(context), self.busy,
+                  let window = self.window else { return }
+            switch phase {
+            case .requestingApproval:
+                let progressLabel: NSTextField
+                if let status = self.status, status.window === window { progressLabel = status }
+                else {
+                    progressLabel = self.label("macOS approval requested…", 17)
+                    self.status = progressLabel
+                }
+                self.systemApprovalProgress = (identifier, progressLabel)
+                progressLabel.stringValue = "macOS approval requested. Approve it on this Mac, or cancel the macOS dialog."
+                window.makeKeyAndOrderFront(nil)
+                NSApp.activate(ignoringOtherApps: true)
+            case .approvalAccepted:
+                guard let progress = self.systemApprovalProgress, progress.id == identifier,
+                      progress.label.window === window else { return }
+                progress.label.stringValue = "Mac approval accepted. Continuing setup…"
+                self.systemApprovalProgress = nil
+            }
+        }
+    }
+
     func request(_ route: String, body: [String: Any]? = nil) throws -> [String: Any] {
+        let approvalContext = ownerSetupContext.snapshot() // Before any transport lock or queued feedback.
         ownerConnectionLock.lock()
         defer { ownerConnectionLock.unlock() }
         let bitwardenRequest = route.hasPrefix("owner/bitwarden/") || (body?["connection"] as? [String: Any])?["provider"] as? String == "bitwarden"
         if let native = try nativeOwner() {
             do {
-                let response = try native.request(route, body: body)
+                let approvalProgressID = UUID()
+                let response = try native.request(route, body: body, setupProgress: { phase in
+                    self.ownerApprovalProgress(phase, identifier: approvalProgressID, context: approvalContext)
+                })
                 return try checkedOwnerResponse(response.0, response.1, pending: route == "owner/vault/enroll", bitwarden: bitwardenRequest)
             } catch DesktopOwnerFailure.approval {
                 throw Failure.message("Setup was not approved. Your saved connections are preserved. Try the setup action again when you are ready to approve it on this Mac.")
@@ -824,6 +923,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             "invalid_mailbox_setup": "Check the email address, mail server and application password. Other email providers require their TLS IMAP server and port.",
             "mailbox_already_connected": "This mailbox is already saved. Use Update app password or Check connection on its card.",
             "mailbox_source_mismatch": "Choose the mailbox for the email address and mail server already approved for this website.",
+            "mailbox_binding_changed": "This website or mailbox connection changed. Reopen Verification and choose the checked mailbox again.",
+            "invalid_mailbox_binding": "Reopen Verification and choose a checked mailbox for this website.",
+            "mailbox_binding_unsupported": "This website's email connection needs a supported connector before it can use a saved mailbox.",
             "mailbox_scope_missing": "Reconnect the configured Gmail account with permission to read login messages.",
             "mailbox_scope_not_allowed": "Google returned broader access than this Gmail connection permits. The publisher must check its Google application; your existing connection is preserved.",
             "mailbox_oauth_renewal_unavailable": "Google did not provide renewable access. Reconnect Google once so approved email-code logins can continue after access expires.",
@@ -913,6 +1015,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             pollSystemSetup(generation: systemSetupGeneration, remaining: 60)
         case .repair:
             page("Your installation needs attention", "The protected account store could not be opened safely. Your saved data is preserved. Check the installation before connecting more accounts.")
+            if let detail = DesktopVaultRepair.detail(state) { card("Startup check", detail) }
             action("Check again", #selector(reopen))
         }
     }
@@ -950,13 +1053,27 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         page("Checking your AI connection", "Verifying the installed portable skill…")
         progress()
         DispatchQueue.global(qos: .userInitiated).async {
-            let local = try? self.managedAgents.status()
+            let local: [String: Any]
+            do {
+                local = try self.managedAgents.status()
+                guard let status = local["status"] as? String,
+                      ["INSTALLED", "NOT_INSTALLED", "MIGRATION_REQUIRED"].contains(status) else {
+                    throw ManagedAgentSetupFailure.invalidResponse
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self.connectAgentsAfterSetup = false
+                    self.systemAgentUpgradeNeeded = false
+                }
+                self.fail(Failure.message("The existing AI connection could not be verified. It needs review before setup can continue. Your saved accounts and tool preferences are preserved."), retry: #selector(self.reopen))
+                return
+            }
             DispatchQueue.main.async {
                 self.busy = false
-                self.systemAgentUpgradeNeeded = local?["status"] as? String == "MIGRATION_REQUIRED"
+                self.systemAgentUpgradeNeeded = local["status"] as? String == "MIGRATION_REQUIRED"
                 let server = state["managed_client"] as? [String: Any] ?? [:]
-                if local?["status"] as? String == "INSTALLED", server["status"] as? String == "INSTALLED",
-                   let identity = local?["client_id"] as? String, identity == server["client_id"] as? String {
+                if local["status"] as? String == "INSTALLED", server["status"] as? String == "INSTALLED",
+                   let identity = local["client_id"] as? String, identity == server["client_id"] as? String {
                     self.systemAgentClientID = identity
                     self.presentSystemState(state)
                 } else if self.connectAgentsAfterSetup && !self.systemAgentUpgradeNeeded {
@@ -1034,6 +1151,13 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         agents = state["integrations"] as? [String] ?? principals
         automaticSessions = state["automatic_sessions"] as? [String: [String: Any]] ?? [:]
         verificationDetails = [:]
+        for account in accounts {
+            guard let handle = account["account"] as? String else { continue }
+            for challenge in account["challenges"] as? [[String: Any]] ?? [] {
+                let detail = Self.verificationDetailText(challenge["diagnostics"] as? [String: Any] ?? [:])
+                if !detail.isEmpty { verificationDetails[handle] = detail; break }
+            }
+        }
         let jobs = state["connection_jobs"] as? [String: [String: Any]] ?? [:]
         for job in jobs.values.sorted(by: { ($0["status"] as? String == "RUNNING") && ($1["status"] as? String != "RUNNING") }) {
             guard let account = job["account"] as? String, verificationDetails[account] == nil,
@@ -1054,6 +1178,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             let parts = value[separator.upperBound...].split(separator: "/", omittingEmptySubsequences: false)
             guard parts.count <= 9, parts.allSatisfy({ $0.isEmpty || $0 == "?" || words.contains(String($0)) }) else { return nil }
             return value
+        }
+        if diagnostic["schema"] != nil {
+            return structuralVerificationDetailText(diagnostic, route: route)
         }
         var lines: [String] = []
         if let page = route(diagnostic["page"]) { lines.append("Page: " + page) }
@@ -1116,6 +1243,59 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         return lines.joined(separator: "\n")
     }
 
+    static func structuralVerificationDetailText(_ diagnostic: [String: Any], route: (Any?) -> String?) -> String {
+        func integer(_ value: Any?, maximum: Int) -> Int? {
+            guard let number = value as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID(),
+                  ["c", "C", "s", "S", "i", "I", "l", "L", "q", "Q"].contains(String(cString: number.objCType)),
+                  number.doubleValue >= 0, number.doubleValue <= Double(maximum) else { return nil }
+            return number.intValue
+        }
+        func boolean(_ value: Any?) -> Bool? {
+            guard let number = value as? NSNumber, CFGetTypeID(number) == CFBooleanGetTypeID() else { return nil }
+            return number.boolValue
+        }
+        let fields = ["password", "one_time_code", "numeric_input", "email_input"]
+        let markers = Set(["login", "sms", "email", "totp", "device", "passkey", "captcha", "admin", "action", "recovery", "unknown", "method"])
+        let phases = ["password_submit_attempted", "identity_submit_attempted", "sms_requested", "email_requested", "sms_code_filled", "email_code_filled", "totp_code_filled", "sms_submit_attempted", "email_submit_attempted", "totp_submit_attempted"]
+        guard Set(diagnostic.keys) == Set(["schema", "page", "forms", "fields", "field_counts", "visible_field_counts", "markers", "progress"]),
+              integer(diagnostic["schema"], maximum: 1) == 1, let page = route(diagnostic["page"]),
+              let forms = diagnostic["forms"] as? [[String: Any]], forms.count <= 8,
+              let present = diagnostic["fields"] as? [String: Any], Set(present.keys) == Set(fields),
+              let counts = diagnostic["field_counts"] as? [String: Any], Set(counts.keys) == Set(fields),
+              let visible = diagnostic["visible_field_counts"] as? [String: Any], Set(visible.keys) == Set(fields),
+              let matches = diagnostic["markers"] as? [String: Any], Set(matches.keys) == markers,
+              matches.values.allSatisfy({ boolean($0) != nil }),
+              let progress = diagnostic["progress"] as? [String: Any],
+              Set(progress.keys).isSubset(of: Set(phases + ["method"])) else { return "" }
+        var lines = ["Details from the first stopped sign-in", "Page: " + page]
+        for form in forms {
+            guard Set(form.keys) == Set(["method", "visible", "reviewed_action", "controls"]),
+                  let method = form["method"] as? String, ["GET", "POST", "other"].contains(method),
+                  let shown = boolean(form["visible"]), let reviewed = boolean(form["reviewed_action"]),
+                  let controls = integer(form["controls"], maximum: 32) else { return "" }
+            lines.append("Form: " + method + (shown ? " visible" : " hidden") + "; controls: " + String(controls))
+            lines.append(reviewed ? "Form destination matches a configured static login route" : "Form destination does not match a configured static login route")
+        }
+        let labels = ["Password fields", "One-time-code fields", "Numeric input fields", "Email input fields"]
+        for (index, field) in fields.enumerated() {
+            guard let total = integer(counts[field], maximum: 8),
+                  let shown = integer(visible[field], maximum: 8), shown <= total,
+                  boolean(present[field]) == (shown > 0) else { return "" }
+            lines.append(labels[index] + ": " + String(shown) + " visible / " + String(total) + " observed")
+        }
+        for marker in markers.sorted() where boolean(matches[marker]) == true {
+            lines.append("Configured sign-in marker: " + marker)
+        }
+        for (key, value) in progress {
+            if key == "method" {
+                guard let method = value as? String, ["email", "sms", "totp"].contains(method) else { return "" }
+            } else if boolean(value) == nil { return "" }
+        }
+        if let method = progress["method"] as? String { lines.append("Selected method: " + method) }
+        for phase in phases where boolean(progress[phase]) == true { lines.append("Login stage: " + phase) }
+        return lines.joined(separator: "\n")
+    }
+
     func chooseAgents() {
         page("Connecting your existing AI tools", "The portable skill and CLI work with compatible agents. Installed tools are detected automatically.")
         progress()
@@ -1157,7 +1337,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         services.action = #selector(serviceChanged)
         services.font = .systemFont(ofSize: 17)
         stack.addArrangedSubview(services)
-        label("Email or username", 14, .secondaryLabelColor)
+        loginIdentityLabel = label("Email or username", 14, .secondaryLabelColor)
         username = NSTextField()
         username.placeholderString = "Email or username"
         username.font = .systemFont(ofSize: 18)
@@ -1165,7 +1345,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         username.heightAnchor.constraint(equalToConstant: 40).isActive = true
         stack.addArrangedSubview(username)
         username.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
-        label("Password", 14, .secondaryLabelColor)
+        loginSecretLabel = label("Password", 14, .secondaryLabelColor)
         password = NSSecureTextField()
         password.placeholderString = "Password"
         password.font = .systemFont(ofSize: 18)
@@ -1197,12 +1377,37 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
 
     @objc func serviceChanged() {
         let entry = services.selectedItem?.representedObject as? [String: Any] ?? [:]
+        let identityPhone = entry["login_method"] as? String == "identity_phone_sms"
+        if (username is NSSecureTextField) != identityPhone,
+           let index = stack.arrangedSubviews.firstIndex(of: username) {
+            let replacement: NSTextField = identityPhone ? NSSecureTextField() : NSTextField()
+            replacement.font = username.font
+            replacement.delegate = self
+            stack.removeArrangedSubview(username)
+            username.removeFromSuperview()
+            username.stringValue = ""
+            username = replacement
+            stack.insertArrangedSubview(replacement, at: index)
+            replacement.heightAnchor.constraint(equalToConstant: 40).isActive = true
+            replacement.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        }
+        loginIdentityLabel?.stringValue = identityPhone ? "Identity number" : "Email or username"
+        loginSecretLabel?.stringValue = identityPhone ? "Phone number for login SMS" : "Password"
+        username.placeholderString = identityPhone ? "Identity number" : "Email or username"
+        password.placeholderString = identityPhone ? "Phone number" : "Password"
         let operations = entry["operations"] as? [[String: Any]] ?? []
         permission.title = "Allow your AI to: " + operations.compactMap { $0["description"] as? String }.joined(separator: "; ")
         permission.state = .off
         username.stringValue = ""
         password.stringValue = ""
         connectionInputChanged()
+    }
+
+    static func loginCredential(entry: [String: Any], identity: String, secret: String) -> [String: String] {
+        if entry["login_method"] as? String == "identity_phone_sms" {
+            return ["identity": identity, "phone": secret]
+        }
+        return ["username": identity, "password": secret]
     }
 
     func controlTextDidChange(_ notification: Notification) { connectionInputChanged() }
@@ -1218,10 +1423,13 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         guard permission.state == .on, !username.stringValue.isEmpty, !password.stringValue.isEmpty,
               let entry = services.selectedItem?.representedObject as? [String: Any],
               let service = entry["id"] as? String else { return }
-        let body: [String: Any] = ["service": service, "username": username.stringValue,
-                                   "password": password.stringValue, "agents": ["generic"]]
+        let credential = Self.loginCredential(entry: entry, identity: username.stringValue, secret: password.stringValue)
+        var body: [String: Any] = credential
+        body["service"] = service
+        body["agents"] = ["generic"]
         let existing = accounts.contains { $0["account"] as? String == service }
         failedAccount = service
+        username.stringValue = ""
         password.stringValue = ""
         busy = true
         page("Connecting your account", "Checking the saved login and the read you approved…")
@@ -1230,8 +1438,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             do {
                 let job: [String: Any]
                 if existing {
-                    _ = try self.request("owner/credential", body: ["account": service,
-                        "username": body["username"]!, "password": body["password"]!])
+                    var edit: [String: Any] = credential
+                    edit["account"] = service
+                    _ = try self.request("owner/credential", body: edit)
                     let names = (entry["operations"] as? [[String: Any]] ?? []).compactMap { $0["name"] as? String }
                     _ = try self.request("owner/grant", body: ["account": service, "principal": "generic", "operations": names])
                     job = try self.request("owner/verify", body: ["account": service])
@@ -1250,14 +1459,14 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         let isSMS = attention["kind"] as? String == "sms"
             || (diagnostic["page"] as? String ?? "").contains("/two-factor/sms")
         let delivery = progress["sms_code_filled"] as? Bool == true
-            ? "A fresh matching SMS code was received locally. Your saved password is preserved."
+            ? "A fresh matching SMS code was received locally. Your saved sign-in details are preserved."
             : progress["sms_requested"] as? Bool == true
-                ? "The website accepted the SMS request, but delivery is unconfirmed. Your saved password is preserved."
-                : isSMS ? "No SMS delivery was tested. Your saved password is preserved."
-                    : "Your saved password is preserved."
+                ? "The website accepted the SMS request, but delivery is unconfirmed. Your saved sign-in details are preserved."
+                : isSMS ? "No SMS delivery was tested. Your saved sign-in details are preserved."
+                    : "Your saved sign-in details are preserved."
         switch attention["reason"] as? String ?? "" {
         case "browser_captcha_required":
-            return "The website requires a browser security check that this connector cannot complete automatically. Your saved password is preserved."
+            return "The website requires a browser security check that this connector cannot complete automatically. Your saved sign-in details are preserved."
         case "browser_recovery_required":
             return "The website opened account recovery. Use an available sign-in method in its window. " + delivery
         case "browser_passkey_required", "browser_device_required", "browser_admin_required", "browser_action_required":
@@ -1289,7 +1498,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
 
     static func smsTimeoutMessage(deliveryStarted: Bool, incoming: Int, unreadable: Int) -> String {
         if !deliveryStarted {
-            return "The sign-in did not reach a confirmed SMS request. No SMS delivery was tested and no filter was enabled. Your saved password is preserved."
+            return "The sign-in did not reach a confirmed SMS request. No SMS delivery was tested and no filter was enabled. Your saved sign-in details are preserved."
         }
         if unreadable > 0 {
             return "New texts arrived, but some messages could not be decoded. No SMS filter was enabled. Update Account Access before trying again."
@@ -1348,7 +1557,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 }
                 let reason = result["reason"] as? String ?? ""
                 if reason == "browser_captcha_required" {
-                    throw Failure.message("The website requires a browser security check that this connector cannot complete automatically. Your saved password is preserved; this sign-in remains unverified.")
+                    throw Failure.message("The website requires a browser security check that this connector cannot complete automatically. Your saved sign-in details are preserved; this sign-in remains unverified.")
                 }
                 if ["mailbox_result_limit", "mailbox_scope_missing", "phone_not_paired"].contains(reason) {
                     throw Failure.message(verificationMessage(["reason": reason]))
@@ -1731,7 +1940,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         showBitwardenSyncCards()
         card("Connect 1Password", "Use a service account with read-only access to a dedicated vault, or an existing Connect server. Choose the exact login item for an account you already imported. Tokens stay encrypted locally; the app cannot add accounts or permissions through sync.")
         syncAccounts = NSPopUpButton()
-        for account in accounts where account["route"] as? String == "browser" && account["portable_ready"] as? Bool == true {
+        for account in accounts where account["route"] as? String == "browser" && account["portable_ready"] as? Bool == true && account["login_method"] as? String != "identity_phone_sms" {
             syncAccounts.addItem(withTitle: account["label"] as? String ?? "Account")
             syncAccounts.lastItem?.representedObject = account["account"]
         }
@@ -1819,7 +2028,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         }
         card("Connect Bitwarden once", "Bitwarden JSON imports are snapshots. Connect your vault once to keep selected, already-approved passwords current automatically. Your master password is used only to unlock setup and is never saved.")
         action("Connect Bitwarden", #selector(showBitwardenConnect))
-        let choices = accounts.filter { $0["route"] as? String == "browser" && $0["portable_ready"] as? Bool == true }
+        let choices = accounts.filter { $0["route"] as? String == "browser" && $0["portable_ready"] as? Bool == true && $0["login_method"] as? String != "identity_phone_sms" }
         let connectedVaults = bitwardenConnections.filter { ($0["status"] as? String ?? "CONNECTED") == "CONNECTED" }
         guard !connectedVaults.isEmpty, !choices.isEmpty else {
             label("Import and approve a supported login, then select it here after connecting Bitwarden.", 14, .secondaryLabelColor)
@@ -2697,7 +2906,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                     } else if let outcome = job["status"] as? String, outcome != "RUNNING" {
                         throw Failure.message(job["reason"] as? String == "login_retry_cooldown"
                             ? "The website's sign-in cooldown is active. Wait one minute and connect SMS again."
-                            : "The website did not accept its reviewed SMS request. No delivery was confirmed. Your saved password is preserved.")
+                            : "The website did not accept its reviewed SMS request. No delivery was confirmed. Your saved sign-in details are preserved.")
                     }
                     Thread.sleep(forTimeInterval: 1)
                 }
@@ -2797,6 +3006,27 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 stack.addArrangedSubview(menu)
             }
         }
+        if kind == "gmail", let matching = source["mailbox_options"] as? [[String: Any]], !matching.isEmpty {
+            label("Use a connected Gmail mailbox", 14)
+            let menu = NSPopUpButton()
+            menu.setAccessibilityLabel("Use a connected Gmail mailbox")
+            for mailbox in matching {
+                guard mailbox["kind"] as? String == "gmail", let id = mailbox["id"] as? String,
+                      let recipient = mailbox["recipient"] as? String else { continue }
+                menu.addItem(withTitle: (mailbox["label"] as? String ?? "Gmail") + " · " + recipient)
+                menu.lastItem?.representedObject = id
+                if id == source["linked_mailbox"] as? String
+                    || (matching.count == 1 && source["enrolled"] as? Bool != true) { menu.select(menu.lastItem) }
+            }
+            menu.target = self
+            menu.action = #selector(factorMailboxChanged)
+            factorMailboxMenu = menu
+            stack.addArrangedSubview(menu)
+        }
+        if email, let sender = source["sender"] as? String, let recipient = source["recipient"] as? String,
+           let subject = source["subject"] as? String {
+            label("Only login messages from " + sender + " to " + recipient + " with subject “" + subject + "”.", 14, .secondaryLabelColor)
+        }
         for (name, hint) in fields {
             label(hint, 15)
             if let title = stack.arrangedSubviews.last { factorEntryViews.append(title) }
@@ -2824,9 +3054,13 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             label("Pair the Android companion on the same private Wi-Fi. It forwards matching login notifications through a certificate-pinned encrypted connection.", 15, .secondaryLabelColor)
             action("Pair Android phone", #selector(pairPhone))
         } else if kind == "gmail" {
-            label("Connect the configured Gmail account through its provider consent screen in Manage permissions. The resolver reads only matching current login messages, but Gmail consent grants mailbox read access.", 15, .secondaryLabelColor)
+            label("Choose a connected, checked Gmail mailbox to avoid signing in again. Only this website's configured login messages are used. If no mailbox is offered, connect and check the configured Google account above first.", 15, .secondaryLabelColor)
         }
-        primary(source["enrolled"] as? Bool == true ? "Save changes" : "Connect verification", #selector(saveFactor))
+        let connect = primary(source["enrolled"] as? Bool == true ? "Save changes" : "Connect verification", #selector(saveFactor))
+        if kind == "gmail" {
+            connect.isEnabled = factorMailboxMenu?.selectedItem?.representedObject as? String != nil
+                && source["setup_context"] as? String != nil && source["setup_revision"] as? String != nil
+        }
         if source["enrolled"] as? Bool == true { action("Disable this verification method", #selector(disableFactor)) }
         action("Back", #selector(backToConnections))
     }
@@ -2933,7 +3167,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
 
     @objc func saveFactor() {
-        guard let source = factorMenu.selectedItem?.representedObject as? [String: Any], let id = source["id"] as? String else { return }
+        guard !busy, let source = factorMenu.selectedItem?.representedObject as? [String: Any], let id = source["id"] as? String else { return }
         let kind = source["kind"] as? String ?? ""
         if kind == "mac_messages" && !MessagesReader.hasAccess() {
             let alert = NSAlert()
@@ -2945,7 +3179,15 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             return
         }
         var credential: [String: Any] = factorFields.mapValues { $0.stringValue }
-        if let mailbox = factorMailboxMenu?.selectedItem?.representedObject as? String {
+        if kind == "gmail" {
+            guard let mailbox = factorMailboxMenu?.selectedItem?.representedObject as? String,
+                  let context = source["setup_context"] as? String,
+                  let revision = source["setup_revision"] as? String else {
+                status.stringValue = "The email setup changed. Reopen Verification and choose the checked mailbox again."
+                return
+            }
+            credential = ["mailbox": mailbox, "setup_context": context, "setup_revision": revision]
+        } else if let mailbox = factorMailboxMenu?.selectedItem?.representedObject as? String {
             credential = ["mailbox": mailbox]
         }
         if kind == "mac_messages" { credential = ["enabled": true] }
@@ -3027,11 +3269,19 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         busy = true
         DispatchQueue.global(qos: .userInitiated).async {
             do {
-                let result = try self.request("owner/phone/pair", body: ["source": id])
+                var result = try self.request("owner/phone/pair", body: ["source": id])
+                let discovery = UUID()
+                result["bluetooth_service_uuid"] = discovery.uuidString.lowercased()
                 let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
                 DispatchQueue.main.async {
                     self.busy = false
-                    self.page("Pair your Android phone", "Scan this pairing QR with the Account Access companion. Keep both devices on the same private Wi-Fi.")
+                    self.page("Pair your Android phone", "Scan this QR with the Account Access companion. Keep both devices on the same private Wi-Fi. Android 15 or newer also needs Bluetooth discovery and Android's device confirmation; keep this screen open while connecting.")
+                    self.phonePairingPayload = String(data: data, encoding: .utf8)
+                    let discoveryStatus = self.makeLabel("Preparing Bluetooth discovery…", 14, .secondaryLabelColor)
+                    self.stack.addArrangedSubview(discoveryStatus)
+                    self.phonePairingAdvertiser = PhonePairingAdvertiser(service: discovery) { [weak discoveryStatus] message in
+                        discoveryStatus?.stringValue = message
+                    }
                     if let filter = CIFilter(name: "CIQRCodeGenerator") {
                         filter.setValue(data, forKey: "inputMessage")
                         if let output = filter.outputImage {
@@ -3048,7 +3298,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                     let paste = NSButton(title: "Copy pairing for the companion", target: nil, action: nil)
                     paste.target = self
                     paste.action = #selector(self.copyPhonePairing)
-                    paste.identifier = NSUserInterfaceItemIdentifier(String(data: data, encoding: .utf8) ?? "")
+                    paste.identifier = NSUserInterfaceItemIdentifier("copy-phone-pairing")
                     self.stack.addArrangedSubview(paste)
                     self.action("Back", #selector(self.backToConnections))
                 }
@@ -3057,8 +3307,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
 
     @objc func copyPhonePairing(_ sender: NSButton) {
+        guard let pairing = phonePairingPayload else { return }
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(sender.identifier?.rawValue ?? "", forType: .string)
+        NSPasteboard.general.setString(pairing, forType: .string)
     }
 
     func ready() {
@@ -3196,7 +3447,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         let fields = reason.components(separatedBy: ":")
         guard fields.count == 4 else { return "The sign-in check could not finish." }
         switch fields[1] {
-        case "destination": return "The website sent this sign-in outside its reviewed login flow. Your saved password is preserved."
+        case "destination": return "The website sent this sign-in outside its reviewed login flow. Your saved sign-in details are preserved."
         case "method": return "The website requested a sign-in action that this connection does not permit."
         case "transport": return "The sign-in request could not reach the website."
         case "response_size": return "The website returned a response larger than this connection permits."

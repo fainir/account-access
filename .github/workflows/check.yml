@@ -19,11 +19,66 @@ jobs:
           done
       - name: Exercise native XPC peers and owner broker routes with fictional data
         run: uv run python scripts/mac_owner_gateway_smoke.py --report /tmp/account-access-owner-gateway.json
+      - name: Check complete-image owner pin rotation with fictional policies
+        run: |
+          xcrun swiftc -O -parse-as-library -warnings-as-errors -framework Foundation \
+            macos/ComponentUpdatePolicies.swift macos/FullImageUpdatePolicies.swift \
+            macos/Tests/FullImageUpdatePolicyChecks.swift -o /tmp/account-access-full-image-policy-checks
+          /tmp/account-access-full-image-policy-checks > /tmp/account-access-full-image-policy.json
+      - name: Check complete-image subtree storage in fresh ordinary temp directories
+        run: |
+          xcrun swiftc -O -parse-as-library -warnings-as-errors -framework Foundation -framework CryptoKit \
+            macos/InstallerPayload.swift macos/FullImageTreeAttachment.swift macos/FullImageTreeStorage.swift \
+            macos/Tests/FullImageTreeStorageChecks.swift -o /tmp/account-access-full-image-tree-checks
+          /tmp/account-access-full-image-tree-checks > /tmp/account-access-full-image-tree.json
+      - name: Check Python and native complete-image CA plan agreement with fictional data
+        run: |
+          uv run python scripts/mac_full_image_plan_fixture.py --output /tmp/account-access-full-image-plan-inputs > /tmp/account-access-full-image-plan-inputs.json
+          xcrun swiftc -O -parse-as-library -warnings-as-errors -framework Foundation -framework CryptoKit \
+            macos/InstallerPayload.swift macos/ComponentUpdatePolicies.swift \
+            macos/FullImageTreeAttachment.swift macos/FullImageTreeStorage.swift macos/FullImagePlan.swift \
+            macos/Tests/FullImagePlanChecks.swift -o /tmp/account-access-full-image-plan-checks
+          /tmp/account-access-full-image-plan-checks /tmp/account-access-full-image-plan-inputs > /tmp/account-access-full-image-plan.log
+          tail -n 1 /tmp/account-access-full-image-plan.log > /tmp/account-access-full-image-plan.json
+          uv run python scripts/mac_full_image_plan_fixture.py --configuration-extension --output /tmp/account-access-configuration-plan-inputs > /tmp/account-access-configuration-plan-inputs.json
+          /tmp/account-access-full-image-plan-checks /tmp/account-access-configuration-plan-inputs > /tmp/account-access-configuration-plan.log
+          tail -n 1 /tmp/account-access-configuration-plan.log > /tmp/account-access-configuration-plan.json
+      - name: Check mixed complete-image transitions and durable recovery with fictional data
+        run: |
+          sources=(macos/InstallerPayload.swift macos/ComponentUpdate.swift macos/ComponentUpdatePolicies.swift
+            macos/ComponentUpdateIdentity.swift macos/InstallationRootBinding.swift macos/InstallationRootRevalidation.swift
+            macos/FullImageTreeAttachment.swift macos/FullImageTreeStorage.swift macos/FullImagePlan.swift
+            macos/FullImageTransitionStorage.swift macos/FullImageGlobalJournal.swift)
+          xcrun swiftc -O -parse-as-library -warnings-as-errors -framework Foundation -framework CryptoKit -framework Security \
+            "${sources[@]}" macos/Tests/FullImageTransitionStorageChecks.swift -o /tmp/account-access-full-image-mixed-checks
+          /tmp/account-access-full-image-mixed-checks > /tmp/account-access-full-image-mixed.json
+          xcrun swiftc -O -parse-as-library -warnings-as-errors -framework Foundation -framework CryptoKit -framework Security \
+            "${sources[@]}" macos/Tests/FullImageGlobalJournalChecks.swift -o /tmp/account-access-full-image-journal-checks
+          /tmp/account-access-full-image-journal-checks > /tmp/account-access-full-image-journal.json
+      - name: Check fixed installed-adapter sources and ordinary temporary fixtures
+        run: uv run python scripts/mac_full_image_installed_probe.py --output /private/tmp/account-access-full-image-installed-probe
+      - name: Check repaired-image runtime plan and shared storage projection
+        run: uv run python scripts/mac_runtime_upgrade_probe.py --output /private/tmp/account-access-runtime-upgrade-probe
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: native-owner-gateway
-          path: /tmp/account-access-owner-gateway.json
+          path: |
+            /tmp/account-access-owner-gateway.json
+            /tmp/account-access-full-image-policy.json
+            /tmp/account-access-full-image-tree.json
+            /tmp/account-access-full-image-plan-inputs.json
+            /tmp/account-access-full-image-plan.json
+            /tmp/account-access-full-image-plan.log
+            /tmp/account-access-configuration-plan-inputs.json
+            /tmp/account-access-configuration-plan.json
+            /tmp/account-access-configuration-plan.log
+            /tmp/account-access-full-image-mixed.json
+            /tmp/account-access-full-image-journal.json
+            /private/tmp/account-access-full-image-installed-probe
+            /private/tmp/account-access-runtime-upgrade-probe/result.json
+            /private/tmp/account-access-runtime-upgrade-probe/*.stdout
+            /private/tmp/account-access-runtime-upgrade-probe/*.stderr
           if-no-files-found: ignore
   native-owner-ui:
     runs-on: macos-15
@@ -32,7 +87,7 @@ jobs:
       - name: Check native owner screen and masked sync fields
         run: |
           xcrun swiftc -O -parse-as-library -D ACCOUNT_ACCESS_UI_CHECKS \
-            -framework AppKit -framework CryptoKit -framework ServiceManagement -lsqlite3 -lbsm \
+            -framework AppKit -framework CryptoKit -framework CoreBluetooth -framework ServiceManagement -lsqlite3 -lbsm \
             macos/AccountAccess.swift macos/MailboxOAuthLoopback.swift macos/OwnerGateway.swift macos/DesktopOwnerConnection.swift macos/BrowserNativeHost.swift macos/ManagedAgentSetup.swift macos/WorkerBootstrap.swift macos/WorkerListenerBindings.swift macos/BackgroundRecovery.swift macos/MessageText.swift macos/MessagesReader.swift macos/SystemMessagesReader.swift macos/Tests/OwnerScreenChecks.swift \
             -o /tmp/account-access-owner-checks
           /tmp/account-access-owner-checks
@@ -126,6 +181,6 @@ jobs:
           with sync_playwright() as pw:
               pw.chromium.launch(headless=True, chromium_sandbox=True).close()
           PY
-      - run: uv run ruff check account_access tests scripts macos/notarize.py macos/system_package.py macos/payload_audit.py macos/runtime_prepare.py macos/runtime_image.py macos/bitwarden_runtime.py macos/bitwarden_sources.py macos/bitwarden_notices.py
+      - run: uv run ruff check account_access tests scripts macos/notarize.py macos/system_package.py macos/payload_audit.py macos/runtime_prepare.py macos/runtime_image.py macos/runtime_ca.py macos/full_image_update.py macos/bitwarden_runtime.py macos/bitwarden_sources.py macos/bitwarden_notices.py
       - run: uv run pytest -q
       - run: uv build

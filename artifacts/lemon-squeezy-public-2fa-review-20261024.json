@@ -1,0 +1,14 @@
+{
+  "account_state_read": false,
+  "authentication_settings_changed": false,
+  "credentials_or_codes_submitted": false,
+  "live_login_page_inspected": false,
+  "official_source": "https://docs.lemonsqueezy.com/help/getting-started/two-factor-authentication",
+  "owner_2fa_enabled_verified": false,
+  "password_and_authenticator_app_login_documented": true,
+  "production_ready": false,
+  "provider": "Lemon Squeezy",
+  "provider_connector_qualified": false,
+  "reviewed_at": "2026-10-24T15:57:24.477197+00:00",
+  "schema": 1
+}

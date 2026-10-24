@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "observed_date": "2026-10-22",
+  "status": "INSTALLER_FAILED_PREDECESSOR_VALIDATION",
+  "package_sha256": "ad16754b9acdd71dd1979a2a268b005a96feec681d3392b4af90b0e464590a85",
+  "native_installer_error": 112,
+  "helper_result": {
+    "status": "REFUSED",
+    "reason": "component_transition_conflict",
+    "checkpoint": "predecessor"
+  },
+  "public_observation": {
+    "predecessor_image_exact": true,
+    "predecessor_manifest_sha256": "9f0d1274928702dd4d5064b4d3bc8ac7df3bf81c3f70be2f9ccad410785d810c",
+    "target_image_exact": false,
+    "target_manifest_sha256": "d1f74db86890b306f989b65a8c521ce3b0879f261ded122dd409be2ca2fbe317",
+    "private_store_read": false,
+    "raw_logs_exported": false
+  },
+  "exact_failed_predicate_known": false,
+  "installed_update": false,
+  "personal_authentication_verified": false,
+  "production_ready": false
+}

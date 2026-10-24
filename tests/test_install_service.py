@@ -6,6 +6,7 @@ import threading
 import time
 
 import httpx2 as httpx
+import pytest
 import uvicorn
 
 from account_access.errors import AccessError
@@ -103,6 +104,78 @@ def test_installer_refuses_unknown_existing_skill(env, tmp_path):
         assert False
     except AccessError as exc:
         assert exc.reason == "existing_skill_would_be_overwritten"
+
+
+@pytest.mark.parametrize("connection", ["protected", "other-preview"])
+@pytest.mark.parametrize("entrypoint", ["install", "sync", "detected"])
+def test_preview_preserves_foreign_connection_and_existing_client(
+        env, tmp_path, monkeypatch, connection, entrypoint):
+    from pathlib import Path
+    from account_access.install import install_detected, sync_skill
+
+    _, broker, _ = env
+    home = tmp_path / "owner-home"
+    home.mkdir()
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    monkeypatch.setenv("CODEX_HOME", str(home / ".codex"))
+    monkeypatch.setattr("account_access.install.shutil.which", lambda _: None)
+    (home / ".claude").mkdir()
+    primary = home / ".agents/skills/account-access"
+    alias = home / ".claude/skills/account-access"
+    # Give this preview a working client that must survive a rejected switch.
+    install_skill(broker.store, "generic", primary.parent)
+    token_file = broker.store.root / "clients/generic/token"
+    token = token_file.read_bytes()
+    config_file = token_file.with_name("client.json")
+    before_config = config_file.read_bytes()
+    foreign = home / ("Library/Application Support/Account Access/client-v1/client.json"
+                      if connection == "protected" else ".local/share/another-preview/clients/generic/client.json")
+    target = alias if entrypoint == "detected" else primary
+    if target == primary:
+        binding = target / "installation.json"
+        value = json.loads(binding.read_text())
+        value["client_config"] = str(foreign)
+        binding.write_text(json.dumps(value))
+    else:
+        sync_skill(alias, foreign)
+    before = {str(path.relative_to(home)): path.read_bytes()
+              for path in home.rglob("*") if path.is_file()}
+    action = {"install": lambda: install_skill(broker.store, "generic", target.parent),
+              "sync": lambda: sync_skill(target, config_file),
+              "detected": lambda: install_detected(broker.store)}[entrypoint]
+    with pytest.raises(AccessError, match="existing_skill_would_be_overwritten"):
+        action()
+    assert {str(path.relative_to(home)): path.read_bytes()
+            for path in home.rglob("*") if path.is_file()} == before
+    assert token_file.read_bytes() == token
+    assert config_file.read_bytes() == before_config
+    assert broker.store.client(token.decode()) == "generic"
+
+
+@pytest.mark.parametrize("change", ["wrong-marker", "missing-binding", "hardlink", "directory", "oversized"])
+def test_refresh_rejects_unrecognized_binding_metadata(env, tmp_path, change):
+    from account_access.install import sync_skill
+
+    _, broker, _ = env
+    install_skill(broker.store, "generic", tmp_path)
+    target = tmp_path / "account-access"
+    config_file = broker.store.root / "clients/generic/client.json"
+    binding = target / "installation.json"
+    if change == "wrong-marker":
+        (target / ".account-access-install").write_text("someone-else")
+    elif change == "missing-binding":
+        binding.unlink()
+    elif change == "hardlink":
+        os.link(binding, tmp_path / "binding-copy")
+    elif change == "directory":
+        binding.unlink()
+        binding.mkdir()
+    else:
+        binding.write_bytes(b" " * 16385)
+    launcher = (target / "scripts/access").read_bytes()
+    with pytest.raises(AccessError, match="existing_skill_would_be_overwritten"):
+        sync_skill(target, config_file)
+    assert (target / "scripts/access").read_bytes() == launcher
 
 
 def test_owner_console_auth_csrf_and_scope_reduction(env):

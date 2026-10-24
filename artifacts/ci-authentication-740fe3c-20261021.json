@@ -1,0 +1,280 @@
+{
+  "actual_Installer_qualified": false,
+  "all_first_attempt": true,
+  "excluded_matrix_path": ".github/workflows/mac-full-image-installer-review.yml",
+  "failures": [],
+  "observed_utc": "20261021T184854Z",
+  "production_ready": false,
+  "run_snapshot_file": "general-runs-20261021T184854Z.json",
+  "run_snapshot_sha256": "e5bdccd72e702fc7cf1c0573910b962d23d8ad14cacad6d1e8e5650d69162929",
+  "schema": 1,
+  "source_commit": "740fe3c479a763950e98340584ea173e04522072",
+  "source_workflow_count": 9,
+  "source_workflows": [
+    {
+      "conclusion": "success",
+      "event": "pull_request",
+      "jobs": [
+        {
+          "conclusion": "success",
+          "failed_steps": [],
+          "job_id": 119400015885,
+          "name": "test",
+          "status": "completed",
+          "url": "https://github.com/fainir/account-access/actions/runs/39651300998/job/119400015885"
+        },
+        {
+          "conclusion": "success",
+          "failed_steps": [],
+          "job_id": 119400015937,
+          "name": "native-owner-gateway",
+          "status": "completed",
+          "url": "https://github.com/fainir/account-access/actions/runs/39651300998/job/119400015937"
+        },
+        {
+          "conclusion": "success",
+          "failed_steps": [],
+          "job_id": 119400015995,
+          "name": "native-owner-ui",
+          "status": "completed",
+          "url": "https://github.com/fainir/account-access/actions/runs/39651300998/job/119400015995"
+        }
+      ],
+      "path": ".github/workflows/check.yml",
+      "raw_jobs_file": "general-jobs-39651300998-20261021T184854Z.json",
+      "raw_jobs_sha256": "ca6aa55892efac438c81e847d8ddbd1927d6b50ae2c16996dffc917aaddb1069",
+      "run_attempt": 1,
+      "run_id": 39651300998,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39651300998",
+      "workflow": "Account Access checks"
+    },
+    {
+      "conclusion": "success",
+      "event": "pull_request",
+      "jobs": [
+        {
+          "conclusion": "success",
+          "failed_steps": [],
+          "job_id": 119400014302,
+          "name": "android",
+          "status": "completed",
+          "url": "https://github.com/fainir/account-access/actions/runs/39651300689/job/119400014302"
+        }
+      ],
+      "path": ".github/workflows/android.yml",
+      "raw_jobs_file": "general-jobs-39651300689-20261021T184854Z.json",
+      "raw_jobs_sha256": "a7d3f9fbd4970d5ccf54299ff5947326a6163f64a0e31c34b870ef22f0c5b3f6",
+      "run_attempt": 1,
+      "run_id": 39651300689,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39651300689",
+      "workflow": "Android login-code journey"
+    },
+    {
+      "conclusion": "success",
+      "event": "pull_request",
+      "jobs": [
+        {
+          "conclusion": "success",
+          "failed_steps": [],
+          "job_id": 119400014926,
+          "name": "cross-user",
+          "status": "completed",
+          "url": "https://github.com/fainir/account-access/actions/runs/39651300862/job/119400014926"
+        }
+      ],
+      "path": ".github/workflows/worker-boundary.yml",
+      "raw_jobs_file": "general-jobs-39651300862-20261021T184854Z.json",
+      "raw_jobs_sha256": "5b94a554c4f5fb6c6a54abba2734382cb4d323d5a2b9fcbf36d48ffdc12d2202",
+      "run_attempt": 1,
+      "run_id": 39651300862,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39651300862",
+      "workflow": "Separate-user worker acceptance"
+    },
+    {
+      "conclusion": "success",
+      "event": "pull_request",
+      "jobs": [
+        {
+          "conclusion": "success",
+          "failed_steps": [],
+          "job_id": 119400014223,
+          "name": "mac-installer-context",
+          "status": "completed",
+          "url": "https://github.com/fainir/account-access/actions/runs/39651300646/job/119400014223"
+        },
+        {
+          "conclusion": "success",
+          "failed_steps": [],
+          "job_id": 119401866030,
+          "name": "mac-cross-user",
+          "status": "completed",
+          "url": "https://github.com/fainir/account-access/actions/runs/39651300646/job/119401866030"
+        }
+      ],
+      "path": ".github/workflows/mac-worker.yml",
+      "raw_jobs_file": "general-jobs-39651300646-20261021T184854Z.json",
+      "raw_jobs_sha256": "ef3a15335a6cf1b42314342d3b5b784c9ca06cf38501f786b7f940cde0fb862e",
+      "run_attempt": 1,
+      "run_id": 39651300646,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39651300646",
+      "workflow": "Mac separate-user worker acceptance"
+    },
+    {
+      "conclusion": "success",
+      "event": "push",
+      "jobs": [
+        {
+          "conclusion": "success",
+          "failed_steps": [],
+          "job_id": 119399981292,
+          "name": "mac-installer-context",
+          "status": "completed",
+          "url": "https://github.com/fainir/account-access/actions/runs/39651291037/job/119399981292"
+        },
+        {
+          "conclusion": "success",
+          "failed_steps": [],
+          "job_id": 119401112075,
+          "name": "mac-cross-user",
+          "status": "completed",
+          "url": "https://github.com/fainir/account-access/actions/runs/39651291037/job/119401112075"
+        }
+      ],
+      "path": ".github/workflows/mac-worker.yml",
+      "raw_jobs_file": "general-jobs-39651291037-20261021T184854Z.json",
+      "raw_jobs_sha256": "92e8bce4ca84d120bdfe0074a045ea21bd0f1590b82c18e4fb0045a35838e2a6",
+      "run_attempt": 1,
+      "run_id": 39651291037,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39651291037",
+      "workflow": "Mac separate-user worker acceptance"
+    },
+    {
+      "conclusion": "success",
+      "event": "push",
+      "jobs": [
+        {
+          "conclusion": "success",
+          "failed_steps": [],
+          "job_id": 119399980573,
+          "name": "test",
+          "status": "completed",
+          "url": "https://github.com/fainir/account-access/actions/runs/39651290917/job/119399980573"
+        },
+        {
+          "conclusion": "success",
+          "failed_steps": [],
+          "job_id": 119399980810,
+          "name": "native-owner-gateway",
+          "status": "completed",
+          "url": "https://github.com/fainir/account-access/actions/runs/39651290917/job/119399980810"
+        },
+        {
+          "conclusion": "success",
+          "failed_steps": [],
+          "job_id": 119399981043,
+          "name": "native-owner-ui",
+          "status": "completed",
+          "url": "https://github.com/fainir/account-access/actions/runs/39651290917/job/119399981043"
+        }
+      ],
+      "path": ".github/workflows/check.yml",
+      "raw_jobs_file": "general-jobs-39651290917-20261021T184854Z.json",
+      "raw_jobs_sha256": "1ab27d06870a963619d1869163b78911ede31d89f2f072c63faa4f117e2fd7e3",
+      "run_attempt": 1,
+      "run_id": 39651290917,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39651290917",
+      "workflow": "Account Access checks"
+    },
+    {
+      "conclusion": "success",
+      "event": "push",
+      "jobs": [
+        {
+          "conclusion": "success",
+          "failed_steps": [],
+          "job_id": 119399980287,
+          "name": "android",
+          "status": "completed",
+          "url": "https://github.com/fainir/account-access/actions/runs/39651290872/job/119399980287"
+        }
+      ],
+      "path": ".github/workflows/android.yml",
+      "raw_jobs_file": "general-jobs-39651290872-20261021T184854Z.json",
+      "raw_jobs_sha256": "d1a69435a2c074643943baacae906a52f1beb0575ac2261acfd6ccde7591fb06",
+      "run_attempt": 1,
+      "run_id": 39651290872,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39651290872",
+      "workflow": "Android login-code journey"
+    },
+    {
+      "conclusion": "success",
+      "event": "push",
+      "jobs": [
+        {
+          "conclusion": "success",
+          "failed_steps": [],
+          "job_id": 119399979648,
+          "name": "ordinary-contracts",
+          "status": "completed",
+          "url": "https://github.com/fainir/account-access/actions/runs/39651290895/job/119399979648"
+        },
+        {
+          "conclusion": "skipped",
+          "failed_steps": [],
+          "job_id": 119399982073,
+          "name": "actual-installer-review",
+          "status": "completed",
+          "url": "https://github.com/fainir/account-access/actions/runs/39651290895/job/119399982073"
+        },
+        {
+          "conclusion": "skipped",
+          "failed_steps": [],
+          "job_id": 119399982722,
+          "name": "download-public-inputs",
+          "status": "completed",
+          "url": "https://github.com/fainir/account-access/actions/runs/39651290895/job/119399982722"
+        }
+      ],
+      "path": ".github/workflows/mac-component-update-review.yml",
+      "raw_jobs_file": "general-jobs-39651290895-20261021T184854Z.json",
+      "raw_jobs_sha256": "9dcb5ed8d7fcef85632c304eda81adc1af4fbdffb5567aa9b996033d36cf4327",
+      "run_attempt": 1,
+      "run_id": 39651290895,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39651290895",
+      "workflow": "Signed component update Installer review"
+    },
+    {
+      "conclusion": "success",
+      "event": "push",
+      "jobs": [
+        {
+          "conclusion": "success",
+          "failed_steps": [],
+          "job_id": 119399980634,
+          "name": "cross-user",
+          "status": "completed",
+          "url": "https://github.com/fainir/account-access/actions/runs/39651290908/job/119399980634"
+        }
+      ],
+      "path": ".github/workflows/worker-boundary.yml",
+      "raw_jobs_file": "general-jobs-39651290908-20261021T184854Z.json",
+      "raw_jobs_sha256": "b72abe4d9ea0d778e232f626d2ee645983a4b2446701efd75a4a9eb2b6e2c5ce",
+      "run_attempt": 1,
+      "run_id": 39651290908,
+      "status": "completed",
+      "url": "https://github.com/fainir/account-access/actions/runs/39651290908",
+      "workflow": "Separate-user worker acceptance"
+    }
+  ],
+  "status": "SOURCE_CI_TERMINAL_FIRST_ATTEMPT_PASS",
+  "workflow_successes": 9,
+  "workflow_terminal": 9
+}

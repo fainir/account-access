@@ -1,0 +1,43 @@
+{
+  "agent_challenge_api_changed": false,
+  "encrypted_at_rest": true,
+  "extra_private_login_attempts": 0,
+  "focused_python_tests": {
+    "passed": 26,
+    "proof_sha256": "23267e75a82074efe4fdf7e1e84d44f8441812a50d630e663e1f94ed4fd1a72f"
+  },
+  "github_personal_testing_performed": false,
+  "included_in_build79": false,
+  "installed_on_owner_mac": false,
+  "native_owner_ui": {
+    "optimization": "Onone",
+    "passed_check_lines": 52,
+    "proof_sha256": "6669d3b0a0b0dce56d9498d62d58d76d78f96e46d1695b101a3bde79fb9aaa8a"
+  },
+  "password_code_cookie_raw_url_or_page_text_in_diagnostics": false,
+  "pending_challenge_and_configuration_bound": true,
+  "personal_factor_acceptance_established": false,
+  "production_ready": false,
+  "schema": 1,
+  "scope": "first stopped non-GitHub browser attempt; fixed structural data for owner review only",
+  "source_sha256": {
+    "account_access/broker.py": "6fdefe73f98fdee0aa7ddbc9a47df5e7ac5179bf10bcb24c2a20ae26797d76e2",
+    "account_access/browser.py": "d7bab7f672bc35bd0310617bf3310d4c0f845a7721952a18c8e1093ad29a7243",
+    "account_access/browser_diagnostics.py": "c26646a017590d7ca5d16d0582c167a8063da82eb945ad409c5f305c5d94c9cf",
+    "account_access/owner.py": "97e74af166d46f918459b619d491fa3ee0d080afef0c9f001f6fb101617ac425",
+    "macos/AccountAccess.swift": "3c9caa728a84619a3c1117ad0304499c51d6f2656e6b106071dda8983cf7de30",
+    "macos/Tests/OwnerScreenChecks.swift": "debe11eada020248e1710c8f2fad8f3ac0633539b81ba7e77fdedf10a15e5090",
+    "tests/test_access.py": "23934741e20975773f1f7bf286561fa34e16ee284f12174b37ef20cf9e4b19d1",
+    "tests/test_browser.py": "3a4e85ef92921f5006478d7938de6fed98aefa337686e38b1d12da1452b9afc7",
+    "tests/test_browser_diagnostics.py": "5fde140a53ccf2739aa16e720c96b43f47d65d4bd0a7dc7ff8271ef9b9d59b5e"
+  },
+  "status": "SOURCE_IMPLEMENTED_NOT_INSTALLED",
+  "verification_method_or_network_authority_added": false,
+  "wider_regression": {
+    "error": "SQLite temporary fixture disk I/O error before test body",
+    "isolated_recheck_passed": true,
+    "original_error_retained": true,
+    "passed": 155,
+    "setup_errors": 1
+  }
+}

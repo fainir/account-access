@@ -37,6 +37,21 @@ new website source or grant account operations by itself. **Google mailbox
 checked** confirms the mailbox address and access; it does not prove website
 email delivery.
 
+For an ordinary configured Gmail code source, choose its checked mailbox under
+**Use a connected Gmail mailbox**, review the displayed sender, recipient and
+subject, then choose **Connect verification**. The desktop and local web setup
+reuse the saved Google connection without another password or consent screen.
+Only the exact configured Google account and recipient are offered. The source
+must already have a reviewed website login flow and message filter; connecting
+Gmail does not add missing website support. Namecheap's device-email route is
+still outside the current connector.
+
+If the website filter, approved account, source enrollment or Google consent
+changes while setup is open, the old selection cannot enable it. Reopen
+**Verification** and choose the checked connection again. Routine access-token
+renewal keeps the selection valid. Disabling the source or revoking Google
+access stops pending code reads.
+
 Normal automatic token renewal preserves that mailbox selection. New consent,
 revocation, or a changed Google account invalidates the old selection, so it
 cannot silently switch to another mailbox. Check the connection and review the
@@ -176,5 +191,13 @@ Fingerprint, passkey, push, device and administrator approvals remain owner acti
 **iPhone with a Mac:** Make SMS appear in Messages on your Mac using Messages in iCloud or text forwarding. For explicit forwarding, on your iPhone go to **Settings → Apps → Messages → Text Message Forwarding**, then enable your Mac. Use the same Apple Account on both devices. In Mac privacy settings, grant the signed Account Access app Full Disk Access, then enable its iPhone Messages source. [Apple's forwarding instructions](https://support.apple.com/102545).
 
 **Android:** Install and pair the [Account Access phone companion](../android/README.md), permit notification access, and keep it on the same private Wi-Fi as the computer. Its job is to relay matching SMS-app login notifications to Account Access's pinned HTTPS endpoint. It does not connect Google Authenticator.
+
+**Android 15 or newer also needs computer association.** Keep the Mac's **Pair
+Android phone** screen open, enable Bluetooth on both devices, scan its current
+QR, then choose **Connect computer with Android** on the phone and confirm the
+matching discovered device. Notification access alone is insufficient. Bluetooth
+is used for discovery; messages still travel over private Wi-Fi. This physical
+pairing and delivery flow remains a release test, not a verified capability on
+your phone.
 
 These OS permissions are broader than the app's sender/template filter. Account Access uses matching fresh codes during an active supported login. The video shows setup instructions; physical phone delivery has not been validated. The recorded SMS login uses a test Messages database, and the separate Android emulator journey is described in the phone companion's documentation.

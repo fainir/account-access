@@ -1,0 +1,32 @@
+{
+  "app_source_commit": "d30fda732c589b9ac4dc339a7237ad8ba00d0016",
+  "base_manifest_sha256": "9f0d1274928702dd4d5064b4d3bc8ac7df3bf81c3f70be2f9ccad410785d810c",
+  "changed_nodes": 411,
+  "compatibility_examples": 7,
+  "compatibility_proof_sha256": "a0178f6aa0d0594674b9856d96a6b9586188330385d3fa0418c0ca3580e8d9a6",
+  "counts": {
+    "aliases": 21,
+    "directories": 2297,
+    "files": 25165
+  },
+  "image_result_sha256": "4a4fde49272e7290f2c9a6f9135089cae9508dc059a63394835fb278a0876910",
+  "independent_gui_review_sha256": "607c8cb0c6ac2ac9d2ddd911bbfd4923f1268b99179903af32a9fdc316d375af",
+  "independent_image_review_sha256": "7a93f670c6c627848f44fb1cdec118a5d0dab08ec7453c9d121a1a0bc88fd364",
+  "installer_built": false,
+  "legacy_empty_control_cases": 3,
+  "model_sha256": "7a152c833f450f3364d2b297a9561ac6cbed556121892b64027d5a41f83847cf",
+  "native_changed": [
+    "owner.app/Contents/MacOS/AccountAccess",
+    "owner.app/Contents/MacOS/AccountAccessBackground"
+  ],
+  "native_unchanged": 39,
+  "owner_installed": false,
+  "planner_sha256": "8824b597aeb3276773e7bf2f700a82823fe5dc90eac9913b222b824f9eaecfc7",
+  "private_store_read": false,
+  "production_ready": false,
+  "schema": 1,
+  "source_and_wheel_review_sha256": "3b8f08f4c74b055b9ba712a80d9d8c90fa471d2acfc2feb59cb7b0fb33fc440b",
+  "status": "CURRENT_APP_IMAGE_ASSEMBLED_AND_INDEPENDENTLY_REVIEWED",
+  "target_manifest_sha256": "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da",
+  "wheel_sha256": "8c21925792109dfbd00438d891f5149b1349c1d15821e3b321ed56f903cad21d"
+}

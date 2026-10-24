@@ -2,6 +2,14 @@
 
 This is a native installer and owner interface for macOS 14 (Sonoma) or later.
 
+**Current owner-Mac status (21 October):** the protected startup repair,
+owner setup, shared AI connection and one personal password import completed.
+The private account still needs an unsupported device-verification step;
+email/SMS/authenticator login acceptance remains open. The installed GUI is
+build 76. Build 77 is staged separately and needs the qualified complete-image
+upgrade route. Neither successful source CI nor runtime inspection establishes
+that this upgrade has been installed. See [current acceptance](../docs/production-gates.md).
+
 Consumer package builds also require the pinned Bitwarden OSS npm CLI and its
 reviewed corresponding-source release asset. Add these maintainer arguments to
 `python -m macos.system_package`:
@@ -11,6 +19,15 @@ reviewed corresponding-source release asset. Add these maintainer arguments to
 --bitwarden-sources /absolute/path/to/account-access-bitwarden-2026.10.0-corresponding-source.tar.gz \
 --bitwarden-source-sha256 REVIEWED_SOURCE_SHA256
 ```
+
+For both runtime inspection and final assembly, also supply
+`--pip-wheel /absolute/path/to/pip-26.2.2-py3-none-any.whl`. Its exact upstream
+SHA256 is `fd7f4dfa8190e014013b9f08f3e973f4e4c26ffd179a204895533a7254813a70`.
+The maintainer assembler refreshes the reviewed Python input's active pip and
+ensurepip seed in its private copies before signing-plan generation. It checks
+the bundled CA certificates as data and never runs pip or ensurepip. Source
+inputs remain unchanged. Unknown input profiles are refused; this is not an
+installed-runtime repair or an audit of OS or embedded native trust stores.
 
 Prepare the source asset with `python -m macos.bitwarden_sources --output NEW_DIRECTORY`.
 Both assets are verified and staged before runtime inspection/signing. The
@@ -138,7 +155,7 @@ and private sign-in acceptance remain open.
 
 ```sh
 uv build
-sh macos/build.sh
+ACCOUNT_ACCESS_MAC_BUILD=77 sh macos/build.sh
 ```
 
 For Developer ID signing, set `ACCOUNT_ACCESS_SIGNING_IDENTITY` to your own certificate name before building. The app and ZIP are written to `dist/macos/`.

@@ -4,8 +4,13 @@ permissions:
   contents: read
 jobs:
   android:
+    name: "${{ matrix.api == 35 && 'Android 15 refusal without computer permission' || 'Android 11 notification-to-browser login' }}"
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [30, 35]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
@@ -26,11 +31,52 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-account-access-kvm.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Run actual notification-to-browser login
+      - name: Install the Android test image with diagnostics
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --verbose --install "system-images;android-${{ matrix.api }};google_apis;x86_64"'
+      - name: "${{ matrix.api == 35 && 'Refuse unassociated Android 15 notifications' || 'Complete Android 11 notification-to-browser login' }}"
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
         with:
-          api-level: 30
+          api-level: ${{ matrix.api }}
           target: google_apis
           arch: x86_64
           disable-animations: true
           script: uv run python scripts/android_journey.py
+      - name: Record the exact tested phone preview
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          apk = Path("dist/android/Account-Access-Phone-preview.apk")
+          report = {
+              "schema": 1,
+              "source_commit": os.environ["GITHUB_SHA"],
+              "workflow_run": int(os.environ["GITHUB_RUN_ID"]),
+              "workflow_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
+              "apk": apk.name,
+              "sha256": hashlib.sha256(apk.read_bytes()).hexdigest(),
+              "bytes": apk.stat().st_size,
+              "emulator_notification_to_browser_journey_passed": ${{ matrix.api }} < 35,
+              "android_api": ${{ matrix.api }},
+              "notification_forwarding_without_association_refused": ${{ matrix.api }} >= 35,
+              "positive_bluetooth_computer_association_qualified": False,
+              "development_signing": True,
+              "physical_phone_delivery_qualified": False,
+              "production_ready": False,
+          }
+          Path("dist/android/phone-preview-evidence.json").write_text(
+              json.dumps(report, sort_keys=True, indent=2) + "\n"
+          )
+          PY
+      - name: Retain the tested APK for physical-phone acceptance
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: phone-preview-api${{ matrix.api }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          # Do not upload dist/android as a whole: it also holds the signing key.
+          path: |
+            dist/android/Account-Access-Phone-preview.apk
+            dist/android/phone-preview-evidence.json
+          retention-days: 7
+          if-no-files-found: error

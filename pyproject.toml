@@ -15,7 +15,7 @@ dependencies = [
   "playwright>=1.55,<2",
   "fastapi>=0.115,<1",
   "uvicorn>=0.35,<1",
-  "filelock>=3.18,<4",
+  "filelock>=4.2.4,<5",
   "pyotp>=2.9,<3",
   "onepassword-sdk==0.4.1",
 ]

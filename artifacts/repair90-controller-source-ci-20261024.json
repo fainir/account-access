@@ -1,0 +1,26 @@
+{
+  "dependency_audit": "NO_KNOWN_VULNERABILITIES",
+  "lint_passed": true,
+  "mac_installer_context_passed": true,
+  "mac_separate_user_acceptance_passed": true,
+  "native_owner_gateway_passed": true,
+  "native_owner_ui_passed": true,
+  "observed_at": "2026-10-24T15:05:00.923038+00:00",
+  "owner_store_qualified": false,
+  "personal_account_login_qualified": false,
+  "physical_android_delivery_qualified": false,
+  "production_ready": false,
+  "python_tests_passed": 4065,
+  "python_tests_skipped": 108,
+  "schema": 1,
+  "sdist_built": true,
+  "source_commit": "4807187226c9701ca615634c2ad570f343dccc91",
+  "status": "PASSED",
+  "wheel_built": true,
+  "workflow_runs": {
+    "android": 40103099069,
+    "checks": 40103099100,
+    "linux_separate_user": 40103099092,
+    "mac_separate_user": 40103099199
+  }
+}

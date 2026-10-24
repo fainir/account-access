@@ -1,0 +1,22 @@
+{
+  "actual_fresh_Installer_qualified": false,
+  "app_or_runtime_rebuilt": false,
+  "app_source": "d5741bc9912aaf907fe5c52486af18818654dda5",
+  "inert_check_result": "2 passed, 42 deselected in 2.27s",
+  "inert_package_and_script_checks": 2,
+  "manifest_sha256": "d1f74db86890b306f989b65a8c521ce3b0879f261ded122dd409be2ca2fbe317",
+  "mocked_proof_sha256": "d796df429f0f938566adb87e347c2ac901cd106a4215b616672decc4b65e248d",
+  "ordinary_mocked_checks": 73,
+  "owner_data_accessed": false,
+  "production_ready": false,
+  "root_or_Installer_installation_performed": false,
+  "root_review": "Fixed reviewed cohort, exact repeated inventories, genuine signatures/identity/wheel/native preflight; shared raw envelope preserved. Runtime transformations and mixed/development routes refused.",
+  "schema": 1,
+  "source_files": {
+    "macos/system_package.py": "b2316990862da77c9a57d14590c0604c1eeffd29d9a4f5ada481e829215c6ad8",
+    "tests/test_system_package.py": "6ce09863aef5ceeead185c70b0f2a400060c304b49ecb1972c95640f82dabe4c",
+    "tests/test_system_package_preassembled.py": "f3d08cf71c05848896a2c6e7b291f3b9c76840516a4cd24588986e086fab17d0"
+  },
+  "source_freeze_sha256": "60024090d940236be0c460022d2ad59907747132096dadddc20bc2b18d356a1b",
+  "status": "REVIEWED_SOURCE_AND_75_FOCUSED_CHECKS_PASSED_NOT_BUILT"
+}

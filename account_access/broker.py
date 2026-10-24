@@ -7,7 +7,7 @@ from . import __version__
 from .browser import Browser
 from .codes import Codes
 from .errors import AccessError
-from .models import BrowserAccount, OAuthAccount, TaskRequest
+from .models import BrowserAccount, OAuthAccount, TaskRequest, origin
 from .providers import OAuth, credential_values, redact
 from .account_context import aggregate, describe, environment, result_view
 
@@ -116,18 +116,25 @@ class Broker:
                 "background_recovery": self.worker_health.view(),
                 "environment": aggregate(result, test_mode=config.test_mode)}
 
-    def connection_view(self, account, config):
-        """Saved credentials alone are not evidence of a successful sign-in."""
+    def connection_view(self, account, config, *, display_snapshot=None):
+        """Saved credentials alone are not evidence of a successful sign-in.
+
+        Owner rendering may supply its single-response read snapshot. Actual
+        status/operation callers keep the fresh defaults; this is not authority.
+        """
         spec = config.accounts[account]
-        saved = self.store.get("connection:" + account) or {}
-        credential = self.store.get("credential:" + account) or {}
-        ready = bool(isinstance(spec, BrowserAccount) and spec.login
-                     and credential.get("username") and credential.get("password"))
+        if display_snapshot is None:
+            saved = self.store.get("connection:" + account) or {}
+            credential = self.store.get("credential:" + account) or {}
+            pending = None
+        else:
+            saved, credential, pending = display_snapshot
+        ready = bool(isinstance(spec, BrowserAccount) and spec.login and spec.login.credential_ready(credential))
         if saved.get("revoked"):
             state = "revoked"
         elif saved and saved.get("fingerprint") != config.fingerprint(account):
             state = "needs_review"
-        elif self.store.pending(account):
+        elif (self.store.pending(account) if display_snapshot is None else pending):
             state = "needs_attention"
         elif saved:
             state = "saved_access"
@@ -151,11 +158,22 @@ class Broker:
             return self.error(exc, account, challenge=False)
 
     def run(self, principal, account, operation):
+        attention = None
+        attention_seen = False
+        diagnostic_fingerprint = None
+
+        def stopped(status, reason, kind, diagnostics):
+            nonlocal attention, attention_seen
+            if attention_seen:
+                return
+            attention_seen = True
+            attention = {"status": status, "reason": reason, "kind": kind, "diagnostics": diagnostics}
+
         try:
             with self.store.lock("account:" + account):
                 config = self.permit(principal, account, operation)
                 spec = config.accounts[account]
-                if isinstance(spec, BrowserAccount):
+                if isinstance(spec, BrowserAccount) and not (spec.login and spec.login.identity_contact):
                     from .password_sync import refresh
                     refresh(self.store, account)
                 pending = self.store.pending(account)
@@ -186,7 +204,12 @@ class Broker:
                 if isinstance(spec, OAuthAccount):
                     data = self.oauth.read(account, op, config)
                 elif isinstance(spec, BrowserAccount):
-                    data = self.browser.read(account, op, spec, secret_values=secrets_seen)
+                    diagnostic_fingerprint = config.fingerprint(account)
+                    # Preserve GitHub's existing ordinary path; its legacy
+                    # owner diagnostics are separate from this closed schema.
+                    attention_callback = stopped if origin(spec.login_url) != "https://github.com" else None
+                    data = self.browser.read(account, op, spec, secret_values=secrets_seen,
+                                             on_attention=attention_callback)
                 else:
                     raise AccessError("DENIED", "unsupported_connector")
                 # Catch permission revocation that occurred concurrently during an in-flight request.
@@ -199,7 +222,11 @@ class Broker:
                         "data": redact(data, secrets_seen), "untrusted_data": True}
         except AccessError as exc:
             self.store.audit(principal, account, operation, "operation_blocked", exc.reason)
-            return self.error(exc, account, challenge=exc.status != "DENIED")
+            result = self.error(exc, account, challenge=exc.status != "DENIED")
+            if exc.status == "NEEDS_USER" and attention and result.get("challenge"):
+                from .browser_diagnostics import remember
+                remember(self.store, account, operation, diagnostic_fingerprint, result["challenge"], attention)
+            return result
         except Exception:
             self.store.audit(principal, account, operation, "operation_failed", "internal_error")
             return {"status": "RETRYABLE", "reason": "internal_error", "account": account}

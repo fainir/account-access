@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "review_date": "2026-10-23",
+  "entry": "https://auth.lemonsqueezy.com/login",
+  "official_authenticator_documentation": "https://docs.lemonsqueezy.com/help/getting-started/two-factor-authentication",
+  "anonymous_http_status": 200,
+  "page_bytes": 14349,
+  "page_sha256": "b16a6167d2f499686deac8d120aaa3e9f789860d2ab45f6cbcab744279fd435c",
+  "password_form": {
+    "method": "POST",
+    "action": "https://auth.lemonsqueezy.com/login",
+    "email_selector": "#email",
+    "password_selector": "#password",
+    "remember_default": false
+  },
+  "browser_observed": true,
+  "public_asset_anonymous_status": 403,
+  "submitted_login": false,
+  "owner_identifier_recorded": false,
+  "authenticator_challenge_verified": false,
+  "authenticated_marker_verified": false,
+  "bundled_connector": false,
+  "production_ready": false
+}

@@ -5,6 +5,87 @@ import CoreFoundation
 import Security
 import Darwin
 
+// These two Apple per-user services can outlive removal of their user domain.
+// They execute system code, not the image being exchanged. Never exempt a
+// process by its basename, UID alone, or a cached observation from an earlier
+// barrier. Unknown processes and failed/racing observations still refuse.
+struct ComponentSystemProcessIdentity: Equatable {
+    let pid: Int32, parent: UInt32
+    let uid: UInt32, realUID: UInt32, savedUID: UInt32
+    let birthSec: UInt64, birthUsec: UInt64
+    let path: String
+
+    func signingIdentifier(brokerUID: uid_t) throws -> String {
+        guard (450..<500).contains(brokerUID), pid > 1, parent == 1,
+              uid == brokerUID, realUID == brokerUID, savedUID == brokerUID,
+              birthSec > 0, birthUsec < 1_000_000 else { throw ComponentUpdateFailure.quiescence }
+        switch path {
+        case "/usr/sbin/distnoted": return "com.apple.distnoted"
+        case "/usr/libexec/lsd": return "com.apple.lsd"
+        default: throw ComponentUpdateFailure.quiescence
+        }
+    }
+}
+
+struct ComponentSystemProcessObserver {
+    let list: () throws -> [pid_t]
+    let observe: (pid_t) throws -> ComponentSystemProcessIdentity
+    let attest: (ComponentSystemProcessIdentity, String) throws -> Void
+
+    func verify(brokerUID: uid_t) throws {
+        guard (450..<500).contains(brokerUID) else { throw ComponentUpdateFailure.quiescence }
+        let pids = try list().sorted()
+        guard pids.count <= 2, Set(pids).count == pids.count else { throw ComponentUpdateFailure.quiescence }
+        var paths: Set<String> = []
+        for pid in pids {
+            let before = try observe(pid)
+            guard before.pid == pid, paths.insert(before.path).inserted else { throw ComponentUpdateFailure.quiescence }
+            let identifier = try before.signingIdentifier(brokerUID: brokerUID)
+            try attest(before, identifier)
+            guard try observe(pid) == before else { throw ComponentUpdateFailure.quiescence }
+        }
+        // No new PID may be hidden by the enumeration used above. A process
+        // exit or replacement retries through the existing bounded barrier.
+        guard try list().sorted() == pids else { throw ComponentUpdateFailure.quiescence }
+    }
+
+    static func live(brokerUID: uid_t) -> Self {
+        Self(list: { try ComponentProcesses.listed(UInt32(PROC_UID_ONLY), brokerUID) }, observe: { pid in
+            var info = proc_bsdinfo()
+            let size = Int32(MemoryLayout<proc_bsdinfo>.size)
+            guard proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size) == size else {
+                throw ComponentUpdateFailure.quiescence
+            }
+            var path = [UInt8](repeating: 0, count: 4096)
+            let length = proc_pidpath(pid, &path, UInt32(path.count))
+            guard length > 0, length < path.count, let end = path.firstIndex(of: 0), end > 0,
+                  let text = String(bytes: path.prefix(end), encoding: .utf8) else { throw ComponentUpdateFailure.quiescence }
+            return ComponentSystemProcessIdentity(pid: Int32(bitPattern: info.pbi_pid), parent: info.pbi_ppid,
+                uid: info.pbi_uid, realUID: info.pbi_ruid, savedUID: info.pbi_svuid,
+                birthSec: info.pbi_start_tvsec, birthUsec: info.pbi_start_tvusec, path: text)
+        }, attest: { identity, identifier in
+            // "anchor apple" selects Apple's own system code. Developer ID,
+            // ad-hoc signatures and a self-asserted com.apple identifier fail.
+            let text = "anchor apple and identifier \"" + identifier + "\""
+                + " and !(entitlement[\"com.apple.security.get-task-allow\"] exists)"
+            var requirement: SecRequirement?, guest: SecCode?
+            let attributes = [kSecGuestAttributePid as String: NSNumber(value: identity.pid)] as CFDictionary
+            guard SecRequirementCreateWithString(text as CFString, [], &requirement) == errSecSuccess,
+                  let requirement,
+                  SecCodeCopyGuestWithAttributes(nil, attributes, [], &guest) == errSecSuccess, let guest,
+                  SecCodeCheckValidity(guest, [], requirement) == errSecSuccess else { throw ComponentUpdateFailure.quiescence }
+            var disk: SecStaticCode?, information: CFDictionary?
+            guard SecCodeCopyStaticCode(guest, [], &disk) == errSecSuccess, let disk,
+                  SecStaticCodeCheckValidity(disk, SecCSFlags(rawValue: kSecCSStrictValidate), requirement) == errSecSuccess,
+                  SecCodeCopySigningInformation(disk, SecCSFlags(rawValue: kSecCSSigningInformation), &information) == errSecSuccess,
+                  let values = information as? [String: Any],
+                  values[kSecCodeInfoIdentifier as String] as? String == identifier,
+                  (values[kSecCodeInfoMainExecutable as String] as? URL)?.path == identity.path,
+                  SecCodeCheckValidity(guest, [], requirement) == errSecSuccess else { throw ComponentUpdateFailure.quiescence }
+        })
+    }
+}
+
 struct ComponentJobIdentity: Codable, Equatable {
     let pid: Int32
     let group: UInt32

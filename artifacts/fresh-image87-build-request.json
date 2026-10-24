@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "build_attempt": 2,
+  "status": "BUILD_ONLY_NO_INSTALL_OR_PUBLICATION",
+  "packaging_source": "39b3bfbfe6b5ceb3fccb0f635b806220ae11007b",
+  "repair_source": "c4cf1b0918c1a51cbd4a38880364fcb71fa5980e",
+  "app_source": "d30fda732c589b9ac4dc339a7237ad8ba00d0016",
+  "broker_compilation_source": "5f4926a33883d6234f2538a5d0969e3b70c883b0",
+  "before_manifest_sha256": "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da",
+  "target_manifest_sha256": "5a732de4623ba50aefa6d31c54e7b1eae660b2921341f95042c5675d922d808b",
+  "input_package_sha256": "27ee29eea45992461d0d8e5d2f36878a784b15f52713066f9710647715420994",
+  "production_ready": false
+}

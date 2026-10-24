@@ -1,0 +1,44 @@
+{
+  "installed_writes": false,
+  "ordinary_user": true,
+  "private_records_read": false,
+  "production_ready": false,
+  "schema": 1,
+  "service_control": false,
+  "status": "PASSED",
+  "trees": [
+    {
+      "status": "PASSED",
+      "unit": "runtimeOwner"
+    },
+    {
+      "status": "PASSED",
+      "unit": "pythonRoot"
+    },
+    {
+      "status": "PASSED",
+      "unit": "runtimeRoot"
+    },
+    {
+      "status": "PASSED",
+      "unit": "browsers"
+    },
+    {
+      "status": "PASSED",
+      "unit": "wheels"
+    }
+  ],
+  "collected_at": "2026-10-24T18:54:45.686330+00:00",
+  "controller_source": "f9c0a80fd5bf28e4e92d005ef3777a6b44de1ab6",
+  "before_manifest_sha256": "5a732de4623ba50aefa6d31c54e7b1eae660b2921341f95042c5675d922d808b",
+  "source_sha256": {
+    "InstallerPayload.swift": "03876624a57cfe84d850b1998f636acaa039ce6fd4822d8df60ffeab7cd9c81d",
+    "FullImageTreeAttachment.swift": "8bb445ede216844f0a32144e99c27a9f06a80b7a76f4e78fbd9f30b65ce22a65",
+    "FullImageTreeStorage.swift": "fadd5d14cd1b5dd2fd32af35c339497534c01d338e6384a5b1fe78b6fc773e7a"
+  },
+  "reader_source_sha256": "5fa0941cad2f9f64160db71d38110cba5da6e0256b2ea6a21116068c5c728fa5",
+  "reader_sha256": "7c33e687e2afdd9573fdad900a7bd20ddeaef2b7e7671ddf4993782dfab0db4b",
+  "scope": "Five fixed public software trees only; native manifest bytes, exact membership, metadata, ownership/groups, aliases and empty ACLs. Does not qualify updater execution, service or accounts.",
+  "installed_version": "package91",
+  "successor_installed": false
+}

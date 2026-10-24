@@ -1,0 +1,58 @@
+{
+  "assets": {
+    "repair-review.json": {
+      "bytes": 6359,
+      "id": 670966447,
+      "release": {
+        "id": 422450948,
+        "source": "eba805729025caa1dc0754112e21d6d5592e0113",
+        "tag": "qa-eba8057-broker-repair88"
+      },
+      "sha256": "b3a493417afa880fe90e3738adcdc3dc95e2d020f47ea8fcd34400712489d4c6"
+    },
+    "repair-scripts-inventory.json": {
+      "bytes": 7307410,
+      "id": 670966440,
+      "release": {
+        "id": 422450948,
+        "source": "eba805729025caa1dc0754112e21d6d5592e0113",
+        "tag": "qa-eba8057-broker-repair88"
+      },
+      "sha256": "e72a8159ea55fab3c1c8c1644789da609ca5821bcd862f17876855fdf031f356"
+    },
+    "repair.pkg": {
+      "bytes": 299597876,
+      "id": 670966445,
+      "release": {
+        "id": 422450948,
+        "source": "eba805729025caa1dc0754112e21d6d5592e0113",
+        "tag": "qa-eba8057-broker-repair88"
+      },
+      "sha256": "8f6415ecf1fad46cb77bfacd37576555d300c8e702ea971bc08e7ec2e9f74e04"
+    },
+    "root-revalidation-review.json": {
+      "bytes": 7681,
+      "id": 669742571,
+      "release": {
+        "id": 422084919,
+        "source": "c4cf1b0918c1a51cbd4a38880364fcb71fa5980e",
+        "tag": "qa-c4cf1b0-broker-repair87"
+      },
+      "sha256": "51e3663a96f263392bbbacb343ffbbc117502b9104519b9e3d8e611da1f61499"
+    },
+    "root-revalidation.pkg": {
+      "bytes": 3459002,
+      "id": 669742575,
+      "release": {
+        "id": 422084919,
+        "source": "c4cf1b0918c1a51cbd4a38880364fcb71fa5980e",
+        "tag": "qa-c4cf1b0-broker-repair87"
+      },
+      "sha256": "97c5109627a6f218fa935196f668739ca1bdfe45005fab2ae72cb4e159677d3d"
+    }
+  },
+  "repository": "fainir/account-access",
+  "schema": 1,
+  "source_commit": "eba805729025caa1dc0754112e21d6d5592e0113",
+  "status": "FROZEN_REVIEWED_ASSETS"
+}

@@ -1,0 +1,75 @@
+{
+  "actual_Installer_qualified": false,
+  "attempt": 1,
+  "candidate_package_sha256": "d89a5f2ddfa85cee66527fa1394818fa46035507da0e2abc788c9eeb303dedd3",
+  "candidate_unchanged": true,
+  "exact_failed_preparation_predicate_measured": false,
+  "full_report_sha256": "1f172ac79a96b1777ff4bfc8fcc1381a23c8486eadb879471d7c7b31cfcbd5d0",
+  "matrix": {
+    "install-reapply": {
+      "artifact_id": 12367611734,
+      "artifact_sha256": "6142ed8074e3765caef9773c8b21fedbb39874abfc7ff7d800a5f46f21fa5823",
+      "failure_stage": "actual_full_installer",
+      "job_conclusion": "failure",
+      "job_id": 119378345889,
+      "legacy_directory_groups": {
+        "components": 80,
+        "original": 80,
+        "transition": 80
+      },
+      "owned_helper_logs_captured": false,
+      "passed_checks": 10,
+      "report_sha256": "da6520af191446b62817df6bb3aa878f08a25c55facf80f15a04a763f3b1c2aa",
+      "required_checks": 18
+    },
+    "interrupt-create": {
+      "artifact_id": 12367143068,
+      "artifact_sha256": "92813fa63c71ad9154bf7ee5d1e0a610be4dc76ed17baeef7d77dc72933d53c8",
+      "failure_stage": "owned_helper_checkpoint_wait",
+      "job_conclusion": "failure",
+      "job_id": 119378346590,
+      "legacy_directory_groups": {
+        "components": 80,
+        "original": 80,
+        "transition": 80
+      },
+      "owned_helper_logs_captured": true,
+      "passed_checks": 10,
+      "report_sha256": "408f4fd945f5f988abe4b68ab0da56f7652692e6e9e48bdd9ca8bf344e5e7196",
+      "required_checks": 18
+    },
+    "interrupt-remove": {
+      "artifact_id": 12367122934,
+      "artifact_sha256": "7d699191305b633f9d4b3535bc3d608dd9dc8b9bba127108e06df52f7dd66dcc",
+      "failure_stage": "owned_helper_checkpoint_wait",
+      "job_conclusion": "failure",
+      "job_id": 119378346124,
+      "legacy_directory_groups": {
+        "components": 80,
+        "original": 80,
+        "transition": 80
+      },
+      "owned_helper_logs_captured": true,
+      "passed_checks": 10,
+      "report_sha256": "45fe342ef1f6b3f76794b82e61f4f40430e50f7d5bfa081a83efc6b1f49808c1",
+      "required_checks": 18
+    }
+  },
+  "native_refusal": {
+    "checkpoint": "preparation",
+    "reason": "full_image_update_unavailable",
+    "schema": 1,
+    "status": "REFUSED"
+  },
+  "owner_Mac_updated": false,
+  "predecessor_qualified_with_observed_group80": true,
+  "production_ready": false,
+  "recovery_reapplication_and_target_image_not_reached": true,
+  "rerun_cancel_dispatch_or_guard_waiver": false,
+  "reviewed_input_job": "success",
+  "run_id": 39644940606,
+  "run_url": "https://github.com/fainir/account-access/actions/runs/39644940606",
+  "schema": 1,
+  "source_commit": "7f728aef844b65c11376f73afa863e54ff9c78ee",
+  "status": "ACTUAL_FIRST_ATTEMPT_FULL_IMAGE_INSTALLER_MATRIX_FAILED"
+}

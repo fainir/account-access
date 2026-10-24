@@ -1,0 +1,94 @@
+{
+  "application_source_commit": "c4cf1b0918c1a51cbd4a38880364fcb71fa5980e",
+  "build_commands": [
+    {
+      "exit_code": 0,
+      "name": "expand-input"
+    },
+    {
+      "exit_code": 0,
+      "name": "compile"
+    },
+    {
+      "exit_code": 0,
+      "name": "sign"
+    },
+    {
+      "exit_code": 0,
+      "name": "verify-signature"
+    },
+    {
+      "exit_code": 78,
+      "name": "ordinary-refusal"
+    },
+    {
+      "exit_code": 0,
+      "name": "wrapper-syntax"
+    },
+    {
+      "exit_code": 0,
+      "name": "package"
+    },
+    {
+      "exit_code": 0,
+      "name": "extract-container"
+    },
+    {
+      "exit_code": 0,
+      "name": "repack"
+    },
+    {
+      "exit_code": 0,
+      "name": "expand-final"
+    }
+  ],
+  "changed_resources": [
+    "AccountAccess-brokerrepair",
+    "postinstall"
+  ],
+  "contract_canonical_sha256": "7b629388f0c349a568473e614528a37960683da01ce2e9e3ca57c85d6ac967b3",
+  "expanded_nodes": 27523,
+  "helper_signature_verified": true,
+  "independent_expansion_passed": true,
+  "installer_signed": false,
+  "inventory": {
+    "bytes": 7307410,
+    "id": 670966440,
+    "release": {
+      "id": 422450948,
+      "source": "eba805729025caa1dc0754112e21d6d5592e0113",
+      "tag": "qa-eba8057-broker-repair88"
+    },
+    "sha256": "e72a8159ea55fab3c1c8c1644789da609ca5821bcd862f17876855fdf031f356"
+  },
+  "native_qa_report_sha256": "0c2764ce99e84f3b978d57d65f97c4319eb524400b808621b17eb3790cc65fa1",
+  "notarized": false,
+  "ordinary_user_invocation_refused": true,
+  "owner_installed": false,
+  "package": {
+    "bytes": 299597876,
+    "id": 670966445,
+    "release": {
+      "id": 422450948,
+      "source": "eba805729025caa1dc0754112e21d6d5592e0113",
+      "tag": "qa-eba8057-broker-repair88"
+    },
+    "sha256": "8f6415ecf1fad46cb77bfacd37576555d300c8e702ea971bc08e7ec2e9f74e04"
+  },
+  "personal_accounts_tested": false,
+  "production_ready": false,
+  "review": {
+    "bytes": 6359,
+    "id": 670966447,
+    "release": {
+      "id": 422450948,
+      "source": "eba805729025caa1dc0754112e21d6d5592e0113",
+      "tag": "qa-eba8057-broker-repair88"
+    },
+    "sha256": "b3a493417afa880fe90e3738adcdc3dc95e2d020f47ea8fcd34400712489d4c6"
+  },
+  "runtime_update_required": true,
+  "schema": 1,
+  "source_commit": "eba805729025caa1dc0754112e21d6d5592e0113",
+  "status": "BUILT_PENDING_ACTUAL_INSTALLER_ACCEPTANCE"
+}

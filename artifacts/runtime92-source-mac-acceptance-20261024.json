@@ -1,0 +1,126 @@
+{
+  "source_commit": "7051ef225ff2f35d67576d0ddbbc3e0b107e00bf",
+  "run_id": 40111630744,
+  "artifact_id": 12567363734,
+  "artifact_sha256": "ff9167303154dda995b013b9b036ba265ef73a51e41fdce8ddc7d57abdbc53ec",
+  "reports": [
+    {
+      "file": "account-access-mac-worker.json",
+      "sha256": "6ce442225c82c5fb004b3616837b0e4f527dd6f889a3a05a19f15d4b565d6711",
+      "status": "PASSED",
+      "checks": 25
+    },
+    {
+      "file": "account-access-mac-root-owner.json",
+      "sha256": "136d6c3308709a6ee8a9927ac112eead8bc28880dcaaada03e17b02540209d47",
+      "status": "PASSED",
+      "checks": 24
+    },
+    {
+      "file": "account-access-mac-key-custody.json",
+      "sha256": "79d16d2029431b90d1a44cd93c0115c0fa3bd14dfd7bc0aa058d27e74bede9cb",
+      "status": "PASSED",
+      "checks": 20
+    },
+    {
+      "file": "account-access-mac-owner-policy.json",
+      "sha256": "dacf14c1a886bad62993624207c6040176d30672e023d3b84f957b4bd1e4a1b9",
+      "status": "PASSED",
+      "checks": 16
+    },
+    {
+      "file": "account-access-mac-key-handoff.json",
+      "sha256": "a4622f59a992ad501b9a92328bb8749d97c5fabc5d282816b1ed82a5cea12721",
+      "status": "PASSED",
+      "checks": 33
+    },
+    {
+      "file": "account-access-mac-root-supervisor.json",
+      "sha256": "c112cdb5660ba7499c025420f5f9439cdd54ff94f294dfc2ad8da93a65702963",
+      "status": "PASSED",
+      "checks": 21
+    },
+    {
+      "file": "account-access-mac-root-coordinator.json",
+      "sha256": "f3efd939fd97fec87b85dfa0acee6b33d1480b7478ee204cae3dc7c540bdffeb",
+      "status": "PASSED",
+      "checks": 31
+    },
+    {
+      "file": "account-access-mac-staged-enrollment.json",
+      "sha256": "a0cc2aa58e190e7e364781404208a2f6dcda26eea040b9ed2216af868749d3fa",
+      "status": "PASSED",
+      "checks": 28
+    },
+    {
+      "file": "account-access-mac-initial-setup.json",
+      "sha256": "7bf203a63dfc7cb9bce8f8458ec1e1bc91b8e6b4c3f894e04b6b7ffab389c482",
+      "status": "PASSED",
+      "checks": 46
+    },
+    {
+      "file": "account-access-mac-initial-gateway.json",
+      "sha256": "45b779f54a61d939b005a8893f5a79a9db9526c991120f9d16834824b6423851",
+      "status": "PASSED",
+      "checks": 18
+    },
+    {
+      "file": "account-access-mac-provisioning.json",
+      "sha256": "9b5a524c94a271ca22833c11a690e0feebdbd19af577177ac64ecdfb19e6d986",
+      "status": "PASSED",
+      "checks": 39
+    },
+    {
+      "file": "account-access-mac-package.json",
+      "sha256": "7340fa2c57f6d61df82536c470632ecc76b5b6800d439c1521b75302869818cb",
+      "status": "PASSED",
+      "checks": 16
+    },
+    {
+      "file": "account-access-mac-prepared-package.json",
+      "sha256": "3d0ba4c01540c3366e69fb35f437fe3565032561a5e4a73902f7c122e1cb6049",
+      "status": "PASSED",
+      "checks": 23
+    },
+    {
+      "file": "account-access-mac-native-messages.json",
+      "sha256": "2d87f628e404636cf2fe13e401607a94138cee1c58978240df2c75e963a25197",
+      "status": "PASSED",
+      "checks": 13
+    },
+    {
+      "file": "account-access-mac-native-browser.json",
+      "sha256": "1db828ce3d595ac2286daae6cf2950026ba7af8cc3098fc128f0f04346a8e775",
+      "status": "PASSED",
+      "checks": 10
+    },
+    {
+      "file": "account-access-mac-native-system-browser.json",
+      "sha256": "4a0cfa254ce02eb63b9da71be37edab846b79e489738f3493d4ee80a6c70fe08",
+      "status": "PASSED",
+      "checks": 18
+    },
+    {
+      "file": "account-access-mac-protected-browser.json",
+      "sha256": "e9135409509d467a9a4bbd03e5817fef38aaf1dd543b142a4492f91c7cfe8706",
+      "status": "PASSED",
+      "checks": 18
+    },
+    {
+      "file": "account-access-mac-signed-chrome.json",
+      "sha256": "ec737435bf150a47d254148204ce746d80ded2920e12e508df68deaf29adad8b",
+      "status": "PASSED",
+      "checks": 17
+    }
+  ],
+  "personal_accounts_used": 0,
+  "production_ready": false,
+  "status": "PASSED_CONTROLLED_FIXTURES",
+  "checks_total": 416,
+  "python_test_run": 40111630807,
+  "python_checks_passed": 4106,
+  "python_checks_skipped": 108,
+  "owner_upgrade_qualified": false,
+  "physical_phone_qualified": false,
+  "real_account_login_qualified": false
+}

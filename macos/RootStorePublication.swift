@@ -6,18 +6,40 @@ import Darwin
 enum RootPublicationFailure: String, Error {
     case busy = "vault_publication_busy"
     case unsafeState = "vault_publication_unsafe_state"
+    case identityMismatch = "vault_publication_directory_identity_mismatch"
+    case deviceChanged = "vault_publication_device_number_changed"
     case notVerified = "vault_publication_requires_verified_stage"
     case unavailable = "vault_publication_unavailable"
 }
 
 enum RootPublicationPhase { case empty, incomplete, ready, published }
 
-final class RootStorePublication {
-    private struct Identity: Equatable, Codable {
-        let device: Int64
-        let inode: UInt64
-        init(_ info: stat) { device = Int64(info.st_dev); inode = UInt64(info.st_ino) }
+struct RootPublicationIdentity: Equatable, Codable {
+    let device: Int64
+    let inode: UInt64
+    init(device: Int64, inode: UInt64) { self.device = device; self.inode = inode }
+    init(_ info: stat) { device = Int64(info.st_dev); inode = UInt64(info.st_ino) }
+}
+
+enum RootPublicationDirectoryOrder {
+    static func published(stage: RootPublicationIdentity, destination: RootPublicationIdentity,
+                          originalStage: RootPublicationIdentity, originalEmpty: RootPublicationIdentity) throws -> Bool {
+        if stage == originalStage && destination == originalEmpty { return false }
+        if stage == originalEmpty && destination == originalStage { return true }
+        // This is a diagnostic distinction only. A changed mount-device number
+        // remains refused; matching inodes alone never authorize opening data.
+        if originalStage.device == originalEmpty.device, stage.device == destination.device,
+           stage.device != originalStage.device,
+           (stage.inode == originalStage.inode && destination.inode == originalEmpty.inode
+            || stage.inode == originalEmpty.inode && destination.inode == originalStage.inode) {
+            throw RootPublicationFailure.deviceChanged
+        }
+        throw RootPublicationFailure.identityMismatch
     }
+}
+
+final class RootStorePublication {
+    private typealias Identity = RootPublicationIdentity
     private struct Record: Codable, Equatable {
         let schema: Int
         let vault: String
@@ -33,7 +55,11 @@ final class RootStorePublication {
     private let destination: String
     private let stageName: String
     private let destinationName: String
+    private let parentPath: String
+    private let journalName: String
     private let record: Record
+    private let recordData: Data
+    private let volumeData: Data?
     private var parentFD: Int32 = -1
     private var lockFD: Int32 = -1
     private var journalFD: Int32 = -1
@@ -48,6 +74,7 @@ final class RootStorePublication {
         stageName = URL(fileURLWithPath: plan.stage).lastPathComponent
         destinationName = URL(fileURLWithPath: destination).lastPathComponent
         let parent = try WorkerLaunchPaths.protected(URL(fileURLWithPath: destination).deletingLastPathComponent().path)
+        parentPath = parent.path
         guard parent == URL(fileURLWithPath: plan.stage).deletingLastPathComponent(),
               ![".", "..", ""].contains(destinationName), stageName != destinationName else {
             throw RootPublicationFailure.unsafeState
@@ -69,7 +96,7 @@ final class RootStorePublication {
         guard lockHandle >= 0 else { throw RootPublicationFailure.unavailable }
         try Self.privateRootFile(lockHandle)
         guard flock(lockHandle, LOCK_EX | LOCK_NB) == 0 else { throw RootPublicationFailure.busy }
-        let journalName = ".enrollment-" + plan.enrollment + ".publication"
+        journalName = ".enrollment-" + plan.enrollment + ".publication"
         let created = mkdirat(parentHandle, journalName, 0o700) == 0
         guard created || errno == EEXIST else { throw RootPublicationFailure.unavailable }
         journalHandle = openat(parentHandle, journalName, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
@@ -89,7 +116,8 @@ final class RootStorePublication {
             record = Record(schema: 1, vault: plan.vault, enrollment: plan.enrollment, stage: stageName,
                 destination: destinationName, uid: plan.base.uid, gid: plan.base.gid,
                 stagedIdentity: Identity(stageInfo), emptyIdentity: Identity(destinationInfo))
-            try Self.create(journalHandle, "plan.json", data: JSONEncoder().encode(record))
+            recordData = try JSONEncoder().encode(record)
+            try Self.create(journalHandle, "plan.json", data: recordData)
             guard fsync(journalHandle) == 0, fsync(parentHandle) == 0 else { throw RootPublicationFailure.unavailable }
         } else {
             let data = try Self.read(journalHandle, "plan.json")
@@ -99,8 +127,57 @@ final class RootStorePublication {
                   value.schema == 1, value.vault == plan.vault, value.enrollment == plan.enrollment,
                   value.stage == stageName, value.destination == destinationName,
                   value.uid == plan.base.uid, value.gid == plan.base.gid,
-                  value.stagedIdentity != value.emptyIdentity else { throw RootPublicationFailure.unsafeState }
+                  value.stagedIdentity.device >= 0,
+                  value.stagedIdentity.device == value.emptyIdentity.device,
+                  value.stagedIdentity.inode > 0, value.emptyIdentity.inode > 0,
+                  value.stagedIdentity.inode != value.emptyIdentity.inode else { throw RootPublicationFailure.unsafeState }
             record = value
+            recordData = data
+        }
+        let context = try RootStoreVolumeBinding.capture(parentHandle)
+        guard Int64(stageInfo.st_dev) == context.device, Int64(destinationInfo.st_dev) == context.device else {
+            throw RootPublicationFailure.unsafeState
+        }
+        var bindingInfo = stat()
+        if fstatat(journalHandle, RootStoreVolumeBinding.name, &bindingInfo, AT_SYMLINK_NOFOLLOW) == 0 {
+            let data = try Self.read(journalHandle, RootStoreVolumeBinding.name)
+            _ = try RootStoreVolumeBinding.decode(data, record: recordData, context: context)
+            volumeData = data
+        } else {
+            guard errno == ENOENT else { throw RootPublicationFailure.unsafeState }
+            let sameEpoch = record.stagedIdentity.device == context.device && record.emptyIdentity.device == context.device
+            let exactPair = (Identity(stageInfo) == record.stagedIdentity && Identity(destinationInfo) == record.emptyIdentity)
+                || (Identity(stageInfo) == record.emptyIdentity && Identity(destinationInfo) == record.stagedIdentity)
+            if sameEpoch && exactPair {
+                // Enroll persistent identity only while the original device and
+                // both directory identities are still exact. An already changed
+                // legacy record requires a separately reviewed migration proof.
+                let data = try RootStoreVolumeBinding(record: recordData, context: context).encoded()
+                let savedRecord = recordData
+                let savedJournalName = journalName, savedStageName = stageName, savedDestinationName = destinationName
+                let savedUID = plan.base.uid, savedGID = plan.base.gid
+                try RootStoreVolumePublication.publish(directory: journalHandle, data: data, verify: {
+                    var heldParent = stat(), attachedParent = stat(), heldJournal = stat(), attachedJournal = stat()
+                    var heldLock = stat(), attachedLock = stat()
+                    guard try WorkerLaunchPaths.protected(parent.path) == parent,
+                          fstat(parentHandle, &heldParent) == 0, lstat(parent.path, &attachedParent) == 0,
+                          heldParent.st_dev == attachedParent.st_dev, heldParent.st_ino == attachedParent.st_ino,
+                          fstat(journalHandle, &heldJournal) == 0,
+                          fstatat(parentHandle, savedJournalName, &attachedJournal, AT_SYMLINK_NOFOLLOW) == 0,
+                          heldJournal.st_dev == attachedJournal.st_dev, heldJournal.st_ino == attachedJournal.st_ino,
+                          fstat(lockHandle, &heldLock) == 0,
+                          fstatat(parentHandle, ".account-access-enrollment.lock", &attachedLock, AT_SYMLINK_NOFOLLOW) == 0,
+                          heldLock.st_dev == attachedLock.st_dev, heldLock.st_ino == attachedLock.st_ino,
+                          try Self.read(journalHandle, "plan.json") == savedRecord,
+                          try RootStoreVolumeBinding.capture(parentHandle) == context,
+                          Identity(try Self.directory(parentHandle, savedStageName, uid: savedUID, gid: savedGID)) == Identity(stageInfo),
+                          Identity(try Self.directory(parentHandle, savedDestinationName, uid: savedUID, gid: savedGID)) == Identity(destinationInfo) else {
+                        throw RootStoreVolumeFailure.changed
+                    }
+                    try Self.noACL(parentHandle); try Self.noACL(journalHandle); try Self.privateRootFile(lockHandle)
+                })
+                volumeData = data
+            } else { volumeData = nil }
         }
         parentFD = parentHandle; lockFD = lockHandle; journalFD = journalHandle
         success = true
@@ -112,6 +189,48 @@ final class RootStorePublication {
               info.st_mode & 0o7777 == 0o600, info.st_nlink == 1, info.st_size <= 4096 else {
             throw RootPublicationFailure.unsafeState
         }
+        try noACL(fd)
+    }
+    private static func noACL(_ fd: Int32) throws {
+        errno = 0
+        guard let acl = acl_get_fd(fd) else {
+            guard errno == ENOENT else { throw RootPublicationFailure.unsafeState }; return
+        }
+        defer { acl_free(UnsafeMutableRawPointer(acl)) }
+        var entry: acl_entry_t?
+        errno = 0
+        guard acl_get_entry(acl, ACL_FIRST_ENTRY.rawValue, &entry) != 0, errno == EINVAL else {
+            throw RootPublicationFailure.unsafeState
+        }
+    }
+    private func currentIdentities() throws -> (Identity, Identity) {
+        guard try WorkerLaunchPaths.protected(parentPath).path == parentPath else { throw RootPublicationFailure.unsafeState }
+        var parent = stat(), path = stat(), journal = stat(), journalPath = stat()
+        guard fstat(parentFD, &parent) == 0, lstat(parentPath, &path) == 0,
+              parent.st_uid == 0, parent.st_mode & S_IFMT == S_IFDIR, parent.st_mode & 0o7022 == 0,
+              parent.st_dev == path.st_dev, parent.st_ino == path.st_ino,
+              parent.st_uid == path.st_uid, parent.st_mode == path.st_mode,
+              fstat(journalFD, &journal) == 0,
+              fstatat(parentFD, journalName, &journalPath, AT_SYMLINK_NOFOLLOW) == 0,
+              journal.st_uid == 0, journal.st_mode & 0o7777 == 0o700,
+              journal.st_dev == parent.st_dev, journal.st_dev == journalPath.st_dev,
+              journal.st_ino == journalPath.st_ino, journal.st_uid == journalPath.st_uid,
+              journal.st_mode == journalPath.st_mode,
+              try Self.read(journalFD, "plan.json") == recordData else { throw RootPublicationFailure.unsafeState }
+        try Self.noACL(parentFD); try Self.noACL(journalFD)
+        let context = try RootStoreVolumeBinding.capture(parentFD)
+        if let volumeData {
+            guard try Self.read(journalFD, RootStoreVolumeBinding.name) == volumeData else {
+                throw RootStoreVolumeFailure.changed
+            }
+            _ = try RootStoreVolumeBinding.decode(volumeData, record: recordData, context: context)
+            return (Identity(device: context.device, inode: record.stagedIdentity.inode),
+                    Identity(device: context.device, inode: record.emptyIdentity.inode))
+        }
+        var missing = stat()
+        guard fstatat(journalFD, RootStoreVolumeBinding.name, &missing, AT_SYMLINK_NOFOLLOW) == -1,
+              errno == ENOENT else { throw RootStoreVolumeFailure.changed }
+        return (record.stagedIdentity, record.emptyIdentity)
     }
     private static func directory(_ parent: Int32, _ name: String, uid: uid_t, gid: gid_t) throws -> stat {
         var info = stat()
@@ -163,11 +282,12 @@ final class RootStorePublication {
         return true
     }
     private func swapped() throws -> Bool {
+        let originals = try currentIdentities()
         let stage = Identity(try Self.directory(parentFD, stageName, uid: plan.base.uid, gid: plan.base.gid))
         let destination = Identity(try Self.directory(parentFD, destinationName, uid: plan.base.uid, gid: plan.base.gid))
-        if stage == record.stagedIdentity && destination == record.emptyIdentity { return false }
-        guard stage == record.emptyIdentity, destination == record.stagedIdentity,
-              try ready() else { throw RootPublicationFailure.unsafeState }
+        guard try RootPublicationDirectoryOrder.published(stage: stage, destination: destination,
+            originalStage: originals.0, originalEmpty: originals.1) else { return false }
+        guard try ready() else { throw RootPublicationFailure.unsafeState }
         return true
     }
     private func marker(_ name: String, equals data: Data) throws -> Bool {
@@ -223,8 +343,9 @@ final class RootStorePublication {
     func accept(_ receipt: VerifiedStagedVault) throws {
         try RootVaultKeyStore.requireDaemon()
         stateLock.lock(); defer { stateLock.unlock() }
+        let originals = try currentIdentities()
         guard receipt.vault == plan.vault, receipt.enrollment == plan.enrollment, receipt.path == plan.stage,
-              Int64(receipt.device) == record.stagedIdentity.device, UInt64(receipt.inode) == record.stagedIdentity.inode,
+              Int64(receipt.device) == originals.0.device, UInt64(receipt.inode) == originals.0.inode,
               try !swapped() else { throw RootPublicationFailure.notVerified }
         if try !ready() { try Self.create(journalFD, "ready", data: Self.marker) }
     }

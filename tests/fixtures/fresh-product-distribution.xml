@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<installer-gui-script minSpecVersion="2">
+    <title>Account Access</title>
+    <options customize="never" require-scripts="true" hostArchitectures="arm64"/>
+    <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>
+    <volume-check script="accountAccessSpaceCheck()">
+        <allowed-os-versions>
+            <os-version min="14.0"/>
+        </allowed-os-versions>
+    </volume-check>
+    <choices-outline>
+        <line choice="default"/>
+    </choices-outline>
+    <choice id="default" title="Account Access" visible="false">
+        <pkg-ref id="com.fainir.accountaccess.system"/>
+    </choice>
+    <pkg-ref id="com.fainir.accountaccess.system" version="0.8.0" installKBytes="0" onConclusion="none" updateKBytes="0">#payload.pkg</pkg-ref>
+    <script><![CDATA[
+function accountAccessSpaceCheck() {
+  // This historical property is misnamed: current native Installer returns
+  // bytes. An inert native preflight test verifies the units and both branches.
+  // The protected coordinator rechecks its pinned volume using fstatvfs.
+  var available = my.target.availableKilobytes;
+  if (my.target.mountpoint === "/" && typeof available === "number" &&
+      isFinite(available) && available >= 2070388736) return true;
+  my.result.type = "Fatal";
+  my.result.title = "Free some space to install Account Access";
+  my.result.message = "Account Access needs at least 2.1 GB of free space while installing. Free some space, then reopen this installer. Your existing setup is preserved.";
+  return false;
+}
+]]></script>
+    <pkg-ref id="com.fainir.accountaccess.system">
+        <bundle-version/>
+    </pkg-ref>
+</installer-gui-script>

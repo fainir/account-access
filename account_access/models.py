@@ -52,7 +52,14 @@ class BrowserOperation(StrictModel):
     kind: Literal["browser"] = "browser"
     description: str = Field(min_length=1, max_length=240)
     url: str
-    fields: dict[Handle, str] = Field(min_length=1, max_length=16)
+    fields: dict[Handle, str] = Field(default_factory=dict, max_length=16)
+    session_only: bool = False
+
+    @model_validator(mode="after")
+    def one_result_kind(self):
+        if self.session_only == bool(self.fields):
+            raise ValueError("Choose a session-status result or nonempty read fields, never both")
+        return self
 
 
 class OAuthAccount(StrictModel):
@@ -109,10 +116,17 @@ class LoginIdentityStep(StrictModel):
     scripted: bool = False
 
 
+class IdentityContactFields(StrictModel):
+    identity_selector: str = Field(min_length=1, max_length=500)
+    phone_selector: str = Field(min_length=1, max_length=500)
+    post_url: str
+
+
 class LoginForm(StrictModel):
-    username_selector: str
-    password_selector: str
+    username_selector: str = ""
+    password_selector: str = ""
     submit_selector: str
+    identity_contact: IdentityContactFields | None = None
     identity_step: LoginIdentityStep | None = None
     code_selector: str | None = None
     code_submit_selector: str | None = None
@@ -127,6 +141,18 @@ class LoginForm(StrictModel):
 
     @model_validator(mode="after")
     def one_factor_configuration(self):
+        if self.identity_contact:
+            if (self.username_selector or self.password_selector or self.identity_step
+                    or self.device_email_source or set(self.factors) != {"sms"}
+                    or self.choices or self.code_requests or self.choice_toggle_selector):
+                raise ValueError("Identity and phone login requires its own fields and a single SMS factor")
+            if self.identity_contact.identity_selector == self.identity_contact.phone_selector:
+                raise ValueError("Identity and phone must use distinct controls")
+        elif not {"username_selector", "password_selector"} <= self.model_fields_set:
+            # These fields were required before identity/contact enrollment.
+            # Preserve already-serialized empty selectors: the browser refuses
+            # unusable controls when connecting, without blocking config load.
+            raise ValueError("Password login requires username and password controls")
         if self.factors and any([self.code_source, self.code_selector, self.code_submit_selector]):
             raise ValueError("Use per-method factors or the legacy single source, never both")
         if len({choice.kind for choice in self.choices}) != len(self.choices):
@@ -134,6 +160,17 @@ class LoginForm(StrictModel):
         if len({item.kind for item in self.code_requests}) != len(self.code_requests):
             raise ValueError("Configure each code request once")
         return self
+
+    def credential_fields(self):
+        return ("identity", "phone") if self.identity_contact else ("username", "password")
+
+    def credential_ready(self, value):
+        if not (isinstance(value, dict) and all(isinstance(value.get(key), str)
+                and 0 < len(value[key]) <= 4096 for key in self.credential_fields())):
+            return False
+        return not self.identity_contact or (set(value) == {"identity", "phone"} and all(
+            len(value[key]) <= 128 and value[key].strip() and not any(ord(char) < 32 or ord(char) == 127
+                for char in value[key]) for key in self.credential_fields()))
 
     def sources(self):
         values = ({factor.code_source for factor in self.factors.values()} if self.factors
@@ -241,6 +278,14 @@ class Configuration(StrictModel):
                 urls = [account.login_url, *account.read_resources, *account.login_resources,
                         *account.login_assets, *account.login_post_urls]
                 if account.login:
+                    if account.login.identity_contact and (
+                            account.password_import_origins or account.login_challenge
+                            or account.login_asset_discovery
+                            or account.login.identity_contact.post_url not in account.login_post_urls
+                            or account.login.identity_contact.post_url not in account.login_resources
+                            or origin(account.login.identity_contact.post_url) != origin(account.login_url)
+                            or any(not operation.session_only for operation in account.operations.values())):
+                        raise ValueError("Identity and phone login requires explicit POST routes and session-status-only operations")
                     identity = account.login.identity_step
                     if identity and (
                             identity.post_url not in account.login_post_urls
@@ -295,6 +340,12 @@ class Configuration(StrictModel):
 
     def fingerprint(self, account: str) -> str:
         data = self.accounts[account].model_dump()
+        if isinstance(self.accounts[account], BrowserAccount):
+            for operation in data["operations"].values():
+                if operation.get("session_only") is False:
+                    # Adding this explicit result kind must not revoke existing
+                    # field-read grants or their saved sessions on upgrade.
+                    operation.pop("session_only", None)
         if isinstance(self.accounts[account], BrowserAccount) and not data.get("login_assets"):
             data.pop("login_assets", None)
         if isinstance(self.accounts[account], BrowserAccount) and data.get("browser_channel") is None:
@@ -308,6 +359,8 @@ class Configuration(StrictModel):
             # no alias was added. A nonempty alias is still permission-bound.
             data.pop("password_import_origins", None)
         if isinstance(self.accounts[account], BrowserAccount) and data.get("login"):
+            if data["login"].get("identity_contact") is None:
+                data["login"].pop("identity_contact", None)
             if data["login"].get("device_email_source") is None:
                 data["login"].pop("device_email_source", None)
             if data["login"].get("identity_step") is None:

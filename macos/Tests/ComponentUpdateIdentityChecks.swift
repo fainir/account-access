@@ -12,6 +12,87 @@ enum ComponentUpdateIdentityChecks {
         do { try action(); throw ComponentUpdateFailure.context }
         catch ComponentUpdateFailure.quiescence {}
     }
+    private static func systemProcessObservations() throws -> (Int, [String: Bool]) {
+        var count = 0
+        func expect(_ value: Bool) throws {
+            guard value else { throw ComponentUpdateFailure.context }; count += 1
+        }
+        func identity(pid: Int32 = 123, parent: UInt32 = 1, uid: UInt32 = 450,
+                      real: UInt32 = 450, saved: UInt32 = 450, sec: UInt64 = 100,
+                      usec: UInt64 = 10, path: String = "/usr/sbin/distnoted") -> ComponentSystemProcessIdentity {
+            .init(pid: pid, parent: parent, uid: uid, realUID: real, savedUID: saved,
+                  birthSec: sec, birthUsec: usec, path: path)
+        }
+        let first = identity(), second = identity(pid: 124, path: "/usr/libexec/lsd")
+        try expect(first.signingIdentifier(brokerUID: 450) == "com.apple.distnoted")
+        try expect(second.signingIdentifier(brokerUID: 450) == "com.apple.lsd")
+        for invalid in [identity(pid: 1), identity(parent: 2), identity(uid: 451), identity(real: 0),
+                        identity(saved: 0), identity(sec: 0), identity(usec: 1_000_000),
+                        identity(path: "/tmp/distnoted"), identity(path: "/usr/sbin/../sbin/distnoted"),
+                        identity(path: "/usr/libexec/other"), identity(path: "/usr/sbin/distnoted\0"),
+                        identity(path: "/Library/Application Support/Account Access/bin/AccountAccess-broker")] {
+            try rejects { _ = try invalid.signingIdentifier(brokerUID: 450) }; count += 1
+        }
+        for uid: uid_t in [0, 449, 500, 501] {
+            try rejects { _ = try first.signingIdentifier(brokerUID: uid) }; count += 1
+        }
+        do {
+            var reads = 0, attestations = 0, lists = 0
+            let api = ComponentSystemProcessObserver(list: { lists += 1; return lists == 1 ? [124, 123] : [123, 124] },
+                observe: { pid in reads += 1; return pid == 123 ? first : second }, attest: { row, name in
+                    guard name == (row.pid == 123 ? "com.apple.distnoted" : "com.apple.lsd") else { throw ComponentUpdateFailure.context }
+                    attestations += 1
+                })
+            try api.verify(brokerUID: 450)
+            try expect(reads == 4 && attestations == 2 && lists == 2)
+            // Every barrier repeats the observations and signature checks.
+            try api.verify(brokerUID: 450)
+            try expect(reads == 8 && attestations == 4 && lists == 4)
+        }
+        do {
+            var lists = 0
+            let api = ComponentSystemProcessObserver(list: { lists += 1; return [] },
+                observe: { _ in throw ComponentUpdateFailure.context }, attest: { _, _ in throw ComponentUpdateFailure.context })
+            try api.verify(brokerUID: 450); try expect(lists == 2)
+        }
+        for scenario in ["duplicate", "too_many", "wrong_pid", "unknown_path", "duplicate_path", "signature",
+                         "changed_birth", "changed_path", "changed_uid", "list_error", "info_error", "new_pid", "exited_pid"] {
+            var lists = 0, observations = 0
+            let api = ComponentSystemProcessObserver(list: {
+                lists += 1
+                switch scenario {
+                case "list_error": throw ComponentUpdateFailure.quiescence
+                case "duplicate": return [123, 123]
+                case "too_many": return [123, 124, 125]
+                case "duplicate_path": return [123, 124]
+                case "new_pid" where lists == 2: return [123, 124]
+                case "exited_pid" where lists == 2: return []
+                default: return [123]
+                }
+            }, observe: { pid in
+                observations += 1
+                switch scenario {
+                case "info_error": throw ComponentUpdateFailure.quiescence
+                case "wrong_pid": return identity(pid: 456)
+                case "unknown_path": return identity(path: "/tmp/distnoted")
+                case "duplicate_path": return identity(pid: pid)
+                case "changed_birth" where observations == 2: return identity(sec: 101)
+                case "changed_path" where observations == 2: return identity(path: "/usr/libexec/lsd")
+                case "changed_uid" where observations == 2: return identity(uid: 451)
+                default: return first
+                }
+            }, attest: { _, _ in
+                if scenario == "signature" { throw ComponentUpdateFailure.quiescence }
+            })
+            try rejects { try api.verify(brokerUID: 450) }; count += 1
+        }
+        guard count == 34 else { throw ComponentUpdateFailure.context }
+        return (count, ["only_fixed_apple_process_paths_and_dedicated_identity_eligible": true,
+                        "system_process_signature_failure_refuses": true,
+                        "system_process_pid_birth_path_uid_races_refuse": true,
+                        "system_process_new_duplicate_or_unobservable_pids_refuse": true,
+                        "system_process_attestation_repeats_at_every_barrier": true])
+    }
     // Injected observations exercise the actual production observer, without
     // querying any process or performing a Security framework attestation.
     private final class RevalidationAPI {
@@ -194,10 +275,14 @@ enum ComponentUpdateIdentityChecks {
         count += revalidation.0
         stage = "final_count"
         guard count == 69 else { throw ComponentUpdateFailure.context }
+        stage = "system_process_observations"
+        let systemProcesses = try systemProcessObservations()
+        count += systemProcesses.0
         completed = true
         return (count, ["fixed_job_parser_accepts_only_closed_states": true,
                         "foreign_or_malformed_job_print_rejected": true,
                         "saved_process_identity_bound_to_birth_and_boot": true,
-                        "process_group_error_not_empty": true].merging(revalidation.1) { _, _ in true })
+                        "process_group_error_not_empty": true].merging(revalidation.1) { _, _ in true }
+                            .merging(systemProcesses.1) { _, _ in true })
     }
 }
