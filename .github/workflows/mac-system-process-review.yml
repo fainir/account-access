@@ -1,0 +1,32 @@
+name: Mac system process identity review
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  live-system-identities:
+    if: github.repository == 'fainir/account-access'
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Compile committed read-only observer
+        run: python3 -I -B scripts/mac_system_process_native_probe.py --output "$RUNNER_TEMP/system-process-review"
+      - name: Verify live Apple identities and reject incorrect code identities
+        run: |
+          sudo -n /usr/bin/env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin \
+            GITHUB_ACTIONS=true RUNNER_ENVIRONMENT=github-hosted GITHUB_REPOSITORY=fainir/account-access \
+            "$RUNNER_TEMP/system-process-review/system-process-checks" > "$RUNNER_TEMP/system-process-review/result.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: system-process-review-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/system-process-review/*.json
+            ${{ runner.temp }}/system-process-review/*.stdout
+            ${{ runner.temp }}/system-process-review/*.stderr
+          if-no-files-found: error
+          retention-days: 7
