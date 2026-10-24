@@ -7,6 +7,17 @@ establish that experience on personal accounts.
 
 ## Current candidate
 
+### Runtime dependency update — 24 October 2026
+
+Current CI reported CVE-2026-112940, CVE-2026-112913 and CVE-2026-112907
+against the runtime's filelock 3.32.7. Source now requires filelock 4.2.4 and
+regenerates the hash-pinned runtime requirements. The local dependency audit
+reports no known vulnerabilities. Supervisor/provisioning checks and password
+sync contention tests passed with the new dependency. A rebuilt runtime and
+installer acceptance are still required; packages 85/87 retain their frozen
+older runtime and are not production release candidates. The fresh-87 build is
+only a packaging/installation investigation of those exact historical bytes.
+
 ### Broker store repair candidate — 24 October 2026
 
 The owner's installed public image was still full image 85 after a Mac restart
