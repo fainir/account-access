@@ -45,5 +45,26 @@
   "diagnosis": "pkgutil expansion preserves archived ownership; root-only reader was called before normalizing the independently verified invocation-owned resource tree",
   "fixed_hosted_validation_passed": false,
   "installed_owner_machine": false,
-  "production_ready": false
+  "production_ready": false,
+  "archive_metadata_confirmed": {
+    "tool": "/usr/bin/tar -tvf",
+    "scripts_archive_sha256": "c687e9ddf246c31541ebc00324a64583d20c8765a05c0e33b8b76dcb2b42518b",
+    "members": {
+      "AccountAccess-runtimeupgrade": {
+        "uid": 501,
+        "gid": 20,
+        "mode": "0755"
+      },
+      "RuntimeUpgradePlan.json": {
+        "uid": 501,
+        "gid": 20,
+        "mode": "0644"
+      },
+      "TargetManifest.json": {
+        "uid": 501,
+        "gid": 20,
+        "mode": "0644"
+      }
+    }
+  }
 }

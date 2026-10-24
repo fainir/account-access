@@ -11,5 +11,10 @@
   "entrypoint_ordinary_refusal": true,
   "controller_sources_match_package93": true,
   "installed_reads": false,
-  "production_ready": false
+  "production_ready": false,
+  "full_source_ci_passed": true,
+  "python_passed": 4169,
+  "python_skipped": 108,
+  "dependency_audit_passed": true,
+  "python_job_log_sha256": "386aafaa27c89747371e37f711de069191267086732551f0732166f58e072e6d"
 }

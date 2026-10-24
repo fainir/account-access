@@ -22,6 +22,23 @@ SCENARIOS = {"install-reapply", "interrupt-owner", "interrupt-runtime"}
 CHECKS = {"fixed_inputs", "predecessor_fixture_accepted", "signature_verified", "scenario_exercised",
           "actual_installer", "exact_public_image", "policy_rotation", "roots_and_history_preserved",
           "live_service", "exact_reapply", "unchanged_reapply", "foreign_audit_refused", "service_after_refusal"}
+CACHE_REPAIR_FILES = (
+    "runtime/lib/python3.12/encodings/__pycache__/__init__.cpython-312.pyc",
+    "runtime/lib/python3.12/encodings/__pycache__/aliases.cpython-312.pyc",
+    "runtime/lib/python3.12/encodings/__pycache__/utf_8.cpython-312.pyc",
+)
+PUBLISHED_TREES = (
+    "owner.app", "runtime/lib/python3.12/site-packages/account_access",
+    "runtime/lib/python3.12/site-packages/account_access-0.8.0.dist-info",
+    "python/libexec/bitwarden", "runtime/libexec/bitwarden",
+    "python/lib/python3.12/site-packages/pip", "python/lib/python3.12/site-packages/pip-26.2.2.dist-info",
+    "python/lib/python3.12/ensurepip", "runtime/lib/python3.12/site-packages/pip",
+    "runtime/lib/python3.12/site-packages/pip-26.2.2.dist-info", "runtime/lib/python3.12/ensurepip",
+)
+PUBLISHED_FILES = frozenset(CACHE_REPAIR_FILES) | {
+    "wheels/account_access-0.8.0-py3-none-any.whl", "python/bin/pip", "python/bin/pip3",
+    "runtime/bin/pip", "runtime/bin/pip3",
+}
 
 
 def acceptance_passed(value):
@@ -29,6 +46,31 @@ def acceptance_passed(value):
             and set(value.get("checks", {})) == CHECKS and all(v is True for v in value["checks"].values())
             and value.get("production_ready") is False and value.get("real_account_login_tested") is False
             and value.get("installed_owner_machine") is False and value.get("failure_stage") is None)
+
+
+def preceding_group(relative, legacy):
+    # Independent readable projection of the frozen native predecessor mapping.
+    if relative in PUBLISHED_FILES or any(relative == p or relative.startswith(p + "/") for p in PUBLISHED_TREES):
+        return 0
+    return legacy
+
+
+def public_tree_groups(controller, nodes):
+    controller.guard()
+    root = controller.h.BASE
+    controller.require(root == Path("/Library/Application Support/Account Access"))
+    legacy = root.lstat().st_gid
+    checked, issues = 0, []
+    for relative in nodes:
+        if relative.split("/", 1)[0] not in {"owner.app", "python", "runtime", "browsers", "wheels"}:
+            continue
+        info = (root / relative).lstat()
+        expected = preceding_group(relative, legacy)
+        checked += 1
+        if info.st_gid != expected:
+            controller.require(len(issues) < 100)
+            issues.append({"public_path": relative, "gid": info.st_gid, "expected_gid": expected})
+    return {"nodes_checked": checked, "legacy_group": legacy, "issues": issues}
 
 
 def normalize_expansion(controller, stage):
@@ -61,6 +103,84 @@ def normalize_expansion(controller, stage):
     finally:
         os.close(fd)
     f.verify_owned_stage(stage)
+
+
+def reproduce_historical_cache_repair(controller, scripts, result):
+    """Reproduce the owner's earlier three-file repair only in the fresh VM.
+
+    The production successor deliberately requires this exact predecessor
+    metadata. A clean base package does not include that earlier repair. This
+    fixture cannot normalize any other installed file or run on an owner host.
+    """
+    controller.guard()
+    c, h, f = controller, controller.h, controller.f
+    c.require(h.BASE == Path("/Library/Application Support/Account Access"))
+    raw = h.read_file(scripts / "BaseManifest.json", maximum=16 * 1024**2)
+    c.require(c.digest(raw) == BEFORE)
+    manifest = f.decode(raw)
+    h.verify_image(manifest)
+    nodes = manifest["roots"][str(h.BASE)]
+    held = []
+    detail = {"scope": "three fixed public cache files in disposable VM", "before": [], "after": [],
+              "bytes_and_inodes_preserved": False, "owner_machine": False}
+    result["historical_cache_repair_fixture"] = detail
+    detail["before_tree_groups"] = public_tree_groups(c, nodes)
+    c.require(all(row["public_path"] in CACHE_REPAIR_FILES for row in detail["before_tree_groups"]["issues"]))
+    try:
+        # Hold and qualify every path before the first metadata change.
+        for relative in CACHE_REPAIR_FILES:
+            parent = os.open("/", f.DIRECTORY)
+            try:
+                for part in (h.BASE / relative).parts[1:-1]:
+                    child = os.open(part, f.DIRECTORY, dir_fd=parent)
+                    try:
+                        info = os.fstat(child)
+                        c.require(info.st_uid == 0 and not info.st_mode & 0o7022)
+                        f.empty_acl(child)
+                    except Exception:
+                        os.close(child)
+                        raise
+                    os.close(parent)
+                    parent = child
+                name = Path(relative).name
+                leaf = os.open(name, f.REGULAR, dir_fd=parent)
+                held.append((parent, leaf, name, relative, os.fstat(leaf)))
+                parent = None
+            finally:
+                if parent is not None:
+                    os.close(parent)
+        legacy_group = h.BASE.lstat().st_gid
+        for parent, leaf, name, relative, before in held:
+            node = nodes[relative]
+            c.require(node["kind"] == "file" and node["mode"] == 0o644
+                      and stat.S_ISREG(before.st_mode) and stat.S_IMODE(before.st_mode) == 0o644
+                      and before.st_uid == 0 and before.st_gid in {0, legacy_group} and before.st_nlink == 1
+                      and before.st_size == node["size"] and before.st_size <= 65536
+                      and h.stamp(before) == h.stamp(os.stat(name, dir_fd=parent, follow_symlinks=False))
+                      and c.digest(os.pread(leaf, before.st_size + 1, 0)) == node["sha256"])
+            f.empty_acl(leaf)
+            detail["before"].append({"public_path": relative, "gid": before.st_gid})
+        c.require(len({row[4].st_gid for row in held}) == 1)
+        for parent, leaf, name, relative, before in held:
+            c.require(h.stamp(before) == h.stamp(os.fstat(leaf))
+                      == h.stamp(os.stat(name, dir_fd=parent, follow_symlinks=False)))
+            if before.st_gid != 0:
+                os.fchown(leaf, 0, 0)
+                os.fsync(leaf)
+            after = os.fstat(leaf)
+            c.require(after.st_gid == 0 and h.stamp(after) == h.stamp(os.stat(name, dir_fd=parent, follow_symlinks=False))
+                      and (after.st_dev, after.st_ino, after.st_uid, after.st_mode, after.st_nlink, after.st_size, after.st_mtime_ns)
+                      == (before.st_dev, before.st_ino, before.st_uid, before.st_mode, before.st_nlink, before.st_size, before.st_mtime_ns)
+                      and c.digest(os.pread(leaf, after.st_size + 1, 0)) == nodes[relative]["sha256"])
+            detail["after"].append({"public_path": relative, "gid": after.st_gid})
+        h.verify_image(manifest)
+        detail["after_tree_groups"] = public_tree_groups(c, nodes)
+        c.require(not detail["after_tree_groups"]["issues"])
+        detail["bytes_and_inodes_preserved"] = True
+    finally:
+        for parent, leaf, *_ in held:
+            os.close(leaf)
+            os.close(parent)
 
 
 def run(*, controller, args, stage, report, output, command, publication=None):
@@ -122,6 +242,8 @@ def run(*, controller, args, stage, report, output, command, publication=None):
         "upgrade-signature.log")
     require(c.digest(h.read_file(scripts / "AccountAccess-runtimeupgrade", maximum=16 * 1024**2)) == review["helper_sha256"])
     result["checks"]["signature_verified"] = True
+    result["failure_stage"] = "historical_cache_fixture"
+    reproduce_historical_cache_repair(c, scripts, result)
     def history():
         # Fixed public repair history only. Never inspect the account store.
         values = {str(p): c.snapshot(p, maximum=16 * 1024**2)
@@ -141,6 +263,7 @@ def run(*, controller, args, stage, report, output, command, publication=None):
         finally:
             delta.capture(report=report, output=output, log=label + "-daemon.log")
     if args.runtime_scenario != "install-reapply":
+        result["failure_stage"] = "owned_helper_interruption"
         selected = "owner.app" if args.runtime_scenario == "interrupt-owner" else "runtime"
         target = h.BASE / selected
         old_inode = target.lstat().st_ino

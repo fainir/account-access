@@ -55,6 +55,28 @@ def test_host_guard_precedes_all_paths_and_callbacks():
         probe["run"](controller=SimpleNamespace(guard=guard), args=None, stage=None, report=None, output=None, command=None)
     with pytest.raises(Refused):
         probe["normalize_expansion"](SimpleNamespace(guard=guard), None)
+    with pytest.raises(Refused):
+        probe["reproduce_historical_cache_repair"](SimpleNamespace(guard=guard), None, None)
+    with pytest.raises(Refused):
+        probe["public_tree_groups"](SimpleNamespace(guard=guard), None)
+
+
+def test_historical_cache_fixture_matches_recorded_owner_repair_exactly():
+    evidence = json.loads((ROOT / "artifacts/runtime92-installed-public-groups-20261024.json").read_text())
+    assert sorted(probe["CACHE_REPAIR_FILES"]) == sorted(evidence["fixed_cache_repair_files"])
+    assert evidence["fixed_cache_repair_group"] == 0
+    assert evidence["before_manifest_sha256"] == probe["BEFORE"]
+
+
+@pytest.mark.parametrize("relative,expected", [
+    ("runtime/lib/python3.12/encodings/__pycache__/aliases.cpython-312.pyc", 0),
+    ("runtime/lib/python3.12/encodings/__pycache__", 80),
+    ("runtime/lib/python3.12/site-packages/account_access/file.py", 0),
+    ("runtime/lib/python3.12/site-packages/account_access_extra/file.py", 80),
+    ("python/bin/pip3", 0), ("python/bin/python3.12", 80), ("owner.app", 0), ("browsers", 80),
+])
+def test_predecessor_group_projection_keeps_component_boundaries(relative, expected):
+    assert probe["preceding_group"](relative, 80) == expected
 
 
 def test_fixed_download_contract_refuses_every_changed_asset_identity():

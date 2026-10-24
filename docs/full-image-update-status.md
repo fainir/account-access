@@ -1,4 +1,4 @@
-Runtime successor source (2026-10-24): a closed package91-to-runtime92 controller, separate recovery namespace, completed-repair history revalidation and Installer-only entry point now compile. Ordinary native checks pass (68 successor checks, 459 tree-storage checks, plus existing adapter regressions). The fixed group mapping matches 27,472 public installed nodes, including the earlier three cache repairs. Package93 still requires a build and actual hosted Installer/recovery acceptance before owner use. This does not qualify real account login or Android delivery.
+Runtime successor candidate (2026-10-24): package93 is built from controller `f9c0a80` and application `7051ef2`. Its signed helper, final package inventory and all seven frozen draft assets are verified. Ordinary native checks pass (68 successor checks, 459 tree-storage checks, plus existing adapter regressions). A hosted-only temporary-buffer fixture failure was fixed without changing the production controller; source `32dc10e` passed native checks and 4,169 Python tests. The fixed group mapping matches 27,472 public installed nodes, including the earlier three cache repairs. The corrected harness at `c2bd304` reached the production helper in run `40120185620`; one scenario refused at tree capture before publication. The exact predicate remains unconfirmed. The next harness reproduces the owner's earlier three-file cache metadata repair in its fresh VM and records all public-tree group mismatches before retrying the unchanged package. The owner Mac still has package91. This does not qualify real account login or Android delivery.
 
 Latest validation (2026-10-24): runtime92 fresh Installer and exact reapplication passed all 13 checks in hosted run 40113282658. Completed package91 predecessor validation passed all four scenarios in run 40113010696, including interruption recovery and refusal of a foreign volume binding. Downloaded reports and referenced logs were hash-verified; see `artifacts/runtime92-fresh-installer-20261024.json` and `artifacts/completed-repair-hosted-20261024.json`. The owner successor upgrade controller and real-account acceptance remain unqualified.
 
@@ -8,9 +8,10 @@ Latest validation (2026-10-24): runtime92 fresh Installer and exact reapplicatio
 
 Package91 repaired the owner installation and the app opens. AI connection setup
 then failed because its older upgrade checker rejects a named preview root.
-Runtime92 contains the tested source fix and is undergoing fresh-install QA.
-A completed-repair verifier is undergoing hosted qualification before work can
-bind a successor update to this repaired image. No runtime92 owner upgrade is
+Runtime92 contains the tested source fix and passed fresh-install/reapply QA.
+The completed-repair verifier passed all four hosted predecessor scenarios.
+Package93 binds that runtime to the repaired image; its actual successor
+Installer acceptance remains in progress. No runtime92 owner upgrade is
 qualified yet. See [current production gates](production-gates.md) for the live
 status; the sections below preserve the earlier development history.
 
