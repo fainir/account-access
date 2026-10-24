@@ -92,6 +92,8 @@ def main():
                                     acknowledged = fixture_acknowledged(broadcast.stdout)
                                     delivery_diagnostics.append({"fixture_notification_posted": acknowledged})
                                     assert acknowledged, "Test notification receiver did not acknowledge posting"
+                                if "phase=UNRELATED_NOTIFICATION_POSTED" in line:
+                                    delivery_diagnostics.append({"unrelated_notification_posted": True})
                             assert process.wait(timeout=30) == 0
                             assert not timed_out.is_set(), "Android instrumentation exceeded 90 seconds"
                         finally:
@@ -116,7 +118,10 @@ def main():
                     assert completed["status"] == "COMPLETED", {"result": completed, "instrumentation": diagnostics,
                                                                  "fixture_delivery": delivery_diagnostics}
                     assert results and "PASS:" in results[0], results
-                assert delivery_diagnostics and all(d["fixture_notification_posted"] for d in delivery_diagnostics)
+                assert delivery_diagnostics and any(d.get("fixture_notification_posted") is True for d in delivery_diagnostics)
+                assert all(all(v is True for v in d.values()) for d in delivery_diagnostics)
+                if android_api >= 35:
+                    assert any(d.get("unrelated_notification_posted") is True for d in delivery_diagnostics)
                 assert provider.sms_count == (0 if android_api >= 35 else 1)
                 assert DEMO_PASSWORD not in json.dumps(completed)
                 report = {"status": "BLOCKED_AS_EXPECTED" if android_api >= 35 else "COMPLETED",
@@ -126,8 +131,10 @@ def main():
                           "positive_bluetooth_computer_association_qualified": False,
                           "physical_phone_delivery_qualified": False,
                           "test_notification_posting_acknowledged": True,
+                          "blocked_status_preserved_after_unrelated_notification": android_api >= 35,
                           "checks": (["Keystore encrypted pairing", "Legacy QR requests new discovery", "Invalid discovery UUID rejected",
-                                      "QR alone cannot grant permission", "Actual Android notification refused without association"]
+                                      "QR alone cannot grant permission", "Actual Android notification refused without association",
+                                      "Unrelated notification preserves blocked login status"]
                                      if android_api >= 35 else
                                      ["Keystore encrypted pairing", "Private destination restriction", "Actual Android notification listener",
                                       "Certificate-pinned HTTPS ingress", "Browser code submission", "No code in agent result"]),

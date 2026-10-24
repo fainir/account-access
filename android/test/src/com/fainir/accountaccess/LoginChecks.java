@@ -27,7 +27,7 @@ public final class LoginChecks extends Instrumentation {
    context.startActivity(new android.content.Intent(context,MainActivity.class).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK));
    waitForIdleSync();
    Thread.sleep(500);
-   context.getSharedPreferences("settings",0).edit().putString("sms_package",getContext().getPackageName()).remove("last_delivery").putBoolean("listener_ready",false).commit();
+   context.getSharedPreferences("settings",0).edit().putString("sms_package",getContext().getPackageName()).remove("last_delivery").remove("last_status").putBoolean("listener_ready",false).commit();
    Bundle prepared=new Bundle();prepared.putString("phase","PAIRING_AND_FILTER_READY");sendStatus(1,prepared);
    long readyDeadline=System.currentTimeMillis()+8000;while(System.currentTimeMillis()<readyDeadline&&!context.getSharedPreferences("settings",0).getBoolean("listener_ready",false))Thread.sleep(100);
    if(!context.getSharedPreferences("settings",0).getBoolean("listener_ready",false))throw new Exception("Listener did not connect after instrumentation setup");
@@ -36,6 +36,19 @@ public final class LoginChecks extends Instrumentation {
     long blockedDeadline=System.currentTimeMillis()+8000;
     while(System.currentTimeMillis()<blockedDeadline && !"computer_permission_required".equals(context.getSharedPreferences("settings",0).getString("last_status","")))Thread.sleep(100);
     if(!"computer_permission_required".equals(context.getSharedPreferences("settings",0).getString("last_status","")) || context.getSharedPreferences("settings",0).getLong("last_delivery",0)!=0)throw new Exception("Unassociated notification did not stop safely");
+    java.io.ByteArrayOutputStream noiseBytes=new java.io.ByteArrayOutputStream();
+    android.os.ParcelFileDescriptor noise=getUiAutomation().executeShellCommand("cmd notification post -v -t 'Unrelated test notification' account-access-unrelated-fixture 'No login code in this notification'");
+    try(java.io.InputStream stream=new android.os.ParcelFileDescriptor.AutoCloseInputStream(noise)){
+     byte[] buffer=new byte[4096];int n;while((n=stream.read(buffer))>0){noiseBytes.write(buffer,0,n);if(noiseBytes.size()>65536)throw new Exception("Unrelated notification acknowledgement exceeded limit");}
+    }
+    if(!java.util.regex.Pattern.compile("(?m)^posted: *$").matcher(new String(noiseBytes.toByteArray(),"UTF-8")).find())throw new Exception("Unrelated test notification was not confirmed");
+    Bundle blocked=new Bundle();blocked.putString("phase","UNRELATED_NOTIFICATION_POSTED");sendStatus(1,blocked);
+    waitForIdleSync();
+    long stableUntil=android.os.SystemClock.elapsedRealtime()+5000;
+    while(android.os.SystemClock.elapsedRealtime()<stableUntil){
+     if(!"computer_permission_required".equals(context.getSharedPreferences("settings",0).getString("last_status","")) || context.getSharedPreferences("settings",0).getLong("last_delivery",0)!=0)throw new Exception("Unrelated notification changed blocked login status");
+     Thread.sleep(100);
+    }
     result.putString("result","PASS_BLOCKED: Android notification observed and forwarding refused without computer association; positive Bluetooth pairing not tested");finish(-1,result);return;
    }
    long deadline=System.currentTimeMillis()+15000;while(System.currentTimeMillis()<deadline&&context.getSharedPreferences("settings",0).getLong("last_delivery",0)==0)Thread.sleep(100);

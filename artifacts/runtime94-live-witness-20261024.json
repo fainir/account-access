@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "status": "PASSED",
+  "run_id": 40128222988,
+  "artifact_id": 12574370255,
+  "archive_sha256": "375b6bcac3466b4d3d6191d588b0a9a1ae9630ddc241e6908b50b60a76da57e8",
+  "log_hashes_verified": 16,
+  "live_code_checks": {
+    "checks": {
+      "com.apple.distnoted_live_signature_and_path": true,
+      "com.apple.distnoted_wrong_identifier_refused": true,
+      "com.apple.lsd_live_signature_and_path": true,
+      "com.apple.lsd_wrong_identifier_refused": true,
+      "non_apple_process_refused": true
+    },
+    "installed_records_read": false,
+    "production_ready": false,
+    "schema": 1,
+    "scope": "live Apple code attestation; eligibility and race cases are separate synthetic tests",
+    "service_actions": false,
+    "stage": "complete",
+    "status": "PASSED"
+  },
+  "witness_checks": {
+    "account_records_read": false,
+    "owner_machine": false,
+    "production_observer_accepted_surviving_system_job": true,
+    "production_ready": false,
+    "schema": 1,
+    "stage": "complete",
+    "status": "PASSED"
+  },
+  "source_revision": "6d645add15bad2e2f9d50681daf83302c81417bb",
+  "earlier_export_failure": {
+    "run_id": 40128017137,
+    "reason": "fixture_evidence_directory_not_published",
+    "fixture_only_fix": "55fc837"
+  },
+  "production_ready": false
+}
