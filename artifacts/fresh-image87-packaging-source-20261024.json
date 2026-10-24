@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "status": "PACKAGER_SOURCE_VALIDATED_NOT_BUILT",
+  "target_manifest_sha256": "5a732de4623ba50aefa6d31c54e7b1eae660b2921341f95042c5675d922d808b",
+  "packager_sha256": "91886db0671efde7fe948a5a1226ca2dedb5c028854717409f25fc6834b4cf58",
+  "only_changed_function": "preassembled_manifest",
+  "unchanged_functions": 15,
+  "image_changes": [
+    "/Library/Application Support/Account Access/bin/AccountAccess-broker",
+    "/Library/Application Support/Account Access/broker-repair-identity.json",
+    "/Library/Application Support/Account Access/package-identity.json"
+  ],
+  "image_acceptance_evidence": "artifacts/broker-repair87-installer-acceptance-20261023.json",
+  "validation": {
+    "packager_tests_passed": 83
+  },
+  "new_fresh_package_built": false,
+  "production_ready": false
+}
