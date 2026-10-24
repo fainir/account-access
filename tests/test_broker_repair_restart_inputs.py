@@ -95,3 +95,12 @@ def test_restart_workflow_is_guarded_and_tests_all_three_scenarios(cohort):
     assert f"--cohort {cohort}" in json.dumps(job)
     assert all(step.get("with", {}).get("persist-credentials") is False
                for step in job["steps"] if "checkout@" in step.get("uses", ""))
+
+
+def test_successor_workflow_preserves_reviewed_action_versions():
+    import yaml
+    def actions(cohort):
+        value = yaml.safe_load((ROOT / f".github/workflows/mac-broker-repair{cohort}-installer-review.yml").read_text())
+        return [(name, step["uses"]) for name, job in value["jobs"].items()
+                for step in job["steps"] if "uses" in step]
+    assert actions(90) == actions(88)
