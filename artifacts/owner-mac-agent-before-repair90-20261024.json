@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "observed_at": "2026-10-24T15:04:16.322303+00:00",
+  "operation": "installed_launcher_accounts",
+  "exit_code": 2,
+  "raw_output_retained": false,
+  "credentials_read_by_agent": false,
+  "production_ready": false,
+  "response_shape": "dict",
+  "response_fields": [
+    "reason",
+    "status"
+  ],
+  "status": "RETRYABLE",
+  "reason": "service_unavailable"
+}

@@ -49,9 +49,28 @@ not a measured root cause. Package 90 is built and independently verified: all 2
 matched, with only the signed controller and its wrapper changed from package
 87. Its SHA-256 is `a9830e12cbaaf95ce2fe80add81d116498d571c57bbd9509b70f20a59f62f0a4`.
 Draft assets are frozen by ID, size and SHA-256. The updated asset contracts and
-Installer harness passed 96 focused tests. Actual Installer scenarios must still
-pass before an owner attempt.
-[Package review](../artifacts/broker-repair-package90-20261024.json).
+Installer harness passed 97 focused checks. All three actual Installer scenarios
+passed in run `40103870112`: install/reapply, owned-helper interruption/recovery,
+and foreign-binding rollback. Each passed 13 repair, 15 predecessor and 11 root
+revalidation checks. All 120 referenced log hashes and all three archive hashes
+were verified; two owned-helper logs are additionally bound by their whole-archive
+hash. Closed progress records show both full verification passes. The normal
+repair completed in 167 seconds on the disposable Mac and reapplication took
+13 seconds. These timings do not establish owner-Mac performance.
+
+Controller source `4807187` passed 4,065 Python tests (108 skipped), lint,
+dependency auditing, native UI/gateway and Mac/Linux/Android suites. The latest
+qualification controller's Python suite passed 4,076 tests (108 skipped). An owner
+public-image preflight still matched image 85; the installed account launcher
+returned `RETRYABLE / service_unavailable`. Package 90 is open at the Install step
+for owner authentication. Owner installation, store access and personal sign-ins
+remain unqualified. The first workflow attempt stopped before tests because an
+action pin was altered during copying; the corrected run and regression check
+are recorded separately.
+[Package review](../artifacts/broker-repair-package90-20261024.json) ·
+[Actual Installer acceptance](../artifacts/broker-repair90-installer-acceptance-20261024.json) ·
+[Controller source CI](../artifacts/repair90-controller-source-ci-20261024.json) ·
+[Initial workflow setup failure](../artifacts/repair90-first-workflow-setup-failure-20261024.json).
 [Source validation](../artifacts/repair90-progress-source-20261024.json).
 
 Package **88** is built from repair-controller source `eba8057`, while preserving

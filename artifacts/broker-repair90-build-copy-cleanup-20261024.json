@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "status": "REMOVED_REPRODUCIBLE_BUILD_COPIES",
+  "observed_at": "2026-10-24T14:48:03.347114+00:00",
+  "package_sha256": "a9830e12cbaaf95ce2fe80add81d116498d571c57bbd9509b70f20a59f62f0a4",
+  "removed": [
+    "dist/qa-broker-repair-package90-4807187/independent/Scripts",
+    "dist/qa-broker-repair-package90-4807187/input/Scripts/CompletedImage/TargetImage",
+    "dist/qa-broker-repair-package90-4807187/container",
+    "dist/qa-broker-repair-package90-4807187/raw.pkg",
+    "dist/qa-broker-repair-package90-4807187/upload"
+  ],
+  "final_package_retained": true,
+  "source_package_retained": true,
+  "review_inventory_source_and_qa_retained": true,
+  "installed_paths_accessed": false
+}

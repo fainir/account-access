@@ -27,8 +27,12 @@ Namecheap device-verification page is outside the reviewed connector; a
 successful private login has **not** been established. Gmail enrollment and its
 mailbox check passed; actual website email-code delivery and physical
 SMS/authenticator acceptance remain pending. The newer GUI and runtime
-also need a qualified complete-image upgrade before they can replace the
-installed build 76. [Owner-Mac observations](artifacts/owner-startup-and-import-213509c-20261021.json)
+still require owner-store and private-login acceptance. On 24 October, a complete
+read-only check confirmed installed public image 85 after a repair attempt timed
+out. Successor repair 90 passed disposable-Mac Installer qualification and awaits
+owner installation; fresh runtime 89 has
+passed disposable-Mac installation, but upgrading the owner's existing image to
+that runtime is not yet qualified. [Initial owner-Mac observations](artifacts/owner-startup-and-import-213509c-20261021.json)
 and [current acceptance status](docs/production-gates.md).
 
 ![Account Access dashboard](docs/account-dashboard.png)
@@ -125,7 +129,7 @@ connection, so sync cannot undo your edit.
 | Gmail | Connect with a Google app password, or an operator-configured Gmail OAuth connection | Read a fresh matching login email and submit its code |
 | Other email | Connect your provider's TLS IMAP mailbox | Read a fresh matching login email and submit its code |
 | iPhone SMS on Mac | Enable text forwarding to Mac Messages and grant the signed app Full Disk Access | Read a fresh incoming text matching the approved sender and template |
-| Android SMS | Pair the [Android preview](android/README.md), grant notification access and use the same private Wi-Fi | Deliver a matching SMS-app notification over pinned HTTPS |
+| Android SMS | Pair the [Android preview](android/README.md), complete its Android 15+ computer-association step when required, grant notification access and use the same private Wi-Fi | Deliver a matching SMS-app notification over pinned HTTPS; physical-phone acceptance is pending |
 | Google Messages Web (0.8 candidate, GitHub only) | Pair your phone, then use [Verification → Set up Google Messages](docs/google-messages.md) to prepare and add the Chrome extension | Read a newly arriving matching login text through the local bridge |
 | Authenticator TOTP | Enroll the website's original setup key or supported QR locally | Generate and submit its changing six-digit code |
 
