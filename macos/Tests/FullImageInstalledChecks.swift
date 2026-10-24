@@ -107,6 +107,32 @@ private enum InstalledFixtureFailure: Error { case failed }
                 CompletedPredecessorDiagnostic(checkpoint: .workerBinding, failure: ComponentUpdateFailure.journal),
                 checkpoint: .predecessor)
             try expect(fixedRefusal.contains("component_transition_conflict") && fixedRefusal.contains("predecessor_worker_binding"))
+            let privateError = NSError(domain: "fictional-private-path", code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "fictional-private-record"])
+            let nestedCases: [(Error, String, String)] = [
+                (privateError, "migration", "broker_repair_not_verified"),
+                (CompletedFullImageDiagnostic(checkpoint: .journal, failure: FullImageFailure.journal),
+                 "predecessor_full_image_journal", "full_image_transition_conflict"),
+                (CompletedFullImageDiagnostic(checkpoint: .predecessor,
+                    failure: CompletedPredecessorDiagnostic(checkpoint: .workerBinding, failure: privateError)),
+                 "predecessor_component_worker_binding", "broker_repair_not_verified"),
+                (CompletedFullImageDiagnostic(checkpoint: .predecessor,
+                    failure: CompletedPredecessorDiagnostic(checkpoint: .expectedEvidence, failure: ComponentUpdateFailure.journal)),
+                 "predecessor_component_expected_evidence", "component_transition_conflict"),
+            ]
+            for (failure, category, reason) in nestedCases {
+                let text = BrokerRepairMain.refusal(failure, checkpoint: .migration)
+                let value = try JSONSerialization.jsonObject(with: Data(text.utf8)) as! [String: Any]
+                try expect(Set(value.keys) == ["schema", "status", "reason", "checkpoint"]
+                    && value["status"] as? String == "REFUSED" && value["reason"] as? String == reason
+                    && value["checkpoint"] as? String == category && !text.contains("fictional-private"))
+            }
+            var completedContextRefused = false
+            do { _ = try ComponentController.completedFullImage(resources: -1, pins: source.pins) }
+            catch let diagnostic as CompletedFullImageDiagnostic {
+                completedContextRefused = diagnostic.checkpoint == .context && diagnostic.failure as? ComponentUpdateFailure == .context
+            }
+            try expect(completedContextRefused)
             var peers: [String: ComponentPeerSignature] = [:]
             for kind in ["owner", "broker", "bootstrap"] {
                 peers[kind] = ComponentPeerSignature(team: "WBULD6N4NQ", identifier: "com.fainir.accountaccess" + (kind == "owner" ? "" : "." + kind),

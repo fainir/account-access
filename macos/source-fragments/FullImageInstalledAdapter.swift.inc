@@ -29,6 +29,10 @@ struct CompletedFullImageProof {
 private enum FullImageInstalledResult {
     case updated(String), completed(CompletedFullImageProof)
 }
+struct CompletedFullImageDiagnostic: Error {
+    let checkpoint: FullImageInstallCheckpoint
+    let failure: Error
+}
 
 extension ComponentController {
     private static func fullResourceDirectory(_ parent: Int32, _ name: String) throws -> Int32 {
@@ -186,9 +190,12 @@ extension ComponentController {
     }
     static func completedFullImage(resources: Int32, pins: FullImageSourcePins,
                                   checkpoint: (FullImageInstallCheckpoint) -> Void = { _ in }) throws -> CompletedFullImageProof {
-        guard case .completed(let proof) = try fullImage(resources: resources, pins: pins,
-            verificationOnly: true, checkpoint: checkpoint) else { throw FullImageFailure.predecessor }
-        return proof
+        var stage = FullImageInstallCheckpoint.context
+        do {
+            guard case .completed(let proof) = try fullImage(resources: resources, pins: pins,
+                verificationOnly: true, checkpoint: { stage = $0; checkpoint($0) }) else { throw FullImageFailure.predecessor }
+            return proof
+        } catch { throw CompletedFullImageDiagnostic(checkpoint: stage, failure: error) }
     }
     private static func fullImage(resources: Int32, pins: FullImageSourcePins, verificationOnly: Bool,
                                   checkpoint: (FullImageInstallCheckpoint) -> Void) throws -> FullImageInstalledResult {
@@ -236,6 +243,7 @@ extension ComponentController {
         if !hasIntent { guard try ComponentFiles.observe(namespace, "head.json", owner: 0) == nil else { throw FullImageFailure.journal } }
         let preliminary: FullImageGlobalIntent?
         if hasIntent {
+            checkpoint(.journal)
             let global = try routes.globalJournal(plan: pins.planSHA256)
             preliminary = try FullImageGlobalJournal.readIntent(directory: global.fd, owner: 0, group: 0, beforeGroup: beforeGroup,
                 historicalObservation: verificationOnly,
