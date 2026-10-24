@@ -1,26 +1,22 @@
-Package 94 is built from controller `b5ea8a2`, with the same frozen runtime92 application payload. Its package SHA-256 is `1086e6eac90083489c7b85578f5267eaee77bdd6b3844b1b4a4579d89c731c3e`. All seven draft assets match their sizes and hashes. Local native core checks (377), shared-controller checks and 68 runtime checks pass. Hosted run `40127602745` verified both live Apple code identities and rejected incorrect identities. A second isolated run exercised a dedicated-UID Apple process surviving user-domain removal successfully, but artifact export failed because the fixture omitted publishing its evidence directory; that fixture-only export is fixed and must be rerun. Full package94 Installer/recovery acceptance and owner recovery remain pending.
-
-## Owner Mac refusal after hosted acceptance, 24 October 2026
-
-Package 93 failed on the owner Mac at `component_service_quiescence_not_confirmed`. Read-only checks confirm the previous 25,166 public files and all five public trees remain intact. The broker job is absent and disabled. Two Apple system process paths remain under its dedicated UID: `distnoted` and `lsd`. Recovery and a verified process classifier are pending. The three hosted Installer passes did not cover this owner condition. See `artifacts/runtime93-owner-quiescence-refusal-20261024.json`.
-
-Runtime successor candidate (2026-10-24): package93 is built from controller `f9c0a80` and application `7051ef2`. Its signed helper, final package inventory and all seven frozen draft assets are verified. Ordinary native checks pass (68 successor checks, 459 tree-storage checks, plus existing adapter regressions). A hosted-only temporary-buffer fixture failure was fixed without changing the production controller; source `32dc10e` passed native checks and 4,169 Python tests. The fixed group mapping matches 27,472 public installed nodes, including the earlier three cache repairs. The corrected harness at `c2bd304` reached the production helper in run `40120185620`; one scenario refused at tree capture before publication. The rerun at `bd933a8` confirmed exactly those three historical cache-group differences and passed all three actual Installer scenarios with the unchanged package. Its three archive hashes and 155 referenced log hashes were independently verified; see `artifacts/runtime-upgrade93-installer-acceptance-20261024.json`. The owner Mac still has package91. This does not qualify real account login or Android delivery.
-
-Latest validation (2026-10-24): runtime92 fresh Installer and exact reapplication passed all 13 checks in hosted run 40113282658. Completed package91 predecessor validation passed all four scenarios in run 40113010696, including interruption recovery and refusal of a foreign volume binding. Downloaded reports and referenced logs were hash-verified; see `artifacts/runtime92-fresh-installer-20261024.json` and `artifacts/completed-repair-hosted-20261024.json`. The owner successor upgrade controller and real-account acceptance remain unqualified.
-
 # Full-image update development status
 
 ## Latest status — 24 October 2026
 
-Package91 repaired the owner installation and the app opens. AI connection setup
-then failed because its older upgrade checker rejects a named preview root.
-Runtime92 contains the tested source fix and passed fresh-install/reapply QA.
-The completed-repair verifier passed all four hosted predecessor scenarios.
-Package93 binds that runtime to the repaired image and has passed actual successor
-Installer/recovery acceptance. The owner installation attempt remains pending. See [current production gates](production-gates.md) for the live
-status; the sections below preserve the earlier development history.
+Package 91 installed successfully on the owner Mac, but AI connection setup
+failed because its older upgrade checker rejects a named preview root. Runtime
+92 contains the fix and passed fresh-install/reapply QA. Package 93 passed its
+hosted Installer matrix, then failed on the owner Mac at the service-quiescence
+barrier. The package 91 public image remains intact and the broker is disabled.
 
-## Current status — 23 October 2026
+Package 94 adds live attestation for the two Apple per-user services observed
+under the dedicated UID. Its source and live-process qualification passed; the
+four-scenario actual Installer matrix and owner recovery remain pending.
+See [current production acceptance](production-gates.md) for exact source,
+package identity and current results. The [qualification history](qualification-history-20261024.md)
+preserves earlier fixture failures, their fixes and the package 93 owner refusal.
+The sections below describe historical development states.
+
+## Historical status — 23 October 2026
 
 The controller described below has since been implemented. The current
 reviewed application image is source `d30fda7`, with controller `d5cd6b7`.
