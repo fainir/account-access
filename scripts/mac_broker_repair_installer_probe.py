@@ -95,6 +95,7 @@ def acceptance_passed(report):
             and report.get("personal_accounts_used") == 0 and report.get("owner_GUI_qualified") is False
             and report.get("production_ready") is False
             and ("completed_predecessor" not in report or completed_acceptance_passed(report))
+            and ("runtime_upgrade" not in report or runtime_acceptance_passed(report))
             and (report.get("scenario") != "foreign-binding" or report.get("foreign_binding_rollback") == {
                 "verified_attempts": 2, "applied_per_attempt": 5, "restored_per_attempt": 5,
                 "head_published": False})
@@ -108,6 +109,11 @@ def acceptance_passed(report):
 def completed_acceptance_passed(report):
     module = runpy.run_path(str(Path(__file__).with_name("mac_completed_repair_probe.py")))
     return module["acceptance_passed"](report["completed_predecessor"], foreign=report.get("scenario") == "foreign-binding")
+
+
+def runtime_acceptance_passed(report):
+    module = runpy.run_path(str(Path(__file__).with_name("mac_runtime_upgrade_installer_probe.py")))
+    return module["acceptance_passed"](report["runtime_upgrade"])
 
 
 def verify_rollback_events(events, attempts):
@@ -525,6 +531,16 @@ def run(args):
                 module = runpy.run_path(str(probe_path))
                 module["run"](controller=SimpleNamespace(**globals()), args=args, stage=stage,
                     scripts=scripts, report=report, command=command)
+            if getattr(args, "runtime_upgrade", None) is not None:
+                report["failure_stage"] = "runtime_upgrade_acceptance"
+                probe_path = args.repository / "scripts/mac_runtime_upgrade_installer_probe.py"
+                require(probe_path.read_bytes() == h.git_bytes(args.repository,
+                    ["show", revision + ":scripts/mac_runtime_upgrade_installer_probe.py"], maximum=2 * 1024**2))
+                module = runpy.run_path(str(probe_path))
+                module["run"](controller=SimpleNamespace(**globals()), args=args, stage=stage,
+                    report=report, output=output, command=command,
+                    publication=lambda: {"publication": preserved_publication(journal, sentinel, uid),
+                                         "binding": snapshot(binding)})
     except Exception as error:
         report["failure_reason"] = "actual_broker_repair_installer_acceptance_failed"
         report["exception_type"] = type(error).__name__
@@ -561,6 +577,8 @@ def main():
     parser.add_argument("--scenario", choices=sorted(SCENARIOS), required=True)
     parser.add_argument("--cohort", type=int, choices=[87, 88, 90, 91], default=87)
     parser.add_argument("--verify-completed-predecessor", action="store_true")
+    parser.add_argument("--runtime-upgrade", type=Path)
+    parser.add_argument("--runtime-scenario", choices=["install-reapply", "interrupt-owner", "interrupt-runtime"], default="install-reapply")
     args = parser.parse_args()
     try:
         return run(args)

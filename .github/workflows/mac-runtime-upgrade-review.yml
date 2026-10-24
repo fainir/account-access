@@ -1,0 +1,95 @@
+name: Runtime successor Installer acceptance
+on:
+  push:
+    branches: [codex/full-image-update]
+    paths:
+      - .github/workflows/mac-runtime-upgrade-review.yml
+      - scripts/mac_runtime_upgrade_installer_probe.py
+      - scripts/download_runtime_upgrade_inputs.py
+      - artifacts/runtime-upgrade93-installer-inputs.json
+  workflow_dispatch:
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  download-reviewed-inputs:
+    if: github.repository == 'fainir/account-access'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Download committed draft assets with GET requests only
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -m 700 "$RUNNER_TEMP/account-access-inputs"
+          python3 -I -B scripts/download_full_image_installer_inputs.py \
+            --contract artifacts/full-image-installer85-inputs.json --cohort 85 \
+            --output "$RUNNER_TEMP/account-access-inputs/predecessor"
+          python3 -I -B scripts/download_broker_repair_epoch_inputs.py \
+            --output "$RUNNER_TEMP/account-access-inputs/repair"
+          python3 -I -B scripts/download_runtime_upgrade_inputs.py \
+            --output "$RUNNER_TEMP/account-access-inputs/runtime-upgrade"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: runtime-upgrade-reviewed-inputs
+          path: ${{ runner.temp }}/account-access-inputs
+          compression-level: 0
+          retention-days: 3
+          if-no-files-found: error
+  actual-installer:
+    needs: download-reviewed-inputs
+    if: github.repository == 'fainir/account-access'
+    runs-on: macos-15
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario: [install-reapply, interrupt-owner, interrupt-runtime]
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          name: runtime-upgrade-reviewed-inputs
+          path: ${{ runner.temp }}/account-access-inputs
+      - name: Verify disposable ARM64 host and run guarded Installer acceptance
+        env:
+          AC_SCENARIO: ${{ matrix.scenario }}
+        run: |
+          test "$(uname -m)" = arm64
+          test "$RUNNER_ENVIRONMENT" = github-hosted
+          test "$GITHUB_REPOSITORY" = fainir/account-access
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          AC_REPAIR_PYTHON=$(command -v python3)
+          sudo -n /usr/bin/env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin LANG=C LC_ALL=C \
+            GITHUB_ACTIONS=true CI=true RUNNER_ENVIRONMENT=github-hosted RUNNER_OS=macOS RUNNER_ARCH=ARM64 \
+            GITHUB_REPOSITORY="$GITHUB_REPOSITORY" GITHUB_RUN_ID="$GITHUB_RUN_ID" \
+            GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" GITHUB_SHA="$GITHUB_SHA" \
+            "$AC_REPAIR_PYTHON" -I -B "$GITHUB_WORKSPACE/scripts/mac_broker_repair_installer_probe.py" \
+              --repository "$GITHUB_WORKSPACE" --bundle "$RUNNER_TEMP/account-access-inputs/predecessor" \
+              --repair "$RUNNER_TEMP/account-access-inputs/repair" \
+              --runtime-upgrade "$RUNNER_TEMP/account-access-inputs/runtime-upgrade" \
+              --scenario install-reapply --cohort 91 --runtime-scenario "$AC_SCENARIO"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: runtime-upgrade-${{ matrix.scenario }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            /Library/Logs/AccountAccessComponentInstallerQA-${{ github.run_id }}
+            /Library/Logs/AccountAccessComponentInstallerQA-${{ github.run_id }}91
+          retention-days: 7
+          if-no-files-found: error
