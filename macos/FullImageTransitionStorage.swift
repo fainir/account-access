@@ -82,15 +82,27 @@ final class FullImageFileStorage {
     private let resolve: (FullImageFileUnit) throws -> (Int32, String)
     private let verifyAttachments: () throws -> Void
     private let requireQuiescent: () throws -> Void
+    private let observationDevice: Int32?
+    private let currentDevice: Int32
     init(operation: FullImageFileOperation, retained: Int32, owner: uid_t,
          resolve: @escaping (FullImageFileUnit) throws -> (Int32, String),
-         verifyAttachments: @escaping () throws -> Void, requireQuiescent: @escaping () throws -> Void) throws {
+         verifyAttachments: @escaping () throws -> Void, requireQuiescent: @escaping () throws -> Void,
+         observationDevice: Int32? = nil) throws {
         let parent = try InstallerPayloadIO.check(retained, owner: owner, directory: true)
         guard parent.st_mode & 0o7777 == 0o700 else { throw FullImageFailure.object }
         try PublicTreeIO.noACL(retained)
-        try operation.validate(ownerDevice: parent.st_dev)
+        guard observationDevice == nil || observationDevice! >= 0 else { throw FullImageFailure.object }
+        try operation.validate(ownerDevice: observationDevice ?? parent.st_dev)
         self.operation = operation; self.retained = retained; self.owner = owner
         self.resolve = resolve; self.verifyAttachments = verifyAttachments; self.requireQuiescent = requireQuiescent
+        self.observationDevice = observationDevice; currentDevice = parent.st_dev
+    }
+    func matches(_ observed: ComponentObject?, _ recorded: ComponentObject?) -> Bool {
+        guard let observed, let recorded else { return observed == nil && recorded == nil }
+        guard let observationDevice else { return observed == recorded }
+        return recorded.device == observationDevice && observed.device == currentDevice
+            && observed == ComponentObject(device: currentDevice, inode: recorded.inode,
+                mode: recorded.mode, bytes: recorded.bytes, sha256: recorded.sha256)
     }
     func state() throws -> ComponentOperationState {
         try verifyAttachments()
@@ -100,13 +112,14 @@ final class FullImageFileStorage {
         let current = try ComponentFiles.observe(parent, name, owner: owner)
         let saved = try ComponentFiles.observe(retained, operation.slot, owner: owner)
         try verifyAttachments()
-        if current == operation.before, saved == operation.after { return .staged }
-        if current == operation.after, saved == operation.before { return .applied }
+        if matches(current, operation.before), matches(saved, operation.after) { return .staged }
+        if matches(current, operation.after), matches(saved, operation.before) { return .applied }
         return .conflict
     }
     func apply() throws { try exchange(forward: true) }
     func reverse() throws { try exchange(forward: false) }
     private func exchange(forward: Bool) throws {
+        guard observationDevice == nil else { throw FullImageFailure.journal }
         try requireQuiescent(); try verifyAttachments()
         guard try state() == (forward ? .staged : .applied) else { throw FullImageFailure.object }
         let (parent, name) = try resolve(operation.unit)

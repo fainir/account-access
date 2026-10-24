@@ -273,14 +273,17 @@ final class PublicTreeStorage {
     private let fault: (Phase) throws -> Void
     private var history: [Record] = []
     private var intentRecord: Record?
+    private let observationDevice: Int32?
 
     private init(operation: PublicTreeOperation, unit: PublicTreeUnit, old: PublicTreeInventory, new: PublicTreeInventory,
         target: Parent, retained: Parent, journal: Parent, owner: uid_t, group: gid_t, beforeGroup: gid_t,
-        requireQuiescent: @escaping () throws -> Void, fault: @escaping (Phase) throws -> Void) {
+        requireQuiescent: @escaping () throws -> Void, fault: @escaping (Phase) throws -> Void,
+        observationDevice: Int32?) {
         self.operation = operation; self.unit = unit; self.old = old; self.new = new
         self.target = target; self.retained = retained; self.journal = journal
         self.owner = owner; self.group = group; self.beforeGroup = beforeGroup
         self.requireQuiescent = requireQuiescent; self.fault = fault
+        self.observationDevice = observationDevice
     }
     deinit { Darwin.close(target.fd); Darwin.close(retained.fd); Darwin.close(journal.fd) }
     private static func encode<Value: Encodable>(_ value: Value) throws -> Data {
@@ -336,8 +339,10 @@ final class PublicTreeStorage {
         journalAttachment: PublicTreeAttachment, old: PublicTreeInventory, new: PublicTreeInventory, owner: uid_t, group: gid_t,
         beforeGroup: gid_t? = nil,
         requireQuiescent: @escaping () throws -> Void, createIfMissing: Bool = true,
+        observationDevice: Int32? = nil,
         fault: @escaping (Phase) throws -> Void = { _ in }) throws -> PublicTreeStorage {
         let beforeGroup = beforeGroup ?? group
+        guard observationDevice == nil || (!createIfMissing && observationDevice! >= 0) else { throw PublicTreeFailure.invalid }
         guard operation.schema == 2, operation.unit == unit.rawValue, unit.accepts(old: old, new: new),
               operation.planSHA256.utf8.count == 64,
               operation.planSHA256.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }),
@@ -359,9 +364,10 @@ final class PublicTreeStorage {
         let journal = try parent(journalParent, attachment: journalAttachment, role: .journal(unit), owner: owner, mode: 0o700); opened.append(journal.fd)
         guard Set([target.inode, retained.inode, journal.inode]).count == 3,
               target.device == retained.device, retained.device == journal.device,
-              [operation.before, operation.after].compactMap({ $0 }).allSatisfy({ $0.device == target.device }) else { throw PublicTreeFailure.invalid }
+              [operation.before, operation.after].compactMap({ $0 }).allSatisfy({ $0.device == (observationDevice ?? target.device) }) else { throw PublicTreeFailure.invalid }
         let value = PublicTreeStorage(operation: operation, unit: unit, old: old, new: new, target: target,
-            retained: retained, journal: journal, owner: owner, group: group, beforeGroup: beforeGroup, requireQuiescent: requireQuiescent, fault: fault)
+            retained: retained, journal: journal, owner: owner, group: group, beforeGroup: beforeGroup,
+            requireQuiescent: requireQuiescent, fault: fault, observationDevice: observationDevice)
         adopted = true
         try value.prepareJournal(createIfMissing: createIfMissing)
         _ = try value.state()
@@ -394,6 +400,7 @@ final class PublicTreeStorage {
             mtimeNsec: Int64(before.st_mtimespec.tv_nsec), ctimeSec: Int64(before.st_ctimespec.tv_sec), ctimeNsec: Int64(before.st_ctimespec.tv_nsec))
     }
     private func write(_ name: String, data: Data) throws -> Record {
+        guard observationDevice == nil else { throw PublicTreeFailure.journal }
         try parents()
         guard data.count <= 4096 else { throw PublicTreeFailure.journal }
         let fd = openat(journal.fd, name, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0o600)
@@ -482,19 +489,25 @@ final class PublicTreeStorage {
                 return pin == nil
             }
             guard let pin else { return false }
-            return info.st_mode & S_IFMT == S_IFDIR && info.st_dev == pin.device && UInt64(info.st_ino) == pin.inode
+            return info.st_mode & S_IFMT == S_IFDIR && info.st_dev == (observationDevice == nil ? pin.device : target.device)
+                && UInt64(info.st_ino) == pin.inode
+        }
+        func expected(_ pin: PublicTreePin?) -> PublicTreePin? {
+            guard let pin, observationDevice != nil else { return pin }
+            return PublicTreePin(device: target.device, inode: pin.inode, owner: pin.owner,
+                group: pin.group, mode: pin.mode, inventorySHA256: pin.inventorySHA256)
         }
         if try identity(target, unit.name, operation.before), try identity(retained, unit.slot, operation.after) {
             guard previous != .applied,
-                  try PublicTreeIO.observeOptional(target.fd, name: unit.name, inventory: old, owner: owner, group: beforeGroup, attachment: target.attachment) == operation.before,
-                  try PublicTreeIO.observeOptional(retained.fd, name: unit.slot, inventory: new, owner: owner, group: group, attachment: retained.attachment) == operation.after else { throw PublicTreeFailure.changed }
+                  try PublicTreeIO.observeOptional(target.fd, name: unit.name, inventory: old, owner: owner, group: beforeGroup, attachment: target.attachment) == expected(operation.before),
+                  try PublicTreeIO.observeOptional(retained.fd, name: unit.slot, inventory: new, owner: owner, group: group, attachment: retained.attachment) == expected(operation.after) else { throw PublicTreeFailure.changed }
             try parents()
             return .staged
         }
         guard previous != nil, previous != .rolledBack,
               try identity(target, unit.name, operation.after), try identity(retained, unit.slot, operation.before),
-              try PublicTreeIO.observeOptional(target.fd, name: unit.name, inventory: new, owner: owner, group: group, attachment: target.attachment) == operation.after,
-              try PublicTreeIO.observeOptional(retained.fd, name: unit.slot, inventory: old, owner: owner, group: beforeGroup, attachment: retained.attachment) == operation.before else { throw PublicTreeFailure.changed }
+              try PublicTreeIO.observeOptional(target.fd, name: unit.name, inventory: new, owner: owner, group: group, attachment: target.attachment) == expected(operation.after),
+              try PublicTreeIO.observeOptional(retained.fd, name: unit.slot, inventory: old, owner: owner, group: beforeGroup, attachment: retained.attachment) == expected(operation.before) else { throw PublicTreeFailure.changed }
         try parents()
         return .applied
     }
@@ -502,6 +515,7 @@ final class PublicTreeStorage {
     func apply() throws { try exchange(forward: true) }
     func reverse() throws { try exchange(forward: false) }
     private func exchange(forward: Bool) throws {
+        guard observationDevice == nil else { throw PublicTreeFailure.journal }
         try requireQuiescent()
         let wanted: State = forward ? .staged : .applied
         if try state() != wanted { return }

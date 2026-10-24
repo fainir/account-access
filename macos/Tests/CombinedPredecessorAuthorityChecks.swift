@@ -180,16 +180,18 @@ struct CompletedPredecessorSnapshotBuilder {
     var records: [String: CompletedComponentRecord]
     var head: CompletedComponentRecord, worker: CompletedComponentRecord, service: CompletedComponentRecord
     var volumeBinding: CompletedComponentVolumeBinding?
+    var historicalBinding: CompletedComponentHistoricalBinding?
     init(_ value: CompletedComponentSnapshot) {
         ownerUID = value.ownerUID; ownerGroup = value.ownerGroup; roots = value.roots; namespaceNames = value.namespaceNames
         original = value.original; rootBindingSHA256 = value.rootBindingSHA256; records = value.records
         head = value.head; worker = value.worker; service = value.service
         volumeBinding = value.volumeBinding
+        historicalBinding = value.historicalBinding
     }
     var value: CompletedComponentSnapshot {
         CompletedComponentSnapshot(ownerUID: ownerUID, ownerGroup: ownerGroup, roots: roots, namespaceNames: namespaceNames,
             original: original, rootBindingSHA256: rootBindingSHA256, records: records, head: head, worker: worker, service: service,
-            volumeBinding: volumeBinding)
+            volumeBinding: volumeBinding, historicalBinding: historicalBinding)
     }
     mutating func observedDevice(_ device: Int32) {
         func moved(_ record: CompletedComponentRecord) -> CompletedComponentRecord {
@@ -298,6 +300,69 @@ typealias PredecessorSnapshotBuilder = CompletedPredecessorSnapshotBuilder
             let volumeRecovery = try ComponentController.fixtureCompletedPredecessor(source: fixture.source,
                 read: { rebound }, verifyInitial: { _, _ in throw PredecessorFixtureFailure.initial }, expectedEvidence: volumeProof.evidence)
             try expect(volumeRecovery.sha256 == volumeProof.sha256, "volume_proof_recovery_uses_same_immutable_evidence")
+            func snapshotAtDevice(_ device: Int32) throws -> CompletedComponentSnapshot {
+                let roots = volumeRoots.mapValues {
+                    InstallationRootBinding.CurrentRoot(device: device, inode: $0.inode, volumeUUID: $0.volumeUUID)
+                }
+                var builder = PredecessorSnapshotBuilder(base)
+                builder.observedDevice(device)
+                if device != volumeIntent.workerPolicy.device {
+                    builder.volumeBinding = try CompletedComponentVolumeBinding.qualified(supplement: volumeReceipt,
+                        legacy: volumeLegacy, current: roots, source: fixture.source, intent: volumeIntent)
+                }
+                let historical = try CompletedComponentHistoricalBinding.qualified(supplement: volumeReceipt,
+                    legacy: volumeLegacy, current: roots, source: fixture.source, intent: volumeIntent)
+                builder.historicalBinding = historical
+                builder.rootBindingSHA256 = try historical.hash(at: device)
+                return builder.value
+            }
+            let currentMount = try snapshotAtDevice(9)
+            for device: Int32 in [7, 8, 9] {
+                let earlier = try snapshotAtDevice(device)
+                let earlierProof = try ComponentController.fixtureCompletedPredecessor(source: fixture.source,
+                    read: { earlier }, verifyInitial: { _, _ in })
+                let observedProof = try ComponentController.fixtureCompletedPredecessor(source: fixture.source,
+                    read: { currentMount }, verifyInitial: { _, _ in throw PredecessorFixtureFailure.initial },
+                    expectedEvidenceSHA256: earlierProof.sha256, recordedDevice: device)
+                try expect(observedProof.evidence == earlierProof.evidence,
+                    "completed_full_image_reconstructs_exact_evidence_from_mount_\(device)")
+                try expect(currentMount.records.mapValues(\.data) == earlier.records.mapValues(\.data)
+                    && currentMount.original.mapValues(\.data) == earlier.original.mapValues(\.data),
+                    "historical_observation_preserves_all_immutable_bytes_\(device)")
+            }
+            let priorMount = try snapshotAtDevice(8)
+            let priorProof = try ComponentController.fixtureCompletedPredecessor(source: fixture.source,
+                read: { priorMount }, verifyInitial: { _, _ in })
+            for fault in ["missing_volume", "binding_hash", "root_inode", "record_inode", "wrong_epoch", "wrong_evidence", "initial"] {
+                try refuses("historical_evidence_\(fault)_refused") {
+                    var builder = PredecessorSnapshotBuilder(currentMount)
+                    if fault == "missing_volume" { builder.historicalBinding = nil }
+                    if fault == "binding_hash" { builder.rootBindingSHA256 = String(repeating: "f", count: 64) }
+                    if fault == "root_inode" {
+                        let root = builder.roots["components"]!
+                        builder.roots["components"] = CompletedComponentDirectory(device: root.device, inode: root.inode + 100,
+                            owner: root.owner, group: root.group, mode: root.mode)
+                    }
+                    if fault == "record_inode" {
+                        let record = builder.records["event-0000.json"]!
+                        let old = record.object
+                        builder.records["event-0000.json"] = CompletedComponentRecord(data: record.data,
+                            object: ComponentObject(device: old.device, inode: old.inode + 10000,
+                                mode: old.mode, bytes: old.bytes, sha256: old.sha256))
+                    }
+                    _ = try ComponentController.fixtureCompletedPredecessor(source: fixture.source,
+                        read: { builder.value }, verifyInitial: { _, _ in throw PredecessorFixtureFailure.initial },
+                        expectedEvidenceSHA256: fault == "initial" ? nil : fault == "wrong_evidence" ? String(repeating: "f", count: 64) : priorProof.sha256,
+                        recordedDevice: fault == "wrong_epoch" ? 7 : 8)
+                }
+            }
+            var historicalReads = 0
+            try refuses("historical_evidence_current_mount_changes_between_reads") {
+                _ = try ComponentController.fixtureCompletedPredecessor(source: fixture.source,
+                    read: { historicalReads += 1; return try historicalReads == 1 ? currentMount : snapshotAtDevice(10) },
+                    verifyInitial: { _, _ in throw PredecessorFixtureFailure.initial },
+                    expectedEvidenceSHA256: priorProof.sha256, recordedDevice: 8)
+            }
             let recordedImage = volumeIntent.operations[0].after
             let currentImage = ComponentObject(device: 8, inode: recordedImage.inode, mode: recordedImage.mode,
                 bytes: recordedImage.bytes, sha256: recordedImage.sha256)

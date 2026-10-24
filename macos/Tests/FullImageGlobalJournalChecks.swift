@@ -190,7 +190,8 @@ private enum JournalCheckFailure: Error { case failed, interrupted }
                     if let array = value as? [Any] { return array.map { translated($0) } }
                     return value
                 }
-                let raw = try JSONSerialization.data(withJSONObject: translated(try encoded(f.intent)), options: [.sortedKeys, .withoutEscapingSlashes])
+                var raw = try JSONSerialization.data(withJSONObject: translated(try encoded(f.intent)), options: [.sortedKeys, .withoutEscapingSlashes])
+                raw.append(10) // Match the journal's mandatory canonical newline.
                 let historical = try JSONDecoder().decode(FullImageGlobalIntent.self, from: raw)
                 try historical.validateStructure(device: historicalDevice, publicOwner: getuid(), publicGroup: getgid())
                 try rewrite(f.fd, "intent.json", raw)
@@ -201,6 +202,25 @@ private enum JournalCheckFailure: Error { case failed, interrupted }
                         validateIntent: { _ in reachedAuthority = true }, verifyAttachment: f.attached)
                 }
                 try expect(!reachedAuthority)
+                let loaded = try FullImageGlobalJournal.readIntent(directory: f.fd, owner: getuid(), group: getgid(),
+                    historicalObservation: true, validateIntent: { candidate in
+                        guard candidate == historical else { throw JournalCheckFailure.failed }
+                        reachedAuthority = true
+                    }, verifyAttachment: f.attached)
+                try expect(reachedAuthority && loaded == historical)
+                func validateHistorical(_ value: FullImageGlobalIntent) throws {
+                    guard value == historical else { throw JournalCheckFailure.failed }
+                    try value.validateStructure(device: historicalDevice, publicOwner: getuid(), publicGroup: getgid())
+                }
+                let observed = try FullImageGlobalJournal.open(directory: f.fd, owner: getuid(), group: getgid(),
+                    expected: historical, validateIntent: validateHistorical, verifyAttachment: f.attached,
+                    createIfMissing: false, observationDevice: historicalDevice)
+                try expect(try observed.recovery().recordCount == 0)
+                try refuses { _ = try observed.completedEvidence() }
+                try refuses { try observed.writeService("disable_intent_prior_enabled") }
+                try refuses { _ = try FullImageGlobalJournal.open(directory: f.fd, owner: getuid(), group: getgid(),
+                    expected: historical, validateIntent: validateHistorical, verifyAttachment: f.attached,
+                    observationDevice: historicalDevice) }
                 let after = try ComponentFiles.read(f.fd, "intent.json", owner: getuid(), mode: 0o600)
                 try expect(before.0 == after.0 && before.1 == after.1)
             }
@@ -347,8 +367,13 @@ private enum JournalCheckFailure: Error { case failed, interrupted }
                 let recovered = try f.open().recovery()
                 try expect(recovered.finished && !recovered.ownsDisable && recovered.snapshots == [job])
                 let beforeReadOnly = try InstallerPayloadIO.contents(f.fd)
-                let readOnly = try f.open(createIfMissing: false)
+                let readOnly = try FullImageGlobalJournal.open(directory: f.fd, owner: getuid(), group: getgid(),
+                    expected: f.intent, validateIntent: f.validate, verifyAttachment: f.attached,
+                    createIfMissing: false, observationDevice: f.identity.device)
                 try expect(try readOnly.completedEvidence() == journal.completedEvidence())
+                try refuses { try readOnly.writeService("disable_intent_prior_enabled") }
+                try refuses { try readOnly.writeSnapshot(job) }
+                try refuses { try readOnly.writeTransition("new_image_verified_gui_unverified", operation: -1, state: f.state) }
                 try expect(try InstallerPayloadIO.contents(f.fd) == beforeReadOnly)
                 try refuses { try journal.writeTransition("apply_intent", operation: -1, state: f.state) }
                 try refuses { try journal.writeTransition("old_image_restored", operation: -1, state: f.state) }

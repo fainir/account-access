@@ -91,6 +91,42 @@ struct CompletedComponentSnapshot {
     let worker: CompletedComponentRecord
     let service: CompletedComponentRecord
     var volumeBinding: CompletedComponentVolumeBinding? = nil
+    // Present only after the existing root-volume receipt qualifies the exact
+    // component plan, worker/service hashes, volume UUID and unchanged roots.
+    var historicalBinding: CompletedComponentHistoricalBinding? = nil
+}
+struct CompletedComponentHistoricalBinding {
+    let currentDevice: Int32
+    private let componentDevice: Int32
+    private let volumeUUID: String, supplementSHA256: String
+    private let binding: [String: Any]
+    private init(currentDevice: Int32, componentDevice: Int32, volumeUUID: String,
+                 supplementSHA256: String, binding: [String: Any]) {
+        self.currentDevice = currentDevice; self.componentDevice = componentDevice
+        self.volumeUUID = volumeUUID; self.supplementSHA256 = supplementSHA256; self.binding = binding
+    }
+    static func qualified(supplement: Data, legacy: InstallationRootBinding.Legacy,
+                          current: [String: InstallationRootBinding.CurrentRoot],
+                          source: ComponentSource, intent: ComponentTransitionIntent) throws -> Self {
+        let root = try InstallationRootBinding.componentVolume(supplement, legacy: legacy, current: current,
+            planSHA256: source.planDigest, workerSHA256: intent.workerPolicy.sha256, serviceSHA256: intent.servicePlist.sha256)
+        let digest = ComponentFiles.digest(supplement)
+        let roots = current.mapValues { ["inode": $0.inode, "volume_uuid": $0.volumeUUID] as [String: Any] }
+        return Self(currentDevice: root.device, componentDevice: intent.workerPolicy.device,
+            volumeUUID: root.volumeUUID, supplementSHA256: digest,
+            binding: ["receipts": legacy.hashes, "roots": roots, "supplement_sha256": digest])
+    }
+    func hash(at device: Int32) throws -> String {
+        guard device >= 0 else { throw ComponentUpdateFailure.journal }
+        var value = binding
+        if device != componentDevice {
+            value["component_device_binding"] = ["previous_device": componentDevice,
+                "current_device": device, "volume_uuid": volumeUUID,
+                "supplement_sha256": supplementSHA256] as [String: Any]
+        }
+        return ComponentFiles.digest(try JSONSerialization.data(withJSONObject: value,
+            options: [.sortedKeys, .withoutEscapingSlashes]))
+    }
 }
 struct CompletedComponentProof {
     let evidence: Data
@@ -302,8 +338,11 @@ extension ComponentController {
     }
     private static func completedProof(source: ComponentSource, read: () throws -> CompletedComponentSnapshot,
         verifyInitial: (CompletedComponentSnapshot, ComponentTransitionIntent) throws -> Void, expectedEvidence: Data?,
-        expectedEvidenceSHA256: String? = nil) throws -> CompletedComponentProof {
+        expectedEvidenceSHA256: String? = nil, recordedDevice: Int32? = nil) throws -> CompletedComponentProof {
         guard expectedEvidence == nil || expectedEvidenceSHA256 == nil else { throw ComponentUpdateFailure.journal }
+        guard recordedDevice == nil || (expectedEvidence == nil && expectedEvidenceSHA256 != nil) else {
+            throw ComponentUpdateFailure.journal
+        }
         if let expectedEvidenceSHA256 {
             guard expectedEvidenceSHA256.utf8.count == 64,
                   expectedEvidenceSHA256.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }) else { throw ComponentUpdateFailure.journal }
@@ -316,11 +355,42 @@ extension ComponentController {
         try CompletedPredecessorDiagnostic.checked(.evidenceStability) {
             guard revalidated.1 == validated.1 else { throw ComponentUpdateFailure.journal }
         }
+        // A completed full-image intent binds evidence from the previous mount.
+        // Reconstruct those exact bytes only after two complete current-volume
+        // validations. No record is rewritten and no inode/hash/mode is relaxed.
+        let evidence = try historicalCompletedEvidence(validated.1, snapshot: before, recordedDevice: recordedDevice)
+        let repeated = try historicalCompletedEvidence(revalidated.1, snapshot: after, recordedDevice: recordedDevice)
         try CompletedPredecessorDiagnostic.checked(.expectedEvidence) {
-            if let expectedEvidence { guard expectedEvidence == validated.1 else { throw ComponentUpdateFailure.journal } }
-            if let expectedEvidenceSHA256 { guard ComponentFiles.digest(validated.1) == expectedEvidenceSHA256 else { throw ComponentUpdateFailure.journal } }
+            guard evidence == repeated else { throw ComponentUpdateFailure.journal }
+            if let expectedEvidence { guard expectedEvidence == evidence else { throw ComponentUpdateFailure.journal } }
+            if let expectedEvidenceSHA256 { guard ComponentFiles.digest(evidence) == expectedEvidenceSHA256 else { throw ComponentUpdateFailure.journal } }
         }
-        return CompletedComponentProof(validated.1)
+        return CompletedComponentProof(evidence)
+    }
+    private static func historicalCompletedEvidence(_ evidence: Data, snapshot: CompletedComponentSnapshot,
+                                                     recordedDevice: Int32?) throws -> Data {
+        guard let device = recordedDevice, device != snapshot.worker.object.device else { return evidence }
+        guard device >= 0, let binding = snapshot.historicalBinding,
+              binding.currentDevice == snapshot.worker.object.device,
+              try binding.hash(at: binding.currentDevice) == snapshot.rootBindingSHA256 else {
+            throw ComponentUpdateFailure.journal
+        }
+        let value = try JSONDecoder().decode(CompletedEvidence.self, from: evidence)
+        func object(_ old: ComponentObject) throws -> ComponentObject {
+            guard old.device == binding.currentDevice else { throw ComponentUpdateFailure.journal }
+            return ComponentObject(device: device, inode: old.inode, mode: old.mode, bytes: old.bytes, sha256: old.sha256)
+        }
+        let roots = try value.roots.mapValues { old -> CompletedComponentDirectory in
+            guard old.device == binding.currentDevice else { throw ComponentUpdateFailure.journal }
+            return CompletedComponentDirectory(device: device, inode: old.inode, owner: old.owner, group: old.group, mode: old.mode)
+        }
+        return try encoded(CompletedEvidence(schema: value.schema, managedBy: value.managedBy,
+            planSHA256: value.planSHA256, baseManifestSHA256: value.baseManifestSHA256,
+            targetManifestSHA256: value.targetManifestSHA256, ownerUID: value.ownerUID,
+            ownerGroup: value.ownerGroup, brokerUID: value.brokerUID, roots: roots,
+            namespaceNames: value.namespaceNames, originalReceipts: value.originalReceipts.mapValues(object),
+            rootBindingSHA256: binding.hash(at: device), records: value.records.mapValues(object),
+            head: object(value.head), worker: object(value.worker), service: object(value.service)))
     }
     private static func completedJournal(_ snapshot: CompletedComponentSnapshot, operations: [ComponentOperation], source: ComponentSource,
                                      intentExists: Bool) throws -> JournalState {
@@ -435,6 +505,10 @@ extension ComponentController {
             let intent = try loadIntent(transition); try identity(ownerUID, intent.brokerUID)
             let roots = try ["original": completedDirectory(original), "components": completedDirectory(components), "transition": completedDirectory(transition)]
             var volumeBinding: CompletedComponentVolumeBinding? = nil
+            let historicalBinding = try supplementData.map {
+                try CompletedComponentHistoricalBinding.qualified(supplement: $0, legacy: legacy,
+                    current: current, source: source, intent: intent)
+            }
             if intent.workerPolicy.device != current[InstallerPayloadManifest.support]?.device, let proof = supplementData {
                 checkpoint = .rootBinding
                 volumeBinding = try CompletedComponentVolumeBinding.qualified(supplement: proof, legacy: legacy,
@@ -447,7 +521,8 @@ extension ComponentController {
                 namespaceNames: try InstallerPayloadIO.contents(components).sorted(), original: originals,
                 rootBindingSHA256: ComponentFiles.digest(try JSONSerialization.data(withJSONObject: binding, options: [.sortedKeys, .withoutEscapingSlashes])),
                 records: records, head: try record(components, "head.json", 0o644),
-                worker: CompletedComponentRecord(data: workerRead.0, object: workerRead.1), service: service, volumeBinding: volumeBinding)
+                worker: CompletedComponentRecord(data: workerRead.0, object: workerRead.1), service: service,
+                volumeBinding: volumeBinding, historicalBinding: historicalBinding)
         } catch let diagnostic as CompletedPredecessorDiagnostic { throw diagnostic }
         catch { throw CompletedPredecessorDiagnostic(checkpoint: checkpoint, failure: error) }
     }
@@ -514,7 +589,8 @@ extension ComponentController {
             throw ComponentUpdateFailure.context // Recovery must never inspect a mixed current image here.
         }, expectedEvidence: expectedEvidence)
     }
-    static func revalidateCompletedPredecessor(resources: Int32, planPin: String, expectedEvidenceSHA256: String) throws -> CompletedComponentProof {
+    static func revalidateCompletedPredecessor(resources: Int32, planPin: String, expectedEvidenceSHA256: String,
+                                               recordedDevice: Int32? = nil) throws -> CompletedComponentProof {
         guard getuid() == 0, geteuid() == 0, expectedEvidenceSHA256.utf8.count == 64,
               expectedEvidenceSHA256.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }) else { throw ComponentUpdateFailure.context }
         let source = try ComponentSource.load(resources, planPin: planPin)
@@ -522,7 +598,7 @@ extension ComponentController {
         // full-image intent; the same full immutable evidence is still checked.
         return try completedProof(source: source, read: { try completedNativeSnapshot(source) }, verifyInitial: { _, _ in
             throw ComponentUpdateFailure.context
-        }, expectedEvidence: nil, expectedEvidenceSHA256: expectedEvidenceSHA256)
+        }, expectedEvidence: nil, expectedEvidenceSHA256: expectedEvidenceSHA256, recordedDevice: recordedDevice)
     }
 #if ACCOUNT_ACCESS_COMPONENT_PREDECESSOR_CHECKS
     static func fixtureCompletedInitialFiles(_ snapshot: CompletedComponentSnapshot, _ intent: ComponentTransitionIntent,
@@ -534,9 +610,9 @@ extension ComponentController {
     }
     static func fixtureCompletedPredecessor(source: ComponentSource, read: () throws -> CompletedComponentSnapshot,
         verifyInitial: (CompletedComponentSnapshot, ComponentTransitionIntent) throws -> Void, expectedEvidence: Data? = nil,
-        expectedEvidenceSHA256: String? = nil) throws -> CompletedComponentProof {
+        expectedEvidenceSHA256: String? = nil, recordedDevice: Int32? = nil) throws -> CompletedComponentProof {
         try completedProof(source: source, read: read, verifyInitial: verifyInitial, expectedEvidence: expectedEvidence,
-            expectedEvidenceSHA256: expectedEvidenceSHA256)
+            expectedEvidenceSHA256: expectedEvidenceSHA256, recordedDevice: recordedDevice)
     }
 #endif
 }

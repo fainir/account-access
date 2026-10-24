@@ -36,6 +36,14 @@ unqualified. Source review identifies a completed full-image journal's transient
 device-number requirement as a restart compatibility gap; the coarse owner
 checkpoint does not identify which nested predicate failed.
 
+A source fix now verifies completed historical records through the existing
+volume receipt and exact predecessor evidence without rewriting the records.
+The corrected native fixtures passed, including 429 directory-storage and 312
+mixed file/tree checks. The initial reproduction had a missing canonical newline;
+that limitation is retained alongside the corrected evidence. Actual successor
+Installer and owner verification remain pending.
+[Restart source evidence](../artifacts/full-image-restart-source-20261024.json).
+
 [Post-restart target comparison](../artifacts/repair87-restart-owner-mac-after-repair87.json) ·
 [Predecessor confirmation](../artifacts/repair87-restart-owner-mac-restart87-predecessor.json) ·
 [Retry result](../artifacts/owner-mac-repair87-retry1-result-20261024.json).

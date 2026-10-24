@@ -54,13 +54,13 @@ EXACT_INPUTS = {
     'macos/ComponentUpdate.swift': '05fc4fb9ff5f2e81ddba4ffa8c4fac8ae0006ff8fdfc0b9fb6388c7fea47750a',
     'macos/ComponentUpdateIdentity.swift': '4c3bf3e29923e0a92ac9bf6a8e9752ec889d61eb26dedbafcf6e788dabd3512e',
     'macos/ComponentUpdatePolicies.swift': '7aca759f4b9fad195851ce12d81550ec08a0753c43515574c23fc74d247060ab',
-    'macos/FullImageGlobalJournal.swift': '4949ab9c92b230ecea30660c7c1fc3edc7637c5c6e22bbd2bc44bc24c5c13ea4',
+    'macos/FullImageGlobalJournal.swift': '91907ca19ca2c1ded027cf077eb107624cb5b25e65ebd49cc8e26b00c2296f4e',
     'macos/FullImageInstalledIO.swift': '03f22dc6a57cb736ee1608161b0d40fe13ffe65938344165690ff789890ea61a',
     'macos/FullImagePlan.swift': '476afded52312882b0c0b984ea99bdbfe1c9927563878203d94e95635766d0a1',
     'macos/FullImagePredecessorAuthority.swift': '39a6c5b35ab1614f89983c799dd603b2585b9d219d7b3d7908e73b750209f603',
-    'macos/FullImageTransitionStorage.swift': '9f304c22212574a3b50f9edb8045fb45bc5c514feb9ce7580b7cf12a42e6bcaf',
+    'macos/FullImageTransitionStorage.swift': '42141541f8cceffdfe6bec20d82ef047f600a7217e8f7b79827de2c1599f01ff',
     'macos/FullImageTreeAttachment.swift': '8bb445ede216844f0a32144e99c27a9f06a80b7a76f4e78fbd9f30b65ce22a65',
-    'macos/FullImageTreeStorage.swift': 'a23b2ae241933c33ab3de5be309546fd66f2e9b6bc5e5c37b625cfb85ef08547',
+    'macos/FullImageTreeStorage.swift': 'ef53f79dcfe99b63262cd9e500da9fed11cc36d255d31792bbf195ea908bce6b',
     'macos/FullImageUpdateMain.swift': '80e8dff1dfd9aa04396cfc149087763365ebce801b3af42a6ff1bc7741d9ab5d',
     'macos/FullImageUpdatePolicies.swift': '67864c4c5226ee467401e1d93ec79e89ba8bb9c5a0e4608a55994e9d26f05416',
     'macos/InstallationRootBinding.swift': 'bdfd959f69ce60f2c1d573d3e165b97f3303f66d9347f959f0662cf06dad0a58',
@@ -72,18 +72,18 @@ EXACT_INPUTS = {
     'macos/Tests/BrokerRepairIntentChecks.swift': 'f3dc81b84c635f4ada2987d033996608522dcb1c473a2fe85d8d4e3a1235a405',
     'macos/Tests/BrokerRepairRecoveryChecks.swift': 'f2010776d5fe80ae7526034dec45dfc1785ca3c96a44693682f406ad86e3970b',
     'macos/Tests/BrokerRepairSourceChecks.swift': 'ad6def26f6519fdc3d3b4f829ccb79b6c4134a7622983e64aabca3f14c6bb5ac',
-    'macos/Tests/CombinedPredecessorAuthorityChecks.swift': '3902afa5ff6329c56a82368d678b47fbe10ca5a973c54da841c10c52fcb4e8c9',
-    'macos/Tests/FullImageGlobalJournalChecks.swift': '86996978d5d73a74a9077ab81d2c251ae696dcdcd556d0c991cea0ca25b6d160',
+    'macos/Tests/CombinedPredecessorAuthorityChecks.swift': '5acfb70f416a80036a7a547577773f1f7d997917f5f1efabc9232d8f2672cb43',
+    'macos/Tests/FullImageGlobalJournalChecks.swift': '3f6978e850afe514e0344cbf26aa3fd66e67df484dd82293bcf9bd005fa2fdfc',
     'macos/Tests/FullImageInstalledChecks.swift': '21d007dce00a58d2d3e691b6382d63de8e005035d4542f58e78c448f9ea7a3ca',
     'macos/Tests/FullImageInstalledSourceFixture.swift': '28c438a2294ef668bf0632089c212c8b7a2706ba5edea5ea0f546504ffa5e514',
     'macos/Tests/FullImageLegacyGroupChecks.swift': '783c7166faf8844feb90dfe1c35c8a5364bb0c8328a2538ff6ab337bc5ee0992',
     'macos/Tests/FullImageNamespaceChecks.swift': '86a7cdc1063f8bcb497b0decc5dcc3025f8639f3f2c9d0de5e72945fdca7be92',
     'macos/Tests/FullImagePredecessorAuthorityChecks.swift': '34e940e3d6acc9878c57a1f96ed8cf2f805966db857dbea03e8c8c41b0fb75b4',
     'macos/source-fragments/BrokerRepairInstalledAdapter.swift.inc': '0ca30647ac0ea0bfecfaf2784d0f4313ee5f16582f277f84bc819d57c3c196ad',
-    'macos/source-fragments/CompletedComponentPredecessor.swift.inc': '73bb28db2c204a95a67b8e7ca0cb86cac93f2aa4428bd70c25c4248553cf536d',
-    'macos/source-fragments/FullImageInstalledAdapter.swift.inc': '26c98791a931124bf4fffaf476cbae26b69a7ab8c1f2f61cf89f757f1a1623f3',
+    'macos/source-fragments/CompletedComponentPredecessor.swift.inc': 'cb794d418f4c5bd307b8c415a8228cc95e314c1b40faf478c44aa34994bbf3b8',
+    'macos/source-fragments/FullImageInstalledAdapter.swift.inc': '6a25b3401964f259a250fd29f53da7df05736c92f47a51883ca29188d48b29b1',
 }
-COMPOSED_SHA256 = "5114e1726ec49ed591f2f44e99a244bd5e484e57f46a610b8f35738495d034b2"
+COMPOSED_SHA256 = "c827da1508919693f0131e45b2a179e697acd3bc53e9c9f40d70cd4faa770647"
 GUARD_ENV = "ACCOUNT_ACCESS_FULL_IMAGE_PROBE_GUARD"
 DISPATCHER = b'''import Foundation
 import Darwin
@@ -371,8 +371,8 @@ class Probe:
         require(code == 0 and stderr == b"", "native_fixture_failed")
         reports = [json.loads(line) for line in stdout.decode("utf-8").splitlines() if line.startswith("{")]
         require(len(reports) == 6 and all(report.get("status") == "PASSED" for report in reports[:4]), "fixture_reports_refused")
-        require(reports[0].get("count") == 142 and isinstance(reports[0].get("checks"), dict)
-                and len(reports[0]["checks"]) == 142 and all(value is True for value in reports[0]["checks"].values())
+        require(reports[0].get("count") == 156 and isinstance(reports[0].get("checks"), dict)
+                and len(reports[0]["checks"]) == 156 and all(value is True for value in reports[0]["checks"].values())
                 and reports[1].get("checks") == 142, "fixture_assertion_count_changed")
         namespace = reports[2]
         require((namespace.get("checks"), namespace.get("supplemental_group_case")) in {
@@ -383,7 +383,7 @@ class Probe:
                 and legacy.get("supplemental_group_case") == "PASSED_DISTINCT_OLD_AND_NEW_GROUPS"
                 and legacy.get("optional_polarities") == 2 and legacy.get("recovery_polarities") == 3,
                 "legacy_group_report_refused")
-        require(journal == {"status": "FULL_IMAGE_DURABLE_JOURNAL_CHECKS_PASSED", "assertions": 156,
+        require(journal == {"status": "FULL_IMAGE_DURABLE_JOURNAL_CHECKS_PASSED", "assertions": 164,
                             "installed_or_provider_operations": False}
                 and journal["installed_or_provider_operations"] is False, "global_journal_report_refused")
         require(repair == {"schema": 1, "status": "PASSED", "source_assertions": 54, "recovery_assertions": 49, "transaction_assertions": 74,

@@ -111,18 +111,19 @@ extension ComponentController {
          .head: try FullImageGlobalIntent.newHead(source: source, predecessorEvidenceSHA256: proofSHA256)]
     }
     private static func fullOriginal(_ operation: FullImageFileOperation, files: FullImageAttachedDirectory,
-                                     routes: FullImageInstalledRoutes) throws -> Data {
+                                     routes: FullImageInstalledRoutes, observationDevice: Int32? = nil) throws -> Data {
         guard [.hostPolicy, .ownerPolicy, .installRecord].contains(operation.unit), let before = operation.before else { throw FullImageFailure.journal }
         let storage = try FullImageFileStorage(operation: operation, retained: files.fd, owner: 0,
-            resolve: routes.resolve, verifyAttachments: { try routes.verify() }, requireQuiescent: { throw FullImageFailure.journal })
+            resolve: routes.resolve, verifyAttachments: { try routes.verify() }, requireQuiescent: { throw FullImageFailure.journal },
+            observationDevice: observationDevice)
         switch try storage.state() {
         case .staged:
             let (parent, name) = try routes.resolve(operation.unit); defer { Darwin.close(parent) }
             let read = try ComponentFiles.read(parent, name, owner: 0, mode: mode_t(operation.unit.mode))
-            guard read.1 == before else { throw FullImageFailure.journal }; return read.0
+            guard storage.matches(read.1, before) else { throw FullImageFailure.journal }; return read.0
         case .applied:
             let read = try ComponentFiles.read(files.fd, operation.slot, owner: 0, mode: mode_t(operation.unit.mode))
-            guard read.1 == before else { throw FullImageFailure.journal }; return read.0
+            guard storage.matches(read.1, before) else { throw FullImageFailure.journal }; return read.0
         case .conflict: throw FullImageFailure.journal
         }
     }
@@ -237,20 +238,32 @@ extension ComponentController {
         if hasIntent {
             let global = try routes.globalJournal(plan: pins.planSHA256)
             preliminary = try FullImageGlobalJournal.readIntent(directory: global.fd, owner: 0, group: 0, beforeGroup: beforeGroup,
+                historicalObservation: verificationOnly,
                 validateIntent: { try fullPreliminary($0, source: source, ownerUID: ownerUID) }, verifyAttachment: global.verify)
         } else { preliminary = nil }
+        // This mode never repairs an interrupted full-image transition. It can
+        // only observe a fully completed transition after historical evidence
+        // has been qualified by the persistent volume receipt below.
+        let observationDevice: Int32? = verificationOnly ? preliminary?.workerPolicy.device : nil
         checkpoint(.predecessor)
         let proof: CompletedComponentProof
         if let preliminary {
             proof = try revalidateCompletedPredecessor(resources: predecessorResources, planPin: pins.predecessor.planSHA256,
-                expectedEvidenceSHA256: preliminary.predecessorEvidenceSHA256)
+                expectedEvidenceSHA256: preliminary.predecessorEvidenceSHA256, recordedDevice: observationDevice)
         } else { proof = try initialCompletedPredecessor(resources: predecessorResources, planPin: pins.predecessor.planSHA256) }
         let authority = try FullImagePredecessorAuthority.bind(source: source, proof: proof)
         guard authority.ownerUID == ownerUID else { throw FullImageFailure.predecessor }
         try identity(ownerUID, authority.brokerUID)
         let worker = try publicRead("broker/worker.json", mode: 0o644), plist = try jobPlist(ownerGroup: ownerGroup)
-        guard worker.1 == authority.workerPolicy, plist == authority.servicePlist else { throw FullImageFailure.object }
-        let device = support.identity.device
+        let currentDevice = support.identity.device
+        let device = observationDevice ?? currentDevice
+        func matches(_ observed: ComponentObject, _ recorded: ComponentObject) -> Bool {
+            guard observationDevice != nil else { return observed == recorded }
+            return recorded.device == device && observed.device == currentDevice
+                && observed == ComponentObject(device: currentDevice, inode: recorded.inode,
+                    mode: recorded.mode, bytes: recorded.bytes, sha256: recorded.sha256)
+        }
+        guard matches(worker.1, authority.workerPolicy), matches(plist, authority.servicePlist) else { throw FullImageFailure.object }
         checkpoint(.preparation)
         let intent: FullImageGlobalIntent
         if let preliminary { intent = preliminary }
@@ -353,15 +366,16 @@ extension ComponentController {
         let dynamicFiles = intent.operations.suffix(4).compactMap(\.file)
         guard dynamicFiles.map(\.unit) == [.hostPolicy, .ownerPolicy, .installRecord, .head] else { throw FullImageFailure.journal }
         let policy = try fullPolicy(source: source, predecessor: predecessor,
-            install: fullOriginal(dynamicFiles[2], files: files, routes: routes),
-            host: fullOriginal(dynamicFiles[0], files: files, routes: routes),
-            profile: fullOriginal(dynamicFiles[1], files: files, routes: routes), worker: worker.0, ownerUID: ownerUID)
+            install: fullOriginal(dynamicFiles[2], files: files, routes: routes, observationDevice: observationDevice),
+            host: fullOriginal(dynamicFiles[0], files: files, routes: routes, observationDevice: observationDevice),
+            profile: fullOriginal(dynamicFiles[1], files: files, routes: routes, observationDevice: observationDevice), worker: worker.0, ownerUID: ownerUID)
         guard policy.brokerUID == authority.brokerUID else { throw FullImageFailure.predecessor }
         let dynamic = try fullDynamic(policy, source: source, proofSHA256: authority.proofSHA256)
         let journal = try FullImageGlobalJournal.open(directory: global.fd, owner: 0, group: 0, beforeGroup: beforeGroup, expected: intent,
             validateIntent: { try authority.validate($0, source: source, publicOwner: 0, publicGroup: 0, beforeGroup: beforeGroup, device: device, dynamic: dynamic) },
-            verifyAttachment: global.verify, createIfMissing: !verificationOnly)
+            verifyAttachment: global.verify, createIfMissing: !verificationOnly, observationDevice: observationDevice)
         let recovery = try journal.recovery()
+        guard !verificationOnly || recovery.finished else { throw FullImageFailure.predecessor }
         let barrier = ComponentLaunchdBarrier(brokerUID: authority.brokerUID, recoveringIntent: recovery.ownsDisable,
             snapshots: (intent.initialService.map { [$0] } ?? []) + recovery.snapshots,
             peers: [source.oldPeers["broker"]!, source.newPeers["broker"]!], recordSnapshot: journal.writeSnapshot, record: journal.writeService)
@@ -370,7 +384,8 @@ extension ComponentController {
         for (index, record) in intent.operations.enumerated() {
             if let file = record.file {
                 let storage = try FullImageFileStorage(operation: file, retained: files.fd, owner: 0,
-                    resolve: routes.resolve, verifyAttachments: { try routes.verify() }, requireQuiescent: barrier.requireDisabledAndQuiescent)
+                    resolve: routes.resolve, verifyAttachments: { try routes.verify() }, requireQuiescent: barrier.requireDisabledAndQuiescent,
+                    observationDevice: observationDevice)
                 units.append(.file(storage))
             } else {
                 guard index < source.units.count, let operation = record.tree,
@@ -381,17 +396,18 @@ extension ComponentController {
                     retainedParent: retained.fd, journalParent: localJournal.fd,
                     targetAttachment: target.attachment(.target(unit)), retainedAttachment: retained.attachment(.retained(unit)),
                     journalAttachment: localJournal.attachment(.journal(unit)), old: old, new: new, owner: 0, group: 0, beforeGroup: beforeGroup,
-                    requireQuiescent: barrier.requireDisabledAndQuiescent, createIfMissing: !verificationOnly)
+                    requireQuiescent: barrier.requireDisabledAndQuiescent, createIfMissing: !verificationOnly,
+                    observationDevice: observationDevice)
                 units.append(.tree(storage))
             }
         }
         let verifyUnchanged = {
             try routes.verify(); try ComponentProcesses.requireOwnerClosed()
-            guard try owner().0 == ownerUID, try publicRead("broker/worker.json", mode: 0o644).1 == intent.workerPolicy,
-                  try jobPlist(ownerGroup: ownerGroup) == intent.servicePlist else { throw FullImageFailure.object }
+            guard try owner().0 == ownerUID, matches(try publicRead("broker/worker.json", mode: 0o644).1, intent.workerPolicy),
+                  matches(try jobPlist(ownerGroup: ownerGroup), intent.servicePlist) else { throw FullImageFailure.object }
             try originalReceipt(original, ownerUID: ownerUID)
             _ = try revalidateCompletedPredecessor(resources: predecessorResources, planPin: pins.predecessor.planSHA256,
-                expectedEvidenceSHA256: intent.predecessorEvidenceSHA256)
+                expectedEvidenceSHA256: intent.predecessorEvidenceSHA256, recordedDevice: observationDevice)
         }
         let verifyPublic = {
             guard let storage = reference.storage else { throw FullImageFailure.journal }

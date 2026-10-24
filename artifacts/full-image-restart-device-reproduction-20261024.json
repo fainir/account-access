@@ -14,5 +14,6 @@
   "production_ready": false,
   "scope": "Coherent historical device pins pass structural validation for their recorded device but native readIntent rejects them before the authority callback on the current device. This reproduces a source compatibility gap, not the exact nested owner refusal.",
   "compile_log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-  "result_log_sha256": "5c32e2d7c374e4a5d52d3cedeac9d4239fe4e9471bb6903b1e05838d4204d132"
+  "result_log_sha256": "5c32e2d7c374e4a5d52d3cedeac9d4239fe4e9471bb6903b1e05838d4204d132",
+  "qualification_correction": "This initial fixture omitted the canonical trailing newline; its refusal did not independently isolate the device-number check. Corrected fixture and source tests are recorded in full-image-restart-source-20261024.json."
 }

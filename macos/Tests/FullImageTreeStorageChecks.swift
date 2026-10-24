@@ -113,12 +113,13 @@ private enum FixtureFailure: Error { case failed, interruption }
                 old: old, new: new, owner: getuid(), group: getgid(), planSHA256: String(repeating: "a", count: 64))
         }
         deinit { [parent, target, retained, journal].forEach { Darwin.close($0) } }
-        func storage(createIfMissing: Bool = true, fault: @escaping (PublicTreeStorage.Phase) throws -> Void = { _ in }) throws -> PublicTreeStorage {
-            try PublicTreeStorage.open(operation: operation, unit: unit, targetParent: target, retainedParent: retained,
+        func storage(createIfMissing: Bool = true, observed: PublicTreeOperation? = nil, observationDevice: Int32? = nil,
+                     fault: @escaping (PublicTreeStorage.Phase) throws -> Void = { _ in }) throws -> PublicTreeStorage {
+            try PublicTreeStorage.open(operation: observed ?? operation, unit: unit, targetParent: target, retainedParent: retained,
                 journalParent: journal, targetAttachment: targetAttachment, retainedAttachment: retainedAttachment,
                 journalAttachment: journalAttachment, old: old, new: new, owner: getuid(), group: getgid(), requireQuiescent: {
                     guard self.quiescent else { throw PublicTreeFailure.barrier }
-                }, createIfMissing: createIfMissing, fault: fault)
+                }, createIfMissing: createIfMissing, observationDevice: observationDevice, fault: fault)
         }
         func stagedFD() throws -> Int32 {
             let fd = openat(retained, unit.slot, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
@@ -417,6 +418,47 @@ private enum FixtureFailure: Error { case failed, interruption }
             }
             try refuses { _ = try manifest(.project, Data(), present: false) }
             guard count == originalChecks + 49 + 2 + 4 * 26 + 1 else { throw FixtureFailure.failed }
+            // Fictional historical journal bytes, never an installed receipt.
+            // Cover replacement, creation and removal on both sides of rename.
+            for (index, unit) in PublicTreeUnit.allCases.enumerated() {
+                for applied in [false, true] {
+                    let scenario = try Scenario(root: root, anchor: anchor, name: "historical-\(index)-\(applied)", unit: unit)
+                    let originalStorage = try scenario.storage()
+                    if applied { try originalStorage.apply() }
+                    let current = scenario.operation.before?.device ?? scenario.operation.after!.device
+                    let historical: Int32 = current == 123 ? 124 : 123
+                    func pin(_ old: PublicTreePin?) -> PublicTreePin? {
+                        old.map { PublicTreePin(device: historical, inode: $0.inode, owner: $0.owner,
+                            group: $0.group, mode: $0.mode, inventorySHA256: $0.inventorySHA256) }
+                    }
+                    let old = scenario.operation
+                    let observed = PublicTreeOperation(schema: old.schema, unit: old.unit, planSHA256: old.planSHA256,
+                        beforeManifestSHA256: old.beforeManifestSHA256, afterManifestSHA256: old.afterManifestSHA256,
+                        before: pin(old.before), after: pin(old.after))
+                    let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+                    let raw = try encoder.encode(observed)
+                    let fd = openat(scenario.journal, "intent.json", O_WRONLY | O_TRUNC | O_NOFOLLOW | O_CLOEXEC)
+                    guard fd >= 0 else { throw FixtureFailure.failed }
+                    let written = raw.withUnsafeBytes { Darwin.write(fd, $0.baseAddress!, $0.count) }
+                    Darwin.close(fd); guard written == raw.count else { throw FixtureFailure.failed }
+                    let before = try journalSnapshot(scenario.journal)
+                    try refuses { _ = try scenario.storage(createIfMissing: false, observed: observed) }
+                    let readOnly = try scenario.storage(createIfMissing: false, observed: observed, observationDevice: historical)
+                    try expect(try readOnly.state() == (applied ? .applied : .staged))
+                    try refuses { try readOnly.apply() }
+                    try refuses { try readOnly.reverse() }
+                    try refuses { _ = try scenario.storage(observed: observed, observationDevice: historical) }
+                    try refuses { _ = try scenario.storage(createIfMissing: false, observed: observed, observationDevice: historical + 1) }
+                    let after = try journalSnapshot(scenario.journal)
+                    try expect(before.0 == after.0 && InstallerPayloadIO.same(before.1, after.1))
+                    // Equal bytes on a replacement directory never gain authority.
+                    let parent = unit.afterPresent ? (applied ? scenario.target : scenario.retained) : (applied ? scenario.retained : scenario.target)
+                    let name = unit.afterPresent ? (applied ? unit.name : unit.slot) : (applied ? unit.slot : unit.name)
+                    guard renameat(parent, name, parent, "foreign-old") == 0 else { throw FixtureFailure.failed }
+                    try tree(parent, name, unit, Data((unit.afterPresent ? "new-tree-longer" : "old-tree").utf8))
+                    try refuses { _ = try readOnly.state() }
+                }
+            }
             try cleanup(root)
             var current = stat()
             guard lstat(path, &current) == 0, current.st_dev == original.st_dev, current.st_ino == original.st_ino,

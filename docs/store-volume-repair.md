@@ -156,10 +156,20 @@ A full public-image comparison followed by the three-path predecessor check
 confirmed intact image 85, with no repair namespace created. No private store
 was read. See `artifacts/owner-mac-repair87-retry1-result-20261024.json`.
 
-A native temporary-directory fixture reproduced a restart compatibility gap:
-the completed full-image reader rejects a coherent historical device number
-before reaching predecessor authority validation. Its 156 assertions passed
-without changing the fixture's recorded bytes or inode. This identifies a source
-gap, not the exact nested predicate behind the coarse owner refusal. Evidence is
-in `artifacts/full-image-restart-device-reproduction-20261024.json`. Owner GUI,
-real account verification and restart-safe successor installation remain open.
+The completed full-image reader required the transient device number from the
+previous mount. Its initial reproduction also omitted the journal's mandatory
+newline and therefore did not independently isolate that comparison; the
+original result now carries that correction. The corrected fixture demonstrates
+that the ordinary reader refuses canonical historical records, while the new
+explicit observation mode reads them without writes.
+
+New source reconstructs the exact prior predecessor evidence only through the
+existing validated volume receipt. It preserves journal bytes, inode identities,
+metadata and hashes, and refuses all writes and unfinished-image recovery in
+observation mode. Native checks passed: 156 predecessor checks, 142 installed
+adapter checks, 40 namespace checks, 63 legacy-group checks, 164 journal checks,
+the existing repair suite, 429 tree checks and 312 mixed file/tree checks. Six
+argument guards and both ordinary-user Installer entrypoints also refused as
+expected. These are ordinary-user synthetic fixtures, not an actual reboot or
+Installer test. Evidence is in `artifacts/full-image-restart-source-20261024.json`.
+Owner GUI, real account verification and successor installation remain open.

@@ -231,6 +231,7 @@ final class FullImageGlobalJournal {
     private var records: [File] = []
     private var pendingPins: [String: Pin] = [:]
     private var recordValues: [Record] = []
+    private let readOnly: Bool
 
     private static func encoded<T: Encodable>(_ value: T) throws -> Data {
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
@@ -245,10 +246,11 @@ final class FullImageGlobalJournal {
     }
     private init(directory: Int32, owner: uid_t, group: gid_t, identity: PublicTreeDirectoryIdentity,
                  verifyAttachment: @escaping (Int32) throws -> Void, fault: @escaping (Phase) throws -> Void,
-                 intent: FullImageGlobalIntent, intentPin: Pin) throws {
+                 intent: FullImageGlobalIntent, intentPin: Pin, readOnly: Bool) throws {
         self.directory = directory; self.owner = owner; self.group = group; self.identity = identity
         self.verifyAttachment = verifyAttachment; self.fault = fault; self.intent = intent; self.intentPin = intentPin
         intentSHA256 = FullImageJSON.hash(try Self.encoded(intent))
+        self.readOnly = readOnly
     }
     deinit { Darwin.close(directory) }
     private func attached() throws {
@@ -383,6 +385,7 @@ final class FullImageGlobalJournal {
     // retained objects. Only the literal intent name is read, then the caller's
     // source/predecessor validator must accept it before it is returned.
     static func readIntent(directory: Int32, owner: uid_t, group: gid_t, beforeGroup: gid_t? = nil,
+                           historicalObservation: Bool = false,
                            validateIntent: (FullImageGlobalIntent) throws -> Void,
                            verifyAttachment: (Int32) throws -> Void) throws -> FullImageGlobalIntent {
         try verifyAttachment(directory)
@@ -390,7 +393,11 @@ final class FullImageGlobalJournal {
         guard identity.mode == 0o700 else { throw FullImageFailure.journal }
         let file = try inspect(directory, "intent.json", owner: owner, group: group, maximum: maximumIntent, readBody: true)
         let value = try decoded(FullImageGlobalIntent.self, raw: file.data, maximum: maximumIntent)
-        try value.validateStructure(device: identity.device, publicOwner: owner, publicGroup: group, beforeGroup: beforeGroup)
+        // This read grants no transition authority. A completed-image caller
+        // must qualify the historical evidence against the persistent volume
+        // receipt before opening read-only storage with this recorded device.
+        try value.validateStructure(device: historicalObservation ? value.workerPolicy.device : identity.device,
+            publicOwner: owner, publicGroup: group, beforeGroup: beforeGroup)
         try validateIntent(value)
         guard try inspect(directory, "intent.json", owner: owner, group: group, maximum: maximumIntent, readBody: true).pin == file.pin,
               try PublicTreeDirectoryIdentity.observe(directory, owner: owner, group: group) == identity else { throw FullImageFailure.journal }
@@ -403,6 +410,7 @@ final class FullImageGlobalJournal {
                      validateIntent: (FullImageGlobalIntent) throws -> Void,
                      verifyAttachment: @escaping (Int32) throws -> Void,
                      createIfMissing: Bool = true,
+                     observationDevice: Int32? = nil,
                      fault: @escaping (Phase) throws -> Void = { _ in }) throws -> FullImageGlobalJournal {
         let fd = fcntl(supplied, F_DUPFD_CLOEXEC, 0)
         guard fd >= 0 else { throw FullImageFailure.journal }
@@ -411,7 +419,9 @@ final class FullImageGlobalJournal {
         try verifyAttachment(fd)
         let identity = try PublicTreeDirectoryIdentity.observe(fd, owner: owner, group: group)
         guard identity.mode == 0o700 else { throw FullImageFailure.journal }
-        try expected.validateStructure(device: identity.device, publicOwner: owner, publicGroup: group, beforeGroup: beforeGroup)
+        guard observationDevice == nil || !createIfMissing else { throw FullImageFailure.journal }
+        try expected.validateStructure(device: observationDevice ?? identity.device,
+            publicOwner: owner, publicGroup: group, beforeGroup: beforeGroup)
         try validateIntent(expected)
         let raw = try encoded(expected)
         guard raw.count <= maximumIntent else { throw FullImageFailure.journal }
@@ -428,7 +438,8 @@ final class FullImageGlobalJournal {
         try validateIntent(parsed)
         guard parsed == expected, actual.data == raw else { throw FullImageFailure.journal }
         let value = try FullImageGlobalJournal(directory: fd, owner: owner, group: group, identity: identity,
-            verifyAttachment: verifyAttachment, fault: fault, intent: expected, intentPin: actual.pin)
+            verifyAttachment: verifyAttachment, fault: fault, intent: expected, intentPin: actual.pin,
+            readOnly: observationDevice != nil)
         adopted = true
         (value.pendingPins, value.records, value.recordValues) = try value.namespace()
         return value
@@ -472,6 +483,7 @@ final class FullImageGlobalJournal {
     }
     private func append(kind: Record.Kind, transition: Transition? = nil, operation: Int? = nil,
                         service: Service? = nil, job: ComponentJobIdentity? = nil) throws {
+        guard !readOnly else { throw FullImageFailure.journal }
         try unchanged()
         guard records.count < Self.maximumRecords, pendingPins.count < Self.maximumOrphans else { throw FullImageFailure.journal }
         let value = Record(schema: 1, managedBy: "account-access-full-image-journal-v1", sequence: records.count,

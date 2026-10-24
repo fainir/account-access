@@ -114,6 +114,18 @@ private enum MixedCheckFailure: Error { case failed, interrupted }
                 writeEvent: { self.events.append(($0, $1)) }, verifyOld: {}, verifyRecoverable: {},
                 verifyNew: { if self.failNew { self.failNew = false; throw MixedCheckFailure.interrupted } })
         }
+        func observe(_ operation: FullImageFileOperation, device: Int32?) throws -> FullImageFileStorage {
+            let targetFD = target, retainedFD = retained
+            let a = try PublicTreeDirectoryIdentity.observe(targetFD, owner: getuid(), group: getgid())
+            let b = try PublicTreeDirectoryIdentity.observe(retainedFD, owner: getuid(), group: getgid())
+            return try FullImageFileStorage(operation: operation, retained: retainedFD, owner: getuid(), resolve: {
+                let fd = fcntl(targetFD, F_DUPFD_CLOEXEC, 0)
+                guard fd >= 0 else { throw MixedCheckFailure.failed }; return (fd, $0.rawValue)
+            }, verifyAttachments: {
+                guard try PublicTreeDirectoryIdentity.observe(targetFD, owner: getuid(), group: getgid()) == a,
+                      try PublicTreeDirectoryIdentity.observe(retainedFD, owner: getuid(), group: getgid()) == b else { throw MixedCheckFailure.failed }
+            }, requireQuiescent: { throw MixedCheckFailure.failed }, observationDevice: device)
+        }
     }
     static func main() {
         guard getuid() != 0, geteuid() == getuid(), CommandLine.arguments.count == 1 else { exit(77) }
@@ -155,6 +167,40 @@ private enum MixedCheckFailure: Error { case failed, interrupted }
                         after: ComponentObject(device: 0, inode: 0, mode: 0, bytes: original.after.bytes, sha256: String(repeating: "0", count: 64)))
                     try refuses { _ = try storage.state(foreign) }
                     try expect(try ComponentFiles.observe(scenario.target, FullImageFileUnit.pythonPip312.rawValue, owner: getuid()) == nil)
+                }
+            }
+            for applied in [false, true] {
+                let scenario = try Scenario(parent: root, name: "historical-files-\(applied)")
+                let storage = try scenario.storage()
+                if applied { _ = try ComponentTransition(storage: storage, service: scenario.barrier).run(recovering: false) }
+                for file in scenario.files {
+                    let old = file.operation
+                    let current = old.before?.device ?? old.after!.device
+                    let historical: Int32 = current == 123 ? 124 : 123
+                    func moved(_ object: ComponentObject?) -> ComponentObject? {
+                        object.map { ComponentObject(device: historical, inode: $0.inode, mode: $0.mode, bytes: $0.bytes, sha256: $0.sha256) }
+                    }
+                    let observed = FullImageFileOperation(schema: old.schema, unit: old.unit, planSHA256: old.planSHA256,
+                        index: old.index, before: moved(old.before), after: moved(old.after))
+                    try refuses { _ = try scenario.observe(observed, device: nil) }
+                    let readOnly = try scenario.observe(observed, device: historical)
+                    try expect(try readOnly.state() == (applied ? .applied : .staged))
+                    try refuses { try readOnly.apply() }
+                    try refuses { try readOnly.reverse() }
+                    try refuses { _ = try scenario.observe(observed, device: historical + 1) }
+                    for field in ["inode", "bytes", "sha256"] {
+                        func changed(_ object: ComponentObject?) -> ComponentObject? {
+                            object.map { ComponentObject(device: $0.device,
+                                inode: field == "inode" ? $0.inode + 100000 : $0.inode, mode: $0.mode,
+                                bytes: field == "bytes" ? $0.bytes + 1 : $0.bytes,
+                                sha256: field == "sha256" ? String(repeating: "f", count: 64) : $0.sha256) }
+                        }
+                        let altered = FullImageFileOperation(schema: observed.schema, unit: observed.unit,
+                            planSHA256: observed.planSHA256, index: observed.index,
+                            before: changed(observed.before), after: changed(observed.after))
+                        try expect(try scenario.observe(altered, device: historical).state() == .conflict)
+                    }
+                    try expect(try file.state() == (applied ? .applied : .staged))
                 }
             }
             var current = stat()
