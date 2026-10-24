@@ -13,8 +13,8 @@ Current CI reported CVE-2026-112940, CVE-2026-112913 and CVE-2026-112907
 against the runtime's filelock 3.32.7. Source now requires filelock 4.2.4 and
 regenerates the hash-pinned runtime requirements. The local dependency audit
 reports no known vulnerabilities. Supervisor/provisioning checks and password
-sync contention tests passed with the new dependency. A rebuilt runtime and
-installer acceptance are still required; packages 85/87/88 retain their frozen
+sync contention tests passed with the new dependency. Rebuilt runtime 89 passed
+fresh installation/reapplication; packages 85/87/88 retain their frozen
 older runtime and are not production release candidates. The fresh-87 build is
 only a packaging/installation investigation of those exact historical bytes.
 
@@ -22,11 +22,16 @@ Fresh runtime **89**, built from `57663aa`, now contains filelock 4.2.4. That
 source passed 4,053 Python tests with 108 skipped, the dependency audit and
 native UI/gateway checks. Independent expansion verified all 25,167 public
 files, 2,297 directories and 21 aliases, the exact source wheel, native signatures
-and native manifest counts. Actual fresh installation/reapplication is pending.
+and native manifest counts. Actual fresh installation/reapplication passed all
+13 checks in run `40053834768`; the downloaded report and all 29 referenced log
+hashes were verified. The 27,485 installed public nodes matched, and reapplication
+preserved public bytes and inodes. The service was observed live and the GUI
+quit normally after each installation; these are not owner-store readiness tests.
 Its container is unsigned and not notarized. Updating an existing different
 public image also remains unqualified.
 [Build review](../artifacts/fresh-runtime89-build-review-20261024.json) ·
-[Source CI](../artifacts/runtime89-source-ci-20261024.json).
+[Source CI](../artifacts/runtime89-source-ci-20261024.json) ·
+[Actual fresh Installer acceptance](../artifacts/fresh-runtime89-installer-acceptance-20261024.json).
 
 ### Broker store repair candidate — 24 October 2026
 
@@ -35,9 +40,17 @@ package 87's exact application payload and repair plan. Independent expansion
 verified all 27,523 entries, with only the repair helper and its hash-checking
 wrapper changed. The helper's Developer ID signature and ordinary-user refusal
 passed. Its draft assets are pinned by ID, size and SHA-256 for the three actual
-Installer scenarios. Those scenarios and owner installation are pending. The
+Installer scenarios. All three passed in run `40051324286`: install/reapply,
+owned-helper interruption/recovery, and foreign-binding rollback. Each passed
+13 repair, 15 predecessor and 11 root-revalidation checks. All 120 referenced
+log hashes were independently verified. The foreign-binding case applied and
+restored five changes on each of two attempts without publishing a head. This
+is not a power-loss test. Owner installation and store/GUI acceptance remain
+pending; the exact package is open in Installer for owner authentication. The
 container remains unsigned; this is not a production runtime update.
-[Package 88 build evidence](../artifacts/broker-repair-package88-20261024.json).
+[Package 88 build evidence](../artifacts/broker-repair-package88-20261024.json) ·
+[Actual Installer acceptance](../artifacts/broker-repair88-installer-acceptance-20261024.json) ·
+[Owner public-image preflight](../artifacts/owner-mac-broker-repair88-preflight-20261024.json).
 
 The owner's installed public image was still full image 85 after a Mac restart
 on 24 October. The first owner attempt at package 87 did not complete. A fresh
@@ -59,8 +72,8 @@ A source fix now verifies completed historical records through the existing
 volume receipt and exact predecessor evidence without rewriting the records.
 The corrected native fixtures passed, including 429 directory-storage and 312
 mixed file/tree checks. The initial reproduction had a missing canonical newline;
-that limitation is retained alongside the corrected evidence. Actual successor
-Installer and owner verification remain pending.
+that limitation is retained alongside the corrected evidence. Successor package
+88 passed actual Installer acceptance; owner verification remains pending.
 [Restart source evidence](../artifacts/full-image-restart-source-20261024.json).
 
 [Post-restart target comparison](../artifacts/repair87-restart-owner-mac-after-repair87.json) ·
