@@ -1,0 +1,17 @@
+{
+  "actual_installer_qa": "pending",
+  "dependency_audit": "No known vulnerabilities found",
+  "native_owner_gateway": "success",
+  "native_owner_ui": "success",
+  "owner_runtime_updated": false,
+  "production_ready": false,
+  "python_passed": 4053,
+  "python_skipped": 108,
+  "real_accounts_qualified": false,
+  "run_id": 40051324195,
+  "schema": 1,
+  "source_commit": "57663aae54f438e65f59baf40721f5ffcb8ff524",
+  "status": "PASSED",
+  "summary_log_sha256": "4573150ec3feda8e832206b010b467f774e4c1fbb68830ec9112dd37de453325",
+  "wheel_and_sdist_built": true
+}

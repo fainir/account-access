@@ -1,0 +1,30 @@
+{
+  "actual_installer_qualified": false,
+  "all_native_signatures_verified": true,
+  "build": 89,
+  "counts": {
+    "aliases": 21,
+    "directories": 2297,
+    "files": 25167
+  },
+  "existing_different_image_upgrade_qualified": false,
+  "expanded_nodes": 27498,
+  "filelock_version": "4.2.4",
+  "installed": false,
+  "installer_signed": false,
+  "manifest_sha256": "c2c6c1fd525a2a43d55fb17ed750b64a1432f1aa8bcbc63a4b73ae476596d3fc",
+  "native_manifest_counts_verified": true,
+  "notarized": false,
+  "package_sha256": "501f0b461a7872f4c0129a9c36a49dfe032a490f807f51c56a4b023ab4416141",
+  "packaged_runtime_executed_on_owner_mac": false,
+  "production_ready": false,
+  "schema": 1,
+  "source_ci_run_id": 40051324195,
+  "source_commit": "57663aae54f438e65f59baf40721f5ffcb8ff524",
+  "source_tests": {
+    "passed": 4053,
+    "skipped": 108
+  },
+  "source_wheel_sha256": "1a93f60861bf2c050794f13bfcaec8feaae9b67deb618c54ad33bf30daed424d",
+  "status": "INDEPENDENT_STATIC_REVIEW_PASSED"
+}

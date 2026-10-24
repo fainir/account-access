@@ -154,11 +154,19 @@ def inventory(directory):
 
 
 def cohort_pins(cohort):
-    require(type(cohort) is int and cohort in {80, 84})
+    require(type(cohort) is int and cohort in {80, 84, 89})
     if cohort == 80:
         return MANIFEST_SHA, APP_SOURCE, CONTRACT
+    if cohort == 89:
+        return ("c2c6c1fd525a2a43d55fb17ed750b64a1432f1aa8bcbc63a4b73ae476596d3fc",
+            "57663aae54f438e65f59baf40721f5ffcb8ff524", "artifacts/fresh-image89-installer-inputs.json")
     return ("05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da",
         "d30fda732c589b9ac4dc339a7237ad8ba00d0016", "artifacts/fresh-image84-installer-inputs.json")
+
+
+def cohort_counts(cohort):
+    cohort_pins(cohort)  # The same closed profile validation applies here.
+    return {"files": 25167, "directories": 2297, "aliases": 21} if cohort == 89 else COUNTS
 
 
 def validate_review(review, contract, cohort=80):
@@ -340,9 +348,10 @@ def run(args):
     global h
     h = SimpleNamespace(**runpy.run_path(str(args.repository / HELPER)))
     h.guard()
-    inputs_raw = (args.repository / INPUTS).read_bytes()
-    require(h.git_bytes(args.repository, ["show", revision + ":" + INPUTS], maximum=2 * 1024**2) == inputs_raw)
-    inputs = SimpleNamespace(**runpy.run_path(str(args.repository / INPUTS)))
+    inputs_path = "scripts/download_fresh_runtime_inputs.py" if cohort == 89 else INPUTS
+    inputs_raw = (args.repository / inputs_path).read_bytes()
+    require(h.git_bytes(args.repository, ["show", revision + ":" + inputs_path], maximum=2 * 1024**2) == inputs_raw)
+    inputs = SimpleNamespace(**runpy.run_path(str(args.repository / inputs_path)))
     source_pins = {}
     for name in inputs.PROBES:
         raw = (args.repository / name).read_bytes()
@@ -352,7 +361,7 @@ def run(args):
     report = {"schema": 1, "status": "FAILED", "environment": "fresh-hosted-mac-direct-installer",
         "controller_revision": revision, "checks": dict.fromkeys(CHECKS, False), "logs": {},
         "failure_stage": "fresh_vm_preflight", "personal_accounts_used": 0, "private_vault_read": False,
-        "owner_GUI_qualified": False, "production_ready": False}
+        "owner_GUI_qualified": False, "production_ready": False, "cohort": cohort}
     touched = False
     try:
         for path in (h.BASE, h.APP, h.JOB, h.JOURNAL, h.COMPONENTS, h.REVALIDATION_NAMESPACE,
@@ -409,7 +418,7 @@ def run(args):
             manifest = decode(manifest_raw)
             validate_packaged_image(manifest, expected_inventory)
             require({kind: sum(node["kind"] == word for tree in manifest["roots"].values() for node in tree.values())
-                for kind, word in [("files", "file"), ("directories", "directory"), ("aliases", "symlink")]} == COUNTS)
+                for kind, word in [("files", "file"), ("directories", "directory"), ("aliases", "symlink")]} == cohort_counts(cohort))
             report["checks"]["closed_product_envelope"] = True
             signature_check(command, scripts / "PublicImage/Library/Application Support/Account Access", "package")
             report["checks"]["genuine_production_signatures"] = True
@@ -475,7 +484,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repository", type=Path, required=True)
     parser.add_argument("--bundle", type=Path, required=True)
-    parser.add_argument("--cohort", type=int, choices=[80, 84], default=80)
+    parser.add_argument("--cohort", type=int, choices=[80, 84, 89], default=80)
     return run(parser.parse_args())
 
 

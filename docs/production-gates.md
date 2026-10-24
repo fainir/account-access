@@ -18,6 +18,16 @@ installer acceptance are still required; packages 85/87/88 retain their frozen
 older runtime and are not production release candidates. The fresh-87 build is
 only a packaging/installation investigation of those exact historical bytes.
 
+Fresh runtime **89**, built from `57663aa`, now contains filelock 4.2.4. That
+source passed 4,053 Python tests with 108 skipped, the dependency audit and
+native UI/gateway checks. Independent expansion verified all 25,167 public
+files, 2,297 directories and 21 aliases, the exact source wheel, native signatures
+and native manifest counts. Actual fresh installation/reapplication is pending.
+Its container is unsigned and not notarized. Updating an existing different
+public image also remains unqualified.
+[Build review](../artifacts/fresh-runtime89-build-review-20261024.json) ·
+[Source CI](../artifacts/runtime89-source-ci-20261024.json).
+
 ### Broker store repair candidate — 24 October 2026
 
 Package **88** is built from repair-controller source `eba8057`, while preserving
