@@ -2,7 +2,7 @@
 
 **Account Access remains a preview. Production readiness is false.**
 
-Updated 24 October 2026. The requested outcome is installation, local Chrome
+Updated 24 October 2026 (UTC). The requested outcome is installation, local Chrome
 password import, email/SMS/authenticator setup, and later approved sign-ins
 through the user's existing AI agent. Controlled tests cover those mechanisms;
 they do not establish personal-account or physical-phone acceptance.
@@ -35,13 +35,22 @@ still refuse the update. The package SHA-256 is
 - Hosted live-process qualification passed for both Apple identities and
   rejected incorrect identities. The repeat dedicated-UID survival fixture
   passed; its archive and all 16 referenced log hashes were verified.
-- Actual Installer run `40128222988` is testing installation/reapplication,
-  interruption of the owner-app exchange, interruption of the runtime exchange,
-  and recovery after the old package leaves its owned disabled transition.
-  Acceptance is pending.
-- Owner installation, service recovery and **Connect automatically** remain
-  pending. The outer package is unsigned and not notarized.
+- Actual Installer run `40128222988` passed all four scenarios: installation and
+  reapplication, interruption of the owner-app exchange, interruption of the
+  runtime exchange, and recovery after the old package leaves its owned disabled
+  transition. All 52 successor checks and six extra recovery checks passed.
+  All four archives and 221 referenced log hashes were independently verified.
+  Eight complete launchd observations also passed the stronger exact-job check.
+  The recovery evidence confirms both intended refusals and the same Apple
+  process surviving through successful recovery.
+- A new read-only owner preflight matched all 25,166 old public files, 2,297
+  directories and 21 links, and verified the exact package 94 hash. The Mac is
+  locked; package 94 has not been opened or installed there. Service recovery
+  and **Connect automatically** remain pending. The outer package is unsigned
+  and not notarized.
 
+[Actual Installer acceptance](../artifacts/runtime-upgrade94-installer-acceptance-20261024.json) ·
+[Owner preflight](../artifacts/owner-mac-before-runtime94-20261024.json) ·
 [Package build](../artifacts/runtime-upgrade94-build-20261024.json) ·
 [Controller CI](../artifacts/runtime94-controller-source-ci-20261024.json) ·
 [Separate-user Mac checks](../artifacts/runtime94-source-mac-acceptance-20261024.json) ·
@@ -83,6 +92,11 @@ blocked login notification, posts a separate real shell notification and checks
 that the blocked status and zero-delivery timestamp remain unchanged.
 
 Both source-run APK archives and their APK hashes were independently verified.
+The same source passed 4,181 Python tests (108 skipped), dependency auditing,
+both native jobs and separate-user Mac CI. Its five Mac archives, 28 passing
+reports and 492 named checks were verified. See
+[source CI](../artifacts/android-status-source-ci-20261024.json) and
+[Mac evidence](../artifacts/android-status-source-mac-ci-20261024.json).
 The Android 15 development APK has SHA-256
 `1f38c3ca3cbea45fe6edc879298238255ccebd43d5f2b6017d8af9934d487572`.
 This is not physical Bluetooth-association or SMS-delivery acceptance.

@@ -24,8 +24,8 @@ password import and a Gmail mailbox check. A successful private website login
 has not been established. Package 91 subsequently installed, but **Connect
 automatically** failed. Runtime 92 contains the connection fix; package 93's
 attempt to install it left the old public image intact and the broker disabled.
-Package 94 is undergoing actual Installer and recovery qualification before the
-next owner attempt. Personal email/SMS/TOTP login, the physical Android phone
+Package 94 passed all four actual Installer and recovery scenarios, including
+that disabled-service condition. Installation on the owner Mac is pending. Personal email/SMS/TOTP login, the physical Android phone
 and consumer distribution remain open acceptance gates.
 [Initial owner observations](artifacts/owner-startup-and-import-213509c-20261021.json) ·
 [current acceptance status](docs/production-gates.md).

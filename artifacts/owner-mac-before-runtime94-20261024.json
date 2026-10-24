@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "status": "PASSED",
+  "observed_at": "2026-10-24T20:54:25.167389+00:00",
+  "manifest_sha256": "5a732de4623ba50aefa6d31c54e7b1eae660b2921341f95042c5675d922d808b",
+  "private_data_read": false,
+  "counts": {
+    "symlink": 21,
+    "directory": 2297,
+    "file": 25166
+  },
+  "mismatches": [],
+  "elapsed_seconds": 11.029,
+  "free_bytes": 9688440832,
+  "package_sha256": "1086e6eac90083489c7b85578f5267eaee77bdd6b3844b1b4a4579d89c731c3e",
+  "checker_changed_installation": false,
+  "production_ready": false,
+  "phase": "before",
+  "scope": "manifest-listed public file bytes, types, modes, root ownership and alias targets; no private records, policy contents or service readiness",
+  "report_sha256": "d92a3b1bb39f810c20cc3b368f9de5fa1172c458fb5eb87b10da69b0a565c470",
+  "checker_sha256": "8c6673516e2aebc0f77c364eb326b57c4ab217f50c28c2ecb031994caef60ba9",
+  "owner_installer_started": false,
+  "owner_connection_verified": false
+}
