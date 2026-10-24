@@ -1,4 +1,4 @@
-Runtime successor source (2026-10-24): a closed package91-to-runtime92 controller, separate recovery namespace, completed-repair history revalidation and Installer-only entry point now compile. Ordinary native checks pass (68 successor checks, 459 tree-storage checks, plus existing adapter regressions). The fixed group mapping matches 27,472 public installed nodes, including the earlier three cache repairs. Package93 still requires a build and actual hosted Installer/recovery acceptance before owner use. This does not qualify real account login or Android delivery.
+Runtime successor candidate (2026-10-24): package93 is built from controller `f9c0a80` and application `7051ef2`. Its signed helper and independent final expansion passed; all seven draft assets match their local sizes and SHA-256 hashes. The package hash is `f5db4c6c35ca1efe62bac0b572256b500f59032d9885a7bebb7b43b6702a9b23`. Ordinary local checks pass (68 successor checks, 459 tree-storage checks and adapter regressions), but hosted native run `40117006616` failed in the successor fixture and remains under investigation. Hosted actual Installer run `40118058557` at qualification source `37d4fc4` tests install/reapply and owned-helper interruption after the owner or runtime tree swap, preserving fictional store metadata and completed predecessor history. Neither hosted acceptance nor owner installation is established yet. The fixed group mapping matches 27,472 public owner-machine nodes, including the earlier three cache repairs. This does not qualify real account login or Android delivery.
 
 Latest validation (2026-10-24): runtime92 fresh Installer and exact reapplication passed all 13 checks in hosted run 40113282658. Completed package91 predecessor validation passed all four scenarios in run 40113010696, including interruption recovery and refusal of a foreign volume binding. Downloaded reports and referenced logs were hash-verified; see `artifacts/runtime92-fresh-installer-20261024.json` and `artifacts/completed-repair-hosted-20261024.json`. The owner successor upgrade controller and real-account acceptance remain unqualified.
 
@@ -20,14 +20,16 @@ independent package expansion recorded 27,498 entries. The public manifest has
 `2a4244ca550511553695063ac31217379f3bc9bf31199aa3426eecf5d3309445`.
 All seven draft-release assets were independently matched by size and SHA-256.
 The fresh-install harness and its fixed contract passed 92 local checks. Actual
-fresh installation/reapplication is pending, as is an upgrade from the owner's
-repaired image. This package has not been installed on the owner Mac.
+fresh installation/reapplication passed all 13 checks in run `40113282658`.
+The upgrade from the owner's repaired image remains pending. This package has
+not been installed on the owner Mac.
 
 A read-only completed-repair verifier now checks the exact repair journal,
 retained objects, unchanged policies and complete public image twice. Local
-native fixtures and 89 focused Python checks passed; its hosted root tests are
-running in the existing four repair91 Installer scenarios. It grants no update
-or account authority by itself. The successor update controller is still needed.
+native fixtures and 89 focused Python checks passed; its hosted root tests passed
+all four repair91 Installer scenarios in run `40113010696`. It grants no update
+or account authority by itself. The successor update controller is built and
+awaiting actual Installer qualification.
 The data-only successor plan covers 103 changed paths in five public trees and
 six metadata-file units. Python and native readers agree on the real package;
 22 focused Python cases, 167 combined planner regressions and 27 native synthetic

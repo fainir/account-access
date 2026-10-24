@@ -135,8 +135,9 @@ def run(*, controller, args, stage, report, output, command, publication=None):
                         tree = [r["tree"] for r in intent["operations"]
                                 if isinstance(r.get("tree"), dict) and r["tree"].get("unit") == selected_unit]
                         require(len(tree) == 1 and tree[0]["after"]["inode"] == target.lstat().st_ino)
-                        events = [f.decode(h.read_file(p)) for p in global_dir.glob("event-*.json")]
-                        require(any(e.get("service") == "disabled_quiescence_confirmed" for e in events)
+                        events = [f.decode(h.read_file(p)) for p in global_dir.glob("record-*.json")]
+                        require(all(e.get("planSHA256") == PLAN for e in events)
+                                and any(e.get("service") == "disabled_quiescence_confirmed" for e in events)
                                 and not any(e.get("service") == "coherent_image_enable_intent" for e in events))
                         break
                     time.sleep(0.02)
