@@ -5,12 +5,20 @@ import Darwin
 @main struct ComponentSystemProcessNativeChecks {
     static func main() {
         let environment = ProcessInfo.processInfo.environment
-        guard getuid() == 0, geteuid() == 0, CommandLine.arguments.count == 1,
+        let witnessOnly = Array(CommandLine.arguments.dropFirst()) == ["--witness450"]
+        guard getuid() == 0, geteuid() == 0, CommandLine.arguments.count == 1 || witnessOnly,
               environment["GITHUB_ACTIONS"] == "true", environment["RUNNER_ENVIRONMENT"] == "github-hosted",
               environment["GITHUB_REPOSITORY"] == "fainir/account-access" else { exit(77) }
         var stage = "system_processes", checks: [String: Bool] = [:]
         do {
             let api = ComponentSystemProcessObserver.live(brokerUID: 450)
+            if witnessOnly {
+                stage = "dedicated_uid_witness"
+                guard try api.list().count == 1 else { throw ComponentUpdateFailure.quiescence }
+                try api.verify(brokerUID: 450)
+                emit(status: "PASSED", stage: "complete", checks: ["dedicated_uid_live_apple_process": true])
+                return
+            }
             for (path, identifier) in [("/usr/sbin/distnoted", "com.apple.distnoted"), ("/usr/libexec/lsd", "com.apple.lsd")] {
                 stage = identifier + "_lookup"
                 let pids = try ComponentProcesses.atPath(path)

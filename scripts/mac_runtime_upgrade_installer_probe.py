@@ -4,6 +4,7 @@ This module has no owner-machine entrypoint. Its caller first verifies the
 disposable hosted root context and completes the exact predecessor Installer QA.
 """
 import os
+import re
 from pathlib import Path
 import runpy
 import signal
@@ -12,13 +13,15 @@ import subprocess
 import time
 import xml.etree.ElementTree as ET
 
-CONTROLLER = "f9c0a80fd5bf28e4e92d005ef3777a6b44de1ab6"
+CONTROLLER = "b5ea8a20b0bb71e99698b444af8c5d19fa6a9921"
 TARGET = "7051ef225ff2f35d67576d0ddbbc3e0b107e00bf"
 PLAN = "671c32eb5daacb79a1ec5f63d97cc29d2b6f34b5c75a773a1b477aca981ce6df"
 BEFORE = "5a732de4623ba50aefa6d31c54e7b1eae660b2921341f95042c5675d922d808b"
 AFTER = "03fb35eb2787ebd67079dd1cbe4dda125f430964540bdd2f2e9c81eda602fd7a"
 NAMESPACE = Path("/Library/Application Support/Account Access Runtime Updates")
-SCENARIOS = {"install-reapply", "interrupt-owner", "interrupt-runtime"}
+SCENARIOS = {"install-reapply", "interrupt-owner", "interrupt-runtime", "quiescence-recovery"}
+RECOVERY_CHECKS = {"old_package_refused", "new_package_unknown_process_refused", "previous_image_unchanged",
+                   "owned_disabled_intent_retained", "apple_witness_survived", "witness_removed"}
 CHECKS = {"fixed_inputs", "predecessor_fixture_accepted", "signature_verified", "scenario_exercised",
           "actual_installer", "exact_public_image", "policy_rotation", "roots_and_history_preserved",
           "live_service", "exact_reapply", "unchanged_reapply", "foreign_audit_refused", "service_after_refusal"}
@@ -45,7 +48,10 @@ def acceptance_passed(value):
     return (type(value) is dict and value.get("scenario") in SCENARIOS
             and set(value.get("checks", {})) == CHECKS and all(v is True for v in value["checks"].values())
             and value.get("production_ready") is False and value.get("real_account_login_tested") is False
-            and value.get("installed_owner_machine") is False and value.get("failure_stage") is None)
+            and value.get("installed_owner_machine") is False and value.get("failure_stage") is None
+            and (value["scenario"] != "quiescence-recovery" or (
+                set(value.get("quiescence_recovery", {})) == RECOVERY_CHECKS
+                and all(v is True for v in value["quiescence_recovery"].values()))))
 
 
 def preceding_group(relative, legacy):
@@ -222,7 +228,7 @@ def run(*, controller, args, stage, report, output, command, publication=None):
     command(["/usr/sbin/pkgutil", "--expand-full", str(stage / "runtime-upgrade.pkg"), str(expanded)], "upgrade-expand.log", 300)
     require({p.name for p in expanded.iterdir()} == {"PackageInfo", "Scripts"})
     info = ET.fromstring(h.read_file(expanded / "PackageInfo", maximum=65536))
-    require(info.get("identifier") == "com.fainir.accountaccess.runtimeupgrade93"
+    require(info.get("identifier") == "com.fainir.accountaccess.runtimeupgrade94"
             and info.get("version") == "0.1.0" and info.get("auth") == "root"
             and info.find("scripts/postinstall").attrib == {"file": "./postinstall", "timeout": "1800"})
     scripts = expanded / "Scripts"
@@ -253,105 +259,154 @@ def run(*, controller, args, stage, report, output, command, publication=None):
                 "roots": [(p.lstat().st_dev, p.lstat().st_ino) for p in (h.BASE, h.APP)]}
     preserved = history()
     old_policy = h.policies()
-    def install(label, *, expected=0):
+    def install(label, *, expected=0, package="runtime-upgrade.pkg"):
         result["failure_stage"] = label
         delta = h.InstallerLogDelta()
         try:
-            response = command(["/usr/sbin/installer", "-dumplog", "-verboseR", "-pkg", str(stage / "runtime-upgrade.pkg"), "-target", "/"],
+            response = command(["/usr/sbin/installer", "-dumplog", "-verboseR", "-pkg", str(stage / package), "-target", "/"],
                                label + ".log", 2100, check=False)
             require(response.returncode == 0 if expected == 0 else response.returncode != 0)
         finally:
             delta.capture(report=report, output=output, log=label + "-daemon.log")
-    if args.runtime_scenario != "install-reapply":
-        result["failure_stage"] = "owned_helper_interruption"
-        selected = "owner.app" if args.runtime_scenario == "interrupt-owner" else "runtime"
-        target = h.BASE / selected
-        old_inode = target.lstat().st_ino
-        out_path, err_path = stage / "runtime-owned.stdout", stage / "runtime-owned.stderr"
-        child, stopped = None, False
-        try:
-            with out_path.open("xb") as out, err_path.open("xb") as err:
-                child = subprocess.Popen([str(scripts / "AccountAccess-runtimeupgrade")], stdin=subprocess.DEVNULL,
-                    stdout=out, stderr=err, env=c.ENV, start_new_session=True)
-                deadline = time.monotonic() + 1800
-                while time.monotonic() < deadline and child.poll() is None:
-                    require(out_path.stat().st_size + err_path.stat().st_size < 65536)
-                    if target.lstat().st_ino != old_inode:
-                        os.kill(child.pid, signal.SIGSTOP)
-                        until = time.monotonic() + 5
-                        while time.monotonic() < until:
-                            pid, state = os.waitpid(child.pid, os.WNOHANG | os.WUNTRACED)
-                            if pid:
-                                require(os.WIFSTOPPED(state))
-                                stopped = True
-                                break
-                            time.sleep(0.01)
-                        require(stopped and not os.path.lexists(NAMESPACE / "head.json"))
-                        global_dir = NAMESPACE / ("transition-" + PLAN) / "global"
-                        intent = f.decode(h.read_file(global_dir / "intent.json", maximum=256 * 1024))
-                        require(intent["planSHA256"] == PLAN)
-                        selected_unit = "runtimeOwner" if selected == "owner.app" else "runtimeRoot"
-                        tree = [r["tree"] for r in intent["operations"]
-                                if isinstance(r.get("tree"), dict) and r["tree"].get("unit") == selected_unit]
-                        require(len(tree) == 1 and tree[0]["after"]["inode"] == target.lstat().st_ino)
-                        events = [f.decode(h.read_file(p)) for p in global_dir.glob("record-*.json")]
-                        require(all(e.get("planSHA256") == PLAN for e in events)
-                                and any(e.get("service") == "disabled_quiescence_confirmed" for e in events)
-                                and not any(e.get("service") == "coherent_image_enable_intent" for e in events))
-                        break
-                    time.sleep(0.02)
-                require(stopped)
-        finally:
-            if child is not None and child.returncode is None:
-                try:
-                    os.kill(child.pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
-                child.wait(timeout=10)
-            for name, path in (("stdout", out_path), ("stderr", err_path)):
-                if path.exists():
-                    data = h.read_file(path, maximum=65536)
-                    label = "runtime-owned-" + name + ".log"
-                    output.write(label, data)
-                    report["logs"][label] = c.digest(data)
-        result["interruption"] = {"owned_child_only": True, "tree": selected, "head_not_published": True,
-                                  "installer_daemon_interrupted": False, "power_failure_tested": False}
-    result["checks"]["scenario_exercised"] = True
-    install("runtime-upgrade-install")
-    result["checks"]["actual_installer"] = True
-    manifest = f.decode(h.read_file(scripts / "TargetManifest.json", maximum=16 * 1024**2))
-    h.verify_image(manifest)
-    head = f.decode(h.read_file(NAMESPACE / "head.json"))
-    require(head["plan_sha256"] == PLAN and head["manifest_sha256"] == AFTER and head["source_commit"] == TARGET)
-    result["checks"]["exact_public_image"] = True
-    peers = f.decode(h.read_file(scripts / "TargetIdentity.json"))["signatures"]
-    require(h.policies() == f.expected_policies(old_policy, peers))
-    result["checks"]["policy_rotation"] = True
-    require(history() == preserved)
-    result["checks"]["roots_and_history_preserved"] = True
     fresh = runpy.run_path(str(source("scripts/mac_fresh_image_installer_probe.py")))
     fresh["live_service"].__globals__["h"] = h
-    fresh["live_service"](command, "runtime-upgrade")
-    result["checks"]["live_service"] = True
-    image_snapshot = fresh["public_snapshot"](manifest)
-    policy_snapshot = h.policies()
-    upgrade_head = c.snapshot(NAMESPACE / "head.json")
-    install("runtime-upgrade-reapply")
-    result["checks"]["exact_reapply"] = True
-    require(fresh["public_snapshot"](manifest) == image_snapshot and h.policies() == policy_snapshot
-            and c.snapshot(NAMESPACE / "head.json") == upgrade_head and history() == preserved)
-    result["checks"]["unchanged_reapply"] = True
-    foreign = NAMESPACE / ("transition-" + PLAN) / "global/foreign-audit-fixture.json"
-    c.create_file(foreign, b'{"schema":1,"foreign":true}')
+    witness = None
     try:
-        install("runtime-upgrade-foreign-audit", expected=1)
+        if args.runtime_scenario == "quiescence-recovery":
+            result["failure_stage"] = "quiescence_recovery_fixture"
+            fixture = runpy.run_path(str(source("scripts/mac_runtime_quiescence_fixture.py")))
+            require(fixture["RECOVERY_CHECKS"] == RECOVERY_CHECKS)
+            witness = fixture["Witness"](c, stage, command, old_policy["install"]["broker_uid"])
+            witness.start()
+            base_manifest = f.decode(h.read_file(scripts / "BaseManifest.json", maximum=16 * 1024**2))
+            base_snapshot = fresh["public_snapshot"](base_manifest)
+            refused_attempts = 0
+            def unchanged():
+                nonlocal refused_attempts
+                refused_attempts += 1
+                require(fresh["public_snapshot"](base_manifest) == base_snapshot
+                        and history() == preserved and h.policies() == old_policy
+                        and not os.path.lexists(NAMESPACE / "head.json"))
+                global_dir = NAMESPACE / ("transition-" + PLAN) / "global"
+                intent = f.decode(h.read_file(global_dir / "intent.json", maximum=256 * 1024))
+                events = [f.decode(h.read_file(p)) for p in sorted(global_dir.glob("record-*.json"))]
+                require(intent["planSHA256"] == PLAN and events
+                        and all(e.get("planSHA256") == PLAN and e.get("kind") != "transition" for e in events)
+                        and any(e.get("service") == "disable_intent_prior_enabled" for e in events)
+                        and events[-1].get("service") == "user_domain_bootout_intent")
+                disabled = command(["/bin/launchctl", "print-disabled", "system"], f"refused-disabled-{refused_attempts}.log")
+                require(re.findall(rb'(?m)^\s*"com\.fainir\.accountaccess\.broker"\s+=>\s+(\w+)\s*$', disabled.stdout) == [b"disabled"])
+                absent = command(["/bin/launchctl", "print", "system/" + h.LABEL], f"refused-absent-{refused_attempts}.log", check=False)
+                require(absent.returncode == 113)
+                log = "runtime-old-quiescence-daemon.log" if refused_attempts == 1 else "runtime-new-unknown-daemon.log"
+                evidence = report["installer_daemon_logs"][log]
+                require(evidence["status"] == "captured")
+                fd = os.open(log, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=output.descriptor)
+                try:
+                    raw_log = os.read(fd, 256 * 1024 + 1)
+                finally:
+                    os.close(fd)
+                require(len(raw_log) <= 256 * 1024 and c.digest(raw_log) == report["logs"][log]
+                        and b'"reason":"component_service_quiescence_not_confirmed","checkpoint":"transition"' in raw_log)
+                witness.verify("refusal-" + str(refused_attempts))
+            fixture["prepare"](controller=c, args=args, stage=stage, source=source, install=install,
+                               result=result, unchanged=unchanged)
+        if args.runtime_scenario in {"interrupt-owner", "interrupt-runtime"}:
+            result["failure_stage"] = "owned_helper_interruption"
+            selected = "owner.app" if args.runtime_scenario == "interrupt-owner" else "runtime"
+            target = h.BASE / selected
+            old_inode = target.lstat().st_ino
+            out_path, err_path = stage / "runtime-owned.stdout", stage / "runtime-owned.stderr"
+            child, stopped = None, False
+            try:
+                with out_path.open("xb") as out, err_path.open("xb") as err:
+                    child = subprocess.Popen([str(scripts / "AccountAccess-runtimeupgrade")], stdin=subprocess.DEVNULL,
+                        stdout=out, stderr=err, env=c.ENV, start_new_session=True)
+                    deadline = time.monotonic() + 1800
+                    while time.monotonic() < deadline and child.poll() is None:
+                        require(out_path.stat().st_size + err_path.stat().st_size < 65536)
+                        if target.lstat().st_ino != old_inode:
+                            os.kill(child.pid, signal.SIGSTOP)
+                            until = time.monotonic() + 5
+                            while time.monotonic() < until:
+                                pid, state = os.waitpid(child.pid, os.WNOHANG | os.WUNTRACED)
+                                if pid:
+                                    require(os.WIFSTOPPED(state))
+                                    stopped = True
+                                    break
+                                time.sleep(0.01)
+                            require(stopped and not os.path.lexists(NAMESPACE / "head.json"))
+                            global_dir = NAMESPACE / ("transition-" + PLAN) / "global"
+                            intent = f.decode(h.read_file(global_dir / "intent.json", maximum=256 * 1024))
+                            require(intent["planSHA256"] == PLAN)
+                            selected_unit = "runtimeOwner" if selected == "owner.app" else "runtimeRoot"
+                            tree = [r["tree"] for r in intent["operations"]
+                                    if isinstance(r.get("tree"), dict) and r["tree"].get("unit") == selected_unit]
+                            require(len(tree) == 1 and tree[0]["after"]["inode"] == target.lstat().st_ino)
+                            events = [f.decode(h.read_file(p)) for p in sorted(global_dir.glob("record-*.json"))]
+                            require(all(e.get("planSHA256") == PLAN for e in events)
+                                    and any(e.get("service") == "disabled_quiescence_confirmed" for e in events)
+                                    and not any(e.get("service") == "coherent_image_enable_intent" for e in events))
+                            break
+                        time.sleep(0.02)
+                    require(stopped)
+            finally:
+                if child is not None and child.returncode is None:
+                    try:
+                        os.kill(child.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                    child.wait(timeout=10)
+                for name, path in (("stdout", out_path), ("stderr", err_path)):
+                    if path.exists():
+                        data = h.read_file(path, maximum=65536)
+                        label = "runtime-owned-" + name + ".log"
+                        output.write(label, data)
+                        report["logs"][label] = c.digest(data)
+            result["interruption"] = {"owned_child_only": True, "tree": selected, "head_not_published": True,
+                                      "installer_daemon_interrupted": False, "power_failure_tested": False}
+        result["checks"]["scenario_exercised"] = True
+        install("runtime-upgrade-install")
+        result["checks"]["actual_installer"] = True
+        manifest = f.decode(h.read_file(scripts / "TargetManifest.json", maximum=16 * 1024**2))
+        h.verify_image(manifest)
+        head = f.decode(h.read_file(NAMESPACE / "head.json"))
+        require(head["plan_sha256"] == PLAN and head["manifest_sha256"] == AFTER and head["source_commit"] == TARGET)
+        result["checks"]["exact_public_image"] = True
+        peers = f.decode(h.read_file(scripts / "TargetIdentity.json"))["signatures"]
+        require(h.policies() == f.expected_policies(old_policy, peers))
+        result["checks"]["policy_rotation"] = True
+        require(history() == preserved)
+        result["checks"]["roots_and_history_preserved"] = True
+        fresh["live_service"](command, "runtime-upgrade")
+        result["checks"]["live_service"] = True
+        image_snapshot = fresh["public_snapshot"](manifest)
+        policy_snapshot = h.policies()
+        upgrade_head = c.snapshot(NAMESPACE / "head.json")
+        install("runtime-upgrade-reapply")
+        result["checks"]["exact_reapply"] = True
         require(fresh["public_snapshot"](manifest) == image_snapshot and h.policies() == policy_snapshot
                 and c.snapshot(NAMESPACE / "head.json") == upgrade_head and history() == preserved)
-        result["checks"]["foreign_audit_refused"] = True
-        fresh["live_service"](command, "after-runtime-refusal")
-        result["checks"]["service_after_refusal"] = True
+        result["checks"]["unchanged_reapply"] = True
+        foreign = NAMESPACE / ("transition-" + PLAN) / "global/foreign-audit-fixture.json"
+        c.create_file(foreign, b'{"schema":1,"foreign":true}')
+        try:
+            install("runtime-upgrade-foreign-audit", expected=1)
+            require(fresh["public_snapshot"](manifest) == image_snapshot and h.policies() == policy_snapshot
+                    and c.snapshot(NAMESPACE / "head.json") == upgrade_head and history() == preserved)
+            result["checks"]["foreign_audit_refused"] = True
+            fresh["live_service"](command, "after-runtime-refusal")
+            result["checks"]["service_after_refusal"] = True
+        finally:
+            require(h.read_file(foreign) == b'{"schema":1,"foreign":true}')
+            foreign.unlink()
+        if witness is not None:
+            witness.verify("after-recovery")
+            result["quiescence_recovery"]["apple_witness_survived"] = True
     finally:
-        require(h.read_file(foreign) == b'{"schema":1,"foreign":true}')
-        foreign.unlink()
+        if witness is not None:
+            witness.close()
+            if "quiescence_recovery" in result:
+                result["quiescence_recovery"]["witness_removed"] = True
     result["failure_stage"] = None
     require(acceptance_passed(result))

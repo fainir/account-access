@@ -6,7 +6,7 @@ on:
       - .github/workflows/mac-runtime-upgrade-review.yml
       - scripts/mac_runtime_upgrade_installer_probe.py
       - scripts/download_runtime_upgrade_inputs.py
-      - artifacts/runtime-upgrade93-installer-inputs.json
+      - artifacts/runtime-upgrade94-installer-inputs.json
   workflow_dispatch:
     inputs:
       identity_only:
@@ -35,6 +35,15 @@ jobs:
           sudo -n /usr/bin/env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin \
             GITHUB_ACTIONS=true RUNNER_ENVIRONMENT=github-hosted GITHUB_REPOSITORY=fainir/account-access \
             "$RUNNER_TEMP/system-process-review/system-process-checks" > "$RUNNER_TEMP/system-process-review/result.json"
+      - name: Reproduce an Apple service surviving dedicated user-domain removal
+        run: |
+          AC_WITNESS_PYTHON=$(command -v python3)
+          sudo -n /usr/bin/env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin LANG=C LC_ALL=C \
+            GITHUB_ACTIONS=true CI=true RUNNER_ENVIRONMENT=github-hosted RUNNER_OS=macOS RUNNER_ARCH=ARM64 \
+            GITHUB_REPOSITORY="$GITHUB_REPOSITORY" GITHUB_RUN_ID="$GITHUB_RUN_ID" \
+            GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" GITHUB_SHA="$GITHUB_SHA" \
+            "$AC_WITNESS_PYTHON" -I -B "$GITHUB_WORKSPACE/scripts/mac_system_process_witness_probe.py" \
+              --observer "$RUNNER_TEMP/system-process-review/system-process-checks"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
@@ -43,6 +52,7 @@ jobs:
             ${{ runner.temp }}/system-process-review/*.json
             ${{ runner.temp }}/system-process-review/*.stdout
             ${{ runner.temp }}/system-process-review/*.stderr
+            /Library/Logs/AccountAccessComponentInstallerQA-${{ github.run_id }}94
           if-no-files-found: error
           retention-days: 7
   download-reviewed-inputs:
@@ -67,6 +77,8 @@ jobs:
             --output "$RUNNER_TEMP/account-access-inputs/predecessor"
           python3 -I -B scripts/download_broker_repair_epoch_inputs.py \
             --output "$RUNNER_TEMP/account-access-inputs/repair"
+          python3 -I -B scripts/download_runtime_upgrade93_inputs.py \
+            --output "$RUNNER_TEMP/account-access-inputs/previous-runtime-upgrade"
           python3 -I -B scripts/download_runtime_upgrade_inputs.py \
             --output "$RUNNER_TEMP/account-access-inputs/runtime-upgrade"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -84,7 +96,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        scenario: [install-reapply, interrupt-owner, interrupt-runtime]
+        scenario: [install-reapply, interrupt-owner, interrupt-runtime, quiescence-recovery]
     permissions:
       contents: read
     steps:
@@ -114,6 +126,7 @@ jobs:
               --repository "$GITHUB_WORKSPACE" --bundle "$RUNNER_TEMP/account-access-inputs/predecessor" \
               --repair "$RUNNER_TEMP/account-access-inputs/repair" \
               --runtime-upgrade "$RUNNER_TEMP/account-access-inputs/runtime-upgrade" \
+              --previous-runtime-upgrade "$RUNNER_TEMP/account-access-inputs/previous-runtime-upgrade" \
               --scenario install-reapply --cohort 91 --runtime-scenario "$AC_SCENARIO"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()

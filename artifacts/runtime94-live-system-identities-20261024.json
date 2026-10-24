@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "status": "PASSED",
+  "run_id": 40127602745,
+  "artifact_id": 12573134668,
+  "archive_sha256": "4aca8d77605628ae753d5aa048c24bd85823dd6c330bc2bf2e304b1c6b2782b5",
+  "result": {
+    "checks": {
+      "com.apple.distnoted_live_signature_and_path": true,
+      "com.apple.distnoted_wrong_identifier_refused": true,
+      "com.apple.lsd_live_signature_and_path": true,
+      "com.apple.lsd_wrong_identifier_refused": true,
+      "non_apple_process_refused": true
+    },
+    "installed_records_read": false,
+    "production_ready": false,
+    "schema": 1,
+    "scope": "live Apple code attestation; eligibility and race cases are separate synthetic tests",
+    "service_actions": false,
+    "stage": "complete",
+    "status": "PASSED"
+  },
+  "sources": {
+    "source_revision": "f0901b8d072ab24860df66d50a28f0567b1c9408",
+    "source_sha256": {
+      "macos/ComponentUpdate.swift": "944d1689ca7c350ebf43bf32811de02442748b9a7b4c7bd96f63e1a14bee0f94",
+      "macos/InstallerPayload.swift": "03876624a57cfe84d850b1998f636acaa039ce6fd4822d8df60ffeab7cd9c81d",
+      "macos/ComponentUpdatePolicies.swift": "7aca759f4b9fad195851ce12d81550ec08a0753c43515574c23fc74d247060ab",
+      "macos/ComponentUpdateIdentity.swift": "815e9043ca55ae59436f68c2ec8d802267562af1cc863c331f3b401da5decb08",
+      "macos/InstallationRootBinding.swift": "bdfd959f69ce60f2c1d573d3e165b97f3303f66d9347f959f0662cf06dad0a58",
+      "macos/RootStoreVolumeBinding.swift": "850cae7fd1653e873c3d851953219ceae83b2a96a7c44d2861c4982b63cf0d6a",
+      "macos/StoreVolumeMigrationAuthority.swift": "1aacffcd330e6d3bc0c96d3576b812ac62109bc63d67d693cbe8b96be0eadf66",
+      "macos/RootStoreVolumePublication.swift": "523fcd2507ec5f956178cc1951e55b0882ea385db373f17ea32b4f308c510c15",
+      "macos/StoreVolumeMigration.swift": "6a0170525feb34144d37e0ce1580cd9f4bf007a24bd92126e00405e577315ae3",
+      "macos/Tests/ComponentSystemProcessNativeChecks.swift": "01a6a5104a70221c7e3e6e309f2b9cf7671b13a9c898f432bffbd467ee6ae031"
+    }
+  },
+  "production_ready": false
+}
