@@ -1,4 +1,4 @@
-"""GET-only hosted download of the exact runtime-upgrade-93 draft asset contract."""
+"""GET-only hosted download of the exact runtime-upgrade-94 draft asset contract."""
 import argparse
 import hashlib
 import json
@@ -9,10 +9,10 @@ import runpy
 import subprocess
 
 REPOSITORY = "fainir/account-access"
-SOURCE = "f9c0a80fd5bf28e4e92d005ef3777a6b44de1ab6"
-CONTRACT = "artifacts/runtime-upgrade93-installer-inputs.json"
+SOURCE = "b5ea8a20b0bb71e99698b444af8c5d19fa6a9921"
+CONTRACT = "artifacts/runtime-upgrade94-installer-inputs.json"
 # Canonical identity of the reviewed package and exact uploaded draft assets.
-CONTRACT_SHA256 = "15fba8ca196dcdb0448c7c5820bea9a7640c5bcd19ef0b55c2ccd1fe8e64f20c"
+CONTRACT_SHA256 = "842812ae29a34db9fd60adec7e59464a0e334c92fb348919e0fc6465f8b3e9eb"
 FILES = {"runtime-upgrade.pkg", "upgrade-review.json", "upgrade-scripts-inventory.json"}
 
 
