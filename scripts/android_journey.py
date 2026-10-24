@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import shlex
 import subprocess
 import tempfile
@@ -16,6 +17,14 @@ from account_access.install import install_skill
 from account_access.owner import make_owner_server
 from account_access.password_import import apply, preview
 from account_access.verification_demo import environment, write_password_export
+
+
+def fixture_acknowledged(output):
+    # A successful `am broadcast` process can still have invoked no receiver.
+    # Accept only the test receiver's closed acknowledgement, never its extras.
+    return isinstance(output, str) and re.search(
+        r'^Broadcast completed: result=1, data="fixture_notification_posted"\s*$',
+        output, re.MULTILINE) is not None
 
 
 def main():
@@ -54,6 +63,7 @@ def main():
                 enroll(broker.store, "example-sms", {})
                 results = []
                 workers = []
+                delivery_diagnostics = []
                 def deliver(kind, code):
                     assert kind == "sms"
                     def instrument():
@@ -72,11 +82,16 @@ def main():
                                 if "phase=PAIRING_AND_FILTER_READY" in line:
                                     command("shell", "cmd", "notification", "allow_listener", listener)
                                 if "phase=NOTIFICATION_READY" in line:
-                                    command("shell", shlex.join([
-                                        "am", "broadcast", "-n", fixture,
+                                    broadcast = command("shell", shlex.join([
+                                        # This is the shell-permission-protected test APK,
+                                        # which may still be stopped after installation.
+                                        "am", "broadcast", "--include-stopped-packages", "--receiver-foreground", "-n", fixture,
                                         "--es", "sender", pairing["sender"],
                                         "--es", "body", pairing["template"].replace("{code}", code),
                                     ]))
+                                    acknowledged = fixture_acknowledged(broadcast.stdout)
+                                    delivery_diagnostics.append({"fixture_notification_posted": acknowledged})
+                                    assert acknowledged, "Test notification receiver did not acknowledge posting"
                             assert process.wait(timeout=30) == 0
                             assert not timed_out.is_set(), "Android instrumentation exceeded 90 seconds"
                         finally:
@@ -98,8 +113,10 @@ def main():
                     assert completed["status"] == "NEEDS_USER" and completed["reason"] == "login_code_not_received", {"result": completed, "instrumentation": diagnostics}
                     assert results and "PASS_BLOCKED:" in results[0], results
                 else:
-                    assert completed["status"] == "COMPLETED", {"result": completed, "instrumentation": diagnostics}
+                    assert completed["status"] == "COMPLETED", {"result": completed, "instrumentation": diagnostics,
+                                                                 "fixture_delivery": delivery_diagnostics}
                     assert results and "PASS:" in results[0], results
+                assert delivery_diagnostics and all(d["fixture_notification_posted"] for d in delivery_diagnostics)
                 assert provider.sms_count == (0 if android_api >= 35 else 1)
                 assert DEMO_PASSWORD not in json.dumps(completed)
                 report = {"status": "BLOCKED_AS_EXPECTED" if android_api >= 35 else "COMPLETED",
@@ -108,6 +125,7 @@ def main():
                           "notification_forwarding_without_association_refused": android_api >= 35,
                           "positive_bluetooth_computer_association_qualified": False,
                           "physical_phone_delivery_qualified": False,
+                          "test_notification_posting_acknowledged": True,
                           "checks": (["Keystore encrypted pairing", "Legacy QR requests new discovery", "Invalid discovery UUID rejected",
                                       "QR alone cannot grant permission", "Actual Android notification refused without association"]
                                      if android_api >= 35 else

@@ -13,6 +13,7 @@ public final class NotificationFixture extends BroadcastReceiver {
   NotificationManager manager = context.getSystemService(NotificationManager.class);
   if (intent.getBooleanExtra("cancel", false)) {
    manager.cancel("account-access-fixture", 8);
+   setResultCode(1); setResultData("fixture_notification_cancelled");
    return;
   }
   String sender = intent.getStringExtra("sender");
@@ -23,5 +24,6 @@ public final class NotificationFixture extends BroadcastReceiver {
   manager.notify("account-access-fixture", 8, new Notification.Builder(context, "account-access-check")
     .setSmallIcon(android.R.drawable.ic_dialog_info).setContentTitle(sender).setContentText(body)
     .setStyle(new Notification.BigTextStyle().bigText(body)).build());
+  setResultCode(1); setResultData("fixture_notification_posted");
  }
 }

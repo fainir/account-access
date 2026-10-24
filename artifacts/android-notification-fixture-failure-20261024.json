@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "status": "INTERMITTENT_EMULATOR_DELIVERY_FAILURE",
+  "source_commit": "aef2ba73dc2130162c6133650579f400b63e0e88",
+  "failed_run": 40113017442,
+  "failed_job": 120928497976,
+  "failed_api": 30,
+  "instrumentation_reason": "Notification not delivered; listener_ready=true; status=none",
+  "broker_status": "NEEDS_USER",
+  "broker_reason": "login_code_not_received",
+  "same_source_passing_run": 40113010491,
+  "root_cause_confirmed": false,
+  "change": "Test APK now acknowledges posting; emulator harness explicitly includes the installed test package if stopped and requests foreground broadcast delivery. Production phone permission and forwarding behavior unchanged.",
+  "reference": "https://developer.android.com/reference/android/content/Intent#FLAG_INCLUDE_STOPPED_PACKAGES",
+  "local_diagnostic_checks_passed": 8,
+  "physical_phone_tested": false,
+  "production_ready": false
+}
