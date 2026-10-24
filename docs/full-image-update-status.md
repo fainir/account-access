@@ -1,5 +1,15 @@
 # Full-image update development status
 
+## Latest status — 24 October 2026
+
+Package91 repaired the owner installation and the app opens. AI connection setup
+then failed because its older upgrade checker rejects a named preview root.
+Runtime92 contains the tested source fix and is undergoing fresh-install QA.
+A completed-repair verifier is undergoing hosted qualification before work can
+bind a successor update to this repaired image. No runtime92 owner upgrade is
+qualified yet. See [current production gates](production-gates.md) for the live
+status; the sections below preserve the earlier development history.
+
 ## Current status — 23 October 2026
 
 The controller described below has since been implemented. The current

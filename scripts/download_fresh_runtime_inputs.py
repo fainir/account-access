@@ -1,4 +1,4 @@
-"""GET-only transfer of the exact reviewed fresh runtime 89 draft assets."""
+"""GET-only transfer of exact reviewed fresh runtime draft assets."""
 import argparse
 import hashlib
 import json
@@ -21,6 +21,10 @@ TRANSFER_SOURCE = "scripts/download_full_image_installer_inputs.py"
 TRANSFER_SHA = "573783db0627f0768606b75d847f03cff92783b96c683ac2dc2869f93798a14b"
 PROBES = ("scripts/mac_fresh_image_installer_probe.py", "scripts/download_fresh_runtime_inputs.py",
     "scripts/mac_component_update_installer_probe.py", TRANSFER_SOURCE)
+RUNTIME92_SOURCE = "7051ef225ff2f35d67576d0ddbbc3e0b107e00bf"
+RUNTIME92_MANIFEST = "03fb35eb2787ebd67079dd1cbe4dda125f430964540bdd2f2e9c81eda602fd7a"
+RUNTIME92_CONTRACT = "artifacts/fresh-image92-installer-inputs.json"
+RUNTIME92_CONTRACT_SHA256 = "58a73486685c0b82e39aa3eab3e1bc6f98e98bbd9f58d7700c080331addbba0c"
 
 
 def require(value):
@@ -48,17 +52,25 @@ def hex_value(value, length=64):
     return isinstance(value, str) and re.fullmatch("[a-f0-9]{" + str(length) + "}", value) is not None
 
 
+def profile(cohort):
+    require(type(cohort) is int and cohort in {89, 92})
+    if cohort == 89:
+        return SOURCE, MANIFEST, CONTRACT, CONTRACT_SHA256
+    return RUNTIME92_SOURCE, RUNTIME92_MANIFEST, RUNTIME92_CONTRACT, RUNTIME92_CONTRACT_SHA256
+
+
 def validate(value, cohort=89):
-    require(type(cohort) is int and cohort == 89 and hex_value(CONTRACT_SHA256))
+    source, manifest, _, contract_sha = profile(cohort)
+    require(hex_value(contract_sha))
     require(type(value) is dict and set(value) == {"schema", "status", "repository", "target_source",
         "packaging_source", "target_manifest_sha256", "installer_verifier_sha256", "assets"}
         and type(value["schema"]) is int and value["schema"] == 1
         and value["status"] == "FROZEN_REVIEWED_ASSETS" and value["repository"] == REPOSITORY
-        and value["target_source"] == value["packaging_source"] == SOURCE
-        and value["target_manifest_sha256"] == MANIFEST and value["installer_verifier_sha256"] == VERIFIER
+        and value["target_source"] == value["packaging_source"] == source
+        and value["target_manifest_sha256"] == manifest and value["installer_verifier_sha256"] == VERIFIER
         and type(value["assets"]) is dict and set(value["assets"]) == FILES)
     raw = json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False).encode() + b"\n"
-    require(digest(raw) == CONTRACT_SHA256)
+    require(digest(raw) == contract_sha)
     return value
 
 
@@ -72,11 +84,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--contract", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--cohort", type=int, choices=[89], default=89)
+    parser.add_argument("--cohort", type=int, choices=[89, 92], default=89)
     args = parser.parse_args()
     context()  # Before consulting a path, loading source, or invoking Git/gh.
     cohort = getattr(args, "cohort", 89)
-    contract_path = CONTRACT
+    _, _, contract_path, _ = profile(cohort)
     revision = os.environ["GITHUB_SHA"]
     raw = args.contract.read_bytes()
     require(len(raw) < 64 * 1024 and subprocess.check_output(

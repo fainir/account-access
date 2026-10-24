@@ -7,6 +7,26 @@ establish that experience on personal accounts.
 
 ## Current candidate
 
+### Connection fix candidate — 24 October 2026
+
+Runtime **92**, built from `7051ef2`, includes the named-preview-root agent
+upgrade fix. Its signed native app and offline runtime assembled successfully;
+independent package expansion recorded 27,498 entries. The public manifest has
+25,167 files, 2,297 directories and 21 aliases. The unsigned package hash is
+`2a4244ca550511553695063ac31217379f3bc9bf31199aa3426eecf5d3309445`.
+All seven draft-release assets were independently matched by size and SHA-256.
+The fresh-install harness and its fixed contract passed 92 local checks. Actual
+fresh installation/reapplication is pending, as is an upgrade from the owner's
+repaired image. This package has not been installed on the owner Mac.
+
+A read-only completed-repair verifier now checks the exact repair journal,
+retained objects, unchanged policies and complete public image twice. Local
+native fixtures and 89 focused Python checks passed; its hosted root tests are
+running in the existing four repair91 Installer scenarios. It grants no update
+or account authority by itself. The successor update controller is still needed.
+[Runtime 92 input contract](../artifacts/fresh-image92-installer-inputs.json) ·
+[Verifier source checks](../artifacts/completed-repair-proof-source-20261024.json).
+
 ### Runtime dependency update — 24 October 2026
 
 Current CI reported CVE-2026-112940, CVE-2026-112913 and CVE-2026-112907

@@ -1,0 +1,81 @@
+{
+  "assets": {
+    "BUILD.md": {
+      "bytes": 2486,
+      "id": 672784541,
+      "release": {
+        "id": 422855345,
+        "source": "7051ef225ff2f35d67576d0ddbbc3e0b107e00bf",
+        "tag": "qa-7051ef2-fresh-runtime92"
+      },
+      "sha256": "e177395b01100506eb0d42653e982b5b8dc1481acf8dad8eacf6a1519f11f4b0"
+    },
+    "bitwarden-source.tar.gz": {
+      "bytes": 219117936,
+      "id": 672784491,
+      "release": {
+        "id": 422855345,
+        "source": "7051ef225ff2f35d67576d0ddbbc3e0b107e00bf",
+        "tag": "qa-7051ef2-fresh-runtime92"
+      },
+      "sha256": "8d31c19571b032bfd557716b4b7c124f6a4624b917eca25cda359944c1fe2753"
+    },
+    "fresh-expanded-inventory.json": {
+      "bytes": 7055871,
+      "id": 672784460,
+      "release": {
+        "id": 422855345,
+        "source": "7051ef225ff2f35d67576d0ddbbc3e0b107e00bf",
+        "tag": "qa-7051ef2-fresh-runtime92"
+      },
+      "sha256": "ad878a989cd2ae4e6b3a136734ce1ac829f12a3621f40ddc2d5f627c07356593"
+    },
+    "fresh-manifest.json": {
+      "bytes": 4968012,
+      "id": 672784461,
+      "release": {
+        "id": 422855345,
+        "source": "7051ef225ff2f35d67576d0ddbbc3e0b107e00bf",
+        "tag": "qa-7051ef2-fresh-runtime92"
+      },
+      "sha256": "03fb35eb2787ebd67079dd1cbe4dda125f430964540bdd2f2e9c81eda602fd7a"
+    },
+    "fresh-review.json": {
+      "bytes": 639,
+      "id": 672784458,
+      "release": {
+        "id": 422855345,
+        "source": "7051ef225ff2f35d67576d0ddbbc3e0b107e00bf",
+        "tag": "qa-7051ef2-fresh-runtime92"
+      },
+      "sha256": "cc494b87019f3e3d54fa42e3dc5ab4d190cd9ac5482abb03560d93e5dd5f869a"
+    },
+    "fresh.pkg": {
+      "bytes": 288762936,
+      "id": 672784464,
+      "release": {
+        "id": 422855345,
+        "source": "7051ef225ff2f35d67576d0ddbbc3e0b107e00bf",
+        "tag": "qa-7051ef2-fresh-runtime92"
+      },
+      "sha256": "2a4244ca550511553695063ac31217379f3bc9bf31199aa3426eecf5d3309445"
+    },
+    "project-source.tar.gz": {
+      "bytes": 4102980,
+      "id": 672784459,
+      "release": {
+        "id": 422855345,
+        "source": "7051ef225ff2f35d67576d0ddbbc3e0b107e00bf",
+        "tag": "qa-7051ef2-fresh-runtime92"
+      },
+      "sha256": "9b87297dced8b1ef3da4f453502bcb1741fa9ec2508ed7348277a3ca4038b0be"
+    }
+  },
+  "installer_verifier_sha256": "cce66e7499a755a4bd5dba098059012860d5e0fcf54ae8e461708b4ac4ef8534",
+  "packaging_source": "7051ef225ff2f35d67576d0ddbbc3e0b107e00bf",
+  "repository": "fainir/account-access",
+  "schema": 1,
+  "status": "FROZEN_REVIEWED_ASSETS",
+  "target_manifest_sha256": "03fb35eb2787ebd67079dd1cbe4dda125f430964540bdd2f2e9c81eda602fd7a",
+  "target_source": "7051ef225ff2f35d67576d0ddbbc3e0b107e00bf"
+}

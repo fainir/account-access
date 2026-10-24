@@ -114,3 +114,33 @@ def test_committed_runtime_contract_is_frozen():
     download, _ = modules()
     value = json.loads((ROOT / download['CONTRACT']).read_bytes())
     assert download['validate'](value) == value
+
+
+def test_runtime92_contract_cannot_be_used_as_runtime89():
+    download, probe = modules()
+    source, manifest, contract, _ = download['profile'](92)
+    value = json.loads((ROOT / contract).read_bytes())
+    assert download['validate'](value, 92) == value
+    assert probe['cohort_pins'](92) == (manifest, source, contract)
+    assert probe['cohort_counts'](92) == {'files': 25167, 'directories': 2297, 'aliases': 21}
+    with pytest.raises(ValueError):
+        download['validate'](value, 89)
+    old = json.loads((ROOT / download['CONTRACT']).read_bytes())
+    with pytest.raises(ValueError):
+        download['validate'](old, 92)
+    for name in value['assets']:
+        changed = deepcopy(value)
+        changed['assets'][name]['sha256'] = '0' * 64
+        with pytest.raises(ValueError):
+            download['validate'](changed, 92)
+
+
+def test_runtime92_workflow_uses_only_the_new_frozen_contract():
+    import yaml
+    value = yaml.safe_load((ROOT / '.github/workflows/mac-fresh-image92-installer-review.yml').read_text())
+    trigger = value.get('on', value.get(True))
+    assert trigger['push']['paths'] == ['artifacts/fresh-image92-installer-inputs.json']
+    job = value['jobs']['actual-installer']
+    assert job['permissions'] == {'contents': 'read'}
+    assert 'GH_TOKEN' not in json.dumps(job)
+    assert '--cohort 92' in json.dumps(job)

@@ -1,5 +1,12 @@
 # Persistent store volume identity
 
+**Latest owner result, 24 October:** Package91 installed successfully and the
+complete repaired public image verified. The app now opens to AI connection
+setup. The remaining named-preview-root setup refusal is fixed in runtime92
+source, with owner upgrade qualification pending. The paragraphs below describe
+the original migration development; [production gates](production-gates.md)
+records current acceptance evidence.
+
 The corrected read-only owner diagnostic completed with `device_number_changed`.
 The two directory inode values match their registration, but the current device
 number differs. No credential contents, keys, or raw metadata were exported, and
