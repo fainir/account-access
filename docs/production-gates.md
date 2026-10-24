@@ -24,8 +24,25 @@ retained objects, unchanged policies and complete public image twice. Local
 native fixtures and 89 focused Python checks passed; its hosted root tests are
 running in the existing four repair91 Installer scenarios. It grants no update
 or account authority by itself. The successor update controller is still needed.
+The data-only successor plan covers 103 changed paths in five public trees and
+six metadata-file units. Python and native readers agree on the real package;
+22 focused Python cases, 167 combined planner regressions and 27 native synthetic
+rejection checks passed. The native check also verified the real package's units
+and changed paths. The first unoptimized test repeated full-sized manifests for
+every negative case and exceeded its 120-second bound; negative cases now use
+small fictional inventories, while the real-image positive check remains.
+No installed image was read or changed by these plan checks.
 [Runtime 92 input contract](../artifacts/fresh-image92-installer-inputs.json) ·
 [Verifier source checks](../artifacts/completed-repair-proof-source-20261024.json).
+
+Runtime92 source `7051ef2` passed 4,106 Python tests (108 skipped), lint,
+dependency auditing and native UI/gateway CI. Mac run `40111630744` also passed;
+its verified artifact contains 18 passing reports and 416 controlled checks,
+including the synthetic SMS restart scenario that failed at `155c0a7`.
+That earlier failure remains recorded; personal-account and physical-phone
+acceptance remain open.
+[Source Mac acceptance](../artifacts/runtime92-source-mac-acceptance-20261024.json) ·
+[Successor plan checks](../artifacts/runtime92-successor-plan-20261024.json).
 
 ### Runtime dependency update — 24 October 2026
 

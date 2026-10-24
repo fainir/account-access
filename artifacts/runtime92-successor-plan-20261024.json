@@ -1,0 +1,80 @@
+{
+  "schema": 1,
+  "status": "DATA_PLAN_ONLY_CONTROLLER_PENDING",
+  "target_source": "7051ef225ff2f35d67576d0ddbbc3e0b107e00bf",
+  "before_manifest_sha256": "5a732de4623ba50aefa6d31c54e7b1eae660b2921341f95042c5675d922d808b",
+  "after_manifest_sha256": "03fb35eb2787ebd67079dd1cbe4dda125f430964540bdd2f2e9c81eda602fd7a",
+  "plan_sha256": "671c32eb5daacb79a1ec5f63d97cc29d2b6f34b5c75a773a1b477aca981ce6df",
+  "changed_paths": 103,
+  "units": [
+    {
+      "kind": "public_tree",
+      "path": "owner.app",
+      "changed_paths": 5
+    },
+    {
+      "kind": "public_tree",
+      "path": "python",
+      "changed_paths": 11
+    },
+    {
+      "kind": "public_tree",
+      "path": "runtime",
+      "changed_paths": 66
+    },
+    {
+      "kind": "public_tree",
+      "path": "browsers",
+      "changed_paths": 6
+    },
+    {
+      "kind": "public_tree",
+      "path": "wheels",
+      "changed_paths": 9
+    },
+    {
+      "kind": "public_file",
+      "path": "package-identity.json",
+      "changed_paths": 1
+    },
+    {
+      "kind": "public_file",
+      "path": "package-requirements.txt",
+      "changed_paths": 1
+    },
+    {
+      "kind": "public_file",
+      "path": "runtime-image.json",
+      "changed_paths": 1
+    },
+    {
+      "kind": "public_file",
+      "path": "runtime-preparation.json",
+      "changed_paths": 1
+    },
+    {
+      "kind": "public_file",
+      "path": "runtime-ca-refresh.json",
+      "changed_paths": 1
+    },
+    {
+      "kind": "public_file",
+      "path": "broker-repair-identity.json",
+      "changed_paths": 1
+    }
+  ],
+  "storage_model_and_enrollment_source_unchanged": true,
+  "native_broker_and_bootstrap_unchanged": true,
+  "synthetic_plan_checks_passed": 22,
+  "root_controller_implemented": false,
+  "installed": false,
+  "production_ready": false,
+  "native_real_package_checks": 2,
+  "native_synthetic_checks": 27,
+  "native_result_sha256": "5d38390450f544ed6b63d9acd772ca03c63bcfa24ceabd1daff0a4085228f811",
+  "combined_python_regression_checks": 167,
+  "native_source_sha256": {
+    "macos/RuntimeUpgradeSource.swift": "43348b42a0909d80c4092047b7189be2ebb4bb66939c6516b8649d8a08f34ab8",
+    "macos/Tests/RuntimeUpgradeSourceChecks.swift": "81eef93fd519b99a9470edb677494e582e255186ef99c6e8ceee6cef23145e11"
+  }
+}
