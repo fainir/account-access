@@ -45,8 +45,13 @@ validation passed, including 250 installed-adapter checks and the existing
 predecessor, journal, namespace and repair suites; 86 focused Python tests passed.
 This is source qualification, not a successful owner installation. Severe system
 load was observed during the timeout; redundant scans are a possible contributor,
-not a measured root cause. Package 90 must still pass independent package review
-and actual Installer scenarios before an owner attempt.
+not a measured root cause. Package 90 is built and independently verified: all 27,523 expanded entries
+matched, with only the signed controller and its wrapper changed from package
+87. Its SHA-256 is `a9830e12cbaaf95ce2fe80add81d116498d571c57bbd9509b70f20a59f62f0a4`.
+Draft assets are frozen by ID, size and SHA-256. The updated asset contracts and
+Installer harness passed 96 focused tests. Actual Installer scenarios must still
+pass before an owner attempt.
+[Package review](../artifacts/broker-repair-package90-20261024.json).
 [Source validation](../artifacts/repair90-progress-source-20261024.json).
 
 Package **88** is built from repair-controller source `eba8057`, while preserving

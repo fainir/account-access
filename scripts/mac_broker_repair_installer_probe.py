@@ -34,6 +34,7 @@ CHECKS = {"fresh_predecessor_acceptance", "pinned_assets_and_sources", "exact_re
           "same_package_reapplication", "reapplication_preserved_bytes_and_ids", "created_job_stopped"}
 ENV = {"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "LANG": "C", "LC_ALL": "C"}
 CONTROLLER88 = "eba805729025caa1dc0754112e21d6d5592e0113"
+CONTROLLER90 = "4807187226c9701ca615634c2ad570f343dccc91"
 
 
 def require(value):
@@ -42,11 +43,14 @@ def require(value):
 
 
 def profile(cohort):
-    require(type(cohort) is int and cohort in {87, 88})
-    return {"cohort": cohort, "controller_source": SOURCE if cohort == 87 else CONTROLLER88,
+    require(type(cohort) is int and cohort in {87, 88, 90})
+    sources = {87: SOURCE, 88: CONTROLLER88, 90: CONTROLLER90}
+    downloads = {87: "download_broker_repair_installer_inputs.py",
+                 88: "download_broker_repair_restart_inputs.py",
+                 90: "download_broker_repair_progress_inputs.py"}
+    return {"cohort": cohort, "controller_source": sources[cohort],
             "identifier": f"com.fainir.accountaccess.brokerrepair{cohort}",
-            "download": "download_broker_repair_installer_inputs.py" if cohort == 87
-            else "download_broker_repair_restart_inputs.py"}
+            "download": downloads[cohort]}
 
 
 def guard():
@@ -448,7 +452,7 @@ def main():
     parser.add_argument("--bundle", type=Path, required=True)
     parser.add_argument("--repair", type=Path, required=True)
     parser.add_argument("--scenario", choices=sorted(SCENARIOS), required=True)
-    parser.add_argument("--cohort", type=int, choices=[87, 88], default=87)
+    parser.add_argument("--cohort", type=int, choices=[87, 88, 90], default=87)
     args = parser.parse_args()
     try:
         return run(args)

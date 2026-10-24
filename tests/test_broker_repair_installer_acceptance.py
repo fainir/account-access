@@ -99,22 +99,26 @@ def test_closed_controller_profiles_preserve_frozen_payload_source():
     assert selected["controller_source"] == "eba805729025caa1dc0754112e21d6d5592e0113"
     assert selected["identifier"] == "com.fainir.accountaccess.brokerrepair88"
     assert selected["download"] == "download_broker_repair_restart_inputs.py"
-    for invalid in (True, "88", 86, 89, None, {}):
+    selected = PROBE["profile"](90)
+    assert selected["controller_source"] == "4807187226c9701ca615634c2ad570f343dccc91"
+    assert selected["identifier"] == "com.fainir.accountaccess.brokerrepair90"
+    assert selected["download"] == "download_broker_repair_progress_inputs.py"
+    for invalid in (True, "88", 86, 89, 91, None, {}):
         with pytest.raises(ValueError):
             PROBE["profile"](invalid)
 
 
-@pytest.mark.parametrize("cohort", [87, 88])
+@pytest.mark.parametrize("cohort", [87, 88, 90])
 def test_review_separates_controller_and_unchanged_public_image(cohort):
     selected = PROBE["profile"](cohort)
     review = {"status": "BUILT_PENDING_INSTALLER_QA", "source_commit": PROBE["SOURCE"],
         "plan_sha256": PROBE["PLAN"], "before_manifest_sha256": PROBE["BEFORE"],
         "after_manifest_sha256": PROBE["AFTER"], "postinstall_timeout": 1800,
         "package_sha256": "a" * 64, "scripts_inventory_sha256": "b" * 64, "production_ready": False}
-    if cohort == 88:
+    if cohort != 87:
         with pytest.raises(ValueError):
             PROBE["verify_review_identity"](review, selected, package_sha256="a" * 64, inventory_sha256="b" * 64)
-        review["controller_source_commit"] = PROBE["CONTROLLER88"]
+        review["controller_source_commit"] = selected["controller_source"]
     PROBE["verify_review_identity"](review, selected, package_sha256="a" * 64, inventory_sha256="b" * 64)
     for key in review:
         altered = {**review, key: "unreviewed"}
