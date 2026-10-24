@@ -19,25 +19,16 @@ physical phone delivery and notarized consumer installation remain unverified.
 The 0.8 Mac runtime targets **Apple silicon and macOS 14 or later**. See the
 [current production gates](docs/production-gates.md).
 
-On 21 October, the protected startup repair installed successfully on the
-affected Mac. Owner setup, the shared AI connection and one approved personal
-password import then completed. Codex and an ordinary Claude Code request both
-discovered that account and reported its existing sign-in challenge. Its
-Namecheap device-verification page is outside the reviewed connector; a
-successful private login has **not** been established. Gmail enrollment and its
-mailbox check passed; actual website email-code delivery and physical
-SMS/authenticator acceptance remain pending. The newer GUI and runtime
-still require owner-store and private-login acceptance. On 24 October, a complete
-read-only check confirmed installed public image 85 after a repair attempt timed
-out. Repair 90 passed disposable-Mac Installer qualification but failed during
-owner store migration. The previous public image was restored and verified.
-Repair 91 then passed four disposable-Mac Installer scenarios and installed
-successfully on the owner's Mac. The updated public image verified, and the app
-opens to agent setup; agent connection and personal-account acceptance remain
-open. Fresh runtime 89 has
-passed disposable-Mac installation, but upgrading the owner's existing image to
-that runtime is not yet qualified. [Initial owner-Mac observations](artifacts/owner-startup-and-import-213509c-20261021.json)
-and [current acceptance status](docs/production-gates.md).
+Earlier owner testing completed a protected setup, one approved personal Chrome
+password import and a Gmail mailbox check. A successful private website login
+has not been established. Package 91 subsequently installed, but **Connect
+automatically** failed. Runtime 92 contains the connection fix; package 93's
+attempt to install it left the old public image intact and the broker disabled.
+Package 94 is undergoing actual Installer and recovery qualification before the
+next owner attempt. Personal email/SMS/TOTP login, the physical Android phone
+and consumer distribution remain open acceptance gates.
+[Initial owner observations](artifacts/owner-startup-and-import-213509c-20261021.json) ·
+[current acceptance status](docs/production-gates.md).
 
 ![Account Access dashboard](docs/account-dashboard.png)
 
