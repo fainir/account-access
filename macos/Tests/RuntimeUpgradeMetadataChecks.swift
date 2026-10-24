@@ -18,8 +18,10 @@ enum RuntimeUpgradeMetadataChecks {
         guard let tree = inventory.tree, tree.nodes.count < 1000,
               tree.nodes.values.allSatisfy({ ["file", "directory"].contains($0.kind) }) else { throw FullImageFailure.source }
         var template = Array("/private/tmp/account-access-runtime-groups-XXXXXX".utf8CString)
-        guard let made = mkdtemp(&template) else { throw RuntimeUpgradeMetadataFailure.rejected(#line, errno) }
-        let path = String(cString: made)
+        let path = try template.withUnsafeMutableBufferPointer { buffer -> String in
+            guard let made = mkdtemp(buffer.baseAddress!) else { throw RuntimeUpgradeMetadataFailure.rejected(#line, errno) }
+            return String(cString: made)
+        }
         let root = open(path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
         guard root >= 0, fchmod(root, 0o755) == 0, fchown(root, uid_t.max, legacy) == 0 else { throw RuntimeUpgradeMetadataFailure.rejected(#line, errno) }
         defer { Darwin.close(root) }

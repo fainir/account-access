@@ -15,8 +15,12 @@ enum RuntimeUpgradeNamespaceChecks {
         try refuses { _ = try FullImageNamespaceDirectory.installed(-1, kind: .runtimeUpgrade) }
         try refuses { _ = try FullImageInstalledRoutes.installed(kind: .runtimeUpgrade) }
         var template = Array("/private/tmp/account-access-runtime-namespace-XXXXXX".utf8CString)
-        guard let made = mkdtemp(&template) else { throw RuntimeUpgradeNamespaceFailure.rejected(#line, errno) }
-        let path = String(cString: made)
+        // mkdtemp returns the input buffer. Copy the name while Swift still
+        // guarantees that buffer's lifetime, including under optimization.
+        let path = try template.withUnsafeMutableBufferPointer { buffer -> String in
+            guard let made = mkdtemp(buffer.baseAddress!) else { throw RuntimeUpgradeNamespaceFailure.rejected(#line, errno) }
+            return String(cString: made)
+        }
         let root = open(path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
         guard root >= 0 else { throw RuntimeUpgradeNamespaceFailure.rejected(#line, errno) }
         defer { Darwin.close(root) }
