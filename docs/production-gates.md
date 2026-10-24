@@ -7,12 +7,20 @@ establish that experience on personal accounts.
 
 ## Current candidate
 
-### Broker store repair candidate — 23 October 2026
+### Broker store repair candidate — 24 October 2026
 
-The owner's installed public image is still full image 85. A read-only check of
-25,165 files, 2,297 directories and 21 links found no mismatches. The store still
-needs the qualified persistent-volume repair; no owner repair installation has
-been performed yet.
+The owner's installed public image was still full image 85 after a Mac restart
+on 24 October. The first owner attempt at package 87 did not complete. A fresh
+read-only comparison against image 87 found exactly its three changed public
+paths unmatched; all unchanged entries in the inventory of 25,165 files,
+2,297 directories and 21 links matched. Those three paths were independently checked against image
+85 and matched that predecessor, including the expected absent repair-identity
+file. Together these checks establish an intact image 85, not a completed repair
+or a mixed image. No private store was read. A retry of the same hash-verified
+package is in progress; store access and GUI acceptance remain unqualified.
+
+[Post-restart target comparison](../artifacts/repair87-restart-owner-mac-after-repair87.json) ·
+[Predecessor confirmation](../artifacts/repair87-restart-owner-mac-restart87-predecessor.json).
 
 Package **87**, built from `c4cf1b0`, passed all three actual Installer scenarios
 in run `39989349794`: installation/reapplication, interruption after broker
