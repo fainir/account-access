@@ -81,6 +81,37 @@ enum BrokerRepairRecoveryChecks {
         let valid = try service("disable_intent_prior_enabled")
         let duplicate = Data(String(decoding: valid, as: UTF8.self).replacingOccurrences(of: "\"schema\":1", with: "\"schema\":1,\"schema\":1").utf8)
         refuses { _ = try journal(["service-0000.json": duplicate]) }
+        func completed(_ rows: [String: Data]) throws -> Data {
+            try BrokerRepairJournal.completedEvidence(names: Set(rows.keys), plan: source.pins.planSHA256,
+                operations: operations) { rows[$0]! }
+        }
+        let completedRows = ["intent.json": Data("{\"fixture\":1}".utf8),
+            "service-0000.json": valid,
+            "service-0001.json": try service("canonical_job_bootstrapped_gui_unverified")]
+        let completedBytes = try completed(completedRows)
+        check(try FullImageJSON.object(completedBytes, maximum: 8192)["plan_sha256"] as? String == source.pins.planSHA256)
+        var whitespaceChanged = completedRows
+        whitespaceChanged["intent.json"]!.append(32)
+        check(try completed(whitespaceChanged) != completedBytes)
+        var retainedSlot = completedRows
+        retainedSlot[operations[0].slot] = Data("fictional retained file; verified by installed object checks".utf8)
+        check(try completed(retainedSlot) == completedBytes)
+        for bad in [Data("{".utf8), Data("[]".utf8), Data("{\"fixture\":1,\"fixture\":1}".utf8), Data()] {
+            var changed = completedRows; changed["intent.json"] = bad
+            refuses { _ = try completed(changed) }
+        }
+        for (name, bytes) in [
+            ("service-0002.json", Data("{".utf8)),
+            ("service-0002.json", try service("disable_intent_prior_enabled")),
+            ("service-0001.json", try service("canonical_job_bootstrapped_gui_unverified", plan: String(repeating: "f", count: 64))),
+            ("foreign", Data("{}".utf8))] {
+            var changed = completedRows; changed[name] = bytes
+            refuses { _ = try completed(changed) }
+        }
+        var incomplete = completedRows; incomplete.removeValue(forKey: "service-0001.json")
+        refuses { _ = try completed(incomplete) }
+        incomplete = completedRows; incomplete.removeValue(forKey: "intent.json")
+        refuses { _ = try completed(incomplete) }
         // Both installed entry points refuse before opening a descriptor.
         refuses { _ = try BrokerRepairRoutes(plan: source.pins.planSHA256, predecessorPlan: source.pins.predecessorPlanSHA256) }
         var checkpoints: [BrokerRepairCheckpoint] = []
@@ -88,6 +119,8 @@ enum BrokerRepairRecoveryChecks {
         refuses { _ = try ComponentController.runBrokerRepair(resources: -1, pins: source.pins,
             predecessorPins: predecessor.pins, checkpoint: { checkpoints.append($0) }) }
         check(checkpoints == [.context])
+        refuses { _ = try ComponentController.completedBrokerRepair(resources: -1, pins: source.pins,
+            predecessorPins: predecessor.pins) }
         return assertions
     }
 }

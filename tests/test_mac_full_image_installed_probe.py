@@ -24,7 +24,7 @@ def reports():
              supplemental_group_case="PASSED_DISTINCT_OLD_AND_NEW_GROUPS", optional_polarities=2, recovery_polarities=3),
         {"status": "FULL_IMAGE_DURABLE_JOURNAL_CHECKS_PASSED", "assertions": 164,
          "installed_or_provider_operations": False},
-        {"schema": 1, "status": "PASSED", "source_assertions": 54, "recovery_assertions": 49, "transaction_assertions": 74,
+        {"schema": 1, "status": "PASSED", "source_assertions": 54, "recovery_assertions": 49, "transaction_assertions": 88,
          "installed_reads": False, "payload_executed": False, "production_ready": False},
     ]
 

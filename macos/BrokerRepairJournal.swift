@@ -12,6 +12,28 @@ struct BrokerRepairJournal {
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         return try encoder.encode(value)
     }
+    // A completed successor cannot inherit the recovery parser's tolerance for
+    // partial audit writes. This is data evidence only; the installed verifier
+    // must also validate the intent, every retained object and the public image.
+    static func completedEvidence(names: Set<String>, plan: String, operations: [ComponentOperation],
+                                  read: (String) throws -> Data) throws -> Data {
+        var captured: [String: Data] = [:]
+        func once(_ name: String) throws -> Data {
+            if let data = captured[name] { return data }
+            let data = try read(name)
+            _ = try FullImageJSON.object(data, maximum: name == "intent.json" ? 65536 : 4096)
+            captured[name] = data
+            return data
+        }
+        let state = try load(names: names, plan: plan, operations: operations, read: once)
+        guard state.finished, !state.ownsDisable else { throw ComponentUpdateFailure.journal }
+        _ = try once("intent.json")
+        let expected = names.subtracting(Set(operations.map(\.slot)))
+        guard Set(captured.keys) == expected else { throw ComponentUpdateFailure.journal }
+        return try FullImageJSON.encode(["schema": 1,
+            "managed_by": "account-access-completed-broker-repair-history-v1",
+            "plan_sha256": plan, "record_sha256": captured.mapValues { FullImageJSON.hash($0) }] as [String: Any])
+    }
     static func load(names: Set<String>, plan: String, operations: [ComponentOperation],
                      read: (String) throws -> Data) throws -> BrokerRepairJournal {
         guard FullImageJSON.hex(plan), names.contains("intent.json"), names.count <= 30007 else {

@@ -48,7 +48,7 @@ EXACT_INPUTS = {
     'macos/BrokerRepairMain.swift': '94cc06f81f6c3bb32592e98658efe96fe911dc7e9d9e5b7d84877ca703239f37',
     'macos/BrokerRepairHistory.swift': '162597fe43479ba7c35e533a779b2766c1f740d6071c988b93aa931c74f06fb4',
     'macos/BrokerRepairIntent.swift': 'b1a54ef15d3f9c082da7f276e9818f2b46a0d1dbc139b0ba492a7884d7b9a9dd',
-    'macos/BrokerRepairJournal.swift': 'eb1b78d285790d4e5d5a411ae455397c2fe51ebdee83314b7722b3d3867be5cd',
+    'macos/BrokerRepairJournal.swift': '434d3c3e10a8c85806ce8248036838ea55c20028a8576593386e91b99b304371',
     'macos/BrokerRepairRoutes.swift': 'b49184efd4298198b16628a526b14253b5a3202a1370018b2a0c3f5b17d1b8aa',
     'macos/BrokerRepairSource.swift': '4202b1f7e9b2d08c2797037351d745798c0ab9bfcbdf4d0ee4970779c8db3fc0',
     'macos/ComponentUpdate.swift': '05fc4fb9ff5f2e81ddba4ffa8c4fac8ae0006ff8fdfc0b9fb6388c7fea47750a',
@@ -70,7 +70,7 @@ EXACT_INPUTS = {
     'macos/StoreVolumeMigration.swift': '6a0170525feb34144d37e0ce1580cd9f4bf007a24bd92126e00405e577315ae3',
     'macos/StoreVolumeMigrationAuthority.swift': '1aacffcd330e6d3bc0c96d3576b812ac62109bc63d67d693cbe8b96be0eadf66',
     'macos/Tests/BrokerRepairIntentChecks.swift': 'f3dc81b84c635f4ada2987d033996608522dcb1c473a2fe85d8d4e3a1235a405',
-    'macos/Tests/BrokerRepairRecoveryChecks.swift': 'f2010776d5fe80ae7526034dec45dfc1785ca3c96a44693682f406ad86e3970b',
+    'macos/Tests/BrokerRepairRecoveryChecks.swift': '27ae8cdc9881ebec60eb0667f09f59ea76d65fea41fcf5f3208384bd4d6f35ef',
     'macos/Tests/BrokerRepairSourceChecks.swift': 'ad6def26f6519fdc3d3b4f829ccb79b6c4134a7622983e64aabca3f14c6bb5ac',
     'macos/Tests/CombinedPredecessorAuthorityChecks.swift': '16d1921b6edc83654e46d1084ff9a3eaa904506ba0e7c04aa605c538882ee67c',
     'macos/Tests/FullImageGlobalJournalChecks.swift': '3f6978e850afe514e0344cbf26aa3fd66e67df484dd82293bcf9bd005fa2fdfc',
@@ -79,11 +79,11 @@ EXACT_INPUTS = {
     'macos/Tests/FullImageLegacyGroupChecks.swift': '783c7166faf8844feb90dfe1c35c8a5364bb0c8328a2538ff6ab337bc5ee0992',
     'macos/Tests/FullImageNamespaceChecks.swift': '86a7cdc1063f8bcb497b0decc5dcc3025f8639f3f2c9d0de5e72945fdca7be92',
     'macos/Tests/FullImagePredecessorAuthorityChecks.swift': '34e940e3d6acc9878c57a1f96ed8cf2f805966db857dbea03e8c8c41b0fb75b4',
-    'macos/source-fragments/BrokerRepairInstalledAdapter.swift.inc': '529534e13a03243db858593791f8fa50708f16e992be2ae9d606237c25f89e0f',
+    'macos/source-fragments/BrokerRepairInstalledAdapter.swift.inc': 'a4584da94ef4b866efeb8bd2e52f22ba83084daa9d314aefd9d346aadd6ba3d5',
     'macos/source-fragments/CompletedComponentPredecessor.swift.inc': 'bda8f8138e64f4f1bad0a05e35f63a4d05922ff19d12a1e0d8371ac8cb886be7',
     'macos/source-fragments/FullImageInstalledAdapter.swift.inc': '1a51e4f6ca99423468385d6278bced345835f9201e7dd8ce39cb9c6291d5d8c5',
 }
-COMPOSED_SHA256 = "1b32fdff045fdd467b0268364b0e9d0ac65b4b9a266830573c36ca97b717bbf1"
+COMPOSED_SHA256 = "057af5b057ec44390c2aebc641372f5172a6fb8805621a119e0085917da131b0"
 GUARD_ENV = "ACCOUNT_ACCESS_FULL_IMAGE_PROBE_GUARD"
 DISPATCHER = b'''import Foundation
 import Darwin
@@ -386,7 +386,7 @@ class Probe:
         require(journal == {"status": "FULL_IMAGE_DURABLE_JOURNAL_CHECKS_PASSED", "assertions": 164,
                             "installed_or_provider_operations": False}
                 and journal["installed_or_provider_operations"] is False, "global_journal_report_refused")
-        require(repair == {"schema": 1, "status": "PASSED", "source_assertions": 54, "recovery_assertions": 49, "transaction_assertions": 74,
+        require(repair == {"schema": 1, "status": "PASSED", "source_assertions": 54, "recovery_assertions": 49, "transaction_assertions": 88,
                            "installed_reads": False, "payload_executed": False, "production_ready": False}
                 and type(repair["schema"]) is int
                 and all(repair[key] is False for key in ("installed_reads", "payload_executed", "production_ready")),
