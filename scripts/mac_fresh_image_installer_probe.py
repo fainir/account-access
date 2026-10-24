@@ -310,11 +310,35 @@ def original_receipts(owner, *, manifest_sha=MANIFEST_SHA):
     return records
 
 
+def running_broker_pid(result):
+    """A surviving system service under the broker UID is not broker liveness."""
+    require(type(result.returncode) is int and result.returncode == 0
+            and type(result.stdout) is bytes and 0 < len(result.stdout) <= 16384
+            and result.stderr == b"")
+    try:
+        text = result.stdout.decode("utf-8", errors="strict")
+    except UnicodeError:
+        require(False)
+    require(text.startswith("system/com.fainir.accountaccess.broker = {\n")
+            and text.endswith("}\n") and "\0" not in text)
+    # Match only direct job fields, never similarly named nested endpoints.
+    require(re.findall(r"^\tpath = (.+)$", text, re.M) == [
+        "/Library/LaunchDaemons/com.fainir.accountaccess.broker.plist"])
+    require(re.findall(r"^\tstate = (.+)$", text, re.M) == ["running"])
+    require(re.findall(r"^\tprogram = (.+)$", text, re.M) == [
+        "/Library/Application Support/Account Access/bin/AccountAccess-broker"])
+    pids = re.findall(r"^\tpid = (.*)$", text, re.M)
+    require(len(pids) == 1 and re.fullmatch(r"[1-9][0-9]{0,9}", pids[0]) is not None
+            and 1 < int(pids[0]) < 2**31)
+    return int(pids[0])
+
+
 def live_service(command, suffix):
     value = plistlib.loads(h.read_file(h.JOB, maximum=8192))
     require(value.get("Label") == h.LABEL
         and value.get("ProgramArguments") == [str(h.BASE / "bin/AccountAccess-broker")])
-    command(["/bin/launchctl", "print", "system/" + h.LABEL], "live-job-" + suffix + ".log")
+    running_broker_pid(command(["/bin/launchctl", "print", "system/" + h.LABEL],
+                              "live-job-" + suffix + ".log"))
     import pwd
     uid = h.policies()["install"]["broker_uid"]
     require(type(uid) is int and 0 < uid < 2**31 and pwd.getpwnam("_accountaccess").pw_uid == uid)

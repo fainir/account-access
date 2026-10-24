@@ -24,6 +24,53 @@ CI = {"GITHUB_ACTIONS": "true", "CI": "true", "RUNNER_ENVIRONMENT": "github-host
     "GITHUB_RUN_ID": "12345", "GITHUB_RUN_ATTEMPT": "1", "GITHUB_SHA": "a" * 40}
 
 
+def broker_job():
+    return SimpleNamespace(returncode=0, stderr=b"", stdout=(
+        "system/com.fainir.accountaccess.broker = {\n"
+        "\tpath = /Library/LaunchDaemons/com.fainir.accountaccess.broker.plist\n"
+        "\tstate = running\n"
+        "\tprogram = /Library/Application Support/Account Access/bin/AccountAccess-broker\n"
+        "\tpid = 12345\n"
+        "\tendpoints = {\n\t\tstate = waiting\n\t\tpid = 999\n\t}\n}\n").encode())
+
+
+def test_liveness_requires_the_fixed_running_job_not_nested_fields():
+    assert probe.running_broker_pid(broker_job()) == 12345
+
+
+@pytest.mark.parametrize("before,after", [
+    ("system/com.fainir.accountaccess.broker", "system/com.apple.distnoted"),
+    ("\tstate = running", "\tstate = waiting"),
+    ("\tstate = running", "\t\tstate = running"),
+    ("\tstate = running", "\tstate = running\n\tstate = running"),
+    ("bin/AccountAccess-broker", "bin/AccountAccess-bootstrap"),
+    ("\tprogram =", "\t\tprogram ="),
+    ("broker.plist", "other.plist"),
+    ("\tpid = 12345", "\t\tpid = 12345"),
+    ("\tpid = 12345", "\tpid = 0"),
+    ("\tpid = 12345", "\tpid = 1"),
+    ("\tpid = 12345", "\tpid = -12"),
+    ("\tpid = 12345", "\tpid = 2147483648"),
+    ("\tpid = 12345", "\tpid = 12345\n\tpid = 54321"),
+])
+def test_liveness_refuses_wrong_missing_or_ambiguous_job_fields(before, after):
+    result = broker_job()
+    result.stdout = result.stdout.replace(before.encode(), after.encode())
+    with pytest.raises(ValueError):
+        probe.running_broker_pid(result)
+
+
+@pytest.mark.parametrize("field,value", [
+    ("returncode", 113), ("returncode", False), ("stderr", b"unavailable"),
+    ("stdout", b""), ("stdout", b"x" * 16385), ("stdout", b"\xff"),
+])
+def test_liveness_refuses_failed_or_unbounded_observations(field, value):
+    result = broker_job()
+    setattr(result, field, value)
+    with pytest.raises(ValueError):
+        probe.running_broker_pid(result)
+
+
 def contract():
     """Fictional future fresh-asset IDs for pure validation, never availability."""
     source = inputs.PACKAGING_SOURCE
