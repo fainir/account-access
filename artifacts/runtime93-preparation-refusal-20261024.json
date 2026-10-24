@@ -36,5 +36,154 @@
   "diagnosis_confirmed": false,
   "package_sha256": "f5db4c6c35ca1efe62bac0b572256b500f59032d9885a7bebb7b43b6702a9b23",
   "owner_machine_changed": false,
-  "production_ready": false
+  "production_ready": false,
+  "additional_cases": [
+    {
+      "scenario": "install-reapply",
+      "artifact_id": 12571925454,
+      "artifact_bytes": 58669,
+      "artifact_sha256": "20ae86edbc750afb29249d1c0d789932fd511cdb5bab637691c6d281c97fd2e0",
+      "reports": [
+        {
+          "sha256": "ab9a57aedbdc3e3c34560b86c4956a16c1e9cb07b795351a1d3195e6f388e457",
+          "status": "PASSED",
+          "checks_passed": 15,
+          "runtime_upgrade": null,
+          "failure_locations": null
+        },
+        {
+          "sha256": "0106551dbb6b1cdf0d6cbb829c27a8eff5fec81aeec9f5f6bc9d522cc609506c",
+          "status": "FAILED",
+          "checks_passed": 13,
+          "runtime_upgrade": {
+            "application_source": "7051ef225ff2f35d67576d0ddbbc3e0b107e00bf",
+            "checks": {
+              "actual_installer": false,
+              "exact_public_image": false,
+              "exact_reapply": false,
+              "fixed_inputs": true,
+              "foreign_audit_refused": false,
+              "live_service": false,
+              "policy_rotation": false,
+              "predecessor_fixture_accepted": true,
+              "roots_and_history_preserved": false,
+              "scenario_exercised": true,
+              "service_after_refusal": false,
+              "signature_verified": true,
+              "unchanged_reapply": false
+            },
+            "controller_source": "f9c0a80fd5bf28e4e92d005ef3777a6b44de1ab6",
+            "failure_stage": "runtime-upgrade-install",
+            "installed_owner_machine": false,
+            "production_ready": false,
+            "real_account_login_tested": false,
+            "scenario": "install-reapply"
+          },
+          "failure_locations": [
+            {
+              "file": "mac_broker_repair_installer_probe.py",
+              "function": "run",
+              "line": 540
+            },
+            {
+              "file": "mac_runtime_upgrade_installer_probe.py",
+              "function": "run",
+              "line": 197
+            },
+            {
+              "file": "mac_runtime_upgrade_installer_probe.py",
+              "function": "install",
+              "line": 140
+            },
+            {
+              "file": "mac_broker_repair_installer_probe.py",
+              "function": "require",
+              "line": 43
+            }
+          ]
+        }
+      ],
+      "referenced_log_hashes_verified": 44,
+      "helper_results": [
+        {
+          "schema": 1,
+          "status": "REFUSED",
+          "reason": "full_image_update_unavailable",
+          "checkpoint": "preparation_tree_capture"
+        }
+      ]
+    },
+    {
+      "scenario": "interrupt-owner",
+      "artifact_id": 12571744146,
+      "artifact_bytes": 55539,
+      "artifact_sha256": "8834e8b00d2a17af7fae2ce6da366e05070ca980a43de76dac7789f4b07c6b0b",
+      "reports": [
+        {
+          "sha256": "514e3fdb76701b8e79f01a88cc496d0d44920398fd8bafecbb69976f5f0d874e",
+          "status": "PASSED",
+          "checks_passed": 15,
+          "runtime_upgrade": null,
+          "failure_locations": null
+        },
+        {
+          "sha256": "bf819c401c090399ea03aedcf350e5709832e126a9136fddd48b5ed3c6189bf8",
+          "status": "FAILED",
+          "checks_passed": 13,
+          "runtime_upgrade": {
+            "application_source": "7051ef225ff2f35d67576d0ddbbc3e0b107e00bf",
+            "checks": {
+              "actual_installer": false,
+              "exact_public_image": false,
+              "exact_reapply": false,
+              "fixed_inputs": true,
+              "foreign_audit_refused": false,
+              "live_service": false,
+              "policy_rotation": false,
+              "predecessor_fixture_accepted": true,
+              "roots_and_history_preserved": false,
+              "scenario_exercised": false,
+              "service_after_refusal": false,
+              "signature_verified": true,
+              "unchanged_reapply": false
+            },
+            "controller_source": "f9c0a80fd5bf28e4e92d005ef3777a6b44de1ab6",
+            "failure_stage": "inputs",
+            "installed_owner_machine": false,
+            "production_ready": false,
+            "real_account_login_tested": false,
+            "scenario": "interrupt-owner"
+          },
+          "failure_locations": [
+            {
+              "file": "mac_broker_repair_installer_probe.py",
+              "function": "run",
+              "line": 540
+            },
+            {
+              "file": "mac_runtime_upgrade_installer_probe.py",
+              "function": "run",
+              "line": 180
+            },
+            {
+              "file": "mac_broker_repair_installer_probe.py",
+              "function": "require",
+              "line": 43
+            }
+          ]
+        }
+      ],
+      "referenced_log_hashes_verified": 44,
+      "helper_results": [
+        {
+          "schema": 1,
+          "status": "REFUSED",
+          "reason": "full_image_update_unavailable",
+          "checkpoint": "preparation_tree_capture"
+        }
+      ]
+    }
+  ],
+  "all_three_scenarios_failed": true,
+  "run_cancelled": false
 }
