@@ -12,8 +12,9 @@ Package 94 adds live attestation for the two Apple per-user services observed
 under the dedicated UID. Its source and live-process qualification passed, followed by all four actual
 Installer scenarios. All four archives and 221 referenced log hashes were
 verified, including recovery from the old package's disabled transition.
-The owner public-image preflight passed; the Mac is locked and package 94 has
-not yet been opened or installed there. Owner recovery remains pending.
+The owner public-image preflight passed. On 25 October the Mac was unlocked and
+package 94 was opened at the Install button, awaiting the owner's authentication.
+Successful owner installation, service recovery and AI connection remain pending.
 See [current production acceptance](production-gates.md) for exact source,
 package identity and current results. The [qualification history](qualification-history-20261024.md)
 preserves earlier fixture failures, their fixes and the package 93 owner refusal.

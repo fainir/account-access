@@ -2,7 +2,7 @@
 
 **Account Access remains a preview. Production readiness is false.**
 
-Updated 24 October 2026 (UTC). The requested outcome is installation, local Chrome
+Updated 25 October 2026. The requested outcome is installation, local Chrome
 password import, email/SMS/authenticator setup, and later approved sign-ins
 through the user's existing AI agent. Controlled tests cover those mechanisms;
 they do not establish personal-account or physical-phone acceptance.
@@ -44,10 +44,13 @@ still refuse the update. The package SHA-256 is
   The recovery evidence confirms both intended refusals and the same Apple
   process surviving through successful recovery.
 - A new read-only owner preflight matched all 25,166 old public files, 2,297
-  directories and 21 links, and verified the exact package 94 hash. The Mac is
-  locked; package 94 has not been opened or installed there. Service recovery
-  and **Connect automatically** remain pending. The outer package is unsigned
-  and not notarized.
+  directories and 21 links, and verified the exact package 94 hash. On 25 October,
+  the owner Mac was unlocked and package 94 was opened to the Installer's Install
+  button. Regenerable project build expansions were cleared to recover about
+  2.48 GB; all tested installers and evidence were retained. Owner authentication,
+  successful installation, service recovery and **Connect automatically** remain
+  pending. The outer package is unsigned and not notarized.
+  [Owner handoff](../artifacts/owner-runtime94-installer-handoff-20261025.json).
 
 [Actual Installer acceptance](../artifacts/runtime-upgrade94-installer-acceptance-20261024.json) ·
 [Owner preflight](../artifacts/owner-mac-before-runtime94-20261024.json) ·

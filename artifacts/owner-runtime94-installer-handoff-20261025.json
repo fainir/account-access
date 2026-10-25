@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "status": "INSTALLER_PREPARED_AWAITING_OWNER_HANDOFF",
+  "observed_at": "2026-10-25T07:17:53.867840+00:00",
+  "package_sha256": "1086e6eac90083489c7b85578f5267eaee77bdd6b3844b1b4a4579d89c731c3e",
+  "qa_report_sha256": "7af7d6bd3c9fabfce42b85b6198e2c9cb5f2715058deb9395dc2f0e2df1ff9ae",
+  "installer_scenarios_passed": 4,
+  "installer_window_verified": true,
+  "installer_install_button_visible": true,
+  "owner_installation_confirmed": false,
+  "owner_connection_verified": false,
+  "cleanup": {
+    "schema": 1,
+    "package_sha256": "1086e6eac90083489c7b85578f5267eaee77bdd6b3844b1b4a4579d89c731c3e",
+    "removed_regenerable_build_directories": [
+      "dist/runtime-upgrade94-b5ea8a2/scripts/TargetImage",
+      "dist/runtime-upgrade94-b5ea8a2/scripts/Predecessor",
+      "dist/runtime92-7051ef2/independent",
+      "dist/runtime94-owner-public-native-observation/module-cache"
+    ],
+    "free_bytes_before": 2969337856,
+    "free_bytes_after": 5452496896,
+    "private_data_read": false,
+    "installed_files_changed": false
+  },
+  "production_ready": false
+}
