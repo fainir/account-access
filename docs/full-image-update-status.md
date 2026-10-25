@@ -1,20 +1,28 @@
 # Full-image update development status
 
-## Latest status — 24 October 2026
+## Latest status — 25 October 2026
 
 Package 91 installed successfully on the owner Mac, but AI connection setup
 failed because its older upgrade checker rejects a named preview root. Runtime
 92 contains the fix and passed fresh-install/reapply QA. Package 93 passed its
 hosted Installer matrix, then failed on the owner Mac at the service-quiescence
-barrier. The package 91 public image remains intact and the broker is disabled.
+barrier, leaving the package 91 public image intact and the broker disabled.
 
 Package 94 adds live attestation for the two Apple per-user services observed
 under the dedicated UID. Its source and live-process qualification passed, followed by all four actual
 Installer scenarios. All four archives and 221 referenced log hashes were
 verified, including recovery from the old package's disabled transition.
-The owner public-image preflight passed. On 25 October the Mac was unlocked and
-package 94 was opened at the Install button, awaiting the owner's authentication.
-Successful owner installation, service recovery and AI connection remain pending.
+The owner authenticated and package 94 installed successfully on 25 October.
+The exact broker job runs, but the app reports `worker_process_unavailable`.
+All 25,167 regular public files match the target; 20 Python/runtime links were
+recreated with mode 0700 and cannot be read by an ordinary user. The worker's
+public path validator rejects the interpreter alias and accepts its direct
+target. Root-only Installer checks missed this distinction. The staging fix
+passed the native regression suite. The package 95 repair candidate passed 433
+adapter assertions and requires a normal restart after installation. Its actual
+Installer qualification, installed repair, worker startup and AI connection
+remain pending.
+[Owner failure evidence](../artifacts/owner-runtime94-installed-startup-failure-20261025.json).
 See [current production acceptance](production-gates.md) for exact source,
 package identity and current results. The [qualification history](qualification-history-20261024.md)
 preserves earlier fixture failures, their fixes and the package 93 owner refusal.

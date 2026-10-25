@@ -46,7 +46,7 @@ FRAGMENTS = ("macos/source-fragments/CompletedComponentPredecessor.swift.inc",
 ENTRYPOINT = "FullImageUpdateMain.swift"
 REPAIR_ENTRYPOINT = "BrokerRepairMain.swift"
 EXACT_INPUTS = {
-    'macos/source-fragments/RuntimeUpgradeInstalledAdapter.swift.inc': '4b8f9df226892283c144b1c20cf0018a8e9621dc3e12ef10c09e70ac4ae97a0d',
+    'macos/source-fragments/RuntimeUpgradeInstalledAdapter.swift.inc': '5ff9022b0aa0ef53327749e693aa4f06c5b19577907d15d494cbe62f3285a9b3',
     'macos/RuntimeUpgradeSource.swift': '930ce72d36c58b0a5257938491eba5e85fbaba62fc6825969ff019a841b7039b',
     'macos/BrokerRepairMain.swift': '94cc06f81f6c3bb32592e98658efe96fe911dc7e9d9e5b7d84877ca703239f37',
     'macos/BrokerRepairHistory.swift': '162597fe43479ba7c35e533a779b2766c1f740d6071c988b93aa931c74f06fb4',
@@ -58,7 +58,7 @@ EXACT_INPUTS = {
     'macos/ComponentUpdateIdentity.swift': '815e9043ca55ae59436f68c2ec8d802267562af1cc863c331f3b401da5decb08',
     'macos/ComponentUpdatePolicies.swift': '7aca759f4b9fad195851ce12d81550ec08a0753c43515574c23fc74d247060ab',
     'macos/FullImageGlobalJournal.swift': '0523dd4c7cd3333e0e29938a0a07e67fc7278d5a1cf5aad4a3207479aaffc1ca',
-    'macos/FullImageInstalledIO.swift': '3480e19fd375003beede9305369a51c6a941b7cf57721c293defe102b0953e49',
+    'macos/FullImageInstalledIO.swift': '0582a2b4d0a23f78b0259549e1574b1b4424ef09437d8a0604727960c8830582',
     'macos/FullImagePlan.swift': '715eabab88da1c2d5be412bdd2c117f08f21688a7f3eae3db25db23bfce10774',
     'macos/FullImagePredecessorAuthority.swift': '39a6c5b35ab1614f89983c799dd603b2585b9d219d7b3d7908e73b750209f603',
     'macos/FullImageTransitionStorage.swift': '743a630ac454d9108f68e870a7e3642cd5bdd6d29e9f253e5aa9ce4cf5cbb36a',
@@ -77,7 +77,7 @@ EXACT_INPUTS = {
     'macos/Tests/BrokerRepairSourceChecks.swift': 'ad6def26f6519fdc3d3b4f829ccb79b6c4134a7622983e64aabca3f14c6bb5ac',
     'macos/Tests/CombinedPredecessorAuthorityChecks.swift': '16d1921b6edc83654e46d1084ff9a3eaa904506ba0e7c04aa605c538882ee67c',
     'macos/Tests/FullImageGlobalJournalChecks.swift': '1887f7b48b7be3d2b30d89fac01f746ca374208dd0a53af0a7e086ff5ab022d8',
-    'macos/Tests/FullImageInstalledChecks.swift': 'c7719452caaef0057b58511ea2c74642c725de217dc040c77b086baad52989c8',
+    'macos/Tests/FullImageInstalledChecks.swift': '889c80368890cded24c3410153cea24555b7584159484e5df8f7079e4b603d0b',
     'macos/Tests/FullImageInstalledSourceFixture.swift': '7c448f2ee2339735a9e0ac11e151ef135998143b20979f3ad963a4e747658ba4',
     'macos/Tests/FullImageLegacyGroupChecks.swift': '783c7166faf8844feb90dfe1c35c8a5364bb0c8328a2538ff6ab337bc5ee0992',
     'macos/Tests/FullImageNamespaceChecks.swift': '86a7cdc1063f8bcb497b0decc5dcc3025f8639f3f2c9d0de5e72945fdca7be92',
@@ -86,7 +86,7 @@ EXACT_INPUTS = {
     'macos/source-fragments/CompletedComponentPredecessor.swift.inc': 'bda8f8138e64f4f1bad0a05e35f63a4d05922ff19d12a1e0d8371ac8cb886be7',
     'macos/source-fragments/FullImageInstalledAdapter.swift.inc': '4ecb24b2abc03b617626eea0b6f9ea3e2febaea06158b54c905ce23e20f3d734',
 }
-COMPOSED_SHA256 = "66be6a4db33d31a4758aeb627f921ed4d6943f7ea562f0e4f700bf5828d27661"
+COMPOSED_SHA256 = "d28799697738bde0f22d22f1ff6a06ea4cdc6685d86f47644266d7e19f91ef61"
 GUARD_ENV = "ACCOUNT_ACCESS_FULL_IMAGE_PROBE_GUARD"
 DISPATCHER = b'''import Foundation
 import Darwin
@@ -376,7 +376,7 @@ class Probe:
         require(len(reports) == 6 and all(report.get("status") == "PASSED" for report in reports[:4]), "fixture_reports_refused")
         require(reports[0].get("count") == 159 and isinstance(reports[0].get("checks"), dict)
                 and len(reports[0]["checks"]) == 159 and all(value is True for value in reports[0]["checks"].values())
-                and reports[1].get("checks") == 351, "fixture_assertion_count_changed")
+                and reports[1].get("checks") == 433, "fixture_assertion_count_changed")
         namespace = reports[2]
         require((namespace.get("checks"), namespace.get("supplemental_group_case")) in {
             (29, "UNAVAILABLE_NO_DISTINCT_GROUP"),

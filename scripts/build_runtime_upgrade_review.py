@@ -1,4 +1,4 @@
-"""Build-only fixed package91 -> runtime92 upgrade; never run Installer.
+"""Build-only runtime92 upgrade and closed package94 alias repair; never install.
 
 Requires committed controller sources matching both ordinary native QA reports.
 Only public package inputs and a new output directory are read or written.
@@ -24,7 +24,7 @@ BEFORE = "5a732de4623ba50aefa6d31c54e7b1eae660b2921341f95042c5675d922d808b"
 AFTER = "03fb35eb2787ebd67079dd1cbe4dda125f430964540bdd2f2e9c81eda602fd7a"
 TARGET = "7051ef225ff2f35d67576d0ddbbc3e0b107e00bf"
 FULL_PINS = "dab62cbad1c11821681be4ab480d8153457da7b16a6ec2e012a5d341555c0ba4"
-IDENTIFIER = "com.fainir.accountaccess.runtimeupgrade94"
+IDENTIFIER = "com.fainir.accountaccess.runtimeupgrade95"
 
 
 def require(value):
@@ -181,9 +181,15 @@ def build(args):
     command("extract-container", ["/usr/bin/xar", "-xf", str(raw), "-C", str(container)])
     require({p.name for p in container.iterdir()} == {"PackageInfo", "Scripts"})
     info = (container / "PackageInfo").read_bytes()
-    require(info.count(b'timeout="600"') == 1 and IDENTIFIER.encode() in info)
-    (container / "PackageInfo").write_bytes(info.replace(b'timeout="600"', b'timeout="1800"'))
-    package = output / "Account-Access-Runtime-Upgrade-94-local-unsigned-1800.pkg"
+    require(info.count(b'timeout="600"') == 1 and IDENTIFIER.encode() in info
+            and info.count(b'postinstall-action="none"') == 1)
+    # An installed package94 broker retains its previous worker-start failure.
+    # Let Installer request a normal OS restart; the repair never adopts or
+    # signals a service outside the existing image-transition protocol.
+    info = info.replace(b'timeout="600"', b'timeout="1800"').replace(
+        b'postinstall-action="none"', b'postinstall-action="restart"')
+    (container / "PackageInfo").write_bytes(info)
+    package = output / "Account-Access-Runtime-Upgrade-95-local-unsigned-1800.pkg"
     command("repack", ["/usr/bin/xar", "--compression=none", "-cf", str(package), "PackageInfo", "Scripts"], cwd=container)
     independent = output / "independent"
     command("expand-final", ["/usr/sbin/pkgutil", "--expand-full", str(package), str(independent)])
@@ -196,7 +202,7 @@ def build(args):
         "scripts_inventory_sha256": sha(output / "scripts-inventory.json"), "compiled_pins_sha256": sha(compiled),
         "source_sha256": {n: hashlib.sha256(raw).hexdigest() for n, raw in sources.items()},
         "shared_qa_sha256": sha(args.shared_qa), "runtime_qa_sha256": sha(args.runtime_qa),
-        "postinstall_timeout": 1800, "installed": False, "production_ready": False}
+        "postinstall_timeout": 1800, "postinstall_action": "restart", "installed": False, "production_ready": False}
     (output / "review.json").write_bytes(encoded(report))
     print(json.dumps(report, sort_keys=True))
 

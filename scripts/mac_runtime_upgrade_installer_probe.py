@@ -4,6 +4,8 @@ This module has no owner-machine entrypoint. Its caller first verifies the
 disposable hosted root context and completes the exact predecessor Installer QA.
 """
 import os
+import json
+import pwd
 import re
 from pathlib import Path
 import runpy
@@ -42,6 +44,76 @@ PUBLISHED_FILES = frozenset(CACHE_REPAIR_FILES) | {
     "wheels/account_access-0.8.0-py3-none-any.whl", "python/bin/pip", "python/bin/pip3",
     "runtime/bin/pip", "runtime/bin/pip3",
 }
+
+# Executed only by the guarded disposable-Mac controller, under both the real
+# console UID and the dedicated worker UID. It checks public code paths before
+# any policy, key, account, listener or worker bootstrap is opened.
+PUBLIC_ALIAS_CHECK = r'''
+import json, os, stat, sys
+from pathlib import Path
+try:
+    assert os.getuid() == os.geteuid() != 0 and os.getgid() != 0
+    assert sys.flags.isolated and sys.dont_write_bytecode
+    assert os.environ.get("GITHUB_ACTIONS") == "true"
+    assert os.environ.get("RUNNER_ENVIRONMENT") == "github-hosted"
+    assert os.environ.get("GITHUB_REPOSITORY") == "fainir/account-access"
+    from account_access.worker_bootstrap import root_managed_path
+    base = Path("/Library/Application Support/Account Access")
+    targets = {
+        "bin/2to3": "2to3-3.12", "bin/idle3": "idle3.12", "bin/pydoc3": "pydoc3.12",
+        "bin/python": "python3.12", "bin/python3": "python3.12", "bin/python3-config": "python3.12-config",
+        "lib/pkgconfig/python3-embed.pc": "python-3.12-embed.pc", "lib/pkgconfig/python3.pc": "python-3.12.pc",
+        "share/man/man1/python.1": "python3.12.1", "share/man/man1/python3.1": "python3.12.1",
+    }
+    count = 0
+    for prefix in ("python", "runtime"):
+        for suffix, target in targets.items():
+            path = base / prefix / suffix
+            before = path.lstat()
+            assert stat.S_ISLNK(before.st_mode) and stat.S_IMODE(before.st_mode) == 0o755
+            assert before.st_uid == before.st_gid == 0 and before.st_nlink == 1
+            assert os.readlink(path) == target
+            assert root_managed_path(path) == root_managed_path(path.parent / target)
+            after = path.lstat()
+            assert (before.st_dev, before.st_ino, before.st_mode, before.st_ctime_ns) == (
+                after.st_dev, after.st_ino, after.st_mode, after.st_ctime_ns)
+            count += 1
+    assert count == 20
+    print(json.dumps({"schema": 1, "status": "PASSED", "aliases": count,
+        "ordinary_identity": True, "worker_path_validator": True, "private_data_read": False}))
+except Exception:
+    print(json.dumps({"schema": 1, "status": "REFUSED", "reason": "public_runtime_alias_not_usable"}))
+    raise SystemExit(78)
+'''
+
+
+def ordinary_runtime_aliases(controller, command, suffix, *, expected_success=True):
+    controller.guard()  # Never impersonate an identity on an owner host.
+    h, require = controller.h, controller.require
+    require(suffix in {"after-upgrade", "after-reapply", "before-alias-repair", "after-alias-repair"})
+    policy = h.policies()["install"]
+    owner, broker = policy["owner_uid"], policy["broker_uid"]
+    require(type(owner) is int and owner > 0 and type(broker) is int and 450 <= broker < 500 and owner != broker)
+    person = pwd.getpwuid(owner)
+    require(os.stat("/dev/console").st_uid == owner and person.pw_name == "runner" and person.pw_dir == "/Users/runner")
+    rows = {}
+    for role, uid in (("console", owner), ("worker", broker)):
+        gid = pwd.getpwuid(uid).pw_gid
+        require(gid > 0)
+        result = command(["/usr/bin/sudo", "-n", "-u", "#" + str(uid), "-g", "#" + str(gid), "--",
+            "/usr/bin/env", "-i", "PATH=/usr/bin:/bin:/usr/sbin:/sbin", "HOME=/var/empty",
+            "GITHUB_ACTIONS=true", "RUNNER_ENVIRONMENT=github-hosted", "GITHUB_REPOSITORY=fainir/account-access",
+            str(h.BASE / "runtime/bin/python3.12"), "-I", "-B", "-c", PUBLIC_ALIAS_CHECK],
+            "public-alias-" + suffix + "-" + role + ".log", check=False)
+        require(result.returncode == (0 if expected_success else 78)
+                and result.stderr == b"" and len(result.stdout) <= 2048)
+        value = json.loads(result.stdout)
+        expected = ({"schema": 1, "status": "PASSED", "aliases": 20, "ordinary_identity": True,
+            "worker_path_validator": True, "private_data_read": False} if expected_success else
+            {"schema": 1, "status": "REFUSED", "reason": "public_runtime_alias_not_usable"})
+        require(type(value) is dict and json.dumps(value, sort_keys=True) == json.dumps(expected, sort_keys=True))
+        rows[role] = value
+    return rows
 
 
 def acceptance_passed(value):

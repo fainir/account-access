@@ -436,10 +436,153 @@ enum FullImagePublicStager {
                       Data(buffer.prefix(count).map { UInt8(bitPattern: $0) }) == Data(node.target!.utf8),
                       fstatat(source, name, &after, AT_SYMLINK_NOFOLLOW) == 0, InstallerPayloadIO.same(info, after),
                       symlinkat(node.target!, destination, name) == 0 else { throw FullImageFailure.object }
+                // Darwin applies the installer's private umask to links too.
+                // Set the new link itself readable before publishing this tree;
+                // an ordinary worker must be able to validate its runtime path.
+                let output = openat(destination, name, O_RDONLY | O_SYMLINK | O_NONBLOCK | O_CLOEXEC)
+                guard output >= 0 else { throw FullImageFailure.object }
+                do {
+                    var made = stat(), named = stat(), current = stat()
+                    guard fstat(output, &made) == 0, made.st_mode & S_IFMT == S_IFLNK,
+                          made.st_uid == owner, made.st_gid == group, made.st_nlink == 1,
+                          fstatat(destination, name, &named, AT_SYMLINK_NOFOLLOW) == 0,
+                          InstallerPayloadIO.same(made, named) else { throw FullImageFailure.object }
+                    try PublicTreeIO.noLinkACL(output)
+                    guard fchmod(output, 0o755) == 0, fsync(output) == 0,
+                          fstat(output, &current) == 0, current.st_mode & 0o7777 == 0o755,
+                          current.st_mode & S_IFMT == S_IFLNK, current.st_uid == owner,
+                          current.st_gid == group, current.st_nlink == 1,
+                          current.st_dev == made.st_dev, current.st_ino == made.st_ino,
+                          current.st_size == made.st_size,
+                          fstatat(destination, name, &named, AT_SYMLINK_NOFOLLOW) == 0,
+                          InstallerPayloadIO.same(current, named) else { throw FullImageFailure.object }
+                    let copied = readlinkat(destination, name, &buffer, buffer.count)
+                    guard copied == count,
+                          Data(buffer.prefix(copied).map { UInt8(bitPattern: $0) }) == Data(node.target!.utf8) else {
+                        throw FullImageFailure.object
+                    }
+                } catch { Darwin.close(output); throw error }
+                Darwin.close(output)
             }
         }
         guard fsync(destination) == 0,
               InstallerPayloadIO.same(before, try InstallerPayloadIO.check(source, owner: owner, directory: true)) else { throw FullImageFailure.object }
+    }
+}
+
+// A closed metadata repair for the runtime92 aliases created with umask 077.
+// Its caller must first attest the completed runtime transition and must require
+// a normal restart after installation. This primitive never controls a service,
+// follows a link for mutation, edits its target, or opens account state.
+enum RuntimePublicAliasPermissions {
+    static let suffixTargets = [
+        "bin/2to3": "2to3-3.12", "bin/idle3": "idle3.12", "bin/pydoc3": "pydoc3.12",
+        "bin/python": "python3.12", "bin/python3": "python3.12", "bin/python3-config": "python3.12-config",
+        "lib/pkgconfig/python3-embed.pc": "python-3.12-embed.pc", "lib/pkgconfig/python3.pc": "python-3.12.pc",
+        "share/man/man1/python.1": "python3.12.1", "share/man/man1/python3.1": "python3.12.1",
+    ]
+    static var targets: [String: String] {
+        Dictionary(uniqueKeysWithValues: ["python", "runtime"].flatMap { prefix in
+            suffixTargets.map { (prefix + "/" + $0.key, $0.value) }
+        })
+    }
+    private final class Alias {
+        let path: String, name: String, target: String
+        let parent: Int32, fd: Int32
+        var info: stat
+        init(path: String, target: String, parent: Int32, fd: Int32, info: stat) {
+            self.path = path; name = String(path.split(separator: "/").last!)
+            self.target = target; self.parent = parent; self.fd = fd; self.info = info
+        }
+        deinit { Darwin.close(fd); Darwin.close(parent) }
+    }
+    private static func parent(_ path: String, support: Int32, owner: uid_t, group: gid_t) throws -> Int32 {
+        var current = fcntl(support, F_DUPFD_CLOEXEC, 0)
+        guard current >= 0 else { throw FullImageFailure.object }
+        do {
+            for name in try InstallerPayloadManifest.components(path).dropLast() {
+                let next = openat(current, name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+                guard next >= 0 else { throw FullImageFailure.object }
+                do {
+                    let held = try InstallerPayloadIO.check(next, owner: owner, directory: true)
+                    var named = stat()
+                    try PublicTreeIO.noACL(next)
+                    guard held.st_gid == group, held.st_mode & 0o7777 == 0o755,
+                          fstatat(current, name, &named, AT_SYMLINK_NOFOLLOW) == 0,
+                          InstallerPayloadIO.same(held, named) else { throw FullImageFailure.object }
+                } catch { Darwin.close(next); throw error }
+                Darwin.close(current); current = next
+            }
+            return current
+        } catch { Darwin.close(current); throw error }
+    }
+    private static func verify(_ alias: Alias, support: Int32, owner: uid_t, group: gid_t) throws {
+        let attached = try parent(alias.path, support: support, owner: owner, group: group)
+        defer { Darwin.close(attached) }
+        let heldParent = try InstallerPayloadIO.check(alias.parent, owner: owner, directory: true)
+        guard InstallerPayloadIO.same(heldParent, try InstallerPayloadIO.check(attached, owner: owner, directory: true)) else {
+            throw FullImageFailure.object
+        }
+        var held = stat(), named = stat(), after = stat(), buffer = [CChar](repeating: 0, count: 128)
+        guard fstat(alias.fd, &held) == 0, held.st_mode & S_IFMT == S_IFLNK,
+              held.st_uid == owner, held.st_gid == group, held.st_nlink == 1,
+              [mode_t(0o700), 0o755].contains(held.st_mode & 0o7777),
+              InstallerPayloadIO.same(held, alias.info),
+              fstatat(attached, alias.name, &named, AT_SYMLINK_NOFOLLOW) == 0,
+              InstallerPayloadIO.same(held, named) else { throw FullImageFailure.object }
+        try PublicTreeIO.noLinkACL(alias.fd)
+        let count = readlinkat(attached, alias.name, &buffer, buffer.count)
+        guard count == alias.target.utf8.count,
+              Data(buffer.prefix(count).map { UInt8(bitPattern: $0) }) == Data(alias.target.utf8),
+              fstat(alias.fd, &after) == 0, InstallerPayloadIO.same(held, after),
+              fstatat(attached, alias.name, &named, AT_SYMLINK_NOFOLLOW) == 0,
+              InstallerPayloadIO.same(after, named) else { throw FullImageFailure.object }
+    }
+    static func repair(support: Int32, tree: InstallerPayloadTree, owner: uid_t, group: gid_t,
+                       verifyBinding: () throws -> Void) throws -> Int {
+        try verifyBinding()
+        let expected = targets
+        let supplied = tree.nodes.filter { path, node in
+            (path.hasPrefix("python/") || path.hasPrefix("runtime/")) && node.kind == "symlink"
+        }.compactMapValues(\.target)
+        guard expected.count == 20, supplied.count == expected.count,
+              expected.allSatisfy({ supplied[$0.key] == $0.value }) else { throw FullImageFailure.source }
+        var aliases: [Alias] = []
+        for path in expected.keys.sorted() {
+            let parent = try parent(path, support: support, owner: owner, group: group)
+            let name = String(path.split(separator: "/").last!)
+            let link = openat(parent, name, O_RDONLY | O_SYMLINK | O_CLOEXEC | O_NONBLOCK)
+            guard link >= 0 else { Darwin.close(parent); throw FullImageFailure.object }
+            var info = stat()
+            guard fstat(link, &info) == 0 else { Darwin.close(link); Darwin.close(parent); throw FullImageFailure.object }
+            let alias = Alias(path: path, target: expected[path]!, parent: parent, fd: link, info: info)
+            try verify(alias, support: support, owner: owner, group: group)
+            aliases.append(alias)
+        }
+        // Qualify the complete closed set before changing anything. A retry may
+        // contain any mix of 0700/0755 after interruption; every target and inode
+        // is revalidated through its held descriptor before each mutation.
+        var changed = 0
+        for alias in aliases {
+            try verifyBinding()
+            for item in aliases { try verify(item, support: support, owner: owner, group: group) }
+            if alias.info.st_mode & 0o7777 == 0o755 { continue }
+            let before = alias.info
+            guard fchmod(alias.fd, 0o755) == 0, fsync(alias.fd) == 0, fsync(alias.parent) == 0 else {
+                throw FullImageFailure.object
+            }
+            var after = stat()
+            guard fstat(alias.fd, &after) == 0, after.st_mode & S_IFMT == S_IFLNK,
+                  after.st_mode & 0o7777 == 0o755, after.st_dev == before.st_dev, after.st_ino == before.st_ino,
+                  after.st_uid == before.st_uid, after.st_gid == before.st_gid, after.st_nlink == before.st_nlink,
+                  after.st_size == before.st_size, after.st_mtimespec.tv_sec == before.st_mtimespec.tv_sec,
+                  after.st_mtimespec.tv_nsec == before.st_mtimespec.tv_nsec else { throw FullImageFailure.object }
+            alias.info = after
+            changed += 1
+        }
+        try verifyBinding()
+        for item in aliases { try verify(item, support: support, owner: owner, group: group) }
+        return changed
     }
 }
 

@@ -17,7 +17,7 @@ and reapplication on a disposable Mac.
 Package 93, which upgrades that existing installation to runtime 92, passed its
 three disposable-Mac Installer scenarios but failed on the owner Mac while
 waiting for the dedicated service identity to become empty. The old public
-image remains intact; the broker is currently absent and disabled. Two Apple
+image remained intact; the broker was absent and disabled. Two Apple
 per-user services survived removal of that user domain.
 
 Package **94** is built from controller `b5ea8a2`, retaining the frozen runtime 92
@@ -45,12 +45,23 @@ still refuse the update. The package SHA-256 is
   process surviving through successful recovery.
 - A new read-only owner preflight matched all 25,166 old public files, 2,297
   directories and 21 links, and verified the exact package 94 hash. On 25 October,
-  the owner Mac was unlocked and package 94 was opened to the Installer's Install
-  button. Regenerable project build expansions were cleared to recover about
-  2.48 GB; all tested installers and evidence were retained. Owner authentication,
-  successful installation, service recovery and **Connect automatically** remain
-  pending. The outer package is unsigned and not notarized.
+  the owner authenticated and package 94 installed successfully. The exact broker
+  job is running, but the GUI reports `worker_process_unavailable`. All 25,167
+  regular files match the target. Twenty runtime/Python links have mode 0700:
+  root Installer checks can read them, but the ordinary worker's public path
+  validator refuses the interpreter alias. A direct interpreter version check
+  succeeds, so that check alone is also insufficient. The corrected native
+  observer uses target group 0 and confirms the owner app, browsers and wheels;
+  Python/runtime trees remain unreadable through those links. The staging fix
+  passed 433 native adapter assertions, including link permissions, unchanged
+  targets, interrupted repair, retry and foreign-path refusal. The package 95
+  candidate also repairs the already-completed package 94 transition and will
+  require a normal restart; it does not add a separate service-restart mechanism.
+  Actual Installer qualification, repair of the installed links, worker startup
+  and AI connection remain pending. No private records or installed files were changed during
+  these observations. The outer package is unsigned and not notarized.
   [Owner handoff](../artifacts/owner-runtime94-installer-handoff-20261025.json).
+  [Installed startup failure](../artifacts/owner-runtime94-installed-startup-failure-20261025.json).
 
 [Actual Installer acceptance](../artifacts/runtime-upgrade94-installer-acceptance-20261024.json) ·
 [Owner preflight](../artifacts/owner-mac-before-runtime94-20261024.json) ·
@@ -64,7 +75,7 @@ still refuse the update. The package SHA-256 is
 
 | User journey | Verified evidence | Remaining acceptance |
 | --- | --- | --- |
-| Install and connect the AI agent | Package 91 owner installation; runtime 92 fresh-install CI; automatic skill discovery in earlier owner testing | Package 94 recovery, successful current owner setup and agent connection, clean downloaded installation, reboot and interrupted-operation recovery |
+| Install and connect the AI agent | Package 94 owner installation and broker recovery; runtime 92 fresh-install CI; automatic skill discovery in earlier owner testing | Repair unreadable upgraded runtime links, prove worker startup and current agent connection, clean downloaded installation, reboot and interrupted-operation recovery |
 | Import Chrome passwords | One approved personal credential imported locally through protected owner setup; controlled format, review and permission tests | Fresh private-website login using the imported credential; representative export coverage. Imports are snapshots; Chrome live sync is not implemented |
 | Email verification | A real Gmail enrollment and mailbox check passed; controlled fresh-code login and sender/template checks | Actual website email delivery and completed login. Consumer Gmail OAuth also needs a publisher-configured Google application and real consent/renewal QA |
 | Android SMS | Android 11 emulator completes a synthetic browser SMS login; Android 15 emulator refuses delivery without association | Physical Android 15+ installation, system-approved computer association, carrier notification delivery, reconnect and completed insurer login |

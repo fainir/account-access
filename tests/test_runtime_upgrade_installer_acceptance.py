@@ -12,6 +12,49 @@ ROOT = Path(__file__).resolve().parents[1]
 probe = runpy.run_path(str(ROOT / "scripts/mac_runtime_upgrade_installer_probe.py"))
 
 
+@pytest.mark.parametrize("fault", [None, "worker-refused", "truthy-boolean", "stderr", "wrong-exit"])
+def test_public_alias_acceptance_requires_both_real_identities(monkeypatch, fault):
+    scope = probe["ordinary_runtime_aliases"].__globals__
+    original_stat = scope["os"].stat
+    monkeypatch.setattr(scope["os"], "stat", lambda path, *a, **k:
+        SimpleNamespace(st_uid=501) if path == "/dev/console" else original_stat(path, *a, **k))
+    monkeypatch.setattr(scope["pwd"], "getpwuid", lambda uid:
+        SimpleNamespace(pw_gid=20 if uid == 501 else 450, pw_name="runner", pw_dir="/Users/runner"))
+    def require(value):
+        if not value:
+            raise ValueError("fixture-refused")
+    controller = SimpleNamespace(guard=lambda: None, require=require, h=SimpleNamespace(
+        BASE=Path("/Library/Application Support/Account Access"),
+        policies=lambda: {"install": {"owner_uid": 501, "broker_uid": 450}}))
+    calls = []
+    def command(argv, log, *, check):
+        assert check is False
+        calls.append(argv)
+        value = {"schema": 1, "status": "PASSED", "aliases": 20, "ordinary_identity": True,
+                 "worker_path_validator": True, "private_data_read": False}
+        if fault == "worker-refused" and "#450" in argv:
+            value = {"schema": 1, "status": "REFUSED", "reason": "public_runtime_alias_not_usable"}
+        if fault == "truthy-boolean":
+            value["ordinary_identity"] = 1
+        return SimpleNamespace(returncode=78 if fault == "wrong-exit" else 0,
+            stdout=json.dumps(value).encode(), stderr=b"unexpected" if fault == "stderr" else b"")
+    if fault:
+        with pytest.raises(ValueError):
+            probe["ordinary_runtime_aliases"](controller, command, "after-upgrade")
+    else:
+        result = probe["ordinary_runtime_aliases"](controller, command, "after-upgrade")
+        assert set(result) == {"console", "worker"} and len(calls) == 2
+        assert [argv[argv.index("-u") + 1] for argv in calls] == ["#501", "#450"]
+        assert all("-I" in argv and "-B" in argv and "HOME=/var/empty" in argv for argv in calls)
+
+
+def test_public_alias_probe_refuses_owner_host_before_identity_or_command():
+    def denied():
+        raise ValueError("host-refused")
+    with pytest.raises(ValueError, match="host-refused"):
+        probe["ordinary_runtime_aliases"](SimpleNamespace(guard=denied), None, "after-upgrade")
+
+
 def passed(scenario="install-reapply"):
     value = {"scenario": scenario, "checks": dict.fromkeys(probe["CHECKS"], True), "failure_stage": None,
              "production_ready": False, "real_account_login_tested": False, "installed_owner_machine": False}

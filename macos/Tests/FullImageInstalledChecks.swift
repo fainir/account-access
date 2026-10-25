@@ -74,6 +74,94 @@ private enum InstalledFixtureFailure: Error { case failed }
                 InstallerPayloadManifest.application: ["": ["kind": "symlink", "target": InstallerPayloadManifest.applicationTarget]]]]
         return try PublicTreeInventory(validatedManifest: InstallerPayloadManifest(FullImageJSON.encode(value)), unit: .owner)
     }
+    static func aliasRepairChecks(_ root: Int32) throws {
+        let support = try directory(root, "runtime-alias-repair", 0o755); defer { Darwin.close(support) }
+        var nodes: [String: InstallerPayloadNode] = [:]
+        for (relative, target) in RuntimePublicAliasPermissions.targets.sorted(by: { $0.key < $1.key }) {
+            let pieces = relative.split(separator: "/").map(String.init)
+            let parent = try path(support, pieces.dropLast().joined(separator: "/")); defer { Darwin.close(parent) }
+            var info = stat()
+            if fstatat(parent, target, &info, AT_SYMLINK_NOFOLLOW) != 0 {
+                _ = try ComponentFiles.writeExclusive(parent, target, data: Data("fictional-runtime-target".utf8), owner: getuid(), mode: 0o644)
+            }
+            guard symlinkat(target, parent, pieces.last!) == 0 else { throw InstalledFixtureFailure.failed }
+            nodes[relative] = InstallerPayloadNode(kind: "symlink", mode: nil, size: nil, sha256: nil, target: target)
+        }
+        let tree = InstallerPayloadTree(nodes: nodes, children: [:])
+        let paths = nodes.keys.sorted(), first = paths.first!, last = paths.last!
+        func parentOf(_ relative: String) throws -> Int32 {
+            try path(support, relative.split(separator: "/").dropLast().joined(separator: "/"))
+        }
+        func linkMode(_ relative: String, set mode: mode_t? = nil) throws -> mode_t {
+            let parent = try parentOf(relative); defer { Darwin.close(parent) }
+            let fd = openat(parent, String(relative.split(separator: "/").last!), O_RDONLY | O_SYMLINK | O_CLOEXEC)
+            guard fd >= 0 else { throw InstalledFixtureFailure.failed }; defer { Darwin.close(fd) }
+            if let mode { guard fchmod(fd, mode) == 0 else { throw InstalledFixtureFailure.failed } }
+            var value = stat(); guard fstat(fd, &value) == 0 else { throw InstalledFixtureFailure.failed }
+            return value.st_mode & 0o7777
+        }
+        func reset() throws { for relative in paths { _ = try linkMode(relative, set: 0o700) } }
+        func repair(_ binding: () throws -> Void = {}) throws -> Int {
+            try RuntimePublicAliasPermissions.repair(support: support, tree: tree, owner: getuid(), group: getgid(), verifyBinding: binding)
+        }
+        try expect(paths.count == 20)
+        for relative in paths { try expect(try linkMode(relative) == 0o700) }
+        try expect(try repair() == 20)
+        for relative in paths { try expect(try linkMode(relative) == 0o755) }
+        try expect(try repair() == 0)
+        _ = try linkMode(first, set: 0o700)
+        try expect(try repair() == 1)
+        try reset()
+        _ = try linkMode(last, set: 0o777)
+        try refuses { _ = try repair() }
+        try expect(try linkMode(first) == 0o700)
+        _ = try linkMode(last, set: 0o700)
+        var extra = nodes
+        extra["runtime/bin/unreviewed"] = InstallerPayloadNode(kind: "symlink", mode: nil, size: nil, sha256: nil, target: "python3.12")
+        try refuses { _ = try RuntimePublicAliasPermissions.repair(support: support,
+            tree: InstallerPayloadTree(nodes: extra, children: [:]), owner: getuid(), group: getgid(), verifyBinding: {}) }
+        try expect(try linkMode(first) == 0o700)
+        try refuses { _ = try RuntimePublicAliasPermissions.repair(support: support, tree: tree,
+            owner: getuid(), group: getgid() + 1, verifyBinding: {}) }
+        try refuses { _ = try repair { throw InstalledFixtureFailure.failed } }
+        try expect(try linkMode(first) == 0o700)
+        let lastParent = try parentOf(last); defer { Darwin.close(lastParent) }
+        let lastName = String(last.split(separator: "/").last!)
+        guard unlinkat(lastParent, lastName, 0) == 0, symlinkat("unreviewed-target", lastParent, lastName) == 0 else {
+            throw InstalledFixtureFailure.failed
+        }
+        try refuses { _ = try repair() }
+        try expect(try linkMode(first) == 0o700)
+        guard unlinkat(lastParent, lastName, 0) == 0,
+              symlinkat(RuntimePublicAliasPermissions.targets[last]!, lastParent, lastName) == 0 else { throw InstalledFixtureFailure.failed }
+        var calls = 0
+        try refuses { _ = try repair {
+            calls += 1
+            if calls == 3 { throw InstalledFixtureFailure.failed } // One completed mode change.
+        } }
+        try expect(try linkMode(first) == 0o755 && linkMode(last) == 0o700)
+        try expect(try repair() == 19)
+        try expect(try repair() == 0)
+        try reset()
+        calls = 0
+        try refuses { _ = try repair {
+            calls += 1
+            if calls == 2 {
+                guard unlinkat(lastParent, lastName, 0) == 0,
+                      symlinkat(RuntimePublicAliasPermissions.targets[last]!, lastParent, lastName) == 0 else {
+                    throw InstalledFixtureFailure.failed
+                }
+            }
+        } }
+        try expect(try linkMode(first) == 0o700)
+        try expect(try repair() == 20)
+        for relative in paths {
+            let parent = try parentOf(relative); defer { Darwin.close(parent) }
+            let target = RuntimePublicAliasPermissions.targets[relative]!
+            let value = try ComponentFiles.read(parent, target, owner: getuid(), mode: 0o644)
+            try expect(value.0 == Data("fictional-runtime-target".utf8))
+        }
+    }
     static func main() {
         guard getuid() != 0, geteuid() == getuid(), CommandLine.arguments.count == 1 else { exit(77) }
         umask(0o077)
@@ -292,6 +380,11 @@ private enum InstalledFixtureFailure: Error { case failed }
                 var link = [CChar](repeating: 0, count: 128)
                 let length = readlinkat(output, "alias.txt", &link, link.count)
                 try expect(length == 9 && Data(link.prefix(length).map { UInt8(bitPattern: $0) }) == Data("entry.txt".utf8))
+                var aliasInfo = stat(), targetInfo = stat()
+                try expect(fstatat(output, "alias.txt", &aliasInfo, AT_SYMLINK_NOFOLLOW) == 0
+                    && aliasInfo.st_mode & S_IFMT == S_IFLNK && aliasInfo.st_mode & 0o7777 == 0o755)
+                try expect(fstatat(output, "entry.txt", &targetInfo, AT_SYMLINK_NOFOLLOW) == 0
+                    && targetInfo.st_mode & 0o7777 == inventory.tree!.nodes["entry.txt"]!.mode)
                 try refuses { try FullImagePublicStager.copyTree(from: input, to: output, inventory: inventory, owner: getuid(), group: getgid()) }
                 let wrongGroup = try directory(root, "tree-wrong-group"); defer { Darwin.close(wrongGroup) }
                 try refuses { try FullImagePublicStager.copyTree(from: input, to: wrongGroup, inventory: inventory, owner: getuid(), group: getgid() + 1) }
@@ -323,6 +416,8 @@ private enum InstalledFixtureFailure: Error { case failed }
                 guard linkat(child, "partial", root, "hardlink-outside-orphan", 0) == 0 else { throw InstalledFixtureFailure.failed }
                 try refuses { _ = try FullImagePreparationInspector.retained(namespace, plan: source.pins.planSHA256, owner: getuid(), group: getgid()) }
             }
+            try aliasRepairChecks(root)
+            print("INSTALLED_FIXTURE_STAGE: runtime_alias_permissions_repair_and_recovery"); fflush(stdout)
             var final = stat()
             guard lstat(ownedPath, &final) == 0, PublicTreeDirectoryIdentity(final) == original else { throw InstalledFixtureFailure.failed }
             try FileManager.default.removeItem(atPath: ownedPath) // Exclusive invocation-owned tree only.

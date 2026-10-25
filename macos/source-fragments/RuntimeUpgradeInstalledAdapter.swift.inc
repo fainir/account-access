@@ -336,10 +336,22 @@ extension ComponentController {
         reference.storage = storage
         try intent.verifyStorage(storage)
         try storage.verifyRecoverableView()
+        func repairPublicAliases() throws {
+            // Package95 requires a normal restart. The already-running broker
+            // may retain its earlier startup failure; this path never restarts
+            // it, changes its journal, or presents metadata repair as GUI QA.
+            checkpoint(.verificationFinalView)
+            guard let tree = source.after.trees[InstallerPayloadManifest.support] else { throw FullImageFailure.source }
+            try storage.verifyNewView()
+            _ = try RuntimePublicAliasPermissions.repair(support: support.fd, tree: tree, owner: 0, group: 0,
+                verifyBinding: { try routes.verify(); try ComponentProcesses.requireOwnerClosed() })
+            try storage.verifyNewView()
+        }
         if try storage.state(storage.operations.last!) == .applied {
             guard try storage.operations.allSatisfy({ try storage.state($0) == .applied }) else { throw FullImageFailure.journal }
             try storage.verifyNewView()
             if recovery.finished {
+                try repairPublicAliases()
                 checkpoint(.complete)
                 return "ALREADY_UPDATED_GUI_UNVERIFIED"
             }
@@ -347,6 +359,7 @@ extension ComponentController {
         try ComponentPreparation.capacity(namespace, bytes: 2 * 1024 * 1024, owner: 0, sameDeviceAs: support.fd)
         checkpoint(.transition)
         _ = try ComponentTransition(storage: storage, service: barrier).run(recovering: hasIntent)
+        try repairPublicAliases()
         checkpoint(.complete)
         return "UPDATED_GUI_UNVERIFIED"
     }
