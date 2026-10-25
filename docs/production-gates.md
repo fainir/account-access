@@ -249,6 +249,12 @@ tests do not simulate installer-daemon interruption, power loss or an OS
 restart. Package 101 remains uninstalled on the owner Mac. The outer package
 has no signature and is not notarized; this is still a private QA draft, not a
 production installer.
+The local signing inventory contains one Developer ID Application identity but
+no Developer ID Installer identity, which Apple requires for a signed package.
+No notarization submission or stapling has been made. The signing pipeline is
+documented and locally tested, but this Mac currently lacks the identity needed
+to produce the trusted installer. [Local signing readiness](../artifacts/owner101-installer-signing-readiness-20261025.json) ·
+[Apple certificate types](https://developer.apple.com/help/account/certificates/certificates-overview/).
 [Package 101 build](../artifacts/owner-upgrade101-build-20261025.json) ·
 [Standard build command](../artifacts/owner-upgrade101-build-command.py.txt) ·
 [Package 101 inputs](../artifacts/owner-upgrade101-installer-inputs.json) ·
