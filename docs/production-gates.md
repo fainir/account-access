@@ -166,11 +166,16 @@ scenarios remain pending, adding interruption immediately after preparation
 publication to the preceding six. That boundary must have a sealed local
 journal, unchanged public image, no service-disable record and a running old
 broker before recovery. Package 99 has not been installed on the owner Mac.
+The live Apple-identity qualification for run `40212316045` passed all five
+checks; its ten native source pins and all 17 surviving-job witness log hashes
+were verified independently. The seven actual Installer scenarios are still
+running or queued.
 [Local journal regression](../artifacts/owner99-local-journal-regression-20261025.json) ·
 [Native controller checks](../artifacts/owner99-native-source-ci-20261025.json) ·
 [Controller source CI](../artifacts/owner99-controller-source-ci-20261025.json) ·
 [Package 99 build](../artifacts/owner-upgrade99-build-20261025.json) ·
-[Package 99 inputs](../artifacts/owner-upgrade99-installer-inputs.json).
+[Package 99 inputs](../artifacts/owner-upgrade99-installer-inputs.json) ·
+[Current live-process evidence](../artifacts/owner99-live-witness-20261025.json).
 
 The separate-user Mac fixture now additionally exercises an already-enrolled
 client upgrading both exact legacy skills against its actual isolated worker.
@@ -245,6 +250,13 @@ version before requesting a password. Its archive and report hashes were
 verified. Android 11/15 emulator workflows also passed at that source. No
 publisher key, physical installation or real update/pairing was qualified.
 [Publisher-signing fixture](../artifacts/android-publisher-signing-fixture-20261025.json).
+
+The current phone source also bundles the unchanged upstream ZXing 3.5.3 license
+and notice text, with an offline license viewer. The publisher builder records
+the asset in its source manifest and refuses extra asset files or linked asset
+directories. All 20 local release checks pass; the actual SDK fixture and
+emulator checks for this change remain pending.
+[Notice provenance](../artifacts/android-zxing-notice-provenance-20261025.json).
 
 ## Additional supported mechanisms and limits
 

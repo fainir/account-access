@@ -32,6 +32,13 @@ public final class MainActivity extends Activity {
   TextView app=new TextView(this);app.setText("SMS app: "+getSharedPreferences("settings",0).getString("sms_package",""));view.addView(app);
   add(view,"Allow login notification access",()->{if(!ComputerAssociation.ready(this)){status.setText("Connect your paired computer with Android first.");return;}startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS));});
   add(view,"Disconnect phone",()->{try{Pairing.clear(this);refreshStatus();}catch(Exception e){status.setText("Disconnect could not finish. Check Android's connected-device permissions and try again.");}});
+  add(view,"Open source licenses",this::showLicenses);
+ }
+ void showLicenses(){
+  try(java.io.InputStream input=getAssets().open("THIRD_PARTY_NOTICES.txt");java.io.ByteArrayOutputStream text=new java.io.ByteArrayOutputStream()){
+   byte[] block=new byte[4096];int size;while((size=input.read(block))!=-1){if(text.size()+size>65536)throw new java.io.IOException();text.write(block,0,size);}
+   new android.app.AlertDialog.Builder(this).setTitle("Open source licenses").setMessage(new String(text.toByteArray(),"UTF-8")).setPositiveButton("Close",null).show();
+  }catch(java.io.IOException unavailable){new android.app.AlertDialog.Builder(this).setTitle("Open source licenses").setMessage("The license notice could not be opened. Reinstall the verified app package to restore it.").setPositiveButton("Close",null).show();}
  }
  void add(LinearLayout view,String title,Runnable action){Button button=new Button(this);button.setText(title);button.setOnClickListener(v->action.run());view.addView(button);}
  void refreshStatus(){try{JSONObject pair=Pairing.load(this);status.setText(pair==null?"Not paired":!ComputerAssociation.ready(this)?"Pairing saved. Connect the computer with Android to receive login codes.":"Paired for login messages from "+pair.getString("sender"));}catch(Exception e){status.setText("Reconnect your computer to repair pairing.");}}

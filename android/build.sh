@@ -30,7 +30,7 @@ fi
 "$AC_JAVA/bin/javac" -source 8 -target 8 -encoding UTF-8 -classpath "$AC_PLATFORM:$AC_ZXING" -d "$AC_OUTPUT/classes" "$AC_SOURCE"/android/app/src/com/fainir/accountaccess/*.java
 "$AC_JAVA/bin/jar" cf "$AC_OUTPUT/app-classes.jar" -C "$AC_OUTPUT/classes" .
 "$AC_TOOLS/d8" --min-api 26 --lib "$AC_PLATFORM" --output "$AC_OUTPUT/dex" "$AC_OUTPUT/app-classes.jar" "$AC_ZXING"
-"$AC_TOOLS/aapt2" link -I "$AC_PLATFORM" --manifest "$AC_MANIFEST" -o "$AC_OUTPUT/unsigned.apk"
+"$AC_TOOLS/aapt2" link -I "$AC_PLATFORM" --manifest "$AC_MANIFEST" -A "$AC_SOURCE/android/app/assets" -o "$AC_OUTPUT/unsigned.apk"
 (cd "$AC_OUTPUT/dex" && zip -q "$AC_OUTPUT/unsigned.apk" classes*.dex)
 "$AC_TOOLS/zipalign" -f 4 "$AC_OUTPUT/unsigned.apk" "$AC_OUTPUT/aligned.apk"
 if [ "${ACCOUNT_ACCESS_ANDROID_UNSIGNED_ONLY:-0}" = 1 ]; then

@@ -7,6 +7,7 @@ from pathlib import Path
 import runpy
 import subprocess
 from types import SimpleNamespace
+import zipfile
 
 import pytest
 
@@ -71,6 +72,27 @@ def test_signing_key_requires_private_single_link_outside_checkout(tmp_path):
         RELEASE["private_keystore"](key)
 
 
+@pytest.mark.parametrize("case", ["extra-key-asset", "linked-asset-directory"])
+def test_release_cannot_pack_extra_key_files_or_follow_asset_links(tmp_path, monkeypatch, case):
+    repo = tmp_path / "repo"
+    assets = repo / "android/app/assets"
+    assets.mkdir(parents=True)
+    (assets / "THIRD_PARTY_NOTICES.txt").write_text("fictional notice")
+    for relative in ("android/build.sh", "android/app/AndroidManifest.xml", "scripts/build_android_release.py"):
+        p = repo / relative
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text("fixture source")
+    if case == "extra-key-asset":
+        (assets / "accidental-key.jks").write_bytes(b"fictional-key-must-not-be-packed")
+    else:
+        outside = tmp_path / "outside"
+        outside.mkdir()
+        (assets / "linked-directory").symlink_to(outside, target_is_directory=True)
+    monkeypatch.setitem(RELEASE["source_names"].__globals__, "ROOT", repo)
+    with pytest.raises(ValueError):
+        RELEASE["source_names"]()
+
+
 @pytest.mark.skipif(os.environ.get("ACCOUNT_ACCESS_ANDROID_RELEASE_FIXTURE") != "1", reason="explicit JDK/Android SDK signing fixture")
 def test_actual_sdk_signs_successive_versions_and_refuses_wrong_pin_or_downgrade(tmp_path, monkeypatch):
     java = Path(os.environ.get("ACCOUNT_ACCESS_JAVA_HOME", os.environ.get("JAVA_HOME", "")))
@@ -103,6 +125,8 @@ def test_actual_sdk_signs_successive_versions_and_refuses_wrong_pin_or_downgrade
     assert first["certificate_sha256"] == second["certificate_sha256"] == pin
     assert second["previous"] == {"apk_sha256": first["apk_sha256"], "version_code": 2}
     for folder in (tmp_path / "first", tmp_path / "second"):
+        with zipfile.ZipFile(folder / "Account-Access-Phone.apk") as apk:
+            assert apk.read("assets/THIRD_PARTY_NOTICES.txt") == (ROOT / "android/app/assets/THIRD_PARTY_NOTICES.txt").read_bytes()
         review = (folder / "release-review.json").read_bytes()
         assert password.encode() not in review and not list(folder.rglob("*.jks"))
         assert not list(folder.rglob("*.keystore"))
@@ -112,5 +136,6 @@ def test_actual_sdk_signs_successive_versions_and_refuses_wrong_pin_or_downgrade
         "versions": [2, 3], "certificate_sha256": pin, "apk_sha256": [first["apk_sha256"], second["apk_sha256"]],
         "same_signer_verified": True, "wrong_signer_refused_before_password": True,
         "non_increasing_version_refused_before_password": True, "key_and_password_absent_from_artifacts": True,
+        "third_party_notices_bundled": True,
         "publisher_key_used": False, "physical_phone_verified": False, "installed": False, "production_ready": False}
     (ROOT / "dist/android-release-fixture-evidence.json").write_text(json.dumps(report, indent=2) + "\n")

@@ -52,6 +52,9 @@ sh android/test/build.sh
 
 The build downloads checksum-pinned [ZXing Core 3.5.3](https://github.com/zxing/zxing), licensed under Apache-2.0, for on-device QR decoding. No cloud scanning service is used. The APK uses a local development signing identity; replacing it with a production signing identity and validating physical phones are release work.
 
+The APK bundles the upstream ZXing 3.5.3 license and notice text. Open **Open
+source licenses** in the phone companion to read it without a network connection.
+
 `scripts/android_journey.py` installs the app and instrumentation on a running emulator, exercises Keystore storage, posts an actual Android notification, and verifies HTTPS delivery plus a real browser verification form. Its identities, message and website are synthetic. The CI workflow runs this separately from the Python regression suite. The [Android emulator journey passed on 14 October 2026](https://github.com/fainir/account-access/actions/runs/38543728385). A passing emulator check does not establish carrier delivery or physical-device reliability.
 
 After that journey passes, CI retains the exact preview APK and a JSON record of

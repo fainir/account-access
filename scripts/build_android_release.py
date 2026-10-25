@@ -76,14 +76,26 @@ def apk_version(raw):
     return int(matches[0][1]), matches[0][2].decode()
 
 
+def source_names():
+    app = ROOT / "android/app"
+    require(not (ROOT / "android").is_symlink() and not app.is_symlink()
+            and all(not p.is_symlink() for p in app.rglob("*")))
+    assets = sorted(p for p in (app / "assets").rglob("*") if p.is_file())
+    require([str(p.relative_to(app / "assets")) for p in assets] == ["THIRD_PARTY_NOTICES.txt"])
+    names = ["android/build.sh", "android/app/AndroidManifest.xml", "scripts/build_android_release.py",
+             *(str(p.relative_to(ROOT)) for p in sorted((app / "src").rglob("*.java"))),
+             *(str(p.relative_to(ROOT)) for p in assets)]
+    require(all((ROOT / name).is_file() and not (ROOT / name).is_symlink() for name in names))
+    return names
+
+
 def build(args, read_password=getpass.getpass):
     require(os.getuid() == os.geteuid() != 0 and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,79}", args.alias)
             and re.fullmatch(r"[a-f0-9]{64}", args.certificate_sha256))
     key = args.keystore.absolute()
     before_key = private_keystore(key)
+    names = source_names()
     manifest = release_manifest((ROOT / "android/app/AndroidManifest.xml").read_bytes(), args.version_code, args.version_name)
-    names = ["android/build.sh", "android/app/AndroidManifest.xml", "scripts/build_android_release.py",
-             *(str(p.relative_to(ROOT)) for p in sorted((ROOT / "android/app/src").rglob("*.java")))]
     source = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, timeout=10).decode().strip()
     sources = {name: digest(ROOT / name) for name in names}
     require(all(hashlib.sha256(subprocess.check_output(["git", "show", source + ":" + name], cwd=ROOT, timeout=10)).hexdigest() == checksum
