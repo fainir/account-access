@@ -143,6 +143,7 @@ def test_actual_sdk_signs_successive_versions_and_refuses_wrong_pin_or_downgrade
         signer = sdk / "build-tools/36.0.0/apksigner"
         subprocess.run([str(signer), "sign", "--ks", str(key), "--ks-key-alias", "releasefixture",
             "--ks-pass", "env:AC_ANDROID_FIXTURE_PASSWORD", "--key-pass", "env:AC_ANDROID_FIXTURE_PASSWORD",
+            "--v4-signing-enabled", "false",
             "--out", str(output / "checks.apk"), str(ROOT / "dist/android/test-aligned.apk")],
             env=environment, stdin=subprocess.DEVNULL, capture_output=True, check=True, timeout=60)
         RELEASE["certificate"](subprocess.check_output([str(signer), "verify", "--print-certs", str(output / "checks.apk")],
