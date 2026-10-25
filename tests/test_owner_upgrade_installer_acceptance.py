@@ -13,7 +13,8 @@ ROOT = Path(__file__).resolve().parents[1]
 PROBE = runpy.run_path(str(ROOT / "scripts/mac_owner_upgrade_installer_probe.py"))
 
 
-@pytest.mark.parametrize("script", ["download_owner_upgrade_inputs.py", "download_owner_upgrade97_inputs.py", "download_owner_upgrade98_inputs.py"])
+@pytest.mark.parametrize("script", ["download_owner_upgrade_inputs.py", "download_owner_upgrade97_inputs.py",
+                                   "download_owner_upgrade98_inputs.py", "download_owner_upgrade99_inputs.py", "download_owner_upgrade100_inputs.py"])
 def test_frozen_owner_assets_and_all_identity_fields(script):
     download = runpy.run_path(str(ROOT / "scripts" / script))
     value = json.loads((ROOT / download["CONTRACT"]).read_bytes())
@@ -34,6 +35,7 @@ def test_frozen_owner_assets_and_all_identity_fields(script):
 def passed(scenario="install-reapply"):
     value = {"scenario": scenario, "checks": dict.fromkeys(PROBE["CHECKS"], True),
              "runtime_predecessor_scenario": PROBE["PREDECESSOR_SCENARIOS"][scenario],
+             "helper_target": dict(PROBE["HELPER_TARGET"]),
              "production_ready": False, "real_account_login_tested": False,
              "installed_owner_machine": False, "failure_stage": None}
     if scenario in PROBE["INTERRUPT_SCENARIOS"]:
@@ -62,6 +64,7 @@ def test_every_scenario_requires_all_real_checks(scenario):
     ("production_ready", 0), ("installed_owner_machine", True),
     ("real_account_login_tested", True), ("failure_stage", "installer"),
     ("scenario", "owner-machine"), ("checks", {}),
+    ("helper_target", None), ("helper_target", {"minimum_macos": "27.0"}),
 ])
 def test_incomplete_or_optimistic_scope_refused(key, value):
     result = passed()
@@ -181,7 +184,14 @@ def test_hosted_workflow_separates_release_token_and_requires_live_identity_chec
     workflow = yaml.safe_load((ROOT / ".github/workflows/mac-owner-upgrade-review.yml").read_text())
     mac = workflow["jobs"]["actual-installer"]
     assert set(mac["strategy"]["matrix"]["scenario"]) == PROBE["SCENARIOS"]
-    assert set(mac["needs"]) == {"download-reviewed-inputs", "live-system-identities"}
+    assert set(mac["needs"]) == {"download-reviewed-inputs", "live-system-identities", "ordinary-entrypoint-compatibility"}
+    early = workflow["jobs"]["ordinary-entrypoint-compatibility"]
+    assert early["needs"] == "download-reviewed-inputs" and early["runs-on"] == "macos-15"
+    assert "GH_TOKEN" not in str(early) and "sudo" not in str(early)
+    assert [step["run"] for step in early["steps"] if "run" in step] == [
+        "python3 -I -B scripts/mac_owner_upgrade_compatibility_probe.py"]
+    assert all(step["with"]["persist-credentials"] is False for step in early["steps"]
+               if "checkout@" in step.get("uses", ""))
     assert mac["permissions"] == {"contents": "read"} and "GH_TOKEN" not in str(mac)
     run = next(step["run"] for step in mac["steps"] if "run" in step)
     assert '--runtime-scenario "$AC_RUNTIME_SCENARIO" --owner-scenario' in run

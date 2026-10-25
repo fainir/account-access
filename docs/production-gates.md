@@ -216,8 +216,18 @@ platforms/architectures and malformed commands. A new hosted-Mac compatibility
 probe will verify the package's metadata, wrapper and signature, then run only
 the ordinary-user refusal before any installed-image reconstruction. Its four
 guard checks ensure it refuses owner machines, root, unrelated repositories and
-unrecognized temporary paths before touching inputs. Build and hosted acceptance
-remain pending.
+unrecognized temporary paths before touching inputs. The standard builder
+produced package 101 with the actual helper minimum set to macOS 14, matching
+wrapper binding, a valid signature, ordinary-user refusal and an independently
+expanded matching inventory. Its 13,696,702-byte package has SHA-256
+`a63affe44b86f36c32a60913a365bb8cf45824a4b6eb278892895c9b36764c0d`.
+All three private draft assets match their hashes. All 128 focused builder,
+compatibility-guard, plan and Installer contract checks pass. The hosted macOS
+15 launch check and seven actual Installer scenarios remain pending. Package
+101 has not been installed on the owner Mac.
+[Package 101 build](../artifacts/owner-upgrade101-build-20261025.json) ·
+[Standard build command](../artifacts/owner-upgrade101-build-command.py.txt) ·
+[Package 101 inputs](../artifacts/owner-upgrade101-installer-inputs.json).
 
 Qualification source `d81e11f` passed 4,344 Python tests (112 skipped), dependency
 auditing and all three native jobs. The three native archives and all 53 source

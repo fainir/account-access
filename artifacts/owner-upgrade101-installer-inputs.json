@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "status": "FROZEN_REVIEWED_ASSETS",
+  "repository": "fainir/account-access",
+  "source_commit": "cd6af126a74c72c8ddf1d51e126eb54415b5a5a0",
+  "assets": {
+    "owner-review.json": {
+      "id": 675780662,
+      "bytes": 5218,
+      "sha256": "0f601d394c7b361a3ee089d6e6913c89e17da223832b4847c6109ab8ddb89b60",
+      "release": {
+        "id": 423579407,
+        "tag": "qa-cd6af12-owner-upgrade101",
+        "source": "cd6af126a74c72c8ddf1d51e126eb54415b5a5a0"
+      }
+    },
+    "owner-scripts-inventory.json": {
+      "id": 675780660,
+      "bytes": 9142,
+      "sha256": "bd6fe3639b4f0e9ef89ebe68ef772bd6faa07a6cf9219589dd10b2e366ba0e67",
+      "release": {
+        "id": 423579407,
+        "tag": "qa-cd6af12-owner-upgrade101",
+        "source": "cd6af126a74c72c8ddf1d51e126eb54415b5a5a0"
+      }
+    },
+    "owner-upgrade.pkg": {
+      "id": 675780675,
+      "bytes": 13696702,
+      "sha256": "a63affe44b86f36c32a60913a365bb8cf45824a4b6eb278892895c9b36764c0d",
+      "release": {
+        "id": 423579407,
+        "tag": "qa-cd6af12-owner-upgrade101",
+        "source": "cd6af126a74c72c8ddf1d51e126eb54415b5a5a0"
+      }
+    }
+  }
+}

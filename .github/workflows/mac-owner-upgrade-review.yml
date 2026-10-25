@@ -5,12 +5,14 @@ on:
     paths:
       - .github/workflows/mac-owner-upgrade-review.yml
       - scripts/mac_owner_upgrade_installer_probe.py
+      - scripts/mac_owner_upgrade_compatibility_probe.py
       - scripts/download_owner_upgrade_inputs.py
       - scripts/download_owner_upgrade97_inputs.py
       - artifacts/owner-upgrade97-installer-inputs.json
       - artifacts/owner-upgrade98-installer-inputs.json
       - artifacts/owner-upgrade99-installer-inputs.json
       - artifacts/owner-upgrade100-installer-inputs.json
+      - artifacts/owner-upgrade101-installer-inputs.json
   workflow_dispatch:
     inputs:
       identity_only:
@@ -91,6 +93,14 @@ jobs:
             --output "$RUNNER_TEMP/account-access-inputs/previous-owner-upgrade"
           python3 -I -B scripts/download_runtime_upgrade_inputs.py \
             --output "$RUNNER_TEMP/account-access-inputs/runtime-upgrade"
+      - name: Retain small ordinary-entrypoint inputs separately
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: owner-entrypoint-inputs
+          path: ${{ runner.temp }}/account-access-inputs/owner-upgrade
+          compression-level: 0
+          retention-days: 3
+          if-no-files-found: error
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: owner-upgrade-reviewed-inputs
@@ -98,8 +108,34 @@ jobs:
           compression-level: 0
           retention-days: 3
           if-no-files-found: error
+  ordinary-entrypoint-compatibility:
+    needs: download-reviewed-inputs
+    if: github.repository == 'fainir/account-access'
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          name: owner-entrypoint-inputs
+          path: ${{ runner.temp }}/account-access-owner-compatibility-inputs
+      - name: Verify the actual helper loads on macOS 15 as an ordinary user
+        run: python3 -I -B scripts/mac_owner_upgrade_compatibility_probe.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: owner-entrypoint-review-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/owner-entrypoint-review/result.json
+            ${{ runner.temp }}/owner-entrypoint-review/*.stdout
+            ${{ runner.temp }}/owner-entrypoint-review/*.stderr
+          retention-days: 7
+          if-no-files-found: error
   actual-installer:
-    needs: [download-reviewed-inputs, live-system-identities]
+    needs: [download-reviewed-inputs, live-system-identities, ordinary-entrypoint-compatibility]
     if: github.repository == 'fainir/account-access'
     runs-on: macos-15
     timeout-minutes: 150
