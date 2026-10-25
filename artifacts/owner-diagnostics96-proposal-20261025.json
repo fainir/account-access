@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "status": "PUBLIC_PROPOSAL_VERIFIED_NO_INSTALL_AUTHORITY",
+  "proposal_sha256": "1b5812e7e6618ce92a242f6acc5683daccd4485c7e2e57859597c029960ee42c",
+  "proposal_bytes": 9081,
+  "before_manifest_sha256": "03fb35eb2787ebd67079dd1cbe4dda125f430964540bdd2f2e9c81eda602fd7a",
+  "after_manifest_sha256": "c80f0430c7529acb8479661554aadd7e6b1cfb98303df1e2bda1e5024a75356c",
+  "application_source": "6736a20f8ed20d9188380b83b808ec9e380df501",
+  "proposal_source_sha256": "e23bf23e58bde07f1bef2e8f5738e95920f351e58929817bb78459b49a925790",
+  "synthetic_contract_tests_passed": 25,
+  "changed_public_files": [
+    "owner.app/Contents/Info.plist",
+    "owner.app/Contents/MacOS/AccountAccess",
+    "package-identity.json"
+  ],
+  "native_controller_implemented": false,
+  "completed_predecessor_verifier_implemented": false,
+  "installed_files_changed": false,
+  "production_ready": false
+}
