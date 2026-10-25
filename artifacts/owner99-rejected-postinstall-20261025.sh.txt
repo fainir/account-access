@@ -1,0 +1,20 @@
+#!/bin/sh
+set -eu
+PATH=/usr/bin:/bin:/usr/sbin:/sbin
+export PATH
+umask 077
+[ "$(/usr/bin/id -u)" = 0 ] && [ "${3:-}" = / ] || exit 1
+AC_COMPONENT_SCRIPTS=$(CDPATH= cd "$(/usr/bin/dirname "$0")" && /bin/pwd -P)
+AC_COMPONENT_HELPER="$AC_COMPONENT_SCRIPTS/AccountAccess-ownerupgrade"
+for AC_COMPONENT_PATH in "$AC_COMPONENT_SCRIPTS" "$AC_COMPONENT_HELPER"; do
+  [ ! -L "$AC_COMPONENT_PATH" ] && [ "$(/usr/bin/stat -f %u "$AC_COMPONENT_PATH")" = 0 ] || exit 1
+  AC_COMPONENT_MODE=$(/usr/bin/stat -f %p "$AC_COMPONENT_PATH")
+  [ "$((0$AC_COMPONENT_MODE & 07022))" = 0 ] || exit 1
+  AC_COMPONENT_LISTING=$(/bin/ls -lde "$AC_COMPONENT_PATH")
+  /usr/bin/printf '%s\n' "$AC_COMPONENT_LISTING" | /usr/bin/awk 'NR > 1 { bad=1 } END { exit bad }' || exit 1
+done
+[ ! -L "$AC_COMPONENT_HELPER" ] && [ -f "$AC_COMPONENT_HELPER" ] || exit 1
+[ "$(/usr/bin/stat -f %u "$AC_COMPONENT_HELPER")" = 0 ] && [ "$(/usr/bin/stat -f %l "$AC_COMPONENT_HELPER")" = 1 ] || exit 1
+[ "$(/usr/bin/env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin /usr/bin/shasum -a 256 "$AC_COMPONENT_HELPER" | /usr/bin/awk '{print $1}')" = '71adcbfa469f9b6dcb6705cefc55015dea23807cf7d08c7e9ba369658c7f4daa' ] || exit 1
+/usr/bin/env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin /usr/bin/codesign --verify --strict --all-architectures -R '=anchor apple generic and identifier "com.fainir.accountaccess.componentupdate" and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and certificate leaf[subject.OU] = "WBULD6N4NQ" and !(entitlement["com.apple.security.get-task-allow"] exists)' "$AC_COMPONENT_HELPER" || exit 1
+exec /usr/bin/env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin LANG=C "$AC_COMPONENT_HELPER"

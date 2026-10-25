@@ -15,6 +15,58 @@ SPEC = importlib.util.spec_from_file_location(
 )
 builder = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(builder)
+REJECTED_WRAPPER = (Path(__file__).parents[1] / "artifacts/owner99-rejected-postinstall-20261025.sh.txt").read_bytes()
+OLD_HELPER = "71adcbfa469f9b6dcb6705cefc55015dea23807cf7d08c7e9ba369658c7f4daa"
+NEW_HELPER = "f45ec93061242a71c7bcf25539ad70fd922a50a4e5c2a46e0efd2dc65f70bedf"
+
+
+def test_actual_rejected_package99_wrapper_cannot_bind_its_rebuilt_helper():
+    builder.verify_wrapper_binding(REJECTED_WRAPPER, OLD_HELPER)
+    with pytest.raises(ValueError, match="owner_upgrade_build_refused"):
+        builder.verify_wrapper_binding(REJECTED_WRAPPER, NEW_HELPER)
+
+
+def test_owner_wrapper_is_derived_from_the_exact_runtime_wrapper_and_new_helper():
+    runtime = REJECTED_WRAPPER.replace(b"AccountAccess-ownerupgrade", b"AccountAccess-runtimeupgrade")
+    corrected = builder.owner_wrapper(runtime, OLD_HELPER, NEW_HELPER)
+    assert corrected == REJECTED_WRAPPER.replace(OLD_HELPER.encode(), NEW_HELPER.encode())
+    builder.verify_wrapper_binding(corrected, NEW_HELPER)
+
+
+@pytest.mark.parametrize("fault", ["old_pin", "duplicate_pin", "commented_guard", "different_hash_command", "different_helper", "extra_tail"])
+def test_binding_refuses_stale_or_modified_shell_entrypoints(fault):
+    corrected = REJECTED_WRAPPER.replace(OLD_HELPER.encode(), NEW_HELPER.encode())
+    if fault == "old_pin":
+        corrected = REJECTED_WRAPPER
+    elif fault == "duplicate_pin":
+        corrected = b"# " + NEW_HELPER.encode() + b"\n" + corrected
+    elif fault == "commented_guard":
+        corrected = corrected.replace(b'[ "$(/usr/bin/env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin /usr/bin/shasum',
+                                      b'#[ "$(/usr/bin/env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin /usr/bin/shasum')
+    elif fault == "different_hash_command":
+        corrected = corrected.replace(b"shasum -a 256", b"shasum -a 512")
+    elif fault == "different_helper":
+        corrected = corrected.replace(b"AccountAccess-ownerupgrade", b"AccountAccess-unreviewed")
+    else:
+        corrected += b"echo unexpected\n"
+    with pytest.raises(ValueError, match="owner_upgrade_build_refused"):
+        builder.verify_wrapper_binding(corrected, NEW_HELPER)
+
+
+@pytest.mark.skipif(not Path("/usr/bin/shasum").is_file(), reason="actual fixed hash command")
+def test_exact_shell_hash_guard_accepts_only_its_owned_fixture_bytes(tmp_path):
+    binary = tmp_path / "fictional-helper-not-executed"
+    binary.write_bytes(b"fictional helper bytes")
+    checksum = hashlib.sha256(binary.read_bytes()).hexdigest()
+    wrapper = REJECTED_WRAPPER.replace(OLD_HELPER.encode(), checksum.encode())
+    builder.verify_wrapper_binding(wrapper, checksum)
+    guard = next(line for line in wrapper.splitlines() if b"/usr/bin/shasum -a 256" in line)
+    script = b'AC_COMPONENT_HELPER="$1"\n' + guard + b"\n"
+    def run():
+        return subprocess.run(["/bin/sh", "-c", script.decode(), "fixture", str(binary)], capture_output=True)
+    assert run().returncode == 0
+    binary.write_bytes(b"changed fictional helper bytes")
+    assert run().returncode == 1
 
 
 @pytest.mark.skipif(sys.platform != "darwin", reason="Apple build tools")

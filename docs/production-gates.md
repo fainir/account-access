@@ -161,15 +161,16 @@ the full native controller also passed 32 parser, 26 namespace, 21 preparation,
 Package **99** is built from that source, with SHA-256
 `b478bee55de47feb3cf0af91c1cd072a67db02a5979ba67a490ae6cd4cc87b85`.
 Its signed helper, independent extracted inventory and no-restart query pass;
-all three private draft assets match their hashes. Seven actual Installer
-scenarios remain pending, adding interruption immediately after preparation
-publication to the preceding six. That boundary must have a sealed local
-journal, unchanged public image, no service-disable record and a running old
-broker before recovery. Package 99 has not been installed on the owner Mac.
+all three private draft assets match their hashes. Its seven-scenario actual
+Installer run failed before native execution: assembly replaced the helper but
+retained the previous helper digest in the shell wrapper. The strict shell hash
+guard refused it, so the expected native foreign-predecessor result was absent.
+The first failure archive and all 63 referenced log hashes were verified; the
+remaining run was canceled. Package 99 has not been installed on the owner Mac.
 The live Apple-identity qualification for run `40212316045` passed all five
 checks; its ten native source pins and all 17 surviving-job witness log hashes
-were verified independently. The seven actual Installer scenarios are still
-running or queued.
+were verified independently. These passing observer checks do not qualify the
+failed package.
 Qualification source `68bed08` passed 4,326 Python tests (112 skipped), dependency
 auditing and all three native jobs. This source includes the additional
 publication-boundary Installer scenario; that scenario's actual result remains
@@ -180,7 +181,16 @@ pending.
 [Qualification source CI](../artifacts/owner99-qualification-source-ci-20261025.json) ·
 [Package 99 build](../artifacts/owner-upgrade99-build-20261025.json) ·
 [Package 99 inputs](../artifacts/owner-upgrade99-installer-inputs.json) ·
+[Package 99 refusal](../artifacts/owner-upgrade99-installer-refusal-20261025.json) ·
 [Current live-process evidence](../artifacts/owner99-live-witness-20261025.json).
+
+Package 100 preparation corrects that wrapper binding without changing the
+signed native helper or diagnostic owner app. The builder now checks the exact
+shell digest guard against the actual helper both before packaging and after
+independent expansion. Fifty local builder checks pass, including the exact
+rejected package 99 wrapper and an ordinary-user execution of its hash guard
+against owned fictional bytes. Package 100 build and actual Installer acceptance
+remain pending.
 
 The separate-user Mac fixture now additionally exercises an already-enrolled
 client upgrading both exact legacy skills against its actual isolated worker.

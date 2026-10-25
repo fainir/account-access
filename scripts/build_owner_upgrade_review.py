@@ -1,4 +1,4 @@
-"""Build-only fixed owner99 successor from frozen public inputs; never install."""
+"""Build-only fixed owner100 successor from frozen public inputs; never install."""
 
 import argparse
 import hashlib
@@ -20,7 +20,7 @@ PLAN = "1b5812e7e6618ce92a242f6acc5683daccd4485c7e2e57859597c029960ee42c"
 BEFORE = "03fb35eb2787ebd67079dd1cbe4dda125f430964540bdd2f2e9c81eda602fd7a"
 AFTER = "c80f0430c7529acb8479661554aadd7e6b1cfb98303df1e2bda1e5024a75356c"
 TARGET = "6736a20f8ed20d9188380b83b808ec9e380df501"
-IDENTIFIER = "com.fainir.accountaccess.ownerupgrade99"
+IDENTIFIER = "com.fainir.accountaccess.ownerupgrade100"
 BUILD_TOOLS = (
     "/usr/bin/xcrun",
     "/usr/bin/codesign",
@@ -48,6 +48,30 @@ def sha(path):
 
 def encoded(value):
     return (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode()
+
+
+def verify_wrapper_binding(wrapper, helper_sha256, *, helper_name="AccountAccess-ownerupgrade"):
+    """Bind the actual shell entrypoint to the signed helper before packaging."""
+    require(type(wrapper) is bytes and len(wrapper) <= 8192
+            and type(helper_sha256) is str and re.fullmatch(r"[a-f0-9]{64}", helper_sha256)
+            and helper_name in {"AccountAccess-ownerupgrade", "AccountAccess-runtimeupgrade"})
+    guard = (b'[ "$(/usr/bin/env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin /usr/bin/shasum -a 256 '
+             b'"$AC_COMPONENT_HELPER" | /usr/bin/awk \'{print $1}\')" = \''
+             + helper_sha256.encode() + b"' ] || exit 1\n")
+    require(wrapper.splitlines(keepends=True).count(guard) == 1
+            and re.findall(rb"(?<![a-f0-9])[a-f0-9]{64}(?![a-f0-9])", wrapper) == [helper_sha256.encode()]
+            and wrapper.count(b'AC_COMPONENT_HELPER="$AC_COMPONENT_SCRIPTS/' + helper_name.encode() + b'"\n') == 1
+            and wrapper.count(helper_name.encode()) == 1
+            and wrapper.endswith(b'exec /usr/bin/env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin LANG=C "$AC_COMPONENT_HELPER"\n'))
+
+
+def owner_wrapper(predecessor, runtime_sha256, owner_sha256):
+    require(type(owner_sha256) is str and re.fullmatch(r"[a-f0-9]{64}", owner_sha256))
+    verify_wrapper_binding(predecessor, runtime_sha256, helper_name="AccountAccess-runtimeupgrade")
+    result = predecessor.replace(runtime_sha256.encode(), owner_sha256.encode()).replace(
+        b"AccountAccess-runtimeupgrade", b"AccountAccess-ownerupgrade")
+    verify_wrapper_binding(result, owner_sha256)
+    return result
 
 
 def validate_qa(shared, runtime, owner, sources):
@@ -430,17 +454,14 @@ def build(args):
         and json.loads(refused.stdout)
         == {"schema": 1, "status": "REFUSED", "reason": "owner_upgrade_installer_context_required"}
     )
-    wrapper = (scripts / "Predecessor/postinstall").read_bytes()
-    old_digest = sha(scripts / "Predecessor/AccountAccess-runtimeupgrade").encode()
-    require(wrapper.count(old_digest) == 1 and wrapper.count(b"AccountAccess-runtimeupgrade") == 1)
-    wrapper = wrapper.replace(old_digest, sha(binary).encode()).replace(
-        b"AccountAccess-runtimeupgrade", b"AccountAccess-ownerupgrade"
-    )
+    wrapper = owner_wrapper((scripts / "Predecessor/postinstall").read_bytes(),
+                            sha(scripts / "Predecessor/AccountAccess-runtimeupgrade"), sha(binary))
     (scripts / "postinstall").write_bytes(wrapper)
     (scripts / "postinstall").chmod(0o755)
     command("wrapper", ["/bin/sh", "-n", str(scripts / "postinstall")], timeout=30)
+    verify_wrapper_binding((scripts / "postinstall").read_bytes(), sha(binary))
     final_inventory = inventory(scripts)
-    package = output / "Account-Access-Owner-Upgrade-99-local-unsigned-1800.pkg"
+    package = output / "Account-Access-Owner-Upgrade-100-local-unsigned-1800.pkg"
     raw_package = output / "raw.pkg"
     command(
         "package",
@@ -479,6 +500,8 @@ def build(args):
         inventory(independent / "Scripts") == final_inventory
         and (independent / "PackageInfo").read_bytes() == (container / "PackageInfo").read_bytes()
     )
+    verify_wrapper_binding((independent / "Scripts/postinstall").read_bytes(),
+                           sha(independent / "Scripts/AccountAccess-ownerupgrade"))
     shutil.rmtree(independent)
     shutil.rmtree(container)
     (output / "scripts-inventory.json").write_bytes(encoded(final_inventory))
@@ -507,6 +530,7 @@ def build(args):
         "owner_qa_sha256": sha(args.owner_qa),
         "postinstall_timeout": 1800,
         "postinstall_action": "none",
+        "postinstall_helper_binding_verified": True,
         "installed": False,
         "production_ready": False,
     }
