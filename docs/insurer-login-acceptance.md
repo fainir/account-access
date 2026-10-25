@@ -98,6 +98,14 @@ handling and is not interchangeable with the reviewed direct entry.
 The dialog's submission handler separately calls `ContextConfig` with an SMS
 channel value of zero, then `StartProcess` with the entered identity and phone.
 Thus the direct route does not remove the need to review preparatory requests.
+An additional fresh anonymous HTTP session on 25 October reached the direct
+page and the page-opening `ContextConfig` POST with HTTP 200. The configuration
+response contained integer `Status` and `Details.CurrentProcess` fields. Only
+types, lengths and hashes were retained; their values were not examined. No
+identity, phone, OTP, code request, browser profile or cookie export was used.
+This confirms anonymous transport reachability, not application-level success
+or private-login acceptance.
+[Sanitized configuration evidence](../artifacts/harel-anonymous-configuration-20261025.json).
 The source defines an OTP control `#otp` and `SCValidateOTP` with an `OTP` field;
 `CreateOTP` and `UpdateOtpChannel` are separate resend/change-channel operations.
 These are source observations, not a captured successful login or a network

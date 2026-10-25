@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "date": "2026-10-25",
+  "scope": "installed Account Access launcher account discovery",
+  "attempts": 3,
+  "result": {
+    "status": "RETRYABLE",
+    "reason": "service_unavailable"
+  },
+  "account_metadata_returned": false,
+  "login_operation_submitted": false,
+  "password_or_verification_code_exported": false,
+  "exact_failure_stage_identified": false,
+  "production_ready": false
+}

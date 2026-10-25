@@ -92,6 +92,11 @@ The subsequent connection upgrade failed after the owner reported macOS
 approval. Reopening still offered the upgrade, and one explicit retry returned
 the same generic error. The installed app does not identify the failing step;
 the current agent connection and real-account operations remain unverified.
+The installed agent launcher also returned `RETRYABLE/service_unavailable` on
+three account-discovery checks; it returned no account metadata, and no login
+operation or code request was made. This is the launcher's generic unavailable
+result and does not identify its underlying cause.
+[Launcher discovery](../artifacts/owner-agent-launcher-discovery-20261025.json).
 The bounded Installer result observed before restart was
 `ALREADY_UPDATED_GUI_UNVERIFIED` at `complete`; the same bounded reader was
 unavailable after restart. No raw install logs or private account data were
@@ -229,15 +234,29 @@ refusal before any installation. Qualification source `43c4c7a` also passed
 4,368 Python tests (112 skipped), dependency auditing and all three native jobs;
 the three native archives and all 53 source hashes were independently verified.
 The live Apple-identity and surviving-job prerequisite passed all five checks
-with 17 verified log hashes. The seven actual Installer scenarios remain
-pending. Package 101 has not been installed on the owner Mac.
+with 17 verified log hashes. The publication-boundary interruption scenario
+also passed actual Installer execution, retry and reapplication: all 79 log
+hashes, eight ordinary-identity runtime checks and seven running-broker
+observations were independently verified. The local journal was sealed before
+publication, the public image remained unchanged at the interruption, and
+service disabling had not started. This directly qualifies that recovery case;
+all six additional cases also passed: install/reapply, alias-repair recovery,
+owner-identity interruption, owner-helper interruption, host interruption and
+service-quiescence recovery. Across all seven actual Installer scenarios, the
+independent verifier checked 562 referenced log hashes, 56 ordinary-identity
+observations and 43 running-broker observations. The owned-helper interruption
+tests do not simulate installer-daemon interruption, power loss or an OS
+restart. Package 101 remains uninstalled on the owner Mac. The outer package
+has no signature and is not notarized; this is still a private QA draft, not a
+production installer.
 [Package 101 build](../artifacts/owner-upgrade101-build-20261025.json) ·
 [Standard build command](../artifacts/owner-upgrade101-build-command.py.txt) ·
 [Package 101 inputs](../artifacts/owner-upgrade101-installer-inputs.json) ·
 [Actual macOS 15 launch](../artifacts/owner101-macos15-entrypoint-20261025.json) ·
 [Source CI](../artifacts/owner101-qualification-source-ci-20261025.json) ·
 [Native source evidence](../artifacts/owner101-native-source-ci-20261025.json) ·
-[Live-process evidence](../artifacts/owner101-live-witness-20261025.json).
+[Live-process evidence](../artifacts/owner101-live-witness-20261025.json) ·
+[Full Installer acceptance](../artifacts/owner-upgrade101-installer-acceptance-20261025.json).
 
 Qualification source `d81e11f` passed 4,344 Python tests (112 skipped), dependency
 auditing and all three native jobs. The three native archives and all 53 source
