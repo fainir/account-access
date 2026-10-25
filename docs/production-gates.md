@@ -129,11 +129,25 @@ service-quiescence repairs. Each also requires package 97 to refuse at the
 source checkpoint without changing the installed image or history. These
 package 98 scenarios are pending. The owner Mac is on package 95, and the AI
 connection failure remains unresolved.
+Qualification source `3bb3c8f` passed 4,295 Python tests (111 skipped), dependency
+auditing and all three native jobs. The actual package's owner/runtime source
+records also pass the pure native parsers. Packaging source `abb48e2` passed
+28 separate-user Mac reports with 492 named checks. The new Installer run's
+live Apple-identity qualification and surviving-job witness passed, with all
+17 referenced log hashes independently verified. These checks do not replace
+the pending actual owner-successor Installer results.
 [Package 97 build](../artifacts/owner-upgrade97-build-20261025.json) ·
 [Package 97 refusal](../artifacts/owner-upgrade97-installer-refusal-20261025.json) ·
 [Package 98 build](../artifacts/owner-upgrade98-build-20261025.json) ·
 [Compact-source checks](../artifacts/owner-upgrade97-compact-source-20261025.json) ·
 [Frozen Installer inputs](../artifacts/owner-upgrade98-installer-inputs.json).
+
+The separate-user Mac fixture now additionally exercises an already-enrolled
+client upgrading both exact legacy skills against its actual isolated worker.
+It preserves the previous current trees, verifies both upgraded launchers and
+idempotent reapplication, and contains no historical token or executable. This
+additional integration scenario awaits its new CI result; its approval remains
+synthetic and does not qualify the owner Mac's connection.
 
 [Actual Installer acceptance](../artifacts/runtime-upgrade94-installer-acceptance-20261024.json) ·
 [Owner preflight](../artifacts/owner-mac-before-runtime94-20261024.json) ·

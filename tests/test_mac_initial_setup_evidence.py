@@ -14,7 +14,7 @@ def report():
 
 
 def test_initial_setup_requires_each_native_gate_and_production_limit(tmp_path):
-    assert len(CHECKS) == 46 and validate(report())
+    assert len(CHECKS) == 56 and validate(report())
     for name in CHECKS:
         for substitute in [False, None, 1]:
             value = report()

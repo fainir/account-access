@@ -30,6 +30,11 @@ CHECKS = {
     "persistent_volume_binding_reopens_simulated_device_change",
     "persistent_volume_reopen_preserves_original_registration",
     "different_persistent_volume_refused_before_worker",
+    "legacy_upgrade_reuses_registered_client_identity", "legacy_upgrade_reaches_actual_worker",
+    "legacy_upgrade_preserves_exact_preview_backups", "legacy_upgrade_preserves_owner_session_preferences",
+    "legacy_upgrade_needs_no_old_token_or_runtime", "legacy_upgrade_reapplication_is_idempotent",
+    "upgraded_portable_launcher_discovers_empty_approved_account_set", "upgraded_portable_launcher_omits_client_capability",
+    "upgraded_claude_launcher_discovers_empty_approved_account_set", "upgraded_claude_launcher_omits_client_capability",
 }
 
 

@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "status": "PASSED",
+  "run_id": 40205808934,
+  "source_commit": "3bb3c8f20b90cfe661360b3a9b183c1db65ea185",
+  "artifact_id": 12603043868,
+  "artifact_sha256": "103eb49f83369039ab7ed5d063c7680e360c003eecd02013168f25f156188602",
+  "native_checks": {
+    "com.apple.distnoted_live_signature_and_path": true,
+    "com.apple.distnoted_wrong_identifier_refused": true,
+    "com.apple.lsd_live_signature_and_path": true,
+    "com.apple.lsd_wrong_identifier_refused": true,
+    "non_apple_process_refused": true
+  },
+  "source_pins_verified": 10,
+  "witness_report_sha256": "f7bbf1b325ac38f5d4a4fda21dfb95fc99199fa9908f44e338929db91859c84c",
+  "witness_log_hashes_verified": 17,
+  "observed_surviving_apple_job_accepted": true,
+  "owner_machine": false,
+  "real_accounts_tested": false,
+  "production_ready": false
+}

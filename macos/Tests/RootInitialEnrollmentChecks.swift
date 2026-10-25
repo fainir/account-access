@@ -153,6 +153,10 @@ enum RootInitialEnrollmentChecks {
         let receipt = try JSONSerialization.data(withJSONObject: ["client_id": clientID, "hosts": ["codex", "claude"]])
         let confirmed = request(approved, "owner/client/installed", body: receipt)
         checks["owner_client_installation_receipt_accepted"] = confirmed.0 == 200
+        let upgraded = try ownerProbe("upgrade")
+        guard upgraded["status"] as? String == "PASSED", upgraded["client_id"] as? String == clientID,
+              let upgradeChecks = upgraded["checks"] as? [String: Bool] else { throw RootPublicationFailure.notVerified }
+        checks.merge(upgradeChecks) { _, new in new }
 
         checks["initialized_pause_keeps_owner_state_available"] = request(pausing, "owner/stop", body: body).0 == 200
             && setup.state == .paused && request(pausing, "owner/state").0 == 200

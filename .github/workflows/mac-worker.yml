@@ -184,6 +184,10 @@ jobs:
           sudo codesign --force --options runtime --identifier com.fainir.accountaccess.qa.native-browser --sign - "$AC_MAC_WORKER_PREFIX/native-browser-collector"
           sudo install -m 644 scripts/mac_browser_probe.py "$AC_MAC_WORKER_PREFIX/browser-probe.py"
           sudo install -m 644 scripts/mac_agent_setup_probe.py "$AC_MAC_WORKER_PREFIX/agent-setup-probe.py"
+          sudo install -d -m 755 "$AC_MAC_WORKER_PREFIX/legacy-skill-074/agents" "$AC_MAC_WORKER_PREFIX/legacy-skill-074/scripts"
+          for AC_LEGACY_TEMPLATE in SKILL.md agents/openai.yaml scripts/access.py; do
+            sudo install -m 644 "tests/fixtures/legacy-skill-074/$AC_LEGACY_TEMPLATE" "$AC_MAC_WORKER_PREFIX/legacy-skill-074/$AC_LEGACY_TEMPLATE"
+          done
           sudo install -m 644 scripts/mac_key_handoff_probe.py "$AC_MAC_WORKER_PREFIX/key-handoff-probe.py"
           sudo install -m 755 /tmp/ac-mac-worker-bootstrap "$AC_MAC_WORKER_PREFIX/mac-worker-bootstrap"
           sudo codesign --force --options runtime --sign - "$AC_MAC_WORKER_PREFIX/mac-worker-bootstrap"

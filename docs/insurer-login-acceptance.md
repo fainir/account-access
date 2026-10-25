@@ -70,8 +70,16 @@ reproduce the reviewed page's flow. Broadly allowing every POST on this host is
 not an acceptable replacement.
 
 The [direct login dialog](https://www.harel-group.co.il/Pages/login-page/Login.aspx?isshowlogin=true)
-was also observed anonymously. Its visible identity and phone inputs have no
-associated native form. The SMS radio `#otp-channel-sms` is selected initially;
+was also observed anonymously. A fresh browser check on 25 October found its
+visible `#uid` and `#phone` inputs inside a native form whose default method is
+**GET**; the earlier observation of no associated form was incomplete. No field
+was filled, no submit button was clicked, and all non-GET/HEAD requests were
+aborted. Opening the page attempted `ContextConfig` and `GetCurrentDetails`
+POST requests. The existing generic identity/phone engine correctly refuses
+this GET form. A provider implementation must bind the reviewed JavaScript
+request sequence and prevent native credential-bearing GET submission; simply
+loosening the form check would not provide that protection.
+The SMS radio `#otp-channel-sms` is selected initially;
 `#otp-channel-email` is a separate choice. No input was filled and Continue was
 not pressed. These controls belong to the Scanovate component identified by
 Harel's [public portal configuration](https://digital.harel-group.co.il/portal-config-backend/api/v1/micro-frontends/get-config/cus):
@@ -105,8 +113,16 @@ Raw page HTML and vendor bundles are not committed: the page contains transient
 anonymous form tokens, and public source alone cannot prove account acceptance.
 [Bound public evidence](../artifacts/harel-public-login-review-20261022.json).
 
-Phoenix's anonymous login page has no native form element. It loads a component
+The Phoenix login page observed on 22 October had no native form element. It loads a component
 from `auth0-login.fnx-public.com/index.js`; a separate anonymous source download
 returned HTTP 403, so that source was not reviewed. The current identity/phone
 engine's one initial POST does not qualify either insurer's full JavaScript
 flow. No personal login attempt was made during this review.
+
+A fresh anonymous request on 25 October returned HTTP 403 at the Phoenix
+personal-area entry itself, so that check did not reach or qualify the login
+form. In the same fresh-browser check, Lemon Squeezy's email/password form
+loaded with a native POST to `/login`; its authenticator challenge and a
+successful session remain unreviewed. No credential was entered, code requested
+or private browser profile used for any of the three sites.
+[Sanitized current discovery](../artifacts/selected-provider-anonymous-discovery-20261025.json).
