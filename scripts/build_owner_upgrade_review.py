@@ -1,4 +1,4 @@
-"""Build-only fixed owner100 successor from frozen public inputs; never install."""
+"""Build-only fixed owner101 successor from frozen public inputs; never install."""
 
 import argparse
 import hashlib
@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import runpy
 import shutil
+import struct
 import subprocess
 import sys
 from types import SimpleNamespace
@@ -20,7 +21,7 @@ PLAN = "1b5812e7e6618ce92a242f6acc5683daccd4485c7e2e57859597c029960ee42c"
 BEFORE = "03fb35eb2787ebd67079dd1cbe4dda125f430964540bdd2f2e9c81eda602fd7a"
 AFTER = "c80f0430c7529acb8479661554aadd7e6b1cfb98303df1e2bda1e5024a75356c"
 TARGET = "6736a20f8ed20d9188380b83b808ec9e380df501"
-IDENTIFIER = "com.fainir.accountaccess.ownerupgrade100"
+IDENTIFIER = "com.fainir.accountaccess.ownerupgrade101"
 BUILD_TOOLS = (
     "/usr/bin/xcrun",
     "/usr/bin/codesign",
@@ -72,6 +73,36 @@ def owner_wrapper(predecessor, runtime_sha256, owner_sha256):
         b"AccountAccess-runtimeupgrade", b"AccountAccess-ownerupgrade")
     verify_wrapper_binding(result, owner_sha256)
     return result
+
+
+def helper_target(raw):
+    """Inspect the thin ARM64 executable, independently of compiler arguments."""
+    require(type(raw) is bytes and 32 <= len(raw) <= 16 * 1024**2)
+    header = struct.unpack_from("<8I", raw)
+    require(header[0] == 0xFEEDFACF and header[1] == 0x100000C and header[2] == 0 and header[3] == 2
+            and 1 <= header[4] <= 256 and 8 <= header[5] <= 65536 and 32 + header[5] <= len(raw))
+    end, offset, versions = 32 + header[5], 32, []
+    for _ in range(header[4]):
+        require(offset + 8 <= end)
+        kind, size = struct.unpack_from("<II", raw, offset)
+        require(size >= 8 and size % 8 == 0 and offset + size <= end)
+        if kind == 0x32:  # LC_BUILD_VERSION
+            require(size >= 24)
+            platform, minimum, sdk, tools = struct.unpack_from("<4I", raw, offset + 8)
+            require(tools <= 8 and size == 24 + tools * 8)
+            versions.append((platform, minimum, sdk))
+        offset += size
+    require(offset == end and len(versions) == 1)
+    platform, minimum, sdk = versions[0]
+    require(platform == 1 and minimum == 14 << 16 and minimum <= sdk <= 99 << 16)
+
+    def version(value):
+        parts = [str(value >> 16), str((value >> 8) & 255)]
+        if value & 255:
+            parts.append(str(value & 255))
+        return ".".join(parts)
+
+    return {"architecture": "arm64", "platform": "macos", "minimum_macos": version(minimum), "sdk": version(sdk)}
 
 
 def validate_qa(shared, runtime, owner, sources):
@@ -420,6 +451,7 @@ def build(args):
         timeout=1800,
     )
     binary.chmod(0o755)
+    target = helper_target(binary.read_bytes())
     command(
         "sign",
         [
@@ -461,7 +493,7 @@ def build(args):
     command("wrapper", ["/bin/sh", "-n", str(scripts / "postinstall")], timeout=30)
     verify_wrapper_binding((scripts / "postinstall").read_bytes(), sha(binary))
     final_inventory = inventory(scripts)
-    package = output / "Account-Access-Owner-Upgrade-100-local-unsigned-1800.pkg"
+    package = output / "Account-Access-Owner-Upgrade-101-local-unsigned-1800.pkg"
     raw_package = output / "raw.pkg"
     command(
         "package",
@@ -502,6 +534,7 @@ def build(args):
     )
     verify_wrapper_binding((independent / "Scripts/postinstall").read_bytes(),
                            sha(independent / "Scripts/AccountAccess-ownerupgrade"))
+    require(helper_target((independent / "Scripts/AccountAccess-ownerupgrade").read_bytes()) == target)
     shutil.rmtree(independent)
     shutil.rmtree(container)
     (output / "scripts-inventory.json").write_bytes(encoded(final_inventory))
@@ -516,6 +549,7 @@ def build(args):
         "package_sha256": sha(package),
         "package_bytes": package.stat().st_size,
         "helper_sha256": sha(binary),
+        "helper_target": target,
         "scripts_inventory_sha256": sha(output / "scripts-inventory.json"),
         "compiled_pins_sha256": sha(compiled),
         "payload_manifest_sha256": hashlib.sha256(payload_raw).hexdigest(),

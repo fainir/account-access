@@ -5,6 +5,7 @@ import hashlib
 import importlib.util
 from pathlib import Path
 import subprocess
+import struct
 import sys
 from types import SimpleNamespace
 
@@ -18,6 +19,39 @@ SPEC.loader.exec_module(builder)
 REJECTED_WRAPPER = (Path(__file__).parents[1] / "artifacts/owner99-rejected-postinstall-20261025.sh.txt").read_bytes()
 OLD_HELPER = "71adcbfa469f9b6dcb6705cefc55015dea23807cf7d08c7e9ba369658c7f4daa"
 NEW_HELPER = "f45ec93061242a71c7bcf25539ad70fd922a50a4e5c2a46e0efd2dc65f70bedf"
+
+
+def target_fixture(command=None, *, cpu=0x100000C, filetype=2, ncmds=1, minimum=14 << 16, sdk=27 << 16, platform=1):
+    command = struct.pack("<6I", 0x32, 24, platform, minimum, sdk, 0) if command is None else command
+    return struct.pack("<8I", 0xFEEDFACF, cpu, 0, filetype, ncmds, len(command), 0, 0) + command
+
+
+def test_macho_target_is_read_from_the_executable_not_assumed_from_arguments():
+    assert builder.helper_target(target_fixture()) == {
+        "architecture": "arm64", "platform": "macos", "minimum_macos": "14.0", "sdk": "27.0"}
+
+
+def test_actual_package100_build_version_record_is_refused():
+    import json
+    evidence = json.loads((Path(__file__).parents[1] / "artifacts/owner-upgrade100-installer-refusal-20261025.json").read_bytes())
+    command = bytes.fromhex(evidence["helper_build_version"]["load_command_hex"])
+    with pytest.raises(ValueError, match="owner_upgrade_build_refused"):
+        builder.helper_target(target_fixture(command))
+
+
+@pytest.mark.parametrize("raw", [
+    b"", target_fixture()[:31], target_fixture()[:-1],
+    target_fixture(cpu=0x1000007), target_fixture(filetype=6),
+    target_fixture(minimum=27 << 16), target_fixture(minimum=15 << 16),
+    target_fixture(sdk=13 << 16), target_fixture(platform=2),
+    target_fixture(ncmds=0), target_fixture(ncmds=2),
+    target_fixture(struct.pack("<2I", 0x32, 0)),
+    target_fixture(struct.pack("<6I", 0x32, 24, 1, 14 << 16, 27 << 16, 1)),
+    target_fixture(struct.pack("<6I", 0x32, 24, 1, 14 << 16, 27 << 16, 0) * 2, ncmds=2),
+])
+def test_wrong_platform_architecture_deployment_or_malformed_load_commands_refused(raw):
+    with pytest.raises(ValueError, match="owner_upgrade_build_refused"):
+        builder.helper_target(raw)
 
 
 def test_actual_rejected_package99_wrapper_cannot_bind_its_rebuilt_helper():

@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "status": "INSTALLER_QA_FAILED_LOADER_COMPATIBILITY",
+  "run_id": 40216411492,
+  "qualification_source": "d81e11fe7f4d78de0ac29e48e571855119dffadd",
+  "controller_source": "9b867da0de9f91ffbca4a8c838c4bc692f1b5e47",
+  "package_sha256": "f0703c7e89d68ff29668c72803b644a73ca0f9ad701258a5913bb1c0e9e86710",
+  "artifact_id": 12609525087,
+  "artifact_sha256": "b9ee934803a896a1cac23b538b86aa658be3c5f5b13a1e53eaff8358796fd3ca",
+  "reports": [
+    {
+      "report": "AccountAccessComponentInstallerQA-40216411492/report.json",
+      "status": "PASSED",
+      "stage": null,
+      "logs_verified": 25
+    },
+    {
+      "report": "AccountAccessComponentInstallerQA-4021641149291/report.json",
+      "status": "FAILED",
+      "stage": "owner_upgrade_acceptance",
+      "logs_verified": 38
+    }
+  ],
+  "referenced_log_hashes_verified": 63,
+  "postinstall_helper_binding_verified": true,
+  "helper_sha256": "f45ec93061242a71c7bcf25539ad70fd922a50a4e5c2a46e0efd2dc65f70bedf",
+  "helper_build_version": {
+    "platform": 1,
+    "minimum_version_raw": 1769472,
+    "sdk_raw": 1769472,
+    "load_command_hex": "32000000200000000100000000001b0000001b00010000000300000000019d69"
+  },
+  "owner_app_slice_minimum_macos": [
+    "14.0",
+    "14.0"
+  ],
+  "missing_loader_dependency": "/usr/lib/swift/libswift_DarwinFoundation1.dylib",
+  "native_result_observed": false,
+  "source_diagnosis": "manual native rebuild omitted the standard builder deployment target; helper minos is 27.0 and cannot load on macOS 15",
+  "run_cancellation_requested": true,
+  "installed_owner_machine": false,
+  "real_account_login_tested": false,
+  "production_ready": false
+}

@@ -196,18 +196,33 @@ bytes; this ordinary-user check does not execute the helper. Package 100's
 `f0703c7e89d68ff29668c72803b644a73ca0f9ad701258a5913bb1c0e9e86710`.
 The independent extracted inventory, shell binding, signature and no-restart
 query pass; all three private draft assets match their hashes. All 104 focused
-builder, plan and Installer-acceptance contract checks pass. Seven actual
-Installer scenarios remain pending. Package 100 has not been installed on the
-owner Mac.
+builder, plan and Installer-acceptance contract checks passed. Its actual
+Installer run failed before native execution on macOS 15: the manual helper
+rebuild omitted the standard builder's deployment target, so its Mach-O minimum
+was macOS 27 and dyld could not load `libswift_DarwinFoundation1.dylib`. The shell
+binding check passed. The first failure archive and all 63 referenced log hashes
+were verified; the remaining run was canceled. The unchanged owner app 96 declares
+macOS 14 in both slices. Package 100 was not installed on the owner Mac.
 [Package 100 build](../artifacts/owner-upgrade100-build-20261025.json) ·
 [Exact shell binding](../artifacts/owner100-shell-binding-20261025.json) ·
 [Package 100 inputs](../artifacts/owner-upgrade100-installer-inputs.json).
+[Package 100 loader failure](../artifacts/owner-upgrade100-installer-refusal-20261025.json).
+
+Package 101 preparation uses the standard builder's explicit macOS 14 target.
+The builder now inspects the actual ARM64 Mach-O load commands before signing
+and after independent package expansion. Its 66 local contract checks reject
+the exact package 100 build-version record, newer deployment targets, wrong
+platforms/architectures and malformed commands. A new hosted-Mac compatibility
+probe will verify the package's metadata, wrapper and signature, then run only
+the ordinary-user refusal before any installed-image reconstruction. Its four
+guard checks ensure it refuses owner machines, root, unrelated repositories and
+unrecognized temporary paths before touching inputs. Build and hosted acceptance
+remain pending.
 
 Qualification source `d81e11f` passed 4,344 Python tests (112 skipped), dependency
 auditing and all three native jobs. The three native archives and all 53 source
 pins were independently verified, as were the current live observer's five
-checks and 17 witness logs. These do not replace the pending seven actual
-Installer cases.
+checks and 17 witness logs. These do not qualify the failed package 100.
 [Source CI](../artifacts/owner100-qualification-source-ci-20261025.json) ·
 [Native evidence](../artifacts/owner100-native-source-ci-20261025.json) ·
 [Live-process evidence](../artifacts/owner100-live-witness-20261025.json).
@@ -315,11 +330,16 @@ does not test an existing real Bluetooth association, carrier SMS, a publisher
 key or a physical-phone update.
 [Verified signed-update evidence](../artifacts/android-signed-update-pairing-20261025.json).
 
-The next phone source declares Android's documented companion background-run
+Phone source `f0fe6b7` declares Android's documented companion background-run
 and background-data permissions and explains their purpose before pairing.
 Notification forwarding still requires the current saved pairing and Android
-association. SDK/emulator checks for this change are pending. Screen-off,
-Data Saver, reconnect and carrier SMS remain physical-phone acceptance gates.
+association. Its actual SDK signing and Android 11/15 emulator journeys passed.
+All five archives were independently verified, including the exact four
+permissions and upstream notices in both APKs. Android 15 forwarding remained
+refused without association, and signed updates preserved encrypted pairing on
+both emulators. This is not positive background delivery: screen-off, Data Saver,
+reconnect and carrier SMS remain physical-phone acceptance gates.
+[Verified companion-background candidate](../artifacts/android-companion-background-sdk-emulator-20261025.json).
 
 ## Additional supported mechanisms and limits
 
