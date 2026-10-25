@@ -17,6 +17,17 @@ builder = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(builder)
 
 
+@pytest.mark.skipif(sys.platform != "darwin", reason="Apple build tools")
+def test_apple_build_tools_exist_before_expensive_compilation():
+    builder.verify_build_tools()
+
+
+def test_missing_build_tool_refused(monkeypatch):
+    monkeypatch.setattr(builder, "BUILD_TOOLS", ("/nonexistent-account-access-builder-tool",))
+    with pytest.raises(ValueError, match="owner_upgrade_build_refused"):
+        builder.verify_build_tools()
+
+
 @pytest.mark.skipif(sys.platform != "darwin", reason="macOS package archive extractor")
 @pytest.mark.parametrize("leading_dot", [False, True])
 def test_sparse_cpio_extraction_keeps_verifier_and_omits_only_payloads(tmp_path, leading_dot):

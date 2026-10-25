@@ -21,11 +21,24 @@ BEFORE = "03fb35eb2787ebd67079dd1cbe4dda125f430964540bdd2f2e9c81eda602fd7a"
 AFTER = "c80f0430c7529acb8479661554aadd7e6b1cfb98303df1e2bda1e5024a75356c"
 TARGET = "6736a20f8ed20d9188380b83b808ec9e380df501"
 IDENTIFIER = "com.fainir.accountaccess.ownerupgrade97"
+BUILD_TOOLS = (
+    "/usr/bin/xcrun",
+    "/usr/bin/codesign",
+    "/usr/bin/pkgbuild",
+    "/usr/sbin/pkgutil",
+    "/usr/bin/xar",
+    "/usr/bin/tar",
+    "/bin/sh",
+)
 
 
 def require(value):
     if not value:
         raise ValueError("owner_upgrade_build_refused")
+
+
+def verify_build_tools():
+    require(all(Path(name).is_file() and os.access(name, os.X_OK) for name in BUILD_TOOLS))
 
 
 def sha(path):
@@ -145,6 +158,7 @@ def build(args):
         and re.fullmatch("[a-f0-9]{40}", args.source)
         and re.fullmatch("[A-F0-9]{40}", args.signing_identity)
     )
+    verify_build_tools()
     output = args.output.absolute()
     require(output.parent.is_dir() and not os.path.lexists(output))
     space = os.statvfs(output.parent)
@@ -424,7 +438,7 @@ def build(args):
     command(
         "package",
         [
-            "/usr/sbin/pkgbuild",
+            "/usr/bin/pkgbuild",
             "--nopayload",
             "--identifier",
             IDENTIFIER,
