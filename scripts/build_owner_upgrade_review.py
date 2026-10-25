@@ -119,6 +119,20 @@ def proof_inventory(rows):
     }
 
 
+def proof_extract_command(archive, output):
+    return [
+        "/usr/bin/tar",
+        "-xf",
+        str(archive),
+        "-C",
+        str(output),
+        "--exclude=TargetImage/*",
+        "--exclude=./TargetImage/*",
+        "--exclude=Predecessor/CompletedImage/*",
+        "--exclude=./Predecessor/CompletedImage/*",
+    ]
+
+
 def build(args):
     require(
         sys.platform == "darwin"
@@ -129,7 +143,7 @@ def build(args):
     output = args.output.absolute()
     require(output.parent.is_dir() and not os.path.lexists(output))
     space = os.statvfs(output.parent)
-    require(space.f_bavail * space.f_frsize >= 3 * 1024**3)
+    require(space.f_bavail * space.f_frsize >= 2 * 1024**3)
 
     def git(*values):
         return subprocess.check_output(["git", *values], cwd=ROOT, timeout=30)
@@ -206,22 +220,36 @@ def build(args):
     helper = runpy.run_path(str(ROOT / "scripts/mac_component_update_installer_probe.py"))
     inspect["inventory"].__globals__["h"] = SimpleNamespace(**helper)
     inventory = inspect["inventory"]
-    expanded = output / "previous"
-    command(
-        "expand-previous",
-        ["/usr/sbin/pkgutil", "--expand-full", str(args.package95.absolute()), str(expanded)],
-    )
     expected_original = json.loads(args.inventory95.read_bytes())
-    require(inventory(expanded / "Scripts") == expected_original)
-    require(sha(expanded / "Scripts/TargetManifest.json") == BEFORE)
     expected_proof = proof_inventory(expected_original)
+    # PACKAGE95 and INVENTORY95 are independently frozen before extraction.
+    # Avoid writing unchanged ancestor payloads only to discard them again.
+    # Every retained resource, including the original broker, must still match
+    # the exact frozen inventory. The final package is expanded independently.
+    archive = output / "previous-archive"
+    archive.mkdir(mode=0o700)
+    command(
+        "extract-previous-container",
+        ["/usr/bin/xar", "-xf", str(args.package95.absolute()), "-C", str(archive), "Scripts"],
+    )
+    require(
+        {p.name for p in archive.iterdir()} == {"Scripts"}
+        and (archive / "Scripts").is_file()
+        and not (archive / "Scripts").is_symlink()
+    )
+    expanded = output / "previous"
+    expanded.mkdir(mode=0o700)
+    previous_scripts = expanded / "Scripts"
+    previous_scripts.mkdir(mode=0o755)
+    command("extract-previous-proof", proof_extract_command(archive / "Scripts", previous_scripts))
     for relative in ("TargetImage", "Predecessor/CompletedImage"):
-        path = expanded / "Scripts" / relative
+        path = previous_scripts / relative
+        if not os.path.lexists(path):
+            path.mkdir(mode=0o755)
         require(path.is_dir() and not path.is_symlink())
-        shutil.rmtree(path)
-        path.mkdir(mode=0o755)
-        path.chmod(0o755)
-    require(inventory(expanded / "Scripts") == expected_proof)
+    require(inventory(previous_scripts) == expected_proof)
+    require(sha(previous_scripts / "TargetManifest.json") == BEFORE)
+    shutil.rmtree(archive)
     scripts = output / "scripts"
     scripts.mkdir(mode=0o755)
     os.rename(expanded / "Scripts", scripts / "Predecessor")
@@ -444,6 +472,9 @@ def build(args):
         "payload_manifest_sha256": hashlib.sha256(payload_raw).hexdigest(),
         "predecessor_proof_inventory_sha256": hashlib.sha256(encoded(expected_proof)).hexdigest(),
         "predecessor_payloads_omitted": ["TargetImage/*", "Predecessor/CompletedImage/*"],
+        "predecessor_container_sha256": PACKAGE95,
+        "predecessor_full_inventory_sha256": INVENTORY95,
+        "predecessor_extraction": "fixed_sparse_archive_projection",
         "source_sha256": {n: hashlib.sha256(data).hexdigest() for n, data in sources.items()},
         "shared_qa_sha256": sha(args.shared_qa),
         "runtime_qa_sha256": sha(args.runtime_qa),

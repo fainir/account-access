@@ -4,6 +4,8 @@ from copy import deepcopy
 import hashlib
 import importlib.util
 from pathlib import Path
+import subprocess
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -13,6 +15,40 @@ SPEC = importlib.util.spec_from_file_location(
 )
 builder = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(builder)
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="macOS package archive extractor")
+@pytest.mark.parametrize("leading_dot", [False, True])
+def test_sparse_cpio_extraction_keeps_verifier_and_omits_only_payloads(tmp_path, leading_dot):
+    source, output = tmp_path / "input", tmp_path / "output"
+    source.mkdir()
+    output.mkdir()
+    rows = {
+        "TargetImage/large-payload": b"omit unchanged image",
+        "Predecessor/CompletedImage/large-payload": b"omit unchanged ancestor",
+        "TargetImageExtra/keep": b"different component",
+        "Predecessor/AccountAccess-broker": b"retain exact native verifier",
+        "Predecessor/Plan.json": b"retain original source record",
+        "TargetManifest.json": b"retain full target manifest",
+    }
+    for name, raw in rows.items():
+        path = source / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(raw)
+    archive = tmp_path / "Scripts"
+    members = ["."] if leading_dot else sorted(p.name for p in source.iterdir())
+    subprocess.run(
+        ["/usr/bin/tar", "--format=newc", "-czf", str(archive), "-C", str(source), *members],
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(builder.proof_extract_command(archive, output), check=True, capture_output=True)
+    actual = {str(p.relative_to(output)): p.read_bytes() for p in output.rglob("*") if p.is_file()}
+    assert actual == {
+        name: raw
+        for name, raw in rows.items()
+        if not name.startswith(("TargetImage/", "Predecessor/CompletedImage/"))
+    }
 
 
 def reports():
