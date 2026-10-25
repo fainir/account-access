@@ -1,0 +1,38 @@
+{
+  "assets": {
+    "runtime-upgrade.pkg": {
+      "bytes": 592586905,
+      "id": 674464393,
+      "release": {
+        "id": 423239931,
+        "source": "cbf06067e7dc5a53dc6f2d1e87f0284503474e6d",
+        "tag": "qa-cbf0606-runtime-upgrade95"
+      },
+      "sha256": "0c7a83b47d405bd9b02686aceb938877c5cd2f36112cb0b8369069c643453371"
+    },
+    "upgrade-review.json": {
+      "bytes": 4106,
+      "id": 674464415,
+      "release": {
+        "id": 423239931,
+        "source": "cbf06067e7dc5a53dc6f2d1e87f0284503474e6d",
+        "tag": "qa-cbf0606-runtime-upgrade95"
+      },
+      "sha256": "e45aa152f2187b48ce2a928bd4444de10e354190081b3ef7a21a319367e0182d"
+    },
+    "upgrade-scripts-inventory.json": {
+      "bytes": 14528707,
+      "id": 674464436,
+      "release": {
+        "id": 423239931,
+        "source": "cbf06067e7dc5a53dc6f2d1e87f0284503474e6d",
+        "tag": "qa-cbf0606-runtime-upgrade95"
+      },
+      "sha256": "9072d9bce2fd9c1b6118e657c77cab3f32e5c44689f4bb230132f07bbbb0e1e1"
+    }
+  },
+  "repository": "fainir/account-access",
+  "schema": 1,
+  "source_commit": "cbf06067e7dc5a53dc6f2d1e87f0284503474e6d",
+  "status": "FROZEN_REVIEWED_ASSETS"
+}

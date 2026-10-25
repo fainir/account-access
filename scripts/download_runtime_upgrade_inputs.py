@@ -9,10 +9,10 @@ import runpy
 import subprocess
 
 REPOSITORY = "fainir/account-access"
-SOURCE = "b5ea8a20b0bb71e99698b444af8c5d19fa6a9921"
-CONTRACT = "artifacts/runtime-upgrade94-installer-inputs.json"
+SOURCE = "cbf06067e7dc5a53dc6f2d1e87f0284503474e6d"
+CONTRACT = "artifacts/runtime-upgrade95-installer-inputs.json"
 # Canonical identity of the reviewed package and exact uploaded draft assets.
-CONTRACT_SHA256 = "842812ae29a34db9fd60adec7e59464a0e334c92fb348919e0fc6465f8b3e9eb"
+CONTRACT_SHA256 = "675c45a538ca00276933b1e8f0f76f525ff4a9f5bf67f7cdc387ddcdf91ed510"
 FILES = {"runtime-upgrade.pkg", "upgrade-review.json", "upgrade-scripts-inventory.json"}
 
 

@@ -331,6 +331,9 @@ def run(*, controller, args, stage, report, output, command, publication=None):
             and info.get("version") == "0.1.0" and info.get("auth") == "root"
             and info.get("postinstall-action") == "restart"
             and info.find("scripts/postinstall").attrib == {"file": "./postinstall", "timeout": "1800"})
+    restart = command(["/usr/sbin/installer", "-query", "RestartAction", "-pkg", str(stage / "runtime-upgrade.pkg")],
+                      "upgrade-restart-policy.log")
+    require(restart.stdout == b"RequireRestart\n" and restart.stderr == b"")
     result["checks"]["restart_declared"] = True
     scripts = expanded / "Scripts"
     expected_inventory = f.decode(h.read_file(stage / "upgrade-scripts-inventory.json", maximum=32 * 1024**2))
