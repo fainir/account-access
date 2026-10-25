@@ -58,6 +58,21 @@ response, filesystem path or capability in the explanation, and does not retry
 an operation automatically. This diagnostic improvement is not installed in
 package 95 and does not resolve or identify the owner's current failure by itself.
 
+Source `6736a20` passed all 55 optimized native UI checks locally, including
+injected exceptions and malformed results at each connection stage. Both hosted
+native jobs also passed. The installed runtime and templates passed two isolated
+preview migrations with fictional discovery; no owner service was contacted.
+Diagnostic app build 96 compiles for both Mac architectures and passes strict
+Developer ID signature verification. Its public delta changes only the app
+executable, bundle version and derived package identity. It has no qualified
+successor installer yet: the existing package 95 controller accepts only its
+frozen predecessor and target. Updating the installed app requires a new
+controller that verifies the completed predecessor and preserves its history;
+copying this candidate over the installed app would invalidate that state.
+[Source checks](../artifacts/agent-connection-diagnostics-source-20261025.json) ·
+[App build](../artifacts/owner-diagnostics96-build-20261025.json) ·
+[Public delta](../artifacts/owner-diagnostics96-public-delta-20261025.json).
+
 ## Client publication
 
 1. The helper checks the destination skill folders and instructions before

@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "status": "SIGNED_APP_VERIFIED_NOT_INSTALLED",
+  "source": "6736a20f8ed20d9188380b83b808ec9e380df501",
+  "base_application_source": "7051ef225ff2f35d67576d0ddbbc3e0b107e00bf",
+  "build": "96",
+  "source_sha256": {
+    "macos/AccountAccess.swift": "5069971f4c4da8ff1908b8d6938c4535062c38e7a81963beb7de9638ede350da",
+    "macos/MailboxOAuthLoopback.swift": "84ff1c1206f8d46a7e1664ac0d8c57dfaebd83788f62d596a45d804509de116b",
+    "macos/OwnerGateway.swift": "ccd62d87af5bab675ce71d8421fd09133d9d4675689e850b8688674ed7e38bec",
+    "macos/DesktopOwnerConnection.swift": "1776f14c5537f253aa667d489f95a6db0fd0e0848a5188cff7553e32c0bde1fb",
+    "macos/BrowserNativeHost.swift": "5e42768342aea1fe0d38cca590699e894c2bb92f1d61a0554a00085292a471a2",
+    "macos/ManagedAgentSetup.swift": "d4d5cfa834fc52d22404c45a4d16a1d89f7a97b2cfe007fcac414151e8aeed2b",
+    "macos/WorkerBootstrap.swift": "1ca28068fd18ad972ac456da09a974d4ea4275ef22338efda370ed5bcbfdcb13",
+    "macos/WorkerListenerBindings.swift": "3816f60d7700bfd927fcc1931a0604123f88eb865ec63471cdeacbafb2431103",
+    "macos/BackgroundRecovery.swift": "87fdb09fe79b06b1fe4a523080d793d29ecbea199962c199e9d518e85f49ff3d",
+    "macos/MessageText.swift": "a7487d5df866fbe1a2fe4e6fb490978f2923259e2caaba0a8420700994451f82",
+    "macos/MessagesReader.swift": "bd46b96af41e92f3b224935f0c33f714a5786ec01482464ccb1b5428429ef243",
+    "macos/SystemMessagesReader.swift": "147ed425ea0a79214e1e6b40d084eaeedc26c73c42bb6207e64a1f5d3b5fdc30"
+  },
+  "changed_bundle_files": [
+    "Contents/Info.plist",
+    "Contents/MacOS/AccountAccess"
+  ],
+  "identities": [
+    {
+      "architecture": "arm64",
+      "cdhash": "0f804a9b169ee564ed1878ab1db8a3e5da7be200",
+      "team": "WBULD6N4NQ",
+      "identifier": "com.fainir.accountaccess",
+      "hardened_runtime": true
+    },
+    {
+      "architecture": "x86_64",
+      "cdhash": "f6e6284d0cec56e72c186c0f0cbc5c3845ff8ea1",
+      "team": "WBULD6N4NQ",
+      "identifier": "com.fainir.accountaccess",
+      "hardened_runtime": true
+    }
+  ],
+  "initial_verification_refusal": "Builder incorrectly required CodeResources to change; only the executable and Info.plist changed. Independent strict signature verification passed. Resources and their seal are byte-identical to the base. The final exact-delta check requires these two changed files.",
+  "initial_driver_sha256": "eeb34660ed9ac253d145f2d40040eff24faca66d9d68d420f93f8b15de936ca5",
+  "corrected_driver_sha256": "a385e0f547bc669c809ca315671ae4051cc7212472df9da76f21c5491051b7e5",
+  "source_archive_sha256": "a8eb3505e60cd2b3da9e31db80bbf12c72d4bd45628ac67865f82857ffccbfa6",
+  "binary_sha256": "21a3d79743ccb69de9dd2a092e2c4c82581eaf23a873ad712c6d91882f77b8b5",
+  "installer_built": false,
+  "installed_files_changed": false,
+  "private_records_read": false,
+  "owner_failure_cause_identified": false,
+  "production_ready": false
+}
