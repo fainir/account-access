@@ -57,7 +57,7 @@ def validate_qa(shared, runtime, owner, sources):
     require(
         len(rows) == 4
         and all(r.get("status") == "PASSED" for r in rows)
-        and rows[0].get("checks") == 29
+        and rows[0].get("checks") == 32
         and rows[1].get("ordinary_context_refusals") == 2
         and rows[1].get("namespace_checks") == 26
         and rows[2].get("checks") == 477
@@ -103,6 +103,22 @@ def public_image(rows, manifest):
     require(set(rows) == allowed and result == manifest["roots"])
 
 
+def proof_inventory(rows):
+    """The completed-state verifier consumes records, not ancestor payloads."""
+    omitted = ("TargetImage", "Predecessor/CompletedImage")
+    require(
+        all(
+            rows.get(name, {}).get("kind") == "directory" and rows[name]["mode"] == 0o755
+            for name in omitted
+        )
+    )
+    return {
+        name: node
+        for name, node in rows.items()
+        if not any(name.startswith(prefix + "/") for prefix in omitted)
+    }
+
+
 def build(args):
     require(
         sys.platform == "darwin"
@@ -112,6 +128,8 @@ def build(args):
     )
     output = args.output.absolute()
     require(output.parent.is_dir() and not os.path.lexists(output))
+    space = os.statvfs(output.parent)
+    require(space.f_bavail * space.f_frsize >= 3 * 1024**3)
 
     def git(*values):
         return subprocess.check_output(["git", *values], cwd=ROOT, timeout=30)
@@ -146,7 +164,7 @@ def build(args):
     reports = [json.loads(p.read_bytes()) for p in (args.shared_qa, args.runtime_qa, args.owner_qa)]
     validate_qa(*reports, sources)
     plan_raw, after_raw = args.plan.read_bytes(), args.target_manifest.read_bytes()
-    plan, after = json.loads(plan_raw), json.loads(after_raw)
+    plan = json.loads(plan_raw)
     require(
         plan["target_source"] == TARGET
         and plan["before_manifest_sha256"] == BEFORE
@@ -193,22 +211,41 @@ def build(args):
         "expand-previous",
         ["/usr/sbin/pkgutil", "--expand-full", str(args.package95.absolute()), str(expanded)],
     )
-    require(inventory(expanded / "Scripts") == json.loads(args.inventory95.read_bytes()))
+    expected_original = json.loads(args.inventory95.read_bytes())
+    require(inventory(expanded / "Scripts") == expected_original)
     require(sha(expanded / "Scripts/TargetManifest.json") == BEFORE)
+    expected_proof = proof_inventory(expected_original)
+    for relative in ("TargetImage", "Predecessor/CompletedImage"):
+        path = expanded / "Scripts" / relative
+        require(path.is_dir() and not path.is_symlink())
+        shutil.rmtree(path)
+        path.mkdir(mode=0o755)
+        path.chmod(0o755)
+    require(inventory(expanded / "Scripts") == expected_proof)
     scripts = output / "scripts"
     scripts.mkdir(mode=0o755)
-    shutil.copytree(expanded / "Scripts", scripts / "Predecessor", symlinks=True)
-    require(inventory(scripts / "Predecessor") == json.loads(args.inventory95.read_bytes()))
-    shutil.copytree(scripts / "Predecessor/TargetImage", scripts / "TargetImage", symlinks=True)
+    os.rename(expanded / "Scripts", scripts / "Predecessor")
+    require(inventory(scripts / "Predecessor") == expected_proof)
+    image = scripts / "TargetImage"
+    image.mkdir(mode=0o755)
+    for relative in (
+        "Applications",
+        "Library",
+        "Library/Application Support",
+        "Library/Application Support/Account Access",
+    ):
+        directory = image / relative
+        directory.mkdir(mode=0o755)
+        directory.chmod(0o755)
+    alias = image / "Applications/Account Access.app"
+    alias.symlink_to("../Library/Application Support/Account Access/owner.app")
+    os.lchmod(alias, 0o755)
     support = scripts / "TargetImage/Library/Application Support/Account Access"
     current_app = support / "owner.app"
-    # Only the new exclusive build copy is removed. The source and installation
-    # are never selected as destinations by this builder.
-    require(current_app.parent == support and current_app.is_dir() and not current_app.is_symlink())
-    shutil.rmtree(current_app)
     require(args.owner_app.is_dir() and not args.owner_app.is_symlink())
     shutil.copytree(args.owner_app, current_app, symlinks=True)
     (support / "package-identity.json").write_bytes(args.target_identity.read_bytes())
+    (support / "package-identity.json").chmod(0o644)
     files = {
         "OwnerUpgradePlan.json": plan_raw,
         "BaseManifest.json": (scripts / "Predecessor/TargetManifest.json").read_bytes(),
@@ -228,7 +265,9 @@ def build(args):
         new_identity=files["TargetIdentity.json"],
         source_files=plan["target_native_source_files"],
     )
-    public_image(inventory(scripts / "TargetImage"), after)
+    payload_raw = planner.payload_manifest(after_raw)
+    public_image(inventory(scripts / "TargetImage"), json.loads(payload_raw))
+    (output / "PayloadManifest.json").write_bytes(payload_raw)
     for name, data in files.items():
         (scripts / name).write_bytes(data)
         (scripts / name).chmod(0o644)
@@ -402,6 +441,9 @@ def build(args):
         "helper_sha256": sha(binary),
         "scripts_inventory_sha256": sha(output / "scripts-inventory.json"),
         "compiled_pins_sha256": sha(compiled),
+        "payload_manifest_sha256": hashlib.sha256(payload_raw).hexdigest(),
+        "predecessor_proof_inventory_sha256": hashlib.sha256(encoded(expected_proof)).hexdigest(),
+        "predecessor_payloads_omitted": ["TargetImage/*", "Predecessor/CompletedImage/*"],
         "source_sha256": {n: hashlib.sha256(data).hexdigest() for n, data in sources.items()},
         "shared_qa_sha256": sha(args.shared_qa),
         "runtime_qa_sha256": sha(args.runtime_qa),

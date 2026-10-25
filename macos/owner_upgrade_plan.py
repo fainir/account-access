@@ -142,3 +142,18 @@ def parse(raw, *, expected_sha256, **inputs):
     )
     require(raw == derive(**inputs))
     return image._json(raw, image.MAX_PLAN_BYTES)
+
+
+def payload_manifest(after_manifest):
+    """Only the replacement bundle and identity are shipped by this successor."""
+    require(type(after_manifest) is bytes and image.digest(after_manifest) == AFTER)
+    value = image._manifest(after_manifest)
+    rows = value["roots"][image.SUPPORT]
+    value["roots"][image.SUPPORT] = {
+        name: node
+        for name, node in rows.items()
+        if name in {"", "package-identity.json"} or image._below(name, "owner.app")
+    }
+    raw = image.encoded(value)
+    image._manifest(raw)
+    return raw

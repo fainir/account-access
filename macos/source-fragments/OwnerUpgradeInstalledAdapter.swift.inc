@@ -128,12 +128,12 @@ extension ComponentController {
               predecessor.newPeers == source.oldPeers else { throw FullImageFailure.predecessor }
         checkpoint(.payload)
         let image = try fullResourceDirectory(resources, "TargetImage"); defer { Darwin.close(image) }
-        _ = try InstallerPayloadIO.verifyImage(image, manifest: source.after, owner: 0)
+        _ = try InstallerPayloadIO.verifyImage(image, manifest: source.payload, owner: 0)
         let payload = try InstallerPayloadIO.walkDirectory(InstallerPayloadManifest.support, from: image, owner: 0)
         defer { Darwin.close(payload) }
         let payloadPath = try FullImageFDCanonicalPath.installed(payload)
-        try payloadPath.checked { try ownerUpgradeSignatures(source, root: $0, after: true) }
-        _ = try InstallerPayloadIO.verifyImage(image, manifest: source.after, owner: 0)
+        try payloadPath.checked { try ComponentUpdateIdentity.verifyStatic(path: $0 + "/owner.app", peer: source.newPeers["owner"]!, designated: nil) }
+        _ = try InstallerPayloadIO.verifyImage(image, manifest: source.payload, owner: 0)
 
         checkpoint(.context)
         let (ownerUID, ownerGroup) = try owner()
@@ -273,7 +273,7 @@ extension ComponentController {
                 repairPins: repairPins, predecessorPins: predecessorPins)
             guard rechecked.sha256 == proof.sha256 else { throw FullImageFailure.predecessor }
             checkpoint(.preparationPayload)
-            _ = try InstallerPayloadIO.verifyImage(image, manifest: source.after, owner: 0)
+            _ = try InstallerPayloadIO.verifyImage(image, manifest: source.payload, owner: 0)
             // This journal is closed before its parent is renamed. Reopen below
             // qualifies the final canonical route rather than adopting the old
             // preparation route after publication.

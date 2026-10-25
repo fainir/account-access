@@ -39,7 +39,7 @@ def reports():
         "production_ready": False,
         "source_sha256": pins,
         "results": [
-            {"status": "PASSED", "checks": 29},
+            {"status": "PASSED", "checks": 32},
             {"status": "PASSED", "ordinary_context_refusals": 2, "namespace_checks": 26},
             {"status": "PASSED", "checks": 477, "root_execution": False},
             {"status": "PASSED", "checks": 324, "owned_temp_fake_barrier_only": True},
@@ -179,3 +179,40 @@ def test_whole_build_tree_matches_the_two_public_roots(fault):
     else:
         with pytest.raises(ValueError, match="owner_upgrade_build_refused"):
             builder.public_image(rows, manifest)
+
+
+def test_predecessor_projection_keeps_exact_records_and_native_broker():
+    directory = {"kind": "directory", "mode": 0o755}
+    file = {"kind": "file", "mode": 0o644, "sha256": "a" * 64, "bytes": 3}
+    rows = {
+        "": directory,
+        "TargetImage": directory,
+        "TargetImage/large-runtime": file,
+        "Predecessor": directory,
+        "Predecessor/CompletedImage": directory,
+        "Predecessor/CompletedImage/large-runtime": file,
+        "RuntimeUpgradePlan.json": file,
+        "Predecessor/AccountAccess-broker": file,
+    }
+    projected = builder.proof_inventory(rows)
+    assert set(projected) == set(rows) - {
+        "TargetImage/large-runtime",
+        "Predecessor/CompletedImage/large-runtime",
+    }
+    assert all(projected[name] == rows[name] for name in projected)
+
+
+@pytest.mark.parametrize("fault", ["missing", "file", "wrong_mode"])
+def test_predecessor_projection_refuses_unexpected_roots(fault):
+    rows = {
+        name: {"kind": "directory", "mode": 0o755}
+        for name in ("TargetImage", "Predecessor/CompletedImage")
+    }
+    if fault == "missing":
+        del rows["TargetImage"]
+    elif fault == "file":
+        rows["TargetImage"]["kind"] = "file"
+    else:
+        rows["TargetImage"]["mode"] = 0o700
+    with pytest.raises(ValueError, match="owner_upgrade_build_refused"):
+        builder.proof_inventory(rows)

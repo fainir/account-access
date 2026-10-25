@@ -37,6 +37,10 @@ struct OwnerUpgradeSourceChecks {
         check(source.units.map(\.path) == ["owner.app", "package-identity.json"])
         check(source.oldPeers["owner"] != source.newPeers["owner"])
         check(source.oldPeers["broker"] == source.newPeers["broker"] && source.oldPeers["bootstrap"] == source.newPeers["bootstrap"])
+        let payloadNames = Set(source.payload.trees[InstallerPayloadManifest.support]!.nodes.keys)
+        check(payloadNames.allSatisfy { $0.isEmpty || $0 == "package-identity.json" || $0 == "owner.app" || $0.hasPrefix("owner.app/") })
+        check(payloadNames.contains("owner.app/Contents/MacOS/AccountAccess") && payloadNames.contains("package-identity.json"))
+        check(source.payload.sha256 != source.after.sha256)
         for name in value.keys {
             var changed = value; changed.removeValue(forKey: name)
             var modified = try FullImageJSON.canonical(changed); modified.append(10)

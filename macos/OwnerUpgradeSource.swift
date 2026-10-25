@@ -11,6 +11,7 @@ struct OwnerUpgradeSource: PublicImageTransitionSource {
     var planSHA256: String { pins.planSHA256 }
     var targetSourceCommit: String { pins.targetSource }
     let before: InstallerPayloadManifest, after: InstallerPayloadManifest
+    let payload: InstallerPayloadManifest
     let oldPeers: [String: ComponentPeerSignature], newPeers: [String: ComponentPeerSignature]
     let units: [FullImageSource.Unit]
     let changed: [String]
@@ -61,7 +62,7 @@ struct OwnerUpgradeSource: PublicImageTransitionSource {
               Set(pins.sourceFiles.keys) == nativeSources,
               pins.sourceFiles.values.allSatisfy({ FullImageJSON.hex($0) }) else { throw FullImageFailure.source }
         _ = try FullImageJSON.object(beforeRaw, maximum: InstallerPayloadManifest.maximumManifest)
-        _ = try FullImageJSON.object(afterRaw, maximum: InstallerPayloadManifest.maximumManifest)
+        var payloadValue = try FullImageJSON.object(afterRaw, maximum: InstallerPayloadManifest.maximumManifest)
         let before = try InstallerPayloadManifest(beforeRaw), after = try InstallerPayloadManifest(afterRaw)
         let old = before.trees[support]!, new = after.trees[support]!
         guard Set(old.nodes.keys) == Set(new.nodes.keys),
@@ -114,6 +115,13 @@ struct OwnerUpgradeSource: PublicImageTransitionSource {
             .tree(.runtimeOwner, try PublicTreeInventory(validatedManifest: before, unit: .runtimeOwner),
                   try PublicTreeInventory(validatedManifest: after, unit: .runtimeOwner)),
             .file(.packageIdentity, old.nodes["package-identity.json"], new.nodes["package-identity.json"])]
-        return Self(pins: pins, before: before, after: after, oldPeers: oldPeers, newPeers: newPeers, units: units, changed: changed)
+        guard var payloadRoots = payloadValue["roots"] as? [String: [String: Any]] else { throw FullImageFailure.source }
+        payloadRoots[support] = new.nodes.filter { $0.key.isEmpty || $0.key == "package-identity.json" || below($0.key) }
+            .mapValues { node($0) }
+        payloadValue["roots"] = payloadRoots
+        var payloadRaw = try FullImageJSON.canonical(payloadValue); payloadRaw.append(10)
+        let payload = try InstallerPayloadManifest(payloadRaw)
+        return Self(pins: pins, before: before, after: after, payload: payload,
+            oldPeers: oldPeers, newPeers: newPeers, units: units, changed: changed)
     }
 }

@@ -157,3 +157,19 @@ def test_only_the_owner_signature_can_rotate(fixture, peer, monkeypatch):
     inputs["new_identity"] = changed
     with pytest.raises(plan.image.Refused):
         plan.derive(**inputs)
+
+
+def test_payload_contains_only_the_replacement_app_and_identity(fixture):
+    _, _, args = fixture
+    inputs = args()
+    raw = plan.payload_manifest(inputs["after_manifest"])
+    payload = plan.image._manifest(raw)
+    names = set(payload["roots"][plan.image.SUPPORT])
+    assert all(n in {"", "package-identity.json"} or n.startswith("owner.app") for n in names)
+    assert "owner.app/Contents/MacOS/AccountAccess" in names and "package-identity.json" in names
+    assert (
+        payload["roots"][plan.image.APPLICATION]
+        == plan.image._manifest(inputs["after_manifest"])["roots"][plan.image.APPLICATION]
+    )
+    with pytest.raises(plan.image.Refused):
+        plan.payload_manifest(inputs["after_manifest"] + b" ")
