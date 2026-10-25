@@ -28,9 +28,22 @@ CHECKS = {
     "fixed_inputs", "runtime_predecessor_accepted", "signature_verified", "compact_payload_verified",
     "no_restart_declared", "foreign_predecessor_refused", "scenario_exercised", "actual_installer",
     "exact_public_image", "policy_rotation", "roots_and_history_preserved", "live_service",
-    "ordinary_public_runtime", "exact_reapply", "unchanged_reapply", "foreign_audit_refused",
+    "ordinary_public_runtime", "ordinary_public_runtime_reapply", "exact_reapply", "unchanged_reapply", "foreign_audit_refused",
     "service_after_refusal",
 }
+
+
+def owner_runtime_aliases(controller, runtime, command, phase):
+    controller.guard()
+    require = controller.require
+    require(phase in {"after-upgrade", "after-reapply"})
+    expected = {"public-alias-" + phase + "-" + role + ".log" for role in ("console", "worker")}
+
+    def named_command(arguments, log, *, check):
+        require(log in expected and check is False)
+        return command(arguments, "owner-" + log, check=False)
+
+    return runtime["ordinary_runtime_aliases"](controller, named_command, phase)
 
 
 def refusal_record(raw, checkpoint):
@@ -354,7 +367,7 @@ def run(*, controller, args, stage, report, output, command, publication=None):
     result["checks"]["roots_and_history_preserved"] = True
     fresh["live_service"](command, "owner-upgrade")
     result["checks"]["live_service"] = True
-    result["ordinary_after_upgrade"] = runtime["ordinary_runtime_aliases"](c, command, "after-upgrade")
+    result["ordinary_after_upgrade"] = owner_runtime_aliases(c, runtime, command, "after-upgrade")
     result["checks"]["ordinary_public_runtime"] = True
     image_snapshot, policies = fresh["public_snapshot"](manifest), h.policies()
 
@@ -367,6 +380,8 @@ def run(*, controller, args, stage, report, output, command, publication=None):
     require(fresh["public_snapshot"](manifest) == image_snapshot and h.policies() == policies
             and owner_history() == applied_history and history() == preserved)
     result["checks"]["unchanged_reapply"] = True
+    result["ordinary_after_reapply"] = owner_runtime_aliases(c, runtime, command, "after-reapply")
+    result["checks"]["ordinary_public_runtime_reapply"] = True
     foreign = NAMESPACE / ("transition-" + PLAN) / "global/foreign-audit-fixture.json"
     c.create_file(foreign, foreign_bytes)
     try:

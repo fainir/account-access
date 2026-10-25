@@ -93,6 +93,33 @@ def test_guard_precedes_every_path_and_callback():
         PROBE["namespace_snapshot"](SimpleNamespace(guard=guard), None)
     with pytest.raises(Refused):
         PROBE["require_native_refusal"](SimpleNamespace(guard=guard), None, None, None, None)
+    with pytest.raises(Refused):
+        PROBE["owner_runtime_aliases"](SimpleNamespace(guard=guard), None, None, None)
+
+
+def test_owner_alias_observations_cannot_overwrite_predecessor_logs():
+    names = []
+
+    def require(value):
+        if not value:
+            raise ValueError("log-refused")
+
+    def observe(controller, command, phase):
+        for role in ("console", "worker"):
+            command(["synthetic-command"], "public-alias-" + phase + "-" + role + ".log", check=False)
+        return {"console": "synthetic", "worker": "synthetic"}
+
+    def command(arguments, log, *, check):
+        assert check is False and log not in names
+        names.append(log)
+
+    controller = SimpleNamespace(guard=lambda: None, require=require)
+    for phase in ("after-upgrade", "after-reapply"):
+        PROBE["owner_runtime_aliases"](controller, {"ordinary_runtime_aliases": observe}, command, phase)
+    assert len(names) == 4 and len(set(names)) == 4
+    assert all(name.startswith("owner-public-alias-") for name in names)
+    with pytest.raises(ValueError, match="log-refused"):
+        PROBE["owner_runtime_aliases"](controller, None, None, "foreign")
 
 
 @pytest.mark.parametrize("checkpoint", ["predecessor", "journal"])

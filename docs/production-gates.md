@@ -116,7 +116,7 @@ records. Its independently expanded inventory matches, the helper signature
 and ordinary-user refusal pass, and Installer reports no restart. Native
 source checks passed 32 parser, 26 namespace, 477 tree-storage and 324
 mixed-storage checks; the focused planner/builder/Installer-guard suite passed
-146 tests. Six actual Installer scenarios cover installation/reapplication,
+147 tests. Six actual Installer scenarios cover installation/reapplication,
 three interrupted exchanges, and predecessors recovered through alias and
 service-quiescence repairs. Those scenarios are pending. The owner Mac is on
 package 95, and the AI connection failure remains unresolved.
