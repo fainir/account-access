@@ -29,8 +29,10 @@ that disabled-service condition. It installed on the owner Mac on 25 October,
 but the account worker cannot start: the upgrade recreated 20 public Python
 links with root-only permissions. Package 95 fixes link staging and repairs the
 completed package 94 image. It passed all five actual Installer scenarios,
-including checks under both ordinary-user identities, and requires a normal
-restart. Owner installation and successful app startup remain pending.
+including checks under both ordinary-user identities. It installed successfully
+on the owner Mac; after a normal restart, all public files and aliases passed
+verification and the app opened to **Upgrade AI connection**. The current
+agent connection and account operations remain unverified.
 Personal email/SMS/TOTP login, the physical Android phone
 and consumer distribution remain open acceptance gates.
 [Initial owner observations](artifacts/owner-startup-and-import-213509c-20261021.json) ·

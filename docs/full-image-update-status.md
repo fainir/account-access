@@ -22,8 +22,13 @@ passed the native regression suite. Package 95 passed 433 adapter assertions
 and all five actual Installer scenarios, including repair of the broken package
 94 image under both ordinary-user identities. Five archives and 300 referenced
 log hashes were verified. Source CI passed 4,209 Python tests (108 skipped),
-dependency auditing and both native jobs. Package 95 requires a normal restart
-after installation; owner repair, worker startup and AI connection remain pending.
+dependency auditing and both native jobs. Package 95 then installed successfully
+on the owner Mac. After the owner restarted, all 25,167 files, 2,297 directories
+and 21 aliases matched the target. All 20 repaired runtime links passed the
+ordinary-user production path validator, and all five native public-tree checks
+passed. The app opens to **Upgrade AI connection**, replacing the earlier startup
+error. Current agent connection and real-account operations remain unverified.
+[Owner post-restart verification](../artifacts/owner-runtime95-post-restart-20261025.json).
 [Package 95 acceptance](../artifacts/runtime-upgrade95-installer-acceptance-20261025.json).
 [Owner failure evidence](../artifacts/owner-runtime94-installed-startup-failure-20261025.json).
 See [current production acceptance](production-gates.md) for exact source,

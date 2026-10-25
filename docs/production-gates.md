@@ -57,8 +57,8 @@ still refuse the update. The package SHA-256 is
   targets, interrupted repair, retry and foreign-path refusal. The package 95
   candidate also repairs the already-completed package 94 transition and will
   require a normal restart; it does not add a separate service-restart mechanism.
-  Package 95's actual Installer qualification is recorded below. Repair of the
-  owner's links, worker startup and AI connection remain pending. No private records or installed files were changed during
+  Package 95's actual Installer qualification and subsequent owner repair are
+  recorded below. No private records or installed files were changed during
   these observations. The outer package is unsigned and not notarized.
   [Owner handoff](../artifacts/owner-runtime94-installer-handoff-20261025.json).
   [Installed startup failure](../artifacts/owner-runtime94-installed-startup-failure-20261025.json).
@@ -80,22 +80,27 @@ with 20 ordinary-identity observations and 10 exact running-broker observations.
 The package 94 regression refused both ordinary identities before repair,
 preserved all 20 link targets and inodes during repair, and accepted both
 identities after repair and reapplication. These checks do not start a real
-account worker or test an operating-system restart. The fixed package has not
-yet been installed on the owner Mac.
+account worker or test an operating-system restart.
 
-Installer's actual `RestartAction` query reports `RequireRestart`. Repairing
-the aliases does not clear the broker's retained startup failure; a normal
-operating-system restart is required before checking app startup and upgrading
-the AI connection. This repair does not add a service-control command or read
-private accounts. The owner preflight confirms all regular target bytes and
-the 20 known mode-0700 aliases, whose targets cannot yet be read by that user.
+Installer's actual `RestartAction` query reports `RequireRestart`. Package 95
+installed successfully on the owner Mac, and the owner restarted on 25 October.
+The post-restart read-only check matches all 25,167 public files, 2,297
+directories and 21 aliases. All 20 repaired links pass the ordinary-user
+production runtime path validator; all five native public-tree checks pass.
+The app opens to **Upgrade AI connection**, replacing the earlier startup error.
+The current agent connection and real-account operations remain unverified.
+The bounded Installer result observed before restart was
+`ALREADY_UPDATED_GUI_UNVERIFIED` at `complete`; the same bounded reader was
+unavailable after restart. No raw install logs or private account data were
+exported. The repair adds no service-control command.
 [Package 95 build](../artifacts/runtime-upgrade95-build-20261025.json) ·
 [Actual Installer acceptance](../artifacts/runtime-upgrade95-installer-acceptance-20261025.json) ·
 [Verified draft assets](../artifacts/runtime95-draft-assets-20261025.json) ·
 [Current source CI](../artifacts/runtime95-source-ci-20261025.json) ·
 [Current Mac worker acceptance](../artifacts/runtime95-source-mac-acceptance-20261025.json) ·
 [Current live-process evidence](../artifacts/runtime95-live-witness-20261025.json) ·
-[Owner preflight](../artifacts/owner-mac-before-runtime95-20261025.json).
+[Owner preflight](../artifacts/owner-mac-before-runtime95-20261025.json) ·
+[Owner installation and restart](../artifacts/owner-runtime95-post-restart-20261025.json).
 
 [Actual Installer acceptance](../artifacts/runtime-upgrade94-installer-acceptance-20261024.json) ·
 [Owner preflight](../artifacts/owner-mac-before-runtime94-20261024.json) ·
@@ -109,7 +114,7 @@ the 20 known mode-0700 aliases, whose targets cannot yet be read by that user.
 
 | User journey | Verified evidence | Remaining acceptance |
 | --- | --- | --- |
-| Install and connect the AI agent | Package 94 owner installation and broker recovery; runtime 92 fresh-install CI; automatic skill discovery in earlier owner testing | Repair unreadable upgraded runtime links, prove worker startup and current agent connection, clean downloaded installation, reboot and interrupted-operation recovery |
+| Install and connect the AI agent | Package 95 owner installation, normal restart, complete public-image verification and app opening to AI connection upgrade; runtime 92 fresh-install CI | Complete and verify the current agent connection and protected account operations; clean downloaded installation and interrupted-operation recovery |
 | Import Chrome passwords | One approved personal credential imported locally through protected owner setup; controlled format, review and permission tests | Fresh private-website login using the imported credential; representative export coverage. Imports are snapshots; Chrome live sync is not implemented |
 | Email verification | A real Gmail enrollment and mailbox check passed; controlled fresh-code login and sender/template checks | Actual website email delivery and completed login. Consumer Gmail OAuth also needs a publisher-configured Google application and real consent/renewal QA |
 | Android SMS | Android 11 emulator completes a synthetic browser SMS login; Android 15 emulator refuses delivery without association | Physical Android 15+ installation, system-approved computer association, carrier notification delivery, reconnect and completed insurer login |
