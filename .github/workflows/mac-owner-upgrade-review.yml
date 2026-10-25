@@ -10,6 +10,7 @@ on:
       - artifacts/owner-upgrade97-installer-inputs.json
       - artifacts/owner-upgrade98-installer-inputs.json
       - artifacts/owner-upgrade99-installer-inputs.json
+      - artifacts/owner-upgrade100-installer-inputs.json
   workflow_dispatch:
     inputs:
       identity_only:

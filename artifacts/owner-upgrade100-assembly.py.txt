@@ -1,0 +1,86 @@
+"""Assemble package100 with the exact signed package99 helper and corrected shell binding."""
+from pathlib import Path
+from types import SimpleNamespace
+import hashlib,json,os,runpy,shutil,subprocess
+
+NATIVE='9b867da0de9f91ffbca4a8c838c4bc692f1b5e47'
+PACKAGING='6de39cec80f174727d6b0dc090ff176907a69503'
+HELPER='f45ec93061242a71c7bcf25539ad70fd922a50a4e5c2a46e0efd2dc65f70bedf'
+root=Path.cwd(); old=root/'dist/owner-upgrade99-9b867da'; native=root/'dist/owner-upgrade99-native-9b867da'; output=root/'dist/owner-upgrade100-6de39ce'
+b=runpy.run_path('scripts/build_owner_upgrade_review.py'); require=b['require']; sha=b['sha']; encoded=b['encoded']
+require(os.getuid()==os.geteuid()!=0 and subprocess.run(['git','merge-base','--is-ancestor',PACKAGING,'HEAD'],capture_output=True).returncode==0)
+b['verify_build_tools']()
+require((root/'scripts/build_owner_upgrade_review.py').read_bytes()==subprocess.check_output(['git','show',PACKAGING+':scripts/build_owner_upgrade_review.py']))
+prior=json.loads((native/'commands.json').read_bytes())
+require([(r['name'],r['exit_code']) for r in prior]==[('compile',0),('sign',0),('signature',0),('ordinary-refusal',78)])
+for row in prior:
+ for kind in ('stdout','stderr'):
+  require(sha(native/(row['name']+'.'+kind))==row[kind+'_sha256'])
+require(sha(native/'AccountAccess-ownerupgrade')==HELPER)
+shared=runpy.run_path('scripts/mac_full_image_installed_probe.py'); owner=runpy.run_path('scripts/mac_owner_upgrade_probe.py')
+fragments=(*shared['FRAGMENTS'],*owner['EXTRA_FRAGMENTS'])
+names=['macos/'+n for n in shared['DEPENDENCIES']]+['macos/FullImageInstalledIO.swift','macos/FullImagePredecessorAuthority.swift','macos/OwnerUpgradeSource.swift','macos/OwnerUpgradeMain.swift','macos/ComponentUpdate.swift',*fragments]
+sources={n:subprocess.check_output(['git','show',NATIVE+':'+n]) for n in names}
+require(all((root/n).read_bytes()==v for n,v in sources.items()))
+for name,raw in sources.items():
+ if name!='macos/ComponentUpdate.swift' and name not in fragments:
+  require((native/'source'/Path(name).name).read_bytes()==raw)
+require((native/'source/ComponentUpdate.swift').read_bytes()==b'\n'.join(sources[n] for n in ('macos/ComponentUpdate.swift',*fragments)))
+qa=[root/'dist/qa-owner-upgrade-shared-v1/result.json',root/'dist/qa-owner-upgrade-runtime-v1/result.json',root/'dist/qa-owner-upgrade-controller-ci-9b867da/result.json']
+b['validate_qa'](*[json.loads(p.read_bytes()) for p in qa],sources)
+plan=json.loads((old/'scripts/OwnerUpgradePlan.json').read_bytes())
+require(sha(old/'scripts/OwnerUpgradePlan.json')==b['PLAN'] and sha(old/'scripts/BaseManifest.json')==b['BEFORE'] and sha(old/'scripts/TargetManifest.json')==b['AFTER'])
+basepins=root/'dist/runtime-upgrade95-cbf0606/source/CompiledPins.swift';require(sha(basepins)==b['PINS95'])
+source_files=','.join(json.dumps(k)+':'+json.dumps(v) for k,v in sorted(plan['target_native_source_files'].items()))
+expected_pins=basepins.read_bytes()+("\nenum OwnerUpgradeCompiledPins { static let value = OwnerUpgradeSource.Pins("+f'planSHA256: "{b["PLAN"]}", beforeSHA256: "{b["BEFORE"]}", afterSHA256: "{b["AFTER"]}", '+f'predecessorRuntimePlan: "{plan["predecessor_runtime_plan_sha256"]}", '+f'targetSource: "{b["TARGET"]}", sourceFiles: [{source_files}]) }}\n').encode()
+require((native/'source/CompiledPins.swift').read_bytes()==expected_pins)
+f=runpy.run_path('scripts/mac_full_image_installer_probe.py');h=runpy.run_path('scripts/mac_component_update_installer_probe.py');f['inventory'].__globals__['h']=SimpleNamespace(**h);inventory=f['inventory']
+original=root/'dist/runtime-upgrade95-cbf0606/scripts-inventory.json';require(sha(original)==b['INVENTORY95'])
+proof=b['proof_inventory'](json.loads(original.read_bytes()))
+require(inventory(old/'scripts/Predecessor')==proof)
+require(sha(old/'scripts-inventory.json')=='7acec97feb3da3fabdfc59a20fdfea5ab0a9b0f80c6f7197f872ddc27f1b0744')
+require(inventory(old/'scripts')==json.loads((old/'scripts-inventory.json').read_bytes()))
+payload_raw=(old/'PayloadManifest.json').read_bytes();b['public_image'](inventory(old/'scripts/TargetImage'),json.loads(payload_raw))
+require(not os.path.lexists(output)); output.mkdir(mode=0o700)
+shutil.copytree(old/'scripts',output/'scripts',symlinks=True);shutil.copytree(native/'source',output/'source',symlinks=True)
+require(inventory(output/'scripts')==inventory(old/'scripts'))
+shutil.copy2(native/'AccountAccess-ownerupgrade',output/'scripts/AccountAccess-ownerupgrade')
+expected_scripts=inventory(old/'scripts');expected_scripts['AccountAccess-ownerupgrade']={**expected_scripts['AccountAccess-ownerupgrade'],'bytes':(native/'AccountAccess-ownerupgrade').stat().st_size,'sha256':HELPER}
+require(inventory(output/'scripts')==expected_scripts and inventory(output/'scripts/Predecessor')==proof)
+# Generate from the frozen runtime95 entrypoint, never adopt the copied wrapper.
+wrapper=b['owner_wrapper']((output/'scripts/Predecessor/postinstall').read_bytes(),sha(output/'scripts/Predecessor/AccountAccess-runtimeupgrade'),HELPER)
+require(wrapper==(old/'scripts/postinstall').read_bytes().replace(b'71adcbfa469f9b6dcb6705cefc55015dea23807cf7d08c7e9ba369658c7f4daa',HELPER.encode()))
+(output/'scripts/postinstall').write_bytes(wrapper)
+b['verify_wrapper_binding']((output/'scripts/postinstall').read_bytes(),sha(output/'scripts/AccountAccess-ownerupgrade'))
+expected_scripts['postinstall']={**expected_scripts['postinstall'],'bytes':len(wrapper),'sha256':hashlib.sha256(wrapper).hexdigest()}
+require(inventory(output/'scripts')==expected_scripts)
+(output/'native-build-commands.json').write_bytes((native/'commands.json').read_bytes());(output/'PayloadManifest.json').write_bytes(payload_raw)
+commands=[]
+def command(label,arguments,*,cwd=root,expected=0,timeout=900):
+ response=subprocess.run(arguments,cwd=cwd,stdin=subprocess.DEVNULL,capture_output=True,timeout=timeout,check=False)
+ for kind in ('stdout','stderr'):(output/(label+'.'+kind)).write_bytes(getattr(response,kind))
+ commands.append({'name':label,'arguments':arguments,'exit_code':response.returncode,**{kind+'_sha256':hashlib.sha256(getattr(response,kind)).hexdigest() for kind in ('stdout','stderr')}})
+ (output/'commands.json').write_bytes(encoded(commands));require(response.returncode==expected);return response
+scripts=output/'scripts'; binary=scripts/'AccountAccess-ownerupgrade'
+command('signature',['/usr/bin/codesign','--verify','--strict','-R=anchor apple generic and identifier "com.fainir.accountaccess.componentupdate" and certificate leaf[subject.OU] = "WBULD6N4NQ" and !(entitlement["com.apple.security.get-task-allow"] exists)',str(binary)],timeout=120)
+refused=command('ordinary-refusal',[str(binary)],expected=78,timeout=30)
+require(not refused.stderr and json.loads(refused.stdout)=={'schema':1,'status':'REFUSED','reason':'owner_upgrade_installer_context_required'})
+command('wrapper',['/bin/sh','-n',str(scripts/'postinstall')],timeout=30)
+b['verify_wrapper_binding']((scripts/'postinstall').read_bytes(),sha(binary))
+final_inventory=inventory(scripts)
+raw_package=output/'raw.pkg'; package=output/'Account-Access-Owner-Upgrade-100-local-unsigned-1800.pkg'
+command('package',['/usr/bin/pkgbuild','--nopayload','--identifier',b['IDENTIFIER'],'--version','0.1.0','--scripts',str(scripts),str(raw_package)])
+container=output/'container';container.mkdir(mode=0o700)
+command('extract-container',['/usr/bin/xar','-xf',str(raw_package),'-C',str(container)]);require({p.name for p in container.iterdir()}=={'PackageInfo','Scripts'});raw_package.unlink()
+info=(container/'PackageInfo').read_bytes();require(info.count(b'timeout="600"')==1 and b['IDENTIFIER'].encode() in info and info.count(b'postinstall-action="none"')==1)
+(container/'PackageInfo').write_bytes(info.replace(b'timeout="600"',b'timeout="1800"'))
+command('repack',['/usr/bin/xar','--compression=none','-cf',str(package),'PackageInfo','Scripts'],cwd=container)
+independent=output/'independent';command('expand-final',['/usr/sbin/pkgutil','--expand-full',str(package),str(independent)])
+require(inventory(independent/'Scripts')==final_inventory and (independent/'PackageInfo').read_bytes()==(container/'PackageInfo').read_bytes())
+b['verify_wrapper_binding']((independent/'Scripts/postinstall').read_bytes(),sha(independent/'Scripts/AccountAccess-ownerupgrade'))
+restart=command('restart-query',['/usr/sbin/installer','-query','RestartAction','-pkg',str(package)]);require(restart.stdout==b'None\n' and not restart.stderr)
+shutil.rmtree(independent);shutil.rmtree(container)
+(output/'scripts-inventory.json').write_bytes(encoded(final_inventory))
+report={'schema':1,'status':'BUILT_PENDING_INSTALLER_QA','controller_source':NATIVE,'packaging_source':PACKAGING,'application_source':b['TARGET'],'plan_sha256':b['PLAN'],'before_manifest_sha256':b['BEFORE'],'after_manifest_sha256':b['AFTER'],'package_sha256':sha(package),'package_bytes':package.stat().st_size,'helper_sha256':sha(binary),'scripts_inventory_sha256':sha(output/'scripts-inventory.json'),'compiled_pins_sha256':sha(output/'source/CompiledPins.swift'),'payload_manifest_sha256':hashlib.sha256(payload_raw).hexdigest(),'predecessor_proof_inventory_sha256':hashlib.sha256(encoded(proof)).hexdigest(),'predecessor_payloads_omitted':['TargetImage/*','Predecessor/CompletedImage/*'],'predecessor_container_sha256':b['PACKAGE95'],'predecessor_full_inventory_sha256':b['INVENTORY95'],'predecessor_extraction':'fixed_sparse_archive_projection','source_sha256':{n:hashlib.sha256(raw).hexdigest() for n,raw in sources.items()},'shared_qa_sha256':sha(qa[0]),'runtime_qa_sha256':sha(qa[1]),'owner_qa_sha256':sha(qa[2]),'postinstall_timeout':1800,'postinstall_action':'none','installed':False,'production_ready':False,'native_rebuilt_for_local_journal_ordering_fix':True,'signed_helper_reused_unchanged_from_package99':True,'postinstall_helper_binding_verified':True,'local_tree_intent_prepared_before_publication':True,'preparation_regression_checks':21,'predecessor_resource_mode':'0755','native_build_commands_sha256':sha(output/'native-build-commands.json'),'packaging_driver_sha256':sha(Path(__file__))}
+(output/'review.json').write_bytes(encoded(report))
+print(json.dumps({k:report[k] for k in ('status','controller_source','packaging_source','package_sha256','package_bytes')}))

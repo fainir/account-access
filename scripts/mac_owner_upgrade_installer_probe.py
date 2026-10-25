@@ -15,7 +15,7 @@ import time
 import xml.etree.ElementTree as ET
 
 TARGET = "6736a20f8ed20d9188380b83b808ec9e380df501"
-PACKAGING = "9b867da0de9f91ffbca4a8c838c4bc692f1b5e47"
+PACKAGING = "6de39cec80f174727d6b0dc090ff176907a69503"
 PLAN = "1b5812e7e6618ce92a242f6acc5683daccd4485c7e2e57859597c029960ee42c"
 BEFORE = "03fb35eb2787ebd67079dd1cbe4dda125f430964540bdd2f2e9c81eda602fd7a"
 AFTER = "c80f0430c7529acb8479661554aadd7e6b1cfb98303df1e2bda1e5024a75356c"
@@ -29,7 +29,7 @@ CHECKS = {
     "no_restart_declared", "foreign_predecessor_refused", "scenario_exercised", "actual_installer",
     "exact_public_image", "policy_rotation", "roots_and_history_preserved", "live_service",
     "ordinary_public_runtime", "ordinary_public_runtime_reapply", "exact_reapply", "unchanged_reapply", "foreign_audit_refused",
-    "service_after_refusal", "old_package_resource_root_refused",
+    "service_after_refusal", "old_package_resource_root_refused", "postinstall_helper_binding_verified",
 }
 
 
@@ -226,11 +226,13 @@ def run(*, controller, args, stage, report, output, command, publication=None):
             and review["packaging_source"] == PACKAGING
             and review["predecessor_resource_mode"] == "0755"
             and review["native_rebuilt_for_local_journal_ordering_fix"] is True
+            and review["signed_helper_reused_unchanged_from_package99"] is True
+            and review["postinstall_helper_binding_verified"] is True
             and review["local_tree_intent_prepared_before_publication"] is True
             and type(review["preparation_regression_checks"]) is int and review["preparation_regression_checks"] == 21
             and review["postinstall_action"] == "none" and review["postinstall_timeout"] == 1800)
     require(c.digest(h.git_bytes(args.repository,
-        ["show", revision + ":artifacts/owner-upgrade99-assembly.py.txt"], maximum=65536))
+        ["show", revision + ":artifacts/owner-upgrade100-assembly.py.txt"], maximum=65536))
         == review["packaging_driver_sha256"])
     require(h.git_bytes(args.repository, ["show", PACKAGING + ":scripts/build_owner_upgrade_review.py"], maximum=65536)
             == source("scripts/build_owner_upgrade_review.py").read_bytes())
@@ -241,7 +243,7 @@ def run(*, controller, args, stage, report, output, command, publication=None):
     command(["/usr/sbin/pkgutil", "--expand-full", str(stage / "owner-upgrade.pkg"), str(expanded)], "owner-expand.log", 300)
     require({p.name for p in expanded.iterdir()} == {"PackageInfo", "Scripts"})
     info = ET.fromstring(h.read_file(expanded / "PackageInfo", maximum=65536))
-    require(info.get("identifier") == "com.fainir.accountaccess.ownerupgrade99"
+    require(info.get("identifier") == "com.fainir.accountaccess.ownerupgrade100"
             and info.get("version") == "0.1.0" and info.get("auth") == "root"
             and info.get("postinstall-action") == "none"
             and info.find("scripts/postinstall").attrib == {"file": "./postinstall", "timeout": "1800"})
@@ -263,6 +265,9 @@ def run(*, controller, args, stage, report, output, command, publication=None):
     require(c.digest(h.read_file(scripts / "AccountAccess-ownerupgrade", maximum=16 * 1024**2)) == review["helper_sha256"])
     result["checks"]["signature_verified"] = True
     builder = runpy.run_path(str(source("scripts/build_owner_upgrade_review.py")))
+    builder["verify_wrapper_binding"](h.read_file(scripts / "postinstall", maximum=8192),
+                                      c.digest(h.read_file(scripts / "AccountAccess-ownerupgrade", maximum=16 * 1024**2)))
+    result["checks"]["postinstall_helper_binding_verified"] = True
     previous = f.decode(h.read_file(stage / "upgrade-scripts-inventory.json", maximum=32 * 1024**2))
     projected = builder["proof_inventory"](previous)
     require(f.inventory(scripts / "Predecessor") == projected

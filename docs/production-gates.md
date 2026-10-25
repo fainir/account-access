@@ -184,13 +184,24 @@ pending.
 [Package 99 refusal](../artifacts/owner-upgrade99-installer-refusal-20261025.json) ·
 [Current live-process evidence](../artifacts/owner99-live-witness-20261025.json).
 
-Package 100 preparation corrects that wrapper binding without changing the
+Package 100 corrects that wrapper binding without changing the
 signed native helper or diagnostic owner app. The builder now checks the exact
 shell digest guard against the actual helper both before packaging and after
 independent expansion. Fifty local builder checks pass, including the exact
 rejected package 99 wrapper and an ordinary-user execution of its hash guard
-against owned fictional bytes. Package 100 build and actual Installer acceptance
-remain pending.
+against owned fictional bytes. The actual package 100 guard also accepts the
+frozen signed helper while the rejected package 99 guard refuses those same
+bytes; this ordinary-user check does not execute the helper. Package 100's
+13,983,039-byte build has SHA-256
+`f0703c7e89d68ff29668c72803b644a73ca0f9ad701258a5913bb1c0e9e86710`.
+The independent extracted inventory, shell binding, signature and no-restart
+query pass; all three private draft assets match their hashes. All 104 focused
+builder, plan and Installer-acceptance contract checks pass. Seven actual
+Installer scenarios remain pending. Package 100 has not been installed on the
+owner Mac.
+[Package 100 build](../artifacts/owner-upgrade100-build-20261025.json) ·
+[Exact shell binding](../artifacts/owner100-shell-binding-20261025.json) ·
+[Package 100 inputs](../artifacts/owner-upgrade100-installer-inputs.json).
 
 The separate-user Mac fixture now additionally exercises an already-enrolled
 client upgrading both exact legacy skills against its actual isolated worker.
@@ -282,9 +293,18 @@ An additional hosted-emulator scenario now checks normal package updates from
 version 2 to 3 and reapplication of version 3 with the same disposable certificate.
 It must preserve app UID, encrypted pairing bytes, Keystore decryption and SMS
 preferences. It refuses non-hosted environments and physical or ambiguous ADB
-targets before installation. Local compilation and all 27 focused checks pass;
-actual emulator acceptance remains pending. It does not test an existing real
-Bluetooth association, carrier SMS or a physical-phone update.
+targets before installation. Local compilation and all 27 focused checks pass.
+The first new fixture run stopped before the emulator because its strict file
+list did not account for the SDK's optional signature sidecar. The corrected
+test signer emits a self-contained instrumentation APK; its v2/v3 signatures
+were verified locally. At source `1663f42`, both actual emulator update journeys
+and the signing fixture passed. All five archives and reports were independently
+verified; the Android 11 update's certificate and APK hashes also match the
+retained signing report. Pairing decrypted after update and reapplication with
+unchanged encrypted bytes, preferences and app UID on Android 11 and 15. This
+does not test an existing real Bluetooth association, carrier SMS, a publisher
+key or a physical-phone update.
+[Verified signed-update evidence](../artifacts/android-signed-update-pairing-20261025.json).
 
 ## Additional supported mechanisms and limits
 
