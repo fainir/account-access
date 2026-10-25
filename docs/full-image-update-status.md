@@ -18,10 +18,13 @@ All 25,167 regular public files match the target; 20 Python/runtime links were
 recreated with mode 0700 and cannot be read by an ordinary user. The worker's
 public path validator rejects the interpreter alias and accepts its direct
 target. Root-only Installer checks missed this distinction. The staging fix
-passed the native regression suite. The package 95 repair candidate passed 433
-adapter assertions and requires a normal restart after installation. Its actual
-Installer qualification, installed repair, worker startup and AI connection
-remain pending.
+passed the native regression suite. Package 95 passed 433 adapter assertions
+and all five actual Installer scenarios, including repair of the broken package
+94 image under both ordinary-user identities. Five archives and 300 referenced
+log hashes were verified. Source CI passed 4,209 Python tests (108 skipped),
+dependency auditing and both native jobs. Package 95 requires a normal restart
+after installation; owner repair, worker startup and AI connection remain pending.
+[Package 95 acceptance](../artifacts/runtime-upgrade95-installer-acceptance-20261025.json).
 [Owner failure evidence](../artifacts/owner-runtime94-installed-startup-failure-20261025.json).
 See [current production acceptance](production-gates.md) for exact source,
 package identity and current results. The [qualification history](qualification-history-20261024.md)

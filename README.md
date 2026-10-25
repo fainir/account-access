@@ -27,8 +27,10 @@ attempt to install it left the old public image intact and the broker disabled.
 Package 94 passed all four actual Installer and recovery scenarios, including
 that disabled-service condition. It installed on the owner Mac on 25 October,
 but the account worker cannot start: the upgrade recreated 20 public Python
-links with root-only permissions. A staging fix passed native regression checks;
-repair of the installed links and successful app startup remain pending.
+links with root-only permissions. Package 95 fixes link staging and repairs the
+completed package 94 image. It passed all five actual Installer scenarios,
+including checks under both ordinary-user identities, and requires a normal
+restart. Owner installation and successful app startup remain pending.
 Personal email/SMS/TOTP login, the physical Android phone
 and consumer distribution remain open acceptance gates.
 [Initial owner observations](artifacts/owner-startup-and-import-213509c-20261021.json) ·

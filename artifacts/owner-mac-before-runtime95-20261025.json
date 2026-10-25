@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "status": "PUBLIC_BYTES_MATCH_WITH_KNOWN_94_ALIAS_FAILURE",
+  "observed_at": "2026-10-25T08:23:24.068096+00:00",
+  "package95_sha256": "0c7a83b47d405bd9b02686aceb938877c5cd2f36112cb0b8369069c643453371",
+  "target_manifest_sha256": "03fb35eb2787ebd67079dd1cbe4dda125f430964540bdd2f2e9c81eda602fd7a",
+  "regular_files_verified": 25167,
+  "directories_verified": 2297,
+  "runtime_aliases_with_known_mode_0700": 20,
+  "unreadable_alias_targets_not_verified": 20,
+  "public_alias_target_verified": 1,
+  "observation_sha256": "bc024e82504d48010a14882abcdaaa5e76416e751fb87439b88305fc0c798892",
+  "checker_sha256": "b199be6b619d07399e23d9723aa9b76f54cc7404b9df3299ab3b9084f8191656",
+  "private_data_read": false,
+  "installed_files_changed": false,
+  "service_control": false,
+  "owner_worker_ready": false,
+  "production_ready": false
+}

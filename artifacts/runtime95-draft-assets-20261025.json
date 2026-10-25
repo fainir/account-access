@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "status": "VERIFIED",
+  "release_id": 423239931,
+  "draft": true,
+  "tag": "qa-cbf0606-runtime-upgrade95",
+  "controller_source": "cbf06067e7dc5a53dc6f2d1e87f0284503474e6d",
+  "assets": [
+    {
+      "id": 674464391,
+      "name": "application-source.tar.gz",
+      "bytes": 4102980,
+      "sha256": "9b87297dced8b1ef3da4f453502bcb1741fa9ec2508ed7348277a3ca4038b0be"
+    },
+    {
+      "id": 674464389,
+      "name": "bitwarden-source.tar.gz",
+      "bytes": 219117936,
+      "sha256": "8d31c19571b032bfd557716b4b7c124f6a4624b917eca25cda359944c1fe2753"
+    },
+    {
+      "id": 674464392,
+      "name": "BUILD.md",
+      "bytes": 1633,
+      "sha256": "626d5b735ffe149b4063a3fab78cae9cb1ed09f5e643ba0be7e9a4f9cabfe167"
+    },
+    {
+      "id": 674464388,
+      "name": "controller-source.tar.gz",
+      "bytes": 4212012,
+      "sha256": "7fbda840cc8d21b2493cae63f1a973bac98aca671b20c69ef74c974b273b96bb"
+    },
+    {
+      "id": 674464393,
+      "name": "runtime-upgrade.pkg",
+      "bytes": 592586905,
+      "sha256": "0c7a83b47d405bd9b02686aceb938877c5cd2f36112cb0b8369069c643453371"
+    },
+    {
+      "id": 674464415,
+      "name": "upgrade-review.json",
+      "bytes": 4106,
+      "sha256": "e45aa152f2187b48ce2a928bd4444de10e354190081b3ef7a21a319367e0182d"
+    },
+    {
+      "id": 674464436,
+      "name": "upgrade-scripts-inventory.json",
+      "bytes": 14528707,
+      "sha256": "9072d9bce2fd9c1b6118e657c77cab3f32e5c44689f4bb230132f07bbbb0e1e1"
+    }
+  ],
+  "published": false,
+  "production_ready": false
+}

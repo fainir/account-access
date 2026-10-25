@@ -57,11 +57,45 @@ still refuse the update. The package SHA-256 is
   targets, interrupted repair, retry and foreign-path refusal. The package 95
   candidate also repairs the already-completed package 94 transition and will
   require a normal restart; it does not add a separate service-restart mechanism.
-  Actual Installer qualification, repair of the installed links, worker startup
-  and AI connection remain pending. No private records or installed files were changed during
+  Package 95's actual Installer qualification is recorded below. Repair of the
+  owner's links, worker startup and AI connection remain pending. No private records or installed files were changed during
   these observations. The outer package is unsigned and not notarized.
   [Owner handoff](../artifacts/owner-runtime94-installer-handoff-20261025.json).
   [Installed startup failure](../artifacts/owner-runtime94-installed-startup-failure-20261025.json).
+
+Package **95** is built from controller `cbf0606`, with the same application
+image at `7051ef2`. Its SHA-256 is
+`0c7a83b47d405bd9b02686aceb938877c5cd2f36112cb0b8369069c643453371`.
+All seven private draft assets match their recorded hashes. Source `95e351d`
+passed 4,209 Python tests (108 skipped), dependency auditing and both native
+jobs; archived native source pins were independently checked. The same source
+passed separate-user Mac acceptance: all five archives and 28 reports were
+verified, containing 492 passing named checks. Android 11/15 emulator and Linux
+separate-user workflows also passed. Actual Installer
+run `40175711160` passed all five scenarios: installation/reapplication,
+owner/runtime interruption, quiescence recovery and repair of the installed
+package 94 image. All five archives and 300 referenced log hashes were verified.
+The 80 successor checks and 12 scenario-specific recovery checks passed, along
+with 20 ordinary-identity observations and 10 exact running-broker observations.
+The package 94 regression refused both ordinary identities before repair,
+preserved all 20 link targets and inodes during repair, and accepted both
+identities after repair and reapplication. These checks do not start a real
+account worker or test an operating-system restart. The fixed package has not
+yet been installed on the owner Mac.
+
+Installer's actual `RestartAction` query reports `RequireRestart`. Repairing
+the aliases does not clear the broker's retained startup failure; a normal
+operating-system restart is required before checking app startup and upgrading
+the AI connection. This repair does not add a service-control command or read
+private accounts. The owner preflight confirms all regular target bytes and
+the 20 known mode-0700 aliases, whose targets cannot yet be read by that user.
+[Package 95 build](../artifacts/runtime-upgrade95-build-20261025.json) ·
+[Actual Installer acceptance](../artifacts/runtime-upgrade95-installer-acceptance-20261025.json) ·
+[Verified draft assets](../artifacts/runtime95-draft-assets-20261025.json) ·
+[Current source CI](../artifacts/runtime95-source-ci-20261025.json) ·
+[Current Mac worker acceptance](../artifacts/runtime95-source-mac-acceptance-20261025.json) ·
+[Current live-process evidence](../artifacts/runtime95-live-witness-20261025.json) ·
+[Owner preflight](../artifacts/owner-mac-before-runtime95-20261025.json).
 
 [Actual Installer acceptance](../artifacts/runtime-upgrade94-installer-acceptance-20261024.json) ·
 [Owner preflight](../artifacts/owner-mac-before-runtime94-20261024.json) ·
