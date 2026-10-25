@@ -3,7 +3,8 @@
 set -eu
 umask 077
 AC_SOURCE=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-AC_OUTPUT="$AC_SOURCE/dist/android"
+AC_OUTPUT="${ACCOUNT_ACCESS_ANDROID_OUTPUT:-$AC_SOURCE/dist/android}"
+AC_MANIFEST="${ACCOUNT_ACCESS_ANDROID_MANIFEST:-$AC_SOURCE/android/app/AndroidManifest.xml}"
 AC_SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/Library/Android/sdk}}"
 AC_JAVA="${ACCOUNT_ACCESS_JAVA_HOME:-${JAVA_HOME:-/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home}}"
 if [ ! -x "$AC_JAVA/bin/javac" ] && [ -x /opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home/bin/javac ]; then
@@ -29,9 +30,13 @@ fi
 "$AC_JAVA/bin/javac" -source 8 -target 8 -encoding UTF-8 -classpath "$AC_PLATFORM:$AC_ZXING" -d "$AC_OUTPUT/classes" "$AC_SOURCE"/android/app/src/com/fainir/accountaccess/*.java
 "$AC_JAVA/bin/jar" cf "$AC_OUTPUT/app-classes.jar" -C "$AC_OUTPUT/classes" .
 "$AC_TOOLS/d8" --min-api 26 --lib "$AC_PLATFORM" --output "$AC_OUTPUT/dex" "$AC_OUTPUT/app-classes.jar" "$AC_ZXING"
-"$AC_TOOLS/aapt2" link -I "$AC_PLATFORM" --manifest "$AC_SOURCE/android/app/AndroidManifest.xml" -o "$AC_OUTPUT/unsigned.apk"
+"$AC_TOOLS/aapt2" link -I "$AC_PLATFORM" --manifest "$AC_MANIFEST" -o "$AC_OUTPUT/unsigned.apk"
 (cd "$AC_OUTPUT/dex" && zip -q "$AC_OUTPUT/unsigned.apk" classes*.dex)
 "$AC_TOOLS/zipalign" -f 4 "$AC_OUTPUT/unsigned.apk" "$AC_OUTPUT/aligned.apk"
+if [ "${ACCOUNT_ACCESS_ANDROID_UNSIGNED_ONLY:-0}" = 1 ]; then
+ printf '%s\n' "$AC_OUTPUT/aligned.apk"
+ exit 0
+fi
 AC_KEY="$AC_OUTPUT/preview.keystore"
 if [ ! -f "$AC_KEY" ]; then
  "$AC_JAVA/bin/keytool" -genkeypair -keystore "$AC_KEY" -storepass account-access-preview -keypass account-access-preview -alias preview -keyalg RSA -keysize 2048 -validity 3650 -dname 'CN=Account Access development preview'

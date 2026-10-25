@@ -60,4 +60,45 @@ physical-phone acceptance of the tested binary. The signing keystore and test
 instrumentation APK are excluded from the artifact. The preview uses a development
 signing identity and is not an upgrade-stable production distribution.
 
+## Publisher signing candidate
+
+`scripts/build_android_release.py` builds with an existing publisher keystore
+outside the checkout. It requires the independently recorded certificate
+SHA-256, an explicit non-preview version, and either an initial-release choice
+or the previous signed APK. Updates must use that exact certificate and a
+higher version code. The tool never generates a replacement key, installs an
+APK or uploads a release. The keystore must be a private, single-link file in a
+private publisher directory; passwords are entered without echo in the local
+terminal and passed only to the SDK signing process.
+
+For an update, run this locally with your actual paths and public certificate
+fingerprint:
+
+```sh
+python3 scripts/build_android_release.py \
+  --keystore /private/publisher/phone.jks --alias phone \
+  --certificate-sha256 YOUR_RECORDED_CERTIFICATE_SHA256 \
+  --version-code 3 --version-name 0.6.0 \
+  --previous-apk /private/publisher/previous-phone.apk \
+  --output dist/android-publisher-candidate-3
+```
+
+Use `--initial-release` instead of `--previous-apk` for the first candidate.
+The output includes `Account-Access-Phone.apk` and a credential-free review
+record. The signed candidate is independently checked with `apksigner` and
+`aapt2`; source files must match the current Git commit and remain unchanged
+during the build. Development certificates are refused. The default preview
+build and its signing key remain separate. Android will not accept a different
+certificate as an update to an existing preview, and this tool never uninstalls
+that preview or discards its pairing.
+
+An explicit SDK-only CI fixture signs successive versions with a disposable
+fixture key and checks wrong-certificate and downgrade refusals. That fixture
+does not use a publisher key or install on a physical phone. Publisher-signed
+distribution, physical installation, pairing preservation across a real update
+and Android 15+ delivery still need acceptance.
+
+References: [Android app signing](https://developer.android.com/studio/publish/app-signing)
+and [the SDK signer](https://developer.android.com/tools/apksigner).
+
 For iPhone on Mac, use the separate Messages reader after configuring text forwarding and granting the signed Account Access app Full Disk Access. An iPhone companion cannot be assumed to read arbitrary SMS inboxes.
