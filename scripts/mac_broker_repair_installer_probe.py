@@ -579,7 +579,8 @@ def main():
     parser.add_argument("--verify-completed-predecessor", action="store_true")
     parser.add_argument("--runtime-upgrade", type=Path)
     parser.add_argument("--previous-runtime-upgrade", type=Path)
-    parser.add_argument("--runtime-scenario", choices=["install-reapply", "interrupt-owner", "interrupt-runtime", "quiescence-recovery"], default="install-reapply")
+    parser.add_argument("--alias-predecessor", type=Path)
+    parser.add_argument("--runtime-scenario", choices=["install-reapply", "interrupt-owner", "interrupt-runtime", "quiescence-recovery", "alias-recovery"], default="install-reapply")
     args = parser.parse_args()
     try:
         return run(args)

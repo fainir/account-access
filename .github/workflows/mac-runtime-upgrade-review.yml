@@ -6,7 +6,7 @@ on:
       - .github/workflows/mac-runtime-upgrade-review.yml
       - scripts/mac_runtime_upgrade_installer_probe.py
       - scripts/download_runtime_upgrade_inputs.py
-      - artifacts/runtime-upgrade94-installer-inputs.json
+      - artifacts/runtime-upgrade95-installer-inputs.json
   workflow_dispatch:
     inputs:
       identity_only:
@@ -79,6 +79,8 @@ jobs:
             --output "$RUNNER_TEMP/account-access-inputs/repair"
           python3 -I -B scripts/download_runtime_upgrade93_inputs.py \
             --output "$RUNNER_TEMP/account-access-inputs/previous-runtime-upgrade"
+          python3 -I -B scripts/download_runtime_upgrade94_inputs.py \
+            --output "$RUNNER_TEMP/account-access-inputs/alias-predecessor"
           python3 -I -B scripts/download_runtime_upgrade_inputs.py \
             --output "$RUNNER_TEMP/account-access-inputs/runtime-upgrade"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -96,7 +98,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        scenario: [install-reapply, interrupt-owner, interrupt-runtime, quiescence-recovery]
+        scenario: [install-reapply, interrupt-owner, interrupt-runtime, quiescence-recovery, alias-recovery]
     permissions:
       contents: read
     steps:
@@ -127,6 +129,7 @@ jobs:
               --repair "$RUNNER_TEMP/account-access-inputs/repair" \
               --runtime-upgrade "$RUNNER_TEMP/account-access-inputs/runtime-upgrade" \
               --previous-runtime-upgrade "$RUNNER_TEMP/account-access-inputs/previous-runtime-upgrade" \
+              --alias-predecessor "$RUNNER_TEMP/account-access-inputs/alias-predecessor" \
               --scenario install-reapply --cohort 91 --runtime-scenario "$AC_SCENARIO"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()

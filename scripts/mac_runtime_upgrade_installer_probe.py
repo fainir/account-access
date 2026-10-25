@@ -15,18 +15,21 @@ import subprocess
 import time
 import xml.etree.ElementTree as ET
 
-CONTROLLER = "b5ea8a20b0bb71e99698b444af8c5d19fa6a9921"
+CONTROLLER = "cbf06067e7dc5a53dc6f2d1e87f0284503474e6d"
 TARGET = "7051ef225ff2f35d67576d0ddbbc3e0b107e00bf"
 PLAN = "671c32eb5daacb79a1ec5f63d97cc29d2b6f34b5c75a773a1b477aca981ce6df"
 BEFORE = "5a732de4623ba50aefa6d31c54e7b1eae660b2921341f95042c5675d922d808b"
 AFTER = "03fb35eb2787ebd67079dd1cbe4dda125f430964540bdd2f2e9c81eda602fd7a"
 NAMESPACE = Path("/Library/Application Support/Account Access Runtime Updates")
-SCENARIOS = {"install-reapply", "interrupt-owner", "interrupt-runtime", "quiescence-recovery"}
+SCENARIOS = {"install-reapply", "interrupt-owner", "interrupt-runtime", "quiescence-recovery", "alias-recovery"}
 RECOVERY_CHECKS = {"old_package_refused", "new_package_unknown_process_refused", "previous_image_unchanged",
                    "owned_disabled_intent_retained", "apple_witness_survived", "witness_removed"}
+ALIAS_CHECKS = {"old_package_installed", "ordinary_users_refused_old_aliases", "closed_alias_set_repaired",
+                "link_targets_preserved", "ordinary_users_accept_repaired_aliases", "reapply_preserves_aliases"}
 CHECKS = {"fixed_inputs", "predecessor_fixture_accepted", "signature_verified", "scenario_exercised",
           "actual_installer", "exact_public_image", "policy_rotation", "roots_and_history_preserved",
-          "live_service", "exact_reapply", "unchanged_reapply", "foreign_audit_refused", "service_after_refusal"}
+          "live_service", "exact_reapply", "unchanged_reapply", "foreign_audit_refused", "service_after_refusal",
+          "ordinary_public_runtime", "ordinary_public_runtime_reapply", "restart_declared"}
 CACHE_REPAIR_FILES = (
     "runtime/lib/python3.12/encodings/__pycache__/__init__.cpython-312.pyc",
     "runtime/lib/python3.12/encodings/__pycache__/aliases.cpython-312.pyc",
@@ -123,7 +126,30 @@ def acceptance_passed(value):
             and value.get("installed_owner_machine") is False and value.get("failure_stage") is None
             and (value["scenario"] != "quiescence-recovery" or (
                 set(value.get("quiescence_recovery", {})) == RECOVERY_CHECKS
-                and all(v is True for v in value["quiescence_recovery"].values()))))
+                and all(v is True for v in value["quiescence_recovery"].values())))
+            and (value["scenario"] != "alias-recovery" or (
+                set(value.get("alias_recovery", {})) == ALIAS_CHECKS
+                and all(v is True for v in value["alias_recovery"].values()))))
+
+
+def runtime_alias_snapshot(controller, manifest):
+    controller.guard()
+    h, require = controller.h, controller.require
+    require(h.BASE == Path("/Library/Application Support/Account Access"))
+    nodes = manifest["roots"][str(h.BASE)]
+    aliases = {path: row for path, row in nodes.items() if row["kind"] == "symlink"
+               and path.split("/", 1)[0] in {"python", "runtime"}}
+    require(len(aliases) == 20)
+    result = {}
+    for path, row in sorted(aliases.items()):
+        leaf = h.BASE / path
+        before = leaf.lstat()
+        require(stat.S_ISLNK(before.st_mode) and before.st_uid == before.st_gid == 0 and before.st_nlink == 1)
+        target = os.readlink(leaf)
+        require(target == row["target"] and h.stamp(before) == h.stamp(leaf.lstat()))
+        result[path] = {"device": before.st_dev, "inode": before.st_ino, "mode": stat.S_IMODE(before.st_mode),
+                        "target": target, "size": before.st_size, "mtime_ns": before.st_mtime_ns}
+    return result
 
 
 def preceding_group(relative, legacy):
@@ -292,7 +318,8 @@ def run(*, controller, args, stage, report, output, command, publication=None):
             and review["before_manifest_sha256"] == BEFORE and review["after_manifest_sha256"] == AFTER
             and review["package_sha256"] == contract["assets"]["runtime-upgrade.pkg"]["sha256"]
             and review["scripts_inventory_sha256"] == contract["assets"]["upgrade-scripts-inventory.json"]["sha256"]
-            and review["installed"] is False and review["production_ready"] is False)
+            and review["installed"] is False and review["production_ready"] is False
+            and review["postinstall_action"] == "restart")
     for name, digest in review["source_sha256"].items():
         require(name.startswith("macos/") and ".." not in name
                 and c.digest(h.git_bytes(args.repository, ["show", CONTROLLER + ":" + name], maximum=2 * 1024**2)) == digest)
@@ -300,9 +327,11 @@ def run(*, controller, args, stage, report, output, command, publication=None):
     command(["/usr/sbin/pkgutil", "--expand-full", str(stage / "runtime-upgrade.pkg"), str(expanded)], "upgrade-expand.log", 300)
     require({p.name for p in expanded.iterdir()} == {"PackageInfo", "Scripts"})
     info = ET.fromstring(h.read_file(expanded / "PackageInfo", maximum=65536))
-    require(info.get("identifier") == "com.fainir.accountaccess.runtimeupgrade94"
+    require(info.get("identifier") == "com.fainir.accountaccess.runtimeupgrade95"
             and info.get("version") == "0.1.0" and info.get("auth") == "root"
+            and info.get("postinstall-action") == "restart"
             and info.find("scripts/postinstall").attrib == {"file": "./postinstall", "timeout": "1800"})
+    result["checks"]["restart_declared"] = True
     scripts = expanded / "Scripts"
     expected_inventory = f.decode(h.read_file(stage / "upgrade-scripts-inventory.json", maximum=32 * 1024**2))
     require(f.inventory(scripts) == expected_inventory)
@@ -343,7 +372,25 @@ def run(*, controller, args, stage, report, output, command, publication=None):
     fresh = runpy.run_path(str(source("scripts/mac_fresh_image_installer_probe.py")))
     fresh["live_service"].__globals__["h"] = h
     witness = None
+    old_aliases = None
     try:
+        if args.runtime_scenario == "alias-recovery":
+            result["alias_recovery"] = dict.fromkeys(ALIAS_CHECKS, False)
+            old_download = runpy.run_path(str(source("scripts/download_runtime_upgrade94_inputs.py")))
+            old_raw = (args.alias_predecessor / "asset-contract.json").read_bytes()
+            require(old_raw == h.git_bytes(args.repository, ["show", revision + ":" + old_download["CONTRACT"]], maximum=65536))
+            old_contract = old_download["validate"](f.decode(old_raw))
+            c.verify_assets(args.alias_predecessor, old_contract, old_download["FILES"], f.hash_file)
+            h.stage_file(args.alias_predecessor / "runtime-upgrade.pkg", stage / "runtime-upgrade94.pkg",
+                         old_contract["assets"]["runtime-upgrade.pkg"]["sha256"], 1024**3)
+            install("old-runtime94-before-alias-repair", package="runtime-upgrade94.pkg")
+            result["alias_recovery"]["old_package_installed"] = True
+            target_manifest = f.decode(h.read_file(scripts / "TargetManifest.json", maximum=16 * 1024**2))
+            h.verify_image(target_manifest)
+            old_aliases = runtime_alias_snapshot(c, target_manifest)
+            require(all(row["mode"] == 0o700 for row in old_aliases.values()))
+            result["ordinary_before_repair"] = ordinary_runtime_aliases(c, command, "before-alias-repair", expected_success=False)
+            result["alias_recovery"]["ordinary_users_refused_old_aliases"] = True
         if args.runtime_scenario == "quiescence-recovery":
             result["failure_stage"] = "quiescence_recovery_fixture"
             fixture = runpy.run_path(str(source("scripts/mac_runtime_quiescence_fixture.py")))
@@ -442,6 +489,16 @@ def run(*, controller, args, stage, report, output, command, publication=None):
         result["checks"]["actual_installer"] = True
         manifest = f.decode(h.read_file(scripts / "TargetManifest.json", maximum=16 * 1024**2))
         h.verify_image(manifest)
+        aliases = runtime_alias_snapshot(c, manifest)
+        require(all(row["mode"] == 0o755 for row in aliases.values()))
+        if old_aliases is not None:
+            result["alias_recovery"]["closed_alias_set_repaired"] = True
+            def unchanged(rows):
+                return {path: {key: value for key, value in row.items() if key != "mode"}
+                        for path, row in rows.items()}
+            require(unchanged(aliases) == unchanged(old_aliases))
+            result["alias_recovery"]["link_targets_preserved"] = True
+            result["alias_metadata"] = {"before": old_aliases, "after": aliases}
         head = f.decode(h.read_file(NAMESPACE / "head.json"))
         require(head["plan_sha256"] == PLAN and head["manifest_sha256"] == AFTER and head["source_commit"] == TARGET)
         result["checks"]["exact_public_image"] = True
@@ -452,6 +509,10 @@ def run(*, controller, args, stage, report, output, command, publication=None):
         result["checks"]["roots_and_history_preserved"] = True
         fresh["live_service"](command, "runtime-upgrade")
         result["checks"]["live_service"] = True
+        result["ordinary_after_upgrade"] = ordinary_runtime_aliases(c, command, "after-upgrade")
+        result["checks"]["ordinary_public_runtime"] = True
+        if old_aliases is not None:
+            result["alias_recovery"]["ordinary_users_accept_repaired_aliases"] = True
         image_snapshot = fresh["public_snapshot"](manifest)
         policy_snapshot = h.policies()
         upgrade_head = c.snapshot(NAMESPACE / "head.json")
@@ -460,6 +521,11 @@ def run(*, controller, args, stage, report, output, command, publication=None):
         require(fresh["public_snapshot"](manifest) == image_snapshot and h.policies() == policy_snapshot
                 and c.snapshot(NAMESPACE / "head.json") == upgrade_head and history() == preserved)
         result["checks"]["unchanged_reapply"] = True
+        require(runtime_alias_snapshot(c, manifest) == aliases)
+        result["ordinary_after_reapply"] = ordinary_runtime_aliases(c, command, "after-reapply")
+        result["checks"]["ordinary_public_runtime_reapply"] = True
+        if old_aliases is not None:
+            result["alias_recovery"]["reapply_preserves_aliases"] = True
         foreign = NAMESPACE / ("transition-" + PLAN) / "global/foreign-audit-fixture.json"
         c.create_file(foreign, b'{"schema":1,"foreign":true}')
         try:

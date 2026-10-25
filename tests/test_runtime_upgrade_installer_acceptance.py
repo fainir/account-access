@@ -60,6 +60,8 @@ def passed(scenario="install-reapply"):
              "production_ready": False, "real_account_login_tested": False, "installed_owner_machine": False}
     if scenario == "quiescence-recovery":
         value["quiescence_recovery"] = dict.fromkeys(probe["RECOVERY_CHECKS"], True)
+    if scenario == "alias-recovery":
+        value["alias_recovery"] = dict.fromkeys(probe["ALIAS_CHECKS"], True)
     return value
 
 
@@ -105,6 +107,8 @@ def test_host_guard_precedes_all_paths_and_callbacks():
         probe["reproduce_historical_cache_repair"](SimpleNamespace(guard=guard), None, None)
     with pytest.raises(Refused):
         probe["public_tree_groups"](SimpleNamespace(guard=guard), None)
+    with pytest.raises(Refused):
+        probe["runtime_alias_snapshot"](SimpleNamespace(guard=guard), None)
     fixture = runpy.run_path(str(ROOT / "scripts/mac_runtime_quiescence_fixture.py"))
     with pytest.raises(Refused):
         fixture["Witness"](SimpleNamespace(guard=guard), None, None, None)
@@ -132,6 +136,20 @@ def test_old_package_contract_remains_pinned_for_the_recovery_regression():
     contract = json.loads((ROOT / download["CONTRACT"]).read_text())
     assert download["validate"](contract) == contract
     assert contract["assets"]["runtime-upgrade.pkg"]["sha256"] == "f5db4c6c35ca1efe62bac0b572256b500f59032d9885a7bebb7b43b6702a9b23"
+
+
+def test_package94_contract_is_frozen_for_the_alias_recovery_regression():
+    download = runpy.run_path(str(ROOT / "scripts/download_runtime_upgrade94_inputs.py"))
+    contract = json.loads((ROOT / download["CONTRACT"]).read_text())
+    assert download["validate"](contract) == contract
+    assert contract["assets"]["runtime-upgrade.pkg"]["sha256"] == "1086e6eac90083489c7b85578f5267eaee77bdd6b3844b1b4a4579d89c731c3e"
+    for check in probe["ALIAS_CHECKS"]:
+        value = passed("alias-recovery")
+        value["alias_recovery"][check] = False
+        assert not probe["acceptance_passed"](value)
+    value = passed("alias-recovery")
+    value.pop("alias_recovery")
+    assert not probe["acceptance_passed"](value)
 
 
 def test_historical_cache_fixture_matches_recorded_owner_repair_exactly():
