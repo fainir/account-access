@@ -21,12 +21,15 @@ SPEC.loader.exec_module(builder)
 @pytest.mark.parametrize("leading_dot", [False, True])
 def test_sparse_cpio_extraction_keeps_verifier_and_omits_only_payloads(tmp_path, leading_dot):
     source, output = tmp_path / "input", tmp_path / "output"
-    source.mkdir()
-    output.mkdir()
+    source.mkdir(mode=0o700)
+    output.mkdir(mode=0o700)
     rows = {
         "TargetImage/large-payload": b"omit unchanged image",
         "Predecessor/CompletedImage/large-payload": b"omit unchanged ancestor",
         "TargetImageExtra/keep": b"different component",
+        "._TargetImage": b"omit directory AppleDouble metadata",
+        "Predecessor/._CompletedImage": b"omit ancestor AppleDouble metadata",
+        "._TargetImageExtra": b"retain unrelated metadata-looking name",
         "Predecessor/AccountAccess-broker": b"retain exact native verifier",
         "Predecessor/Plan.json": b"retain original source record",
         "TargetManifest.json": b"retain full target manifest",
@@ -38,16 +41,27 @@ def test_sparse_cpio_extraction_keeps_verifier_and_omits_only_payloads(tmp_path,
     archive = tmp_path / "Scripts"
     members = ["."] if leading_dot else sorted(p.name for p in source.iterdir())
     subprocess.run(
-        ["/usr/bin/tar", "--format=newc", "-czf", str(archive), "-C", str(source), *members],
+        [
+            "/usr/bin/tar",
+            "--no-mac-metadata",
+            "--format=newc",
+            "-czf",
+            str(archive),
+            "-C",
+            str(source),
+            *members,
+        ],
         check=True,
         capture_output=True,
     )
     subprocess.run(builder.proof_extract_command(archive, output), check=True, capture_output=True)
+    assert output.stat().st_mode & 0o777 == 0o700
     actual = {str(p.relative_to(output)): p.read_bytes() for p in output.rglob("*") if p.is_file()}
     assert actual == {
         name: raw
         for name, raw in rows.items()
         if not name.startswith(("TargetImage/", "Predecessor/CompletedImage/"))
+        and name not in {"._TargetImage", "Predecessor/._CompletedImage"}
     }
 
 

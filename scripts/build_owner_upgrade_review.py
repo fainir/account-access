@@ -122,6 +122,7 @@ def proof_inventory(rows):
 def proof_extract_command(archive, output):
     return [
         "/usr/bin/tar",
+        "--no-mac-metadata",
         "-xf",
         str(archive),
         "-C",
@@ -130,6 +131,10 @@ def proof_extract_command(archive, output):
         "--exclude=./TargetImage/*",
         "--exclude=Predecessor/CompletedImage/*",
         "--exclude=./Predecessor/CompletedImage/*",
+        "--exclude=._TargetImage",
+        "--exclude=./._TargetImage",
+        "--exclude=Predecessor/._CompletedImage",
+        "--exclude=./Predecessor/._CompletedImage",
     ]
 
 
@@ -240,7 +245,7 @@ def build(args):
     expanded = output / "previous"
     expanded.mkdir(mode=0o700)
     previous_scripts = expanded / "Scripts"
-    previous_scripts.mkdir(mode=0o755)
+    previous_scripts.mkdir(mode=expected_proof[""]["mode"])
     command("extract-previous-proof", proof_extract_command(archive / "Scripts", previous_scripts))
     for relative in ("TargetImage", "Predecessor/CompletedImage"):
         path = previous_scripts / relative

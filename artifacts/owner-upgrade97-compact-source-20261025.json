@@ -94,5 +94,11 @@
   "installed_paths_changed": false,
   "actual_installer_qualified": false,
   "real_accounts_tested": false,
-  "production_ready": false
+  "production_ready": false,
+  "python_plan_and_builder_checks": 60,
+  "predecessor_projection_nodes": 20,
+  "fixed_AppleDouble_records_omitted": [
+    "._TargetImage",
+    "Predecessor/._CompletedImage"
+  ]
 }
