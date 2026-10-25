@@ -106,6 +106,24 @@ exported. The repair adds no service-control command.
 [Owner installation and restart](../artifacts/owner-runtime95-post-restart-20261025.json) ·
 [Connection upgrade failure](../artifacts/owner-runtime95-agent-upgrade-failure-20261025.json).
 
+The signed diagnostic owner app 96 identifies the failing AI-connection step
+using fixed messages. Package **97**, with native controller `91d4b7b` and
+packaging correction `71169c1`, is built but awaits Installer qualification.
+Its 13,695,030-byte package has SHA-256
+`6d10b85a88652caa9663571a9cd2b57af23b3e81ba8b08585944c36240b5fdc9`.
+The package contains the owner bundle and exact predecessor verification
+records. Its independently expanded inventory matches, the helper signature
+and ordinary-user refusal pass, and Installer reports no restart. Native
+source checks passed 32 parser, 26 namespace, 477 tree-storage and 324
+mixed-storage checks; the focused planner/builder/Installer-guard suite passed
+146 tests. Six actual Installer scenarios cover installation/reapplication,
+three interrupted exchanges, and predecessors recovered through alias and
+service-quiescence repairs. Those scenarios are pending. The owner Mac is on
+package 95, and the AI connection failure remains unresolved.
+[Package 97 build](../artifacts/owner-upgrade97-build-20261025.json) ·
+[Compact-source checks](../artifacts/owner-upgrade97-compact-source-20261025.json) ·
+[Frozen Installer inputs](../artifacts/owner-upgrade97-installer-inputs.json).
+
 [Actual Installer acceptance](../artifacts/runtime-upgrade94-installer-acceptance-20261024.json) ·
 [Owner preflight](../artifacts/owner-mac-before-runtime94-20261024.json) ·
 [Package build](../artifacts/runtime-upgrade94-build-20261024.json) ·
