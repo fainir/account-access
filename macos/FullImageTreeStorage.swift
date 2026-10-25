@@ -305,16 +305,20 @@ final class PublicTreeStorage {
     private var history: [Record] = []
     private var intentRecord: Record?
     private let observationDevice: Int32?
+    // A fixed successor can qualify the original published tree in its own
+    // retained slot. This mode is read-only and never chooses a filesystem path.
+    private let completedProjection: (() throws -> PublicTreePin?)?
 
     private init(operation: PublicTreeOperation, unit: PublicTreeUnit, old: PublicTreeInventory, new: PublicTreeInventory,
         target: Parent, retained: Parent, journal: Parent, owner: uid_t, group: gid_t, beforeGroup: gid_t,
         requireQuiescent: @escaping () throws -> Void, fault: @escaping (Phase) throws -> Void,
-        observationDevice: Int32?) {
+        observationDevice: Int32?, completedProjection: (() throws -> PublicTreePin?)?) {
         self.operation = operation; self.unit = unit; self.old = old; self.new = new
         self.target = target; self.retained = retained; self.journal = journal
         self.owner = owner; self.group = group; self.beforeGroup = beforeGroup
         self.requireQuiescent = requireQuiescent; self.fault = fault
         self.observationDevice = observationDevice
+        self.completedProjection = completedProjection
     }
     deinit { Darwin.close(target.fd); Darwin.close(retained.fd); Darwin.close(journal.fd) }
     private static func encode<Value: Encodable>(_ value: Value) throws -> Data {
@@ -371,9 +375,11 @@ final class PublicTreeStorage {
         beforeGroup: gid_t? = nil,
         requireQuiescent: @escaping () throws -> Void, createIfMissing: Bool = true,
         observationDevice: Int32? = nil,
+        completedProjection: (() throws -> PublicTreePin?)? = nil,
         fault: @escaping (Phase) throws -> Void = { _ in }) throws -> PublicTreeStorage {
         let beforeGroup = beforeGroup ?? group
         guard observationDevice == nil || (!createIfMissing && observationDevice! >= 0) else { throw PublicTreeFailure.invalid }
+        guard completedProjection == nil || !createIfMissing else { throw PublicTreeFailure.invalid }
         guard operation.schema == 2, operation.unit == unit.rawValue, unit.accepts(old: old, new: new),
               operation.planSHA256.utf8.count == 64,
               operation.planSHA256.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }),
@@ -398,7 +404,8 @@ final class PublicTreeStorage {
               [operation.before, operation.after].compactMap({ $0 }).allSatisfy({ $0.device == (observationDevice ?? target.device) }) else { throw PublicTreeFailure.invalid }
         let value = PublicTreeStorage(operation: operation, unit: unit, old: old, new: new, target: target,
             retained: retained, journal: journal, owner: owner, group: group, beforeGroup: beforeGroup,
-            requireQuiescent: requireQuiescent, fault: fault, observationDevice: observationDevice)
+            requireQuiescent: requireQuiescent, fault: fault, observationDevice: observationDevice,
+            completedProjection: completedProjection)
         adopted = true
         try value.prepareJournal(createIfMissing: createIfMissing)
         _ = try value.state()
@@ -431,7 +438,7 @@ final class PublicTreeStorage {
             mtimeNsec: Int64(before.st_mtimespec.tv_nsec), ctimeSec: Int64(before.st_ctimespec.tv_sec), ctimeNsec: Int64(before.st_ctimespec.tv_nsec))
     }
     private func write(_ name: String, data: Data) throws -> Record {
-        guard observationDevice == nil else { throw PublicTreeFailure.journal }
+        guard observationDevice == nil, completedProjection == nil else { throw PublicTreeFailure.journal }
         try parents()
         guard data.count <= 4096 else { throw PublicTreeFailure.journal }
         let fd = openat(journal.fd, name, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0o600)
@@ -528,6 +535,18 @@ final class PublicTreeStorage {
             return PublicTreePin(device: target.device, inode: pin.inode, owner: pin.owner,
                 group: pin.group, mode: pin.mode, inventorySHA256: pin.inventorySHA256)
         }
+        if let completedProjection {
+            guard previous != nil, previous != .rolledBack,
+                  try completedProjection() == expected(operation.after),
+                  try identity(retained, unit.slot, operation.before),
+                  try PublicTreeIO.observeOptional(retained.fd, name: unit.slot, inventory: old,
+                    owner: owner, group: beforeGroup, attachment: retained.attachment,
+                    priorReleaseGroup: unit.runtimeUpgrade ? group : nil) == expected(operation.before) else {
+                throw PublicTreeFailure.changed
+            }
+            try parents(); try journalUnchanged()
+            return .applied
+        }
         if try identity(target, unit.name, operation.before), try identity(retained, unit.slot, operation.after) {
             guard previous != .applied,
                   try PublicTreeIO.observeOptional(target.fd, name: unit.name, inventory: old, owner: owner, group: beforeGroup, attachment: target.attachment, priorReleaseGroup: unit.runtimeUpgrade ? group : nil) == expected(operation.before),
@@ -543,10 +562,48 @@ final class PublicTreeStorage {
         return .applied
     }
 
+    // The caller still has to qualify the completed global transition. This
+    // evidence merely binds its valid local history and applied view. Recovery
+    // can finish globally after an exchange whose local acknowledgment was lost.
+    func completedEvidence() throws -> Data {
+        guard !history.isEmpty, try state() == .applied else { throw PublicTreeFailure.journal }
+        let raw = try journalEvidence()
+        guard try state() == .applied else { throw PublicTreeFailure.changed }
+        return raw
+    }
+
+    // History-only recheck for a caller that already owns a completed proof.
+    // This method makes no claim about the current or retained tree contents.
+    func journalEvidence() throws -> Data {
+        try parents(); try journalUnchanged()
+        guard let intentRecord else { throw PublicTreeFailure.journal }
+        let value: [String: Any] = ["schema": 1,
+            "intent_sha256": PublicTreeInventory.digest(intentRecord.data),
+            "event_sha256": history.map { PublicTreeInventory.digest($0.data) }]
+        let raw = try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys, .withoutEscapingSlashes])
+        try journalUnchanged()
+        try parents()
+        return raw
+    }
+
+    // Used only by a separately validated successor to supply its original
+    // before tree. Both views, parent attachments and the journal are checked.
+    func originalObservation() throws -> PublicTreePin? {
+        guard completedProjection == nil, observationDevice == nil else { throw PublicTreeFailure.invalid }
+        let current = try state()
+        let parent = current == .staged ? target : retained
+        let name = current == .staged ? unit.name : unit.slot
+        let result = try PublicTreeIO.observeOptional(parent.fd, name: name, inventory: old,
+            owner: owner, group: beforeGroup, attachment: parent.attachment,
+            priorReleaseGroup: unit.runtimeUpgrade ? group : nil)
+        guard result == operation.before, try state() == current else { throw PublicTreeFailure.changed }
+        return result
+    }
+
     func apply() throws { try exchange(forward: true) }
     func reverse() throws { try exchange(forward: false) }
     private func exchange(forward: Bool) throws {
-        guard observationDevice == nil else { throw PublicTreeFailure.journal }
+        guard observationDevice == nil, completedProjection == nil else { throw PublicTreeFailure.journal }
         try requireQuiescent()
         let wanted: State = forward ? .staged : .applied
         if try state() != wanted { return }

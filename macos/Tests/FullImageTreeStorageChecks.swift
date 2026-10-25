@@ -8,13 +8,15 @@ private enum FixtureFailure: Error { case failed, interruption }
 
 @main struct PublicTreeChecks {
     private static var count = 0
-    private static func expect(_ value: Bool) throws {
+    private static var lastCheckLine = 0
+    private static func expect(_ value: Bool, line: Int = #line) throws {
+        lastCheckLine = line
         guard value else { throw FixtureFailure.failed }; count += 1
     }
-    private static func refuses(_ body: () throws -> Void) throws {
+    private static func refuses(_ body: () throws -> Void, line: Int = #line) throws {
         var refused = false
         do { try body() } catch { refused = true }
-        try expect(refused)
+        try expect(refused, line: line)
     }
     private static func directory(_ parent: Int32, _ name: String, _ mode: mode_t) throws -> Int32 {
         guard mkdirat(parent, name, mode) == 0 else { throw FixtureFailure.failed }
@@ -120,6 +122,14 @@ private enum FixtureFailure: Error { case failed, interruption }
                 journalAttachment: journalAttachment, old: old, new: new, owner: getuid(), group: getgid(), requireQuiescent: {
                     guard self.quiescent else { throw PublicTreeFailure.barrier }
                 }, createIfMissing: createIfMissing, observationDevice: observationDevice, fault: fault)
+        }
+        func projectedStorage(createIfMissing: Bool = false,
+                              projection: @escaping () throws -> PublicTreePin?) throws -> PublicTreeStorage {
+            try PublicTreeStorage.open(operation: operation, unit: unit, targetParent: target, retainedParent: retained,
+                journalParent: journal, targetAttachment: targetAttachment, retainedAttachment: retainedAttachment,
+                journalAttachment: journalAttachment, old: old, new: new, owner: getuid(), group: getgid(),
+                requireQuiescent: { throw PublicTreeFailure.barrier }, createIfMissing: createIfMissing,
+                completedProjection: projection)
         }
         func stagedFD() throws -> Int32 {
             let fd = openat(retained, unit.slot, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
@@ -229,6 +239,52 @@ private enum FixtureFailure: Error { case failed, interruption }
                     owner: getuid(), group: getgid(), attachment: scenario.targetAttachment) == scenario.operation.before)
             }
             do {
+                let scenario = try Scenario(root: root, anchor: anchor, name: "completed-projection", unit: .owner)
+                let storage = try scenario.storage()
+                try expect(try storage.originalObservation() == scenario.operation.before)
+                try refuses { _ = try storage.completedEvidence() }
+                try refuses { _ = try scenario.projectedStorage(createIfMissing: true, projection: { scenario.operation.after }) }
+                try refuses { _ = try scenario.projectedStorage(projection: { scenario.operation.after }) }
+                try storage.apply()
+                let evidence = try storage.completedEvidence()
+                try expect(try storage.originalObservation() == scenario.operation.before)
+                let moved = try directory(scenario.parent, "published-before", 0o755)
+                defer { Darwin.close(moved) }
+                let steps = [
+                    PublicTreeAncestorStep(name: try PublicTreeAncestorName("completed-projection"),
+                        identity: try PublicTreeDirectoryIdentity.observe(scenario.parent, owner: getuid(), group: getgid())),
+                    PublicTreeAncestorStep(name: try PublicTreeAncestorName("published-before"),
+                        identity: try PublicTreeDirectoryIdentity.observe(moved, owner: getuid(), group: getgid()))]
+                let attached = try PublicTreeAttachment.bind(anchor: anchor, steps: steps, role: .target(scenario.unit),
+                    parentFD: moved, owner: getuid(), group: getgid())
+                guard renameatx_np(scenario.target, scenario.unit.name, moved, scenario.unit.name, UInt32(RENAME_EXCL)) == 0 else {
+                    throw FixtureFailure.failed
+                }
+                try refuses { _ = try storage.state() }
+                let projected = try scenario.projectedStorage(projection: {
+                    try PublicTreeIO.observeOptional(moved, name: scenario.unit.name, inventory: scenario.new,
+                        owner: getuid(), group: getgid(), attachment: attached)
+                })
+                try expect(try projected.state() == .applied)
+                try expect(try projected.completedEvidence() == evidence)
+                try refuses { try projected.apply() }
+                try refuses { try projected.reverse() }
+                try refuses { _ = try projected.originalObservation() }
+                try refuses { _ = try scenario.projectedStorage(projection: { scenario.operation.before }) }
+                try file(scenario.journal, "foreign", Data("not a journal record".utf8))
+                try refuses { _ = try projected.completedEvidence() }
+                guard unlinkat(scenario.journal, "foreign", 0) == 0 else { throw FixtureFailure.failed }
+                try expect(try projected.completedEvidence() == evidence)
+                let current = openat(moved, scenario.unit.name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+                guard current >= 0 else { throw FixtureFailure.failed }
+                defer { Darwin.close(current) }
+                try file(current, "foreign", Data("unexpected tree member".utf8))
+                try refuses { _ = try projected.state() }
+                try refuses { _ = try projected.completedEvidence() }
+                guard unlinkat(current, "foreign", 0) == 0 else { throw FixtureFailure.failed }
+                try expect(try projected.completedEvidence() == evidence)
+            }
+            do {
                 let scenario = try Scenario(root: root, anchor: anchor, name: "interrupted", unit: .owner)
                 let storage = try scenario.storage { phase in
                     if phase == .afterRename { throw FixtureFailure.interruption }
@@ -237,6 +293,7 @@ private enum FixtureFailure: Error { case failed, interruption }
                 try expect(try storage.state() == .applied)
                 let retry = try scenario.storage()
                 try retry.apply(); try expect(try retry.state() == .applied)
+                try expect(try !retry.completedEvidence().isEmpty)
                 try retry.reverse(); try expect(try retry.state() == .staged)
             }
             for (index, mutation) in ["extra-member", "symlink-file", "hardlink-file", "bad-link-target", "wrong-mode", "wrong-bytes"].enumerated() {
@@ -342,7 +399,7 @@ private enum FixtureFailure: Error { case failed, interruption }
             }
             let originalChecks = 63 + (symlinkACLQualified ? 2 : 0)
             // Nine additional units add 45 round-trip checks; read-only reopen adds four.
-            try expect(count == originalChecks + 49)
+            try expect(count == originalChecks + 49 + 18)
             let optional = PublicTreeUnit.fullImageCases.filter { $0.beforePresent != $0.afterPresent }
             try expect(optional.count == 4 && PublicTreeUnit.fullImageCases.count == 13)
             for (index, unit) in optional.enumerated() {
@@ -417,7 +474,7 @@ private enum FixtureFailure: Error { case failed, interruption }
                     owner: getuid(), group: getgid(), planSHA256: scenario.operation.planSHA256) }
             }
             try refuses { _ = try manifest(.project, Data(), present: false) }
-            guard count == originalChecks + 49 + 2 + 4 * 26 + 1 else { throw FixtureFailure.failed }
+            guard count == originalChecks + 49 + 18 + 2 + 4 * 26 + 1 else { throw FixtureFailure.failed }
             // Fictional historical journal bytes, never an installed receipt.
             // Cover replacement, creation and removal on both sides of rename.
             for (index, unit) in PublicTreeUnit.fullImageCases.enumerated() {
@@ -484,7 +541,7 @@ private enum FixtureFailure: Error { case failed, interruption }
             let aclCase = symlinkACLQualified ? "PASSED" : "UNQUALIFIED_OS_DECLINED_CREATION"
             print("{\"schema\":1,\"status\":\"\(status)\",\"ordinary_temp_only\":true,\"checks\":\(count),\"original_checks_preserved\":65,\"fixed_tree_units\":13,\"optional_units\":4,\"post_exchange_ancestor_cases\":2,\"nonempty_symlink_acl_refusal\":\"\(aclCase)\",\"installed_reads\":false,\"root_execution\":false,\"service_actions\":false,\"production_ready\":false}")
         } catch {
-            print("{\"schema\":1,\"status\":\"REFUSED\",\"reason\":\"public_tree_temp_fixture_failed\",\"completed_checks\":\(count),\"production_ready\":false}")
+            print("{\"schema\":1,\"status\":\"REFUSED\",\"reason\":\"public_tree_temp_fixture_failed\",\"completed_checks\":\(count),\"last_check_line\":\(lastCheckLine),\"production_ready\":false}")
             exit(78)
         }
     }

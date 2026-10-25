@@ -114,7 +114,8 @@ private enum MixedCheckFailure: Error { case failed, interrupted }
                 writeEvent: { self.events.append(($0, $1)) }, verifyOld: {}, verifyRecoverable: {},
                 verifyNew: { if self.failNew { self.failNew = false; throw MixedCheckFailure.interrupted } })
         }
-        func observe(_ operation: FullImageFileOperation, device: Int32?) throws -> FullImageFileStorage {
+        func observe(_ operation: FullImageFileOperation, device: Int32?,
+                     projection: (() throws -> ComponentObject?)? = nil) throws -> FullImageFileStorage {
             let targetFD = target, retainedFD = retained
             let a = try PublicTreeDirectoryIdentity.observe(targetFD, owner: getuid(), group: getgid())
             let b = try PublicTreeDirectoryIdentity.observe(retainedFD, owner: getuid(), group: getgid())
@@ -124,7 +125,8 @@ private enum MixedCheckFailure: Error { case failed, interrupted }
             }, verifyAttachments: {
                 guard try PublicTreeDirectoryIdentity.observe(targetFD, owner: getuid(), group: getgid()) == a,
                       try PublicTreeDirectoryIdentity.observe(retainedFD, owner: getuid(), group: getgid()) == b else { throw MixedCheckFailure.failed }
-            }, requireQuiescent: { throw MixedCheckFailure.failed }, observationDevice: device)
+            }, requireQuiescent: { throw MixedCheckFailure.failed }, observationDevice: device,
+                completedProjection: projection)
         }
     }
     static func main() {
@@ -168,6 +170,36 @@ private enum MixedCheckFailure: Error { case failed, interrupted }
                     try refuses { _ = try storage.state(foreign) }
                     try expect(try ComponentFiles.observe(scenario.target, FullImageFileUnit.pythonPip312.rawValue, owner: getuid()) == nil)
                 }
+            }
+            do {
+                let scenario = try Scenario(parent: root, name: "completed-file-projection")
+                let storage = try scenario.storage()
+                let file = scenario.files.first { $0.operation.unit == .packageIdentity }!
+                try expect(try file.originalObservation().1 == file.operation.before)
+                _ = try ComponentTransition(storage: storage, service: scenario.barrier).run(recovering: false)
+                try expect(try file.originalObservation().1 == file.operation.before)
+                let moved = try directory(scenario.root, "published-before", 0o700)
+                defer { Darwin.close(moved) }
+                let name = file.operation.unit.rawValue
+                try ComponentFiles.rename(scenario.target, name, moved, name, swap: false)
+                try expect(try file.state() == .conflict)
+                let projected = try scenario.observe(file.operation, device: nil, projection: {
+                    try ComponentFiles.observe(moved, name, owner: getuid())
+                })
+                try expect(try projected.state() == .applied)
+                try expect(try projected.originalObservation().1 == file.operation.before)
+                try refuses { try projected.apply() }
+                try refuses { try projected.reverse() }
+                let wrong = try scenario.observe(file.operation, device: nil, projection: { file.operation.before })
+                try expect(try wrong.state() == .conflict)
+                try refuses { _ = try wrong.originalObservation() }
+                try ComponentFiles.rename(moved, name, moved, "backup", swap: false)
+                _ = try self.file(moved, name, "foreign")
+                try expect(try projected.state() == .conflict)
+                try refuses { _ = try projected.originalObservation() }
+                guard unlinkat(moved, name, 0) == 0 else { throw MixedCheckFailure.failed }
+                try ComponentFiles.rename(moved, "backup", moved, name, swap: false)
+                try expect(try projected.state() == .applied)
             }
             for applied in [false, true] {
                 let scenario = try Scenario(parent: root, name: "historical-files-\(applied)")

@@ -1,0 +1,181 @@
+"""Build contract checks with fictional reports and inventories only."""
+
+from copy import deepcopy
+import hashlib
+import importlib.util
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+
+SPEC = importlib.util.spec_from_file_location(
+    "owner_builder", Path(__file__).resolve().parents[1] / "scripts/build_owner_upgrade_review.py"
+)
+builder = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(builder)
+
+
+def reports():
+    source = {"macos/fictional.swift": b"fictional source"}
+    pins = {name: hashlib.sha256(raw).hexdigest() for name, raw in source.items()}
+    shared = {
+        "status": "PASSED",
+        "sources_stable": True,
+        "guarded_main_refusals": 6,
+        "source_sha256": pins,
+    }
+    runtime = {
+        "status": "PASSED",
+        "entrypoint_ordinary_refusal": True,
+        "installed_reads": False,
+        "result": {"status": "PASSED", "checks": 68},
+        "source_sha256": pins,
+    }
+    owner = {
+        "status": "PASSED",
+        "ordinary_entrypoint_refusal": True,
+        "installed_reads": False,
+        "installed_writes": False,
+        "production_ready": False,
+        "source_sha256": pins,
+        "results": [
+            {"status": "PASSED", "checks": 29},
+            {"status": "PASSED", "ordinary_context_refusals": 2, "namespace_checks": 26},
+            {"status": "PASSED", "checks": 477, "root_execution": False},
+            {"status": "PASSED", "checks": 324, "owned_temp_fake_barrier_only": True},
+        ],
+    }
+    return shared, runtime, owner, source
+
+
+def test_exact_ordinary_qa_and_source_bindings_are_required():
+    builder.validate_qa(*reports())
+
+
+@pytest.mark.parametrize(
+    "fault",
+    [
+        "shared_status",
+        "shared_stability",
+        "shared_refusals",
+        "runtime_status",
+        "runtime_entry",
+        "runtime_result",
+        "runtime_reads",
+        "owner_status",
+        "owner_entry",
+        "owner_reads",
+        "owner_writes",
+        "owner_production",
+        "missing_result",
+        "failed_result",
+        "source_changed",
+        "shared_source_changed",
+        "namespace_count",
+        "root_execution",
+        "real_barrier",
+    ],
+)
+def test_unqualified_or_mismatched_reports_refused(fault):
+    shared, runtime, owner, sources = deepcopy(reports())
+    if fault == "shared_status":
+        shared["status"] = "REFUSED"
+    elif fault == "shared_stability":
+        shared["sources_stable"] = False
+    elif fault == "shared_refusals":
+        shared["guarded_main_refusals"] = 5
+    elif fault == "runtime_status":
+        runtime["status"] = "REFUSED"
+    elif fault == "runtime_entry":
+        runtime["entrypoint_ordinary_refusal"] = False
+    elif fault == "runtime_result":
+        runtime["result"]["status"] = "REFUSED"
+    elif fault == "runtime_reads":
+        runtime["installed_reads"] = True
+    elif fault == "owner_status":
+        owner["status"] = "REFUSED"
+    elif fault == "owner_entry":
+        owner["ordinary_entrypoint_refusal"] = False
+    elif fault == "owner_reads":
+        owner["installed_reads"] = True
+    elif fault == "owner_writes":
+        owner["installed_writes"] = True
+    elif fault == "owner_production":
+        owner["production_ready"] = True
+    elif fault == "missing_result":
+        owner["results"].pop()
+    elif fault == "failed_result":
+        owner["results"][0]["status"] = "REFUSED"
+    elif fault == "source_changed":
+        sources["macos/fictional.swift"] = b"different source"
+    elif fault == "shared_source_changed":
+        shared["source_sha256"] = {"macos/fictional.swift": "0" * 64}
+    elif fault == "namespace_count":
+        owner["results"][1]["namespace_checks"] = 25
+    elif fault == "root_execution":
+        owner["results"][2]["root_execution"] = True
+    elif fault == "real_barrier":
+        owner["results"][3]["owned_temp_fake_barrier_only"] = False
+    with pytest.raises(ValueError, match="owner_upgrade_build_refused"):
+        builder.validate_qa(shared, runtime, owner, sources)
+
+
+@pytest.mark.parametrize(
+    "platform,uid,euid", [("linux", 501, 501), ("darwin", 0, 0), ("darwin", 501, 0)]
+)
+def test_context_refusal_precedes_any_path_read(monkeypatch, platform, uid, euid):
+    monkeypatch.setattr(builder.sys, "platform", platform)
+    monkeypatch.setattr(builder.os, "getuid", lambda: uid)
+    monkeypatch.setattr(builder.os, "geteuid", lambda: euid)
+    with pytest.raises(ValueError, match="owner_upgrade_build_refused"):
+        builder.build(SimpleNamespace())
+
+
+@pytest.mark.parametrize(
+    "fault", [None, "extra_root", "changed_byte", "missing_alias", "wrong_mode"]
+)
+def test_whole_build_tree_matches_the_two_public_roots(fault):
+    directory = {"kind": "directory", "mode": 0o755, "acl": "empty"}
+    alias = {
+        "kind": "symlink",
+        "mode": 0o755,
+        "target": "../Library/Application Support/Account Access/owner.app",
+        "acl": "empty",
+    }
+    file = {"kind": "file", "mode": 0o644, "bytes": 3, "sha256": "a" * 64, "acl": "empty"}
+    rows = {
+        name: dict(directory)
+        for name in (
+            "",
+            "Applications",
+            "Library",
+            "Library/Application Support",
+            "Library/Application Support/Account Access",
+        )
+    }
+    rows["Applications/Account Access.app"] = dict(alias)
+    rows["Library/Application Support/Account Access/example"] = dict(file)
+    manifest = {
+        "roots": {
+            "/Applications/Account Access.app": {
+                "": {"kind": "symlink", "target": alias["target"]}
+            },
+            "/Library/Application Support/Account Access": {
+                "": {"kind": "directory", "mode": 0o755},
+                "example": {"kind": "file", "mode": 0o644, "size": 3, "sha256": "a" * 64},
+            },
+        }
+    }
+    if fault == "extra_root":
+        rows["unreviewed"] = directory
+    elif fault == "changed_byte":
+        rows["Library/Application Support/Account Access/example"]["sha256"] = "b" * 64
+    elif fault == "missing_alias":
+        del rows["Applications/Account Access.app"]
+    elif fault == "wrong_mode":
+        rows["Library/Application Support/Account Access/example"]["mode"] = 0o600
+    if fault is None:
+        builder.public_image(rows, manifest)
+    else:
+        with pytest.raises(ValueError, match="owner_upgrade_build_refused"):
+            builder.public_image(rows, manifest)

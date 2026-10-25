@@ -69,6 +69,14 @@ successor installer yet: the existing package 95 controller accepts only its
 frozen predecessor and target. Updating the installed app requires a new
 controller that verifies the completed predecessor and preserves its history;
 copying this candidate over the installed app would invalidate that state.
+The new owner successor controller and completed-runtime verifier now pass local
+native checks: 29 parser checks, 26 namespace checks, 477 tree-storage checks,
+324 mixed-transition checks, the inherited 68 runtime checks and ordinary-user
+refusal of both controller APIs and the Installer entrypoint. The source also
+preserves the earlier shared native acceptance. Its package builder accepts only
+the frozen package 95 inputs, exact diagnostic app and matching source QA.
+Actual Installer qualification remains required before owner installation.
+[Controller source QA](../artifacts/owner-upgrade97-controller-source-20261025.json).
 [Source checks](../artifacts/agent-connection-diagnostics-source-20261025.json) ·
 [App build](../artifacts/owner-diagnostics96-build-20261025.json) ·
 [Public delta](../artifacts/owner-diagnostics96-public-delta-20261025.json).
@@ -78,9 +86,9 @@ all twelve compiled native source files, and the three permitted public changes.
 Its 25 synthetic contract tests reject extra runtime or private-file changes,
 changed source bindings, wrong permissions, signature changes outside the owner
 role, and a plan claiming installation authority. The real public inputs also
-pass that parser. This is preparation for an updater; a native completed-runtime
-proof, controller, interrupted-update recovery and actual Installer acceptance
-are still required before installation.
+pass that parser. The native completed-runtime proof and controller are now
+implemented and locally checked. Actual Installer and interrupted-update
+acceptance remain required before installation.
 [Proposal checks](../artifacts/owner-diagnostics96-proposal-20261025.json).
 
 ## Client publication
