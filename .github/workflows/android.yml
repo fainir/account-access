@@ -27,10 +27,10 @@ jobs:
           sh android/build.sh
           sh android/test/build.sh
       - name: Verify pinned Android release signing and increasing versions without a publisher key
-        if: matrix.api == 30
         run: |
           export JAVA_HOME="$JAVA_HOME_17_X64"
           export ACCOUNT_ACCESS_ANDROID_RELEASE_FIXTURE=1
+          export ACCOUNT_ACCESS_ANDROID_UPDATE_FIXTURE=1
           uv run pytest -q tests/test_android_release.py
       - name: Retain only the credential-free release-signing fixture evidence
         if: matrix.api == 30
@@ -54,7 +54,16 @@ jobs:
           target: google_apis
           arch: x86_64
           disable-animations: true
-          script: uv run python scripts/android_journey.py
+          script: |
+            uv run python scripts/android_journey.py
+            uv run python scripts/android_release_update_journey.py
+      - name: Retain the credential-free signed-update and pairing evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: android-release-update-api${{ matrix.api }}-${{ github.sha }}-${{ github.run_id }}
+          path: artifacts/android-update-journey-api${{ matrix.api }}.json
+          retention-days: 7
+          if-no-files-found: error
       - name: Record the exact tested phone preview
         run: |
           python3 - <<'PY'

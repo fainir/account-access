@@ -55,6 +55,13 @@ The build downloads checksum-pinned [ZXing Core 3.5.3](https://github.com/zxing/
 The APK bundles the upstream ZXing 3.5.3 license and notice text. Open **Open
 source licenses** in the phone companion to read it without a network connection.
 
+The hosted emulator workflow also checks a normal Android update from two
+successive APK versions signed by one disposable test certificate. It must
+decrypt the same fictional pairing after the update and reapplication, preserve
+the stored ciphertext and SMS preferences, and keep the app UID. The harness
+refuses physical or ambiguous ADB targets before installing or removing apps.
+This does not establish physical-phone pairing or a publisher-signed update.
+
 `scripts/android_journey.py` installs the app and instrumentation on a running emulator, exercises Keystore storage, posts an actual Android notification, and verifies HTTPS delivery plus a real browser verification form. Its identities, message and website are synthetic. The CI workflow runs this separately from the Python regression suite. The [Android emulator journey passed on 14 October 2026](https://github.com/fainir/account-access/actions/runs/38543728385). A passing emulator check does not establish carrier delivery or physical-device reliability.
 
 After that journey passes, CI retains the exact preview APK and a JSON record of

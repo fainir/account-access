@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "status": "PASSED",
+  "source_commit": "b3c48ef8c0045953ce4b1c488323afb4050c1b71",
+  "scope": "actual local Android SDK with disposable test key; no phone or publisher key",
+  "tests_passed": 21,
+  "report_sha256": "daa7c5fa54b3b5d447a07c2339699f1e4158037065d97a69fdf237e7e99569b7",
+  "fixture": {
+    "schema": 1,
+    "status": "PASSED",
+    "source_commit": "b3c48ef8c0045953ce4b1c488323afb4050c1b71",
+    "scope": "actual Android SDK signing fixture; no installed phone or publisher key",
+    "versions": [
+      2,
+      3
+    ],
+    "certificate_sha256": "ea876ae7398a81aa8728dd2469da21b18d65f1e16ccd233492c6404b834b8db6",
+    "apk_sha256": [
+      "cedba3af9ede1554e4696e5d7e156533c6417d288651b479f8f49b2a7bf54d93",
+      "1de34a8cb6e2342557bf482a8fba7c783ebf07efff3e43579da69b062fb9a490"
+    ],
+    "same_signer_verified": true,
+    "wrong_signer_refused_before_password": true,
+    "non_increasing_version_refused_before_password": true,
+    "key_and_password_absent_from_artifacts": true,
+    "third_party_notices_bundled": true,
+    "publisher_key_used": false,
+    "physical_phone_verified": false,
+    "installed": false,
+    "production_ready": false
+  },
+  "physical_phone_verified": false,
+  "production_ready": false
+}

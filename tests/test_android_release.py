@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import runpy
+import shutil
 import subprocess
 from types import SimpleNamespace
 import zipfile
@@ -131,11 +132,31 @@ def test_actual_sdk_signs_successive_versions_and_refuses_wrong_pin_or_downgrade
         assert password.encode() not in review and not list(folder.rglob("*.jks"))
         assert not list(folder.rglob("*.keystore"))
         assert json.loads(review)["production_ready"] is False
+    update_fixture = os.environ.get("ACCOUNT_ACCESS_ANDROID_UPDATE_FIXTURE") == "1"
+    if update_fixture:
+        assert os.environ.get("GITHUB_ACTIONS") == "true" and os.environ.get("RUNNER_OS") == "Linux"
+        output = ROOT / "dist/android-update-fixture"
+        output.mkdir(mode=0o700)
+        for folder, name in (("first", "version2.apk"), ("second", "version3.apk")):
+            shutil.copyfile(tmp_path / folder / "Account-Access-Phone.apk", output / name)
+        sdk = Path(os.environ.get("ANDROID_SDK_ROOT", os.environ.get("ANDROID_HOME", str(Path.home() / "Library/Android/sdk"))))
+        signer = sdk / "build-tools/36.0.0/apksigner"
+        subprocess.run([str(signer), "sign", "--ks", str(key), "--ks-key-alias", "releasefixture",
+            "--ks-pass", "env:AC_ANDROID_FIXTURE_PASSWORD", "--key-pass", "env:AC_ANDROID_FIXTURE_PASSWORD",
+            "--out", str(output / "checks.apk"), str(ROOT / "dist/android/test-aligned.apk")],
+            env=environment, stdin=subprocess.DEVNULL, capture_output=True, check=True, timeout=60)
+        RELEASE["certificate"](subprocess.check_output([str(signer), "verify", "--print-certs", str(output / "checks.apk")],
+            env={"PATH": os.environ["PATH"], "JAVA_HOME": str(java)}, timeout=30), pin)
+        files = {name: RELEASE["digest"](output / name) for name in ("version2.apk", "version3.apk", "checks.apk")}
+        assert set(p.name for p in output.iterdir()) == set(files)
+        (output / "inputs.json").write_text(json.dumps({"schema": 1, "source_commit": first["source_commit"],
+            "certificate_sha256": pin, "files": files, "disposable_test_key_only": True}) + "\n")
     report = {"schema": 1, "status": "PASSED", "source_commit": second["source_commit"],
         "scope": "actual Android SDK signing fixture; no installed phone or publisher key",
         "versions": [2, 3], "certificate_sha256": pin, "apk_sha256": [first["apk_sha256"], second["apk_sha256"]],
         "same_signer_verified": True, "wrong_signer_refused_before_password": True,
         "non_increasing_version_refused_before_password": True, "key_and_password_absent_from_artifacts": True,
         "third_party_notices_bundled": True,
+        "emulator_update_fixture_prepared": update_fixture,
         "publisher_key_used": False, "physical_phone_verified": False, "installed": False, "production_ready": False}
     (ROOT / "dist/android-release-fixture-evidence.json").write_text(json.dumps(report, indent=2) + "\n")

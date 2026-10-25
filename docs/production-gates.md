@@ -170,9 +170,14 @@ The live Apple-identity qualification for run `40212316045` passed all five
 checks; its ten native source pins and all 17 surviving-job witness log hashes
 were verified independently. The seven actual Installer scenarios are still
 running or queued.
+Qualification source `68bed08` passed 4,326 Python tests (112 skipped), dependency
+auditing and all three native jobs. This source includes the additional
+publication-boundary Installer scenario; that scenario's actual result remains
+pending.
 [Local journal regression](../artifacts/owner99-local-journal-regression-20261025.json) ·
 [Native controller checks](../artifacts/owner99-native-source-ci-20261025.json) ·
 [Controller source CI](../artifacts/owner99-controller-source-ci-20261025.json) ·
+[Qualification source CI](../artifacts/owner99-qualification-source-ci-20261025.json) ·
 [Package 99 build](../artifacts/owner-upgrade99-build-20261025.json) ·
 [Package 99 inputs](../artifacts/owner-upgrade99-installer-inputs.json) ·
 [Current live-process evidence](../artifacts/owner99-live-witness-20261025.json).
@@ -251,12 +256,25 @@ verified. Android 11/15 emulator workflows also passed at that source. No
 publisher key, physical installation or real update/pairing was qualified.
 [Publisher-signing fixture](../artifacts/android-publisher-signing-fixture-20261025.json).
 
-The current phone source also bundles the unchanged upstream ZXing 3.5.3 license
+Phone source `b3c48ef` also bundles the unchanged upstream ZXing 3.5.3 license
 and notice text, with an offline license viewer. The publisher builder records
 the asset in its source manifest and refuses extra asset files or linked asset
-directories. All 20 local release checks pass; the actual SDK fixture and
-emulator checks for this change remain pending.
-[Notice provenance](../artifacts/android-zxing-notice-provenance-20261025.json).
+directories. Its actual local SDK fixture passed all 21 checks. Android 11/15
+emulator journeys and the hosted signing fixture also passed; all three archives,
+their reports and notice inclusion in both preview APKs were independently
+verified. These are synthetic emulator and signing results, not physical-phone
+delivery or publisher-key acceptance.
+[Notice provenance](../artifacts/android-zxing-notice-provenance-20261025.json) ·
+[Local SDK fixture](../artifacts/android-notices-local-sdk-20261025.json) ·
+[Verified hosted evidence](../artifacts/android-notices-sdk-emulator-20261025.json).
+
+An additional hosted-emulator scenario now checks normal package updates from
+version 2 to 3 and reapplication of version 3 with the same disposable certificate.
+It must preserve app UID, encrypted pairing bytes, Keystore decryption and SMS
+preferences. It refuses non-hosted environments and physical or ambiguous ADB
+targets before installation. Local compilation and all 27 focused checks pass;
+actual emulator acceptance remains pending. It does not test an existing real
+Bluetooth association, carrier SMS or a physical-phone update.
 
 ## Additional supported mechanisms and limits
 
