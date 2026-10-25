@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "status": "FROZEN_REVIEWED_ASSETS",
+  "repository": "fainir/account-access",
+  "source_commit": "91d4b7b2da192ea858b5d2e30ead06fa775b929a",
+  "assets": {
+    "owner-review.json": {
+      "id": 675347352,
+      "bytes": 5500,
+      "sha256": "d00e249585c3254e387965a63f0ffe0d0baf6a07518ca32fd16d3c7e6db92345",
+      "release": {
+        "id": 423476520,
+        "tag": "qa-abb48e2-owner-upgrade98",
+        "source": "abb48e26b104bfaaf5f8f2eeb54fac087c28b959"
+      }
+    },
+    "owner-scripts-inventory.json": {
+      "id": 675347351,
+      "bytes": 9142,
+      "sha256": "4df0f20952256ed4a894ed51f7ada99f31aa66e3e4413956e9870064e6678101",
+      "release": {
+        "id": 423476520,
+        "tag": "qa-abb48e2-owner-upgrade98",
+        "source": "abb48e26b104bfaaf5f8f2eeb54fac087c28b959"
+      }
+    },
+    "owner-upgrade.pkg": {
+      "id": 675347349,
+      "bytes": 13695014,
+      "sha256": "d224e47e78f4a72a454010e76a5bb0d34f355f17ed9829722861b8196694aaa6",
+      "release": {
+        "id": 423476520,
+        "tag": "qa-abb48e2-owner-upgrade98",
+        "source": "abb48e26b104bfaaf5f8f2eeb54fac087c28b959"
+      }
+    }
+  }
+}

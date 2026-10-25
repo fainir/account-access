@@ -6,7 +6,9 @@ on:
       - .github/workflows/mac-owner-upgrade-review.yml
       - scripts/mac_owner_upgrade_installer_probe.py
       - scripts/download_owner_upgrade_inputs.py
+      - scripts/download_owner_upgrade97_inputs.py
       - artifacts/owner-upgrade97-installer-inputs.json
+      - artifacts/owner-upgrade98-installer-inputs.json
   workflow_dispatch:
     inputs:
       identity_only:
@@ -83,6 +85,8 @@ jobs:
             --output "$RUNNER_TEMP/account-access-inputs/alias-predecessor"
           python3 -I -B scripts/download_owner_upgrade_inputs.py \
             --output "$RUNNER_TEMP/account-access-inputs/owner-upgrade"
+          python3 -I -B scripts/download_owner_upgrade97_inputs.py \
+            --output "$RUNNER_TEMP/account-access-inputs/previous-owner-upgrade"
           python3 -I -B scripts/download_runtime_upgrade_inputs.py \
             --output "$RUNNER_TEMP/account-access-inputs/runtime-upgrade"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -139,6 +143,7 @@ jobs:
               --previous-runtime-upgrade "$RUNNER_TEMP/account-access-inputs/previous-runtime-upgrade" \
               --alias-predecessor "$RUNNER_TEMP/account-access-inputs/alias-predecessor" \
               --owner-upgrade "$RUNNER_TEMP/account-access-inputs/owner-upgrade" \
+              --previous-owner-upgrade "$RUNNER_TEMP/account-access-inputs/previous-owner-upgrade" \
               --scenario install-reapply --cohort 91 --runtime-scenario "$AC_RUNTIME_SCENARIO" --owner-scenario "$AC_SCENARIO"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()

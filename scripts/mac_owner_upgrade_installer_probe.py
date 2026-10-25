@@ -15,7 +15,7 @@ import time
 import xml.etree.ElementTree as ET
 
 TARGET = "6736a20f8ed20d9188380b83b808ec9e380df501"
-PACKAGING = "71169c1a408d8a1e95297eb6998363556ac9d8e4"
+PACKAGING = "abb48e26b104bfaaf5f8f2eeb54fac087c28b959"
 PLAN = "1b5812e7e6618ce92a242f6acc5683daccd4485c7e2e57859597c029960ee42c"
 BEFORE = "03fb35eb2787ebd67079dd1cbe4dda125f430964540bdd2f2e9c81eda602fd7a"
 AFTER = "c80f0430c7529acb8479661554aadd7e6b1cfb98303df1e2bda1e5024a75356c"
@@ -29,7 +29,7 @@ CHECKS = {
     "no_restart_declared", "foreign_predecessor_refused", "scenario_exercised", "actual_installer",
     "exact_public_image", "policy_rotation", "roots_and_history_preserved", "live_service",
     "ordinary_public_runtime", "ordinary_public_runtime_reapply", "exact_reapply", "unchanged_reapply", "foreign_audit_refused",
-    "service_after_refusal",
+    "service_after_refusal", "old_package_resource_root_refused",
 }
 
 
@@ -47,15 +47,18 @@ def owner_runtime_aliases(controller, runtime, command, phase):
 
 
 def refusal_record(raw, checkpoint):
-    return (type(raw) is bytes and checkpoint in {"predecessor", "journal"}
-            and (b'{"schema":1,"status":"REFUSED","reason":"owner_upgrade_transition_conflict","checkpoint":"'
+    reason = {"source": "owner_upgrade_source_not_verified",
+              "predecessor": "owner_upgrade_transition_conflict", "journal": "owner_upgrade_transition_conflict"}.get(checkpoint)
+    return (type(raw) is bytes and reason is not None
+            and (b'{"schema":1,"status":"REFUSED","reason":"' + reason.encode("ascii") + b'","checkpoint":"'
                  + checkpoint.encode("ascii") + b'"}') in raw)
 
 
 def require_native_refusal(controller, report, output, label, checkpoint):
     controller.guard()
     require = controller.require
-    require({"owner-foreign-predecessor": "predecessor", "owner-upgrade-foreign-audit": "journal"}.get(label) == checkpoint)
+    require({"owner-old-resource-root": "source", "owner-foreign-predecessor": "predecessor",
+             "owner-upgrade-foreign-audit": "journal"}.get(label) == checkpoint)
     name = label + "-daemon.log"
     require(report["installer_daemon_logs"][name]["status"] == "captured")
     fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=output.descriptor)
@@ -176,7 +179,8 @@ def run(*, controller, args, stage, report, output, command, publication=None):
     c, h, f, require = controller, controller.h, controller.f, controller.require
     require(callable(publication) and args.cohort == 91 and args.scenario == "install-reapply"
             and args.owner_scenario in SCENARIOS and args.runtime_scenario == PREDECESSOR_SCENARIOS[args.owner_scenario]
-            and args.runtime_upgrade is not None and not os.path.lexists(NAMESPACE))
+            and args.runtime_upgrade is not None and args.previous_owner_upgrade is not None
+            and not os.path.lexists(NAMESPACE))
     revision = report["controller_revision"]
 
     def source(name):
@@ -193,6 +197,12 @@ def run(*, controller, args, stage, report, output, command, publication=None):
     require(raw == h.git_bytes(args.repository, ["show", revision + ":" + download["CONTRACT"]], maximum=65536))
     contract = download["validate"](f.decode(raw))
     c.verify_assets(args.owner_upgrade, contract, download["FILES"], f.hash_file)
+    previous_download = runpy.run_path(str(source("scripts/download_owner_upgrade97_inputs.py")))
+    previous_raw = (args.previous_owner_upgrade / "asset-contract.json").read_bytes()
+    require(previous_raw == h.git_bytes(args.repository,
+        ["show", revision + ":" + previous_download["CONTRACT"]], maximum=65536))
+    previous_contract = previous_download["validate"](f.decode(previous_raw))
+    c.verify_assets(args.previous_owner_upgrade, previous_contract, previous_download["FILES"], f.hash_file)
     result = {"scenario": args.owner_scenario, "checks": dict.fromkeys(CHECKS, False),
               "controller_source": download["SOURCE"], "application_source": TARGET,
               "runtime_predecessor_scenario": args.runtime_scenario,
@@ -202,6 +212,8 @@ def run(*, controller, args, stage, report, output, command, publication=None):
     result["checks"]["runtime_predecessor_accepted"] = True
     for name in download["FILES"]:
         h.stage_file(args.owner_upgrade / name, stage / name, contract["assets"][name]["sha256"], 1024**3)
+    h.stage_file(args.previous_owner_upgrade / "owner-upgrade.pkg", stage / "owner-old-resource-root.pkg",
+                 previous_contract["assets"]["owner-upgrade.pkg"]["sha256"], 1024**3)
     review = f.decode(h.read_file(stage / "owner-review.json", maximum=65536))
     require(review["status"] == "BUILT_PENDING_INSTALLER_QA" and review["controller_source"] == download["SOURCE"]
             and review["application_source"] == TARGET and review["plan_sha256"] == PLAN
@@ -210,10 +222,12 @@ def run(*, controller, args, stage, report, output, command, publication=None):
             and review["scripts_inventory_sha256"] == contract["assets"]["owner-scripts-inventory.json"]["sha256"]
             and review["installed"] is False and review["production_ready"] is False
             and review["packaging_source"] == PACKAGING
+            and review["fresh_predecessor_resource_mode_correction"] == {
+                "before": "0700", "after": "0755", "other_nodes_unchanged": True}
             and review["native_build_reused_after_packaging_tool_path_failure"] is True
             and review["postinstall_action"] == "none" and review["postinstall_timeout"] == 1800)
     require(c.digest(h.git_bytes(args.repository,
-        ["show", revision + ":artifacts/owner-upgrade97-packaging-recovery.py.txt"], maximum=65536))
+        ["show", revision + ":artifacts/owner-upgrade98-packaging-recovery.py.txt"], maximum=65536))
         == review["packaging_driver_sha256"])
     require(h.git_bytes(args.repository, ["show", PACKAGING + ":scripts/build_owner_upgrade_review.py"], maximum=65536)
             == source("scripts/build_owner_upgrade_review.py").read_bytes())
@@ -224,7 +238,7 @@ def run(*, controller, args, stage, report, output, command, publication=None):
     command(["/usr/sbin/pkgutil", "--expand-full", str(stage / "owner-upgrade.pkg"), str(expanded)], "owner-expand.log", 300)
     require({p.name for p in expanded.iterdir()} == {"PackageInfo", "Scripts"})
     info = ET.fromstring(h.read_file(expanded / "PackageInfo", maximum=65536))
-    require(info.get("identifier") == "com.fainir.accountaccess.ownerupgrade97"
+    require(info.get("identifier") == "com.fainir.accountaccess.ownerupgrade98"
             and info.get("version") == "0.1.0" and info.get("auth") == "root"
             and info.get("postinstall-action") == "none"
             and info.find("scripts/postinstall").attrib == {"file": "./postinstall", "timeout": "1800"})
@@ -268,9 +282,10 @@ def run(*, controller, args, stage, report, output, command, publication=None):
 
     def install(label, *, expected=0):
         result["failure_stage"] = label
+        package = "owner-old-resource-root.pkg" if label == "owner-old-resource-root" else "owner-upgrade.pkg"
         delta = h.InstallerLogDelta()
         try:
-            response = command(["/usr/sbin/installer", "-dumplog", "-verboseR", "-pkg", str(stage / "owner-upgrade.pkg"), "-target", "/"], label + ".log", 2100, check=False)
+            response = command(["/usr/sbin/installer", "-dumplog", "-verboseR", "-pkg", str(stage / package), "-target", "/"], label + ".log", 2100, check=False)
             require(response.returncode == 0 if expected == 0 else response.returncode != 0)
         finally:
             delta.capture(report=report, output=output, log=label + "-daemon.log")
@@ -279,6 +294,12 @@ def run(*, controller, args, stage, report, output, command, publication=None):
     old_policy = h.policies()
     before_manifest = f.decode(h.read_file(scripts / "BaseManifest.json", maximum=16 * 1024**2))
     previous_image = fresh["public_snapshot"](before_manifest)
+    install("owner-old-resource-root", expected=1)
+    require_native_refusal(c, report, output, "owner-old-resource-root", "source")
+    require(history() == preserved and fresh["public_snapshot"](before_manifest) == previous_image
+            and h.policies() == old_policy and not os.path.lexists(NAMESPACE))
+    fresh["live_service"](command, "after-owner-source-refusal")
+    result["checks"]["old_package_resource_root_refused"] = True
     foreign = runtime["NAMESPACE"] / ("transition-" + runtime["PLAN"]) / "global/foreign-owner-fixture.json"
     foreign_bytes = b'{"schema":1,"foreign":true}'
     c.create_file(foreign, foreign_bytes)

@@ -107,22 +107,33 @@ exported. The repair adds no service-control command.
 [Connection upgrade failure](../artifacts/owner-runtime95-agent-upgrade-failure-20261025.json).
 
 The signed diagnostic owner app 96 identifies the failing AI-connection step
-using fixed messages. Package **97**, with native controller `91d4b7b` and
-packaging correction `71169c1`, is built but awaits Installer qualification.
-Its 13,695,030-byte package has SHA-256
-`6d10b85a88652caa9663571a9cd2b57af23b3e81ba8b08585944c36240b5fdc9`.
-The package contains the owner bundle and exact predecessor verification
-records. Its independently expanded inventory matches, the helper signature
-and ordinary-user refusal pass, and Installer reports no restart. Native
-source checks passed 32 parser, 26 namespace, 477 tree-storage and 324
-mixed-storage checks; the focused planner/builder/Installer-guard suite passed
-147 tests. Six actual Installer scenarios cover installation/reapplication,
-three interrupted exchanges, and predecessors recovered through alias and
-service-quiescence repairs. Those scenarios are pending. The owner Mac is on
-package 95, and the AI connection failure remains unresolved.
+using fixed messages. Package **97** failed actual Installer run `40198410301`
+at the native source check: its embedded predecessor resource container had
+mode `0700`, while the native resource contract requires `0755`. Its independent
+payload, signature and predecessor checks had passed, but that did not establish
+installability. The run was canceled and package 97 was not installed on the
+owner Mac. Source CI at `a0eb4cd` passed 4,289 Python tests (111 skipped), auditing
+and all three native jobs.
+
+Package **98** corrects only that fresh resource container and package identity.
+It reuses the exact signed native helper from `91d4b7b`, with packaging source
+`abb48e2` and diagnostic owner app 96. Its 13,695,014-byte package has SHA-256
+`d224e47e78f4a72a454010e76a5bb0d34f355f17ed9829722861b8196694aaa6`.
+The independently expanded inventory matches, the helper signature and
+ordinary-user refusal pass, all three private draft assets match their hashes,
+and Installer reports no restart. No native guard was relaxed. Native source
+checks passed 32 parser, 26 namespace, 477 tree-storage and 324 mixed-storage
+checks. Six actual Installer scenarios cover installation/reapplication, three
+interrupted exchanges, and predecessors recovered through alias and
+service-quiescence repairs. Each also requires package 97 to refuse at the
+source checkpoint without changing the installed image or history. These
+package 98 scenarios are pending. The owner Mac is on package 95, and the AI
+connection failure remains unresolved.
 [Package 97 build](../artifacts/owner-upgrade97-build-20261025.json) ·
+[Package 97 refusal](../artifacts/owner-upgrade97-installer-refusal-20261025.json) ·
+[Package 98 build](../artifacts/owner-upgrade98-build-20261025.json) ·
 [Compact-source checks](../artifacts/owner-upgrade97-compact-source-20261025.json) ·
-[Frozen Installer inputs](../artifacts/owner-upgrade97-installer-inputs.json).
+[Frozen Installer inputs](../artifacts/owner-upgrade98-installer-inputs.json).
 
 [Actual Installer acceptance](../artifacts/runtime-upgrade94-installer-acceptance-20261024.json) ·
 [Owner preflight](../artifacts/owner-mac-before-runtime94-20261024.json) ·

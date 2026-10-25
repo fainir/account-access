@@ -345,7 +345,9 @@ def run(args):
     require(getattr(args, "owner_upgrade", None) is None or (
         selected["cohort"] == 91 and args.scenario == "install-reapply"
         and getattr(args, "runtime_upgrade", None) is not None
+        and getattr(args, "previous_owner_upgrade", None) is not None
         and args.runtime_scenario in {"install-reapply", "alias-recovery", "quiescence-recovery"}))
+    require(getattr(args, "previous_owner_upgrade", None) is None or getattr(args, "owner_upgrade", None) is not None)
     revision = os.environ["GITHUB_SHA"]
     global h, f
     h_path = args.repository / "scripts/mac_component_update_installer_probe.py"
@@ -607,6 +609,7 @@ def main():
     parser.add_argument("--alias-predecessor", type=Path)
     parser.add_argument("--runtime-scenario", choices=["install-reapply", "interrupt-owner", "interrupt-runtime", "quiescence-recovery", "alias-recovery"], default="install-reapply")
     parser.add_argument("--owner-upgrade", type=Path)
+    parser.add_argument("--previous-owner-upgrade", type=Path)
     parser.add_argument("--owner-scenario", choices=["install-reapply", "interrupt-owner", "interrupt-identity", "interrupt-host", "after-alias-repair", "after-quiescence-recovery"], default="install-reapply")
     args = parser.parse_args()
     try:

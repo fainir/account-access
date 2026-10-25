@@ -13,8 +13,9 @@ ROOT = Path(__file__).resolve().parents[1]
 PROBE = runpy.run_path(str(ROOT / "scripts/mac_owner_upgrade_installer_probe.py"))
 
 
-def test_frozen_owner_assets_and_all_identity_fields():
-    download = runpy.run_path(str(ROOT / "scripts/download_owner_upgrade_inputs.py"))
+@pytest.mark.parametrize("script", ["download_owner_upgrade_inputs.py", "download_owner_upgrade97_inputs.py"])
+def test_frozen_owner_assets_and_all_identity_fields(script):
+    download = runpy.run_path(str(ROOT / "scripts" / script))
     value = json.loads((ROOT / download["CONTRACT"]).read_bytes())
     assert download["validate"](value) == value
     for name in download["FILES"]:
@@ -122,13 +123,14 @@ def test_owner_alias_observations_cannot_overwrite_predecessor_logs():
         PROBE["owner_runtime_aliases"](controller, None, None, "foreign")
 
 
-@pytest.mark.parametrize("checkpoint", ["predecessor", "journal"])
+@pytest.mark.parametrize("checkpoint", ["source", "predecessor", "journal"])
 def test_negative_installer_test_requires_the_native_refusal(checkpoint):
-    raw = (b'installer prefix {"schema":1,"status":"REFUSED","reason":"owner_upgrade_transition_conflict","checkpoint":"'
+    reason = b"owner_upgrade_source_not_verified" if checkpoint == "source" else b"owner_upgrade_transition_conflict"
+    raw = (b'installer prefix {"schema":1,"status":"REFUSED","reason":"' + reason + b'","checkpoint":"'
            + checkpoint.encode() + b'"}\n')
     assert PROBE["refusal_record"](raw, checkpoint)
     for incorrect in (b"Installer failed to start", raw.replace(b"REFUSED", b"OTHER"),
-                      raw.replace(b"transition_conflict", b"unavailable"), raw.replace(checkpoint.encode(), b"context")):
+                      raw.replace(reason, b"owner_upgrade_unavailable"), raw.replace(checkpoint.encode(), b"context")):
         assert not PROBE["refusal_record"](incorrect, checkpoint)
     assert not PROBE["refusal_record"](raw, "foreign")
 
@@ -174,6 +176,6 @@ def test_hosted_workflow_separates_release_token_and_requires_live_identity_chec
     assert '--runtime-scenario "$AC_RUNTIME_SCENARIO" --owner-scenario' in run
     assert {row["scenario"]: row["runtime_scenario"] for row in mac["strategy"]["matrix"]["include"]} == {
         "after-alias-repair": "alias-recovery", "after-quiescence-recovery": "quiescence-recovery"}
-    assert "--owner-upgrade" in run and "RUNNER_ENVIRONMENT=github-hosted" in run
+    assert "--owner-upgrade" in run and "--previous-owner-upgrade" in run and "RUNNER_ENVIRONMENT=github-hosted" in run
     assert all(step["with"]["persist-credentials"] is False for step in mac["steps"]
                if "checkout@" in step.get("uses", ""))
