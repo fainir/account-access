@@ -55,6 +55,15 @@ The build downloads checksum-pinned [ZXing Core 3.5.3](https://github.com/zxing/
 The APK bundles the upstream ZXing 3.5.3 license and notice text. Open **Open
 source licenses** in the phone companion to read it without a network connection.
 
+The manifest requests Android's normal companion background-execution and
+background-data permissions for the system-approved computer association, as
+described in the [Android companion guidance](https://developer.android.com/develop/connectivity/bluetooth/companion-device-pairing).
+The app still requires the saved pairing and current Android association before
+forwarding notifications on Android 15+. It keeps the same sender/template,
+freshness, certificate and private-network restrictions. Screen-off, Data Saver,
+reconnect and carrier delivery must still pass on the physical phone; declaring
+these permissions is not that acceptance.
+
 The hosted emulator workflow also checks a normal Android update from two
 successive APK versions signed by one disposable test certificate. It must
 decrypt the same fictional pairing after the update and reapplication, preserve

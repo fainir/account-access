@@ -203,6 +203,15 @@ owner Mac.
 [Exact shell binding](../artifacts/owner100-shell-binding-20261025.json) ·
 [Package 100 inputs](../artifacts/owner-upgrade100-installer-inputs.json).
 
+Qualification source `d81e11f` passed 4,344 Python tests (112 skipped), dependency
+auditing and all three native jobs. The three native archives and all 53 source
+pins were independently verified, as were the current live observer's five
+checks and 17 witness logs. These do not replace the pending seven actual
+Installer cases.
+[Source CI](../artifacts/owner100-qualification-source-ci-20261025.json) ·
+[Native evidence](../artifacts/owner100-native-source-ci-20261025.json) ·
+[Live-process evidence](../artifacts/owner100-live-witness-20261025.json).
+
 The separate-user Mac fixture now additionally exercises an already-enrolled
 client upgrading both exact legacy skills against its actual isolated worker.
 It preserves the previous current trees, verifies both upgraded launchers and
@@ -305,6 +314,12 @@ unchanged encrypted bytes, preferences and app UID on Android 11 and 15. This
 does not test an existing real Bluetooth association, carrier SMS, a publisher
 key or a physical-phone update.
 [Verified signed-update evidence](../artifacts/android-signed-update-pairing-20261025.json).
+
+The next phone source declares Android's documented companion background-run
+and background-data permissions and explains their purpose before pairing.
+Notification forwarding still requires the current saved pairing and Android
+association. SDK/emulator checks for this change are pending. Screen-off,
+Data Saver, reconnect and carrier SMS remain physical-phone acceptance gates.
 
 ## Additional supported mechanisms and limits
 
