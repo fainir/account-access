@@ -9,6 +9,7 @@ on:
       - scripts/download_owner_upgrade97_inputs.py
       - artifacts/owner-upgrade97-installer-inputs.json
       - artifacts/owner-upgrade98-installer-inputs.json
+      - artifacts/owner-upgrade99-installer-inputs.json
   workflow_dispatch:
     inputs:
       identity_only:
@@ -104,7 +105,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        scenario: [install-reapply, interrupt-owner, interrupt-identity, interrupt-host, after-alias-repair, after-quiescence-recovery]
+        scenario: [install-reapply, interrupt-published-preparation, interrupt-owner, interrupt-identity, interrupt-host, after-alias-repair, after-quiescence-recovery]
         include:
           - scenario: after-alias-repair
             runtime_scenario: alias-recovery

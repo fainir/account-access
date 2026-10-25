@@ -15,12 +15,12 @@ import time
 import xml.etree.ElementTree as ET
 
 TARGET = "6736a20f8ed20d9188380b83b808ec9e380df501"
-PACKAGING = "abb48e26b104bfaaf5f8f2eeb54fac087c28b959"
+PACKAGING = "9b867da0de9f91ffbca4a8c838c4bc692f1b5e47"
 PLAN = "1b5812e7e6618ce92a242f6acc5683daccd4485c7e2e57859597c029960ee42c"
 BEFORE = "03fb35eb2787ebd67079dd1cbe4dda125f430964540bdd2f2e9c81eda602fd7a"
 AFTER = "c80f0430c7529acb8479661554aadd7e6b1cfb98303df1e2bda1e5024a75356c"
 NAMESPACE = Path("/Library/Application Support/Account Access Owner Updates")
-INTERRUPT_SCENARIOS = {"interrupt-owner", "interrupt-identity", "interrupt-host"}
+INTERRUPT_SCENARIOS = {"interrupt-owner", "interrupt-identity", "interrupt-host", "interrupt-published-preparation"}
 SCENARIOS = {"install-reapply", "after-alias-repair", "after-quiescence-recovery"} | INTERRUPT_SCENARIOS
 PREDECESSOR_SCENARIOS = {name: "alias-recovery" if name == "after-alias-repair" else
     "quiescence-recovery" if name == "after-quiescence-recovery" else "install-reapply" for name in SCENARIOS}
@@ -131,6 +131,8 @@ def acceptance_passed(value):
     interruption = value.get("interruption", {}) if type(value) is dict else {}
     expected = {"owned_child_only": True, "head_not_published": True,
                 "installer_daemon_interrupted": False, "power_failure_tested": False}
+    if type(value) is dict and value.get("scenario") == "interrupt-published-preparation":
+        expected.update(published_local_journal_sealed=True, public_image_unchanged=True, service_disable_not_started=True)
     return (
         type(value) is dict and value.get("scenario") in SCENARIOS
         and value.get("runtime_predecessor_scenario") == PREDECESSOR_SCENARIOS[value["scenario"]]
@@ -222,12 +224,13 @@ def run(*, controller, args, stage, report, output, command, publication=None):
             and review["scripts_inventory_sha256"] == contract["assets"]["owner-scripts-inventory.json"]["sha256"]
             and review["installed"] is False and review["production_ready"] is False
             and review["packaging_source"] == PACKAGING
-            and review["fresh_predecessor_resource_mode_correction"] == {
-                "before": "0700", "after": "0755", "other_nodes_unchanged": True}
-            and review["native_build_reused_after_packaging_tool_path_failure"] is True
+            and review["predecessor_resource_mode"] == "0755"
+            and review["native_rebuilt_for_local_journal_ordering_fix"] is True
+            and review["local_tree_intent_prepared_before_publication"] is True
+            and type(review["preparation_regression_checks"]) is int and review["preparation_regression_checks"] == 21
             and review["postinstall_action"] == "none" and review["postinstall_timeout"] == 1800)
     require(c.digest(h.git_bytes(args.repository,
-        ["show", revision + ":artifacts/owner-upgrade98-packaging-recovery.py.txt"], maximum=65536))
+        ["show", revision + ":artifacts/owner-upgrade99-assembly.py.txt"], maximum=65536))
         == review["packaging_driver_sha256"])
     require(h.git_bytes(args.repository, ["show", PACKAGING + ":scripts/build_owner_upgrade_review.py"], maximum=65536)
             == source("scripts/build_owner_upgrade_review.py").read_bytes())
@@ -238,7 +241,7 @@ def run(*, controller, args, stage, report, output, command, publication=None):
     command(["/usr/sbin/pkgutil", "--expand-full", str(stage / "owner-upgrade.pkg"), str(expanded)], "owner-expand.log", 300)
     require({p.name for p in expanded.iterdir()} == {"PackageInfo", "Scripts"})
     info = ET.fromstring(h.read_file(expanded / "PackageInfo", maximum=65536))
-    require(info.get("identifier") == "com.fainir.accountaccess.ownerupgrade98"
+    require(info.get("identifier") == "com.fainir.accountaccess.ownerupgrade99"
             and info.get("version") == "0.1.0" and info.get("auth") == "root"
             and info.get("postinstall-action") == "none"
             and info.find("scripts/postinstall").attrib == {"file": "./postinstall", "timeout": "1800"})
@@ -319,7 +322,9 @@ def run(*, controller, args, stage, report, output, command, publication=None):
     require(history() == preserved)
     if args.owner_scenario in INTERRUPT_SCENARIOS:
         result["failure_stage"] = "owned_helper_interruption"
-        selected = {"interrupt-owner": "owner.app", "interrupt-identity": "package-identity.json", "interrupt-host": "broker/host.json"}[args.owner_scenario]
+        publication_case = args.owner_scenario == "interrupt-published-preparation"
+        selected = {"interrupt-owner": "owner.app", "interrupt-identity": "package-identity.json", "interrupt-host": "broker/host.json",
+                    "interrupt-published-preparation": "owner.app"}[args.owner_scenario]
         target = h.BASE / selected
         original_inode = target.lstat().st_ino
         out_path, err_path = stage / "owner-owned.stdout", stage / "owner-owned.stderr"
@@ -330,7 +335,10 @@ def run(*, controller, args, stage, report, output, command, publication=None):
                 deadline = time.monotonic() + 1800
                 while time.monotonic() < deadline and child.poll() is None:
                     require(out_path.stat().st_size + err_path.stat().st_size < 65536)
-                    if target.lstat().st_ino != original_inode:
+                    global_dir = NAMESPACE / ("transition-" + PLAN) / "global"
+                    boundary_reached = (os.path.lexists(global_dir / "intent.json") if publication_case
+                                        else target.lstat().st_ino != original_inode)
+                    if boundary_reached:
                         os.kill(child.pid, signal.SIGSTOP)
                         until = time.monotonic() + 5
                         while time.monotonic() < until:
@@ -341,20 +349,27 @@ def run(*, controller, args, stage, report, output, command, publication=None):
                                 break
                             time.sleep(0.01)
                         require(stopped and not os.path.lexists(NAMESPACE / "head.json"))
-                        global_dir = NAMESPACE / ("transition-" + PLAN) / "global"
                         intent = f.decode(h.read_file(global_dir / "intent.json", maximum=256 * 1024))
                         require(intent["planSHA256"] == PLAN)
-                        kind, unit = {"interrupt-owner": ("tree", "runtimeOwner"),
-                                      "interrupt-identity": ("file", "packageIdentity"),
-                                      "interrupt-host": ("file", "hostPolicy")}[args.owner_scenario]
-                        selected_operations = [row[kind] for row in intent["operations"]
-                            if isinstance(row.get(kind), dict) and row[kind].get("unit") == unit]
-                        require(len(selected_operations) == 1
-                                and selected_operations[0]["after"]["inode"] == target.lstat().st_ino)
                         events = [f.decode(h.read_file(p)) for p in sorted(global_dir.glob("record-*.json"))]
-                        require(all(e.get("planSHA256") == PLAN for e in events)
-                                and any(e.get("service") == "disabled_quiescence_confirmed" for e in events)
-                                and not any(e.get("service") == "coherent_image_enable_intent" for e in events))
+                        if publication_case:
+                            local = global_dir.parent / "trees/runtimeOwner/journal/intent.json"
+                            require(intent["operations"][0]["tree"]["unit"] == "runtimeOwner"
+                                    and f.decode(h.read_file(local, maximum=65536)) == intent["operations"][0]["tree"]
+                                    and not events and target.lstat().st_ino == original_inode
+                                    and fresh["public_snapshot"](before_manifest) == previous_image and h.policies() == old_policy)
+                            fresh["live_service"](command, "owner-published-preparation-stopped")
+                        else:
+                            kind, unit = {"interrupt-owner": ("tree", "runtimeOwner"),
+                                          "interrupt-identity": ("file", "packageIdentity"),
+                                          "interrupt-host": ("file", "hostPolicy")}[args.owner_scenario]
+                            selected_operations = [row[kind] for row in intent["operations"]
+                                if isinstance(row.get(kind), dict) and row[kind].get("unit") == unit]
+                            require(len(selected_operations) == 1
+                                    and selected_operations[0]["after"]["inode"] == target.lstat().st_ino)
+                            require(all(e.get("planSHA256") == PLAN for e in events)
+                                    and any(e.get("service") == "disabled_quiescence_confirmed" for e in events)
+                                    and not any(e.get("service") == "coherent_image_enable_intent" for e in events))
                         break
                     time.sleep(0.01)
                 require(stopped)
@@ -373,6 +388,8 @@ def run(*, controller, args, stage, report, output, command, publication=None):
                     report["logs"][label] = c.digest(data)
         result["interruption"] = {"owned_child_only": True, "head_not_published": True,
                                   "installer_daemon_interrupted": False, "power_failure_tested": False}
+        if publication_case:
+            result["interruption"].update(published_local_journal_sealed=True, public_image_unchanged=True, service_disable_not_started=True)
     result["checks"]["scenario_exercised"] = True
     install("owner-upgrade-install")
     result["checks"]["actual_installer"] = True

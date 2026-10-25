@@ -1,0 +1,58 @@
+{
+  "schema": 1,
+  "status": "PASSED",
+  "run_id": 40210408292,
+  "source_commit": "9b867da0de9f91ffbca4a8c838c4bc692f1b5e47",
+  "artifact_id": 12604484757,
+  "artifact_sha256": "e6626884e8cb12264d83ef48852dcd85a1452ab1890cb9efa71cede3317c7c64",
+  "result_sha256": "d54099154b76b2dd4eb8085424f4a5963544f16f89815a64718b3f0aafb901da",
+  "source_file_pins_verified": 37,
+  "results": [
+    {
+      "schema": 1,
+      "status": "PASSED",
+      "checks": 32,
+      "installed_reads": false,
+      "installed_writes": false,
+      "production_ready": false
+    },
+    {
+      "schema": 1,
+      "status": "PASSED",
+      "ordinary_context_refusals": 2,
+      "namespace_checks": 26,
+      "preparation_checks": 21,
+      "installed_reads": false,
+      "production_ready": false
+    },
+    {
+      "schema": 1,
+      "status": "PASSED",
+      "ordinary_temp_only": true,
+      "checks": 477,
+      "original_checks_preserved": 65,
+      "fixed_tree_units": 13,
+      "optional_units": 4,
+      "post_exchange_ancestor_cases": 2,
+      "nonempty_symlink_acl_refusal": "PASSED",
+      "installed_reads": false,
+      "root_execution": false,
+      "service_actions": false,
+      "production_ready": false
+    },
+    {
+      "schema": 1,
+      "status": "PASSED",
+      "checks": 324,
+      "tree_units": 13,
+      "public_file_units": 12,
+      "dynamic_file_units": 4,
+      "owned_temp_fake_barrier_only": true,
+      "production_ready": false
+    }
+  ],
+  "ordinary_entrypoint_refusal": true,
+  "installed_reads": false,
+  "installed_writes": false,
+  "production_ready": false
+}

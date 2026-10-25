@@ -1,0 +1,237 @@
+{
+  "schema": 1,
+  "status": "PASSED",
+  "source_commit": "6ea62abc5c740df810ec1514a28f96c5b8101325",
+  "workflow_run_id": 40207510049,
+  "artifacts": [
+    {
+      "artifact_id": 12605946582,
+      "name": "mac-worker-boundary-acceptance",
+      "bytes": 16453,
+      "sha256": "5d326c41dea91bcd3e717eae8a0c33e85554602fd502540f01ef9d47b436c300",
+      "reports": [
+        {
+          "file": "account-access-mac-worker.json",
+          "sha256": "6ce442225c82c5fb004b3616837b0e4f527dd6f889a3a05a19f15d4b565d6711",
+          "status": "PASSED",
+          "checks": 25
+        },
+        {
+          "file": "account-access-mac-key-custody.json",
+          "sha256": "968b11ebb2dd0df39421dbdb7463fe94c78bca7d367fe335c53d0bda728e63cc",
+          "status": "PASSED",
+          "checks": 20
+        },
+        {
+          "file": "account-access-mac-owner-policy.json",
+          "sha256": "2edea98c3f4898426a28b52fd3dcfbb2a72c997124a7bb69404d0ca9ae691e04",
+          "status": "PASSED",
+          "checks": 16
+        },
+        {
+          "file": "account-access-mac-root-owner.json",
+          "sha256": "fcc9dfa35984a787e0c4cd0dea13c4faee649b4eb59f9fbe3b91e72c7765e47a",
+          "status": "PASSED",
+          "checks": 24
+        },
+        {
+          "file": "account-access-mac-root-supervisor.json",
+          "sha256": "17bee8ece07438e0595503762a76f1c35a1a67e4317d8df51fe750b23df4661a",
+          "status": "PASSED",
+          "checks": 21
+        },
+        {
+          "file": "account-access-mac-root-coordinator.json",
+          "sha256": "2cb4957fcbda0d3d6e884e8cd52a8481f9cbb387012f7683e0a9b907f1154cd0",
+          "status": "PASSED",
+          "checks": 31
+        },
+        {
+          "file": "account-access-mac-staged-enrollment.json",
+          "sha256": "620446e2e1df6a0787219758b4c59215722634cf83fed2ea9104eeffdda76e48",
+          "status": "PASSED",
+          "checks": 28
+        },
+        {
+          "file": "account-access-mac-key-handoff.json",
+          "sha256": "197efcecc733f34af569d908e1a9685833d383488376fd1986576c4e3cff61a7",
+          "status": "PASSED",
+          "checks": 33
+        },
+        {
+          "file": "account-access-mac-initial-setup.json",
+          "sha256": "437598c44ede0321b2e6964b5a4ca77083c9f5c5f1106a96b16cc1752092e4c6",
+          "status": "PASSED",
+          "checks": 56
+        },
+        {
+          "file": "account-access-mac-initial-gateway.json",
+          "sha256": "2a9c35e6ba8f8646461859d2ff1444978c13fc847fc16eee34656d99eb932d49",
+          "status": "PASSED",
+          "checks": 18
+        },
+        {
+          "file": "account-access-mac-provisioning.json",
+          "sha256": "a514826e7ba27e97f3b84b805945f967f24c5c38569658acddb5e3b63364ca71",
+          "status": "PASSED",
+          "checks": 39
+        },
+        {
+          "file": "account-access-mac-package.json",
+          "sha256": "7340fa2c57f6d61df82536c470632ecc76b5b6800d439c1521b75302869818cb",
+          "status": "PASSED",
+          "checks": 16
+        },
+        {
+          "file": "account-access-mac-prepared-package.json",
+          "sha256": "3d0ba4c01540c3366e69fb35f437fe3565032561a5e4a73902f7c122e1cb6049",
+          "status": "PASSED",
+          "checks": 23
+        },
+        {
+          "file": "account-access-mac-native-messages.json",
+          "sha256": "afeec32f3124141018ec4ace19c8e2c58ed8b781bacd9184b2de4b06edded81b",
+          "status": "PASSED",
+          "checks": 13
+        },
+        {
+          "file": "account-access-mac-native-browser.json",
+          "sha256": "1db828ce3d595ac2286daae6cf2950026ba7af8cc3098fc128f0f04346a8e775",
+          "status": "PASSED",
+          "checks": 10
+        },
+        {
+          "file": "account-access-mac-native-system-browser.json",
+          "sha256": "4a0cfa254ce02eb63b9da71be37edab846b79e489738f3493d4ee80a6c70fe08",
+          "status": "PASSED",
+          "checks": 18
+        },
+        {
+          "file": "account-access-mac-protected-browser.json",
+          "sha256": "e9135409509d467a9a4bbd03e5817fef38aaf1dd543b142a4492f91c7cfe8706",
+          "status": "PASSED",
+          "checks": 18
+        },
+        {
+          "file": "account-access-mac-signed-chrome.json",
+          "sha256": "ec737435bf150a47d254148204ce746d80ded2920e12e508df68deaf29adad8b",
+          "status": "PASSED",
+          "checks": 17
+        }
+      ],
+      "entrypoint_refusals": []
+    },
+    {
+      "artifact_id": 12604333923,
+      "name": "mac-launchctl-disable-installer-context",
+      "bytes": 8589,
+      "sha256": "daf04a8f44878799da2d923d73fdfcff7647453b3fcb6a345f344736b30483d6",
+      "reports": [
+        {
+          "file": "installer-context.json",
+          "sha256": "5d168526db149aee0975409abbd34f2de42dd23916e207bef2497afd64ba50f0",
+          "status": "PASSED",
+          "checks": null
+        },
+        {
+          "file": "report.json",
+          "sha256": "a984927054f99ad7a085894f85783c6404f29346f4fa8fe8930cf02b62e9ce97",
+          "status": "PASSED",
+          "checks": null
+        }
+      ],
+      "entrypoint_refusals": []
+    },
+    {
+      "artifact_id": 12604204085,
+      "name": "mac-component-update-native",
+      "bytes": 8427,
+      "sha256": "538b7669ca6c250095b1c20c5175d45d6747acd74a31166ba7169f5e6d9eedc2",
+      "reports": [
+        {
+          "file": "core-fixture.json",
+          "sha256": "c3c7f2f760a9413de8fd342133eec8b967c73d0a64ecd35d6196f0fe719612d4",
+          "status": "PASSED",
+          "checks": 56
+        },
+        {
+          "file": "policy-fixture.json",
+          "sha256": "d72b4bd29031f0597eda234a41a9576c4ce49b3178832fa949d9f4ad26f37f1c",
+          "status": "PASSED",
+          "checks": 8
+        },
+        {
+          "file": "report.json",
+          "sha256": "f354be5490cbad4347ab7c64cb76ee46f7eed6db44ac2b66cf6b29e5b2377667",
+          "status": "PASSED",
+          "checks": 4
+        }
+      ],
+      "entrypoint_refusals": [
+        {
+          "file": "ordinary-main.json",
+          "sha256": "301808d18007040e5229ea7f9badb66cc975c469f9151fef56ca91d491ce217d",
+          "reason": "component_update_context_required"
+        },
+        {
+          "file": "ordinary-revalidation.json",
+          "sha256": "23cd71d802d589b2e8e34d04b61b48ddd5265006c9c18d2ea8416e35ada3aabb",
+          "reason": "installation_revalidation_context_required"
+        }
+      ]
+    },
+    {
+      "artifact_id": 12604084340,
+      "name": "mac-installer-context",
+      "bytes": 2460,
+      "sha256": "a0cbed42850eb1b89fa4163adaa5848da59c38a0339c8deeb91e6a2914e09fc4",
+      "reports": [
+        {
+          "file": "install-verification.json",
+          "sha256": "7dc95529bf1932b8234fed7a46bf7ca0b12d060d4ce78242717499fc030e0903",
+          "status": "VERIFIED",
+          "checks": null
+        },
+        {
+          "file": "native-source-handoff.json",
+          "sha256": "fef49bbc1beadc588c193077319479416c4120934b1d1705040514b9e1f566a2",
+          "status": "PASSED",
+          "checks": 8
+        },
+        {
+          "file": "report.json",
+          "sha256": "e24ce7a6bc1a1d4cd0eca003658c93c6dad8b13129fdb773cfccccff0f8a64e3",
+          "status": "PASSED",
+          "checks": null
+        }
+      ],
+      "entrypoint_refusals": []
+    },
+    {
+      "artifact_id": 12604039668,
+      "name": "mac-launchctl-installer-context",
+      "bytes": 2004,
+      "sha256": "3e6b8a87d5d68e46ce76053b9afd69e84771bdac56297894f6a8519532c80381",
+      "reports": [
+        {
+          "file": "report.json",
+          "sha256": "4e5172dd8060dd68a39f5816425c3f1ce4b4c466d5c24d611ede41460b3ed4dd",
+          "status": "PASSED",
+          "checks": null
+        },
+        {
+          "file": "installer-context.json",
+          "sha256": "43e4d4535713b49994adeda4ceccbea3ac3499167088c23c30b58379c5c3f5e1",
+          "status": "PASSED",
+          "checks": null
+        }
+      ],
+      "entrypoint_refusals": []
+    }
+  ],
+  "scope": "controlled disposable Mac fixtures, including distinct worker and agent identities",
+  "owner_recovery_verified": false,
+  "production_ready": false,
+  "report_count": 28,
+  "true_named_checks": 502
+}

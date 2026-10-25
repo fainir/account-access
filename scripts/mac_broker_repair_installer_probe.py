@@ -610,7 +610,7 @@ def main():
     parser.add_argument("--runtime-scenario", choices=["install-reapply", "interrupt-owner", "interrupt-runtime", "quiescence-recovery", "alias-recovery"], default="install-reapply")
     parser.add_argument("--owner-upgrade", type=Path)
     parser.add_argument("--previous-owner-upgrade", type=Path)
-    parser.add_argument("--owner-scenario", choices=["install-reapply", "interrupt-owner", "interrupt-identity", "interrupt-host", "after-alias-repair", "after-quiescence-recovery"], default="install-reapply")
+    parser.add_argument("--owner-scenario", choices=["install-reapply", "interrupt-owner", "interrupt-identity", "interrupt-host", "interrupt-published-preparation", "after-alias-repair", "after-quiescence-recovery"], default="install-reapply")
     args = parser.parse_args()
     try:
         return run(args)

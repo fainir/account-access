@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PROBE = runpy.run_path(str(ROOT / "scripts/mac_owner_upgrade_installer_probe.py"))
 
 
-@pytest.mark.parametrize("script", ["download_owner_upgrade_inputs.py", "download_owner_upgrade97_inputs.py"])
+@pytest.mark.parametrize("script", ["download_owner_upgrade_inputs.py", "download_owner_upgrade97_inputs.py", "download_owner_upgrade98_inputs.py"])
 def test_frozen_owner_assets_and_all_identity_fields(script):
     download = runpy.run_path(str(ROOT / "scripts" / script))
     value = json.loads((ROOT / download["CONTRACT"]).read_bytes())
@@ -39,6 +39,8 @@ def passed(scenario="install-reapply"):
     if scenario in PROBE["INTERRUPT_SCENARIOS"]:
         value["interruption"] = {"owned_child_only": True, "head_not_published": True,
                                  "installer_daemon_interrupted": False, "power_failure_tested": False}
+        if scenario == "interrupt-published-preparation":
+            value["interruption"].update(published_local_journal_sealed=True, public_image_unchanged=True, service_disable_not_started=True)
     return value
 
 
@@ -75,6 +77,15 @@ def test_interrupted_child_must_be_observed_before_publication():
             assert not PROBE["acceptance_passed"](value)
     value = passed("interrupt-host")
     del value["interruption"]
+    assert not PROBE["acceptance_passed"](value)
+
+
+@pytest.mark.parametrize("field", ["published_local_journal_sealed", "public_image_unchanged", "service_disable_not_started"])
+def test_published_preparation_requires_all_closed_boundary_observations(field):
+    value = passed("interrupt-published-preparation")
+    value["interruption"][field] = False
+    assert not PROBE["acceptance_passed"](value)
+    del value["interruption"][field]
     assert not PROBE["acceptance_passed"](value)
 
 

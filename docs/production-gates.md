@@ -155,16 +155,32 @@ ordinary-user regression now passes 21 checks: reproducing the exact empty
 journal refusal, opening the prepared journal read-only before and after parent
 publication, preserving its bytes/inode and refusing foreign records. The
 read-only projection remains read-only. This result is a source projection;
-full controller checks, a new signed helper/package and actual Installer
-qualification remain pending.
-[Local journal regression](../artifacts/owner99-local-journal-regression-20261025.json).
+the full native controller also passed 32 parser, 26 namespace, 21 preparation,
+477 tree and 324 mixed-storage checks. Controller source `9b867da` passed
+4,303 Python tests (111 skipped), dependency auditing and all three native jobs.
+Package **99** is built from that source, with SHA-256
+`b478bee55de47feb3cf0af91c1cd072a67db02a5979ba67a490ae6cd4cc87b85`.
+Its signed helper, independent extracted inventory and no-restart query pass;
+all three private draft assets match their hashes. Seven actual Installer
+scenarios remain pending, adding interruption immediately after preparation
+publication to the preceding six. That boundary must have a sealed local
+journal, unchanged public image, no service-disable record and a running old
+broker before recovery. Package 99 has not been installed on the owner Mac.
+[Local journal regression](../artifacts/owner99-local-journal-regression-20261025.json) ·
+[Native controller checks](../artifacts/owner99-native-source-ci-20261025.json) ·
+[Controller source CI](../artifacts/owner99-controller-source-ci-20261025.json) ·
+[Package 99 build](../artifacts/owner-upgrade99-build-20261025.json) ·
+[Package 99 inputs](../artifacts/owner-upgrade99-installer-inputs.json).
 
 The separate-user Mac fixture now additionally exercises an already-enrolled
 client upgrading both exact legacy skills against its actual isolated worker.
 It preserves the previous current trees, verifies both upgraded launchers and
 idempotent reapplication, and contains no historical token or executable. This
-additional integration scenario awaits its new CI result; its approval remains
-synthetic and does not qualify the owner Mac's connection.
+additional integration scenario passed at source `6ea62ab`: five verified
+archives contain 28 passing reports and 502 named checks, including all ten
+new upgrade and launcher checks. Its approval remains synthetic and does not
+qualify the owner Mac's connection.
+[Legacy-upgrade worker evidence](../artifacts/legacy-agent-upgrade-source-mac-acceptance-20261025.json).
 
 [Actual Installer acceptance](../artifacts/runtime-upgrade94-installer-acceptance-20261024.json) ·
 [Owner preflight](../artifacts/owner-mac-before-runtime94-20261024.json) ·
@@ -219,6 +235,16 @@ The Android 15 development APK has SHA-256
 This is not physical Bluetooth-association or SMS-delivery acceptance.
 [Android evidence](../artifacts/android-status-race-fixed-20261024.json) ·
 [Phone setup](../android/README.md).
+
+The Android publisher build at `ff6ee30` accepts an existing private signing key
+and independently recorded certificate fingerprint. It requires increasing
+version codes for updates, refuses development certificates and never generates
+or uploads a replacement key. The actual SDK fixture signed versions 2 and 3
+with one disposable certificate and refused a wrong signer and non-increasing
+version before requesting a password. Its archive and report hashes were
+verified. Android 11/15 emulator workflows also passed at that source. No
+publisher key, physical installation or real update/pairing was qualified.
+[Publisher-signing fixture](../artifacts/android-publisher-signing-fixture-20261025.json).
 
 ## Additional supported mechanisms and limits
 

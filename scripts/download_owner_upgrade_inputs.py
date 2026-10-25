@@ -1,4 +1,4 @@
-"""GET-only hosted download of the exact owner-upgrade-98 draft asset contract."""
+"""GET-only hosted download of the exact owner-upgrade-99 draft asset contract."""
 import argparse
 import hashlib
 import json
@@ -9,10 +9,10 @@ import runpy
 import subprocess
 
 REPOSITORY = "fainir/account-access"
-SOURCE = "91d4b7b2da192ea858b5d2e30ead06fa775b929a"
-CONTRACT = "artifacts/owner-upgrade98-installer-inputs.json"
+SOURCE = "9b867da0de9f91ffbca4a8c838c4bc692f1b5e47"
+CONTRACT = "artifacts/owner-upgrade99-installer-inputs.json"
 # Canonical identity of the reviewed package and exact uploaded draft assets.
-CONTRACT_SHA256 = "6a6a6f96e88eb474a7a1c8413ec5f2386dc329e83c67c8b6b639d3541d3878d4"
+CONTRACT_SHA256 = "40c5a1ba7b751d7c123086e773a654b96785f4440330601c48bbd75db23e5147"
 FILES = {"owner-upgrade.pkg", "owner-review.json", "owner-scripts-inventory.json"}
 
 
