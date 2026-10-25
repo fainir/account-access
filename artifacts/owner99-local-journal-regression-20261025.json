@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "status": "PASSED",
+  "scope": "ordinary-user exact source projection; full controller and Installer qualification pending",
+  "preparation_checks": 21,
+  "regression": "empty journal refuses read-only observation; exact local intent is sealed before parent publication; read-only original observation survives rename with unchanged record; foreign journals and invalid preparation refuse",
+  "source_sha256": {
+    "macos/InstallerPayload.swift": "03876624a57cfe84d850b1998f636acaa039ce6fd4822d8df60ffeab7cd9c81d",
+    "macos/FullImageTreeAttachment.swift": "8bb445ede216844f0a32144e99c27a9f06a80b7a76f4e78fbd9f30b65ce22a65",
+    "macos/FullImageTreeStorage.swift": "227299673bdebac965523783aded895863aff0b778db8cc67c68a0131f71f1b3",
+    "macos/ComponentUpdate.swift": "944d1689ca7c350ebf43bf32811de02442748b9a7b4c7bd96f63e1a14bee0f94",
+    "macos/FullImagePlan.swift": "715eabab88da1c2d5be412bdd2c117f08f21688a7f3eae3db25db23bfce10774",
+    "macos/source-fragments/OwnerUpgradeInstalledAdapter.swift.inc": "b655f5485a8677ef776f86631299c07b93b9551b7703a0a14d46500672a4c5e3",
+    "macos/Tests/OwnerUpgradePreparationChecks.swift": "4e04b4869cca9e7e552e3040a430db83e44c4298bf21b54b35f157a82e885785"
+  },
+  "dependency_projection_sha256": "6bf3b2a3986d81f911a83e6898c33396264fafb791ecb9c430151b0f531a8f38",
+  "binary_sha256": "7b5acf12f134708215dce02fc6cb2172ca8e399d572054557154a1e07579a453",
+  "result_sha256": "1a155041cb982f97f17bd68fec4cbef66ebb892ff3b7ae69347a02be39889a21",
+  "root_execution": false,
+  "installed_reads": false,
+  "installed_writes": false,
+  "service_actions": false,
+  "production_ready": false
+}

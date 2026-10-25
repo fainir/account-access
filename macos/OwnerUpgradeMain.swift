@@ -7,6 +7,14 @@ import Darwin
     private static func reason(_ error: Error) -> String {
         if let diagnostic = error as? CompletedPredecessorDiagnostic { return reason(diagnostic.failure) }
         if let failure = error as? ComponentUpdateFailure { return failure.rawValue }
+        if let failure = error as? PublicTreeFailure {
+            switch failure {
+            case .invalid: return "owner_upgrade_tree_storage_not_verified"
+            case .changed: return "owner_upgrade_object_changed"
+            case .journal: return "owner_upgrade_tree_journal_not_verified"
+            case .barrier: return "owner_upgrade_quiescence_not_verified"
+            }
+        }
         guard let failure = error as? FullImageFailure else { return "owner_upgrade_unavailable" }
         switch failure {
         case .source: return "owner_upgrade_source_not_verified"

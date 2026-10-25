@@ -1,4 +1,4 @@
-"""Build-only fixed owner98 successor from frozen public inputs; never install."""
+"""Build-only fixed owner99 successor from frozen public inputs; never install."""
 
 import argparse
 import hashlib
@@ -20,7 +20,7 @@ PLAN = "1b5812e7e6618ce92a242f6acc5683daccd4485c7e2e57859597c029960ee42c"
 BEFORE = "03fb35eb2787ebd67079dd1cbe4dda125f430964540bdd2f2e9c81eda602fd7a"
 AFTER = "c80f0430c7529acb8479661554aadd7e6b1cfb98303df1e2bda1e5024a75356c"
 TARGET = "6736a20f8ed20d9188380b83b808ec9e380df501"
-IDENTIFIER = "com.fainir.accountaccess.ownerupgrade98"
+IDENTIFIER = "com.fainir.accountaccess.ownerupgrade99"
 BUILD_TOOLS = (
     "/usr/bin/xcrun",
     "/usr/bin/codesign",
@@ -73,6 +73,7 @@ def validate_qa(shared, runtime, owner, sources):
         and rows[0].get("checks") == 32
         and rows[1].get("ordinary_context_refusals") == 2
         and rows[1].get("namespace_checks") == 26
+        and rows[1].get("preparation_checks") == 21
         and rows[2].get("checks") == 477
         and rows[2].get("root_execution") is False
         and rows[3].get("checks") == 324
@@ -439,7 +440,7 @@ def build(args):
     (scripts / "postinstall").chmod(0o755)
     command("wrapper", ["/bin/sh", "-n", str(scripts / "postinstall")], timeout=30)
     final_inventory = inventory(scripts)
-    package = output / "Account-Access-Owner-Upgrade-98-local-unsigned-1800.pkg"
+    package = output / "Account-Access-Owner-Upgrade-99-local-unsigned-1800.pkg"
     raw_package = output / "raw.pkg"
     command(
         "package",

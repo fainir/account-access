@@ -101,7 +101,7 @@ def reports():
         "source_sha256": pins,
         "results": [
             {"status": "PASSED", "checks": 32},
-            {"status": "PASSED", "ordinary_context_refusals": 2, "namespace_checks": 26},
+            {"status": "PASSED", "ordinary_context_refusals": 2, "namespace_checks": 26, "preparation_checks": 21},
             {"status": "PASSED", "checks": 477, "root_execution": False},
             {"status": "PASSED", "checks": 324, "owned_temp_fake_barrier_only": True},
         ],
@@ -133,6 +133,7 @@ def test_exact_ordinary_qa_and_source_bindings_are_required():
         "source_changed",
         "shared_source_changed",
         "namespace_count",
+        "preparation_count",
         "root_execution",
         "real_barrier",
     ],
@@ -173,6 +174,8 @@ def test_unqualified_or_mismatched_reports_refused(fault):
         shared["source_sha256"] = {"macos/fictional.swift": "0" * 64}
     elif fault == "namespace_count":
         owner["results"][1]["namespace_checks"] = 25
+    elif fault == "preparation_count":
+        owner["results"][1]["preparation_checks"] = 20
     elif fault == "root_execution":
         owner["results"][2]["root_execution"] = True
     elif fault == "real_barrier":

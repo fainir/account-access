@@ -127,20 +127,37 @@ checks. Six actual Installer scenarios cover installation/reapplication, three
 interrupted exchanges, and predecessors recovered through alias and
 service-quiescence repairs. Each also requires package 97 to refuse at the
 source checkpoint without changing the installed image or history. These
-package 98 scenarios are pending. The owner Mac is on package 95, and the AI
-connection failure remains unresolved.
+package 98 scenarios did not pass: both actual installation and the owned-helper
+interruption fixture refused at `journal`. The captured native result was
+`owner_upgrade_unavailable`. Both verified the corrected resource directory,
+the old-package source refusal and the foreign-predecessor refusal. The two
+failure archives and all 82 referenced log hashes were independently verified;
+the remaining run was canceled. Package 98 was not installed on the owner Mac.
+The owner Mac is on package 95, and the AI connection failure remains unresolved.
 Qualification source `3bb3c8f` passed 4,295 Python tests (111 skipped), dependency
 auditing and all three native jobs. The actual package's owner/runtime source
 records also pass the pure native parsers. Packaging source `abb48e2` passed
 28 separate-user Mac reports with 492 named checks. The new Installer run's
 live Apple-identity qualification and surviving-job witness passed, with all
 17 referenced log hashes independently verified. These checks do not replace
-the pending actual owner-successor Installer results.
+actual owner-successor Installer acceptance.
 [Package 97 build](../artifacts/owner-upgrade97-build-20261025.json) ·
 [Package 97 refusal](../artifacts/owner-upgrade97-installer-refusal-20261025.json) ·
 [Package 98 build](../artifacts/owner-upgrade98-build-20261025.json) ·
+[Package 98 refusal](../artifacts/owner-upgrade98-installer-refusal-20261025.json) ·
 [Compact-source checks](../artifacts/owner-upgrade97-compact-source-20261025.json) ·
 [Frozen Installer inputs](../artifacts/owner-upgrade98-installer-inputs.json).
+
+The package 99 candidate seals its local tree intent during preparation, before
+publishing the global transition. Previously the successor projection opened
+that still-empty local journal read-only and correctly refused. The native
+ordinary-user regression now passes 21 checks: reproducing the exact empty
+journal refusal, opening the prepared journal read-only before and after parent
+publication, preserving its bytes/inode and refusing foreign records. The
+read-only projection remains read-only. This result is a source projection;
+full controller checks, a new signed helper/package and actual Installer
+qualification remain pending.
+[Local journal regression](../artifacts/owner99-local-journal-regression-20261025.json).
 
 The separate-user Mac fixture now additionally exercises an already-enrolled
 client upgrading both exact legacy skills against its actual isolated worker.

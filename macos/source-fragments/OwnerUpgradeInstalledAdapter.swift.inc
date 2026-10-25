@@ -1,4 +1,26 @@
 // Fixed successor for the diagnostic owner app; no ordinary-user entrypoint.
+// Called only for the newly created, still-unpublished preparation directory.
+// The read-only successor projection must never initialize this journal itself.
+enum OwnerUpgradeLocalJournal {
+    static func prepare(_ journal: Int32, operation: PublicTreeOperation, owner: uid_t, group: gid_t) throws {
+        let before = try InstallerPayloadIO.check(journal, owner: owner, directory: true)
+        try PublicTreeIO.noACL(journal)
+        guard before.st_gid == group, before.st_mode & 0o7777 == 0o700,
+              operation.schema == 2, operation.unit == PublicTreeUnit.runtimeOwner.rawValue,
+              FullImageJSON.hex(operation.planSHA256),
+              try InstallerPayloadIO.contents(journal).isEmpty else { throw FullImageFailure.journal }
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        let raw = try encoder.encode(operation)
+        _ = try ComponentFiles.writeExclusive(journal, "intent.json", data: raw, owner: owner, mode: 0o600)
+        let after = try InstallerPayloadIO.check(journal, owner: owner, directory: true)
+        guard fsync(journal) == 0,
+              try InstallerPayloadIO.contents(journal) == ["intent.json"],
+              try ComponentFiles.read(journal, "intent.json", owner: owner, mode: 0o600).0 == raw,
+              PublicTreeDirectoryIdentity(before) == PublicTreeDirectoryIdentity(after) else { throw FullImageFailure.journal }
+        try PublicTreeIO.noACL(journal)
+    }
+}
+
 private struct OwnerUpgradeAuthority {
     let proofSHA256: String
     let ownerUID: uid_t, brokerUID: uid_t
@@ -246,6 +268,11 @@ extension ComponentController {
                     let record = try PublicTreeStorage.capture(unit: unit, targetParent: target.fd, retainedParent: retained,
                         targetAttachment: target.attachment(.target(unit)), retainedAttachment: temporary.attachment(.retained(unit)),
                         old: old, new: new, owner: 0, group: 0, beforeGroup: beforeGroup, planSHA256: pins.planSHA256)
+                    // Seal the exact local intent before publishing its global
+                    // parent. Later original-tree projections open it read-only,
+                    // including after interruption immediately after publication.
+                    checkpoint(.preparationJournal)
+                    try OwnerUpgradeLocalJournal.prepare(localJournal, operation: record, owner: 0, group: 0)
                     operations.append(FullImageDurableOperation(tree: record))
                 }
             }

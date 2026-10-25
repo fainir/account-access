@@ -46,9 +46,11 @@ import Darwin
             pins: OwnerUpgradeCompiledPins.value, runtimePins: RuntimeUpgradeCompiledPins.value,
             repairPins: BrokerRepairCompiledPins.value, predecessorPins: FullImageUpdateCompiledPins.value) }
         let namespaces = try RuntimeUpgradeNamespaceChecks.run() + OwnerUpgradeNamespaceChecks.run()
+        let preparation = try OwnerUpgradePreparationChecks.run()
         try OwnerUpgradeSourceChecks.main()
         print("{\\"schema\\":1,\\"status\\":\\"PASSED\\",\\"ordinary_context_refusals\\":" + String(contexts)
-            + ",\\"namespace_checks\\":" + String(namespaces) + ",\\"installed_reads\\":false,\\"production_ready\\":false}")
+            + ",\\"namespace_checks\\":" + String(namespaces) + ",\\"preparation_checks\\":" + String(preparation)
+            + ",\\"installed_reads\\":false,\\"production_ready\\":false}")
     }
 }
 """
@@ -79,6 +81,7 @@ def main():
         "macos/OwnerUpgradeMain.swift",
         "macos/Tests/OwnerUpgradeSourceChecks.swift",
         "macos/Tests/OwnerUpgradeNamespaceChecks.swift",
+        "macos/Tests/OwnerUpgradePreparationChecks.swift",
         "macos/Tests/RuntimeUpgradeNamespaceChecks.swift",
         "macos/Tests/FullImageTransitionStorageChecks.swift",
         "macos/Tests/FullImageTreeStorageChecks.swift",
@@ -150,6 +153,7 @@ def main():
     fixture_names = [
         "OwnerUpgradeSourceChecks",
         "OwnerUpgradeNamespaceChecks",
+        "OwnerUpgradePreparationChecks",
         "RuntimeUpgradeNamespaceChecks",
     ]
     for name in fixture_names:
