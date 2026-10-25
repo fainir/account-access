@@ -109,6 +109,24 @@ representative access and open-service-request handling. A connector must stop
 for unqualified branches; a generic Continue action could exceed login QA.
 The header's logout link and personal-area destination are only candidate
 authenticated markers until verified after an actual, service-owned SMS attempt.
+The reviewed bundle has a further success discriminator,
+`Details.ProcessSuccess == "UserLoggedIn"`, which updates the current-user
+state. It is a source observation, not a qualified session-status response.
+The OTP validator also reads declaration, activation and email-verification
+fields before handing the result to the shared dispatcher; a successful HTTP
+response or numeric `Status == 0` alone therefore cannot establish that the
+permitted login journey is complete.
+
+The `UserOtp` component calls `navigator.credentials.get` for the browser's SMS
+OTP transport and can submit that result automatically. The service must not
+mistake this page-owned path for delivery through its enrolled phone source.
+It must retain authority over the exact code-bearing request and current
+attempt. On this screen, `details.SendOtpOnMount` instead triggers
+`UpdateOtpChannel` with the SMS channel; an ordinary mount does not itself call
+`CreateOTP`. The resend control calls `CreateOTP` separately. A connector must
+stop on an unqualified channel-switch or resend path rather than silently
+expand its request permissions. These observations came from the same pinned
+public bundle above; no OTP or owner response was inspected.
 Raw page HTML and vendor bundles are not committed: the page contains transient
 anonymous form tokens, and public source alone cannot prove account acceptance.
 [Bound public evidence](../artifacts/harel-public-login-review-20261022.json).

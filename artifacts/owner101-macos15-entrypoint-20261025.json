@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "status": "PASSED",
+  "run_id": 40221314264,
+  "qualification_source": "43c4c7ab7d10c5618213b761bc59fce9625ab3e7",
+  "controller_source": "cd6af126a74c72c8ddf1d51e126eb54415b5a5a0",
+  "package_sha256": "a63affe44b86f36c32a60913a365bb8cf45824a4b6eb278892895c9b36764c0d",
+  "artifact_id": 12609554341,
+  "archive_sha256": "0cb8292b9f144f6eebb9bbfe89e52fe3dd5cd0e07ed138e363eafc37865acf79",
+  "report_sha256": "34c56de607a79eb3264813e7842c2a8b73ffe3007c2a4d25f1279c1ee62ba630",
+  "host_macos": "15.7.9",
+  "helper_sha256": "7a2c108963e97d1ad6d86adbb95c9a0521966a36ddc0a8179e874747d7a9b420",
+  "helper_target": {
+    "architecture": "arm64",
+    "platform": "macos",
+    "minimum_macos": "14.0",
+    "sdk": "27.0"
+  },
+  "checks": {
+    "fixed_inputs": true,
+    "target_metadata": true,
+    "wrapper_binding": true,
+    "signature": true,
+    "ordinary_entrypoint": true
+  },
+  "referenced_log_hashes_verified": 18,
+  "source_files_and_contract_verified": 4,
+  "ordinary_helper_execution_verified": true,
+  "root_update_executed": false,
+  "installed_owner_machine": false,
+  "production_ready": false
+}

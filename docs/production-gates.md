@@ -223,11 +223,21 @@ expanded matching inventory. Its 13,696,702-byte package has SHA-256
 `a63affe44b86f36c32a60913a365bb8cf45824a4b6eb278892895c9b36764c0d`.
 All three private draft assets match their hashes. All 128 focused builder,
 compatibility-guard, plan and Installer contract checks pass. The hosted macOS
-15 launch check and seven actual Installer scenarios remain pending. Package
-101 has not been installed on the owner Mac.
+15.7.9 launch check passed all five checks and all 18 referenced log hashes were
+verified. The helper actually loaded and returned its expected ordinary-user
+refusal before any installation. Qualification source `43c4c7a` also passed
+4,368 Python tests (112 skipped), dependency auditing and all three native jobs;
+the three native archives and all 53 source hashes were independently verified.
+The live Apple-identity and surviving-job prerequisite passed all five checks
+with 17 verified log hashes. The seven actual Installer scenarios remain
+pending. Package 101 has not been installed on the owner Mac.
 [Package 101 build](../artifacts/owner-upgrade101-build-20261025.json) ·
 [Standard build command](../artifacts/owner-upgrade101-build-command.py.txt) ·
-[Package 101 inputs](../artifacts/owner-upgrade101-installer-inputs.json).
+[Package 101 inputs](../artifacts/owner-upgrade101-installer-inputs.json) ·
+[Actual macOS 15 launch](../artifacts/owner101-macos15-entrypoint-20261025.json) ·
+[Source CI](../artifacts/owner101-qualification-source-ci-20261025.json) ·
+[Native source evidence](../artifacts/owner101-native-source-ci-20261025.json) ·
+[Live-process evidence](../artifacts/owner101-live-witness-20261025.json).
 
 Qualification source `d81e11f` passed 4,344 Python tests (112 skipped), dependency
 auditing and all three native jobs. The three native archives and all 53 source
