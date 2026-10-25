@@ -88,7 +88,10 @@ The post-restart read-only check matches all 25,167 public files, 2,297
 directories and 21 aliases. All 20 repaired links pass the ordinary-user
 production runtime path validator; all five native public-tree checks pass.
 The app opens to **Upgrade AI connection**, replacing the earlier startup error.
-The current agent connection and real-account operations remain unverified.
+The subsequent connection upgrade failed after the owner reported macOS
+approval. Reopening still offered the upgrade, and one explicit retry returned
+the same generic error. The installed app does not identify the failing step;
+the current agent connection and real-account operations remain unverified.
 The bounded Installer result observed before restart was
 `ALREADY_UPDATED_GUI_UNVERIFIED` at `complete`; the same bounded reader was
 unavailable after restart. No raw install logs or private account data were
@@ -100,7 +103,8 @@ exported. The repair adds no service-control command.
 [Current Mac worker acceptance](../artifacts/runtime95-source-mac-acceptance-20261025.json) ·
 [Current live-process evidence](../artifacts/runtime95-live-witness-20261025.json) ·
 [Owner preflight](../artifacts/owner-mac-before-runtime95-20261025.json) ·
-[Owner installation and restart](../artifacts/owner-runtime95-post-restart-20261025.json).
+[Owner installation and restart](../artifacts/owner-runtime95-post-restart-20261025.json) ·
+[Connection upgrade failure](../artifacts/owner-runtime95-agent-upgrade-failure-20261025.json).
 
 [Actual Installer acceptance](../artifacts/runtime-upgrade94-installer-acceptance-20261024.json) ·
 [Owner preflight](../artifacts/owner-mac-before-runtime94-20261024.json) ·

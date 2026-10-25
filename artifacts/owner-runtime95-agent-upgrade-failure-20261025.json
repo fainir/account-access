@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "status": "REPAIR_VERIFIED_AI_CONNECTION_UPGRADE_FAILED",
+  "observed_at": "2026-10-25T10:03:26.423468+00:00",
+  "post_restart_evidence_sha256": "25990328cc2d2c990a3de31603a4045ab108420f07e400e5cbb16805ecb293dd",
+  "owner_authorized_upgrade_click": true,
+  "native_approval_requested_visible": true,
+  "owner_reported_macOS_approval": true,
+  "observed_upgrade_failure": "The AI connection could not finish. Your saved accounts and existing tool preferences are preserved. Reopen Account Access to check the connection and retry its setup or upgrade.",
+  "reopen_result": "Upgrade AI connection",
+  "explicit_retry_result": "same generic connection failure",
+  "failure_stage_known": false,
+  "raw_errors_or_credentials_read": false,
+  "legacy_launcher_used_as_acceptance": false,
+  "protected_account_discovery_verified": false,
+  "production_ready": false
+}

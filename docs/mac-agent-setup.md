@@ -50,6 +50,14 @@ rules are preserved. The preview vault, website passwords, old tokens and old
 grants are not copied. Import and approve the accounts intended for the protected
 store through its local setup flow.
 
+The next source candidate identifies a failed connection's stage using fixed
+messages: preparation, local identity validation, enrollment, agent-file
+installation, confirmation, or final verification. Known connection conflicts
+and revocation receive separate review messages. It never includes an exception,
+response, filesystem path or capability in the explanation, and does not retry
+an operation automatically. This diagnostic improvement is not installed in
+package 95 and does not resolve or identify the owner's current failure by itself.
+
 ## Client publication
 
 1. The helper checks the destination skill folders and instructions before

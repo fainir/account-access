@@ -27,8 +27,12 @@ on the owner Mac. After the owner restarted, all 25,167 files, 2,297 directories
 and 21 aliases matched the target. All 20 repaired runtime links passed the
 ordinary-user production path validator, and all five native public-tree checks
 passed. The app opens to **Upgrade AI connection**, replacing the earlier startup
-error. Current agent connection and real-account operations remain unverified.
+error. The connection upgrade then failed after the owner reported macOS
+approval; an explicit retry returned the same generic error. The installed app
+does not identify the failing connection stage. Current agent connection and
+real-account operations remain unverified.
 [Owner post-restart verification](../artifacts/owner-runtime95-post-restart-20261025.json).
+[Connection failure](../artifacts/owner-runtime95-agent-upgrade-failure-20261025.json).
 [Package 95 acceptance](../artifacts/runtime-upgrade95-installer-acceptance-20261025.json).
 [Owner failure evidence](../artifacts/owner-runtime94-installed-startup-failure-20261025.json).
 See [current production acceptance](production-gates.md) for exact source,

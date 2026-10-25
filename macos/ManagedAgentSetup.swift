@@ -3,7 +3,38 @@ import Foundation
 import CryptoKit
 import Darwin
 
-enum ManagedAgentSetupFailure: Error { case unavailable, invalidResponse }
+enum ManagedAgentSetupFailure: Error { case unavailable, invalidResponse, connectionConflict, connectionRevoked }
+
+struct ManagedAgentConnectionFailure: Error {
+    enum Stage: String, CaseIterable {
+        case prepare, localIdentity, enroll, install, confirm, verify
+        var description: String {
+            switch self {
+            case .prepare: return "preparing the local AI connection"
+            case .localIdentity: return "verifying the prepared local connection"
+            case .enroll: return "registering the approved connection with the protected store"
+            case .install: return "installing the connection for your AI tools"
+            case .confirm: return "confirming the installed AI connection"
+            case .verify: return "checking the completed connection"
+            }
+        }
+    }
+    let stage: Stage
+    let conflict: Bool
+    let revoked: Bool
+    init(stage: Stage, error: Error? = nil) {
+        self.stage = stage
+        if case ManagedAgentSetupFailure.connectionConflict? = error { conflict = true } else { conflict = false }
+        if case ManagedAgentSetupFailure.connectionRevoked? = error { revoked = true } else { revoked = false }
+    }
+    var explanation: String {
+        // Fixed text only: never interpolate an error, response, path or capability.
+        let detail = conflict ? "An existing connection conflicts with this setup and needs review."
+            : revoked ? "This connection was revoked and cannot be re-enabled by retrying setup."
+            : "Reopen Account Access to check its current state before retrying."
+        return "The AI connection stopped while \(stage.description). \(detail) Your saved accounts and tool preferences are preserved."
+    }
+}
 
 final class ManagedAgentSetup {
     private static let base = URL(fileURLWithPath: "/Library/Application Support/Account Access")
@@ -22,28 +53,35 @@ final class ManagedAgentSetup {
     func status() throws -> [String: Any] { try helper("status") }
     static func prepareBrowser() throws -> [String: Any] { try runHelper("browser") }
     func connect(upgrade: Bool = false, request: (String, [String: Any]) throws -> [String: Any]) throws {
-        let prepared = try helper(upgrade ? "prepare-upgrade" : "prepare")
-        guard prepared["status"] as? String == "PREPARED", let expected = prepared["client_id"] as? String else {
-            throw ManagedAgentSetupFailure.invalidResponse
-        }
-        let token = try readToken()
-        let identity = SHA256.hash(data: Data(token.utf8)).map { String(format: "%02x", $0) }.joined()
-        guard token.range(of: "^[A-Za-z0-9_-]{43}$", options: .regularExpression) != nil, identity == expected else {
-            throw ManagedAgentSetupFailure.invalidResponse
-        }
-        // Neither response contains a capability. Lost responses are surfaced;
-        // only an explicit retry may submit this same idempotent enrollment.
-        let enrolled = try request("owner/client/enroll", ["token": token])
-        guard enrolled["status"] as? String == "ENROLLED", enrolled["client_id"] as? String == identity,
-              enrolled["principal"] as? String == "generic" else { throw ManagedAgentSetupFailure.invalidResponse }
-        let installed = try helper(upgrade ? "install-upgrade" : "install")
-        guard installed["status"] as? String == "INSTALLED", installed["client_id"] as? String == identity,
-              let hosts = installed["hosts"] as? [String], hosts.count <= 2, Set(hosts).count == hosts.count,
-              hosts.allSatisfy({ ["codex", "claude"].contains($0) }) else { throw ManagedAgentSetupFailure.invalidResponse }
-        let confirmed = try request("owner/client/installed", ["client_id": identity, "hosts": hosts])
-        guard confirmed["status"] as? String == "INSTALLED", confirmed["client_id"] as? String == identity else {
-            throw ManagedAgentSetupFailure.invalidResponse
-        }
+        var stage = ManagedAgentConnectionFailure.Stage.prepare
+        do {
+            let prepared = try helper(upgrade ? "prepare-upgrade" : "prepare")
+            guard prepared["status"] as? String == "PREPARED", let expected = prepared["client_id"] as? String else {
+                throw ManagedAgentSetupFailure.invalidResponse
+            }
+            stage = .localIdentity
+            let token = try readToken()
+            let identity = SHA256.hash(data: Data(token.utf8)).map { String(format: "%02x", $0) }.joined()
+            guard token.range(of: "^[A-Za-z0-9_-]{43}$", options: .regularExpression) != nil, identity == expected else {
+                throw ManagedAgentSetupFailure.invalidResponse
+            }
+            // Neither response contains a capability. Lost responses are surfaced;
+            // only an explicit retry may submit this same idempotent enrollment.
+            stage = .enroll
+            let enrolled = try request("owner/client/enroll", ["token": token])
+            guard enrolled["status"] as? String == "ENROLLED", enrolled["client_id"] as? String == identity,
+                  enrolled["principal"] as? String == "generic" else { throw ManagedAgentSetupFailure.invalidResponse }
+            stage = .install
+            let installed = try helper(upgrade ? "install-upgrade" : "install")
+            guard installed["status"] as? String == "INSTALLED", installed["client_id"] as? String == identity,
+                  let hosts = installed["hosts"] as? [String], hosts.count <= 2, Set(hosts).count == hosts.count,
+                  hosts.allSatisfy({ ["codex", "claude"].contains($0) }) else { throw ManagedAgentSetupFailure.invalidResponse }
+            stage = .confirm
+            let confirmed = try request("owner/client/installed", ["client_id": identity, "hosts": hosts])
+            guard confirmed["status"] as? String == "INSTALLED", confirmed["client_id"] as? String == identity else {
+                throw ManagedAgentSetupFailure.invalidResponse
+            }
+        } catch { throw ManagedAgentConnectionFailure(stage: stage, error: error) }
     }
     private static func home() throws -> URL {
         guard getuid() != 0, getuid() == geteuid(), let entry = getpwuid(getuid()) else {

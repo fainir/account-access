@@ -868,6 +868,64 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         } catch { precondition(mismatchedRequests == 0) }
         print("PASS: changed local capability identity is refused before any native enrollment request")
 
+        // Every failure stops at its actual stage; arbitrary underlying data is
+        // never reflected in the user-visible explanation and no step retries.
+        let privateFailureText = "fictional-capability-and-private-path-must-stay-local"
+        for failedStage in ManagedAgentConnectionFailure.Stage.allCases where failedStage != .verify {
+            for malformed in [false, true] {
+                var reached: [ManagedAgentConnectionFailure.Stage] = []
+                func visit(_ stage: ManagedAgentConnectionFailure.Stage) throws -> Bool {
+                    reached.append(stage)
+                    if stage == failedStage && !malformed {
+                        throw NSError(domain: privateFailureText, code: 1,
+                                      userInfo: [NSLocalizedDescriptionKey: privateFailureText])
+                    }
+                    return stage == failedStage
+                }
+                let setup = ManagedAgentSetup(helper: { action in
+                    let stage: ManagedAgentConnectionFailure.Stage = action == "prepare-upgrade" ? .prepare : .install
+                    precondition(action == "prepare-upgrade" || action == "install-upgrade")
+                    if try visit(stage) { return ["status": privateFailureText] }
+                    return stage == .prepare
+                        ? ["status": "PREPARED", "client_id": nativeChannel.clientID]
+                        : ["status": "INSTALLED", "client_id": nativeChannel.clientID, "hosts": ["codex", "claude"]]
+                }, readToken: {
+                    if try visit(.localIdentity) { return privateFailureText }
+                    return nativeChannel.clientToken
+                })
+                do {
+                    try setup.connect(upgrade: true) { route, _ in
+                        let stage: ManagedAgentConnectionFailure.Stage = route == "owner/client/enroll" ? .enroll : .confirm
+                        precondition(route == "owner/client/enroll" || route == "owner/client/installed")
+                        if try visit(stage) { return ["status": privateFailureText] }
+                        return ["status": stage == .enroll ? "ENROLLED" : "INSTALLED",
+                                "client_id": nativeChannel.clientID, "principal": "generic"]
+                    }
+                    preconditionFailure("Failed connection step was accepted")
+                } catch let failure as ManagedAgentConnectionFailure {
+                    precondition(failure.stage == failedStage && !failure.conflict && !failure.revoked)
+                    precondition(failure.explanation.contains(failedStage.description))
+                    precondition(!failure.explanation.contains(privateFailureText))
+                    precondition(!failure.explanation.contains(nativeChannel.clientToken))
+                    let stages = ManagedAgentConnectionFailure.Stage.allCases
+                    precondition(reached == Array(stages.prefix(through: stages.firstIndex(of: failedStage)!)))
+                } catch { preconditionFailure("Failure was not reduced to a closed stage") }
+            }
+        }
+        for (reason, revoked) in [("client_connection_conflict", false), ("portable_client_revoked", true)] {
+            do {
+                _ = try owner.checkedOwnerResponse(409, ["reason": reason, "detail": privateFailureText])
+                preconditionFailure("Connection rejection was accepted")
+            } catch {
+                let failure = ManagedAgentConnectionFailure(stage: .enroll, error: error)
+                precondition(failure.revoked == revoked && failure.conflict != revoked)
+                precondition(!failure.explanation.contains(privateFailureText))
+            }
+        }
+        let verificationFailure = ManagedAgentConnectionFailure(stage: .verify)
+        precondition(verificationFailure.explanation.contains("checking the completed connection"))
+        print("PASS: connection failures identify their exact closed stage, stop without replay, and hide arbitrary errors, responses and capabilities; conflicts and revocations require review")
+
         let customNamespace = "~/Library/Application Support/Codex Work"
         let ownerHome = fixtureRoot.appendingPathComponent("home")
         for action in ["status", "prepare", "install", "prepare-upgrade", "install-upgrade"] {

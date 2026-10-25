@@ -893,6 +893,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
 
     func checkedOwnerResponse(_ code: Int, _ payload: [String: Any], pending: Bool = false, bitwarden: Bool = false) throws -> [String: Any] {
         if code == 200 || (pending && code == 202) { return payload }
+        if payload["reason"] as? String == "client_connection_conflict" { throw ManagedAgentSetupFailure.connectionConflict }
+        if payload["reason"] as? String == "portable_client_revoked" { throw ManagedAgentSetupFailure.connectionRevoked }
         if bitwarden && payload["reason"] as? String == "password_source_access_removed" {
             throw Failure.message("Bitwarden did not accept this connection. Check the personal API key, region and master password, or reconnect if access was revoked.")
         }
@@ -1095,8 +1097,10 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         page("Connecting your AI tools", "Preparing one private connection and automatic skill discovery. macOS may ask you to approve this setup action.")
         progress()
         DispatchQueue.global(qos: .userInitiated).async {
+            var connectionFinished = false
             do {
                 try self.managedAgents.connect(upgrade: upgrade) { route, body in try self.request(route, body: body) }
+                connectionFinished = true
                 let state = try self.request("owner/state")
                 guard let client = state["managed_client"] as? [String: Any], client["status"] as? String == "INSTALLED",
                       let identity = client["client_id"] as? String else { throw ManagedAgentSetupFailure.invalidResponse }
@@ -1107,7 +1111,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                     self.presentSystemState(state)
                 }
             } catch {
-                self.fail(Failure.message("The AI connection could not finish. Your saved accounts and existing tool preferences are preserved. Reopen Account Access to check the connection and retry its setup or upgrade."), retry: #selector(self.reopen))
+                let failure = error as? ManagedAgentConnectionFailure
+                    ?? ManagedAgentConnectionFailure(stage: connectionFinished ? .verify : .prepare, error: error)
+                self.fail(Failure.message(failure.explanation), retry: #selector(self.reopen))
             }
         }
     }
