@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "status": "INSTALLER_QA_REFUSED_SOURCE",
+  "recorded_at": "2026-10-25T14:36:33.431744+00:00",
+  "run_id": 40198410301,
+  "qualification_source": "a0eb4cdf968e346d219b91ba1b4eb5417c843608",
+  "controller_source": "91d4b7b2da192ea858b5d2e30ead06fa775b929a",
+  "package_sha256": "6d10b85a88652caa9663571a9cd2b57af23b3e81ba8b08585944c36240b5fdc9",
+  "artifact_id": 12602300106,
+  "artifact_sha256": "644aad860db13129ced2239316f8cc8156cde4ee47b3a32e9d154b406e382549",
+  "native_result": {
+    "schema": 1,
+    "status": "REFUSED",
+    "reason": "owner_upgrade_source_not_verified",
+    "checkpoint": "source"
+  },
+  "verified_preflight": {
+    "fixed_inputs": true,
+    "native_signature": true,
+    "compact_payload": true,
+    "no_restart": true,
+    "runtime95_predecessor": true
+  },
+  "resource_contract": {
+    "directory": "Predecessor",
+    "expected_mode": "0755",
+    "observed_mode": "0700",
+    "native_check": "macos/source-fragments/FullImageInstalledAdapter.swift.inc:49"
+  },
+  "negative_journal_test_qualified": false,
+  "owner_update_applied": false,
+  "installed_owner_machine": false,
+  "real_account_login_tested": false,
+  "production_ready": false
+}

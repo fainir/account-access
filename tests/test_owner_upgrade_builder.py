@@ -246,7 +246,7 @@ def test_predecessor_projection_keeps_exact_records_and_native_broker():
     directory = {"kind": "directory", "mode": 0o755}
     file = {"kind": "file", "mode": 0o644, "sha256": "a" * 64, "bytes": 3}
     rows = {
-        "": directory,
+        "": {"kind": "directory", "mode": 0o700, "acl": "empty"},
         "TargetImage": directory,
         "TargetImage/large-runtime": file,
         "Predecessor": directory,
@@ -260,7 +260,9 @@ def test_predecessor_projection_keeps_exact_records_and_native_broker():
         "TargetImage/large-runtime",
         "Predecessor/CompletedImage/large-runtime",
     }
-    assert all(projected[name] == rows[name] for name in projected)
+    assert projected[""] == {"kind": "directory", "mode": 0o755, "acl": "empty"}
+    assert rows[""]["mode"] == 0o700
+    assert all(projected[name] == rows[name] for name in projected if name)
 
 
 @pytest.mark.parametrize("fault", ["missing", "file", "wrong_mode"])
@@ -269,11 +271,32 @@ def test_predecessor_projection_refuses_unexpected_roots(fault):
         name: {"kind": "directory", "mode": 0o755}
         for name in ("TargetImage", "Predecessor/CompletedImage")
     }
+    rows[""] = {"kind": "directory", "mode": 0o700, "acl": "empty"}
     if fault == "missing":
         del rows["TargetImage"]
     elif fault == "file":
         rows["TargetImage"]["kind"] = "file"
     else:
         rows["TargetImage"]["mode"] = 0o700
+    with pytest.raises(ValueError, match="owner_upgrade_build_refused"):
+        builder.proof_inventory(rows)
+
+
+@pytest.mark.parametrize(
+    "root",
+    [
+        None,
+        {"kind": "file", "mode": 0o700, "acl": "empty"},
+        {"kind": "directory", "mode": 0o755, "acl": "empty"},
+        {"kind": "directory", "mode": 0o700, "acl": "nonempty"},
+    ],
+)
+def test_predecessor_projection_refuses_an_unqualified_original_container(root):
+    rows = {
+        name: {"kind": "directory", "mode": 0o755}
+        for name in ("TargetImage", "Predecessor/CompletedImage")
+    }
+    if root is not None:
+        rows[""] = root
     with pytest.raises(ValueError, match="owner_upgrade_build_refused"):
         builder.proof_inventory(rows)
