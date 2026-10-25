@@ -126,6 +126,12 @@ def build(args):
     for name, raw in files.items():
         (scripts / name).write_bytes(raw)
         (scripts / name).chmod(0o644)
+    # The two copied inventories above have been compared in full. Keep the
+    # original reviewed packages; drop only these redundant build expansions
+    # before compilation so the owner machine need not hold four image copies.
+    for expanded in (old, fresh):
+        require(expanded.parent == output and expanded.is_dir() and not expanded.is_symlink())
+        shutil.rmtree(expanded)
     code = output / "source"
     code.mkdir(mode=0o700)
     paths = []
@@ -165,8 +171,8 @@ def build(args):
     refusal = command("ordinary-refusal", [str(binary)], expected=78, timeout=30)
     require(refusal.stdout == b'{"schema":1,"status":"REFUSED","reason":"runtime_upgrade_installer_context_required"}\n'
             and not refusal.stderr)
-    wrapper = (old / "Scripts/postinstall").read_bytes()
-    old_sha = sha(old / "Scripts/AccountAccess-brokerrepair").encode()
+    wrapper = (scripts / "Predecessor/postinstall").read_bytes()
+    old_sha = sha(scripts / "Predecessor/AccountAccess-brokerrepair").encode()
     require(wrapper.count(old_sha) == 1 and wrapper.count(b"AccountAccess-brokerrepair") == 1)
     wrapper = wrapper.replace(old_sha, sha(binary).encode()).replace(b"AccountAccess-brokerrepair", b"AccountAccess-runtimeupgrade")
     (scripts / "postinstall").write_bytes(wrapper)
@@ -180,6 +186,7 @@ def build(args):
     container.mkdir(mode=0o700)
     command("extract-container", ["/usr/bin/xar", "-xf", str(raw), "-C", str(container)])
     require({p.name for p in container.iterdir()} == {"PackageInfo", "Scripts"})
+    raw.unlink()  # Redundant intermediate inside this exclusive output only.
     info = (container / "PackageInfo").read_bytes()
     require(info.count(b'timeout="600"') == 1 and IDENTIFIER.encode() in info
             and info.count(b'postinstall-action="none"') == 1)
@@ -195,6 +202,8 @@ def build(args):
     command("expand-final", ["/usr/sbin/pkgutil", "--expand-full", str(package), str(independent)])
     require(inventory(independent / "Scripts") == final_inventory
             and (independent / "PackageInfo").read_bytes() == (container / "PackageInfo").read_bytes())
+    shutil.rmtree(independent)
+    shutil.rmtree(container)
     (output / "scripts-inventory.json").write_bytes(encoded(final_inventory))
     report = {"schema": 1, "status": "BUILT_PENDING_INSTALLER_QA", "controller_source": args.source,
         "application_source": TARGET, "plan_sha256": PLAN, "before_manifest_sha256": BEFORE, "after_manifest_sha256": AFTER,
