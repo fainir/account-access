@@ -2,10 +2,29 @@
 
 **Account Access remains a preview. Production readiness is false.**
 
-Updated 25 October 2026. The requested outcome is installation, local Chrome
+Updated 26 October 2026. The requested outcome is installation, local Chrome
 password import, email/SMS/authenticator setup, and later approved sign-ins
 through the user's existing AI agent. Controlled tests cover those mechanisms;
 they do not establish personal-account or physical-phone acceptance.
+
+## Owner Mac acceptance after approval
+
+The owner approved the native macOS prompt on 26 October. The installed owner
+app still displays **The AI connection could not finish**. The approved agent
+launcher now responds, but identifies its environment as `controlled-demo` and
+returns only synthetic example accounts; it does not expose Harel, Phoenix or
+Lemon Squeezy. A permitted synthetic-account summary operation returned
+`RETRYABLE/browser_execution_failed` twice. This confirms that the approval
+reached the local service, but it does not establish a working AI connection or
+personal-account access.
+
+The Chrome import preview opened the bundled Quickstart export, containing four
+`demo@example.test` localhost accounts. No personal password was imported. The
+source now labels demo and unclassified account and verification sources so
+they cannot appear as personal connections. The optimized native owner-screen
+acceptance command used in CI passes locally with the source and fixture update.
+Hosted full regression and native checks for the final commit remain necessary;
+these checks do not change the production readiness decision.
 
 ## Current Mac recovery
 

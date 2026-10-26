@@ -355,7 +355,7 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         owner.passwordSync = []
         print("PASS: imported Bitwarden item IDs need no reentry; manual IDs stay advanced, replacement tokens are absent and unavailable runtime hides enrollment")
 
-        owner.accounts = [["account": "fixture", "label": "Fixture account", "route": "browser",
+        owner.accounts = [["account": "fixture", "label": "Fixture account", "route": "browser", "environment": "live",
                            "portable_ready": true, "connected": false]]
         owner.sources = [["id": "fixture-factor", "kind": "totp"]]
         owner.showImportSummary(["fixture"], issues: [("fixture", "Verification must be connected.")])
