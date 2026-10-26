@@ -147,8 +147,10 @@ flow. No personal login attempt was made during this review.
 
 A fresh anonymous request on 25 October returned HTTP 403 at the Phoenix
 personal-area entry itself, so that check did not reach or qualify the login
-form. In the same fresh-browser check, Lemon Squeezy's email/password form
-loaded with a native POST to `/login`; its authenticator challenge and a
-successful session remain unreviewed. No credential was entered, code requested
+form. The current public Lemon Squeezy dashboard redirects to
+`auth.lemonsqueezy.com/login`. Its anonymous login page offers Google, Twitter,
+or email/password; no authenticator challenge or authenticated marker is
+visible before sign-in. The challenge, request/submit routes and successful
+session therefore remain unreviewed. No credential was entered, code requested
 or private browser profile used for any of the three sites.
 [Sanitized current discovery](../artifacts/selected-provider-anonymous-discovery-20261025.json).
