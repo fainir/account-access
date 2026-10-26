@@ -13,9 +13,9 @@ The owner approved the native macOS prompt on 26 October. The installed owner
 app still displays **The AI connection could not finish**. The approved agent
 launcher now responds, but identifies its environment as `controlled-demo` and
 returns only synthetic example accounts; it does not expose Harel, Phoenix or
-Lemon Squeezy. A permitted synthetic-account summary operation returned
-`RETRYABLE/browser_execution_failed` twice. This confirms that the approval
-reached the local service, but it does not establish a working AI connection or
+Lemon Squeezy. Repeated attempts to read a permitted synthetic account returned
+`RETRYABLE/browser_execution_failed`. This confirms that the approval reached
+the local service, but it does not establish a working AI connection or
 personal-account access.
 
 The Chrome import preview opened the bundled Quickstart export, containing four
@@ -23,8 +23,13 @@ The Chrome import preview opened the bundled Quickstart export, containing four
 source now labels demo and unclassified account and verification sources so
 they cannot appear as personal connections. The optimized native owner-screen
 acceptance command used in CI passes locally with the source and fixture update.
-Hosted full regression and native checks for the final commit remain necessary;
-these checks do not change the production readiness decision.
+The exact ordinary-user full-image installed-adapter probe then exposed a stale
+assertion total: ten newly pinned predecessor checkpoints add 30 progress cases,
+and the fixture adds two checkpoint-list assertions. The guard and inert report
+fixture now expect 465; the probe passes locally and still reports
+`production_ready: false`. Focused Python contract checks also pass (31 tests).
+Hosted regression and native checks for this correction remain necessary. None
+of these automated checks changes the production readiness decision.
 
 ## Current Mac recovery
 

@@ -376,7 +376,7 @@ class Probe:
         require(len(reports) == 6 and all(report.get("status") == "PASSED" for report in reports[:4]), "fixture_reports_refused")
         require(reports[0].get("count") == 159 and isinstance(reports[0].get("checks"), dict)
                 and len(reports[0]["checks"]) == 159 and all(value is True for value in reports[0]["checks"].values())
-                and reports[1].get("checks") == 433, "fixture_assertion_count_changed")
+                and reports[1].get("checks") == 465, "fixture_assertion_count_changed")
         namespace = reports[2]
         require((namespace.get("checks"), namespace.get("supplemental_group_case")) in {
             (29, "UNAVAILABLE_NO_DISTINCT_GROUP"),
