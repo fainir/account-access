@@ -59,10 +59,8 @@ audits. Both audits reported development dependency `certifi 2026.7.22`
 is unqualified, and the failed attempts remain recorded.
 
 The successor updates certifi to `2026.10.19`, with published archive hashes.
-Exact-source CI at `213509c` subsequently passed all four applicable workflows:
-the main checks, Mac separate-user worker, separate-user worker and Android
-login-code journey. That result applies to `213509c`, not to later dependency
-changes.
+Exact-source CI at `213509c` subsequently passed all four applicable workflows;
+that result applies to `213509c`, not later changes.
 
 A fresh dependency audit on 2026-10-26 found that the locked `filelock 3.32.7`
 falls within newly published upstream advisories, including
@@ -75,15 +73,24 @@ requirements. `pip-audit --local` on the exact locked environment reports no
 known vulnerabilities; the unpublished application itself is skipped by that
 tool. The four-case owner-review fixture now passes after slowing only its
 synthetic page refresh; a broader local selection reached 253 passes but was
-interrupted before completion. Exact-source CI for this correction is pending,
-and the frozen runtime's pip-vendored certificate bundle still needs a separate
-full-image check. [Dependency audit and correction record](../artifacts/filelock-4.2.4-qa-20261026.json).
+interrupted before completion. Commit `4f414c2` subsequently passed all four
+exact-source CI workflows: Account Access checks, Android login-code journey,
+separate-user worker acceptance and Mac separate-user worker acceptance. The
+Mac run passed cross-user password/email/SMS/TOTP recovery and offline
+development-package installation/reapplication in a disposable VM. That
+fixture-based result is not the public release installer or private owner
+acceptance. The frozen runtime's pip-vendored certificate bundle still needs a
+separate full-image check. [Dependency audit and correction record](../artifacts/filelock-4.2.4-qa-20261026.json).
 
 The current owner Mac still has app build 92. Its approved diagnostic package
 has no signature; Gatekeeper reports `source=no usable signature`, so Installer
 does not enable installation. No updated owner package was installed. The
-corrected source still needs exact-source CI, signed/notarized packaging and
-actual owner installation qualification.
+passing disposable-VM development-package test does not qualify this user
+installer. The corrected source still needs a Developer ID Installer identity,
+notarization and stapling, then clean downloaded installation and owner
+qualification. The catalog also lacks the requested identifier-plus-SMS
+insurance login flow and a reviewed connector for the requested TOTP account;
+personal email/SMS/authenticator enrollment and login remain unverified.
 [Earlier failed candidate and certifi correction](../artifacts/ci-certifi-refusal-5b09c50-20261021.json).
 
 The owner-app source also corrects its Claude Code action and unsupported
