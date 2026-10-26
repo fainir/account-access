@@ -305,10 +305,18 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     var busy = false { didSet { if busy != oldValue { ownerSetupContext.invalidate() } } }
     var backgroundRecovery: [String: Any] = [:]
     var backgroundServiceStatus = "unknown"
+    var serviceEnvironment = "unclassified"
     var failedAccount: String?
     let localRequests = LocalRequests()
-    static func isExample(_ account: [String: Any]) -> Bool {
-        ["controlled-demo", "public-example"].contains(account["environment"] as? String ?? "")
+    static func effectiveEnvironment(_ account: [String: Any], fallback: String? = nil) -> String {
+        let candidate = account["environment"] as? String ?? fallback ?? "unclassified"
+        return ["live", "controlled-demo", "public-example"].contains(candidate) ? candidate : "unclassified"
+    }
+    static func isExample(_ account: [String: Any], fallback: String? = nil) -> Bool {
+        ["controlled-demo", "public-example"].contains(effectiveEnvironment(account, fallback: fallback))
+    }
+    static func isLive(_ account: [String: Any], fallback: String? = nil) -> Bool {
+        effectiveEnvironment(account, fallback: fallback) == "live"
     }
     static func isReady(_ account: [String: Any]) -> Bool {
         account["connected"] as? Bool == true && account["portable_ready"] as? Bool != false
@@ -316,10 +324,10 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
     var preferredAgent: String { agents.contains("claude") ? "Claude Code" : agents.contains("codex") ? "Codex" : "your AI tool" }
     var requestText: String {
-        if accounts.contains(where: { !Self.isExample($0) && Self.isReady($0) }) {
+        if accounts.contains(where: { Self.isLive($0, fallback: serviceEnvironment) && Self.isReady($0) }) {
             return "Summarize the approved information from my connected services and save the results as one task."
         }
-        if accounts.contains(where: { Self.isExample($0) && Self.isReady($0) }) {
+        if accounts.contains(where: { Self.isExample($0, fallback: serviceEnvironment) && Self.isReady($0) }) {
             return "Try my connected example accounts and save the results as one task. Label the results as examples."
         }
         return "Check which of my configured services are available and tell me what needs attention."
@@ -1137,6 +1145,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
 
     func accept(_ state: [String: Any]) {
+        serviceEnvironment = state["environment"] as? String ?? "unclassified"
         backgroundRecovery = state["background_recovery"] as? [String: Any] ?? [:]
         navigationFailures = state["navigation_failures"] as? [[String: Any]] ?? []
         browserUpdates = state["browser_updates"] as? [[String: Any]] ?? []
@@ -1761,9 +1770,15 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             let saved = accounts.first { $0["account"] as? String == account } ?? [:]
             let name = saved["label"] as? String ?? account
             let ready = issue == nil && Self.isReady(saved)
-            let explanation = ready ? (Self.isExample(saved) ? "Example sign-in verified. These results do not validate a personal account." : "Sign-in verified. This approved account is ready for your AI.") : "Your login is saved. Review the sign-in status before using this connection."
+            let example = Self.isExample(saved, fallback: serviceEnvironment)
+            let live = Self.isLive(saved, fallback: serviceEnvironment)
+            let explanation = ready ? (example ? "Example sign-in verified. These results do not validate a personal account."
+                : live ? "Sign-in verified. This approved account is ready for your AI."
+                : "The sign-in result is saved, but its source could not be verified. It does not establish personal-account access.")
+                : "Your login is saved. Review the sign-in status before using this connection."
             let body = card(name, issue ?? explanation,
-                            status: ready ? (Self.isExample(saved) ? "Example connected" : "Connected") : "Saved · Sign-in needs attention", good: ready)
+                            status: ready ? (example ? "Example connected" : live ? "Connected" : "Source unverified")
+                                : "Saved · Sign-in needs attention", good: ready && (example || live))
             if !ready {
                 let inspect = NSButton(title: "Review sign-in help", target: self, action: #selector(inspectSavedSignIn))
                 inspect.identifier = NSUserInterfaceItemIdentifier(account)
@@ -3333,8 +3348,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         } else if backgroundRecovery["status"] as? String == "STOPPED" {
             card("Background recovery stopped", "Use Repair installation in the app menu to restart it. Your saved connections are preserved.", status: "Stopped", good: false)
         }
-        let serviceAccounts = accounts.filter { !Self.isExample($0) }
-        let examples = accounts.filter(Self.isExample)
+        let serviceAccounts = accounts.filter { Self.isLive($0, fallback: serviceEnvironment) }
+        let examples = accounts.filter { Self.isExample($0, fallback: serviceEnvironment) }
+        let unclassified = accounts.filter { Self.effectiveEnvironment($0, fallback: serviceEnvironment) == "unclassified" }
         let connected = serviceAccounts.filter(Self.isReady)
         let detected = agents.filter { ["codex", "claude"].contains($0) }
         let automatic = !detected.isEmpty && detected.allSatisfy { automaticSessions[$0]?["enabled"] as? Bool == true }
@@ -3351,15 +3367,26 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         if !examples.isEmpty {
             label(String(examples.filter(Self.isReady).count) + " ready · " + String(examples.count) + " example connections", 14, .secondaryLabelColor)
         }
+        if !unclassified.isEmpty {
+            label(String(unclassified.count) + " connections · source unverified", 14, .secondaryLabelColor)
+        }
         for account in accounts {
             let allowed = account["portable_ready"] as? Bool != false
             let active = account["connected"] as? Bool == true
             let pending = !(account["challenges"] as? [[String: Any]] ?? []).isEmpty
-            let status = !allowed ? "Approval needed" : pending || !active ? "Sign-in needs attention" : Self.isExample(account) ? "Example connected" : "Connected"
+            let context = Self.effectiveEnvironment(account, fallback: serviceEnvironment)
+            let example = Self.isExample(account, fallback: serviceEnvironment)
+            let status = !allowed ? "Approval needed" : pending || !active ? "Sign-in needs attention"
+                : example ? "Example connected" : context == "live" ? "Connected" : "Source unverified"
             let reads = (account[allowed ? "approved_operations" : "operations"] as? [[String: Any]] ?? []).compactMap { $0["description"] as? String }.joined(separator: "; ")
-            let body = card(account["label"] as? String ?? "Account", (allowed ? "Approved reads: " : "Available reads: ") + reads, status: status, good: allowed && active && !pending)
-            if Self.isExample(account) {
+            let body = card(account["label"] as? String ?? "Account", (allowed ? "Approved reads: " : "Available reads: ") + reads,
+                            status: status, good: allowed && active && !pending && context != "unclassified")
+            if example {
                 let note = NSTextField(wrappingLabelWithString: "Example connection. These results do not validate access to a personal account.")
+                note.font = .systemFont(ofSize: 14)
+                body.addArrangedSubview(note)
+            } else if context == "unclassified" {
+                let note = NSTextField(wrappingLabelWithString: "The service source could not be verified. This connection does not establish personal-account access.")
                 note.font = .systemFont(ofSize: 14)
                 body.addArrangedSubview(note)
             }

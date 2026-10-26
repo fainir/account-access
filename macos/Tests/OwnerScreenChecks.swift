@@ -712,9 +712,27 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         owner.showImportSummary(["example"], issues: [])
         views = descendants(owner.stack)
         precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("Example connected"))
+        owner.serviceEnvironment = "controlled-demo"
+        owner.accounts = [["account": "legacy-example", "label": "Legacy fixture", "connected": true, "portable_ready": true]]
+        precondition(owner.requestText.contains("example accounts"))
+        owner.ready()
+        views = descendants(owner.stack)
+        let inheritedExampleText = views.compactMap { ($0 as? NSTextField)?.stringValue }
+        precondition(inheritedExampleText.contains("1 ready · 1 example connections"))
+        precondition(inheritedExampleText.contains("Example connected"))
+        precondition(inheritedExampleText.contains("Example connection. These results do not validate access to a personal account."))
+        owner.serviceEnvironment = "mixed"
+        precondition(AccountAccess.effectiveEnvironment(owner.accounts[0], fallback: owner.serviceEnvironment) == "unclassified")
+        precondition(!owner.requestText.contains("connected services") && !owner.requestText.contains("example accounts"))
+        owner.ready()
+        views = descendants(owner.stack)
+        let unclassifiedText = views.compactMap { ($0 as? NSTextField)?.stringValue }
+        precondition(unclassifiedText.contains("1 connections · source unverified"))
+        precondition(unclassifiedText.contains("Source unverified"))
+        precondition(unclassifiedText.contains("The service source could not be verified. This connection does not establish personal-account access."))
         owner.accounts = []
         precondition(owner.requestText.contains("what needs attention"))
-        print("PASS: public examples have separate readiness counts, explicit statuses and example-only prompts; unverified imports never claim Connected")
+        print("PASS: public examples and legacy demo responses stay labeled as examples; mixed or unknown sources never claim personal-account access")
         owner.backgroundServiceStatus = "requires_approval"
         owner.ready()
         views = descendants(owner.stack)
