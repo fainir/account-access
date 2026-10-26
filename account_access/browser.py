@@ -422,8 +422,10 @@ class Browser:
         if connection and connection["fingerprint"] != self.store.config().fingerprint(account):
             raise AccessError("DENIED", "connection_configuration_changed")
         state = connection.get("state") if connection else None
+        failure_stage = ["playwright_start"]
         try:
             with sync_playwright() as pw:
+                failure_stage[0] = "browser_launch"
                 browser = pw.chromium.launch(headless=not visible, chromium_sandbox=True,
                                              channel=config.browser_channel)
                 reviewed = False
@@ -453,6 +455,7 @@ class Browser:
                     # Owner-only troubleshooting: keep the actual failed page
                     # visible briefly, without exporting its HTML or secrets.
                     try:
+                        failure_stage[0] = "owner_review"
                         page.bring_to_front()
                     except PlaywrightError:
                         pass  # Window focus cannot change the authentication result.
@@ -479,10 +482,15 @@ class Browser:
                         pass
                     return False
                 try:
+                    failure_stage[0] = "context_create"
                     context = self.context(browser, config, state, account=account, authorization=authorization)
+                    failure_stage[0] = "page_create"
                     page = self.page(context)
+                    failure_stage[0] = "page_navigation"
                     page.goto(op.url, timeout=15000, wait_until="domcontentloaded")
+                    failure_stage[0] = "page_ready"
                     self.wait_state(page, config)
+                    failure_stage[0] = "authentication_check"
                     try:
                         self.check(page, config)
                     except AccessError as exc:
@@ -491,30 +499,48 @@ class Browser:
                         # Only explicit login markers trigger automatic credential filling.
                         if self.challenge(page, config) != "login":
                             raise
+                        failure_stage[0] = "login_transition"
                         context.close()
+                        failure_stage[0] = "login_flow"
                         state = self.login(browser, account, config, state, secret_values=secret_values,
                                            review_failure=review_failure, setup_method=setup_method,
                                            on_code_request=on_code_request, review_stop=review_stop,
                                            authorization=authorization)
+                        failure_stage[0] = "context_create"
                         context = self.context(browser, config, state, account=account, authorization=authorization)
+                        failure_stage[0] = "page_create"
                         page = self.page(context)
+                        failure_stage[0] = "page_navigation"
                         page.goto(op.url, timeout=15000, wait_until="domcontentloaded")
+                        failure_stage[0] = "page_ready"
                         self.wait_state(page, config)
+                        failure_stage[0] = "authentication_check"
                         self.check(page, config)
+                    failure_stage[0] = "result_read"
                     data = self.result(page, op, config)
+                    failure_stage[0] = "session_persist"
                     self.save(account, context.storage_state(indexed_db=True), authorization=authorization)
                     return data
                 except AccessError as exc:
                     if review_failure(page, exc):
+                        failure_stage[0] = "page_navigation"
                         page.goto(op.url, timeout=15000, wait_until="domcontentloaded")
+                        failure_stage[0] = "page_ready"
                         self.wait_state(page, config)
+                        failure_stage[0] = "authentication_check"
                         self.check(page, config)
+                        failure_stage[0] = "result_read"
                         return self.result(page, op, config)
                     raise
                 finally:
+                    failure_stage[0] = "browser_close"
                     browser.close()
         except PlaywrightError:
             authorization.check()
+            try:
+                self.store.audit("service", account, "", "browser_execution_failed", failure_stage[0])
+            except Exception:
+                pass  # Safe diagnostics must not change the operation's public error.
             raise AccessError("RETRYABLE", "browser_execution_failed") from None
 
     def result(self, page, op, config):

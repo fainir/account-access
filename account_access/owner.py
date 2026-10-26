@@ -259,6 +259,18 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                           AND failure.id > COALESCE(checks.id,0)
                         ORDER BY failure.id DESC LIMIT 100
                     """).fetchall()
+                    execution_failures = db.execute("""
+                        WITH checks AS (
+                            SELECT account, MAX(id) AS id FROM audit
+                            WHERE principal='service' AND event='browser_check_started'
+                            GROUP BY account
+                        )
+                        SELECT failure.account,failure.at,failure.reason FROM audit AS failure
+                        LEFT JOIN checks ON checks.account=failure.account
+                        WHERE failure.principal='service' AND failure.event='browser_execution_failed'
+                          AND failure.id > COALESCE(checks.id,0)
+                        ORDER BY failure.id DESC LIMIT 100
+                    """).fetchall()
                     routes = db.execute("SELECT account,at,reason FROM audit WHERE principal='service' AND event='browser_navigation_route' ORDER BY id DESC LIMIT 100").fetchall()
                 from .navigation import valid_hint
                 route_views = {}
@@ -277,6 +289,22 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                             item["route"] = route["reason"]
                         navigation_failures.append(item)
                         seen_failures.add(failure["account"])
+                execution_stages = {
+                    "playwright_start", "browser_launch", "context_create", "page_create",
+                    "page_navigation", "page_ready", "authentication_check", "login_transition",
+                    "login_flow", "result_read", "session_persist", "browser_close", "owner_review",
+                }
+                browser_execution_failures = []
+                seen_execution_failures = set()
+                for failure in execution_failures:
+                    if (failure["account"] in config.accounts
+                            and failure["account"] not in seen_execution_failures
+                            and failure["reason"] in execution_stages):
+                        browser_execution_failures.append({
+                            "account": failure["account"], "at": failure["at"],
+                            "stage": failure["reason"],
+                        })
+                        seen_execution_failures.add(failure["account"])
                 for item in accounts:
                     approved = {g["operation"] for g in grants if g["principal"] == "generic" and g["account"] == item["account"]
                         and g["fingerprint"] == config.fingerprint(item["account"])
@@ -292,6 +320,7 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                          "automatic_sessions": automatic_sessions,
                          "connection_jobs": connection_jobs,
                          "navigation_failures": navigation_failures,
+                         "browser_execution_failures": browser_execution_failures,
                          "environment": aggregate(accounts, test_mode=config.test_mode)}
                 if not local_host_actions:
                     from .managed_client import view as managed_client

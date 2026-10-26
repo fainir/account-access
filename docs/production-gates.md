@@ -17,6 +17,16 @@ Squeezy. Its permitted `demo-web summary` read returned
 `RETRYABLE/browser_execution_failed`. Account enumeration therefore works, but
 the browser operation and all personal-account access remain unverified.
 
+In the resumed acceptance run on 26 October, the installed launcher reproduced
+that same failure. Source now records a fixed browser stage for owner-only
+diagnostics and shows it in both owner account screens; raw Playwright error
+text, URLs and tokens are not recorded or returned. A synthetic launch-failure
+test verified the stage is visible to the owner and hidden from the agent. The
+changed source has not been installed on the owner Mac, so it has not diagnosed
+or repaired the installed browser failure. Local integration regression passed
+117 tests across browser, guided setup, Chrome export import, authenticator UI,
+SMS setup and Gmail/OAuth; hosted CI for this change is pending.
+
 The Chrome import preview opened the bundled Quickstart export, containing four
 `demo@example.test` localhost accounts. No personal password was imported. The
 source now labels demo and unclassified account and verification sources so

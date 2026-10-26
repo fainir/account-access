@@ -63,6 +63,7 @@ let adding=false;
 const labels={codex:"Codex",claude:"Claude Code"};
 const isExample=account=>["controlled-demo","public-example"].includes(account.environment);
 const isReady=account=>account.connected&&account.portable_ready&&!account.challenges?.length;
+const browserFailureStages={playwright_start:"starting Playwright",browser_launch:"starting the browser",context_create:"opening a protected session",page_create:"opening a page",page_navigation:"loading the approved website",page_ready:"waiting for the website",authentication_check:"checking the sign-in state",login_transition:"switching to sign-in",login_flow:"signing in",result_read:"reading the approved result",session_persist:"saving the verified session",browser_close:"closing the browser",owner_review:"owner review"};
 function prompt(){return state.accounts.some(x=>!isExample(x)&&isReady(x))?"Summarize the approved information from my connected services and save the results as one task.":state.accounts.some(x=>isExample(x)&&isReady(x))?"Try my connected example accounts and save the results as one task. Label the results as examples.":"Check which of my configured services are available and tell me what needs attention.";}
 function navigate(next){
  if(next!==view)clearMaskedInputs();
@@ -109,6 +110,7 @@ async function refresh(){
   const card=text("div","");card.className="account";const heading=text("div","");heading.className="account-heading";heading.append(text("strong",account.label));
   const available=isReady(account);
   const status=text("span",!account.portable_ready?"Approval needed":available?(isExample(account)?"Example connected":"Connected"):"Sign-in needs attention");status.className="badge"+(available?"":" pending");heading.append(status);card.append(heading);
+  const failure=(state.browser_execution_failures||[]).find(item=>item.account===account.account);if(failure&&browserFailureStages[failure.stage])card.append(text("p","Last browser check stopped while "+browserFailureStages[failure.stage]+". Select Review access to retry.","status"));
   if(isExample(account))card.append(text("p",account.environment==="public-example"?"Public testing website. These results do not validate access to a personal account.":"Local test connection. These results do not validate access to a personal account."));
   const operations=account.portable_ready?(account.approved_operations||[]):account.operations;
   card.append(text("p",(account.portable_ready?"Approved reads: ":"Available reads: ")+operations.map(x=>x.description).join("; ")));

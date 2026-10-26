@@ -172,6 +172,55 @@ def test_visible_review_reports_attention_before_waiting_for_owner(env, monkeypa
     assert provider.login_count == 0
 
 
+def test_browser_runtime_error_exposes_only_fixed_stage_to_owner(env, monkeypatch):
+    import json
+    import threading
+
+    import httpx2 as httpx
+    import pytest
+    from playwright.sync_api import BrowserType, Error as PlaywrightError
+    from account_access.errors import AccessError
+    from account_access.owner import make_owner_server
+
+    _, broker, _ = env
+    secret = "fictional-private-browser-error-token"
+
+    def fail_launch(browser_type, **kwargs):
+        raise PlaywrightError("https://private.example/path?token=" + secret)
+
+    monkeypatch.setattr(BrowserType, "launch", fail_launch)
+    spec = broker.store.config().accounts["demo-web"]
+    with pytest.raises(AccessError, match="browser_execution_failed"):
+        broker.browser.read("demo-web", spec.operations["summary"], spec)
+    with broker.store.db() as db:
+        rows = [dict(row) for row in db.execute(
+            "SELECT reason FROM audit WHERE principal='service' AND event='browser_execution_failed'")]
+    assert rows == [{"reason": "browser_launch"}]
+    assert secret not in json.dumps(rows)
+    assert not any(event["event"] == "browser_execution_failed"
+                   for event in broker.audit("test")["events"])
+
+    server, owner_token = make_owner_server(broker, guided=True)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{server.server_port}"
+    try:
+        with httpx.Client(base_url=base, trust_env=False) as client:
+            response = client.get("/owner/state", headers={
+                "Authorization": "Bearer " + owner_token, "Origin": base,
+            })
+        assert response.status_code == 200
+        state = response.json()
+        assert state["browser_execution_failures"][0]["stage"] == "browser_launch"
+        assert state["browser_execution_failures"][0]["account"] == "demo-web"
+        assert secret not in json.dumps(state)
+        assert "private.example" not in json.dumps(state)
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
 def test_headless_authentication_failure_reports_its_live_page_once(env):
     import pytest
     from account_access.errors import AccessError
