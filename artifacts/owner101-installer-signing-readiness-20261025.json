@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "date": "2026-10-25",
+  "scope": "local macOS distribution signing readiness",
+  "valid_signing_identities": 3,
+  "developer_id_application_identities": 1,
+  "developer_id_installer_identities": 0,
+  "package_101_outer_signature": false,
+  "notarization_submitted": false,
+  "stapling_completed": false,
+  "production_ready": false
+}

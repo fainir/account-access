@@ -61,6 +61,19 @@ never enrolls a replacement. A partial unverified stage also requires repair;
 it is not erased or initialized again. Full setup recovery from every crash and
 storage power-loss boundary remains unfinished.
 
+Store-startup refusals now retain a fixed checkpoint and reason in owner state
+and health, and in the `store-startup` system-log category. The projection never
+formats arbitrary errors or includes paths, journal values, account identifiers,
+keychain values or OS error descriptions. The native UI maps recognized pairs
+to fixed explanations. Unknown results retain the generic repair screen.
+
+The original publication record binds both directory inodes and the device
+number observed at enrollment. A changed device number with unchanged inodes
+receives a distinct refusal; it is not accepted as the same volume. Changed
+inodes, mixed devices and substituted directories are also refused. A trusted
+volume-aware migration for existing publication records remains unfinished.
+This diagnostic addition does not repair an existing store by itself.
+
 ## Acceptance scope
 
 The new VM journey uses real temporary System keys, permanent identity drop,

@@ -1,0 +1,246 @@
+{
+  "actual_full_image80_Installer_qualification": false,
+  "actual_job_counts": {
+    "failure": 0,
+    "intentionally_skipped_original_component_download_and_Installer": 2,
+    "success": 15,
+    "total": 17
+  },
+  "actual_native99_39_21_review_sha256": "f6760fde862083f0df7f0216927fc8c5f1b56c7174d31fd65ae3039cce710510",
+  "commit": "d503ac3d175eba8d3f55dbf7ddeba9382e939835",
+  "first_attempt_logs": {
+    "119355596006": {
+      "bytes": 64744,
+      "pytest_summaries": [
+        "3592 passed, 107 skipped in 1020.24s"
+      ],
+      "sha256": "d135ba0ad2183db22b346371469ea7b433d74d76693e8e9578d482d7f5cc0552"
+    },
+    "119355618828": {
+      "bytes": 66151,
+      "pytest_summaries": [
+        "3592 passed, 107 skipped in 1007.64s"
+      ],
+      "sha256": "f3f0f269dad4047f5e91c027006633172a441c703c5a2977b05042a1ca8b28e9"
+    },
+    "119357091799": {
+      "bytes": 174068,
+      "pytest_summaries": [
+        "1223 passed, 1 skipped in 188.25s",
+        "216 passed in 176.58s",
+        "22 passed in 64.71s",
+        "1 passed in 3.75s"
+      ],
+      "sha256": "9ef9e8ac4af42fd3801506701f2fb01e8654ac73206a023bf872b0d593015085"
+    },
+    "119357182648": {
+      "bytes": 173733,
+      "pytest_summaries": [
+        "1223 passed, 1 skipped in 178.61s",
+        "216 passed in 173.77s",
+        "22 passed in 68.91s",
+        "1 passed in 3.06s"
+      ],
+      "sha256": "4c0216234938f5f018fde52ae5aff1baa01154c58931a97f6796c0d39d570b2a"
+    }
+  },
+  "original_build79_failed_Installer_runs_and_d574_source_failures_preserved": true,
+  "production_ready": false,
+  "rerun_cancel_or_dispatch_performed": false,
+  "run_snapshot_file": "runs-20261021T172146Z.json",
+  "run_snapshot_sha256": "6743be4c7f9d9a0b7f269f26e8fd85907eb2e0a1d02df20c19c4b55a42ff84c9",
+  "schema": 1,
+  "source_CI_is_not_Installer_or_personal_account_qualification": true,
+  "status": "ALL9_EXPECTED_SOURCE_WORKFLOWS_FIRST_ATTEMPT_SUCCESS",
+  "workflow_counts": {
+    "failure": 0,
+    "success": 9,
+    "total": 9
+  },
+  "workflows": [
+    {
+      "conclusion": "success",
+      "event": "pull_request",
+      "jobs": [
+        {
+          "conclusion": "success",
+          "id": 119355618598,
+          "name": "cross-user"
+        }
+      ],
+      "jobs_snapshot_sha256": "52a92a2916138208e10d01409acf753ea9a2a62f384fceb7bcc43533ef0230a1",
+      "run_attempt": 1,
+      "run_id": 39638525554,
+      "url": "https://github.com/fainir/account-access/actions/runs/39638525554",
+      "workflow": "Separate-user worker acceptance"
+    },
+    {
+      "conclusion": "success",
+      "event": "pull_request",
+      "jobs": [
+        {
+          "conclusion": "success",
+          "id": 119355618712,
+          "name": "android"
+        }
+      ],
+      "jobs_snapshot_sha256": "0abb97f2bb388a1892188b918535291de201629dbc03c55b37d3acb87ac439b2",
+      "run_attempt": 1,
+      "run_id": 39638525551,
+      "url": "https://github.com/fainir/account-access/actions/runs/39638525551",
+      "workflow": "Android login-code journey"
+    },
+    {
+      "conclusion": "success",
+      "event": "pull_request",
+      "jobs": [
+        {
+          "conclusion": "success",
+          "id": 119355618730,
+          "name": "native-owner-gateway"
+        },
+        {
+          "conclusion": "success",
+          "id": 119355618738,
+          "name": "native-owner-ui"
+        },
+        {
+          "conclusion": "success",
+          "id": 119355618828,
+          "name": "test"
+        }
+      ],
+      "jobs_snapshot_sha256": "e5c9155f7dd441d8de831aaf1330134ac7a10aeaf7447b11bab4142d00bf1444",
+      "run_attempt": 1,
+      "run_id": 39638525484,
+      "url": "https://github.com/fainir/account-access/actions/runs/39638525484",
+      "workflow": "Account Access checks"
+    },
+    {
+      "conclusion": "success",
+      "event": "pull_request",
+      "jobs": [
+        {
+          "conclusion": "success",
+          "id": 119355618042,
+          "name": "mac-installer-context"
+        },
+        {
+          "conclusion": "success",
+          "id": 119357182648,
+          "name": "mac-cross-user"
+        }
+      ],
+      "jobs_snapshot_sha256": "257f3037708d03d01dedf80519c79871dd3e8ab410d5530d17c2c4e96489d48f",
+      "run_attempt": 1,
+      "run_id": 39638525536,
+      "url": "https://github.com/fainir/account-access/actions/runs/39638525536",
+      "workflow": "Mac separate-user worker acceptance"
+    },
+    {
+      "conclusion": "success",
+      "event": "push",
+      "jobs": [
+        {
+          "conclusion": "success",
+          "id": 119355595483,
+          "name": "ordinary-contracts"
+        },
+        {
+          "conclusion": "skipped",
+          "id": 119355597679,
+          "name": "download-public-inputs"
+        },
+        {
+          "conclusion": "skipped",
+          "id": 119355598420,
+          "name": "actual-installer-review"
+        }
+      ],
+      "jobs_snapshot_sha256": "567a963615da69989695d35dbd1419b425eaa626bebd186c76068ef130c29c42",
+      "run_attempt": 1,
+      "run_id": 39638519245,
+      "url": "https://github.com/fainir/account-access/actions/runs/39638519245",
+      "workflow": "Signed component update Installer review"
+    },
+    {
+      "conclusion": "success",
+      "event": "push",
+      "jobs": [
+        {
+          "conclusion": "success",
+          "id": 119355596275,
+          "name": "cross-user"
+        }
+      ],
+      "jobs_snapshot_sha256": "405c2b2dc24379da6c9a740d4a530beab6a5cd4ee69feab62688dbff86ac86e4",
+      "run_attempt": 1,
+      "run_id": 39638519189,
+      "url": "https://github.com/fainir/account-access/actions/runs/39638519189",
+      "workflow": "Separate-user worker acceptance"
+    },
+    {
+      "conclusion": "success",
+      "event": "push",
+      "jobs": [
+        {
+          "conclusion": "success",
+          "id": 119355596310,
+          "name": "android"
+        }
+      ],
+      "jobs_snapshot_sha256": "1725c77c27f9cf26beb15680884c576fd0bf7f05fab92b45929affa5569a2b6e",
+      "run_attempt": 1,
+      "run_id": 39638519554,
+      "url": "https://github.com/fainir/account-access/actions/runs/39638519554",
+      "workflow": "Android login-code journey"
+    },
+    {
+      "conclusion": "success",
+      "event": "push",
+      "jobs": [
+        {
+          "conclusion": "success",
+          "id": 119355596006,
+          "name": "test"
+        },
+        {
+          "conclusion": "success",
+          "id": 119355596290,
+          "name": "native-owner-ui"
+        },
+        {
+          "conclusion": "success",
+          "id": 119355596426,
+          "name": "native-owner-gateway"
+        }
+      ],
+      "jobs_snapshot_sha256": "56dd57c1ed9a1b7777cfa2886941407904de24e35491abbfae2e81229270d19d",
+      "run_attempt": 1,
+      "run_id": 39638519300,
+      "url": "https://github.com/fainir/account-access/actions/runs/39638519300",
+      "workflow": "Account Access checks"
+    },
+    {
+      "conclusion": "success",
+      "event": "push",
+      "jobs": [
+        {
+          "conclusion": "success",
+          "id": 119355595394,
+          "name": "mac-installer-context"
+        },
+        {
+          "conclusion": "success",
+          "id": 119357091799,
+          "name": "mac-cross-user"
+        }
+      ],
+      "jobs_snapshot_sha256": "d0995ed010e3d697082ff75425b24d1c2c84b759bbbc5143caf61d7ae1f1abd2",
+      "run_attempt": 1,
+      "run_id": 39638519207,
+      "url": "https://github.com/fainir/account-access/actions/runs/39638519207",
+      "workflow": "Mac separate-user worker acceptance"
+    }
+  ]
+}

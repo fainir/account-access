@@ -1,0 +1,74 @@
+{
+  "schema": 1,
+  "status": "PASSED_NATIVE_ONLY",
+  "run_id": 40216411533,
+  "source_commit": "d81e11fe7f4d78de0ac29e48e571855119dffadd",
+  "archives": [
+    {
+      "id": 12607562609,
+      "name": "native-owner-upgrade",
+      "archive_sha256": "80645d0e9c391e4cfd567a441060001c419a940605bb725c13f2c8ad6394ed58"
+    },
+    {
+      "id": 12607472637,
+      "name": "native-desktop-owner",
+      "archive_sha256": "b14f46c50bde731bc5c74b7f2c1e43e60d3686ddeae95766f93533a400c4f907"
+    },
+    {
+      "id": 12607467968,
+      "name": "native-owner-gateway",
+      "archive_sha256": "f1198efdba43c2ff551a4fe57480acda1fd9a44e1ab6a808ca5c0100b51ef6b8"
+    }
+  ],
+  "source_pins_verified": 53,
+  "builder_native_qa_contract_passed": true,
+  "owner_results": [
+    {
+      "schema": 1,
+      "status": "PASSED",
+      "checks": 32,
+      "installed_reads": false,
+      "installed_writes": false,
+      "production_ready": false
+    },
+    {
+      "schema": 1,
+      "status": "PASSED",
+      "ordinary_context_refusals": 2,
+      "namespace_checks": 26,
+      "preparation_checks": 21,
+      "installed_reads": false,
+      "production_ready": false
+    },
+    {
+      "schema": 1,
+      "status": "PASSED",
+      "ordinary_temp_only": true,
+      "checks": 477,
+      "original_checks_preserved": 65,
+      "fixed_tree_units": 13,
+      "optional_units": 4,
+      "post_exchange_ancestor_cases": 2,
+      "nonempty_symlink_acl_refusal": "PASSED",
+      "installed_reads": false,
+      "root_execution": false,
+      "service_actions": false,
+      "production_ready": false
+    },
+    {
+      "schema": 1,
+      "status": "PASSED",
+      "checks": 324,
+      "tree_units": 13,
+      "public_file_units": 12,
+      "dynamic_file_units": 4,
+      "owned_temp_fake_barrier_only": true,
+      "production_ready": false
+    }
+  ],
+  "full_python_suite_complete": false,
+  "installed_reads": false,
+  "installed_writes": false,
+  "actual_installer_qualified": false,
+  "production_ready": false
+}

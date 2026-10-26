@@ -25,6 +25,16 @@ CHECKS = {
     "enrolled_owner_state_reaches_published_store", "completed_enrollment_is_idempotent",
     "authorized_published_setup_reopens_without_new_approval", "missing_key_after_publication_requires_repair",
     "published_vault_key_never_recreated", "repair_state_keeps_native_owner_reads_available", "new_fixture_key_removed",
+    "changed_publication_device_remains_refused_before_worker",
+    "changed_publication_device_has_closed_diagnostic", "missing_key_has_closed_diagnostic_without_replacement",
+    "persistent_volume_binding_reopens_simulated_device_change",
+    "persistent_volume_reopen_preserves_original_registration",
+    "different_persistent_volume_refused_before_worker",
+    "legacy_upgrade_reuses_registered_client_identity", "legacy_upgrade_reaches_actual_worker",
+    "legacy_upgrade_preserves_exact_preview_backups", "legacy_upgrade_preserves_owner_session_preferences",
+    "legacy_upgrade_needs_no_old_token_or_runtime", "legacy_upgrade_reapplication_is_idempotent",
+    "upgraded_portable_launcher_discovers_empty_approved_account_set", "upgraded_portable_launcher_omits_client_capability",
+    "upgraded_claude_launcher_discovers_empty_approved_account_set", "upgraded_claude_launcher_omits_client_capability",
 }
 
 

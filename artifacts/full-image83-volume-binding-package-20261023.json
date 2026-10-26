@@ -1,0 +1,79 @@
+{
+  "actual_Installer_qualified": true,
+  "actual_installer_ci": {
+    "owner_mac_qualified": false,
+    "run_id": 39915497523,
+    "scenarios": [
+      {
+        "checks": 18,
+        "report_sha256": "db20ea81547deaee096a4867b2bf9b123dcc2c880df86e9c769875cd7fa62aa6",
+        "scenario": "install-reapply",
+        "status": "PASSED"
+      },
+      {
+        "checks": 18,
+        "report_sha256": "de3c4d5e9388327ac57d1a81f4a961d01de066eb51348ccc54e0a99074b23fe6",
+        "scenario": "interrupt-create",
+        "status": "PASSED"
+      },
+      {
+        "checks": 18,
+        "report_sha256": "283bdde3d232a2ba6fab4013759ebc7ab7cdef6e25f973f0df17bdf4183198cb",
+        "scenario": "interrupt-remove",
+        "status": "PASSED"
+      }
+    ],
+    "source_commit": "16bdbb9829f7b455d381bf3c06e54880a32928b0",
+    "status": "PASSED",
+    "url": "https://github.com/fainir/account-access/actions/runs/39915497523"
+  },
+  "app_image_source_commit": "d5741bc9912aaf907fe5c52486af18818654dda5",
+  "builder_sha256": "b553c1ff6ca381346bee5a5ea56282eabf743cd8e2bd432690d8c96cf6cd81f5",
+  "compiled_sources": 15,
+  "container_signed": false,
+  "draft_release": {
+    "all_four_backend_digests_match_local_files": true,
+    "contract_sha256": "bf45331b632618bca2c41485210a40b6b6cf522f17822acff29fb850c038f7e1",
+    "id": 421537388,
+    "source": "662692d283e94c9a2bc22e25c54eea62e51bf2d2",
+    "tag": "qa-662692d-full-image83"
+  },
+  "focused_installer_controller_tests": 100,
+  "helper_sha256": "2671533d7192fefb2dd51166ab83016d82f163cc5943cf7e7c1a2f8502554283",
+  "independent_review_sha256": "430dc1de9ffebf0766d854050c847c72127b5400417ae5c18c500b2d97eacf54",
+  "independent_review_source_sha256": "746fe09e1ec7fc73e5f5bcd802de70962c03dc26c8efcfca4bb56f45e7fba85f",
+  "input_manifest_sha256": "83d476383d2e5becfeae5988e9519ce43ff1829ff5145ffe08cb4a52529f1fb6",
+  "native_fixture_assertions": 516,
+  "notarized": false,
+  "owner_failure_exact_field_confirmed": false,
+  "owner_installation_repaired": false,
+  "package_bytes": 295969665,
+  "package_review_sha256": "1699fbd8a4477ba8ba2590dfb665e0b6ac5878f1d7e0b1f842c2c2d97783023b",
+  "package_sha256": "2d19b6dc07182140b625c9d145ad722511a1608622a349699ac9e491253ded3d",
+  "private_account_store_read": false,
+  "production_ready": false,
+  "real_provider_acceptance": false,
+  "recorded_utc": "2026-10-23T07:03:24.061739+00:00",
+  "recursive_script_nodes": 27513,
+  "retained_ci_setup_failure": {
+    "correction": "Restore exact action pins and verify all action references in the focused workflow test.",
+    "job": 120287621954,
+    "package_executed": false,
+    "reason": "Cohort string replacement accidentally changed a checkout SHA. Job setup failed before checkout or package download.",
+    "run": 39915362493
+  },
+  "schema": 1,
+  "scripts_inventory_sha256": "65e1fe0489a473fab4a58cb7f48cba960eb56e2a1df85c3a5caa63c35c28aefd",
+  "source_archive": {
+    "both_Git_snapshots_verified": true,
+    "bytes": 234808622,
+    "embedded_matching_GPL_source": true,
+    "explicit_source_members": 67,
+    "independent_review_sha256": "3f9704ce621deba8c73fd52b7badc3330ded4af7173733576a5c6c9cfc48d60e",
+    "input_sha256": "2f27c1db1ed76b5799a0f319cae954ebb947d6f64c8617af4cd7f223aa91b198",
+    "outer_members": 72,
+    "sha256": "038c6db8497720d416c6165f305286dc3aa5b1072706c0dab1d05982bbe16f0e"
+  },
+  "source_commit": "662692d283e94c9a2bc22e25c54eea62e51bf2d2",
+  "status": "DRAFT_UNSIGNED_PACKAGE_PASSED_THREE_DISPOSABLE_MAC_INSTALLER_SCENARIOS"
+}

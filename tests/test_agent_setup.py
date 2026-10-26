@@ -153,9 +153,9 @@ def test_existing_legacy_managed_skill_requires_migration_without_touching_it(tm
     assert file.read_bytes() == before and not (home / RELATIVE / "token").exists()
 
 
-def legacy_skills(home, hosts=("codex", "claude"), *, historical=True):
+def legacy_skills(home, hosts=("codex", "claude"), *, historical=True, root_name="account-access"):
     """Public 0.7.4 bytes, with generated owner-local paths and fake old secret."""
-    root = home / ".local/share/account-access"
+    root = home / ".local/share" / root_name
     client = root / "clients/generic/client.json"
     client.parent.mkdir(parents=True, mode=0o700)
     client.write_text('{"not_a_credential":"not_read_or_trusted"}')
@@ -192,10 +192,11 @@ def file_bytes(target):
 
 
 @pytest.mark.parametrize("historical", [True, False])
-def test_reviewed_preview_status_and_explicit_prepare_do_not_read_old_tokens(tmp_path, monkeypatch, historical):
+@pytest.mark.parametrize("root_name", ["account-access", "account-access-review06"])
+def test_reviewed_preview_status_and_explicit_prepare_do_not_read_old_tokens(tmp_path, monkeypatch, historical, root_name):
     from account_access import agent_setup
     home = home_at(tmp_path)
-    targets, old_token = legacy_skills(home, historical=historical)
+    targets, old_token = legacy_skills(home, historical=historical, root_name=root_name)
     before = [file_bytes(target) for target in targets]
     real_open = os.open
     def no_old_token(path, *args, **kwargs):
@@ -242,6 +243,34 @@ def test_unrecognized_preview_is_preserved_and_cannot_prepare_upgrade(tmp_path, 
     assert not (home / RELATIVE / "token").exists()
 
 
+@pytest.mark.parametrize("change", ["different-root", "root-alias", "public-root", "unrecognized-name"])
+def test_named_preview_upgrade_refuses_incoherent_or_untrusted_roots(tmp_path, change):
+    home = home_at(tmp_path)
+    name = "unrelated-preview" if change == "unrecognized-name" else "account-access-review06"
+    targets, _ = legacy_skills(home, root_name=name)
+    root = home / ".local/share" / name
+    if change == "different-root":
+        target = targets[0]
+        record = json.loads((target / "installation.json").read_text())
+        python = home / ".local/share/account-access-other/runtime/tools/account-access/bin/python"
+        python.parent.mkdir(parents=True, mode=0o700)
+        record["python"] = str(python)
+        (target / "installation.json").write_text(json.dumps(record))
+        (target / "scripts/access").write_text("#!/bin/sh\nexec " + shlex.quote(str(python))
+            + " " + shlex.quote(str(target / "scripts/access.py")) + ' "$@"\n')
+    elif change == "root-alias":
+        renamed = root.with_name("relocated-preview")
+        root.rename(renamed)
+        root.symlink_to(renamed, target_is_directory=True)
+    elif change == "public-root":
+        root.chmod(0o777)
+    before = [file_bytes(target) for target in targets]
+    with pytest.raises((AccessError, OSError)):
+        prepare(home, ["codex", "claude"], upgrade=True)
+    assert [file_bytes(target) for target in targets] == before
+    assert not (home / RELATIVE / "token").exists()
+
+
 def test_unapproved_protected_capability_cannot_replace_preview(tmp_path, monkeypatch):
     from account_access.client import Client
     home = home_at(tmp_path)
@@ -254,10 +283,11 @@ def test_unapproved_protected_capability_cannot_replace_preview(tmp_path, monkey
     assert not any(target.with_name(UPGRADE_SLOT).exists() for target in targets)
 
 
-def test_preview_upgrade_publishes_new_connection_and_preserves_owner_settings(tmp_path, monkeypatch):
+@pytest.mark.parametrize("root_name", ["account-access", "account-access-review06"])
+def test_preview_upgrade_publishes_new_connection_and_preserves_owner_settings(tmp_path, monkeypatch, root_name):
     from account_access.client import Client
     home = home_at(tmp_path)
-    targets, old_token = legacy_skills(home)
+    targets, old_token = legacy_skills(home, root_name=root_name)
     original_token = old_token.read_bytes()
     settings = home / ".claude/settings.json"
     settings.write_text('{"hooks":{"SessionStart":["my-hook"]},"permissions":{"deny":["Bash(rm:*)"]}}')

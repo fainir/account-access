@@ -1,0 +1,114 @@
+{
+  "schema": 1,
+  "status": "INSTALLED_RESTARTED_PUBLIC_REPAIR_VERIFIED_AI_UPGRADE_PENDING",
+  "recorded_at": "2026-10-25T09:54:29.400279+00:00",
+  "package_sha256": "0c7a83b47d405bd9b02686aceb938877c5cd2f36112cb0b8369069c643453371",
+  "controller_source": "cbf06067e7dc5a53dc6f2d1e87f0284503474e6d",
+  "application_source": "7051ef225ff2f35d67576d0ddbbc3e0b107e00bf",
+  "target_manifest_sha256": "03fb35eb2787ebd67079dd1cbe4dda125f430964540bdd2f2e9c81eda602fd7a",
+  "installer_completion": {
+    "observed_before_restart": true,
+    "native_ui_result": "The installation was successful. The software was installed.",
+    "closed_result_observed_before_restart": {
+      "status": "ALREADY_UPDATED_GUI_UNVERIFIED",
+      "checkpoint": "complete",
+      "gui_verified": false,
+      "account_qa_verified": false
+    },
+    "original_observation": "Previous turn: bounded closed-result observer and native Installer accessibility state; no raw install log copied",
+    "observer_after_restart": "BOUNDED_OBSERVER_UNAVAILABLE"
+  },
+  "restart": {
+    "owner_reported": true,
+    "kern_boottime_epoch_seconds": 1792921516,
+    "boot_time_utc": "2026-10-25T09:45:16+00:00"
+  },
+  "public_manifest_verification": {
+    "schema": 1,
+    "status": "PASSED",
+    "observed_at": "2026-10-25T09:52:50.988649+00:00",
+    "manifest_sha256": "03fb35eb2787ebd67079dd1cbe4dda125f430964540bdd2f2e9c81eda602fd7a",
+    "private_data_read": false,
+    "counts": {
+      "symlink": 21,
+      "directory": 2297,
+      "file": 25167
+    },
+    "mismatches": [],
+    "unreadable_alias_targets_not_verified": 0,
+    "elapsed_seconds": 22.303,
+    "free_bytes": 12102868992,
+    "package_sha256": "0c7a83b47d405bd9b02686aceb938877c5cd2f36112cb0b8369069c643453371",
+    "checker_changed_installation": false,
+    "production_ready": false,
+    "phase": "after",
+    "scope": "manifest-listed public bytes, types, modes and root ownership; before-phase confirms 20 known mode-0700 aliases but cannot read their targets; after-phase verifies all alias targets; no private records or service readiness"
+  },
+  "ordinary_runtime_path_verification": {
+    "schema": 1,
+    "status": "PASSED",
+    "observed_at": "2026-10-25T09:52:29.072307+00:00",
+    "aliases_checked": 20,
+    "worker_path_validator": true,
+    "ordinary_owner_only": true,
+    "worker_identity_used": false,
+    "private_data_read": false,
+    "installed_files_changed": false,
+    "service_control": false,
+    "raw_output_exported": false,
+    "child_source_sha256": "c7e7c612d30106cff4cb86bed3eb8ac61356869cdd75e3a2c5dc26383918d0af",
+    "production_ready": false
+  },
+  "native_public_tree_verification": {
+    "installed_writes": false,
+    "ordinary_user": true,
+    "private_records_read": false,
+    "production_ready": false,
+    "schema": 1,
+    "service_control": false,
+    "status": "PASSED",
+    "trees": [
+      {
+        "status": "PASSED",
+        "unit": "runtimeOwner"
+      },
+      {
+        "status": "PASSED",
+        "unit": "pythonRoot"
+      },
+      {
+        "status": "PASSED",
+        "unit": "runtimeRoot"
+      },
+      {
+        "status": "PASSED",
+        "unit": "browsers"
+      },
+      {
+        "status": "PASSED",
+        "unit": "wheels"
+      }
+    ]
+  },
+  "native_app_after_restart": {
+    "observed_page": "Connect your AI tools",
+    "observed_primary_action": "Upgrade AI connection",
+    "previous_worker_process_unavailable_error_visible": false,
+    "connection_completed": false,
+    "account_discovery_verified": false,
+    "scope": "Owner UI reaches managed-agent migration; actual agent connection and account operations remain unverified"
+  },
+  "evidence_sha256": {
+    "owner-mac-after-runtime95.json": "b1bf4d2c787a345b6a999ae3d50af6718db7b9ba433c44395580cf9e871f0739",
+    "owner95-public-path-validator.json": "3eca0c39ba4cf9e9d1ed208afdb0f13269b6b6736c825ad214b012b9b04a18be",
+    "owner95-public-native-observation.json": "6da66d2f083ed86cda5b4d4c34fc62dcbb635cfecf17445fbb195e3202bdc9ea",
+    "verify-owner-public.py": "b199be6b619d07399e23d9723aa9b76f54cc7404b9df3299ab3b9084f8191656",
+    "verify-owner-runtime-paths.py": "974abb68298258beeb7ef5aedf72f3b638dec5e765d827592927a813e35525dc",
+    "observe-target": "25d831315fcabdce00c67444f7be283f931565c7dc05c7d47481dff1c8bc08d5",
+    "ObserveTarget.swift": "99a0e33663f86134fae1c92283ad27f12a5357dcf97ea96d7ca08ab61852a875"
+  },
+  "private_data_read": false,
+  "verification_changed_installed_files": false,
+  "verification_service_control": false,
+  "production_ready": false
+}

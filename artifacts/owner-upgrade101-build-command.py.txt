@@ -1,0 +1,23 @@
+"""Run the committed standard builder; no alternate compiler or assembly path."""
+from pathlib import Path
+from types import SimpleNamespace
+import json,re,runpy,subprocess
+root=Path.cwd();source=subprocess.check_output(['git','rev-parse','HEAD']).decode().strip()
+assert source.startswith('cd6af12')
+raw=subprocess.check_output(['/usr/bin/security','find-identity','-v','-p','codesigning'],timeout=30)
+identities=re.findall(rb'([A-F0-9]{40})\s+"Developer ID Application: [^\n"]*\(WBULD6N4NQ\)"',raw)
+assert len(identities)==1
+args=SimpleNamespace(source=source,signing_identity=identities[0].decode(),
+ package95=root/'dist/runtime-upgrade95-cbf0606/Account-Access-Runtime-Upgrade-95-local-unsigned-1800.pkg',
+ inventory95=root/'dist/runtime-upgrade95-cbf0606/scripts-inventory.json',
+ pins95=root/'dist/runtime-upgrade95-cbf0606/source/CompiledPins.swift',
+ owner_app=root/'dist/owner-diagnostics96-6736a20/Account Access.app',
+ target_manifest=root/'dist/owner-upgrade100-6de39ce/scripts/TargetManifest.json',
+ target_identity=root/'dist/owner-upgrade100-6de39ce/scripts/TargetIdentity.json',
+ plan=root/'dist/owner-upgrade100-6de39ce/scripts/OwnerUpgradePlan.json',
+ shared_qa=root/'dist/qa-owner-upgrade-shared-v1/result.json',
+ runtime_qa=root/'dist/qa-owner-upgrade-runtime-v1/result.json',
+ owner_qa=root/'dist/qa-owner-upgrade-controller-ci-9b867da/result.json',
+ output=root/'dist/owner-upgrade101-cd6af12')
+print(json.dumps({'stage':'standard_builder','source':source,'deployment_target':'arm64-apple-macos14','installed':False}),flush=True)
+runpy.run_path(str(root/'scripts/build_owner_upgrade_review.py'))['build'](args)

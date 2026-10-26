@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import shlex
+import stat
 import sys
 from pathlib import Path
 
@@ -16,14 +17,56 @@ def launcher_text(target, python):
             + shlex.quote(str(target / "scripts/access.py")) + ' "$@"\n')
 
 
+def check_skill_target(target, config_file):
+    """Never let a preview reconnect an existing skill to a different store.
+
+    The native migration path publishes into a new staging directory before
+    exchanging aliases. An ordinary refresh may only retain its own binding.
+    This check also runs before any legacy client capability is rotated.
+    """
+    if target.is_symlink():
+        raise AccessError("DENIED", "existing_skill_would_be_overwritten")
+    if not target.exists():
+        return
+    if not target.is_dir():
+        raise AccessError("DENIED", "existing_skill_would_be_overwritten")
+    if any(path.is_symlink() for path in target.rglob("*")):
+        raise AccessError("DENIED", "symlink_path")
+
+    def read_metadata(path, limit):
+        descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+        try:
+            info = os.fstat(descriptor)
+            if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_size > limit:
+                raise ValueError()
+            data = os.read(descriptor, limit + 1)
+            if len(data) != info.st_size or len(data) > limit:
+                raise ValueError()
+            return data
+        finally:
+            os.close(descriptor)
+
+    try:
+        if read_metadata(target / ".account-access-install", 64) != b"account-access-v1":
+            raise ValueError()
+        current = target / "installation.json"
+        if not current.exists():
+            # Only the native upgrader's empty, marked staging folder is new.
+            if set(path.name for path in target.iterdir()) != {".account-access-install"}:
+                raise ValueError()
+            return
+        binding = json.loads(read_metadata(current, 16384))
+        if type(binding) is not dict or binding.get("client_config") != str(config_file):
+            raise ValueError()
+    except (OSError, ValueError, UnicodeError):
+        raise AccessError("DENIED", "existing_skill_would_be_overwritten") from None
+
+
 def sync_skill(target, config_file, *, python=None):
     python = str(python or sys.executable)
     source = Path(__file__).resolve().parent / "skills/account-access"
     marker = target / ".account-access-install"
-    if target.is_symlink() or (target.exists() and not marker.exists()):
-        raise AccessError("DENIED", "existing_skill_would_be_overwritten")
-    if target.exists() and any(path.is_symlink() for path in target.rglob("*")):
-        raise AccessError("DENIED", "symlink_path")
+    check_skill_target(target, config_file)
     target.mkdir(mode=0o700, parents=True, exist_ok=True)
     for entry in source.iterdir():
         dest = target / entry.name
@@ -51,11 +94,9 @@ def install_skill(store, agent, destination=None):
     else:
         target = Path.home() / ".agents/skills/account-access"
     # Check the owned destination before issuing or revoking a client token.
-    if target.is_symlink() or (target.exists() and not (target / ".account-access-install").exists()):
-        raise AccessError("DENIED", "existing_skill_would_be_overwritten")
-    if target.exists() and any(path.is_symlink() for path in target.rglob("*")):
-        raise AccessError("DENIED", "symlink_path")
     client_dir = store.root / "clients" / agent
+    config_file = client_dir / "client.json"
+    check_skill_target(target, config_file)
     client_dir.mkdir(parents=True, mode=0o700, exist_ok=True)
     token_file = client_dir / "token"
     # Rotate the installation's client token; the service stores only its digest.
@@ -63,7 +104,6 @@ def install_skill(store, agent, destination=None):
         db.execute("UPDATE clients SET revoked=1 WHERE principal=?", (agent,))
     token = store.new_client(agent)
     private_file(token_file, token.encode(), replace=token_file.exists())
-    config_file = client_dir / "client.json"
     config = {"socket": str(store.root / "service.sock"), "token_file": str(token_file),
               "auto_start": not store.config().test_mode and (store.root / "desktop.json").is_file()}
     private_file(config_file, json.dumps(config).encode(), replace=config_file.exists())
@@ -84,11 +124,13 @@ def install_detected(store):
     targets = [("generic", home / ".agents/skills")]
     if "claude" in detected:
         targets.append(("claude", home / ".claude/skills"))
+    expected = store.root / "clients/generic/client.json"
+    for _, destination in targets:
+        check_skill_target(destination / "account-access", expected)
     installed = []
     for host, destination in targets:
         target = destination / "account-access"
         current = target / "installation.json"
-        expected = store.root / "clients/generic/client.json"
         valid = False
         if current.is_file() and not current.is_symlink() and not target.is_symlink():
             try:

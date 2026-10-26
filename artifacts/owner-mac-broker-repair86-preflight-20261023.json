@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "status": "PASSED",
+  "manifest_sha256": "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da",
+  "private_data_read": false,
+  "counts": {
+    "symlink": 21,
+    "directory": 2297,
+    "file": 25165
+  },
+  "mismatches": [],
+  "elapsed_seconds": 9.88,
+  "free_bytes": 2463285248,
+  "package_sha256": "79672a7a659948dcefa7c94573d882a9bec4f7febf62597551fa088f4f8861f8",
+  "installed_update": false,
+  "production_ready": false,
+  "scope": "fixed public manifest entries; private branches not read or enumerated",
+  "installer_qa_pending": true
+}

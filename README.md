@@ -19,17 +19,25 @@ physical phone delivery and notarized consumer installation remain unverified.
 The 0.8 Mac runtime targets **Apple silicon and macOS 14 or later**. See the
 [current production gates](docs/production-gates.md).
 
-The latest local 0.8 installer completed installation, but its protected service
-fails before enrollment. Its separate startup/revalidation repair passed actual
-installation and reapplication on clean hosted Macs, but the affected Mac
-refused the recovery at its publication checkpoint. The component update was
-not attempted there. A subsequent signed read-only diagnostic refused the first
-service recheck and observed no supplementary binding directory. The service
-changes between running and stopped states; the exact failed recheck predicate
-is still unconfirmed. It is not ready for use until the repair and personal
-account validation succeed.
-[Current repair evidence](artifacts/installation-root-revalidation-93fc906-20261020.json).
-[Narrow diagnostic result](artifacts/installation-root-revalidation-diagnostic-93fc906-20261021.json).
+Earlier owner testing completed a protected setup, one approved personal Chrome
+password import and a Gmail mailbox check. A successful private website login
+has not been established. Package 91 subsequently installed, but **Connect
+automatically** failed. Runtime 92 contains the connection fix; package 93's
+attempt to install it left the old public image intact and the broker disabled.
+Package 94 passed all four actual Installer and recovery scenarios, including
+that disabled-service condition. It installed on the owner Mac on 25 October,
+but the account worker cannot start: the upgrade recreated 20 public Python
+links with root-only permissions. Package 95 fixes link staging and repairs the
+completed package 94 image. It passed all five actual Installer scenarios,
+including checks under both ordinary-user identities. It installed successfully
+on the owner Mac; after a normal restart, all public files and aliases passed
+verification and the app opened to **Upgrade AI connection**. That upgrade then
+failed after the owner reported macOS approval; one explicit retry also failed.
+The current agent connection and account operations remain unverified.
+Personal email/SMS/TOTP login, the physical Android phone
+and consumer distribution remain open acceptance gates.
+[Initial owner observations](artifacts/owner-startup-and-import-213509c-20261021.json) ·
+[current acceptance status](docs/production-gates.md).
 
 ![Account Access dashboard](docs/account-dashboard.png)
 
@@ -125,7 +133,7 @@ connection, so sync cannot undo your edit.
 | Gmail | Connect with a Google app password, or an operator-configured Gmail OAuth connection | Read a fresh matching login email and submit its code |
 | Other email | Connect your provider's TLS IMAP mailbox | Read a fresh matching login email and submit its code |
 | iPhone SMS on Mac | Enable text forwarding to Mac Messages and grant the signed app Full Disk Access | Read a fresh incoming text matching the approved sender and template |
-| Android SMS | Pair the [Android preview](android/README.md), grant notification access and use the same private Wi-Fi | Deliver a matching SMS-app notification over pinned HTTPS |
+| Android SMS | Pair the [Android preview](android/README.md), complete its Android 15+ computer-association step when required, grant notification access and use the same private Wi-Fi | Deliver a matching SMS-app notification over pinned HTTPS; physical-phone acceptance is pending |
 | Google Messages Web (0.8 candidate, GitHub only) | Pair your phone, then use [Verification → Set up Google Messages](docs/google-messages.md) to prepare and add the Chrome extension | Read a newly arriving matching login text through the local bridge |
 | Authenticator TOTP | Enroll the website's original setup key or supported QR locally | Generate and submit its changing six-digit code |
 
@@ -186,8 +194,9 @@ pass; genuine consumer setup, updates/reboot and private sign-in QA remain open.
 [Architecture](docs/architecture.md), [security boundaries](docs/security-and-password-sync.md)
 and [Mac installation work](docs/mac-system-provisioning.md). The development
 source also includes [explicit installation-root revalidation](docs/installation-root-revalidation.md);
-its disposable-Mac Installer qualification passed, while repair of the affected
-Mac remains unresolved.
+its disposable-Mac Installer qualification and the affected Mac's startup repair
+passed. Full-image upgrades and successful private password/code sign-ins
+remain separate acceptance steps.
 
 ## Troubleshooting
 

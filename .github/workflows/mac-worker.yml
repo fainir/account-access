@@ -60,7 +60,7 @@ jobs:
           uv run playwright install chromium --only-shell
           uv run pytest -q tests/test_worker_signals.py tests/test_worker_boundary.py tests/test_worker_enroll.py tests/test_worker_evidence.py tests/test_mac_root_owner_evidence.py tests/test_mac_key_custody_evidence.py tests/test_mac_owner_policy_evidence.py tests/test_mac_key_handoff_evidence.py tests/test_mac_root_supervisor_evidence.py tests/test_mac_root_coordinator_evidence.py tests/test_mac_staged_enrollment_evidence.py tests/test_mac_initial_setup_evidence.py tests/test_mac_initial_gateway_evidence.py tests/test_system_provision.py tests/test_mac_provisioning_evidence.py tests/test_agent_setup.py tests/test_codex_home.py tests/test_managed_client.py tests/test_runtime_acl.py tests/test_native_messages.py tests/test_mac_native_messages_evidence.py tests/test_mac_native_browser_evidence.py tests/test_mac_native_system_browser_evidence.py tests/test_mac_protected_browser_evidence.py tests/test_mac_signed_chrome_evidence.py tests/test_source_generation.py tests/test_device_email_setup.py tests/test_device_email_crash.py tests/test_onepassword_source.py tests/test_mailbox_oauth.py tests/test_gmail_reusable_mailbox.py tests/test_gmail_mailbox_ui.py tests/test_payload_audit.py tests/test_system_package.py tests/test_runtime_prepare.py tests/test_runtime_prepare_package.py tests/test_prepared_package_checks.py tests/test_install_manifest.py tests/test_runtime_image.py tests/test_install_image.py tests/test_install_transaction.py tests/test_installer_payload_native.py tests/test_installer_payload_receipt.py tests/test_package_manifest_binding.py
       - name: Check exact-item password sync, source containment and owner setup
-        run: uv run pytest -q tests/test_bitwarden_source.py tests/test_bitwarden_runtime.py tests/test_bitwarden_sources.py tests/test_bitwarden_notices.py tests/test_bitwarden_sync_ui.py tests/test_password_import_sync_hint.py tests/test_owner_bitwarden_source.py tests/test_bitwarden_device_email.py tests/test_bitwarden_journey.py tests/test_bitwarden_browser_revocation.py
+        run: uv run pytest -q tests/test_bitwarden_cleanup.py tests/test_bitwarden_source.py tests/test_bitwarden_runtime.py tests/test_bitwarden_sources.py tests/test_bitwarden_notices.py tests/test_bitwarden_sync_ui.py tests/test_password_import_sync_hint.py tests/test_owner_bitwarden_source.py tests/test_bitwarden_device_email.py tests/test_bitwarden_journey.py tests/test_bitwarden_browser_revocation.py
       - name: Check reviewed website imports and native form destinations
         run: uv run pytest -q tests/test_readthedocs.py tests/test_native_form_target.py tests/test_account_context.py
       - name: Compile and check the permanent identity-drop launcher
@@ -75,7 +75,7 @@ jobs:
               -target "$AC_BOOTSTRAP_ARCH-apple-macos13" -framework Foundation -framework Security -framework CryptoKit \
               -import-objc-header macos/NativeBroker.h macos/RootVaultKeyStore.swift macos/RootWorkerChannel.swift \
               macos/WorkerBootstrap.swift macos/WorkerListenerBindings.swift macos/OwnerGateway.swift macos/OwnerGatewayHost.swift macos/OwnerAuthorizationPolicy.swift \
-              macos/RootActivatedListeners.swift macos/RootWorkerProcess.swift macos/RootWorkerSupervisor.swift macos/RootMessagesCollector.swift macos/RootBrokerHost.swift macos/RootStoreInitializer.swift macos/RootStorePublication.swift macos/RootInitialEnrollment.swift macos/SystemBroker.swift \
+              macos/RootActivatedListeners.swift macos/RootWorkerProcess.swift macos/RootWorkerSupervisor.swift macos/RootMessagesCollector.swift macos/RootBrokerHost.swift macos/RootStoreInitializer.swift macos/RootStoreVolumeBinding.swift macos/RootStoreVolumePublication.swift macos/RootStorePublication.swift macos/RootInitialEnrollment.swift macos/SystemBroker.swift \
               macos/Tests/SystemStartupDiagnosticsChecks.swift
           done
           xcrun swiftc -O -parse-as-library -framework Foundation \
@@ -101,10 +101,13 @@ jobs:
             macos/WorkerBootstrap.swift macos/WorkerListenerBindings.swift macos/RootVaultKeyStore.swift macos/RootWorkerChannel.swift macos/OwnerGateway.swift \
             macos/RootWorkerProcess.swift macos/RootActivatedListeners.swift macos/RootWorkerSupervisor.swift macos/RootMessagesCollector.swift macos/RootBrokerHost.swift \
             macos/OwnerGatewayHost.swift macos/OwnerAuthorizationPolicy.swift macos/RootStoreInitializer.swift \
-            macos/RootStorePublication.swift macos/RootInitialEnrollment.swift macos/SystemBroker.swift \
+            macos/RootStoreVolumeBinding.swift macos/RootStoreVolumePublication.swift macos/RootStorePublication.swift macos/RootInitialEnrollment.swift macos/SystemBroker.swift \
             macos/Tests/SystemStartupDiagnosticsChecks.swift \
             /tmp/ac-keychain-interaction.o /tmp/ac-native-broker.o -o /tmp/ac-system-startup-diagnostics-checks
           /tmp/ac-system-startup-diagnostics-checks
+          xcrun swiftc -parse-as-library -warnings-as-errors -D ACCOUNT_ACCESS_STORE_VOLUME_CHECKS -framework Foundation -framework CryptoKit \
+            macos/RootStoreVolumeBinding.swift macos/RootStoreVolumePublication.swift macos/Tests/RootStoreVolumeBindingChecks.swift -o /tmp/ac-store-volume-binding-checks
+          /tmp/ac-store-volume-binding-checks
           xcrun swiftc -O -parse-as-library -warnings-as-errors -framework Foundation -framework Security \
             -import-objc-header macos/KeychainInteraction.h macos/RootVaultKeyStore.swift \
             macos/Tests/VaultReferenceChecks.swift /tmp/ac-keychain-interaction.o -o /tmp/ac-vault-reference-checks
@@ -120,7 +123,7 @@ jobs:
             -framework Foundation -framework Security -framework CryptoKit -import-objc-header macos/NativeBroker.h \
             macos/WorkerBootstrap.swift macos/WorkerListenerBindings.swift macos/RootVaultKeyStore.swift macos/RootWorkerChannel.swift macos/OwnerGateway.swift macos/RootWorkerProcess.swift \
             macos/RootActivatedListeners.swift macos/RootWorkerSupervisor.swift macos/RootMessagesCollector.swift macos/RootBrokerHost.swift macos/OwnerGatewayHost.swift \
-            macos/OwnerAuthorizationPolicy.swift macos/RootStoreInitializer.swift macos/RootStorePublication.swift macos/RootInitialEnrollment.swift \
+            macos/OwnerAuthorizationPolicy.swift macos/RootStoreInitializer.swift macos/RootStoreVolumeBinding.swift macos/RootStoreVolumePublication.swift macos/RootStorePublication.swift macos/RootInitialEnrollment.swift \
             macos/Tests/RootEnrollmentChecks.swift macos/Tests/RootInitialEnrollmentChecks.swift \
             macos/Tests/RootMessagesChecks.swift macos/Tests/RootNativeHostChecks.swift macos/Tests/RootCoordinatorChecks.swift macos/Tests/RootSupervisorChecks.swift \
             macos/Tests/RootKeyHandoffChecks.swift macos/Tests/RootVaultKeyChecks.swift \
@@ -151,7 +154,7 @@ jobs:
             macos/WorkerBootstrap.swift macos/WorkerListenerBindings.swift macos/RootVaultKeyStore.swift macos/RootWorkerChannel.swift macos/OwnerGateway.swift \
             macos/RootWorkerProcess.swift macos/RootActivatedListeners.swift macos/RootWorkerSupervisor.swift macos/RootMessagesCollector.swift macos/RootBrokerHost.swift \
             macos/OwnerGatewayHost.swift macos/OwnerAuthorizationPolicy.swift macos/RootStoreInitializer.swift \
-            macos/RootStorePublication.swift macos/RootInitialEnrollment.swift macos/SystemBroker.swift \
+            macos/RootStoreVolumeBinding.swift macos/RootStoreVolumePublication.swift macos/RootStorePublication.swift macos/RootInitialEnrollment.swift macos/SystemBroker.swift \
             /tmp/ac-keychain-interaction.o /tmp/ac-native-broker.o -o /tmp/ac-system-broker-ci
       - name: Prepare root-owned runtime in this disposable Mac VM
         run: |
@@ -181,6 +184,10 @@ jobs:
           sudo codesign --force --options runtime --identifier com.fainir.accountaccess.qa.native-browser --sign - "$AC_MAC_WORKER_PREFIX/native-browser-collector"
           sudo install -m 644 scripts/mac_browser_probe.py "$AC_MAC_WORKER_PREFIX/browser-probe.py"
           sudo install -m 644 scripts/mac_agent_setup_probe.py "$AC_MAC_WORKER_PREFIX/agent-setup-probe.py"
+          sudo install -d -m 755 "$AC_MAC_WORKER_PREFIX/legacy-skill-074/agents" "$AC_MAC_WORKER_PREFIX/legacy-skill-074/scripts"
+          for AC_LEGACY_TEMPLATE in SKILL.md agents/openai.yaml scripts/access.py; do
+            sudo install -m 644 "tests/fixtures/legacy-skill-074/$AC_LEGACY_TEMPLATE" "$AC_MAC_WORKER_PREFIX/legacy-skill-074/$AC_LEGACY_TEMPLATE"
+          done
           sudo install -m 644 scripts/mac_key_handoff_probe.py "$AC_MAC_WORKER_PREFIX/key-handoff-probe.py"
           sudo install -m 755 /tmp/ac-mac-worker-bootstrap "$AC_MAC_WORKER_PREFIX/mac-worker-bootstrap"
           sudo codesign --force --options runtime --sign - "$AC_MAC_WORKER_PREFIX/mac-worker-bootstrap"
@@ -251,7 +258,7 @@ jobs:
       - name: Verify offline and fully prepared development package installation
         run: |
           uv build --wheel
-          ACCOUNT_ACCESS_SYSTEM_INSTALL=1 ACCOUNT_ACCESS_MAC_OUTPUT=/tmp/account-access-system-owner bash macos/build.sh
+          ACCOUNT_ACCESS_SYSTEM_INSTALL=1 ACCOUNT_ACCESS_MAC_BUILD=77 ACCOUNT_ACCESS_MAC_OUTPUT=/tmp/account-access-system-owner bash macos/build.sh
           AC_PACKAGE_PYTHON=$("$AC_MAC_WORKER_PREFIX/runtime/bin/python" -I -B -c 'import sys; print(sys.base_prefix)')
           "$AC_PACKAGE_PYTHON/bin/python3.12" -I -B -m pip download --only-binary=:all: --require-hashes -r account_access/runtime-requirements.txt --dest /tmp/account-access-package-wheels
           AC_PACKAGE_ARCH=$(uname -m)

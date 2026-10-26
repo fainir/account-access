@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "status": "PASSED",
+  "run_id": 40048890580,
+  "source_commit": "6c50ad638a4f0245d53c2b6b1e3cee865ba6875d",
+  "python_passed": 4020,
+  "python_skipped": 108,
+  "dependency_audit": "No known vulnerabilities found",
+  "native_owner_ui": "success",
+  "native_owner_gateway": "success",
+  "wheel_and_sdist_built": true,
+  "summary_log_sha256": "ca0a0192a859508debfd6f95196241bdc3ade75d60578c2cfc4bf3719e469682",
+  "source_scope": "Runtime filelock update and fresh image build inventory fix; later restart fix has separate evidence.",
+  "installed_runtime_updated": false,
+  "real_account_qa": false,
+  "production_ready": false
+}

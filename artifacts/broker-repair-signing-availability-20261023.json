@@ -1,0 +1,10 @@
+{
+  "check": "local_public_signing_identity_availability",
+  "command_succeeded": true,
+  "developer_id_application_available": true,
+  "developer_id_installer_available": false,
+  "identity_names_exported": false,
+  "private_key_material_read": false,
+  "production_ready": false,
+  "schema": 1
+}

@@ -1,0 +1,45 @@
+{
+  "apk_bytes": 287145,
+  "apk_sha256": "27f4e54e5658f6cf156a487c584405463701a82a8b0e71291b3e8d77c02b3c9a",
+  "artifact_id": 12459301109,
+  "artifact_zip_sha256": "d96cb8f35212c0d6965ae5e9f3468c5e4ff23935c3394fb0ee6bac3b7273da8b",
+  "certificate_sha256": "5203ec1b94fd0623cc0867087bf74eb7dc1dbd8be8fae7a98f773ae5f0e11575",
+  "commands": {
+    "badging": {
+      "returncode": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "5f30843fac51b374a395f110ed004a84e3cf5a186042c01964855782e2113dd8"
+    },
+    "manifest": {
+      "returncode": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "74259039513c5abc30884717f892375d2327b1cb53cae9c2e8dfe24d53d680c6"
+    },
+    "signature": {
+      "returncode": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "4dbd85d26a5c949db00471f512d9e271ce13fb87c47b74fdd95287048268518a"
+    }
+  },
+  "date": "2026-10-23",
+  "emulator_journey_passed": true,
+  "installed_or_executed_on_phone": false,
+  "permissions": [
+    "android.permission.CAMERA",
+    "android.permission.INTERNET"
+  ],
+  "physical_phone_delivery_qualified": false,
+  "production_ready": false,
+  "production_signing": false,
+  "retained_initial_checker_failure": "The first checker expected older AAPT boolean formatting. SDK 36 emits literal false values; a fresh strict namespaced-attribute review passed without changing the APK.",
+  "review_sha256": "8e5801d4e2326864e9c147bb3dc75e0afdd7a5255e918516112c2cf521f0c2d6",
+  "reviewer_source_sha256": "b58bd12bc70f5e0d881ce26aefca849a2724486a2440eeeb7475bf9f6e790699",
+  "schema": 1,
+  "source_commit": "08232753bf0dfce603137c0c0237e8ef08795d42",
+  "status": "TESTED_PREVIEW_ARTIFACT_REVIEWED",
+  "workflow_run": 39853991741,
+  "zip_members": [
+    "Account-Access-Phone-preview.apk",
+    "phone-preview-evidence.json"
+  ]
+}

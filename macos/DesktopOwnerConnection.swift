@@ -5,6 +5,27 @@ import Security
 import Darwin
 
 enum DesktopOwnerFailure: Error { case profile, unavailable, approval, response }
+enum DesktopOwnerSetupProgress { case requestingApproval, approvalAccepted }
+
+// UI feedback identity only. It grants no owner or channel authority, and its
+// snapshot can be read by a worker without reading any AppKit state.
+final class DesktopOwnerSetupContext {
+    struct Snapshot: Equatable { fileprivate let generation: UUID }
+    private let lock = NSLock()
+    private var generation = UUID()
+    func invalidate() {
+        lock.lock(); defer { lock.unlock() }
+        generation = UUID()
+    }
+    func snapshot() -> Snapshot {
+        lock.lock(); defer { lock.unlock() }
+        return Snapshot(generation: generation)
+    }
+    func isCurrent(_ snapshot: Snapshot) -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        return snapshot.generation == generation
+    }
+}
 
 struct DesktopOwnerProfile {
     static let installedPath = "/Library/Application Support/Account Access/owner.json"
@@ -175,12 +196,14 @@ final class DesktopOwnerConnection {
     }
     // Reads never prompt. Setup writes originate from an explicit owner action.
     // A dropped response is returned to the UI; no operation is replayed.
-    func request(_ route: String, body: [String: Any]? = nil) throws -> (Int, [String: Any]) {
+    func request(_ route: String, body: [String: Any]? = nil,
+                 setupProgress: (DesktopOwnerSetupProgress) -> Void = { _ in }) throws -> (Int, [String: Any]) {
         lock.lock(); defer { lock.unlock() }
         let bytes = try body.map { try JSONSerialization.data(withJSONObject: $0) }
         let validated = try OwnerGatewayRoute(route, body: bytes)
         let active = try preparedChannel()
         if validated.requiresSetup && clock() >= setupUntil {
+            setupProgress(.requestingApproval)
             var form = try acquire()
             defer { form.resetBytes(in: 0..<form.count); closeApproval() }
             guard form.count == 32 else { close(); throw DesktopOwnerFailure.approval }
@@ -188,6 +211,7 @@ final class DesktopOwnerConnection {
             active.authorizeSetup(form, reply: authorized.finish)
             guard try authorized.wait() else { close(); throw DesktopOwnerFailure.approval }
             setupUntil = clock() + 570 // Shorter than the server's fixed ten-minute lease.
+            setupProgress(.approvalAccepted)
         }
         let reply = DesktopOwnerReply<(Int, Data)>()
         active.request(route, body: bytes) { reply.finish(($0, $1)) }
@@ -222,5 +246,27 @@ enum DesktopVaultScreen: Equatable {
         } else if state["accounts"] is [[String: Any]], state["catalog"] is [[String: Any]] {
             self = .ready
         } else { self = .repair }
+    }
+}
+
+enum DesktopVaultRepair {
+    static func detail(_ state: [String: Any]) -> String? {
+        guard let setup = state["vault_setup"] as? [String: Any], setup["status"] as? String == "needs_repair",
+              let diagnostic = setup["diagnostic"] as? [String: String],
+              Set(diagnostic.keys) == ["checkpoint", "reason"] else { return nil }
+        // Render fixed explanations only, never a daemon-supplied string.
+        switch (diagnostic["checkpoint"], diagnostic["reason"]) {
+        case ("stage_status", "vault_publication_device_number_changed"):
+            return "The saved store's disk reference changed. The existing store needs its location revalidated before it can reopen."
+        case ("stage_status", "vault_publication_directory_identity_mismatch"):
+            return "The saved store's directory does not match its original registration. Its existing data has not been replaced."
+        case ("key_access", "vault_key_missing"):
+            return "The encryption key for this existing store is unavailable. Account Access has not created a replacement key."
+        case ("key_access", "system_keychain_load_failed"):
+            return "macOS could not provide access to the existing encryption key."
+        case ("worker_start", "worker_process_unavailable"):
+            return "The protected account service did not finish starting."
+        default: return nil
+        }
     }
 }

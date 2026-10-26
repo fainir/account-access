@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "status": "PASSED",
+  "run_id": 40221314088,
+  "source_commit": "43c4c7ab7d10c5618213b761bc59fce9625ab3e7",
+  "python": {
+    "passed": 4368,
+    "skipped": 112,
+    "seconds": 1056.11
+  },
+  "jobs": [
+    {
+      "id": 121253287345,
+      "name": "test",
+      "status": "success"
+    },
+    {
+      "id": 121253287498,
+      "name": "native-owner-upgrade",
+      "status": "success"
+    },
+    {
+      "id": 121253287569,
+      "name": "native-owner-ui",
+      "status": "success"
+    },
+    {
+      "id": 121253287605,
+      "name": "native-owner-gateway",
+      "status": "success"
+    }
+  ],
+  "test_log_sha256": "2cdba960c68fe910fc38091442bc1bb9e844459d55e3143a15cd367a46c195ca",
+  "dependency_audit_no_known_vulnerabilities": true,
+  "native_evidence_sha256": "4ccaa580a685600eec0f12f5f8dc10d2215ebceefdb9f52b3305eafa4cac16ef",
+  "actual_installer_qualified": false,
+  "real_account_login_tested": false,
+  "production_ready": false
+}

@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "scope": "fresh anonymous page and configuration only",
+  "owner_identifiers_submitted": false,
+  "code_requested": false,
+  "private_profile_used": false,
+  "raw_responses_saved": false,
+  "cookies_exported": false,
+  "production_ready": false,
+  "requests": [
+    {
+      "label": "entry",
+      "method": "GET",
+      "url": "https://www.harel-group.co.il/Pages/login-page/Login.aspx?isshowlogin=true",
+      "status": 200,
+      "content_type": "text/html",
+      "bytes": 207514,
+      "sha256": "e4b5e5ee1f96ee583c57b26f3bb589d114393c725552ecd64e9469cd76c1c7f9"
+    },
+    {
+      "label": "configuration",
+      "method": "POST",
+      "url": "https://www.harel-group.co.il/_vti_bin/webapi/CustomersAuthentication/PostAuthenticate/ContextConfig",
+      "status": 200,
+      "content_type": "application/json",
+      "bytes": 43,
+      "sha256": "a30efc7d4cee8325eb549cb58cd2e5239d56a160cfb1a2fd757150134fd4db92",
+      "json_fields": {
+        "Status": "int",
+        "Details": "dict"
+      },
+      "details_fields": {
+        "CurrentProcess": "int"
+      }
+    }
+  ],
+  "source_bundle_sha256": "20f9366c8dbce751cb0d78fe2a82c3b9c97fedfe4a0c43a8824c70e3046a7117",
+  "public_configuration_payload": {
+    "ContextJson": {
+      "LogTypCurrentPlatform": 1
+    },
+    "from": "isShowLogin"
+  },
+  "application_status_value_examined": false,
+  "provider_supported": false,
+  "real_account_login_tested": false
+}

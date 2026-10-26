@@ -1,0 +1,28 @@
+{
+  "android_api": 35,
+  "browser_reason": "login_code_not_received",
+  "browser_result": "NEEDS_USER",
+  "cause": "Android 15 declares REQUEST_COMPANION_SELF_MANAGED signature|privileged; an ordinary app cannot use this QR-only association path.",
+  "cause_established": true,
+  "follow_up": "Replace self-managed association with ordinary Bluetooth LE device discovery and system consent, with a matching short-lived advertiser in the Mac pairing UI. Never grant privileged permissions through adb or weaken notification protection.",
+  "follow_up_run": {
+    "active_package": "com.fainir.accountaccess.phone",
+    "android_30_passed": true,
+    "android_35_passed": false,
+    "callback": "Android computer setup is unavailable. Reopen the app and try again.",
+    "job": 120099273644,
+    "phase": "cancel",
+    "run": 39857458985,
+    "source_commit": "eae50f09109c9f5ec2921da8628ef56a9e8b8cc1"
+  },
+  "instrumentation_failure": "Android computer consent button unavailable",
+  "job": 120096945569,
+  "local_app_and_instrumentation_compilation": "passed",
+  "physical_phone_delivery_qualified": false,
+  "primary_source": "https://android.googlesource.com/platform/frameworks/base/+/refs/heads/android15-release/core/res/AndroidManifest.xml",
+  "production_ready": false,
+  "run": 39856788254,
+  "schema": 1,
+  "source_commit": "e098c6f104cd77cb0dd99d30ef0a9172e4900e7f",
+  "status": "FAILED"
+}

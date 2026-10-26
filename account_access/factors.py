@@ -83,6 +83,9 @@ def enroll(store, source_id, data):
     if not isinstance(source_id, str) or source_id not in config.code_sources:
         raise AccessError("DENIED", "unknown_code_source")
     kind = config.code_sources[source_id].kind
+    if kind == "gmail" and isinstance(data, dict) and "mailbox" in data:
+        from .mailbox_binding import link
+        return link(store, source_id, data)
     if kind == "imap" and isinstance(data, dict) and set(data) == {"mailbox"}:
         from .mailboxes import link
         return link(store, source_id, data["mailbox"])

@@ -244,7 +244,7 @@ def test_source_token_is_redacted_if_website_content_echoes_it(env, monkeypatch)
     enroll(broker.store, "demo-web", {"provider": "onepassword-service-account", "token": token,
                                     "vault": "a" * 26, "item": "b" * 26})
 
-    def page(*args, secret_values):
+    def page(*args, secret_values, on_attention=None):
         assert token in secret_values
         return {"heading": "Untrusted page echoed " + token}
 

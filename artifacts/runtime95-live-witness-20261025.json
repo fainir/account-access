@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "status": "PASSED",
+  "run_id": 40175711160,
+  "artifact_id": 12592250456,
+  "archive_sha256": "8ba3e80f81c2a6bfae38277f8af77396cda3d839968f6f2f225672ce74bd4d80",
+  "log_hashes_verified": 16,
+  "live_code_checks": {
+    "checks": {
+      "com.apple.distnoted_live_signature_and_path": true,
+      "com.apple.distnoted_wrong_identifier_refused": true,
+      "com.apple.lsd_live_signature_and_path": true,
+      "com.apple.lsd_wrong_identifier_refused": true,
+      "non_apple_process_refused": true
+    },
+    "installed_records_read": false,
+    "production_ready": false,
+    "schema": 1,
+    "scope": "live Apple code attestation; eligibility and race cases are separate synthetic tests",
+    "service_actions": false,
+    "stage": "complete",
+    "status": "PASSED"
+  },
+  "witness_checks": {
+    "account_records_read": false,
+    "owner_machine": false,
+    "production_observer_accepted_surviving_system_job": true,
+    "production_ready": false,
+    "schema": 1,
+    "stage": "complete",
+    "status": "PASSED"
+  },
+  "source_revision": "95e351d85f054ffc611157daefc914ab07b310e1",
+  "production_ready": false
+}

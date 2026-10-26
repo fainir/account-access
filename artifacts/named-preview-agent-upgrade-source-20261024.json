@@ -1,0 +1,28 @@
+{
+  "installed_owner_runtime_changed": false,
+  "lint_passed": true,
+  "native_fixture_correction": "Set the synthetic managed client to NOT_CONNECTED before testing discovery refusal.",
+  "native_screen_check_groups_passed": 54,
+  "observed_at": "2026-10-24T16:27:02.619828+00:00",
+  "old_credentials_and_tokens_imported": false,
+  "original_native_log_sha256": "8a89a60b1244e9f12e38d6adbd7bc91154fdb3626549b4ecbce71c1ffd2d7e9a",
+  "original_native_run_exit_code": 133,
+  "owner_agent_connection_passed": false,
+  "passing_native_log_sha256": "c6dc27bffba6ae0edd577f127dd3d5c8e91efb790df49abea4020e17abace871",
+  "pre_fix_custom_root_failures": 3,
+  "pre_fix_default_root_passes": 3,
+  "production_ready": false,
+  "python_tests_passed": 76,
+  "schema": 1,
+  "source_sha256": {
+    "account_access/agent_setup.py": "d7610fdc59f2a991a20f65cc5397d5022d8bd68e1b784fd0e55371299910eb7e",
+    "macos/AccountAccess.swift": "00b380d0e0d5163ec65e4dc244b4fa15e5c54891ec3a1e41c261c82fff60007d",
+    "macos/Tests/OwnerScreenChecks.swift": "0002c9b4eb1c7dc856f177db14ab0e85c532eea0822b993fd9dbc2c0a7141d15",
+    "scripts/worker_boundary_probe.py": "a2b0340aea7122d2bfa63c48ab1b420406cc93cb2fb3d2ecfe618046b6d60110",
+    "scripts/worker_boundary_smoke.py": "843f535b2219a93189105b8618431034647519501e180a882b4250281da3a73b",
+    "tests/test_agent_setup.py": "4141d017536eb9e37b027fd37036c621403337a1c65ba742b405a59abb22c297",
+    "tests/test_worker_probe_diagnostics.py": "8985810cf8536a292856677aba95aad436a37f6d69555d0bfa8539e55c7a82d0"
+  },
+  "status": "LOCAL_CHECKS_PASSED",
+  "updated_package_built": false
+}

@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "status": "PASSED",
+  "source_commit": "b5ea8a20b0bb71e99698b444af8c5d19fa6a9921",
+  "workflow_run_id": 40127326780,
+  "jobs": [
+    {
+      "id": 120971432468,
+      "name": "test",
+      "conclusion": "success"
+    },
+    {
+      "id": 120971432587,
+      "name": "native-owner-ui",
+      "conclusion": "success"
+    },
+    {
+      "id": 120971432674,
+      "name": "native-owner-gateway",
+      "conclusion": "success"
+    }
+  ],
+  "pytest_result": "4178 passed, 108 skipped in 1066.26s (0:17:46)",
+  "dependency_audit_passed": true,
+  "test_log_sha256": "3fc479e39285c79cb3c4ecdce364a68093591257df202820e1b4b6356928b221",
+  "package94_controller_source_matches": true,
+  "owner_recovery_verified": false,
+  "production_ready": false,
+  "native_artifact": {
+    "id": 12573189753,
+    "archive_sha256": "1f5c2718a65e714fd6d6150a44911c0812badf84ecd731a8a49bfa70af05b1f6",
+    "runtime_checks": 68,
+    "guarded_main_refusals": 6,
+    "production_source_pins_matched": 28,
+    "installed_reads": false
+  }
+}

@@ -1,0 +1,51 @@
+"""Compile/sign only frozen owner99 sources; no package, installation or account access."""
+from pathlib import Path
+import hashlib,json,os,re,runpy,signal,subprocess
+ROOT=Path.cwd();SOURCE='9b867da0de9f91ffbca4a8c838c4bc692f1b5e47';out=ROOT/'dist/owner-upgrade99-native-9b867da'
+def require(value):
+ if not value:raise ValueError('owner99_native_build_refused')
+def sha(p):
+ with p.open('rb') as f:return hashlib.file_digest(f,'sha256').hexdigest()
+def git(*v):return subprocess.check_output(['git',*v],cwd=ROOT,timeout=30)
+require(os.getuid()==os.geteuid()!=0 and git('rev-parse','HEAD').decode().strip()==SOURCE and not os.path.lexists(out))
+b=runpy.run_path('scripts/build_owner_upgrade_review.py');b['verify_build_tools']()
+require((ROOT/'scripts/build_owner_upgrade_review.py').read_bytes()==git('show',SOURCE+':scripts/build_owner_upgrade_review.py'))
+shared=runpy.run_path('scripts/mac_full_image_installed_probe.py');owner=runpy.run_path('scripts/mac_owner_upgrade_probe.py')
+fragments=(*shared['FRAGMENTS'],*owner['EXTRA_FRAGMENTS'])
+names=['macos/'+n for n in shared['DEPENDENCIES']]+['macos/FullImageInstalledIO.swift','macos/FullImagePredecessorAuthority.swift','macos/OwnerUpgradeSource.swift','macos/OwnerUpgradeMain.swift','macos/ComponentUpdate.swift',*fragments]
+sources={n:git('show',SOURCE+':'+n) for n in names};require(all((ROOT/n).read_bytes()==raw for n,raw in sources.items()))
+basepins=ROOT/'dist/runtime-upgrade95-cbf0606/source/CompiledPins.swift';require(sha(basepins)==b['PINS95'])
+planfile=ROOT/'dist/owner-upgrade98-abb48e2/scripts/OwnerUpgradePlan.json';require(sha(planfile)==b['PLAN']);plan=json.loads(planfile.read_bytes())
+source_files=','.join(json.dumps(k)+':'+json.dumps(v) for k,v in sorted(plan['target_native_source_files'].items()))
+pins=basepins.read_bytes()+("\nenum OwnerUpgradeCompiledPins { static let value = OwnerUpgradeSource.Pins("+f'planSHA256: "{b["PLAN"]}", beforeSHA256: "{b["BEFORE"]}", afterSHA256: "{b["AFTER"]}", '+f'predecessorRuntimePlan: "{plan["predecessor_runtime_plan_sha256"]}", '+f'targetSource: "{b["TARGET"]}", sourceFiles: [{source_files}]) }}\n').encode()
+require(pins==(ROOT/'dist/owner-upgrade97-91d4b7b/source/CompiledPins.swift').read_bytes())
+identities=subprocess.check_output(['/usr/bin/security','find-identity','-v','-p','codesigning'],timeout=30)
+identities=re.findall(rb'([A-F0-9]{40})\s+"Developer ID Application: [^\n"]*\(WBULD6N4NQ\)"',identities);require(len(identities)==1)
+identity=identities[0].decode()
+out.mkdir(mode=0o700);code=out/'source';code.mkdir(mode=0o700);paths=[]
+for name,raw in sources.items():
+ if name=='macos/ComponentUpdate.swift' or name in fragments:continue
+ p=code/Path(name).name;p.write_bytes(raw);paths.append(str(p))
+combined=code/'ComponentUpdate.swift';combined.write_bytes(b'\n'.join(sources[n] for n in ('macos/ComponentUpdate.swift',*fragments)));paths.append(str(combined))
+(code/'CompiledPins.swift').write_bytes(pins);paths.append(str(code/'CompiledPins.swift'))
+records=[]
+def command(name,args,expected=0,timeout=1800):
+ stdout=out/(name+'.stdout');stderr=out/(name+'.stderr')
+ with stdout.open('xb') as o,stderr.open('xb') as e:
+  child=subprocess.Popen(args,cwd=ROOT,stdin=subprocess.DEVNULL,stdout=o,stderr=e,start_new_session=True)
+  try: result=child.wait(timeout=timeout)
+  except subprocess.TimeoutExpired:
+   os.killpg(child.pid,signal.SIGKILL);child.wait();raise
+ records.append({'name':name,'arguments':args,'exit_code':result,'stdout_sha256':sha(stdout),'stderr_sha256':sha(stderr)})
+ (out/'commands.json').write_text(json.dumps(records,indent=2)+'\n');require(result==expected)
+ print(json.dumps({'stage':name,'status':'PASSED','exit_code':result}),flush=True)
+ return stdout.read_bytes(),stderr.read_bytes()
+binary=out/'AccountAccess-ownerupgrade'
+command('compile',['/usr/bin/xcrun','swiftc','-j','2','-O','-parse-as-library','-warnings-as-errors','-D','ACCOUNT_ACCESS_OWNER_UPGRADE_MAIN','-framework','Foundation','-framework','CryptoKit','-framework','Security',*paths,'-o',str(binary)])
+require(all(sha(ROOT/n)==hashlib.sha256(raw).hexdigest() for n,raw in sources.items()))
+command('sign',['/usr/bin/codesign','--force','--options','runtime','--identifier','com.fainir.accountaccess.componentupdate','--sign',identity,str(binary)],timeout=120)
+command('signature',['/usr/bin/codesign','--verify','--strict','-R=anchor apple generic and identifier "com.fainir.accountaccess.componentupdate" and certificate leaf[subject.OU] = "WBULD6N4NQ" and !(entitlement["com.apple.security.get-task-allow"] exists)',str(binary)],timeout=120)
+raw,err=command('ordinary-refusal',[str(binary)],expected=78,timeout=30)
+require(not err and json.loads(raw)=={'schema':1,'status':'REFUSED','reason':'owner_upgrade_installer_context_required'})
+report={'schema':1,'status':'COMPILED_PENDING_FULL_SOURCE_QA','controller_source':SOURCE,'helper_sha256':sha(binary),'compiled_pins_sha256':sha(code/'CompiledPins.swift'),'source_sha256':{n:hashlib.sha256(v).hexdigest() for n,v in sources.items()},'commands_sha256':sha(out/'commands.json'),'installed':False,'packaged':False,'production_ready':False}
+(out/'native-review.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps({k:report[k] for k in ('status','controller_source','helper_sha256')}),flush=True)

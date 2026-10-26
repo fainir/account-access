@@ -1,0 +1,50 @@
+{
+  "actual_installer_qualified": false,
+  "app_and_wheel_source_commit": "d5741bc9912aaf907fe5c52486af18818654dda5",
+  "build": 80,
+  "ca_profile_and_installer_model_tests_passed": 127,
+  "changed_manifest_nodes": 404,
+  "changed_native_paths": [
+    "owner.app/Contents/MacOS/AccountAccess",
+    "owner.app/Contents/MacOS/AccountAccessBackground"
+  ],
+  "closed_ca_cohort_updated": true,
+  "gui_architectures": [
+    "arm64",
+    "x86_64"
+  ],
+  "gui_genuine_developer_id_team": "WBULD6N4NQ",
+  "image_counts": {
+    "aliases": 21,
+    "directories": 2297,
+    "files": 25165
+  },
+  "installed_on_owner_mac": false,
+  "personal_password_email_sms_totp_acceptance_established": false,
+  "production_ready": false,
+  "proof_sha256": {
+    "dist/qa-ci-d5741bc/source-workflows-first-attempt-result.json": "92cdc37b014c2b2da0431ff1e1e91b151c0ff4db1f7f76392a6dd3d18421f72f",
+    "dist/qa-full-image-ca-retarget80-d5741bc/result.json": "b657126f1de4a8ce667e03acd1d3536960641127872fbdbf49fb52ba1ef4387f",
+    "dist/qa-full-image-overlay-build80-d5741bc/result.json": "dc22c148b33ea717b03294225b0c189f4ef56cf3742f09b207211af4788874e0",
+    "dist/qa-gui80-independent-d5741bc/result.json": "432c62c1a68dbb8d24eda067770a6ad57d680bee6910287c6b5abef383aef6ec"
+  },
+  "schema": 1,
+  "source_ci_first_attempt": {
+    "failed_workflows": 4,
+    "full_suite_failed_per_run": 1,
+    "full_suite_passed_per_run": 3591,
+    "full_suite_skipped_per_run": 107,
+    "original_failures_retained": true,
+    "sole_failure": "stale OnePassword test mock did not accept optional on_attention keyword",
+    "successful_workflows": 5
+  },
+  "status": "BUILT_STATICALLY_REVIEWED_NOT_INSTALL_QUALIFIED",
+  "target_manifest_sha256": "d1f74db86890b306f989b65a8c521ce3b0879f261ded122dd409be2ca2fbe317",
+  "test_mock_fix": {
+    "isolated_test_passed": true,
+    "optional_callback_accepted": true,
+    "redaction_assertions_unchanged": true
+  },
+  "unchanged_native_files": 39,
+  "wheel_sha256": "56794d7ada7c68303b9cec08012c3e69e8e190defd75dc3034ebc424acbce1f6"
+}

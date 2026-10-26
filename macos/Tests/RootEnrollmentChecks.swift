@@ -116,7 +116,7 @@ enum RootEnrollmentChecks {
         guard rename(plan.stage, retained) == 0, mkdir(plan.stage, 0o700) == 0,
               chown(plan.stage, plan.base.uid, plan.base.gid) == 0 else { throw RootPublicationFailure.unavailable }
         do { try publication!.publish(); throw RootStoreInitializationFailure.unavailable }
-        catch RootPublicationFailure.unsafeState { checks["replacement_directory_identity_refused"] = true }
+        catch RootPublicationFailure.identityMismatch { checks["replacement_directory_identity_refused"] = true }
         guard rmdir(plan.stage) == 0, rename(retained, plan.stage) == 0 else { throw RootPublicationFailure.unavailable }
         try publication!.publish()
         let live = try RootWorkerProcess(policy: root.appendingPathComponent("enrollment-base-launcher.json").path,

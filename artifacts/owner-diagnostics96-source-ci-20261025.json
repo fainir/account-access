@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "status": "SOURCE_CI_PASSED",
+  "run_id": 40183618230,
+  "source": "6736a20f8ed20d9188380b83b808ec9e380df501",
+  "python_passed": 4209,
+  "python_skipped": 108,
+  "python_seconds": 1010.95,
+  "native_ui_job": "success",
+  "native_gateway_job": "success",
+  "test_log_sha256": "29eb472bf7555518f65dab1e7704b0ee0a9575b7306b74357731815f7a7ab427",
+  "local_ui_checks": 55,
+  "installed_candidate_changed": false,
+  "production_ready": false
+}

@@ -1,0 +1,84 @@
+{
+  "schema": 1,
+  "status": "ANONYMOUS_DISCOVERY_ONLY",
+  "date": "2026-10-25",
+  "source_commit": "3bb3c8f20b90cfe661360b3a9b183c1db65ea185",
+  "personal_profile_used": false,
+  "credentials_submitted": false,
+  "verification_requested": false,
+  "all_non_get_head_requests_aborted": true,
+  "production_ready": false,
+  "results": {
+    "harel": {
+      "http_status": 200,
+      "form_count": 2,
+      "visible_inputs": [
+        {
+          "name": "uid",
+          "id": "uid",
+          "type": "text",
+          "autocomplete": "off"
+        },
+        {
+          "name": "phone",
+          "id": "phone",
+          "type": "text",
+          "autocomplete": "off"
+        },
+        {
+          "name": "otpChannel",
+          "id": "otp-channel-sms",
+          "type": "radio",
+          "autocomplete": ""
+        },
+        {
+          "name": "otpChannel",
+          "id": "otp-channel-email",
+          "type": "radio",
+          "autocomplete": ""
+        }
+      ],
+      "sanitized_structural_report_sha256": "3069b0e9aa9954f8df3822502b30c372da899c099f7499170cc02023a90b2ebc",
+      "native_identity_form_method": "get",
+      "blocked_bootstrap_actions": [
+        "ContextConfig",
+        "GetCurrentDetails"
+      ],
+      "generic_identity_phone_engine_compatible": false
+    },
+    "phoenix": {
+      "http_status": 403,
+      "form_count": 0,
+      "visible_inputs": [],
+      "sanitized_structural_report_sha256": "63e5f16a43b228982cac5d826284be764709af71afe2aeebbead5b6d1d5d2e3e",
+      "form_reviewed": false
+    },
+    "lemon-squeezy": {
+      "http_status": 200,
+      "form_count": 1,
+      "visible_inputs": [
+        {
+          "name": "email",
+          "id": "email",
+          "type": "email",
+          "autocomplete": "email"
+        },
+        {
+          "name": "password",
+          "id": "password",
+          "type": "password",
+          "autocomplete": "current-password"
+        },
+        {
+          "name": "remember",
+          "id": "remember",
+          "type": "checkbox",
+          "autocomplete": ""
+        }
+      ],
+      "sanitized_structural_report_sha256": "29c5902f2b962a1cdd70d6d008473962ffe97c3d7718a38c0d1a47ca7628271b",
+      "native_password_form_method": "post",
+      "authenticator_challenge_reviewed": false
+    }
+  }
+}

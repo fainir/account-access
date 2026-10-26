@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "date": "2026-10-22",
+  "status": "STATIC_REVIEW_PASSED_ACTUAL_INSTALLER_PENDING",
+  "package_sha256": "c607e267f7aa691e7607635b07e9897201ff9c01dc0279d7a4790200825829a3",
+  "package_bytes": 288005969,
+  "packaging_source": "56f83bbe89217cbfc9b591a4e8ac8a9525cb80b6",
+  "app_source": "d5741bc9912aaf907fe5c52486af18818654dda5",
+  "manifest_sha256": "d1f74db86890b306f989b65a8c521ce3b0879f261ded122dd409be2ca2fbe317",
+  "inventory_sha256": "9883cbe1ea9072639b092dddd3c5b89407544a8befe8a7e1ba6d2248a17cc3bb",
+  "retained_build_run": {
+    "url": "https://github.com/fainir/account-access/actions/runs/39836940675",
+    "conclusion": "failure",
+    "failed_stage": "static_product_distribution_reference_check",
+    "correction": "Require native productbuild's exact #payload.pkg embedded reference and allow its separate bundle-version metadata reference. Reject remote, additional or different payload references and altered installation scope."
+  },
+  "unchanged_package_revalidation": {
+    "expanded_inventory": true,
+    "installation_scripts": true,
+    "distribution": true,
+    "public_image": true,
+    "focused_checks_passed": 74,
+    "actual_installer_invoked": false
+  },
+  "release_id": 421114829,
+  "release_is_draft": true,
+  "actual_installation_qualified": false,
+  "production_ready": false
+}

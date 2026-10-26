@@ -1,0 +1,9 @@
+{
+  "exit_code": 2,
+  "observed_at": "2026-10-24T15:44:13.179967+00:00",
+  "production_ready": false,
+  "raw_account_data_exported": false,
+  "reason": "service_unavailable",
+  "schema": 1,
+  "status": "RETRYABLE"
+}

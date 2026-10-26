@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "status": "PASSED",
+  "source_commit": "df12c479842f1d7fb1acb6e05947b5426316b244",
+  "workflow_run_id": 40128583326,
+  "jobs": [
+    {
+      "id": 120975225084,
+      "name": "test",
+      "conclusion": "success"
+    },
+    {
+      "id": 120975225339,
+      "name": "native-owner-ui",
+      "conclusion": "success"
+    },
+    {
+      "id": 120975225394,
+      "name": "native-owner-gateway",
+      "conclusion": "success"
+    }
+  ],
+  "pytest_result": "4181 passed, 108 skipped in 1077.50s (0:17:57)",
+  "dependency_audit_passed": true,
+  "test_log_sha256": "5337754c4518aacc4315bdfb6fe50efdd5a33190b3c3139941bb0d3053f82d88",
+  "source_scope": "Android status correction and hosted qualification fixtures; package94 frozen inputs unchanged",
+  "physical_android_acceptance": false,
+  "owner_recovery_verified": false,
+  "production_ready": false
+}

@@ -1,0 +1,209 @@
+# Persistent store volume identity
+
+**Latest owner result, 24 October:** Package91 installed successfully and the
+complete repaired public image verified. The app now opens to AI connection
+setup. The remaining named-preview-root setup refusal is fixed in runtime92
+source, with owner upgrade qualification pending. The paragraphs below describe
+the original migration development; [production gates](production-gates.md)
+records current acceptance evidence.
+
+The corrected read-only owner diagnostic completed with `device_number_changed`.
+The two directory inode values match their registration, but the current device
+number differs. No credential contents, keys, or raw metadata were exported, and
+the diagnostic changed no store files. This confirms a registration mismatch;
+it does not establish that all later startup stages will succeed.
+
+New broker source keeps the original publication record unchanged and adds a
+small root-owned `volume-v1.json` binding. It binds the exact record bytes to a
+persistent volume UUID and the parent directory inode. It can create this binding
+for a fresh registration or an existing registration only while both original
+directory identities and their device number still match. Existing legacy data
+with a changed device number remains refused until a separate migration supplies
+independent persistent-volume evidence.
+
+Reopening validates canonical bounded binding bytes, the original record hash,
+the current volume UUID, parent identity, protected path attachment, and both
+directory identities. A device number may change within that bound volume.
+Changed volumes, changed parents, substituted directories, changed records and
+ambiguous binding data remain refusals. No original record or credential is
+rewritten and no missing key is recreated.
+
+Thirty ordinary-user native checks passed, including actual volume-UUID reads
+from a new temporary directory and simulated device-number changes. Production
+broker typechecking passed. The disposable root fixture now requires 46 checks,
+including worker reopening with a simulated old device number, immutable
+registration preservation and refusal of a different persistent volume. Hosted
+execution of this new fixture is still required; it is not physical reboot QA.
+
+This source is not installed on the owner Mac. The next delivery work must bind
+the legacy store registration to the existing independently verified installation
+volume receipt, qualify a successor update from the repaired public image, and
+test installation, recovery and owner startup. Directly editing the owner's
+publication record, replacing keys, resetting the store, or manually swapping
+native binaries is not a repair path.
+
+The migration authority validator now checks the exact original installation
+receipts, the already published volume receipt, the fixed component plan/source,
+unchanged worker/service policies, and both currently attached installation roots.
+The publication record must use the original installation's device epoch and both
+store directory inodes must be present in the completed, reversed order. It also
+requires the existing owner authorization and ready marker. A different volume,
+changed policies, substituted directories, ambiguous records, paused enrollment,
+or unrelated historical device epoch is refused. The validator is data-only;
+its installed adapter and successor broker delivery are still unfinished.
+
+Binding publication now stages a bounded, root-owned pending file, syncs it, and
+publishes through exclusive rename. An interrupted matching prefix can resume;
+existing or foreign files are never overwritten. The broker rechecks the journal,
+lock, original record, volume and directory identities before publication. Local
+ordinary-user tests passed 61 binding/interruption assertions, including failures
+after creation, partial write, sync and publication. The component fixture passed
+330 assertions including the migration authority checks; 223 focused Python tests
+also passed. Hosted verification is required for these exact new bytes. None of
+this new source has repaired the owner's installed store yet.
+
+Hosted Mac run 39964787681 at source 07d4c73 passed all 46 initial-store/restart
+checks, including real fixture-worker reopening with simulated device renumbering,
+preservation of the original registration, and refusal of another volume UUID.
+This run predates the atomic writer and migration adapter. It is not an owner
+installation, a physical remount test, or a positive legacy migration test.
+
+The installed metadata migration adapter now typechecks and rejects ordinary-user
+calls before reading metadata or invoking its service-barrier callback. It has no
+entrypoint. Its successor controller still needs to supply verified update
+authority and prove the broker is disabled and quiescent. The adapter retains the
+enrollment lock, reads protected receipt metadata, stats both store directories,
+and revalidates before atomically publishing the binding.
+
+A separate read-only completed-full-image verifier reuses the full-image checks.
+Verification cannot create a missing namespace, intent or per-tree journal, and
+cannot stage an update or call its service transition. It emits an opaque proof
+only for an already completed, verified image. Ordinary native fixtures passed:
+namespace checks 24, durable journal checks 153, and tree storage checks 221.
+The combined full-image fixtures and ordinary entrypoint refusal passed. Root
+execution of the successor and migration adapter still requires disposable-Mac
+acceptance before an owner installation is offered.
+
+The broker-repair source contract passed 54 native checks and its immutable
+recovery intent passed 49 checks in the combined ordinary-user suite. The suite
+also passed all six argument-refusal guards and the ordinary full-image updater
+refusal. The report is bound in
+`artifacts/broker-repair-source-contracts-20261023.json`. Two earlier runtime
+attempts failed and are retained; they are not counted as acceptance.
+
+The successor controller and Installer entrypoint are now implemented as
+unqualified candidate source. Its public delta is exactly the broker executable,
+package signature metadata and a new provenance file. It derives only owner and
+installation policies, preserves the bootstrap policy, and retains before/after
+objects in a separate protected namespace. Initial acceptance requires the
+opaque completed-full-image proof. Recovery checks the exact saved history,
+head, policies, persistent volume UUID and root inodes before translating a
+transient device number. This initial successor deliberately refuses predecessor
+journals containing pending audit files.
+
+The transaction uses the existing persistent launchd disable/quiescence barrier,
+publishes the additive volume binding before its head, and releases the enrollment
+lock before restoring the service. Exact completed retry verifies the public image
+without claiming GUI health. Hosted run 39977299032 at source 5f4926a passed
+54 source, 49 intent and 74 transaction assertions, all six argument guards,
+and both ordinary-user entrypoint refusals. The source-pinned artifact is
+`artifacts/broker-repair-native-controller-20261023.json`. Earlier local deadline
+failures remain recorded and are not counted as acceptance.
+
+Broker repair package 86 has been assembled from those exact native sources.
+Its final SHA-256 is
+`79672a7a659948dcefa7c94573d882a9bec4f7febf62597551fa088f4f8861f8`.
+The signed universal broker and signed repair helper were independently verified;
+the Installer container remains unsigned. A failed initial package expansion was
+retained in the build receipt. Repackaging preserved the compressed Scripts
+member byte-for-byte while changing only the script deadline to 1800 seconds.
+
+The committed draft-asset contract now drives three fresh hosted-Mac scenarios:
+installation/reapplication, interruption after broker replacement before the head,
+and refusal/rollback for a conflicting volume binding. Every scenario first runs
+the existing actual base/component/root-revalidation acceptance, then actual
+full-image 85 Installer. The migration fixture contains only fictional publication
+metadata and a synthetic sentinel; it cannot establish real credential, provider,
+physical remount or owner GUI readiness. This package has not been installed on
+the owner Mac and remains pending actual Installer qualification.
+
+Package 86 was withdrawn before owner installation after source review found
+that its new namespace used the legacy child creator and could inherit group
+`admin`, conflicting with the required `wheel` group. Corrected hosted run
+39984715262 was cancelled and is not counted as acceptance. The replacement
+uses the already protected namespace creator with a fixed repair name. Only a
+directory exclusively created by this call is normalized; existing wrong-group,
+symlink and ACL-bearing directories are still refused without writes. Forty
+ordinary-user native namespace checks passed, including inherited-group
+normalization and read-only reopen. The complete six-suite probe and both
+entrypoint refusals also passed. A replacement package still needs actual
+Installer acceptance.
+
+Hosted run 39971114599 passed Python tests and owner UI checks, but its gateway
+job found a standalone tree-test compile dependency introduced by the read-only
+fixture. That test now uses its existing payload reader directly; the original
+failure remains part of the evidence. Hosted run 39971114489 passed Installer
+context checks and was still running cross-user acceptance at this checkpoint.
+
+Package 87 now contains the corrected controller from `c4cf1b0`; its independent
+expansion matches all 27,523 resource entries. Exact package review is retained in
+`artifacts/broker-repair-package87-20261023.json`. Actual Installer qualification
+and owner GUI verification remain pending. The cancelled package-86 interruption
+report records a closed predecessor-phase refusal, not a completed repair.
+
+Package 87 subsequently passed all three actual Installer scenarios in run
+39989349794. The foreign-binding scenario verified five changes applied and
+restored on both attempts and closed migration refusals; the original binding
+and metadata remained unchanged. The exact package and all report/log hashes
+are recorded in `artifacts/broker-repair87-installer-acceptance-20261023.json`.
+This qualifies the disposable-Mac installer repair. The first owner attempt did
+not complete before a Mac restart. The same-package retry subsequently refused
+at `predecessor` with `broker_repair_not_verified`; Installer displayed failure.
+A full public-image comparison followed by the three-path predecessor check
+confirmed intact image 85, with no repair namespace created. No private store
+was read. See `artifacts/owner-mac-repair87-retry1-result-20261024.json`.
+
+The completed full-image reader required the transient device number from the
+previous mount. Its initial reproduction also omitted the journal's mandatory
+newline and therefore did not independently isolate that comparison; the
+original result now carries that correction. The corrected fixture demonstrates
+that the ordinary reader refuses canonical historical records, while the new
+explicit observation mode reads them without writes.
+
+New source reconstructs the exact prior predecessor evidence only through the
+existing validated volume receipt. It preserves journal bytes, inode identities,
+metadata and hashes, and refuses all writes and unfinished-image recovery in
+observation mode. Native checks passed: 156 predecessor checks, 142 installed
+adapter checks, 40 namespace checks, 63 legacy-group checks, 164 journal checks,
+the existing repair suite, 429 tree checks and 312 mixed file/tree checks. Six
+argument guards and both ordinary-user Installer entrypoints also refused as
+expected. These are ordinary-user synthetic fixtures, not an actual reboot or
+Installer test. Evidence is in `artifacts/full-image-restart-source-20261024.json`.
+Owner GUI, real account verification and successor installation remain open.
+
+
+Owner package 90 failed at migration after both full-image verification passes.
+The previous public image 85 was restored and verified without reading the
+private store. Its coarse failure does not identify the predicate. Historical
+owner acceptance records show enrollment after the component update, so it may
+use the component epoch instead of the original installation epoch.
+
+Candidate source now obtains that original component epoch from the completed
+component verifier after matching the exact protected full-image predecessor
+evidence. It keeps historical evidence bytes unchanged. Migration accepts the
+original installation epoch or this independently verified component epoch,
+while retaining receipt, volume, owner, directory-order and inode checks. Closed
+migration subcategories identify a remaining refusal without exporting metadata.
+The native fixtures passed 159 predecessor, 351 installed-adapter and 343 core
+assertions. Package 91 passed all four actual Installer scenarios in run
+`40107896257`, with 162 referenced log hashes verified. The later-enrollment
+fixture first ran package 90 and verified its migration refusal and complete
+rollback, then successfully recovered and reapplied package 91 on that same
+transition. This uses fictional publication metadata in a disposable Mac; it
+does not establish real account access or physical restart acceptance. Package
+91 subsequently installed successfully on the owner's Mac, completing in 36
+seconds. The updated public image passed full read-only verification, and the
+app opens to its agent connection step. Agent connection and account acceptance
+remain pending; the owner's exact package-90 failure predicate was not captured.
+See
+[Installer evidence](../artifacts/broker-repair91-installer-acceptance-20261024.json).

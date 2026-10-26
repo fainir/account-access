@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "date": "2026-10-26",
+  "package_identifier": "com.fainir.accountaccess.ownerupgrade101",
+  "package_sha256": "a63affe44b86f36c32a60913a365bb8cf45824a4b6eb278892895c9b36764c0d",
+  "installer_result": "REFUSED",
+  "reason": "owner_upgrade_transition_conflict",
+  "checkpoint": "predecessor",
+  "installed_owner_version": "92",
+  "package_receipt_present": false,
+  "installed_owner_signature_verified": true,
+  "account_data_read_or_changed": false,
+  "production_ready": false,
+  "evidence_source": "local Installer Log plus read-only receipt, version, and code-signature checks"
+}

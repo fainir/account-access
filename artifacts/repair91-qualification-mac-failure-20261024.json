@@ -1,0 +1,22 @@
+{
+  "archive_artifact_id": 12566561672,
+  "archive_bytes": 1542,
+  "archive_sha256": "10d4bf080fa9f25b174d2da6840fa5951a20c922b7de3194afec101ceaedc6ed",
+  "exact_operation_result_available": false,
+  "failed_phase": "native_system_second_cli",
+  "first_synthetic_native_sms_login_passed": true,
+  "follow_up": "Add fixed task substage, queued/running status and nested allowlisted reason diagnostics, then rerun the unchanged recovery behavior.",
+  "job_id": 120913879080,
+  "last_probe_stage": "native-sms",
+  "observed_at": "2026-10-24T16:19:37.775089+00:00",
+  "personal_accounts_tested": false,
+  "physical_sms_tested": false,
+  "production_ready": false,
+  "report_exception_type": "RuntimeError",
+  "report_reason": "worker_boundary_acceptance_failed",
+  "schema": 1,
+  "source_commit": "155c0a7f273c794f6732597d444aba4e63746a6b",
+  "status": "FAILED",
+  "task_timeout_confirmed": false,
+  "workflow_run": 40107896223
+}

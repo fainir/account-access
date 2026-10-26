@@ -1,0 +1,60 @@
+{
+  "schema": 1,
+  "change": "Fixed Installer-only full-image adapter, completed-predecessor qualification and mixed recovery wiring. Existing component source remains byte-identical; explicit source fragments compose it for this update.",
+  "source_sha256": {
+    "macos/ComponentUpdate.swift": "05fc4fb9ff5f2e81ddba4ffa8c4fac8ae0006ff8fdfc0b9fb6388c7fea47750a",
+    "macos/ComponentUpdateIdentity.swift": "4c3bf3e29923e0a92ac9bf6a8e9752ec889d61eb26dedbafcf6e788dabd3512e",
+    "macos/ComponentUpdatePolicies.swift": "7aca759f4b9fad195851ce12d81550ec08a0753c43515574c23fc74d247060ab",
+    "macos/FullImageGlobalJournal.swift": "714f858990bc7c2e91691aa10f86b63a268508eb54018e56b81c2935adb29db6",
+    "macos/FullImageInstalledIO.swift": "25b43b7099e8b698e48e718bd6429fa9fafe1bb118178bc661386ebd09cae613",
+    "macos/FullImagePlan.swift": "2e44748221e9016dfa73e24a092d5e36029ddd3c5469f1ee8684024622d62ce9",
+    "macos/FullImagePredecessorAuthority.swift": "4ba2097a5692aacdc1b4ca119f1c6824abfd332650a152d2e419decc8449d15f",
+    "macos/FullImageTransitionStorage.swift": "9f304c22212574a3b50f9edb8045fb45bc5c514feb9ce7580b7cf12a42e6bcaf",
+    "macos/FullImageTreeAttachment.swift": "87b36beba9a9e582ad23d42e4cf447227f49d3cefa962dd71ff2ef6633343f9f",
+    "macos/FullImageTreeStorage.swift": "6c795e4f4851723b6df9c1b50fdaec5d388a204e897e2e5e74af0ed9cbde235f",
+    "macos/FullImageUpdateMain.swift": "6972155e3c0f0e0bd5f9f1a8364f1b52b10e4d541c813802d126c82abfe9e53a",
+    "macos/FullImageUpdatePolicies.swift": "67864c4c5226ee467401e1d93ec79e89ba8bb9c5a0e4608a55994e9d26f05416",
+    "macos/InstallationRootBinding.swift": "721be745347e8f5898a76a2f1c6583bb0b153c0619d7d0afbe49a94af6203879",
+    "macos/InstallerPayload.swift": "03876624a57cfe84d850b1998f636acaa039ce6fd4822d8df60ffeab7cd9c81d",
+    "macos/Tests/CombinedPredecessorAuthorityChecks.swift": "e7d17f2541629369a684923a1d672c31677e1916f6b8bd59c8aac1c03bab6206",
+    "macos/Tests/FullImageInstalledChecks.swift": "3ab0203f9dc00ae987770e950bf8cbc13218b3d5023b2c90c77666a52e43bde9",
+    "macos/Tests/FullImageInstalledSourceFixture.swift": "28c438a2294ef668bf0632089c212c8b7a2706ba5edea5ea0f546504ffa5e514",
+    "macos/Tests/FullImageNamespaceChecks.swift": "64b91df85ac8c72900ae180a34ee734042ababc3b35d035a9e5f32594e490ba2",
+    "macos/Tests/FullImagePredecessorAuthorityChecks.swift": "5e0a7d7677a01cd7baf778b34176d0172e06d31eade1340884270e8d12c9bb3f",
+    "macos/source-fragments/CompletedComponentPredecessor.swift.inc": "3ea73b73cc9e7eece8e81346d2084db10aa9efde44b22eb1e735289c70cc4663",
+    "macos/source-fragments/FullImageInstalledAdapter.swift.inc": "49f9906a95fa5dbb8e64d37759962260682e86d08a8f285aaad80033a7aa73b7",
+    "scripts/mac_full_image_installed_probe.py": "5ede52f6530af00345a57a013341bbe99b6547e48c09d0798fae0a5a286fe077"
+  },
+  "composition": {
+    "inputs": [
+      "macos/ComponentUpdate.swift",
+      "macos/source-fragments/CompletedComponentPredecessor.swift.inc",
+      "macos/source-fragments/FullImageInstalledAdapter.swift.inc"
+    ],
+    "separator_hex": "0a",
+    "sha256": "86a222d031ca683e58786b0bef983bd6327c8f8004bbd82d75c0aa73934fc1af",
+    "trimmed": false
+  },
+  "validation": {
+    "predecessor_assertions": 85,
+    "installed_adapter_assertions": 39,
+    "namespace_and_resource_assertions": 21,
+    "actual_inherited_different_group_correction": true,
+    "existing_main_extra_argument_refusals": 3,
+    "ordinary_production_entrypoint_refusal": {
+      "exit_code": 78,
+      "reason": "full_image_update_context_required",
+      "before_filesystem_work": true
+    },
+    "all_sources_stable": true,
+    "dummy_pins_used_only_for_ordinary_entrypoint_gate": true,
+    "source_scope": "Owned temporary and public fixtures. No installed/root authority or account acceptance."
+  },
+  "local_public_probe_sha256": "703a695933b00f650ed2aa25df3b11ec6aaf2a2f95972af7c2a2f353c076e2ae",
+  "prior_145_probe_sha256": "b348e4dbe458ddd3f220841cf98cc075dcdee77732a280b507f4d913b89e67f4",
+  "earlier_test_driver_flag_failure_preserved": true,
+  "new_source_CI": "pending",
+  "actual_Installer_qualified": false,
+  "installed_private_or_account_actions": false,
+  "production_ready": false
+}

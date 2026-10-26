@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "scope": "unchanged license/notice text from the pinned ZXing 3.5.3 release",
+  "upstream": [
+    {
+      "name": "LICENSE",
+      "source": "https://raw.githubusercontent.com/zxing/zxing/zxing-3.5.3/LICENSE",
+      "sha256": "3f62881f0566227a24b12e5a754cc79f39aaa94883038e95c94812e1f50af42f",
+      "bytes": 13320
+    },
+    {
+      "name": "NOTICE",
+      "source": "https://raw.githubusercontent.com/zxing/zxing/zxing-3.5.3/NOTICE",
+      "sha256": "4db4b60aace29ec6c5c4f13ca9cac1930d3c0c54bcc67dceead0c10771120e66",
+      "bytes": 664
+    }
+  ],
+  "asset": "android/app/assets/THIRD_PARTY_NOTICES.txt",
+  "asset_sha256": "231c09f1f8e9ddcd15c287dfd035d62a327e49aab93cebbd53e88f93e4f60e75",
+  "app_key_or_account_data_used": false
+}

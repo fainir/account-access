@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "status": "NATIVE_SCRIPT_DEADLINE_QUALIFIED",
+  "run_id": 39940826551,
+  "controller_revision": "a4a6b0e753084cc34bfb6fd8d5f070b09f6afba5",
+  "report_sha256": "71f81c41db466fd1f35246bba3219da9163d8acc0d0c20d188168fb16667b2c8",
+  "macos_version": "15.7.9",
+  "cases": {
+    "long": {
+      "elapsed_seconds": 612.428,
+      "installer_exit_code": 0,
+      "package_sha256": "749abfefd9a55b99e1bf3dcfd254778b4a05f7322965f616c24516393727c43d",
+      "script_sleep_seconds": 610,
+      "script_timeout_seconds": 900
+    },
+    "short": {
+      "elapsed_seconds": 16.621,
+      "installer_exit_code": 1,
+      "package_sha256": "3a931b8010bd6356207d40b9d3a2af2bcb15a728a5162ad1c30ac91989981edc",
+      "script_sleep_seconds": 25,
+      "script_timeout_seconds": 15
+    }
+  },
+  "checks_passed": 5,
+  "prior_failed_preparation_runs": [
+    39939238866,
+    39940263449
+  ],
+  "application_installer_qualified": false,
+  "owner_data_accessed": false,
+  "production_ready": false
+}

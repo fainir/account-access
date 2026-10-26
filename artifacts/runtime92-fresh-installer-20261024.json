@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "status": "PASSED",
+  "run_id": 40113282658,
+  "target_source": "7051ef225ff2f35d67576d0ddbbc3e0b107e00bf",
+  "result": {
+    "scenario": "fresh-runtime92",
+    "checks": 13,
+    "public_node_count": 27485,
+    "package_sha256": "2a4244ca550511553695063ac31217379f3bc9bf31199aa3426eecf5d3309445",
+    "controller_revision": "ce513bf583b3d5e58b1e5ff6fc89be0e13380a0a",
+    "report_sha256": "4af7685bef43f51ba6c6119b6d7d061f320af95b2ae5e7289f12dd5b5dd957c5",
+    "artifact_id": 12567629533,
+    "artifact_sha256": "64233ccd65ca0b40a697a63111f002ea400b5fd5f7c84cd68537003cf45fcd07",
+    "referenced_log_hashes_verified": 39
+  },
+  "scope": "Fresh install and identical reapplication of runtime92 on a disposable hosted Mac, exact public image, live service, normal GUI quit.",
+  "owner_upgrade_qualified": false,
+  "owner_GUI_qualified": false,
+  "real_account_login_tested": false,
+  "production_ready": false
+}

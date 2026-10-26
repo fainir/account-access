@@ -1,0 +1,99 @@
+{
+  "schema": 1,
+  "build": 79,
+  "source_commit": "5ba276b1369edf29eab59d3670b122975b350cca",
+  "independent_static_review": "INDEPENDENT_STATIC_SOURCE_WHEEL_SIGNATURE_TREE_PASS",
+  "source_pins_unchanged": true,
+  "immutable_source_members_verified": 679,
+  "wheel": {
+    "bytes": 281660,
+    "sha256": "0dfcf86d78881cab6585e6ea3483742e38a4d23d5237d84fcda6cc1cfbf41538",
+    "record_members": 86,
+    "project_members_matching_source": 81
+  },
+  "signatures": {
+    "AccountAccess": {
+      "arm64": {
+        "cdhash": "5b7344ee7160c1ea646ad5f4fbdd91cdcbdfd0c9",
+        "designated_requirement": "designated => identifier \"com.fainir.accountaccess\" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = WBULD6N4NQ",
+        "genuine_Developer_ID_chain": true,
+        "hardened_runtime": true,
+        "identifier": "com.fainir.accountaccess",
+        "team": "WBULD6N4NQ",
+        "timestamp": "21 Oct 2026 at 16:40:31"
+      },
+      "x86_64": {
+        "cdhash": "fd4d91054b249aff7ba7656dfcc92c352f80ba4d",
+        "designated_requirement": "designated => identifier \"com.fainir.accountaccess\" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = WBULD6N4NQ",
+        "genuine_Developer_ID_chain": true,
+        "hardened_runtime": true,
+        "identifier": "com.fainir.accountaccess",
+        "team": "WBULD6N4NQ",
+        "timestamp": "21 Oct 2026 at 16:40:30"
+      }
+    },
+    "AccountAccessBackground": {
+      "arm64": {
+        "cdhash": "c7f250e0262c2c887ca4eb1e6fa3b7a555d9873d",
+        "designated_requirement": "designated => identifier \"com.fainir.accountaccess.background\" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = WBULD6N4NQ",
+        "genuine_Developer_ID_chain": true,
+        "hardened_runtime": true,
+        "identifier": "com.fainir.accountaccess.background",
+        "team": "WBULD6N4NQ",
+        "timestamp": "21 Oct 2026 at 16:40:30"
+      },
+      "x86_64": {
+        "cdhash": "1a4e3ee62277c416fbcccc13396acad637cc25eb",
+        "designated_requirement": "designated => identifier \"com.fainir.accountaccess.background\" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = WBULD6N4NQ",
+        "genuine_Developer_ID_chain": true,
+        "hardened_runtime": true,
+        "identifier": "com.fainir.accountaccess.background",
+        "team": "WBULD6N4NQ",
+        "timestamp": "21 Oct 2026 at 16:40:29"
+      }
+    }
+  },
+  "compiled_slice_provenance": {
+    "AccountAccess": {
+      "arm64": {
+        "compiled_payload_sha256": "0d4fe1125ccda04a46493a4499e85941a347d6483061d5c8aff615cc937ebfd0",
+        "match": true,
+        "non_signature_header_commands_match": true,
+        "only_extra_zero_alignment_bytes": 0,
+        "signed_payload_prefix_sha256": "0d4fe1125ccda04a46493a4499e85941a347d6483061d5c8aff615cc937ebfd0"
+      },
+      "x86_64": {
+        "compiled_payload_sha256": "a0a1d0a7bfba56fa623a7148ec1920e997043f6f5f4407b2a6381ab9f7efc5e1",
+        "match": true,
+        "non_signature_header_commands_match": true,
+        "only_extra_zero_alignment_bytes": 0,
+        "signed_payload_prefix_sha256": "a0a1d0a7bfba56fa623a7148ec1920e997043f6f5f4407b2a6381ab9f7efc5e1"
+      }
+    },
+    "AccountAccessBackground": {
+      "arm64": {
+        "compiled_payload_sha256": "df5d55b1c4ab02a0df12d70dcc23fb5d450afc31bbbd166b8a4e8fbd1b38ba12",
+        "match": true,
+        "non_signature_header_commands_match": true,
+        "only_extra_zero_alignment_bytes": 0,
+        "signed_payload_prefix_sha256": "df5d55b1c4ab02a0df12d70dcc23fb5d450afc31bbbd166b8a4e8fbd1b38ba12"
+      },
+      "x86_64": {
+        "compiled_payload_sha256": "0d5419332a268a1013625a1ad4df6746fbb2c2fe9a73eea1c07bc2efc7f4fd2b",
+        "match": true,
+        "non_signature_header_commands_match": true,
+        "only_extra_zero_alignment_bytes": 0,
+        "signed_payload_prefix_sha256": "0d5419332a268a1013625a1ad4df6746fbb2c2fe9a73eea1c07bc2efc7f4fd2b"
+      }
+    }
+  },
+  "owner_app_tree": {
+    "canonical_sha256": "1faece6b0ab9d68753d20d5990d05be702b4474575df8a95fb1784c1f6be95ac",
+    "entries": 21,
+    "sha256": "fbdfe0fe0d6ac97b79d1b367405fdc591e835fd8cb5d469a6506ef7428459c28"
+  },
+  "local_independent_proof_sha256": "f49819e315c971e7a6000787417ba2dd063f2df076190d452be45d1358b7014c",
+  "installed": false,
+  "notarization_or_owner_acceptance_established": false,
+  "production_ready": false
+}

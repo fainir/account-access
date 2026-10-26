@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "source": "37d4fc4cb4310131a32b3c22b536d3d60741ec7b",
+  "run_id": 40118058467,
+  "job_id": 120943427049,
+  "artifact_id": 12569988036,
+  "artifact_bytes": 1816741,
+  "artifact_sha256": "94132141ee47e59387192d5a74e9b405985c1a98b0cb3d42dd6521c16f2f3386",
+  "runtime_stderr_sha256": "4e06d140367dbbe6950107a6ff02ded7c90c80828ebf8a48fbe194a2a2dab069",
+  "status": "FAILED",
+  "observed_failure": "RuntimeUpgradeNamespaceFailure.rejected(21, 2)",
+  "scope": "ordinary fixture failed opening its newly created temporary directory",
+  "diagnosis": "mkdtemp returns the implicitly bridged Swift input pointer, but the fixture converted it after the call had ended; copy the resulting path within withUnsafeMutableBufferPointer",
+  "reference": "https://developer.apple.com/documentation/swift/calling-functions-with-pointer-parameters",
+  "fixed_hosted_run_passed": false,
+  "installed_reads": false,
+  "production_ready": false,
+  "fixed_local_report_sha256": "86178bdd0a012856f65309d8669996ba2738f54a7625e83ffee6a65b362037f1",
+  "fixed_local_checks": 68,
+  "fixed_local_entrypoint_refused": true
+}

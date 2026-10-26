@@ -1,0 +1,112 @@
+{
+  "schema": 1,
+  "status": "PASSED",
+  "source_commit": "95e351d85f054ffc611157daefc914ab07b310e1",
+  "workflow_run_id": 40175711172,
+  "jobs": [
+    {
+      "id": 121115812537,
+      "name": "test",
+      "conclusion": "success"
+    },
+    {
+      "id": 121115812670,
+      "name": "native-owner-gateway",
+      "conclusion": "success"
+    },
+    {
+      "id": 121115812692,
+      "name": "native-owner-ui",
+      "conclusion": "success"
+    }
+  ],
+  "pytest_result": "4209 passed, 108 skipped in 1109.80s (0:18:29)",
+  "dependency_audit_passed": true,
+  "test_log_sha256": "f939cf49b675a73b94e45d8a847196d85d07da60a22e4d9deb456613b15626dc",
+  "native_gateway": {
+    "schema": 1,
+    "status": "PASSED",
+    "source": "95e351d85f054ffc611157daefc914ab07b310e1",
+    "workflow_run": 40175711172,
+    "archive_id": 12592455528,
+    "archive_sha256": "5aeaeae89bcab3a347dc002511a24056f94a5cb89c7d1ce4d67e961084545675",
+    "reports": [
+      {
+        "file": "private/tmp/account-access-full-image-installed-probe/result.json",
+        "sha256": "5bbf9ccf2f768e5e90581d7183540cdf8cbcd4cb30c39135d45466aa75f36ca9",
+        "source_pins_verified": 40,
+        "entrypoint_ordinary_refusal_verified": true,
+        "guarded_main_refusals": 6,
+        "suites": [
+          {
+            "checks": 159,
+            "status": "PASSED"
+          },
+          {
+            "checks": 433,
+            "status": "PASSED"
+          },
+          {
+            "checks": 40,
+            "status": "PASSED"
+          },
+          {
+            "checks": 63,
+            "status": "PASSED"
+          },
+          {
+            "assertions": 164,
+            "status": "FULL_IMAGE_DURABLE_JOURNAL_CHECKS_PASSED"
+          },
+          {
+            "recovery_assertions": 49,
+            "source_assertions": 54,
+            "status": "PASSED",
+            "transaction_assertions": 88
+          }
+        ]
+      },
+      {
+        "file": "private/tmp/account-access-runtime-upgrade-probe/result.json",
+        "sha256": "ce4ed537c52fddd1949e61b41d269a5b596c34b34e8f26ef92156a8adf645207",
+        "source_pins_verified": 31,
+        "entrypoint_ordinary_refusal_verified": true,
+        "guarded_main_refusals": null,
+        "suites": [
+          {
+            "status": "PASSED",
+            "checks": 68
+          }
+        ]
+      }
+    ],
+    "installed_reads": false,
+    "production_ready": false
+  },
+  "native_ui": {
+    "artifact_id": 12592530337,
+    "archive_sha256": "4f367b581c970d6ac829300c9b62dee434740b2e1a4ed9597a75e2bafe7fedbb",
+    "reports": [
+      {
+        "file": "account-access-browser-native.json",
+        "sha256": "13d04000a648f2505ad0785ee09bd4c7908027a25ba2305f49f9f41d2a337b1b",
+        "status": "PASSED",
+        "checks": 18
+      },
+      {
+        "file": "account-access-desktop-owner.json",
+        "sha256": "74865fa945ef3b9882abd2ef0548c1476e0acf84778767dd82ea5ad88e4376cf",
+        "status": "PASSED",
+        "checks": 45
+      },
+      {
+        "file": "account-access-mailbox-oauth.json",
+        "sha256": "3621a2460742a6d62a396b720b41ac6d1dd18f0e187df1e42f8a4115d358209f",
+        "status": "VERIFIED",
+        "checks": 26
+      }
+    ]
+  },
+  "owner_recovery_verified": false,
+  "production_ready": false
+}

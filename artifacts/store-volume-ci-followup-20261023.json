@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "status": "SOURCE_TEST_FIXES_CHECKED_NEW_CI_REQUIRED",
+  "prior_source": "35f7daa72a721a66556745f28391608524be2183",
+  "linux_run": 39960330358,
+  "linux_test_job": 120436425424,
+  "linux_result": {
+    "failed": 5,
+    "passed": 3961,
+    "skipped": 107
+  },
+  "registration_fixture_failures": 4,
+  "registration_fixture_cause": "requested mkdir mode was narrowed by a restrictive process umask in full-suite execution",
+  "fixture_fix": "set final modes explicitly only in newly created fictional fixture directories",
+  "restrictive_umask_diagnostic_tests_passed": 65,
+  "identity_form_failure": "labels may switch to the next catalog service after successful add while the same cleared fields remain",
+  "identity_form_fix": "assert clearing by stable input identifiers after successful add",
+  "identity_form_regression_passed": true,
+  "mac_run": 39960330496,
+  "mac_job": 120440163909,
+  "mac_failure": "RuntimeError in command during provision_cold_service_restart; exact command not established",
+  "mac_failure_cause_confirmed": false,
+  "additional_failure_projection": "one caller source location; no command arguments, exception text or output",
+  "credential_contents_read": false,
+  "owner_store_repaired": false,
+  "production_ready": false
+}

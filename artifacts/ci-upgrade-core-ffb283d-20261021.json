@@ -1,0 +1,217 @@
+{
+  "schema": 1,
+  "source_commit": "ffb283dcd99f581256905f98c163d56ddbd46a8b",
+  "recorded_utc": "2026-10-21T14:16:26.475416+00:00",
+  "scope": "Public GitHub first-attempt source CI. Optional actual-installer workflow_dispatch jobs were not run. No installed or personal-account acceptance claim.",
+  "first_attempt_only": true,
+  "workflows_passed": 9,
+  "required_jobs_passed": 15,
+  "expected_optional_skips": [
+    {
+      "job": "download-public-inputs",
+      "reason": "workflow_dispatch-only job; first attempt was push",
+      "run_id": 39610435112
+    },
+    {
+      "job": "actual-installer-review",
+      "reason": "workflow_dispatch-only job; first attempt was push",
+      "run_id": 39610435112
+    }
+  ],
+  "runs": [
+    {
+      "name": "Signed component update Installer review",
+      "url": "https://github.com/fainir/account-access/actions/runs/39610435112",
+      "event": "push",
+      "attempt": 1,
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "ordinary-contracts",
+          "conclusion": "success",
+          "url": "https://github.com/fainir/account-access/actions/runs/39610435112/job/119257574877"
+        },
+        {
+          "name": "download-public-inputs",
+          "conclusion": "skipped",
+          "url": "https://github.com/fainir/account-access/actions/runs/39610435112/job/119257576732"
+        },
+        {
+          "name": "actual-installer-review",
+          "conclusion": "skipped",
+          "url": "https://github.com/fainir/account-access/actions/runs/39610435112/job/119257577073"
+        }
+      ]
+    },
+    {
+      "name": "Android login-code journey",
+      "url": "https://github.com/fainir/account-access/actions/runs/39610435131",
+      "event": "push",
+      "attempt": 1,
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "android",
+          "conclusion": "success",
+          "url": "https://github.com/fainir/account-access/actions/runs/39610435131/job/119257575057"
+        }
+      ]
+    },
+    {
+      "name": "Account Access checks",
+      "url": "https://github.com/fainir/account-access/actions/runs/39610435209",
+      "event": "push",
+      "attempt": 1,
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "native-owner-gateway",
+          "conclusion": "success",
+          "url": "https://github.com/fainir/account-access/actions/runs/39610435209/job/119257575512"
+        },
+        {
+          "name": "native-owner-ui",
+          "conclusion": "success",
+          "url": "https://github.com/fainir/account-access/actions/runs/39610435209/job/119257575759"
+        },
+        {
+          "name": "test",
+          "conclusion": "success",
+          "url": "https://github.com/fainir/account-access/actions/runs/39610435209/job/119257575992"
+        }
+      ]
+    },
+    {
+      "name": "Mac separate-user worker acceptance",
+      "url": "https://github.com/fainir/account-access/actions/runs/39610435234",
+      "event": "push",
+      "attempt": 1,
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "mac-installer-context",
+          "conclusion": "success",
+          "url": "https://github.com/fainir/account-access/actions/runs/39610435234/job/119257575554"
+        },
+        {
+          "name": "mac-cross-user",
+          "conclusion": "success",
+          "url": "https://github.com/fainir/account-access/actions/runs/39610435234/job/119258975757"
+        }
+      ]
+    },
+    {
+      "name": "Separate-user worker acceptance",
+      "url": "https://github.com/fainir/account-access/actions/runs/39610435283",
+      "event": "push",
+      "attempt": 1,
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "cross-user",
+          "conclusion": "success",
+          "url": "https://github.com/fainir/account-access/actions/runs/39610435283/job/119257575860"
+        }
+      ]
+    },
+    {
+      "name": "Account Access checks",
+      "url": "https://github.com/fainir/account-access/actions/runs/39610443288",
+      "event": "pull_request",
+      "attempt": 1,
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "native-owner-ui",
+          "conclusion": "success",
+          "url": "https://github.com/fainir/account-access/actions/runs/39610443288/job/119257603524"
+        },
+        {
+          "name": "test",
+          "conclusion": "success",
+          "url": "https://github.com/fainir/account-access/actions/runs/39610443288/job/119257603710"
+        },
+        {
+          "name": "native-owner-gateway",
+          "conclusion": "success",
+          "url": "https://github.com/fainir/account-access/actions/runs/39610443288/job/119257603792"
+        }
+      ]
+    },
+    {
+      "name": "Android login-code journey",
+      "url": "https://github.com/fainir/account-access/actions/runs/39610443311",
+      "event": "pull_request",
+      "attempt": 1,
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "android",
+          "conclusion": "success",
+          "url": "https://github.com/fainir/account-access/actions/runs/39610443311/job/119257603488"
+        }
+      ]
+    },
+    {
+      "name": "Separate-user worker acceptance",
+      "url": "https://github.com/fainir/account-access/actions/runs/39610443438",
+      "event": "pull_request",
+      "attempt": 1,
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "cross-user",
+          "conclusion": "success",
+          "url": "https://github.com/fainir/account-access/actions/runs/39610443438/job/119257605016"
+        }
+      ]
+    },
+    {
+      "name": "Mac separate-user worker acceptance",
+      "url": "https://github.com/fainir/account-access/actions/runs/39610443544",
+      "event": "pull_request",
+      "attempt": 1,
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "mac-installer-context",
+          "conclusion": "success",
+          "url": "https://github.com/fainir/account-access/actions/runs/39610443544/job/119257604415"
+        },
+        {
+          "name": "mac-cross-user",
+          "conclusion": "success",
+          "url": "https://github.com/fainir/account-access/actions/runs/39610443544/job/119260279116"
+        }
+      ]
+    }
+  ],
+  "raw_metadata_sha256": {
+    "dist/qa-ci-ffb283d/jobs-39610435112-attempt1-20261021T134559Z.json": "5eac2ce1b2890a3b63b92285e603b6fc900197582001646d42b620e4553cb2df",
+    "dist/qa-ci-ffb283d/jobs-39610435131-attempt1-20261021T134559Z.json": "c33518e4b6234db455e77da7b58786efc41b6cc94363eb9935db3c6915b446ef",
+    "dist/qa-ci-ffb283d/jobs-39610435131-attempt1-20261021T135148Z.json": "b355ae38450afeb6ad2642601b59ea94fd343ad009c122918d3b92c79e9c2465",
+    "dist/qa-ci-ffb283d/jobs-39610435209-attempt1-20261021T134559Z.json": "5b0a1f270f9cff9a23e8dbe88d3992a518ba76156a23958e86970ee8a1e67f2d",
+    "dist/qa-ci-ffb283d/jobs-39610435209-attempt1-20261021T140533Z.json": "0ccaf64b01a17677e47a78adf6b541df3d74ee139032a207b16a6199139b862a",
+    "dist/qa-ci-ffb283d/jobs-39610435234-attempt1-20261021T134559Z.json": "ca772ffa4f8909d46bfaa0d7da16eb6ec46fa9abfe6d193effaf28a3d28559d9",
+    "dist/qa-ci-ffb283d/jobs-39610435234-attempt1-20261021T140533Z.json": "f4a4e92b819e61c638cb0b97199cf704b6117bef7863132de5da620994f10190",
+    "dist/qa-ci-ffb283d/jobs-39610435234-attempt1-20261021T141117Z.json": "ba1289c18750e864deccc92d8f7e720ce8aa0d9f9590689cf29513acf90c8e45",
+    "dist/qa-ci-ffb283d/jobs-39610435283-attempt1-20261021T134559Z.json": "f3ba451a7cbaba7b57dd5e197bb04216776dde3bc81f0a288735ffa4b20ce73d",
+    "dist/qa-ci-ffb283d/jobs-39610443288-attempt1-20261021T134559Z.json": "9bc231cfa0802e284a5490243e47bc8a0f7aca2b5a827785d1bdcc98da4a6fa8",
+    "dist/qa-ci-ffb283d/jobs-39610443288-attempt1-20261021T140533Z.json": "c8263e4e7e076833712d3e0165c71bac9e9680ce28765218384931daf50c4177",
+    "dist/qa-ci-ffb283d/jobs-39610443311-attempt1-20261021T134559Z.json": "5814497b98706432d11becf3e56dae0cd9695cb9e8bf64870123b5b4736f9fbb",
+    "dist/qa-ci-ffb283d/jobs-39610443438-attempt1-20261021T134559Z.json": "0d8a8c51d90e8eebabb6a95fcccfe17b60aa5403e0d5d96a7246d1a7a8835a71",
+    "dist/qa-ci-ffb283d/jobs-39610443544-attempt1-20261021T134559Z.json": "193cb0342e287d140f6929c9c73c85ce16d3b2301d8c5e90c87b9da5e8b2e2d4",
+    "dist/qa-ci-ffb283d/jobs-39610443544-attempt1-20261021T140533Z.json": "7c97e252ad98c3a63d88091e70fbf81500f3e257162745dc54e801cece2d5daa",
+    "dist/qa-ci-ffb283d/jobs-39610443544-attempt1-20261021T141603Z.json": "5f38af3fa0cb71fe40da1235020918dee53b077aa04af53a56e834141b0d6b04",
+    "dist/qa-ci-ffb283d/jobs-observation-20261021T134559Z.json": "8ff2a38d24ffe05273825c5d12da4aeab7f00448a68654ea2675adabf12241b2",
+    "dist/qa-ci-ffb283d/runs-20261021T134543Z.json": "7f77bd1b53f82ed9ce14f3cd8f6beb0d2f248041fef89cedf2abb0f9631430be",
+    "dist/qa-ci-ffb283d/runs-20261021T135058Z.json": "2149c4f7e3475f740455d6a4ddb4239f4e7e0d69cb995c806e0bd3067f9c425a",
+    "dist/qa-ci-ffb283d/runs-20261021T135559Z.json": "2149c4f7e3475f740455d6a4ddb4239f4e7e0d69cb995c806e0bd3067f9c425a",
+    "dist/qa-ci-ffb283d/runs-20261021T140502Z.json": "fc7051f9e4d97e2d6a200ddfbb39a4b0dacc506881dd4a04b4f260086c32a105",
+    "dist/qa-ci-ffb283d/runs-20261021T141105Z.json": "916bf6338bb5c5ab95b4721a3bdede06523e3be12ee2bd919cabf558da632074",
+    "dist/qa-ci-ffb283d/runs-20261021T141542Z.json": "f4d12c90d5a35b0d80b1ba9d9bfae802bf6338f0bfba1e6fd04e4eb664eea1f2"
+  },
+  "local_terminal_proof_sha256": "8e53cbb9f291521a61919d8840d60afed2dc2251b89a229edd5abcd50c767714",
+  "installed_or_personal_account_acceptance": false,
+  "production_ready": false
+}

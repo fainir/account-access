@@ -20,16 +20,24 @@ COMPILE_SOURCES = (
     "macos/ComponentUpdate.swift", "macos/InstallerPayload.swift",
     "macos/ComponentUpdatePolicies.swift", "macos/ComponentUpdateIdentity.swift",
     "macos/InstallationRootBinding.swift",
+    "macos/RootStoreVolumeBinding.swift", "macos/StoreVolumeMigrationAuthority.swift",
+    "macos/RootStoreVolumePublication.swift", "macos/StoreVolumeMigration.swift",
 )
 REVALIDATION_SOURCE = "macos/InstallationRootRevalidation.swift"
 ROOT_FIXTURE_SOURCE = "macos/InstallationRootBindingTests.swift"
 SOURCE_PATHS = (
     *COMPILE_SOURCES, "macos/Tests/ComponentUpdateChecks.swift", "macos/Tests/ComponentUpdateIdentityChecks.swift",
     "macos/Tests/ComponentUpdatePolicyChecks.swift", REVALIDATION_SOURCE, ROOT_FIXTURE_SOURCE,
+    "macos/Tests/StoreVolumeMigrationAuthorityChecks.swift",
     "scripts/mac_component_update_native_probe.py",
     ".github/workflows/mac-worker.yml",
 )
 CORE_CHECKS = frozenset({
+    "only_fixed_apple_process_paths_and_dedicated_identity_eligible",
+    "system_process_signature_failure_refuses",
+    "system_process_pid_birth_path_uid_races_refuse",
+    "system_process_new_duplicate_or_unobservable_pids_refuse",
+    "system_process_attestation_repeats_at_every_barrier",
     "domain_durable_intent_and_local_barrier_order",
     "failed_domain_intent_has_no_lifecycle_effect",
     "domain_success_never_bypasses_all_process_checks",
@@ -65,6 +73,11 @@ CORE_CHECKS = frozenset({
     "supplement_rejects_any_changed_original_receipt_bytes_or_digest",
     "supplement_bounded_json_and_duplicate_members_rejected",
     "owned_directory_volume_uuid_abi_is_canonical_and_nonzero",
+    "store_migration_binds_original_epoch_to_existing_volume_receipt",
+    "store_migration_accepts_only_independently_verified_later_component_epoch",
+    "store_migration_requires_authorized_completed_unchanged_directory_pair",
+    "store_migration_rejects_foreign_roots_policies_and_ambiguous_records",
+    "store_migration_ordinary_call_refused_before_metadata_or_service_access",
 })
 POLICY_CHECKS = frozenset({
     "exact_install_record_preserved_except_fingerprint", "exact_host_policy_preserved_except_bootstrap_hashes",
@@ -88,7 +101,7 @@ def fixture_result(raw, *, kind):
     """A count or optimistic summary alone cannot satisfy native acceptance."""
     value = json.loads(raw)
     expected = CORE_CHECKS if kind == "core" else POLICY_CHECKS
-    count_key, count = ("ordinary_fixture_assertions", 257) if kind == "core" else ("count", 41)
+    count_key, count = ("ordinary_fixture_assertions", 377) if kind == "core" else ("count", 41)
     if (not isinstance(value, dict)
             or set(value) != {"schema", "status", "checks", count_key, "installed_reads", "service_actions"}
             or type(value["schema"]) is not int or value["schema"] != 1
@@ -185,7 +198,8 @@ def main():
             ):
                 executable = scratch / (kind + "-checks")
                 extra = [str(ROOT / "macos/Tests/ComponentUpdateIdentityChecks.swift"),
-                         str(ROOT / ROOT_FIXTURE_SOURCE)] if kind == "core" else []
+                         str(ROOT / ROOT_FIXTURE_SOURCE),
+                         str(ROOT / "macos/Tests/StoreVolumeMigrationAuthorityChecks.swift")] if kind == "core" else []
                 compiled = run([*base, *compile_sources, *extra, str(ROOT / fixtures), "-o", str(executable)],
                                output=output, log_name="compile-" + kind + ".log", report=report, timeout=120)
                 if compiled.returncode != 0:

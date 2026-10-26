@@ -1,0 +1,21 @@
+{
+  "dependency_audit": "No known vulnerabilities found",
+  "native_owner_gateway": "success",
+  "native_owner_ui": "success",
+  "personal_accounts_qualified": false,
+  "physical_android_delivery_qualified": false,
+  "production_ready": false,
+  "python_passed": 4064,
+  "python_skipped": 108,
+  "runs": {
+    "android": 40054596584,
+    "checks": 40054596581,
+    "linux_worker": 40054596603,
+    "mac_worker": 40054596582
+  },
+  "schema": 1,
+  "source_commit": "e1c83376b955debdb0fcfae1041850b56280e30d",
+  "status": "PASSED",
+  "summary_log_sha256": "4ad21314c11af1d201ecdcbc47d99efa04b1aaefd039c61488f880012bb5f9ca",
+  "wheel_and_sdist_built": true
+}

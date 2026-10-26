@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "status": "INSTALLER_QA_FAILED_WRAPPER_HELPER_PIN",
+  "run_id": 40212316045,
+  "qualification_source": "68bed0854d94cb8c1e227da6a7cbf947cc994f0f",
+  "controller_source": "9b867da0de9f91ffbca4a8c838c4bc692f1b5e47",
+  "package_sha256": "b478bee55de47feb3cf0af91c1cd072a67db02a5979ba67a490ae6cd4cc87b85",
+  "artifact_id": 12606869619,
+  "artifact_sha256": "91d496485c1fae7b32c94b0741e8d989d0a4a9855f0aef1193aea64b2cdf01a0",
+  "reports": [
+    {
+      "report": "AccountAccessComponentInstallerQA-40212316045/report.json",
+      "status": "PASSED",
+      "stage": null,
+      "logs_verified": 25
+    },
+    {
+      "report": "AccountAccessComponentInstallerQA-4021231604591/report.json",
+      "status": "FAILED",
+      "stage": "owner_upgrade_acceptance",
+      "logs_verified": 38
+    }
+  ],
+  "referenced_log_hashes_verified": 63,
+  "wrapper_sha256": "d24102c335f5af8fb26a552a12a05854e385be06bb8ab255c866edfb9ca06d46",
+  "wrapper_expected_helper_sha256": "71adcbfa469f9b6dcb6705cefc55015dea23807cf7d08c7e9ba369658c7f4daa",
+  "actual_helper_sha256": "f45ec93061242a71c7bcf25539ad70fd922a50a4e5c2a46e0efd2dc65f70bedf",
+  "native_result_observed": false,
+  "source_diagnosis": "assembly copied an old wrapper while replacing its signed helper; shell hash guard refuses before native execution",
+  "run_cancellation_requested": true,
+  "installed_owner_machine": false,
+  "real_account_login_tested": false,
+  "production_ready": false
+}

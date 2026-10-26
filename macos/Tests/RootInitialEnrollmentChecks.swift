@@ -153,6 +153,10 @@ enum RootInitialEnrollmentChecks {
         let receipt = try JSONSerialization.data(withJSONObject: ["client_id": clientID, "hosts": ["codex", "claude"]])
         let confirmed = request(approved, "owner/client/installed", body: receipt)
         checks["owner_client_installation_receipt_accepted"] = confirmed.0 == 200
+        let upgraded = try ownerProbe("upgrade")
+        guard upgraded["status"] as? String == "PASSED", upgraded["client_id"] as? String == clientID,
+              let upgradeChecks = upgraded["checks"] as? [String: Bool] else { throw RootPublicationFailure.notVerified }
+        checks.merge(upgradeChecks) { _, new in new }
 
         checks["initialized_pause_keeps_owner_state_available"] = request(pausing, "owner/stop", body: body).0 == 200
             && setup.state == .paused && request(pausing, "owner/state").0 == 200
@@ -173,6 +177,75 @@ enum RootInitialEnrollmentChecks {
         checks["enrolled_client_survives_worker_reopening"] = restoredClient?["status"] as? String == "INSTALLED"
             && restoredClient?["client_id"] as? String == clientID
         try reopened.stop()
+        // Only this disposable fixture's own publication metadata is changed.
+        // Simulate a mount-device renumbering while retaining both inode values;
+        // the production coordinator must refuse before key/worker startup.
+        let journalPlan = URL(fileURLWithPath: plan.stage).deletingLastPathComponent()
+            .appendingPathComponent(".enrollment-" + plan.enrollment + ".publication/plan.json")
+        let originalRecord = try Data(contentsOf: journalPlan)
+        let journalVolume = journalPlan.deletingLastPathComponent().appendingPathComponent(RootStoreVolumeBinding.name)
+        let originalVolume = try Data(contentsOf: journalVolume)
+        // Remove only this fixture's binding to exercise an unbound legacy
+        // store. Production never deletes a binding to make a record pass.
+        try FileManager.default.removeItem(at: journalVolume)
+        var renumbered = try JSONSerialization.jsonObject(with: originalRecord) as! [String: Any]
+        for name in ["stagedIdentity", "emptyIdentity"] {
+            var identity = renumbered[name] as! [String: Any]
+            identity["device"] = (identity["device"] as! NSNumber).int64Value + 1
+            renumbered[name] = identity
+        }
+        try JSONSerialization.data(withJSONObject: renumbered).write(to: journalPlan)
+        do {
+            defer {
+                try! originalRecord.write(to: journalPlan)
+                try! originalVolume.write(to: journalVolume, options: .withoutOverwriting)
+                precondition(chmod(journalVolume.path, 0o600) == 0)
+            }
+            let (movedWorker, moved) = try make()
+            defer { try? moved.stop() }
+            try moved.start()
+            checks["changed_publication_device_remains_refused_before_worker"] = moved.state == .needsRepair
+                && movedWorker.pid == nil && !moved.workInProgressForChecks
+            let reply = try moved.request(OwnerGatewayRoute("owner/state", body: nil))
+            let state = try JSONSerialization.jsonObject(with: reply.1) as? [String: Any]
+            let setup = state?["vault_setup"] as? [String: Any]
+            checks["changed_publication_device_has_closed_diagnostic"] = setup?["diagnostic"] as? [String: String]
+                == ["checkpoint": "stage_status", "reason": "vault_publication_device_number_changed"]
+        }
+        // A valid historical persistent-volume binding permits a changed
+        // device number while keeping the publication record bytes unchanged.
+        // This fixture simulates the old device value, not a physical remount.
+        let historicalRecord = try JSONSerialization.data(withJSONObject: renumbered)
+        let parentFD = open(journalPlan.deletingLastPathComponent().deletingLastPathComponent().path,
+                            O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard parentFD >= 0 else { throw RootPublicationFailure.unavailable }
+        let measured = try RootStoreVolumeBinding.capture(parentFD)
+        Darwin.close(parentFD)
+        let historical = RootStoreVolumeBinding.Context(device: measured.device + 1,
+            parentInode: measured.parentInode, volumeUUID: measured.volumeUUID)
+        let historicalBinding = try RootStoreVolumeBinding(record: historicalRecord, context: historical).encoded()
+        try historicalRecord.write(to: journalPlan)
+        try historicalBinding.write(to: journalVolume)
+        do {
+            defer { try! originalRecord.write(to: journalPlan); try! originalVolume.write(to: journalVolume) }
+            let (boundWorker, bound) = try make()
+            defer { try? bound.stop() }
+            try bound.start()
+            try wait(bound)
+            checks["persistent_volume_binding_reopens_simulated_device_change"] = bound.state == .ready
+                && boundWorker.state == .running && boundWorker.pid != nil
+            checks["persistent_volume_reopen_preserves_original_registration"] = try Data(contentsOf: journalPlan) == historicalRecord
+                && Data(contentsOf: journalVolume) == historicalBinding
+            try bound.stop()
+            var substituted = try JSONSerialization.jsonObject(with: historicalBinding) as! [String: Any]
+            substituted["volumeUUID"] = UUID().uuidString.lowercased()
+            try JSONSerialization.data(withJSONObject: substituted, options: [.sortedKeys, .withoutEscapingSlashes]).write(to: journalVolume)
+            let (foreignWorker, foreign) = try make()
+            defer { try? foreign.stop() }
+            try foreign.start()
+            checks["different_persistent_volume_refused_before_worker"] = foreign.state == .needsRepair
+                && foreignWorker.pid == nil && !foreign.workInProgressForChecks
+        }
         try provider.removeFixture(plan.vault)
         removed = true
         let (brokenWorker, broken) = try make()
@@ -182,6 +255,11 @@ enum RootInitialEnrollmentChecks {
         checks["missing_key_after_publication_requires_repair"] = broken.state == .needsRepair && brokenWorker.pid == nil
         checks["published_vault_key_never_recreated"] = try missing()
         checks["repair_state_keeps_native_owner_reads_available"] = try broken.request(OwnerGatewayRoute("owner/state", body: nil)).0 == 200
+        let missingHealth = try broken.request(OwnerGatewayRoute("owner/health", body: nil))
+        let missingState = try JSONSerialization.jsonObject(with: missingHealth.1) as? [String: Any]
+        checks["missing_key_has_closed_diagnostic_without_replacement"] =
+            (missingState?["vault_setup"] as? [String: Any])?["diagnostic"] as? [String: String]
+            == ["checkpoint": "key_access", "reason": "vault_key_missing"]
         checks["new_fixture_key_removed"] = try missing()
         return checks
     }

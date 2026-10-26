@@ -25,6 +25,7 @@ final class Pairing {
   if(p.getInt("version")!=1 || !p.getString("certificate_sha256").matches("[0-9a-f]{64}") || !p.getString("source").matches("[a-z][a-z0-9_-]{0,63}") || !p.getString("token").matches("[A-Za-z0-9_-]{40,100}"))throw new Exception("Invalid pairing");
   String template=p.getString("template");if(template.length()>2000 || !template.contains("{code}") || template.indexOf("{code}")!=template.lastIndexOf("{code}"))throw new Exception("Invalid login template");
   if(p.getString("sender").isEmpty() || p.getString("recipient").isEmpty())throw new Exception("Missing login source");
+  if(p.has("bluetooth_service_uuid") && !p.getString("bluetooth_service_uuid").matches("[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"))throw new Exception("Invalid computer discovery identity");
  }
  static SecretKey key() throws Exception {
   KeyStore store=KeyStore.getInstance("AndroidKeyStore");store.load(null);
@@ -34,15 +35,20 @@ final class Pairing {
   }
   return (SecretKey)store.getKey(ALIAS,null);
  }
- static void save(Context c,String raw) throws Exception {
+ static synchronized void save(Context c,String raw) throws Exception {
   JSONObject object=new JSONObject(raw);validate(object);
   Cipher cipher=Cipher.getInstance("AES/GCM/NoPadding");cipher.init(Cipher.ENCRYPT_MODE,key());
-  c.getSharedPreferences("link",0).edit().putString("iv",Base64.encodeToString(cipher.getIV(),Base64.NO_WRAP)).putString("payload",Base64.encodeToString(cipher.doFinal(object.toString().getBytes("UTF-8")),Base64.NO_WRAP)).commit();
+  byte[] encrypted=cipher.doFinal(object.toString().getBytes("UTF-8"));
+  ComputerAssociation.clear(c);
+  if(!c.getSharedPreferences("link",0).edit().putString("iv",Base64.encodeToString(cipher.getIV(),Base64.NO_WRAP)).putString("payload",Base64.encodeToString(encrypted,Base64.NO_WRAP)).commit())throw new Exception("Pairing could not be saved");
  }
- static JSONObject load(Context c) throws Exception {
+ static synchronized JSONObject load(Context c) throws Exception {
   android.content.SharedPreferences prefs=c.getSharedPreferences("link",0);String payload=prefs.getString("payload",null);if(payload==null)return null;
   Cipher cipher=Cipher.getInstance("AES/GCM/NoPadding");cipher.init(Cipher.DECRYPT_MODE,key(),new GCMParameterSpec(128,Base64.decode(prefs.getString("iv",""),Base64.NO_WRAP)));
   JSONObject object=new JSONObject(new String(cipher.doFinal(Base64.decode(payload,Base64.NO_WRAP)),"UTF-8"));validate(object);return object;
  }
- static void clear(Context c){c.getSharedPreferences("link",0).edit().clear().commit();}
+ static synchronized void clear(Context c) throws Exception {
+  if(!c.getSharedPreferences("link",0).edit().clear().commit())throw new Exception("Pairing could not be removed");
+  ComputerAssociation.clear(c);
+ }
 }

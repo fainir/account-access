@@ -66,6 +66,11 @@ final class VerificationRetryFixture: URLProtocol {
     override func stopLoading() {}
 }
 
+final class OwnerApprovalWindowFixture: NSWindow {
+    var approvalFrontRequests = 0
+    override func makeKeyAndOrderFront(_ sender: Any?) { approvalFrontRequests += 1 }
+}
+
 final class NativeOwnerScreenFixture: DesktopOwnerChannel {
     var isAvailable = false
     var enrollments = 0
@@ -80,6 +85,9 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
     var deviceEmailApplyFailure = false
     var deviceEmailPreview: [String: Any] = [:]
     var googleRequests: [String] = []
+    private let sourceRequestLock = NSLock()
+    private var sourceRequestLog: [[String: Any]] = []
+    var sourceRequests: [[String: Any]] { sourceRequestLock.withLock { sourceRequestLog } }
     private let mailboxLock = NSLock()
     private var mailboxPosts = 0
     private var mailboxReply: ((Int, Data) -> Void)?
@@ -99,6 +107,14 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
     func authorizeSetup(_ form: Data, reply: @escaping (Bool) -> Void) { reply(form.count == 32) }
     func request(_ route: String, body: Data?, reply: @escaping (Int, Data) -> Void) {
         if route == "owner/verify" { verificationRequestLock.withLock { verificationRequests += 1 } }
+        if route == "owner/source" {
+            let request = body.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } ?? [:]
+            sourceRequestLock.withLock { sourceRequestLog.append(request) }
+            reply(200, Data("{\"status\":\"ENROLLED\"}".utf8)); return
+        }
+        if route == "owner/source/check" {
+            reply(200, Data("{\"status\":\"VERIFIED\"}".utf8)); return
+        }
         if ["owner/mailbox/connect", "owner/mailbox/password"].contains(route) {
             mailboxLock.withLock {
                 mailboxPosts += 1
@@ -339,7 +355,7 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         owner.passwordSync = []
         print("PASS: imported Bitwarden item IDs need no reentry; manual IDs stay advanced, replacement tokens are absent and unavailable runtime hides enrollment")
 
-        owner.accounts = [["account": "fixture", "label": "Fixture account", "route": "browser",
+        owner.accounts = [["account": "fixture", "label": "Fixture account", "route": "browser", "environment": "live",
                            "portable_ready": true, "connected": false]]
         owner.sources = [["id": "fixture-factor", "kind": "totp"]]
         owner.showImportSummary(["fixture"], issues: [("fixture", "Verification must be connected.")])
@@ -534,6 +550,33 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         precondition(stoppedJobs["first"]?["status"] as? String == "NEEDS_USER")
         VerificationRetryFixture.stopped = false
         print("PASS: finishing a stopped review returns the failed account state without claiming connection")
+        let savedCatalog = owner.catalog
+        let savedAccounts = owner.accounts
+        owner.accounts = []
+        owner.catalog = [
+            ["id": "identity-fixture", "label": "Fictional identity login", "login_method": "identity_phone_sms",
+             "operations": [["name": "status", "description": "Confirm the signed-in session"]]],
+            ["id": "password-fixture", "label": "Fictional password login",
+             "operations": [["name": "status", "description": "Confirm the signed-in session"]]]
+        ]
+        owner.connections()
+        precondition(owner.username is NSSecureTextField && owner.password != nil)
+        precondition(owner.loginIdentityLabel?.stringValue == "Identity number")
+        precondition(owner.loginSecretLabel?.stringValue == "Phone number for login SMS")
+        owner.username.stringValue = "fictional-identity"
+        owner.password.stringValue = "fictional-phone"
+        let identityEntry = owner.services.selectedItem!.representedObject as! [String: Any]
+        precondition(AccountAccess.loginCredential(entry: identityEntry, identity: owner.username.stringValue,
+            secret: owner.password.stringValue) == ["identity": "fictional-identity", "phone": "fictional-phone"])
+        owner.services.selectItem(at: 1)
+        owner.serviceChanged()
+        precondition(!(owner.username is NSSecureTextField) && owner.username.stringValue.isEmpty && owner.password.stringValue.isEmpty)
+        precondition(owner.loginIdentityLabel?.stringValue == "Email or username" && owner.loginSecretLabel?.stringValue == "Password")
+        precondition(AccountAccess.loginCredential(entry: [:], identity: "fictional-user", secret: "fictional-password")
+            == ["username": "fictional-user", "password": "fictional-password"])
+        owner.catalog = savedCatalog
+        owner.accounts = savedAccounts
+        print("PASS: identity and phone enrollment uses distinct masked fields; changing login kind clears values and restores password labels")
         owner.sources = []
         owner.smsSetups = [["account": "fixture", "fingerprint": "fictional"]]
         owner.showFactors()
@@ -548,7 +591,7 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         precondition(owner.verificationMessage(["reason": "browser_passkey_required"]).contains("requires owner approval"))
         precondition(owner.verificationMessage(["reason": "browser_recovery_required"]).contains("opened account recovery"))
         let browserCheck = owner.verificationMessage(["reason": "browser_captcha_required"])
-        precondition(browserCheck.contains("cannot complete automatically") && browserCheck.contains("password is preserved"))
+        precondition(browserCheck.contains("cannot complete automatically") && browserCheck.contains("sign-in details are preserved"))
         print("PASS: pre-request failures cannot claim SMS delivery was tested; owner attention distinguishes unknown pages and required presence")
         let mailboxLimit = owner.verificationMessage(["kind": "email", "reason": "mailbox_result_limit"])
         precondition(mailboxLimit.contains("instead of guessing") && !mailboxLimit.contains("SMS"))
@@ -581,6 +624,41 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         let afterSMS = owner.verificationMessage(["reason": "browser_action_required", "diagnostics": ["progress": ["sms_code_filled": true]]])
         precondition(afterSMS.contains("SMS code was received") && !afterSMS.contains("No SMS"))
         print("PASS: verification detail view excludes arbitrary data and admits only closed routes and known control names")
+        let fieldKeys = ["password", "one_time_code", "numeric_input", "email_input"]
+        let markerKeys = ["login", "sms", "email", "totp", "device", "passkey", "captcha", "admin", "action", "recovery", "unknown", "method"]
+        let firstStop: [String: Any] = ["schema": 1, "page": "origin_0:/?/device",
+            "forms": [["method": "POST", "visible": true, "reviewed_action": false, "controls": 3]],
+            "fields": Dictionary(uniqueKeysWithValues: fieldKeys.map { ($0, $0 == "one_time_code") }),
+            "field_counts": Dictionary(uniqueKeysWithValues: fieldKeys.map { ($0, $0 == "one_time_code" ? 1 : 0) }),
+            "visible_field_counts": Dictionary(uniqueKeysWithValues: fieldKeys.map { ($0, $0 == "one_time_code" ? 1 : 0) }),
+            "markers": Dictionary(uniqueKeysWithValues: markerKeys.map { ($0, false) }),
+            "progress": ["password_submit_attempted": true]]
+        let firstStopText = AccountAccess.verificationDetailText(firstStop)
+        precondition(firstStopText.contains("first stopped sign-in") && firstStopText.contains("One-time-code fields: 1 visible / 1 observed"))
+        precondition(firstStopText.contains("does not match a configured static login route") && !firstStopText.contains("Selected method:"))
+        for invalid in [true, 1.0, "1"] as [Any] {
+            var malformed = firstStop; malformed["schema"] = invalid
+            precondition(AccountAccess.verificationDetailText(malformed).isEmpty)
+        }
+        var malformed = firstStop
+        malformed["fields"] = ["password": "fictional-password", "one_time_code": "fictional-code", "csrf": "fictional-csrf"]
+        precondition(AccountAccess.verificationDetailText(malformed).isEmpty)
+        malformed = firstStop; malformed["page"] = "https://example.test/secret?token=fictional-token"
+        precondition(AccountAccess.verificationDetailText(malformed).isEmpty)
+        malformed = firstStop; malformed["forms"] = [["method": "POST", "visible": true, "reviewed_action": false, "controls": 3, "action": "fictional-token"]]
+        precondition(AccountAccess.verificationDetailText(malformed).isEmpty)
+        malformed = firstStop; malformed["field_counts"] = ["password": true, "one_time_code": 1, "numeric_input": 0, "email_input": 0]
+        precondition(AccountAccess.verificationDetailText(malformed).isEmpty)
+        malformed = firstStop; malformed["progress"] = ["password_submit_attempted": 1]
+        precondition(AccountAccess.verificationDetailText(malformed).isEmpty)
+        let diagnosticOwner = AccountAccess(fixtureRoot: fixtureRoot, session: fixtureSession,
+                                            managedAgents: blockedHelpers, ownerProfile: missingFixtureProfile)
+        diagnosticOwner.accept(["accounts": [["account": "fixture", "challenges": [["id": "pending", "diagnostics": firstStop]]]],
+            "connection_jobs": ["older": ["account": "fixture", "attention": ["diagnostics": ["page": "origin_0:/login"]]]]])
+        precondition(diagnosticOwner.verificationDetails["fixture"] == firstStopText)
+        diagnosticOwner.accept(["accounts": [["account": "fixture", "challenges": []]]])
+        precondition(diagnosticOwner.verificationDetails.isEmpty)
+        print("PASS: first stopped-page details reject secret-bearing or malformed data, preserve unknown methods and disappear with the current challenge")
         owner.browserSessionAccounts = [["account": "fixture", "label": "GitHub fixture", "fingerprint": "fictional", "username_hint": "fixture-owner"]]
         owner.ready()
         views = descendants(owner.stack)
@@ -634,9 +712,32 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         owner.showImportSummary(["example"], issues: [])
         views = descendants(owner.stack)
         precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("Example connected"))
+        owner.serviceEnvironment = "controlled-demo"
+        owner.accounts = [["account": "legacy-example", "label": "Legacy fixture", "connected": true, "portable_ready": true]]
+        let legacyAuthenticator = ["kind": "totp", "accounts": ["legacy-example"]] as [String: Any]
+        precondition(AccountAccess.verificationEnvironment(legacyAuthenticator, accounts: owner.accounts,
+                                                           fallback: owner.serviceEnvironment) == "controlled-demo")
+        precondition(owner.requestText.contains("example accounts"))
+        owner.ready()
+        views = descendants(owner.stack)
+        let inheritedExampleText = views.compactMap { ($0 as? NSTextField)?.stringValue }
+        precondition(inheritedExampleText.contains("1 ready · 1 example connections"))
+        precondition(inheritedExampleText.contains("Example connected"))
+        precondition(inheritedExampleText.contains("Example connection. These results do not validate access to a personal account."))
+        owner.serviceEnvironment = "mixed"
+        precondition(AccountAccess.effectiveEnvironment(owner.accounts[0], fallback: owner.serviceEnvironment) == "unclassified")
+        precondition(AccountAccess.verificationEnvironment(legacyAuthenticator, accounts: owner.accounts,
+                                                           fallback: owner.serviceEnvironment) == "unclassified")
+        precondition(!owner.requestText.contains("connected services") && !owner.requestText.contains("example accounts"))
+        owner.ready()
+        views = descendants(owner.stack)
+        let unclassifiedText = views.compactMap { ($0 as? NSTextField)?.stringValue }
+        precondition(unclassifiedText.contains("1 connections · source unverified"))
+        precondition(unclassifiedText.contains("Source unverified"))
+        precondition(unclassifiedText.contains("The service source could not be verified. This connection does not establish personal-account access."))
         owner.accounts = []
         precondition(owner.requestText.contains("what needs attention"))
-        print("PASS: public examples have separate readiness counts, explicit statuses and example-only prompts; unverified imports never claim Connected")
+        print("PASS: public examples and legacy demo responses stay labeled as examples; mixed or unknown sources never claim personal-account access")
         owner.backgroundServiceStatus = "requires_approval"
         owner.ready()
         views = descendants(owner.stack)
@@ -687,6 +788,15 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         views = descendants(owner.stack)
         precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Check again"))
         precondition(!views.compactMap { ($0 as? NSTextField)?.stringValue }.contains { $0.contains("fictional-private-error") })
+        owner.presentSystemState(["vault_setup": ["status": "needs_repair", "diagnostic": [
+            "checkpoint": "stage_status", "reason": "vault_publication_device_number_changed"]]])
+        views = descendants(owner.stack)
+        precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains { $0.contains("disk reference changed") })
+        precondition(views.compactMap { ($0 as? NSButton)?.title } == ["Check again"])
+        owner.presentSystemState(["vault_setup": ["status": "needs_repair", "diagnostic": [
+            "checkpoint": "stage_status", "reason": "fictional-private-error"]]])
+        views = descendants(owner.stack)
+        precondition(!views.compactMap { ($0 as? NSTextField)?.stringValue }.contains { $0.contains("fictional-private-error") })
         print("PASS: isolated first setup and durable pause have explicit owner actions; repair never exposes raw errors or offers reset")
         try! FileManager.default.removeItem(at: fixtureRoot.appendingPathComponent("desktop.json"))
         owner.enrollSystemVault()
@@ -733,6 +843,46 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         while owner.busy && Date() < reopenDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
         precondition(owner.systemOwnerReady && preparedClients == 1 && nativeChannel.clientEnrollments == 1 && nativePrompts == promptsAfterConnection)
         print("PASS: a fresh isolated account view waits for portable client setup; both hosts connect without a selector, and reopening verifies without another enrollment or approval")
+        let gmailMailboxID = "gmail-mailbox-" + String(repeating: "b", count: 24)
+        let gmailContext = String(repeating: "c", count: 64)
+        let gmailRevision = String(repeating: "d", count: 64)
+        let gmailBlockedAccount: [String: Any] = ["account": "fixture", "label": "Fixture account", "challenges": [["kind": "unknown"]]]
+        let gmailMailboxOption: [String: Any] = ["id": gmailMailboxID, "label": "Saved Google", "kind": "gmail", "recipient": "owner@example.test"]
+        let gmailSource: [String: Any] = ["id": "ordinary-email", "kind": "gmail", "accounts": ["fixture"],
+            "sender": "login@example.test", "recipient": "owner@example.test", "subject": "Sign in",
+            "setup_context": gmailContext, "setup_revision": gmailRevision,
+            "mailbox_options": [gmailMailboxOption]]
+        nativeChannel.state["accounts"] = [gmailBlockedAccount]
+        nativeChannel.state["code_sources"] = [gmailSource]
+        owner.accept(nativeChannel.state)
+        owner.showFactors()
+        precondition(owner.factorMailboxMenu?.selectedItem?.representedObject as? String == gmailMailboxID)
+        precondition(owner.factorMailboxMenu?.numberOfItems == 1)
+        precondition(owner.factorFields.isEmpty)
+        precondition(descendants(owner.stack).compactMap { ($0 as? NSTextField)?.stringValue }
+            .contains { $0.contains("login@example.test") && $0.contains("owner@example.test") && $0.contains("Sign in") })
+        let verificationBeforeGmailBinding = nativeChannel.verificationRequestCount
+        owner.saveFactor()
+        owner.saveFactor()
+        let gmailBindingDeadline = Date().addingTimeInterval(5)
+        while owner.busy && Date() < gmailBindingDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
+        precondition(!owner.busy && nativeChannel.sourceRequests.count == 1)
+        let gmailBinding = nativeChannel.sourceRequests[0]
+        precondition(gmailBinding["source"] as? String == "ordinary-email")
+        precondition(gmailBinding["credential"] as? [String: String] == ["mailbox": gmailMailboxID, "setup_context": gmailContext, "setup_revision": gmailRevision])
+        precondition(nativeChannel.verificationRequestCount == verificationBeforeGmailBinding)
+        owner.accept(nativeChannel.state)
+        owner.sources[0].removeValue(forKey: "setup_revision")
+        owner.showFactors()
+        precondition(descendants(owner.stack).compactMap { $0 as? NSButton }
+            .first { $0.title == "Connect verification" }?.isEnabled == false)
+        owner.saveFactor()
+        precondition(!owner.busy && nativeChannel.sourceRequests.count == 1)
+        precondition(owner.status.stringValue.contains("email setup changed"))
+        nativeChannel.state["accounts"] = []
+        nativeChannel.state["code_sources"] = []
+        owner.accept(nativeChannel.state)
+        print("PASS: checked Gmail reuse submits one exact review without secrets, consent or retrying a blocked website; missing revision stops locally")
         var mismatchedRequests = 0
         let mismatched = ManagedAgentSetup(helper: { _ in ["status": "PREPARED", "client_id": String(repeating: "0", count: 64)] }, readToken: { nativeChannel.clientToken })
         do {
@@ -740,6 +890,64 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
             preconditionFailure("Mismatched local capability must not be enrolled")
         } catch { precondition(mismatchedRequests == 0) }
         print("PASS: changed local capability identity is refused before any native enrollment request")
+
+        // Every failure stops at its actual stage; arbitrary underlying data is
+        // never reflected in the user-visible explanation and no step retries.
+        let privateFailureText = "fictional-capability-and-private-path-must-stay-local"
+        for failedStage in ManagedAgentConnectionFailure.Stage.allCases where failedStage != .verify {
+            for malformed in [false, true] {
+                var reached: [ManagedAgentConnectionFailure.Stage] = []
+                func visit(_ stage: ManagedAgentConnectionFailure.Stage) throws -> Bool {
+                    reached.append(stage)
+                    if stage == failedStage && !malformed {
+                        throw NSError(domain: privateFailureText, code: 1,
+                                      userInfo: [NSLocalizedDescriptionKey: privateFailureText])
+                    }
+                    return stage == failedStage
+                }
+                let setup = ManagedAgentSetup(helper: { action in
+                    let stage: ManagedAgentConnectionFailure.Stage = action == "prepare-upgrade" ? .prepare : .install
+                    precondition(action == "prepare-upgrade" || action == "install-upgrade")
+                    if try visit(stage) { return ["status": privateFailureText] }
+                    return stage == .prepare
+                        ? ["status": "PREPARED", "client_id": nativeChannel.clientID]
+                        : ["status": "INSTALLED", "client_id": nativeChannel.clientID, "hosts": ["codex", "claude"]]
+                }, readToken: {
+                    if try visit(.localIdentity) { return privateFailureText }
+                    return nativeChannel.clientToken
+                })
+                do {
+                    try setup.connect(upgrade: true) { route, _ in
+                        let stage: ManagedAgentConnectionFailure.Stage = route == "owner/client/enroll" ? .enroll : .confirm
+                        precondition(route == "owner/client/enroll" || route == "owner/client/installed")
+                        if try visit(stage) { return ["status": privateFailureText] }
+                        return ["status": stage == .enroll ? "ENROLLED" : "INSTALLED",
+                                "client_id": nativeChannel.clientID, "principal": "generic"]
+                    }
+                    preconditionFailure("Failed connection step was accepted")
+                } catch let failure as ManagedAgentConnectionFailure {
+                    precondition(failure.stage == failedStage && !failure.conflict && !failure.revoked)
+                    precondition(failure.explanation.contains(failedStage.description))
+                    precondition(!failure.explanation.contains(privateFailureText))
+                    precondition(!failure.explanation.contains(nativeChannel.clientToken))
+                    let stages = ManagedAgentConnectionFailure.Stage.allCases
+                    precondition(reached == Array(stages.prefix(through: stages.firstIndex(of: failedStage)!)))
+                } catch { preconditionFailure("Failure was not reduced to a closed stage") }
+            }
+        }
+        for (reason, revoked) in [("client_connection_conflict", false), ("portable_client_revoked", true)] {
+            do {
+                _ = try owner.checkedOwnerResponse(409, ["reason": reason, "detail": privateFailureText])
+                preconditionFailure("Connection rejection was accepted")
+            } catch {
+                let failure = ManagedAgentConnectionFailure(stage: .enroll, error: error)
+                precondition(failure.revoked == revoked && failure.conflict != revoked)
+                precondition(!failure.explanation.contains(privateFailureText))
+            }
+        }
+        let verificationFailure = ManagedAgentConnectionFailure(stage: .verify)
+        precondition(verificationFailure.explanation.contains("checking the completed connection"))
+        print("PASS: connection failures identify their exact closed stage, stop without replay, and hide arbitrary errors, responses and capabilities; conflicts and revocations require review")
 
         let customNamespace = "~/Library/Application Support/Codex Work"
         let ownerHome = fixtureRoot.appendingPathComponent("home")
@@ -758,6 +966,30 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
             } catch {}
         }
         print("PASS: all agent setup actions preserve only a bounded owner-home Codex namespace; browser setup and unrelated credential or runtime variables stay excluded")
+
+        nativeChannel.state["managed_client"] = ["status": "NOT_CONNECTED"]
+        for malformed in [false, true] {
+            var discoveryActions: [String] = []
+            let previousEnrollments = nativeChannel.clientEnrollments
+            owner.managedAgents = ManagedAgentSetup(helper: { action in
+                discoveryActions.append(action)
+                if malformed { return ["status": "PRIVATE_UNKNOWN_STATUS"] }
+                throw ManagedAgentSetupFailure.unavailable
+            }, readToken: { preconditionFailure("Failed discovery cannot read a capability") })
+            owner.systemOwnerReady = false
+            owner.connectAgentsAfterSetup = true
+            owner.presentSystemState(nativeChannel.state)
+            let discoveryDeadline = Date().addingTimeInterval(5)
+            while owner.busy && Date() < discoveryDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
+            let discoveryViews = descendants(owner.stack)
+            let labels = discoveryViews.compactMap { ($0 as? NSTextField)?.stringValue }.joined(separator: " ")
+            let buttons = discoveryViews.compactMap { ($0 as? NSButton)?.title }
+            precondition(discoveryActions == ["status"] && nativeChannel.clientEnrollments == previousEnrollments)
+            precondition(!owner.connectAgentsAfterSetup && !owner.systemOwnerReady)
+            precondition(labels.contains("The existing AI connection could not be verified") && !labels.contains("PRIVATE_UNKNOWN_STATUS"))
+            precondition(!buttons.contains("Connect automatically") && !buttons.contains("Upgrade AI connection"))
+        }
+        print("PASS: failed or unknown client discovery cannot become fresh setup, read a capability or silently enroll")
 
         var upgradeActions: [String] = []
         var upgraded = false
@@ -1024,6 +1256,67 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         requireLocalUX(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("Use Claude Code"), "preferred_agent_help")
         requireLocalUX(!owner.busy && nativeChannel.verificationRequestCount == verificationRequestsBeforeHelp, "preferred_agent_no_verification_request")
         print("PASS: Claude Code actions show honest local guidance; unsupported visible sign-in help makes no verification request")
+        let feedbackOwner = AccountAccess(fixtureRoot: fixtureRoot, session: fixtureSession,
+                                          managedAgents: blockedHelpers, ownerProfile: missingFixtureProfile)
+        let feedbackWindow = OwnerApprovalWindowFixture(contentRect: NSRect(x: 0, y: 0, width: 1040, height: 740),
+                                                        styleMask: [.titled], backing: .buffered, defer: false)
+        feedbackOwner.window = feedbackWindow
+        func drainApprovalFeedback(_ checkpoint: String) {
+            var drained = false
+            DispatchQueue.main.async { drained = true }
+            let deadline = Date().addingTimeInterval(5)
+            while !drained && Date() < deadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
+            requireLocalUX(drained, checkpoint)
+        }
+        feedbackOwner.busy = true
+        feedbackOwner.page("Original setup", "Synthetic approval progress")
+        feedbackOwner.progress()
+        let originalFeedback = feedbackOwner.ownerSetupContext.snapshot()
+        feedbackOwner.ownerApprovalProgress(.requestingApproval, identifier: UUID(), context: originalFeedback)
+        // The first event has been queued, but no progress label has been bound.
+        feedbackOwner.page("Replacement page", "The original request no longer owns this page")
+        feedbackOwner.progress()
+        let replacementStatus: NSTextField = feedbackOwner.status
+        drainApprovalFeedback("approval_first_event_drained")
+        requireLocalUX(replacementStatus.stringValue == "Preparing…" && feedbackWindow.approvalFrontRequests == 0
+                       && feedbackOwner.systemApprovalProgress?.id == nil, "approval_first_event_page_replacement_ignored")
+        let beforeNewOperation = feedbackOwner.ownerSetupContext.snapshot()
+        feedbackOwner.ownerApprovalProgress(.requestingApproval, identifier: UUID(), context: beforeNewOperation)
+        feedbackOwner.busy = false
+        feedbackOwner.busy = true
+        drainApprovalFeedback("approval_new_operation_drained")
+        requireLocalUX(replacementStatus.stringValue == "Preparing…" && feedbackWindow.approvalFrontRequests == 0,
+                       "approval_same_page_new_operation_ignored")
+        let beforeWindowChange = feedbackOwner.ownerSetupContext.snapshot()
+        feedbackOwner.ownerApprovalProgress(.requestingApproval, identifier: UUID(), context: beforeWindowChange)
+        let replacementWindow = OwnerApprovalWindowFixture(contentRect: NSRect(x: 0, y: 0, width: 1040, height: 740),
+                                                           styleMask: [.titled], backing: .buffered, defer: false)
+        feedbackOwner.window = replacementWindow
+        drainApprovalFeedback("approval_new_window_drained")
+        requireLocalUX(replacementStatus.stringValue == "Preparing…" && feedbackWindow.approvalFrontRequests == 0
+                       && replacementWindow.approvalFrontRequests == 0, "approval_window_replacement_ignored")
+        feedbackOwner.page("Current setup", "Synthetic approval progress")
+        feedbackOwner.progress()
+        let liveFeedback = feedbackOwner.ownerSetupContext.snapshot(), liveFeedbackID = UUID()
+        feedbackOwner.ownerApprovalProgress(.requestingApproval, identifier: liveFeedbackID, context: liveFeedback)
+        drainApprovalFeedback("approval_live_begin_drained")
+        requireLocalUX(feedbackOwner.status.stringValue.contains("macOS approval requested")
+                       && replacementWindow.approvalFrontRequests == 1, "approval_live_begin_rendered_once")
+        feedbackOwner.ownerApprovalProgress(.approvalAccepted, identifier: liveFeedbackID, context: liveFeedback)
+        feedbackOwner.page("A later page", "The accepted event must not change this page")
+        feedbackOwner.progress()
+        drainApprovalFeedback("approval_stale_accepted_drained")
+        requireLocalUX(feedbackOwner.status.stringValue == "Preparing…" && replacementWindow.approvalFrontRequests == 1,
+                       "approval_accepted_page_replacement_ignored")
+        let finalFeedback = feedbackOwner.ownerSetupContext.snapshot(), finalFeedbackID = UUID()
+        feedbackOwner.ownerApprovalProgress(.requestingApproval, identifier: finalFeedbackID, context: finalFeedback)
+        feedbackOwner.ownerApprovalProgress(.approvalAccepted, identifier: finalFeedbackID, context: finalFeedback)
+        drainApprovalFeedback("approval_live_pair_drained")
+        requireLocalUX(feedbackOwner.status.stringValue == "Mac approval accepted. Continuing setup…"
+                       && replacementWindow.approvalFrontRequests == 2 && feedbackOwner.systemApprovalProgress?.id == nil,
+                       "approval_live_pair_completes_without_extra_front")
+        feedbackOwner.busy = false
+        print("PASS: approval feedback ignores delayed first/accepted events after page, window or operation changes and fronts only its current setup")
         requireLocalUX(fixtureProfileReads == 1 && helperLock.withLock { unexpectedHelperCalls == 0 }, "fixture_dependencies_only")
         print("PASS: UI fixtures use only temporary roots, synthetic owner profiles, fake helpers and intercepted URL requests")
 

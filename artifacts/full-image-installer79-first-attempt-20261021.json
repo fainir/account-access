@@ -1,0 +1,78 @@
+{
+  "actual_Installer_qualified": false,
+  "attempt": 1,
+  "candidate_package_sha256": "1245ed09dd82e8b102b2b4485bfcfb063f7cb66b352b1d1b5e243c47bced533d",
+  "candidate_unchanged": true,
+  "matrix": {
+    "install-reapply": {
+      "actual_full_installer_passed": false,
+      "artifact": {
+        "digest": "sha256:f345bb5933fc1156e7bff88b1d4d6928485be4c89821bcb8021cf3ad07cc1572",
+        "id": 12360497327,
+        "name": "full-image79-installer-install-reapply-39629694619-1",
+        "size_in_bytes": 16337,
+        "workflow_run": {
+          "head_branch": "codex/full-image-update",
+          "head_repository_id": 1416753004,
+          "head_sha": "39e59d307d1989543a095e38829dc968522ae2a0",
+          "id": 39629694619,
+          "repository_id": 1416753004
+        }
+      },
+      "failure_stage": "actual_full_installer",
+      "passed_checks": 10,
+      "report_sha256": "bb901dd813bc10ef4fc8c76902c7dd1af1aa17511f0f51e6f0fc2373cd913349",
+      "required_checks": 18,
+      "status": "FAILED"
+    },
+    "interrupt-create": {
+      "actual_full_installer_passed": false,
+      "artifact": {
+        "digest": "sha256:b7f108e3dbedd672350b001ae2aead3a80cd2b1691caef4daa1fa1d5355abe53",
+        "id": 12359572191,
+        "name": "full-image79-installer-interrupt-create-39629694619-1",
+        "size_in_bytes": 12476,
+        "workflow_run": {
+          "head_branch": "codex/full-image-update",
+          "head_repository_id": 1416753004,
+          "head_sha": "39e59d307d1989543a095e38829dc968522ae2a0",
+          "id": 39629694619,
+          "repository_id": 1416753004
+        }
+      },
+      "failure_stage": "owned_helper_interruption",
+      "passed_checks": 10,
+      "report_sha256": "8ec261277767a0a020f93ed3485cd959041438cfa889e0a0c659f74b76fd2db7",
+      "required_checks": 18,
+      "status": "FAILED"
+    },
+    "interrupt-remove": {
+      "actual_full_installer_passed": false,
+      "artifact": {
+        "digest": "sha256:a3e4ff74d67ec6a8c09d36b0140fb9b2431a2fc8104bb95a3eadc15fe7453b40",
+        "id": 12359700832
+      },
+      "failure_stage": "owned_helper_interruption",
+      "passed_checks": 10,
+      "report_sha256": "4311a7a2686bbb1c98c75918f3b8cf9b67f1eb0c6de00259aae8b137d6c844ec",
+      "required_checks": 18,
+      "status": "FAILED"
+    }
+  },
+  "native_refusal_log_sha256": "4a6c345b091aca99809784a77a73136b31cde1659df0833402355b52c77773df",
+  "observed_utc": "2026-10-21T16:14:11.303234+00:00",
+  "production_ready": false,
+  "rerun_cancel_dispatch_or_guard_waiver": false,
+  "reviewed_input_job": "success",
+  "run_id": 39629694619,
+  "schema": 1,
+  "signed_native_refusal_on_actual_Installer": {
+    "checkpoint": "predecessor",
+    "reason": "component_transition_conflict",
+    "schema": 1,
+    "status": "REFUSED"
+  },
+  "source_commit": "39e59d307d1989543a095e38829dc968522ae2a0",
+  "status": "ACTUAL_FIRST_ATTEMPT_FULL_IMAGE_INSTALLER_MATRIX_FAILED",
+  "terminal_snapshot_sha256": "ca9eaaa116001f600d0a40187ed543806a8473994f2aaa8ee2eb684fa87b88a3"
+}

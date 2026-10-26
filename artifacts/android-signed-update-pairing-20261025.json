@@ -1,0 +1,160 @@
+{
+  "schema": 1,
+  "status": "PASSED_SDK_AND_EMULATOR_ONLY",
+  "source_commit": "1663f42c3df51e1ac66a042a14ca4cc1a1af3f83",
+  "run_id": 40215121257,
+  "artifacts": [
+    {
+      "artifact_id": 12607570451,
+      "name": "android-release-signing-fixture-1663f42c3df51e1ac66a042a14ca4cc1a1af3f83-40215121257",
+      "archive_sha256": "b3b81b73a8afc39d431ae4c1fa96c8b5ec70495d2826b32796e428b52cd0d3c6",
+      "evidence": {
+        "schema": 1,
+        "status": "PASSED",
+        "source_commit": "1663f42c3df51e1ac66a042a14ca4cc1a1af3f83",
+        "scope": "actual Android SDK signing fixture; no installed phone or publisher key",
+        "versions": [
+          2,
+          3
+        ],
+        "certificate_sha256": "5d85385ff21af301388f966158614c368d98eb8d6997c22201cfcb8a1c28c393",
+        "apk_sha256": [
+          "1f9910791f87ea6f55a8304d678396793e8b31c8fca793ff8be57b50432edb1f",
+          "30b68b6666f7db3cb562b29a57f911b0393a780dcdde75d73b234ad78aba051b"
+        ],
+        "same_signer_verified": true,
+        "wrong_signer_refused_before_password": true,
+        "non_increasing_version_refused_before_password": true,
+        "key_and_password_absent_from_artifacts": true,
+        "third_party_notices_bundled": true,
+        "emulator_update_fixture_prepared": true,
+        "publisher_key_used": false,
+        "physical_phone_verified": false,
+        "installed": false,
+        "production_ready": false
+      },
+      "report_sha256": "c9b820b7d529ec0bf86a1fe4222ac18d887da5be467525bd47a07d4625bae3eb"
+    },
+    {
+      "artifact_id": 12607018988,
+      "name": "phone-preview-api35-1663f42c3df51e1ac66a042a14ca4cc1a1af3f83-40215121257-1",
+      "archive_sha256": "e4284ad593261729988fbc1135427466abb22ffbb3d68f781e64a59b105189a7",
+      "evidence": {
+        "android_api": 35,
+        "apk": "Account-Access-Phone-preview.apk",
+        "bytes": 299509,
+        "development_signing": true,
+        "emulator_notification_to_browser_journey_passed": false,
+        "notification_forwarding_without_association_refused": true,
+        "physical_phone_delivery_qualified": false,
+        "positive_bluetooth_computer_association_qualified": false,
+        "production_ready": false,
+        "schema": 1,
+        "sha256": "c8e32ebab27033f7b4ca5ed624fbabc732ba7fc845cb277e9eba9518954c5966",
+        "source_commit": "1663f42c3df51e1ac66a042a14ca4cc1a1af3f83",
+        "workflow_attempt": 1,
+        "workflow_run": 40215121257
+      },
+      "exact_upstream_notices_bundled": true
+    },
+    {
+      "artifact_id": 12606709628,
+      "name": "android-release-update-api35-1663f42c3df51e1ac66a042a14ca4cc1a1af3f83-40215121257",
+      "archive_sha256": "1e944484598f6f128c527109fc7475b5ac4a2add43796f006faa859757371961",
+      "evidence": {
+        "schema": 1,
+        "status": "PASSED_EMULATOR_ONLY",
+        "source_commit": "1663f42c3df51e1ac66a042a14ca4cc1a1af3f83",
+        "workflow_run": 40215121257,
+        "android_api": 35,
+        "certificate_sha256": "3d84e468faa4857a5b6e64966aea999e420bd515063a1f29fd620066b3e4e5f9",
+        "apk_sha256": {
+          "version2.apk": "deda316f54b308b995c1e1a12349ce99657e1488ba2170a6bd0826124cf05e9a",
+          "version3.apk": "fda810eb53020ffb64cec93f57f1b57fe2eba70fe52590b40c0a2b6f560c6185",
+          "checks.apk": "672333ed58339479f10edd62623e46445acb50f49ac7a4e423308d6fc4d776fe"
+        },
+        "versions": [
+          2,
+          3,
+          3
+        ],
+        "normal_android_package_update": true,
+        "same_app_uid": true,
+        "keystore_pairing_decrypted_after_update": true,
+        "encrypted_pairing_bytes_unchanged": true,
+        "sms_preferences_preserved": true,
+        "same_version_reapply_preserves_pairing": true,
+        "physical_device_used": false,
+        "positive_computer_association_tested": false,
+        "carrier_sms_tested": false,
+        "publisher_key_used": false,
+        "production_ready": false
+      },
+      "report_sha256": "cbc3d22f1ea59774e23f0bf59b9e37f4388099a8d7c7adf912b2a38b4e835826"
+    },
+    {
+      "artifact_id": 12606669533,
+      "name": "android-release-update-api30-1663f42c3df51e1ac66a042a14ca4cc1a1af3f83-40215121257",
+      "archive_sha256": "e69af6f420ce234fb261c0f39a874462058e4f2b350f84f401a63fffd85ffa81",
+      "evidence": {
+        "schema": 1,
+        "status": "PASSED_EMULATOR_ONLY",
+        "source_commit": "1663f42c3df51e1ac66a042a14ca4cc1a1af3f83",
+        "workflow_run": 40215121257,
+        "android_api": 30,
+        "certificate_sha256": "5d85385ff21af301388f966158614c368d98eb8d6997c22201cfcb8a1c28c393",
+        "apk_sha256": {
+          "version2.apk": "1f9910791f87ea6f55a8304d678396793e8b31c8fca793ff8be57b50432edb1f",
+          "version3.apk": "30b68b6666f7db3cb562b29a57f911b0393a780dcdde75d73b234ad78aba051b",
+          "checks.apk": "515c9af503f51c2afeae91192520c7d1ad4f24d1b8a65ff446bfd0094671876b"
+        },
+        "versions": [
+          2,
+          3,
+          3
+        ],
+        "normal_android_package_update": true,
+        "same_app_uid": true,
+        "keystore_pairing_decrypted_after_update": true,
+        "encrypted_pairing_bytes_unchanged": true,
+        "sms_preferences_preserved": true,
+        "same_version_reapply_preserves_pairing": true,
+        "physical_device_used": false,
+        "positive_computer_association_tested": false,
+        "carrier_sms_tested": false,
+        "publisher_key_used": false,
+        "production_ready": false
+      },
+      "report_sha256": "ed9f437b9f75e2a628c6dd92416af24e4370326b2843b3875eea4deba7d2c7c2"
+    },
+    {
+      "artifact_id": 12606554805,
+      "name": "phone-preview-api30-1663f42c3df51e1ac66a042a14ca4cc1a1af3f83-40215121257-1",
+      "archive_sha256": "95139a07ff1e634467a6e3efac1f34c02c53f85c0f43626231628fa06ae660c0",
+      "evidence": {
+        "android_api": 30,
+        "apk": "Account-Access-Phone-preview.apk",
+        "bytes": 299509,
+        "development_signing": true,
+        "emulator_notification_to_browser_journey_passed": true,
+        "notification_forwarding_without_association_refused": false,
+        "physical_phone_delivery_qualified": false,
+        "positive_bluetooth_computer_association_qualified": false,
+        "production_ready": false,
+        "schema": 1,
+        "sha256": "69c7f23e807f39b2a59d40f0d8b10b06714ee4e1ecf1fa6aea65a36b34d34272",
+        "source_commit": "1663f42c3df51e1ac66a042a14ca4cc1a1af3f83",
+        "workflow_attempt": 1,
+        "workflow_run": 40215121257
+      },
+      "exact_upstream_notices_bundled": true
+    }
+  ],
+  "update_apis": [
+    35,
+    30
+  ],
+  "physical_phone_verified": false,
+  "publisher_key_used": false,
+  "production_ready": false
+}

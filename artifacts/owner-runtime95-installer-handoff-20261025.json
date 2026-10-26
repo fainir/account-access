@@ -1,0 +1,101 @@
+{
+  "schema": 1,
+  "status": "INSTALLER_READY_AWAITING_OWNER_AUTHENTICATION",
+  "observed_at": "2026-10-25T09:15:05.406418+00:00",
+  "qualification_source": "95e351d85f054ffc611157daefc914ab07b310e1",
+  "package_sha256": "0c7a83b47d405bd9b02686aceb938877c5cd2f36112cb0b8369069c643453371",
+  "installer_scenarios_passed": 5,
+  "referenced_logs_verified": 300,
+  "ordinary_identity_pass_observations": 20,
+  "installer_window_verified": true,
+  "installer_install_button_visible": true,
+  "owner_app_closed": true,
+  "normal_restart_required": true,
+  "owner_installation_confirmed": false,
+  "owner_worker_ready": false,
+  "owner_connection_verified": false,
+  "evidence_sha256": {
+    "runtime-upgrade95-installer-acceptance-20261025.json": "7a3fdd990a89a523401a61753d79c30d6308f139a52f4eb260cf4f16214b5b30",
+    "runtime95-source-ci-20261025.json": "d36a40024a2dca4761fe68960f7ebdfb9c7b751b899eeb778fb03f2e0d8de742",
+    "runtime95-source-mac-acceptance-20261025.json": "3e99c845239128729dc5c67ddd7459453b16b79c374f95c3b49846bfdcbac005",
+    "runtime95-draft-assets-20261025.json": "17783ab57bbf90257339ec955fc4b86508c95fb01f5d791f41a17c7005fbce89",
+    "owner-mac-before-runtime95-20261025.json": "91260b9c1ee014bd1d3bf18f0e433f1ce31387490f96d01498cd06717f34340f"
+  },
+  "source_workflows": [
+    {
+      "conclusion": "success",
+      "databaseId": 40175711165,
+      "name": "Android login-code journey",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 40175711158,
+      "name": "Signed component update Installer review",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 40175711205,
+      "name": "Separate-user worker acceptance",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 40175711172,
+      "name": "Account Access checks",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 40175711160,
+      "name": "Runtime successor Installer acceptance",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 40175711164,
+      "name": "Mac separate-user worker acceptance",
+      "status": "completed"
+    }
+  ],
+  "bounded_log_reader_fixture": {
+    "schema": 1,
+    "status": "PASSED",
+    "reader_sha256": "e0bb9ef2b1f0b7ad5ba612a07c32d6a6fca7341f6da436014a86266072a2e9b4",
+    "checks": [
+      "success",
+      "final_refusal",
+      "unrelated_private_text",
+      "unknown_checkpoint",
+      "boolean_schema",
+      "extra_fields",
+      "unbounded_line",
+      "changed_inode"
+    ],
+    "real_logs_read": false,
+    "private_data_read": false,
+    "installed_changes": false
+  },
+  "compiler_cache_cleanup": {
+    "schema": 1,
+    "removed_regenerable_compiler_caches": [
+      "dist/qa-full-image-package82/build-v2/module-cache",
+      "dist/runtime-upgrade95-cbf0606/module-cache",
+      "dist/qa-broker-repair-package-5f4926a/build/module-cache",
+      "dist/qa-broker-repair-package88-eba8057/module-cache",
+      "dist/qa-broker-repair-native-5f4926a/build-v2/module-cache",
+      "dist/qa-broker-repair-package90-4807187/module-cache",
+      "dist/runtime94-owner-public-native-observation/module-cache",
+      "dist/qa-broker-repair-package-c4cf1b0/build/module-cache",
+      "dist/qa-broker-repair-package91-6d47154/module-cache"
+    ],
+    "free_bytes_before": 3064745984,
+    "free_bytes_after": 3380805632,
+    "package95_expanded_bytes": 1487376154,
+    "packages_or_reports_removed": false,
+    "installed_files_changed": false,
+    "private_data_read": false
+  },
+  "production_ready": false
+}

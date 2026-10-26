@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "status": "OWNER_REGISTRATION_DEVICE_CHANGE_CONFIRMED",
+  "source_commit": "79a1dc318c19d55a2688422831bdd505fbee1afb",
+  "package_sha256": "3444b89c9cafff8547079ad67568787e1c229303b5bea85e32217045581f38fb",
+  "package_bytes": 6626,
+  "focused_tests_passed": 65,
+  "expanded_package_review_passed": true,
+  "desktop_copy_verified": true,
+  "native_execution_observed": true,
+  "closed_result": {
+    "status": "CHECK_COMPLETED",
+    "reason": "device_number_changed",
+    "checkpoint": "completed",
+    "credential_contents_read": false,
+    "files_modified": false,
+    "keychain_accessed": false,
+    "service_actions": false
+  },
+  "registration_metadata_read": true,
+  "credential_contents_read": false,
+  "keychain_accessed": false,
+  "files_modified_by_helper": false,
+  "service_actions": false,
+  "raw_logs_exported": false,
+  "device_change_confirmed": true,
+  "persistent_volume_identity_verified": false,
+  "owner_store_repaired": false,
+  "personal_accounts_tested": 0,
+  "production_ready": false,
+  "prior_attempt": "artifacts/store-registration-diagnostic-package-20261023.json"
+}

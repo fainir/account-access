@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "status": "SOURCE_DEPENDENCY_UPDATED_INSTALLER_REBUILD_REQUIRED",
+  "previous": "3.32.7",
+  "current": "4.2.4",
+  "ci_failed_run": 40047385650,
+  "advisories": [
+    "CVE-2026-112940",
+    "CVE-2026-112913",
+    "CVE-2026-112907"
+  ],
+  "audit_known_vulnerabilities": 0,
+  "audit_skipped": [
+    "account-access"
+  ],
+  "audit_sha256": "6effea6da1c94bd7d53b59b5c85d8dd32baf021de8a6291ca4fd9f87bb517c92",
+  "tests": {
+    "supervisor_provisioning_and_probe_selection": "133 passed; one independent fresh-build test failed due to misplaced test code, corrected subsequently",
+    "password_sync_reconnect_and_corrected_fresh_build": "100 passed"
+  },
+  "upstream_release": "https://github.com/tox-dev/filelock/releases/tag/4.2.4",
+  "upstream_major_change": "https://github.com/tox-dev/filelock/releases/tag/4.0.0",
+  "used_api": "FileLock and Timeout; no SoftReadWriteLock usage",
+  "lock_tool": "uv 0.13.5",
+  "production_ready": false,
+  "installed_runtime_changed": false
+}

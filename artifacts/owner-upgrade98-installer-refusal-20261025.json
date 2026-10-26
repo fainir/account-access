@@ -1,0 +1,82 @@
+{
+  "schema": 1,
+  "status": "INSTALLER_QA_REFUSED_JOURNAL",
+  "recorded_at": "2026-10-25T16:07:42.045637+00:00",
+  "run_id": 40205808934,
+  "qualification_source": "3bb3c8f20b90cfe661360b3a9b183c1db65ea185",
+  "controller_source": "91d4b7b2da192ea858b5d2e30ead06fa775b929a",
+  "package_sha256": "d224e47e78f4a72a454010e76a5bb0d34f355f17ed9829722861b8196694aaa6",
+  "native_result": {
+    "schema": 1,
+    "status": "REFUSED",
+    "reason": "owner_upgrade_unavailable",
+    "checkpoint": "journal"
+  },
+  "cases": [
+    {
+      "scenario": "interrupt-owner",
+      "status": "FAILED",
+      "owner_failure_stage": "owned_helper_interruption",
+      "artifact_id": 12605022690,
+      "artifact_sha256": "6a250779704c85bfd6e80bb051339674e0c77dbad89322e1f7e2639e6a0ceeaa",
+      "all_referenced_log_hashes_verified": 41,
+      "checks": {
+        "actual_installer": false,
+        "compact_payload_verified": true,
+        "exact_public_image": false,
+        "exact_reapply": false,
+        "fixed_inputs": true,
+        "foreign_audit_refused": false,
+        "foreign_predecessor_refused": true,
+        "live_service": false,
+        "no_restart_declared": true,
+        "old_package_resource_root_refused": true,
+        "ordinary_public_runtime": false,
+        "ordinary_public_runtime_reapply": false,
+        "policy_rotation": false,
+        "roots_and_history_preserved": false,
+        "runtime_predecessor_accepted": true,
+        "scenario_exercised": false,
+        "service_after_refusal": false,
+        "signature_verified": true,
+        "unchanged_reapply": false
+      }
+    },
+    {
+      "scenario": "install-reapply",
+      "status": "FAILED",
+      "owner_failure_stage": "owner-upgrade-install",
+      "artifact_id": 12604629083,
+      "artifact_sha256": "953d565fd7505d9ce3c9942badeb32146d23bf46c50d7c711b4273048e2a909a",
+      "all_referenced_log_hashes_verified": 41,
+      "checks": {
+        "actual_installer": false,
+        "compact_payload_verified": true,
+        "exact_public_image": false,
+        "exact_reapply": false,
+        "fixed_inputs": true,
+        "foreign_audit_refused": false,
+        "foreign_predecessor_refused": true,
+        "live_service": false,
+        "no_restart_declared": true,
+        "old_package_resource_root_refused": true,
+        "ordinary_public_runtime": false,
+        "ordinary_public_runtime_reapply": false,
+        "policy_rotation": false,
+        "roots_and_history_preserved": false,
+        "runtime_predecessor_accepted": true,
+        "scenario_exercised": true,
+        "service_after_refusal": false,
+        "signature_verified": true,
+        "unchanged_reapply": false
+      }
+    }
+  ],
+  "source_diagnosis": "owner projection opens the new local tree journal read-only before its intent is initialized; prepare it before publishing the global transition",
+  "diagnosis_is_source_inference_pending_native_regression": false,
+  "installed_owner_machine": false,
+  "real_account_login_tested": false,
+  "production_ready": false,
+  "ordinary_native_regression_verified": true,
+  "actual_fixed_installer_verified": false
+}

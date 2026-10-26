@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "status": "PASSED",
+  "scope": "ordinary-user pure parsing of actual public package98 build records",
+  "package_sha256": "d224e47e78f4a72a454010e76a5bb0d34f355f17ed9829722861b8196694aaa6",
+  "signed_controller_sha256": "71adcbfa469f9b6dcb6705cefc55015dea23807cf7d08c7e9ba369658c7f4daa",
+  "results": [
+    {
+      "stage": "owner_parser",
+      "status": "PASSED"
+    },
+    {
+      "stage": "runtime_parser",
+      "status": "PASSED"
+    }
+  ],
+  "log_sha256": "e933aef4876f9ae77caf8783baf6ca7da2107f96eb8936ff1d583bc8ef5db065",
+  "diagnostic_binary_sha256": "e4533cc70df8aa8ca6afa97b49954042776f8232413bcb4c3edf2485d472fc8e",
+  "root_execution": false,
+  "installed_reads": false,
+  "installed_writes": false,
+  "installer_qualified": false,
+  "production_ready": false
+}

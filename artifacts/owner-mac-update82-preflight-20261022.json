@@ -1,0 +1,22 @@
+{
+  "actual_installer_matrix_passed": true,
+  "counts": {
+    "directory": 2305,
+    "file": 25283,
+    "symlink": 21
+  },
+  "elapsed_seconds": 20.323,
+  "free_bytes": 5033816064,
+  "initial_checker_failure": "Alias records have no mode field; first checker indexed the missing field. All original non-alias checks passed. Original report retained.",
+  "installed_update": false,
+  "manifest_sha256": "9f0d1274928702dd4d5064b4d3bc8ac7df3bf81c3f70be2f9ccad410785d810c",
+  "mismatches": [],
+  "observed_date": "2026-10-22",
+  "package_sha256": "44851003ea314782ab8109c64467005e12015984a914a0c463a7c548bd153a56",
+  "phase": "PUBLIC_PREDECESSOR_VERIFIED_BEFORE_OWNER_AUTHENTICATION",
+  "preflight_report_sha256": "a3f8de24cd57f16f76b054170aa5eb8efc4d78fd2576c6a9d4e96d6d4ba42855",
+  "private_data_read": false,
+  "production_ready": false,
+  "schema": 1,
+  "status": "PASSED"
+}

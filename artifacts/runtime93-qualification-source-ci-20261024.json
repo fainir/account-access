@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "source": "c2bd304aa580d0daba9a2594b720d2f41c9266e0",
+  "run_id": 40120185627,
+  "status": "PASSED",
+  "python_passed": 4169,
+  "python_skipped": 108,
+  "dependency_audit_passed": true,
+  "source_and_wheel_built": true,
+  "native_gateway_job": 120949844561,
+  "native_ui_job": 120949844618,
+  "python_job": 120949844341,
+  "python_log_sha256": "4c79a404a098c7bba09b9822238ecd6480b9f1745ff69fe9dc790dd8624f6452",
+  "actual_successor_installer_qualified": false,
+  "production_ready": false
+}

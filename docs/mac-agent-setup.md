@@ -39,11 +39,57 @@ new broker confirms that capability before any launcher changes. Unknown or
 modified skills remain preserved for review.
 
 The upgrade replaces only known managed skill files and instruction blocks.
+Recognized owner-local preview roots may use the default `account-access` name
+or a bounded `account-access-` suffix beneath `.local/share`. The old client
+descriptor and runtime must belong to that same root. Exact reviewed templates,
+launcher bytes, private file metadata and no-follow directory checks still apply;
+the old runtime is never executed and its credentials are never imported.
 Publication failures restore the old launchers; an interrupted upgrade can be
 retried. Existing personal instructions, hooks, settings and unrelated command
 rules are preserved. The preview vault, website passwords, old tokens and old
 grants are not copied. Import and approve the accounts intended for the protected
 store through its local setup flow.
+
+The next source candidate identifies a failed connection's stage using fixed
+messages: preparation, local identity validation, enrollment, agent-file
+installation, confirmation, or final verification. Known connection conflicts
+and revocation receive separate review messages. It never includes an exception,
+response, filesystem path or capability in the explanation, and does not retry
+an operation automatically. This diagnostic improvement is not installed in
+package 95 and does not resolve or identify the owner's current failure by itself.
+
+Source `6736a20` passed all 55 optimized native UI checks locally, including
+injected exceptions and malformed results at each connection stage. Both hosted
+native jobs also passed. The installed runtime and templates passed two isolated
+preview migrations with fictional discovery; no owner service was contacted.
+Diagnostic app build 96 compiles for both Mac architectures and passes strict
+Developer ID signature verification. Its public delta changes only the app
+executable, bundle version and derived package identity. It has no qualified
+successor installer yet: the existing package 95 controller accepts only its
+frozen predecessor and target. Updating the installed app requires a new
+controller that verifies the completed predecessor and preserves its history;
+copying this candidate over the installed app would invalidate that state.
+The new owner successor controller and completed-runtime verifier now pass local
+native checks: 29 parser checks, 26 namespace checks, 477 tree-storage checks,
+324 mixed-transition checks, the inherited 68 runtime checks and ordinary-user
+refusal of both controller APIs and the Installer entrypoint. The source also
+preserves the earlier shared native acceptance. Its package builder accepts only
+the frozen package 95 inputs, exact diagnostic app and matching source QA.
+Actual Installer qualification remains required before owner installation.
+[Controller source QA](../artifacts/owner-upgrade97-controller-source-20261025.json).
+[Source checks](../artifacts/agent-connection-diagnostics-source-20261025.json) ·
+[App build](../artifacts/owner-diagnostics96-build-20261025.json) ·
+[Public delta](../artifacts/owner-diagnostics96-public-delta-20261025.json).
+
+The data-only successor proposal now pins the exact before/after manifests,
+all twelve compiled native source files, and the three permitted public changes.
+Its 25 synthetic contract tests reject extra runtime or private-file changes,
+changed source bindings, wrong permissions, signature changes outside the owner
+role, and a plan claiming installation authority. The real public inputs also
+pass that parser. The native completed-runtime proof and controller are now
+implemented and locally checked. Actual Installer and interrupted-update
+acceptance remain required before installation.
+[Proposal checks](../artifacts/owner-diagnostics96-proposal-20261025.json).
 
 ## Client publication
 
@@ -74,6 +120,9 @@ requests use the skill in new sessions; no per-session command is required.
 Existing conversations may have cached their instructions. Other agents must
 support the portable skill/CLI convention; this does not intercept arbitrary
 browser tools or resume an entire stopped AI conversation.
+
+An unsuccessful or unknown local discovery result stops setup with a review
+message. It cannot be treated as a missing connection or trigger enrollment.
 
 ## Files, interruption and revocation
 

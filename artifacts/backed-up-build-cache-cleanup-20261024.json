@@ -1,0 +1,117 @@
+{
+  "schema": 1,
+  "status": "PASSED",
+  "removed_local_build_caches": [
+    {
+      "path": "dist/qa-full-image-package79/build-v2/Account-Access-Full-Image-79-local-unsigned.pkg",
+      "bytes": 295921275,
+      "sha256": "1245ed09dd82e8b102b2b4485bfcfb063f7cb66b352b1d1b5e243c47bced533d",
+      "release_id": 419749255,
+      "release_tag": "qa-4deaacc-full-image79",
+      "restore_asset_api": "repos/fainir/account-access/releases/assets/662993862"
+    },
+    {
+      "path": "dist/qa-full-image-package80/build-v3/Account-Access-Full-Image-80-local-unsigned.pkg",
+      "bytes": 295939082,
+      "sha256": "d89a5f2ddfa85cee66527fa1394818fa46035507da0e2abc788c9eeb303dedd3",
+      "release_id": 419821055,
+      "release_tag": "qa-d503ac3-full-image80",
+      "restore_asset_api": "repos/fainir/account-access/releases/assets/663225330"
+    },
+    {
+      "path": "dist/qa-full-image-package81/build-v1/Account-Access-Full-Image-81-local-unsigned.pkg",
+      "bytes": 295938708,
+      "sha256": "ad16754b9acdd71dd1979a2a268b005a96feec681d3392b4af90b0e464590a85",
+      "release_id": 419902915,
+      "release_tag": "qa-740fe3c-full-image81",
+      "restore_asset_api": "repos/fainir/account-access/releases/assets/663406086"
+    },
+    {
+      "path": "dist/qa-full-image-package82/build-v3/Account-Access-Full-Image-82-local-unsigned.pkg",
+      "bytes": 295982024,
+      "sha256": "44851003ea314782ab8109c64467005e12015984a914a0c463a7c548bd153a56",
+      "release_id": 421188504,
+      "release_tag": "qa-14ff4e0-full-image82",
+      "restore_asset_api": "repos/fainir/account-access/releases/assets/667051184"
+    },
+    {
+      "path": "dist/qa-full-image-package83/build-v1/Account-Access-Full-Image-83-local-unsigned.pkg",
+      "bytes": 295969665,
+      "sha256": "2d19b6dc07182140b625c9d145ad722511a1608622a349699ac9e491253ded3d",
+      "release_id": 421537388,
+      "release_tag": "qa-662692d-full-image83",
+      "restore_asset_api": "repos/fainir/account-access/releases/assets/668273348"
+    },
+    {
+      "path": "dist/qa-full-image-package84/build-v1/Account-Access-Full-Image-84-local-unsigned.pkg",
+      "bytes": 295994062,
+      "sha256": "de6769837c00f41e307b5342ab86021c6e2aac27ba7fd99914f670ab2bd99d95",
+      "release_id": 421585825,
+      "release_tag": "qa-d5cd6b7-full-image84",
+      "restore_asset_api": "repos/fainir/account-access/releases/assets/668422663"
+    },
+    {
+      "path": "dist/qa-public-corresponding-source79/output-v1/Account-Access-full79-source.tar.gz",
+      "bytes": 231453117,
+      "sha256": "f323128a047765c8954c0e2a8900a848ca2b75d9b3fd189b8da1f137e5a5fefc",
+      "release_id": 419749255,
+      "release_tag": "qa-4deaacc-full-image79",
+      "restore_asset_api": "repos/fainir/account-access/releases/assets/663000527"
+    },
+    {
+      "path": "dist/qa-public-corresponding-source80/output-v1/Account-Access-full80-source.tar.gz",
+      "bytes": 232952716,
+      "sha256": "d1bfc3627d3b389e73dfcc11c252147de77e2f29427fe181689cdef942bd119e",
+      "release_id": 419821055,
+      "release_tag": "qa-d503ac3-full-image80",
+      "restore_asset_api": "repos/fainir/account-access/releases/assets/663275871"
+    },
+    {
+      "path": "dist/qa-public-corresponding-source81/output-v1/Account-Access-full81-source.tar.gz",
+      "bytes": 232976220,
+      "sha256": "5872d18b2779dd11418fed2193a1f9fb18019f8b8c9bcf8e8a60c1b0760559e8",
+      "release_id": 419902915,
+      "release_tag": "qa-740fe3c-full-image81",
+      "restore_asset_api": "repos/fainir/account-access/releases/assets/663422302"
+    },
+    {
+      "path": "dist/qa-public-corresponding-source82/output-v1/Account-Access-full82-source.tar.gz",
+      "bytes": 234776299,
+      "sha256": "af9e63193a7944a31cc253e27235ee10dd6aed733bc983694836b47d6f62d839",
+      "release_id": 421188504,
+      "release_tag": "qa-14ff4e0-full-image82",
+      "restore_asset_api": "repos/fainir/account-access/releases/assets/667051183"
+    },
+    {
+      "path": "dist/qa-public-corresponding-source83/output-v1/Account-Access-full83-source.tar.gz",
+      "bytes": 234808622,
+      "sha256": "038c6db8497720d416c6165f305286dc3aa5b1072706c0dab1d05982bbe16f0e",
+      "release_id": 421537388,
+      "release_tag": "qa-662692d-full-image83",
+      "restore_asset_api": "repos/fainir/account-access/releases/assets/668273331"
+    },
+    {
+      "path": "dist/qa-public-corresponding-source84/output-v1/Account-Access-full84-source.tar.gz",
+      "bytes": 252473415,
+      "sha256": "5f262e8a9b9016dded2a0ac5a68966bca3332948c403363799dbdf4dddeba2d5",
+      "release_id": 421585825,
+      "release_tag": "qa-d5cd6b7-full-image84",
+      "restore_asset_api": "repos/fainir/account-access/releases/assets/668422660"
+    },
+    {
+      "path": "dist/qa-resume-20261022/fresh-build-failed/fresh.pkg",
+      "bytes": 288005969,
+      "sha256": "c607e267f7aa691e7607635b07e9897201ff9c01dc0279d7a4790200825829a3",
+      "release_id": 421114829,
+      "release_tag": "qa-56f83bb-fresh-image80",
+      "restore_asset_api": "repos/fainir/account-access/releases/assets/666853705"
+    }
+  ],
+  "remote_assets_changed": false,
+  "private_data_read": false,
+  "installed_software_changed": false,
+  "current_package87_retained": true,
+  "recovery_package85_retained": true,
+  "before_free_bytes": 573751296,
+  "after_free_bytes": 4059385856
+}

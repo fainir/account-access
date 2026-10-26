@@ -1,0 +1,15 @@
+{
+  "credential_files_accessed": false,
+  "final_package_unchanged": true,
+  "generated_build_copies_removed": [
+    "independent/Scripts",
+    "input/Scripts/CompletedImage/TargetImage",
+    "container",
+    "raw.pkg",
+    "upload"
+  ],
+  "installed_files_changed": false,
+  "production_ready": false,
+  "retained_package_sha256": "ed747b1ce30364f42c9d1b4f702d098722cec10eee7a97a3618f7cae2ba12d80",
+  "schema": 1
+}

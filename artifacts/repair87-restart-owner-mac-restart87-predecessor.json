@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "status": "PASSED",
+  "check": "public_image_matches_predecessor85_after_restart",
+  "unchanged_entries_verified_by": "owner-mac-after-repair87.json",
+  "prior_report_sha256": "05671e4689918edb937ee6516a7933f64207aba90093b6484d66fa3bb606a2c5",
+  "changed_paths_verified_as_predecessor": [
+    "/Library/Application Support/Account Access/bin/AccountAccess-broker",
+    "/Library/Application Support/Account Access/broker-repair-identity.json",
+    "/Library/Application Support/Account Access/package-identity.json"
+  ],
+  "before_manifest_sha256": "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da",
+  "private_data_read": false,
+  "installation_completed": false,
+  "production_ready": false
+}

@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "status": "PERSISTENT_VOLUME_SOURCE_LOCAL_CHECKS_PASSED_HOSTED_PENDING",
+  "source_sha256": {
+    "macos/RootStoreVolumeBinding.swift": "850cae7fd1653e873c3d851953219ceae83b2a96a7c44d2861c4982b63cf0d6a",
+    "macos/RootStorePublication.swift": "e04b6f385c2b312df083c955ccccca58d7d63825218e4fc77757884154185703",
+    "macos/RootInitialEnrollment.swift": "d15af38d97d1c9f843ea7b328821b01ca4d443bac509f0bbd6b9c18f3b2861a8",
+    "macos/Tests/RootStoreVolumeBindingChecks.swift": "7cf452e6abc2a5aaaf14eadf396ef2ab4289da23937a082500481617def4daff",
+    "macos/Tests/RootInitialEnrollmentChecks.swift": "b326e7eb88a624fbd9504caa7c716b6dab761f0c6af2ca816bd775a3f89378ca",
+    "macos/Tests/SystemStartupDiagnosticsChecks.swift": "8d6af4e01ff2a26a1499165964b48f28d1afa7d78cc2bfee5c306f1e85391461",
+    "scripts/check_mac_initial_setup_report.py": "9678f216bfe8d7e225feb49bbb90530c064e3936f78a2139c5799aabcb2c0b6c",
+    ".github/workflows/mac-worker.yml": "d6d9690b15e634f80d9ac6652c1e8b3d30f2c5a3cdae608ae9f00d59369bff94"
+  },
+  "ordinary_native_checks_passed": 30,
+  "focused_python_tests_passed": 100,
+  "production_broker_typecheck_passed": true,
+  "root_fixture_typecheck_passed": true,
+  "root_fixture_existing_keychain_deprecation_warning": true,
+  "required_root_fixture_assertions": 46,
+  "physical_device_renumbering_tested": false,
+  "owner_installed": false,
+  "legacy_changed_device_migration_implemented": false,
+  "owner_registration_modified": false,
+  "credential_contents_read": false,
+  "owner_store_repaired": false,
+  "production_ready": false
+}

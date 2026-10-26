@@ -119,7 +119,7 @@ class Browser:
                                       service_workers="block", accept_downloads=False)
         context._password_authority = authorization
         context._login_code_request = None
-        identity = config.login.identity_step if login and config.login else None
+        identity = (config.login.identity_step or config.login.identity_contact) if login and config.login else None
         context._identity_pending = identity is not None
         context._identity_armed = False
         context._identity_dispatched = False
@@ -422,8 +422,10 @@ class Browser:
         if connection and connection["fingerprint"] != self.store.config().fingerprint(account):
             raise AccessError("DENIED", "connection_configuration_changed")
         state = connection.get("state") if connection else None
+        failure_stage = ["playwright_start"]
         try:
             with sync_playwright() as pw:
+                failure_stage[0] = "browser_launch"
                 browser = pw.chromium.launch(headless=not visible, chromium_sandbox=True,
                                              channel=config.browser_channel)
                 reviewed = False
@@ -441,12 +443,19 @@ class Browser:
                             details = diagnostics(page)
                             details["page"] = route_hint(page.url, ["https://github.com"])
                             details["progress"] = dict(getattr(page.context, "_login_progress", {}))
+                        elif error.status == "NEEDS_USER":
+                            from .browser_diagnostics import capture
+                            try:
+                                details = capture(page, config)
+                            except Exception:
+                                pass  # A closed/changed page cannot replace the original challenge.
                         on_attention(error.status, error.reason, error.kind, details)
                     if not visible or error.status != "NEEDS_USER":
                         return False
                     # Owner-only troubleshooting: keep the actual failed page
                     # visible briefly, without exporting its HTML or secrets.
                     try:
+                        failure_stage[0] = "owner_review"
                         page.bring_to_front()
                     except PlaywrightError:
                         pass  # Window focus cannot change the authentication result.
@@ -473,10 +482,15 @@ class Browser:
                         pass
                     return False
                 try:
+                    failure_stage[0] = "context_create"
                     context = self.context(browser, config, state, account=account, authorization=authorization)
+                    failure_stage[0] = "page_create"
                     page = self.page(context)
+                    failure_stage[0] = "page_navigation"
                     page.goto(op.url, timeout=15000, wait_until="domcontentloaded")
+                    failure_stage[0] = "page_ready"
                     self.wait_state(page, config)
+                    failure_stage[0] = "authentication_check"
                     try:
                         self.check(page, config)
                     except AccessError as exc:
@@ -485,33 +499,58 @@ class Browser:
                         # Only explicit login markers trigger automatic credential filling.
                         if self.challenge(page, config) != "login":
                             raise
+                        failure_stage[0] = "login_transition"
                         context.close()
+                        failure_stage[0] = "login_flow"
                         state = self.login(browser, account, config, state, secret_values=secret_values,
                                            review_failure=review_failure, setup_method=setup_method,
                                            on_code_request=on_code_request, review_stop=review_stop,
                                            authorization=authorization)
+                        failure_stage[0] = "context_create"
                         context = self.context(browser, config, state, account=account, authorization=authorization)
+                        failure_stage[0] = "page_create"
                         page = self.page(context)
+                        failure_stage[0] = "page_navigation"
                         page.goto(op.url, timeout=15000, wait_until="domcontentloaded")
+                        failure_stage[0] = "page_ready"
                         self.wait_state(page, config)
+                        failure_stage[0] = "authentication_check"
                         self.check(page, config)
-                    data = {name: page.locator(selector).first.inner_text(timeout=5000)[:100_000]
-                            for name, selector in op.fields.items()}
+                    failure_stage[0] = "result_read"
+                    data = self.result(page, op, config)
+                    failure_stage[0] = "session_persist"
                     self.save(account, context.storage_state(indexed_db=True), authorization=authorization)
                     return data
                 except AccessError as exc:
                     if review_failure(page, exc):
+                        failure_stage[0] = "page_navigation"
                         page.goto(op.url, timeout=15000, wait_until="domcontentloaded")
+                        failure_stage[0] = "page_ready"
                         self.wait_state(page, config)
+                        failure_stage[0] = "authentication_check"
                         self.check(page, config)
-                        return {name: page.locator(selector).first.inner_text(timeout=5000)[:100_000]
-                                for name, selector in op.fields.items()}
+                        failure_stage[0] = "result_read"
+                        return self.result(page, op, config)
                     raise
                 finally:
+                    failure_stage[0] = "browser_close"
                     browser.close()
         except PlaywrightError:
             authorization.check()
+            try:
+                self.store.audit("service", account, "", "browser_execution_failed", failure_stage[0])
+            except Exception:
+                pass  # Safe diagnostics must not change the operation's public error.
             raise AccessError("RETRYABLE", "browser_execution_failed") from None
+
+    def result(self, page, op, config):
+        # A status-only operation still requires the normal authenticated marker
+        # and presence/transaction checks. No page text is an agent result.
+        self.check(page, config)
+        if op.session_only:
+            return {"authenticated": True}
+        return {name: page.locator(selector).first.inner_text(timeout=5000)[:100_000]
+                for name, selector in op.fields.items()}
 
     def login(self, browser, account, config, state=None, *, secret_values=None, review_failure=None,
               setup_method=None, on_code_request=None, review_stop=None, authorization=None):
@@ -539,15 +578,19 @@ class Browser:
         if review_stop and review_stop.is_set():
             raise AccessError("NEEDS_USER", "sms_setup_cancelled", "sms")
         from .password_sync import refresh
-        refresh(self.store, account, force=True)
+        form = config.login
+        if not form.identity_contact:
+            refresh(self.store, account, force=True)
         authorization = authorization or _PasswordAuthority(self.store, account)
         authorization.check()
         credential = self.store.get("credential:" + account, {})
         credential = credential or {}
+        if not form.credential_ready(credential):
+            raise AccessError("NEEDS_USER", "identity_contact_not_connected" if form.identity_contact
+                              else "password_not_connected")
         if secret_values is not None:
-            secret_values.add(credential.get("password", ""))
-        if not credential.get("password") or not credential.get("username"):
-            raise AccessError("NEEDS_USER", "password_not_connected")
+            secret_values.update(credential[key] for key in (
+                form.credential_fields() if form.identity_contact else ("password",)))
         last = self.store.get("login-attempt:" + account, 0)
         if time.time() - last < 60:
             # A timed throttle needs waiting, not owner authentication. Keep the
@@ -569,7 +612,9 @@ class Browser:
             if page.url != config.login_url:
                 raise AccessError("NEEDS_USER", "login_destination_changed", "unknown")
             form = config.login
-            if form.identity_step:
+            if form.identity_contact:
+                self.check_identity_contact_form(page, config)
+            elif form.identity_step:
                 self.check_identity_form(page, config)
             else:
                 self.check_form(page, form.password_selector, config)
@@ -598,42 +643,60 @@ class Browser:
                     raise source_errors[sorted(primary)[0]]
             if review_stop and review_stop.is_set():
                 raise AccessError("NEEDS_USER", "sms_setup_cancelled", "sms")
-            if form.identity_step:
+            if form.identity_contact:
+                self.fill_identity_contact(page, config, credential)
+            elif form.identity_step:
                 self.submit_identity(page, account, config, credential["username"], review_stop=review_stop)
-            expected = form.identity_step.password_url if form.identity_step else config.login_url
-            self.credential_page(page, config, expected)
-            self.check_form(page, form.password_selector, config)
-            if form.identity_step:
-                self.check_staged_native_form(page, form.password_selector, form.submit_selector,
-                                               form.identity_step.password_post_url, allow_missing=config.javascript)
-            if not form.identity_step:
-                self.fill_secret(page, form.username_selector, credential["username"])
-                # Input handlers may reveal a presence challenge or replace
-                # the password form. Recheck before disclosing the password.
+            if not form.identity_contact:
+                expected = form.identity_step.password_url if form.identity_step else config.login_url
                 self.credential_page(page, config, expected)
                 self.check_form(page, form.password_selector, config)
-            if context._login_challenge:
-                self.check_staged_native_form(page, form.password_selector, form.submit_selector, config.login_url)
-            self.fill_secret(page, form.password_selector, credential["password"])
+                if form.identity_step:
+                    self.check_staged_native_form(page, form.password_selector, form.submit_selector,
+                                                   form.identity_step.password_post_url, allow_missing=config.javascript)
+                if not form.identity_step:
+                    self.fill_secret(page, form.username_selector, credential["username"])
+                    # Input handlers may replace the form or require presence.
+                    self.credential_page(page, config, expected)
+                    self.check_form(page, form.password_selector, config)
+                if context._login_challenge:
+                    self.check_staged_native_form(page, form.password_selector, form.submit_selector, config.login_url)
+                self.fill_secret(page, form.password_selector, credential["password"])
             # Charge the password-attempt cooldown only when submission is
             # attempted. Connecting a missing mailbox/phone after preflight
             # stopped must not require another minute or user retry.
             self.store.put("login-attempt:" + account, time.time())
             if context._login_challenge:
                 context._login_challenge.arm_password()
+            if form.identity_contact:
+                if context._identity_blocked:
+                    raise AccessError("NEEDS_USER", "login_identity_navigation_changed", "unknown")
+                context._login_identity_request = {"url": form.identity_contact.post_url, "http_status": None}
+                context._identity_armed = True
             try:
                 page.locator(form.submit_selector).click(timeout=10000)
-                context._login_progress["password_submit_attempted"] = True
+                context._login_progress["identity_submit_attempted" if form.identity_contact
+                                        else "password_submit_attempted"] = True
                 page.wait_for_load_state("domcontentloaded")
                 if context._login_challenge and context._login_challenge.failed:
                     raise AccessError("NEEDS_USER", "login_challenge_changed", "unknown")
                 self.wait_state(page, config, after_submit=True)
             except PlaywrightError:
+                if form.identity_contact and (context._identity_blocked or context._identity_redirect_replay):
+                    raise AccessError("NEEDS_USER", "login_identity_navigation_changed", "unknown") from None
                 if context._password_blocked:
                     raise AccessError("NEEDS_USER", "login_form_destination_changed", "unknown") from None
                 raise
             if context._password_blocked:
                 raise AccessError("NEEDS_USER", "login_form_destination_changed", "unknown")
+            if form.identity_contact:
+                if context._identity_blocked or context._identity_redirect_replay:
+                    raise AccessError("NEEDS_USER", "login_identity_navigation_changed", "unknown")
+                status = context._login_identity_request["http_status"]
+                if status is None or not 200 <= status < 400:
+                    raise AccessError("NEEDS_USER", "login_identity_not_completed", "unknown")
+                context._identity_pending = False
+                context._login_identity_request = None
             context._login_step_post_url = None
             kind = self.challenge(page, config)
             used_by_source = {}
@@ -768,6 +831,8 @@ class Browser:
             if kind == "device" and context._login_challenge and form.device_email_source:
                 page = self.confirm_pypi_device(page, context, config, started, source_errors, review_stop)
                 completed.append("email")
+            if form.identity_contact and kind is None and "sms" not in completed:
+                raise AccessError("NEEDS_USER", "identity_contact_sms_not_verified", "unknown")
             self.check(page, config)
             state = context.storage_state(indexed_db=True)
             self.save(account, state, authorization=authorization)
@@ -845,6 +910,23 @@ class Browser:
             raise AccessError("NEEDS_USER", "browser_" + kind + "_required", kind)
         if page.url != expected:
             raise AccessError("NEEDS_USER", "login_destination_changed", "unknown")
+
+    def fill_identity_contact(self, page, config, credential):
+        fields = config.login.identity_contact
+        controls = [(fields.identity_selector, "identity"), (fields.phone_selector, "phone")]
+        for selector, key in controls:
+            self.check_identity_contact_form(page, config)
+            self.fill_secret(page, selector, credential[key])
+        # Recheck both fields and the submit control after input handlers run.
+        self.check_identity_contact_form(page, config)
+
+    def check_identity_contact_form(self, page, config):
+        self.credential_page(page, config, config.login_url)
+        fields = config.login.identity_contact
+        for selector in [fields.identity_selector, fields.phone_selector]:
+            self.check_form(page, selector, config)
+            self.check_staged_native_form(page, selector, config.login.submit_selector,
+                                          fields.post_url, allow_missing=config.javascript)
 
     def fill_secret(self, page, selector, value):
         authorization = page.context._password_authority

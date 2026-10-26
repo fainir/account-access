@@ -2,9 +2,50 @@
 // installation, migration, source enrollment or agent-client issuance occurs.
 import Foundation
 import Darwin
+import OSLog
 
 enum RootEnrollmentState: String {
     case needsOwner = "needs_owner", initializing, ready, paused, needsRepair = "needs_repair", stopped
+}
+
+// Only fixed program categories leave the native daemon. In particular, never
+// format an Error, keychain status, path, journal value or account identifier.
+enum RootEnrollmentCheckpoint: String, CaseIterable {
+    case journalDiscovery = "journal_discovery", journalValidation = "journal_validation"
+    case authorization, stageStatus = "stage_status", freshState = "fresh_state"
+    case initialization, keyAccess = "key_access", publication, workerStart = "worker_start"
+    case pauseRestore = "pause_restore"
+}
+
+struct RootEnrollmentDiagnostic: Equatable {
+    private static let logger = Logger(subsystem: "com.fainir.accountaccess.broker", category: "store-startup")
+    let checkpoint: RootEnrollmentCheckpoint
+    let reason: String
+    init(_ checkpoint: RootEnrollmentCheckpoint, error: Error) {
+        self.checkpoint = checkpoint
+        switch error {
+        case let value as RootPublicationFailure: reason = value.rawValue
+        case let value as RootStoreVolumeFailure: reason = value.rawValue
+        case let value as RootVaultKeyFailure: reason = value.rawValue
+        case let value as RootVaultRecordFailure: reason = value.stage.rawValue
+        case let value as RootKeychainFailure:
+            switch value.operation {
+            case .load: reason = "system_keychain_load_failed"
+            case .enroll: reason = "system_keychain_enroll_failed"
+            case .remove: reason = "system_keychain_remove_failed"
+            }
+        case let value as WorkerLaunchFailure: reason = value.rawValue
+        case let value as RootWorkerProcessFailure: reason = value.rawValue
+        case let value as RootStoreInitializationFailure: reason = value.rawValue
+        case let value as RootListenerFailure: reason = value.rawValue
+        case let value as RootWorkerChannelFailure: reason = value.rawValue
+        default: reason = "store_startup_unavailable"
+        }
+    }
+    var value: [String: String] { ["checkpoint": checkpoint.rawValue, "reason": reason] }
+    func record() {
+        Self.logger.error("Store startup refused checkpoint=\(checkpoint.rawValue, privacy: .public) reason=\(reason, privacy: .public)")
+    }
 }
 
 final class RootInitialEnrollment: OwnerVaultEnrollmentBackend {
@@ -17,6 +58,7 @@ final class RootInitialEnrollment: OwnerVaultEnrollmentBackend {
     private let queue = DispatchQueue(label: "com.fainir.accountaccess.vault.enrollment")
     private let lock = NSRecursiveLock()
     private var current: RootEnrollmentState = .needsOwner
+    private var diagnostic: RootEnrollmentDiagnostic?
     private var publication: RootStorePublication?
     private var inFlight = false
     private var pendingResume: OwnerEnrollmentApproval?
@@ -39,6 +81,20 @@ final class RootInitialEnrollment: OwnerVaultEnrollmentBackend {
     }
     var state: RootEnrollmentState { lock.lock(); defer { lock.unlock() }; return current }
 
+    private func fail(_ error: Error, at checkpoint: RootEnrollmentCheckpoint) {
+        lock.lock(); defer { lock.unlock() }
+        guard !stopped else { return }
+        diagnostic = RootEnrollmentDiagnostic(checkpoint, error: error)
+        current = .needsRepair
+        diagnostic?.record()
+    }
+    // Call under lock; a ready state never carries a previous failure.
+    private func setupValue() -> [String: Any] {
+        var result: [String: Any] = ["status": current.rawValue]
+        if current == .needsRepair, let diagnostic { result["diagnostic"] = diagnostic.value }
+        return result
+    }
+
     private func existingJournal() throws -> Bool {
         let parent = try WorkerLaunchPaths.protected(URL(fileURLWithPath: plan.stage).deletingLastPathComponent().path)
         var info = stat()
@@ -58,29 +114,35 @@ final class RootInitialEnrollment: OwnerVaultEnrollmentBackend {
         try RootVaultKeyStore.requireDaemon()
         lock.lock(); defer { lock.unlock() }
         guard !stopped, current == .needsOwner else { throw RootWorkerProcessFailure.invalidState }
+        var checkpoint = RootEnrollmentCheckpoint.journalDiscovery
         do {
             if try existingJournal() {
+                checkpoint = .journalValidation
                 let record = try RootStorePublication(policy: policy)
                 if try record.isPaused() { current = .paused; return }
+                checkpoint = .authorization
                 guard try record.isAuthorized(owner: owner) else {
                     guard try record.phase() == .empty else { throw RootPublicationFailure.unsafeState }
                     return
                 }
+                checkpoint = .stageStatus
                 guard try record.phase() != .incomplete else { throw RootPublicationFailure.unsafeState }
                 schedule(record, approval: nil)
             } else {
                 // Validate fresh state without writing a journal or touching
                 // the keychain. Existing data requires migration/repair.
+                checkpoint = .freshState
                 _ = try MacWorkerEnrollmentPlan(policy: policy)
             }
         } catch {
-            current = .needsRepair
+            fail(error, at: checkpoint)
         }
     }
     private func schedule(_ record: RootStorePublication, approval: OwnerEnrollmentApproval?) {
         publication = record
         inFlight = true
         current = .initializing
+        diagnostic = nil
         queue.async { [self] in perform(record, approval: approval) }
     }
     private func interrupted(_ record: RootStorePublication) throws -> Bool {
@@ -102,20 +164,25 @@ final class RootInitialEnrollment: OwnerVaultEnrollmentBackend {
                 do {
                     if try !record.isPaused() { schedule(record, approval: resume) }
                     else { current = .paused }
-                } catch { current = .needsRepair }
+                } catch { fail(error, at: .pauseRestore) }
             }
             lock.unlock()
         }
+        var checkpoint = RootEnrollmentCheckpoint.authorization
         do {
             guard try record.isAuthorized(owner: owner) else { throw RootPublicationFailure.notVerified }
             if try interrupted(record) { return }
+            checkpoint = .stageStatus
             let phase = try record.phase()
+            checkpoint = .keyAccess
             let store = try RootVaultKeyStore()
             if phase == .empty {
                 // Verify the fixed native launcher before creating/loading a
                 // key. Incomplete or published stores never enter this branch.
+                checkpoint = .initialization
                 let initializer = try RootStoreInitializer(policy: policy, bootstrap: bootstrap, peer: peer)
                 if try interrupted(record) { return }
+                checkpoint = .keyAccess
                 let key: RootVaultKey
                 do { key = try store.load(plan.vault) }
                 catch RootVaultKeyFailure.missing { key = try store.enrollNewVault(plan.vault) }
@@ -124,10 +191,12 @@ final class RootInitialEnrollment: OwnerVaultEnrollmentBackend {
                 try fixtureBeforeInitialize?()
                 if try interrupted(record) { return }
                 #endif
+                checkpoint = .initialization
                 let receipt = try initializer.initialize(key: key)
                 // Retain completed initialization even if Pause arrived while
                 // the bounded child was working; never leave a reusable stage
                 // dependent on an in-memory receipt that is then discarded.
+                checkpoint = .publication
                 try record.accept(receipt)
             } else if phase != .ready && phase != .published {
                 throw RootPublicationFailure.unsafeState
@@ -135,16 +204,20 @@ final class RootInitialEnrollment: OwnerVaultEnrollmentBackend {
             if try interrupted(record) { return }
             // A missing key for ready/published data is a repair, never a
             // request for a replacement key. Verify availability before swap.
+            checkpoint = .keyAccess
             _ = try store.load(plan.vault)
+            checkpoint = .publication
             try record.publish()
             if try interrupted(record) { return }
             if try interrupted(record) { return }
+            checkpoint = .workerStart
             if worker.state == .paused {
                 guard let approval else { throw RootPublicationFailure.notVerified }
                 try worker.resumeEnrollment(approval)
             } else if worker.state != .running {
                 try worker.start()
             }
+            checkpoint = .pauseRestore
             let journalPaused = try record.isPaused()
             lock.lock()
             let paused = journalPaused || current == .paused
@@ -153,9 +226,7 @@ final class RootInitialEnrollment: OwnerVaultEnrollmentBackend {
             if paused { try worker.pauseEnrollment() }
         } catch {
             try? worker.pauseEnrollment()
-            lock.lock()
-            if !stopped { current = .needsRepair }
-            lock.unlock()
+            fail(error, at: checkpoint)
         }
     }
     func enroll(_ approval: OwnerEnrollmentApproval) throws -> (Int, Data) {
@@ -180,7 +251,7 @@ final class RootInitialEnrollment: OwnerVaultEnrollmentBackend {
         return (202, try response("INITIALIZING"))
     }
     private func response(_ status: String) throws -> Data {
-        try JSONSerialization.data(withJSONObject: ["status": status, "vault_setup": ["status": current.rawValue]])
+        try JSONSerialization.data(withJSONObject: ["status": status, "vault_setup": setupValue()])
     }
     func request(_ route: OwnerGatewayRoute) throws -> (Int, Data) {
         try RootVaultKeyStore.requireDaemon()
@@ -189,6 +260,7 @@ final class RootInitialEnrollment: OwnerVaultEnrollmentBackend {
         }
         lock.lock()
         let snapshot = current
+        let setup = setupValue()
         if route.path == "/owner/stop" && !stopped && current != .needsRepair {
             defer { lock.unlock() }
             guard let body = route.body, let data = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
@@ -211,7 +283,7 @@ final class RootInitialEnrollment: OwnerVaultEnrollmentBackend {
         if route.path == "/owner/health" {
             let workerStatus = snapshot == .ready ? worker.state.rawValue : snapshot.rawValue
             let data = try JSONSerialization.data(withJSONObject: ["status": "ok", "worker_status": workerStatus,
-                "vault_setup": ["status": snapshot.rawValue]])
+                "vault_setup": setup])
             return (200, data)
         }
         if snapshot == .ready {
@@ -219,7 +291,7 @@ final class RootInitialEnrollment: OwnerVaultEnrollmentBackend {
         }
         if route.path == "/owner/state" {
             let data = try JSONSerialization.data(withJSONObject: ["status": "NEEDS_USER", "accounts": [],
-                "vault_setup": ["status": snapshot.rawValue]])
+                "vault_setup": setup])
             return (200, data)
         }
         return (503, OwnerGatewaySession.failure("vault_setup_required"))

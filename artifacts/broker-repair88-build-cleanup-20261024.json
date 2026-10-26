@@ -1,0 +1,33 @@
+{
+  "draft_asset_id": 670966445,
+  "draft_release_id": 422450948,
+  "installation_changed": false,
+  "owner_data_read": false,
+  "package_and_review_retained": true,
+  "package_sha256": "8f6415ecf1fad46cb77bfacd37576555d300c8e702ea971bc08e7ec2e9f74e04",
+  "removed": [
+    {
+      "build_cache": "independent/Scripts",
+      "logical_bytes": 755616010,
+      "nodes": 27523
+    },
+    {
+      "build_cache": "input/Scripts/CompletedImage/TargetImage",
+      "logical_bytes": 710296589,
+      "nodes": 27487
+    },
+    {
+      "build_cache": "container",
+      "logical_bytes": 299597151,
+      "nodes": 3
+    },
+    {
+      "build_cache": "raw.pkg",
+      "logical_bytes": 299597661,
+      "nodes": 1
+    }
+  ],
+  "schema": 1,
+  "source_and_compiled_pins_retained": true,
+  "status": "REMOVED_RECOVERABLE_DUPLICATE_BUILD_COPIES"
+}

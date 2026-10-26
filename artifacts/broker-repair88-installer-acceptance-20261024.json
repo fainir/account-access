@@ -1,0 +1,63 @@
+{
+  "application_source": "c4cf1b0918c1a51cbd4a38880364fcb71fa5980e",
+  "contract_canonical_sha256": "7b629388f0c349a568473e614528a37960683da01ce2e9e3ca57c85d6ac967b3",
+  "controller_revision": "57663aae54f438e65f59baf40721f5ffcb8ff524",
+  "foreign_binding_rollback": {
+    "applied_per_attempt": 5,
+    "head_published": false,
+    "restored_per_attempt": 5,
+    "verified_attempts": 2
+  },
+  "installer_signed": false,
+  "notarized": false,
+  "owner_GUI_qualified": false,
+  "owner_installed": false,
+  "package_sha256": "8f6415ecf1fad46cb77bfacd37576555d300c8e702ea971bc08e7ec2e9f74e04",
+  "personal_accounts_used": 0,
+  "power_failure_tested": false,
+  "private_credential_database_read": false,
+  "production_ready": false,
+  "run_id": 40051324286,
+  "runtime_update_required": true,
+  "scenarios": [
+    {
+      "archive_sha256": "0320db913be6e79e9f098beaee8e494f4ba12cc774482021f4d45ec7004c5713",
+      "artifact_id": 12544475739,
+      "checks": {
+        "predecessor": 15,
+        "repair": 13,
+        "root_revalidation": 11
+      },
+      "referenced_logs_hash_verified": 40,
+      "scenario": "install-reapply",
+      "status": "PASSED"
+    },
+    {
+      "archive_sha256": "894a7429bcea2b516465459f8aaaed6c0b7738e1b43d5feb8ad2156ab8664053",
+      "artifact_id": 12544585379,
+      "checks": {
+        "predecessor": 15,
+        "repair": 13,
+        "root_revalidation": 11
+      },
+      "referenced_logs_hash_verified": 40,
+      "scenario": "interrupt-broker",
+      "status": "PASSED"
+    },
+    {
+      "archive_sha256": "e51149d53fa48aaa80e00556ac0353ddd49fc7a83e1121c8a4eda87e588708a5",
+      "artifact_id": 12543634449,
+      "checks": {
+        "predecessor": 15,
+        "repair": 13,
+        "root_revalidation": 11
+      },
+      "referenced_logs_hash_verified": 40,
+      "scenario": "foreign-binding",
+      "status": "PASSED"
+    }
+  ],
+  "schema": 1,
+  "status": "PASSED",
+  "tested_controller_source": "eba805729025caa1dc0754112e21d6d5592e0113"
+}

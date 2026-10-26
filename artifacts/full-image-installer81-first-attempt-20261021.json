@@ -1,0 +1,55 @@
+{
+  "actual_full_matrix_qualified": false,
+  "all_report_and_artifact_hashes_verified": true,
+  "attempt": 1,
+  "candidate_unchanged": true,
+  "creation_interruption_recovery_qualified": true,
+  "exact_failed_removal_predicate_measured": false,
+  "full_proof_sha256": "06edad806690bf8eaf00499436dbbddeb8ab2de6b139fe52f3ad24cd30e42027",
+  "matrix": {
+    "install-reapply": {
+      "artifact_id": 12373025017,
+      "artifact_sha256": "b1c6bc5e2364ce963b8cd74aeb42cabbfcd1d3ae677b7b0f626f26db1a54eb16",
+      "failure_stage": null,
+      "job_conclusion": "success",
+      "passed_checks": 18,
+      "report_sha256": "13996cbac5f919effd731ef63d7f252d6bdbc7acd2d5e7e1b859aaddcd1e054b",
+      "report_status": "PASSED",
+      "required_checks": 18
+    },
+    "interrupt-create": {
+      "artifact_id": 12371248369,
+      "artifact_sha256": "bf5f494341c33d4d9b580accf3ab077e1427870c7efde50a816be783b7f096dd",
+      "failure_stage": null,
+      "job_conclusion": "success",
+      "passed_checks": 18,
+      "report_sha256": "5d28c570ff2d9da5763c0c4576e705c8c7d6c34cef2b672c123b5c49ebe1bf32",
+      "report_status": "PASSED",
+      "required_checks": 18
+    },
+    "interrupt-remove": {
+      "artifact_id": 12372057117,
+      "artifact_sha256": "e6876079fdea206ba83c36e813040a4b4b6063c06ad28750d114a6e0027d4360",
+      "failure_stage": "owned_helper_stopped_state",
+      "job_conclusion": "failure",
+      "passed_checks": 10,
+      "report_sha256": "6228d01a4e354ffc1558d8258a56c5a05044b293f197264f6afcc440f303a66e",
+      "report_status": "FAILED",
+      "required_checks": 18
+    }
+  },
+  "normal_install_and_reapply_qualified": true,
+  "original_failed_run_retried_or_relabelled": false,
+  "owner_GUI_or_personal_accounts_qualified": false,
+  "owner_Mac_updated": false,
+  "package_sha256": "ad16754b9acdd71dd1979a2a268b005a96feec681d3392b4af90b0e464590a85",
+  "production_ready": false,
+  "removal_interruption_recovery_qualified": false,
+  "removal_native_refusal_observed": false,
+  "run_id": 39654303674,
+  "run_url": "https://github.com/fainir/account-access/actions/runs/39654303674",
+  "schema": 1,
+  "source_commit": "b881873c87373634bb5a2a15b245f7b5438bd416",
+  "status": "FIRST_ACTUAL_BUILD81_INSTALLER_MATRIX_TWO_PASSED_ONE_FAILED",
+  "workflow_conclusion": "failure"
+}

@@ -1,0 +1,280 @@
+{
+  "after_manifest_sha256": "5a732de4623ba50aefa6d31c54e7b1eae660b2921341f95042c5675d922d808b",
+  "before_manifest_sha256": "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da",
+  "controller_revision": "34e8f5e1c590d2ffe9090c9f33b3e6bb164fa04d",
+  "installer_signed": false,
+  "owner_GUI_qualified": false,
+  "owner_installation_attempted": false,
+  "package_bytes": 299586792,
+  "package_sha256": "27ee29eea45992461d0d8e5d2f36878a784b15f52713066f9710647715420994",
+  "personal_accounts_used": 0,
+  "physical_SMS_qualified": false,
+  "plan_sha256": "3741aae23c6c23c9da33ae233d0657800454514042d59cba951e7bbf7d1d8ec1",
+  "production_ready": false,
+  "scenarios": [
+    {
+      "artifact_id": 12518936541,
+      "artifact_sha256": "edff8ef11a29325828947031068a3e730c4816efa25cb32e34d44d23d2fadac7",
+      "closed_installer_results": {
+        "repair-installer-daemon.log": [
+          {
+            "account_qa_verified": false,
+            "checkpoint": "complete",
+            "gui_verified": false,
+            "status": "UPDATED_GUI_UNVERIFIED"
+          }
+        ],
+        "repair-reapply-daemon.log": [
+          {
+            "account_qa_verified": false,
+            "checkpoint": "complete",
+            "gui_verified": false,
+            "status": "ALREADY_UPDATED_GUI_UNVERIFIED"
+          }
+        ]
+      },
+      "reports": [
+        {
+          "all_referenced_logs_hash_verified": true,
+          "checks": {
+            "actual_base_installer": true,
+            "actual_candidate_installer": true,
+            "base_public_image": true,
+            "candidate_expansion_matches_review": true,
+            "created_job_stopped": true,
+            "fresh_gui_closed": true,
+            "fresh_hosted_vm": true,
+            "genuine_signed_helper": true,
+            "only_three_policy_values_changed": true,
+            "reapplication_preserved_bytes_and_ids": true,
+            "reviewed_public_inputs": true,
+            "same_package_reapplication": true,
+            "target_public_image": true,
+            "unchanged_worker_plans_and_original_journal": true,
+            "verified_head": true
+          },
+          "report": "AccountAccessComponentInstallerQA-39989349794/report.json",
+          "root_revalidation_checks": {
+            "actual_revalidation_installer": true,
+            "bounded_pending_receipt_recovered": true,
+            "exact_legacy_revalidation_no_receipt": true,
+            "genuine_signed_revalidation_helper": true,
+            "original_receipts_unchanged": true,
+            "protected_supplement_created": true,
+            "revalidation_after_component": true,
+            "revalidation_reapplication": true,
+            "reviewed_revalidation_input": true,
+            "supplement_preserved_by_component": true,
+            "synthetic_device_mismatch_same_inodes": true
+          },
+          "sha256": "bed26d9d1e97185d0ba4d51a84dfa79d62461bbe8c253c8ca6025f2ca47be93a"
+        },
+        {
+          "all_referenced_logs_hash_verified": true,
+          "checks": {
+            "actual_full_image_installer": true,
+            "completed_full_image": true,
+            "created_job_stopped": true,
+            "exact_repair_resources": true,
+            "expected_public_image": true,
+            "fictional_legacy_publication": true,
+            "fresh_predecessor_acceptance": true,
+            "native_signatures": true,
+            "original_metadata_preserved": true,
+            "pinned_assets_and_sources": true,
+            "reapplication_preserved_bytes_and_ids": true,
+            "same_package_reapplication": true,
+            "scenario_exercised": true
+          },
+          "report": "AccountAccessComponentInstallerQA-3998934979487/report.json",
+          "root_revalidation_checks": null,
+          "sha256": "6355036e85ece95088d0038ef28bc27d4c9bae2466aebcc3b6a8637a3f09fb10"
+        }
+      ],
+      "scenario": "install-reapply",
+      "status": "PASSED"
+    },
+    {
+      "artifact_id": 12518082718,
+      "artifact_sha256": "99cce3d8420978178e6f6581cc7003d8e54931fc24427496f497f4788b44a8e0",
+      "closed_installer_results": {
+        "repair-installer-daemon.log": [
+          {
+            "account_qa_verified": false,
+            "checkpoint": "complete",
+            "gui_verified": false,
+            "status": "UPDATED_GUI_UNVERIFIED"
+          }
+        ],
+        "repair-reapply-daemon.log": [
+          {
+            "account_qa_verified": false,
+            "checkpoint": "complete",
+            "gui_verified": false,
+            "status": "ALREADY_UPDATED_GUI_UNVERIFIED"
+          }
+        ]
+      },
+      "reports": [
+        {
+          "all_referenced_logs_hash_verified": true,
+          "checks": {
+            "actual_base_installer": true,
+            "actual_candidate_installer": true,
+            "base_public_image": true,
+            "candidate_expansion_matches_review": true,
+            "created_job_stopped": true,
+            "fresh_gui_closed": true,
+            "fresh_hosted_vm": true,
+            "genuine_signed_helper": true,
+            "only_three_policy_values_changed": true,
+            "reapplication_preserved_bytes_and_ids": true,
+            "reviewed_public_inputs": true,
+            "same_package_reapplication": true,
+            "target_public_image": true,
+            "unchanged_worker_plans_and_original_journal": true,
+            "verified_head": true
+          },
+          "interruption": null,
+          "report": "AccountAccessComponentInstallerQA-39989349794/report.json",
+          "root_revalidation_checks": {
+            "actual_revalidation_installer": true,
+            "bounded_pending_receipt_recovered": true,
+            "exact_legacy_revalidation_no_receipt": true,
+            "genuine_signed_revalidation_helper": true,
+            "original_receipts_unchanged": true,
+            "protected_supplement_created": true,
+            "revalidation_after_component": true,
+            "revalidation_reapplication": true,
+            "reviewed_revalidation_input": true,
+            "supplement_preserved_by_component": true,
+            "synthetic_device_mismatch_same_inodes": true
+          },
+          "sha256": "56d1041887aa20f9f98e0d3ecd78a3f40d40ec944972695a64b0f4062f4158e6"
+        },
+        {
+          "all_referenced_logs_hash_verified": true,
+          "checks": {
+            "actual_full_image_installer": true,
+            "completed_full_image": true,
+            "created_job_stopped": true,
+            "exact_repair_resources": true,
+            "expected_public_image": true,
+            "fictional_legacy_publication": true,
+            "fresh_predecessor_acceptance": true,
+            "native_signatures": true,
+            "original_metadata_preserved": true,
+            "pinned_assets_and_sources": true,
+            "reapplication_preserved_bytes_and_ids": true,
+            "same_package_reapplication": true,
+            "scenario_exercised": true
+          },
+          "interruption": {
+            "broker_replaced_before_head": true,
+            "installer_daemon_interrupted": false,
+            "owned_child_only": true,
+            "power_failure_tested": false
+          },
+          "report": "AccountAccessComponentInstallerQA-3998934979487/report.json",
+          "root_revalidation_checks": null,
+          "sha256": "3c66ea7272edca0065ce58340b83ad21ce10f59e75d1c191563d4305662ec715"
+        }
+      ],
+      "scenario": "interrupt-broker",
+      "status": "PASSED"
+    },
+    {
+      "artifact_id": 12517844562,
+      "artifact_sha256": "312dfaeb70b5ca6d8a272365032a0cbf5a4814cd4435dc775d4441ae69990dcb",
+      "closed_installer_results": {
+        "repair-installer-daemon.log": [
+          {
+            "checkpoint": "migration",
+            "reason": "broker_repair_not_verified",
+            "status": "REFUSED"
+          }
+        ],
+        "repair-reapply-daemon.log": [
+          {
+            "checkpoint": "migration",
+            "reason": "broker_repair_not_verified",
+            "status": "REFUSED"
+          }
+        ]
+      },
+      "reports": [
+        {
+          "all_referenced_logs_hash_verified": true,
+          "checks": {
+            "actual_base_installer": true,
+            "actual_candidate_installer": true,
+            "base_public_image": true,
+            "candidate_expansion_matches_review": true,
+            "created_job_stopped": true,
+            "fresh_gui_closed": true,
+            "fresh_hosted_vm": true,
+            "genuine_signed_helper": true,
+            "only_three_policy_values_changed": true,
+            "reapplication_preserved_bytes_and_ids": true,
+            "reviewed_public_inputs": true,
+            "same_package_reapplication": true,
+            "target_public_image": true,
+            "unchanged_worker_plans_and_original_journal": true,
+            "verified_head": true
+          },
+          "foreign_binding_rollback": null,
+          "report": "AccountAccessComponentInstallerQA-39989349794/report.json",
+          "root_revalidation_checks": {
+            "actual_revalidation_installer": true,
+            "bounded_pending_receipt_recovered": true,
+            "exact_legacy_revalidation_no_receipt": true,
+            "genuine_signed_revalidation_helper": true,
+            "original_receipts_unchanged": true,
+            "protected_supplement_created": true,
+            "revalidation_after_component": true,
+            "revalidation_reapplication": true,
+            "reviewed_revalidation_input": true,
+            "supplement_preserved_by_component": true,
+            "synthetic_device_mismatch_same_inodes": true
+          },
+          "sha256": "cbc86edd1a8ab14e7fb15c0b47b554a2eaaf5f2415453e70666f5ff5eb7fd858"
+        },
+        {
+          "all_referenced_logs_hash_verified": true,
+          "checks": {
+            "actual_full_image_installer": true,
+            "completed_full_image": true,
+            "created_job_stopped": true,
+            "exact_repair_resources": true,
+            "expected_public_image": true,
+            "fictional_legacy_publication": true,
+            "fresh_predecessor_acceptance": true,
+            "native_signatures": true,
+            "original_metadata_preserved": true,
+            "pinned_assets_and_sources": true,
+            "reapplication_preserved_bytes_and_ids": true,
+            "same_package_reapplication": true,
+            "scenario_exercised": true
+          },
+          "foreign_binding_rollback": {
+            "applied_per_attempt": 5,
+            "head_published": false,
+            "restored_per_attempt": 5,
+            "verified_attempts": 2
+          },
+          "report": "AccountAccessComponentInstallerQA-3998934979487/report.json",
+          "root_revalidation_checks": null,
+          "sha256": "ebd097088ef723e50e4d1a8acc74b901275af95920c8673529bd4b6390dc2686"
+        }
+      ],
+      "scenario": "foreign-binding",
+      "status": "PASSED"
+    }
+  ],
+  "schema": 1,
+  "scope": "exact unsigned package actual Installer acceptance in fresh hosted ARM64 Macs",
+  "source_commit": "c4cf1b0918c1a51cbd4a38880364fcb71fa5980e",
+  "status": "PASSED",
+  "workflow_run_id": 39989349794,
+  "workflow_url": "https://github.com/fainir/account-access/actions/runs/39989349794"
+}

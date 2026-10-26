@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "recorded_utc": "2026-10-21T13:24:51.964377+00:00",
+  "base_commit": "cba1dfc3ad59e98a23d6993d7c6797f8ec933c81",
+  "change": "One explicit display-only SQLite snapshot for related owner status, challenges and permissions. Actual operation authority stays live. Invalid password-sync hints are rejected before password retrieval.",
+  "source_sha256": {
+    "account_access/broker.py": "111aad97f2049ebf84b86a4b90910da261953320a8541a9922b07c662c6cc4ad",
+    "account_access/owner.py": "c170d74ef308df445073a25b9f161400872eeb871b776e0a852c89a24698472c",
+    "account_access/password_import.py": "8adecf74ec1c6f81a503fdba4e7ad535bf7e3af93ed01a7cc198fae557f1b552",
+    "tests/test_owner_state_snapshot.py": "c87fc6b3b10fa987bc5e6a45bd78fe2de20583695943424a62d4f4623179610a"
+  },
+  "storage_py_sha256": "fc09d6a396ab328c37ea8eee69eb431cd81dd9469164eff352af9f41459889d3",
+  "storage_source_unchanged": true,
+  "validation": {
+    "new_regressions_failed_before_fix": 2,
+    "focused_checks_passed_after_fix": 56,
+    "controlled_mailbox_journey_before_and_after_exit_codes": [
+      0,
+      0
+    ],
+    "same_diagnostic_driver": true,
+    "database_opens_per_status_before": 52.645161290322584,
+    "database_opens_per_status_after": 30.342105263157894,
+    "observed_mean_seconds_before": 0.9323319947424968,
+    "observed_mean_seconds_after": 0.16471601215782453,
+    "timing_guarantee": false,
+    "earlier_two_http_timeouts_preserved": true,
+    "comparison_sha256": "b39c48628d81c1ec156023ef9bbd626b67ae81a38ed0f138433794cc111e0713"
+  },
+  "installed_or_private_operations": false,
+  "production_ready": false
+}

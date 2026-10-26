@@ -552,8 +552,8 @@ enum ComponentProcesses {
         }
     }
     static func requireQuiescent(brokerUID: uid_t) throws {
-        guard try listed(UInt32(PROC_UID_ONLY), brokerUID).isEmpty,
-              try atPath(InstallerPayloadManifest.support + "/bin/AccountAccess-broker").isEmpty,
+        try ComponentSystemProcessObserver.live(brokerUID: brokerUID).verify(brokerUID: brokerUID)
+        guard try atPath(InstallerPayloadManifest.support + "/bin/AccountAccess-broker").isEmpty,
               try atPath(InstallerPayloadManifest.support + "/bin/AccountAccess-bootstrap").isEmpty else {
             throw ComponentUpdateFailure.quiescence
         }

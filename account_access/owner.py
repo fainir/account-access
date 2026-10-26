@@ -214,14 +214,39 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                 from .account_context import aggregate, describe
                 config = broker.store.config()
                 accounts = []
-                for account, spec in config.accounts.items():
-                    accounts.append({"account": account, **describe(spec, test_mode=config.test_mode), "route": spec.kind,
-                                     **broker.connection_view(account, config),
-                                     "operations": [{"name": name, "description": op.description} for name, op in spec.operations.items()],
-                                     "challenges": [broker.challenge_view(x) for x in broker.store.pending(account)]})
                 with broker.store.db() as db:
+                    # Keep related status/permission fields coherent without
+                    # reopening SQLite for every account field. This snapshot
+                    # is only for display and ends before other setup helpers;
+                    # mutations and actual operations recheck live authority.
+                    db.execute("BEGIN")
+                    def record(key, default=None):
+                        row = db.execute("SELECT value FROM records WHERE id=?", (key,)).fetchone()
+                        return broker.store.unseal(key, row[0]) if row else default
+
+                    for account, spec in config.accounts.items():
+                        pending = [dict(row) for row in db.execute(
+                            "SELECT * FROM challenges WHERE account=? AND resolved IS NULL", (account,))]
+                        observed = (record("connection:" + account) or {},
+                                    record("credential:" + account) or {}, pending)
+                        from .browser_diagnostics import PREFIX, owner_view
+                        try:
+                            diagnostic = owner_view(config, account, pending, record(PREFIX + account))
+                        except AccessError:
+                            diagnostic = None  # Optional evidence cannot make owner state unavailable.
+                        challenges = [broker.challenge_view(item) for item in pending]
+                        if diagnostic:
+                            for item in challenges:
+                                if item["id"] == diagnostic["challenge_id"]:
+                                    item["diagnostics"] = diagnostic["diagnostics"]
+                        accounts.append({"account": account, **describe(spec, test_mode=config.test_mode), "route": spec.kind,
+                                         **broker.connection_view(account, config, display_snapshot=observed),
+                                         "operations": [{"name": name, "description": op.description} for name, op in spec.operations.items()],
+                                         "challenges": challenges})
                     principals = [r[0] for r in db.execute("SELECT DISTINCT principal FROM clients WHERE revoked=0")]
                     grants = [dict(r) for r in db.execute("SELECT * FROM grants")]
+                    integrations = record("agent-integrations", principals)
+                    automatic_sessions = record("session-integrations", {})
                     failures = db.execute("""
                         WITH checks AS (
                             SELECT account, MAX(id) AS id FROM audit
@@ -231,6 +256,18 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                         SELECT failure.account,failure.at,failure.reason FROM audit AS failure
                         LEFT JOIN checks ON checks.account=failure.account
                         WHERE failure.principal='service' AND failure.event='browser_navigation_failed'
+                          AND failure.id > COALESCE(checks.id,0)
+                        ORDER BY failure.id DESC LIMIT 100
+                    """).fetchall()
+                    execution_failures = db.execute("""
+                        WITH checks AS (
+                            SELECT account, MAX(id) AS id FROM audit
+                            WHERE principal='service' AND event='browser_check_started'
+                            GROUP BY account
+                        )
+                        SELECT failure.account,failure.at,failure.reason FROM audit AS failure
+                        LEFT JOIN checks ON checks.account=failure.account
+                        WHERE failure.principal='service' AND failure.event='browser_execution_failed'
                           AND failure.id > COALESCE(checks.id,0)
                         ORDER BY failure.id DESC LIMIT 100
                     """).fetchall()
@@ -252,6 +289,22 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                             item["route"] = route["reason"]
                         navigation_failures.append(item)
                         seen_failures.add(failure["account"])
+                execution_stages = {
+                    "playwright_start", "browser_launch", "context_create", "page_create",
+                    "page_navigation", "page_ready", "authentication_check", "login_transition",
+                    "login_flow", "result_read", "session_persist", "browser_close", "owner_review",
+                }
+                browser_execution_failures = []
+                seen_execution_failures = set()
+                for failure in execution_failures:
+                    if (failure["account"] in config.accounts
+                            and failure["account"] not in seen_execution_failures
+                            and failure["reason"] in execution_stages):
+                        browser_execution_failures.append({
+                            "account": failure["account"], "at": failure["at"],
+                            "stage": failure["reason"],
+                        })
+                        seen_execution_failures.add(failure["account"])
                 for item in accounts:
                     approved = {g["operation"] for g in grants if g["principal"] == "generic" and g["account"] == item["account"]
                         and g["fingerprint"] == config.fingerprint(item["account"])
@@ -263,10 +316,11 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                 state = {"accounts": accounts, "principals": principals, "grants": grants,
                          "local_host_actions": local_host_actions,
                          "background_recovery": broker.worker_health.view(),
-                         "integrations": broker.store.get("agent-integrations", principals),
-                         "automatic_sessions": broker.store.get("session-integrations", {}),
+                         "integrations": integrations,
+                         "automatic_sessions": automatic_sessions,
                          "connection_jobs": connection_jobs,
                          "navigation_failures": navigation_failures,
+                         "browser_execution_failures": browser_execution_failures,
                          "environment": aggregate(accounts, test_mode=config.test_mode)}
                 if not local_host_actions:
                     from .managed_client import view as managed_client
@@ -324,6 +378,9 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                             metadata = {}  # A concurrent configuration change invalidates editing.
                     else:
                         credential = broker.store.get("source:" + key)
+                    if source.kind == "gmail":
+                        from .mailbox_binding import metadata as mailbox_binding_metadata
+                        metadata = mailbox_binding_metadata(broker.store, key, config=config)
                     enrolled = (credential.get("enabled") is True if source.kind == "gmail"
                                 else credential.get("enabled") is not False) if isinstance(credential, dict) else False
                     source_views.append({"id": key, "kind": source.kind, **metadata,
@@ -332,7 +389,11 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                                           "mail_server": source.host,
                                           "mail_port": source.port,
                                           "recipient": source.recipient if source.kind in {"imap", "gmail"} else None,
-                                          "linked_mailbox": credential.get("mailbox") if isinstance(credential, dict) else None,
+                                          "sender": source.sender if source.kind in {"imap", "gmail"} else None,
+                                          "subject": source.subject if source.kind in {"imap", "gmail"} else None,
+                                          "linked_mailbox": ((credential.get("gmail_mailbox") if source.kind == "gmail"
+                                                               else credential.get("mailbox"))
+                                                              if isinstance(credential, dict) else None),
                                           "connection_check": mailbox_health(broker.store, key),
                                           "enrolled": bool(credential) and enrolled,
                                           "accounts": [key2 for key2, spec in config.accounts.items()
@@ -617,13 +678,14 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                     with broker.store.db() as db:
                         installed = {r[0] for r in db.execute("SELECT DISTINCT principal FROM clients WHERE revoked=0")}
                     agents = data.get("agents", sorted(installed))
-                    if (set(data) not in [{"service", "username", "password", "agents"},
-                                         {"service", "username", "password"}]
-                            or not isinstance(service, str) or service not in entries()
+                    spec = entries().get(service) if isinstance(service, str) else None
+                    fields = spec.login.credential_fields() if spec and spec.login else ()
+                    credential = {key: data.get(key) for key in fields}
+                    if (not spec or not fields
+                            or set(data) not in [set(fields) | {"service", "agents"}, set(fields) | {"service"}]
                             or not isinstance(agents, list) or not 1 <= len(agents) <= 32
                             or any(x not in installed for x in agents)
-                            or any(not isinstance(data[x], str) or not 0 < len(data[x]) <= 4096
-                                   for x in ["username", "password"])):
+                            or not spec.login.credential_ready(credential)):
                         raise ValueError()
                     if not set(agents) <= installed:
                         raise AccessError("DENIED", "install_your_agent_first")
@@ -631,8 +693,7 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                     try:
                         add(broker.store, service)
                         with broker.store.lock("account:" + service):
-                            broker.store.put("credential:" + service,
-                                             {"username": data["username"], "password": data["password"]})
+                            broker.store.put("credential:" + service, credential)
                         for agent in sorted(set(agents)):
                             broker.grant(agent, service, list(broker.store.config().accounts[service].operations))
                     except Exception:
@@ -702,7 +763,15 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                     if isinstance(config.accounts[account], OAuthAccount):
                         value = {"client_secret": data["client_secret"]}
                     else:
-                        value = {"username": data["username"], "password": data["password"]}
+                        form = config.accounts[account].login
+                        if form and form.identity_contact:
+                            if set(data) != {"account", "identity", "phone"}:
+                                raise ValueError()
+                            value = {key: data[key] for key in form.credential_fields()}
+                            if not form.credential_ready(value):
+                                raise ValueError()
+                        else:
+                            value = {"username": data["username"], "password": data["password"]}
                     if not all(isinstance(v, str) and 0 < len(v) <= 4096 for v in value.values()):
                         raise ValueError()
                     with broker.store.lock("account:" + account):
@@ -730,7 +799,7 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                             # Saving a credential is not verified login and
                             # cannot clear presence, CAPTCHA, unknown-page or
                             # transaction challenges or restart their tasks.
-                            db.execute("UPDATE challenges SET resolved=? WHERE account=? AND resolved IS NULL AND kind='login' AND reason IN ('password_not_connected','browser_login_required','client_secret_not_configured')",
+                            db.execute("UPDATE challenges SET resolved=? WHERE account=? AND resolved IS NULL AND kind='login' AND reason IN ('password_not_connected','identity_contact_not_connected','browser_login_required','client_secret_not_configured')",
                                        (time.time(), account))
                     self.send(200, {"status": "SAVED"})
                 elif self.path == "/owner/connect":

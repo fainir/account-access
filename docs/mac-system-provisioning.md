@@ -127,13 +127,21 @@ matching broker/bootstrap executables, a standalone Python 3.12 distribution,
 a binary wheelhouse and the matching browser runtime. The wheel in the owner
 app must match its signed hash. The runtime dependency hash lock comes from that
 wheel. The current binary runtime requires Apple silicon and macOS 14 or later.
+Consumer inspection and assembly also require `--pip-wheel` pointing to the
+exact official `pip-26.2.2-py3-none-any.whl` pinned by `macos/runtime_ca.py`.
+Only fresh private copies of the reviewed Python profile are changed: active
+pip and the ensurepip seed both receive the upstream CA fix before signing.
+The generated runtime is checked again for the same refreshed bytes. Pip and
+ensurepip are never executed for this transformation; source inputs and any
+installed runtime remain untouched. This does not audit other trust stores.
 The assembler refuses Intel before opening supplied payload paths: the pinned
 cryptography release has no Intel Mac wheel. Native universal builds do not
 establish a usable Intel runtime, and source compilation is not an installer
 fallback. See the [upstream removal](https://cryptography.io/en/50.0.2/changelog/#v49-0-0).
 
-Build the owner variant with `ACCOUNT_ACCESS_SYSTEM_INSTALL=1` when invoking
-`macos/build.sh`. Its signed bundle requires protected registration, including
+Build the owner variant with `ACCOUNT_ACCESS_SYSTEM_INSTALL=1` and an explicit
+`ACCOUNT_ACCESS_MAC_BUILD` decimal number greater than historical build 76 when
+invoking `macos/build.sh` (for example, `ACCOUNT_ACCESS_MAC_BUILD=77`). Its signed bundle requires protected registration, including
 when that registration is missing; it cannot fall back to legacy credential
 storage after an incomplete system installation.
 

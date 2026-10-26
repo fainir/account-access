@@ -2,6 +2,18 @@
 
 This is a native installer and owner interface for macOS 14 (Sonoma) or later.
 
+**Current owner-Mac status (25 October):** runtime package 95 installed and
+restarted successfully; its public image and aliases match the reviewed target.
+One personal Chrome credential was imported locally. The app's AI-connection
+upgrade failed after the owner approved macOS authorization, and the installed
+agent launcher returned `RETRYABLE/service_unavailable` during account
+discovery without returning account metadata. The installed owner app remains
+bundle version 92. Diagnostic package 101 passed all seven actual Installer
+scenarios but is still uninstalled on this Mac; its outer package is unsigned
+and unnotarized. Harel/Phoenix SMS, Lemon Squeezy authenticator, real website
+email verification and physical-phone delivery remain unverified. See
+[current acceptance](../docs/production-gates.md).
+
 Consumer package builds also require the pinned Bitwarden OSS npm CLI and its
 reviewed corresponding-source release asset. Add these maintainer arguments to
 `python -m macos.system_package`:
@@ -11,6 +23,15 @@ reviewed corresponding-source release asset. Add these maintainer arguments to
 --bitwarden-sources /absolute/path/to/account-access-bitwarden-2026.10.0-corresponding-source.tar.gz \
 --bitwarden-source-sha256 REVIEWED_SOURCE_SHA256
 ```
+
+For both runtime inspection and final assembly, also supply
+`--pip-wheel /absolute/path/to/pip-26.2.2-py3-none-any.whl`. Its exact upstream
+SHA256 is `fd7f4dfa8190e014013b9f08f3e973f4e4c26ffd179a204895533a7254813a70`.
+The maintainer assembler refreshes the reviewed Python input's active pip and
+ensurepip seed in its private copies before signing-plan generation. It checks
+the bundled CA certificates as data and never runs pip or ensurepip. Source
+inputs remain unchanged. Unknown input profiles are refused; this is not an
+installed-runtime repair or an audit of OS or embedded native trust stores.
 
 Prepare the source asset with `python -m macos.bitwarden_sources --output NEW_DIRECTORY`.
 Both assets are verified and staged before runtime inspection/signing. The
@@ -138,7 +159,7 @@ and private sign-in acceptance remain open.
 
 ```sh
 uv build
-sh macos/build.sh
+ACCOUNT_ACCESS_MAC_BUILD=77 sh macos/build.sh
 ```
 
 For Developer ID signing, set `ACCOUNT_ACCESS_SIGNING_IDENTITY` to your own certificate name before building. The app and ZIP are written to `dist/macos/`.
@@ -167,7 +188,15 @@ remain separate acceptance gates.
 
 The 0.8 candidate adds **Repair installation…** to the app menu. Installation explicitly stops and restarts the background service after replacing the package, including a repair with an unchanged version number. Credentials, grants and task checkpoints are preserved. The candidate also includes local Authenticator transfer-QR selection for browser verification. These are not evidence of completed physical-device or private mailbox QA; see [production acceptance](../docs/production-gates.md).
 
-Public Mac distribution needs Apple notarization as well as signing. The current recorded build is Developer ID signed and works locally; notarization remains pending because the configured Xcode account could not authenticate. A public preview download can therefore be blocked by Gatekeeper. The recording demonstrates the actual graphical build, rather than the older `.command` launcher.
+Public Mac distribution needs a signed installer package and Apple
+notarization. The application identity is present locally, but a fresh identity
+inventory found no Developer ID Installer identity; package 101's outer
+package is unsigned. No live notarization or stapling has been completed. Apple
+uses Developer ID Application to sign apps and Developer ID Installer to sign
+packages distributed outside the Mac App Store
+([certificate overview](https://developer.apple.com/help/account/certificates/certificates-overview/)).
+A public download is not ready for release. The recording demonstrates the
+graphical app build, not a notarized consumer installer.
 
 ## Maintainer notarization
 
