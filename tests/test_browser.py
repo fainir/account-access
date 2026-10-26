@@ -178,12 +178,13 @@ def test_browser_runtime_error_exposes_only_fixed_stage_to_owner(env, monkeypatc
 
     import httpx2 as httpx
     import pytest
-    from playwright.sync_api import BrowserType, Error as PlaywrightError
+    from playwright.sync_api import BrowserType, Error as PlaywrightError, sync_playwright
     from account_access.errors import AccessError
     from account_access.owner import make_owner_server
 
     _, broker, _ = env
     secret = "fictional-private-browser-error-token"
+    original_launch = BrowserType.launch
 
     def fail_launch(browser_type, **kwargs):
         raise PlaywrightError("https://private.example/path?token=" + secret)
@@ -200,7 +201,7 @@ def test_browser_runtime_error_exposes_only_fixed_stage_to_owner(env, monkeypatc
     assert not any(event["event"] == "browser_execution_failed"
                    for event in broker.audit("test")["events"])
 
-    server, owner_token = make_owner_server(broker, guided=True)
+    server, owner_token = make_owner_server(broker, guided=True, local_host_actions=False)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     base = f"http://127.0.0.1:{server.server_port}"
@@ -215,6 +216,16 @@ def test_browser_runtime_error_exposes_only_fixed_stage_to_owner(env, monkeypatc
         assert state["browser_execution_failures"][0]["account"] == "demo-web"
         assert secret not in json.dumps(state)
         assert "private.example" not in json.dumps(state)
+        monkeypatch.setattr(BrowserType, "launch", original_launch)
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.goto(base + "/#" + owner_token, wait_until="domcontentloaded")
+            page.get_by_text(
+                "Last browser check stopped while starting the browser. Select Review access to retry.",
+                exact=True,
+            ).wait_for(timeout=5000)
+            browser.close()
     finally:
         server.shutdown()
         server.server_close()
