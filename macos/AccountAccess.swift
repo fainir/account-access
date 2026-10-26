@@ -318,6 +318,22 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     static func isLive(_ account: [String: Any], fallback: String? = nil) -> Bool {
         effectiveEnvironment(account, fallback: fallback) == "live"
     }
+    static func verificationEnvironment(_ source: [String: Any], accounts: [[String: Any]], fallback: String? = nil) -> String {
+        let linked = source["accounts"] as? [String] ?? []
+        guard !linked.isEmpty else {
+            if let fallback, ["live", "controlled-demo", "public-example"].contains(fallback) { return fallback }
+            return "unclassified"
+        }
+        var environments: [String] = []
+        for id in linked {
+            guard let account = accounts.first(where: { $0["account"] as? String == id }) else { return "unclassified" }
+            environments.append(effectiveEnvironment(account, fallback: fallback))
+        }
+        guard let first = environments.first, first != "unclassified", environments.allSatisfy({ $0 == first }) else {
+            return "unclassified"
+        }
+        return first
+    }
     static func isReady(_ account: [String: Any]) -> Bool {
         account["connected"] as? Bool == true && account["portable_ready"] as? Bool != false
             && (account["challenges"] as? [[String: Any]] ?? []).isEmpty
@@ -2287,10 +2303,15 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             guard let id = mailbox["id"] as? String else { continue }
             let check = mailbox["connection_check"] as? [String: Any] ?? [:]
             let checked = check["status"] as? String == "VERIFIED"
+            let example = serviceEnvironment == "controlled-demo" || mailbox["host"] as? String == "127.0.0.1"
             let panel = card((mailbox["label"] as? String ?? "Email") + " · " + (mailbox["username"] as? String ?? ""),
                              checked ? "Email access passed its last check. Connect a supported website to use its login codes."
                              : "Setup is saved. Check the address and app password, then check this connection.",
-                             status: checked ? "Mailbox connection checked" : "Setup saved", good: checked)
+                             status: example ? "Example mailbox" : checked ? "Mailbox connection checked" : "Setup saved",
+                             good: checked && !example)
+            if example {
+                panel.addArrangedSubview(NSTextField(wrappingLabelWithString: "Controlled test mailbox. This is not a real email connection."))
+            }
             for (title, selector) in [("Check connection", #selector(checkSavedMailbox(_:))),
                                       ("Update app password", #selector(editMailboxPassword(_:))),
                                       ("Disconnect mailbox", #selector(disconnectMailbox(_:)))] {
@@ -2322,7 +2343,10 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         factorMenu = NSPopUpButton()
         for source in sources {
             let linked = (source["accounts"] as? [String] ?? []).map { id in accounts.first { $0["account"] as? String == id }?["label"] as? String ?? id }
-            let label = factorName(source["kind"] as? String ?? "") + " · " + linked.joined(separator: ", ")
+            let environment = Self.verificationEnvironment(source, accounts: accounts, fallback: serviceEnvironment)
+            let suffix = ["controlled-demo", "public-example"].contains(environment) ? " · Example"
+                : environment == "unclassified" ? " · Source unverified" : ""
+            let label = factorName(source["kind"] as? String ?? "") + " · " + linked.joined(separator: ", ") + suffix
             factorMenu.addItem(withTitle: label)
             factorMenu.lastItem?.representedObject = source
         }
@@ -2351,10 +2375,16 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             guard let account = setup["account"] as? String else { continue }
             let connected = setup["connected"] as? Bool == true
             let configured = setup["configured"] as? Bool ?? connected
+            let source = accounts.first { $0["account"] as? String == account } ?? [:]
+            let example = Self.isExample(source, fallback: serviceEnvironment)
             let panel = card((setup["label"] as? String ?? "PyPI") + " · Device confirmation email",
                 connected ? "Email connection saved. Fresh matching PyPI device emails are handled locally during sign-in. Delivery is checked during an actual login."
                 : "Use a mailbox you already connected and checked. Account Access can handle fresh PyPI device-confirmation emails without asking you to copy a link.",
-                status: connected ? "Setup saved · delivery unverified" : configured ? "Email connection needs attention" : "One-time setup", good: false)
+                status: example ? "Example setup · delivery unverified"
+                    : connected ? "Setup saved · delivery unverified" : configured ? "Email connection needs attention" : "One-time setup", good: false)
+            if example {
+                panel.addArrangedSubview(NSTextField(wrappingLabelWithString: "Example email setup. This does not verify delivery to a personal mailbox."))
+            }
             if configured {
                 let disconnect = NSButton(title: "Disconnect device email", target: self, action: #selector(disconnectDeviceEmail))
                 disconnect.identifier = NSUserInterfaceItemIdentifier(account)
@@ -2983,6 +3013,12 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         factorMailboxMenu = nil
         let source = factorMenu.selectedItem?.representedObject as? [String: Any] ?? [:]
         let kind = source["kind"] as? String ?? ""
+        let sourceEnvironment = Self.verificationEnvironment(source, accounts: accounts, fallback: serviceEnvironment)
+        if ["controlled-demo", "public-example"].contains(sourceEnvironment) {
+            label("Example verification source. This does not verify real email, SMS or authenticator access.", 14, .secondaryLabelColor)
+        } else if sourceEnvironment == "unclassified" {
+            label("Verification source could not be linked to a verified service. This does not establish personal-account access.", 14, .secondaryLabelColor)
+        }
         let email = ["imap", "gmail"].contains(kind)
         let connectionCheck = source["connection_check"] as? [String: Any] ?? [:]
         let checked = connectionCheck["status"] as? String == "VERIFIED"

@@ -714,6 +714,9 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         precondition(views.compactMap { ($0 as? NSTextField)?.stringValue }.contains("Example connected"))
         owner.serviceEnvironment = "controlled-demo"
         owner.accounts = [["account": "legacy-example", "label": "Legacy fixture", "connected": true, "portable_ready": true]]
+        let legacyAuthenticator = ["kind": "totp", "accounts": ["legacy-example"]] as [String: Any]
+        precondition(AccountAccess.verificationEnvironment(legacyAuthenticator, accounts: owner.accounts,
+                                                           fallback: owner.serviceEnvironment) == "controlled-demo")
         precondition(owner.requestText.contains("example accounts"))
         owner.ready()
         views = descendants(owner.stack)
@@ -723,6 +726,8 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         precondition(inheritedExampleText.contains("Example connection. These results do not validate access to a personal account."))
         owner.serviceEnvironment = "mixed"
         precondition(AccountAccess.effectiveEnvironment(owner.accounts[0], fallback: owner.serviceEnvironment) == "unclassified")
+        precondition(AccountAccess.verificationEnvironment(legacyAuthenticator, accounts: owner.accounts,
+                                                           fallback: owner.serviceEnvironment) == "unclassified")
         precondition(!owner.requestText.contains("connected services") && !owner.requestText.contains("example accounts"))
         owner.ready()
         views = descendants(owner.stack)
