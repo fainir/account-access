@@ -195,7 +195,8 @@ extension ComponentController {
             let projected = try ownerProjection(source: source, intent: preliminary, files: retained, routes: routes)
             proof = try completedRuntimeUpgradeLocked(resources: predecessorResources, pins: runtimePins,
                 repairPins: repairPins, predecessorPins: predecessorPins,
-                expectedEvidenceSHA256: preliminary.predecessorEvidenceSHA256, projection: projected)
+                expectedEvidenceSHA256: preliminary.predecessorEvidenceSHA256, projection: projected,
+                checkpoint: checkpoint)
         } else {
             proof = try completedRuntimeUpgradeLocked(resources: predecessorResources, pins: runtimePins,
                 repairPins: repairPins, predecessorPins: predecessorPins, checkpoint: checkpoint)
