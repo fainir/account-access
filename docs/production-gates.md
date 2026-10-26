@@ -24,8 +24,10 @@ text, URLs and tokens are not recorded or returned. A synthetic launch-failure
 test verified the stage is visible to the owner and hidden from the agent. The
 changed source has not been installed on the owner Mac, so it has not diagnosed
 or repaired the installed browser failure. Local integration regression passed
-117 tests across browser, guided setup, Chrome export import, authenticator UI,
-SMS setup and Gmail/OAuth; hosted CI for this change is pending.
+212 tests across browser and guided setup, Chrome CSV/Bitwarden and authenticator
+imports, authenticator UI, SMS setup, Gmail/OAuth, and the synthetic email/SMS/
+TOTP verification journey. The owner UI renders the sanitized launch stage in a
+browser test. Hosted CI for the current source is pending.
 
 The Chrome import preview opened the bundled Quickstart export, containing four
 `demo@example.test` localhost accounts. No personal password was imported. The
