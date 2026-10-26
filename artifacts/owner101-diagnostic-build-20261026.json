@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "date": "2026-10-26",
+  "status": "BUILT_PENDING_INSTALLER_QA",
+  "controller_source": "bc7cabbfa116c38a3634ceb6e30fe195c8e18276",
+  "application_source": "6736a20f8ed20d9188380b83b808ec9e380df501",
+  "package_identifier": "com.fainir.accountaccess.ownerupgrade101",
+  "package_version": "0.1.0",
+  "package_sha256": "96bf7e449ed9d79649d59628bd33a23858d2188ea214b046390f5b880d380835",
+  "package_bytes": 13705986,
+  "package_signature": "none",
+  "notarized": false,
+  "helper_sha256": "42d2f40932d26e8de7764de0094b20e8b0af7f9d953d39d4814e22caecb0102b",
+  "helper_signature_verified": true,
+  "helper_target": {
+    "architecture": "arm64",
+    "platform": "macos",
+    "minimum_macos": "14.0",
+    "sdk": "27.0"
+  },
+  "package_inventory_verified_after_independent_expansion": true,
+  "ordinary_user_entrypoint_refusal_verified": true,
+  "postinstall_action": "none",
+  "qa": {
+    "workflow_run_id": 40308592513,
+    "workflow_commit": "33319360688b8f5106a2e72d487a012dccd29b25",
+    "native_gateway_artifact_id": 12643718654,
+    "native_gateway_artifact_sha256": "cad88eb75e676711c9f6bc9c457f1911c9957fbda35f096ff6e4c99066d8176f",
+    "native_owner_upgrade_artifact_id": 12644003442,
+    "native_owner_upgrade_artifact_sha256": "81cfe2eb978403bb895f0d243fd2163d8e5bae406a90d116cf83f500cd45d32b",
+    "local_owner_checks": [32, 26, 21, 477, 324],
+    "source_ci_passed": true,
+    "hosted_installer_acceptance_for_this_rebuild": false
+  },
+  "owner_mac_installed": false,
+  "owner_mac_predecessor_stage_diagnostic_observed": false,
+  "personal_account_login_verified": false,
+  "production_ready": false
+}

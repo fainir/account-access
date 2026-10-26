@@ -298,6 +298,18 @@ On 26 October, the owner Mac's attempted package 101 install reached the native
 helper and refused with `owner_upgrade_transition_conflict` at `predecessor`.
 The package receipt is absent, the installed owner remains version 92, and its
 code signature still verifies. See [owner-machine refusal evidence](../artifacts/owner101-owner-mac-install-refusal-20261026.json).
+On the same date, the standard builder rebuilt the diagnostic helper from
+controller source `bc7cabb` with finer predecessor checkpoints. The helper
+signature, ordinary-user refusal, package inventory, and independent package
+expansion passed; the owner checks passed 32, 26, 21, 477, and 324 assertions.
+The exact current source CI reports were downloaded from run `40308592513` and
+their archive hashes verified. This rebuild changes diagnostic checkpoints,
+not the transition logic, and has not yet been accepted by Installer on a host.
+The 13,705,986-byte package SHA-256 is
+`96bf7e449ed9d79649d59628bd33a23858d2188ea214b046390f5b880d380835`.
+`pkgutil --check-signature` reports no package signature; it is not notarized.
+It remains a local diagnostic candidate, not a release installer.
+[Diagnostic build record](../artifacts/owner101-diagnostic-build-20261026.json).
 The seven disposable-Mac passes did not cover this existing owner state, so
 they do not qualify package 101 for upgrade or establish production readiness.
 The local signing inventory contains one Developer ID Application identity but
