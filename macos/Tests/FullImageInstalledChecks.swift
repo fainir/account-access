@@ -247,6 +247,12 @@ private enum InstalledFixtureFailure: Error { case failed }
             try expect(completedContextRefused)
             let progressCases = BrokerRepairCheckpoint.allCases.map { BrokerRepairProgressCheckpoint.repair($0) }
                 + FullImageInstallCheckpoint.allCases.map { BrokerRepairProgressCheckpoint.predecessor($0) }
+            let fullImageCheckpoints = FullImageInstallCheckpoint.allCases.map(\.rawValue)
+            try expect(Set(fullImageCheckpoints).count == fullImageCheckpoints.count)
+            try expect(["predecessor_runtime_source", "predecessor_repair_source", "predecessor_namespace",
+                        "predecessor_intent", "predecessor_repair_history", "predecessor_authority",
+                        "predecessor_policy", "predecessor_storage", "predecessor_view",
+                        "predecessor_evidence"].allSatisfy { fullImageCheckpoints.contains($0) })
             for category in progressCases {
                 for elapsed in [0.0, 1800.9, 86400.0] {
                     let text = BrokerRepairProgress.encoded(category, elapsed: elapsed)!

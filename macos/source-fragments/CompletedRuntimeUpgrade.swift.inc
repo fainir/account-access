@@ -49,11 +49,14 @@ extension ComponentController {
     // can only revalidate the exact digest in its protected existing intent.
     private static func completedRuntimeUpgradeLocked(resources: Int32, pins: RuntimeUpgradeSource.Pins,
             repairPins: BrokerRepairSource.Pins, predecessorPins: FullImageSourcePins,
-            expectedEvidenceSHA256: String? = nil, projection: RuntimeSuccessorProjection? = nil) throws -> CompletedRuntimeUpgradeProof {
+            expectedEvidenceSHA256: String? = nil, projection: RuntimeSuccessorProjection? = nil,
+            checkpoint: (FullImageInstallCheckpoint) -> Void = { _ in }) throws -> CompletedRuntimeUpgradeProof {
         guard getuid() == 0, geteuid() == 0 else { throw ComponentUpdateFailure.context }
         guard (projection == nil) == (expectedEvidenceSHA256 == nil),
               expectedEvidenceSHA256.map({ FullImageJSON.hex($0) }) ?? true else { throw FullImageFailure.predecessor }
+        checkpoint(.predecessorRuntimeSource)
         let source = try runtimeSource(resources, pins: pins)
+        checkpoint(.predecessorRepairSource)
         let previous = try fullResourceDirectory(resources, "Predecessor"); defer { Darwin.close(previous) }
         let predecessor = try repairSource(previous, pins: repairPins)
         guard pins.repairPlan == repairPins.planSHA256, pins.repairSource == repairPins.sourceCommit,
@@ -64,6 +67,7 @@ extension ComponentController {
         try ComponentProcesses.requireOwnerClosed()
         let original = try directory(oldJournal, mode: 0o700); defer { Darwin.close(original) }
         try originalReceipt(original, ownerUID: ownerUID)
+        checkpoint(.predecessorNamespace)
         let routes = try FullImageInstalledRoutes.installed(kind: .runtimeUpgrade)
         let support = try routes.support(), namespace = try routes.namespace()
         let beforeGroup = support.identity.group
@@ -72,6 +76,7 @@ extension ComponentController {
         guard names.contains("head.json"), names.contains("transition-" + pins.planSHA256),
               names.count == orphanCount + 2 else { throw FullImageFailure.predecessor }
         let global = try routes.globalJournal(plan: pins.planSHA256), files = try routes.files(plan: pins.planSHA256)
+        checkpoint(.predecessorIntent)
         let intent = try FullImageGlobalJournal.readIntent(directory: global.fd, owner: 0, group: 0, beforeGroup: beforeGroup,
             validateIntent: { try fullPreliminary($0, source: source, ownerUID: ownerUID) }, verifyAttachment: global.verify)
         let projectedFiles: Set<FullImageFileUnit> = [.packageIdentity, .hostPolicy, .ownerPolicy, .installRecord]
@@ -97,15 +102,18 @@ extension ComponentController {
             }
             return try fileStorage(unit).originalObservation()
         }
+        checkpoint(.predecessorRepairHistory)
         let proof = try completedBrokerRepairLocked(resources: previous, pins: repairPins,
             predecessorPins: predecessorPins, expectedEvidenceSHA256: intent.predecessorEvidenceSHA256,
             historical: originalFile)
+        checkpoint(.predecessorAuthority)
         let authority = try RuntimeUpgradeAuthority.bind(source: source, proof: proof)
         guard authority.ownerUID == ownerUID else { throw FullImageFailure.predecessor }
         try identity(ownerUID, authority.brokerUID)
         let worker = try publicRead("broker/worker.json", mode: 0o644), service = try jobPlist(ownerGroup: ownerGroup)
         guard worker.1 == authority.workerPolicy, service == authority.servicePlist,
               intent.workerPolicy == worker.1, intent.servicePlist == service else { throw FullImageFailure.object }
+        checkpoint(.predecessorPolicy)
         let policy = try runtimePolicy(source: source, predecessor: predecessor,
             install: originalFile(.installRecord).0, host: originalFile(.hostPolicy).0,
             profile: originalFile(.ownerPolicy).0, worker: worker.0, ownerUID: ownerUID)
@@ -150,6 +158,7 @@ extension ComponentController {
         }
         let storage = try FullImageMixedStorage(units: units,
             writeEvent: { _, _ in throw FullImageFailure.journal }, verifyOld: {}, verifyRecoverable: {}, verifyNew: {})
+        checkpoint(.predecessorStorage)
         try intent.verifyStorage(storage)
         func completeView() throws {
             try unchanged()
@@ -166,11 +175,13 @@ extension ComponentController {
             _ = try InstallerPayloadIO.verifyApplicationAlias(from: root, owner: 0)
             try unchanged()
         }
+        checkpoint(.predecessorView)
         try completeView()
         let localHistory = try trees.map { FullImageJSON.hash(try $0.completedEvidence()) }
         let head = try ComponentFiles.read(namespace.fd, "head.json", owner: 0, mode: 0o644)
         guard head.1 == intent.operations.last?.file?.after else { throw FullImageFailure.predecessor }
         let roots = try InstallationRootBinding.capture(withVolumeUUID: true)
+        checkpoint(.predecessorEvidence)
         let evidence = try FullImageJSON.encode(["schema": 1,
             "managed_by": "account-access-completed-runtime-upgrade-v1", "plan_sha256": pins.planSHA256,
             "manifest_sha256": source.after.sha256, "source_commit": pins.targetSource,

@@ -4,6 +4,16 @@
 // remain private and their predicates are reused unchanged. No main is added.
 enum FullImageInstallCheckpoint: String, CaseIterable {
     case source, payload, context, predecessor, preparation, journal, transition, complete
+    case predecessorRuntimeSource = "predecessor_runtime_source"
+    case predecessorRepairSource = "predecessor_repair_source"
+    case predecessorNamespace = "predecessor_namespace"
+    case predecessorIntent = "predecessor_intent"
+    case predecessorRepairHistory = "predecessor_repair_history"
+    case predecessorAuthority = "predecessor_authority"
+    case predecessorPolicy = "predecessor_policy"
+    case predecessorStorage = "predecessor_storage"
+    case predecessorView = "predecessor_view"
+    case predecessorEvidence = "predecessor_evidence"
     case preparationCapacity = "preparation_capacity", preparationPolicy = "preparation_policy"
     case preparationDynamic = "preparation_dynamic", preparationBegin = "preparation_begin"
     case preparationFileStage = "preparation_file_stage", preparationTreeStage = "preparation_tree_stage"

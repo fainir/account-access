@@ -249,6 +249,12 @@ tests do not simulate installer-daemon interruption, power loss or an OS
 restart. Package 101 remains uninstalled on the owner Mac. The outer package
 has no signature and is not notarized; this is still a private QA draft, not a
 production installer.
+On 26 October, the owner Mac's attempted package 101 install reached the native
+helper and refused with `owner_upgrade_transition_conflict` at `predecessor`.
+The package receipt is absent, the installed owner remains version 92, and its
+code signature still verifies. See [owner-machine refusal evidence](../artifacts/owner101-owner-mac-install-refusal-20261026.json).
+The seven disposable-Mac passes did not cover this existing owner state, so
+they do not qualify package 101 for upgrade or establish production readiness.
 The local signing inventory contains one Developer ID Application identity but
 no Developer ID Installer identity, which Apple requires for a signed package.
 No notarization submission or stapling has been made. The signing pipeline is

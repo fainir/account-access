@@ -198,7 +198,7 @@ extension ComponentController {
                 expectedEvidenceSHA256: preliminary.predecessorEvidenceSHA256, projection: projected)
         } else {
             proof = try completedRuntimeUpgradeLocked(resources: predecessorResources, pins: runtimePins,
-                repairPins: repairPins, predecessorPins: predecessorPins)
+                repairPins: repairPins, predecessorPins: predecessorPins, checkpoint: checkpoint)
         }
         let authority = try OwnerUpgradeAuthority.bind(source: source, proof: proof, runtimePins: runtimePins)
         guard authority.ownerUID == ownerUID else { throw FullImageFailure.predecessor }
