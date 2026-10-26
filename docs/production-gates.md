@@ -9,14 +9,13 @@ they do not establish personal-account or physical-phone acceptance.
 
 ## Owner Mac acceptance after approval
 
-The owner approved the native macOS prompt on 26 October. The installed owner
-app still displays **The AI connection could not finish**. The approved agent
-launcher now responds, but identifies its environment as `controlled-demo` and
-returns only synthetic example accounts; it does not expose Harel, Phoenix or
-Lemon Squeezy. Repeated attempts to read a permitted synthetic account returned
-`RETRYABLE/browser_execution_failed`. This confirms that the approval reached
-the local service, but it does not establish a working AI connection or
-personal-account access.
+After the owner approved the native macOS prompt on 26 October, the installed
+app opened its Accounts screen. It lists three connected synthetic accounts
+across five entries. The approved agent launcher responds, but identifies its
+environment as `controlled-demo`; it does not expose Harel, Phoenix or Lemon
+Squeezy. Its permitted `demo-web summary` read returned
+`RETRYABLE/browser_execution_failed`. Account enumeration therefore works, but
+the browser operation and all personal-account access remain unverified.
 
 The Chrome import preview opened the bundled Quickstart export, containing four
 `demo@example.test` localhost accounts. No personal password was imported. The
@@ -28,8 +27,10 @@ assertion total: ten newly pinned predecessor checkpoints add 30 progress cases,
 and the fixture adds two checkpoint-list assertions. The guard and inert report
 fixture now expect 465; the probe passes locally and still reports
 `production_ready: false`. Focused Python contract checks also pass (31 tests).
-Hosted regression and native checks for this correction remain necessary. None
-of these automated checks changes the production readiness decision.
+On commit `1f9d7ea`, the hosted gateway, owner UI, owner upgrade, ordinary
+contracts, Android 11/15 emulator and Installer-context checks passed. The full
+Python regression remains in progress, and the Mac cross-user job is queued.
+None of these automated checks changes the production readiness decision.
 
 ## Current Mac recovery
 
