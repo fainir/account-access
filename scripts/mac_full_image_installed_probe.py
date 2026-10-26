@@ -77,7 +77,7 @@ EXACT_INPUTS = {
     'macos/Tests/BrokerRepairSourceChecks.swift': 'ad6def26f6519fdc3d3b4f829ccb79b6c4134a7622983e64aabca3f14c6bb5ac',
     'macos/Tests/CombinedPredecessorAuthorityChecks.swift': '16d1921b6edc83654e46d1084ff9a3eaa904506ba0e7c04aa605c538882ee67c',
     'macos/Tests/FullImageGlobalJournalChecks.swift': '1887f7b48b7be3d2b30d89fac01f746ca374208dd0a53af0a7e086ff5ab022d8',
-    'macos/Tests/FullImageInstalledChecks.swift': '889c80368890cded24c3410153cea24555b7584159484e5df8f7079e4b603d0b',
+    'macos/Tests/FullImageInstalledChecks.swift': '7d2537ebb8b736aff4bea07b6947198bcabffe76f137169982c4ec5c8632b0cf',
     'macos/Tests/FullImageInstalledSourceFixture.swift': '7c448f2ee2339735a9e0ac11e151ef135998143b20979f3ad963a4e747658ba4',
     'macos/Tests/FullImageLegacyGroupChecks.swift': '783c7166faf8844feb90dfe1c35c8a5364bb0c8328a2538ff6ab337bc5ee0992',
     'macos/Tests/FullImageNamespaceChecks.swift': '86a7cdc1063f8bcb497b0decc5dcc3025f8639f3f2c9d0de5e72945fdca7be92',
