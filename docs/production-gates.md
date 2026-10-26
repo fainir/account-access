@@ -28,7 +28,14 @@ tests across browser and guided setup; Chrome CSV, Bitwarden and authenticator
 imports; authenticator UI; SMS setup; Gmail/OAuth; the synthetic email/SMS/TOTP
 verification journey; install service; runtime preparation; and fresh-image
 installer acceptance. The owner UI renders the sanitized launch stage in a
-browser test. Hosted CI for the current source is pending.
+browser test. Hosted source CI on commit `3331936` passed the full Python suite
+and the native owner gateway, owner upgrade and owner UI checks in [run
+40308592513](https://github.com/fainir/account-access/actions/runs/40308592513).
+The Android 11 and Android 15 emulator journeys passed in [run
+40308592563](https://github.com/fainir/account-access/actions/runs/40308592563),
+and the separate-user worker acceptance passed in [run
+40308592589](https://github.com/fainir/account-access/actions/runs/40308592589).
+These automated checks do not change the production readiness decision.
 
 The Chrome import preview opened the bundled Quickstart export, containing four
 `demo@example.test` localhost accounts. No personal password was imported. The
@@ -40,10 +47,10 @@ assertion total: ten newly pinned predecessor checkpoints add 30 progress cases,
 and the fixture adds two checkpoint-list assertions. The guard and inert report
 fixture now expect 465; the probe passes locally and still reports
 `production_ready: false`. Focused Python contract checks also pass (31 tests).
-On commit `1f9d7ea`, the hosted gateway, owner UI, owner upgrade, ordinary
-contracts, Android 11/15 emulator and Installer-context checks passed. The full
-Python regression remains in progress, and the Mac cross-user job is queued.
-None of these automated checks changes the production readiness decision.
+The source CI and focused owner checks pass, but the installed browser failure
+has not been diagnosed because the current source diagnostic is not installed
+on the owner Mac. None of these automated checks changes the production
+readiness decision.
 
 ## Current Mac recovery
 
