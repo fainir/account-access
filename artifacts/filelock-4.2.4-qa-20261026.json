@@ -1,0 +1,130 @@
+{
+  "date": "2026-10-26",
+  "status": "source-correction-pending-exact-source-ci-and-installation",
+  "base_commit": "213509c6bd9ff40131bd71dcb1a2967e96cd76a3",
+  "dependency_finding": {
+    "name": "filelock",
+    "previous_constraint": ">=3.18,<4",
+    "previous_locked_version": "3.32.7",
+    "advisories": [
+      "CVE-2026-112940",
+      "CVE-2026-112913",
+      "CVE-2026-112907"
+    ],
+    "patched_upstream_version": "4.2.1",
+    "selected_version": "4.2.4",
+    "new_constraint": ">=4.2.4,<5",
+    "pypi_distribution_hashes": {
+      "wheel_sha256": "301241438c57936ef93f4243a94f2559022268bfcf9b375a9a72eb0f8db8358e",
+      "sdist_sha256": "c6d8663535e1650ee430507b4ffbac7b464dd64b7647ea0112a9f406499d163d"
+    },
+    "references": [
+      "https://github.com/advisories/GHSA-v4x8-3wr5-3wq8",
+      "https://github.com/advisories/GHSA-9vhv-jxww-xfm5",
+      "https://github.com/advisories/GHSA-567q-5qvw-pf92",
+      "https://pypi.org/project/filelock/4.2.4/"
+    ],
+    "scope_note": "The application uses the basic FileLock API in storage, supervision and system provisioning. The audit finding is a release gate, not proof that every advisory attack path is reachable in this product."
+  },
+  "changed_files": [
+    "pyproject.toml",
+    "uv.lock",
+    "account_access/runtime-requirements.txt",
+    "tests/test_multifactor.py",
+    "docs/production-gates.md"
+  ],
+  "local_qa": {
+    "runtime_lock_export": {
+      "tool": "uv 0.13.5",
+      "result": "passed",
+      "verification": "Fresh uv export compared byte-for-byte with account_access/runtime-requirements.txt"
+    },
+    "ruff": "passed",
+    "locked_environment_dependency_audit": {
+      "result": "No known vulnerabilities found",
+      "environment": "uv locked environment, CPython 3.13.16",
+      "note": "The unpublished account-access package is skipped by pip-audit because it is not on PyPI."
+    },
+    "focused_auth_suite": {
+      "selected_tests": 317,
+      "first_attempt": {
+        "passed_before_interruption": 253,
+        "failed": "test_owner_review_saves_only_confirmed_success_and_reuses_the_session[approve]",
+        "observed": "The fixture's 50 ms page refresh sometimes hid its synthetic passkey marker, yielding unknown instead of passkey.",
+        "interrupted_before_remaining_tests": true
+      },
+      "fixture_correction": "Increase only the synthetic owner-review page refresh from 50 ms to 500 ms; production timing is unchanged.",
+      "isolated_regression_rerun": {
+        "result": "passed",
+        "test": "test_owner_review_saves_only_confirmed_success_and_reuses_the_session[approve]",
+        "passed": 1,
+        "duration_seconds": 53.29
+      },
+      "owner_review_parameter_group_rerun": {
+        "result": "passed",
+        "passed": 4,
+        "duration_seconds": 82.59
+      },
+      "full_focused_suite": "not completed locally; exact-source CI is still required"
+    },
+    "ruff_and_runtime_export_after_changes": "passed"
+  },
+  "prior_exact_source_ci": {
+    "commit": "213509c6bd9ff40131bd71dcb1a2967e96cd76a3",
+    "runs": [
+      {
+        "name": "Account Access checks",
+        "run_id": 39558280671,
+        "conclusion": "success"
+      },
+      {
+        "name": "Mac separate-user worker acceptance",
+        "run_id": 39558280652,
+        "conclusion": "success"
+      },
+      {
+        "name": "Separate-user worker acceptance",
+        "run_id": 39558280827,
+        "conclusion": "success"
+      },
+      {
+        "name": "Android login-code journey",
+        "run_id": 39558280779,
+        "conclusion": "success"
+      }
+    ],
+    "candidate_ci": "pending; prior results do not qualify the dependency correction"
+  },
+  "owner_mac_acceptance": {
+    "installed_app_version": "0.8.0",
+    "installed_app_build": "92",
+    "diagnostic_package": "Account-Access-Owner-Upgrade-101-local-unsigned-1800.pkg",
+    "diagnostic_package_sha256": "96bf7e449ed9d79649d59628bd33a23858d2188ea214b046390f5b880d380835",
+    "diagnostic_package_signature": "none",
+    "gatekeeper_result": "rejected: source=no usable signature",
+    "installer_install_control": "disabled",
+    "updated_package_installed": false
+  },
+  "agent_launcher_acceptance": {
+    "environment": "controlled-demo",
+    "service_version": "0.6.0",
+    "permitted_demo_summaries": {
+      "demo-web": "RETRYABLE/browser_execution_failed",
+      "demo-mfa": "RETRYABLE/browser_execution_failed",
+      "example-sms": "RETRYABLE/browser_execution_failed"
+    },
+    "retry_after_isolated_chromium_install": "same retryable result for all three summaries",
+    "account_data_returned": false,
+    "personal_account_tested": false
+  },
+  "production_ready": false,
+  "open_gates": [
+    "Complete exact-source CI for this candidate",
+    "Developer ID Installer signing, Apple notarization and stapling",
+    "Install and verify the corrected protected owner runtime on the owner Mac",
+    "Complete personal Chrome-import, email, Harel/Phoenix SMS, and Lemon Squeezy authenticator sign-in acceptance",
+    "Verify physical Android 15+ SMS delivery and recovery",
+    "Verify protected live Codex and Claude Code sessions through the installed owner service",
+    "Independent security review and release provenance"
+  ]
+}

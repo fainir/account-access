@@ -58,15 +58,33 @@ audits. Both audits reported development dependency `certifi 2026.7.22`
 (`PYSEC-2026-4320`); the native checks and full Python suites passed. That source
 is unqualified, and the failed attempts remain recorded.
 
-The successor updates only certifi to `2026.10.19`, with published archive
-hashes. All other locked packages and the exported runtime requirements are
-unchanged. The local dependency audit now reports zero known vulnerabilities
-among its external dependencies; the unpublished project itself is skipped by
-that tool. CI now performs the same audit before browser setup and long tests.
-This correction does not assess or replace the frozen runtime's pip-vendored
-certificate bundle; that remains a separate full-image security check.
-The successor still needs exact-source CI and actual Installer qualification.
-[Failed candidate and dependency correction](../artifacts/ci-certifi-refusal-5b09c50-20261021.json).
+The successor updates certifi to `2026.10.19`, with published archive hashes.
+Exact-source CI at `213509c` subsequently passed all four applicable workflows:
+the main checks, Mac separate-user worker, separate-user worker and Android
+login-code journey. That result applies to `213509c`, not to later dependency
+changes.
+
+A fresh dependency audit on 2026-10-26 found that the locked `filelock 3.32.7`
+falls within newly published upstream advisories, including
+[CVE-2026-112940](https://github.com/advisories/GHSA-v4x8-3wr5-3wq8). The
+application uses the basic `FileLock` API in storage, supervision and system
+provisioning; this audit finding is a release gate, not proof that each
+advisory's described attack path is reachable here. The source now requires
+`filelock>=4.2.4,<5`, locks `4.2.4`, and regenerates the hash-checked runtime
+requirements. `pip-audit --local` on the exact locked environment reports no
+known vulnerabilities; the unpublished application itself is skipped by that
+tool. The four-case owner-review fixture now passes after slowing only its
+synthetic page refresh; a broader local selection reached 253 passes but was
+interrupted before completion. Exact-source CI for this correction is pending,
+and the frozen runtime's pip-vendored certificate bundle still needs a separate
+full-image check. [Dependency audit and correction record](../artifacts/filelock-4.2.4-qa-20261026.json).
+
+The current owner Mac still has app build 92. Its approved diagnostic package
+has no signature; Gatekeeper reports `source=no usable signature`, so Installer
+does not enable installation. No updated owner package was installed. The
+corrected source still needs exact-source CI, signed/notarized packaging and
+actual owner installation qualification.
+[Earlier failed candidate and certifi correction](../artifacts/ci-certifi-refusal-5b09c50-20261021.json).
 
 The owner-app source also corrects its Claude Code action and unsupported
 visible-sign-in help. Its optimized UI fixture passed **49 checks** using
@@ -412,6 +430,13 @@ installed-preview preflight did not start a model because its optional invocatio
 guard could not be attested. This is a QA boundary, not a normal-client failure.
 [Installed agent evidence and limits](agent-qa-boundary.md#installed-preview-checks-on-19-october-2026).
 
+On 2026-10-26, the installed Account Access launcher reported a
+`controlled-demo` environment. Its three permitted demo summaries each returned
+`RETRYABLE/browser_execution_failed`, including after an isolated Chromium
+install; no account data was returned. The owner app displayed demo accounts
+and verification sources. This does not validate the protected 0.8 owner worker
+or personal-account access, so agent integration remains open.
+
 Build **70** introduced explicit Bitwarden connection, imported exact-item
 suggestions, unattended refresh and restrictive disconnect. Its official OSS
 CLI uses protected Node; packaging includes corresponding source and notices.
@@ -513,7 +538,7 @@ presented as results for a later candidate.
 | Android SMS | Paired pinned HTTPS delivery and notification-listener emulator fixtures | Physical pairing, carrier/notification delivery, reconnect and private login QA |
 | Google Messages Web | Reviewed browser/desktop preparation, refresh/revocation UI checks, unchanged extension scripts in a synthetic Messages document, stable Chrome/native transport and controlled SMS-login composition | Genuine positive owner approval and complete private/physical SMS login; broader language coverage and extension distribution |
 | Authenticator | Local original-key, supported QR and complete Google Authenticator transfer-batch import; TOTP login fixtures | Owner-approved real phone export/enrollment and provider login. Push approvals, nonstandard TOTP and Google Authenticator cloud sync are unsupported |
-| Agent integration | Portable installed CLI/skill; historical source-specific guarded Claude/Codex fixtures; separate revision-unattested installed-preview public reads | Current protected owner installation and private sessions through both agents. The optional nested Codex QA harness remains unverified before startup |
+| Agent integration | Portable installed CLI/skill; historical source-specific guarded Claude/Codex fixtures; separate revision-unattested installed-preview public reads | Current protected owner installation and private sessions through both agents; installed demo launcher summaries currently return `RETRYABLE/browser_execution_failed`. The optional nested Codex QA harness remains unverified before startup |
 | Website coverage | Reviewed public examples and narrow Namecheap, PyPI and Read the Docs pilots; password, email, SMS and TOTP engine fixtures | More reviewed connectors and representative private acceptance. Importing a password does not add arbitrary website support |
 | Security and operations | Separate service identity, native owner authorization, protected key custody, permission/revocation checks and disposable cross-user/crash fixtures | Genuine consumer deployment and owner approval, real logout/reboot and active-operation recovery; independent security review and release provenance |
 

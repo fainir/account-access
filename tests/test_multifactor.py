@@ -58,7 +58,10 @@ def chain(tmp_path):
                         if getattr(provider, "owner_approved", False):
                             self.finish_login("/mfa/summary")
                         else:
-                            polling = '<script>setTimeout(() => location.reload(), 50)</script>' if getattr(provider, "review_polling", False) else ""
+                            polling = (
+                                '<script>setTimeout(() => location.reload(), 500)</script>'
+                                if getattr(provider, "review_polling", False) else ""
+                            )
                             label = "Owner approval required" if polling else "Approve a payment"
                             self.page('<div id="action-challenge">' + label + '</div>' + polling)
                     elif kind == "request":
