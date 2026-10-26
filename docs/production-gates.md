@@ -23,10 +23,11 @@ diagnostics and shows it in both owner account screens; raw Playwright error
 text, URLs and tokens are not recorded or returned. A synthetic launch-failure
 test verified the stage is visible to the owner and hidden from the agent. The
 changed source has not been installed on the owner Mac, so it has not diagnosed
-or repaired the installed browser failure. Local integration regression passed
-212 tests across browser and guided setup, Chrome CSV/Bitwarden and authenticator
-imports, authenticator UI, SMS setup, Gmail/OAuth, and the synthetic email/SMS/
-TOTP verification journey. The owner UI renders the sanitized launch stage in a
+or repaired the installed browser failure. Local focused regression passed 332
+tests across browser and guided setup; Chrome CSV, Bitwarden and authenticator
+imports; authenticator UI; SMS setup; Gmail/OAuth; the synthetic email/SMS/TOTP
+verification journey; install service; runtime preparation; and fresh-image
+installer acceptance. The owner UI renders the sanitized launch stage in a
 browser test. Hosted CI for the current source is pending.
 
 The Chrome import preview opened the bundled Quickstart export, containing four
