@@ -32,7 +32,12 @@ is `219ff44e97891ae5a541dae2911430eadea4c4101f878f698713e029a0b94dba`.
 Installer opened it on the owner Mac and reached the native authorization
 stage, but no package receipt is present yet. This is not an install success;
 the user must finish macOS authorization and the installed service still needs
-a smoke check. [Build 107 package and current owner-Mac state](../artifacts/owner-upgrade107-build-20261028.json).
+a smoke check. The requested local account-flow and package regression tests
+passed (105 tests); the complete Python suite was stopped after 558 passed and
+one skipped at 11%, so it is recorded as incomplete. The native upgrade
+qualification separately passed 69 runtime/owner checks, 477 tree checks and
+324 mixed-storage checks without touching the installed app.
+[Build 107 package and current owner-Mac state](../artifacts/owner-upgrade107-build-20261028.json).
 Production readiness remains false.
 
 Even after a successful install, acceptance also requires the owner's real

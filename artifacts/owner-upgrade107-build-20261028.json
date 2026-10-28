@@ -23,6 +23,34 @@
     "real_account_acceptance"
   ],
   "production_ready": false,
+  "qa_runs": {
+    "focused_account_and_package_tests": {
+      "command": "uv run pytest -q tests/test_owner_upgrade107_candidate.py tests/test_agent_setup.py tests/test_chrome.py tests/test_password_import.py tests/test_email_codes.py tests/test_sms_setup.py tests/test_authenticator_setup_ui.py tests/test_verification_journey.py",
+      "duration_seconds": 77.46,
+      "passed": 105,
+      "scope": "controlled local fixtures; no personal passwords, codes, mailbox contents, or insurer records",
+      "skipped": 0,
+      "status": "PASSED"
+    },
+    "full_python_suite": {
+      "assertion_failures_seen": 0,
+      "command": "uv run pytest -q",
+      "complete_suite_pass": false,
+      "duration_seconds": 349.39,
+      "passed_before_interrupt": 558,
+      "progress_percent": 11,
+      "skipped_before_interrupt": 1,
+      "status": "INTERRUPTED"
+    },
+    "native_upgrade_qualification": {
+      "installed_reads": false,
+      "installed_writes": false,
+      "mixed_storage_checks": 324,
+      "runtime_owner_checks": 69,
+      "status": "PASSED",
+      "tree_checks": 477
+    }
+  },
   "schema": 1,
   "source_commit": "9a99641b84cb25b58756c79463f87e2fc452f4bb",
   "source_sha256": {
