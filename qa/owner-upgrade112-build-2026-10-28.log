@@ -1,0 +1,4 @@
+2026-10-28 - Build 112 used source commit c44ed72 and passed the 88-case focused source/builder suite. The optimized arm64 helper compiled and refused ordinary-user execution before any installed reads or writes.
+2026-10-28 - The builder verified 27,532 predecessor projection rows and exact signed-package contents. Developer ID signature, Apple notarization, stapling, Gatekeeper assessment and Installer parsing all passed.
+2026-10-28 - Package: dist/owner-upgrade112-signed-20261028/Account-Access-Owner-Upgrade-112.pkg. It has not been installed; owner-Mac installation, restart and protected-service/agent smoke checks remain open.
+2026-10-28 - The separate fixture probe compile exceeded its 900-second limit without diagnostics; fixture assertions remain unverified. This does not change the package signing or Installer checks above.

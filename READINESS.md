@@ -16,7 +16,7 @@ Statuses: todo | building (who) | verified | owner | waiting | cut (reason)
 
 | ID | Flow (user words) | Surfaces | Status | Evidence | Verified on |
 |---|---|---|---|---|---|
-| F1 | Install or update the Mac app, connect its protected service and reopen it after restart; interrupted updates retain the prior usable app | macOS Installer, app, protected service | building (Codex) | [build 110 install failure](qa/owner-upgrade110-install-2026-10-28.log); [build 111 signed package checks](qa/owner-upgrade111-build-2026-10-28.log); [build 111 owner-Mac result](qa/owner-upgrade111-install-2026-10-28.log): authorized, then timed out after 1,800 seconds with Installer error 112 and no receipt; [build 112 source QA](qa/owner-upgrade112-source-qa-2026-10-28.log): 88 source/builder tests, optimized helper compile and ordinary-user refusal passed; fixture probe timed out and package install is pending | 2026-10-28 |
+| F1 | Install or update the Mac app, connect its protected service and reopen it after restart; interrupted updates retain the prior usable app | macOS Installer, app, protected service | owner | [build 111 owner-Mac result](qa/owner-upgrade111-install-2026-10-28.log): authorized, then timed out after 1,800 seconds with Installer error 112 and no receipt; [build 112 source QA](qa/owner-upgrade112-source-qa-2026-10-28.log); [build 112 package gates](qa/owner-upgrade112-build-2026-10-28.log): signed, notarized, stapled, Gatekeeper accepted, Installer parsing and package content checks passed; owner-Mac install and restart remain | 2026-10-28 |
 | F2 | Import a Chrome export, review matches and save only selected accounts; malformed or cancelled imports save nothing | Chrome, macOS app, vault | verified | [password import regression suite](qa/password-import-source-qa-2026-10-28.log): 63 passed; [owner UI acceptance](docs/other-service-validation.md#namecheap-password-pilot) is historical, with no export-file secrets accessed in this run | 2026-10-28 |
 | F3 | Connect Gmail or TLS IMAP and use a fresh matching code; permission, expiry or ambiguous-mail errors stop safely | macOS app, Gmail / IMAP, connector | owner | [154 Gmail, IMAP, OAuth and verification tests](qa/email-verification-source-qa-2026-10-28.log); [138-case email/SMS/authenticator setup regression suite](qa/verification-source-qa-2026-10-28.log) | 2026-10-28 |
 | F4 | Pair Android and deliver a fresh approved SMS; denied permissions, redaction or a stale code refuse delivery | macOS app, Android 15+, supported connector | owner | [138-case synthetic email/SMS/authenticator setup regression suite](qa/verification-source-qa-2026-10-28.log); physical Android pairing and real SMS acceptance remain; [Android setup](android/README.md) | 2026-10-28 |
@@ -41,9 +41,10 @@ Statuses: todo | building (who) | verified | owner | waiting | cut (reason)
 
 ## Owner actions
 
-1. In Account Access > Verification, connect the approved Gmail account in Chrome and select **Check Google connection**. Then use a supported account with a real email-code challenge and complete it in Account Access; this unblocks private mailbox and delivery acceptance. Keep mailbox passwords and login codes out of chat.
-2. Open Account Access > Verification > Pair Android phone, scan its pairing QR, and approve the requested access on Android; this unblocks real SMS acceptance. No phone code belongs in chat.
-3. Sign in to Lemon Squeezy through Account Access once with your authenticator app; this confirms its private TOTP challenge and enrollment against the real site. Keep the password and generated codes in their intended apps.
+1. In Installer, install **Account-Access-Owner-Upgrade-112** with Touch ID. Leave Installer open and restart the Mac if it requests one; then reply **Installed** or **Failed**. This supplies the real owner-Mac update and protected-service check.
+2. In Account Access > Verification, connect the approved Gmail account in Chrome and select **Check Google connection**. Then use a supported account with a real email-code challenge and complete it in Account Access; this unblocks private mailbox and delivery acceptance. Keep mailbox passwords and login codes out of chat.
+3. Open Account Access > Verification > Pair Android phone, scan its pairing QR, and approve the requested access on Android; this unblocks real SMS acceptance. No phone code belongs in chat.
+4. Sign in to Lemon Squeezy through Account Access once with your authenticator app; this confirms its private TOTP challenge and enrollment against the real site. Keep the password and generated codes in their intended apps.
 
 ## Waiting on third parties
 
@@ -53,7 +54,6 @@ No current third-party wait is confirmed. Build 110 notarization completed; its 
 
 ## Log (last 10)
 
-- 2026-10-28 - Initial scope and readiness rows reconciled from the README, app docs, code and existing acceptance evidence; readiness remains false.
 - 2026-10-28 - Build 110 passed signing and notarization but failed in protected postinstall; its stale checkpoint was corrected and the native source probe passed.
 - 2026-10-28 - The local authenticator suite collected 95 tests; 93 passed under compiler load and the two timing-sensitive tests passed alone.
 - 2026-10-28 - Build 111 passed signing/notarization and package-content QA, but the authorized owner-Mac postinstall hit PackageKit's 1,800-second timeout and left no receipt.
@@ -63,3 +63,4 @@ No current third-party wait is confirmed. Build 110 notarization completed; its 
 - 2026-10-28 - Password import source QA passed 63 tests; no private Chrome export was used.
 - 2026-10-28 - Full-suite attempt hit one 15-second launcher timeout under Installer CPU load; the exact case passed alone, and the full run remains incomplete.
 - 2026-10-28 - Build 112 retains one projected predecessor proof and removes repeated full-proof rebuilds at transition boundaries; optimized helper compile and ordinary-user refusal passed, but fixture and owner-Mac install remain unverified.
+- 2026-10-28 - Build 112 passed Apple signing, notarization, stapling, Gatekeeper, Installer parsing and payload checks; owner-Mac installation is the next action.
