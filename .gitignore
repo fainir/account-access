@@ -31,3 +31,6 @@ artifacts/video/work/
 artifacts/video/*.mp4
 artifacts/video/*.wav
 artifacts/video/*.vtt
+
+.runtime/*.lock
+qa/**/*.webm
