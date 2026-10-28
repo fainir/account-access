@@ -2,10 +2,43 @@
 
 **Account Access remains a preview. Production readiness is false.**
 
-Updated 26 October 2026. The requested outcome is installation, local Chrome
+Updated 28 October 2026. The requested outcome is installation, local Chrome
 password import, email/SMS/authenticator setup, and later approved sign-ins
 through the user's existing AI agent. Controlled tests cover those mechanisms;
 they do not establish personal-account or physical-phone acceptance.
+
+## Signing setup progress
+
+On 27 October, the local Keychain inventory confirmed one valid Developer ID
+Installer identity alongside the app-signing identity. A read-only Apple
+notarization history check using the existing `AccountAccessPublisher` Keychain
+profile succeeded. This clears the earlier missing-certificate/profile
+provisioning blocker. The history response was not tied to a known Account
+Access package hash, and no package was submitted from this checkout. The
+installed owner app remains build 92, and the latest owner-upgrade candidate
+still needs a successful predecessor check,
+signed-package assembly, notarization/stapling, and downloaded installation
+acceptance. Production readiness remains false. [Signing readiness](../artifacts/owner-signing-readiness-20261027.json)
+
+## Local qualification on 28 October
+
+The Authlib security audit found six advisories in locked version 1.8.0. The
+project minimum is now Authlib 1.9.1; the project lock and hash-pinned Mac runtime
+requirements pin 1.9.1 below major version 2. The lock check and runtime
+requirements export comparison pass. `pip-audit --local` reports no known
+vulnerabilities in third-party dependencies; it cannot audit this unpublished
+project package. Ruff passes, and `uv build` produces both source and wheel
+distributions. A clean temporary Python environment installed the hash-verified
+runtime requirements and the wheel; the installed `account-access --help`
+command succeeds. This validates the Python CLI distribution, not the Mac
+system installer.
+
+The complete Python suite passes with Authlib 1.9.1: 4,477 passed, four skipped,
+zero failed. Native owner-upgrade fixture checks also pass (32 parser, 26
+namespace, 21 preparation, 477 tree-storage and 324 mixed-storage checks). The
+native probe used temporary fixtures only; it did not read or change the
+installed app. These results qualify local source and test fixtures, not a
+signed product update or real-account/device acceptance. [Local QA evidence](../artifacts/local-qa-20261028.json)
 
 ## Owner Mac acceptance after approval
 
@@ -312,11 +345,15 @@ It remains a local diagnostic candidate, not a release installer.
 [Diagnostic build record](../artifacts/owner101-diagnostic-build-20261026.json).
 The seven disposable-Mac passes did not cover this existing owner state, so
 they do not qualify package 101 for upgrade or establish production readiness.
-The local signing inventory contains one Developer ID Application identity but
-no Developer ID Installer identity, which Apple requires for a signed package.
-No notarization submission or stapling has been made. The signing pipeline is
-documented and locally tested, but this Mac currently lacks the identity needed
-to produce the trusted installer. [Local signing readiness](../artifacts/owner101-installer-signing-readiness-20261025.json) ·
+The 25 October inventory below is historical. On 27 October, the local
+Keychain inventory found one valid Developer ID Installer identity and the
+existing Notary profile passed a read-only Apple history query. That query was
+not correlated with a known Account Access package hash, and no package was
+submitted from this checkout.
+Candidate 101 remains unsigned and unstapled; the new certificate does not make
+that old package trusted. The current source still needs successful owner-state
+qualification before a new package can be treated as a release candidate.
+[Earlier local signing readiness](../artifacts/owner101-installer-signing-readiness-20261025.json) ·
 [Apple certificate types](https://developer.apple.com/help/account/certificates/certificates-overview/).
 [Package 101 build](../artifacts/owner-upgrade101-build-20261025.json) ·
 [Standard build command](../artifacts/owner-upgrade101-build-command.py.txt) ·

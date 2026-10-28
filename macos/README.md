@@ -189,10 +189,12 @@ remain separate acceptance gates.
 The 0.8 candidate adds **Repair installation…** to the app menu. Installation explicitly stops and restarts the background service after replacing the package, including a repair with an unchanged version number. Credentials, grants and task checkpoints are preserved. The candidate also includes local Authenticator transfer-QR selection for browser verification. These are not evidence of completed physical-device or private mailbox QA; see [production acceptance](../docs/production-gates.md).
 
 Public Mac distribution needs a signed installer package and Apple
-notarization. The application identity is present locally, but a fresh identity
-inventory found no Developer ID Installer identity; package 101's outer
-package is unsigned. No live notarization or stapling has been completed. Apple
-uses Developer ID Application to sign apps and Developer ID Installer to sign
+notarization. The local Keychain now contains a valid Developer ID Installer
+identity as well as the application identity, and the existing Notary profile
+passed a read-only Apple history check on 27 October. This only confirms the
+local signing credentials; package 101's outer package remains unsigned and no
+specific Account Access package hash has been correlated with an Apple ticket.
+Apple uses Developer ID Application to sign apps and Developer ID Installer to sign
 packages distributed outside the Mac App Store
 ([certificate overview](https://developer.apple.com/help/account/certificates/certificates-overview/)).
 A public download is not ready for release. The recording demonstrates the
@@ -204,8 +206,9 @@ This is release engineering, not an end-user installation step. The current
 protected distribution is the complete **flat installer package**, which users
 download and open in Installer. It needs both the Developer ID Application
 identity used for the payload and a separate **Developer ID Installer** identity
-with its private key. A valid Notary service Keychain profile is also required.
-These Apple-issued identities and credentials cannot be created by the helper.
+with its private key. A valid Notary service Keychain profile is also required;
+the existing `AccountAccessPublisher` profile is now confirmed usable for a
+read-only status query. These Apple-issued identities and credentials cannot be created by the helper.
 Use a Mac running macOS 14 or later with Xcode tools. The helper never disables
 Gatekeeper, changes policy rules or removes quarantine to obtain a passing result.
 
