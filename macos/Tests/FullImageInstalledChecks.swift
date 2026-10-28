@@ -258,6 +258,7 @@ private enum InstalledFixtureFailure: Error { case failed }
                 "service_sha256": String(repeating: "9", count: 64), "host_sha256": String(repeating: "a", count: 64)]
             let repairEvidenceBytes = try FullImageJSON.encode(repairEvidence)
             try expect(try CompletedRuntimeRepairEvidenceDifference.compare(repairEvidenceBytes, repairEvidenceBytes) == .same)
+            try expect(CompletedRuntimeRepairEvidenceDifference.same.checkpoint == .predecessorViewRepairProofSameHashMismatch)
             for difference in CompletedRuntimeRepairEvidenceDifference.allCases where difference.key != nil {
                 var changed = repairEvidence
                 let key = difference.key!

@@ -190,13 +190,27 @@ extension ComponentController {
             progress(.predecessorViewOriginalReceipt)
             try originalReceipt(checkedOriginal ?? original, ownerUID: ownerUID)
             progress(.predecessorViewRepairProof)
-            let rechecked = try completedBrokerRepairLocked(resources: checkedPrevious ?? previous, pins: repairPins,
-                predecessorPins: predecessorPins, expectedEvidenceSHA256: intent.predecessorEvidenceSHA256,
-                historical: originalFile)
+            let rechecked: CompletedBrokerRepairProof
+            do {
+                rechecked = try completedBrokerRepairLocked(resources: checkedPrevious ?? previous, pins: repairPins,
+                    predecessorPins: predecessorPins, expectedEvidenceSHA256: intent.predecessorEvidenceSHA256,
+                    historical: originalFile)
+            } catch {
+                progress(.predecessorViewRepairProofRecheck)
+                throw error
+            }
             guard rechecked.sha256 == proof.sha256 else {
-                progress(try CompletedRuntimeRepairEvidenceDifference.compare(proof.evidence, rechecked.evidence).checkpoint)
+                let difference: CompletedRuntimeRepairEvidenceDifference
+                do {
+                    difference = try CompletedRuntimeRepairEvidenceDifference.compare(proof.evidence, rechecked.evidence)
+                } catch {
+                    progress(.predecessorViewRepairProofCompareError)
+                    throw error
+                }
+                progress(difference.checkpoint)
                 throw FullImageFailure.predecessor
             }
+            progress(.predecessorViewRepairProofCompare)
         }
         let storage = try FullImageMixedStorage(units: units,
             writeEvent: { _, _ in throw FullImageFailure.journal }, verifyOld: {}, verifyRecoverable: {}, verifyNew: {})

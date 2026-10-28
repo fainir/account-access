@@ -41,6 +41,10 @@ enum FullImageInstallCheckpoint: String, CaseIterable {
     case predecessorViewRepairProofService = "predecessor_view_repair_proof_service"
     case predecessorViewRepairProofHost = "predecessor_view_repair_proof_host"
     case predecessorViewRepairProofEncoding = "predecessor_view_repair_proof_encoding"
+    case predecessorViewRepairProofRecheck = "predecessor_view_repair_proof_recheck"
+    case predecessorViewRepairProofCompare = "predecessor_view_repair_proof_compare"
+    case predecessorViewRepairProofCompareError = "predecessor_view_repair_proof_compare_error"
+    case predecessorViewRepairProofSameHashMismatch = "predecessor_view_repair_proof_same_hash_mismatch"
     case predecessorViewBefore = "predecessor_view_before"
     case predecessorViewStates = "predecessor_view_states"
     case predecessorViewLayout = "predecessor_view_layout"
@@ -88,7 +92,7 @@ enum CompletedRuntimeRepairEvidenceDifference: Equatable, CaseIterable {
 
     var checkpoint: FullImageInstallCheckpoint {
         switch self {
-        case .same: return .predecessorViewRepairProof
+        case .same: return .predecessorViewRepairProofSameHashMismatch
         case .structure: return .predecessorViewRepairProofStructure
         case .schema: return .predecessorViewRepairProofSchema
         case .managedBy: return .predecessorViewRepairProofManagedBy
