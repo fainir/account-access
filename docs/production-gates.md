@@ -43,12 +43,15 @@ runtime requirements and the wheel; the installed `account-access --help`
 command succeeds. This validates the Python CLI distribution, not the Mac
 system installer.
 
-The complete Python suite passes with Authlib 1.9.1: 4,477 passed, four skipped,
-zero failed. Native owner-upgrade fixture checks also pass (32 parser, 26
+The full Python suite passes on source commit `6c1dc5d` with Authlib 1.9.1:
+4,479 passed, four skipped, zero failed. Ruff and the third-party dependency
+audit also pass; the audit cannot assess the unpublished project package. Native
+owner-upgrade fixture checks also pass (32 parser, 26
 namespace, 21 preparation, 477 tree-storage and 324 mixed-storage checks). The
 native probe used temporary fixtures only; it did not read or change the
 installed app. These results qualify local source and test fixtures, not a
 signed product update or real-account/device acceptance. [Local QA evidence](../artifacts/local-qa-20261028.json)
+· [Current source QA](../artifacts/current-local-qa-20261028.json)
 
 ## Owner Mac acceptance after approval
 
