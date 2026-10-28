@@ -237,9 +237,12 @@ def build(args):
         and sha(args.plan) == PLAN
         and sha(args.target_manifest) == AFTER
     )
+    recipe_files = (
+        "scripts/build_owner_upgrade104_review.py",
+        "macos/owner_upgrade104_plan.py",
+    )
     require(
-        (ROOT / "scripts/build_owner_upgrade104_review.py").read_bytes()
-        == git("show", args.source + ":scripts/build_owner_upgrade104_review.py")
+        all((ROOT / name).read_bytes() == git("show", args.source + ":" + name) for name in recipe_files)
     )
     probe = runpy.run_path(str(ROOT / "scripts/mac_full_image_installed_probe.py"))
     owner_probe = runpy.run_path(str(ROOT / "scripts/mac_owner_upgrade_probe.py"))
@@ -363,7 +366,7 @@ def build(args):
         "TargetIdentity.json": args.target_identity.read_bytes(),
     }
     sys.path.insert(0, str(ROOT))
-    from macos import owner_upgrade_plan as planner
+    from macos import owner_upgrade104_plan as planner
 
     planner.parse(
         plan_raw,
