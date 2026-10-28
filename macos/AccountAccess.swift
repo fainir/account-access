@@ -846,7 +846,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                     self.status = progressLabel
                 }
                 self.systemApprovalProgress = (identifier, progressLabel)
-                progressLabel.stringValue = "macOS approval requested. Approve it on this Mac, or cancel the macOS dialog."
+                progressLabel.stringValue = "macOS is asking for approval. Use Touch ID or enter your Mac login password in the “Authorize Account Access setup” dialog."
                 window.makeKeyAndOrderFront(nil)
                 NSApp.activate(ignoringOtherApps: true)
             case .approvalAccepted:

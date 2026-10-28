@@ -1300,7 +1300,7 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         let liveFeedback = feedbackOwner.ownerSetupContext.snapshot(), liveFeedbackID = UUID()
         feedbackOwner.ownerApprovalProgress(.requestingApproval, identifier: liveFeedbackID, context: liveFeedback)
         drainApprovalFeedback("approval_live_begin_drained")
-        requireLocalUX(feedbackOwner.status.stringValue.contains("macOS approval requested")
+        requireLocalUX(feedbackOwner.status.stringValue == "macOS is asking for approval. Use Touch ID or enter your Mac login password in the “Authorize Account Access setup” dialog."
                        && replacementWindow.approvalFrontRequests == 1, "approval_live_begin_rendered_once")
         feedbackOwner.ownerApprovalProgress(.approvalAccepted, identifier: liveFeedbackID, context: liveFeedback)
         feedbackOwner.page("A later page", "The accepted event must not change this page")
