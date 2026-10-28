@@ -1,0 +1,2 @@
+2026-10-28 - `uv run pytest -q tests/test_agent_setup.py tests/test_agent_qa_guard.py tests/test_managed_client.py`
+156 passed in 89.69s. These isolated source tests use synthetic fixtures; the installed synthetic browser smoke remains unverified after two `browser_execution_failed` results.
