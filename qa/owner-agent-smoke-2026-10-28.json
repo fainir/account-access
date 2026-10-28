@@ -1,0 +1,14 @@
+{
+  "date": "2026-10-28",
+  "flow": "existing local agent launcher protected read",
+  "account_type": "synthetic controlled-demo",
+  "account": "demo-web",
+  "operation": "summary",
+  "attempts": 2,
+  "results": [
+    {"status": "RETRYABLE", "reason": "browser_execution_failed"},
+    {"status": "RETRYABLE", "reason": "browser_execution_failed"}
+  ],
+  "production_ready": false,
+  "note": "The installed service reports version 0.6.0 in controlled-demo mode. The operation was retried once as directed by the Account Access skill; no personal account data was accessed."
+}

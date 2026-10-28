@@ -21,7 +21,7 @@ Statuses: todo | building (who) | verified | owner | waiting | cut (reason)
 | F3 | Connect email and receive a fresh login code for a supported account | macOS app, Gmail / IMAP, connector | todo | [production gates](docs/production-gates.md) | |
 | F4 | Pair my Android phone and receive an approved SMS login code | macOS app, Android 15+, supported connector | owner | Physical Android pairing and real SMS acceptance remain; [Android setup](android/README.md) | |
 | F5 | Enroll an authenticator and finish a supported TOTP login | macOS app, supported website | owner | Real Lemon Squeezy enrollment and login have not been verified; [MFA guide](docs/gmail-authenticator-and-sms.md) | |
-| F6 | Ask my existing AI agent to do an approved operation through Account Access | Codex / Claude Code, local launcher, connector | todo | [current account discovery](artifacts/current-agent-account-discovery-20261028.json) shows controlled-demo only | |
+| F6 | Ask my existing AI agent to do an approved operation through Account Access | Codex / Claude Code, local launcher, connector | building (Codex) | [agent smoke](qa/owner-agent-smoke-2026-10-28.json): synthetic read returned `browser_execution_failed` twice | 2026-10-28 |
 | F7 | Refused, expired or ambiguous verification is explained and cannot leak a code | macOS app, agent, local service | verified | MFA suite and refusal tests recorded in [production gates](docs/production-gates.md) | 2026-10-28 |
 | F8 | Review, change, export or delete saved account data safely | macOS app, encrypted local store | todo | [security and sync](docs/security-and-password-sync.md) | |
 
@@ -52,3 +52,4 @@ Statuses: todo | building (who) | verified | owner | waiting | cut (reason)
 
 - 2026-10-28 - created readiness ledger from repository docs and current acceptance evidence; production readiness remains false.
 - 2026-10-28 - current source probes passed; replacement installer is building with field-level final stability checkpoints.
+- 2026-10-28 - installed launcher account discovery shows controlled-demo only; one permitted retry of the synthetic agent read failed and was recorded for post-update recheck.
