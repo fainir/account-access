@@ -16,7 +16,7 @@ Statuses: todo | building (who) | verified | owner | waiting | cut (reason)
 
 | ID | Flow (user words) | Surfaces | Status | Evidence | Verified on |
 |---|---|---|---|---|---|
-| F1 | Install or update Account Access and see a usable app after restart | macOS Installer, app, protected service | building (Codex) | [build 110 install failure](qa/owner-upgrade110-install-2026-10-28.log); [checkpoint fix source QA](qa/owner-upgrade-checkpoint-source-qa-2026-10-28.log) | 2026-10-28 |
+| F1 | Install or update Account Access and see a usable app after restart | macOS Installer, app, protected service | building (Codex) | [build 110 install failure](qa/owner-upgrade110-install-2026-10-28.log); [checkpoint fix source QA](qa/owner-upgrade-checkpoint-source-qa-2026-10-28.log); [build 111 builder QA](qa/owner-upgrade111-builder-qa-2026-10-28.log) | 2026-10-28 |
 | F2 | Import selected Chrome passwords and approve only the accounts I choose | Chrome, macOS app, vault | verified | [owner UI acceptance](docs/other-service-validation.md#namecheap-password-pilot) and [import tests](tests/test_password_import.py); historical test date not recorded | historical |
 | F3 | Connect email and receive a fresh login code for a supported account | macOS app, Gmail / IMAP, connector | owner | [154 Gmail, IMAP, OAuth and verification tests](qa/email-verification-source-qa-2026-10-28.log) | 2026-10-28 |
 | F4 | Pair my Android phone and receive an approved SMS login code | macOS app, Android 15+, supported connector | owner | Physical Android pairing and real SMS acceptance remain; [Android setup](android/README.md) | |
@@ -60,3 +60,4 @@ No current third-party wait is confirmed. Build 110 notarization completed; its 
 - 2026-10-28 - Gmail, IMAP, OAuth and email-verification source suite passed 154 tests; private mailbox delivery remains an owner acceptance step.
 - 2026-10-28 - Checkpoint-order fix passed the native owner-upgrade probe; build 110 still needs a corrected, installed successor package.
 - 2026-10-28 - Authenticator suite had two timeouts under concurrent Swift compilation; both passed in a serial rerun. Provider acceptance remains an owner action.
+- 2026-10-28 - Build 111 candidate builder passed 13 tests and pinned-input checks; signed build and owner installation are next.
