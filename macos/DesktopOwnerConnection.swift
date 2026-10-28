@@ -4,8 +4,79 @@ import Foundation
 import Security
 import Darwin
 
-enum DesktopOwnerFailure: Error { case profile, unavailable, approval, response }
+enum DesktopOwnerFailure: Error { case profile, unavailable, approval, approvalTimedOut, approvalPending, response }
 enum DesktopOwnerSetupProgress { case requestingApproval, approvalAccepted }
+
+// AuthorizationCopyRights can wait on a system-owned dialog and has no
+// cancellation API. Bound the UI operation independently, and make sure a
+// grant returned after the owner has already seen a timeout is discarded.
+private final class DesktopOwnerSetupAuthorizationRequest {
+    private let lock = NSLock()
+    private let done = DispatchSemaphore(value: 0)
+    private var result: Result<Data, Error>?
+    private var abandoned = false
+
+    func acquire(timeout: TimeInterval, operation: @escaping () throws -> Data,
+                 completed: @escaping () -> Void, discardLateResult: @escaping () -> Void) throws -> Data {
+        DispatchQueue.global(qos: .userInitiated).async { [self] in
+            let value = Result { try operation() }
+            lock.lock()
+            if abandoned {
+                lock.unlock()
+                if case .success(var form) = value { form.resetBytes(in: 0..<form.count) }
+                discardLateResult()
+                completed()
+                return
+            }
+            result = value
+            lock.unlock()
+            completed()
+            done.signal()
+        }
+
+        if done.wait(timeout: .now() + timeout) == .success {
+            lock.lock()
+            let completedResult = result
+            result = nil
+            lock.unlock()
+            guard let completedResult else { throw DesktopOwnerFailure.approval }
+            return try completedResult.get()
+        }
+
+        lock.lock()
+        // A completion can race the timeout. Prefer a result that was
+        // published before we mark the request abandoned.
+        if let completedResult = result {
+            result = nil
+            lock.unlock()
+            return try completedResult.get()
+        }
+        abandoned = true
+        lock.unlock()
+        throw DesktopOwnerFailure.approvalTimedOut
+    }
+}
+
+// Do not stack system authorization dialogs if one AuthorizationCopyRights
+// call outlives the UI timeout. The gate clears only when that OS call returns.
+private final class DesktopOwnerSetupAuthorizationGate {
+    private let lock = NSLock()
+    private var pending = false
+    func begin() -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        guard !pending else { return false }
+        pending = true
+        return true
+    }
+    func complete() {
+        lock.lock(); defer { lock.unlock() }
+        pending = false
+    }
+    var isPending: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return pending
+    }
+}
 
 // UI feedback identity only. It grants no owner or channel authority, and its
 // snapshot can be read by a worker without reading any AppKit state.
@@ -161,6 +232,8 @@ final class DesktopOwnerConnection {
     private let makeChannel: () throws -> DesktopOwnerChannel
     private let acquire: () throws -> Data
     private let closeApproval: () -> Void
+    private let approvalTimeout: TimeInterval
+    private let authorizationGate = DesktopOwnerSetupAuthorizationGate()
     private let clock: () -> TimeInterval
     private var channel: DesktopOwnerChannel?
     private var setupUntil: TimeInterval = 0
@@ -171,13 +244,15 @@ final class DesktopOwnerConnection {
         self.approval = approval
         makeChannel = { try OwnerGatewayConnection(service: "com.fainir.accountaccess.broker.owner", peer: profile.peer) }
         acquire = approval.acquire; closeApproval = approval.close
+        approvalTimeout = 120
         clock = { ProcessInfo.processInfo.systemUptime }
     }
     #if ACCOUNT_ACCESS_GATEWAY_CHECKS || ACCOUNT_ACCESS_UI_CHECKS
     init(makeChannel: @escaping () throws -> DesktopOwnerChannel, acquire: @escaping () throws -> Data,
-         closeApproval: @escaping () -> Void = {}, clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
+         closeApproval: @escaping () -> Void = {}, clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
+         approvalTimeout: TimeInterval = 120) {
         approval = nil; self.makeChannel = makeChannel; self.acquire = acquire
-        self.closeApproval = closeApproval; self.clock = clock
+        self.closeApproval = closeApproval; self.clock = clock; self.approvalTimeout = approvalTimeout
     }
     #endif
     private func preparedChannel() throws -> DesktopOwnerChannel {
@@ -204,7 +279,19 @@ final class DesktopOwnerConnection {
         let active = try preparedChannel()
         if validated.requiresSetup && clock() >= setupUntil {
             setupProgress(.requestingApproval)
-            var form = try acquire()
+            guard authorizationGate.begin() else { throw DesktopOwnerFailure.approvalPending }
+            var form: Data
+            do {
+                form = try DesktopOwnerSetupAuthorizationRequest().acquire(timeout: approvalTimeout,
+                    operation: acquire, completed: { self.authorizationGate.complete() },
+                    discardLateResult: closeApproval)
+            } catch DesktopOwnerFailure.approvalTimedOut {
+                throw DesktopOwnerFailure.approvalTimedOut
+            } catch {
+                authorizationGate.complete()
+                closeApproval()
+                throw error
+            }
             defer { form.resetBytes(in: 0..<form.count); closeApproval() }
             guard form.count == 32 else { close(); throw DesktopOwnerFailure.approval }
             let authorized = DesktopOwnerReply<Bool>()
@@ -227,7 +314,10 @@ final class DesktopOwnerConnection {
     }
     func close() {
         lock.lock(); defer { lock.unlock() }
-        channel?.invalidate(); channel = nil; setupUntil = 0; closeApproval()
+        channel?.invalidate(); channel = nil; setupUntil = 0
+        // OwnerSetupApproval.close() waits for AuthorizationCopyRights' lock.
+        // A timed-out system prompt is cleaned by its late-completion path.
+        if !authorizationGate.isPending { closeApproval() }
     }
     deinit { close() }
 }

@@ -872,6 +872,10 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 return try checkedOwnerResponse(response.0, response.1, pending: route == "owner/vault/enroll", bitwarden: bitwardenRequest)
             } catch DesktopOwnerFailure.approval {
                 throw Failure.message("Setup was not approved. Your saved connections are preserved. Try the setup action again when you are ready to approve it on this Mac.")
+            } catch DesktopOwnerFailure.approvalTimedOut {
+                throw Failure.message("The macOS approval dialog did not finish within two minutes. If it is still open, finish or cancel it on this Mac before trying again. No account setup data was sent.")
+            } catch DesktopOwnerFailure.approvalPending {
+                throw Failure.message("A previous macOS approval dialog is still open. Finish or cancel it on this Mac before trying again. No account setup data was sent.")
             } catch is DesktopOwnerFailure {
                 throw Failure.message("The protected app did not respond. Check setup progress before trying the action again. Your saved connections are preserved.")
             } catch is OwnerGatewayError {

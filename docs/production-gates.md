@@ -83,6 +83,16 @@ inspection confirms the installed owner app is still build 92 and remains on
 not complete. The signed build 102 diagnostic update has not passed actual
 owner-Mac Installer acceptance. [Current agent connection check](../artifacts/current-agent-connection-check-20261028.json).
 
+The current source now bounds the native macOS setup-approval wait to two
+minutes. If Authorization Services does not return, the request fails without
+sending account setup data; a late approval is discarded and its external form
+is cleared. Repeated attempts cannot stack another OS prompt, and closing the
+owner connection does not wait behind the pending system dialog. The focused
+native connection checks pass, and the native owner-screen checks compile and
+pass. These checks use fixtures and do not prove a real macOS approval. This
+change is source-only: the installed owner app remains build 92, so production
+acceptance is still false. [Synthetic native check report](../artifacts/current-owner-approval-timeout-native-20261028.json).
+
 Hosted Android acceptance on the same source commit passed automatic and
 owner-entered SMS login on Android 11. On Android 15, it confirmed that both
 notification forwarding and manual code transfer are refused without the
