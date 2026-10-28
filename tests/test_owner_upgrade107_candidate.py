@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+import subprocess
 
 import pytest
 
@@ -56,3 +57,9 @@ def test_package_info_update_requires_the_expected_base_identity_and_timeout() -
         BUILDER.update_package_info(valid.replace(b"ownerupgrade106", b"ownerupgrade105"))
     with pytest.raises(BUILDER.BuildRefused, match="base_package_identity_mismatch"):
         BUILDER.update_package_info(valid.replace(b'timeout="1800"', b'timeout="600"'))
+
+
+def test_process_output_includes_gatekeeper_stderr() -> None:
+    result = subprocess.CompletedProcess(["spctl"], 0, b"", b"accepted\nsource=Notarized Developer ID\n")
+
+    assert BUILDER.process_output(result) == "accepted\nsource=Notarized Developer ID"

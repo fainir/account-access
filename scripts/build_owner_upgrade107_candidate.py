@@ -48,6 +48,10 @@ def encoded(value: object) -> bytes:
     return (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode()
 
 
+def process_output(result: subprocess.CompletedProcess[bytes]) -> str:
+    return (result.stdout + result.stderr).decode(errors="replace").strip()
+
+
 def command(label: str, arguments: list[str], *, cwd: Path = ROOT,
             timeout: int = 900, expected: int = 0) -> subprocess.CompletedProcess[bytes]:
     result = subprocess.run(arguments, cwd=cwd, stdin=subprocess.DEVNULL,
@@ -259,7 +263,7 @@ def build(args: argparse.Namespace) -> dict[str, object]:
         "notary_status": notary_result.get("status"),
         "stapler_validation": "PASSED",
         "package_signature": "PASSED",
-        "gatekeeper_assessment": gatekeeper.stdout.decode(errors="replace").strip(),
+        "gatekeeper_assessment": process_output(gatekeeper),
         "installer_execution": "PENDING_OWNER_INSTALL",
         "production_gates_open": ["owner_mac_installer", "agent_service_smoke", "real_account_acceptance"],
     }
