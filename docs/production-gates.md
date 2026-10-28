@@ -7,6 +7,38 @@ password import, email/SMS/authenticator setup, and later approved sign-ins
 through the user's existing AI agent. Controlled tests cover those mechanisms;
 they do not establish personal-account or physical-phone acceptance.
 
+## Build 104 owner-approval candidate
+
+The build 104 universal owner app compiled from source commit `9c375d1` and
+passed Apple's notarization, stapling and Gatekeeper distribution assessment on
+28 October. The notarized app archive SHA-256 is
+`b84c0847bc58c44f37314b990d6f8e4c65f6c373a7719747f751557f34b5f9be` (Apple
+submission `5cd324b6-cd32-4e92-a846-2d1ff44a88f0`). It includes the bounded
+two-minute macOS-approval wait and clearer owner instructions. This is an app
+archive only: it is not an owner-successor system package, has not been
+installed, and does not establish production QA. [Build 104 signing and
+notarization record](../artifacts/owner-timeout104-notarization-20261028.json).
+
+The owner Mac still runs owner app build 92. Its Account Access window remains
+on “Checking your mailbox” / “macOS approval requested”; attempting to quit
+returns “Please let the current step finish.” The system Installer process is
+open without an active installer process. The current owner-successor controller
+is pinned to the older build 96 image, so the build 104 archive cannot be copied
+over the protected installation. A new exact successor plan and installer
+qualification are required before installing this fix.
+
+The installed agent launcher currently reports service version `0.6.0`,
+environment `controlled-demo`, and three synthetic accounts. It does not list
+Harel, Phoenix or the user's email account. No personal credentials, mailbox
+messages, insurance records or verification codes were read. The existing
+browser tabs are not an approved substitute for the connected-account launcher.
+Production acceptance still requires a supported real-account enrollment and
+fresh login test, Chrome import of a user-selected export, email/SMS delivery,
+authenticator verification, and physical Android 15 pairing. This repeated
+read-only result supersedes the earlier “live” environment label in the prior
+connection check. [Current agent account discovery](../artifacts/current-agent-account-discovery-20261028.json) ·
+[Earlier connection check](../artifacts/current-agent-connection-check-20261028.json).
+
 ## Public distribution status
 
 The latest published GitHub release remains **0.7.4 preview**, published on
