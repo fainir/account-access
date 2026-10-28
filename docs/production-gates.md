@@ -47,6 +47,12 @@ read-only result supersedes the earlier “live” environment label in the prio
 connection check. [Current agent account discovery](../artifacts/current-agent-account-discovery-20261028.json) ·
 [Earlier connection check](../artifacts/current-agent-connection-check-20261028.json).
 
+Public Chrome inspection shows Harel's login requires a national ID and mobile
+number, then offers an SMS or email code. Phoenix's login endpoint currently
+returns a provider error page before showing a form. No login details were
+entered and no code was requested. These observations do not demonstrate that
+the controlled-demo service can enroll either site. [Public login inspection](../artifacts/provider-public-login-inspection-20261028.json).
+
 ## Public distribution status
 
 The latest published GitHub release remains **0.7.4 preview**, published on
