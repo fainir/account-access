@@ -88,18 +88,19 @@ top-level unchanged `TargetImage` after extraction. This also avoids macOS tar's
 broad wildcard matching that previously removed nested target payloads. The
 package-95 archive and inventory were recovered from the pinned private draft
 release and match their recorded SHA-256 values; the extracted archive matched
-all 55,020 inventory rows. Focused regression QA passes (113 tests), and Ruff
-passes. A corrected package has not yet been built, signed, notarized, or
-installed; this source repair is not an installation acceptance result.
+all 55,020 inventory rows. Focused regression QA passes (113 tests), the
+broader MFA suite passes (41 tests), and Ruff passes. Fresh native QA against
+the exact package source passes: 79 owner checks, 480 shared-image checks, 69
+runtime checks, 477 tree checks, and 324 mixed-storage checks. A corrected
+package has not yet been built, signed, notarized, or installed; this source
+repair is not an installation acceptance result.
 [Build 110 failure evidence](../artifacts/owner-upgrade110-build-20261028.json).
 
 The first full Python run completed with 4,503 passed, 4 skipped, and 2 failed.
 One failure was a stale native-image fixture expectation; it is corrected and
 covered by a regression assertion. The other was a browser-review cancellation
-test that passed in isolation on rerun; broader MFA coverage is being checked
-for repeatability. Native upgrade qualification previously passed 69
-runtime/owner checks, 480 shared-image checks, 477 tree checks, and 324
-mixed-storage checks without touching the installed app.
+test that passed in isolation on rerun; its broader MFA suite now passes all 41
+tests. The refreshed native probes passed without touching the installed app.
 
 The current owner app shows the Codex/Claude connection as automatic for every
 new session. Its Accounts page reports **0 ready** and one Namecheap sign-in
