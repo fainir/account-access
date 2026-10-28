@@ -15,7 +15,9 @@ dialog with ID and mobile fields, SMS selected by default and email as an
 alternative. Phoenix's personal-area entry redirected to its authentication
 host and described a one-time code to mobile or email; it also offered a phone
 call. No values were entered and no code was requested. The transient Phoenix
-state parameter was not retained. [Sanitized public-page check](../artifacts/insurer-public-login-check-20261028.json).
+state parameter was not retained. The official Phoenix entry produced a
+state-bound login page; opening the authentication URL without that state showed
+a generic configuration error. [Sanitized public-page check](../artifacts/insurer-public-login-check-20261028.json).
 
 Harel's [official FAQ](https://www.harel-group.co.il/long-term-savings/independent-and-employees/information/faq)
 describes identity/phone verification and possible first-login identity-issuance
