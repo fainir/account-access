@@ -77,16 +77,16 @@ EXACT_INPUTS = {
     'macos/Tests/BrokerRepairSourceChecks.swift': 'ad6def26f6519fdc3d3b4f829ccb79b6c4134a7622983e64aabca3f14c6bb5ac',
     'macos/Tests/CombinedPredecessorAuthorityChecks.swift': '16d1921b6edc83654e46d1084ff9a3eaa904506ba0e7c04aa605c538882ee67c',
     'macos/Tests/FullImageGlobalJournalChecks.swift': '1887f7b48b7be3d2b30d89fac01f746ca374208dd0a53af0a7e086ff5ab022d8',
-    'macos/Tests/FullImageInstalledChecks.swift': '4c3b03d20401f6235f9daae5bd05c3bcb346f28fc1eee2e4ee4631e30e9587eb',
+    'macos/Tests/FullImageInstalledChecks.swift': '972716b22fe6403b5024acf8c0c11c5e9dfd9925949154b4fa53e8df61536c12',
     'macos/Tests/FullImageInstalledSourceFixture.swift': '7c448f2ee2339735a9e0ac11e151ef135998143b20979f3ad963a4e747658ba4',
     'macos/Tests/FullImageLegacyGroupChecks.swift': '783c7166faf8844feb90dfe1c35c8a5364bb0c8328a2538ff6ab337bc5ee0992',
     'macos/Tests/FullImageNamespaceChecks.swift': '86a7cdc1063f8bcb497b0decc5dcc3025f8639f3f2c9d0de5e72945fdca7be92',
     'macos/Tests/FullImagePredecessorAuthorityChecks.swift': '34e940e3d6acc9878c57a1f96ed8cf2f805966db857dbea03e8c8c41b0fb75b4',
     'macos/source-fragments/BrokerRepairInstalledAdapter.swift.inc': '78bf44ef76b136733f2b21b53879872915582d463d1a12a1ef6a5fe2c8402dca',
     'macos/source-fragments/CompletedComponentPredecessor.swift.inc': 'bda8f8138e64f4f1bad0a05e35f63a4d05922ff19d12a1e0d8371ac8cb886be7',
-    'macos/source-fragments/FullImageInstalledAdapter.swift.inc': 'cb96418d5015eaad9b176aa69a65f6a62256684fe183780bc7246590a21dd4e6',
+    'macos/source-fragments/FullImageInstalledAdapter.swift.inc': '2d53f4003c380dc26207a3b2f71f2947c0776bcb541ae3c4cc4fe34c6b27bb72',
 }
-COMPOSED_SHA256 = "adf4845ebbabcdb18c8c5d23b9927f85f381287687b35e8c36e8ec1a71cf0e65"
+COMPOSED_SHA256 = "bd28127ccb4a767cedb11719df70dfafb12ba6d4e41cbaa6e4b0de097b2233a4"
 GUARD_ENV = "ACCOUNT_ACCESS_FULL_IMAGE_PROBE_GUARD"
 DISPATCHER = b'''import Foundation
 import Darwin
@@ -376,7 +376,7 @@ class Probe:
         require(len(reports) == 6 and all(report.get("status") == "PASSED" for report in reports[:4]), "fixture_reports_refused")
         require(reports[0].get("count") == 159 and isinstance(reports[0].get("checks"), dict)
                 and len(reports[0]["checks"]) == 159 and all(value is True for value in reports[0]["checks"].values())
-                and reports[1].get("checks") == 480, "fixture_assertion_count_changed")
+                and reports[1].get("checks") == 513, "fixture_assertion_count_changed")
         namespace = reports[2]
         require((namespace.get("checks"), namespace.get("supplemental_group_case")) in {
             (29, "UNAVAILABLE_NO_DISTINCT_GROUP"),

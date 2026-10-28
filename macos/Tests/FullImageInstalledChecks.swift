@@ -254,6 +254,10 @@ private enum InstalledFixtureFailure: Error { case failed }
                         "predecessor_repair_intent", "predecessor_repair_evidence",
                         "predecessor_component_revalidation", "predecessor_repair_stability", "predecessor_authority",
                         "predecessor_policy", "predecessor_storage", "predecessor_view",
+                        "predecessor_view_routes", "predecessor_view_owner", "predecessor_view_policies",
+                        "predecessor_view_journal", "predecessor_view_original_receipt",
+                        "predecessor_view_repair_proof", "predecessor_view_before", "predecessor_view_states",
+                        "predecessor_view_layout", "predecessor_view_projection", "predecessor_view_after",
                         "predecessor_evidence"].allSatisfy { fullImageCheckpoints.contains($0) })
             for category in progressCases {
                 for elapsed in [0.0, 1800.9, 86400.0] {

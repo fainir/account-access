@@ -176,13 +176,20 @@ extension ComponentController {
                 trees.append(tree); units.append(.tree(tree))
             }
         }
-        func unchanged(original checkedOriginal: Int32? = nil, predecessor checkedPrevious: Int32? = nil) throws {
+        func unchanged(original checkedOriginal: Int32? = nil, predecessor checkedPrevious: Int32? = nil,
+                       progress: (FullImageInstallCheckpoint) -> Void) throws {
+            progress(.predecessorViewRoutes)
             try routes.verify(); try ComponentProcesses.requireOwnerClosed()
-            guard try owner().0 == ownerUID, try InstallerPayloadIO.contents(namespace.fd) == names,
-                  try publicRead("broker/worker.json", mode: 0o644).1 == worker.1,
-                  try jobPlist(ownerGroup: ownerGroup) == service,
-                  try journal.completedEvidence() == history else { throw FullImageFailure.object }
+            progress(.predecessorViewOwner)
+            guard try owner().0 == ownerUID, try InstallerPayloadIO.contents(namespace.fd) == names else { throw FullImageFailure.object }
+            progress(.predecessorViewPolicies)
+            guard try publicRead("broker/worker.json", mode: 0o644).1 == worker.1,
+                  try jobPlist(ownerGroup: ownerGroup) == service else { throw FullImageFailure.object }
+            progress(.predecessorViewJournal)
+            guard try journal.completedEvidence() == history else { throw FullImageFailure.object }
+            progress(.predecessorViewOriginalReceipt)
             try originalReceipt(checkedOriginal ?? original, ownerUID: ownerUID)
+            progress(.predecessorViewRepairProof)
             let rechecked = try completedBrokerRepairLocked(resources: checkedPrevious ?? previous, pins: repairPins,
                 predecessorPins: predecessorPins, expectedEvidenceSHA256: intent.predecessorEvidenceSHA256,
                 historical: originalFile)
@@ -193,9 +200,13 @@ extension ComponentController {
         checkpoint(.predecessorStorage)
         try intent.verifyStorage(storage)
         func completeView() throws {
-            try unchanged()
+            checkpoint(.predecessorViewBefore)
+            try unchanged(progress: checkpoint)
+            checkpoint(.predecessorViewStates)
             guard try storage.operations.allSatisfy({ try storage.state($0) == .applied }) else { throw FullImageFailure.predecessor }
+            checkpoint(.predecessorViewLayout)
             try fullLayout(source: source, routes: routes, storage: storage, intent: intent)
+            checkpoint(.predecessorViewProjection)
             if let projection { try projection.verifyPublic() }
             else {
                 try FullImagePublicView.verify(source: source, states: Array(repeating: .applied, count: source.units.count),
@@ -205,7 +216,8 @@ extension ComponentController {
             let root = open("/", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
             guard root >= 0 else { throw FullImageFailure.object }; defer { Darwin.close(root) }
             _ = try InstallerPayloadIO.verifyApplicationAlias(from: root, owner: 0)
-            try unchanged()
+            checkpoint(.predecessorViewAfter)
+            try unchanged(progress: checkpoint)
         }
         checkpoint(.predecessorView)
         try completeView()
@@ -231,7 +243,7 @@ extension ComponentController {
         let heldOriginal = try RuntimeVerificationDescriptor(original), heldPrevious = try RuntimeVerificationDescriptor(previous)
         return CompletedRuntimeUpgradeProof(evidence: evidence, ownerUID: ownerUID, brokerUID: authority.brokerUID,
             worker: worker.1, service: service, historyCheck: {
-                try unchanged(original: heldOriginal.fd, predecessor: heldPrevious.fd)
+                try unchanged(original: heldOriginal.fd, predecessor: heldPrevious.fd, progress: { _ in })
                 guard try trees.map({ FullImageJSON.hash(try $0.journalEvidence()) }) == localHistory,
                       try ComponentFiles.read(namespace.fd, "head.json", owner: 0, mode: 0o644).1 == head.1,
                       try InstallationRootBinding.capture(withVolumeUUID: true) == roots else { throw FullImageFailure.predecessor }

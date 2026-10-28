@@ -91,9 +91,26 @@ release and match their recorded SHA-256 values; the extracted archive matched
 all 55,020 inventory rows. Focused regression QA passes (113 tests), the
 broader MFA suite passes (41 tests), and Ruff passes. Fresh native QA against
 the exact package source passes: 79 owner checks, 480 shared-image checks, 69
-runtime checks, 477 tree checks, and 324 mixed-storage checks. A corrected
-package has not yet been built, signed, notarized, or installed; this source
-repair is not an installation acceptance result.
+runtime checks, 477 tree checks, and 324 mixed-storage checks. The corrected
+package was then built from source `31d9561f4356a107826b51a43841803887992c21`,
+signed, notarized, stapled, Gatekeeper-accepted and accepted by Installer's
+parser. Its SHA-256 is
+`223232416738344adb4b08b4451acc2b0071d5d88956c9df380f4b7b25f452a4` (Apple
+submission `c3deef3c-4dbb-4216-8b10-16dbb984b2f0`). The first owner-Mac attempt
+refused because Account Access was open. After it was closed, an authorized
+retry passed source, payload, history, route, intent, evidence and component
+revalidation, then refused at `predecessor_view` with
+`owner_upgrade_predecessor_not_verified`. Installer created no receipt and the
+installed app did not change. [Owner-Mac result](../artifacts/owner-upgrade110-fixed-install-20261028.json).
+
+The current source adds fixed sub-checkpoints inside that read-only predecessor
+view so the next refusal identifies whether the mismatch is in the owner,
+policy, journal, receipt, repair proof, applied operation states, layout,
+public projection or final stability pass. Focused regressions pass (42 tests),
+and refreshed native probes pass: 79 owner, 513 shared-image, 69 runtime, 477
+tree-storage and 324 mixed-storage checks. These diagnostics do not relax the
+predecessor checks or establish production readiness. The install and real
+account/device gates remain open.
 [Build 110 failure evidence](../artifacts/owner-upgrade110-build-20261028.json).
 
 The first full Python run completed with 4,503 passed, 4 skipped, and 2 failed.
