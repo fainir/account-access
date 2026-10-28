@@ -1,6 +1,6 @@
 [project]
 name = "account-access"
-version = "0.7.4"
+version = "0.8.0"
 description = "Scoped, resumable account access through a portable skill, CLI, and private service"
 readme = "README.md"
 license = "MIT"
@@ -15,8 +15,9 @@ dependencies = [
   "playwright>=1.55,<2",
   "fastapi>=0.115,<1",
   "uvicorn>=0.35,<1",
-  "filelock>=3.18,<4",
+  "filelock>=4.2.4,<5",
   "pyotp>=2.9,<3",
+  "onepassword-sdk==0.4.1",
 ]
 
 [project.scripts]
@@ -29,7 +30,15 @@ Documentation = "https://github.com/fainir/account-access#readme"
 Issues = "https://github.com/fainir/account-access/issues"
 
 [dependency-groups]
-dev = ["pytest>=8,<10", "pytest-asyncio>=1,<2", "ruff>=0.12,<1", "pip-audit>=2.9,<3", "pyyaml>=6,<7"]
+dev = [
+    "pytest>=8,<10",
+    "pytest-asyncio>=1,<2",
+    "ruff>=0.12,<1",
+    "pip-audit>=2.9,<3",
+    "pyyaml>=6,<7",
+    "installer==1.1.0",
+    "packaging>=26.3,<27",
+]
 
 [build-system]
 requires = ["hatchling"]

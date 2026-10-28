@@ -9,16 +9,20 @@ from .codes import Codes
 from .errors import AccessError
 from .models import BrowserAccount, OAuthAccount, TaskRequest
 from .providers import OAuth, credential_values, redact
+from .account_context import aggregate, describe, environment, result_view
 
 MESSAGES = {
     "login": "Complete sign-in for this account in the local owner setup flow.",
     "email": "Complete the email login challenge or reconnect its approved mailbox source.",
     "sms": "Complete the SMS login challenge or reconnect its approved SMS source.",
     "totp": "Complete the authenticator login challenge or enroll its approved code source.",
+    "method": "Connect one of this website's approved email, SMS or authenticator methods locally.",
     "device": "Approve the provider's sign-in request on your genuine device.",
     "passkey": "Complete the provider's passkey or biometric verification on your device.",
+    "captcha": "Review the website's browser security check in the local owner flow. This connector cannot complete that verification automatically.",
     "admin": "An administrator must approve the required access through the provider.",
     "action": "This is an action authorization challenge. Review it directly with the provider.",
+    "recovery": "The provider opened account recovery. Complete a supported sign-in method in the local website window.",
     "unknown": "The page needs review because its authentication state was not recognized.",
     "vault": "Unlock or repair the credential store locally.",
 }
@@ -26,6 +30,8 @@ MESSAGES = {
 
 class Broker:
     def __init__(self, store):
+        from .worker_health import WorkerHealth
+        self.worker_health = WorkerHealth()
         self.store = store
         self.oauth = OAuth(store)
         self.codes = Codes(store, self.oauth)
@@ -85,7 +91,10 @@ class Broker:
     def error(self, exc, account, *, challenge=True):
         result = {"status": exc.status, "reason": exc.reason, "account": account}
         if exc.status == "NEEDS_USER" and challenge:
-            result["challenge"] = self.challenge_view(self.store.challenge(account, exc.kind, exc.reason))
+            saved = self.store.challenge(account, exc.kind, exc.reason)
+            from .verification_recovery import remember
+            remember(self.store, saved, exc.source_id, exc.reason)
+            result["challenge"] = self.challenge_view(saved)
         return result
 
     def accounts(self, principal):
@@ -100,16 +109,33 @@ class Broker:
                 except AccessError:
                     pass
             if operations:
-                saved = self.store.get("connection:" + account)
-                credential = self.store.get("credential:" + account) or {}
-                login_ready = isinstance(spec, BrowserAccount) and spec.login and bool(credential.get("username") and credential.get("password"))
-                connected = bool(saved or login_ready)
-                result.append({"account": account, "label": spec.label, "route": spec.kind,
-                               "connected": connected, "verified_now": False,
-                               "connection_state": "saved_access" if saved else "login_recovery_ready" if login_ready else "needs_setup",
+                result.append({"account": account, **describe(spec, test_mode=config.test_mode), "route": spec.kind,
+                               **self.connection_view(account, config),
                                "operations": operations})
         return {"status": "OK", "accounts": result, "service_version": __version__,
-                "environment": "controlled-demo" if config.test_mode else "live"}
+                "background_recovery": self.worker_health.view(),
+                "environment": aggregate(result, test_mode=config.test_mode)}
+
+    def connection_view(self, account, config):
+        """Saved credentials alone are not evidence of a successful sign-in."""
+        spec = config.accounts[account]
+        saved = self.store.get("connection:" + account) or {}
+        credential = self.store.get("credential:" + account) or {}
+        ready = bool(isinstance(spec, BrowserAccount) and spec.login
+                     and credential.get("username") and credential.get("password"))
+        if saved.get("revoked"):
+            state = "revoked"
+        elif saved and saved.get("fingerprint") != config.fingerprint(account):
+            state = "needs_review"
+        elif self.store.pending(account):
+            state = "needs_attention"
+        elif saved:
+            state = "saved_access"
+        else:
+            state = "login_recovery_ready" if ready else "needs_setup"
+        return {"connected": state == "saved_access", "verified_now": False,
+                "connection_state": state,
+                "automatic_recovery_available": ready and state in {"saved_access", "login_recovery_ready"}}
 
     def status(self, principal, account, operation):
         try:
@@ -118,8 +144,8 @@ class Broker:
             if pending:
                 return {"status": "NEEDS_USER", "account": account,
                         "challenge": self.challenge_view(pending[0])}
-            connected = self.store.get("connection:" + account)
-            return {"status": "AVAILABLE" if connected else "UNCONNECTED", "account": account,
+            view = self.connection_view(account, self.store.config())
+            return {"status": "AVAILABLE" if view["connected"] else "RECOVERABLE" if view["automatic_recovery_available"] else "UNCONNECTED", "account": account,
                     "verified_now": False}
         except AccessError as exc:
             return self.error(exc, account, challenge=False)
@@ -138,12 +164,25 @@ class Broker:
                             "challenge": self.challenge_view(pending[0])}
                 op = spec.operations[operation]
                 secrets_seen = credential_values(self.store.get("credential:" + account, {}))
-                if isinstance(spec, BrowserAccount) and spec.login and spec.login.code_source:
-                    source_id = spec.login.code_source
-                    secrets_seen |= credential_values(self.store.get("source:" + source_id, {}))
-                    source_account = config.code_sources[source_id].account
-                    if source_account:
-                        secrets_seen |= credential_values(self.store.get("connection:" + source_account, {}))
+                secrets_seen |= credential_values(self.store.get("password-link:" + account, {}))
+                password_link = self.store.get("password-link:" + account) or {}
+                if password_link.get("provider") == "bitwarden":
+                    from .bitwarden_source import secret_values
+                    secrets_seen |= secret_values(self.store, password_link)
+                if isinstance(spec, BrowserAccount) and spec.login:
+                    for source_id in spec.login.sources():
+                        secrets_seen |= credential_values(self.store.get("source:" + source_id, {}))
+                        from .mailboxes import enrollment
+                        try:
+                            secrets_seen |= credential_values(enrollment(self.store, source_id))
+                        except AccessError:
+                            # An existing website session can still be read
+                            # after its mailbox is disconnected. Recovery will
+                            # stop before password submission if it is needed.
+                            pass
+                        source_account = config.code_sources[source_id].account
+                        if source_account:
+                            secrets_seen |= credential_values(self.store.get("connection:" + source_account, {}))
                 if isinstance(spec, OAuthAccount):
                     data = self.oauth.read(account, op, config)
                 elif isinstance(spec, BrowserAccount):
@@ -155,7 +194,8 @@ class Broker:
                 secrets_seen |= credential_values(self.store.get("connection:" + account, {}))
                 self.store.audit(principal, account, operation, "operation_completed")
                 return {"status": "COMPLETED", "account": account, "operation": operation,
-                        "environment": "controlled-demo" if config.test_mode else "live",
+                        "environment": environment(spec, test_mode=config.test_mode),
+                        "environment_source": "connector-configuration",
                         "data": redact(data, secrets_seen), "untrusted_data": True}
         except AccessError as exc:
             self.store.audit(principal, account, operation, "operation_blocked", exc.reason)
@@ -194,9 +234,24 @@ class Broker:
             raise AccessError("DENIED", "unknown_task")
         for step in job["steps"]:
             self.permit(principal, step["account"], step["operation"])
-        return {"status": job["status"], "task_id": job_id, "progress": len(job["completed"]),
-                "total": len(job["steps"]), "results": job["completed"],
-                "blocked": job.get("blocked"), "untrusted_data": True}
+        blocked = job.get("blocked")
+        if job["status"] == "NEEDS_USER" and blocked and blocked.get("challenge"):
+            # Owner diagnostics can refine a pending challenge without clearing
+            # it. Show its current explanation without retrying the website or
+            # rewriting the durable task's progress.
+            current = next((item for item in self.store.pending(blocked["account"])
+                            if item["id"] == blocked["challenge"]["id"]), None)
+            if current:
+                blocked = {**blocked, "challenge": self.challenge_view(current)}
+                if "reason" in blocked:
+                    blocked["reason"] = current["reason"]
+        result = {"status": job["status"], "task_id": job_id, "progress": len(job["completed"]),
+                "total": len(job["steps"]), "results": [result_view(row) for row in job["completed"]],
+                "blocked": blocked, "untrusted_data": True}
+        health = self.worker_health.view()
+        if job["status"] in {"QUEUED", "RUNNING", "RETRYABLE"} and health["status"] in {"RETRYING", "STOPPED"}:
+            result["background_recovery"] = health
+        return result
 
     def save_job(self, job, next_at=0):
         with self.store.db() as db:
@@ -230,6 +285,8 @@ class Broker:
     def tick(self):
         from .password_sync import due
         due(self.store)
+        from .verification_recovery import recover
+        recover(self.store)
         self.tick_schedules()
         with self.store.db() as db:
             ids = [r[0] for r in db.execute("SELECT id FROM jobs WHERE status IN ('QUEUED','RUNNING','NEEDS_USER','RETRYABLE') AND next_at<=? ORDER BY rowid LIMIT 20", (time.time(),))]

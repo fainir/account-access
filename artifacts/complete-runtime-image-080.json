@@ -1,0 +1,167 @@
+{
+  "version": "0.8.0-candidate",
+  "date": "2026-10-17",
+  "source_revision": "3a54663de7b19a7c4516935b5e8a0a8027b0a6d1",
+  "production_ready": false,
+  "private_signins": 0,
+  "ci": {
+    "all_eight_push_and_pr_workflows": "passed",
+    "runs": {
+      "push_main": "https://github.com/fainir/account-access/actions/runs/39053080887",
+      "push_mac": "https://github.com/fainir/account-access/actions/runs/39053080898",
+      "push_linux": "https://github.com/fainir/account-access/actions/runs/39053080883",
+      "push_android": "https://github.com/fainir/account-access/actions/runs/39053080908",
+      "pr_main": "https://github.com/fainir/account-access/actions/runs/39053085201",
+      "pr_mac": "https://github.com/fainir/account-access/actions/runs/39053085200",
+      "pr_linux": "https://github.com/fainir/account-access/actions/runs/39053085334",
+      "pr_android": "https://github.com/fainir/account-access/actions/runs/39053087479"
+    },
+    "regressions": [
+      {
+        "passed": 1342,
+        "platform_skips": 7,
+        "seconds": 584.15,
+        "run": 39053080887
+      },
+      {
+        "passed": 1342,
+        "platform_skips": 7,
+        "seconds": 511.32,
+        "run": 39053085201
+      }
+    ],
+    "python_dependency_audit": "no known vulnerabilities found",
+    "complete_reports_per_mac": 16,
+    "worker_reports_identical": true,
+    "native_desktop_component_reports_identical": true,
+    "android_emulator_reports_identical": true
+  },
+  "development_native_inventory": {
+    "native_files": 63,
+    "executables": 22,
+    "bundles": 11,
+    "wheels": 33,
+    "publisher_signatures_verified": false,
+    "notarization_verified": false
+  },
+  "complete_preparation_fixture": {
+    "native_files_signed": 41,
+    "bundle_seals_signed": 10,
+    "wheels": 32,
+    "publisher_team": "fixture",
+    "production_permission_profile": false
+  },
+  "complete_runtime_images_per_mac": [
+    {
+      "architecture": "arm64",
+      "python_version": "3.12.15",
+      "installed_distributions": 33,
+      "bytecode_compiled": false,
+      "wheel_installation_executes_package_code": false,
+      "prepared_native_runtime": false
+    },
+    {
+      "architecture": "arm64",
+      "python_version": "3.12.15",
+      "installed_distributions": 33,
+      "bytecode_compiled": false,
+      "wheel_installation_executes_package_code": false,
+      "prepared_native_runtime": true
+    }
+  ],
+  "platform_support": {
+    "candidate_mac_runtime": [
+      "arm64"
+    ],
+    "minimum_macos": "14.0",
+    "intel_mac_runtime_supported": false,
+    "reason": "The pinned cryptography 50.0.2 artifacts contain no Intel Mac wheel",
+    "upstream_source": "https://cryptography.io/en/50.0.2/changelog/#v49-0-0",
+    "shell_and_direct_bootstrap_refuse_before_downloads_or_runtime_changes": true,
+    "package_assembly_refuses_before_supplied_payload_paths_are_opened": true,
+    "intel_or_rosetta_physical_machine_verified": false
+  },
+  "prepared_install_acceptance": {
+    "status": "PASSED",
+    "environment": "controlled-demo",
+    "production_ready": false,
+    "private_signins": 0,
+    "actual_installer_used": true,
+    "positive_consumer_install_verified": false,
+    "publisher_signed_package": false,
+    "genuine_owner_approval_verified": false,
+    "prepared_runtime_executed": true,
+    "fixture_library_validation_exception": true,
+    "checks": {
+      "recovery_manifest_matches_complete_public_package_payload": true,
+      "actual_development_package_refused_before_owner_setup": true,
+      "offline_runtime_installed_at_final_path": true,
+      "complete_runtime_image_matches_installed_public_files_and_modes": true,
+      "installed_runtime_loads_dependencies_with_protected_paths": true,
+      "prepared_receipt_matches_installed_package_metadata": true,
+      "derived_requirements_match_preparation_receipt": true,
+      "app_pinned_project_and_original_source_lock_preserved": true,
+      "prepared_native_bytes_preserved_at_final_install_paths": true,
+      "prepared_code_is_root_controlled_without_privileged_modes": true,
+      "prepared_signatures_and_bundle_seals_valid_after_install": true,
+      "prepared_native_callbacks_crypto_and_validation_work": true,
+      "relocated_package_browser_runs_sandboxed_without_credentials": true,
+      "development_package_creates_no_vault_or_registration": true,
+      "development_package_creates_no_service_user": true,
+      "development_package_creates_no_service_group": true,
+      "protected_app_payload_present": true,
+      "shared_system_parent_ownership_and_modes_preserved": true,
+      "temporary_package_payload_removed": true
+    }
+  },
+  "isolated_node_probes": [
+    {
+      "passed": 1,
+      "seconds": 4.71,
+      "run": 39053080898
+    },
+    {
+      "passed": 1,
+      "seconds": 4.04,
+      "run": 39053085200
+    }
+  ],
+  "android_emulator_acceptance": {
+    "status": "COMPLETED",
+    "browser_sms_verifications": 1,
+    "android_api": "30",
+    "checks": [
+      "Keystore encrypted pairing",
+      "Private destination restriction",
+      "Actual Android notification listener",
+      "Certificate-pinned HTTPS ingress",
+      "Browser code submission",
+      "No code in agent result"
+    ],
+    "limits": "Synthetic login notification on an emulator; no physical phone or carrier delivery validated."
+  },
+  "owner_state": {
+    "installed_build": 53,
+    "app_replaced": false,
+    "unfinished_gmail_form": "preserved",
+    "gmail_setup": "deferred_by_owner",
+    "new_private_signin_requests": 0
+  },
+  "package_inventory_acceptance": {
+    "actual_archive_expanded_before_installer": true,
+    "complete_manifest_rebuilt_from_public_payload": true,
+    "prepared_package_checks": 19,
+    "original_package_checks": 12,
+    "retry_or_recovery_authority_implemented": false
+  },
+  "limits": [
+    "Current cryptography artifacts supply no Intel Mac wheel; universal native executables do not establish Intel runtime compatibility",
+    "The inventory identifies public package contents only; protected interrupted-install retry is not implemented",
+    "Prepared runtime and publisher checks use ad-hoc signatures and explicit fixture-only library-validation exceptions",
+    "No genuine Developer ID publisher, Apple acceptance/stapling or positive downloaded consumer install is established",
+    "Owner approval, Full Disk Access, migration/update/reboot and real Codex/Claude sessions against the protected install remain unverified",
+    "Credentials/messages/seeds in controlled journeys are fictional; no new private account or physical phone/carrier is validated",
+    "Full installed Chrome/native/XPC/worker acceptance and Web Store distribution remain open",
+    "Chrome CSV imports remain snapshots; continuous Chrome sync is not implemented"
+  ]
+}

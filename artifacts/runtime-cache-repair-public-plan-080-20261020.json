@@ -1,0 +1,1 @@
+[{"check":"policy_paths","reason":null},{"check":"worker_plan","reason":null},{"check":"enrollment_plan","reason":null},{"check":"broker_domain","reason":null},{"check":"agent_socket","reason":null},{"check":"owner_socket","reason":"invalid_worker_launcher_descriptors"}]

@@ -1,6 +1,80 @@
 from account_access.broker import Broker
 
 
+def test_browser_channel_is_explicit_reviewed_configuration(env):
+    import pytest
+    from pydantic import ValidationError
+    from account_access.models import BrowserAccount
+
+    _, broker, _ = env
+    config = broker.store.config()
+    original = config.fingerprint("demo-web")
+    config.accounts["demo-web"].browser_channel = "chrome"
+    assert config.fingerprint("demo-web") != original
+    data = config.accounts["demo-web"].model_dump()
+    data["browser_channel"] = "/tmp/untrusted-browser"
+    with pytest.raises(ValidationError):
+        BrowserAccount.model_validate(data)
+
+
+def test_login_assets_run_only_as_scripts_or_styles_during_login(env):
+    import pytest
+    from playwright.sync_api import Error, sync_playwright
+    provider, broker, _ = env
+    parent = provider.server.RequestHandlerClass
+    requests = []
+    class Handler(parent):
+        def do_GET(self):
+            if self.path == "/approved.js":
+                requests.append(self.path)
+                self.send(200, "window.reviewedAssetLoaded = true", content_type="application/javascript")
+            else:
+                super().do_GET()
+    provider.server.RequestHandlerClass = Handler
+    spec = broker.store.config().accounts["demo-web"]
+    spec.javascript = True
+    asset = provider.base + "/approved.js"
+    spec.login_assets = [asset]
+    load = """url => new Promise(resolve => {
+        const script = document.createElement('script'); script.src = url;
+        script.onload = () => resolve(true); script.onerror = () => resolve(false);
+        document.head.append(script);
+    })"""
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(headless=True, chromium_sandbox=True)
+        context = broker.browser.context(browser, spec, login=True)
+        page = broker.browser.page(context)
+        page.goto(spec.login_url)
+        assert page.evaluate(load, asset)
+        assert page.evaluate("window.reviewedAssetLoaded") is True
+        assert page.evaluate("async url => {try {await fetch(url); return false} catch {return true}}", asset)
+        with pytest.raises(Error):
+            page.goto(asset)
+        context.close()
+        spec.read_resources.append(spec.login_url)
+        context = broker.browser.context(browser, spec)
+        page = broker.browser.page(context)
+        page.goto(spec.login_url)
+        assert not page.evaluate(load, asset)
+        browser.close()
+    assert requests == ["/approved.js"]
+
+
+def test_account_discovery_does_not_claim_saved_password_is_verified_access(env):
+    provider, broker, _ = env
+    def account():
+        return next(item for item in broker.accounts("test")["accounts"] if item["account"] == "demo-web")
+    before = account()
+    assert not before["connected"] and before["automatic_recovery_available"]
+    assert before["connection_state"] == "login_recovery_ready" and provider.login_count == 0
+    assert broker.run("test", "demo-web", "summary")["status"] == "COMPLETED"
+    assert account()["connected"] and account()["connection_state"] == "saved_access"
+    challenge = broker.store.challenge("demo-web", "device", "browser_device_required")
+    assert not account()["connected"] and account()["connection_state"] == "needs_attention"
+    assert broker.run("test", "demo-web", "summary")["challenge"]["id"] == challenge["id"]
+    assert provider.login_count == 1
+
+
 def test_login_cooldown_waits_without_owner_challenge_and_task_resumes(env):
     import time
     from account_access.models import TaskRequest
@@ -70,12 +144,60 @@ def test_unrecognized_page_does_not_fill_credentials(env):
     assert provider.login_count == 0
 
 
-def test_session_import_filters_foreign_origins(env):
+def test_visible_review_reports_attention_before_waiting_for_owner(env, monkeypatch):
+    import threading
+    import pytest
+    from account_access.errors import AccessError
+    from playwright.sync_api import BrowserType
+
+    original_launch = BrowserType.launch
+    def headless_fixture(browser_type, **kwargs):
+        return original_launch(browser_type, **{**kwargs, "headless": True})
+    monkeypatch.setattr(BrowserType, "launch", headless_fixture)
+
+    provider, broker, _ = env
+    config = broker.store.config().accounts["demo-web"]
+    config.challenge_selectors = {}
+    stopped = threading.Event()
+    reports = []
+    def attention(*metadata):
+        reports.append(metadata)
+        stopped.set()
+    with pytest.raises(AccessError, match="browser_state_unrecognized"):
+        broker.browser.read("demo-web", config.operations["summary"], config,
+                            visible=True, review_stop=stopped, on_attention=attention)
+    assert reports == [("NEEDS_USER", "browser_state_unrecognized", "unknown", {})]
+    assert provider.login_count == 0
+
+
+def test_headless_authentication_failure_reports_its_live_page_once(env):
+    import pytest
+    from account_access.errors import AccessError
+
     _, broker, _ = env
-    broker.browser.import_state("demo-web", {"cookies": [
-        {"domain": "evil.example", "name": "secret", "value": "should-not-store"}],
-        "origins": [{"origin": "https://evil.example", "localStorage": []}]})
-    assert broker.store.get("connection:demo-web")["state"] == {"cookies": [], "origins": []}
+    config = broker.store.config().accounts["demo-mfa"]
+    broker.store.put("source:demo-totp", None)
+    reports = []
+    with pytest.raises(AccessError, match="authenticator_not_enrolled"):
+        broker.browser.read("demo-mfa", config.operations["summary"], config,
+                            on_attention=lambda *metadata: reports.append(metadata))
+    assert len(reports) == 1
+    assert reports[0][:3] == ("NEEDS_USER", "authenticator_not_enrolled", "totp")
+
+
+def test_legacy_unverified_session_import_cannot_save_or_clear_a_login_challenge(env):
+    import pytest
+    from account_access.errors import AccessError
+
+    _, broker, _ = env
+    broker.store.challenge("demo-web", "passkey", "browser_passkey_required")
+    previous = broker.store.get("connection:demo-web")
+    with pytest.raises(AccessError, match="browser_session_owner_request_required"):
+        broker.browser.import_state("demo-web", {"cookies": [
+            {"domain": "evil.example", "name": "secret", "value": "should-not-store"}],
+            "origins": [{"origin": "https://evil.example", "localStorage": []}]})
+    assert broker.store.get("connection:demo-web") == previous
+    assert broker.store.pending("demo-web")[0]["kind"] == "passkey"
 
 
 def test_login_cannot_post_to_a_read_resource(env):
@@ -87,7 +209,7 @@ def test_login_cannot_post_to_a_read_resource(env):
     with sync_playwright() as pw:
         browser = pw.chromium.launch()
         context = broker.browser.context(browser, config, login=True)
-        page = context.new_page()
+        page = broker.browser.page(context)
         page.goto(config.login_url)
         result = page.evaluate("async url => {try {await fetch(url, {method:'POST'}); return 'sent'} catch {return 'blocked'}}", provider.base + "/api/summary")
         assert result == "blocked"
@@ -148,9 +270,12 @@ def test_navigation_diagnostic_does_not_expose_unreviewed_url_or_query(env):
     assert result["status"] != "COMPLETED"
     with broker.store.db() as db:
         events = [dict(row) for row in db.execute("SELECT * FROM audit WHERE event='browser_navigation_failed'")]
+        routes = [dict(row) for row in db.execute("SELECT * FROM audit WHERE event='browser_navigation_route'")]
     assert events
     assert any(row["reason"] == "redirect:destination:unreviewed_destination:query" for row in events)
     assert sensitive not in str(events) and "123456" not in str(events)
+    assert routes and routes[-1]["reason"] == "origin_0:/?/?"
+    assert sensitive not in str(routes) and "123456" not in str(routes)
     assert provider.password not in str(events) and provider.base not in str(events)
     assert not any(path.startswith("/not-reviewed/") for path in provider.posted_paths)
 

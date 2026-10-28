@@ -3,21 +3,23 @@
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Account Access — Your accounts</title><link rel="stylesheet" href="/welcome.css"><script src="/welcome.js" defer></script></head>
 <body><div class="app-shell">
 <aside class="sidebar"><a class="brand" href="#"><span class="brand-mark" aria-hidden="true">↗</span><span>Account Access<small>Your AI. Your accounts.</small></span></a>
-<nav aria-label="Account settings"><button class="nav-item active" data-view="accounts" aria-current="page">Your accounts</button><button class="nav-item" data-view="verification">Verification</button><button id="import-nav" class="nav-item">Import passwords</button></nav>
+<nav aria-label="Account settings"><button class="nav-item active" data-view="accounts" aria-current="page">Your accounts</button><button class="nav-item" data-view="verification">Verification</button><button class="nav-item" data-view="sync">Password sync</button><button id="import-nav" class="nav-item">Import passwords</button></nav>
 <div class="privacy-note"><strong>Saved on your computer</strong><p>You approve what your AI can read. Passwords and codes stay out of chat.</p></div></aside>
 <main><header><span class="eyebrow">ACCOUNT ACCESS</span><span class="local" id="service-status">Opening your local app…</span></header>
 <div class="page-heading"><div><h1 id="page-title">Your accounts</h1><p class="intro" id="page-intro">Keep using your AI. We handle supported sign-ins and approved reads.</p></div><button id="show-connect" type="button">Add an account</button></div>
 <p id="message" role="status" aria-live="polite"></p>
+<p id="recovery-health" role="status" aria-live="polite" hidden></p>
 <div id="accounts-view">
 <section class="integration-card"><span class="integration-icon" aria-hidden="true">✓</span><div><h2 id="integration-title">Setting up automatic access</h2><p id="agent-status">Setting up automatic access for your existing AI tools…</p></div><span class="pill" id="automatic-status">Setting up</span></section>
 <section id="connected-section" hidden><div class="section-heading"><h2>Your connections</h2><span id="account-count"></span></div><div id="connected" class="account-grid"></div></section>
 <section id="connect" class="card" hidden><h2>Connect an account once</h2><p>Choose a supported connection and approve its reads, or import a password export.</p>
-<button id="import-passwords" type="button" class="secondary">Import saved passwords</button><input id="password-file" type="file" accept=".csv,text/csv" hidden><div id="import-review" hidden></div>
+<button id="import-passwords" type="button" class="secondary">Import saved passwords</button><input id="password-file" type="file" accept=".csv,text/csv,.json,application/json" aria-label="CSV or Bitwarden JSON password export" hidden><div id="import-review" hidden></div>
 <form id="account-form"><label class="field">Account<select id="service" required></select></label>
 <div class="fields"><label class="field">Email or username<input id="username" autocomplete="username" required maxlength="4096"></label><label class="field">Password<input id="password" type="password" autocomplete="current-password" required maxlength="4096"></label></div>
 <div id="permission" class="permission"></div><label class="agree"><input id="allow" type="checkbox" required> Allow my AI to perform these reads.</label><button id="add" type="submit">Connect account</button></form><p class="small">Included examples use public testing websites. A supported connection is required for each additional service.</p></section>
 <section id="use" class="card example-card" hidden><span class="eyebrow">KEEP USING YOUR AI</span><h2>Just ask normally</h2><p>Nothing to turn on in each session. Try a request like this:</p><div id="prompts"></div><p class="small">The local service starts when needed. Your computer must be awake.</p></section>
 </div>
 <section id="verification" hidden><div id="factors" class="factor-grid"></div></section>
+<section id="sync-view" hidden><div id="password-sync" class="factor-grid"></div></section>
 <footer><a id="manage" href="/manage">Manage permissions and reconnect accounts</a><button id="stop" type="button" class="text-button">Pause local service</button></footer>
 </main></div></body></html>

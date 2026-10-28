@@ -1,0 +1,77 @@
+{
+  "version": "0.8.0-candidate",
+  "date": "2026-10-16",
+  "implementation_revision": "95e3358503a67142e2f1dd8fe12fb3f714433da8",
+  "permission_display_revision": "d58b15cd559c26ea7ebd39f32f386b688944e089",
+  "production_ready": false,
+  "environment": "one owner-approved personal GitHub connection",
+  "authentication_path": "verified Chrome session reuse",
+  "owner_permission": "explicit approval for temporary cookie/GitHub access and local session adoption",
+  "identity_and_readiness_verified": true,
+  "original_blocked_task_completed": true,
+  "public_heading_returned": "Public profile",
+  "global_host_settings_changed": false,
+  "signed_mac_build": 49,
+  "browser_helper_version": "0.8.2",
+  "graphical_repair": "completed; verified connection and original completed task retained",
+  "strict_deep_signature_check": "passed",
+  "ci": {
+    "revision": "95e3358503a67142e2f1dd8fe12fb3f714433da8",
+    "tests_passed": 393,
+    "seconds": 326.16,
+    "native_owner_checks_passed": 14,
+    "checks": "https://github.com/fainir/account-access/actions/runs/38930850399",
+    "android": "https://github.com/fainir/account-access/actions/runs/38930849847",
+    "conclusion": "success"
+  },
+  "agents": {
+    "claude": {
+      "passed": true,
+      "seconds": 47.01,
+      "audited_reads": 1,
+      "report": "agent-tests/claude-private-session-080.json"
+    },
+    "codex": {
+      "passed": true,
+      "seconds": 118.15,
+      "audited_reads": 2,
+      "report": "agent-tests/codex-private-session-080.json"
+    },
+    "ordinary_prompt_without_command": true,
+    "authentication_input_during_agent_reads": false
+  },
+  "repairs": [
+    "continue explicit session transfer when Chrome closes the permission popup",
+    "accept approval before preparation finishes without duplicate transfer",
+    "use current reviewed public profile heading while preserving result labels and read scope",
+    "clear historical method-picker login challenges after confirmed sign-in",
+    "preserve independent transaction authorization",
+    "show fixed repair messages without arbitrary backend content",
+    "display Chrome's current temporary-permission booleans"
+  ],
+  "temporary_permission_contract_tests": "passed",
+  "live_permission_status_confirmation": "unconfirmed; further GitHub testing stopped at owner's request",
+  "fresh_private_password_sms_login_validated": false,
+  "private_email_code_login_validated": false,
+  "private_authenticator_login_validated": false,
+  "new_private_password_or_sms_request": false,
+  "remaining": [
+    "Fresh GitHub password/SMS flow still redirects to recovery",
+    "Private email and authenticator enrollment and delivery QA",
+    "Physical phone reconnect and wider private website coverage",
+    "Continuous Chrome password-vault synchronization",
+    "Notarization, marketplace distribution and clean-machine installation",
+    "OS-isolated custody and independent security review"
+  ],
+  "privacy": "No account identifiers, task IDs, raw traces, cookies, codes or credential material in public evidence",
+  "final_ci": {
+    "revision": "d58b15cd559c26ea7ebd39f32f386b688944e089",
+    "tests_passed": 393,
+    "seconds": 317.59,
+    "native_owner_checks_passed": 14,
+    "checks": "https://github.com/fainir/account-access/actions/runs/38933505085",
+    "android": "https://github.com/fainir/account-access/actions/runs/38933505107",
+    "conclusion": "success"
+  },
+  "post_repair_live_profile_read": "completed; expected public heading returned"
+}

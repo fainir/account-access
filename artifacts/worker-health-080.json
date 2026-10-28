@@ -1,0 +1,71 @@
+{
+  "version": "0.8.0-candidate",
+  "date": "2026-10-16",
+  "candidate_mac_build": 55,
+  "production_ready": false,
+  "changes": [
+    "In-memory fixed-field background-worker health with no exception input",
+    "Interruptible bounded backoff from one to thirty seconds; success clears active error",
+    "Existing queued task resumes without replacing task identity or permission grants",
+    "Agent discovery and nonterminal tasks report loop health; owner-only health snapshot endpoint",
+    "Web health polling updates only status text and preserves in-progress credentials",
+    "Native Accounts view renders fixed retry/stopped notices when refreshed",
+    "Lifespan cleanup runs on exceptions; overlapping worker restart is refused"
+  ],
+  "controlled_validation": {
+    "first_companion_cases_passed": 31,
+    "initial_browser_fixture_failure": "Add an account panel was not opened; corrected before acceptance",
+    "health_cases_passed_before_final_lifespan_case": 5,
+    "health_seconds_before_final_lifespan_case": 15.29,
+    "final_health_access_and_install_cases_passed": 27,
+    "final_health_access_and_install_seconds": 31.23,
+    "native_ui_cases_passed": 20,
+    "lint": "passed",
+    "limits": [
+      "Fictional local provider and browser tests only",
+      "No private mailbox or physical-device acceptance",
+      "Unattached owner processes report Unknown; this is loop health, not proof of website sign-in or message delivery"
+    ],
+    "codex_cli": "Passed four-account fixture in 26.83 seconds; desktop bundled CLI, fixture-socket profile",
+    "claude_cli": "Passed four-account fixture in 141.91 seconds; all successful tools satisfy the fixture policy; 29 guard decisions and 8 denials; private audit retained",
+    "final_ci": {
+      "revision": "557f16684562974f5b2e0a10fa35fe134e06de52",
+      "tests_passed": 556,
+      "seconds": 461.64,
+      "url": "https://github.com/fainir/account-access/actions/runs/38961805399",
+      "native_owner_messages_startup": "passed",
+      "lint": "passed",
+      "dependency_audit": "no known vulnerabilities found",
+      "package_build": "passed",
+      "android_journey": "passed",
+      "android_url": "https://github.com/fainir/account-access/actions/runs/38961805393"
+    }
+  },
+  "distribution": {
+    "installed_build": 53,
+    "candidate_status": "Signed universal build 55 staged separately; installed owner form left untouched",
+    "strict_deep_signature": "passed",
+    "wheel_pin_matches": true,
+    "source_files_compared": 59,
+    "package_matches_source": true,
+    "wheel_sha256": "ec31b101b737885c11094510d9994fc3f9ad3d29f9d3a3d0dedb523793133217"
+  },
+  "static_analysis": {
+    "tool": "Bandit 1.9.4",
+    "scope": "application source",
+    "exit_code": 1,
+    "scanner_errors": 0,
+    "high": 0,
+    "medium": 2,
+    "low": 24,
+    "review": "Same reviewed SQL, published fixture/protocol literals and argv subprocess categories as build 54; silent worker suppression removed without blanket nosec markers",
+    "independent_security_review": false
+  },
+  "private_validation": {
+    "additional_private_website_sign_in_requests": 0,
+    "owner_gmail_enrollment": "pending",
+    "private_email_sms_and_authenticator_acceptance_complete": false
+  },
+  "privacy": "No exception text, account identifiers, credentials, codes, cookies, private paths or raw traces in this public record",
+  "evidence_revision": "557f16684562974f5b2e0a10fa35fe134e06de52"
+}

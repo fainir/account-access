@@ -1,0 +1,72 @@
+{
+  "changed_files": [
+    ".github/workflows/mac-component-update-review.yml",
+    "tests/test_component_update_review_workflow.py"
+  ],
+  "correction": "Run ordinary contracts on every push. Actual download and Installer jobs retain workflow_dispatch-only conditions. Added a contract preventing push filters from removing the required exact-source check.",
+  "native_unchanged": {
+    "core_compile_seconds": 20.334,
+    "core_named_checks": 21,
+    "older_compiler_ci_still_required": true,
+    "optimized_core_assertions": 87,
+    "ordinary_refusal_exit_code": 78,
+    "policy_proof": {
+      "path": "dist/qa-component-policies-20261020/result-v2.json",
+      "sha256": "511e0f57b63b44d4fe0660a8ab15d3ab2debffc149a8d1a79cdeb3b499f16d95"
+    },
+    "production_main_compile_seconds": 31.535,
+    "proof": {
+      "path": "dist/qa-component-reserve-typing-20261020/result.json",
+      "sha256": "98d1987ea691317aaa6f0b902d76917e8155ff3cb60b14c4a2549db777e7a4c0"
+    },
+    "unchanged_policy_assertions": 41
+  },
+  "observed_gap": "The prior push changed only native code, docs and evidence. The required review workflow path filter omitted native files, so its ninth exact-source run was absent and that source could not satisfy the build gate.",
+  "owner_installation_modified": false,
+  "owner_root_execution": false,
+  "package_assembled": false,
+  "personal_accounts_used": 0,
+  "prior_source_commit": "6f0305f0bc707d00a8552cb85e3d85505441ac9d",
+  "production_code_unchanged": true,
+  "production_ready": false,
+  "python": {
+    "proof": {
+      "path": "dist/qa-component-review-push-gate-20261020/result.json",
+      "sha256": "e5ae3b006bab5901967d8921ced3c8116b577cc6aabcd4e5ed7c8539da67f772"
+    },
+    "ruff": "passed_no_cache",
+    "tests": 177
+  },
+  "recorded_at_utc": "2026-10-20T11:47:52.859493+00:00",
+  "remaining_gates": [
+    "Exact-source first-attempt 8-workflow matrix plus review ordinary-contract workflow",
+    "Genuine signed candidate assembly and independent package review",
+    "Actual retained build76 Installer then candidate Installer and reapply in disposable Mac",
+    "Owner approval for new updater, normal GUI reopen and owner enrollment",
+    "Personal password/email/SMS/TOTP and agent acceptance; phone and mailbox enrollment still required"
+  ],
+  "schema": 1,
+  "source_sha256": {
+    ".github/workflows/mac-component-update-review.yml": "fe1b3e84f9d0e805ccc9b89e8fcb698a1772afac9ee0b6b89825770e3ff0b86a",
+    ".github/workflows/mac-worker.yml": "51fcdacd314c901c193198d09df8cf671f813622ed9ed06e0df9a115547f7845",
+    "macos/ComponentUpdate.swift": "b6ff01ee403b8d4dd480659e884553fabcf25fd6c767f634d2a2b8a6c7df6ab0",
+    "macos/ComponentUpdateIdentity.swift": "4c3bf3e29923e0a92ac9bf6a8e9752ec889d61eb26dedbafcf6e788dabd3512e",
+    "macos/ComponentUpdatePolicies.swift": "7aca759f4b9fad195851ce12d81550ec08a0753c43515574c23fc74d247060ab",
+    "macos/InstallerPayload.swift": "03876624a57cfe84d850b1998f636acaa039ce6fd4822d8df60ffeab7cd9c81d",
+    "macos/Tests/ComponentUpdateChecks.swift": "48afd4db0bcf11baa4891b19193ac626f92f9aaba4c2beecbe08ed1ffe307ba9",
+    "macos/Tests/ComponentUpdateIdentityChecks.swift": "88c2d9420b6ebed456bdc1ab9ee0ef2e3d6ec822e34a963d4051288b8e177741",
+    "macos/Tests/ComponentUpdatePolicyChecks.swift": "e51485275a534ffb53c67949334ba4a49bb32a4b71a276a609718d1c3b47ac48",
+    "macos/build-component-update.py": "856d6358c96daca1d3d1ca6ad5bb119a2a620f47a32fcea3501e3f6a2ded13c6",
+    "macos/component_update.py": "55dfb6b0ba5c71dbe33bc1c63ce663505933aed5a9bc3c00ca666674ed27588b",
+    "scripts/mac_component_update_installer_probe.py": "3a2b33c847cd4f8d3cf3fb97a7a57dea41a22f01f2dcf2ed7dc2fc4fd5d4f409",
+    "scripts/mac_component_update_native_probe.py": "2e813c0da3d9e5136cd7417fc1e4e1223b2fbeebbb0a3e8956799026e9c99c27",
+    "scripts/mac_launchctl_disable_probe.py": "18bafd0b8c6b5078443bfdf153eb290fd6d9752748ef26f2486a174518e3938c",
+    "tests/test_component_update.py": "faffd701842a2959eea88ffbd6544b44153c94ed229a9f20449294f04b276a00",
+    "tests/test_component_update_builder.py": "b43ec2df4fac141a0fe3f3e4183cdde0adabe2a43a0a7ef9be98614174734aee",
+    "tests/test_component_update_review_workflow.py": "aa3a502b73aa8475088c7aed531c7be82559b90c1c9389541cc15b1084897641",
+    "tests/test_mac_component_update_installer_probe.py": "4690562d1f29afe6cd326c3fc88ba6adf4e6b7fb47e3e0bc3219fddd6bdee208",
+    "tests/test_mac_component_update_native_probe.py": "1624f9a5ded2d47774b6caf8ded37d9e3e4eb2b1a447c26f44f34b554b941065",
+    "tests/test_mac_launchctl_disable_probe.py": "fd8018900d1dc3a0cbab82febbb04c247b22e10dd5ad3cb6164edc135d77901f"
+  },
+  "status": "SOURCE_CHECKS_PASSED_REQUIRED_PUSH_GATE_UNFILTERED"
+}

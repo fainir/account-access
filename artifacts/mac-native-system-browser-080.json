@@ -1,0 +1,85 @@
+{
+  "version": "0.8.0-candidate",
+  "date": "2026-10-17",
+  "source_revision": "020e9ebfc2ab8ca00f30ed67891b4849025bb5ca",
+  "production_ready": false,
+  "ci": {
+    "runs": [
+      "https://github.com/fainir/account-access/actions/runs/39031475505",
+      "https://github.com/fainir/account-access/actions/runs/39031478145"
+    ],
+    "independent_reports_identical": true,
+    "complete_reports_per_mac": 15
+  },
+  "acceptance": {
+    "status": "PASSED",
+    "platform": "macos",
+    "environment": "controlled-demo",
+    "production_ready": false,
+    "private_signins": 0,
+    "system_key_used": true,
+    "production_composed_host_used": true,
+    "actual_native_collector_used": true,
+    "actual_distinct_uids": true,
+    "full_worker_browser_sms_journey_verified": true,
+    "real_messages_database_used": false,
+    "physical_sms_delivery_verified": false,
+    "genuine_owner_approval_verified": false,
+    "genuine_full_disk_access_verified": false,
+    "consumer_deployment_verified": false,
+    "publisher_signed_peers": false,
+    "checks": {
+      "cli_completed_native_sms_browser_reads": true,
+      "only_approved_result_fields_returned": true,
+      "no_six_digit_code_in_cli_results": true,
+      "agent_still_cannot_read_worker_store": true,
+      "agent_cannot_fetch_native_collector_requests": true,
+      "system_key_initialized_private_worker_store": true,
+      "durable_task_retries_cooldown_without_owner": true,
+      "production_composed_host_started": true,
+      "kernel_worker_parent_group_identity_verified": true,
+      "launchd_socket_activation_one_shot": true,
+      "two_fresh_password_sms_logins_completed": true,
+      "saved_sessions_reused_after_each_login": true,
+      "cold_host_reopened_same_store": true,
+      "both_hosts_stopped_owned_workers": true,
+      "temporary_jobs_removed": true,
+      "fixture_setup_policy_removed": true,
+      "fixture_system_key_removed": true
+    }
+  },
+  "orchestration": {
+    "entrypoint": "CI RootVaultKeyChecks entrypoint using production RootBrokerHost",
+    "production_composed_host_used": true,
+    "production_supervisor_used": true,
+    "launchd_activated_sockets_used": true,
+    "production_collector_used": true,
+    "production_worker_used": true,
+    "product_cli_used": true,
+    "system_key_used": true,
+    "publisher_signed_peers": false,
+    "consumer_deployment_verified": false,
+    "real_codex_or_claude_invoked": false
+  },
+  "regression": {
+    "url": "https://github.com/fainir/account-access/actions/runs/39031475490",
+    "passed": 1065,
+    "platform_skips": 5,
+    "seconds": 511.46,
+    "dependency_audit": "no known vulnerabilities found",
+    "all_eight_push_and_pr_workflows": "passed"
+  },
+  "owner_state": {
+    "installed_build": 53,
+    "installed_app_replaced": false,
+    "unfinished_mailbox_form": "preserved",
+    "new_private_signin_requests": 0
+  },
+  "limits": [
+    "Synthetic website, Messages database and source enrollment; no personal inbox, messages or physical SMS delivery",
+    "Actual production host, worker, collector and System key run behind the CI entrypoint with ad-hoc hash-pinned peers",
+    "A test-only setup policy replaces genuine owner approval; this does not validate the consumer installed entrypoint or OS privacy attribution",
+    "Real Codex/Claude protected-deployment sessions, private email/SMS/authenticator and physical Android/iPhone QA remain open",
+    "Signed/notarized positive installation, migration, reboot, isolated Chrome ingress and continuous Chrome password sync remain release gates"
+  ]
+}

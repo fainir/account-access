@@ -1,0 +1,93 @@
+{
+  "schema": 1,
+  "recorded_at": "2026-10-19T11:26:26.861965+00:00",
+  "status": "CONTROLLED_LATE_SUBSCRIPTION_WINDOW_PROVEN_QA_FIX_PASSED",
+  "application_source_revision": "def66480fd50f3d5d5e3d8b8d0ad6c468dbe6dca",
+  "ci_observation": {
+    "run_id": 39241427740,
+    "event": "push",
+    "attempt": 1,
+    "test": "tests/test_setup_late_reply_ui.py::test_rejected_account_setup_clears_password_before_reply_and_honors_pause[False]",
+    "failure": "Playwright response-event timeout at the listener installed after submission and pending assertions",
+    "summary": {
+      "failed": 1,
+      "passed": 2750,
+      "skipped": 93,
+      "seconds": 1068.5
+    },
+    "prior_password_empty_and_duplicate_assertions_passed": true,
+    "raw_log": "ci-def6648/118022932400.log",
+    "exact_ci_response_timing_or_fixture_deadline_cause_proven": false
+  },
+  "source_inspection": {
+    "original_test_sha256": "1b68fc936c6e9113d7fb7ae5e41940b36e68e37e4e9f96536ddc5a3620e48ed5",
+    "original_response_observer_started_after_request": true,
+    "original_fixture_could_end_independently_after_seconds": 20,
+    "ci_failure_not_labeled_infrastructure": true
+  },
+  "controlled_experiment": {
+    "code": "test_setup_late_subscription_proof.py",
+    "code_sha256": "8c6fa022af5d715afefc9304387ae379a419e0e65af097a22187efafa07f0291",
+    "raw_junit": "late-subscription-proof.xml",
+    "junit_sha256": "942fe69dcc93c89e435ae25a5c1e40d56030430c64740910c2a62ce3c7d7a19d",
+    "pytest": {
+      "tests": "1",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "10.253"
+    },
+    "console_summary": "1 passed, 7 deselected in 10.25s",
+    "method": "Explicitly release the fictional rejection after pending and duplicate checks, wait for the real first handler and finally to finish, then attach the original late observer",
+    "observed_expected_response_status": 403,
+    "late_observer_timed_out_as_expected": true,
+    "arbitrary_sleep_or_load_used": false,
+    "demonstrates": "A correctly completed response can be missed by the original late-subscription window",
+    "does_not_demonstrate": "The exact response ordering or fixture deadline behavior in the failed GitHub Actions run",
+    "password_clear_duplicate_config_no_website_assertions_passed": true
+  },
+  "qa_fix": {
+    "file": "tests/test_setup_late_reply_ui.py",
+    "sha256": "6e284e21bb45f3d2bf989902485e5b7634694877cc213dc1ab20daa052b2171f",
+    "changes": [
+      "Install expected-response observer before starting the first request",
+      "Use a finally-released fixture event instead of an independent premature response deadline",
+      "Await the original first submit handler through finally without letting a duplicate overwrite its completion",
+      "Assert expected 403 reason and single backend call after handler completion"
+    ],
+    "preserved": [
+      "cleared password before reply",
+      "duplicate submission blocked",
+      "Pause controls and message",
+      "unchanged fixture configuration",
+      "zero website logins"
+    ],
+    "raw_junit": "fixed-focused.xml",
+    "junit_sha256": "c9a49a02a8a7c042194932e3b00be148946480927a006ab28b9e945e59010665",
+    "pytest": {
+      "tests": "13",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "43.855"
+    },
+    "console_summary": "13 passed in 43.98s",
+    "focused_files": [
+      "tests/test_setup_late_reply_ui.py",
+      "tests/test_mailbox_draft_ui.py"
+    ],
+    "ruff_passed": true,
+    "git_diff_check_passed": true,
+    "production_files_changed": [],
+    "version_bumped": false
+  },
+  "scope": {
+    "real_sandboxed_chromium_and_loopback_owner_http": true,
+    "fictional_fixture_only": true,
+    "private_signins": 0,
+    "owner_application_or_credential_files_accessed": false,
+    "native_or_installed_agent_invoked": false,
+    "consumer_installation_performed": false,
+    "production_ready": false
+  }
+}

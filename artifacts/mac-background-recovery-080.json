@@ -1,0 +1,79 @@
+{
+  "version": "0.8.0-candidate",
+  "application_build": 58,
+  "environment": "controlled-demo",
+  "production_ready": false,
+  "registration": "enabled",
+  "os_managed_crash_recovery": true,
+  "pause_prevents_restart": true,
+  "keyring_namespace_cleaned": true,
+  "service_unregistered": true,
+  "private_account_sign_ins": 0,
+  "owner_settings_or_approval_changed": false,
+  "limits": [
+    "Fictional provider only; not private account/MFA acceptance",
+    "No actual logout or reboot",
+    "No OS credential isolation or Apple notarization acceptance"
+  ],
+  "signed_input_and_helper_verified": true,
+  "initial_fixture_service_ready": true,
+  "paused_new_job_invocation_stays_stopped": true,
+  "passed": true,
+  "source_revision": "b66dd43aeb5a2f21a303f7c1d412cfcc7754b574",
+  "scope": "Temporary QA app registration and fixture Keychain item only; existing owner app settings and approvals preserved",
+  "date": "2026-10-17",
+  "package": {
+    "build": 58,
+    "application_files": 61,
+    "all_application_files_match_source": true,
+    "wheel_sha256": "ae88985dd79d46d99b5099fa9bf035b6ef94cf0642335c641e6c289720fb8cea",
+    "zip_sha256": "d428c20d08a32707c4804aa78a4823c123414f2b8372f602326dbe6ad64a6014",
+    "prepared_archive_sha256": "9e7438e2bc0d796404d0357aa3690caf7b09b8a83a8baed15f22a01b5a2f1968",
+    "main_and_helper_developer_id_runtime_timestamp_both_architectures": "passed",
+    "launch_agent_policy_pin": "passed",
+    "notarization_submitted": false,
+    "installed": false
+  },
+  "validation": {
+    "focused_cases": 77,
+    "focused_seconds": 24.43,
+    "native_owner_checks": 26,
+    "native_background_checks": 6,
+    "lint": "passed",
+    "skill_validation": "passed",
+    "package_build": "passed",
+    "real_private_sign_in_acceptance": false
+  },
+  "ci": {
+    "status": "passed",
+    "source_revision": "b66dd43aeb5a2f21a303f7c1d412cfcc7754b574",
+    "tests_passed": 633,
+    "seconds": 442.89,
+    "url": "https://github.com/fainir/account-access/actions/runs/38977626518",
+    "native_owner_policy_messages_entrypoint_startup": "passed",
+    "dependency_audit": "no known vulnerabilities found",
+    "android_status": "passed",
+    "android_url": "https://github.com/fainir/account-access/actions/runs/38977626521"
+  },
+  "payload_update": {
+    "current_digest_required_before_native_reopen_and_helper_execution": true,
+    "same_version_stale_or_unsafe_record": "rejected",
+    "failed_repair": "previous digest and launcher preserved in controlled checks",
+    "existing_owner_app_upgrade": "not performed; unfinished owner form preserved",
+    "purpose": "update/provenance decision, not independent runtime attestation or OS identity isolation"
+  },
+  "owner_state": {
+    "installed_build": "53",
+    "candidate_installed": false,
+    "connect_mailbox_action_visible": true,
+    "checked_or_saved_confirmation_visible": false,
+    "enrollment": "unconfirmed",
+    "field_values_emitted": false,
+    "private_website_login_requests": 0
+  },
+  "agent_checks": {
+    "codex": "passed; 30.40 seconds",
+    "claude": "passed; 33.91 seconds",
+    "scope": "four fictional password logins and one email/SMS/TOTP verification per host; separate from OS crash recovery"
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "recorded_at": "2026-10-19T09:15:25.181243+00:00",
+  "agent": "Codex current chat",
+  "route": "installed Account Access skill launcher and durable task API",
+  "task_id": "6e8580777b5dfa7597ef9295d4890be7",
+  "task_status": "COMPLETED",
+  "completed": 3,
+  "total": 3,
+  "results": [
+    {
+      "account": "personal-store",
+      "operation": "inventory",
+      "status": "COMPLETED",
+      "returned_field_names": [
+        "heading",
+        "items"
+      ]
+    },
+    {
+      "account": "work-store",
+      "operation": "inventory",
+      "status": "COMPLETED",
+      "returned_field_names": [
+        "heading",
+        "items"
+      ]
+    },
+    {
+      "account": "member-portal",
+      "operation": "summary",
+      "status": "COMPLETED",
+      "returned_field_names": [
+        "heading",
+        "message"
+      ]
+    }
+  ],
+  "scope": "Previously approved public-example website reads using the existing installed preview",
+  "catalog_examples": [
+    "SauceDemo",
+    "The Internet secure-area example"
+  ],
+  "private_signins": 0,
+  "code_delivery_tested": false,
+  "fresh_password_submissions_observed": false,
+  "installed_build_revision_attested": false,
+  "protected_candidate_build70_installed": false,
+  "owner_setup_or_permissions_changed": false,
+  "limits": [
+    "Saved access may have been reused; fresh password entry was not measured",
+    "The service reports live transport; these are public-example accounts, not private-account acceptance",
+    "This does not establish the source revision of the installed service or validate the new protected candidate"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "agent": "claude",
+  "evidence_revision": "95e3358503a67142e2f1dd8fe12fb3f714433da8",
+  "environment": "live personal account",
+  "authentication_path": "verified owner-approved Chrome session reuse",
+  "exit_code": 0,
+  "elapsed_seconds": 47.01,
+  "used_installed_launcher": true,
+  "approved_reads_completed_in_service_audit": 1,
+  "expected_public_heading_returned": true,
+  "passed": true,
+  "ordinary_prompt_without_command": true,
+  "global_host_settings_changed": false,
+  "fresh_password_sms_email_authenticator_login_validated": false,
+  "limits": [
+    "One approved personal GitHub profile-heading read",
+    "Session reuse only; no fresh factor validation",
+    "Raw traces and account identifiers are excluded from public evidence"
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "change": "Device-email request log appends and read-only snapshots share one lock; all existing reads use the snapshot property. No product UI behavior changed.",
+  "date": "2026-10-20",
+  "local_attempt": {
+    "attempts": 1,
+    "cleanup": "Own compiler process group received SIGTERM at deadline; directly owned Popen child was waited/reaped. No retry performed.",
+    "compiler_log_bytes": 0,
+    "disk_floor_bytes": 200000000,
+    "elapsed_seconds": 120.051,
+    "exit_code": -15,
+    "minimum_free_bytes": 226267136,
+    "optimized_existing_fixture": true,
+    "sources_unchanged_during_attempt": true,
+    "stop_reason": "compile_deadline",
+    "test_executed": false,
+    "test_pass_claimed": false
+  },
+  "original_reference_revision": "f43a07a3977184a7cb04dd7a49cc7437ec71da16",
+  "original_source_sha256": "aa5076b19d4bde71d4f73a8caf188c5b8eda5cd8a7227002a29c725711184309",
+  "owner_account_or_installed_runtime_activity": false,
+  "patched_source_sha256": "321226b9df0118d174811c9baf84c1b0f884576e3352403d55c41110cd34fb24",
+  "post_attempt_no_compiler_processes_remain": true,
+  "production_ready": false,
+  "production_ui_semantics_changed": false,
+  "retained_ci_failure": {
+    "cause": "unclassified",
+    "evidence": "artifacts/ci-observations-f43a07a-20261020.json",
+    "exit_code": 133,
+    "independent_fixture_race_does_not_classify_this_crash": true,
+    "job_id": 118544379918,
+    "run_id": 39397688119,
+    "source_revision": "f43a07a3977184a7cb04dd7a49cc7437ec71da16"
+  },
+  "retained_proof_directory": "dist/qa-public-tree-20261020",
+  "root_execution": false,
+  "schema": 1,
+  "source_path": "macos/Tests/OwnerScreenChecks.swift",
+  "status": "FIXTURE_RACE_FIXED_VALIDATION_PENDING",
+  "validation_plan": "Validate the committed fixture with the existing optimized native-owner-ui check in upcoming frozen-source CI; no retry solely to obtain a pass."
+}

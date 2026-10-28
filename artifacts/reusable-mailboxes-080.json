@@ -1,0 +1,71 @@
+{
+  "version": "0.8.0-candidate",
+  "date": "2026-10-16",
+  "production_ready": false,
+  "changes": [
+    "Reusable owner mailbox setup before a website is added",
+    "Gmail TLS IMAP preset and explicit other-provider settings",
+    "Masked app-password entry; server details hidden for Gmail",
+    "Exact server, port and recipient matching for approved website sources",
+    "No website connector, message filter or account permission is created or widened",
+    "Changed or removed mailbox credentials stop pending code reads",
+    "Connection rechecks do not interrupt a pending login window",
+    "Password cooldown starts at actual submission attempt, not failed source preflight"
+  ],
+  "private_validation": {
+    "additional_namecheap_requests": 0,
+    "additional_github_requests": 0,
+    "personal_mailboxes_enrolled": 0,
+    "physical_phone_delivery_verified": false,
+    "personal_authenticator_login_verified": false
+  },
+  "controlled_validation": {
+    "full_suite_passed_before_final_outage_cases": 475,
+    "full_suite_seconds": 384.69,
+    "initial_mailbox_health_and_browser_journey_cases_passed": 43,
+    "initial_seconds": 37.79,
+    "mailbox_and_existing_browser_cases_passed": 37,
+    "focused_seconds": 76.78,
+    "final_mailbox_health_and_browser_cases_passed": 31,
+    "final_focused_seconds": 17.70,
+    "original_task_outage_recovery": "passed in 4.07 seconds; ordinary scheduled retry, one password login and one email code, no owner challenge",
+    "owner_ui_checks_passed": 19,
+    "limits": "Fictional accounts, real local TLS IMAP and isolated browser; no private provider or physical carrier acceptance"
+  },
+  "agent_validation": {
+    "revision": "b71c831417fc6bdf9c7a5136d75eaf885767135e",
+    "codex": "agent-tests/codex-verification-080-reusable-mailbox-53.json",
+    "codex_seconds": 24.90,
+    "claude": "agent-tests/claude-verification-080-reusable-mailbox-53.json",
+    "claude_seconds": 73.54,
+    "both_passed": true,
+    "reusable_mailbox_connected_and_linked_through_owner_api": true,
+    "per_agent_password_logins": 4,
+    "per_agent_verifications": {"email": 1, "sms": 1, "totp": 1},
+    "ordinary_prompt_without_skill_or_command": true,
+    "global_settings_or_models_changed": false,
+    "private_accounts_used": false
+  },
+  "ci": {
+    "revision": "b71c831417fc6bdf9c7a5136d75eaf885767135e",
+    "checks": "https://github.com/fainir/account-access/actions/runs/38953515321",
+    "conclusion": "success",
+    "tests_passed": 480,
+    "tests_seconds": 402.66,
+    "native_owner_ui_checks_passed": 19,
+    "lint": "passed",
+    "dependency_audit": "no known dependency vulnerabilities found",
+    "package_build": "passed",
+    "android_journey": "https://github.com/fainir/account-access/actions/runs/38953515196",
+    "android_conclusion": "success"
+  },
+  "distribution": {
+    "mac_build": 53,
+    "status": "signed universal app installed through graphical repair",
+    "strict_deep_signature_check": "passed for staged and installed app",
+    "package_matches_source": true,
+    "original_private_task_and_challenge_retained": true,
+    "gmail_setup_screen_verified": true
+  },
+  "privacy": "Public evidence excludes personal identifiers, file locations, credentials, cookies, codes and raw traces"
+}

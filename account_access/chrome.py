@@ -11,10 +11,10 @@ MAX_MESSAGE = 1_000_000
 
 
 def handle(broker, message):
+    if not isinstance(message, dict):
+        raise AccessError("DENIED", "invalid_native_message")
     if message.get("method") == "accounts":
-        config = broker.store.config()
-        return {"accounts": [{"account": name, "label": spec.label, "origin": origin(spec.login_url)}
-                             for name, spec in config.accounts.items() if isinstance(spec, BrowserAccount)]}
+        return {"accounts": [], "status": "NEEDS_USER", "reason": "browser_session_owner_request_required"}
     if message.get("method") != "import":
         raise AccessError("DENIED", "unsupported_native_message")
     account = message.get("account")

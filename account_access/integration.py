@@ -12,6 +12,70 @@ START = "<!-- account-access:automatic:start -->"
 END = "<!-- account-access:automatic:end -->"
 
 
+def resolve_codex_home(home, value=None):
+    """Choose a Codex namespace without following an environment-selected alias.
+
+    Setup only manages directories beneath the actual owner's supplied home.
+    This reads directory metadata, never Codex configuration or authentication.
+    Missing descendants are allowed, but are not created during discovery.
+    """
+    home = Path(home)
+    value = os.environ.get("CODEX_HOME") if value is None else value
+    if value is None:
+        value = str(home / ".codex")
+    if not isinstance(value, (str, Path)):
+        raise AccessError("NEEDS_USER", "codex_home_needs_review")
+    raw = str(value)
+    try:
+        bounded = len(raw) <= 4096 and len(os.fsencode(raw)) <= 4096
+    except UnicodeError:
+        bounded = False
+    if (not raw or not bounded or any(ord(char) < 32 or ord(char) == 127 for char in raw)
+            or any(part in {".", ".."} for part in raw.split("/"))):
+        raise AccessError("NEEDS_USER", "codex_home_needs_review")
+    if raw.startswith("~/"):
+        raw = str(home / raw[2:])
+    target = Path(raw)
+    try:
+        relative = target.relative_to(home)
+    except ValueError:
+        raise AccessError("NEEDS_USER", "codex_home_needs_review") from None
+    if not home.is_absolute() or not target.is_absolute() or not relative.parts:
+        raise AccessError("NEEDS_USER", "codex_home_needs_review")
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK
+    descriptors = []
+    try:
+        descriptor = os.open(home, flags)
+        descriptors.append(descriptor)
+        for component in [None, *relative.parts]:
+            if component is not None:
+                try:
+                    descriptor = os.open(component, flags, dir_fd=descriptor)
+                except FileNotFoundError:
+                    break
+                descriptors.append(descriptor)
+            info = os.fstat(descriptor)
+            if (not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid()
+                    or info.st_mode & 0o7022):
+                raise AccessError("NEEDS_USER", "codex_home_needs_review")
+        # Ensure the selected namespace still names the directory inodes read
+        # through the no-follow chain, rather than a concurrently swapped alias.
+        paths = [home, *(home.joinpath(*relative.parts[:index])
+                         for index in range(1, len(descriptors)))]
+        for path, opened in zip(paths, descriptors):
+            current = os.stat(path, follow_symlinks=False)
+            checked = os.fstat(opened)
+            if (current.st_dev, current.st_ino, current.st_mode, current.st_uid) != (
+                    checked.st_dev, checked.st_ino, checked.st_mode, checked.st_uid):
+                raise AccessError("NEEDS_USER", "codex_home_needs_review")
+    except OSError:
+        raise AccessError("NEEDS_USER", "codex_home_needs_review") from None
+    finally:
+        for descriptor in reversed(descriptors):
+            os.close(descriptor)
+    return target
+
+
 def session_guidance(skill):
     return (START + "\n## Connected accounts\n\n"
             "For work involving connected accounts, information behind a login, or supported "
@@ -73,22 +137,28 @@ def update_guidance(path, block, *, start_marker=START, end_marker=END, owned_on
         temporary.unlink(missing_ok=True)
 
 
+def codex_rule_block(skill):
+    start, end = "# account-access:automatic:start", "# account-access:automatic:end"
+    launcher = json.dumps(str(skill / "scripts/access"))
+    commands = json.dumps(["accounts", "status", "run", "task", "audit", "doctor"])
+    return (start + "\n" + "prefix_rule(\n"
+            + "    pattern = [" + launcher + ", " + commands + "],\n"
+            + '    decision = "allow",\n'
+            + '    justification = "Use the installed Account Access client for owner-approved operations",\n'
+            + ")\n" + end)
+
+
 def install_codex_rule(directory, skill):
     """Allow only the installed, client-only launcher; retain every other host policy."""
     start, end = "# account-access:automatic:start", "# account-access:automatic:end"
     path = directory / "rules/account-access.rules"
-    launcher = json.dumps(str(skill / "scripts/access"))
-    commands = json.dumps(["accounts", "status", "run", "task", "audit", "doctor"])
-    block = (start + "\n" + "prefix_rule(\n"
-             + "    pattern = [" + launcher + ", " + commands + "],\n"
-             + '    decision = "allow",\n'
-             + '    justification = "Use the installed Account Access client for owner-approved operations",\n'
-             + ")\n" + end)
-    update_guidance(path, block, start_marker=start, end_marker=end, owned_only=True)
+    update_guidance(path, codex_rule_block(skill), start_marker=start, end_marker=end, owned_only=True)
     return str(path)
 
 
 def install_session_guidance(home, detected, codex_home=None):
+    if "codex" in detected:
+        codex_home = resolve_codex_home(home, codex_home)
     installed = {}
     for host in detected:
         directory = (codex_home or home / ".codex") if host == "codex" else home / ".claude"

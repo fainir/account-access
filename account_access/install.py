@@ -11,7 +11,13 @@ from .errors import AccessError
 from .storage import private_file
 
 
-def sync_skill(target, config_file):
+def launcher_text(target, python):
+    return ("#!/bin/sh\nexec " + shlex.quote(str(python)) + " -I "
+            + shlex.quote(str(target / "scripts/access.py")) + ' "$@"\n')
+
+
+def sync_skill(target, config_file, *, python=None):
+    python = str(python or sys.executable)
     source = Path(__file__).resolve().parent / "skills/account-access"
     marker = target / ".account-access-install"
     if target.is_symlink() or (target.exists() and not marker.exists()):
@@ -27,9 +33,8 @@ def sync_skill(target, config_file):
             shutil.copy2(entry, dest)
     # A generated launcher avoids requiring python3 on the agent's PATH.
     launcher = target / "scripts/access"
-    launcher.write_text("#!/bin/sh\nexec " + shlex.quote(sys.executable) + " "
-                        + shlex.quote(str(target / "scripts/access.py")) + ' "$@"\n')
-    install_config = {"client_config": str(config_file), "python": sys.executable}
+    launcher.write_text(launcher_text(target, python))
+    install_config = {"client_config": str(config_file), "python": python}
     private_file(target / "installation.json", json.dumps(install_config).encode(),
                  replace=(target / "installation.json").exists())
     private_file(marker, b"account-access-v1", replace=marker.exists())
@@ -69,8 +74,10 @@ def install_skill(store, agent, destination=None):
 
 def install_detected(store):
     """Install one shared portable identity; host folders are discovery aliases."""
+    from .integration import install_session_guidance, resolve_codex_home
+
     home = Path.home()
-    codex_home = Path(os.environ.get("CODEX_HOME", str(home / ".codex"))).expanduser()
+    codex_home = resolve_codex_home(home)
     detected = [agent for agent, folder, command in [("codex", codex_home, "codex"),
                                                      ("claude", home / ".claude", "claude")]
                 if folder.exists() or shutil.which(command)]
@@ -110,7 +117,6 @@ def install_detected(store):
         installed.append({"agent": "codex", "skill_path": str(primary), "principal": "generic",
                           "client_config": str(store.root / "clients/generic/client.json")})
     store.put("agent-integrations", detected)
-    from .integration import install_session_guidance
     automatic = install_session_guidance(home, detected, codex_home)
     store.put("session-integrations", automatic)
     return {"status": "INSTALLED", "clients": installed,

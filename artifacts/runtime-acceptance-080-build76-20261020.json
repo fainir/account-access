@@ -1,0 +1,312 @@
+{
+  "schema": 1,
+  "build": 76,
+  "recorded_at_utc": "2026-10-20T08:37:42.677716+00:00",
+  "source_revision": "fbd2a733b60acde68e82fe796cb7abd971d5d625",
+  "status": "INSTALLED_STARTUP_FAILED_BEFORE_ENROLLMENT",
+  "production_ready": false,
+  "historical_build_review": "artifacts/build76-review-080.json",
+  "historical_record_modified": false,
+  "package": {
+    "filename": "Account-Access-arm64-unsigned.pkg",
+    "sha256": "e525233e74ee942a53c389babac57eee6cad25b79ea178ff9a6384b0a5c5567c",
+    "container_signed": false,
+    "notarized": false
+  },
+  "owner_installation": {
+    "installed": true,
+    "method": "Owner-approved normal macOS Installer flow, observed through native UI",
+    "installer_reported_success": true,
+    "app_opened": true,
+    "working_setup_established": false,
+    "observed_app_result": "The protected app did not respond",
+    "service_startup": {
+      "status": "FAILED",
+      "observed_exit_code": 78,
+      "launchctl_exit_label": "EX_CONFIG",
+      "exact_reason": null,
+      "stdout": "/dev/null",
+      "stderr": "/dev/null",
+      "evidence_scope": "Native app observation and read-only public launchd/code metadata; no retained private capture or inferred root cause"
+    },
+    "protected_store_enrollment_completed": false,
+    "shared_ai_connection_upgrade_completed": false,
+    "personal_signin_acceptance_completed": false,
+    "password_email_sms_totp_private_qa_completed": false,
+    "credential_data_read_for_startup_diagnosis": false,
+    "legacy_saved_data_modified": false
+  },
+  "completed_ci": {
+    "status": "ALL_EIGHT_FIRST_ATTEMPT_WORKFLOWS_PASSED",
+    "source_commit": "fbd2a733b60acde68e82fe796cb7abd971d5d625",
+    "run_count": 8,
+    "jobs_succeeded": 14,
+    "ci_reruns_performed": false,
+    "one_log_download_read_retried": true,
+    "retained_local_summary": "dist/qa-build76-work/ci/summary.json",
+    "retained_local_summary_sha256": "550a5434b3c5e99f026c6ac66e8b9b15cbdea125273d802cb95a0802494e6a7e",
+    "private_account_acceptance": false,
+    "scope": "Controlled source-specific CI; these passes did not establish successful owner startup or private authentication",
+    "runs": [
+      {
+        "id": 39255754982,
+        "url": "https://github.com/fainir/account-access/actions/runs/39255754982",
+        "workflow": "Android login-code journey",
+        "event": "pull_request",
+        "head_sha": "fbd2a733b60acde68e82fe796cb7abd971d5d625",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success",
+        "jobs": [
+          {
+            "id": 118070494399,
+            "name": "android",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ],
+        "log": "39255754982-attempt1.log",
+        "log_sha256": "c5ad509083ea93285cbde054e203366363088285415788b689ac1d477e157fbf",
+        "pytest_summary_lines": []
+      },
+      {
+        "id": 39255754879,
+        "url": "https://github.com/fainir/account-access/actions/runs/39255754879",
+        "workflow": "Separate-user worker acceptance",
+        "event": "pull_request",
+        "head_sha": "fbd2a733b60acde68e82fe796cb7abd971d5d625",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success",
+        "jobs": [
+          {
+            "id": 118070494189,
+            "name": "cross-user",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ],
+        "log": "39255754879-attempt1.log",
+        "log_sha256": "560c5b19ada60a8b368f416be54f095383e9f05f96a90b54f139dc563ecd0523",
+        "pytest_summary_lines": []
+      },
+      {
+        "id": 39255754943,
+        "url": "https://github.com/fainir/account-access/actions/runs/39255754943",
+        "workflow": "Account Access checks",
+        "event": "pull_request",
+        "head_sha": "fbd2a733b60acde68e82fe796cb7abd971d5d625",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success",
+        "jobs": [
+          {
+            "id": 118070494324,
+            "name": "native-owner-gateway",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 118070494564,
+            "name": "native-owner-ui",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 118070494617,
+            "name": "test",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ],
+        "log": "39255754943-attempt1.log",
+        "log_sha256": "38267dc554cc622fcfbe20207b6bd0bfbd85cd4082ddec154afc7a9856429917",
+        "pytest_summary_lines": [
+          "test\tRun uv run pytest -q\t2026-10-19T13:10:25.1891508Z 2794 passed, 93 skipped in 911.60s (0:15:11)"
+        ],
+        "main_pytest": {
+          "passed": 2794,
+          "skipped": 93,
+          "summary": "test\tRun uv run pytest -q\t2026-10-19T13:10:25.1891508Z 2794 passed, 93 skipped in 911.60s (0:15:11)"
+        },
+        "native_owner_ui_pass_lines": 47
+      },
+      {
+        "id": 39255755044,
+        "url": "https://github.com/fainir/account-access/actions/runs/39255755044",
+        "workflow": "Mac separate-user worker acceptance",
+        "event": "pull_request",
+        "head_sha": "fbd2a733b60acde68e82fe796cb7abd971d5d625",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success",
+        "jobs": [
+          {
+            "id": 118070494566,
+            "name": "mac-installer-context",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 118070852914,
+            "name": "mac-cross-user",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ],
+        "log": "39255755044-attempt1.log",
+        "log_sha256": "ac64bc8c164896e472934cc626d7729f76ae27ecd0cb7fda13cb9bc24c022d8c",
+        "pytest_summary_lines": [
+          "mac-installer-context\tCheck the native source replacement with ordinary public fixtures\t2026-10-19T12:55:14.9314550Z 2 passed, 78 deselected in 12.53s",
+          "mac-cross-user\tCheck Darwin pipe handoff and reject filesystem FIFO bootstrap\t2026-10-19T12:59:58.4621040Z 1218 passed, 1 skipped in 200.49s (0:03:20)",
+          "mac-cross-user\tCheck exact-item password sync, source containment and owner setup\t2026-10-19T13:02:58.2545250Z 182 passed in 177.72s (0:02:57)",
+          "mac-cross-user\tCheck reviewed website imports and native form destinations\t2026-10-19T13:04:03.0458060Z 22 passed in 63.43s (0:01:03)",
+          "mac-cross-user\tCheck private Node signing preparation with a sandboxed fixture browser\t2026-10-19T13:07:58.5698050Z 1 passed in 4.22s"
+        ]
+      },
+      {
+        "id": 39255749730,
+        "url": "https://github.com/fainir/account-access/actions/runs/39255749730",
+        "workflow": "Android login-code journey",
+        "event": "push",
+        "head_sha": "fbd2a733b60acde68e82fe796cb7abd971d5d625",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success",
+        "jobs": [
+          {
+            "id": 118070475405,
+            "name": "android",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ],
+        "log": "39255749730-attempt1.log",
+        "log_sha256": "ad93d4dfafd7a73a0afd28a2ed3bc8f06bfa1264ce82663c6829faa379fc4c7e",
+        "pytest_summary_lines": []
+      },
+      {
+        "id": 39255749769,
+        "url": "https://github.com/fainir/account-access/actions/runs/39255749769",
+        "workflow": "Separate-user worker acceptance",
+        "event": "push",
+        "head_sha": "fbd2a733b60acde68e82fe796cb7abd971d5d625",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success",
+        "jobs": [
+          {
+            "id": 118070475795,
+            "name": "cross-user",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ],
+        "log": "39255749769-attempt1.log",
+        "log_sha256": "491d8fcd9e0db3c4b614bf0a8a51d56768b2a0e141eb63b228294ba59b08c688",
+        "pytest_summary_lines": []
+      },
+      {
+        "id": 39255749817,
+        "url": "https://github.com/fainir/account-access/actions/runs/39255749817",
+        "workflow": "Account Access checks",
+        "event": "push",
+        "head_sha": "fbd2a733b60acde68e82fe796cb7abd971d5d625",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success",
+        "jobs": [
+          {
+            "id": 118070477577,
+            "name": "native-owner-ui",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 118070478211,
+            "name": "native-owner-gateway",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 118070478242,
+            "name": "test",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ],
+        "log": "39255749817-attempt1.log",
+        "log_sha256": "078ce79f2f42110abbd25b1363bf6fd34120f0a66bf8ad3dd1007686a586f251",
+        "pytest_summary_lines": [
+          "test\tRun uv run pytest -q\t2026-10-19T13:12:14.1722004Z 2794 passed, 93 skipped in 1015.00s (0:16:55)"
+        ],
+        "main_pytest": {
+          "passed": 2794,
+          "skipped": 93,
+          "summary": "test\tRun uv run pytest -q\t2026-10-19T13:12:14.1722004Z 2794 passed, 93 skipped in 1015.00s (0:16:55)"
+        },
+        "native_owner_ui_pass_lines": 47
+      },
+      {
+        "id": 39255749788,
+        "url": "https://github.com/fainir/account-access/actions/runs/39255749788",
+        "workflow": "Mac separate-user worker acceptance",
+        "event": "push",
+        "head_sha": "fbd2a733b60acde68e82fe796cb7abd971d5d625",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success",
+        "jobs": [
+          {
+            "id": 118070475796,
+            "name": "mac-installer-context",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "id": 118070781805,
+            "name": "mac-cross-user",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ],
+        "log": "39255749788-attempt1.log",
+        "log_sha256": "7214be6a8d08c343e4d671792acdcf023cd9c86bb1287be27250fb5ea6de99e6",
+        "pytest_summary_lines": [
+          "mac-installer-context\tCheck the native source replacement with ordinary public fixtures\t2026-10-19T12:55:08.6309040Z 2 passed, 78 deselected in 11.48s",
+          "mac-cross-user\tCheck Darwin pipe handoff and reject filesystem FIFO bootstrap\t2026-10-19T12:59:12.5336630Z 1218 passed, 1 skipped in 198.90s (0:03:18)",
+          "mac-cross-user\tCheck exact-item password sync, source containment and owner setup\t2026-10-19T13:01:47.2738910Z 182 passed in 153.40s (0:02:33)",
+          "mac-cross-user\tCheck reviewed website imports and native form destinations\t2026-10-19T13:02:55.4717210Z 22 passed in 67.14s (0:01:07)",
+          "mac-cross-user\tCheck private Node signing preparation with a sandboxed fixture browser\t2026-10-19T13:07:06.3068430Z 1 passed in 5.10s"
+        ]
+      }
+    ]
+  },
+  "prepared_startup_check": {
+    "status": "ASSEMBLED_AND_EXPANSION_REVIEWED",
+    "source_revision": "2fcf53bc993b5119d83ca52764fd583064fcab7a",
+    "filename": "Account-Access-Startup-Check-local-unsigned.pkg",
+    "package_sha256": "f32f9e27522d1bae7be184c3713dda4771aa0d93b02773980404099cf364937a",
+    "bytes": 7077,
+    "unsigned": true,
+    "installed": false,
+    "helper_executed": false,
+    "retained_local_review": "dist/qa-startup-20261020/package-corrected/review.json",
+    "retained_local_review_sha256": "2f6e37a175b5fe80030e9b8da2b1f4c69554fdc94ab5e014e21c6d2c4063ea35",
+    "scope": "Reviewed no-payload diagnostic only; no startup result or repair is claimed"
+  },
+  "remaining_gates": [
+    "Identify and repair the installed protected service startup failure",
+    "Complete protected owner enrollment and shared AI connection setup",
+    "Validate personal password, email, SMS and authenticator journeys through installed agents",
+    "Validate private password-manager enrollment, rotation and revocation",
+    "Complete signed and notarized consumer distribution and clean-machine acceptance",
+    "Implement and validate protected different-image updates and vault migration",
+    "Resolve remaining provider advisory investigation"
+  ],
+  "coverage_limits": [
+    "Reviewed website connectors only; importing does not add arbitrary website support",
+    "Chrome password file imports are snapshots; Chrome live sync is not implemented",
+    "Mandatory passkey, push, biometric and administrator challenges require owner presence"
+  ]
+}

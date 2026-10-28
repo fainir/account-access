@@ -1,0 +1,609 @@
+{
+  "schema": 1,
+  "recorded_at": "2026-10-19T12:39:02.248737+00:00",
+  "version": "0.8.0",
+  "build": 75,
+  "status": "CONTROLLED_REVIEW_PACKAGE_VERIFIED",
+  "production_ready": false,
+  "application_source_revision": "43c82fbda1ba71d8848368d755ed7b8564cda21e",
+  "qa_revision": "43c82fbda1ba71d8848368d755ed7b8564cda21e",
+  "product_tree": {
+    "application_source_revision": "43c82fbda1ba71d8848368d755ed7b8564cda21e",
+    "qa_revision": "43c82fbda1ba71d8848368d755ed7b8564cda21e",
+    "paths": [
+      "account_access",
+      "macos",
+      "install.sh",
+      "pyproject.toml",
+      "uv.lock"
+    ],
+    "sha256": "8e77bd134c512149ff93003fac724b05fed5922cdf0f56b27bba54842d9d66ff",
+    "method": "SHA-256 of git ls-tree -r REV -- PATHS",
+    "unchanged": true
+  },
+  "changes": [
+    "Reapplying the same prepared installation restores a missing service registration while preserving policies, identity and the empty fixture vault",
+    "Provider publication requires exact worker/command/official JavaScript asset bindings and checks actual dependency consumers before retaining the bounded advisory assessment",
+    "Strict Codex and Claude QA preflights refuse before fixture/model startup when the required effective execution boundary cannot be attested"
+  ],
+  "package": {
+    "schema": 1,
+    "status": "VERIFIED_REVIEW_PACKAGE",
+    "build": 75,
+    "source_revision": "43c82fbda1ba71d8848368d755ed7b8564cda21e",
+    "qa_revision": "43c82fbda1ba71d8848368d755ed7b8564cda21e",
+    "offline_runtime": true,
+    "protected_registration_required": true,
+    "package_sha256": "34f8fe3657f0ef57672ce3f9a51fff312c6801729d5e97b30b81a39d1821f629",
+    "package_bytes": 289438797,
+    "manifest_sha256": "2c76abc5288d8fb3156ec0ef4f5fb6952688e4f442a564ea6ecfe0efc0b849f3",
+    "actual_manifest_copy_sha256": "2c76abc5288d8fb3156ec0ef4f5fb6952688e4f442a564ea6ecfe0efc0b849f3",
+    "manifest_bytes": 4989248,
+    "manifest_counts": {
+      "files": 25281,
+      "directories": 2305,
+      "aliases": 21
+    },
+    "actual_archive_inventory_matches_manifest": true,
+    "native_manifest_parser_matches": true,
+    "actual_owner_wheel_matches_source_files": 79,
+    "actual_app_signature_verified": true,
+    "actual_node_signature_verified": true,
+    "actual_node_entitlements_jit_only": true,
+    "node_library_validation_disabled": false,
+    "actual_provider_manifest_matches": true,
+    "actual_provider_inventory_matches_fresh_stage": true,
+    "provider_code_and_dependencies_unchanged_from_build74": true,
+    "provider_changed_metadata_files": [
+      "dependency-overrides.json",
+      "runtime-manifest.json"
+    ],
+    "provider_unchanged_inventory_entries": 11018,
+    "provider_actual_files": 10169,
+    "provider_reference_manifest_sha256": "f33728143c320b133771a9a109f1b38f6ef6875b0f8f2b6f38235bc2458f3787",
+    "provider_actual_inventory_sha256": "2235c48deefc629454be0e451ddb8ccb436c52cdcad63c3183f69e764233da4d",
+    "actual_provider_entrypoint_hash_matches": true,
+    "provider_source_bundle_sha256": "4b239336a11d702932c376fb7448f9dda6a1eda87c4fe678cadbf537ba137a37",
+    "provider_dependency_overrides_sha256": "3dcb79c9217e9ffcedef4b637113903dd06f3af70e4b7bb8b0036b6eee21d179",
+    "current_provider_cli_executed": false,
+    "remaining_node_forge_advisory_retained": true,
+    "required_install_bytes": 2077884416,
+    "installer_signed": false,
+    "notarized": false,
+    "installed": false,
+    "private_signins": 0,
+    "owner_data_accessed": false,
+    "production_ready": false,
+    "scratch_directory": "/Users/nirfeinstein/Documents/ChatGPT/login soltion/dist/qa-build75-work/scratch",
+    "minimum_pre_operation_free_bytes": 3000000000,
+    "minimum_running_free_bytes": 1000000000,
+    "filename": "Account-Access-arm64-unsigned.pkg",
+    "wheel_sha256": "aef341475b5b43657fe6554738431261a3635416964c8670738ebce5896dcbca"
+  },
+  "app_archive": {
+    "schema": 1,
+    "status": "VERIFIED_REVIEW_APP_ZIP",
+    "build": 75,
+    "source_revision": "43c82fbda1ba71d8848368d755ed7b8564cda21e",
+    "artifact_sha256": "c4e1b92f8d8ae3ab0902c6bf7385df91e81a2c2c1ab1bea11fd4088eee825c29",
+    "artifact_bytes": 1293064,
+    "actual_extracted_source_files": 79,
+    "actual_extracted_signature_verified": true,
+    "actual_extracted_wheel_sha256": "aef341475b5b43657fe6554738431261a3635416964c8670738ebce5896dcbca",
+    "protected_registration_required": true,
+    "package_assembled": false,
+    "notarized": false,
+    "installed": false,
+    "private_signins": 0,
+    "owner_data_accessed": false,
+    "production_ready": false,
+    "filename": "Account-Access-Mac-review.zip"
+  },
+  "app_reuse": {
+    "from_application_source": "def66480fd50f3d5d5e3d8b8d0ad6c468dbe6dca",
+    "method": "exact Swift/compiler-input equality plus copied genuine executable and signature-stripped code comparison",
+    "source_file_count": 79,
+    "native_inputs_rechecked": true,
+    "resources_source_bound": true
+  },
+  "full_installer": {
+    "assembled_for_build75": true,
+    "status": "Unsigned, unnotarized and uninstalled maintainer review package",
+    "package_sha256": "34f8fe3657f0ef57672ce3f9a51fff312c6801729d5e97b30b81a39d1821f629",
+    "app_zip_is_consumer_installer": false
+  },
+  "ci": {
+    "schema": 1,
+    "recorded_at": "2026-10-19T12:37:51.987643+00:00",
+    "source_revision": "43c82fbda1ba71d8848368d755ed7b8564cda21e",
+    "all_eight_passed": true,
+    "all_attempt_one": true,
+    "runs": {
+      "main-push": {
+        "run_id": 39249732234,
+        "url": "https://github.com/fainir/account-access/actions/runs/39249732234",
+        "head_sha": "43c82fbda1ba71d8848368d755ed7b8564cda21e",
+        "workflow": "Account Access checks",
+        "event": "push",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success",
+        "run_record": "run-39249732234-attempt1.json",
+        "run_record_sha256": "b22e361899666bbdd1b60eed7298ce6df3e5e045309f9dcc3f690ee96570533a",
+        "jobs": [
+          {
+            "databaseId": 118050291908,
+            "name": "test",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/fainir/account-access/actions/runs/39249732234/job/118050291908",
+            "log": "118050291908.log",
+            "log_sha256": "a0032fb2d68f5ee66fb9e7c1dff2a268042303ded997dd925bf7daed808fcd51",
+            "pytest_summaries": [
+              "2794 passed, 93 skipped in 1021.90s"
+            ]
+          },
+          {
+            "databaseId": 118050292105,
+            "name": "native-owner-ui",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/fainir/account-access/actions/runs/39249732234/job/118050292105",
+            "log": "118050292105.log",
+            "log_sha256": "9171f09a110e92b79fb7f458b8b874ab67cda53d097a091489097f7c6e219f64",
+            "pytest_summaries": []
+          },
+          {
+            "databaseId": 118050292234,
+            "name": "native-owner-gateway",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/fainir/account-access/actions/runs/39249732234/job/118050292234",
+            "log": "118050292234.log",
+            "log_sha256": "b6f21aa87926edfc6c24e6c6f2bb04dccd51d4ca746fbfb35e311b42a4ea564c",
+            "pytest_summaries": []
+          }
+        ],
+        "pytest": {
+          "passed": 2794,
+          "skipped": 93,
+          "warnings": 0,
+          "seconds": 1021.9
+        },
+        "python_audit_passed": true,
+        "wheel_and_sdist_build_passed": true,
+        "ruff_passed": true
+      },
+      "main-pull_request": {
+        "run_id": 39249738677,
+        "url": "https://github.com/fainir/account-access/actions/runs/39249738677",
+        "head_sha": "43c82fbda1ba71d8848368d755ed7b8564cda21e",
+        "workflow": "Account Access checks",
+        "event": "pull_request",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success",
+        "run_record": "run-39249738677-attempt1.json",
+        "run_record_sha256": "39d2d6d8eb0736800f519368817d23eeb262e24cbdcc7f4a78bfc19c50428cd8",
+        "jobs": [
+          {
+            "databaseId": 118050313987,
+            "name": "native-owner-ui",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/fainir/account-access/actions/runs/39249738677/job/118050313987",
+            "log": "118050313987.log",
+            "log_sha256": "685025a0cba9aa4da41fced6e90be89e3de7c29626ce69cb4a79635d1fb3c60b",
+            "pytest_summaries": []
+          },
+          {
+            "databaseId": 118050314212,
+            "name": "native-owner-gateway",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/fainir/account-access/actions/runs/39249738677/job/118050314212",
+            "log": "118050314212.log",
+            "log_sha256": "33228e7a11c1ae50fd258b639ac2ca3b7e86460da46aba90026be5651a406214",
+            "pytest_summaries": []
+          },
+          {
+            "databaseId": 118050314231,
+            "name": "test",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/fainir/account-access/actions/runs/39249738677/job/118050314231",
+            "log": "118050314231.log",
+            "log_sha256": "0617d4e6c561e7e9a5d0321fd7dc4f8f3c8adf294a1e4a4881fce3236ff7e6a5",
+            "pytest_summaries": [
+              "2794 passed, 93 skipped in 1019.89s"
+            ]
+          }
+        ],
+        "pytest": {
+          "passed": 2794,
+          "skipped": 93,
+          "warnings": 0,
+          "seconds": 1019.89
+        },
+        "python_audit_passed": true,
+        "wheel_and_sdist_build_passed": true,
+        "ruff_passed": true
+      },
+      "mac-push": {
+        "run_id": 39249732272,
+        "url": "https://github.com/fainir/account-access/actions/runs/39249732272",
+        "head_sha": "43c82fbda1ba71d8848368d755ed7b8564cda21e",
+        "workflow": "Mac separate-user worker acceptance",
+        "event": "push",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success",
+        "run_record": "run-39249732272-attempt1.json",
+        "run_record_sha256": "0e9853ad39bbf38b746b256d484db5e1a6d815636722d153e36ad779062815b1",
+        "jobs": [
+          {
+            "databaseId": 118050291730,
+            "name": "mac-installer-context",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/fainir/account-access/actions/runs/39249732272/job/118050291730",
+            "log": "118050291730.log",
+            "log_sha256": "f924221e712d8e4515489e9b8c1729c78676a45f60566ae4c873d28e23ce1379",
+            "pytest_summaries": []
+          },
+          {
+            "databaseId": 118050744196,
+            "name": "mac-cross-user",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/fainir/account-access/actions/runs/39249732272/job/118050744196",
+            "log": "118050744196.log",
+            "log_sha256": "bd6ec661c305892d81e70c4070152461ff37e4a006d1359c42f6f34de5fc82bb",
+            "pytest_summaries": [
+              "1218 passed, 1 skipped in 197.45s",
+              "182 passed in 189.43s",
+              "22 passed in 68.73s",
+              "1 passed in 4.67s"
+            ]
+          }
+        ]
+      },
+      "mac-pull_request": {
+        "run_id": 39249738574,
+        "url": "https://github.com/fainir/account-access/actions/runs/39249738574",
+        "head_sha": "43c82fbda1ba71d8848368d755ed7b8564cda21e",
+        "workflow": "Mac separate-user worker acceptance",
+        "event": "pull_request",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success",
+        "run_record": "run-39249738574-attempt1.json",
+        "run_record_sha256": "0edb9efe9e24754d98e4f99499e1dc0faa98cfa493a772bf36df5d554606494b",
+        "jobs": [
+          {
+            "databaseId": 118050312813,
+            "name": "mac-installer-context",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/fainir/account-access/actions/runs/39249738574/job/118050312813",
+            "log": "118050312813.log",
+            "log_sha256": "7cd49a321b345b00e82db9a1757924171b47baf9784d2910992ec26c197511f7",
+            "pytest_summaries": []
+          },
+          {
+            "databaseId": 118050737525,
+            "name": "mac-cross-user",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/fainir/account-access/actions/runs/39249738574/job/118050737525",
+            "log": "118050737525.log",
+            "log_sha256": "02c6424412dfa8aea6629bc97fa8dd838bc50d47a7b80e695aa2a5aa95da6dc2",
+            "pytest_summaries": [
+              "1218 passed, 1 skipped in 184.67s",
+              "182 passed in 153.55s",
+              "22 passed in 61.02s",
+              "1 passed in 3.35s"
+            ]
+          }
+        ]
+      },
+      "linux-push": {
+        "run_id": 39249732126,
+        "url": "https://github.com/fainir/account-access/actions/runs/39249732126",
+        "head_sha": "43c82fbda1ba71d8848368d755ed7b8564cda21e",
+        "workflow": "Separate-user worker acceptance",
+        "event": "push",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success",
+        "run_record": "run-39249732126-attempt1.json",
+        "run_record_sha256": "32f884071bffe3b0f191bf34da91e2f2ffc19a08ff5f28fbf7b16f17ca6c247c",
+        "jobs": [
+          {
+            "databaseId": 118050291505,
+            "name": "cross-user",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/fainir/account-access/actions/runs/39249732126/job/118050291505",
+            "log": "118050291505.log",
+            "log_sha256": "9c57740541cf4ce921b99e3cbf1878b650a40538ccb1c50c3452f4da4d273727",
+            "pytest_summaries": []
+          }
+        ]
+      },
+      "linux-pull_request": {
+        "run_id": 39249738645,
+        "url": "https://github.com/fainir/account-access/actions/runs/39249738645",
+        "head_sha": "43c82fbda1ba71d8848368d755ed7b8564cda21e",
+        "workflow": "Separate-user worker acceptance",
+        "event": "pull_request",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success",
+        "run_record": "run-39249738645-attempt1.json",
+        "run_record_sha256": "908d1607153ed33d8f16820c38b2406c0fb1c1e3eeb50413ef9eeb86a957d802",
+        "jobs": [
+          {
+            "databaseId": 118050313469,
+            "name": "cross-user",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/fainir/account-access/actions/runs/39249738645/job/118050313469",
+            "log": "118050313469.log",
+            "log_sha256": "693d30b263f5f9e2cf5d555218337985b846638331ae134d3e34163d1a9427a8",
+            "pytest_summaries": []
+          }
+        ]
+      },
+      "android-push": {
+        "run_id": 39249732213,
+        "url": "https://github.com/fainir/account-access/actions/runs/39249732213",
+        "head_sha": "43c82fbda1ba71d8848368d755ed7b8564cda21e",
+        "workflow": "Android login-code journey",
+        "event": "push",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success",
+        "run_record": "run-39249732213-attempt1.json",
+        "run_record_sha256": "3a7cae3582610dac024c7ed7afd490260f538123cf4a4f446e55ec913a790330",
+        "jobs": [
+          {
+            "databaseId": 118050291378,
+            "name": "android",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/fainir/account-access/actions/runs/39249732213/job/118050291378",
+            "log": "118050291378.log",
+            "log_sha256": "72550c32814722f877fed333dc1fa0859fba514cb7a0c470f0c33728f5c08691",
+            "pytest_summaries": []
+          }
+        ]
+      },
+      "android-pull_request": {
+        "run_id": 39249738796,
+        "url": "https://github.com/fainir/account-access/actions/runs/39249738796",
+        "head_sha": "43c82fbda1ba71d8848368d755ed7b8564cda21e",
+        "workflow": "Android login-code journey",
+        "event": "pull_request",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success",
+        "run_record": "run-39249738796-attempt1.json",
+        "run_record_sha256": "9dc6aafeef71a340d1fca954d65d815d99d1f98cd1b38c6c569a64d1e51292a8",
+        "jobs": [
+          {
+            "databaseId": 118050314501,
+            "name": "android",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/fainir/account-access/actions/runs/39249738796/job/118050314501",
+            "log": "118050314501.log",
+            "log_sha256": "0da31de22b45021db35160b07580b18057a770733b7ca6b6756aec657cb8d0a8",
+            "pytest_summaries": []
+          }
+        ]
+      }
+    },
+    "mac_provisioning_acceptance": "mac-provisioning-acceptance.json",
+    "mac_provisioning_acceptance_sha256": "34865a9f40e6bfb6751fb196d35aae58b80e6e5501028a66fae02df32a22d6f5",
+    "summary_sha256": "ed878223ef1f95c6332865f7fb5fab75b15f333fa20dc1da0bdaf06fc435c875"
+  },
+  "mac_provisioning": {
+    "schema": 1,
+    "status": "PASSED",
+    "source_revision": "43c82fbda1ba71d8848368d755ed7b8564cda21e",
+    "environment": "controlled-demo",
+    "private_signins": 0,
+    "production_ready": false,
+    "consumer_package_verified": false,
+    "genuine_owner_approval_verified": false,
+    "publisher_signed_peers": false,
+    "required_checks": [
+      "broker_and_owner_identities_differ",
+      "broker_home_is_private",
+      "created_service_identity_and_domain_removed",
+      "dedicated_nonlogin_identity_created",
+      "desktop_native_invalid_os_proof_blocks_enrollment",
+      "desktop_native_read_needs_no_os_approval",
+      "desktop_profile_reads_protected_root_registration",
+      "exact_prepared_job_is_persisted_and_registered",
+      "first_enrollment_caller_configuration_refused",
+      "first_enrollment_health_available",
+      "first_enrollment_invalid_os_proof_refused",
+      "first_enrollment_invalid_proof_cannot_create_key",
+      "first_enrollment_root_peer_prepared",
+      "first_enrollment_state_available_without_vault",
+      "first_enrollment_without_approval_refused",
+      "fixture_setup_policy_removed",
+      "fresh_install_waits_without_key_or_worker",
+      "generated_installation_starts_actual_system_entrypoint",
+      "new_store_and_stage_are_empty",
+      "nonlogin_user_bootstrap_domain_ready",
+      "prepared_installation_is_idempotent",
+      "private_directory_crash_after_directory_creation_recovers",
+      "private_directory_crash_after_final_publication_recovers",
+      "private_directory_crash_after_ownership_change_recovers",
+      "private_directory_crash_after_stage_creation_recovers",
+      "private_directory_crash_after_staging_cleanup_recovers",
+      "private_directory_recovery_leaves_no_intermediates",
+      "private_directory_recovery_preserves_published_inode",
+      "private_directory_recovery_sets_exact_private_identity",
+      "public_directory_crash_after_creation_recovers",
+      "public_directory_recovery_preserves_published_inode",
+      "public_directory_recovery_preserves_requested_mode",
+      "public_profile_binds_owner_and_server",
+      "published_policies_preserve_empty_fixed_enrollment",
+      "registration_repair_preserves_policies_identity_and_empty_vault",
+      "rejected_setup_keeps_new_key_absent",
+      "same_prepared_installation_restores_removed_service_registration",
+      "system_entrypoint_recreates_nonlogin_user_domain",
+      "temporary_system_jobs_removed"
+    ],
+    "checks_count": 39,
+    "new_restoration_checks": [
+      "same_prepared_installation_restores_removed_service_registration",
+      "registration_repair_preserves_policies_identity_and_empty_vault"
+    ],
+    "validator": "scripts/check_mac_provisioning_report.py",
+    "validator_sha256": "f6860df283c09c4286789ae62293c3af5da22e23f501fec2bd93839b14b77dce",
+    "validator_revision": "43c82fbda1ba71d8848368d755ed7b8564cda21e",
+    "validator_source_matches_revision": true,
+    "retained_validator": "check_mac_provisioning_report.py",
+    "reports": {
+      "push": {
+        "run_id": 39249732272,
+        "run_url": "https://github.com/fainir/account-access/actions/runs/39249732272",
+        "source_revision": "43c82fbda1ba71d8848368d755ed7b8564cda21e",
+        "run_attempt": 1,
+        "run_record": "run-39249732272-attempt1.json",
+        "run_record_sha256": "0e9853ad39bbf38b746b256d484db5e1a6d815636722d153e36ad779062815b1",
+        "report": "mac-provisioning-push.json",
+        "report_sha256": "859262452b20ff23cd73f447e81301a3ab20d9e7f245b26d11be6dd29805dbe4",
+        "report_archive_member": "account-access-mac-provisioning.json",
+        "required_checks": 39,
+        "all_required_checks_passed": true,
+        "artifact": {
+          "id": 12185744647,
+          "name": "mac-worker-boundary-acceptance",
+          "archive": "mac-worker-boundary-acceptance-39249732272.zip",
+          "archive_sha256": "c5ed48eb455e467bc705921b16e95a5dc242c432a98238d86b09338af88978b3",
+          "github_digest": "sha256:c5ed48eb455e467bc705921b16e95a5dc242c432a98238d86b09338af88978b3",
+          "api_record": "artifacts-39249732272.json",
+          "api_record_sha256": "697a9bdf970bc5af45eb9ac790f5342d53a6b3eea9e77892108ed7710147a229"
+        }
+      },
+      "pull_request": {
+        "run_id": 39249738574,
+        "run_url": "https://github.com/fainir/account-access/actions/runs/39249738574",
+        "source_revision": "43c82fbda1ba71d8848368d755ed7b8564cda21e",
+        "run_attempt": 1,
+        "run_record": "run-39249738574-attempt1.json",
+        "run_record_sha256": "0edb9efe9e24754d98e4f99499e1dc0faa98cfa493a772bf36df5d554606494b",
+        "report": "mac-provisioning-pull_request.json",
+        "report_sha256": "70157ff141605a9d0cbf8e07220d7acd558b78d688ef5e8986dc93dadbfd67d7",
+        "report_archive_member": "account-access-mac-provisioning.json",
+        "required_checks": 39,
+        "all_required_checks_passed": true,
+        "artifact": {
+          "id": 12185898564,
+          "name": "mac-worker-boundary-acceptance",
+          "archive": "mac-worker-boundary-acceptance-39249738574.zip",
+          "archive_sha256": "54cdfe5524b4963bc3d78584dfc0ce5132bce25ece54260fd56692fe86991c96",
+          "github_digest": "sha256:54cdfe5524b4963bc3d78584dfc0ce5132bce25ece54260fd56692fe86991c96",
+          "api_record": "artifacts-39249738574.json",
+          "api_record_sha256": "7eb4be642eb6f0688c1781b18db6469f96ae322f84d0c608bff7551a0e5274e3"
+        }
+      }
+    }
+  },
+  "targeted_tests": {
+    "prior_source_bound_local_result": {
+      "passed": 213,
+      "seconds": 3.03,
+      "tested_revision": "43c82fbda1ba71d8848368d755ed7b8564cda21e",
+      "evidence_type": "console-only result reported before scratch loss",
+      "raw_log_retained": false,
+      "junit_retained": false,
+      "not_used_to_override_current_ci": true
+    },
+    "fresh_release_guard": {
+      "passed": 14,
+      "deselected": 22,
+      "console_seconds": 0.22,
+      "junit_seconds": 0.118,
+      "junit_sha256": "2767eb375d678ef13d4585d502dfc362f791f8a02995eabeab1457b7b90b5402",
+      "log_sha256": "cec0b9423179b82046b11b14f8bd4e8a75ef9236c29e82f16c4cc2bf25067090"
+    },
+    "full_regressions": "Both exact-source Main results are bound to their actual cached logs",
+    "data": "Fictional accounts and isolated disposable fixtures"
+  },
+  "provider_release_guard": {
+    "evidence": "provider-release-guard-20261019.json",
+    "evidence_sha256": "1e2479ce8349b4127d684f6aff1016cd49c21987fb88a3f0796ef830cea8ab76",
+    "analysis_state": "under_investigation",
+    "remaining_advisory_retained": true,
+    "current_provider_cli_or_upstream_scripts_executed": false,
+    "source_bundle_sha256": "4b239336a11d702932c376fb7448f9dda6a1eda87c4fe678cadbf537ba137a37",
+    "dependency_overrides_sha256": "3dcb79c9217e9ffcedef4b637113903dd06f3af70e4b7bb8b0036b6eee21d179",
+    "source_recovery_freshly_measured": true
+  },
+  "agent_evidence_scope": {
+    "current_preflights": {
+      "claude": {
+        "evidence": "agent-tests/claude-verification-080-build75-43c82fb.blocked.json",
+        "sha256": "302d69f36075d991b36f20f66df3d5624bc2bc1389518ea38beb48039a8c9b8f",
+        "agent": "claude",
+        "version": "0.8.0",
+        "passed": false,
+        "status": "UNVERIFIED",
+        "reason": "claude_pretool_boundary_unverifiable",
+        "cli_selection": "installed",
+        "cli_version": "2.1.112",
+        "fixture_started": false,
+        "model_started": false,
+        "private_signins": 0,
+        "production_ready": false,
+        "evidence_revision": "43c82fbda1ba71d8848368d755ed7b8564cda21e"
+      },
+      "codex": {
+        "evidence": "agent-tests/codex-verification-080-build75-43c82fb.blocked.json",
+        "sha256": "bd180dd30d86e9a809125caafe0c5fe62b847319aa36bf39dd7798ff49722102",
+        "agent": "codex",
+        "version": "0.8.0",
+        "passed": false,
+        "status": "UNVERIFIED",
+        "reason": "codex_effective_permissions_unverifiable",
+        "cli_selection": "bundled",
+        "cli_version": "0.163.0",
+        "fixture_started": false,
+        "model_started": false,
+        "private_signins": 0,
+        "production_ready": false,
+        "evidence_revision": "43c82fbda1ba71d8848368d755ed7b8564cda21e"
+      }
+    },
+    "new_model_or_fixture_started": false,
+    "current_installed_agent_journey_passed": false,
+    "old_installed_preview_and_historical_fictional_results_validate_build75": false
+  },
+  "preserved_history": {
+    "build74": "build74-review-080.json",
+    "build74_record_sha256": "2173c810f6d7d703aadd5f8c1f6d804664ef6aabe063c92fbad4687d13e7ed49",
+    "build74_durable_checksum_inventory_sha256": "641bda85eaf94a9b7fdaaf997445c7a7e65c60060f6755f62a0588dcf68c4f58",
+    "historical_package_sha256": "f640ef99ddf4f27585f4e297c8ddb8e89466f3b0e56580cb1b7cae3badf6a3da",
+    "old_failures_and_scope_are_unchanged": true,
+    "new_green_runs_do_not_establish_old_failure_cause": true
+  },
+  "owner_installation_performed": false,
+  "private_signins": 0,
+  "owner_application_or_credential_files_accessed": false,
+  "open_requirements": [
+    "Developer ID Installer certificate, Apple notarization/stapling and clean genuine owner installation/reboot/upgrade",
+    "Real mailbox consent, physical SMS delivery and authenticator enrollment followed by private password/code logins through both agents",
+    "Private password-manager enrollment/rotation/revocation acceptance",
+    "Chrome live password sync remains unimplemented; exports are snapshots",
+    "Arbitrary websites and arbitrary webmail remain unsupported without reviewed connectors/provider support",
+    "Current protected installed Codex and Claude Code journeys; optional nested Codex QA refuses before startup when execution boundaries cannot be attested",
+    "Independent security review and resolution/appropriate disposition of remaining provider advisory and any new CI failure"
+  ]
+}

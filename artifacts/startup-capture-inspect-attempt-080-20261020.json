@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "recorded_at_utc": "2026-10-20T09:10:43.089014+00:00",
+  "status": "HISTORICAL_GENERIC_BROKER_FAILURE_RECOVERED",
+  "target_build": 76,
+  "production_ready": false,
+  "source_revision": "b5a09671432ed7db908a8ea99f7ad78efc986c83",
+  "package": {
+    "filename": "Account-Access-Startup-Capture-Inspect-local-unsigned.pkg",
+    "sha256": "f4146fc8f90d5b603af654b3a951b80a2dc73d86d5a3cc0d96c59c72474cd8b3",
+    "unsigned": true,
+    "owner_approved": true,
+    "executed_via_normal_native_installer": true,
+    "installer_reported_success": true
+  },
+  "public_result": {
+    "file": "artifacts/startup-capture-inspect-result-080-20261020.json",
+    "sha256": "c33263bae2d11786aa68c04750b18c21a6d68a31b0969aa95d0bdb5cd6777d56",
+    "byte_exact": true,
+    "contents": {
+      "capture_is_historical": true,
+      "cleanup_pending": true,
+      "command_outcomes": {
+        "redirect": "not_attempted",
+        "reset": "not_attempted",
+        "start": "not_attempted"
+      },
+      "default_stdout_requested": false,
+      "failure_capture_consumed": true,
+      "failure_outcome": null,
+      "failure_stage": null,
+      "fresh_startup_verified": false,
+      "managed_by": "account-access-startup-check-v1",
+      "mode": "retained_capture_inspection",
+      "reason": "system_broker_unavailable",
+      "schema": 1,
+      "status": "failure_captured",
+      "target_build": 76,
+      "target_code_sha256": "7d025c2ed00963e3b0ee7d8aa9351d00454ed54e6d73b2b4caaa3990424bf061"
+    }
+  },
+  "interpretation": {
+    "historical_failure_code": "system_broker_unavailable",
+    "precise_startup_stage_identified": false,
+    "service_repaired": false,
+    "protected_owner_enrollment_completed": false,
+    "private_signin_acceptance_completed": false,
+    "stdout_reset_verified": false,
+    "cleanup_pending": true,
+    "only_closed_diagnostic_result_read_by_agent": true,
+    "account_credentials_read": false,
+    "service_start_stop_or_configuration_changed_by_inspector": false
+  },
+  "prepared_record": "artifacts/startup-capture-inspect-prepared-080-20261020.json",
+  "previous_records_unchanged": true
+}

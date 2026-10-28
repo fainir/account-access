@@ -1,0 +1,43 @@
+"""Require real System-key/native-drop/production-reader handoff evidence."""
+import json
+from pathlib import Path
+import sys
+
+
+PHASE_CHECKS = {"system_key_decrypted_by_python_reader", "owner_entropy_receipt_verified", "kernel_dedicated_identity_verified",
+          "descriptor_allowlist_verified", "exact_envelope_and_eof_verified", "channel_description_redacted",
+          "successful_channel_cannot_replay", "missing_reader_fails_without_signal_or_fallback",
+          "failed_channel_cannot_replay", "cancelled_channel_refuses_owner_material", "encrypted_store_checked"}
+CHECKS = {phase + "_" + name for phase in ("create", "reopen") for name in PHASE_CHECKS} | {
+    "separate_receiver_processes_used", "bootstrap_signature_mismatch_refused", "enrolled_fixture_worker_started",
+    "worker_kernel_identity_verified", "worker_graceful_shutdown_verified", "enrolled_fixture_worker_restarted",
+    "previous_owner_capability_refused", "worker_listener_cleanup_verified", "paused_store_does_not_start_worker",
+    "owned_worker_crash_reaped", "crashed_worker_store_recovered"}
+
+
+def validate(value):
+    return (isinstance(value, dict) and value.get("status") == "PASSED" and value.get("platform") == "macos"
+            and value.get("environment") == "controlled-demo" and value.get("production_ready") is False
+            and type(value.get("private_signins")) is int and value["private_signins"] == 0
+            and value.get("system_key_used") is True and value.get("production_python_reader_used") is True
+            and value.get("production_storage_used") is True
+            and value.get("consumer_deployment_verified") is False and value.get("production_supervision_verified") is False
+            and value.get("actual_worker_store_handoff_verified") is True and value.get("fixture_key_removed") is True
+            and isinstance(value.get("checks"), dict) and set(value["checks"]) == CHECKS
+            and all(item is True for item in value["checks"].values()))
+
+
+def main(argv=None):
+    try:
+        args = sys.argv[1:] if argv is None else argv
+        if len(args) != 1 or not validate(json.loads(Path(args[0]).read_bytes())):
+            raise ValueError()
+    except (OSError, ValueError):
+        print("System key handoff evidence missing, failed or incomplete", file=sys.stderr)
+        return 1
+    print("Validated System key handoff evidence: all required checks passed")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,0 +1,58 @@
+name: Separate-user worker acceptance
+on: [push, pull_request]
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  cross-user:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      - name: Prepare an immutable runtime in this disposable VM
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y python3-venv
+          uv build --wheel --out-dir /tmp/account-access-worker-wheel
+          AC_WORKER_QA_PREFIX=$(sudo mktemp -d /var/lib/account-access-worker-qa-XXXXXXXX)
+          echo "AC_WORKER_QA_PREFIX=$AC_WORKER_QA_PREFIX" >> "$GITHUB_ENV"
+          sudo chmod 755 "$AC_WORKER_QA_PREFIX"
+          sudo stat -c '%a %u %g %n' / /var /var/lib "$AC_WORKER_QA_PREFIX"
+          sudo /usr/bin/python3 -m venv "$AC_WORKER_QA_PREFIX/runtime"
+          sudo env UV_CACHE_DIR="$AC_WORKER_QA_PREFIX/cache" "$(command -v uv)" pip install \
+            --python "$AC_WORKER_QA_PREFIX/runtime/bin/python" --require-hashes \
+            -r account_access/runtime-requirements.txt
+          sudo env UV_CACHE_DIR="$AC_WORKER_QA_PREFIX/cache" "$(command -v uv)" pip install \
+            --python "$AC_WORKER_QA_PREFIX/runtime/bin/python" --no-deps \
+            /tmp/account-access-worker-wheel/account_access-*.whl
+          sudo install -m 644 scripts/worker_boundary_smoke.py "$AC_WORKER_QA_PREFIX/acceptance.py"
+          sudo install -m 644 scripts/worker_boundary_probe.py "$AC_WORKER_QA_PREFIX/probe.py"
+          sudo install -m 644 scripts/chromium_apparmor.py "$AC_WORKER_QA_PREFIX/chromium_apparmor.py"
+          sudo env PLAYWRIGHT_BROWSERS_PATH="$AC_WORKER_QA_PREFIX/browsers" \
+            "$AC_WORKER_QA_PREFIX/runtime/bin/python" -I -B -m playwright install --with-deps chromium
+          sudo chmod -R a+rX "$AC_WORKER_QA_PREFIX/browsers"
+          sudo env PLAYWRIGHT_BROWSERS_PATH="$AC_WORKER_QA_PREFIX/browsers" \
+            "$AC_WORKER_QA_PREFIX/runtime/bin/python" -I -B "$AC_WORKER_QA_PREFIX/chromium_apparmor.py" \
+            --output "$AC_WORKER_QA_PREFIX/chromium.apparmor"
+          sudo apparmor_parser -r "$AC_WORKER_QA_PREFIX/chromium.apparmor"
+      - name: Verify approved sign-ins and attacks from a real different UID
+        run: |
+          sudo "$AC_WORKER_QA_PREFIX/runtime/bin/python" -I -B "$AC_WORKER_QA_PREFIX/acceptance.py" \
+            --prefix "$AC_WORKER_QA_PREFIX" > /tmp/account-access-worker-boundary.json
+          uv run python scripts/check_worker_boundary_report.py /tmp/account-access-worker-boundary.json
+          cat /tmp/account-access-worker-boundary.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: worker-boundary-acceptance
+          path: /tmp/account-access-worker-boundary.json
+          if-no-files-found: ignore
+      - name: Remove the ephemeral runtime
+        if: always()
+        run: |
+          if [[ "$AC_WORKER_QA_PREFIX" == /var/lib/account-access-worker-qa-* ]]; then
+            sudo rm -rf -- "$AC_WORKER_QA_PREFIX"
+          fi

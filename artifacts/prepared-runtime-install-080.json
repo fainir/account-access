@@ -1,0 +1,126 @@
+{
+  "version": "0.8.0-candidate",
+  "date": "2026-10-17",
+  "source_revision": "3c59a87945885fce3c87ceadc94ee35338089b95",
+  "production_ready": false,
+  "private_signins": 0,
+  "ci": {
+    "all_eight_push_and_pr_workflows": "passed",
+    "runs": {
+      "push_main": "https://github.com/fainir/account-access/actions/runs/39045910620",
+      "push_mac": "https://github.com/fainir/account-access/actions/runs/39045910618",
+      "push_linux": "https://github.com/fainir/account-access/actions/runs/39045910630",
+      "push_android": "https://github.com/fainir/account-access/actions/runs/39045910682",
+      "pr_main": "https://github.com/fainir/account-access/actions/runs/39045913671",
+      "pr_mac": "https://github.com/fainir/account-access/actions/runs/39045913658",
+      "pr_linux": "https://github.com/fainir/account-access/actions/runs/39045913709",
+      "pr_android": "https://github.com/fainir/account-access/actions/runs/39045913713"
+    },
+    "regressions": [
+      {
+        "passed": 1235,
+        "platform_skips": 7,
+        "seconds": 584.64,
+        "run": 39045910620
+      },
+      {
+        "passed": 1235,
+        "platform_skips": 7,
+        "seconds": 588.49,
+        "run": 39045913671
+      }
+    ],
+    "python_dependency_audit": "no known vulnerabilities found",
+    "complete_reports_per_mac": 16,
+    "worker_reports_identical": true,
+    "native_desktop_component_reports_identical": true,
+    "android_emulator_reports_identical": true
+  },
+  "development_native_inventory": {
+    "native_files": 45,
+    "executables": 20,
+    "bundles": 11,
+    "wheels": 33,
+    "publisher_signatures_verified": false,
+    "notarization_verified": false
+  },
+  "complete_preparation_fixture": {
+    "native_files_signed": 41,
+    "bundle_seals_signed": 10,
+    "wheels": 32,
+    "publisher_team": "fixture",
+    "production_permission_profile": false
+  },
+  "prepared_install_acceptance": {
+    "status": "PASSED",
+    "environment": "controlled-demo",
+    "production_ready": false,
+    "private_signins": 0,
+    "actual_installer_used": true,
+    "positive_consumer_install_verified": false,
+    "publisher_signed_package": false,
+    "genuine_owner_approval_verified": false,
+    "prepared_runtime_executed": true,
+    "fixture_library_validation_exception": true,
+    "checks": {
+      "actual_development_package_refused_before_owner_setup": true,
+      "offline_runtime_installed_at_final_path": true,
+      "installed_runtime_loads_dependencies_with_protected_paths": true,
+      "prepared_receipt_matches_installed_package_metadata": true,
+      "derived_requirements_match_preparation_receipt": true,
+      "app_pinned_project_and_original_source_lock_preserved": true,
+      "prepared_native_bytes_preserved_at_final_install_paths": true,
+      "prepared_code_is_root_controlled_without_privileged_modes": true,
+      "prepared_signatures_and_bundle_seals_valid_after_install": true,
+      "prepared_native_callbacks_crypto_and_validation_work": true,
+      "relocated_package_browser_runs_sandboxed_without_credentials": true,
+      "development_package_creates_no_vault_or_registration": true,
+      "development_package_creates_no_service_user": true,
+      "development_package_creates_no_service_group": true,
+      "protected_app_payload_present": true,
+      "shared_system_parent_ownership_and_modes_preserved": true,
+      "temporary_package_payload_removed": true
+    }
+  },
+  "isolated_node_probes": [
+    {
+      "passed": 1,
+      "seconds": 4.26,
+      "run": 39045910618
+    },
+    {
+      "passed": 1,
+      "seconds": 4.79,
+      "run": 39045913658
+    }
+  ],
+  "android_emulator_acceptance": {
+    "status": "COMPLETED",
+    "browser_sms_verifications": 1,
+    "android_api": "30",
+    "checks": [
+      "Keystore encrypted pairing",
+      "Private destination restriction",
+      "Actual Android notification listener",
+      "Certificate-pinned HTTPS ingress",
+      "Browser code submission",
+      "No code in agent result"
+    ],
+    "limits": "Synthetic login notification on an emulator; no physical phone or carrier delivery validated."
+  },
+  "owner_state": {
+    "installed_build": 53,
+    "app_replaced": false,
+    "unfinished_gmail_form": "preserved",
+    "gmail_setup": "deferred_by_owner",
+    "new_private_signin_requests": 0
+  },
+  "limits": [
+    "Prepared runtime and publisher checks use ad-hoc signatures and explicit fixture-only library-validation exceptions",
+    "No genuine Developer ID publisher, Apple acceptance/stapling or positive downloaded consumer install is established",
+    "Owner approval, Full Disk Access, migration/update/reboot and real Codex/Claude sessions against the protected install remain unverified",
+    "Credentials/messages/seeds in controlled journeys are fictional; no new private account or physical phone/carrier is validated",
+    "Full installed Chrome/native/XPC/worker acceptance and Web Store distribution remain open",
+    "Chrome CSV imports remain snapshots; continuous Chrome sync is not implemented"
+  ]
+}

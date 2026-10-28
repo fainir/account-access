@@ -60,18 +60,20 @@ def test_android_ingress_binds_code_to_active_login_window_and_consumes_once(env
     config = broker.store.config()
     config.code_sources["phone"] = CodeSource(kind="phone_relay", sender="Example", recipient="owner", template="Sign in: {code}")
     broker.store.configure(config)
+    broker.store.put("source:phone", {"enabled": True})
+    broker.store.put("phone-pair:phone", {"token": "fictional-paired-phone-token"})
     now = time.time()
     payload = {"id": "one", "sender": "Example", "recipient": "owner", "body": "Sign in: 123456", "received_at": now}
     with pytest.raises(AccessError, match="no_current_login_window"):
-        deliver(broker.store, "phone", payload)
+        deliver(broker.store, "phone", payload, pair_token="fictional-paired-phone-token")
     broker.codes.begin("phone", "demo-mfa", now - 1)
     with pytest.raises(AccessError, match="phone_message_mismatch"):
-        deliver(broker.store, "phone", {**payload, "body": "Approve payment: 123456"})
-    assert deliver(broker.store, "phone", payload)["status"] == "RECEIVED"
-    assert deliver(broker.store, "phone", payload)["status"] == "RECEIVED"
+        deliver(broker.store, "phone", {**payload, "body": "Approve payment: 123456"}, pair_token="fictional-paired-phone-token")
+    assert deliver(broker.store, "phone", payload, pair_token="fictional-paired-phone-token")["status"] == "RECEIVED"
+    assert deliver(broker.store, "phone", payload, pair_token="fictional-paired-phone-token")["status"] == "RECEIVED"
     assert broker.codes.resolve("phone", now - 1, set()) == "123456"
     assert broker.codes.resolve("phone", now - 1, set()) is None
     with pytest.raises(AccessError, match="no_current_login_window"):
-        deliver(broker.store, "phone", {**payload, "id": "two"})
+        deliver(broker.store, "phone", {**payload, "id": "two"}, pair_token="fictional-paired-phone-token")
     broker.codes.finish("phone", now - 1)
     assert broker.store.get("code-window:phone") is None

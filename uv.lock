@@ -1,15 +1,15 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.14'",
     "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform == 'emscripten'",
-    "(python_full_version < '3.14' and sys_platform != 'emscripten') or (python_full_version < '3.12' and sys_platform == 'emscripten')",
+    "python_full_version < '3.12' or (python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform != 'emscripten')",
 ]
 
 [[package]]
 name = "account-access"
-version = "0.7.4"
+version = "0.8.0"
 source = { editable = "." }
 dependencies = [
     { name = "authlib" },
@@ -18,6 +18,7 @@ dependencies = [
     { name = "filelock" },
     { name = "httpx2" },
     { name = "keyring" },
+    { name = "onepassword-sdk" },
     { name = "playwright" },
     { name = "pydantic" },
     { name = "pyotp" },
@@ -26,6 +27,8 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "installer" },
+    { name = "packaging" },
     { name = "pip-audit" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -38,9 +41,10 @@ requires-dist = [
     { name = "authlib", specifier = ">=1.8,<2" },
     { name = "cryptography", specifier = ">=50,<51" },
     { name = "fastapi", specifier = ">=0.115,<1" },
-    { name = "filelock", specifier = ">=3.18,<4" },
+    { name = "filelock", specifier = ">=4.2.4,<5" },
     { name = "httpx2", specifier = ">=2.13,<3" },
     { name = "keyring", specifier = ">=25,<27" },
+    { name = "onepassword-sdk", specifier = "==0.4.1" },
     { name = "playwright", specifier = ">=1.55,<2" },
     { name = "pydantic", specifier = ">=2.11,<3" },
     { name = "pyotp", specifier = ">=2.9,<3" },
@@ -49,6 +53,8 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "installer", specifier = "==1.1.0" },
+    { name = "packaging", specifier = ">=26.3,<27" },
     { name = "pip-audit", specifier = ">=2.9,<3" },
     { name = "pytest", specifier = ">=8,<10" },
     { name = "pytest-asyncio", specifier = ">=1,<2" },
@@ -138,11 +144,11 @@ filecache = [
 
 [[package]]
 name = "certifi"
-version = "2026.7.22"
+version = "2026.10.19"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/a3/c2/24167ea9858356b47a87a50d39908bfdb72ceeefe0041586e704e5376b3a/certifi-2026.7.22.tar.gz", hash = "sha256:741e2c3b351ddf169a738da9f2c048608ff7f2c5cc02f1ebc6b118bb090d5d55", size = 138112, upload-time = "2026-07-22T03:35:12.644Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a6/bd/1436c50cc46699de0230fbaacc1d1de7bfec413176099949e9d5112e88f2/certifi-2026.10.19.tar.gz", hash = "sha256:035c1e85572b141bf1c3a3eff0e33a8eb74917522f2559075ff8d2fea780a1ae", size = 137598, upload-time = "2026-10-20T02:24:16.604Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0b/a7/71ac2cff56fec219ed242bb11b8efb69fcc4bec75db06fb7bfe35de520e6/certifi-2026.7.22-py3-none-any.whl", hash = "sha256:62f22742b58a1a33014a2b6b706588a8d7e2a88ae7bd1a6ebe8c992928483775", size = 136983, upload-time = "2026-07-22T03:35:11.276Z" },
+    { url = "https://files.pythonhosted.org/packages/c4/51/29046e48f693c54e5b7412216d447a1d8362c9653148d98c02cdf65fa733/certifi-2026.10.19-py3-none-any.whl", hash = "sha256:42d35340cc5b9ba78e818ddbff0c5b1c2b779de448a340fd1b989f5fa8670e1b", size = 136464, upload-time = "2026-10-20T02:24:15.072Z" },
 ]
 
 [[package]]
@@ -521,11 +527,11 @@ wheels = [
 
 [[package]]
 name = "filelock"
-version = "3.32.7"
+version = "4.2.4"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/0f/59/e19834834cb01a32febfbb0f8a23a9088088f5d45991824ff2bc3b5e8acb/filelock-3.32.7.tar.gz", hash = "sha256:37b8a3d9811b0f9aef7e5ec5c71bb320de52df51e6ca9bcd6f5ad81187660da7", size = 225154, upload-time = "2026-09-16T00:24:20.907Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d8/28/3893324bcadf8f89b1616637468d766af3f625008c0735bf704fdfa86617/filelock-4.2.4.tar.gz", hash = "sha256:c6d8663535e1650ee430507b4ffbac7b464dd64b7647ea0112a9f406499d163d", size = 652444, upload-time = "2026-10-19T01:57:51.001Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/15/df/31098c5aeb4d966b553641472bd55fcf5fdfac953549894b8a765ba44e91/filelock-3.32.7-py3-none-any.whl", hash = "sha256:65ff0d0190ea42038b32bda4b77834fb05be2cad4c5b9b01aa4dfb3614536e52", size = 100157, upload-time = "2026-09-16T00:24:19.543Z" },
+    { url = "https://files.pythonhosted.org/packages/e0/1b/5e74289a1878e666bb4b65fe5805a04cafcac2aa5f519ef1ead67ef91c56/filelock-4.2.4-py3-none-any.whl", hash = "sha256:301241438c57936ef93f4243a94f2559022268bfcf9b375a9a72eb0f8db8358e", size = 162475, upload-time = "2026-10-19T01:57:49.419Z" },
 ]
 
 [[package]]
@@ -619,8 +625,8 @@ name = "httpcore2"
 version = "2.13.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "h11", marker = "python_full_version < '3.12' or python_full_version >= '3.14' or sys_platform != 'emscripten'" },
-    { name = "truststore", marker = "python_full_version < '3.12' or python_full_version >= '3.14' or sys_platform != 'emscripten'" },
+    { name = "h11" },
+    { name = "truststore" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/cb/f3/1db7aa2bc2524062192bb0e0323969492d1883152a232fe36eea65f4e35c/httpcore2-2.13.1.tar.gz", hash = "sha256:e0aa977abe17e69a3b820a24542a6fa88702676d83880b8d194dcd18408e5103", size = 68071, upload-time = "2026-09-23T07:47:22.372Z" }
 wheels = [
@@ -667,7 +673,7 @@ name = "importlib-metadata"
 version = "9.0.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "zipp", marker = "(python_full_version < '3.14' and sys_platform != 'emscripten') or (python_full_version < '3.12' and sys_platform == 'emscripten')" },
+    { name = "zipp" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/6f/7e/1e7e8dc30634b93ebb3d58a3dea569ad146e656218d3960ab04f62047b29/importlib_metadata-9.0.1.tar.gz", hash = "sha256:ab830580bc0ef3db61ce8fae716389e5462b67e033018bab6d8f80ef17172f99", size = 59124, upload-time = "2026-08-28T15:30:34.646Z" }
 wheels = [
@@ -681,6 +687,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/01/e1/2069291243c926a2ff1cd706c7f3eeb9b62144bf60f77c9fb9ff2fb26bd3/iniconfig-2.3.1.tar.gz", hash = "sha256:67f4b9c50da0dedf52af349e7749a80a9057a5031199791b906c3bb3ae878960", size = 21209, upload-time = "2026-10-06T22:48:38.076Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/56/43/4ca9e49d27a1fcf6bece6f6aec0ea46bb9112489b93d4b688fb415457bdb/iniconfig-2.3.1-py3-none-any.whl", hash = "sha256:9121e2c1fdb355232495be3194c8dfe87ccc2d5dee45947b78e68f499790d7a7", size = 7552, upload-time = "2026-10-06T22:48:36.959Z" },
+]
+
+[[package]]
+name = "installer"
+version = "1.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/56/d3/2fab33d15004d41ae8e7b5d3e310510f7f34a7e1dd032a3e60d8b38d8fba/installer-1.1.0.tar.gz", hash = "sha256:5adc0c01ce62d809989e246987cd68944fe5df8af562d0358f65b2ab15cb5de7", size = 481257, upload-time = "2026-10-12T19:35:52.851Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d7/7a/63547a792a12148882205d79e07644091d5b7690f40c2bb9d41452a8bdc2/installer-1.1.0-py3-none-any.whl", hash = "sha256:f55f5728ff61d3dd54dbc5a397cf3f7307cb64b180c20b72afbebf01c9e2c8a0", size = 464466, upload-time = "2026-10-12T19:35:51.096Z" },
 ]
 
 [[package]]
@@ -886,6 +901,32 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/a4/69/1c821d8386fae5cecc5fcaacf3de3947ff0a23f16bb481b5532b5868372a/msgpack-1.2.3-cp315-cp315t-win32.whl", hash = "sha256:3d4c807ed050fe3ddbea5ba7e9f63d7136871ce42861be1f50ff739f0e91047a", size = 75820, upload-time = "2026-09-29T02:33:47.596Z" },
     { url = "https://files.pythonhosted.org/packages/68/9e/41e2f7343a3764a9c1fb10c79f9a6a05db9df93dedd76401d1b511f5a685/msgpack-1.2.3-cp315-cp315t-win_amd64.whl", hash = "sha256:5f304123b90e8b2e49867981b7f6061612c39f50cca51ee88de007c084cf68d3", size = 83345, upload-time = "2026-09-29T02:33:49.325Z" },
     { url = "https://files.pythonhosted.org/packages/80/cd/0c3aa439bc7a7bf24684fef3a0ad776cba170e18ed94445e723bce42fce7/msgpack-1.2.3-cp315-cp315t-win_arm64.whl", hash = "sha256:f41ca154b7737b11893cdce3c78c61d703398a1cd54d4297bdad908392338a8e", size = 77572, upload-time = "2026-09-29T02:33:50.729Z" },
+]
+
+[[package]]
+name = "onepassword-sdk"
+version = "0.4.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pydantic" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/df/06/989f5b40e802e11e37c44bc72faabcdd362dcba3392fbfc48be6da49e147/onepassword_sdk-0.4.1.tar.gz", hash = "sha256:4b9224208aa6e35e13bad8534e6521d3abf5ba166ea4efd370fcdc918c4a4d26", size = 34561961, upload-time = "2026-07-30T13:56:12.309Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3b/6a/5b2955dbd152f2cee0d5c87c8ad4e57fe080f4cb106ea5f4020d7cc0639a/onepassword_sdk-0.4.1-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:498f47857676413f7e3da286dc7c55443244566a244d6a8646c9891c0881e48a", size = 7310375, upload-time = "2026-07-30T13:55:40.224Z" },
+    { url = "https://files.pythonhosted.org/packages/dd/d7/da8c25db5898afea7798bbadbe5175b5ef5d123db7d5e6382c82afb610f5/onepassword_sdk-0.4.1-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:17270148617e9bee15f15ae97697e4cd91749854a5b276121312f0dce3e604c3", size = 7030316, upload-time = "2026-07-30T13:55:41.642Z" },
+    { url = "https://files.pythonhosted.org/packages/ce/85/81e001e734018086fe6fac658b281af8ece29f05f9cd17e0e08b6924ca91/onepassword_sdk-0.4.1-cp311-cp311-manylinux_2_32_aarch64.whl", hash = "sha256:ece4f864235359490236947c78ece650b0a9140ec18d2eacbe16d478360be9ad", size = 7098626, upload-time = "2026-07-30T13:55:43.37Z" },
+    { url = "https://files.pythonhosted.org/packages/b7/c2/fdec90a257a8c70165d3f853cda40c05f8eccf6f0b71509f6fb931d2ee32/onepassword_sdk-0.4.1-cp311-cp311-manylinux_2_32_x86_64.whl", hash = "sha256:5c09aa2fafe114efcf42ce3a5735f16b3cac27fed21835fb278e9dee9e675856", size = 7298314, upload-time = "2026-07-30T13:55:44.811Z" },
+    { url = "https://files.pythonhosted.org/packages/45/d2/57590b301061d1a7fcffc060997551e39b6d1eb20b2ba2ced2fc70341783/onepassword_sdk-0.4.1-cp311-cp311-win_amd64.whl", hash = "sha256:77b4e1c314adf931f9fe57a7cba0d01c4d26d40c19ca55545dfbcda5a9bcf791", size = 6140434, upload-time = "2026-07-30T13:55:46.392Z" },
+    { url = "https://files.pythonhosted.org/packages/f0/68/04e9006ecf2ef99e084042671d5fd28540a8199e7d8d4dac948581ebd152/onepassword_sdk-0.4.1-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:20ce4798e4f67e25564df947f1b45dac050b4c1b3c19305533346af5b5833d25", size = 7310376, upload-time = "2026-07-30T13:55:48.58Z" },
+    { url = "https://files.pythonhosted.org/packages/df/21/6c893de3c8cf51732ec240b87d6298cd1a130af2d5c917eb6a48076d3d63/onepassword_sdk-0.4.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:f4469602291a82a8b5ea019ed6cab142852ef3d09eceee94d21f6c67f8a478a9", size = 7030316, upload-time = "2026-07-30T13:55:50.618Z" },
+    { url = "https://files.pythonhosted.org/packages/b0/fa/5d19c0f1dea47ed5fdc3b96760629b92b0785e75ab981993545806edcde6/onepassword_sdk-0.4.1-cp312-cp312-manylinux_2_32_aarch64.whl", hash = "sha256:59945589f2c816357322d3c8801efe66d8e6842dfba9740787979996b8467815", size = 7098626, upload-time = "2026-07-30T13:55:52.052Z" },
+    { url = "https://files.pythonhosted.org/packages/22/7c/ca1529a3732605caad337b0f989c894ddfdf94995545393aa029d2fcc0b2/onepassword_sdk-0.4.1-cp312-cp312-manylinux_2_32_x86_64.whl", hash = "sha256:070541f5d007f8bfa63ffd937e4717e4d3d04100096e807a05028a8a62d49b94", size = 7298314, upload-time = "2026-07-30T13:55:53.75Z" },
+    { url = "https://files.pythonhosted.org/packages/e3/20/420f0fb8075fb13a76dacc1215a177062374e195117af2843a8df7fc482a/onepassword_sdk-0.4.1-cp312-cp312-win_amd64.whl", hash = "sha256:47492c131ae74280f2d98e8ba708bab7339001c30f57d96d65fadacdd6a152a0", size = 6140434, upload-time = "2026-07-30T13:55:55.404Z" },
+    { url = "https://files.pythonhosted.org/packages/c3/1d/fec27ec00105ada1baa0ed529925e213c87261da9e4bda8997ecb80f4361/onepassword_sdk-0.4.1-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:3ab99159b0680781c29103e8a481487a7cbe307d80ca82d1ebe1696482717dbf", size = 7310375, upload-time = "2026-07-30T13:55:56.692Z" },
+    { url = "https://files.pythonhosted.org/packages/bc/22/aa06e570c0477a5ab05635f3f216158012bcb6a2a77a85da97d6e598fc0f/onepassword_sdk-0.4.1-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:e08741964f94b257ac843b01fbb260fa1ecea1da33e33132c27c33a001d1f750", size = 7030317, upload-time = "2026-07-30T13:55:58.142Z" },
+    { url = "https://files.pythonhosted.org/packages/34/23/d7e0adf4e619904e3be43084ba6bd607ce33dc46798f7c2a52c8d99af3a1/onepassword_sdk-0.4.1-cp313-cp313-manylinux_2_32_aarch64.whl", hash = "sha256:55426aa708316698739babd87693d99312eeb3fbf45a429f467014b4c171d578", size = 7098627, upload-time = "2026-07-30T13:55:59.638Z" },
+    { url = "https://files.pythonhosted.org/packages/71/be/2b669a038881f98512587c512821a50d78b4eae8aa380253d35808643852/onepassword_sdk-0.4.1-cp313-cp313-manylinux_2_32_x86_64.whl", hash = "sha256:438f3d11cc8ce74fb8fa06d6fe8ecb9c8f72ee1490a0ebd2e3f6029d61c3157c", size = 7298314, upload-time = "2026-07-30T13:56:01.194Z" },
+    { url = "https://files.pythonhosted.org/packages/00/e6/c795eebd51be8cf70f61577d44eccb345df012d1bd036e7545dace0f944d/onepassword_sdk-0.4.1-cp313-cp313-win_amd64.whl", hash = "sha256:45c2a2751017bd43697f949aea74efcd3058b2395dfa5d94c33adfb7ef96a60a", size = 6140433, upload-time = "2026-07-30T13:56:02.558Z" },
 ]
 
 [[package]]
@@ -1369,8 +1410,8 @@ name = "secretstorage"
 version = "3.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cryptography", marker = "python_full_version < '3.12' or python_full_version >= '3.14' or sys_platform != 'emscripten'" },
-    { name = "jeepney", marker = "python_full_version < '3.12' or python_full_version >= '3.14' or sys_platform != 'emscripten'" },
+    { name = "cryptography" },
+    { name = "jeepney" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/1c/03/e834bcd866f2f8a49a85eaff47340affa3bfa391ee9912a952a1faa68c7b/secretstorage-3.5.0.tar.gz", hash = "sha256:f04b8e4689cbce351744d5537bf6b1329c6fc68f91fa666f60a380edddcd11be", size = 19884, upload-time = "2025-11-23T19:02:53.191Z" }
 wheels = [

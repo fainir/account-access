@@ -1,0 +1,93 @@
+{
+  "changed_production_files": [
+    "macos/ComponentUpdate.swift"
+  ],
+  "correction": "Replace compiler-sensitive ternary/reduce with explicit Int64 reserve and checked per-delta accumulation. Preserve zero reserve for a retained intent and the original81920-byte preparation overhead.",
+  "native": {
+    "core_compile_seconds": 20.334,
+    "core_named_checks": 21,
+    "older_compiler_ci_still_required": true,
+    "optimized_core_assertions": 87,
+    "ordinary_refusal_exit_code": 78,
+    "policy_proof": {
+      "path": "dist/qa-component-policies-20261020/result-v2.json",
+      "sha256": "511e0f57b63b44d4fe0660a8ab15d3ab2debffc149a8d1a79cdeb3b499f16d95"
+    },
+    "production_main_compile_seconds": 31.535,
+    "proof": {
+      "path": "dist/qa-component-reserve-typing-20261020/result.json",
+      "sha256": "98d1987ea691317aaa6f0b902d76917e8155ff3cb60b14c4a2549db777e7a4c0"
+    },
+    "unchanged_policy_assertions": 41
+  },
+  "owner_installation_modified": false,
+  "owner_root_execution": false,
+  "package_assembled": false,
+  "personal_accounts_used": 0,
+  "prior_ci": {
+    "actual_disposable_installer_disable_probe": "PASSED",
+    "all_five_override_observations_validated": true,
+    "artifact_execution_during_review": false,
+    "attempt": 1,
+    "effective_enabled_restored": true,
+    "fixture_removed": true,
+    "mac_push_run_id": 39416260914,
+    "native_compile": "FAILED_TYPECHECK_COMPLEXITY",
+    "native_fixtures_executed": false,
+    "proof": {
+      "path": "dist/qa-ci-1098a2d/native-compile-failure-and-disable-success.json",
+      "sha256": "0a4b74943a6191b3631b2331edb33197118e308390e54f4625a317432a36690f"
+    },
+    "proof_files": {
+      "39416260914-artifacts.json": "9c76bd92b9c7822538bfb29ea19be15452aac0c4fc80b38c8a0f3583480b2a29",
+      "39416260914-compile-core.log": "21b78c9d4351362786cd53e32e968a6fdc5423067e4d62f520ece87b914c1fe2",
+      "39416260914-disable-report.json": "101239c12b98a7ae866869e73c332b2b8a6799d9db066c070586a5f609a3b578",
+      "39416260914-disable.zip": "75ae892e53202eeb42f9d48d454a3afbb81c8d800af50dce36377a458fa66426",
+      "39416260914-native.zip": "16ea300404a638bb5086b6ede259644608262ace3403ba688dd88febd6e57e8d"
+    },
+    "service_removed": true
+  },
+  "prior_source_commit": "1098a2d781d8a8a7f6cfee32e935dd85e50a0892",
+  "production_ready": false,
+  "python": {
+    "junit_sha256": "b34a4c8de054cd697fa8828cb27fce47f317784040dfb2301737faaaea8cb28e",
+    "proof": {
+      "path": "dist/qa-component-swift-compat-python-20261020/result.json",
+      "sha256": "b339e60c0f5bef659dbd5a0467f1ee54410ba7a8b56c95c9403036aeb085b300"
+    },
+    "ruff": "passed_no_cache",
+    "tests": 176
+  },
+  "recorded_at_utc": "2026-10-20T11:44:53.054820+00:00",
+  "remaining_gates": [
+    "Exact-source first-attempt 8-workflow matrix plus review ordinary-contract workflow",
+    "Genuine signed candidate assembly and independent package review",
+    "Actual retained build76 Installer then candidate Installer and reapply in disposable Mac",
+    "Owner approval for new updater, normal GUI reopen and owner enrollment",
+    "Personal password/email/SMS/TOTP and agent acceptance; phone and mailbox enrollment still required"
+  ],
+  "schema": 1,
+  "source_sha256": {
+    ".github/workflows/mac-component-update-review.yml": "b1eb80178ab762fc98c09a30a779b614145e949a657a443b2eba8e69db719b36",
+    ".github/workflows/mac-worker.yml": "51fcdacd314c901c193198d09df8cf671f813622ed9ed06e0df9a115547f7845",
+    "macos/ComponentUpdate.swift": "b6ff01ee403b8d4dd480659e884553fabcf25fd6c767f634d2a2b8a6c7df6ab0",
+    "macos/ComponentUpdateIdentity.swift": "4c3bf3e29923e0a92ac9bf6a8e9752ec889d61eb26dedbafcf6e788dabd3512e",
+    "macos/ComponentUpdatePolicies.swift": "7aca759f4b9fad195851ce12d81550ec08a0753c43515574c23fc74d247060ab",
+    "macos/InstallerPayload.swift": "03876624a57cfe84d850b1998f636acaa039ce6fd4822d8df60ffeab7cd9c81d",
+    "macos/Tests/ComponentUpdateChecks.swift": "48afd4db0bcf11baa4891b19193ac626f92f9aaba4c2beecbe08ed1ffe307ba9",
+    "macos/Tests/ComponentUpdateIdentityChecks.swift": "88c2d9420b6ebed456bdc1ab9ee0ef2e3d6ec822e34a963d4051288b8e177741",
+    "macos/Tests/ComponentUpdatePolicyChecks.swift": "e51485275a534ffb53c67949334ba4a49bb32a4b71a276a609718d1c3b47ac48",
+    "macos/build-component-update.py": "856d6358c96daca1d3d1ca6ad5bb119a2a620f47a32fcea3501e3f6a2ded13c6",
+    "macos/component_update.py": "55dfb6b0ba5c71dbe33bc1c63ce663505933aed5a9bc3c00ca666674ed27588b",
+    "scripts/mac_component_update_installer_probe.py": "3a2b33c847cd4f8d3cf3fb97a7a57dea41a22f01f2dcf2ed7dc2fc4fd5d4f409",
+    "scripts/mac_component_update_native_probe.py": "2e813c0da3d9e5136cd7417fc1e4e1223b2fbeebbb0a3e8956799026e9c99c27",
+    "scripts/mac_launchctl_disable_probe.py": "18bafd0b8c6b5078443bfdf153eb290fd6d9752748ef26f2486a174518e3938c",
+    "tests/test_component_update.py": "faffd701842a2959eea88ffbd6544b44153c94ed229a9f20449294f04b276a00",
+    "tests/test_component_update_builder.py": "b43ec2df4fac141a0fe3f3e4183cdde0adabe2a43a0a7ef9be98614174734aee",
+    "tests/test_component_update_review_workflow.py": "b3cd8f314ae2ed4c3112bee3babc9d9c377c56f50fe2a3206030faf985939ade",
+    "tests/test_mac_component_update_installer_probe.py": "4690562d1f29afe6cd326c3fc88ba6adf4e6b7fb47e3e0bc3219fddd6bdee208",
+    "tests/test_mac_component_update_native_probe.py": "1624f9a5ded2d47774b6caf8ded37d9e3e4eb2b1a447c26f44f34b554b941065",
+    "tests/test_mac_launchctl_disable_probe.py": "fd8018900d1dc3a0cbab82febbb04c247b22e10dd5ad3cb6164edc135d77901f"
+  },
+  "status": "SOURCE_CHECKS_PASSED_RESERVE_COMPILER_COMPATIBILITY_CORRECTED"
+}

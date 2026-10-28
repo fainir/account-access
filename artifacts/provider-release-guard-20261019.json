@@ -1,0 +1,258 @@
+{
+  "schema": 1,
+  "recorded_at": "2026-10-19T12:39:02.248737+00:00",
+  "application_source_revision": "43c82fbda1ba71d8848368d755ed7b8564cda21e",
+  "build": 75,
+  "status": "BOUNDED_RELEASE_GUARD_VERIFIED",
+  "production_ready": false,
+  "scope": "Exact-worker, official CLI assets and actual resolved dependency graph; no whole-package safety proof",
+  "analysis_state": "under_investigation",
+  "advisory": {
+    "api_sha256": "3be0dee541f8ecd819de2f230fd0f79137951cbdd1d109ecd3a52baff97e6b1f",
+    "api_url": "https://api.github.com/advisories/GHSA-86w9-cpqp-85rv",
+    "ghsa_id": "GHSA-86w9-cpqp-85rv",
+    "upstream_unpatched": true,
+    "url": "https://github.com/advisories/GHSA-86w9-cpqp-85rv",
+    "vulnerabilities": [
+      {
+        "first_patched_version": null,
+        "package": {
+          "ecosystem": "npm",
+          "name": "node-forge"
+        },
+        "vulnerable_functions": [],
+        "vulnerable_version_range": "<= 1.4.0"
+      }
+    ]
+  },
+  "remaining_advisory_retained": true,
+  "cryptographic_implementation_patched": false,
+  "blanket_clean_provider_audit_claim": false,
+  "whole_package_non_exploitability_established": false,
+  "source_guard": {
+    "actual_dependency_graph_guard_passed": true,
+    "analysis_state": "under_investigation",
+    "application_source_commit": "43c82fbda1ba71d8848368d755ed7b8564cda21e",
+    "cli_or_upstream_scripts_executed": false,
+    "dependency_archives": 208,
+    "dependency_lock_sha256": "12c7fd2737679690d9e0f7c0f1aa314c5b8495eaea71847e0335c04420f9ac54",
+    "dependency_overrides_sha256": "3dcb79c9217e9ffcedef4b637113903dd06f3af70e4b7bb8b0036b6eee21d179",
+    "dependency_package_names": 191,
+    "dependency_paths": 222,
+    "fresh_advisory_review": {
+      "api_sha256": "3be0dee541f8ecd819de2f230fd0f79137951cbdd1d109ecd3a52baff97e6b1f",
+      "api_url": "https://api.github.com/advisories/GHSA-86w9-cpqp-85rv",
+      "ghsa_id": "GHSA-86w9-cpqp-85rv",
+      "upstream_unpatched": true,
+      "url": "https://github.com/advisories/GHSA-86w9-cpqp-85rv",
+      "vulnerabilities": [
+        {
+          "first_patched_version": null,
+          "package": {
+            "ecosystem": "npm",
+            "name": "node-forge"
+          },
+          "vulnerable_functions": [],
+          "vulnerable_version_range": "<= 1.4.0"
+        }
+      ]
+    },
+    "limitation": "Bounded fixed-command source and dependency review; no whole-package non-exploitability or mathematical proof.",
+    "lost_proofs_or_JUnit_counts_reused_as_current_evidence": false,
+    "official_cli": {
+      "bytes": 4917920,
+      "javascript_assets_sha256": {
+        "build/344.js": "d4281ac402af4dc635696cd589127b652fb8a13e6bffbb9932c85f7cadf19715",
+        "build/685.js": "144c38ecc7168d8b9ba09a5a588977d37ccf37f13775aab32318e4e21a6a0876",
+        "build/bw.js": "7cad23262b9ca168f22c12d7cdf64ef168e57d49784377c2b8cd02707759e4d7"
+      },
+      "npm_integrity_validated": true,
+      "sha256": "2a04ebc02ca970bbadd2e6d6316e06d164526760e424e5c3bb050a8110197223",
+      "url": "https://registry.npmjs.org/@bitwarden/cli/-/cli-2026.10.0.tgz"
+    },
+    "official_cli_static_guard_passed": true,
+    "private_accounts_used": false,
+    "provider_worker_sha256": "49111060e0ce513d86d6a262eff99304e3dda859c0dc47ae8c27b92879f96364",
+    "remaining_advisory_retained": true,
+    "schema": 1,
+    "targeted_regressions": {
+      "errors": 0,
+      "failed": 0,
+      "junit_sha256": "2767eb375d678ef13d4585d502dfc362f791f8a02995eabeab1457b7b90b5402",
+      "log_sha256": "cec0b9423179b82046b11b14f8bd4e8a75ef9236c29e82f16c4cc2bf25067090",
+      "passed": 14,
+      "seconds": 0.118,
+      "skipped": 0
+    }
+  },
+  "source_recovery": {
+    "application_source_commit": "43c82fbda1ba71d8848368d755ed7b8564cda21e",
+    "changed_members": [
+      "dependency-overrides.json"
+    ],
+    "dependency_overrides_sha256": "3dcb79c9217e9ffcedef4b637113903dd06f3af70e4b7bb8b0036b6eee21d179",
+    "member_count": 874,
+    "member_order_preserved": true,
+    "notices_sha256": "ce61898ecfa6f09963a0f5ecb5dc16e8b3f3fe15aa06f188b7d1ce2d989e5d00",
+    "old_archive": {
+      "bytes": 219113707,
+      "path": "/Users/nirfeinstein/Documents/ChatGPT/login soltion/dist/release-080-review-build74/account-access-bitwarden-2026.10.0-corresponding-source.tar.gz",
+      "preserved": true,
+      "sha256": "0e7b3dff605724b8944c2881f469291b9af40dca514cffdbedc1f745f17ddc64"
+    },
+    "other_member_headers_and_bodies_preserved": true,
+    "previous_lost_recovery_hash_reused_as_evidence": false,
+    "private_accounts_used": false,
+    "recovered_archive": {
+      "bytes": 219113811,
+      "path": "/Users/nirfeinstein/Documents/ChatGPT/login soltion/dist/qa-build75-work/provider/account-access-bitwarden-2026.10.0-corresponding-source.tar.gz",
+      "sha256": "4b239336a11d702932c376fb7448f9dda6a1eda87c4fe678cadbf537ba137a37"
+    },
+    "schema": 1,
+    "source_bundle_validation": {
+      "clients_commit": "b449ac1d255784380d75ef026343198891286be7",
+      "sdk_commit": "c5e53d3e82ab80fdc9fd79ebd74058399a6444b6",
+      "source_asset": "account-access-bitwarden-2026.10.0-corresponding-source.tar.gz",
+      "source_bundle_sha256": "4b239336a11d702932c376fb7448f9dda6a1eda87c4fe678cadbf537ba137a37",
+      "source_distribution_required": true,
+      "source_materials": 867
+    },
+    "source_files_executed": false
+  },
+  "actual_stage_comparison": {
+    "application_source_commit": "43c82fbda1ba71d8848368d755ed7b8564cda21e",
+    "directories": 851,
+    "executable_files": 0,
+    "identical_inventory_names": true,
+    "new_inventory_sha256": "2235c48deefc629454be0e451ddb8ccb436c52cdcad63c3183f69e764233da4d",
+    "new_stage": "/Users/nirfeinstein/Documents/ChatGPT/login soltion/dist/qa-build75-work/provider/stage/python/libexec/bitwarden",
+    "old_actual_package_manifest_sha256": "f33728143c320b133771a9a109f1b38f6ef6875b0f8f2b6f38235bc2458f3787",
+    "old_actual_package_sha256": "f640ef99ddf4f27585f4e297c8ddb8e89466f3b0e56580cb1b7cae3badf6a3da",
+    "old_manifest_provider_prefix": "runtime/libexec/bitwarden",
+    "only_changed_files": {
+      "dependency-overrides.json": {
+        "new": {
+          "kind": "file",
+          "mode": 420,
+          "sha256": "3dcb79c9217e9ffcedef4b637113903dd06f3af70e4b7bb8b0036b6eee21d179",
+          "size": 6589
+        },
+        "old": {
+          "kind": "file",
+          "mode": 420,
+          "sha256": "502c4ef8a5cf3035c314a6bdf8ea0c6d7c1c2b02b8895b640cdc51cc217b474a",
+          "size": 6067
+        }
+      },
+      "runtime-manifest.json": {
+        "new": {
+          "kind": "file",
+          "mode": 420,
+          "sha256": "ede2691526c6fb8f76342ad013336d06c6380395ccf9560a5e8bab3393f40c48",
+          "size": 1103
+        },
+        "old": {
+          "kind": "file",
+          "mode": 420,
+          "sha256": "64ea8a545517a1534b6f90e5f8c7e5915490cb6cbddfec1982d9ee434a428bb1",
+          "size": 1103
+        }
+      }
+    },
+    "private_accounts_used": false,
+    "regular_files": 10169,
+    "remaining_advisory_retained": true,
+    "runtime_manifest": {
+      "architecture": "arm64",
+      "clients_commit": "b449ac1d255784380d75ef026343198891286be7",
+      "dependency_overrides_sha256": "3dcb79c9217e9ffcedef4b637113903dd06f3af70e4b7bb8b0036b6eee21d179",
+      "entrypoint": "build/bw.js",
+      "entrypoint_sha256": "7cad23262b9ca168f22c12d7cdf64ef168e57d49784377c2b8cd02707759e4d7",
+      "license": "GPL-3.0-only",
+      "native_addons": false,
+      "node_relative": "lib/python3.12/site-packages/playwright/driver/node",
+      "node_upstream_sha256": "e4b5a3af0e05c75de2eae013904145f40fe7fc2a6e6f17510128bf45cca4e79b",
+      "node_version": "24.21.0",
+      "node_wheel_sha256": "fd1aa00631d44d55e56e0975bf3f3f285fac4a9fd2813183f0c12a488f1a1b24",
+      "schema": 1,
+      "sdk_commit": "c5e53d3e82ab80fdc9fd79ebd74058399a6444b6",
+      "source_asset": "account-access-bitwarden-2026.10.0-corresponding-source.tar.gz",
+      "source_bundle_sha256": "4b239336a11d702932c376fb7448f9dda6a1eda87c4fe678cadbf537ba137a37",
+      "source_distribution_required": true,
+      "source_materials": 867,
+      "upstream_archive_sha256": "2a04ebc02ca970bbadd2e6d6316e06d164526760e424e5c3bb050a8110197223",
+      "version": "2026.10.0"
+    },
+    "schema": 1,
+    "source_archive_sha256": "4b239336a11d702932c376fb7448f9dda6a1eda87c4fe678cadbf537ba137a37",
+    "source_files_cli_or_upstream_scripts_executed": false,
+    "standalone_cli_present": false,
+    "unchanged_inventory_entries": 11018,
+    "whole_package_non_exploitability_established": false
+  },
+  "fresh_proof_index_sha256": "125f1e267a3e0f6bfc4f608b6285edf1dce447046f09a96f66d3184b112f88ef",
+  "fresh_proof_files": {
+    "forge-callsite-review.json": {
+      "bytes": 931,
+      "sha256": "697aa2501e31a94d44ed66fc053831fdc279d3065e274409836442da54d1b5af"
+    },
+    "guard-tests.log": {
+      "bytes": 114,
+      "sha256": "cec0b9423179b82046b11b14f8bd4e8a75ef9236c29e82f16c4cc2bf25067090"
+    },
+    "guard-tests.xml": {
+      "bytes": 2514,
+      "sha256": "2767eb375d678ef13d4585d502dfc362f791f8a02995eabeab1457b7b90b5402"
+    },
+    "node-forge-advisory-api.json": {
+      "bytes": 2216,
+      "sha256": "3be0dee541f8ecd819de2f230fd0f79137951cbdd1d109ecd3a52baff97e6b1f"
+    },
+    "provider-stage-comparison.json": {
+      "bytes": 3034,
+      "sha256": "d6738e17d3775bf55e0931cfe7193a98910198caf87e0f2311d95c9ace161d08"
+    },
+    "recover_source.py": {
+      "bytes": 3396,
+      "sha256": "161449db3d85b75363f91a7047edbfd00342fc8f483ac9ba76ada0e3b3d404a8"
+    },
+    "review_public_guard.py": {
+      "bytes": 4826,
+      "sha256": "b9740e19f375ea3036185f0182cd3699350bbac6a468ee11ef6c7a0b4c66de4b"
+    },
+    "source-guard-review.json": {
+      "bytes": 2364,
+      "sha256": "8355d9dc60d4c804ce6c9a3f1830c5f4459acee3a1af3b9291357be9949d9083"
+    },
+    "source-recovery-review.json": {
+      "bytes": 1605,
+      "sha256": "dddbb04154f608d64e9c01e50dafa1618749ad95e32cbe3334c727db1e619855"
+    },
+    "stage-runtime-manifest.json": {
+      "bytes": 1103,
+      "sha256": "ede2691526c6fb8f76342ad013336d06c6380395ccf9560a5e8bab3393f40c48"
+    },
+    "stage_and_compare.py": {
+      "bytes": 3315,
+      "sha256": "a1334b6fbb2e9f70bc71762bc4d3b474f167f7e6023543ee9f778fd29d0cb7d7"
+    }
+  },
+  "fresh_guard_tests": {
+    "passed": 14,
+    "deselected": 22,
+    "console_seconds": 0.22,
+    "junit_seconds": 0.118,
+    "junit_sha256": "2767eb375d678ef13d4585d502dfc362f791f8a02995eabeab1457b7b90b5402",
+    "log_sha256": "cec0b9423179b82046b11b14f8bd4e8a75ef9236c29e82f16c4cc2bf25067090"
+  },
+  "current_cli_or_upstream_source_scripts_executed": false,
+  "lost_proofs_or_JUnit_counts_reused_as_current_evidence": false,
+  "source_materials": 867,
+  "corresponding_source_sha256": "4b239336a11d702932c376fb7448f9dda6a1eda87c4fe678cadbf537ba137a37",
+  "old_source_preserved_sha256": "0e7b3dff605724b8944c2881f469291b9af40dca514cffdbedc1f745f17ddc64",
+  "historical_build74_record_sha256": "2173c810f6d7d703aadd5f8c1f6d804664ef6aabe063c92fbad4687d13e7ed49",
+  "historical_execution_and_audit_materials_are_current_evidence": false,
+  "private_signins": 0,
+  "owner_data_accessed": false,
+  "installed": false
+}

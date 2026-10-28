@@ -15,25 +15,43 @@ from .models import RunRequest, TaskRequest
 
 def create_app(broker, *, worker=True):
     stop = threading.Event()
+    active_thread = None
 
     def work():
-        while not stop.is_set():
-            try:
-                broker.tick()
-            except Exception:
-                # Exceptions must not leak provider response bodies or credential values.
-                pass
-            stop.wait(1)
+        health = broker.worker_health
+        health.start()
+        try:
+            while not stop.is_set():
+                health.begin()
+                delay = 1
+                try:
+                    broker.tick()
+                except Exception:
+                    # Do not stringify, log or retain exception/provider details.
+                    # Report only a fixed class and bounded retry metadata.
+                    delay = health.failure()
+                else:
+                    health.success()
+                stop.wait(delay)
+        finally:
+            health.stop()
 
     @asynccontextmanager
     async def lifespan(app):
+        nonlocal active_thread
+        if active_thread is not None and active_thread.is_alive():
+            raise RuntimeError("background_worker_still_stopping")
+        stop.clear()
         thread = threading.Thread(target=work, daemon=True) if worker else None
+        active_thread = thread
         if thread:
             thread.start()
-        yield
-        stop.set()
-        if thread:
-            await anyio.to_thread.run_sync(lambda: thread.join(timeout=5))
+        try:
+            yield
+        finally:
+            stop.set()
+            if thread:
+                await anyio.to_thread.run_sync(lambda: thread.join(timeout=5))
 
     app = FastAPI(title="Account Access", version="1", lifespan=lifespan,
                   docs_url=None, redoc_url=None, openapi_url=None)
