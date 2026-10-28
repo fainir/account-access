@@ -19,12 +19,14 @@ archive only: it is not an owner-successor system package, has not been
 installed, and does not establish production QA. [Build 104 signing and
 notarization record](../artifacts/owner-timeout104-notarization-20261028.json).
 
-The owner Mac still runs owner app build 92. Its Account Access window remains
-on “Checking your mailbox” / “macOS approval requested”; attempting to quit
-returns “Please let the current step finish.” The system Installer process is
-open without an active installer process. The current owner-successor controller
-is pinned to the older build 96 image, so the build 104 archive cannot be copied
-over the protected installation. A new exact successor plan and installer
+The owner Mac still runs owner app build 92. Its latest screen no longer shows
+the pending macOS approval: the Verification page reports a passed mailbox
+connection check, while the Accounts page shows zero ready accounts and one
+service connection. The task's installed launcher still exposes only the
+controlled-demo environment, and its permitted browser reads fail as recorded
+below. Installer is not currently running. The owner-successor controller is
+pinned to the older build 96 image, so the build 104 archive cannot be copied
+over the protected installation. A new exact successor plan and Installer
 qualification are required before installing this fix.
 
 The exact image comparison confirms this needs a broader successor plan. Against
@@ -117,17 +119,37 @@ and source smoke](../artifacts/current-python-package-smoke-20261028.json).
 
 ## Owner Mac acceptance after approval
 
-On 28 October, the installed Account Access skill's `scripts/access accounts`
-command succeeded from the current Codex task against the protected 0.8.0
-service. This confirms the agent launcher and broker account-discovery
-path are currently usable after the earlier `service_unavailable` observations.
-It does not resolve the owner app's displayed upgrade failure or prove a site
-login. The requested Harel and Phoenix accounts are not configured; no website
-operation, private account data read, or code request was made. Direct UI
-inspection confirms the installed owner app is still build 92 and remains on
-“Checking your mailbox” with “macOS approval requested”; the mailbox check did
-not complete. The signed build 102 diagnostic update has not passed actual
-owner-Mac Installer acceptance. [Current agent connection check](../artifacts/current-agent-connection-check-20261028.json).
+The latest owner-screen inspection now shows the mailbox connection as checked
+and its last email-access check as passed. No mailbox messages or login codes
+were read. A fresh run of each permitted operation through the installed agent
+launcher still reports service version `0.6.0`, environment
+`controlled-demo`, and only three synthetic accounts; all three `summary`
+operations return `RETRYABLE/browser_execution_failed`. This separates a
+successful mailbox connection check from the agent's ability to use the
+protected store and fetch a verification message. Chrome's import screen is
+available and documents the local CSV preview and approval flow, but no personal
+export was imported. The task browser blocks Chrome's internal
+`chrome://password-manager/settings` URL, so the owner must export the CSV in
+Chrome before that local import can be exercised. [Current owner and agent
+smoke](../artifacts/current-owner-agent-smoke-20261028.json).
+
+Native owner-upgrade qualification also remains blocked on this Mac's storage:
+the system volume has about 422 MiB free, while the package qualification
+requires at least 2 GiB. One earlier owner probe reached its mixed-storage Swift
+compile and stopped with `No space left on device`; its source checks and earlier
+compile stages passed, but the full owner probe did not. The build gate has not
+been relaxed and no package was installed.
+
+Earlier on 28 October, the installed Account Access skill's
+`scripts/access accounts` command returned service version `0.8.0` and
+environment `live`. A later discovery returned `0.6.0` / `controlled-demo`,
+and the latest three permitted browser reads all failed retryably. The earlier
+live result is not current acceptance evidence. The requested Harel and Phoenix
+accounts are not configured; no insurer login or code request was made. Direct
+UI inspection confirms the installed owner app is build 92; its mailbox status
+has since advanced from a pending macOS approval to a passed connection check.
+The signed build 102 diagnostic update has not passed actual owner-Mac Installer
+acceptance. [Earlier agent connection check](../artifacts/current-agent-connection-check-20261028.json).
 
 The current source now bounds the native macOS setup-approval wait to two
 minutes. If Authorization Services does not return, the request fails without
