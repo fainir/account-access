@@ -27,6 +27,14 @@ is pinned to the older build 96 image, so the build 104 archive cannot be copied
 over the protected installation. A new exact successor plan and installer
 qualification are required before installing this fix.
 
+The exact image comparison confirms this needs a broader successor plan. Against
+the frozen installed-image predecessor, build 104 changes six public paths; the
+current owner successor permits only three. Its bundled wheel also changes from
+Authlib 1.8.0 to 1.9.1, while the predecessor runtime remains pinned to the older
+wheel. Applying an app-only replacement would leave the app/runtime identities
+inconsistent. No such update package was assembled or installed. [Build 104
+successor delta](../artifacts/owner-timeout104-successor-delta-20261028.json).
+
 The installed agent launcher currently reports service version `0.6.0`,
 environment `controlled-demo`, and three synthetic accounts. It does not list
 Harel, Phoenix or the user's email account. No personal credentials, mailbox
