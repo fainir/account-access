@@ -24,6 +24,23 @@ enum FullImageInstallCheckpoint: String, CaseIterable {
     case predecessorViewJournal = "predecessor_view_journal"
     case predecessorViewOriginalReceipt = "predecessor_view_original_receipt"
     case predecessorViewRepairProof = "predecessor_view_repair_proof"
+    case predecessorViewRepairProofStructure = "predecessor_view_repair_proof_structure"
+    case predecessorViewRepairProofSchema = "predecessor_view_repair_proof_schema"
+    case predecessorViewRepairProofManagedBy = "predecessor_view_repair_proof_managed_by"
+    case predecessorViewRepairProofPlan = "predecessor_view_repair_proof_plan"
+    case predecessorViewRepairProofManifest = "predecessor_view_repair_proof_manifest"
+    case predecessorViewRepairProofSource = "predecessor_view_repair_proof_source"
+    case predecessorViewRepairProofOwner = "predecessor_view_repair_proof_owner"
+    case predecessorViewRepairProofBroker = "predecessor_view_repair_proof_broker"
+    case predecessorViewRepairProofIntent = "predecessor_view_repair_proof_intent"
+    case predecessorViewRepairProofHistory = "predecessor_view_repair_proof_history"
+    case predecessorViewRepairProofPredecessorEvidence = "predecessor_view_repair_proof_predecessor_evidence"
+    case predecessorViewRepairProofHead = "predecessor_view_repair_proof_head"
+    case predecessorViewRepairProofMount = "predecessor_view_repair_proof_mount"
+    case predecessorViewRepairProofWorker = "predecessor_view_repair_proof_worker"
+    case predecessorViewRepairProofService = "predecessor_view_repair_proof_service"
+    case predecessorViewRepairProofHost = "predecessor_view_repair_proof_host"
+    case predecessorViewRepairProofEncoding = "predecessor_view_repair_proof_encoding"
     case predecessorViewBefore = "predecessor_view_before"
     case predecessorViewStates = "predecessor_view_states"
     case predecessorViewLayout = "predecessor_view_layout"
@@ -40,6 +57,71 @@ enum FullImageInstallCheckpoint: String, CaseIterable {
     case verificationFirstView = "verification_first_view", verificationEvidence = "verification_evidence"
     case verificationFinalView = "verification_final_view"
 }
+
+// When a second read of the same completed repair produces a different proof,
+// report only which fixed proof field changed. Never include account contents,
+// paths, or hash values in Installer diagnostics.
+enum CompletedRuntimeRepairEvidenceDifference: Equatable, CaseIterable {
+    case same, structure, schema, managedBy, plan, manifest, source, owner, broker
+    case intent, history, predecessorEvidence, head, mount, worker, service, host, encoding
+
+    var key: String? {
+        switch self {
+        case .same, .structure, .encoding: return nil
+        case .schema: return "schema"
+        case .managedBy: return "managed_by"
+        case .plan: return "plan_sha256"
+        case .manifest: return "manifest_sha256"
+        case .source: return "source_commit"
+        case .owner: return "owner_uid"
+        case .broker: return "broker_uid"
+        case .intent: return "intent_sha256"
+        case .history: return "history_sha256"
+        case .predecessorEvidence: return "predecessor_evidence_sha256"
+        case .head: return "head_sha256"
+        case .mount: return "mount_sha256"
+        case .worker: return "worker_sha256"
+        case .service: return "service_sha256"
+        case .host: return "host_sha256"
+        }
+    }
+
+    var checkpoint: FullImageInstallCheckpoint {
+        switch self {
+        case .same: return .predecessorViewRepairProof
+        case .structure: return .predecessorViewRepairProofStructure
+        case .schema: return .predecessorViewRepairProofSchema
+        case .managedBy: return .predecessorViewRepairProofManagedBy
+        case .plan: return .predecessorViewRepairProofPlan
+        case .manifest: return .predecessorViewRepairProofManifest
+        case .source: return .predecessorViewRepairProofSource
+        case .owner: return .predecessorViewRepairProofOwner
+        case .broker: return .predecessorViewRepairProofBroker
+        case .intent: return .predecessorViewRepairProofIntent
+        case .history: return .predecessorViewRepairProofHistory
+        case .predecessorEvidence: return .predecessorViewRepairProofPredecessorEvidence
+        case .head: return .predecessorViewRepairProofHead
+        case .mount: return .predecessorViewRepairProofMount
+        case .worker: return .predecessorViewRepairProofWorker
+        case .service: return .predecessorViewRepairProofService
+        case .host: return .predecessorViewRepairProofHost
+        case .encoding: return .predecessorViewRepairProofEncoding
+        }
+    }
+
+    static func compare(_ original: Data, _ rechecked: Data) throws -> Self {
+        let left = try FullImageJSON.object(original, maximum: 8192)
+        let right = try FullImageJSON.object(rechecked, maximum: 8192)
+        let fields = allCases.compactMap(\.key)
+        guard Set(left.keys) == Set(fields), Set(right.keys) == Set(fields) else { return .structure }
+        for field in allCases {
+            guard let key = field.key else { continue }
+            guard try FullImageJSON.canonical(left[key]!) == FullImageJSON.canonical(right[key]!) else { return field }
+        }
+        return original == rechecked ? .same : .encoding
+    }
+}
+
 private final class FullImageStorageReference {
     weak var storage: FullImageMixedStorage?
 }

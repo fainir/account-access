@@ -249,6 +249,34 @@ private enum InstalledFixtureFailure: Error { case failed }
                 + FullImageInstallCheckpoint.allCases.map { BrokerRepairProgressCheckpoint.predecessor($0) }
             let fullImageCheckpoints = FullImageInstallCheckpoint.allCases.map(\.rawValue)
             try expect(Set(fullImageCheckpoints).count == fullImageCheckpoints.count)
+            let repairEvidence: [String: Any] = ["schema": 1, "managed_by": "account-access-completed-broker-repair-v1",
+                "plan_sha256": String(repeating: "1", count: 64), "manifest_sha256": String(repeating: "2", count: 64),
+                "source_commit": String(repeating: "a", count: 40), "owner_uid": 501, "broker_uid": 450,
+                "intent_sha256": String(repeating: "3", count: 64), "history_sha256": String(repeating: "4", count: 64),
+                "predecessor_evidence_sha256": String(repeating: "5", count: 64), "head_sha256": String(repeating: "6", count: 64),
+                "mount_sha256": String(repeating: "7", count: 64), "worker_sha256": String(repeating: "8", count: 64),
+                "service_sha256": String(repeating: "9", count: 64), "host_sha256": String(repeating: "a", count: 64)]
+            let repairEvidenceBytes = try FullImageJSON.encode(repairEvidence)
+            try expect(try CompletedRuntimeRepairEvidenceDifference.compare(repairEvidenceBytes, repairEvidenceBytes) == .same)
+            for difference in CompletedRuntimeRepairEvidenceDifference.allCases where difference.key != nil {
+                var changed = repairEvidence
+                let key = difference.key!
+                if key == "schema" || key == "owner_uid" || key == "broker_uid" {
+                    changed[key] = (changed[key] as! Int) + 1
+                } else {
+                    changed[key] = (changed[key] as! String) + "-changed"
+                }
+                try expect(try CompletedRuntimeRepairEvidenceDifference.compare(
+                    repairEvidenceBytes, FullImageJSON.encode(changed)) == difference)
+            }
+            var missingRepairEvidenceField = repairEvidence
+            missingRepairEvidenceField.removeValue(forKey: "host_sha256")
+            try expect(try CompletedRuntimeRepairEvidenceDifference.compare(
+                repairEvidenceBytes, FullImageJSON.encode(missingRepairEvidenceField)) == .structure)
+            let prettyRepairEvidence = try JSONSerialization.data(withJSONObject: repairEvidence, options: [.prettyPrinted, .fragmentsAllowed])
+            if prettyRepairEvidence != repairEvidenceBytes {
+                try expect(try CompletedRuntimeRepairEvidenceDifference.compare(repairEvidenceBytes, prettyRepairEvidence) == .encoding)
+            }
             try expect(["predecessor_runtime_source", "predecessor_repair_source", "predecessor_namespace",
                         "predecessor_intent", "predecessor_repair_history", "predecessor_repair_route",
                         "predecessor_repair_intent", "predecessor_repair_evidence",

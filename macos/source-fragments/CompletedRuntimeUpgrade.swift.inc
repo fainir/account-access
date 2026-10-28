@@ -193,7 +193,10 @@ extension ComponentController {
             let rechecked = try completedBrokerRepairLocked(resources: checkedPrevious ?? previous, pins: repairPins,
                 predecessorPins: predecessorPins, expectedEvidenceSHA256: intent.predecessorEvidenceSHA256,
                 historical: originalFile)
-            guard rechecked.sha256 == proof.sha256 else { throw FullImageFailure.predecessor }
+            guard rechecked.sha256 == proof.sha256 else {
+                progress(try CompletedRuntimeRepairEvidenceDifference.compare(proof.evidence, rechecked.evidence).checkpoint)
+                throw FullImageFailure.predecessor
+            }
         }
         let storage = try FullImageMixedStorage(units: units,
             writeEvent: { _, _ in throw FullImageFailure.journal }, verifyOld: {}, verifyRecoverable: {}, verifyNew: {})
