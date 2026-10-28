@@ -7,6 +7,33 @@ password import, email/SMS/authenticator setup, and later approved sign-ins
 through the user's existing AI agent. Controlled tests cover those mechanisms;
 they do not establish personal-account or physical-phone acceptance.
 
+## Build 106 owner-update failure and recovery fix
+
+Build 106 was Developer ID Installer signed, notarized, stapled, and accepted
+by Gatekeeper, but its installation **failed** on the owner Mac. Installer
+wrote no receipt and the installed app did not change. The fixed-label helper
+diagnostic identified `owner_upgrade_transition_conflict` at
+`predecessor_runtime_intent_structure`; the package evidence records the
+failure and does not claim a successful install. [Build 106 QA record](../artifacts/owner-upgrade106-build-20261028.json).
+
+The source repair treats the completed runtime transition as a read-only
+historical observation. It permits an APFS device-number change after restart
+only when the worker and service objects retain matching inode, mode, byte
+count, and SHA-256, and after the exact broker-repair intent and persistent
+installation-root volume receipt are revalidated. Regression checks cover the
+allowed device-only change and reject mismatched inode, content hash, recorded
+device, or current device. The updated source now passes runtime-source
+qualification, final native owner-upgrade qualification (69 owner/runtime
+checks, 477 tree checks, and 324 mixed-storage checks), and shared installed-
+source qualification. A new signed package and owner-Mac installation are
+still pending. Production readiness remains false.
+
+Even after a successful install, acceptance also requires the owner's real
+Chrome import, email/SMS/authenticator flows, physical Android 15 pairing, and
+real-account AI-agent access. Harel and Phoenix do not currently have
+supported product connectors, and the available agent service still exposes
+only controlled-demo accounts. These are separate open release gates.
+
 ## Build 104 owner-successor candidate
 
 The build 104 universal owner app compiled from source commit `9c375d1` and
@@ -26,22 +53,31 @@ qualification probe now passes after freeing disk space. Installer owner-Mac
 opened the package, but no receipt exists and installation has not been
 confirmed; this remains a release candidate, not a production release. Two
 focused owner-package tests and 146 controlled-flow tests for agent setup,
-Chrome import, email, SMS, authenticator factors and verification pass. The
-hosted full suite and native Mac jobs are still in progress or queued. These
-fixture tests do not count as personal-account acceptance.
+Chrome import, email, SMS, authenticator factors and verification pass. Follow-up
+QA on source commit `da010d5` passed 4,481 local Python tests (four skipped),
+Ruff, both hosted full-suite jobs, and local native owner UI, gateway and
+upgrade checks. Hosted native Mac jobs remain queued. These fixture tests do not
+count as personal-account acceptance. [Follow-up QA record](../artifacts/followup-qa-da010d5-20261028.json).
 [Build 104 system-package record](../artifacts/owner-timeout104-system-package-20261028.json) ·
 [Build 104 app signing and notarization record](../artifacts/owner-timeout104-notarization-20261028.json) ·
 [Build 104 successor delta](../artifacts/owner-timeout104-successor-delta-20261028.json).
 
-The owner Mac still runs owner app build 92. Its latest screen no longer shows
-the pending macOS approval: the Verification page reports a passed mailbox
-connection check, while the Accounts page shows zero ready accounts and one
-service connection. The installed launcher still exposes only the
-controlled-demo environment, and its permitted browser reads fail as recorded
-below. The package preserves the installed Python runtime while replacing the
-build 104 owner app and broker components; its exact predecessor and payload
-manifests are pinned in the package evidence. The package has not yet been
-installed, and Installer postflight/receipt acceptance remains open.
+The installed build 92 owner app currently shows “3 connected · 5 accounts”
+and “Ready in every new session”; its Verification page shows an authenticator
+for the synthetic Juniper Workspace. The home screen does not label those
+accounts as examples. The approved agent launcher, however, returns only three
+synthetic `controlled-demo` accounts, and its permitted browser read fails.
+The launcher is the authoritative account inventory; the old dashboard's
+ready labels do not prove personal access. The package preserves the installed
+Python runtime while replacing build 104 owner and broker components; its exact
+predecessor and payload manifests are pinned in the package evidence. Build 92
+remains installed. Reopening the notarized package cleared the orphaned
+Installer process; a fresh Install action reached macOS authorization, but no
+package receipt has appeared yet. Installer postflight and installed-build
+verification remain open. The current source now labels a `controlled-demo`
+agent connection “Demo connection only” and shows “Ready in every new session”
+only for a `live` service. The native UI regression check passes; build 104
+does not include the fix, but build 106 above does. [Status fix QA record](../artifacts/owner-ui-readiness-status-20261028.json).
 
 The installed agent launcher currently reports service version `0.6.0`,
 environment `controlled-demo`, and three synthetic accounts. It does not list

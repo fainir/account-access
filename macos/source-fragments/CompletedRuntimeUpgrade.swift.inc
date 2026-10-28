@@ -78,8 +78,15 @@ extension ComponentController {
         let global = try routes.globalJournal(plan: pins.planSHA256), files = try routes.files(plan: pins.planSHA256)
         checkpoint(.predecessorIntent)
         let intent = try FullImageGlobalJournal.readIntent(directory: global.fd, owner: 0, group: 0, beforeGroup: beforeGroup,
+            // This is a completed, read-only predecessor. APFS may assign a
+            // different transient device number after restart. The intent is
+            // only tentatively decoded here. The predecessor proof below is
+            // revalidated against its persistent root-volume receipt before
+            // any historical device mapping is accepted.
+            historicalObservation: true,
             diagnosticContext: .predecessorRuntime,
             validateIntent: { try fullPreliminary($0, source: source, ownerUID: ownerUID) }, verifyAttachment: global.verify)
+        let observationDevice = intent.workerPolicy.device
         let projectedFiles: Set<FullImageFileUnit> = [.packageIdentity, .hostPolicy, .ownerPolicy, .installRecord]
         func fileStorage(_ unit: FullImageFileUnit) throws -> FullImageFileStorage {
             let records = intent.operations.compactMap(\.file).filter { $0.unit == unit }
@@ -95,7 +102,8 @@ extension ComponentController {
             } else { current = nil }
             return try FullImageFileStorage(operation: operation, retained: files.fd, owner: 0,
                 resolve: routes.resolve, verifyAttachments: { try routes.verify() },
-                requireQuiescent: { throw FullImageFailure.journal }, completedProjection: current)
+                requireQuiescent: { throw FullImageFailure.journal }, observationDevice: observationDevice,
+                completedProjection: current)
         }
         func originalFile(_ unit: FullImageFileUnit) throws -> (Data, ComponentObject) {
             guard [.packageIdentity, .repairIdentityRemoval, .hostPolicy, .ownerPolicy, .installRecord].contains(unit) else {
@@ -107,25 +115,43 @@ extension ComponentController {
         let proof = try completedBrokerRepairLocked(resources: previous, pins: repairPins,
             predecessorPins: predecessorPins, expectedEvidenceSHA256: intent.predecessorEvidenceSHA256,
             historical: originalFile)
+        // Revalidate the exact component receipt that authorized this runtime
+        // transition before translating its saved device number. The receipt
+        // binds unchanged support/application roots to their persistent volume
+        // UUID; this operation only reads the protected predecessor history.
+        let repairRoutes = try BrokerRepairRoutes(plan: repairPins.planSHA256,
+            predecessorPlan: repairPins.predecessorPlanSHA256)
+        let repairTransition = try repairRoutes.transition()
+        let repairIntentBytes = try ComponentFiles.read(repairTransition.fd, "intent.json", owner: 0, mode: 0o600).0
+        let repairIntent = try BrokerRepairIntent.decode(repairIntentBytes)
+        let proofFields = try FullImageJSON.object(proof.evidence, maximum: 8192)
+        guard proofFields["intent_sha256"] as? String == FullImageJSON.hash(repairIntentBytes) else {
+            throw FullImageFailure.predecessor
+        }
+        _ = try repairComponentDevice(resources: previous, pins: predecessorPins,
+            intent: repairIntent, routes: repairRoutes)
+        try repairRoutes.verify()
         checkpoint(.predecessorAuthority)
         let authority = try RuntimeUpgradeAuthority.bind(source: source, proof: proof)
         guard authority.ownerUID == ownerUID else { throw FullImageFailure.predecessor }
         try identity(ownerUID, authority.brokerUID)
         let worker = try publicRead("broker/worker.json", mode: 0o644), service = try jobPlist(ownerGroup: ownerGroup)
-        guard worker.1 == authority.workerPolicy, service == authority.servicePlist,
-              intent.workerPolicy == worker.1, intent.servicePlist == service else { throw FullImageFailure.object }
+        let currentDevice = support.identity.device
+        guard worker.1 == authority.workerPolicy, service == authority.servicePlist else { throw FullImageFailure.object }
         checkpoint(.predecessorPolicy)
         let policy = try runtimePolicy(source: source, predecessor: predecessor,
             install: originalFile(.installRecord).0, host: originalFile(.hostPolicy).0,
             profile: originalFile(.ownerPolicy).0, worker: worker.0, ownerUID: ownerUID)
         let dynamic = try fullDynamic(policy, source: source, proofSHA256: authority.proofSHA256)
-        try authority.validate(intent, source: source, publicOwner: 0, publicGroup: 0,
-            beforeGroup: beforeGroup, device: support.identity.device, dynamic: dynamic)
+        try authority.validateHistorical(intent, source: source, publicOwner: 0, publicGroup: 0,
+            beforeGroup: beforeGroup, device: observationDevice, currentDevice: currentDevice,
+            observedWorker: worker.1, observedService: service, dynamic: dynamic)
         let journal = try FullImageGlobalJournal.open(directory: global.fd, owner: 0, group: 0, beforeGroup: beforeGroup,
             expected: intent, validateIntent: {
-                try authority.validate($0, source: source, publicOwner: 0, publicGroup: 0,
-                    beforeGroup: beforeGroup, device: support.identity.device, dynamic: dynamic)
-            }, verifyAttachment: global.verify, createIfMissing: false)
+                try authority.validateHistorical($0, source: source, publicOwner: 0, publicGroup: 0,
+                    beforeGroup: beforeGroup, device: observationDevice, currentDevice: currentDevice,
+                    observedWorker: worker.1, observedService: service, dynamic: dynamic)
+            }, verifyAttachment: global.verify, createIfMissing: false, observationDevice: observationDevice)
         let history = try journal.completedEvidence()
         var units: [FullImageMixedStorage.Unit] = [], trees: [PublicTreeStorage] = []
         for (index, record) in intent.operations.enumerated() {
@@ -141,7 +167,7 @@ extension ComponentController {
                     targetAttachment: target.attachment(.target(unit)), retainedAttachment: retained.attachment(.retained(unit)),
                     journalAttachment: local.attachment(.journal(unit)), old: old, new: new, owner: 0, group: 0,
                     beforeGroup: beforeGroup, requireQuiescent: { throw FullImageFailure.journal },
-                    createIfMissing: false, completedProjection: projected)
+                    createIfMissing: false, observationDevice: observationDevice, completedProjection: projected)
                 trees.append(tree); units.append(.tree(tree))
             }
         }

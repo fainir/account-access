@@ -175,7 +175,7 @@ def reports():
         "status": "PASSED",
         "entrypoint_ordinary_refusal": True,
         "installed_reads": False,
-        "result": {"status": "PASSED", "checks": 68},
+        "result": {"status": "PASSED", "checks": 69},
         "source_sha256": pins,
     }
     owner = {

@@ -14,7 +14,7 @@ def reports():
     sources = {"macos/RuntimeUpgradeMain.swift": b"fictional-entry", "macos/RuntimeUpgradeSource.swift": b"fictional-source"}
     hashes = {name: hashlib.sha256(raw).hexdigest() for name, raw in sources.items()}
     shared = {"status": "PASSED", "sources_stable": True, "guarded_main_refusals": 6, "source_sha256": hashes.copy()}
-    runtime = {"status": "PASSED", "entrypoint_ordinary_refusal": True, "result": {"status": "PASSED", "checks": 68},
+    runtime = {"status": "PASSED", "entrypoint_ordinary_refusal": True, "result": {"status": "PASSED", "checks": 69},
                "source_sha256": hashes.copy(), "installed_reads": False, "production_ready": False}
     return shared, runtime, sources
 
@@ -36,7 +36,7 @@ def test_both_native_reports_must_bind_every_controller_source():
     ("shared", "sources_stable", 1), ("shared", "guarded_main_refusals", 5),
     ("runtime", "entrypoint_ordinary_refusal", 1), ("runtime", "installed_reads", 0),
     ("runtime", "production_ready", True), ("runtime", "status", "RUNNING"),
-    ("result", "checks", 68.0), ("result", "checks", 67), ("result", "status", "SKIPPED"),
+    ("result", "checks", 69.0), ("result", "checks", 68), ("result", "status", "SKIPPED"),
 ])
 def test_optimistic_or_incomplete_evidence_refused(target, key, value):
     shared, runtime, sources = deepcopy(reports())

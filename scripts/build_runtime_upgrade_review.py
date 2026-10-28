@@ -45,7 +45,7 @@ def native_qa(shared, runtime, sources):
     require(shared.get("status") == "PASSED" and shared.get("sources_stable") is True
             and shared.get("guarded_main_refusals") == 6 and runtime.get("status") == "PASSED"
             and runtime.get("entrypoint_ordinary_refusal") is True
-            and type(runtime.get("result", {}).get("checks")) is int and runtime["result"]["checks"] == 68
+            and type(runtime.get("result", {}).get("checks")) is int and runtime["result"]["checks"] == 69
             and runtime["result"].get("status") == "PASSED"
             and runtime.get("installed_reads") is False and runtime.get("production_ready") is False
             and bool(sources))

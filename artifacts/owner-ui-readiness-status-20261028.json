@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "date": "2026-10-28",
+  "base_commit": "da010d50544fea1a0d20498c0e7ac212e2c37b6d",
+  "working_tree_diff_sha256": "73cfcb8a54d435b8381e6515eb50ff774482d56945bcced5b1c219cb51f84ded",
+  "changed_sources": [
+    "macos/AccountAccess.swift",
+    "macos/Tests/OwnerScreenChecks.swift"
+  ],
+  "native_owner_ui": {
+    "status": "PASSED",
+    "command": "xcrun swiftc -O -parse-as-library -D ACCOUNT_ACCESS_UI_CHECKS ... && /tmp/account-access-owner-checks",
+    "assertions": [
+      "controlled-demo agent setup is labeled Demo connection only",
+      "unverified service source cannot claim readiness",
+      "live service may report automatic readiness"
+    ]
+  },
+  "installed_candidate_includes_change": false,
+  "production_ready": false
+}

@@ -113,7 +113,7 @@ def validate_qa(shared, runtime, owner, sources):
         and runtime.get("status") == "PASSED"
         and runtime.get("entrypoint_ordinary_refusal") is True
         and runtime.get("result", {}).get("status") == "PASSED"
-        and runtime.get("result", {}).get("checks") == 68
+        and runtime.get("result", {}).get("checks") == 69
         and runtime.get("installed_reads") is False
         and owner.get("status") == "PASSED"
         and owner.get("ordinary_entrypoint_refusal") is True

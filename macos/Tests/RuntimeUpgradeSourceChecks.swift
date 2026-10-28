@@ -33,6 +33,24 @@ import Darwin
             var refused = false; do { try body() } catch { refused = true }; check(refused)
         }
         let accepted = try load(raw)
+        let digest = String(repeating: "a", count: 64)
+        let recordedObject = ComponentObject(device: 123, inode: 901, mode: 0o644, bytes: 27, sha256: digest)
+        let observedObject = ComponentObject(device: 456, inode: 901, mode: 0o644, bytes: 27, sha256: digest)
+        let wrongInode = ComponentObject(device: 456, inode: 902, mode: 0o644, bytes: 27, sha256: digest)
+        let wrongHash = ComponentObject(device: 456, inode: 901, mode: 0o644, bytes: 27,
+            sha256: String(repeating: "b", count: 64))
+        check(RuntimeUpgradeHistoricalObjectBinding.matches(recorded: recordedObject, observed: observedObject,
+                recordedDevice: 123, currentDevice: 456)
+            && RuntimeUpgradeHistoricalObjectBinding.matches(recorded: observedObject, observed: observedObject,
+                recordedDevice: 456, currentDevice: 456)
+            && !RuntimeUpgradeHistoricalObjectBinding.matches(recorded: recordedObject, observed: wrongInode,
+                recordedDevice: 123, currentDevice: 456)
+            && !RuntimeUpgradeHistoricalObjectBinding.matches(recorded: recordedObject, observed: wrongHash,
+                recordedDevice: 123, currentDevice: 456)
+            && !RuntimeUpgradeHistoricalObjectBinding.matches(recorded: recordedObject, observed: observedObject,
+                recordedDevice: 124, currentDevice: 456)
+            && !RuntimeUpgradeHistoricalObjectBinding.matches(recorded: recordedObject, observed: observedObject,
+                recordedDevice: 123, currentDevice: 457))
         check(accepted.changed == value["changed"] as? [String])
         check(accepted.units.count == (value["units"] as? [Any])?.count)
         check(accepted.units.map(\.path) == (value["units"] as? [[String: Any]])?.compactMap { $0["path"] as? String })

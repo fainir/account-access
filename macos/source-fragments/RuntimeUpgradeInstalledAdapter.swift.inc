@@ -1,5 +1,15 @@
 // Closed repaired-image successor. Composed with ComponentController; no main,
 // user-supplied destination or owner-host invocation is supplied by this file.
+enum RuntimeUpgradeHistoricalObjectBinding {
+    static func matches(recorded: ComponentObject, observed: ComponentObject,
+                        recordedDevice: Int32, currentDevice: Int32) -> Bool {
+        recordedDevice >= 0 && currentDevice >= 0 && recorded.device == recordedDevice
+            && observed.device == currentDevice && recorded.inode == observed.inode
+            && recorded.mode == observed.mode && recorded.bytes == observed.bytes
+            && recorded.sha256 == observed.sha256
+    }
+}
+
 private struct RuntimeUpgradeAuthority {
     let proofSHA256: String
     let ownerUID: uid_t, brokerUID: uid_t
@@ -34,6 +44,34 @@ private struct RuntimeUpgradeAuthority {
             workerPolicy: workerPolicy, servicePlist: servicePlist, ownerUID: ownerUID, brokerUID: brokerUID,
             publicOwner: publicOwner, publicGroup: publicGroup, beforeGroup: beforeGroup, device: device, dynamic: dynamic)
     }
+
+    // A completed predecessor may retain the device number from the mount
+    // epoch in which it was installed. This path is used only after its
+    // predecessor proof has revalidated the persistent volume receipt. It
+    // accepts the recorded objects only when every stable field still matches
+    // the current root-owned object; only st_dev may differ.
+    func validateHistorical(_ intent: FullImageGlobalIntent, source: RuntimeUpgradeSource,
+                  publicOwner: uid_t, publicGroup: gid_t, beforeGroup: gid_t, device: Int32,
+                  currentDevice: Int32, observedWorker: ComponentObject, observedService: ComponentObject,
+                  dynamic: [FullImageFileUnit: Data]) throws {
+        guard source.planSHA256 == planSHA256,
+              intent.workerPolicy.device == device, intent.servicePlist.device == device,
+              RuntimeUpgradeHistoricalObjectBinding.matches(recorded: intent.workerPolicy, observed: observedWorker,
+                  recordedDevice: device, currentDevice: currentDevice),
+              RuntimeUpgradeHistoricalObjectBinding.matches(recorded: intent.servicePlist, observed: observedService,
+                  recordedDevice: device, currentDevice: currentDevice),
+              RuntimeUpgradeHistoricalObjectBinding.matches(recorded: workerPolicy, observed: observedWorker,
+                  recordedDevice: currentDevice, currentDevice: currentDevice),
+              RuntimeUpgradeHistoricalObjectBinding.matches(recorded: servicePlist, observed: observedService,
+                  recordedDevice: currentDevice, currentDevice: currentDevice) else {
+            throw FullImageFailure.object
+        }
+        try intent.validate(source: source, predecessorEvidenceSHA256: proofSHA256,
+            workerPolicy: intent.workerPolicy, servicePlist: intent.servicePlist,
+            ownerUID: ownerUID, brokerUID: brokerUID, publicOwner: publicOwner,
+            publicGroup: publicGroup, beforeGroup: beforeGroup, device: device, dynamic: dynamic)
+    }
+
 }
 
 extension ComponentController {

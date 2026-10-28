@@ -58,7 +58,7 @@ def main():
              "-framework", "Foundation", "-framework", "CryptoKit", "-framework", "Security",
              *paths, "-o", str(binary)], "compile", 900)
     result = json.loads(command([str(binary), str(output / "inputs")], "runtime", 120))
-    assert result["status"] == "PASSED" and result["checks"] == 68 and result["installed_reads"] is False
+    assert result["status"] == "PASSED" and result["checks"] == 69 and result["installed_reads"] is False
     entry_name = "macos/RuntimeUpgradeMain.swift"
     entry_raw = (ROOT / entry_name).read_bytes()
     pins[entry_name] = hashlib.sha256(entry_raw).hexdigest()
