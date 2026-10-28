@@ -37,6 +37,15 @@ receipt was created and the installed app did not change. Build 108 now uses
 with `xar`, `pkgutil`, and Installer's read-only package parser before signing.
 [Build 107 failure and QA record](../artifacts/owner-upgrade107-build-20261028.json).
 
+The corrected build 108 package uses Apple's `pkgbuild` scripts archive and is
+from source commit `6acfea31f2ea153caeea5dbb5f5e7bcc7e020d9b`. It is Developer
+ID Installer signed, notarized and stapled; Gatekeeper and Installer's package
+parser both accept it. Its SHA-256 is
+`2a594c56fc711663ba13c4c7ee2a77d76f8acaf750f9b4bb318e12fef9e7a3c5`.
+Installer is waiting for owner macOS authorization; no build 108 receipt exists
+yet. Its five package-format regression tests and the native qualification
+passed. [Build 108 evidence and current install state](../artifacts/owner-upgrade108-build-20261028.json).
+
 The requested local account-flow and package regression tests passed (105
 tests); the complete Python suite was stopped after 558 passed and one skipped
 at 11%, so it is recorded as incomplete. The native upgrade qualification
