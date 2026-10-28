@@ -41,7 +41,7 @@ Statuses: todo | building (who) | verified | owner | waiting | cut (reason)
 
 ## Owner actions
 
-1. In Installer, install **Account-Access-Owner-Upgrade-112** with Touch ID. Leave Installer open and restart the Mac if it requests one; then reply **Installed** or **Failed**. This supplies the real owner-Mac update and protected-service check.
+1. In the visible macOS authorization dialog for **Account-Access-Owner-Upgrade-112**, enter the Mac account password shown there and click **Install Software**. Keep the password in that dialog. Leave Installer open and restart the Mac if it requests one; then report **Installed** or **Failed**. This supplies the real owner-Mac update and protected-service check.
 2. In Account Access > Verification, connect the approved Gmail account in Chrome and select **Check Google connection**. Then use a supported account with a real email-code challenge and complete it in Account Access; this unblocks private mailbox and delivery acceptance. Keep mailbox passwords and login codes out of chat.
 3. Open Account Access > Verification > Pair Android phone, scan its pairing QR, and approve the requested access on Android; this unblocks real SMS acceptance. No phone code belongs in chat.
 4. Sign in to Lemon Squeezy through Account Access once with your authenticator app; this confirms its private TOTP challenge and enrollment against the real site. Keep the password and generated codes in their intended apps.
