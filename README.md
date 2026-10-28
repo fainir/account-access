@@ -33,7 +33,11 @@ including checks under both ordinary-user identities. It installed successfully
 on the owner Mac; after a normal restart, all public files and aliases passed
 verification and the app opened to **Upgrade AI connection**. That upgrade then
 failed after the owner reported macOS approval; one explicit retry also failed.
-The current agent connection and account operations remain unverified.
+On 28 October, the installed skill successfully returned the permitted account
+list from the protected service in the current Codex task. This verifies account
+discovery through the installed agent launcher. Harel and Phoenix are not
+configured. It does not verify a private website sign-in or the owner app's
+upgrade screen.
 Personal email/SMS/TOTP login, the physical Android phone
 and consumer distribution remain open acceptance gates.
 [Initial owner observations](artifacts/owner-startup-and-import-213509c-20261021.json) ·

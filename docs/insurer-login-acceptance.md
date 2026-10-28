@@ -10,6 +10,13 @@ password or code, and did not access an insurance account.
 | Harel | [Personal area](https://www.harel-group.co.il/Pages/login-page/Login.aspx) | Header controls `#idUser` / `#phone`; the direct login dialog uses `#uid` / `#phone` and defaults to SMS. | Bound request sequence, live code screen, sender/template, authenticated marker, session expiry and session-status scope. |
 | Phoenix | [Personal area](https://my.fnx.co.il/policies) | Redirect to `auth.fnx.co.il/u/login` with a per-attempt state. Identity type and number, then phone or email, followed by Send code. | Bound redirect/state handling, exact send-code endpoint, code screen, sender/template, authenticated marker, session expiry and read scope. |
 
+Fresh anonymous inspection in Chrome on 28 October reconfirmed Harel's direct
+dialog with ID and mobile fields, SMS selected by default and email as an
+alternative. Phoenix's personal-area entry redirected to its authentication
+host and described a one-time code to mobile or email; it also offered a phone
+call. No values were entered and no code was requested. The transient Phoenix
+state parameter was not retained. [Sanitized public-page check](../artifacts/insurer-public-login-check-20261028.json).
+
 Harel's [official FAQ](https://www.harel-group.co.il/long-term-savings/independent-and-employees/information/faq)
 describes identity/phone verification and possible first-login identity-issuance
 date verification. Phoenix's [security information](https://www.fnx.co.il/customer-service/terms-of-use/security/)

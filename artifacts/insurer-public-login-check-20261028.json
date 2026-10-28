@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "date": "2026-10-28",
+  "source_commit": "3579548e27ad289e5f54b30c58d1000239334d9f",
+  "status": "PUBLIC_LOGIN_PAGES_OBSERVED",
+  "providers": {
+    "harel": {
+      "page": "https://www.harel-group.co.il/Pages/login-page/Login.aspx?isshowlogin=true",
+      "inputs_observed": ["uid", "phone"],
+      "verification_channels_observed": ["sms", "email"],
+      "default_channel": "sms",
+      "continue_clicked": false
+    },
+    "phoenix": {
+      "entry": "https://my.fnx.co.il/",
+      "observed_login_path": "https://auth.fnx.co.il/u/login",
+      "transient_state_query_recorded": false,
+      "message": "The personal area describes a one-time login code sent to mobile or email.",
+      "verification_channels_observed": ["sms", "email", "voice_call"],
+      "send_code_clicked": false
+    }
+  },
+  "private_identity_or_contact_entered": false,
+  "verification_code_requested": false,
+  "authenticated_session_confirmed": false,
+  "provider_connectors_qualified": false,
+  "production_ready": false,
+  "limits": "Anonymous public UI inspection only. No insurer account was accessed, and no credentials, contact details, transient Phoenix state, or verification codes were submitted or recorded."
+}

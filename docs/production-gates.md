@@ -7,6 +7,13 @@ password import, email/SMS/authenticator setup, and later approved sign-ins
 through the user's existing AI agent. Controlled tests cover those mechanisms;
 they do not establish personal-account or physical-phone acceptance.
 
+## Public distribution status
+
+The latest published GitHub release remains **0.7.4 preview**, published on
+15 October 2026. There is no published 0.8.0 production release; the signed
+build 102 update is a local QA candidate and has not passed owner-Mac install
+acceptance. [Current release check](../artifacts/current-public-release-status-20261028.json).
+
 ## Signing and build 103 installation result
 
 On 27 October, the local Keychain inventory confirmed a valid Developer ID
@@ -54,7 +61,51 @@ installed app. These results qualify local source and test fixtures, not a
 signed product update or real-account/device acceptance. [Local QA evidence](../artifacts/local-qa-20261028.json)
 · [Current source QA](../artifacts/current-local-qa-20261028.json)
 
+The current source commit also builds both Python distributions, installs the
+wheel into a new Python 3.13.2 environment, and runs the installed CLI entry
+point successfully. Ruff and the third-party dependency audit pass; the audit
+cannot assess the unpublished project package. This does not qualify the Mac
+system installer or a clean consumer Mac. The full suite on commit `3579548`
+also passes: 4,479 passed, four skipped, zero failed. [Current Python package
+and source smoke](../artifacts/current-python-package-smoke-20261028.json).
+
 ## Owner Mac acceptance after approval
+
+On 28 October, the installed Account Access skill's `scripts/access accounts`
+command succeeded from the current Codex task against the protected 0.8.0
+service. This confirms the agent launcher and broker account-discovery
+path are currently usable after the earlier `service_unavailable` observations.
+It does not resolve the owner app's displayed upgrade failure or prove a site
+login. The requested Harel and Phoenix accounts are not configured; no website
+operation, private account data read, or code request was made. Direct UI
+inspection confirms the installed owner app is still build 92 and remains on
+“Checking your mailbox” with “macOS approval requested”; the mailbox check did
+not complete. The signed build 102 diagnostic update has not passed actual
+owner-Mac Installer acceptance. [Current agent connection check](../artifacts/current-agent-connection-check-20261028.json).
+
+Hosted Android acceptance on the same source commit passed automatic and
+owner-entered SMS login on Android 11. On Android 15, it confirmed that both
+notification forwarding and manual code transfer are refused without the
+system's computer association ([run 40635545547](https://github.com/fainir/account-access/actions/runs/40635545547)).
+Positive Android 15 association, manual transfer after pairing, the physical
+phone and insurer SMS delivery remain untested.
+
+Hosted Mac cross-user acceptance also passed on the same source commit ([run
+40635538964](https://github.com/fainir/account-access/actions/runs/40635538964)).
+The controlled-demo run verified password, encrypted email, pinned HTTPS SMS
+and authenticator-factor recovery across distinct user IDs; a fresh synthetic
+password-and-SMS browser login; session reuse; revoked/ungranted-operation
+refusal; credential/code exclusion from agent output; offline prepared-runtime
+installation; and interrupted-install recovery. It used zero private sign-ins
+and no physical phone. It did not verify genuine owner approval, a publisher-
+signed consumer package, or Chrome marketplace installation. [Sanitized hosted
+Mac results](../artifacts/hosted-mac-cross-user-acceptance-20261028.json).
+
+A second hosted run on the same commit completed successfully as well ([run
+40635545534](https://github.com/fainir/account-access/actions/runs/40635545534)).
+It repeated the controlled cross-user journey and passed the Mac worker-boundary
+and Installer-context checks. This repeat adds no private-account or physical-
+phone evidence and does not change the production-readiness decision.
 
 After the owner approved the native macOS prompt on 26 October, the installed
 app opened its Accounts screen. It lists three connected synthetic accounts
@@ -182,12 +233,13 @@ production runtime path validator; all five native public-tree checks pass.
 The app opens to **Upgrade AI connection**, replacing the earlier startup error.
 The subsequent connection upgrade failed after the owner reported macOS
 approval. Reopening still offered the upgrade, and one explicit retry returned
-the same generic error. The installed app does not identify the failing step;
-the current agent connection and real-account operations remain unverified.
-The installed agent launcher also returned `RETRYABLE/service_unavailable` on
-three account-discovery checks; it returned no account metadata, and no login
-operation or code request was made. This is the launcher's generic unavailable
-result and does not identify its underlying cause.
+the same generic error. The installed app does not identify the failing step.
+On 25 October, the installed agent launcher returned
+`RETRYABLE/service_unavailable` on three account-discovery checks; it returned
+no account metadata, and no login operation or code request was made. The
+current 28 October account-discovery check above succeeded, so the earlier
+service-unavailable result is historical. Real website operations remain
+unverified.
 [Launcher discovery](../artifacts/owner-agent-launcher-discovery-20261025.json).
 The bounded Installer result observed before restart was
 `ALREADY_UPDATED_GUI_UNVERIFIED` at `complete`; the same bounded reader was
@@ -422,7 +474,7 @@ qualify the owner Mac's connection.
 
 | User journey | Verified evidence | Remaining acceptance |
 | --- | --- | --- |
-| Install and connect the AI agent | Package 95 owner installation, normal restart, complete public-image verification and app opening to AI connection upgrade; runtime 92 fresh-install CI | Complete and verify the current agent connection and protected account operations; clean downloaded installation and interrupted-operation recovery |
+| Install and connect the AI agent | Package 95 owner installation/restart and complete public-image verification; current installed skill account discovery returns `OK` from the protected service | Resolve the owner app's upgrade-screen discrepancy; verify a protected website operation and sign-in; clean downloaded installation and interrupted-operation recovery |
 | Import Chrome passwords | One approved personal credential imported locally through protected owner setup; controlled format, review and permission tests | Fresh private-website login using the imported credential; representative export coverage. Imports are snapshots; Chrome live sync is not implemented |
 | Email verification | A real Gmail enrollment and mailbox check passed; controlled fresh-code login and sender/template checks | Actual website email delivery and completed login. Consumer Gmail OAuth also needs a publisher-configured Google application and real consent/renewal QA |
 | Android SMS | Android 11 emulator completes a synthetic browser SMS login. New owner-entered fallback uses only six ASCII digits and the paired account's reviewed template; Android 15 checks refusal without computer association and no code persistence | Positive Android 15 association and manual transfer; physical installation, carrier notification delivery, reconnect and completed insurer login |
