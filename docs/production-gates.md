@@ -7,35 +7,36 @@ password import, email/SMS/authenticator setup, and later approved sign-ins
 through the user's existing AI agent. Controlled tests cover those mechanisms;
 they do not establish personal-account or physical-phone acceptance.
 
-## Build 104 owner-approval candidate
+## Build 104 owner-successor candidate
 
 The build 104 universal owner app compiled from source commit `9c375d1` and
 passed Apple's notarization, stapling and Gatekeeper distribution assessment on
 28 October. The notarized app archive SHA-256 is
 `b84c0847bc58c44f37314b990d6f8e4c65f6c373a7719747f751557f34b5f9be` (Apple
 submission `5cd324b6-cd32-4e92-a846-2d1ff44a88f0`). It includes the bounded
-two-minute macOS-approval wait and clearer owner instructions. This is an app
-archive only: it is not an owner-successor system package, has not been
-installed, and does not establish production QA. [Build 104 signing and
-notarization record](../artifacts/owner-timeout104-notarization-20261028.json).
+two-minute macOS-approval wait and clearer owner instructions.
+
+A separate, exact build 104 owner-successor system package has now been built
+from controller commit `b323226`, signed with Developer ID Installer, accepted
+by Apple's notary service, stapled, and accepted by Gatekeeper on 28 October.
+The delivery package SHA-256 is
+`900f9053f1eb5d256870c9a55eb5d60b598c1043b404e812912a4bb38d25b425` (Apple
+submission `60a82655-c874-4be3-8635-0c4a57ed7be1`). The native owner-upgrade
+qualification probe now passes after freeing disk space. Installer owner-Mac
+qualification has not yet been run, so this remains a release candidate, not a
+production release. [Build 104 system-package record](../artifacts/owner-timeout104-system-package-20261028.json) ·
+[Build 104 app signing and notarization record](../artifacts/owner-timeout104-notarization-20261028.json) ·
+[Build 104 successor delta](../artifacts/owner-timeout104-successor-delta-20261028.json).
 
 The owner Mac still runs owner app build 92. Its latest screen no longer shows
 the pending macOS approval: the Verification page reports a passed mailbox
 connection check, while the Accounts page shows zero ready accounts and one
-service connection. The task's installed launcher still exposes only the
+service connection. The installed launcher still exposes only the
 controlled-demo environment, and its permitted browser reads fail as recorded
-below. Installer is not currently running. The owner-successor controller is
-pinned to the older build 96 image, so the build 104 archive cannot be copied
-over the protected installation. A new exact successor plan and Installer
-qualification are required before installing this fix.
-
-The exact image comparison confirms this needs a broader successor plan. Against
-the frozen installed-image predecessor, build 104 changes six public paths; the
-current owner successor permits only three. Its bundled wheel also changes from
-Authlib 1.8.0 to 1.9.1, while the predecessor runtime remains pinned to the older
-wheel. Applying an app-only replacement would leave the app/runtime identities
-inconsistent. No such update package was assembled or installed. [Build 104
-successor delta](../artifacts/owner-timeout104-successor-delta-20261028.json).
+below. The package preserves the installed Python runtime while replacing the
+build 104 owner app and broker components; its exact predecessor and payload
+manifests are pinned in the package evidence. The package has not yet been
+installed, and Installer postflight/receipt acceptance remains open.
 
 The installed agent launcher currently reports service version `0.6.0`,
 environment `controlled-demo`, and three synthetic accounts. It does not list
@@ -138,12 +139,12 @@ Namecheap, PyPI and Read the Docs with authenticator support. It has no Harel or
 Phoenix connector, so those insurer login journeys cannot be tested through the
 product until reviewed connectors are added.
 
-Native owner-upgrade qualification also remains blocked on this Mac's storage:
-the system volume has about 422 MiB free, while the package qualification
-requires at least 2 GiB. One earlier owner probe reached its mixed-storage Swift
-compile and stopped with `No space left on device`; its source checks and earlier
-compile stages passed, but the full owner probe did not. The build gate has not
-been relaxed and no package was installed.
+Native owner-upgrade qualification initially stopped because the system volume
+had only about 422 MiB free. After space was freed, the complete native owner
+probe passed, including shared, owner-namespace, preparation, tree-storage and
+mixed-storage checks. The required 2 GiB threshold remains unchanged. This
+qualifies the update controller against fixtures; the actual signed package
+still needs Installer acceptance on this owner Mac.
 
 Earlier on 28 October, the installed Account Access skill's
 `scripts/access accounts` command returned service version `0.8.0` and

@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "date": "2026-10-28",
+  "status": "READY_FOR_OWNER_INSTALLER_QA",
+  "production_ready": false,
+  "product": {
+    "bundle_identifier": "com.fainir.accountaccess",
+    "version": "0.8.0",
+    "build": "104",
+    "architecture": "arm64",
+    "minimum_macos": "14.0",
+    "application_source_commit": "9c375d1655f8fb27aa4389b11f546193e05b05f5",
+    "controller_source_commit": "b323226a5ced9941d80c0324bc723e719283f6e4"
+  },
+  "owner_successor": {
+    "predecessor_manifest_sha256": "03fb35eb2787ebd67079dd1cbe4dda125f430964540bdd2f2e9c81eda602fd7a",
+    "target_manifest_sha256": "c1b6f40aeafc5243dd2b16a9c4f14448245e389fa45dabcfae4c4f7b913d4afc",
+    "plan_sha256": "1647952c58111b78557dee209b5201b43ffab63fb8a689ce73a258a8794d2dd3",
+    "helper_sha256": "863a69ad25fb2bf637e436c7c22763984b0cdea7f0ad2642b59203bbfc15c358"
+  },
+  "package": {
+    "path": "../dist/notarization-owner-timeout104/Account-Access-arm64-notarized.pkg",
+    "sha256": "900f9053f1eb5d256870c9a55eb5d60b598c1043b404e812912a4bb38d25b425",
+    "bytes": 13734862,
+    "unsigned_source_sha256": "6946eeb6cebb584010981b9c93f30170f449d91bb5fdd342946ae2621b597d1f",
+    "team_id": "WBULD6N4NQ",
+    "signing_identity": "Developer ID Installer: Nir Feinstein (WBULD6N4NQ)",
+    "signing_certificate_sha256": "333f08ecdb56967369880369b3ba475db8865b1eca5ee92cb338e6f0c797c406"
+  },
+  "notarization": {
+    "submission_id": "60a82655-c874-4be3-8635-0c4a57ed7be1",
+    "apple_status": "Accepted",
+    "signature_verification": "PASSED",
+    "stapler_validation": "PASSED",
+    "gatekeeper_install_assessment": "PASSED",
+    "timestamp": "2026-10-28 07:19:52 +0000"
+  },
+  "owner_qa": {
+    "native_upgrade_probe": "PASSED",
+    "native_upgrade_probe_sha256": "bc0dd57e4f914ec9619ea60d9c8f8d927ce6f94160ecdd9c2d12aaeadd1e4d66",
+    "installer_execution": "PENDING",
+    "installed_build_verification": "PENDING",
+    "service_and_agent_smoke": "PENDING",
+    "rollback_and_recovery": "PENDING"
+  },
+  "feature_acceptance": {
+    "chrome_password_import": "PENDING_OWNER_CHROME_EXPORT",
+    "real_email_code_login": "PENDING",
+    "physical_android_15_sms_pairing": "PENDING",
+    "harel_connector": "UNSUPPORTED",
+    "phoenix_connector": "UNSUPPORTED",
+    "lemon_squeezy_authenticator_login": "PENDING"
+  }
+}
