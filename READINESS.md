@@ -16,7 +16,7 @@ Statuses: todo | building (who) | verified | owner | waiting | cut (reason)
 
 | ID | Flow (user words) | Surfaces | Status | Evidence | Verified on |
 |---|---|---|---|---|---|
-| F1 | Install or update Account Access and see a usable app after restart | macOS Installer, app, protected service | building (Codex) | [build 110 failure](artifacts/owner-upgrade110-proof-boundary-install-20261028.json); current installer build in progress | 2026-10-28 |
+| F1 | Install or update Account Access and see a usable app after restart | macOS Installer, app, protected service | building (Codex) | [previous build 110 refusal](artifacts/owner-upgrade110-proof-boundary-install-20261028.json); [current signed package](artifacts/owner-upgrade110-final-stability-build-20261028.json), postinstall running | 2026-10-28 |
 | F2 | Import selected Chrome passwords and approve only the accounts I choose | Chrome, macOS app, vault | todo | [import flow docs](docs/password-import.md) | |
 | F3 | Connect email and receive a fresh login code for a supported account | macOS app, Gmail / IMAP, connector | todo | [production gates](docs/production-gates.md) | |
 | F4 | Pair my Android phone and receive an approved SMS login code | macOS app, Android 15+, supported connector | owner | Physical Android pairing and real SMS acceptance remain; [Android setup](android/README.md) | |
@@ -53,3 +53,4 @@ Statuses: todo | building (who) | verified | owner | waiting | cut (reason)
 - 2026-10-28 - created readiness ledger from repository docs and current acceptance evidence; production readiness remains false.
 - 2026-10-28 - current source probes passed; replacement installer is building with field-level final stability checkpoints.
 - 2026-10-28 - installed launcher account discovery shows controlled-demo only; one permitted retry of the synthetic agent read failed and was recorded for post-update recheck.
+- 2026-10-28 - replacement package passed Developer ID signature, Apple notarization, stapling, Gatekeeper and Installer parser checks; protected postinstall is still running.
