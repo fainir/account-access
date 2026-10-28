@@ -210,9 +210,11 @@ enum InstallerPayloadIO {
         throw InstallerPayloadFailure.limit
     }
     static func check(_ fd: Int32, owner: uid_t, directory: Bool, sharedParent: Bool = false,
-                      installerTemporaryParent: Bool = false) throws -> stat {
+                      installerTemporaryParent: Bool = false, expectedGroup: gid_t? = nil,
+                      strictACL: Bool = false) throws -> stat {
         var info = stat()
         guard fstat(fd, &info) == 0, info.st_uid == owner,
+              expectedGroup == nil || info.st_gid == expectedGroup,
               info.st_mode & S_IFMT == (directory ? S_IFDIR : S_IFREG), info.st_mode & 0o6000 == 0,
               directory || info.st_nlink == 1 else { throw InstallerPayloadFailure.object }
         if installerTemporaryParent {
@@ -225,12 +227,14 @@ enum InstallerPayloadIO {
         } else {
             guard info.st_mode & (sharedParent ? 0o002 : 0o022) == 0 else { throw InstallerPayloadFailure.object }
         }
-        try noGrantACL(fd)
+        if strictACL { try PublicTreeIO.noACL(fd) }
+        else { try noGrantACL(fd) }
         return info
     }
     static func same(_ before: stat, _ after: stat) -> Bool {
         before.st_dev == after.st_dev && before.st_ino == after.st_ino && before.st_size == after.st_size
-            && before.st_mode == after.st_mode && before.st_uid == after.st_uid && before.st_nlink == after.st_nlink
+            && before.st_mode == after.st_mode && before.st_uid == after.st_uid && before.st_gid == after.st_gid
+            && before.st_nlink == after.st_nlink
             && before.st_mtimespec.tv_sec == after.st_mtimespec.tv_sec && before.st_mtimespec.tv_nsec == after.st_mtimespec.tv_nsec
             && before.st_ctimespec.tv_sec == after.st_ctimespec.tv_sec && before.st_ctimespec.tv_nsec == after.st_ctimespec.tv_nsec
     }
@@ -318,8 +322,10 @@ enum InstallerPayloadIO {
         }
         return result
     }
-    static func verifyFile(_ fd: Int32, node: InstallerPayloadNode, owner: uid_t) throws {
-        let before = try check(fd, owner: owner, directory: false)
+    static func verifyFile(_ fd: Int32, node: InstallerPayloadNode, owner: uid_t,
+                           expectedGroup: gid_t? = nil, strictACL: Bool = false) throws {
+        let before = try check(fd, owner: owner, directory: false,
+            expectedGroup: expectedGroup, strictACL: strictACL)
         guard before.st_size == node.size, before.st_mode & 0o7777 == node.mode else { throw InstallerPayloadFailure.changed }
         var count: Int64 = 0, hasher = SHA256(), buffer = [UInt8](repeating: 0, count: 1024 * 1024)
         while true {
@@ -329,14 +335,17 @@ enum InstallerPayloadIO {
             if read == 0 { break }
             count += Int64(read); hasher.update(data: buffer.prefix(read))
         }
-        guard count == before.st_size, same(before, try check(fd, owner: owner, directory: false)),
+        var after = stat()
+        guard count == before.st_size, fstat(fd, &after) == 0, same(before, after),
               hasher.finalize().map({ String(format: "%02x", $0) }).joined() == node.sha256 else {
             throw InstallerPayloadFailure.changed
         }
     }
     static func verify(_ fd: Int32, tree: InstallerPayloadTree, owner: uid_t, name: String = "",
-                       rootExtras: Set<String> = []) throws -> InstallerPayloadCounts {
-        let before = try check(fd, owner: owner, directory: true)
+                       rootExtras: Set<String> = [],
+                       expectedGroup: ((String) -> gid_t)? = nil) throws -> InstallerPayloadCounts {
+        let before = try check(fd, owner: owner, directory: true,
+            expectedGroup: expectedGroup?(name), strictACL: expectedGroup != nil)
         guard before.st_mode & 0o7777 == tree.nodes[name]?.mode else { throw InstallerPayloadFailure.changed }
         let expected = tree.children[name] ?? []
         guard try contents(fd).subtracting(name.isEmpty ? rootExtras : []) == expected else { throw InstallerPayloadFailure.changed }
@@ -345,15 +354,29 @@ enum InstallerPayloadIO {
             let relative = name.isEmpty ? child : name + "/" + child
             let node = tree.nodes[relative]!
             var info = stat()
-            guard fstatat(fd, child, &info, AT_SYMLINK_NOFOLLOW) == 0, info.st_uid == owner else {
+            guard fstatat(fd, child, &info, AT_SYMLINK_NOFOLLOW) == 0, info.st_uid == owner,
+                  expectedGroup?(relative) == nil || info.st_gid == expectedGroup?(relative),
+                  expectedGroup == nil || info.st_dev == before.st_dev,
+                  info.st_mode & 0o6000 == 0 else {
                 throw InstallerPayloadFailure.object
             }
             if node.kind == "symlink" {
                 var buffer = [CChar](repeating: 0, count: 4097)
                 let size = readlinkat(fd, child, &buffer, buffer.count)
-                guard info.st_mode & S_IFMT == S_IFLNK, size > 0, size <= 4096,
+                guard info.st_mode & S_IFMT == S_IFLNK, info.st_nlink == 1, size > 0, size <= 4096,
                       Data(buffer.prefix(size).map { UInt8(bitPattern: $0) }) == Data(node.target!.utf8) else {
                     throw InstallerPayloadFailure.changed
+                }
+                if expectedGroup != nil {
+                    let link = openat(fd, child, O_RDONLY | O_SYMLINK | O_CLOEXEC | O_NONBLOCK)
+                    guard link >= 0 else { throw InstallerPayloadFailure.changed }
+                    do {
+                        var opened = stat(), current = stat()
+                        guard fstat(link, &opened) == 0, same(info, opened) else { throw InstallerPayloadFailure.changed }
+                        try PublicTreeIO.noLinkACL(link)
+                        guard fstat(link, &current) == 0, same(opened, current) else { throw InstallerPayloadFailure.changed }
+                    } catch { Darwin.close(link); throw error }
+                    Darwin.close(link)
                 }
                 var after = stat()
                 guard fstatat(fd, child, &after, AT_SYMLINK_NOFOLLOW) == 0, same(info, after) else { throw InstallerPayloadFailure.changed }
@@ -362,8 +385,14 @@ enum InstallerPayloadIO {
                 let handle = openat(fd, child, O_RDONLY | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK | (node.kind == "directory" ? O_DIRECTORY : 0))
                 guard handle >= 0 else { throw InstallerPayloadFailure.path }
                 do {
-                    if node.kind == "directory" { counts.add(try verify(handle, tree: tree, owner: owner, name: relative)) }
-                    else { try verifyFile(handle, node: node, owner: owner); counts.files += 1 }
+                    if node.kind == "directory" {
+                        counts.add(try verify(handle, tree: tree, owner: owner, name: relative,
+                            expectedGroup: expectedGroup))
+                    } else {
+                        try verifyFile(handle, node: node, owner: owner,
+                            expectedGroup: expectedGroup?(relative), strictACL: expectedGroup != nil)
+                        counts.files += 1
+                    }
                     var observed = stat(), current = stat()
                     guard fstat(handle, &observed) == 0,
                           fstatat(fd, child, &current, AT_SYMLINK_NOFOLLOW) == 0,
@@ -372,7 +401,8 @@ enum InstallerPayloadIO {
                 Darwin.close(handle)
             }
         }
-        guard same(before, try check(fd, owner: owner, directory: true)) else { throw InstallerPayloadFailure.changed }
+        var after = stat()
+        guard fstat(fd, &after) == 0, same(before, after) else { throw InstallerPayloadFailure.changed }
         return counts
     }
     static func installed() throws -> (InstallerPayloadManifest, InstallerPayloadCounts) {

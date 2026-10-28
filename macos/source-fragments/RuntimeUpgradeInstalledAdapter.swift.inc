@@ -355,12 +355,12 @@ extension ComponentController {
                 predecessorPins: predecessorPins, expectedEvidenceSHA256: intent.predecessorEvidenceSHA256,
                 historical: { try runtimeOriginal($0, intent: intent, files: files, routes: routes) })
         }
-        let verifyPublic = {
+        func verifyPublic(_ operationStates: [ComponentOperationState], completeImage: Bool) throws {
             guard let storage = reference.storage else { throw FullImageFailure.journal }
             try verifyUnchanged()
-            try fullLayout(source: source, routes: routes, storage: storage, intent: intent)
-            let states = try Array(storage.operations.prefix(source.units.count)).map { try storage.state($0) }
-            try FullImagePublicView.verify(source: source, states: states, support: support.fd, owner: 0)
+            try fullLayout(source: source, routes: routes, storage: storage, intent: intent, states: operationStates)
+            let states = Array(operationStates.prefix(source.units.count))
+            if completeImage { try FullImagePublicView.verify(source: source, states: states, support: support.fd, owner: 0) }
             guard let ownerIndex = source.units.firstIndex(where: { $0.path == PublicTreeUnit.owner.path }) else { throw FullImageFailure.source }
             try runtimeSignatures(source, root: InstallerPayloadManifest.support, after: states[ownerIndex] == .applied)
             let root = open("/", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
@@ -371,10 +371,11 @@ extension ComponentController {
         let storage = try FullImageMixedStorage(units: units, writeEvent: { event, operation in
             guard let storage = reference.storage else { throw FullImageFailure.journal }
             try journal.writeTransition(event, operation: operation, state: storage.state)
-        }, verifyOld: verifyPublic, verifyRecoverable: verifyPublic, verifyNew: verifyPublic)
+        }, verifyOld: { try verifyPublic($0, completeImage: false) },
+           verifyRecoverable: { try verifyPublic($0, completeImage: false) },
+           verifyNew: { try verifyPublic($0, completeImage: true) })
         reference.storage = storage
         try intent.verifyStorage(storage)
-        try storage.verifyRecoverableView()
         func repairPublicAliases() throws {
             // Package95 requires a normal restart. The already-running broker
             // may retain its earlier startup failure; this path never restarts

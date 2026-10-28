@@ -16,7 +16,7 @@ Statuses: todo | building (who) | verified | owner | waiting | cut (reason)
 
 | ID | Flow (user words) | Surfaces | Status | Evidence | Verified on |
 |---|---|---|---|---|---|
-| F1 | Install or update the Mac app, connect its protected service and reopen it after restart; interrupted updates retain the prior usable app | macOS Installer, app, protected service | building (Codex) | [build 111 owner-Mac result](qa/owner-upgrade111-install-2026-10-28.log) timed out with no receipt; [build 112 install](qa/owner-upgrade112-install-2026-10-28.log) failed at `predecessor_final_head_read`; [build 113 package gates](qa/owner-upgrade113-build-2026-10-28.log), native owner probe and APFS/runtime probe pass; signed build 113 is awaiting its authorized owner-Mac install and service smoke | 2026-10-28 |
+| F1 | Install or update the Mac app, connect its protected service and reopen it after restart; interrupted updates retain the prior usable app | macOS Installer, app, protected service | building (Codex) | [build 113 owner-Mac failure](qa/owner-upgrade113-install-2026-10-29.log): PackageKit killed postinstall at 1,800 seconds during duplicate full-tree/ACL scans; no receipt. [Build 114 source QA](qa/owner-upgrade114-source-qa-2026-10-29.log) passes fresh native owner, runtime and complete shared-image probes; signed candidate and owner-Mac install remain | 2026-10-29 |
 | F2 | Import a Chrome export, review matches and save only selected accounts; malformed or cancelled imports save nothing | Chrome, macOS app, vault | verified | [password import regression suite](qa/password-import-source-qa-2026-10-28.log): 63 passed; [owner UI acceptance](docs/other-service-validation.md#namecheap-password-pilot) is historical, with no export-file secrets accessed in this run | 2026-10-28 |
 | F3 | Connect Gmail or TLS IMAP and use a fresh matching code; permission, expiry or ambiguous-mail errors stop safely | macOS app, Gmail / IMAP, connector | owner | [154 Gmail, IMAP, OAuth and verification tests](qa/email-verification-source-qa-2026-10-28.log); [24 reusable-mailbox tests, including deterministic uncertain-refresh coverage](qa/gmail-refresh-timeout-2026-10-28.log); [138-case email/SMS/authenticator setup regression suite](qa/verification-source-qa-2026-10-28.log) | 2026-10-28 |
 | F4 | Pair Android and deliver a fresh approved SMS; denied permissions, redaction or a stale code refuse delivery | macOS app, Android 15+, supported connector | owner | [138-case synthetic email/SMS/authenticator setup regression suite](qa/verification-source-qa-2026-10-28.log); physical Android pairing and real SMS acceptance remain; [Android setup](android/README.md) | 2026-10-28 |
@@ -41,7 +41,7 @@ Statuses: todo | building (who) | verified | owner | waiting | cut (reason)
 
 ## Owner actions
 
-1. When signed build 113 is ready, approve its macOS Installer prompt with Touch ID or the Mac account password in the native dialog; this supplies the real owner-Mac update and protected-service check.
+1. When signed build 114 is ready, install it from the visible macOS Installer and approve any native authorization prompt with Touch ID; this supplies the real owner-Mac update and protected-service check. No password needs to be shared.
 2. In Account Access > Verification, connect the approved Gmail account in Chrome and select **Check Google connection**. Then use a supported account with a real email-code challenge and complete it in Account Access; this unblocks private mailbox and delivery acceptance. Keep mailbox passwords and login codes out of chat.
 3. Open Account Access > Verification > Pair Android phone, scan its pairing QR, and approve the requested access on Android; this unblocks real SMS acceptance. No phone code belongs in chat.
 4. Sign in to Lemon Squeezy through Account Access once with your authenticator app; this confirms its private TOTP challenge and enrollment against the real site. Keep the password and generated codes in their intended apps.
@@ -53,6 +53,7 @@ Statuses: todo | building (who) | verified | owner | waiting | cut (reason)
 No current third-party wait is confirmed. Build 110 notarization completed; its Installer run failed under F1.
 
 ## Log (last 10)
+- 2026-10-29 - Build 114 optimization passed fresh native owner probes (79/26/21/482/324), runtime planner and refusal checks (69), and complete installed-image compile/runtime/guard probe; package build and owner-Mac acceptance remain.
 - 2026-10-28 - Gmail uncertain-refresh regression is synchronized on receipt by the synthetic local provider; exact test passed and reusable-mailbox module passed 24/24. Full-suite rerun remains outstanding.
 - 2026-10-28 - Build 113 signed package has passed notarization, stapling, Gatekeeper, Installer parser and exact payload verification; owner Mac acceptance is next.
 - 2026-10-28 - Build 113 native owner probes (79/26/21/477/324 checks), APFS/runtime probe (69 checks), ordinary-user refusal, 5 diagnostic tests and notarized package gates pass.

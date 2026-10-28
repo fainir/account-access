@@ -119,7 +119,7 @@ extension ComponentController {
                     requireQuiescent: { throw FullImageFailure.journal })))
             }
             let storage = try FullImageMixedStorage(units: units, writeEvent: { _, _ in throw FullImageFailure.journal },
-                verifyOld: {}, verifyRecoverable: {}, verifyNew: {})
+                verifyOld: { _ in }, verifyRecoverable: { _ in }, verifyNew: { _ in })
             try intent.verifyStorage(storage)
             try fullLayout(source: source, routes: routes, storage: storage, intent: intent)
             let states = try Array(storage.operations.prefix(source.units.count)).map { try storage.state($0) }
@@ -375,12 +375,12 @@ extension ComponentController {
             try originalReceipt(original, ownerUID: ownerUID)
             try activeProof.revalidateHistory()
         }
-        let verifyPublic = {
+        func verifyPublic(_ operationStates: [ComponentOperationState], completeImage: Bool) throws {
             guard let storage = reference.storage else { throw FullImageFailure.journal }
             try verifyUnchanged()
-            try fullLayout(source: source, routes: routes, storage: storage, intent: intent)
-            let states = try Array(storage.operations.prefix(source.units.count)).map { try storage.state($0) }
-            try FullImagePublicView.verify(source: source, states: states, support: support.fd, owner: 0)
+            try fullLayout(source: source, routes: routes, storage: storage, intent: intent, states: operationStates)
+            let states = Array(operationStates.prefix(source.units.count))
+            if completeImage { try FullImagePublicView.verify(source: source, states: states, support: support.fd, owner: 0) }
             guard let ownerIndex = source.units.firstIndex(where: { $0.path == PublicTreeUnit.owner.path }) else { throw FullImageFailure.source }
             try ownerUpgradeSignatures(source, root: InstallerPayloadManifest.support, after: states[ownerIndex] == .applied)
             let root = open("/", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
@@ -391,10 +391,11 @@ extension ComponentController {
         let storage = try FullImageMixedStorage(units: units, writeEvent: { event, operation in
             guard let storage = reference.storage else { throw FullImageFailure.journal }
             try journal.writeTransition(event, operation: operation, state: storage.state)
-        }, verifyOld: verifyPublic, verifyRecoverable: verifyPublic, verifyNew: verifyPublic)
+        }, verifyOld: { try verifyPublic($0, completeImage: false) },
+           verifyRecoverable: { try verifyPublic($0, completeImage: false) },
+           verifyNew: { try verifyPublic($0, completeImage: true) })
         reference.storage = storage
         try intent.verifyStorage(storage)
-        try storage.verifyRecoverableView()
         if try storage.state(storage.operations.last!) == .applied {
             guard try storage.operations.allSatisfy({ try storage.state($0) == .applied }) else { throw FullImageFailure.journal }
             try storage.verifyNewView()

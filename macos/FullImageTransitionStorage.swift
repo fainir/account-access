@@ -194,10 +194,13 @@ final class FullImageMixedStorage: ComponentTransitionStorage {
     let operations: [ComponentOperation]
     private let units: [Unit]
     private let event: (String, Int) throws -> Void
-    private let oldView: () throws -> Void, recoverableView: () throws -> Void, newView: () throws -> Void
+    private let oldView: ([ComponentOperationState]) throws -> Void
+    private let recoverableView: ([ComponentOperationState]) throws -> Void
+    private let newView: ([ComponentOperationState]) throws -> Void
     init(units: [Unit], writeEvent: @escaping (String, Int) throws -> Void,
-         verifyOld: @escaping () throws -> Void, verifyRecoverable: @escaping () throws -> Void,
-         verifyNew: @escaping () throws -> Void) throws {
+         verifyOld: @escaping ([ComponentOperationState]) throws -> Void,
+         verifyRecoverable: @escaping ([ComponentOperationState]) throws -> Void,
+         verifyNew: @escaping ([ComponentOperationState]) throws -> Void) throws {
         let tokens = try units.map { try $0.token() }
         let plans = units.map { unit -> String in
             switch unit { case .file(let storage): return storage.operation.planSHA256; case .tree(let storage): return storage.operation.planSHA256 }
@@ -234,17 +237,26 @@ final class FullImageMixedStorage: ComponentTransitionStorage {
         try event(value, operation)
     }
     func verifyOldView() throws {
-        guard try operations.allSatisfy({ try state($0) == .staged }) else { throw FullImageFailure.object }
-        try oldView()
+        let states = try operations.map { try state($0) }
+        guard !states.contains(.conflict), states.allSatisfy({ $0 == .staged }) else { throw FullImageFailure.object }
+        try oldView(states)
     }
     func verifyRecoverableView() throws {
-        guard try operations.allSatisfy({ try state($0) != .conflict }) else { throw FullImageFailure.object }
-        try recoverableView()
+        let states = try operations.map { try state($0) }
+        guard !states.contains(.conflict) else { throw FullImageFailure.object }
+        try recoverableView(states)
     }
     func verifyNewView() throws {
         // Head remains staged until ComponentTransition publishes it last.
-        guard try operations.filter({ $0.target != .head }).allSatisfy({ try state($0) == .applied }) else { throw FullImageFailure.object }
-        try newView()
+        let states = try operations.map { try state($0) }
+        guard !states.contains(.conflict), operations.indices.filter({ operations[$0].target != .head })
+            .allSatisfy({ states[$0] == .applied }) else { throw FullImageFailure.object }
+        try newView(states)
+    }
+    func serviceDidQuiesce() throws {
+        for unit in units {
+            if case .tree(let storage) = unit { try storage.enableQuiescedFastState() }
+        }
     }
 }
 

@@ -272,7 +272,8 @@ extension ComponentController {
               intent.ownerUID == ownerUID, intent.operations.count == source.units.count + 4 else { throw FullImageFailure.journal }
     }
     private static func fullLayout(source: any PublicImageTransitionSource, routes: FullImageInstalledRoutes,
-                                    storage: FullImageMixedStorage, intent: FullImageGlobalIntent) throws {
+                                    storage: FullImageMixedStorage, intent: FullImageGlobalIntent,
+                                    states suppliedStates: [ComponentOperationState]? = nil) throws {
         let transition = try routes.transition(plan: source.planSHA256)
         guard try InstallerPayloadIO.contents(transition.fd) == ["files", "trees", "global"] else { throw FullImageFailure.journal }
         let trees = openat(transition.fd, "trees", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
@@ -280,9 +281,13 @@ extension ComponentController {
         let info = try InstallerPayloadIO.check(trees, owner: 0, directory: true); try PublicTreeIO.noACL(trees)
         guard info.st_gid == 0, info.st_mode & 0o7777 == 0o700,
               try InstallerPayloadIO.contents(trees) == Set(source.units.compactMap { if case .tree(let unit, _, _) = $0 { return unit.rawValue }; return nil }) else { throw FullImageFailure.journal }
+        let states: [ComponentOperationState]
+        if let suppliedStates { states = suppliedStates }
+        else { states = try storage.operations.map { try storage.state($0) } }
+        guard states.count == intent.operations.count else { throw FullImageFailure.journal }
         var fileSlots: Set<String> = []
         for (index, operation) in intent.operations.enumerated() {
-            let state = try storage.state(storage.operations[index])
+            let state = states[index]
             guard state != .conflict else { throw FullImageFailure.object }
             if let file = operation.file {
                 if (state == .staged ? file.after : file.before) != nil { fileSlots.insert(file.slot) }
@@ -541,12 +546,12 @@ extension ComponentController {
             _ = try revalidateCompletedPredecessor(resources: predecessorResources, planPin: pins.predecessor.planSHA256,
                 expectedEvidenceSHA256: intent.predecessorEvidenceSHA256, recordedDevice: observationDevice)
         }
-        let verifyPublic = {
+        func verifyPublic(_ operationStates: [ComponentOperationState], completeImage: Bool) throws {
             guard let storage = reference.storage else { throw FullImageFailure.journal }
             try verifyUnchanged()
-            try fullLayout(source: source, routes: routes, storage: storage, intent: intent)
-            let states = try Array(storage.operations.prefix(source.units.count)).map { try storage.state($0) }
-            try FullImagePublicView.verify(source: source, states: states, support: support.fd, owner: 0)
+            try fullLayout(source: source, routes: routes, storage: storage, intent: intent, states: operationStates)
+            let states = Array(operationStates.prefix(source.units.count))
+            if completeImage { try FullImagePublicView.verify(source: source, states: states, support: support.fd, owner: 0) }
             guard let ownerIndex = source.units.firstIndex(where: { $0.path == PublicTreeUnit.owner.path }) else { throw FullImageFailure.source }
             try fullVerifySignatures(source: source, root: InstallerPayloadManifest.support, after: states[ownerIndex] == .applied)
             let root = open("/", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
@@ -557,14 +562,11 @@ extension ComponentController {
         let storage = try FullImageMixedStorage(units: units, writeEvent: { event, operation in
             guard let storage = reference.storage else { throw FullImageFailure.journal }
             try journal.writeTransition(event, operation: operation, state: storage.state)
-        }, verifyOld: verifyPublic, verifyRecoverable: verifyPublic, verifyNew: verifyPublic)
+        }, verifyOld: { try verifyPublic($0, completeImage: false) },
+           verifyRecoverable: { try verifyPublic($0, completeImage: false) },
+           verifyNew: { try verifyPublic($0, completeImage: true) })
         reference.storage = storage
         try intent.verifyStorage(storage)
-        // A completed predecessor must pass the stricter complete-image view
-        // below. Do not first repeat the recoverable-image walk, which checks
-        // the same trees while allowing a mixture of staged/applied units.
-        // Mutable recovery retains its existing verification sequence.
-        if !verificationOnly { try storage.verifyRecoverableView() }
         if try storage.state(storage.operations.last!) == .applied {
             // verifyNewView checks every non-head unit; the head was checked
             // immediately above. The mutable path keeps its existing guard.

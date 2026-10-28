@@ -213,23 +213,27 @@ extension ComponentController {
             progress(.predecessorViewRepairProofCompare)
         }
         let storage = try FullImageMixedStorage(units: units,
-            writeEvent: { _, _ in throw FullImageFailure.journal }, verifyOld: {}, verifyRecoverable: {}, verifyNew: {})
+            writeEvent: { _, _ in throw FullImageFailure.journal },
+            verifyOld: { _ in }, verifyRecoverable: { _ in }, verifyNew: { _ in })
         checkpoint(.predecessorStorage)
         try intent.verifyStorage(storage)
-        func completeView() throws {
+        func completeView(verifyImage: Bool) throws {
             checkpoint(.predecessorViewBefore)
             try unchanged(progress: checkpoint)
             checkpoint(.predecessorViewStates)
-            guard try storage.operations.allSatisfy({ try storage.state($0) == .applied }) else { throw FullImageFailure.predecessor }
+            let states = try storage.operations.map { try storage.state($0) }
+            guard !states.contains(.conflict), states.allSatisfy({ $0 == .applied }) else { throw FullImageFailure.predecessor }
             checkpoint(.predecessorViewLayout)
-            try fullLayout(source: source, routes: routes, storage: storage, intent: intent)
+            try fullLayout(source: source, routes: routes, storage: storage, intent: intent, states: states)
             checkpoint(.predecessorViewProjection)
-            if let projection { try projection.verifyPublic() }
-            else {
-                try FullImagePublicView.verify(source: source, states: Array(repeating: .applied, count: source.units.count),
-                    support: support.fd, owner: 0)
-                try runtimeSignatures(source, root: InstallerPayloadManifest.support, after: true)
+            if verifyImage {
+                if let projection { try projection.verifyPublic() }
+                else {
+                    try FullImagePublicView.verify(source: source, states: Array(states.prefix(source.units.count)),
+                        support: support.fd, owner: 0)
+                }
             }
+            try runtimeSignatures(source, root: InstallerPayloadManifest.support, after: true)
             let root = open("/", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
             guard root >= 0 else { throw FullImageFailure.object }; defer { Darwin.close(root) }
             _ = try InstallerPayloadIO.verifyApplicationAlias(from: root, owner: 0)
@@ -237,7 +241,8 @@ extension ComponentController {
             try unchanged(progress: checkpoint)
         }
         checkpoint(.predecessorView)
-        try completeView()
+        try completeView(verifyImage: true)
+        for tree in trees { try tree.enableVerifiedReadOnlyFastState() }
         checkpoint(.predecessorFinalTreeHistoryRead)
         let localHistory = try trees.map { FullImageJSON.hash(try $0.completedEvidence()) }
         checkpoint(.predecessorFinalHeadRead)
@@ -263,7 +268,10 @@ extension ComponentController {
             "roots": roots.mapValues { ["device": Int64($0.device), "inode": $0.inode, "volume_uuid": $0.volumeUUID] as [String: Any] }
         ] as [String: Any])
         if let expectedEvidenceSHA256 { guard FullImageJSON.hash(evidence) == expectedEvidenceSHA256 else { throw FullImageFailure.predecessor } }
-        try completeView()
+        // The complete view was just hashed above. The second pass confirms
+        // every pinned transition object, route, history and signature without
+        // rereading the same large immutable trees a second time.
+        try completeView(verifyImage: false)
         checkpoint(.predecessorFinalTreeHistoryRead)
         let finalTreeHistory = try trees.map { FullImageJSON.hash(try $0.completedEvidence()) }
         checkpoint(.predecessorFinalTreeHistoryCompare)

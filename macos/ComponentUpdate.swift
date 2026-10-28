@@ -72,6 +72,12 @@ protocol ComponentTransitionStorage {
     func verifyOldView() throws
     func verifyRecoverableView() throws
     func verifyNewView() throws
+    func serviceDidQuiesce() throws
+}
+
+extension ComponentTransitionStorage {
+    // Storage that does not own directory trees has no post-barrier fast path.
+    func serviceDidQuiesce() throws {}
 }
 
 enum ComponentTransitionResult {
@@ -102,6 +108,7 @@ final class ComponentTransition {
         else { try storage.verifyOldView() }
         try service.disableAndQuiesce(recovering: recovering)
         do {
+            try storage.serviceDidQuiesce()
             if recovering { try storage.verifyRecoverableView() }
             else { try storage.verifyOldView() }
             for (index, operation) in storage.operations.enumerated() where operation.target != .head {

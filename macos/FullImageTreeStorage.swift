@@ -158,6 +158,25 @@ struct PublicTreeOperation: Codable, Equatable {
 }
 
 enum PublicTreeIO {
+    struct FastObject: Equatable {
+        let device: Int32, inode: UInt64, type: UInt16, permissions: UInt16
+        let owner: UInt32, group: UInt32, links: UInt64, size: Int64
+        let mtimeSec: Int64, mtimeNsec: Int64, ctimeSec: Int64, ctimeNsec: Int64
+        let linkTarget: String?
+
+        init(_ info: stat, linkTarget: String? = nil, rootDirectory: Bool = false) {
+            device = info.st_dev; inode = UInt64(info.st_ino)
+            type = UInt16(info.st_mode & S_IFMT); permissions = UInt16(info.st_mode & 0o7777)
+            owner = info.st_uid; group = info.st_gid; links = UInt64(info.st_nlink); size = Int64(info.st_size)
+            mtimeSec = Int64(info.st_mtimespec.tv_sec); mtimeNsec = Int64(info.st_mtimespec.tv_nsec)
+            // renameatx_np changes a moved directory's ctime on some APFS
+            // versions. Its inode and mtime remain stable across the swap.
+            ctimeSec = rootDirectory ? 0 : Int64(info.st_ctimespec.tv_sec)
+            ctimeNsec = rootDirectory ? 0 : Int64(info.st_ctimespec.tv_nsec)
+            self.linkTarget = linkTarget
+        }
+    }
+
     static func noACL(_ fd: Int32) throws {
         errno = 0
         guard let acl = acl_get_fd(fd) else {
@@ -245,10 +264,12 @@ enum PublicTreeIO {
         let fd = openat(parent, name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
         guard fd >= 0 else { throw PublicTreeFailure.changed }
         defer { Darwin.close(fd) }
-        let before = try InstallerPayloadIO.check(fd, owner: owner, directory: true)
-        guard path.st_gid == rootGroup, InstallerPayloadIO.same(path, before), before.st_gid == rootGroup else { throw PublicTreeFailure.changed }
-        try metadata(fd, inventory: inventory, owner: owner, group: group, priorReleaseGroup: priorReleaseGroup)
-        _ = try InstallerPayloadIO.verify(fd, tree: tree, owner: owner)
+        let before = try InstallerPayloadIO.check(fd, owner: owner, directory: true,
+            expectedGroup: rootGroup, strictACL: true)
+        guard path.st_gid == rootGroup, InstallerPayloadIO.same(path, before) else { throw PublicTreeFailure.changed }
+        _ = try InstallerPayloadIO.verify(fd, tree: tree, owner: owner, expectedGroup: { relative in
+            priorReleaseGroup.map { inventory.unit.precedingGroup(relative, legacy: group, published: $0) } ?? group
+        })
         var after = stat()
         let current = try InstallerPayloadIO.check(fd, owner: owner, directory: true)
         guard fstatat(parent, name, &after, AT_SYMLINK_NOFOLLOW) == 0,
@@ -272,6 +293,120 @@ enum PublicTreeIO {
         errno = 0
         guard fstatat(parent, name, &info, AT_SYMLINK_NOFOLLOW) != 0, errno == ENOENT else { throw PublicTreeFailure.changed }
         return nil
+    }
+
+    // A content hash is established by observeOptional before this snapshot is
+    // trusted. Later, while the service and owner app are quiesced, this checks
+    // every path, directory entry, inode, permission, size and change time
+    // without rereading file contents. It is process-local and never survives
+    // an interrupted update; recovery starts with the full content verifier.
+    static func fastSnapshot(_ parent: Int32, name: String, inventory: PublicTreeInventory,
+        owner: uid_t, group: gid_t, attachment: PublicTreeAttachment,
+        priorReleaseGroup: gid_t? = nil) throws -> [String: FastObject]? {
+        guard attachment.role.mayObserve(inventory.unit), try InstallerPayloadManifest.components(name).count == 1 else {
+            throw PublicTreeFailure.invalid
+        }
+        try attachment.verify(parent, role: attachment.role, owner: owner,
+            group: attachment.parentGroup, mode: attachment.role.mode)
+        guard let tree = inventory.tree else {
+            var info = stat(); errno = 0
+            guard fstatat(parent, name, &info, AT_SYMLINK_NOFOLLOW) != 0, errno == ENOENT else {
+                throw PublicTreeFailure.changed
+            }
+            try attachment.verify(parent, role: attachment.role, owner: owner,
+                group: attachment.parentGroup, mode: attachment.role.mode)
+            return nil
+        }
+        func expectedGroup(_ relative: String) -> gid_t {
+            priorReleaseGroup.map { inventory.unit.precedingGroup(relative, legacy: group, published: $0) } ?? group
+        }
+        var rootInfo = stat()
+        guard fstatat(parent, name, &rootInfo, AT_SYMLINK_NOFOLLOW) == 0,
+              rootInfo.st_mode & S_IFMT == S_IFDIR,
+              rootInfo.st_uid == owner, rootInfo.st_gid == expectedGroup(""),
+              rootInfo.st_mode & 0o7777 == tree.nodes[""]?.mode,
+              rootInfo.st_nlink > 0 else { throw PublicTreeFailure.changed }
+        let root = openat(parent, name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard root >= 0 else { throw PublicTreeFailure.changed }
+        defer { Darwin.close(root) }
+        let openedRoot = try InstallerPayloadIO.check(root, owner: owner, directory: true)
+        guard openedRoot.st_gid == expectedGroup(""), InstallerPayloadIO.same(rootInfo, openedRoot) else {
+            throw PublicTreeFailure.changed
+        }
+        var result: [String: FastObject] = [:]
+        func scan(_ fd: Int32, _ relative: String, _ depth: Int) throws {
+            guard depth <= 64, let node = tree.nodes[relative], node.kind == "directory" else {
+                throw PublicTreeFailure.changed
+            }
+            let before = try InstallerPayloadIO.check(fd, owner: owner, directory: true)
+            try noACL(fd)
+            guard before.st_gid == expectedGroup(relative), before.st_mode & 0o7777 == node.mode,
+                  before.st_nlink > 0,
+                  try InstallerPayloadIO.contents(fd) == (tree.children[relative] ?? []) else {
+                throw PublicTreeFailure.changed
+            }
+            result[relative] = FastObject(before, rootDirectory: relative.isEmpty)
+            for child in (tree.children[relative] ?? []).sorted() {
+                let path = relative.isEmpty ? child : relative + "/" + child
+                guard let expected = tree.nodes[path] else { throw PublicTreeFailure.changed }
+                var item = stat()
+                guard fstatat(fd, child, &item, AT_SYMLINK_NOFOLLOW) == 0,
+                      item.st_uid == owner, item.st_gid == expectedGroup(path),
+                      item.st_dev == before.st_dev, item.st_mode & 0o6000 == 0 else {
+                    throw PublicTreeFailure.changed
+                }
+                var target: String?
+                switch expected.kind {
+                case "directory":
+                    guard item.st_mode & S_IFMT == S_IFDIR, item.st_mode & 0o7777 == expected.mode,
+                          item.st_nlink > 0 else { throw PublicTreeFailure.changed }
+                    let childFD = openat(fd, child, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+                    guard childFD >= 0 else { throw PublicTreeFailure.changed }
+                    do {
+                        let opened = try InstallerPayloadIO.check(childFD, owner: owner, directory: true)
+                        guard opened.st_gid == expectedGroup(path), InstallerPayloadIO.same(item, opened) else {
+                            throw PublicTreeFailure.changed
+                        }
+                        try scan(childFD, path, depth + 1)
+                    } catch { Darwin.close(childFD); throw error }
+                    Darwin.close(childFD)
+                case "file":
+                    guard item.st_mode & S_IFMT == S_IFREG, item.st_nlink == 1,
+                          item.st_mode & 0o7777 == expected.mode, item.st_size == expected.size else {
+                        throw PublicTreeFailure.changed
+                    }
+                    result[path] = FastObject(item)
+                case "symlink":
+                    guard item.st_mode & S_IFMT == S_IFLNK, item.st_nlink == 1 else { throw PublicTreeFailure.changed }
+                    var bytes = [CChar](repeating: 0, count: 4097)
+                    let count = readlinkat(fd, child, &bytes, bytes.count)
+                    guard count > 0, count <= 4096,
+                          Data(bytes.prefix(count).map { UInt8(bitPattern: $0) }) == Data(expected.target!.utf8),
+                          let value = String(bytes: bytes.prefix(count).map { UInt8(bitPattern: $0) }, encoding: .utf8) else {
+                        throw PublicTreeFailure.changed
+                    }
+                    target = value
+                    result[path] = FastObject(item, linkTarget: target)
+                default: throw PublicTreeFailure.changed
+                }
+                var after = stat()
+                guard fstatat(fd, child, &after, AT_SYMLINK_NOFOLLOW) == 0,
+                      InstallerPayloadIO.same(item, after) else { throw PublicTreeFailure.changed }
+            }
+            let after = try InstallerPayloadIO.check(fd, owner: owner, directory: true)
+            guard after.st_gid == expectedGroup(relative), InstallerPayloadIO.same(before, after) else {
+                throw PublicTreeFailure.changed
+            }
+        }
+        try scan(root, "", 0)
+        var finalPath = stat(), finalFD = stat()
+        guard fstat(root, &finalFD) == 0, fstatat(parent, name, &finalPath, AT_SYMLINK_NOFOLLOW) == 0,
+              InstallerPayloadIO.same(rootInfo, finalPath), InstallerPayloadIO.same(rootInfo, finalFD) else {
+            throw PublicTreeFailure.changed
+        }
+        try attachment.verify(parent, role: attachment.role, owner: owner,
+            group: attachment.parentGroup, mode: attachment.role.mode)
+        return result
     }
 
 }
@@ -305,6 +440,8 @@ final class PublicTreeStorage {
     private var history: [Record] = []
     private var intentRecord: Record?
     private let observationDevice: Int32?
+    private var fastSnapshots: [UInt64: [String: PublicTreeIO.FastObject]]?
+    private var fastStateEnabled = false
     // A fixed successor can qualify the original published tree in its own
     // retained slot. This mode is read-only and never chooses a filesystem path.
     private let completedProjection: (() throws -> PublicTreePin?)?
@@ -518,6 +655,7 @@ final class PublicTreeStorage {
         history.append(try write(name, data: eventData(kind, sequence: history.count)))
     }
     func state() throws -> State {
+        if fastStateEnabled { return try fastState() }
         try parents(); try journalUnchanged()
         let previous = try history.last.map { try event($0, sequence: history.count - 1) }
         func identity(_ parent: Parent, _ name: String, _ pin: PublicTreePin?) throws -> Bool {
@@ -551,6 +689,7 @@ final class PublicTreeStorage {
             guard previous != .applied,
                   try PublicTreeIO.observeOptional(target.fd, name: unit.name, inventory: old, owner: owner, group: beforeGroup, attachment: target.attachment, priorReleaseGroup: unit.runtimeUpgrade ? group : nil) == expected(operation.before),
                   try PublicTreeIO.observeOptional(retained.fd, name: unit.slot, inventory: new, owner: owner, group: group, attachment: retained.attachment) == expected(operation.after) else { throw PublicTreeFailure.changed }
+            try rememberFastSnapshots(.staged)
             try parents()
             return .staged
         }
@@ -558,8 +697,103 @@ final class PublicTreeStorage {
               try identity(target, unit.name, operation.after), try identity(retained, unit.slot, operation.before),
               try PublicTreeIO.observeOptional(target.fd, name: unit.name, inventory: new, owner: owner, group: group, attachment: target.attachment) == expected(operation.after),
               try PublicTreeIO.observeOptional(retained.fd, name: unit.slot, inventory: old, owner: owner, group: beforeGroup, attachment: retained.attachment, priorReleaseGroup: unit.runtimeUpgrade ? group : nil) == expected(operation.before) else { throw PublicTreeFailure.changed }
+        try rememberFastSnapshots(.applied)
         try parents()
         return .applied
+    }
+
+    // ComponentTransition calls this only after its service barrier has
+    // disabled the broker and confirmed both it and the owner app quiescent.
+    // The snapshot is process-local; a new helper must re-hash everything.
+    func enableQuiescedFastState() throws {
+        guard completedProjection == nil, fastSnapshots != nil, !fastStateEnabled else {
+            throw PublicTreeFailure.barrier
+        }
+        try requireQuiescent()
+        _ = try fastState()
+        fastStateEnabled = true
+    }
+
+    // Read-only completed-predecessor proofs hold maintenance leases and give
+    // every tree a barrier closure that always refuses writes. After the first
+    // content-hash pass, later proof checks can compare the metadata snapshot.
+    func enableVerifiedReadOnlyFastState() throws {
+        guard !fastStateEnabled else { throw PublicTreeFailure.barrier }
+        // A projected tree is already guarded by the typed completed-projection
+        // callback. Keep its original full verifier for this specialized path.
+        guard completedProjection == nil else { return }
+        guard fastSnapshots != nil else { throw PublicTreeFailure.barrier }
+        _ = try fastState()
+        fastStateEnabled = true
+    }
+
+    private func rememberFastSnapshots(_ state: State) throws {
+        guard fastSnapshots == nil, completedProjection == nil else { return }
+        var snapshots: [UInt64: [String: PublicTreeIO.FastObject]] = [:]
+        func remember(_ pin: PublicTreePin?, _ inventory: PublicTreeInventory,
+                      _ parent: Parent, _ name: String, _ contentGroup: gid_t, _ prior: gid_t?) throws {
+            guard let pin else { return }
+            guard let snapshot = try PublicTreeIO.fastSnapshot(parent.fd, name: name, inventory: inventory,
+                    owner: owner, group: contentGroup, attachment: parent.attachment, priorReleaseGroup: prior),
+                  snapshot[""]?.inode == pin.inode,
+                  snapshots.updateValue(snapshot, forKey: pin.inode) == nil else { throw PublicTreeFailure.changed }
+        }
+        if state == .staged {
+            try remember(operation.before, old, target, unit.name, beforeGroup,
+                         unit.runtimeUpgrade ? group : nil)
+            try remember(operation.after, new, retained, unit.slot, group, nil)
+        } else {
+            try remember(operation.after, new, target, unit.name, group, nil)
+            try remember(operation.before, old, retained, unit.slot, beforeGroup,
+                         unit.runtimeUpgrade ? group : nil)
+        }
+        fastSnapshots = snapshots
+    }
+
+    private func fastState() throws -> State {
+        guard let fastSnapshots else { throw PublicTreeFailure.barrier }
+        try parents(); try journalUnchanged()
+        func pinPresent(_ parent: Parent, _ name: String, _ pin: PublicTreePin?) throws -> Bool {
+            var info = stat(); errno = 0
+            if fstatat(parent.fd, name, &info, AT_SYMLINK_NOFOLLOW) != 0 {
+                guard errno == ENOENT else { throw PublicTreeFailure.changed }
+                return pin == nil
+            }
+            guard let pin, info.st_mode & S_IFMT == S_IFDIR,
+                  info.st_dev == (observationDevice == nil ? pin.device : target.device),
+                  UInt64(info.st_ino) == pin.inode else { return false }
+            return true
+        }
+        let targetBefore = try pinPresent(target, unit.name, operation.before)
+        let targetAfter = try pinPresent(target, unit.name, operation.after)
+        let retainedBefore = try pinPresent(retained, unit.slot, operation.before)
+        let retainedAfter = try pinPresent(retained, unit.slot, operation.after)
+        let current: State
+        if targetBefore && retainedAfter { current = .staged }
+        else if targetAfter && retainedBefore { current = .applied }
+        else { throw PublicTreeFailure.changed }
+        let previous = try history.last.map { try event($0, sequence: history.count - 1) }
+        if current == .staged {
+            guard previous != .applied else { throw PublicTreeFailure.changed }
+        } else {
+            guard previous != nil, previous != .rolledBack else { throw PublicTreeFailure.changed }
+        }
+        func compare(_ parent: Parent, _ name: String, _ inventory: PublicTreeInventory,
+                     _ pin: PublicTreePin?, _ contentGroup: gid_t, _ prior: gid_t?) throws {
+            let observed = try PublicTreeIO.fastSnapshot(parent.fd, name: name, inventory: inventory,
+                owner: owner, group: contentGroup, attachment: parent.attachment, priorReleaseGroup: prior)
+            guard observed == pin.flatMap({ fastSnapshots[$0.inode] }) else { throw PublicTreeFailure.changed }
+        }
+        if current == .staged {
+            try compare(target, unit.name, old, operation.before, beforeGroup,
+                        unit.runtimeUpgrade ? group : nil)
+            try compare(retained, unit.slot, new, operation.after, group, nil)
+        } else {
+            try compare(target, unit.name, new, operation.after, group, nil)
+            try compare(retained, unit.slot, old, operation.before, beforeGroup,
+                        unit.runtimeUpgrade ? group : nil)
+        }
+        return current
     }
 
     // The caller still has to qualify the completed global transition. This
