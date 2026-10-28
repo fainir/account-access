@@ -6,7 +6,17 @@
   "owner_ui": {
     "mailbox_connection": "checked",
     "last_mailbox_check": "passed",
-    "mailbox_messages_read": false
+    "mailbox_messages_read": false,
+    "ready_accounts": 0,
+    "service_connections": 1,
+    "supported_catalog": [
+      "Personal shopping account · Public example",
+      "Work shopping account · Public example",
+      "Membership account · Public example",
+      "Namecheap",
+      "PyPI",
+      "Read the Docs · authenticator"
+    ]
   },
   "agent_launcher": {
     "service_version": "0.6.0",
@@ -20,6 +30,7 @@
     }
   },
   "requested_insurer_targets_configured": false,
+  "harel_or_phoenix_connector_available": false,
   "chrome_password_export_import_completed": false,
   "android_15_physical_device_tested": false,
   "private_password_or_verification_code_read": false,

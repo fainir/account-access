@@ -133,6 +133,11 @@ export was imported. The task browser blocks Chrome's internal
 Chrome before that local import can be exercised. [Current owner and agent
 smoke](../artifacts/current-owner-agent-smoke-20261028.json).
 
+The installed app's current account catalog contains three public examples,
+Namecheap, PyPI and Read the Docs with authenticator support. It has no Harel or
+Phoenix connector, so those insurer login journeys cannot be tested through the
+product until reviewed connectors are added.
+
 Native owner-upgrade qualification also remains blocked on this Mac's storage:
 the system volume has about 422 MiB free, while the package qualification
 requires at least 2 GiB. One earlier owner probe reached its mixed-storage Swift
