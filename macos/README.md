@@ -27,11 +27,16 @@ reviewed corresponding-source release asset. Add these maintainer arguments to
 For both runtime inspection and final assembly, also supply
 `--pip-wheel /absolute/path/to/pip-26.2.2-py3-none-any.whl`. Its exact upstream
 SHA256 is `fd7f4dfa8190e014013b9f08f3e973f4e4c26ffd179a204895533a7254813a70`.
-The maintainer assembler refreshes the reviewed Python input's active pip and
-ensurepip seed in its private copies before signing-plan generation. It checks
-the bundled CA certificates as data and never runs pip or ensurepip. Source
-inputs remain unchanged. Unknown input profiles are refused; this is not an
-installed-runtime repair or an audit of OS or embedded native trust stores.
+Use the reviewed Python 3.12.16 Apple-silicon archive from python-build-standalone
+release `20261026` as the `--python` input:
+`cpython-3.12.16+20261026-aarch64-apple-darwin-install_only.tar.gz`,
+SHA256 `fbf4afef53c2a6b72bb741bc06d5671a9dfaf87bd84e5aa73ac9b3d0d589f14e`.
+The assembler pins the extracted Python tree and refuses any other source
+profile. It re-installs the same hash-pinned pip wheel into private copies so
+entry points target the protected runtime path, then checks the active pip,
+ensurepip seed and bundled CA certificates as data. It never runs pip or
+ensurepip. Source inputs remain unchanged. This is not an installed-runtime
+repair or an audit of OS or embedded native trust stores.
 
 Prepare the source asset with `python -m macos.bitwarden_sources --output NEW_DIRECTORY`.
 Both assets are verified and staged before runtime inspection/signing. The
@@ -46,8 +51,8 @@ download directions. The source archive is a separate release asset; it is not
 copied into the installed runtime. See [runtime/source packaging](../docs/bitwarden-packaging.md)
 for exact validation and source-scope limits. Consumer assembly fails if the
 pinned runtime or reviewed source materials are missing.
-The current 0.8 runtime candidate requires **Apple silicon (M-series)**, running
-natively. Its cryptography dependency no longer publishes Intel Mac wheels;
+The current 0.8 runtime candidate uses Python 3.12.16 and requires **Apple silicon
+(M-series)**, running natively. Its cryptography dependency no longer publishes Intel Mac wheels;
 Intel and Rosetta bootstrap sessions stop before downloads or runtime changes.
 Universal native executables alone do not establish Intel runtime support.
 See the [upstream platform change](https://cryptography.io/en/50.0.2/changelog/#v49-0-0).

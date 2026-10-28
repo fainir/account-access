@@ -7,18 +7,28 @@ password import, email/SMS/authenticator setup, and later approved sign-ins
 through the user's existing AI agent. Controlled tests cover those mechanisms;
 they do not establish personal-account or physical-phone acceptance.
 
-## Signing setup progress
+## Signing and build 103 installation result
 
-On 27 October, the local Keychain inventory confirmed one valid Developer ID
-Installer identity alongside the app-signing identity. A read-only Apple
-notarization history check using the existing `AccountAccessPublisher` Keychain
-profile succeeded. This clears the earlier missing-certificate/profile
-provisioning blocker. The history response was not tied to a known Account
-Access package hash, and no package was submitted from this checkout. The
-installed owner app remains build 92, and the latest owner-upgrade candidate
-still needs a successful predecessor check,
-signed-package assembly, notarization/stapling, and downloaded installation
-acceptance. Production readiness remains false. [Signing readiness](../artifacts/owner-signing-readiness-20261027.json)
+On 27 October, the local Keychain inventory confirmed a valid Developer ID
+Installer identity and the existing `AccountAccessPublisher` notarization
+profile. On 28 October, the build 103 system package from this checkout was
+Developer ID Installer signed, accepted by Apple's notary service, stapled and
+validated by both `stapler` and Gatekeeper. Its unsigned-package source SHA-256
+is `37fbec856da25cd719f9cae787fa86ff2badf3542fac50a2d706b0864fc3fec7`; the
+stapled delivery package SHA-256 is
+`a8623256aff321faf979b3edea7dced627177bcb3550365af221fb005c194f50`, with Apple
+submission `f1061074-e3a9-4caa-98aa-970918f7dea7`.
+
+The package is the protected **fresh-install** route. Installing it over the
+existing owner installation correctly refused during its postinstall check
+with the sanitized result `system_install_not_completed`; the existing broker
+LaunchDaemon was running, and both installed app bundles remained build 92
+(runtime Python 3.12.15). This attempt did not upgrade the owner installation.
+The separate owner-upgrade route has not passed the actual owner predecessor
+check: package 101 was refused at `predecessor`, and its diagnostic rebuild is
+unsigned and not notarized. Production readiness remains false. [Package 103
+owner-Mac result](../artifacts/fresh-install103-owner-refusal-20261028.json) ·
+[Signing readiness](../artifacts/owner-signing-readiness-20261027.json)
 
 ## Local qualification on 28 October
 

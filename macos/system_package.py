@@ -530,8 +530,9 @@ def assemble(args):
                 ]
             ).stdout
         )
+        required_python = [3, 12] if args.development else [3, 12, 16]
         if (type(found) is not list or len(found) != 3 or type(found[0]) is not list
-                or len(found[0]) != 3 or found[0][:2] != [3, 12]
+                or len(found[0]) != 3 or found[0][:len(required_python)] != required_python
                 or any(type(value) is not int or value < 0 for value in found[0])
                 or found[1] != args.architecture or found[2] is not True):
             raise ValueError("matching_standalone_python_required")

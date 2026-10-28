@@ -409,7 +409,7 @@ def test_unsigned_container_keeps_genuine_payload_and_runtime_verification(tmp_p
                 advertised.append(int(xml.find("pkg-ref").attrib["installKBytes"]) * 1024)
             Path(arguments[-1]).write_bytes(b"fictional installer container")
         if name == "python3.12":
-            return SimpleNamespace(stdout=b'[[3,12,15],"arm64",true]', stderr=b"")
+            return SimpleNamespace(stdout=b'[[3,12,16],"arm64",true]', stderr=b"")
         assert name in {"chmod", "pkgbuild", "productbuild", "python3.12"}
         return SimpleNamespace(stdout=b"", stderr=b"")
     monkeypatch.setattr(package, "command", command)
