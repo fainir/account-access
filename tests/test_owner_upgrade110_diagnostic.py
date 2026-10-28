@@ -48,8 +48,8 @@ def test_rebind_wrapper_refuses_a_mismatched_or_ambiguous_guard() -> None:
 
 def test_package_info_update_requires_the_expected_base_identity_and_timeout() -> None:
     valid = (
-        b'<pkg-info identifier="com.fainir.accountaccess.ownerupgrade109" install-location="/">'
-        b'<postinstall file="./postinstall" timeout="1800"/>'
+        b'<pkg-info identifier="com.fainir.accountaccess.ownerupgrade110" install-location="/">'
+        b'<postinstall file="./postinstall" timeout="600"/>'
     )
 
     updated = BUILDER.update_package_info(valid)
@@ -57,14 +57,13 @@ def test_package_info_update_requires_the_expected_base_identity_and_timeout() -
     assert b'identifier="com.fainir.accountaccess.ownerupgrade110"' in updated
     assert b'ownerupgrade109' not in updated
     with pytest.raises(BUILDER.BuildRefused, match="generated_package_info_mismatch"):
-        BUILDER.update_package_info(valid.replace(b"ownerupgrade109", b"ownerupgrade108"))
+        BUILDER.update_package_info(valid.replace(b"ownerupgrade110", b"ownerupgrade108"))
     with pytest.raises(BUILDER.BuildRefused, match="generated_package_info_mismatch"):
-        BUILDER.update_package_info(valid.replace(b'timeout="1800"', b'timeout="300"'))
+        BUILDER.update_package_info(valid.replace(b'timeout="600"', b'timeout="300"'))
 
 
 def test_candidate_is_bound_to_the_previously_refused_package() -> None:
     assert BUILDER.BASE_PACKAGE_SHA256 == "0528d4a545c14c92c58a8ebe03660e8d75efd7d38b67db92ccc913a5249ce2a0"
-    assert BUILDER.BASE_PACKAGE_ID == "com.fainir.accountaccess.ownerupgrade109"
     assert BUILDER.PACKAGE_ID == "com.fainir.accountaccess.ownerupgrade110"
 
 

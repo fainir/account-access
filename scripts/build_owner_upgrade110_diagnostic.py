@@ -25,7 +25,6 @@ BASE_HELPER_SHA256 = "c51b054d1fc37ada176f390e97402e175efa91aba9c3cb666e80c4ed16
 COMPILED_PINS_SHA256 = "4845f307efc3d4d8c337a407e519c757f45d048be6c9341e7481c3452dc27a30"
 TEAM_ID = "WBULD6N4NQ"
 PACKAGE_ID = "com.fainir.accountaccess.ownerupgrade110"
-BASE_PACKAGE_ID = "com.fainir.accountaccess.ownerupgrade109"
 NOTARY_PROFILE = "AccountAccessPublisher"
 MAX_SOURCE_BYTES = 2 * 1024 * 1024
 
@@ -88,11 +87,11 @@ def rebind_wrapper(wrapper: bytes, old_sha256: str, new_sha256: str) -> bytes:
 
 
 def update_package_info(package_info: bytes) -> bytes:
-    identity = f'identifier="{BASE_PACKAGE_ID}"'.encode()
-    require(package_info.count(identity) == 1 and package_info.count(b'timeout="1800"') == 1
+    identity = f'identifier="{PACKAGE_ID}"'.encode()
+    require(package_info.count(identity) == 1 and package_info.count(b'timeout="600"') == 1
             and package_info.count(b'file="./postinstall"') == 1,
             "generated_package_info_mismatch")
-    return package_info.replace(identity, f'identifier="{PACKAGE_ID}"'.encode())
+    return package_info.replace(b'timeout="600"', b'timeout="1800"')
 
 
 def validate_flat_package_listing(listing: bytes) -> None:
