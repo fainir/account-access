@@ -377,6 +377,20 @@ qualification before a new package can be treated as a release candidate.
 [Live-process evidence](../artifacts/owner101-live-witness-20261025.json) ·
 [Full Installer acceptance](../artifacts/owner-upgrade101-installer-acceptance-20261025.json).
 
+On 28 October, controller source `2349c0f` preserved the fixed predecessor
+checkpoint in the owner-facing refusal result, so a new owner-machine refusal
+can identify the failed checkpoint without exposing private helper text. The
+current-source native image, runtime and owner-upgrade checks passed; the runtime
+and owner-upgrade probes each reported 68 checks and no installed reads. The
+standard builder produced a new diagnostic candidate, then the Developer ID
+Installer signature, Apple notarization, stapling and Gatekeeper assessment all
+passed. Package SHA-256 is
+`bfcf9b5094f5dc1810ccc62d04df7c5eb0dd61c0bdbf283b97ba638c56ef5cb7`; Apple
+submission `1665e1ea-db01-4203-9eca-974b59050713` was accepted. The package is
+open in Installer for the owner-state check, but actual Installer acceptance
+has not completed. It remains uninstalled and `production_ready` is false.
+[Current package record](../artifacts/owner-upgrade102-build-20261028.json).
+
 Qualification source `d81e11f` passed 4,344 Python tests (112 skipped), dependency
 auditing and all three native jobs. The three native archives and all 53 source
 pins were independently verified, as were the current live observer's five
