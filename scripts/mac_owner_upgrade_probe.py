@@ -90,6 +90,7 @@ def main():
     pins = {name: hashlib.sha256(data).hexdigest() for name, data in raw.items()}
     for name in core:
         (sources / Path(name).name).write_bytes(raw[name])
+    (sources / "OwnerUpgradeMain.swift").write_bytes(raw["macos/OwnerUpgradeMain.swift"])
     composed = sources / "ComponentUpdate.swift"
     composed.write_bytes(b"\n".join(raw[n] for n in ("macos/ComponentUpdate.swift", *fragments)))
     dummy = sources / "DummyPins.swift"
@@ -149,7 +150,8 @@ def main():
         ],
         30,
     )
-    core_paths = [str(sources / Path(name).name) for name in core] + [str(composed)]
+    core_paths = [str(sources / Path(name).name) for name in core] + [str(composed),
+        str(sources / "OwnerUpgradeMain.swift")]
     fixture_names = [
         "OwnerUpgradeSourceChecks",
         "OwnerUpgradeNamespaceChecks",
@@ -180,6 +182,7 @@ def main():
     assert len(results) == 2 and all(r["status"] == "PASSED" for r in results)
     entry = sources / "OwnerUpgradeMain.swift"
     entry.write_bytes(raw["macos/OwnerUpgradeMain.swift"])
+    entry_core_paths = [path for path in core_paths if Path(path).name != "OwnerUpgradeMain.swift"]
     binary = output / "AccountAccess-ownerupgrade"
     command(
         "entry-compile",
@@ -187,7 +190,7 @@ def main():
             *flags,
             "-D",
             "ACCOUNT_ACCESS_OWNER_UPGRADE_MAIN",
-            *core_paths,
+            *entry_core_paths,
             str(dummy),
             str(entry),
             "-o",

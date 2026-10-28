@@ -2,8 +2,7 @@
 import Foundation
 import Darwin
 
-#if ACCOUNT_ACCESS_OWNER_UPGRADE_MAIN
-@main struct OwnerUpgradeMain {
+enum OwnerUpgradeDiagnostics {
     private static func reason(_ error: Error) -> String {
         if let diagnostic = error as? CompletedPredecessorDiagnostic { return reason(diagnostic.failure) }
         if let failure = error as? ComponentUpdateFailure { return failure.rawValue }
@@ -24,6 +23,17 @@ import Darwin
         case .unavailable: return "owner_upgrade_unavailable"
         }
     }
+
+    static func refusal(_ error: Error, checkpoint: FullImageInstallCheckpoint) -> String {
+        let category = (error as? CompletedPredecessorDiagnostic).map { "predecessor_" + $0.checkpoint.rawValue }
+            ?? checkpoint.rawValue
+        return "{\"schema\":1,\"status\":\"REFUSED\",\"reason\":\"" + reason(error)
+            + "\",\"checkpoint\":\"" + category + "\"}"
+    }
+}
+
+#if ACCOUNT_ACCESS_OWNER_UPGRADE_MAIN
+@main struct OwnerUpgradeMain {
     static func main() {
         guard getuid() == 0, geteuid() == 0, CommandLine.arguments.count == 1 else {
             print("{\"schema\":1,\"status\":\"REFUSED\",\"reason\":\"owner_upgrade_installer_context_required\"}")
@@ -47,8 +57,7 @@ import Darwin
             print("{\"schema\":1,\"status\":\"" + result + "\",\"checkpoint\":\"" + checkpoint.rawValue
                 + "\",\"gui_verified\":false,\"account_qa_verified\":false}")
         } catch {
-            print("{\"schema\":1,\"status\":\"REFUSED\",\"reason\":\"" + reason(error)
-                + "\",\"checkpoint\":\"" + checkpoint.rawValue + "\"}")
+            print(OwnerUpgradeDiagnostics.refusal(error, checkpoint: checkpoint))
             exit(78)
         }
     }

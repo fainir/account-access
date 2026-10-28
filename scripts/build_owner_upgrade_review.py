@@ -125,7 +125,7 @@ def validate_qa(shared, runtime, owner, sources):
     require(
         len(rows) == 4
         and all(r.get("status") == "PASSED" for r in rows)
-        and rows[0].get("checks") == 32
+        and rows[0].get("checks") == 68
         and rows[1].get("ordinary_context_refusals") == 2
         and rows[1].get("namespace_checks") == 26
         and rows[1].get("preparation_checks") == 21

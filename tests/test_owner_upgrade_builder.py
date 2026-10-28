@@ -186,7 +186,7 @@ def reports():
         "production_ready": False,
         "source_sha256": pins,
         "results": [
-            {"status": "PASSED", "checks": 32},
+            {"status": "PASSED", "checks": 68},
             {"status": "PASSED", "ordinary_context_refusals": 2, "namespace_checks": 26, "preparation_checks": 21},
             {"status": "PASSED", "checks": 477, "root_execution": False},
             {"status": "PASSED", "checks": 324, "owned_temp_fake_barrier_only": True},
