@@ -49,6 +49,14 @@ struct OwnerUpgradeSourceChecks {
         let fixedValue = try FullImageJSON.object(Data(fixedRefusal.utf8), maximum: 4096)
         check(fixedValue["reason"] as? String == "owner_upgrade_transition_conflict"
             && fixedValue["checkpoint"] as? String == "predecessor_worker_binding")
+        for repairCheckpoint in CompletedBrokerRepairCheckpoint.allCases {
+            let text = OwnerUpgradeDiagnostics.refusal(
+                CompletedBrokerRepairDiagnostic(checkpoint: repairCheckpoint, failure: FullImageFailure.source),
+                checkpoint: .predecessorRepairHistory)
+            let value = try FullImageJSON.object(Data(text.utf8), maximum: 4096)
+            check(value["reason"] as? String == "owner_upgrade_source_not_verified"
+                && value["checkpoint"] as? String == "predecessor_repair_history_" + repairCheckpoint.rawValue)
+        }
         let intentRefusal = OwnerUpgradeDiagnostics.refusal(
             FullImageIntentReadDiagnostic(context: .predecessorRuntime, checkpoint: .structure,
                 failure: FullImageFailure.journal), checkpoint: .predecessorIntent)

@@ -6,6 +6,7 @@ enum OwnerUpgradeDiagnostics {
     private static func reason(_ error: Error) -> String {
         if let diagnostic = error as? FullImageIntentReadDiagnostic { return reason(diagnostic.failure) }
         if let diagnostic = error as? CompletedPredecessorDiagnostic { return reason(diagnostic.failure) }
+        if let diagnostic = error as? CompletedBrokerRepairDiagnostic { return reason(diagnostic.failure) }
         if let failure = error as? ComponentUpdateFailure { return failure.rawValue }
         if let failure = error as? PublicTreeFailure {
             switch failure {
@@ -31,6 +32,8 @@ enum OwnerUpgradeDiagnostics {
             category = diagnostic.context.rawValue + "_" + diagnostic.checkpoint.rawValue
         } else if let diagnostic = error as? CompletedPredecessorDiagnostic {
             category = "predecessor_" + diagnostic.checkpoint.rawValue
+        } else if let diagnostic = error as? CompletedBrokerRepairDiagnostic {
+            category = "predecessor_repair_history_" + diagnostic.checkpoint.rawValue
         } else { category = checkpoint.rawValue }
         return "{\"schema\":1,\"status\":\"REFUSED\",\"reason\":\"" + reason(error)
             + "\",\"checkpoint\":\"" + category + "\"}"

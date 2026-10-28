@@ -82,11 +82,11 @@ EXACT_INPUTS = {
     'macos/Tests/FullImageLegacyGroupChecks.swift': '783c7166faf8844feb90dfe1c35c8a5364bb0c8328a2538ff6ab337bc5ee0992',
     'macos/Tests/FullImageNamespaceChecks.swift': '86a7cdc1063f8bcb497b0decc5dcc3025f8639f3f2c9d0de5e72945fdca7be92',
     'macos/Tests/FullImagePredecessorAuthorityChecks.swift': '34e940e3d6acc9878c57a1f96ed8cf2f805966db857dbea03e8c8c41b0fb75b4',
-    'macos/source-fragments/BrokerRepairInstalledAdapter.swift.inc': '473693e7ccb9a17c66e4a5aef85ac5740170297050ad082f31bdbe4584ecaf00',
+    'macos/source-fragments/BrokerRepairInstalledAdapter.swift.inc': '78bf44ef76b136733f2b21b53879872915582d463d1a12a1ef6a5fe2c8402dca',
     'macos/source-fragments/CompletedComponentPredecessor.swift.inc': 'bda8f8138e64f4f1bad0a05e35f63a4d05922ff19d12a1e0d8371ac8cb886be7',
     'macos/source-fragments/FullImageInstalledAdapter.swift.inc': '924b99e754e2cf04ab06327cb0c09e7d4473926b54a53f19d08673499bfd3264',
 }
-COMPOSED_SHA256 = "fa75bf628546a2bea3dc5fb35d1e4fe129ecf815be684dd26a4360cfe830bcd2"
+COMPOSED_SHA256 = "ac66c77569e50b2243fe873cb29c18328beae58cfcf2f6e26827d22c501b632f"
 GUARD_ENV = "ACCOUNT_ACCESS_FULL_IMAGE_PROBE_GUARD"
 DISPATCHER = b'''import Foundation
 import Darwin
