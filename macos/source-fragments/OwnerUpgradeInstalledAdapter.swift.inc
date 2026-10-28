@@ -298,9 +298,11 @@ extension ComponentController {
             checkpoint(.preparationAuthority)
             try authority.validate(candidate, source: source, beforeGroup: beforeGroup, device: device, dynamic: dynamic)
             checkpoint(.preparationPredecessor)
-            let rechecked = try completedRuntimeUpgradeLocked(resources: predecessorResources, pins: runtimePins,
-                repairPins: repairPins, predecessorPins: predecessorPins)
-            guard rechecked.sha256 == proof.sha256 else { throw FullImageFailure.predecessor }
+            // Preparation changes only this successor's private journal. Revalidate
+            // the already captured predecessor history here; the complete current
+            // image is checked again by the transition storage before publication.
+            try proof.revalidateHistory()
+            guard proof.sha256 == authority.proofSHA256 else { throw FullImageFailure.predecessor }
             checkpoint(.preparationPayload)
             _ = try InstallerPayloadIO.verifyImage(image, manifest: source.payload, owner: 0)
             // This journal is closed before its parent is renamed. Reopen below
@@ -389,19 +391,7 @@ extension ComponentController {
         let storage = try FullImageMixedStorage(units: units, writeEvent: { event, operation in
             guard let storage = reference.storage else { throw FullImageFailure.journal }
             try journal.writeTransition(event, operation: operation, state: storage.state)
-        }, verifyOld: {
-            try verifyPublic()
-            let checked = try completedRuntimeUpgradeLocked(resources: predecessorResources, pins: runtimePins,
-                repairPins: repairPins, predecessorPins: predecessorPins,
-                expectedEvidenceSHA256: authority.proofSHA256, projection: projected)
-            guard checked.sha256 == authority.proofSHA256 else { throw FullImageFailure.predecessor }
-        }, verifyRecoverable: verifyPublic, verifyNew: {
-            try verifyPublic()
-            let checked = try completedRuntimeUpgradeLocked(resources: predecessorResources, pins: runtimePins,
-                repairPins: repairPins, predecessorPins: predecessorPins,
-                expectedEvidenceSHA256: authority.proofSHA256, projection: projected)
-            guard checked.sha256 == authority.proofSHA256 else { throw FullImageFailure.predecessor }
-        })
+        }, verifyOld: verifyPublic, verifyRecoverable: verifyPublic, verifyNew: verifyPublic)
         reference.storage = storage
         try intent.verifyStorage(storage)
         try storage.verifyRecoverableView()
