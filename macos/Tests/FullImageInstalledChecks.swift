@@ -250,7 +250,9 @@ private enum InstalledFixtureFailure: Error { case failed }
             let fullImageCheckpoints = FullImageInstallCheckpoint.allCases.map(\.rawValue)
             try expect(Set(fullImageCheckpoints).count == fullImageCheckpoints.count)
             try expect(["predecessor_runtime_source", "predecessor_repair_source", "predecessor_namespace",
-                        "predecessor_intent", "predecessor_repair_history", "predecessor_authority",
+                        "predecessor_intent", "predecessor_repair_history", "predecessor_repair_route",
+                        "predecessor_repair_intent", "predecessor_repair_evidence",
+                        "predecessor_component_revalidation", "predecessor_repair_stability", "predecessor_authority",
                         "predecessor_policy", "predecessor_storage", "predecessor_view",
                         "predecessor_evidence"].allSatisfy { fullImageCheckpoints.contains($0) })
             for category in progressCases {

@@ -119,17 +119,22 @@ extension ComponentController {
         // transition before translating its saved device number. The receipt
         // binds unchanged support/application roots to their persistent volume
         // UUID; this operation only reads the protected predecessor history.
+        checkpoint(.predecessorRepairRoute)
         let repairRoutes = try BrokerRepairRoutes(plan: repairPins.planSHA256,
             predecessorPlan: repairPins.predecessorPlanSHA256)
         let repairTransition = try repairRoutes.transition()
+        checkpoint(.predecessorRepairIntent)
         let repairIntentBytes = try ComponentFiles.read(repairTransition.fd, "intent.json", owner: 0, mode: 0o600).0
         let repairIntent = try BrokerRepairIntent.decode(repairIntentBytes)
+        checkpoint(.predecessorRepairEvidence)
         let proofFields = try FullImageJSON.object(proof.evidence, maximum: 8192)
         guard proofFields["intent_sha256"] as? String == FullImageJSON.hash(repairIntentBytes) else {
             throw FullImageFailure.predecessor
         }
+        checkpoint(.predecessorComponentRevalidation)
         _ = try repairComponentDevice(resources: previous, pins: predecessorPins,
             intent: repairIntent, routes: repairRoutes)
+        checkpoint(.predecessorRepairStability)
         try repairRoutes.verify()
         checkpoint(.predecessorAuthority)
         let authority = try RuntimeUpgradeAuthority.bind(source: source, proof: proof)

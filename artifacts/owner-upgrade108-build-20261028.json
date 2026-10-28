@@ -1,5 +1,11 @@
 {
   "base_package_sha256": "cc90db7297051b324f87c3f4f11e06a3710626bda02c9d886bb6193890c5933d",
+  "failure": {
+    "checkpoint": "predecessor_repair_history",
+    "evidence": "Installer postinstall fixed-label refusal after macOS authorization",
+    "package_state": "No package receipt; scripts-only postinstall refused before the successor update",
+    "reason": "owner_upgrade_source_not_verified"
+  },
   "gatekeeper_assessment": "/Users/nirfeinstein/.codex/worktrees/upgrade-continuation/login soltion/dist/owner-upgrade108-review-20261028/Account-Access-Owner-Upgrade-108.pkg: accepted\nsource=Notarized Developer ID",
   "helper_sha256": "4097204ef26cff91619a80bc57eedeb7a596a33521e0159b543c6b8e0c4e8233",
   "installer_execution": "AWAITING_MACOS_AUTHORIZATION",
@@ -9,8 +15,13 @@
   "owner_mac_observation": {
     "installer_window_opened": true,
     "package_receipt_found": false,
-    "security_agent_process_present": true,
-    "status": "AWAITING_OWNER_MACOS_AUTHORIZATION"
+    "status": "FAILED"
+  },
+  "owner_qa": {
+    "installed_build_verification": "NOT_RUN",
+    "installer_execution": "FAILED",
+    "installer_receipt": "NOT_FOUND",
+    "service_and_agent_smoke": "NOT_RUN"
   },
   "package_build": 108,
   "package_bytes": 13804718,
@@ -77,5 +88,5 @@
     "macos/source-fragments/RuntimeUpgradeInstalledAdapter.swift.inc": "27b0f5e11578d9d38d9ff52a4a79f8775b48c941e9b140850c99429fbd40e6b7"
   },
   "stapler_validation": "PASSED",
-  "status": "NOTARIZED_STAPLED_PENDING_OWNER_INSTALL"
+  "status": "NOTARIZED_STAPLED_INSTALL_FAILED"
 }

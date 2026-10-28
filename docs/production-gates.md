@@ -37,14 +37,30 @@ receipt was created and the installed app did not change. Build 108 now uses
 with `xar`, `pkgutil`, and Installer's read-only package parser before signing.
 [Build 107 failure and QA record](../artifacts/owner-upgrade107-build-20261028.json).
 
-The corrected build 108 package uses Apple's `pkgbuild` scripts archive and is
-from source commit `6acfea31f2ea153caeea5dbb5f5e7bcc7e020d9b`. It is Developer
-ID Installer signed, notarized and stapled; Gatekeeper and Installer's package
-parser both accept it. Its SHA-256 is
-`2a594c56fc711663ba13c4c7ee2a77d76f8acaf750f9b4bb318e12fef9e7a3c5`.
-Installer is waiting for owner macOS authorization; no build 108 receipt exists
-yet. Its five package-format regression tests and the native qualification
-passed. [Build 108 evidence and current install state](../artifacts/owner-upgrade108-build-20261028.json).
+The corrected build 108 package uses Apple's `pkgbuild` scripts archive. Its
+package-format checks passed, but after macOS authorization its protected
+postinstall refused with `owner_upgrade_source_not_verified` at
+`predecessor_repair_history`; no package receipt was written. Build 109
+recompiled the helper with finer fixed-label checkpoints and again passed
+package signature, notarization, stapling, Gatekeeper and Installer parser
+checks. The owner-authorized installation still refused with the same outer
+reason and checkpoint, before writing a receipt. The 109 diagnostic did not
+identify the field-level history mismatch, so the exact installed predecessor
+object remains unqualified. Build 109 reused the same pinned build-106 package
+base that had already failed owner-state validation; changing diagnostic labels
+did not repair that predecessor relationship. [Build 108 failure](../artifacts/owner-upgrade108-build-20261028.json) ·
+[Build 109 evidence](../artifacts/owner-upgrade109-build-20261028.json).
+
+The authoritative local launcher still reports version 0.6.0 in
+`controlled-demo` mode with three synthetic accounts. The installed owner app
+reports version 0.8.0, build 92. These facts confirm that signing and package
+parsing are not the release blocker: the live agent/account service is still a
+demo, the owner-state predecessor history rejects the update, and the real
+account, insurer and physical-phone acceptance below remains incomplete.
+
+Next package work must first report the exact fixed predecessor-history
+sub-checkpoint against the installed state and qualify an upgrade path from
+that state. Repacking the same build-106 base is not an acceptable retry.
 
 The requested local account-flow and package regression tests passed (105
 tests); the complete Python suite was stopped after 558 passed and one skipped

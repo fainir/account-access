@@ -92,7 +92,12 @@ def main():
     historical_steps = (
         "historicalObservation: true",
         "let proof = try completedBrokerRepairLocked(",
+        "checkpoint(.predecessorRepairRoute)",
+        "checkpoint(.predecessorRepairIntent)",
+        "checkpoint(.predecessorRepairEvidence)",
+        "checkpoint(.predecessorComponentRevalidation)",
         "repairComponentDevice(resources: previous, pins: predecessorPins",
+        "checkpoint(.predecessorRepairStability)",
         "createIfMissing: false, observationDevice: observationDevice",
     )
     positions = [completed_runtime.index(step) for step in historical_steps]
