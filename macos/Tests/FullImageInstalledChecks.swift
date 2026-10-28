@@ -287,7 +287,11 @@ private enum InstalledFixtureFailure: Error { case failed }
                         "predecessor_view_journal", "predecessor_view_original_receipt",
                         "predecessor_view_repair_proof", "predecessor_view_before", "predecessor_view_states",
                         "predecessor_view_layout", "predecessor_view_projection", "predecessor_view_after",
-                        "predecessor_evidence"].allSatisfy { fullImageCheckpoints.contains($0) })
+                        "predecessor_final_tree_history_read", "predecessor_final_tree_history_compare",
+                        "predecessor_final_tree_history_verified", "predecessor_final_head_read",
+                        "predecessor_final_head_compare", "predecessor_final_head_verified",
+                        "predecessor_final_roots_read", "predecessor_final_roots_compare",
+                        "predecessor_final_roots_verified", "predecessor_evidence"].allSatisfy { fullImageCheckpoints.contains($0) })
             for category in progressCases {
                 for elapsed in [0.0, 1800.9, 86400.0] {
                     let text = BrokerRepairProgress.encoded(category, elapsed: elapsed)!

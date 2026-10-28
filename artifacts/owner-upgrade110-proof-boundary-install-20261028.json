@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "build": 110,
+  "source_commit": "d09d1aae656a2d44637065d933f759b348e50844",
+  "package": {
+    "path": "dist/owner-upgrade110-proof-boundary-signed-20261028/Account-Access-Owner-Upgrade-110.pkg",
+    "sha256": "cb27ccbd49bb195e824063fe228ad27960d6dd06d39e6232f46138656a111bb6",
+    "bytes": 309853021,
+    "signature": "PASSED",
+    "notarization": "Accepted",
+    "notary_submission_id": "84f20c97-6ed0-4ba9-a80f-6eb6af30f593",
+    "stapler_validation": "PASSED",
+    "gatekeeper": "accepted",
+    "installer_parser": "PASSED"
+  },
+  "qa": {
+    "shared_installed_source": {"status": "PASSED", "checks": 595},
+    "runtime_upgrade": {"status": "PASSED", "checks": 69},
+    "owner_upgrade": {
+      "status": "PASSED",
+      "owner_checks": 79,
+      "preparation_checks": 21,
+      "tree_checks": 477,
+      "mixed_storage_checks": 324
+    }
+  },
+  "owner_mac_install": {
+    "macos_authorization": "granted",
+    "package_script_started": "2026-10-28T17:32:49+02:00",
+    "package_script_finished": "2026-10-28T17:45:31+02:00",
+    "status": "REFUSED",
+    "reason": "owner_upgrade_predecessor_not_verified",
+    "checkpoint": "predecessor_view_repair_proof_compare",
+    "packagekit_error_code": 112,
+    "receipt_created": false,
+    "installed_update_completed": false,
+    "diagnostic_note": "The checkpoint immediately precedes the final compound stability guard; tree-history evidence, journal head, and mounted-volume identity were not distinguished yet."
+  },
+  "production_ready": false,
+  "open_gates": ["owner_mac_installer", "agent_service_smoke", "real_account_acceptance"]
+}

@@ -254,9 +254,21 @@ extension ComponentController {
         ] as [String: Any])
         if let expectedEvidenceSHA256 { guard FullImageJSON.hash(evidence) == expectedEvidenceSHA256 else { throw FullImageFailure.predecessor } }
         try completeView()
-        guard try trees.map({ FullImageJSON.hash(try $0.completedEvidence()) }) == localHistory,
-              try ComponentFiles.read(namespace.fd, "head.json", owner: 0, mode: 0o644).1 == head.1,
-              try InstallationRootBinding.capture(withVolumeUUID: true) == roots else { throw FullImageFailure.predecessor }
+        checkpoint(.predecessorFinalTreeHistoryRead)
+        let finalTreeHistory = try trees.map { FullImageJSON.hash(try $0.completedEvidence()) }
+        checkpoint(.predecessorFinalTreeHistoryCompare)
+        guard finalTreeHistory == localHistory else { throw FullImageFailure.predecessor }
+        checkpoint(.predecessorFinalTreeHistoryVerified)
+        checkpoint(.predecessorFinalHeadRead)
+        let finalHead = try ComponentFiles.read(namespace.fd, "head.json", owner: 0, mode: 0o644).1
+        checkpoint(.predecessorFinalHeadCompare)
+        guard finalHead == head.1 else { throw FullImageFailure.predecessor }
+        checkpoint(.predecessorFinalHeadVerified)
+        checkpoint(.predecessorFinalRootsRead)
+        let finalRoots = try InstallationRootBinding.capture(withVolumeUUID: true)
+        checkpoint(.predecessorFinalRootsCompare)
+        guard finalRoots == roots else { throw FullImageFailure.predecessor }
+        checkpoint(.predecessorFinalRootsVerified)
         let heldOriginal = try RuntimeVerificationDescriptor(original), heldPrevious = try RuntimeVerificationDescriptor(previous)
         return CompletedRuntimeUpgradeProof(evidence: evidence, ownerUID: ownerUID, brokerUID: authority.brokerUID,
             worker: worker.1, service: service, historyCheck: {

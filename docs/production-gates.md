@@ -113,6 +113,20 @@ predecessor checks or establish production readiness. The install and real
 account/device gates remain open.
 [Build 110 failure evidence](../artifacts/owner-upgrade110-build-20261028.json).
 
+The signed and notarized build-110 proof-boundary package from source
+`d09d1aae656a2d44637065d933f759b348e50844` passed shared-source, runtime and
+owner QA (595 shared checks, 69 runtime checks, 79 owner checks, 477 tree
+checks and 324 mixed-storage checks). Apple accepted and stapled it; Gatekeeper
+and Installer's parser accepted it. After macOS authorization, the owner Mac
+ran its postinstall for 12 minutes 42 seconds and refused with
+`owner_upgrade_predecessor_not_verified` at
+`predecessor_view_repair_proof_compare`. PackageKit created no receipt. That
+checkpoint is the last report before a compound final-stability guard, so it
+does not identify which guard failed. The next diagnostic splits the final
+tree-history, journal-head and mounted-volume comparisons into separate
+read/compare checkpoints without relaxing them. [Build 110 proof-boundary
+install evidence](../artifacts/owner-upgrade110-proof-boundary-install-20261028.json).
+
 The first full Python run completed with 4,503 passed, 4 skipped, and 2 failed.
 One failure was a stale native-image fixture expectation; it is corrected and
 covered by a regression assertion. The other was a browser-review cancellation
