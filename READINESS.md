@@ -61,6 +61,6 @@ No current third-party wait is confirmed. Build 110 notarization completed; its 
 - 2026-10-28 - Agent setup, permission guard and managed-client source QA passed 156 tests; installed synthetic browser smoke remains unresolved.
 - 2026-10-28 - Email, SMS and authenticator setup/import source QA passed 138 tests; owner-device and private-provider acceptance remain open.
 - 2026-10-28 - Password import source QA passed 63 tests; no private Chrome export was used.
-- 2026-10-28 - Full-suite attempt hit one 15-second launcher timeout under Installer CPU load; the exact case passed alone, and the full run remains incomplete.
+- 2026-10-28 - The earlier suite timeout passed alone; today's resumed suite reached 730 passed/1 skipped but two browser-session waits exceeded 15 seconds during build 112 installation, so I stopped it at 15% and will rerun both exact cases after the helper finishes.
 - 2026-10-28 - Build 112 retains one projected predecessor proof and removes repeated full-proof rebuilds at transition boundaries; optimized helper compile and ordinary-user refusal passed, but fixture and owner-Mac install remain unverified.
 - 2026-10-28 - Build 112 passed Apple signing, notarization, stapling, Gatekeeper, Installer parsing and payload checks; owner-Mac installation is the next action.
