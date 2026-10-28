@@ -92,13 +92,14 @@ def rebind_wrapper(wrapper: bytes, old_sha256: str, new_sha256: str) -> bytes:
 
 def update_package_info(package_info: bytes) -> bytes:
     identity = f'identifier="{PACKAGE_ID}"'.encode()
-    base_identity = f'identifier="{BASE_PACKAGE_ID}"'.encode()
-    require(package_info.count(base_identity) == 1 and package_info.count(b'timeout="1800"') == 1
+    generated_timeout = b'timeout="600"'
+    require(package_info.count(identity) == 1 and package_info.count(generated_timeout) == 1
             and package_info.count(b'file="./postinstall"') == 1,
             "generated_package_info_mismatch")
-    result = package_info.replace(base_identity, identity)
-    require(result.count(identity) == 1 and base_identity not in result,
-            "package_identity_rebinding_invalid")
+    result = package_info.replace(generated_timeout, b'timeout="1800"')
+    require(result.count(identity) == 1
+            and result.count(b'timeout="1800"') == 1 and generated_timeout not in result,
+            "package_info_timeout_rebinding_invalid")
     return result
 
 
