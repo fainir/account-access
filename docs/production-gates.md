@@ -25,9 +25,10 @@ with the sanitized result `system_install_not_completed`; the existing broker
 LaunchDaemon was running, and both installed app bundles remained build 92
 (runtime Python 3.12.15). This attempt did not upgrade the owner installation.
 The separate owner-upgrade route has not passed the actual owner predecessor
-check: package 101 was refused at `predecessor`, and its diagnostic rebuild is
-unsigned and not notarized. Production readiness remains false. [Package 103
-owner-Mac result](../artifacts/fresh-install103-owner-refusal-20261028.json) ·
+check: package 101 was refused at `predecessor`. Diagnostic package 102 is now
+Developer ID Installer signed, notarized, stapled and Gatekeeper accepted, but
+the owner-Mac installation has not completed and no package receipt exists.
+Production readiness remains false. [Package 103 owner-Mac result](../artifacts/fresh-install103-owner-refusal-20261028.json) ·
 [Signing readiness](../artifacts/owner-signing-readiness-20261027.json)
 
 ## Local qualification on 28 October
@@ -428,7 +429,7 @@ qualify the owner Mac's connection.
 | Harel and Phoenix | Public login-page investigation; narrow identity/phone session-status machinery | Reviewed connectors for each complete flow, private local enrollment, verified sender/template and authenticated marker. Neither insurer is currently supported end to end |
 | Lemon Squeezy authenticator | TOTP and supported QR/transfer-batch fixtures; official provider setup documentation reviewed | Reviewed provider login flow, local owner enrollment of the existing account and completed real TOTP login |
 | Agent continuation | Installed portable CLI/skill, durable approved-operation tasks, synthetic authentication recovery, session reuse and revocation checks | Real-account task continuation, session reuse, expiry, password change, source revocation and restart without restoring revoked access |
-| Consumer distribution | Developer ID signed native components; offline package and provenance checks | Developer ID Installer signing, Apple notarization/stapling, downloaded clean-Mac qualification and production Android distribution |
+| Consumer distribution | Build 103 fresh-install package and diagnostic package 102 are Developer ID Installer signed and notarized; offline package and provenance checks | Successful clean downloaded-Mac installation, qualified owner upgrade, and production Android distribution |
 
 The installed skill starts with permitted-account discovery. It can submit
 supported operations as durable tasks and resume them after owner authentication.
