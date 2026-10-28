@@ -38,10 +38,33 @@
   "owner_qa": {
     "native_upgrade_probe": "PASSED",
     "native_upgrade_probe_sha256": "bc0dd57e4f914ec9619ea60d9c8f8d927ce6f94160ecdd9c2d12aaeadd1e4d66",
-    "installer_execution": "PENDING",
+    "installer_ui_opened": true,
+    "installer_execution": "PENDING_OWNER_ACTION",
+    "installer_receipt": "NOT_FOUND",
     "installed_build_verification": "PENDING",
     "service_and_agent_smoke": "PENDING",
     "rollback_and_recovery": "PENDING"
+  },
+  "automated_qa": {
+    "source_commit": "b323226a5ced9941d80c0324bc723e719283f6e4",
+    "owner_upgrade_builder_tests": "2_PASSED",
+    "focused_auth_flow_tests": {
+      "status": "PASSED",
+      "passed": 146,
+      "scope": [
+        "agent_setup",
+        "browser_setup",
+        "chrome_password_import",
+        "email_codes",
+        "sms_setup",
+        "authenticator_factors",
+        "verification_journey",
+        "code_handling"
+      ],
+      "fixtures": "controlled"
+    },
+    "hosted_full_suite": "IN_PROGRESS",
+    "hosted_native_mac_jobs": "QUEUED"
   },
   "feature_acceptance": {
     "chrome_password_import": "PENDING_OWNER_CHROME_EXPORT",

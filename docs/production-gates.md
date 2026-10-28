@@ -23,8 +23,13 @@ The delivery package SHA-256 is
 `900f9053f1eb5d256870c9a55eb5d60b598c1043b404e812912a4bb38d25b425` (Apple
 submission `60a82655-c874-4be3-8635-0c4a57ed7be1`). The native owner-upgrade
 qualification probe now passes after freeing disk space. Installer owner-Mac
-qualification has not yet been run, so this remains a release candidate, not a
-production release. [Build 104 system-package record](../artifacts/owner-timeout104-system-package-20261028.json) ·
+opened the package, but no receipt exists and installation has not been
+confirmed; this remains a release candidate, not a production release. Two
+focused owner-package tests and 146 controlled-flow tests for agent setup,
+Chrome import, email, SMS, authenticator factors and verification pass. The
+hosted full suite and native Mac jobs are still in progress or queued. These
+fixture tests do not count as personal-account acceptance.
+[Build 104 system-package record](../artifacts/owner-timeout104-system-package-20261028.json) ·
 [Build 104 app signing and notarization record](../artifacts/owner-timeout104-notarization-20261028.json) ·
 [Build 104 successor delta](../artifacts/owner-timeout104-successor-delta-20261028.json).
 
