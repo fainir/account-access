@@ -25,19 +25,23 @@ allowed device-only change and reject mismatched inode, content hash, recorded
 device, or current device. The updated source now passes runtime-source
 qualification, final native owner-upgrade qualification (69 owner/runtime
 checks, 477 tree checks, and 324 mixed-storage checks), and shared installed-
-source qualification. The replacement build 107 package is from source commit
+source qualification. The first replacement build 107 package is from source commit
 `9a99641b84cb25b58756c79463f87e2fc452f4bb`, Developer ID Installer signed,
 accepted by Apple's notary service, stapled, and Gatekeeper accepted. Its SHA-256
 is `219ff44e97891ae5a541dae2911430eadea4c4101f878f698713e029a0b94dba`.
-Installer opened it on the owner Mac and reached the native authorization
-stage, but no package receipt is present yet. This is not an install success;
-the user must finish macOS authorization and the installed service still needs
-a smoke check. The requested local account-flow and package regression tests
-passed (105 tests); the complete Python suite was stopped after 558 passed and
-one skipped at 11%, so it is recorded as incomplete. The native upgrade
-qualification separately passed 69 runtime/owner checks, 477 tree checks and
-324 mixed-storage checks without touching the installed app.
-[Build 107 package and current owner-Mac state](../artifacts/owner-upgrade107-build-20261028.json).
+The owner approved it, but PackageKit failed extraction with error 110 and
+underlying POSIX `EISDIR` for the `Scripts` entry. The package had stored that
+entry as a directory, which `pkgutil` expansion did not catch. No package
+receipt was created and the installed app did not change. Build 108 now uses
+`pkgbuild` to archive the scripts component and checks the resulting package
+with `xar`, `pkgutil`, and Installer's read-only package parser before signing.
+[Build 107 failure and QA record](../artifacts/owner-upgrade107-build-20261028.json).
+
+The requested local account-flow and package regression tests passed (105
+tests); the complete Python suite was stopped after 558 passed and one skipped
+at 11%, so it is recorded as incomplete. The native upgrade qualification
+separately passed 69 runtime/owner checks, 477 tree checks and 324 mixed-storage
+checks without touching the installed app.
 Production readiness remains false.
 
 Even after a successful install, acceptance also requires the owner's real

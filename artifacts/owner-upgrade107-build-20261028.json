@@ -1,15 +1,24 @@
 {
   "base_package_sha256": "cc90db7297051b324f87c3f4f11e06a3710626bda02c9d886bb6193890c5933d",
+  "failure_diagnosis": {
+    "evidence": "Installer log: PKInstallErrorDomain Code 110; underlying POSIX Code 21 for Scripts.",
+    "receipt_created": false,
+    "root_cause": "The repacked flat package stored Scripts as a directory instead of a packaged scripts archive."
+  },
   "gatekeeper_assessment": "accepted, source=Notarized Developer ID",
   "helper_sha256": "01c4b1898bb1118d64cc6f15ea3b27d67dca7be23f48baa7f1eed2fce1d866a5",
-  "installer_execution": "AWAITING_MACOS_AUTHORIZATION",
+  "installer_execution": "FAILED_EXTRACTION",
   "notary_status": "Accepted",
   "notary_submission_id": "13dd793e-3141-4608-acb7-5c5024a42d60",
   "owner_mac_observation": {
+    "authorization_granted": true,
+    "failing_package_entry": "Scripts",
+    "installer_error_code": 110,
     "installer_window_opened": true,
     "package_receipt_found": false,
-    "security_agent_process_present": true,
-    "status": "AWAITING_OWNER_MACOS_AUTHORIZATION"
+    "status": "FAILED",
+    "underlying_posix_error_code": 21,
+    "underlying_reason": "Is a directory"
   },
   "package_build": 107,
   "package_bytes": 49014082,
@@ -87,5 +96,5 @@
     "macos/source-fragments/RuntimeUpgradeInstalledAdapter.swift.inc": "27b0f5e11578d9d38d9ff52a4a79f8775b48c941e9b140850c99429fbd40e6b7"
   },
   "stapler_validation": "PASSED",
-  "status": "NOTARIZED_STAPLED_PENDING_OWNER_INSTALL"
+  "status": "INSTALL_FAILED"
 }
