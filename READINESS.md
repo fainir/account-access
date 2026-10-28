@@ -16,12 +16,12 @@ Statuses: todo | building (who) | verified | owner | waiting | cut (reason)
 
 | ID | Flow (user words) | Surfaces | Status | Evidence | Verified on |
 |---|---|---|---|---|---|
-| F1 | Install or update Account Access and see a usable app after restart | macOS Installer, app, protected service | building (Codex) | [previous build 110 refusal](artifacts/owner-upgrade110-proof-boundary-install-20261028.json); [current signed package](artifacts/owner-upgrade110-final-stability-build-20261028.json), postinstall running | 2026-10-28 |
+| F1 | Install or update Account Access and see a usable app after restart | macOS Installer, app, protected service | building (Codex) | [installer log and QA](qa/owner-upgrade110-install-2026-10-28.log); [previous refusal](artifacts/owner-upgrade110-proof-boundary-install-20261028.json) | 2026-10-28 |
 | F2 | Import selected Chrome passwords and approve only the accounts I choose | Chrome, macOS app, vault | todo | [import flow docs](docs/password-import.md) | |
 | F3 | Connect email and receive a fresh login code for a supported account | macOS app, Gmail / IMAP, connector | todo | [production gates](docs/production-gates.md) | |
 | F4 | Pair my Android phone and receive an approved SMS login code | macOS app, Android 15+, supported connector | owner | Physical Android pairing and real SMS acceptance remain; [Android setup](android/README.md) | |
 | F5 | Enroll an authenticator and finish a supported TOTP login | macOS app, supported website | owner | Real Lemon Squeezy enrollment and login have not been verified; [MFA guide](docs/gmail-authenticator-and-sms.md) | |
-| F6 | Ask my existing AI agent to do an approved operation through Account Access | Codex / Claude Code, local launcher, connector | building (Codex) | [agent smoke](qa/owner-agent-smoke-2026-10-28.json): synthetic read returned `browser_execution_failed` twice | 2026-10-28 |
+| F6 | Ask my existing AI agent to do an approved operation through Account Access | Codex / Claude Code, local launcher, connector | building (Codex) | [agent smoke log](qa/owner-agent-smoke-2026-10-28.log): synthetic read returned `browser_execution_failed` twice | 2026-10-28 |
 | F7 | Refused, expired or ambiguous verification is explained and cannot leak a code | macOS app, agent, local service | verified | MFA suite and refusal tests recorded in [production gates](docs/production-gates.md) | 2026-10-28 |
 | F8 | Review, change, export or delete saved account data safely | macOS app, encrypted local store | todo | [security and sync](docs/security-and-password-sync.md) | |
 
