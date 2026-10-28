@@ -25,9 +25,16 @@
   "owner_mac_observation": {
     "installer_window_opened": true,
     "macos_authorization_requested": true,
+    "postinstall_started": true,
     "package_receipt_found": false,
-    "postinstall_started": false,
-    "status": "WAITING_FOR_OWNER_AUTHORIZATION"
+    "status": "INSTALLATION_FAILED_AFTER_OWNER_AUTHORIZATION"
+  },
+  "installer_failure": {
+    "packagekit_error": 112,
+    "helper_status": "REFUSED",
+    "reason": "owner_upgrade_source_not_verified",
+    "checkpoint": "predecessor_component_revalidation",
+    "evidence": "Installer Log fixed-label helper output after native owner authorization"
   },
   "package_build": 110,
   "package_path": "../dist/owner-upgrade110-diagnostic-20261028b/Account-Access-Owner-Upgrade-110.pkg",
@@ -38,8 +45,12 @@
   },
   "product_build": 110,
   "production_gates_open": [
-    "owner_state_predecessor_history_qualification",
+    "owner_upgrade_predecessor_payload_packaging",
     "installed_agent_service_smoke",
+    "chrome_password_import_acceptance",
+    "email_login_code_acceptance",
+    "sms_pairing_and_login_acceptance",
+    "authenticator_login_acceptance",
     "real_account_acceptance",
     "physical_android_15_sms_acceptance",
     "harel_connector",
@@ -49,5 +60,5 @@
   "production_ready": false,
   "schema": 1,
   "source_commit": "92857dfa33bddfa191dd87c079022dd86aaa4a2c",
-  "status": "NOTARIZED_STAPLED_WAITING_FOR_OWNER_AUTHORIZATION"
+  "status": "INSTALLER_POSTINSTALL_REFUSED"
 }

@@ -173,14 +173,34 @@ def public_image(rows, manifest):
 
 
 def proof_inventory(rows):
-    """The completed-state verifier consumes records, not ancestor payloads."""
-    omitted = ("TargetImage", "Predecessor/CompletedImage")
+    """Project the predecessor while retaining the bytes its verifier reads."""
+    omitted = ("TargetImage",)
     require(rows.get("") == {"kind": "directory", "mode": 0o700, "acl": "empty"})
     require(
         all(
             rows.get(name, {}).get("kind") == "directory" and rows[name]["mode"] == 0o755
             for name in omitted
         )
+    )
+    completed = "Predecessor/CompletedImage"
+    required_directories = (completed, completed + "/Predecessor", completed + "/TargetImage")
+    required_files = (
+        *(completed + "/" + name for name in (
+            "FullImagePlan.json", "BaseManifest.json", "TargetManifest.json",
+            "BaseIdentity.json", "TargetIdentity.json", "ProviderManifest.json",
+            "RuntimeCAReceipt.json", "AccountAccess-fullimageupdate", "postinstall",
+        )),
+        *(completed + "/Predecessor/" + name for name in (
+            "ComponentPlan.json", "BaseManifest.json", "TargetManifest.json",
+            "BaseIdentity.json", "AccountAccess-componentupdate", "postinstall",
+        )),
+    )
+    require(
+        all(rows.get(name, {}).get("kind") == "directory" and rows[name].get("mode") == 0o755
+            for name in required_directories)
+        and all(rows.get(name, {}).get("kind") == "file" for name in required_files)
+        and any(name.startswith(completed + "/TargetImage/") and node.get("kind") == "file"
+                for name, node in rows.items()),
     )
     result = {
         name: node
@@ -202,15 +222,19 @@ def proof_extract_command(archive, output):
         str(archive),
         "-C",
         str(output),
-        "--exclude=TargetImage/*",
-        "--exclude=./TargetImage/*",
-        "--exclude=Predecessor/CompletedImage/*",
-        "--exclude=./Predecessor/CompletedImage/*",
-        "--exclude=._TargetImage",
-        "--exclude=./._TargetImage",
-        "--exclude=Predecessor/._CompletedImage",
-        "--exclude=./Predecessor/._CompletedImage",
     ]
+
+
+def discard_target_image_payload(root):
+    """Remove only the exact top-level unchanged image after safe extraction."""
+    target = root / "TargetImage"
+    if os.path.lexists(target):
+        require(target.is_dir() and not target.is_symlink())
+        shutil.rmtree(target)
+    metadata = root / "._TargetImage"
+    if os.path.lexists(metadata):
+        require(metadata.is_file() and not metadata.is_symlink())
+        metadata.unlink()
 
 
 def build(args):
@@ -323,11 +347,15 @@ def build(args):
     previous_scripts = expanded / "Scripts"
     previous_scripts.mkdir(mode=expected_proof[""]["mode"])
     command("extract-previous-proof", proof_extract_command(archive / "Scripts", previous_scripts))
-    for relative in ("TargetImage", "Predecessor/CompletedImage"):
-        path = previous_scripts / relative
-        if not os.path.lexists(path):
-            path.mkdir(mode=0o755)
-        require(path.is_dir() and not path.is_symlink())
+    discard_target_image_payload(previous_scripts)
+    path = previous_scripts / "TargetImage"
+    if not os.path.lexists(path):
+        path.mkdir(mode=0o755)
+    require(path.is_dir() and not path.is_symlink())
+    completed = previous_scripts / "Predecessor/CompletedImage"
+    require(completed.is_dir() and not completed.is_symlink())
+    require((completed / "Predecessor/ComponentPlan.json").is_file())
+    require(any(item.is_file() for item in (completed / "TargetImage").rglob("*")))
     require(inventory(previous_scripts) == expected_proof)
     require(sha(previous_scripts / "TargetManifest.json") == BEFORE)
     shutil.rmtree(archive)
@@ -554,10 +582,11 @@ def build(args):
         "compiled_pins_sha256": sha(compiled),
         "payload_manifest_sha256": hashlib.sha256(payload_raw).hexdigest(),
         "predecessor_proof_inventory_sha256": hashlib.sha256(encoded(expected_proof)).hexdigest(),
-        "predecessor_payloads_omitted": ["TargetImage/*", "Predecessor/CompletedImage/*"],
+        "predecessor_payloads_omitted": ["TargetImage/*"],
+        "predecessor_revalidation_payloads_retained": True,
         "predecessor_container_sha256": PACKAGE95,
         "predecessor_full_inventory_sha256": INVENTORY95,
-        "predecessor_extraction": "fixed_sparse_archive_projection",
+        "predecessor_extraction": "fixed_payload_preserving_archive_projection",
         "source_sha256": {n: hashlib.sha256(data).hexdigest() for n, data in sources.items()},
         "shared_qa_sha256": sha(args.shared_qa),
         "runtime_qa_sha256": sha(args.runtime_qa),

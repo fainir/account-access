@@ -58,33 +58,66 @@ parsing are not the release blocker: the live agent/account service is still a
 demo, the owner-state predecessor history rejects the update, and the real
 account, insurer and physical-phone acceptance below remains incomplete.
 
-Next package work must first report the exact fixed predecessor-history
-sub-checkpoint against the installed state and qualify an upgrade path from
-that state. Repacking the same build-106 base is not an acceptable retry.
+Build 110 advanced beyond the earlier history checkpoint: the protected
+history, route, intent, and evidence checks passed. Its remaining refusal was
+the missing nested component payload documented below.
 
 Build 110 is a diagnostic follow-up from source `92857dfa33bddfa191dd87c079022dd86aaa4a2c`.
-It splits the post-proof route, intent, evidence, component-revalidation and
+It split the post-proof route, intent, evidence, component-revalidation and
 stability checks into fixed labels. The owner, shared-image, and runtime native
 probes passed (79 owner checks, 480 shared-image checks, 69 runtime checks,
 477 tree checks and 324 mixed-storage checks); eleven package-builder tests
-passed. The package is signed, notarized, stapled, Gatekeeper accepted, and
-Installer parsed it. Installer has requested macOS authorization, but its
-postinstall has not started and no receipt exists. Build 110 changes diagnostic
-checkpoints only; it does not fix or bypass the predecessor check. [Build 110
-QA and current Installer state](../artifacts/owner-upgrade110-build-20261028.json).
+passed. The package was signed, notarized, stapled, Gatekeeper accepted, and
+parsed by Installer. After macOS authorization, its postinstall **refused**
+with `owner_upgrade_source_not_verified` at
+`predecessor_component_revalidation`; PackageKit reported script error 112 and
+created no receipt. The history, route, intent, and evidence checks had passed.
+The immediate cause was packaging: the nested
+`Scripts/Predecessor/Predecessor/CompletedImage` directory was empty, while the
+helper revalidates the component plan and its full target image from that
+directory. The builder had excluded every file under `Predecessor/CompletedImage`
+and then silently recreated an empty directory. This was a package defect, not
+a missing Touch ID approval. The earlier “waiting for authorization” status in
+the build record was stale and has been corrected. [Build 110 failure and
+evidence](../artifacts/owner-upgrade110-build-20261028.json).
 
-The requested local account-flow and package regression tests passed (105
-tests); the complete Python suite was stopped after 558 passed and one skipped
-at 11%, so it is recorded as incomplete. The native upgrade qualification
-separately passed 69 runtime/owner checks, 477 tree checks and 324 mixed-storage
-checks without touching the installed app.
-Production readiness remains false.
+The replacement source now restores the exact frozen package-95 completed-image
+payload and inventory into the build-109 scripts component, checks the full
+predecessor projection and required target files, and removes only the exact
+top-level unchanged `TargetImage` after extraction. This also avoids macOS tar's
+broad wildcard matching that previously removed nested target payloads. The
+package-95 archive and inventory were recovered from the pinned private draft
+release and match their recorded SHA-256 values; the extracted archive matched
+all 55,020 inventory rows. Focused regression QA passes (113 tests), and Ruff
+passes. A corrected package has not yet been built, signed, notarized, or
+installed; this source repair is not an installation acceptance result.
+[Build 110 failure evidence](../artifacts/owner-upgrade110-build-20261028.json).
 
-Even after a successful install, acceptance also requires the owner's real
-Chrome import, email/SMS/authenticator flows, physical Android 15 pairing, and
-real-account AI-agent access. Harel and Phoenix do not currently have
-supported product connectors, and the available agent service still exposes
-only controlled-demo accounts. These are separate open release gates.
+The first full Python run completed with 4,503 passed, 4 skipped, and 2 failed.
+One failure was a stale native-image fixture expectation; it is corrected and
+covered by a regression assertion. The other was a browser-review cancellation
+test that passed in isolation on rerun; broader MFA coverage is being checked
+for repeatability. Native upgrade qualification previously passed 69
+runtime/owner checks, 480 shared-image checks, 477 tree checks, and 324
+mixed-storage checks without touching the installed app.
+
+The current owner app shows the Codex/Claude connection as automatic for every
+new session. Its Accounts page reports **0 ready** and one Namecheap sign-in
+blocked by an unreviewed redirect. Its Verification page reports that the
+Gmail mailbox connection passed its last check; a website login-code flow still
+requires a supported website account. This confirms the agent bridge and
+mailbox check separately, not successful account authentication. The installed
+launcher still reports version 0.6.0 in `controlled-demo` mode with synthetic
+accounts. No Chrome import, Android SMS pairing, authenticator login, or
+Harel/Phoenix account acceptance is recorded. Production readiness remains
+false.
+
+Even after a corrected installer succeeds, acceptance still requires Chrome
+password-import validation, end-to-end email/SMS/authenticator login-code
+flows, physical Android 15 pairing, and a protected operation through the
+user's real AI agent. Harel and Phoenix do not currently have supported product
+connectors, and the CLI still exposes only controlled-demo accounts. These
+are separate open release gates.
 
 ## Build 104 owner-successor candidate
 

@@ -1,8 +1,9 @@
 """Build a signed owner-upgrade diagnostic with repair-history sub-stages.
 
-This candidate advances the reviewed scripts-only build-109 package, keeps its
-fixed owner-upgrade plan, and rebuilds the helper from a pinned checkout. It
-does not change the installed app until macOS Installer runs the package.
+This candidate advances the reviewed scripts-only build-109 package, restores
+the pinned completed-image verifier payload from runtime package 95, and
+rebuilds the helper from a pinned checkout. It does not change the installed
+app until macOS Installer runs the package.
 """
 
 from __future__ import annotations
@@ -21,6 +22,8 @@ from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE_PACKAGE_SHA256 = "0528d4a545c14c92c58a8ebe03660e8d75efd7d38b67db92ccc913a5249ce2a0"
+PACKAGE95_SHA256 = "0c7a83b47d405bd9b02686aceb938877c5cd2f36112cb0b8369069c643453371"
+INVENTORY95_SHA256 = "9072d9bce2fd9c1b6118e657c77cab3f32e5c44689f4bb230132f07bbbb0e1e1"
 BASE_HELPER_SHA256 = "c51b054d1fc37ada176f390e97402e175efa91aba9c3cb666e80c4ed163d277d"
 COMPILED_PINS_SHA256 = "4845f307efc3d4d8c337a407e519c757f45d048be6c9341e7481c3452dc27a30"
 TEAM_ID = "WBULD6N4NQ"
@@ -102,6 +105,51 @@ def validate_flat_package_listing(listing: bytes) -> None:
     require(entries == ["PackageInfo", "Scripts"], "package_scripts_archive_not_flat")
 
 
+def restore_completed_image_payload(
+    package95_scripts: Path,
+    target_scripts: Path,
+    package95_inventory: dict[str, object],
+    inventory,
+    proof_inventory,
+) -> dict[str, object]:
+    """Restore and byte-verify the predecessor subtree the helper revalidates."""
+    require(package95_scripts.is_dir() and not package95_scripts.is_symlink(),
+            "package95_scripts_invalid")
+    require(target_scripts.is_dir() and not target_scripts.is_symlink(),
+            "base_scripts_invalid")
+    source_completed = package95_scripts / "Predecessor/CompletedImage"
+    target_predecessor = target_scripts / "Predecessor"
+    target_completed = target_predecessor / "Predecessor/CompletedImage"
+    require(source_completed.is_dir() and not source_completed.is_symlink(),
+            "package95_completed_image_missing")
+    require(target_predecessor.is_dir() and not target_predecessor.is_symlink()
+            and (target_predecessor / "Predecessor").is_dir()
+            and not (target_predecessor / "Predecessor").is_symlink(),
+            "base_predecessor_shape_invalid")
+    require(target_completed.is_dir() and not target_completed.is_symlink()
+            and not any(target_completed.iterdir()), "base_completed_image_not_empty")
+
+    try:
+        source_rows = inventory(package95_scripts)
+        require(source_rows == package95_inventory, "package95_inventory_mismatch")
+        expected_projection = proof_inventory(source_rows)
+    except BuildRefused:
+        raise
+    except Exception:
+        raise BuildRefused("package95_predecessor_revalidation_invalid") from None
+
+    shutil.rmtree(target_completed)
+    shutil.copytree(source_completed, target_completed, symlinks=True)
+    actual_projection = inventory(target_predecessor)
+    require(actual_projection == expected_projection, "predecessor_projection_mismatch")
+    require(any(
+        name.startswith("Predecessor/CompletedImage/TargetImage/")
+        and node.get("kind") == "file"
+        for name, node in actual_projection.items()
+    ), "completed_image_target_payload_missing")
+    return actual_projection
+
+
 def collect_sources() -> dict[str, bytes]:
     shared = runpy.run_path(str(ROOT / "scripts/mac_full_image_installed_probe.py"))
     owner = runpy.run_path(str(ROOT / "scripts/mac_owner_upgrade_probe.py"))
@@ -113,6 +161,24 @@ def collect_sources() -> dict[str, bytes]:
     ]
     require(len(names) == len(set(names)), "duplicate_compile_source")
     return {name: read_source(name) for name in names}
+
+
+def require_sources_at_commit(source: str, sources: dict[str, bytes]) -> None:
+    """Bind every compiler and packaging source to the reported Git revision."""
+    packaging_sources = (
+        "scripts/build_owner_upgrade110_diagnostic.py",
+        "scripts/build_owner_upgrade104_review.py",
+        "scripts/mac_full_image_installed_probe.py",
+        "scripts/mac_component_update_installer_probe.py",
+    )
+    for name, raw in [*( (name, read_source(name)) for name in packaging_sources), *sources.items()]:
+        try:
+            committed = subprocess.check_output(
+                ["git", "show", f"{source}:{name}"], cwd=ROOT, timeout=30
+            )
+        except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            raise BuildRefused("build_source_commit_unavailable") from None
+        require(raw == committed, "build_source_commit_content_mismatch")
 
 
 def validate_qa(shared_path: Path, runtime_path: Path, owner_path: Path,
@@ -151,9 +217,13 @@ def build(args: argparse.Namespace) -> dict[str, object]:
     require(head == args.source, "source_commit_mismatch")
     require(args.output.parent.is_dir() and not os.path.lexists(args.output),
             "output_must_be_new")
-    require(shutil.disk_usage(args.output.parent).free >= 2 * 1024**3,
+    require(shutil.disk_usage(args.output.parent).free >= 6 * 1024**3,
             "insufficient_build_space")
     require(sha256(args.base_package) == BASE_PACKAGE_SHA256, "base_package_hash_mismatch")
+    require(args.package95.is_file() and not args.package95.is_symlink()
+            and sha256(args.package95) == PACKAGE95_SHA256, "package95_hash_mismatch")
+    require(args.inventory95.is_file() and not args.inventory95.is_symlink()
+            and sha256(args.inventory95) == INVENTORY95_SHA256, "package95_inventory_hash_mismatch")
     command("base_package_signature", ["/usr/sbin/pkgutil", "--check-signature", str(args.base_package)], timeout=60)
     command("base_package_gatekeeper", ["/usr/sbin/spctl", "--assess", "--type", "install",
         "--verbose", str(args.base_package)], timeout=120)
@@ -162,17 +232,44 @@ def build(args: argparse.Namespace) -> dict[str, object]:
     pins_path = ROOT / "artifacts/owner-upgrade106-compiled-pins.swift"
     require(sha256(pins_path) == COMPILED_PINS_SHA256, "compiled_plan_pins_mismatch")
     sources = collect_sources()
+    require_sources_at_commit(args.source, sources)
     validate_qa(args.shared_qa, args.runtime_qa, args.owner_qa, sources)
     identity = find_signing_identity()
 
     output = args.output.absolute()
     output.mkdir(mode=0o700)
+    inventory_tools = runpy.run_path(str(ROOT / "scripts/mac_full_image_installer_probe.py"))
+    helper_tools = runpy.run_path(str(ROOT / "scripts/mac_component_update_installer_probe.py"))
+    inventory_tools["inventory"].__globals__["h"] = SimpleNamespace(**helper_tools)
+    inventory = inventory_tools["inventory"]
+    proof_inventory = runpy.run_path(
+        str(ROOT / "scripts/build_owner_upgrade104_review.py")
+    )["proof_inventory"]
+
+    package95_xar = output / "package95-xar"
+    package95_xar.mkdir(mode=0o700)
+    command("expand_package95_container", ["/usr/bin/xar", "-x", "-f",
+        str(args.package95.absolute()), "-C", str(package95_xar), "Scripts"], timeout=300)
+    package95_scripts = output / "package95-scripts"
+    package95_scripts.mkdir(mode=0o700)
+    command("extract_package95_scripts", ["/usr/bin/tar", "--no-mac-metadata", "-xf",
+        str(package95_xar / "Scripts"), "-C", str(package95_scripts)], timeout=900)
+    try:
+        package95_inventory = json.loads(args.inventory95.read_bytes())
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        raise BuildRefused("package95_inventory_invalid") from None
+
     expanded = output / "expanded"
     command("expand_base", ["/usr/sbin/pkgutil", "--expand-full", str(args.base_package.absolute()), str(expanded)])
     scripts = expanded / "Scripts"
     info_path = expanded / "PackageInfo"
     require(info_path.is_file() and scripts.is_dir() and not scripts.is_symlink(),
             "base_package_shape_invalid")
+    predecessor_projection = restore_completed_image_payload(
+        package95_scripts, scripts, package95_inventory, inventory, proof_inventory
+    )
+    shutil.rmtree(package95_xar)
+    shutil.rmtree(package95_scripts)
     helper = scripts / "AccountAccess-ownerupgrade"
     postinstall = scripts / "postinstall"
     require(sha256(helper) == BASE_HELPER_SHA256 and postinstall.is_file(),
@@ -264,9 +361,6 @@ def build(args: argparse.Namespace) -> dict[str, object]:
         str(signed_package)], timeout=120)
     verified = output / "verified-expanded"
     command("verify_expanded_package", ["/usr/sbin/pkgutil", "--expand-full", str(signed_package), str(verified)])
-    inventory_tools = runpy.run_path(str(ROOT / "scripts/mac_full_image_installer_probe.py"))
-    helper_tools = runpy.run_path(str(ROOT / "scripts/mac_component_update_installer_probe.py"))
-    inventory_tools["inventory"].__globals__["h"] = SimpleNamespace(**helper_tools)
     require(inventory_tools["inventory"](verified / "Scripts")
             == inventory_tools["inventory"](scripts), "signed_package_inventory_mismatch")
     require((verified / "PackageInfo").read_bytes() == new_info
@@ -281,6 +375,10 @@ def build(args: argparse.Namespace) -> dict[str, object]:
         "product_build": 110,
         "package_build": 110,
         "base_package_sha256": BASE_PACKAGE_SHA256,
+        "package95_sha256": PACKAGE95_SHA256,
+        "package95_inventory_sha256": INVENTORY95_SHA256,
+        "predecessor_completed_image_verified": True,
+        "predecessor_projection_rows": len(predecessor_projection),
         "package_path": str(signed_package),
         "package_sha256": sha256(signed_package),
         "package_bytes": signed_package.stat().st_size,
@@ -304,6 +402,8 @@ def build(args: argparse.Namespace) -> dict[str, object]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-package", required=True, type=Path)
+    parser.add_argument("--package95", required=True, type=Path)
+    parser.add_argument("--inventory95", required=True, type=Path)
     parser.add_argument("--source", required=True)
     parser.add_argument("--shared-qa", required=True, type=Path)
     parser.add_argument("--runtime-qa", required=True, type=Path)

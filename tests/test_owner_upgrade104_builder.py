@@ -45,3 +45,34 @@ def test_build_104_recipe_hashes_its_own_committed_source():
     assert 'git("show", args.source + ":" + name)' in source
     assert "scripts/build_owner_upgrade_review.py" not in source
     assert "from macos import owner_upgrade104_plan as planner" in source
+
+
+def test_build_104_projection_keeps_nested_completed_image_revalidation_inputs():
+    directory = {"kind": "directory", "mode": 0o755}
+    file = {"kind": "file", "mode": 0o644, "sha256": "a" * 64, "bytes": 3}
+    root = "Predecessor/CompletedImage"
+    rows = {
+        "": {"kind": "directory", "mode": 0o700, "acl": "empty"},
+        "TargetImage": directory,
+        root: directory,
+    }
+    for name in ("Predecessor", "TargetImage"):
+        rows[f"{root}/{name}"] = directory
+    for name in (
+        "FullImagePlan.json", "BaseManifest.json", "TargetManifest.json", "BaseIdentity.json",
+        "TargetIdentity.json", "ProviderManifest.json", "RuntimeCAReceipt.json",
+        "AccountAccess-fullimageupdate", "postinstall",
+    ):
+        rows[f"{root}/{name}"] = file
+    for name in (
+        "ComponentPlan.json", "BaseManifest.json", "TargetManifest.json", "BaseIdentity.json",
+        "AccountAccess-componentupdate", "postinstall",
+    ):
+        rows[f"{root}/Predecessor/{name}"] = file
+    rows[f"{root}/TargetImage/runtime-file"] = file
+
+    projected = builder.proof_inventory(rows)
+    assert set(projected) == set(rows)
+    assert not any("--exclude=Predecessor/CompletedImage" in item for item in builder.proof_extract_command(
+        Path("archive"), Path("output")
+    ))
