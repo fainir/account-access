@@ -131,8 +131,8 @@ def restore_completed_image_payload(
             and (target_predecessor / "Predecessor").is_dir()
             and not (target_predecessor / "Predecessor").is_symlink(),
             "base_predecessor_shape_invalid")
-    require(target_completed.is_dir() and not target_completed.is_symlink()
-            and not any(target_completed.iterdir()), "base_completed_image_not_empty")
+    require(target_completed.is_dir() and not target_completed.is_symlink(),
+            "base_completed_image_invalid")
 
     try:
         source_rows = inventory(package95_scripts)
@@ -143,8 +143,12 @@ def restore_completed_image_payload(
     except Exception:
         raise BuildRefused("package95_predecessor_revalidation_invalid") from None
 
-    shutil.rmtree(target_completed)
-    shutil.copytree(source_completed, target_completed, symlinks=True)
+    # A signed predecessor package may already contain this exact verified
+    # subtree. Preserve it after checking the whole predecessor projection;
+    # restore only the explicitly empty placeholder used by older bases.
+    if not any(target_completed.iterdir()):
+        shutil.rmtree(target_completed)
+        shutil.copytree(source_completed, target_completed, symlinks=True)
     actual_projection = inventory(target_predecessor)
     require(actual_projection == expected_projection, "predecessor_projection_mismatch")
     require(any(
