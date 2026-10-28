@@ -49,6 +49,13 @@ struct OwnerUpgradeSourceChecks {
         let fixedValue = try FullImageJSON.object(Data(fixedRefusal.utf8), maximum: 4096)
         check(fixedValue["reason"] as? String == "owner_upgrade_transition_conflict"
             && fixedValue["checkpoint"] as? String == "predecessor_worker_binding")
+        let intentRefusal = OwnerUpgradeDiagnostics.refusal(
+            FullImageIntentReadDiagnostic(context: .predecessorRuntime, checkpoint: .structure,
+                failure: FullImageFailure.journal), checkpoint: .predecessorIntent)
+        let intentValue = try FullImageJSON.object(Data(intentRefusal.utf8), maximum: 4096)
+        check(intentValue["reason"] as? String == "owner_upgrade_transition_conflict"
+            && intentValue["checkpoint"] as? String == "predecessor_runtime_intent_structure"
+            && !intentRefusal.contains("intent.json") && !intentRefusal.contains("/Library"))
         let fallbackRefusal = OwnerUpgradeDiagnostics.refusal(privateFailure, checkpoint: .predecessor)
         let fallbackValue = try FullImageJSON.object(Data(fallbackRefusal.utf8), maximum: 4096)
         check(fallbackValue["reason"] as? String == "owner_upgrade_unavailable"

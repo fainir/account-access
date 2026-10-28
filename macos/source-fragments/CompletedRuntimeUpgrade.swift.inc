@@ -78,6 +78,7 @@ extension ComponentController {
         let global = try routes.globalJournal(plan: pins.planSHA256), files = try routes.files(plan: pins.planSHA256)
         checkpoint(.predecessorIntent)
         let intent = try FullImageGlobalJournal.readIntent(directory: global.fd, owner: 0, group: 0, beforeGroup: beforeGroup,
+            diagnosticContext: .predecessorRuntime,
             validateIntent: { try fullPreliminary($0, source: source, ownerUID: ownerUID) }, verifyAttachment: global.verify)
         let projectedFiles: Set<FullImageFileUnit> = [.packageIdentity, .hostPolicy, .ownerPolicy, .installRecord]
         func fileStorage(_ unit: FullImageFileUnit) throws -> FullImageFileStorage {

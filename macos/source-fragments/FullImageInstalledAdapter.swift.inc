@@ -259,6 +259,7 @@ extension ComponentController {
             let global = try routes.globalJournal(plan: pins.planSHA256)
             preliminary = try FullImageGlobalJournal.readIntent(directory: global.fd, owner: 0, group: 0, beforeGroup: beforeGroup,
                 historicalObservation: verificationOnly,
+                diagnosticContext: .fullImage,
                 validateIntent: { try fullPreliminary($0, source: source, ownerUID: ownerUID) }, verifyAttachment: global.verify)
         } else { preliminary = nil }
         // This mode never repairs an interrupted full-image transition. It can

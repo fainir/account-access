@@ -724,6 +724,14 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         precondition(inheritedExampleText.contains("1 ready · 1 example connections"))
         precondition(inheritedExampleText.contains("Example connected"))
         precondition(inheritedExampleText.contains("Example connection. These results do not validate access to a personal account."))
+        owner.agents = ["codex"]
+        owner.automaticSessions = ["codex": ["enabled": true]]
+        owner.ready()
+        views = descendants(owner.stack)
+        let demoAgentText = views.compactMap { ($0 as? NSTextField)?.stringValue }
+        precondition(demoAgentText.contains("Demo connection only"))
+        precondition(demoAgentText.contains("Example only"))
+        precondition(!demoAgentText.contains("Ready in every new session"))
         owner.serviceEnvironment = "mixed"
         precondition(AccountAccess.effectiveEnvironment(owner.accounts[0], fallback: owner.serviceEnvironment) == "unclassified")
         precondition(AccountAccess.verificationEnvironment(legacyAuthenticator, accounts: owner.accounts,
@@ -735,9 +743,19 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         precondition(unclassifiedText.contains("1 connections · source unverified"))
         precondition(unclassifiedText.contains("Source unverified"))
         precondition(unclassifiedText.contains("The service source could not be verified. This connection does not establish personal-account access."))
+        precondition(unclassifiedText.contains("AI connection source unverified"))
+        precondition(!unclassifiedText.contains("Ready in every new session"))
+        owner.serviceEnvironment = "live"
+        owner.accounts = [["account": "personal-service", "label": "Personal service", "environment": "live",
+                           "connected": true, "portable_ready": true]]
+        owner.ready()
+        views = descendants(owner.stack)
+        let liveAgentText = views.compactMap { ($0 as? NSTextField)?.stringValue }
+        precondition(liveAgentText.contains("Ready in every new session"))
+        precondition(liveAgentText.contains("Automatic"))
         owner.accounts = []
         precondition(owner.requestText.contains("what needs attention"))
-        print("PASS: public examples and legacy demo responses stay labeled as examples; mixed or unknown sources never claim personal-account access")
+        print("PASS: examples and legacy demo responses stay labeled; AI setup reports demo-only, unverified, and live readiness truthfully")
         owner.backgroundServiceStatus = "requires_approval"
         owner.ready()
         views = descendants(owner.stack)

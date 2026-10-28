@@ -142,6 +142,7 @@ extension ComponentController {
             checkpoint(.journal)
             let global = try routes.globalJournal(plan: pins.planSHA256)
             preliminary = try FullImageGlobalJournal.readIntent(directory: global.fd, owner: 0, group: 0, beforeGroup: beforeGroup,
+                diagnosticContext: .runtimeUpgrade,
                 validateIntent: { try fullPreliminary($0, source: source, ownerUID: ownerUID) }, verifyAttachment: global.verify)
         } else { preliminary = nil }
         let observationDevice: Int32? = nil

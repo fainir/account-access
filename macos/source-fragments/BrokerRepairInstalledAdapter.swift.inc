@@ -194,7 +194,8 @@ extension ComponentController {
         }
         let history = try routes.predecessorHistory(), support = try routes.support()
         let fullIntent = try FullImageGlobalJournal.readIntent(directory: history.fd, owner: 0, group: 0,
-            beforeGroup: support.identity.group, historicalObservation: true, validateIntent: { value in
+            beforeGroup: support.identity.group, historicalObservation: true, diagnosticContext: .brokerRepairHistory,
+            validateIntent: { value in
                 guard value.planSHA256 == pins.planSHA256, value.afterManifestSHA256 == pins.targetManifestSHA256,
                       value.targetSourceCommit == pins.targetSourceCommit, value.predecessorEvidenceSHA256 == expected,
                       value.ownerUID == intent.transition.ownerUID, value.brokerUID == intent.transition.brokerUID,

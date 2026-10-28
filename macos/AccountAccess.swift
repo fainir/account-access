@@ -3395,9 +3395,32 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         let detected = agents.filter { ["codex", "claude"].contains($0) }
         let automatic = !detected.isEmpty && detected.allSatisfy { automaticSessions[$0]?["enabled"] as? Bool == true }
         let tools = detected.map { $0 == "claude" ? "Claude Code" : "Codex" }.joined(separator: " + ")
-        let setup = card(automatic ? "Ready in every new session" : "Connect your AI tools",
-                         automatic ? "Ask normally in " + tools + ". No special command required." : "Finish automatic setup so your AI can use connected accounts in new sessions.",
-                         status: automatic ? "Automatic" : "Setup needed", good: automatic)
+        let setupTitle: String
+        let setupDetail: String
+        let setupStatus: String
+        let setupGood: Bool
+        if !automatic {
+            setupTitle = "Connect your AI tools"
+            setupDetail = "Finish automatic setup so your AI can use connected accounts in new sessions."
+            setupStatus = "Setup needed"
+            setupGood = false
+        } else if serviceEnvironment == "controlled-demo" {
+            setupTitle = "Demo connection only"
+            setupDetail = "The AI connection is configured for fictional example accounts. Connect a personal account before using real sign-ins."
+            setupStatus = "Example only"
+            setupGood = false
+        } else if serviceEnvironment == "live" {
+            setupTitle = "Ready in every new session"
+            setupDetail = "Ask normally in " + tools + ". No special command required."
+            setupStatus = "Automatic"
+            setupGood = true
+        } else {
+            setupTitle = "AI connection source unverified"
+            setupDetail = "The service source could not be verified. Confirm the connection in Account Access before using real sign-ins."
+            setupStatus = "Needs verification"
+            setupGood = false
+        }
+        let setup = card(setupTitle, setupDetail, status: setupStatus, good: setupGood)
         if !automatic {
             let fix = NSButton(title: "Finish automatic setup", target: self, action: #selector(installAgents))
             setup.addArrangedSubview(fix)

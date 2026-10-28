@@ -195,6 +195,32 @@ struct FullImageGlobalIntent: Codable, Equatable {
     }
 }
 
+// These fixed labels make an Installer refusal diagnosable without logging
+// journal bytes, paths, identities, provider data, or underlying error text.
+enum FullImageIntentReadContext: String {
+    case fullImage = "full_image_intent"
+    case runtimeUpgrade = "runtime_upgrade_intent"
+    case predecessorRuntime = "predecessor_runtime_intent"
+    case ownerUpgrade = "owner_upgrade_intent"
+    case brokerRepairHistory = "broker_repair_history_intent"
+}
+enum FullImageIntentReadCheckpoint: String {
+    case attachmentBefore = "attachment_before"
+    case directoryIdentity = "directory_identity"
+    case directoryMode = "directory_mode"
+    case intentFile = "intent_file"
+    case decode = "decode"
+    case structure = "structure"
+    case sourceValidation = "source_validation"
+    case stability = "stability"
+    case attachmentAfter = "attachment_after"
+}
+struct FullImageIntentReadDiagnostic: Error {
+    let context: FullImageIntentReadContext
+    let checkpoint: FullImageIntentReadCheckpoint
+    let failure: Error
+}
+
 final class FullImageGlobalJournal {
     enum Transition: String, Codable, CaseIterable {
         case applyIntent = "apply_intent", applied, rollbackIntent = "rollback_intent", rolledBack = "rolled_back"
@@ -404,23 +430,36 @@ final class FullImageGlobalJournal {
     // source/predecessor validator must accept it before it is returned.
     static func readIntent(directory: Int32, owner: uid_t, group: gid_t, beforeGroup: gid_t? = nil,
                            historicalObservation: Bool = false,
+                           diagnosticContext: FullImageIntentReadContext = .fullImage,
                            validateIntent: (FullImageGlobalIntent) throws -> Void,
                            verifyAttachment: (Int32) throws -> Void) throws -> FullImageGlobalIntent {
-        try verifyAttachment(directory)
-        let identity = try PublicTreeDirectoryIdentity.observe(directory, owner: owner, group: group)
-        guard identity.mode == 0o700 else { throw FullImageFailure.journal }
-        let file = try inspect(directory, "intent.json", owner: owner, group: group, maximum: maximumIntent, readBody: true)
-        let value = try decoded(FullImageGlobalIntent.self, raw: file.data, maximum: maximumIntent)
-        // This read grants no transition authority. A completed-image caller
-        // must qualify the historical evidence against the persistent volume
-        // receipt before opening read-only storage with this recorded device.
-        try value.validateStructure(device: historicalObservation ? value.workerPolicy.device : identity.device,
-            publicOwner: owner, publicGroup: group, beforeGroup: beforeGroup)
-        try validateIntent(value)
-        guard try inspect(directory, "intent.json", owner: owner, group: group, maximum: maximumIntent, readBody: true).pin == file.pin,
-              try PublicTreeDirectoryIdentity.observe(directory, owner: owner, group: group) == identity else { throw FullImageFailure.journal }
-        try verifyAttachment(directory)
-        return value
+        var checkpoint = FullImageIntentReadCheckpoint.attachmentBefore
+        do {
+            try verifyAttachment(directory)
+            checkpoint = .directoryIdentity
+            let identity = try PublicTreeDirectoryIdentity.observe(directory, owner: owner, group: group)
+            checkpoint = .directoryMode
+            guard identity.mode == 0o700 else { throw FullImageFailure.journal }
+            checkpoint = .intentFile
+            let file = try inspect(directory, "intent.json", owner: owner, group: group, maximum: maximumIntent, readBody: true)
+            checkpoint = .decode
+            let value = try decoded(FullImageGlobalIntent.self, raw: file.data, maximum: maximumIntent)
+            // This read grants no transition authority. A completed-image caller
+            // must qualify the historical evidence against the persistent volume
+            // receipt before opening read-only storage with this recorded device.
+            checkpoint = .structure
+            try value.validateStructure(device: historicalObservation ? value.workerPolicy.device : identity.device,
+                publicOwner: owner, publicGroup: group, beforeGroup: beforeGroup)
+            checkpoint = .sourceValidation
+            try validateIntent(value)
+            checkpoint = .stability
+            guard try inspect(directory, "intent.json", owner: owner, group: group, maximum: maximumIntent, readBody: true).pin == file.pin,
+                  try PublicTreeDirectoryIdentity.observe(directory, owner: owner, group: group) == identity else { throw FullImageFailure.journal }
+            checkpoint = .attachmentAfter
+            try verifyAttachment(directory)
+            return value
+        } catch let diagnostic as FullImageIntentReadDiagnostic { throw diagnostic }
+        catch { throw FullImageIntentReadDiagnostic(context: diagnosticContext, checkpoint: checkpoint, failure: error) }
     }
     // `expected` was validated against the source, verified predecessor and
     // staged objects before this call. Reopen always requires the same bytes.
