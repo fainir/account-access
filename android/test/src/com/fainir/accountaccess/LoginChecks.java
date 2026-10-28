@@ -34,7 +34,7 @@ public final class LoginChecks extends Instrumentation {
     while(!pending.isEmpty()){
      AccessibilityNodeInfo node=pending.removeFirst();
      CharSequence actual=node.getContentDescription();
-     if(description.contentEquals(actual))return node;
+     if(actual!=null&&description.contentEquals(actual))return node;
      for(int i=0;i<node.getChildCount();i++){AccessibilityNodeInfo child=node.getChild(i);if(child!=null)pending.addLast(child);}
     }
    }
