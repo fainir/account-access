@@ -1,6 +1,6 @@
 # Account Access Phone for Android
 
-This companion pairs with the Mac/local Account Access service on private Wi-Fi. It observes notifications from the selected SMS app, discards nonmatching notifications locally, and forwards matching login messages to a scoped HTTPS endpoint. The computer checks the sender, recipient, message template, active login window, freshness, duplicates, and ambiguity before submitting a code. No notification history or login-code API is exposed to agents.
+This companion pairs with the Mac/local Account Access service on private Wi-Fi. It observes notifications from the selected SMS app, discards nonmatching notifications locally, and forwards matching login messages to a scoped HTTPS endpoint. If Android hides a code, the owner can enter the six digits in the companion; it places those digits in the already reviewed message template and sends them only over the paired, certificate-pinned connection. Manual entry is the owner's confirmation that the code belongs to the current login request from the approved sender; the phone cannot independently prove the original SMS arrival time or sender. The computer checks the reviewed sender, recipient, message template, active login window, submission freshness, duplicates, and ambiguity before submitting a code. No notification history or login-code API is exposed to agents.
 
 Android's notification-access permission grants broader access than the app's own filter. The companion does not request SMS inbox permissions, become the default SMS app, or upload a notification archive. Messages hidden by Android, the SMS app, a work profile, or notification settings cannot be retrieved this way. Codes approving payments or account changes must never be configured as login messages.
 
@@ -9,7 +9,7 @@ Android's notification-access permission grants broader access than the app's ow
 1. Install the signed **development preview APK** from the release. It is not a Play Store distribution or a validated production phone release.
 2. In Account Access on the computer, open **Verification methods**, select the configured Android source, and click **Pair Android phone**.
 3. Open the phone companion and scan that QR. Camera permission is requested for this scan. Paste pairing is also available.
-4. Enable **login notification access** in the Android system screen. Both devices must stay on the same private Wi-Fi, and the SMS app must display the matching notification.
+4. On Android 11–14, enable **login notification access** in the Android system screen for automatic delivery. Both devices must stay on the same private Wi-Fi, and the SMS app must display the matching notification. On Android 15 and newer, the owner can enter a code manually in the companion if Android hides it from notifications; this manual path still requires pairing and Android's computer association.
 
 On Android 15 and newer, keep the updated Mac app's pairing screen open and turn
 on Bluetooth on both devices. After scanning, choose **Connect computer with
@@ -20,7 +20,10 @@ Messages still travel through certificate-pinned HTTPS on private Wi-Fi.
 
 The app uses ordinary Bluetooth LE discovery, without privileged self-managed,
 computer or watch roles. Android can redact login codes from ordinary notification
-listeners. Revocation, replacement and disconnect stop forwarding. An old QR
+listeners. The manual fallback accepts only six ASCII digits, sends them in the
+owner-reviewed template, keeps them out of preferences and saved view state, and
+requires the current Android computer association before network delivery.
+Revocation, replacement and disconnect stop forwarding. An old QR
 without Bluetooth discovery information requires a new QR from the updated Mac
 app. Devices without companion-device setup or supported Bluetooth discovery
 cannot complete this connection. Positive Bluetooth pairing and physical-phone
@@ -37,7 +40,7 @@ The development source retries the same fresh notification after temporary
 socket, timeout or DNS failures. Each attempt checks that the pairing and login
 message are still current. Certificate failures, server refusals and changed
 pairing stop delivery; retries never switch destinations or extend freshness.
-Physical-phone delivery and the updated APK still require release validation.
+Physical-phone delivery, owner-entered code delivery on Android 15+, and the updated APK still require release validation.
 
 The preview currently uses the device's default SMS app. Some phones display a saved contact name instead of the sender number: the reviewed source must match the displayed sender. General authenticator push notifications are not supported by this companion.
 
