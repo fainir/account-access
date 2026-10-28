@@ -1,0 +1,53 @@
+{
+  "base_package_sha256": "0528d4a545c14c92c58a8ebe03660e8d75efd7d38b67db92ccc913a5249ce2a0",
+  "date": "2026-10-28",
+  "diagnostic_scope": "Adds fixed checkpoints after the completed repair proof; it does not change predecessor pins or update behavior.",
+  "helper_sha256": "8798ece795aecf46cccb6814e3beb90ec237a6f9c7cd4ffe1766749d0e79b2ee",
+  "native_qa": {
+    "installed_reads": false,
+    "installed_writes": false,
+    "mixed_storage_checks": 324,
+    "owner_checks": 79,
+    "owner_namespace_checks": 26,
+    "owner_preparation_checks": 21,
+    "production_ready": false,
+    "runtime_checks": 69,
+    "shared_image_status": "PASSED",
+    "tree_checks": 477
+  },
+  "notarization": {
+    "gatekeeper": "ACCEPTED_NOTARIZED_DEVELOPER_ID",
+    "installer_package_parser": "PASSED",
+    "stapled": true,
+    "status": "Accepted",
+    "submission_id": "5967d408-73eb-4d17-a3a6-77f6dc1f4435"
+  },
+  "owner_mac_observation": {
+    "installer_window_opened": true,
+    "macos_authorization_requested": true,
+    "package_receipt_found": false,
+    "postinstall_started": false,
+    "status": "WAITING_FOR_OWNER_AUTHORIZATION"
+  },
+  "package_build": 110,
+  "package_path": "../dist/owner-upgrade110-diagnostic-20261028b/Account-Access-Owner-Upgrade-110.pkg",
+  "package_sha256": "dc44d7f56e4f9657d32ea4cb413d4068549b45c4520017b80dc8fe2b5be53164",
+  "package_tests": {
+    "count": 11,
+    "status": "PASSED"
+  },
+  "product_build": 110,
+  "production_gates_open": [
+    "owner_state_predecessor_history_qualification",
+    "installed_agent_service_smoke",
+    "real_account_acceptance",
+    "physical_android_15_sms_acceptance",
+    "harel_connector",
+    "phoenix_connector",
+    "real_authenticator_login"
+  ],
+  "production_ready": false,
+  "schema": 1,
+  "source_commit": "92857dfa33bddfa191dd87c079022dd86aaa4a2c",
+  "status": "NOTARIZED_STAPLED_WAITING_FOR_OWNER_AUTHORIZATION"
+}

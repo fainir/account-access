@@ -62,6 +62,17 @@ Next package work must first report the exact fixed predecessor-history
 sub-checkpoint against the installed state and qualify an upgrade path from
 that state. Repacking the same build-106 base is not an acceptable retry.
 
+Build 110 is a diagnostic follow-up from source `92857dfa33bddfa191dd87c079022dd86aaa4a2c`.
+It splits the post-proof route, intent, evidence, component-revalidation and
+stability checks into fixed labels. The owner, shared-image, and runtime native
+probes passed (79 owner checks, 480 shared-image checks, 69 runtime checks,
+477 tree checks and 324 mixed-storage checks); eleven package-builder tests
+passed. The package is signed, notarized, stapled, Gatekeeper accepted, and
+Installer parsed it. Installer has requested macOS authorization, but its
+postinstall has not started and no receipt exists. Build 110 changes diagnostic
+checkpoints only; it does not fix or bypass the predecessor check. [Build 110
+QA and current Installer state](../artifacts/owner-upgrade110-build-20261028.json).
+
 The requested local account-flow and package regression tests passed (105
 tests); the complete Python suite was stopped after 558 passed and one skipped
 at 11%, so it is recorded as incomplete. The native upgrade qualification
