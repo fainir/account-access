@@ -3,6 +3,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "macos/source-fragments/OwnerUpgradeInstalledAdapter.swift.inc"
+PREDECESSOR = ROOT / "macos/source-fragments/CompletedRuntimeUpgrade.swift.inc"
 
 
 def test_owner_upgrade_revalidates_captured_history_without_rebuilding_full_proof():
@@ -38,3 +39,13 @@ def test_owner_upgrade_revalidates_captured_history_without_rebuilding_full_proo
     assert "verifyRecoverable: verifyPublic" in storage
     assert "verifyNew: verifyPublic" in storage
     assert "completedRuntimeUpgradeLocked(" not in storage
+
+
+def test_predecessor_head_accepts_only_verified_apfs_device_translation():
+    source = PREDECESSOR.read_text()
+    head_check = source.split('let head = try ComponentFiles.read(namespace.fd, "head.json"', 1)[1].split(
+        "checkpoint(.predecessorFinalRootsRead)", 1
+    )[0]
+    assert "RuntimeUpgradeHistoricalObjectBinding.matches(recorded: recordedHead, observed: head.1" in head_check
+    assert "recordedDevice: observationDevice, currentDevice: currentDevice" in head_check
+    assert "guard let recordedHead = intent.operations.last?.file?.after" in head_check

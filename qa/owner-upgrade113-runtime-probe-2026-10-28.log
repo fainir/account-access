@@ -1,0 +1,4 @@
+2026-10-28 - `scripts/mac_runtime_upgrade_probe.py` passed with 69 runtime checks against build 113 source.
+2026-10-28 - The native runtime entry point refused ordinary-user execution with `runtime_upgrade_installer_context_required` and no stderr.
+2026-10-28 - The identity fixture accepts only the expected APFS device-number translation; changed inode/digest and wrong-device cases refuse.
+2026-10-28 - No installed reads were performed. The probe does not qualify production root authority or complete the owner-Mac install.

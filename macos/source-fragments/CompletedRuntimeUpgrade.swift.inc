@@ -242,7 +242,14 @@ extension ComponentController {
         let localHistory = try trees.map { FullImageJSON.hash(try $0.completedEvidence()) }
         checkpoint(.predecessorFinalHeadRead)
         let head = try ComponentFiles.read(namespace.fd, "head.json", owner: 0, mode: 0o644)
-        guard head.1 == intent.operations.last?.file?.after else { throw FullImageFailure.predecessor }
+        // The journal head is pinned to the predecessor's device number too.
+        // After an APFS restart, accept only that device-number translation;
+        // inode, mode, size and content digest must still match exactly.
+        guard let recordedHead = intent.operations.last?.file?.after,
+              RuntimeUpgradeHistoricalObjectBinding.matches(recorded: recordedHead, observed: head.1,
+                  recordedDevice: observationDevice, currentDevice: currentDevice) else {
+            throw FullImageFailure.predecessor
+        }
         checkpoint(.predecessorFinalRootsRead)
         let roots = try InstallationRootBinding.capture(withVolumeUUID: true)
         checkpoint(.predecessorEvidence)
