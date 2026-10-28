@@ -2,6 +2,6 @@
 PackageKit log: `PackageKit: Executing script "postinstall"`.
 Installer UI: failed after 15m 20s. No package receipt exists.
 Installer's current log: `owner_upgrade_predecessor_not_verified` at `predecessor_view_repair_proof_compare`.
-Source review found the history snapshot checkpoint was set after its read, so this failure was mislabeled; a checkpoint-order fix is under native QA.
+Source review found the history snapshot checkpoint was set after its read, so this failure was mislabeled. The checkpoint-order fix passed native source QA; see [checkpoint QA](owner-upgrade-checkpoint-source-qa-2026-10-28.log).
 Shared-source QA: 622 checks. Runtime native QA: 69 checks. Owner native QA: 79 checks. Tree checks: 477. Mixed-storage checks: 324. Focused Python tests: 38 passed.
 Production readiness remains false.

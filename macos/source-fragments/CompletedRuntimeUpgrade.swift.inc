@@ -238,9 +238,12 @@ extension ComponentController {
         }
         checkpoint(.predecessorView)
         try completeView()
+        checkpoint(.predecessorFinalTreeHistoryRead)
         let localHistory = try trees.map { FullImageJSON.hash(try $0.completedEvidence()) }
+        checkpoint(.predecessorFinalHeadRead)
         let head = try ComponentFiles.read(namespace.fd, "head.json", owner: 0, mode: 0o644)
         guard head.1 == intent.operations.last?.file?.after else { throw FullImageFailure.predecessor }
+        checkpoint(.predecessorFinalRootsRead)
         let roots = try InstallationRootBinding.capture(withVolumeUUID: true)
         checkpoint(.predecessorEvidence)
         let evidence = try FullImageJSON.encode(["schema": 1,

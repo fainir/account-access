@@ -118,7 +118,10 @@ def main():
         "swiftc",
         "-j",
         "2",
-        "-O",
+        # These binaries exercise refusal and fixture behavior. Release
+        # optimization is covered by the signed package build; optimizing the
+        # full probe source here exceeded its bounded QA compile window.
+        "-Onone",
         "-parse-as-library",
         "-warnings-as-errors",
         "-module-cache-path",

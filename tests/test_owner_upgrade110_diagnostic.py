@@ -41,6 +41,22 @@ def filesystem_inventory(root: Path) -> dict[str, dict[str, object]]:
     return result
 
 
+def test_completed_runtime_sets_checkpoints_before_its_snapshot_reads() -> None:
+    source = (ROOT / "macos/source-fragments/CompletedRuntimeUpgrade.swift.inc").read_text()
+    reads = (
+        ("checkpoint(.predecessorFinalTreeHistoryRead)", "let localHistory = try trees.map"),
+        ("checkpoint(.predecessorFinalHeadRead)", "let head = try ComponentFiles.read(namespace.fd, \"head.json\""),
+        ("checkpoint(.predecessorFinalRootsRead)", "let roots = try InstallationRootBinding.capture(withVolumeUUID: true)"),
+    )
+    positions = []
+    for checkpoint, read in reads:
+        checkpoint_at = source.index(checkpoint)
+        read_at = source.index(read)
+        assert checkpoint_at < read_at
+        positions.append(checkpoint_at)
+    assert positions == sorted(positions)
+
+
 def predecessor_fixture(root: Path) -> tuple[Path, Path]:
     source = root / "package95" / "Scripts"
     completed = source / "Predecessor/CompletedImage"
