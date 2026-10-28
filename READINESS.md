@@ -16,7 +16,7 @@ Statuses: todo | building (who) | verified | owner | waiting | cut (reason)
 
 | ID | Flow (user words) | Surfaces | Status | Evidence | Verified on |
 |---|---|---|---|---|---|
-| F1 | Install or update the Mac app, connect its protected service and reopen it after restart; interrupted updates retain the prior usable app | macOS Installer, app, protected service | building (Codex) | [build 110 install failure](qa/owner-upgrade110-install-2026-10-28.log); [checkpoint fix source QA](qa/owner-upgrade-checkpoint-source-qa-2026-10-28.log); [build 111 builder QA](qa/owner-upgrade111-builder-qa-2026-10-28.log) | 2026-10-28 |
+| F1 | Install or update the Mac app, connect its protected service and reopen it after restart; interrupted updates retain the prior usable app | macOS Installer, app, protected service | building (Codex) | [build 110 install failure](qa/owner-upgrade110-install-2026-10-28.log); [checkpoint fix source QA](qa/owner-upgrade-checkpoint-source-qa-2026-10-28.log); [build 111 builder QA](qa/owner-upgrade111-builder-qa-2026-10-28.log); [build 111 signed package checks](qa/owner-upgrade111-build-2026-10-28.log) | 2026-10-28 |
 | F2 | Import a Chrome export, review matches and save only selected accounts; malformed or cancelled imports save nothing | Chrome, macOS app, vault | verified | [owner UI acceptance](docs/other-service-validation.md#namecheap-password-pilot) and [import tests](tests/test_password_import.py); historical test date not recorded | historical |
 | F3 | Connect Gmail or TLS IMAP and use a fresh matching code; permission, expiry or ambiguous-mail errors stop safely | macOS app, Gmail / IMAP, connector | owner | [154 Gmail, IMAP, OAuth and verification tests](qa/email-verification-source-qa-2026-10-28.log) | 2026-10-28 |
 | F4 | Pair Android and deliver a fresh approved SMS; denied permissions, redaction or a stale code refuse delivery | macOS app, Android 15+, supported connector | owner | Physical Android pairing and real SMS acceptance remain; [Android setup](android/README.md) | |
@@ -57,5 +57,5 @@ No current third-party wait is confirmed. Build 110 notarization completed; its 
 - 2026-10-28 - Initial scope and readiness rows reconciled from the README, app docs, code and existing acceptance evidence; readiness remains false.
 - 2026-10-28 - Build 110 passed signing and notarization but failed in protected postinstall; its stale checkpoint was corrected and the native source probe passed.
 - 2026-10-28 - The local authenticator suite collected 95 tests; 93 passed under compiler load and the two timing-sensitive tests passed alone.
-- 2026-10-28 - Build 111 builder passed 13 tests; pinned build 109 and runtime package 95 inputs were verified.
+- 2026-10-28 - Build 111 passed signing, notarization, stapling, Gatekeeper, Installer parsing and full package-content comparison; owner-Mac install is next.
 - 2026-10-28 - Ship scaffold and product spec added; no public production release has been published.
