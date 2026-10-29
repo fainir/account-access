@@ -212,10 +212,10 @@ extension ComponentController {
             }
             progress(.predecessorViewRepairProofCompare)
         }
+        checkpoint(.predecessorStorage)
         let storage = try FullImageMixedStorage(units: units,
             writeEvent: { _, _ in throw FullImageFailure.journal },
             verifyOld: { _ in }, verifyRecoverable: { _ in }, verifyNew: { _ in })
-        checkpoint(.predecessorStorage)
         try intent.verifyStorage(storage)
         func completeView(verifyImage: Bool) throws {
             checkpoint(.predecessorViewBefore)

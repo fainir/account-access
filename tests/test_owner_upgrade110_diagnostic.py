@@ -57,6 +57,9 @@ def test_completed_runtime_sets_checkpoints_before_its_snapshot_reads() -> None:
     assert positions == sorted(positions)
     assert source.count("checkpoint(.predecessorInitialHeadRead)") == 1
     assert source.count("checkpoint(.predecessorFinalHeadRead)") == 1
+    storage_checkpoint = source.index("checkpoint(.predecessorStorage)")
+    storage_construction = source.index("let storage = try FullImageMixedStorage(units: units,")
+    assert storage_checkpoint < storage_construction
 
 
 def predecessor_fixture(root: Path) -> tuple[Path, Path]:
