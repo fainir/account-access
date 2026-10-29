@@ -19,6 +19,16 @@ state parameter was not retained. The official Phoenix entry produced a
 state-bound login page; opening the authentication URL without that state showed
 a generic configuration error. [Sanitized public-page check](../artifacts/insurer-public-login-check-20261028.json).
 
+A fresh check of public insurer guidance on 29 October found Harel's official
+FAQ explicitly describes entry with an identity number and mobile number,
+followed by a one-time SMS code; first entry may also ask for the identity
+document's issue date ([Harel FAQ](https://www.harel-group.co.il/long-term-savings/saving-and-investment/information/faq)).
+Phoenix's official personal-information registration page currently presents
+identity/contact fields and a “Send code” action ([Phoenix registration](https://myinfo.fnx.co.il/Fnx/MyZone/Registration/Registration?page=31)).
+That is a registration page, not proof of the existing-account login flow or
+the code-delivery channel. No fields were entered and no code was requested.
+These public checks do not qualify either connector or change F9's status.
+
 Harel's [official FAQ](https://www.harel-group.co.il/long-term-savings/independent-and-employees/information/faq)
 describes identity/phone verification and possible first-login identity-issuance
 date verification. Phoenix's [security information](https://www.fnx.co.il/customer-service/terms-of-use/security/)

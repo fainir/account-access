@@ -253,6 +253,36 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
                                 styleMask: [.titled, .resizable], backing: .buffered, defer: false)
         owner.base = URL(string: "http://127.0.0.1:1/")!
         owner.token = "synthetic-ui-session"
+        owner.accounts = [["account": "fixture", "label": "Fixture account", "route": "browser",
+                           "portable_ready": true, "connected": true,
+                           "saved_login_available": true, "saved_login_exportable": true,
+                           "operations": []]]
+        owner.ready()
+        var accountActions = descendants(owner.stack).compactMap { $0 as? NSButton }
+        precondition(accountActions.contains { $0.title == "Export saved login…" && $0.action == #selector(AccountAccess.exportSavedLogin) })
+        precondition(accountActions.contains { $0.title == "Forget saved login" && $0.action == #selector(AccountAccess.forgetSavedLogin) })
+        owner.window.setContentSize(NSSize(width: 880, height: 650))
+        owner.window.contentView!.layoutSubtreeIfNeeded()
+        for control in accountActions where ["Export saved login…", "Forget saved login"].contains(control.title) {
+            precondition(control.frame.width > 0 && control.frame.height > 0)
+        }
+        owner.accounts[0]["saved_login_exportable"] = false
+        owner.ready()
+        accountActions = descendants(owner.stack).compactMap { $0 as? NSButton }
+        precondition(!accountActions.contains { $0.title == "Export saved login…" })
+        precondition(accountActions.contains { $0.title == "Forget saved login" })
+        let exportSentinel = fixtureRoot.appendingPathComponent("export-sentinel.txt")
+        let selectedExport = fixtureRoot.appendingPathComponent("saved-login.csv")
+        try! Data("keep this file".utf8).write(to: exportSentinel)
+        try! FileManager.default.createSymbolicLink(at: selectedExport, withDestinationURL: exportSentinel)
+        try! AccountAccess.writePrivateExport(Data("url,username,password\r\nhttps://fixture.test,owner,synthetic\r\n".utf8), to: selectedExport)
+        var exportedInfo = stat()
+        precondition(lstat(selectedExport.path, &exportedInfo) == 0
+            && exportedInfo.st_mode & S_IFMT == S_IFREG
+            && exportedInfo.st_mode & 0o077 == 0
+            && (try? String(contentsOf: selectedExport, encoding: .utf8))?.contains("synthetic") == true
+            && (try? String(contentsOf: exportSentinel, encoding: .utf8)) == "keep this file")
+        print("PASS: account login export is explicit, destination writes replace links safely, and files are owner-only")
         owner.accounts = [["account": "fixture", "label": "Fixture account",
                            "route": "browser", "portable_ready": true]]
         owner.showPasswordSync()

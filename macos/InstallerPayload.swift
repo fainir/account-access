@@ -189,6 +189,33 @@ struct InstallerPayloadCounts {
 }
 
 enum InstallerPayloadIO {
+    // This verifier is deliberately compiled as a single, standalone helper by
+    // build-broker.sh and by the installer fixture tests. Keep the ACL checks
+    // here instead of depending on FullImageTreeStorage, which is not part of
+    // the installed verifier target.
+    static func noACL(_ fd: Int32) throws {
+        errno = 0
+        guard let acl = acl_get_fd(fd) else {
+            guard errno == ENOENT else { throw InstallerPayloadFailure.object }; return
+        }
+        defer { acl_free(UnsafeMutableRawPointer(acl)) }
+        var entry: acl_entry_t?
+        errno = 0
+        guard acl_get_entry(acl, ACL_FIRST_ENTRY.rawValue, &entry) != 0,
+              errno == EINVAL else { throw InstallerPayloadFailure.object }
+    }
+    static func noLinkACL(_ fd: Int32) throws {
+        errno = 0
+        guard let acl = acl_get_fd_np(fd, ACL_TYPE_EXTENDED) else {
+            // Unsupported ACL queries and descriptor errors must fail closed.
+            guard errno == ENOENT else { throw InstallerPayloadFailure.object }; return
+        }
+        defer { acl_free(UnsafeMutableRawPointer(acl)) }
+        var entry: acl_entry_t?
+        errno = 0
+        guard acl_get_entry(acl, ACL_FIRST_ENTRY.rawValue, &entry) != 0,
+              errno == EINVAL else { throw InstallerPayloadFailure.object }
+    }
     static func noGrantACL(_ fd: Int32) throws {
         errno = 0
         guard let acl = acl_get_fd(fd) else {
@@ -227,7 +254,7 @@ enum InstallerPayloadIO {
         } else {
             guard info.st_mode & (sharedParent ? 0o002 : 0o022) == 0 else { throw InstallerPayloadFailure.object }
         }
-        if strictACL { try PublicTreeIO.noACL(fd) }
+        if strictACL { try noACL(fd) }
         else { try noGrantACL(fd) }
         return info
     }
@@ -373,7 +400,7 @@ enum InstallerPayloadIO {
                     do {
                         var opened = stat(), current = stat()
                         guard fstat(link, &opened) == 0, same(info, opened) else { throw InstallerPayloadFailure.changed }
-                        try PublicTreeIO.noLinkACL(link)
+                        try noLinkACL(link)
                         guard fstat(link, &current) == 0, same(opened, current) else { throw InstallerPayloadFailure.changed }
                     } catch { Darwin.close(link); throw error }
                     Darwin.close(link)

@@ -963,6 +963,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             "password_file_too_large": "The password export is too large. Export fewer accounts and try again.",
             "invalid_password_export": "The password file could not be read. Export a fresh UTF-8 CSV or unencrypted Bitwarden JSON file and try again.",
             "unsupported_password_export": "Choose a supported password CSV or unencrypted Bitwarden JSON export.",
+            "saved_login_unavailable": "This account has no complete saved login to export. The account connector and approvals are preserved.",
+            "saved_login_export_unsupported": "This sign-in uses identity and phone details that cannot be exported as a password CSV.",
             "import_connector_changed": "This account's connection changed after the import review. Choose the password file again and review the current account permissions.",
             "import_authenticator_changed": "This account's authenticator changed after the import review. Choose the password file again before replacing its authenticator key.",
             "pypi_manual_setup_unavailable": "Manual PyPI setup is unavailable in this pilot. Use the reviewed automatic route; your saved login is preserved.",
@@ -3464,6 +3466,22 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 chrome.identifier = NSUserInterfaceItemIdentifier(account["account"] as? String ?? "")
                 body.addArrangedSubview(chrome)
             }
+            if account["saved_login_available"] as? Bool == true,
+               let id = account["account"] as? String {
+                let controls = NSStackView()
+                controls.orientation = .horizontal
+                controls.alignment = .centerY
+                controls.spacing = 8
+                if account["saved_login_exportable"] as? Bool == true {
+                    let export = NSButton(title: "Export saved login…", target: self, action: #selector(exportSavedLogin))
+                    export.identifier = NSUserInterfaceItemIdentifier(id)
+                    controls.addArrangedSubview(export)
+                }
+                let forget = NSButton(title: "Forget saved login", target: self, action: #selector(forgetSavedLogin))
+                forget.identifier = NSUserInterfaceItemIdentifier(id)
+                controls.addArrangedSubview(forget)
+                body.addArrangedSubview(controls)
+            }
             if (pending || !active), let id = account["account"] as? String, let detail = verificationDetails[id] {
                 let inspect = NSButton(title: "Show verification details", target: self, action: #selector(showVerificationDetails))
                 inspect.identifier = NSUserInterfaceItemIdentifier(detail)
@@ -3518,6 +3536,99 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
 
     @objc func reviewAccount(_ sender: NSButton) { selectedAccount = sender.identifier?.rawValue; connections() }
+
+    @objc func exportSavedLogin(_ sender: NSButton) {
+        guard !busy, let account = sender.identifier?.rawValue,
+              account.range(of: "^[a-z][a-z0-9_-]{0,63}$", options: .regularExpression) != nil else { return }
+        let warning = NSAlert()
+        warning.messageText = "Export this saved login as plain text?"
+        warning.informativeText = "The CSV will contain the website address, username and password and will not be encrypted. Choose a private location and keep the file secure. This is a snapshot of the login saved on this Mac."
+        warning.addButton(withTitle: "Choose File")
+        warning.addButton(withTitle: "Cancel")
+        guard warning.runModal() == .alertFirstButtonReturn else { return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.commaSeparatedText]
+        panel.nameFieldStringValue = account + "-saved-login.csv"
+        panel.canCreateDirectories = false
+        panel.isExtensionHidden = false
+        panel.message = "Save an unencrypted CSV snapshot of this saved website login."
+        guard panel.runModal() == .OK, let destination = panel.url else { return }
+        busy = true
+        page("Exporting your saved login", "Account Access will create the plain-text CSV you selected.")
+        progress()
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let result = try self.request("owner/account/export", body: ["account": account])
+                guard result["status"] as? String == "EXPORTED",
+                      let csv = result["csv"] as? String, !csv.isEmpty,
+                      csv.utf8.count <= 16384 else { throw Failure.message("The saved login could not be exported.") }
+                try Self.writePrivateExport(Data(csv.utf8), to: destination)
+                let state = try self.request("owner/state")
+                DispatchQueue.main.async {
+                    self.busy = false
+                    self.accept(state)
+                    self.ready()
+                    self.status.stringValue = "Plain-text CSV saved. Keep it secure or delete it when you are finished."
+                }
+            } catch { self.fail(error, retry: #selector(self.showReady)) }
+        }
+    }
+
+    @objc func forgetSavedLogin(_ sender: NSButton) {
+        guard !busy, let account = sender.identifier?.rawValue,
+              account.range(of: "^[a-z][a-z0-9_-]{0,63}$", options: .regularExpression) != nil else { return }
+        let confirmation = NSAlert()
+        confirmation.messageText = "Forget this saved login and website session?"
+        confirmation.informativeText = "Account Access will remove this account’s locally saved username, password, website session, and password-source link. Its approved AI reads and shared email, SMS, or authenticator setups stay in place. This does not change the password at the website."
+        confirmation.addButton(withTitle: "Forget Saved Login")
+        confirmation.addButton(withTitle: "Cancel")
+        guard confirmation.runModal() == .alertFirstButtonReturn else { return }
+        busy = true
+        page("Removing the saved login", "The account connector and approved reads remain available for a new sign-in.")
+        progress()
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let result = try self.request("owner/account/forget", body: ["account": account])
+                guard result["status"] as? String == "FORGOTTEN" else {
+                    throw Failure.message("The saved login could not be removed.")
+                }
+                let state = try self.request("owner/state")
+                DispatchQueue.main.async { self.busy = false; self.accept(state); self.ready() }
+            } catch { self.fail(error, retry: #selector(self.showReady)) }
+        }
+    }
+
+    static func writePrivateExport(_ data: Data, to destination: URL) throws {
+        let failure = Failure.message("The plain-text export could not be saved securely. Choose another file location and try again.")
+        guard destination.isFileURL, destination.path.hasPrefix("/"),
+              !data.isEmpty, data.count <= 16384 else { throw failure }
+        let parent = destination.deletingLastPathComponent().path
+        var parentInfo = stat()
+        guard stat(parent, &parentInfo) == 0, parentInfo.st_mode & S_IFMT == S_IFDIR else { throw failure }
+        var template = Array((parent + "/.account-access-export.XXXXXX").utf8CString)
+        let descriptor = mkstemp(&template)
+        guard descriptor >= 0 else { throw failure }
+        let temporary = String(cString: template)
+        var published = false
+        defer {
+            _ = Darwin.close(descriptor)
+            if !published { _ = Darwin.unlink(temporary) }
+        }
+        guard fchmod(descriptor, mode_t(S_IRUSR | S_IWUSR)) == 0 else { throw failure }
+        try data.withUnsafeBytes { raw in
+            guard let base = raw.baseAddress else { throw failure }
+            var offset = 0
+            while offset < raw.count {
+                let count = Darwin.write(descriptor, base.advanced(by: offset), raw.count - offset)
+                if count < 0 && errno == EINTR { continue }
+                guard count > 0 else { throw failure }
+                offset += count
+            }
+        }
+        guard fsync(descriptor) == 0,
+              Darwin.rename(temporary, destination.path) == 0 else { throw failure }
+        published = true
+    }
 
     @objc func updateBrowserConnection(_ sender: NSButton) {
         guard let account = sender.identifier?.rawValue,

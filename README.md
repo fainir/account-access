@@ -116,6 +116,12 @@ plaintext passwords: keep them local and use the app's option to move the export
 to Trash afterward. This does not securely erase it or empty Trash. Never upload
 an export or paste credentials into chat.
 
+In the account list, **Export saved login** creates an owner-selected plain-text
+CSV for a supported website login. **Forget saved login** removes that login,
+its website session and its local password-source link; it keeps approved reads
+and shared verification methods. These controls are in the development build
+and are not in the currently published preview.
+
 **Chrome and other CSV imports are snapshots.** Re-import after changing a
 password. The 0.8 candidate supports ongoing updates from approved Bitwarden
 items through a separate, explicitly connected local vault session, and from

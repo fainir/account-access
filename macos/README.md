@@ -364,7 +364,7 @@ Version 0.7.2 also verifies the import summary: a saved password with an unfinis
 ```sh
 xcrun swiftc -O -parse-as-library -D ACCOUNT_ACCESS_UI_CHECKS \
   -framework AppKit -framework CryptoKit -framework ServiceManagement -lsqlite3 -lbsm \
-  macos/AccountAccess.swift macos/OwnerGateway.swift macos/DesktopOwnerConnection.swift \
+  macos/AccountAccess.swift macos/MailboxOAuthLoopback.swift macos/OwnerGateway.swift macos/DesktopOwnerConnection.swift \
   macos/BrowserNativeHost.swift macos/ManagedAgentSetup.swift macos/WorkerBootstrap.swift macos/WorkerListenerBindings.swift \
   macos/BackgroundRecovery.swift macos/MessageText.swift macos/MessagesReader.swift \
   macos/SystemMessagesReader.swift macos/Tests/OwnerScreenChecks.swift \

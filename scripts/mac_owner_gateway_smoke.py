@@ -49,6 +49,8 @@ NATIVE_CHECKS = {
     "approved_vault_enrollment_uses_typed_authority", "expired_vault_enrollment_refused",
     "closed_vault_enrollment_refused", "vault_enrollment_not_forwarded_to_legacy_backend",
     "prepared_client_rejects_invalid_enrollment_body",
+    "saved_login_export_requires_owner_authorization", "saved_login_forget_is_explicit_restricted_action",
+    "saved_login_routes_require_exact_account_handle",
     "bitwarden_connect_requires_setup_and_bounded_budget",
     "bitwarden_connect_rejects_invalid_scope_credentials_and_numeric_consent",
     "bitwarden_disconnect_is_restriction_with_normal_budget",

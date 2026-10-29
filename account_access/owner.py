@@ -229,6 +229,9 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                             "SELECT * FROM challenges WHERE account=? AND resolved IS NULL", (account,))]
                         observed = (record("connection:" + account) or {},
                                     record("credential:" + account) or {}, pending)
+                        saved_credential = observed[1]
+                        saved_login = (isinstance(spec, BrowserAccount) and spec.login is not None
+                                       and spec.login.credential_ready(saved_credential))
                         from .browser_diagnostics import PREFIX, owner_view
                         try:
                             diagnostic = owner_view(config, account, pending, record(PREFIX + account))
@@ -241,6 +244,8 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                                     item["diagnostics"] = diagnostic["diagnostics"]
                         accounts.append({"account": account, **describe(spec, test_mode=config.test_mode), "route": spec.kind,
                                          **broker.connection_view(account, config, display_snapshot=observed),
+                                         "saved_login_available": bool(saved_login or observed[0]),
+                                         "saved_login_exportable": bool(saved_login and not spec.login.identity_contact),
                                          "operations": [{"name": name, "description": op.description} for name, op in spec.operations.items()],
                                          "challenges": challenges})
                     principals = [r[0] for r in db.execute("SELECT DISTINCT principal FROM clients WHERE revoked=0")]
@@ -671,6 +676,18 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                         threading.Thread(target=verify, args=(account, ident), daemon=True).start()
                         result["jobs"].append({"account": account, "id": ident})
                     self.send(200, result)
+                    return
+                if self.path == "/owner/account/export":
+                    if type(data) is not dict or set(data) != {"account"}:
+                        raise ValueError()
+                    from .account_data import export_login
+                    self.send(200, export_login(broker.store, data["account"]))
+                    return
+                if self.path == "/owner/account/forget":
+                    if type(data) is not dict or set(data) != {"account"}:
+                        raise ValueError()
+                    from .account_data import forget_login
+                    self.send(200, forget_login(broker.store, data["account"]))
                     return
                 if guided and self.path == "/owner/add":
                     from .catalog import add, entries
