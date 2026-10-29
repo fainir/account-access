@@ -19,6 +19,16 @@ state parameter was not retained. The official Phoenix entry produced a
 state-bound login page; opening the authentication URL without that state showed
 a generic configuration error. [Sanitized public-page check](../artifacts/insurer-public-login-check-20261028.json).
 
+A fresh read-only check in the owner's Chrome on 30 October again showed
+Harel's ID and mobile inputs, SMS selected, and a Continue button. DOM metadata
+confirmed that the visible dialog is a separate native `GET` form to the login
+path; the page also has an unrelated hidden SharePoint `POST` form. No value was
+entered, no button was pressed and no code was requested. This confirms that
+loosening the generic connector's POST-only refusal would expose the ID and
+phone in a URL; it does not qualify a Harel connector. The provider's reviewed
+JavaScript submission sequence still needs to be implemented and tested with
+synthetic fixtures before owner account acceptance.
+
 A fresh check of public insurer guidance on 29 October found Harel's official
 FAQ explicitly describes entry with an identity number and mobile number,
 followed by a one-time SMS code; first entry may also ask for the identity

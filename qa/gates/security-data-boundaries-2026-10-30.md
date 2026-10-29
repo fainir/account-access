@@ -7,3 +7,4 @@
 - The current source-current build-118 public image includes the Account Access Python package and signed owner app; native payload signature audit and manifest preflight pass ([image qualification](../direct-runtime-target-image-2026-10-30.json)). The image has not been installed. Installer, restart and installed-service acceptance remain under F1.
 - Current-source scan has no secret findings; the separately reviewed historical Gitleaks findings were all literal `REDACTED` markers ([history triage](gitleaks-history-triage-2026-10-29.md)).
 - **Gate: verified for source controls, dependency set and qualified runtime image.** Installed acceptance remains tracked by F1 and Ops.
+- Re-run from the active continuation worktree: the same six-file focused boundary suite passed again, **92 passed in 47.01s**.

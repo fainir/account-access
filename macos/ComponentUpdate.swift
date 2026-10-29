@@ -202,7 +202,7 @@ enum ComponentFiles {
         let fd = openat(parent, name, O_RDONLY | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK)
         guard fd >= 0 else { throw ComponentUpdateFailure.object }; defer { Darwin.close(fd) }
         let before = try InstallerPayloadIO.check(fd, owner: owner, directory: false)
-        try PublicTreeIO.noACL(fd)
+        try InstallerPayloadIO.noACL(fd)
         guard InstallerPayloadIO.same(pathInfo, before), before.st_size >= 0,
               before.st_size <= InstallerPayloadManifest.maximumFile else { throw ComponentUpdateFailure.object }
         var count: Int64 = 0, hasher = SHA256(), buffer = [UInt8](repeating: 0, count: 1024 * 1024)
