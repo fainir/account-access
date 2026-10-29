@@ -8,3 +8,6 @@ Android 15 manual-code accessibility selector regression
 - `apksigner verify` -> passed for both the phone preview APK and instrumentation APK.
 - This Mac has no Android API 35 emulator image; no physical Android device was connected. Hosted emulator rerun is required to qualify the updated accessibility selector.
 - The test now locates the masked login-code EditText by its fixed visible hint when Android omits the password field's content description; it asserts the view remains an EditText and password-masked before entering the synthetic test code.
+- Hosted run 40929994170 reproduced `masked=false, input_type=18` on both API 30 and API 35 even after explicitly setting `PasswordTransformationMethod`. The field retained its numeric password input type, but neither emulator exposed the password semantic bit.
+- `MainActivity` now keeps the real password transformation and explicitly marks the accessibility node as a password through the view delegate. This preserves the `EditText` class, numeric keyboard and six-digit limit while ensuring assistive technology receives password semantics.
+- Rebuilt `dist/android/Account-Access-Phone-preview.apk` and `dist/android/Account-Access-Phone-tests.apk`; both build scripts and `apksigner verify` passed. Hosted API 30/35 validation of the accessibility delegate is pending on this source.
