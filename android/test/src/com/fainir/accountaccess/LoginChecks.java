@@ -16,7 +16,7 @@ public final class LoginChecks extends Instrumentation {
   AccessibilityNodeInfo input=findNode(automation,"Account Access login code input");
   if(input==null)throw new Exception("Manual code field is missing from the phone app");
   if(!"android.widget.EditText".contentEquals(input.getClassName()) || !input.isPassword())
-   throw new Exception("Manual code field lost its masked input semantics");
+   throw new Exception("Manual code field security semantics invalid: class="+input.getClassName()+", masked="+input.isPassword()+", input_type="+input.getInputType());
   input.performAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS);
   Bundle value=new Bundle();value.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,code);
   if(!input.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT,value))throw new Exception("Manual code field rejected test input");
