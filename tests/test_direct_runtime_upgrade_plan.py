@@ -69,17 +69,26 @@ def test_delta_refuses_path_traversal_even_if_it_is_a_file():
         plan._units({"roots": {plan.SUPPORT: old}}, {"roots": {plan.SUPPORT: new}})
 
 
-def test_sparse_payload_selects_only_exact_file_and_symlink_members():
+def test_sparse_materialization_moves_only_planned_files_and_symlinks(tmp_path):
+    source_image = tmp_path / "source"
+    source_support = source_image / candidate.SUPPORT_RELATIVE
+    runtime = source_support / "runtime"
+    runtime.mkdir(parents=True)
+    (runtime / "module.py").write_text("safe")
+    (runtime / "current").symlink_to("module.py")
+    (runtime / "unplanned.py").write_text("must not ship")
     inventory = {
         "": {"kind": "directory", "mode": 0o755},
         "runtime": {"kind": "directory", "mode": 0o755},
-        "runtime/module.py": file("a"),
+        "runtime/module.py": candidate.public_payload_inventory(source_support)["runtime/module.py"],
         "runtime/current": {"kind": "symlink", "target": "module.py"},
     }
-    assert candidate.sparse_cpio_members(inventory) == [
-        "./PublicImage/Library/Application Support/Account Access/runtime/current",
-        "./PublicImage/Library/Application Support/Account Access/runtime/module.py",
-    ]
+    target_image = tmp_path / "target"
+    support, byte_count = candidate.materialize_sparse_target(source_image, target_image, inventory)
+    assert byte_count == 4
+    assert candidate.public_payload_inventory(support) == inventory
+    assert (support / "runtime/current").is_symlink()
+    assert not (support / "runtime/unplanned.py").exists()
 
 
 def test_sparse_inventory_preserves_symlinks_and_refuses_symlink_directories(tmp_path):
@@ -101,6 +110,21 @@ def test_sparse_inventory_preserves_symlinks_and_refuses_symlink_directories(tmp
     (installed_support / "runtime").symlink_to(outside, target_is_directory=True)
     with pytest.raises(ValueError, match="sparse_directory_attachment_refused"):
         candidate.create_sparse_directories(image, {
+            "": {"kind": "directory", "mode": 0o755},
+            "runtime": {"kind": "directory", "mode": 0o755},
+        })
+
+
+def test_sparse_materialization_refuses_source_symlink_directories(tmp_path):
+    source_image = tmp_path / "source"
+    source_support = source_image / candidate.SUPPORT_RELATIVE
+    source_support.mkdir(parents=True)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (source_support / "runtime").symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="sparse_source_directory_refused"):
+        candidate.materialize_sparse_target(source_image, tmp_path / "target", {
             "": {"kind": "directory", "mode": 0o755},
             "runtime": {"kind": "directory", "mode": 0o755},
         })

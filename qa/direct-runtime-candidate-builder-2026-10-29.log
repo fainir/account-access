@@ -1,0 +1,20 @@
+Direct runtime candidate builder regression
+Date: 2026-10-29
+
+Commands:
+  uv run --no-sync pytest -q tests/test_direct_runtime_upgrade_plan.py
+  uv run --no-sync ruff check scripts/build_direct_runtime_upgrade_candidate.py tests/test_direct_runtime_upgrade_plan.py
+  uv run --no-sync python -m py_compile scripts/build_direct_runtime_upgrade_candidate.py tests/test_direct_runtime_upgrade_plan.py
+  git diff --check
+
+Results:
+  8 focused tests passed.
+  Ruff passed.
+  Python compilation passed.
+  git diff --check passed.
+
+The builder now accepts the actual signed build 116 package shape: it validates
+the complete public support tree against the pinned RecoveryManifest and the
+public app symlink, then moves only the planned sparse update nodes. It refuses
+symlinked parent directories. No package was installed and no account data or
+protected service was changed by these checks.

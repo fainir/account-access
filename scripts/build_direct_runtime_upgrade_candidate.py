@@ -28,6 +28,7 @@ COMPONENT_ID = "com.fainir.accountaccess.directruntimeupgrade117"
 HELPER_ID = "com.fainir.accountaccess.componentupdate"
 TEAM = "WBULD6N4NQ"
 SUPPORT_RELATIVE = "Library/Application Support/Account Access"
+SUPPORT_RELATIVE_ROOT = "/" + SUPPORT_RELATIVE
 RESOURCE_NAMES = {"RuntimeUpgradePlan.json", "BaseManifest.json", "TargetManifest.json", "BaseIdentity.json",
     "TargetIdentity.json", "TargetImage", "AccountAccess-runtimeupgrade", "postinstall"}
 
@@ -151,43 +152,70 @@ def create_sparse_directories(target_image: Path, inventory: dict[str, dict]) ->
         os.chmod(path, node["mode"], follow_symlinks=False)
 
 
-def sparse_cpio_members(inventory: dict[str, dict]) -> list[str]:
-    public_root = "./PublicImage/" + SUPPORT_RELATIVE
-    # Selecting directories makes BSD cpio recurse through their contents.
-    # Only exact file/symlink archive members belong in the extraction list.
-    members = sorted(public_root + "/" + relative for relative, node in inventory.items()
-                     if relative and node["kind"] in {"file", "symlink"})
-    require(members, "sparse_target_has_no_payload_files")
-    return members
+def materialize_sparse_target(source_image: Path, target_image: Path,
+        inventory: dict[str, dict]) -> tuple[Path, int]:
+    """Move only planned public nodes from a verified image into the updater resource."""
+    source_support = source_image / SUPPORT_RELATIVE
+    target_support = target_image / SUPPORT_RELATIVE
+    require(source_image.is_dir() and not source_image.is_symlink(), "target_public_image_invalid")
+    require(not os.path.lexists(target_image), "sparse_target_already_exists")
+
+    # The update helper consumes a root-shaped PublicImage. Preserve the two
+    # ordinary public parent directories while omitting unrelated app roots.
+    target_image.mkdir(mode=0o755)
+    for relative in ("Library", "Library/Application Support"):
+        source = source_image / relative
+        target = target_image / relative
+        info = source.lstat()
+        require(stat.S_ISDIR(info.st_mode), "target_public_parent_invalid")
+        target.mkdir(mode=stat.S_IMODE(info.st_mode))
+
+    create_sparse_directories(target_image, inventory)
+    for relative, node in sorted(inventory.items()):
+        source = source_support / relative if relative else source_support
+        if node["kind"] == "directory":
+            require(stat.S_ISDIR(source.lstat().st_mode), "sparse_source_directory_refused")
+            continue
+        target = target_support / relative
+        source_info = source.lstat()
+        require(not target.parent.is_symlink(), "sparse_target_parent_symlink_refused")
+        if node["kind"] == "file":
+            require(stat.S_ISREG(source_info.st_mode), "sparse_source_file_invalid")
+        elif node["kind"] == "symlink":
+            require(stat.S_ISLNK(source_info.st_mode) and os.readlink(source) == node["target"],
+                "sparse_source_symlink_mismatch")
+        else:
+            raise ValueError("sparse_source_node_invalid")
+        os.replace(source, target)
+
+    actual = public_payload_inventory(target_support)
+    require(actual == inventory, "sparse_target_inventory_mismatch")
+    return target_support, sum(node.get("size", 0) for node in actual.values())
 
 
 def extract_sparse_target(package: Path, expanded: Path, scripts: Path, target_manifest: dict, plan: dict):
-    payloads = list(expanded.glob("payload.pkg/Scripts"))
-    require(len(payloads) == 1 and stat.S_ISREG(payloads[0].lstat().st_mode), "target_cpio_payload_missing")
+    public_images = list(expanded.glob("payload.pkg/Scripts/PublicImage"))
+    require(len(public_images) == 1 and public_images[0].is_dir()
+        and not public_images[0].is_symlink(), "target_public_image_missing")
     inventory = expected_sparse_nodes(plan, target_manifest)
-    # -d creates parent paths, and the manifest below reconstructs the exact
-    # sparse directory inventory without selecting recursive directory names.
-    patterns = sparse_cpio_members(inventory)
-    extracted = scripts.parent / "target-extract"
-    extracted.mkdir(mode=0o700)
-    gzip = subprocess.Popen(["/usr/bin/gzip", "-dc", str(payloads[0])], stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE, stdin=subprocess.DEVNULL)
-    assert gzip.stdout is not None
-    cpio = subprocess.run(["/usr/bin/cpio", "-idm", "--", *patterns], cwd=extracted,
-        stdin=gzip.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=600, check=False)
-    gzip.stdout.close()
-    gzip_error = gzip.communicate(timeout=600)[1]
-    require(cpio.returncode == 0 and gzip.returncode == 0 and not gzip_error,
-        "target_public_delta_extraction_failed")
-    public = extracted / "PublicImage"
+    public = public_images[0]
+    require({path.name for path in public.iterdir()} == {"Applications", "Library"},
+        "target_public_image_root_mismatch")
+    applications = public / "Applications"
+    require(stat.S_ISDIR(applications.lstat().st_mode), "target_public_applications_invalid")
+    support = public / SUPPORT_RELATIVE
+    for relative in ("Library", "Library/Application Support", SUPPORT_RELATIVE):
+        require(stat.S_ISDIR((public / relative).lstat().st_mode), "target_public_support_parent_invalid")
+    target_support_manifest = target_manifest["roots"][SUPPORT_RELATIVE_ROOT]
+    require(public_payload_inventory(support) == target_support_manifest,
+        "target_public_image_manifest_mismatch")
+    app_link = public / "Applications" / "Account Access.app"
+    app_node = target_manifest["roots"].get("/Applications/Account Access.app", {}).get("")
+    require(app_node is not None and app_node.get("kind") == "symlink" and app_link.is_symlink()
+        and os.readlink(app_link) == app_node.get("target"), "target_public_app_link_mismatch")
     target_image = scripts / "TargetImage"
-    require(public.is_dir() and not public.is_symlink(), "target_public_image_missing")
-    create_sparse_directories(public, inventory)
-    shutil.move(str(public), str(target_image))
-    support = target_image / SUPPORT_RELATIVE
-    actual = public_payload_inventory(support)
-    require(actual == inventory, "sparse_target_inventory_mismatch")
-    return target_image, support, len(actual), sum(node.get("size", 0) for node in actual.values())
+    support, sparse_bytes = materialize_sparse_target(public, target_image, inventory)
+    return target_image, support, len(inventory), sparse_bytes
 
 
 def source_inputs(shared):
