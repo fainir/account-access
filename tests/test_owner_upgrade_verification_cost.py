@@ -25,7 +25,7 @@ def test_owner_upgrade_revalidates_captured_history_without_rebuilding_full_proo
     )[0]
     assert "try activeProof.revalidateHistory()" in verify_unchanged
 
-    verify_public = body.split("let verifyPublic = {", 1)[1].split(
+    verify_public = body.split("func verifyPublic(", 1)[1].split(
         "let storage = try FullImageMixedStorage", 1
     )[0]
     assert "try fullLayout(source: source" in verify_public
@@ -35,9 +35,9 @@ def test_owner_upgrade_revalidates_captured_history_without_rebuilding_full_proo
     storage = body.split("let storage = try FullImageMixedStorage", 1)[1].split(
         "reference.storage = storage", 1
     )[0]
-    assert "verifyOld: verifyPublic" in storage
-    assert "verifyRecoverable: verifyPublic" in storage
-    assert "verifyNew: verifyPublic" in storage
+    assert "verifyOld: { try verifyPublic($0, completeImage: false) }" in storage
+    assert "verifyRecoverable: { try verifyPublic($0, completeImage: false) }" in storage
+    assert "verifyNew: { try verifyPublic($0, completeImage: true) }" in storage
     assert "completedRuntimeUpgradeLocked(" not in storage
 
 

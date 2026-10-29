@@ -2,16 +2,16 @@
 
 This is a native installer and owner interface for macOS 14 (Sonoma) or later.
 
-**Current owner-Mac status (25 October):** runtime package 95 installed and
-restarted successfully; its public image and aliases match the reviewed target.
-One personal Chrome credential was imported locally. The app's AI-connection
-upgrade failed after the owner approved macOS authorization, and the installed
-agent launcher returned `RETRYABLE/service_unavailable` during account
-discovery without returning account metadata. The installed owner app remains
-bundle version 92. Diagnostic package 101 passed all seven actual Installer
-scenarios but is still uninstalled on this Mac; its outer package is unsigned
-and unnotarized. Harel/Phoenix SMS, Lemon Squeezy authenticator, real website
-email verification and physical-phone delivery remain unverified. See
+**Current owner-Mac status (29 October):** the signed, notarized build 113
+reached PackageKit postinstall and failed when macOS terminated its script at
+the 1,800-second limit. The symbolicated stack traced the delay to repeated
+full-tree verification. Build 114 adds a single strict content pass followed
+by process-local metadata checks for the read-only predecessor proof. Its
+signature, notarization, Gatekeeper assessment, package structure and payload
+inventory pass. It is open in Installer, but no installation transaction or
+receipt exists yet; protected-service and installed-agent smoke tests remain
+unverified. Harel/Phoenix SMS, Lemon Squeezy authenticator, real website email
+verification and physical-phone delivery also remain unverified. See
 [current acceptance](../docs/production-gates.md).
 
 Consumer package builds also require the pinned Bitwarden OSS npm CLI and its

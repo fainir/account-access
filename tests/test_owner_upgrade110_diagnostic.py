@@ -101,9 +101,13 @@ def predecessor_fixture(root: Path) -> tuple[Path, Path]:
     target_predecessor = target / "Predecessor"
     shutil.copytree(source, target_predecessor, symlinks=True)
     shutil.rmtree(target_predecessor / "TargetImage")
-    (target_predecessor / "TargetImage").mkdir(mode=0o755)
+    target_image = target_predecessor / "TargetImage"
+    target_image.mkdir(mode=0o755)
+    target_image.chmod(0o755)
     shutil.rmtree(target_predecessor / "Predecessor/CompletedImage")
-    (target_predecessor / "Predecessor/CompletedImage").mkdir(mode=0o755)
+    completed_image = target_predecessor / "Predecessor/CompletedImage"
+    completed_image.mkdir(mode=0o755)
+    completed_image.chmod(0o755)
     target_predecessor.chmod(0o755)
     return source, target
 
