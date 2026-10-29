@@ -45,7 +45,7 @@ def test_completed_runtime_sets_checkpoints_before_its_snapshot_reads() -> None:
     source = (ROOT / "macos/source-fragments/CompletedRuntimeUpgrade.swift.inc").read_text()
     reads = (
         ("checkpoint(.predecessorFinalTreeHistoryRead)", "let localHistory = try trees.map"),
-        ("checkpoint(.predecessorFinalHeadRead)", "let head = try ComponentFiles.read(namespace.fd, \"head.json\""),
+        ("checkpoint(.predecessorInitialHeadRead)", "let head = try ComponentFiles.read(namespace.fd, \"head.json\""),
         ("checkpoint(.predecessorFinalRootsRead)", "let roots = try InstallationRootBinding.capture(withVolumeUUID: true)"),
     )
     positions = []
@@ -55,6 +55,8 @@ def test_completed_runtime_sets_checkpoints_before_its_snapshot_reads() -> None:
         assert checkpoint_at < read_at
         positions.append(checkpoint_at)
     assert positions == sorted(positions)
+    assert source.count("checkpoint(.predecessorInitialHeadRead)") == 1
+    assert source.count("checkpoint(.predecessorFinalHeadRead)") == 1
 
 
 def predecessor_fixture(root: Path) -> tuple[Path, Path]:

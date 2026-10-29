@@ -48,6 +48,7 @@ enum FullImageInstallCheckpoint: String, CaseIterable {
     case predecessorFinalTreeHistoryRead = "predecessor_final_tree_history_read"
     case predecessorFinalTreeHistoryCompare = "predecessor_final_tree_history_compare"
     case predecessorFinalTreeHistoryVerified = "predecessor_final_tree_history_verified"
+    case predecessorInitialHeadRead = "predecessor_initial_head_read"
     case predecessorFinalHeadRead = "predecessor_final_head_read"
     case predecessorFinalHeadCompare = "predecessor_final_head_compare"
     case predecessorFinalHeadVerified = "predecessor_final_head_verified"

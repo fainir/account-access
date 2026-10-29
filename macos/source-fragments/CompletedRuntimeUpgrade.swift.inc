@@ -245,7 +245,7 @@ extension ComponentController {
         for tree in trees { try tree.enableVerifiedReadOnlyFastState() }
         checkpoint(.predecessorFinalTreeHistoryRead)
         let localHistory = try trees.map { FullImageJSON.hash(try $0.completedEvidence()) }
-        checkpoint(.predecessorFinalHeadRead)
+        checkpoint(.predecessorInitialHeadRead)
         let head = try ComponentFiles.read(namespace.fd, "head.json", owner: 0, mode: 0o644)
         // The journal head is pinned to the predecessor's device number too.
         // After an APFS restart, accept only that device-number translation;
