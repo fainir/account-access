@@ -176,14 +176,24 @@ protocol PublicImageTransitionSource {
     var before: InstallerPayloadManifest { get }
     var after: InstallerPayloadManifest { get }
     var units: [FullImageSource.Unit] { get }
+    var directRuntimeDelta: Bool { get }
+}
+
+extension PublicImageTransitionSource {
+    var directRuntimeDelta: Bool { false }
 }
 
 struct FullImageSource: PublicImageTransitionSource {
     enum Unit {
         case tree(PublicTreeUnit, PublicTreeInventory, PublicTreeInventory)
         case file(FullImagePlanFileUnit, InstallerPayloadNode?, InstallerPayloadNode?)
+        case directFile(String, UInt16, InstallerPayloadNode?, InstallerPayloadNode?)
         var path: String {
-            switch self { case .tree(let unit, _, _): return unit.path; case .file(let unit, _, _): return unit.path }
+            switch self {
+            case .tree(let unit, _, _): return unit.path
+            case .file(let unit, _, _): return unit.path
+            case .directFile(let path, _, _, _): return path
+            }
         }
     }
     let pins: FullImageSourcePins

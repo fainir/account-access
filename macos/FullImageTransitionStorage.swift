@@ -11,6 +11,7 @@ enum FullImageFileUnit: String, Codable, CaseIterable {
     case pythonPip, pythonPip3, pythonPip312, runtimePip, runtimePip3, runtimePip312
     case runtimePreparation, repairIdentityRemoval, caReplacement
     case hostPolicy, ownerPolicy, installRecord, head
+    case directPublicFile
     var path: String {
         switch self {
         case .wheel: return "wheels/account_access-0.8.0-py3-none-any.whl"
@@ -32,6 +33,7 @@ enum FullImageFileUnit: String, Codable, CaseIterable {
         case .ownerPolicy: return "owner.json"
         case .installRecord: return "broker/install.json"
         case .head: return "head.json"
+        case .directPublicFile: return "direct-public-file"
         }
     }
     var target: ComponentOperation.Target {
@@ -55,19 +57,37 @@ struct FullImageFileOperation: Codable, Equatable {
     let index: Int
     let before: ComponentObject?
     let after: ComponentObject?
+    var directPath: String? = nil
+    var directMode: UInt16? = nil
     var slot: String { String(format: "slot-%02d", index) }
+    var path: String { unit == .directPublicFile ? (directPath ?? "") : unit.path }
+    var mode: UInt16 { unit == .directPublicFile ? (directMode ?? 0) : unit.mode }
     func validate(ownerDevice: Int32) throws {
-        guard schema == 1, FullImageJSON.hex(planSHA256), (0..<64).contains(index),
+        let directPlan = planSHA256 == "f15129413f71a65e61a53f690b6676306ae905b3b8ba4e5df966c70f423287d5"
+        guard schema == 1, FullImageJSON.hex(planSHA256), (0..<(directPlan ? 256 : 64)).contains(index),
               before != nil || after != nil, before != after else { throw FullImageFailure.journal }
+        if unit == .directPublicFile {
+            guard directPlan, let directPath, let directMode,
+                  (directMode == 0o644 || directMode == 0o755),
+                  let parts = try? InstallerPayloadManifest.components(directPath), !parts.isEmpty,
+                  !directPath.hasPrefix("/"), !directPath.contains("\\"),
+                  ["owner.app", "python", "runtime", "browsers", "wheels", "bin"].contains(parts[0]),
+                  [before, after].compactMap({ $0 }).allSatisfy({ $0.mode == directMode }) else { throw FullImageFailure.journal }
+        } else {
+            guard (0..<64).contains(index), directPath == nil, directMode == nil else { throw FullImageFailure.journal }
+        }
         if let publicUnit = unit.publicUnit {
             guard (before != nil) == publicUnit.beforePresent,
                   (after != nil) == publicUnit.afterPresent else { throw FullImageFailure.journal }
+        } else if unit == .directPublicFile {
+            guard before != nil || after != nil else { throw FullImageFailure.journal }
         } else {
             guard after != nil, (before == nil) == (unit == .head) else { throw FullImageFailure.journal }
         }
         for object in [before, after].compactMap({ $0 }) {
-            guard object.device == ownerDevice, object.inode > 0, object.mode == unit.mode,
-                  object.bytes >= 0, object.bytes <= ComponentFiles.maximumFile,
+            guard object.device == ownerDevice, object.inode > 0, object.mode == mode,
+                  object.bytes >= 0, object.bytes <= (unit == .directPublicFile
+                    ? InstallerPayloadManifest.maximumFile : Int64(ComponentFiles.maximumFile)),
                   FullImageJSON.hex(object.sha256) else { throw FullImageFailure.journal }
         }
         if let before, let after { guard before.inode != after.inode else { throw FullImageFailure.journal } }
@@ -76,7 +96,7 @@ struct FullImageFileOperation: Codable, Equatable {
     // equality and authority always use the typed record above, including nil.
     var token: ComponentOperation {
         let absent = ComponentObject(device: 0, inode: 0, mode: 0, bytes: 0, sha256: String(repeating: "0", count: 64))
-        return ComponentOperation(target: unit.target, path: unit.path, slot: slot, before: before, after: after ?? absent)
+        return ComponentOperation(target: unit.target, path: path, slot: slot, before: before, after: after ?? absent)
     }
 }
 
@@ -84,6 +104,7 @@ final class FullImageFileStorage {
     let operation: FullImageFileOperation
     private let retained: Int32, owner: uid_t
     private let resolve: (FullImageFileUnit) throws -> (Int32, String)
+    private let resolveDirect: ((String) throws -> (Int32, String))?
     private let verifyAttachments: () throws -> Void
     private let requireQuiescent: () throws -> Void
     private let observationDevice: Int32?
@@ -91,6 +112,7 @@ final class FullImageFileStorage {
     private let completedProjection: (() throws -> ComponentObject?)?
     init(operation: FullImageFileOperation, retained: Int32, owner: uid_t,
          resolve: @escaping (FullImageFileUnit) throws -> (Int32, String),
+         resolveDirect: ((String) throws -> (Int32, String))? = nil,
          verifyAttachments: @escaping () throws -> Void, requireQuiescent: @escaping () throws -> Void,
          observationDevice: Int32? = nil, completedProjection: (() throws -> ComponentObject?)? = nil) throws {
         let parent = try InstallerPayloadIO.check(retained, owner: owner, directory: true)
@@ -99,7 +121,8 @@ final class FullImageFileStorage {
         guard observationDevice == nil || observationDevice! >= 0 else { throw FullImageFailure.object }
         try operation.validate(ownerDevice: observationDevice ?? parent.st_dev)
         self.operation = operation; self.retained = retained; self.owner = owner
-        self.resolve = resolve; self.verifyAttachments = verifyAttachments; self.requireQuiescent = requireQuiescent
+        self.resolve = resolve; self.resolveDirect = resolveDirect
+        self.verifyAttachments = verifyAttachments; self.requireQuiescent = requireQuiescent
         self.observationDevice = observationDevice; currentDevice = parent.st_dev
         self.completedProjection = completedProjection
     }
@@ -118,7 +141,7 @@ final class FullImageFileStorage {
             try verifyAttachments()
             return matches(current, operation.after) && matches(saved, operation.before) ? .applied : .conflict
         }
-        let (parent, name) = try resolve(operation.unit)
+        let (parent, name) = try destination()
         defer { Darwin.close(parent) }
         try ComponentFiles.name(name)
         let current = try ComponentFiles.observe(parent, name, owner: owner)
@@ -134,8 +157,8 @@ final class FullImageFileStorage {
         guard current != .conflict else { throw FullImageFailure.object }
         let read: (Data, ComponentObject)
         if current == .staged {
-            let (parent, name) = try resolve(operation.unit); defer { Darwin.close(parent) }
-            read = try ComponentFiles.read(parent, name, owner: owner, mode: mode_t(operation.unit.mode))
+            let (parent, name) = try destination(); defer { Darwin.close(parent) }
+            read = try ComponentFiles.read(parent, name, owner: owner, mode: mode_t(operation.mode))
         } else {
             read = try ComponentFiles.read(retained, operation.slot, owner: owner, mode: mode_t(operation.unit.mode))
         }
@@ -148,7 +171,7 @@ final class FullImageFileStorage {
         guard observationDevice == nil, completedProjection == nil else { throw FullImageFailure.journal }
         try requireQuiescent(); try verifyAttachments()
         guard try state() == (forward ? .staged : .applied) else { throw FullImageFailure.object }
-        let (parent, name) = try resolve(operation.unit)
+        let (parent, name) = try destination()
         defer { Darwin.close(parent) }
         let source = forward ? operation.after : operation.before
         let destination = forward ? operation.before : operation.after
@@ -160,6 +183,13 @@ final class FullImageFileStorage {
         }
         try verifyAttachments(); try requireQuiescent()
         guard try state() == (forward ? .applied : .staged) else { throw FullImageFailure.object }
+    }
+    private func destination() throws -> (Int32, String) {
+        if operation.unit == .directPublicFile {
+            guard let path = operation.directPath, let resolveDirect else { throw FullImageFailure.journal }
+            return try resolveDirect(path)
+        }
+        return try resolve(operation.unit)
     }
 }
 
@@ -205,7 +235,9 @@ final class FullImageMixedStorage: ComponentTransitionStorage {
         let plans = units.map { unit -> String in
             switch unit { case .file(let storage): return storage.operation.planSHA256; case .tree(let storage): return storage.operation.planSHA256 }
         }
-        guard !tokens.isEmpty, tokens.count <= 64, Set(plans).count == 1, Set(tokens.map(\.path)).count == tokens.count,
+        let directPlan = "f15129413f71a65e61a53f690b6676306ae905b3b8ba4e5df966c70f423287d5"
+        let operationLimit = plans.first == directPlan ? 256 : 64
+        guard !tokens.isEmpty, tokens.count <= operationLimit, Set(plans).count == 1, Set(tokens.map(\.path)).count == tokens.count,
               Set(tokens.map(\.slot)).count == tokens.count,
               tokens.filter({ $0.target == .head }).count == 1, tokens.last?.target == .head else { throw FullImageFailure.journal }
         self.units = units; operations = tokens; event = writeEvent

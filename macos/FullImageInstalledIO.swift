@@ -233,6 +233,19 @@ final class FullImageInstalledRoutes {
     func resolve(_ unit: FullImageFileUnit) throws -> (Int32, String) {
         (try fileParent(unit).duplicate(), String(unit.path.split(separator: "/").last!))
     }
+    func resolveDirectPublicFile(_ path: String) throws -> (Int32, String) {
+        let parts = try InstallerPayloadManifest.components(path)
+        guard !parts.isEmpty, !path.hasPrefix("/"), !path.contains("\\"),
+              ["owner.app", "python", "runtime", "browsers", "wheels", "bin"].contains(parts[0]) else {
+            throw FullImageFailure.journal
+        }
+        let leaf = parts.last!
+        try ComponentFiles.name(leaf)
+        let relativeParent = parts.dropLast().joined(separator: "/")
+        guard !relativeParent.isEmpty else { throw FullImageFailure.journal }
+        let parent = try directory(InstallerPayloadManifest.support + "/" + relativeParent)
+        return (try parent.duplicate(), leaf)
+    }
     func verify() throws { for route in held.values { try route.verify(route.fd) } }
     // Do not cache a route to a preparation name that will be published under a
     // different name. Construct installed routes only after exclusive publish.
@@ -351,6 +364,7 @@ enum FullImagePublicStager {
             let nodes: [InstallerPayloadNode]
             switch unit {
             case .file(_, _, let after): nodes = after.map { [$0] } ?? []
+            case .directFile(_, _, _, let after): nodes = after.map { [$0] } ?? []
             case .tree(_, _, let after): nodes = after.tree.map { Array($0.nodes.values).filter { $0.kind == "file" } } ?? []
             }
             for node in nodes {
@@ -598,6 +612,8 @@ enum FullImagePublicView {
             switch unit {
             case .file(let file, let before, let after):
                 nodes[file.path] = states[index] == .applied ? after : before
+            case .directFile(let path, _, let before, let after):
+                nodes[path] = states[index] == .applied ? after : before
             case .tree(let tree, let before, let after):
                 let prefix = tree.path
                 for path in Array(nodes.keys) where path == prefix || path.hasPrefix(prefix + "/") { nodes.removeValue(forKey: path) }

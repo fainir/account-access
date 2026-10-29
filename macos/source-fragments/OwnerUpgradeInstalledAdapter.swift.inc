@@ -276,6 +276,8 @@ extension ComponentController {
                     checkpoint(.preparationJournal)
                     try OwnerUpgradeLocalJournal.prepare(localJournal, operation: record, owner: 0, group: 0)
                     operations.append(FullImageDurableOperation(tree: record))
+                case .directFile:
+                    throw FullImageFailure.source
                 }
             }
             checkpoint(.preparationDynamicStage)

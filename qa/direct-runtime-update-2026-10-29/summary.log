@@ -1,0 +1,8 @@
+Exact build-110 to build-116 public-image updater source QA
+
+- Direct plan and native source: PASSED; 207 changed nodes, 191 units, 7 additions, 9 removals, 2 exact public projections and 4 refusal checks.
+- Installed-adapter fixture: PASSED; 159 source/authority cases, 625 installed adapter cases, 40 namespace cases, 63 legacy group cases, 164 global journal cases, 191 broker-repair cases; six guarded entrypoint refusals. No installed reads, root execution, service actions, or provider calls.
+- Runtime source and ordinary-user entrypoint: PASSED; 72 checks, including refusal without Installer authorization. No installed reads.
+- Signed target public-image delta extraction: PASSED; 289 expected nodes and 492,857,038 bytes, matched against the pinned target manifest.
+- Focused planner and sparse-candidate tests: 7 passed. Ruff, Python compilation and git diff checks passed.
+- These are source and package-payload fixtures. They do not establish installation or production readiness; installer package signing, notarization, Gatekeeper, owner installation, restart, live service and agent flows remain to verify.

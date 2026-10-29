@@ -36,6 +36,25 @@ private struct RuntimeUpgradeAuthority {
         return Self(proofSHA256: proof.sha256, ownerUID: proof.ownerUID, brokerUID: proof.brokerUID,
             workerPolicy: proof.workerPolicy, servicePlist: proof.servicePlist, planSHA256: source.planSHA256)
     }
+    static func bindDirect(source: RuntimeUpgradeSource, install: Data, host: Data, profile: Data,
+                           ownerUID: uid_t, brokerUID: uid_t, workerPolicy: ComponentObject,
+                           servicePlist: ComponentObject) throws -> Self {
+        guard source.directRuntimeDelta, source.before.sha256 == DirectRuntimeUpgradeSource.beforeSHA256,
+              source.after.sha256 == DirectRuntimeUpgradeSource.afterSHA256,
+              ownerUID > 0, ownerUID != brokerUID, (450..<500).contains(brokerUID),
+              workerPolicy.mode == 0o644, servicePlist.mode == 0o644 else { throw FullImageFailure.predecessor }
+        let evidence: [String: Any] = ["schema": 1, "managed_by": "account-access-exact-runtime-predecessor-v1",
+            "plan_sha256": source.planSHA256, "before_manifest_sha256": source.before.sha256,
+            "after_manifest_sha256": source.after.sha256,
+            "original_receipt_manifest_sha256": DirectRuntimeUpgradeSource.originalReceipt,
+            "target_source": source.targetSourceCommit, "owner_uid": Int(ownerUID), "broker_uid": Int(brokerUID),
+            "install_sha256": FullImageJSON.hash(install), "host_sha256": FullImageJSON.hash(host),
+            "profile_sha256": FullImageJSON.hash(profile), "worker_sha256": workerPolicy.sha256,
+            "service_sha256": servicePlist.sha256]
+        let raw = try FullImageJSON.encode(evidence)
+        return Self(proofSHA256: FullImageJSON.hash(raw), ownerUID: ownerUID, brokerUID: brokerUID,
+            workerPolicy: workerPolicy, servicePlist: servicePlist, planSHA256: source.planSHA256)
+    }
     func validate(_ intent: FullImageGlobalIntent, source: RuntimeUpgradeSource,
                   publicOwner: uid_t, publicGroup: gid_t, beforeGroup: gid_t, device: Int32,
                   dynamic: [FullImageFileUnit: Data]) throws {
@@ -75,7 +94,83 @@ private struct RuntimeUpgradeAuthority {
 }
 
 extension ComponentController {
+    private static func runtimeDeltaPayloadTree(_ source: RuntimeUpgradeSource) throws -> InstallerPayloadTree {
+        guard source.directRuntimeDelta, let complete = source.after.trees[InstallerPayloadManifest.support] else {
+            throw FullImageFailure.source
+        }
+        var included: Set<String> = [""]
+        for unit in source.units {
+            switch unit {
+            case .tree(let tree, _, let after):
+                guard tree.runtimeUpgrade == false, PublicTreeUnit.directRuntimeDeltaCases.contains(tree) else {
+                    throw FullImageFailure.source
+                }
+                if after.isPresent { included.formUnion(complete.nodes.keys.filter { $0 == tree.path || $0.hasPrefix(tree.path + "/") }) }
+            case .file(_, _, let after):
+                if after != nil { included.insert(unit.path) }
+            case .directFile(_, _, _, let after):
+                if after != nil { included.insert(unit.path) }
+            }
+        }
+        // Add all explicit manifest parents. They remain unchanged public
+        // directories and are necessary to validate the sparse payload root.
+        for path in Array(included).filter({ !$0.isEmpty }) {
+            let parts = try InstallerPayloadManifest.components(path)
+            if parts.count > 1 {
+                for count in 1..<parts.count { included.insert(parts.prefix(count).joined(separator: "/")) }
+            }
+        }
+        var nodes: [String: InstallerPayloadNode] = [:]
+        for path in included {
+            guard let node = complete.nodes[path], node.kind == "directory" || node.kind == "file" else {
+                throw FullImageFailure.source
+            }
+            nodes[path] = node
+        }
+        var children: [String: Set<String>] = [:]
+        for path in nodes.keys where !path.isEmpty {
+            let parts = try InstallerPayloadManifest.components(path)
+            children[parts.dropLast().joined(separator: "/"), default: []].insert(parts.last!)
+        }
+        return InstallerPayloadTree(nodes: nodes, children: children)
+    }
+    private static func verifyRuntimeDeltaPayload(_ payload: Int32, source: RuntimeUpgradeSource) throws {
+        let tree = try runtimeDeltaPayloadTree(source)
+        _ = try InstallerPayloadIO.verify(payload, tree: tree, owner: 0)
+    }
+    private static func runtimeDeltaSignatures(_ source: RuntimeUpgradeSource, root: String) throws {
+        for kind in ["broker", "bootstrap"] {
+            let path = root + "/bin/AccountAccess-" + kind
+            guard let peer = source.newPeers[kind] else { throw FullImageFailure.source }
+            try ComponentUpdateIdentity.verifyStatic(path: path, peer: peer, designated: nil)
+        }
+        try ComponentUpdateIdentity.verifyStaticPublisher(path: root + "/bin/AccountAccess-installerverify",
+            team: "WBULD6N4NQ", identifier: "com.fainir.accountaccess.installerverify")
+    }
     private static func runtimeSource(_ resources: Int32, pins: RuntimeUpgradeSource.Pins) throws -> RuntimeUpgradeSource {
+        if pins.direct {
+            guard try InstallerPayloadIO.contents(resources) == ["RuntimeUpgradePlan.json", "BaseManifest.json", "TargetManifest.json",
+                "BaseIdentity.json", "TargetIdentity.json", "TargetImage", "AccountAccess-runtimeupgrade", "postinstall"] else {
+                throw FullImageFailure.source
+            }
+            let raw = try fullRead(resources, "RuntimeUpgradePlan.json", maximum: 2 * InstallerPayloadManifest.maximumManifest + 256 * 1024)
+            let plan = try FullImageJSON.object(raw, maximum: 2 * InstallerPayloadManifest.maximumManifest + 256 * 1024)
+            let beforeRaw = try fullRead(resources, "BaseManifest.json", maximum: InstallerPayloadManifest.maximumManifest)
+            let afterRaw = try fullRead(resources, "TargetManifest.json", maximum: InstallerPayloadManifest.maximumManifest)
+            let oldIdentity = try fullRead(resources, "BaseIdentity.json", maximum: 8192)
+            let newIdentity = try fullRead(resources, "TargetIdentity.json", maximum: 8192)
+            guard let files = plan["target_source_files"] as? [String: String] else { throw FullImageFailure.source }
+            let direct = try DirectRuntimeUpgradeSource.load(plan: raw, before: beforeRaw, after: afterRaw,
+                oldIdentity: oldIdentity, newIdentity: newIdentity,
+                pins: .init(planSHA256: pins.planSHA256, beforeSHA256: pins.beforeSHA256,
+                    afterSHA256: pins.afterSHA256, targetSourceCommit: pins.targetSource))
+            let mappedPins = RuntimeUpgradeSource.Pins(planSHA256: direct.planSHA256,
+                beforeSHA256: direct.before.sha256, afterSHA256: direct.after.sha256,
+                repairPlan: String(repeating: "0", count: 64), repairSource: String(repeating: "0", count: 40),
+                targetSource: direct.targetSourceCommit, sourceFiles: files, direct: true)
+            return RuntimeUpgradeSource(pins: mappedPins, before: direct.before, after: direct.after,
+                oldPeers: direct.oldPeers, newPeers: direct.newPeers, units: direct.units, changed: direct.changed)
+        }
         guard try InstallerPayloadIO.contents(resources) == ["RuntimeUpgradePlan.json", "BaseManifest.json", "TargetManifest.json",
             "BaseIdentity.json", "TargetIdentity.json", "Predecessor", "TargetImage", "AccountAccess-runtimeupgrade", "postinstall"] else {
             throw FullImageFailure.source
@@ -96,13 +191,27 @@ extension ComponentController {
         try ComponentUpdateIdentity.verifyStaticPublisher(path: root + "/bin/AccountAccess-installerverify",
             team: "WBULD6N4NQ", identifier: "com.fainir.accountaccess.installerverify")
     }
-    private static func runtimePolicy(source: RuntimeUpgradeSource, predecessor: BrokerRepairSource,
+    private static func runtimePolicy(source: RuntimeUpgradeSource, predecessor: BrokerRepairSource?,
             install: Data, host: Data, profile: Data, worker: Data, ownerUID: uid_t) throws -> ComponentPolicyResult {
+        if source.directRuntimeDelta {
+            return try runtimeDirectPolicy(source: source, install: install, host: host, profile: profile,
+                worker: worker, ownerUID: ownerUID)
+        }
+        guard let predecessor else { throw FullImageFailure.predecessor }
         let oldFingerprint = try FullImagePolicyFingerprint.value(source.oldPeers)
         guard oldFingerprint == predecessor.newFingerprint else { throw FullImageFailure.predecessor }
         return try FullImageUpdatePolicies.derive(install: install, host: host, owner: profile, worker: worker,
             oldPeers: source.oldPeers, newPeers: source.newPeers, oldFingerprint: oldFingerprint,
             newFingerprint: FullImagePolicyFingerprint.value(source.newPeers), consoleOwner: ownerUID)
+    }
+    private static func runtimeDirectPolicy(source: RuntimeUpgradeSource, install: Data, host: Data,
+            profile: Data, worker: Data, ownerUID: uid_t) throws -> ComponentPolicyResult {
+        guard source.directRuntimeDelta else { throw FullImageFailure.source }
+        let oldFingerprint = try FullImagePolicyFingerprint.value(source.oldPeers)
+        let newFingerprint = try FullImagePolicyFingerprint.value(source.newPeers)
+        return try FullImageUpdatePolicies.derive(install: install, host: host, owner: profile, worker: worker,
+            oldPeers: source.oldPeers, newPeers: source.newPeers, oldFingerprint: oldFingerprint,
+            newFingerprint: newFingerprint, consoleOwner: ownerUID)
     }
     // Read only one of five fixed predecessor metadata files from either its
     // exact current inode or the successor's exact retained inode. Reversed,
@@ -138,21 +247,40 @@ extension ComponentController {
         guard getuid() == 0, geteuid() == 0 else { throw ComponentUpdateFailure.context }
         checkpoint(.source)
         let source = try runtimeSource(resources, pins: pins)
-        let predecessorResources = try fullResourceDirectory(resources, "Predecessor")
-        defer { Darwin.close(predecessorResources) }
-        let predecessor = try repairSource(predecessorResources, pins: repairPins)
-        guard pins.repairPlan == repairPins.planSHA256, pins.repairSource == repairPins.sourceCommit,
-              predecessor.after.sha256 == source.before.sha256, predecessor.newPeers == source.oldPeers,
-              repairPins.predecessorPlanSHA256 == predecessorPins.planSHA256,
-              repairPins.beforeManifestSHA256 == predecessorPins.targetManifestSHA256 else { throw FullImageFailure.predecessor }
+        var predecessorResources: Int32?
+        defer { if let predecessorResources { Darwin.close(predecessorResources) } }
+        let predecessor: BrokerRepairSource?
+        if source.directRuntimeDelta {
+            guard pins.direct, repairPins.planSHA256 == String(repeating: "0", count: 64),
+                  predecessorPins.planSHA256 == String(repeating: "0", count: 64) else { throw FullImageFailure.source }
+            predecessorResources = nil; predecessor = nil
+        } else {
+            let selected = try fullResourceDirectory(resources, "Predecessor")
+            predecessorResources = selected
+            let repair = try repairSource(selected, pins: repairPins)
+            guard pins.repairPlan == repairPins.planSHA256, pins.repairSource == repairPins.sourceCommit,
+                  repair.after.sha256 == source.before.sha256, repair.newPeers == source.oldPeers,
+                  repairPins.predecessorPlanSHA256 == predecessorPins.planSHA256,
+                  repairPins.beforeManifestSHA256 == predecessorPins.targetManifestSHA256 else { throw FullImageFailure.predecessor }
+            predecessor = repair
+        }
         checkpoint(.payload)
         let image = try fullResourceDirectory(resources, "TargetImage"); defer { Darwin.close(image) }
-        _ = try InstallerPayloadIO.verifyImage(image, manifest: source.after, owner: 0)
+        if source.directRuntimeDelta {
+            let delta = try InstallerPayloadIO.walkDirectory(InstallerPayloadManifest.support, from: image, owner: 0)
+            defer { Darwin.close(delta) }
+            try verifyRuntimeDeltaPayload(delta, source: source)
+        } else { _ = try InstallerPayloadIO.verifyImage(image, manifest: source.after, owner: 0) }
         let payload = try InstallerPayloadIO.walkDirectory(InstallerPayloadManifest.support, from: image, owner: 0)
         defer { Darwin.close(payload) }
         let payloadPath = try FullImageFDCanonicalPath.installed(payload)
-        try payloadPath.checked { try runtimeSignatures(source, root: $0, after: true) }
-        _ = try InstallerPayloadIO.verifyImage(image, manifest: source.after, owner: 0)
+        try payloadPath.checked {
+            if source.directRuntimeDelta { try runtimeDeltaSignatures(source, root: $0) }
+            else { try runtimeSignatures(source, root: $0, after: true) }
+        }
+        if source.directRuntimeDelta {
+            try verifyRuntimeDeltaPayload(payload, source: source)
+        } else { _ = try InstallerPayloadIO.verifyImage(image, manifest: source.after, owner: 0) }
 
         checkpoint(.context)
         let (ownerUID, ownerGroup) = try owner()
@@ -164,8 +292,9 @@ extension ComponentController {
         let provisionLease = try lease(brokerDirectory, "install.lock"); defer { Darwin.close(provisionLease) }
         try ComponentProcesses.requireOwnerClosed()
         let library = try InstallerPayloadIO.directory("/Library/Application Support", owner: 0); defer { Darwin.close(library) }
-        let namespace = try FullImageNamespaceDirectory.installed(library, kind: .runtimeUpgrade); defer { Darwin.close(namespace) }
-        let routes = try FullImageInstalledRoutes.installed(kind: .runtimeUpgrade)
+        let namespaceKind: PublicImageNamespace = source.directRuntimeDelta ? .directRuntimeRecovery : .runtimeUpgrade
+        let namespace = try FullImageNamespaceDirectory.installed(library, kind: namespaceKind); defer { Darwin.close(namespace) }
+        let routes = try FullImageInstalledRoutes.installed(kind: namespaceKind)
         let support = try routes.support(), namespaceRoute = try routes.namespace()
         // This successor preserves the original public root.
         // Bind its qualified, unchanged group; never obtain legacy authority
@@ -187,19 +316,6 @@ extension ComponentController {
         } else { preliminary = nil }
         let observationDevice: Int32? = nil
         checkpoint(.predecessor)
-        let proof: CompletedBrokerRepairProof
-        if let preliminary {
-            let retained = try routes.files(plan: pins.planSHA256)
-            proof = try completedBrokerRepairLocked(resources: predecessorResources, pins: repairPins,
-                predecessorPins: predecessorPins, expectedEvidenceSHA256: preliminary.predecessorEvidenceSHA256,
-                historical: { try runtimeOriginal($0, intent: preliminary, files: retained, routes: routes) })
-        } else {
-            proof = try completedBrokerRepairLocked(resources: predecessorResources, pins: repairPins,
-                predecessorPins: predecessorPins)
-        }
-        let authority = try RuntimeUpgradeAuthority.bind(source: source, proof: proof)
-        guard authority.ownerUID == ownerUID else { throw FullImageFailure.predecessor }
-        try identity(ownerUID, authority.brokerUID)
         let worker = try publicRead("broker/worker.json", mode: 0o644), plist = try jobPlist(ownerGroup: ownerGroup)
         let currentDevice = support.identity.device
         let device = observationDevice ?? currentDevice
@@ -209,6 +325,50 @@ extension ComponentController {
                 && observed == ComponentObject(device: currentDevice, inode: recorded.inode,
                     mode: recorded.mode, bytes: recorded.bytes, sha256: recorded.sha256)
         }
+        if !hasIntent {
+            _ = try InstallerPayloadIO.installedImage(source.before, opaquePrivateBranches: true)
+            try runtimeSignatures(source, root: InstallerPayloadManifest.support, after: false)
+        }
+        var directOriginals: (install: Data, host: Data, profile: Data)?
+        var predecessorProof: CompletedBrokerRepairProof?
+        let authority: RuntimeUpgradeAuthority
+        if source.directRuntimeDelta {
+            func original(_ unit: FullImageFileUnit, publicPath: String, mode: mode_t) throws -> Data {
+                if let preliminary {
+                    let selected = preliminary.operations.compactMap(\.file).filter { $0.unit == unit }
+                    guard selected.count == 1, let operation = selected.first else { throw FullImageFailure.journal }
+                    let retained = try routes.files(plan: pins.planSHA256)
+                    return try fullOriginal(operation, files: retained, routes: routes, observationDevice: observationDevice)
+                }
+                return try publicRead(publicPath, mode: mode).0
+            }
+            let install = try original(.installRecord, publicPath: "broker/install.json", mode: 0o600)
+            let host = try original(.hostPolicy, publicPath: "broker/host.json", mode: 0o644)
+            let profile = try original(.ownerPolicy, publicPath: "owner.json", mode: 0o644)
+            let policy = try runtimeDirectPolicy(source: source, install: install, host: host,
+                profile: profile, worker: worker.0, ownerUID: ownerUID)
+            directOriginals = (install, host, profile)
+            authority = try RuntimeUpgradeAuthority.bindDirect(source: source, install: install, host: host,
+                profile: profile, ownerUID: ownerUID, brokerUID: policy.brokerUID,
+                workerPolicy: worker.1, servicePlist: plist)
+        } else {
+            guard let predecessorResources else { throw FullImageFailure.predecessor }
+            let proof: CompletedBrokerRepairProof
+            if let preliminary {
+                let retained = try routes.files(plan: pins.planSHA256)
+                proof = try completedBrokerRepairLocked(resources: predecessorResources, pins: repairPins,
+                    predecessorPins: predecessorPins, expectedEvidenceSHA256: preliminary.predecessorEvidenceSHA256,
+                    historical: { try runtimeOriginal($0, intent: preliminary, files: retained, routes: routes) })
+            } else {
+                proof = try completedBrokerRepairLocked(resources: predecessorResources, pins: repairPins,
+                    predecessorPins: predecessorPins)
+            }
+            predecessorProof = proof
+            authority = try RuntimeUpgradeAuthority.bind(source: source, proof: proof)
+            guard authority.ownerUID == ownerUID else { throw FullImageFailure.predecessor }
+            try identity(ownerUID, authority.brokerUID)
+        }
+        try identity(ownerUID, authority.brokerUID)
         guard matches(worker.1, authority.workerPolicy), matches(plist, authority.servicePlist) else { throw FullImageFailure.object }
         checkpoint(.preparation)
         let intent: FullImageGlobalIntent
@@ -246,6 +406,20 @@ extension ComponentController {
                     let after = try ComponentFiles.observe(files, slot, owner: 0); try fullMatches(after, afterNode)
                     operations.append(FullImageDurableOperation(file: FullImageFileOperation(schema: 1, unit: unit,
                         planSHA256: pins.planSHA256, index: index, before: before, after: after)))
+                case .directFile(let path, let mode, let beforeNode, let afterNode):
+                    guard source.directRuntimeDelta, (mode == 0o644 || mode == 0o755) else { throw FullImageFailure.source }
+                    checkpoint(.preparationFileStage)
+                    let unit = FullImageFileUnit.directPublicFile, slot = String(format: "slot-%02d", index)
+                    let (parent, name) = try routes.resolveDirectPublicFile(path); defer { Darwin.close(parent) }
+                    let before = try ComponentFiles.observe(parent, name, owner: 0); try fullMatches(before, beforeNode)
+                    if let afterNode {
+                        let input = try fullPayloadParent(payload, path); defer { Darwin.close(input.0) }
+                        try FullImagePublicStager.copyFile(from: input.0, name: input.1, to: files, slot: slot, node: afterNode, owner: 0, group: 0)
+                    }
+                    let after = try ComponentFiles.observe(files, slot, owner: 0); try fullMatches(after, afterNode)
+                    operations.append(FullImageDurableOperation(file: FullImageFileOperation(schema: 1, unit: unit,
+                        planSHA256: pins.planSHA256, index: index, before: before, after: after,
+                        directPath: path, directMode: mode)))
                 case .tree(let unit, let old, let new):
                     checkpoint(.preparationTreeStage)
                     let tree = try child(trees, unit.rawValue, create: true); defer { Darwin.close(tree) }
@@ -280,7 +454,8 @@ extension ComponentController {
             let observed = try ComponentCommands.launchctl(["print", "system/" + label])
             guard observed.status == 0 else { throw FullImageFailure.predecessor }
             let initial = try ComponentUpdateIdentity.jobSnapshot(output: observed.output, allowedPeers: [source.oldPeers["broker"]!])
-            let candidate = FullImageGlobalIntent(schema: 2, managedBy: "account-access-full-image-transition-v2",
+            let candidate = FullImageGlobalIntent(schema: 2, managedBy: source.directRuntimeDelta
+                    ? "account-access-exact-installed-runtime-delta-v1" : "account-access-full-image-transition-v2",
                 planSHA256: pins.planSHA256, beforeManifestSHA256: source.before.sha256, afterManifestSHA256: source.after.sha256,
                 targetSourceCommit: pins.targetSource, predecessorEvidenceSHA256: authority.proofSHA256,
                 ownerUID: ownerUID, brokerUID: authority.brokerUID, initialService: initial,
@@ -288,11 +463,20 @@ extension ComponentController {
             checkpoint(.preparationAuthority)
             try authority.validate(candidate, source: source, publicOwner: 0, publicGroup: 0, beforeGroup: beforeGroup, device: device, dynamic: dynamic)
             checkpoint(.preparationPredecessor)
-            let rechecked = try completedBrokerRepairLocked(resources: predecessorResources, pins: repairPins,
-                predecessorPins: predecessorPins)
-            guard rechecked.sha256 == proof.sha256 else { throw FullImageFailure.predecessor }
+            if source.directRuntimeDelta {
+                let refreshed = try RuntimeUpgradeAuthority.bindDirect(source: source, install: install.0,
+                    host: host.0, profile: profile.0, ownerUID: ownerUID, brokerUID: policy.brokerUID,
+                    workerPolicy: worker.1, servicePlist: plist)
+                guard refreshed.proofSHA256 == authority.proofSHA256 else { throw FullImageFailure.predecessor }
+            } else {
+                guard let predecessorResources else { throw FullImageFailure.predecessor }
+                let rechecked = try completedBrokerRepairLocked(resources: predecessorResources, pins: repairPins,
+                    predecessorPins: predecessorPins)
+                guard let predecessorProof, rechecked.sha256 == predecessorProof.sha256 else { throw FullImageFailure.predecessor }
+            }
             checkpoint(.preparationPayload)
-            _ = try InstallerPayloadIO.verifyImage(image, manifest: source.after, owner: 0)
+            if source.directRuntimeDelta { try verifyRuntimeDeltaPayload(payload, source: source) }
+            else { _ = try InstallerPayloadIO.verifyImage(image, manifest: source.after, owner: 0) }
             // This journal is closed before its parent is renamed. Reopen below
             // qualifies the final canonical route rather than adopting the old
             // preparation route after publication.
@@ -331,7 +515,8 @@ extension ComponentController {
         for (index, record) in intent.operations.enumerated() {
             if let file = record.file {
                 let storage = try FullImageFileStorage(operation: file, retained: files.fd, owner: 0,
-                    resolve: routes.resolve, verifyAttachments: { try routes.verify() }, requireQuiescent: barrier.requireDisabledAndQuiescent,
+                    resolve: routes.resolve, resolveDirect: routes.resolveDirectPublicFile,
+                    verifyAttachments: { try routes.verify() }, requireQuiescent: barrier.requireDisabledAndQuiescent,
                     observationDevice: observationDevice)
                 units.append(.file(storage))
             } else {
@@ -353,9 +538,18 @@ extension ComponentController {
             guard try owner().0 == ownerUID, matches(try publicRead("broker/worker.json", mode: 0o644).1, intent.workerPolicy),
                   matches(try jobPlist(ownerGroup: ownerGroup), intent.servicePlist) else { throw FullImageFailure.object }
             try originalReceipt(original, ownerUID: ownerUID)
-            _ = try completedBrokerRepairLocked(resources: predecessorResources, pins: repairPins,
-                predecessorPins: predecessorPins, expectedEvidenceSHA256: intent.predecessorEvidenceSHA256,
-                historical: { try runtimeOriginal($0, intent: intent, files: files, routes: routes) })
+            if source.directRuntimeDelta {
+                guard let directOriginals else { throw FullImageFailure.predecessor }
+                let proof = try RuntimeUpgradeAuthority.bindDirect(source: source, install: directOriginals.install,
+                    host: directOriginals.host, profile: directOriginals.profile, ownerUID: ownerUID,
+                    brokerUID: authority.brokerUID, workerPolicy: intent.workerPolicy, servicePlist: intent.servicePlist)
+                guard proof.proofSHA256 == intent.predecessorEvidenceSHA256 else { throw FullImageFailure.predecessor }
+            } else {
+                guard let predecessorResources else { throw FullImageFailure.predecessor }
+                _ = try completedBrokerRepairLocked(resources: predecessorResources, pins: repairPins,
+                    predecessorPins: predecessorPins, expectedEvidenceSHA256: intent.predecessorEvidenceSHA256,
+                    historical: { try runtimeOriginal($0, intent: intent, files: files, routes: routes) })
+            }
         }
         func verifyPublic(_ operationStates: [ComponentOperationState], completeImage: Bool) throws {
             guard let storage = reference.storage else { throw FullImageFailure.journal }
@@ -363,8 +557,15 @@ extension ComponentController {
             try fullLayout(source: source, routes: routes, storage: storage, intent: intent, states: operationStates)
             let states = Array(operationStates.prefix(source.units.count))
             if completeImage { try FullImagePublicView.verify(source: source, states: states, support: support.fd, owner: 0) }
-            guard let ownerIndex = source.units.firstIndex(where: { $0.path == PublicTreeUnit.owner.path }) else { throw FullImageFailure.source }
-            try runtimeSignatures(source, root: InstallerPayloadManifest.support, after: states[ownerIndex] == .applied)
+            if let ownerIndex = source.units.firstIndex(where: { $0.path == PublicTreeUnit.owner.path }) {
+                try runtimeSignatures(source, root: InstallerPayloadManifest.support, after: states[ownerIndex] == .applied)
+            } else if source.directRuntimeDelta {
+                if completeImage {
+                    try runtimeSignatures(source, root: InstallerPayloadManifest.support, after: true)
+                } else if states.allSatisfy({ $0 == .staged }) {
+                    try runtimeSignatures(source, root: InstallerPayloadManifest.support, after: false)
+                }
+            } else { throw FullImageFailure.source }
             let root = open("/", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
             guard root >= 0 else { throw FullImageFailure.object }; defer { Darwin.close(root) }
             _ = try InstallerPayloadIO.verifyApplicationAlias(from: root, owner: 0)

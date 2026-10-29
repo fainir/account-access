@@ -6,12 +6,13 @@ import Darwin
 
 // Closed native selection; journal or package JSON never supplies a root path.
 enum PublicImageNamespace {
-    case fullImage, runtimeUpgrade, ownerUpgrade
+    case fullImage, runtimeUpgrade, ownerUpgrade, directRuntimeRecovery
     var name: String {
         switch self {
         case .fullImage: return "Account Access Full Images"
         case .runtimeUpgrade: return "Account Access Runtime Updates"
         case .ownerUpgrade: return "Account Access Owner Updates"
+        case .directRuntimeRecovery: return "Account Access Runtime Recovery"
         }
     }
     var path: String { "/Library/Application Support/" + name }
@@ -44,7 +45,7 @@ struct FullImageDurableOperation: Codable, Equatable {
     func path() throws -> String {
         switch kind {
         case .file:
-            guard let file, tree == nil else { throw FullImageFailure.journal }; return file.unit.path
+            guard let file, tree == nil else { throw FullImageFailure.journal }; return file.path
         case .tree:
             guard file == nil, let tree, let unit = PublicTreeUnit(rawValue: tree.unit) else { throw FullImageFailure.journal }; return unit.path
         }
@@ -84,6 +85,7 @@ struct FullImageDurableOperation: Codable, Equatable {
 }
 
 struct FullImageGlobalIntent: Codable, Equatable {
+    private static let directRuntimeManagedBy = "account-access-exact-installed-runtime-delta-v1"
     let schema: Int
     let managedBy: String
     let planSHA256: String
@@ -109,10 +111,11 @@ struct FullImageGlobalIntent: Codable, Equatable {
         var raw = try FullImageJSON.canonical(value); raw.append(10); return raw
     }
     func validateStructure(device: Int32, publicOwner: uid_t, publicGroup: gid_t, beforeGroup: gid_t? = nil) throws {
-        guard schema == 2, managedBy == "account-access-full-image-transition-v2", !automaticRebootRecovery,
+        let operationLimit = managedBy == Self.directRuntimeManagedBy ? 256 : 64
+        guard schema == 2, ["account-access-full-image-transition-v2", Self.directRuntimeManagedBy].contains(managedBy), !automaticRebootRecovery,
               [planSHA256, beforeManifestSHA256, afterManifestSHA256, predecessorEvidenceSHA256].allSatisfy({ FullImageJSON.hex($0) }),
               beforeManifestSHA256 != afterManifestSHA256, FullImageJSON.hex(targetSourceCommit, count: 40),
-              ownerUID > 0, ownerUID != brokerUID, (450..<500).contains(brokerUID), (1...64).contains(operations.count) else { throw FullImageFailure.journal }
+              ownerUID > 0, ownerUID != brokerUID, (450..<500).contains(brokerUID), (1...operationLimit).contains(operations.count) else { throw FullImageFailure.journal }
         if let initialService { try ComponentUpdateIdentity.validateSnapshot(initialService) }
         for value in [workerPolicy, servicePlist] {
             guard value.device == device, value.inode > 0, value.mode == 0o644, value.bytes >= 0, value.bytes <= 8192,
@@ -133,13 +136,15 @@ struct FullImageGlobalIntent: Codable, Equatable {
                   publicOwner: uid_t, publicGroup: gid_t, beforeGroup: gid_t? = nil, device: Int32,
                   dynamic: [FullImageFileUnit: Data]) throws {
         try validateStructure(device: device, publicOwner: publicOwner, publicGroup: publicGroup, beforeGroup: beforeGroup)
-        guard schema == 2, managedBy == "account-access-full-image-transition-v2", !automaticRebootRecovery,
+        let expectedManagedBy = source.directRuntimeDelta ? Self.directRuntimeManagedBy : "account-access-full-image-transition-v2"
+        let operationLimit = source.directRuntimeDelta ? 256 : 64
+        guard schema == 2, managedBy == expectedManagedBy, !automaticRebootRecovery,
               planSHA256 == source.planSHA256, beforeManifestSHA256 == source.before.sha256,
               afterManifestSHA256 == source.after.sha256, targetSourceCommit == source.targetSourceCommit,
               FullImageJSON.hex(predecessorEvidenceSHA256), self.predecessorEvidenceSHA256 == predecessorEvidenceSHA256,
               self.ownerUID == ownerUID, self.brokerUID == brokerUID, ownerUID > 0, ownerUID != brokerUID,
               (450..<500).contains(brokerUID), self.workerPolicy == workerPolicy, self.servicePlist == servicePlist,
-              operations.count == source.units.count + 4, operations.count <= 64,
+              operations.count == source.units.count + 4, operations.count <= operationLimit,
               Set(dynamic.keys) == [.hostPolicy, .ownerPolicy, .installRecord, .head] else { throw FullImageFailure.journal }
         guard dynamic[.head] == (try Self.newHead(source: source, predecessorEvidenceSHA256: predecessorEvidenceSHA256)) else { throw FullImageFailure.journal }
         if let initialService { try ComponentUpdateIdentity.validateSnapshot(initialService) }
@@ -171,6 +176,10 @@ struct FullImageGlobalIntent: Codable, Equatable {
                           tree.after?.inventorySHA256 == after.inventorySHA256 else { throw FullImageFailure.journal }
                 case .file(let unit, let before, let after):
                     guard let file = operation.file, file.unit.publicUnit == unit,
+                          matches(file.before, before), matches(file.after, after) else { throw FullImageFailure.journal }
+                case .directFile(let path, let mode, let before, let after):
+                    guard let file = operation.file, file.unit == .directPublicFile,
+                          file.directPath == path, file.directMode == mode,
                           matches(file.before, before), matches(file.after, after) else { throw FullImageFailure.journal }
                 }
             } else {

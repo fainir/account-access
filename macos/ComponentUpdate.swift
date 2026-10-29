@@ -194,12 +194,33 @@ enum ComponentFiles {
     }
     static func observe(_ parent: Int32, _ name: String, owner: uid_t) throws -> ComponentObject? {
         try self.name(name)
-        var info = stat()
-        if fstatat(parent, name, &info, AT_SYMLINK_NOFOLLOW) != 0 {
+        var pathInfo = stat()
+        if fstatat(parent, name, &pathInfo, AT_SYMLINK_NOFOLLOW) != 0 {
             guard errno == ENOENT else { throw ComponentUpdateFailure.object }
             return nil
         }
-        return try read(parent, name, owner: owner).1
+        let fd = openat(parent, name, O_RDONLY | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK)
+        guard fd >= 0 else { throw ComponentUpdateFailure.object }; defer { Darwin.close(fd) }
+        let before = try InstallerPayloadIO.check(fd, owner: owner, directory: false)
+        try PublicTreeIO.noACL(fd)
+        guard InstallerPayloadIO.same(pathInfo, before), before.st_size >= 0,
+              before.st_size <= InstallerPayloadManifest.maximumFile else { throw ComponentUpdateFailure.object }
+        var count: Int64 = 0, hasher = SHA256(), buffer = [UInt8](repeating: 0, count: 1024 * 1024)
+        while true {
+            let amount = Darwin.read(fd, &buffer, buffer.count)
+            if amount < 0 && errno == EINTR { continue }
+            guard amount >= 0, count <= before.st_size - Int64(amount) else { throw ComponentUpdateFailure.object }
+            if amount == 0 { break }
+            count += Int64(amount); hasher.update(data: buffer.prefix(amount))
+        }
+        let digest = hasher.finalize().map { String(format: "%02x", $0) }.joined()
+        var pathAfter = stat()
+        let after = try InstallerPayloadIO.check(fd, owner: owner, directory: false)
+        guard count == before.st_size, InstallerPayloadIO.same(before, after),
+              fstatat(parent, name, &pathAfter, AT_SYMLINK_NOFOLLOW) == 0,
+              InstallerPayloadIO.same(before, pathAfter) else { throw ComponentUpdateFailure.object }
+        return ComponentObject(device: before.st_dev, inode: before.st_ino,
+            mode: UInt16(before.st_mode & 0o7777), bytes: before.st_size, sha256: digest)
     }
     static func writeExclusive(_ parent: Int32, _ name: String, data: Data, owner: uid_t, mode: mode_t) throws -> ComponentObject {
         try self.name(name)

@@ -35,10 +35,12 @@ struct RuntimeUpgradeSource: PublicImageTransitionSource {
         let planSHA256: String, beforeSHA256: String, afterSHA256: String
         let repairPlan: String, repairSource: String, targetSource: String
         let sourceFiles: [String: String]
+        var direct: Bool = false
     }
     let pins: Pins
     var planSHA256: String { pins.planSHA256 }
     var targetSourceCommit: String { pins.targetSource }
+    var directRuntimeDelta: Bool { pins.direct }
     let before: InstallerPayloadManifest, after: InstallerPayloadManifest
     let oldPeers: [String: ComponentPeerSignature], newPeers: [String: ComponentPeerSignature]
     let units: [FullImageSource.Unit]

@@ -458,6 +458,8 @@ extension ComponentController {
                         targetAttachment: target.attachment(.target(unit)), retainedAttachment: temporary.attachment(.retained(unit)),
                         old: old, new: new, owner: 0, group: 0, beforeGroup: beforeGroup, planSHA256: pins.planSHA256)
                     operations.append(FullImageDurableOperation(tree: record))
+                case .directFile:
+                    throw FullImageFailure.source
                 }
             }
             checkpoint(.preparationDynamicStage)

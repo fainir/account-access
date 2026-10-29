@@ -10,6 +10,7 @@ enum PublicTreeUnit: String, CaseIterable {
     case pythonPip, pythonOldPipInfo, pythonPipInfo, pythonEnsurePip
     case runtimePip, runtimeOldPipInfo, runtimePipInfo, runtimeEnsurePip
     case runtimeOwner, pythonRoot, runtimeRoot, browsers, wheels, binRoot
+    case authlibOldDistInfo, authlibNewDistInfo, authlibDrafts
     // The first complete-image release has a separate closed set. Adding a
     // successor tree must never expand that release's accepted plan.
     static let fullImageCases: [Self] = [.owner, .project, .distInfo, .pythonProvider, .provider,
@@ -18,6 +19,7 @@ enum PublicTreeUnit: String, CaseIterable {
     // The runtime successor has a separate typed set. In particular, adding
     // `bin` here must not expand the first complete-image release contract.
     static let runtimeUpgradeCases: [Self] = [.runtimeOwner, .pythonRoot, .runtimeRoot, .browsers, .wheels, .binRoot]
+    static let directRuntimeDeltaCases: [Self] = [.authlibOldDistInfo, .authlibNewDistInfo, .authlibDrafts]
     var path: String {
         switch self {
         case .owner, .runtimeOwner: return "owner.app"
@@ -38,10 +40,13 @@ enum PublicTreeUnit: String, CaseIterable {
         case .browsers: return "browsers"
         case .wheels: return "wheels"
         case .binRoot: return "bin"
+        case .authlibOldDistInfo: return "runtime/lib/python3.12/site-packages/authlib-1.8.0.dist-info"
+        case .authlibNewDistInfo: return "runtime/lib/python3.12/site-packages/authlib-1.9.1.dist-info"
+        case .authlibDrafts: return "runtime/lib/python3.12/site-packages/authlib/oauth2/drafts"
         }
     }
-    var beforePresent: Bool { ![Self.pythonPipInfo, .runtimePipInfo].contains(self) }
-    var afterPresent: Bool { ![Self.pythonOldPipInfo, .runtimeOldPipInfo].contains(self) }
+    var beforePresent: Bool { ![Self.pythonPipInfo, .runtimePipInfo, .authlibNewDistInfo, .authlibDrafts].contains(self) }
+    var afterPresent: Bool { ![Self.pythonOldPipInfo, .runtimeOldPipInfo, .authlibOldDistInfo].contains(self) }
     var runtimeUpgrade: Bool { Self.runtimeUpgradeCases.contains(self) }
     // Package85 and the preceding cache repair published these exact nodes as
     // root:wheel; other nodes kept the original support group's metadata. This closed
