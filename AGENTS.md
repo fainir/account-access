@@ -6,3 +6,10 @@ Claude Code). READINESS.md is the definition of done; PRODUCT.md is the spec; GO
 - Run / test / deploy: see PRODUCT.md "Stack and hosting".
 - Owner-only items: one exact action at a time (owner-actions skill). Third-party reviews are waiting rows.
 - Evidence under qa/. Commit and push after each verified flow. Only commit files you changed.
+
+## Working here
+
+- `uv run python -m macos.system_package` builds a fresh-install package and an identical-image retry. It does not update an existing different image. Keep `fresh_install_only: true` in its report and never ask the owner to run it over an existing install.
+- Existing-image upgrades use the separate owner/full-image update path with pinned predecessor and target inputs. Require ordinary-user native fixtures, disposable-Mac Installer acceptance, signature, notarization, Gatekeeper and Installer parser checks before asking the owner to install a candidate.
+- `scripts/mac_full_image_installed_probe.py` freezes exact Swift inputs in `EXACT_INPUTS`. If one changes, refresh only that source digest, run `uv run pytest -q tests/test_mac_full_image_installed_probe.py`, then run the native probe with a new absolute output directory. Its successful result verifies source fixtures only, not production installation.
+- Focused package checks: `uv run pytest -q tests/test_system_package.py tests/test_system_package_preassembled.py`; lint with `uv run ruff check` on changed Python files. Mac Swift compiler/SDK mismatches on the owner machine are not resolved by syntax parsing; use the disposable Mac CI checks for native type-check and Installer-sandbox evidence.
