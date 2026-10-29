@@ -208,6 +208,34 @@ def build_context(args):
     return unsigned_package
 
 
+def package_source_provenance(*, require_clean):
+    """Bind a package report to a committed source revision.
+
+    Distribution packages built from an uncommitted tree cannot be reproduced
+    or audited. Development fixtures retain their current local workflow.
+    """
+    root = Path(__file__).resolve().parents[1]
+    try:
+        revision = subprocess.run(
+            ["/usr/bin/git", "rev-parse", "--verify", "HEAD"], cwd=root,
+            stdin=subprocess.DEVNULL, capture_output=True, check=False, timeout=10,
+        )
+        status = subprocess.run(
+            ["/usr/bin/git", "status", "--porcelain", "--untracked-files=all"], cwd=root,
+            stdin=subprocess.DEVNULL, capture_output=True, check=False, timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        raise ValueError("package_source_revision_required") from None
+    raw_revision = revision.stdout.strip()
+    if (revision.returncode != 0 or status.returncode != 0
+            or re.fullmatch(rb"[0-9a-f]{40}", raw_revision) is None):
+        raise ValueError("package_source_revision_required")
+    clean = not status.stdout
+    if require_clean and not clean:
+        raise ValueError("committed_package_source_required")
+    return {"source_commit": raw_revision.decode("ascii"), "source_tree_clean": clean}
+
+
 def package_image(args, root, scripts, manifest, output, version):
     """Unchanged protected same-image Installer envelope for either build route."""
     install_bytes = ImageManifest(manifest, hashlib.sha256(manifest).hexdigest()).required_space(copies=2)
@@ -290,6 +318,7 @@ def assemble_preassembled(args):
         raise ValueError("preassembled_and_transform_inputs_conflict")
     if not getattr(args, "preassembled_image", None) or not getattr(args, "preassembled_manifest", None):
         raise ValueError("reviewed_preassembled_image_required")
+    provenance = package_source_provenance(require_clean=True)
     manifest_path = Path(args.preassembled_manifest).absolute()
     manifest = preassembled_manifest(manifest_path, getattr(args, "preassembled_sha256", None))
     source = Path(args.preassembled_image).absolute()
@@ -350,6 +379,7 @@ def assemble_preassembled(args):
         if preassembled_manifest(manifest_path, args.preassembled_sha256) != manifest:
             raise ValueError("preassembled_manifest_changed")
         report = {"status": "BUILT", "version": version, "architecture": args.architecture,
+            **provenance,
             "development": False, "offline_runtime": True, "fresh_install_only": True,
             "installation_strategy": "verified-script-image-v1", "recovery_scope": "same-image-same-owner-only",
             "preassembled_image": True, "preassembled_source_unchanged": True, "runtime_transformed": False,
@@ -366,6 +396,7 @@ def assemble_preassembled(args):
 
 def assemble(args):
     unsigned_package = build_context(args)
+    provenance = package_source_provenance(require_clean=not args.development)
     app, native, python, browsers, wheels = [
         Path(getattr(args, name)).resolve(strict=True)
         for name in ["app", "native", "python", "browsers", "wheels"]
@@ -570,6 +601,7 @@ def assemble(args):
             "status": "BUILT",
             "version": version,
             "architecture": args.architecture,
+            **provenance,
             "development": args.development,
             "offline_runtime": True,
             "fresh_install_only": True,

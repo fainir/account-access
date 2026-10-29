@@ -108,6 +108,58 @@ def test_package_assembly_never_runs_under_root_or_on_another_platform(monkeypat
         package.assemble(SimpleNamespace())
 
 
+def test_package_source_provenance_records_commit_and_tree_state(monkeypatch):
+    calls = []
+    responses = [
+        SimpleNamespace(returncode=0, stdout=b"a" * 40 + b"\n"),
+        SimpleNamespace(returncode=0, stdout=b""),
+    ]
+
+    def run(arguments, **kwargs):
+        calls.append((arguments, kwargs))
+        return responses.pop(0)
+
+    monkeypatch.setattr(package.subprocess, "run", run)
+    result = package.package_source_provenance(require_clean=True)
+
+    assert result == {"source_commit": "a" * 40, "source_tree_clean": True}
+    assert [call[0][1:3] for call in calls] == [["rev-parse", "--verify"], ["status", "--porcelain"]]
+    assert all(call[1]["stdin"] == subprocess.DEVNULL for call in calls)
+    assert all(call[1]["timeout"] == 10 for call in calls)
+
+
+def test_package_source_provenance_refuses_dirty_distribution_source(monkeypatch):
+    responses = [
+        SimpleNamespace(returncode=0, stdout=b"b" * 40 + b"\n"),
+        SimpleNamespace(returncode=0, stdout=b" M macos/system_package.py\n"),
+    ]
+    monkeypatch.setattr(package.subprocess, "run", lambda *_args, **_kwargs: responses.pop(0))
+
+    with pytest.raises(ValueError, match="committed_package_source_required"):
+        package.package_source_provenance(require_clean=True)
+
+
+def test_package_source_provenance_records_dirty_development_tree(monkeypatch):
+    responses = [
+        SimpleNamespace(returncode=0, stdout=b"b" * 40 + b"\n"),
+        SimpleNamespace(returncode=0, stdout=b" M macos/system_package.py\n"),
+    ]
+    monkeypatch.setattr(package.subprocess, "run", lambda *_args, **_kwargs: responses.pop(0))
+
+    assert package.package_source_provenance(require_clean=False) == {
+        "source_commit": "b" * 40, "source_tree_clean": False,
+    }
+
+
+@pytest.mark.parametrize("revision", [b"", b"not-a-revision", b"A" * 40, b"a" * 39])
+def test_package_source_provenance_refuses_invalid_revision(monkeypatch, revision):
+    monkeypatch.setattr(package.subprocess, "run", lambda *_args, **_kwargs:
+                        SimpleNamespace(returncode=0, stdout=revision))
+
+    with pytest.raises(ValueError, match="package_source_revision_required"):
+        package.package_source_provenance(require_clean=False)
+
+
 def test_consumer_package_requires_explicit_pinned_ca_refresh_input_before_provider(tmp_path):
     with pytest.raises(ValueError, match="runtime_ca_pinned_pip_wheel_required"):
         package.stage_runtime_ca(SimpleNamespace(development=False), tmp_path)
@@ -214,6 +266,9 @@ def test_supplied_python_cannot_run_before_private_payload_inventory(
         archive.writestr("fixture/data", "fixture only")
     calls, inventories = [], []
     monkeypatch.setattr(package.sys, "platform", "darwin")
+    monkeypatch.setattr(package, "package_source_provenance", lambda *, require_clean: {
+        "source_commit": "e" * 40, "source_tree_clean": True,
+    })
     # Fake only the assembler's platform context. Patching the shared os module
     # would also change the inventory's ownership checks (and hide Linux UID
     # differences). Deliberately use a different simulated builder identity.
@@ -345,6 +400,10 @@ def test_unsigned_container_keeps_genuine_payload_and_runtime_verification(tmp_p
     from macos import runtime_image, runtime_prepare
     from test_payload_audit import thin
 
+    monkeypatch.setattr(package, "package_source_provenance", lambda *, require_clean: {
+        "source_commit": "c" * 40, "source_tree_clean": True,
+    })
+
     app, native, python, browsers, wheels = [tmp_path / name for name in
                                            ["owner.app", "native", "python", "browsers", "wheels"]]
     for path in [app / "Contents/MacOS", app / "Contents/Resources", native,
@@ -443,6 +502,7 @@ def test_unsigned_container_keeps_genuine_payload_and_runtime_verification(tmp_p
     else:
         result = package.assemble(args)
         assert result["development"] is False and result["unsigned_package"] is True
+        assert result["source_commit"] == "c" * 40 and result["source_tree_clean"] is True
         assert result["installer_signed"] is False and result["production_ready"] is False
         assert result["notarized"] is False and result["installed"] is False
         assert result["fresh_install_only"] is True

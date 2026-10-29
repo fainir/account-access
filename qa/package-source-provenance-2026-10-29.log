@@ -1,0 +1,10 @@
+Account Access package source provenance QA - 2026-10-29
+
+Result: PASS
+
+- `uv run pytest -q tests/test_system_package.py tests/test_system_package_preassembled.py`: 90 passed, 1 skipped.
+- `uv run ruff check macos/system_package.py tests/test_system_package.py tests/test_system_package_preassembled.py`: passed.
+- Production package assembly now records the source commit and clean-tree state, and refuses missing/malformed Git revisions or dirty production source trees before reading package payload inputs.
+- Preassembled production assembly applies the same source requirement; development builds may report a dirty source tree.
+- Build-116 image inspection found 66 packaged `account_access` Python files; 65 match the current checkout. The remaining `install_transaction.py` matches tracked commit `43c82fbda1ba71d8848368d755ed7b8564cda21e`, so this is an older committed source input, not evidence of uncommitted source. It does not identify the installer refusal cause.
+- This verifies build-source provenance behavior only. It does not implement or qualify an update to the installed build 110.

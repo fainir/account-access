@@ -86,6 +86,9 @@ def fixture_image(tmp_path, monkeypatch):
 def setup_commands(monkeypatch, args, peers, *, reject=None, on_audit=None):
     calls, checks = [], []
     monkeypatch.setattr(package, "sys", SimpleNamespace(platform="darwin"))
+    monkeypatch.setattr(package, "package_source_provenance", lambda *, require_clean: {
+        "source_commit": "d" * 40, "source_tree_clean": True,
+    })
 
     def signature(path, identifier, *, fixture):
         assert fixture is False
@@ -155,6 +158,7 @@ def test_preassembled_image_reuses_production_envelope_without_runtime_or_native
     assert {"com.fainir.accountaccess", "com.fainir.accountaccess.broker", "com.fainir.accountaccess.bootstrap",
             "com.fainir.accountaccess.installerverify"} <= set(checks)
     assert result["preassembled_source_unchanged"] and result["native_manifest_preflight"]
+    assert result["source_commit"] == "d" * 40 and result["source_tree_clean"] is True
     assert result["fresh_install_only"] is True
     assert not any(result[name] for name in ["production_ready", "notarized", "installed", "runtime_transformed"])
     if unsigned:
