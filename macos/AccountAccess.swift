@@ -3409,21 +3409,27 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         let unclassified = accounts.filter { Self.effectiveEnvironment($0, fallback: serviceEnvironment) == "unclassified" }
         let connected = serviceAccounts.filter(Self.isReady)
         let detected = agents.filter { ["codex", "claude"].contains($0) }
-        let automatic = !detected.isEmpty && detected.allSatisfy { automaticSessions[$0]?["enabled"] as? Bool == true }
+        let configured = !detected.isEmpty && detected.allSatisfy { automaticSessions[$0]?["enabled"] as? Bool == true }
+        let clientVerified = systemAgentClientID?.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil
         let tools = detected.map { $0 == "claude" ? "Claude Code" : "Codex" }.joined(separator: " + ")
         let setupTitle: String
         let setupDetail: String
         let setupStatus: String
         let setupGood: Bool
-        if !automatic {
+        if serviceEnvironment == "controlled-demo" {
+            setupTitle = "Demo connection only"
+            setupDetail = "The AI connection is configured for fictional example accounts. Connect a personal account before using real sign-ins."
+            setupStatus = "Example only"
+            setupGood = false
+        } else if !configured {
             setupTitle = "Connect your AI tools"
             setupDetail = "Finish automatic setup so your AI can use connected accounts in new sessions."
             setupStatus = "Setup needed"
             setupGood = false
-        } else if serviceEnvironment == "controlled-demo" {
-            setupTitle = "Demo connection only"
-            setupDetail = "The AI connection is configured for fictional example accounts. Connect a personal account before using real sign-ins."
-            setupStatus = "Example only"
+        } else if !clientVerified {
+            setupTitle = "Check your AI connection"
+            setupDetail = "A saved setup flag is present, but this app has not verified the installed agent launcher against the protected account store. Check it before relying on new sessions."
+            setupStatus = "Needs check"
             setupGood = false
         } else if serviceEnvironment == "live" {
             setupTitle = "Ready in every new session"
@@ -3437,7 +3443,10 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             setupGood = false
         }
         let setup = card(setupTitle, setupDetail, status: setupStatus, good: setupGood)
-        if !automatic {
+        if configured && !clientVerified {
+            let check = NSButton(title: "Check connection", target: self, action: #selector(reopen))
+            setup.addArrangedSubview(check)
+        } else if !configured {
             let fix = NSButton(title: "Finish automatic setup", target: self, action: #selector(installAgents))
             setup.addArrangedSubview(fix)
         }

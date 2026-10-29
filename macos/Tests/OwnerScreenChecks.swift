@@ -763,6 +763,7 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         precondition(demoAgentText.contains("Example only"))
         precondition(!demoAgentText.contains("Ready in every new session"))
         owner.serviceEnvironment = "mixed"
+        owner.systemAgentClientID = String(repeating: "a", count: 64)
         precondition(AccountAccess.effectiveEnvironment(owner.accounts[0], fallback: owner.serviceEnvironment) == "unclassified")
         precondition(AccountAccess.verificationEnvironment(legacyAuthenticator, accounts: owner.accounts,
                                                            fallback: owner.serviceEnvironment) == "unclassified")
@@ -778,9 +779,18 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         owner.serviceEnvironment = "live"
         owner.accounts = [["account": "personal-service", "label": "Personal service", "environment": "live",
                            "connected": true, "portable_ready": true]]
+        owner.systemAgentClientID = nil
         owner.ready()
         views = descendants(owner.stack)
-        let liveAgentText = views.compactMap { ($0 as? NSTextField)?.stringValue }
+        var liveAgentText = views.compactMap { ($0 as? NSTextField)?.stringValue }
+        precondition(liveAgentText.contains("Check your AI connection"))
+        precondition(liveAgentText.contains("Needs check"))
+        precondition(!liveAgentText.contains("Ready in every new session"))
+        precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Check connection"))
+        owner.systemAgentClientID = String(repeating: "a", count: 64)
+        owner.ready()
+        views = descendants(owner.stack)
+        liveAgentText = views.compactMap { ($0 as? NSTextField)?.stringValue }
         precondition(liveAgentText.contains("Ready in every new session"))
         precondition(liveAgentText.contains("Automatic"))
         owner.accounts = []
