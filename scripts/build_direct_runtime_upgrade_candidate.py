@@ -268,13 +268,7 @@ def build(args):
         "target_manifest_missing_or_mismatched")
     after_raw = manifest_candidates[0].read_bytes()
     after = json.loads(after_raw)
-    identity_candidates = list((expanded / "package-meta" / "PublicImage").rglob("package-identity.json"))
-    require(len(identity_candidates) == 1 and not identity_candidates[0].is_symlink(), "target_identity_missing")
-    new_identity_raw = identity_candidates[0].read_bytes()
     source_plan = json.loads(plan_raw)
-    direct_planner.parse(plan_raw, expected_sha256=PLAN_SHA256, before_manifest=before_raw,
-        after_manifest=after_raw, old_identity=old_identity_raw, new_identity=new_identity_raw,
-        source_files=source_plan["target_source_files"])
     require(all(digest(git_bytes("show", TARGET_SOURCE + ":" + name)) == file_hash
         for name, file_hash in source_plan["target_source_files"].items()), "target_source_files_mismatch")
     scripts = output / "scripts"
@@ -283,9 +277,13 @@ def build(args):
     (scripts / "BaseManifest.json").write_bytes(before_raw)
     (scripts / "TargetManifest.json").write_bytes(after_raw)
     (scripts / "BaseIdentity.json").write_bytes(old_identity_raw)
-    (scripts / "TargetIdentity.json").write_bytes(new_identity_raw)
     target_image, support, sparse_nodes, sparse_bytes = extract_sparse_target(args.target_package,
         expanded, scripts, after, source_plan)
+    new_identity_raw = (support / "package-identity.json").read_bytes()
+    direct_planner.parse(plan_raw, expected_sha256=PLAN_SHA256, before_manifest=before_raw,
+        after_manifest=after_raw, old_identity=old_identity_raw, new_identity=new_identity_raw,
+        source_files=source_plan["target_source_files"])
+    (scripts / "TargetIdentity.json").write_bytes(new_identity_raw)
     require((support / "package-identity.json").read_bytes() == new_identity_raw,
         "target_identity_payload_mismatch")
     shutil.rmtree(expanded)
