@@ -15,3 +15,10 @@
 - The Installer UI accessibility query timed out. No UI action, authentication or package install was performed by this check.
 
 No private credentials, mailbox messages, insurer details or verification codes were read.
+
+## Harel public GET-form refusal regression
+
+- Command: `uv run --no-sync pytest -q tests/test_identity_contact_login.py tests/test_identity_login.py`
+- Result: **53 passed in 75.00 seconds**. The Harel-shaped fixture models the visible `#uid` identity field, `#phone` field, SMS-selected channel and native GET form.
+- The connector returned `NEEDS_USER/login_form_destination_changed` before any login or SMS request. The fixture observed no GET query, no received identity/phone, no saved connection and no secret values in the result. Focused check: `test_harel_public_get_form_refuses_before_identity_or_phone_enters_url` passed independently.
+- This proves safe refusal of the observed public form shape; it does not qualify Harel or Phoenix as supported sign-in providers. No insurer account or physical phone was used.
