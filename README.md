@@ -241,3 +241,13 @@ Version 0.7 strengthens private file replacement, rejects vault-sidecar symlinks
 ## Guided setup validation (0.4.0)
 
 On 13 October 2026, **50 distinct tests passed**: a 49-test regression run followed by 11 focused installation checks, including one added symlink-preservation case. The guided setup checks cover authenticated/CSRF-protected account connection, both agents' standing grants, shared session reuse, refusing unreviewed destinations, a launcher that needs no Python on PATH, and reopening/stopping the background app. The installer rejects modified downloads before executing them, and local app startup rejects an impostor on a reused port. Dependency auditing found no known vulnerabilities in the third-party packages. A live screen recording of the guided interface is still pending.
+
+---
+
+### More open source by [Nir Feinstein](https://nirfeinste.in)
+
+- [agent-harness](https://github.com/fainir/agent-harness) - make Claude Code or Codex act as a product team, a CEO or a portfolio manager
+- [frugal](https://github.com/fainir/frugal) - your agent finds the cheaper honest way before it pays for anything
+- [flipback](https://github.com/fainir/flipback) - an automatic `/goal` for every turn: sends Claude Code back when it stops early
+- [recall](https://github.com/fainir/recall) - your Claude Code memory in every agent, over MCP
+- [All projects](https://nirfeinste.in/#open-source)
