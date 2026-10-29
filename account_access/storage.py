@@ -230,6 +230,10 @@ class Store:
                        (time.time(), account))
 
     def client(self, token):
+        if (type(token) is not str or len(token) != 43
+                or any(char not in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-"
+                       for char in token)):
+            raise AccessError("DENIED", "invalid_client")
         digest = hashlib.sha256(token.encode()).hexdigest()
         with self.db() as db:
             row = db.execute("SELECT principal FROM clients WHERE digest=? AND revoked=0", (digest,)).fetchone()

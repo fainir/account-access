@@ -1,6 +1,9 @@
 # Security and saved-account boundary checks - 2026-10-29
 
-- `uv run pytest -q tests/test_security.py tests/test_account_data.py tests/test_worker_boundary.py tests/test_managed_client.py tests/test_owner_reviews.py`: **72 passed**.
-- Covered caller/client isolation, owner review and approval boundaries, export/delete authorization, tamper and permission refusal, malformed request rejection, worker process separation and response redaction.
-- A tracked-source/history scan found no matching live-key/private-key patterns; `.env` and `.env.local` are ignored. This is a targeted scan, not a complete independent security audit.
-- The overall Security gate remains open for full endpoint/object authorization review, abuse-rate coverage and current dependency review. The Data gate remains open for tested backup/restore and installed-app acceptance.
+- `uv run pytest -q tests/test_security.py tests/test_access.py tests/test_managed_client.py tests/test_worker_boundary.py tests/test_account_data.py tests/test_owner_reviews.py`: **92 passed** after the auth-throttle changes.
+- The API regression covers every HTTP route without a bearer capability, rejects malformed token shapes before hashing, verifies task reads are principal-scoped, and exercises the failure limit, `429` response, `Retry-After`, and recovery after the window. Existing checks cover grant changes, response redaction, worker boundaries, request validation, file permissions and tamper refusal.
+- `uv run ruff check account_access/service.py account_access/storage.py tests/test_security.py` and Python compilation passed.
+- `uv run pip-audit -r account_access/runtime-requirements.txt`: **No known vulnerabilities found**.
+- Gitleaks source scan: `account_access` had 0 findings; 1 test, 9 macOS and 4 script findings were reviewed as generic-key false positives in synthetic fixtures and product/source identifiers. The full 600-commit scan reported 237 generic-key matches concentrated in generated QA and build artifacts. It did not reveal a confirmed live credential in this review, but historical matches need a dedicated triage before this can count as a clean full-history secret audit. Scanner output was redacted; no matched values were displayed.
+- The authentication limiter stores only per-process HMACs of peer labels, bounds retained peers to 1,024, and does not retain bearer tokens or peer addresses. It uses an eight-failure, 60-second window by default.
+- **Gate remains building:** the local source security controls and dependency audit pass, but the changed runtime has not yet been included in a signed/notarized successor and historical secret findings are not fully triaged. The Data gate remains open for tested backup/restore and installed-app acceptance.
