@@ -35,9 +35,15 @@ available macOS 27 SDK (6.4.0.31.4); only syntax parsing ran. The system app is
 still build 110 and has not received this source change.
 The focused installer/package/transaction suite passes 125 cases with one
 host-specific volume-query skip, and the 45-case browser-session module passes.
-The full-suite attempt is incomplete: the default sandbox denied loopback socket
-binding, and a loopback-enabled retry was interrupted after 650 passes and one
-skip during a storage lock wait. No claim of full-suite acceptance is made.
+The local full-suite attempt was incomplete because the default sandbox denied
+loopback sockets and its permitted retry was interrupted during a storage lock
+wait. The same source commit passed the full Python suite in GitHub CI, along
+with native owner UI/gateway/upgrade checks, Android 11/15 journeys, cross-user
+password/email/SMS/authenticator recovery and an offline development-package
+smoke install ([CI](https://github.com/fainir/account-access/actions/runs/40866251182),
+[Mac acceptance](https://github.com/fainir/account-access/actions/runs/40866251306)).
+That VM package was a development fixture; it does not qualify a signed update
+on the owner's installed Mac.
 
 Consumer package builds also require the pinned Bitwarden OSS npm CLI and its
 reviewed corresponding-source release asset. Add these maintainer arguments to

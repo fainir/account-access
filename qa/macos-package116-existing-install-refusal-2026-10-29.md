@@ -23,3 +23,10 @@ Conclusion: build 116 is not qualified to update this owner Mac. The existing im
 - Retried with loopback access. The full suite was manually interrupted after 315 seconds at 650 passed and 1 skipped while a storage lock was held; it did not complete, so it is not a full-suite pass.
 - Isolated `tests/test_browser_sessions.py` with loopback access -> 45 passed in 57.97s. The focused installer/package/transaction suite remains 125 passed, 1 host-specific skip; Ruff and Swift syntax parsing passed.
 - Full native type-check remains unverified because the local Command Line Tools compiler and macOS SDK were built from different Swift revisions. The current Swift changes are not packaged or installed.
+
+## Current commit CI acceptance
+
+- [Push CI](https://github.com/fainir/account-access/actions/runs/40866251182) passed the full Python test job and native owner UI, owner gateway, and owner-upgrade source checks for commit `e23e1e4`.
+- [Mac worker acceptance](https://github.com/fainir/account-access/actions/runs/40866251306) passed cross-user password, email, SMS and authenticator recovery, plus offline development-package build and smoke installation in a disposable VM.
+- [Android CI](https://github.com/fainir/account-access/actions/runs/40866251198) passed the Android 11 automatic/owner-entered journey and Android 15 refusal journey. [Linux cross-user acceptance](https://github.com/fainir/account-access/actions/runs/40866251227) also passed.
+- These checks validate test identities and a development package. They do not install a signed successor update on the owner's Mac, confirm his live AI connection, or qualify Harel/Phoenix and private Gmail/Lemon Squeezy sessions.
