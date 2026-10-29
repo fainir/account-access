@@ -46,9 +46,25 @@ public final class LoginChecks extends Instrumentation {
      for(int i=0;i<node.getChildCount();i++){AccessibilityNodeInfo child=node.getChild(i);if(child!=null)pending.addLast(child);}
     }
    }
-   Thread.sleep(100);
+   // The phone screen is a ScrollView. Android versions and emulator
+   // dimensions expose off-screen descendants differently, so search the
+   // current viewport first and then scroll as an owner would before
+   // concluding that a security-sensitive control is missing.
+   if(scrollForward(automation))Thread.sleep(150);
+   else Thread.sleep(100);
   }
   return null;
+ }
+ boolean scrollForward(UiAutomation automation){
+  AccessibilityNodeInfo root=automation.getRootInActiveWindow();
+  if(root==null)return false;
+  ArrayDeque<AccessibilityNodeInfo> pending=new ArrayDeque<>();pending.add(root);
+  while(!pending.isEmpty()){
+   AccessibilityNodeInfo node=pending.removeFirst();
+   if(node.isScrollable()&&node.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD))return true;
+   for(int i=0;i<node.getChildCount();i++){AccessibilityNodeInfo child=node.getChild(i);if(child!=null)pending.addLast(child);}
+  }
+  return false;
  }
  @Override public void onCreate(Bundle arguments){args=arguments;start();}
  @Override public void onStart(){
