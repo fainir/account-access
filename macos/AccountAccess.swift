@@ -1175,7 +1175,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             } catch {
                 let failure = error as? ManagedAgentConnectionFailure
                     ?? ManagedAgentConnectionFailure(stage: connectionFinished ? .verify : .prepare, error: error)
-                self.fail(Failure.message(failure.explanation), retry: #selector(self.reopen))
+                self.fail(Failure.message(failure.explanation), retry: #selector(self.reopen), retryTitle: "Reopen and check status")
             }
         }
     }
@@ -3754,14 +3754,14 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         else if agents.contains("codex") { useAgent("codex") }
     }
 
-    func fail(_ error: Error, retry: Selector) {
+    func fail(_ error: Error, retry: Selector, retryTitle: String = "Try again") {
         let explanation: String
         if case Failure.message(let message) = error { explanation = message }
         else { explanation = "This step could not finish. Check your connection and try again. Your saved accounts are preserved." }
         DispatchQueue.main.async {
             self.busy = false
             self.page("This step needs attention", explanation)
-            self.action("Try again", retry)
+            self.action(retryTitle, retry)
                     if !self.sources.isEmpty { self.action("Review verification methods", #selector(self.showFactors)) }
         }
     }

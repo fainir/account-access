@@ -1026,7 +1026,7 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         let desktopSetupFailures: [(DesktopOwnerFailure, ManagedAgentSetupFailure, String)] = [
             (.approvalTimedOut, .setupApprovalTimedOut, "No macOS approval finished"),
             (.approvalPending, .setupApprovalPending, "A previous macOS approval is still open"),
-            (.approval, .setupNotApproved, "This setup was not approved on the Mac"),
+            (.approval, .setupNotApproved, "will not reopen an approval dialog"),
             (.unavailable, .ownerBackendUnavailable, "protected app is not responding"),
             (.response, .connectionResponseRejected, "refused the connection response"),
         ]
@@ -1448,6 +1448,28 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
                        "approval_live_pair_completes_without_extra_front")
         feedbackOwner.busy = false
         print("PASS: approval feedback ignores delayed first/accepted events after page, window or operation changes and fronts only its current setup")
+        let failedConnectionOwner = AccountAccess(
+            fixtureRoot: fixtureRoot,
+            session: fixtureSession,
+            managedAgents: ManagedAgentSetup(
+                helper: { _ in throw ManagedAgentSetupFailure.setupApprovalPending },
+                readToken: { throw ManagedAgentSetupFailure.unavailable }
+            ),
+            ownerProfile: missingFixtureProfile
+        )
+        failedConnectionOwner.window = OwnerApprovalWindowFixture(
+            contentRect: NSRect(x: 0, y: 0, width: 1040, height: 740),
+            styleMask: [.titled], backing: .buffered, defer: false
+        )
+        failedConnectionOwner.connectSystemAgents()
+        let failedConnectionDeadline = Date().addingTimeInterval(5)
+        while failedConnectionOwner.busy && Date() < failedConnectionDeadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+        }
+        requireLocalUX(!failedConnectionOwner.busy
+                       && descendants(failedConnectionOwner.stack).compactMap { ($0 as? NSButton)?.title }
+                           .contains("Reopen and check status"), "connection_failure_reopens_and_checks_status")
+        print("PASS: interrupted AI setup points to its actual recovery action without replaying authorization")
         requireLocalUX(fixtureProfileReads == 1 && helperLock.withLock { unexpectedHelperCalls == 0 }, "fixture_dependencies_only")
         print("PASS: UI fixtures use only temporary roots, synthetic owner profiles, fake helpers and intercepted URL requests")
 
