@@ -9,3 +9,4 @@
 - **Gate: verified for source controls, dependency set and qualified runtime image.** Installed acceptance remains tracked by F1 and Ops.
 - Re-run from the active continuation worktree: the same six-file focused boundary suite passed again, **92 passed in 47.01s**.
 - Requalified after the native updater fix on source commit `f580dc4`: the same suite passed, **92 passed in 46.79s**; Ruff, Python compilation and the pinned runtime dependency audit also passed, with no known vulnerabilities.
+- Revalidated the current continuation revision `29f72e1`: **92 passed in 47.11s**; Ruff, Python compilation and the pinned runtime dependency audit passed, with no known vulnerabilities.
