@@ -67,7 +67,7 @@ EXACT_INPUTS = {
     'macos/FullImageUpdateMain.swift': '80e8dff1dfd9aa04396cfc149087763365ebce801b3af42a6ff1bc7741d9ab5d',
     'macos/FullImageUpdatePolicies.swift': '67864c4c5226ee467401e1d93ec79e89ba8bb9c5a0e4608a55994e9d26f05416',
     'macos/InstallationRootBinding.swift': 'bdfd959f69ce60f2c1d573d3e165b97f3303f66d9347f959f0662cf06dad0a58',
-    'macos/InstallerPayload.swift': '0815bab68d91920c9c6b3815dcabbebfb04bd7c3e901edbed53313a28c16a8bb',
+    'macos/InstallerPayload.swift': 'f00ba30f3192b556364995745d5dd0527b844a58da9d52a92fb60a6f33fb2df2',
     'macos/RootStoreVolumeBinding.swift': '850cae7fd1653e873c3d851953219ceae83b2a96a7c44d2861c4982b63cf0d6a',
     'macos/RootStoreVolumePublication.swift': '523fcd2507ec5f956178cc1951e55b0882ea385db373f17ea32b4f308c510c15',
     'macos/StoreVolumeMigration.swift': '6a0170525feb34144d37e0ce1580cd9f4bf007a24bd92126e00405e577315ae3',
