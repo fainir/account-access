@@ -1,0 +1,7 @@
+Android 15 manual-code accessibility selector regression
+
+- `ACCOUNT_ACCESS_JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home sh android/build.sh` -> passed; produced the development preview APK in a new ignored `dist/android/` directory.
+- `ACCOUNT_ACCESS_JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home sh android/test/build.sh` -> passed.
+- `apksigner verify` -> passed for both the phone preview APK and instrumentation APK.
+- This Mac has no Android API 35 emulator image; no physical Android device was connected. Hosted emulator rerun is required to qualify the updated accessibility selector.
+- The test now locates the masked login-code EditText by its fixed visible hint when Android omits the password field's content description; it asserts the view remains an EditText and password-masked before entering the synthetic test code.

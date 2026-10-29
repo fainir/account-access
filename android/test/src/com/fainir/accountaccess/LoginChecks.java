@@ -15,6 +15,8 @@ public final class LoginChecks extends Instrumentation {
   UiAutomation automation=getUiAutomation();
   AccessibilityNodeInfo input=findNode(automation,"Account Access login code input");
   if(input==null)throw new Exception("Manual code field is missing from the phone app");
+  if(!"android.widget.EditText".contentEquals(input.getClassName()) || !input.isPassword())
+   throw new Exception("Manual code field lost its masked input semantics");
   input.performAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS);
   Bundle value=new Bundle();value.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,code);
   if(!input.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT,value))throw new Exception("Manual code field rejected test input");
@@ -35,6 +37,12 @@ public final class LoginChecks extends Instrumentation {
      AccessibilityNodeInfo node=pending.removeFirst();
      CharSequence actual=node.getContentDescription();
      if(actual!=null&&description.contentEquals(actual))return node;
+     // Android can omit a password EditText's content description from the
+     // automation tree. Keep the field discoverable by its fixed visible hint,
+     // then assert that it is still a masked EditText before entering a code.
+     CharSequence hint=node.getHintText();
+     if("Account Access login code input".equals(description)
+        && hint!=null&&"Six-digit login code".contentEquals(hint))return node;
      for(int i=0;i<node.getChildCount();i++){AccessibilityNodeInfo child=node.getChild(i);if(child!=null)pending.addLast(child);}
     }
    }
