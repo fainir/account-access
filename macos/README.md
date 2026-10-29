@@ -2,18 +2,23 @@
 
 This is a native installer and owner interface for macOS 14 (Sonoma) or later.
 
-**Current owner-Mac status (29 October):** build 113 reached PackageKit
-postinstall and failed at the 1,800-second limit during repeated full-tree
-verification. The signed and notarized build 114 adds a single strict content
-pass followed by process-local metadata checks. Its first owner-Mac postinstall
-attempt returned generic PackageKit error 112; retrying the same package then
-completed successfully in 391.96 seconds. The package is script-only, so it
-does not create a PackageKit receipt. The installed `/Applications` app launches
-as version 0.8.0 build 110 but still needs the owner's AI connection upgrade.
-A separate per-user copy is stale at 0.6.0 build 7. Protected-service and
-installed-agent acceptance, app restart recovery, the complete consumer
-package, Harel/Phoenix SMS, Lemon Squeezy authenticator, real website email
-verification and physical-phone delivery remain unverified. See
+**Current owner-Mac status (30 October):** `/Applications/Account Access.app`
+still reports version 0.8.0 build 110; the build-118 system update has not been
+installed. Build 118 is a signed and notarized direct update pinned to the
+installed build-110 image. Its signature, Apple ticket, Gatekeeper assessment
+and independently expanded payload passed local qualification. The exact
+package is in Downloads as
+`Account-Access-Direct-Upgrade-118-signed.pkg`. Old Installer failures were
+specific safety refusals hidden behind generic PackageKit error 112: build 104
+required the owner app to close, while build 109 could not verify predecessor
+repair history. Build 118 was opened in a fresh Installer window after closing
+the stale per-user Account Access app; Installer is now waiting for the native
+macOS Touch ID or password authorization. The installed build and protected
+service have not changed yet. Do not treat Installer opening or the approval
+prompt as a completed installation. After approval, verify build 118, restart
+recovery, and fresh Codex/Claude Code access before enabling real account
+acceptance. Harel/Phoenix SMS, Lemon Squeezy authenticator, real website email
+verification and physical-phone delivery also remain unverified. See
 [current acceptance](../docs/production-gates.md).
 
 The complete build 116 package was then opened over this existing installation.
