@@ -50,6 +50,29 @@ LEGACY_AGENT_TEMPLATE = "fd20307cf6e0ff731323deccae9d4b645d16b32c5f0baf33be8c2a3
 SKILL_FILES = {".account-access-install", "installation.json", "SKILL.md",
                "agents/openai.yaml", "scripts/access", "scripts/access.py"}
 SKILL_DIRECTORIES = {"", "agents", "scripts"}
+# Only these fixed setup failures may cross the native helper boundary. In
+# particular, never serialize an exception, path, response, token or user file.
+SETUP_FAILURES = {
+    "client_migration_requires_review": "NEEDS_USER",
+    "client_migration_required": "NEEDS_USER",
+    "existing_skill_would_be_overwritten": "NEEDS_USER",
+    "client_setup_permissions_need_review": "NEEDS_USER",
+    "client_setup_needs_repair": "NEEDS_USER",
+    "client_upgrade_needs_repair": "NEEDS_USER",
+    "client_upgrade_not_supported": "NEEDS_USER",
+    "client_connection_not_confirmed": "NEEDS_USER",
+    "client_setup_busy": "RETRYABLE",
+    "client_setup_changed": "RETRYABLE",
+}
+
+
+def setup_failure_payload(error):
+    """Return fixed, non-sensitive diagnostics for the native owner UI."""
+    reason = error.reason if isinstance(error, AccessError) else None
+    status = SETUP_FAILURES.get(reason) if type(reason) is str else None
+    if status is None:
+        return {"status": "NEEDS_USER", "reason": "agent_setup_not_completed"}
+    return {"status": status, "reason": reason}
 
 
 def _no_acl(fd):
@@ -598,9 +621,10 @@ def main(argv=None):
             home, hosts, codex_home=codex_home, **options)
         print(json.dumps(result))
         return 0
-    except Exception:
-        # Never stringify input, token, filesystem contents or an exception.
-        print('{"status":"NEEDS_USER","reason":"agent_setup_not_completed"}')
+    except Exception as error:
+        # Serialize only an explicitly allowlisted reason. Never stringify an
+        # exception or include input, token, filesystem contents or response data.
+        print(json.dumps(setup_failure_payload(error)))
         return 78
 
 

@@ -1023,6 +1023,33 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
                 precondition(!failure.explanation.contains(reason))
             }
         }
+        let helperFailures: [(String, String, ManagedAgentSetupFailure)] = [
+            ("NEEDS_USER", "client_migration_requires_review", .agentMigrationReview),
+            ("NEEDS_USER", "client_setup_permissions_need_review", .agentPermissionsReview),
+            ("NEEDS_USER", "client_upgrade_needs_repair", .agentSetupNeedsRepair),
+            ("NEEDS_USER", "client_upgrade_not_supported", .agentSetupUnsupported),
+            ("NEEDS_USER", "client_connection_not_confirmed", .clientConnectionNotConfirmed),
+            ("RETRYABLE", "client_setup_busy", .agentSetupRetryable),
+        ]
+        for (status, reason, expectedFailure) in helperFailures {
+            let data = try! JSONSerialization.data(withJSONObject: ["status": status, "reason": reason])
+            do {
+                _ = try ManagedAgentSetup.helperResponse(exitStatus: 78, data: data)
+                preconditionFailure("Allowlisted helper failure was accepted")
+            } catch let failure as ManagedAgentSetupFailure {
+                precondition(failure == expectedFailure)
+            } catch { preconditionFailure("Helper failure escaped its closed error type") }
+        }
+        let privateHelperFailure = try! JSONSerialization.data(withJSONObject: [
+            "status": "NEEDS_USER", "reason": privateFailureText, "detail": privateFailureText,
+        ])
+        do {
+            _ = try ManagedAgentSetup.helperResponse(exitStatus: 78, data: privateHelperFailure)
+            preconditionFailure("Private helper details were accepted")
+        } catch let failure as ManagedAgentSetupFailure {
+            precondition(failure == .unavailable)
+        } catch { preconditionFailure("Unknown helper failure escaped its closed error type") }
+        print("PASS: native helper errors expose only allowlisted reasons and keep arbitrary details private")
         let verificationFailure = ManagedAgentConnectionFailure(stage: .verify)
         precondition(verificationFailure.explanation.contains("checking the completed connection"))
         print("PASS: connection failures identify their exact closed stage, stop without replay, and hide arbitrary errors, responses and capabilities; conflicts and revocations require review")
