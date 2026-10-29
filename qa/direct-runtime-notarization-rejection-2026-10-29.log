@@ -1,0 +1,13 @@
+Direct runtime updater notarization rejection
+Date: 2026-10-29
+
+Apple notarization rejected the uninstalled build-117 updater candidate. Submission
+0a1cc7fe-9076-4ab1-8ce9-9203cfbaeaaa reported an invalid signature for the
+AccountAccess executable inside the sparse `TargetImage/owner.app` bundle.
+Independent `codesign --verify --strict` confirmed that the changed executable
+was present but several sealed app resources were absent from the sparse image.
+
+The candidate was not stapled, presented for installation, or installed. No
+installed files, account data, or services were changed. The updater must carry
+the full pinned, signed owner.app bundle for signature verification while its
+apply plan remains limited to the pinned changed nodes.

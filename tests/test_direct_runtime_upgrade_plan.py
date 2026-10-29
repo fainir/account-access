@@ -69,6 +69,36 @@ def test_delta_refuses_path_traversal_even_if_it_is_a_file():
         plan._units({"roots": {plan.SUPPORT: old}}, {"roots": {plan.SUPPORT: new}})
 
 
+def test_updater_resource_carries_complete_signed_owner_bundle():
+    tree = {
+        "": {"kind": "directory", "mode": 0o755},
+        "runtime": {"kind": "directory", "mode": 0o755},
+        "runtime/update.py": file("a"),
+        "owner.app": {"kind": "directory", "mode": 0o755},
+        "owner.app/Contents": {"kind": "directory", "mode": 0o755},
+        "owner.app/Contents/MacOS": {"kind": "directory", "mode": 0o755},
+        "owner.app/Contents/MacOS/AccountAccess": file("b"),
+        "owner.app/Contents/_CodeSignature": {"kind": "directory", "mode": 0o755},
+        "owner.app/Contents/_CodeSignature/CodeResources": file("c"),
+    }
+    sparse, package = candidate.updater_payload_nodes({"units": [{
+        "kind": "direct_file", "path": "runtime/update.py", "after": file("a"),
+    }]}, {"roots": {candidate.SUPPORT_RELATIVE_ROOT: tree}})
+
+    assert sparse == {
+        "": tree[""], "runtime": tree["runtime"], "runtime/update.py": tree["runtime/update.py"],
+    }
+    assert package == tree
+
+
+def test_updater_resource_refuses_incomplete_owner_bundle_signature():
+    with pytest.raises(ValueError, match="target_owner_bundle_signature_resources_missing"):
+        candidate.updater_payload_nodes({"units": []}, {"roots": {candidate.SUPPORT_RELATIVE_ROOT: {
+            "": {"kind": "directory", "mode": 0o755},
+            "owner.app": {"kind": "directory", "mode": 0o755},
+        }}})
+
+
 def test_sparse_materialization_moves_only_planned_files_and_symlinks(tmp_path):
     source_image = tmp_path / "source"
     source_support = source_image / candidate.SUPPORT_RELATIVE

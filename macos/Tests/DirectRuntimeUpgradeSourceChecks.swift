@@ -45,6 +45,26 @@ import Darwin
                     beforeSHA256: DirectRuntimeUpgradeSource.beforeSHA256,
                     afterSHA256: DirectRuntimeUpgradeSource.afterSHA256,
                     targetSourceCommit: DirectRuntimeUpgradeSource.sourceCommit))
+            let planValue = try FullImageJSON.object(planRaw, maximum: 34 * 1024 * 1024)
+            guard let targetSourceFiles = planValue["target_source_files"] as? [String: String] else {
+                throw FullImageFailure.source
+            }
+            let runtimeSource = RuntimeUpgradeSource(
+                pins: .init(planSHA256: source.planSHA256, beforeSHA256: source.before.sha256,
+                    afterSHA256: source.after.sha256, repairPlan: String(repeating: "0", count: 64),
+                    repairSource: String(repeating: "0", count: 40), targetSource: source.targetSourceCommit,
+                    sourceFiles: targetSourceFiles, direct: true),
+                before: source.before, after: source.after, oldPeers: source.oldPeers,
+                newPeers: source.newPeers, units: source.units, changed: source.changed)
+            let payloadTree = try ComponentController.runtimeDeltaPayloadTree(runtimeSource)
+            let expectedOwnerBundle = Set(source.after.trees[InstallerPayloadManifest.support]!.nodes.keys.filter {
+                $0 == "owner.app" || $0.hasPrefix("owner.app/")
+            })
+            let actualOwnerBundle = Set(payloadTree.nodes.keys.filter {
+                $0 == "owner.app" || $0.hasPrefix("owner.app/")
+            })
+            try require(actualOwnerBundle == expectedOwnerBundle)
+            try require(payloadTree.nodes["owner.app/Contents/_CodeSignature/CodeResources"]?.kind == "file")
             let count = source.units.count
             try require(count == 191 && source.changed.count == 207)
             try require(source.units.filter { if case .tree = $0 { return true }; return false }.count == 3)

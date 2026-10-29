@@ -94,7 +94,7 @@ private struct RuntimeUpgradeAuthority {
 }
 
 extension ComponentController {
-    private static func runtimeDeltaPayloadTree(_ source: RuntimeUpgradeSource) throws -> InstallerPayloadTree {
+    static func runtimeDeltaPayloadTree(_ source: RuntimeUpgradeSource) throws -> InstallerPayloadTree {
         guard source.directRuntimeDelta, let complete = source.after.trees[InstallerPayloadManifest.support] else {
             throw FullImageFailure.source
         }
@@ -111,6 +111,17 @@ extension ComponentController {
             case .directFile(_, _, _, let after):
                 if after != nil { included.insert(unit.path) }
             }
+        }
+        if source.directRuntimeDelta {
+            let ownerBundle = complete.nodes.keys.filter { $0 == "owner.app" || $0.hasPrefix("owner.app/") }
+            guard complete.nodes["owner.app"]?.kind == "directory",
+                  complete.nodes["owner.app/Contents/_CodeSignature/CodeResources"]?.kind == "file",
+                  ownerBundle.allSatisfy({ complete.nodes[$0]?.kind == "directory" || complete.nodes[$0]?.kind == "file" }) else {
+                throw FullImageFailure.source
+            }
+            // Preserve the complete signed bundle for notarization and verify
+            // its sealed resources before applying the small direct delta.
+            included.formUnion(ownerBundle)
         }
         // Add all explicit manifest parents. They remain unchanged public
         // directories and are necessary to validate the sparse payload root.
@@ -139,6 +150,8 @@ extension ComponentController {
         _ = try InstallerPayloadIO.verify(payload, tree: tree, owner: 0)
     }
     private static func runtimeDeltaSignatures(_ source: RuntimeUpgradeSource, root: String) throws {
+        guard let owner = source.newPeers["owner"] else { throw FullImageFailure.source }
+        try ComponentUpdateIdentity.verifyStatic(path: root + "/owner.app", peer: owner, designated: nil)
         for kind in ["broker", "bootstrap"] {
             let path = root + "/bin/AccountAccess-" + kind
             guard let peer = source.newPeers[kind] else { throw FullImageFailure.source }

@@ -137,6 +137,21 @@ def expected_sparse_nodes(plan: dict, after: dict):
     return {path: tree[path] for path in included}
 
 
+def updater_payload_nodes(plan: dict, after: dict):
+    planned = expected_sparse_nodes(plan, after)
+    tree = after["roots"][SUPPORT_RELATIVE_ROOT]
+    owner_bundle = {path: node for path, node in tree.items()
+        if path == "owner.app" or path.startswith("owner.app/")}
+    require(owner_bundle.get("owner.app", {}).get("kind") == "directory"
+        and owner_bundle.get("owner.app/Contents/_CodeSignature/CodeResources", {}).get("kind") == "file",
+        "target_owner_bundle_signature_resources_missing")
+    require(all(node["kind"] in {"directory", "file"} for node in owner_bundle.values()),
+        "target_owner_bundle_link_refused")
+    require(all(path not in planned or planned[path] == node for path, node in owner_bundle.items()),
+        "owner_bundle_plan_conflict")
+    return planned, planned | owner_bundle
+
+
 def create_sparse_directories(target_image: Path, inventory: dict[str, dict]) -> None:
     support = target_image / SUPPORT_RELATIVE
     for relative, node in sorted(inventory.items(), key=lambda row: (row[0].count("/"), row[0])):
@@ -197,7 +212,7 @@ def extract_sparse_target(package: Path, expanded: Path, scripts: Path, target_m
     public_images = list(expanded.glob("payload.pkg/Scripts/PublicImage"))
     require(len(public_images) == 1 and public_images[0].is_dir()
         and not public_images[0].is_symlink(), "target_public_image_missing")
-    inventory = expected_sparse_nodes(plan, target_manifest)
+    planned_inventory, resource_inventory = updater_payload_nodes(plan, target_manifest)
     public = public_images[0]
     require({path.name for path in public.iterdir()} == {"Applications", "Library"},
         "target_public_image_root_mismatch")
@@ -214,8 +229,10 @@ def extract_sparse_target(package: Path, expanded: Path, scripts: Path, target_m
     require(app_node is not None and app_node.get("kind") == "symlink" and app_link.is_symlink()
         and os.readlink(app_link) == app_node.get("target"), "target_public_app_link_mismatch")
     target_image = scripts / "TargetImage"
-    support, sparse_bytes = materialize_sparse_target(public, target_image, inventory)
-    return target_image, support, len(inventory), sparse_bytes
+    support, _resource_bytes = materialize_sparse_target(public, target_image, resource_inventory)
+    plan_bytes = sum(node.get("size", 0) for node in planned_inventory.values())
+    return (target_image, support, len(planned_inventory), plan_bytes,
+        len(resource_inventory) - len(planned_inventory), resource_inventory)
 
 
 def source_inputs(shared):
@@ -305,8 +322,10 @@ def build(args):
     (scripts / "BaseManifest.json").write_bytes(before_raw)
     (scripts / "TargetManifest.json").write_bytes(after_raw)
     (scripts / "BaseIdentity.json").write_bytes(old_identity_raw)
-    target_image, support, sparse_nodes, sparse_bytes = extract_sparse_target(args.target_package,
-        expanded, scripts, after, source_plan)
+    (target_image, support, sparse_nodes, sparse_bytes, owner_bundle_nodes,
+        updater_payload_inventory) = extract_sparse_target(args.target_package, expanded, scripts, after, source_plan)
+    command("target-owner-signature", ["/usr/bin/codesign", "--verify", "--strict", "--verbose=2",
+        support / "owner.app"], timeout=120)
     new_identity_raw = (support / "package-identity.json").read_bytes()
     direct_planner.parse(plan_raw, expected_sha256=PLAN_SHA256, before_manifest=before_raw,
         after_manifest=after_raw, old_identity=old_identity_raw, new_identity=new_identity_raw,
@@ -404,6 +423,13 @@ exec "$AC_PACKAGE_SCRIPTS/AccountAccess-runtimeupgrade"
     require(independent_scripts.is_file() and not independent_scripts.is_symlink(), "signed_scripts_archive_missing")
     resource_names = cpio_listing(independent_scripts)
     require(resource_names == RESOURCE_NAMES, "signed_package_resource_inventory_mismatch")
+    packaged_target = independent_scripts / "TargetImage"
+    require(packaged_target.is_dir() and not packaged_target.is_symlink(), "signed_target_image_missing")
+    packaged_support = packaged_target / SUPPORT_RELATIVE
+    require(public_payload_inventory(packaged_support) == updater_payload_inventory,
+        "signed_target_image_inventory_mismatch")
+    command("independent-owner-signature", ["/usr/bin/codesign", "--verify", "--strict", "--verbose=2",
+        packaged_support / "owner.app"], timeout=120)
     report = {"schema": 1, "status": "BUILT_NOT_INSTALLED", "package": str(signed),
         "package_sha256": file_digest(signed), "package_bytes": signed.stat().st_size,
         "notarization": "Accepted", "stapled": True, "gatekeeper": "accepted",
@@ -411,6 +437,8 @@ exec "$AC_PACKAGE_SCRIPTS/AccountAccess-runtimeupgrade"
         "installer_signature": "Developer ID Installer verified", "target_package_sha256": TARGET_PACKAGE_SHA256,
         "plan_sha256": PLAN_SHA256, "before_manifest_sha256": BEFORE_SHA256,
         "after_manifest_sha256": AFTER_SHA256, "sparse_nodes": sparse_nodes, "sparse_file_bytes": sparse_bytes,
+        "owner_bundle_nodes": owner_bundle_nodes, "owner_bundle_signature": "Developer ID Application verified",
+        "packaged_target_image_nodes": len(updater_payload_inventory),
         "global_operation_count": 195, "package_resource_count": len(RESOURCE_NAMES),
         "ordinary_user_refusal": True, "installer_executed": False, "installed": False,
         "source_revision": args.source, "shared_qa": str(args.shared_qa), "runtime_qa": str(args.runtime_qa),

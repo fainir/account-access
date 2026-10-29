@@ -8,13 +8,14 @@ Commands:
   git diff --check
 
 Results:
-  8 focused tests passed.
+  10 focused tests passed.
   Ruff passed.
   Python compilation passed.
   git diff --check passed.
 
-The builder now accepts the actual signed build 116 package shape: it validates
-the complete public support tree against the pinned RecoveryManifest and the
-public app symlink, then moves only the planned sparse update nodes. It refuses
-symlinked parent directories. No package was installed and no account data or
-protected service was changed by these checks.
+The builder accepts the actual signed build 116 package shape: it validates
+the complete public support tree against the pinned RecoveryManifest and app
+symlink, then includes the plan's sparse update nodes plus the complete pinned
+owner.app bundle. It refuses symlinked parent directories and code-signature
+resource omissions. The full app bundle passes strict Developer ID validation.
+No package was installed and no account data or protected service was changed.

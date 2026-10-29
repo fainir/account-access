@@ -46,11 +46,11 @@
     "macos/RuntimeUpgradeSource.swift": "feeabd2738af0b01d52243e0669c2bb73ef1b5686e2284a749f051a219cb97d4",
     "macos/StoreVolumeMigration.swift": "6a0170525feb34144d37e0ce1580cd9f4bf007a24bd92126e00405e577315ae3",
     "macos/StoreVolumeMigrationAuthority.swift": "1aacffcd330e6d3bc0c96d3576b812ac62109bc63d67d693cbe8b96be0eadf66",
-    "macos/Tests/DirectRuntimeUpgradeSourceChecks.swift": "e8e9757a7160830468f963a4b547414192b722262ee2dc873d90bb15b0a4880c",
+    "macos/Tests/DirectRuntimeUpgradeSourceChecks.swift": "ff99ea5fcad68db351e597caa32acf05a027a7cf28838664d18625fe3b4b174d",
     "macos/source-fragments/BrokerRepairInstalledAdapter.swift.inc": "78bf44ef76b136733f2b21b53879872915582d463d1a12a1ef6a5fe2c8402dca",
     "macos/source-fragments/CompletedComponentPredecessor.swift.inc": "bda8f8138e64f4f1bad0a05e35f63a4d05922ff19d12a1e0d8371ac8cb886be7",
     "macos/source-fragments/FullImageInstalledAdapter.swift.inc": "0b66200d82a8239a41bdeadb6b1be336f6644c32032aa45bbdf8d45257a732ab",
-    "macos/source-fragments/RuntimeUpgradeInstalledAdapter.swift.inc": "feeee68f292e0850f644704d892db403a6b4565df1d8fcbb125f23d07610bad5"
+    "macos/source-fragments/RuntimeUpgradeInstalledAdapter.swift.inc": "c5ef1e6d82019437fd7a8cb8eb373ab081333ab12db936e75e71659012698762"
   },
   "status": "PASSED"
 }
