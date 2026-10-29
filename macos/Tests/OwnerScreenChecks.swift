@@ -1023,6 +1023,32 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
                 precondition(!failure.explanation.contains(reason))
             }
         }
+        let desktopSetupFailures: [(DesktopOwnerFailure, ManagedAgentSetupFailure, String)] = [
+            (.approvalTimedOut, .setupApprovalTimedOut, "No macOS approval finished"),
+            (.approvalPending, .setupApprovalPending, "A previous macOS approval is still open"),
+            (.approval, .setupNotApproved, "This setup was not approved on the Mac"),
+            (.unavailable, .ownerBackendUnavailable, "protected app is not responding"),
+            (.response, .connectionResponseRejected, "refused the connection response"),
+        ]
+        for (desktopFailure, expectedFailure, expectedMessage) in desktopSetupFailures {
+            let mapped = ManagedAgentSetupFailure.desktopFailure(desktopFailure)
+            let failure = ManagedAgentConnectionFailure(stage: .enroll, error: mapped)
+            precondition(mapped == expectedFailure)
+            precondition(failure.explanation.localizedCaseInsensitiveContains(expectedMessage))
+            precondition(!failure.explanation.contains(privateFailureText))
+            precondition(!failure.explanation.contains(nativeChannel.clientToken))
+        }
+        for (gatewayFailure, expectedFailure, expectedMessage) in [
+            (OwnerGatewayError.unavailable, ManagedAgentSetupFailure.ownerBackendUnavailable, "protected app is not responding"),
+            (OwnerGatewayError.invalidPolicy, ManagedAgentSetupFailure.connectionResponseRejected, "refused the connection response"),
+            (OwnerGatewayError.invalidResponse, ManagedAgentSetupFailure.connectionResponseRejected, "refused the connection response"),
+        ] {
+            let mapped = ManagedAgentSetupFailure.ownerGatewayFailure(gatewayFailure)
+            let failure = ManagedAgentConnectionFailure(stage: .enroll, error: mapped)
+            precondition(mapped == expectedFailure)
+            precondition(failure.explanation.localizedCaseInsensitiveContains(expectedMessage))
+            precondition(!failure.explanation.contains(privateFailureText))
+        }
         let helperFailures: [(String, String, ManagedAgentSetupFailure)] = [
             ("NEEDS_USER", "client_migration_requires_review", .agentMigrationReview),
             ("NEEDS_USER", "client_setup_permissions_need_review", .agentPermissionsReview),

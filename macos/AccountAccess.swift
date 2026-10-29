@@ -860,10 +860,17 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
 
     func request(_ route: String, body: [String: Any]? = nil) throws -> [String: Any] {
         let approvalContext = ownerSetupContext.snapshot() // Before any transport lock or queued feedback.
+        let managedClientSetup = route == "owner/client/enroll" || route == "owner/client/installed"
         ownerConnectionLock.lock()
         defer { ownerConnectionLock.unlock() }
         let bitwardenRequest = route.hasPrefix("owner/bitwarden/") || (body?["connection"] as? [String: Any])?["provider"] as? String == "bitwarden"
-        if let native = try nativeOwner() {
+        let native: DesktopOwnerConnection?
+        do { native = try nativeOwner() }
+        catch {
+            if managedClientSetup { throw ManagedAgentSetupFailure.ownerBackendUnavailable }
+            throw error
+        }
+        if let native {
             do {
                 let approvalProgressID = UUID()
                 let response = try native.request(route, body: body, setupProgress: { phase in
@@ -871,23 +878,34 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 })
                 return try checkedOwnerResponse(response.0, response.1, pending: route == "owner/vault/enroll",
                                                 bitwarden: bitwardenRequest,
-                                                managedClientSetup: route == "owner/client/enroll" || route == "owner/client/installed")
+                                                managedClientSetup: managedClientSetup)
             } catch DesktopOwnerFailure.approval {
+                if managedClientSetup { throw ManagedAgentSetupFailure.desktopFailure(.approval) }
                 throw Failure.message("Setup was not approved. Your saved connections are preserved. Try the setup action again when you are ready to approve it on this Mac.")
             } catch DesktopOwnerFailure.approvalTimedOut {
+                if managedClientSetup { throw ManagedAgentSetupFailure.desktopFailure(.approvalTimedOut) }
                 throw Failure.message("The macOS approval dialog did not finish within two minutes. If it is still open, finish or cancel it on this Mac before trying again. No account setup data was sent.")
             } catch DesktopOwnerFailure.approvalPending {
+                if managedClientSetup { throw ManagedAgentSetupFailure.desktopFailure(.approvalPending) }
                 throw Failure.message("A previous macOS approval dialog is still open. Finish or cancel it on this Mac before trying again. No account setup data was sent.")
-            } catch is DesktopOwnerFailure {
+            } catch let error as DesktopOwnerFailure {
+                if managedClientSetup { throw ManagedAgentSetupFailure.desktopFailure(error) }
                 throw Failure.message("The protected app did not respond. Check setup progress before trying the action again. Your saved connections are preserved.")
-            } catch is OwnerGatewayError {
+            } catch let error as OwnerGatewayError {
+                if managedClientSetup { throw ManagedAgentSetupFailure.ownerGatewayFailure(error) }
                 throw Failure.message("This action is not available through the protected connection yet. Your saved connections are preserved.")
             }
         }
         // A supervised restart changes the port and capability. Verify the
         // current registration before sending any setup data. This does not
         // replay an operation whose response was lost or rebuild its form.
-        if !route.hasPrefix("owner/ready?") { try loadOwner() }
+        if !route.hasPrefix("owner/ready?") {
+            do { try loadOwner() }
+            catch {
+                if managedClientSetup { throw ManagedAgentSetupFailure.ownerBackendUnavailable }
+                throw error
+            }
+        }
         guard let url = URL(string: route, relativeTo: base)?.absoluteURL,
               url.scheme == "http", url.host == "127.0.0.1", url.port == base.port,
               url.user == nil, url.password == nil else {

@@ -7,8 +7,26 @@ enum ManagedAgentSetupFailure: Error, Equatable {
     case unavailable, invalidResponse, connectionConflict, connectionRevoked
     case setupAuthorizationRequired, ownerChannelUnavailable, ownerBackendUnavailable
     case serviceRecovering, vaultRepairRequired, connectionResponseRejected
+    case setupApprovalTimedOut, setupApprovalPending, setupNotApproved
     case agentMigrationReview, agentSetupNeedsRepair, agentSetupUnsupported
     case agentSetupRetryable, agentPermissionsReview, clientConnectionNotConfirmed
+
+    static func desktopFailure(_ failure: DesktopOwnerFailure) -> Self {
+        switch failure {
+        case .approval: return .setupNotApproved
+        case .approvalTimedOut: return .setupApprovalTimedOut
+        case .approvalPending: return .setupApprovalPending
+        case .profile, .unavailable: return .ownerBackendUnavailable
+        case .response: return .connectionResponseRejected
+        }
+    }
+
+    static func ownerGatewayFailure(_ failure: OwnerGatewayError) -> Self {
+        switch failure {
+        case .unavailable: return .ownerBackendUnavailable
+        case .invalidPolicy, .invalidResponse: return .connectionResponseRejected
+        }
+    }
 }
 
 struct ManagedAgentConnectionFailure: Error {
@@ -38,6 +56,9 @@ struct ManagedAgentConnectionFailure: Error {
         case .some(.connectionConflict): return "An existing connection conflicts with this setup and needs review."
         case .some(.connectionRevoked): return "This connection was revoked and cannot be re-enabled by retrying setup."
         case .some(.setupAuthorizationRequired): return "The Mac approval was not accepted for this request. Approve the current setup dialog before continuing."
+        case .some(.setupApprovalTimedOut): return "No macOS approval finished within two minutes. If the separate Account Access setup dialog is visible, finish or cancel it before trying again. No account setup data was sent."
+        case .some(.setupApprovalPending): return "A previous macOS approval is still open. Finish or cancel that dialog before trying again. No account setup data was sent."
+        case .some(.setupNotApproved): return "This setup was not approved on the Mac. Choose Try again when you are ready to approve the separate macOS dialog. No account setup data was sent."
         case .some(.ownerChannelUnavailable): return "The protected owner channel is reconnecting. Check the connection status before retrying."
         case .some(.ownerBackendUnavailable): return "The protected app is not responding. Check its status before retrying."
         case .some(.serviceRecovering): return "The protected service is restarting. Wait until it is ready, then check the connection status."
