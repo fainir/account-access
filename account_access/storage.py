@@ -98,7 +98,7 @@ class Store:
         (self.root / "locks").mkdir(mode=0o700, exist_ok=True)
         check_private(self.root / "locks")
         from .vault_backup import recover_pending_restore
-        with self.lock("vault-restore", timeout=0):
+        with self.lock("vault-restore", timeout=10):
             recover_pending_restore(self.root, key=self._key)
         self.aes = AESGCM(self._key)
         self.path = self.root / "state.db"
