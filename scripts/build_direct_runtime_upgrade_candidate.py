@@ -62,18 +62,17 @@ def checked(argv, *, timeout=120, cwd=ROOT):
     return result.stdout
 
 
-def cpio_listing(payload: Path) -> set[str]:
-    gzip = subprocess.Popen(["/usr/bin/gzip", "-dc", str(payload)], stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE, stdin=subprocess.DEVNULL)
-    assert gzip.stdout is not None
-    cpio = subprocess.Popen(["/usr/bin/cpio", "-it"], stdin=gzip.stdout,
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    gzip.stdout.close()
-    listing, cpio_error = cpio.communicate(timeout=600)
-    gzip_error = gzip.communicate(timeout=600)[1]
-    require(gzip.returncode == 0 and cpio.returncode == 0 and not gzip_error and len(listing) <= 16 * 1024 * 1024,
-        "cpio_listing_failed")
-    return {name for line in listing.splitlines() if (name := line.decode("utf-8", errors="strict").removeprefix("./")) not in ("", ".")}
+def expanded_script_resource_names(scripts: Path) -> set[str]:
+    require(scripts.is_dir() and not scripts.is_symlink(), "signed_scripts_directory_missing")
+    entries = list(scripts.iterdir())
+    require(len(entries) == len(RESOURCE_NAMES), "signed_script_resource_count_mismatch")
+    for path in entries:
+        info = path.lstat()
+        if path.name == "TargetImage":
+            require(stat.S_ISDIR(info.st_mode), "signed_target_image_invalid")
+        else:
+            require(stat.S_ISREG(info.st_mode), "signed_script_resource_invalid")
+    return {path.name for path in entries}
 
 
 def read_json(path: Path, maximum: int):
@@ -420,8 +419,7 @@ exec "$AC_PACKAGE_SCRIPTS/AccountAccess-runtimeupgrade"
     command("independent-expand", ["/usr/sbin/pkgutil", "--expand-full", signed, independent], timeout=600)
     require((independent / "PackageInfo").read_bytes() == info_path.read_bytes(), "signed_package_info_changed")
     independent_scripts = independent / "Scripts"
-    require(independent_scripts.is_file() and not independent_scripts.is_symlink(), "signed_scripts_archive_missing")
-    resource_names = cpio_listing(independent_scripts)
+    resource_names = expanded_script_resource_names(independent_scripts)
     require(resource_names == RESOURCE_NAMES, "signed_package_resource_inventory_mismatch")
     packaged_target = independent_scripts / "TargetImage"
     require(packaged_target.is_dir() and not packaged_target.is_symlink(), "signed_target_image_missing")

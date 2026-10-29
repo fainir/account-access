@@ -99,6 +99,30 @@ def test_updater_resource_refuses_incomplete_owner_bundle_signature():
         }}})
 
 
+def test_expanded_installer_script_resources_are_exact_and_non_symlink(tmp_path):
+    scripts = tmp_path / "Scripts"
+    scripts.mkdir()
+    for name in candidate.RESOURCE_NAMES:
+        path = scripts / name
+        if name == "TargetImage":
+            path.mkdir()
+        else:
+            path.write_bytes(b"resource")
+    assert candidate.expanded_script_resource_names(scripts) == candidate.RESOURCE_NAMES
+
+    postinstall = scripts / "postinstall"
+    postinstall.unlink()
+    postinstall.symlink_to("RuntimeUpgradePlan.json")
+    with pytest.raises(ValueError, match="signed_script_resource_invalid"):
+        candidate.expanded_script_resource_names(scripts)
+
+    postinstall.unlink()
+    postinstall.write_bytes(b"resource")
+    (scripts / "unexpected").write_bytes(b"not allowed")
+    with pytest.raises(ValueError, match="signed_script_resource_count_mismatch"):
+        candidate.expanded_script_resource_names(scripts)
+
+
 def test_sparse_materialization_moves_only_planned_files_and_symlinks(tmp_path):
     source_image = tmp_path / "source"
     source_support = source_image / candidate.SUPPORT_RELATIVE
