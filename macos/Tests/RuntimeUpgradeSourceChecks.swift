@@ -54,7 +54,9 @@ import Darwin
         check(accepted.changed == value["changed"] as? [String])
         check(accepted.units.count == (value["units"] as? [Any])?.count)
         check(accepted.units.map(\.path) == (value["units"] as? [[String: Any]])?.compactMap { $0["path"] as? String })
-        check(PublicTreeUnit.fullImageCases.count == 13 && FullImagePlanFileUnit.fullImageCases.count == 12)
+        check(PublicTreeUnit.fullImageCases.count == 13 && FullImagePlanFileUnit.fullImageCases.count == 12
+            && PublicTreeUnit.runtimeUpgradeCases.count == 6
+            && Set(PublicTreeUnit.runtimeUpgradeCases) == Set(RuntimeUpgradeTree.allCases.map(\.storageUnit)))
         func rows(_ tree: InstallerPayloadTree) throws -> Data {
             let values = tree.nodes.mapValues { node -> [String: Any] in
                 switch node.kind {

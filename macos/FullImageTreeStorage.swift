@@ -9,12 +9,15 @@ enum PublicTreeUnit: String, CaseIterable {
     case owner, project, distInfo, pythonProvider, provider
     case pythonPip, pythonOldPipInfo, pythonPipInfo, pythonEnsurePip
     case runtimePip, runtimeOldPipInfo, runtimePipInfo, runtimeEnsurePip
-    case runtimeOwner, pythonRoot, runtimeRoot, browsers, wheels
+    case runtimeOwner, pythonRoot, runtimeRoot, browsers, wheels, binRoot
     // The first complete-image release has a separate closed set. Adding a
     // successor tree must never expand that release's accepted plan.
     static let fullImageCases: [Self] = [.owner, .project, .distInfo, .pythonProvider, .provider,
         .pythonPip, .pythonOldPipInfo, .pythonPipInfo, .pythonEnsurePip,
         .runtimePip, .runtimeOldPipInfo, .runtimePipInfo, .runtimeEnsurePip]
+    // The runtime successor has a separate typed set. In particular, adding
+    // `bin` here must not expand the first complete-image release contract.
+    static let runtimeUpgradeCases: [Self] = [.runtimeOwner, .pythonRoot, .runtimeRoot, .browsers, .wheels, .binRoot]
     var path: String {
         switch self {
         case .owner, .runtimeOwner: return "owner.app"
@@ -34,11 +37,12 @@ enum PublicTreeUnit: String, CaseIterable {
         case .runtimeRoot: return "runtime"
         case .browsers: return "browsers"
         case .wheels: return "wheels"
+        case .binRoot: return "bin"
         }
     }
     var beforePresent: Bool { ![Self.pythonPipInfo, .runtimePipInfo].contains(self) }
     var afterPresent: Bool { ![Self.pythonOldPipInfo, .runtimeOldPipInfo].contains(self) }
-    var runtimeUpgrade: Bool { [.runtimeOwner, .pythonRoot, .runtimeRoot, .browsers, .wheels].contains(self) }
+    var runtimeUpgrade: Bool { Self.runtimeUpgradeCases.contains(self) }
     // Package85 and the preceding cache repair published these exact nodes as
     // root:wheel; other nodes kept the original support group's metadata. This closed
     // mapping validates each old node without changing it or allowing any GID.

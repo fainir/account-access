@@ -552,7 +552,7 @@ private enum FixtureFailure: Error { case failed, interruption }
             }
             // Whole runtime trees use the same inode-bound atomic exchange.
             // Verify real moves, interrupted retry, and reverse for each new role.
-            let runtimeUnits: [PublicTreeUnit] = [.runtimeOwner, .pythonRoot, .runtimeRoot, .browsers, .wheels]
+            let runtimeUnits: [PublicTreeUnit] = [.runtimeOwner, .pythonRoot, .runtimeRoot, .browsers, .wheels, .binRoot]
             for (index, unit) in runtimeUnits.enumerated() {
                 let scenario = try Scenario(root: root, anchor: anchor, name: "runtime-\(index)", unit: unit)
                 try expect(!PublicTreeUnit.fullImageCases.contains(unit))

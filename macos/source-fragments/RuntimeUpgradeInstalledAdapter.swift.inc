@@ -93,6 +93,8 @@ extension ComponentController {
             let relative = kind == "owner" ? "owner.app" : "bin/AccountAccess-" + kind
             try ComponentUpdateIdentity.verifyStatic(path: root + "/" + relative, peer: peers[kind]!, designated: nil)
         }
+        try ComponentUpdateIdentity.verifyStaticPublisher(path: root + "/bin/AccountAccess-installerverify",
+            team: "WBULD6N4NQ", identifier: "com.fainir.accountaccess.installerverify")
     }
     private static func runtimePolicy(source: RuntimeUpgradeSource, predecessor: BrokerRepairSource,
             install: Data, host: Data, profile: Data, worker: Data, ownerUID: uid_t) throws -> ComponentPolicyResult {

@@ -3,7 +3,7 @@
 import Foundation
 
 enum RuntimeUpgradeTree: String, CaseIterable {
-    case owner = "owner.app", python, runtime, browsers, wheels
+    case owner = "owner.app", python, runtime, browsers, wheels, bin
     var storageUnit: PublicTreeUnit {
         switch self {
         case .owner: return .runtimeOwner
@@ -11,6 +11,7 @@ enum RuntimeUpgradeTree: String, CaseIterable {
         case .runtime: return .runtimeRoot
         case .browsers: return .browsers
         case .wheels: return .wheels
+        case .bin: return .binRoot
         }
     }
 }
@@ -102,10 +103,22 @@ struct RuntimeUpgradeSource: PublicImageTransitionSource {
             guard !privateNames.contains(String(name.split(separator: "/")[0]).lowercased()) else { throw FullImageFailure.source }
         }
         let oldPeers = try identity(oldIdentity, tree: old), newPeers = try identity(newIdentity, tree: new)
-        guard oldPeers["owner"] != newPeers["owner"], oldPeers["broker"] == newPeers["broker"],
-              oldPeers["bootstrap"] == newPeers["bootstrap"] else { throw FullImageFailure.source }
-        for path in ["bin/AccountAccess-broker", "bin/AccountAccess-bootstrap", "bin/AccountAccess-installerverify"]
-            + ["storage.py", "models.py", "worker_enroll.py"].map({ package + "/" + $0 }) {
+        guard oldPeers["owner"] != newPeers["owner"] else { throw FullImageFailure.source }
+        // The exact signed identities and file contents are bound by both
+        // manifests and this canonical plan. Only these three executables may
+        // live in the replaceable native bin tree.
+        let native = ["bin/AccountAccess-broker", "bin/AccountAccess-bootstrap", "bin/AccountAccess-installerverify"]
+        let oldBin = Set(old.nodes.keys.filter { below($0, "bin") })
+        let newBin = Set(new.nodes.keys.filter { below($0, "bin") })
+        guard oldBin == Set(["bin"] + native), newBin == oldBin,
+              old.nodes["bin"]?.kind == "directory", old.nodes["bin"]?.mode == 0o755,
+              new.nodes["bin"]?.kind == "directory", new.nodes["bin"]?.mode == 0o755 else { throw FullImageFailure.source }
+        for path in native {
+            guard [old, new].allSatisfy({ $0.nodes[path]?.kind == "file" && $0.nodes[path]?.mode == 0o755 }) else {
+                throw FullImageFailure.source
+            }
+        }
+        for path in ["storage.py", "models.py", "worker_enroll.py"].map({ package + "/" + $0 }) {
             guard new.nodes[path]?.kind == "file", try FullImageJSON.same(node(old.nodes[path]), node(new.nodes[path])) else {
                 throw FullImageFailure.source
             }
@@ -159,7 +172,8 @@ struct RuntimeUpgradeSource: PublicImageTransitionSource {
             "target_source": pins.targetSource, "target_source_files": pins.sourceFiles,
             "old_peers": oldPeerValue, "new_peers": newPeerValue, "project_wheel_sha256": wheel.sha256!,
             "units": expectedUnits, "changed": changed, "storage_model_and_enrollment_source_unchanged": true,
-            "native_broker_and_bootstrap_unchanged": true, "completed_repair_proof_required": true,
+            "native_peer_identity_fixed": true, "native_payload_and_signatures_must_be_pinned": true,
+            "completed_repair_proof_required": true,
             "native_payload_and_signature_checks_required": true, "support_and_alias_inodes_must_be_preserved": true,
             "production_ready": false]
         let decoded = try FullImageJSON.object(raw, maximum: 34 * 1024 * 1024)
