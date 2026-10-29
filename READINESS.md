@@ -41,7 +41,7 @@ Statuses: todo | building (who) | verified | owner | waiting | cut (reason)
 
 ## Owner actions
 
-1. In the native **Installer** authorization dialog currently visible, enter your Mac login password there and click **Install Software**. macOS has not authorized this prompt yet; no password belongs in chat. Leave Installer open when it finishes so I can verify the build 114 receipt and protected service.
+1. In the open **Installer** window for **Account-Access-Owner-Upgrade-114**, click **Install** / **Install Software** and approve the native macOS prompt with Touch ID or your Mac login password; leave Installer open until it reports success -> unblocks F1 and lets me retest F6 on the updated service. Keep any password in the macOS dialog.
 2. In Account Access > Verification, connect the approved Gmail account in Chrome and select **Check Google connection**. Then use a supported account with a real email-code challenge and complete it in Account Access; this unblocks private mailbox and delivery acceptance. Keep mailbox passwords and login codes out of chat.
 3. Open Account Access > Verification > Pair Android phone, scan its pairing QR, and approve the requested access on Android; this unblocks real SMS acceptance. No phone code belongs in chat.
 4. Sign in to Lemon Squeezy through Account Access once with your authenticator app; this confirms its private TOTP challenge and enrollment against the real site. Keep the password and generated codes in their intended apps.
