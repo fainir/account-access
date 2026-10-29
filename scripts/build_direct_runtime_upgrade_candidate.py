@@ -1,8 +1,8 @@
-"""Build the exact signed, notarized build-110 to build-116 Mac updater.
+"""Build the exact signed, notarized build-110 to source-current build-118 updater.
 
-This builder reads public package and manifest inputs, compiles the fixed root
-helper, and produces a reviewable installer. It never runs Installer or writes
-to an installed Account Access path.
+This builder reads a qualified public image and manifest, compiles the fixed
+root helper, and produces a reviewable installer. It never runs Installer or
+writes to an installed Account Access path.
 """
 from __future__ import annotations
 
@@ -19,12 +19,11 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-TARGET_PACKAGE_SHA256 = "02eaa0c5ace1354208a173cf260b4f1236357ce0cae5671570918b39ea9f3942"
-PLAN_SHA256 = "f15129413f71a65e61a53f690b6676306ae905b3b8ba4e5df966c70f423287d5"
+PLAN_SHA256 = "681f2b48c2b35bc1ccdb4309da636b1b88fcbeb2b2ae982b92dbf0c4198dd51e"
 BEFORE_SHA256 = "568c79ca3b45ffc357bc5af2b420d481e729630b0120dc6d0058c1a396ad21b1"
-AFTER_SHA256 = "78113e53f553cdec0bfb9d0744406a18baaaa3327e1be834af5b45b74c3926aa"
-TARGET_SOURCE = "51f9ea5e11434ccdac25e955787de5e27e034eec"
-COMPONENT_ID = "com.fainir.accountaccess.directruntimeupgrade117"
+AFTER_SHA256 = "bb14a99941c7a82938cd0e9b3f91a16ab975e6cdd61a30741d29726a7f7bed38"
+TARGET_SOURCE = "35ffa63df4a178f699be7b4cba3d73404b48e182"
+COMPONENT_ID = "com.fainir.accountaccess.directruntimeupgrade118"
 HELPER_ID = "com.fainir.accountaccess.componentupdate"
 TEAM = "WBULD6N4NQ"
 SUPPORT_RELATIVE = "Library/Application Support/Account Access"
@@ -75,10 +74,31 @@ def expanded_script_resource_names(scripts: Path) -> set[str]:
     return {path.name for path in entries}
 
 
+def read_owned_bytes(path: Path, maximum: int) -> bytes:
+    fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NONBLOCK", 0))
+    try:
+        info = os.fstat(fd)
+        require(stat.S_ISREG(info.st_mode) and info.st_uid == os.getuid()
+            and info.st_size <= maximum, "unsafe_public_input")
+        raw = bytearray()
+        while len(raw) <= maximum:
+            chunk = os.read(fd, min(1024 * 1024, maximum + 1 - len(raw)))
+            if not chunk:
+                break
+            raw.extend(chunk)
+        after = os.fstat(fd)
+        require(len(raw) <= maximum, "public_input_too_large")
+        require(len(raw) == info.st_size and (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns,
+            info.st_ctime_ns) == (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns,
+            after.st_ctime_ns), "public_input_changed_during_read")
+        return bytes(raw)
+    finally:
+        os.close(fd)
+
+
 def read_json(path: Path, maximum: int):
-    info = path.lstat()
-    require(stat.S_ISREG(info.st_mode) and info.st_size <= maximum, "unsafe_json_input")
-    return json.loads(path.read_bytes())
+    return json.loads(read_owned_bytes(path, maximum))
 
 
 def git_bytes(*args) -> bytes:
@@ -195,28 +215,28 @@ def materialize_sparse_target(source_image: Path, target_image: Path,
         require(not target.parent.is_symlink(), "sparse_target_parent_symlink_refused")
         if node["kind"] == "file":
             require(stat.S_ISREG(source_info.st_mode), "sparse_source_file_invalid")
+            shutil.copy2(source, target, follow_symlinks=False)
         elif node["kind"] == "symlink":
             require(stat.S_ISLNK(source_info.st_mode) and os.readlink(source) == node["target"],
                 "sparse_source_symlink_mismatch")
+            os.symlink(node["target"], target)
         else:
             raise ValueError("sparse_source_node_invalid")
-        os.replace(source, target)
 
     actual = public_payload_inventory(target_support)
     require(actual == inventory, "sparse_target_inventory_mismatch")
     return target_support, sum(node.get("size", 0) for node in actual.values())
 
 
-def extract_sparse_target(package: Path, expanded: Path, scripts: Path, target_manifest: dict, plan: dict):
-    public_images = list(expanded.glob("payload.pkg/Scripts/PublicImage"))
-    require(len(public_images) == 1 and public_images[0].is_dir()
-        and not public_images[0].is_symlink(), "target_public_image_missing")
+def extract_sparse_target(public: Path, scripts: Path, target_manifest: dict, plan: dict):
+    require(public.is_dir() and not public.is_symlink(), "target_public_image_missing")
     planned_inventory, resource_inventory = updater_payload_nodes(plan, target_manifest)
-    public = public_images[0]
     require({path.name for path in public.iterdir()} == {"Applications", "Library"},
         "target_public_image_root_mismatch")
     applications = public / "Applications"
     require(stat.S_ISDIR(applications.lstat().st_mode), "target_public_applications_invalid")
+    require({path.name for path in applications.iterdir()} == {"Account Access.app"},
+        "target_public_applications_inventory_mismatch")
     support = public / SUPPORT_RELATIVE
     for relative in ("Library", "Library/Application Support", SUPPORT_RELATIVE):
         require(stat.S_ISDIR((public / relative).lstat().st_mode), "target_public_support_parent_invalid")
@@ -252,8 +272,10 @@ def verify_qa(args, sources, plan):
     require(runtime.get("status") == "PASSED" and runtime.get("result", {}).get("checks") == 72
         and runtime.get("installed_reads") is False and runtime.get("production_ready") is False,
         "runtime_native_qa_not_qualified")
-    require(direct.get("status") == "PASSED" and direct.get("native", {}).get("units") == 191
-        and direct.get("native", {}).get("changed_nodes") == 207 and direct.get("production_ready") is False,
+    require(direct.get("status") == "PASSED"
+        and direct.get("native", {}).get("units") == len(plan["units"])
+        and direct.get("native", {}).get("changed_nodes") == len(plan["changed"])
+        and direct.get("production_ready") is False,
         "direct_native_qa_not_qualified")
     all_hashes = {}
     for report in (shared, runtime, direct):
@@ -276,20 +298,20 @@ def build(args):
     require(git_bytes("status", "--porcelain").strip() == b"", "source_tree_not_clean")
     output = args.output.absolute()
     require(output.parent.is_dir() and not os.path.lexists(output), "output_must_be_new")
-    require(file_digest(args.target_package) == TARGET_PACKAGE_SHA256, "target_package_hash_mismatch")
-    require(file_digest(args.plan) == PLAN_SHA256, "plan_hash_mismatch")
+    plan_raw = read_owned_bytes(args.plan, 34 * 1024 * 1024)
+    require(digest(plan_raw) == PLAN_SHA256, "plan_hash_mismatch")
     require(re.fullmatch(r"[A-F0-9]{40}", args.application_identity) is not None, "application_identity_invalid")
     shared = runpy.run_path(str(ROOT / "scripts/mac_full_image_installed_probe.py"))
     sources = source_inputs(shared)
     for name, raw in sources.items():
         require(git_bytes("show", args.source + ":" + name) == raw, "source_not_committed")
-    shared_qa, runtime_qa, direct_qa = verify_qa(args, sources, json.loads(args.plan.read_bytes()))
-    require(file_digest(args.base_manifest) == BEFORE_SHA256, "base_manifest_mismatch")
-    require(file_digest(args.base_identity) == "3462087a742f96baab0dbcc5e66e84c1aa408e828f216024529a5d05e7eb7248",
+    source_plan = json.loads(plan_raw)
+    shared_qa, runtime_qa, direct_qa = verify_qa(args, sources, source_plan)
+    before_raw = read_owned_bytes(args.base_manifest, 16 * 1024 * 1024)
+    old_identity_raw = read_owned_bytes(args.base_identity, 8192)
+    require(digest(before_raw) == BEFORE_SHA256, "base_manifest_mismatch")
+    require(digest(old_identity_raw) == "3462087a742f96baab0dbcc5e66e84c1aa408e828f216024529a5d05e7eb7248",
         "base_identity_mismatch")
-    before_raw = args.base_manifest.read_bytes()
-    old_identity_raw = args.base_identity.read_bytes()
-    plan_raw = args.plan.read_bytes()
     import sys as _sys
     _sys.path.insert(0, str(ROOT))
     from macos import direct_runtime_upgrade_plan as direct_planner
@@ -303,16 +325,28 @@ def build(args):
         (output / "commands.json").write_bytes(encoded(commands))
         require(result.returncode == 0, "build_step_failed:" + label)
         return result.stdout
-    command("target-package-signature", ["/usr/sbin/pkgutil", "--check-signature", args.target_package], timeout=60)
-    command("target-package-gatekeeper", ["/usr/sbin/spctl", "--assess", "--type", "install", "--verbose", args.target_package], timeout=120)
-    expanded = output / "target-expanded"
-    command("target-package-expand", ["/usr/sbin/pkgutil", "--expand-full", args.target_package, expanded], timeout=600)
-    manifest_candidates = [p for p in expanded.rglob("RecoveryManifest.json") if p.is_file() and not p.is_symlink()]
-    require(len(manifest_candidates) == 1 and file_digest(manifest_candidates[0]) == AFTER_SHA256,
-        "target_manifest_missing_or_mismatched")
-    after_raw = manifest_candidates[0].read_bytes()
+    target_image = args.target_image.absolute()
+    target_manifest_path = args.target_manifest.absolute()
+    target_qualification_raw = read_owned_bytes(args.target_qualification, 2 * 1024 * 1024)
+    target_qualification = json.loads(target_qualification_raw)
+    require(target_qualification.get("status") == "TARGET_IMAGE_QUALIFIED"
+        and target_qualification.get("owner_app_build") == 118
+        and target_qualification.get("source_manifest_sha256") == "78113e53f553cdec0bfb9d0744406a18baaaa3327e1be834af5b45b74c3926aa"
+        and target_qualification.get("source_image_unchanged") is True
+        and target_qualification.get("source_commit") == TARGET_SOURCE
+        and target_qualification.get("target_manifest_sha256") == AFTER_SHA256
+        and target_qualification.get("project_wheel_sha256") == source_plan["project_wheel_sha256"]
+        and target_qualification.get("native_manifest_preflight") is True
+        and target_qualification.get("installed") is False
+        and target_qualification.get("installer_executed") is False
+        and target_qualification.get("native_payload_audit", {}).get("publisher_signatures_verified") is True,
+        "target_image_qualification_mismatch")
+    require(target_image.is_dir() and not target_image.is_symlink()
+        and {path.name for path in target_image.iterdir()} == {"Applications", "Library"},
+        "target_public_image_missing")
+    after_raw = read_owned_bytes(target_manifest_path, 16 * 1024 * 1024)
+    require(digest(after_raw) == AFTER_SHA256, "target_manifest_missing_or_mismatched")
     after = json.loads(after_raw)
-    source_plan = json.loads(plan_raw)
     require(all(digest(git_bytes("show", TARGET_SOURCE + ":" + name)) == file_hash
         for name, file_hash in source_plan["target_source_files"].items()), "target_source_files_mismatch")
     scripts = output / "scripts"
@@ -321,8 +355,8 @@ def build(args):
     (scripts / "BaseManifest.json").write_bytes(before_raw)
     (scripts / "TargetManifest.json").write_bytes(after_raw)
     (scripts / "BaseIdentity.json").write_bytes(old_identity_raw)
-    (target_image, support, sparse_nodes, sparse_bytes, owner_bundle_nodes,
-        updater_payload_inventory) = extract_sparse_target(args.target_package, expanded, scripts, after, source_plan)
+    (_, support, sparse_nodes, sparse_bytes, owner_bundle_nodes,
+        updater_payload_inventory) = extract_sparse_target(target_image, scripts, after, source_plan)
     command("target-owner-signature", ["/usr/bin/codesign", "--verify", "--strict", "--verbose=2",
         support / "owner.app"], timeout=120)
     new_identity_raw = (support / "package-identity.json").read_bytes()
@@ -332,8 +366,6 @@ def build(args):
     (scripts / "TargetIdentity.json").write_bytes(new_identity_raw)
     require((support / "package-identity.json").read_bytes() == new_identity_raw,
         "target_identity_payload_mismatch")
-    shutil.rmtree(expanded)
-
     code = output / "source"
     code.mkdir(mode=0o700)
     paths = []
@@ -399,10 +431,10 @@ exec "$AC_PACKAGE_SCRIPTS/AccountAccess-runtimeupgrade"
         and info.count(b'postinstall-action="none"') == 1, "package_info_contract_mismatch")
     info_path.write_bytes(info.replace(b'timeout="600"', b'timeout="1800"').replace(
         b'postinstall-action="none"', b'postinstall-action="restart"'))
-    package = output / "Account-Access-Direct-Upgrade-117.pkg"
+    package = output / "Account-Access-Direct-Upgrade-118.pkg"
     command("assemble-package", ["/usr/bin/xar", "--compression=none", "-cf", package,
         "PackageInfo", "Scripts"], cwd=container, timeout=600)
-    signed = output / "Account-Access-Direct-Upgrade-117-signed.pkg"
+    signed = output / "Account-Access-Direct-Upgrade-118-signed.pkg"
     command("sign-package", ["/usr/bin/productsign", "--sign", args.installer_identity, package, signed], timeout=300)
     package.unlink()
     notary_raw = command("notarize", ["/usr/bin/xcrun", "notarytool", "submit", signed,
@@ -432,12 +464,17 @@ exec "$AC_PACKAGE_SCRIPTS/AccountAccess-runtimeupgrade"
         "package_sha256": file_digest(signed), "package_bytes": signed.stat().st_size,
         "notarization": "Accepted", "stapled": True, "gatekeeper": "accepted",
         "helper_sha256": file_digest(helper), "helper_signature": "Developer ID Application verified",
-        "installer_signature": "Developer ID Installer verified", "target_package_sha256": TARGET_PACKAGE_SHA256,
+        "installer_signature": "Developer ID Installer verified",
+        "target_image_manifest_sha256": AFTER_SHA256,
+        "target_image_qualification": str(args.target_qualification),
+        "target_image_qualification_sha256": digest(target_qualification_raw),
         "plan_sha256": PLAN_SHA256, "before_manifest_sha256": BEFORE_SHA256,
         "after_manifest_sha256": AFTER_SHA256, "sparse_nodes": sparse_nodes, "sparse_file_bytes": sparse_bytes,
         "owner_bundle_nodes": owner_bundle_nodes, "owner_bundle_signature": "Developer ID Application verified",
         "packaged_target_image_nodes": len(updater_payload_inventory),
-        "global_operation_count": 195, "package_resource_count": len(RESOURCE_NAMES),
+        "plan_unit_count": len(source_plan["units"]),
+        "planned_changed_node_count": len(source_plan["changed"]),
+        "package_resource_count": len(RESOURCE_NAMES),
         "ordinary_user_refusal": True, "installer_executed": False, "installed": False,
         "source_revision": args.source, "shared_qa": str(args.shared_qa), "runtime_qa": str(args.runtime_qa),
         "direct_qa": str(args.direct_qa), "notary_status": "Accepted", "notary_id": notarization.get("id"),
@@ -450,7 +487,9 @@ exec "$AC_PACKAGE_SCRIPTS/AccountAccess-runtimeupgrade"
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", required=True)
-    parser.add_argument("--target-package", required=True, type=Path)
+    parser.add_argument("--target-image", required=True, type=Path)
+    parser.add_argument("--target-manifest", required=True, type=Path)
+    parser.add_argument("--target-qualification", required=True, type=Path)
     parser.add_argument("--base-manifest", required=True, type=Path)
     parser.add_argument("--base-identity", required=True, type=Path)
     parser.add_argument("--plan", required=True, type=Path)

@@ -37,7 +37,7 @@ def test_delta_uses_disjoint_fixed_trees_and_file_renames():
     expected_changed = sorted(path for path in old.keys() | new.keys() if old.get(path) != new.get(path))
     assert changed == expected_changed
     assert [unit["path"] for unit in units if unit["kind"] == "public_tree"] == [
-        plan.DIRECT_TREES[0], plan.DIRECT_TREES[1], plan.DIRECT_TREES[2]
+        plan.DIRECT_TREES[2], plan.DIRECT_TREES[3], plan.DIRECT_TREES[4]
     ]
     assert [unit["path"] for unit in units if unit["kind"] == "direct_file"] == [
         "runtime/a.py", "runtime/lib/python3.12/site-packages/authlib/oauth2/client.py"
@@ -46,6 +46,35 @@ def test_delta_uses_disjoint_fixed_trees_and_file_renames():
     covered = [path for unit in units for path in unit["changed"]]
     assert sorted(covered) == changed
     assert len(covered) == len(set(covered))
+
+
+def test_account_access_package_trees_can_be_replaced_in_place():
+    project, metadata = plan.DIRECT_TREES[:2]
+    old = {
+        "": {"kind": "directory", "mode": 0o755},
+        "runtime": {"kind": "directory", "mode": 0o755},
+        project: {"kind": "directory", "mode": 0o755},
+        project + "/service.py": file("a", 10),
+        metadata: {"kind": "directory", "mode": 0o755},
+        metadata + "/RECORD": file("b", 20),
+    }
+    new = {
+        "": old[""],
+        "runtime": old["runtime"],
+        project: old[project],
+        project + "/service.py": file("c", 11),
+        project + "/vault_backup.py": file("d", 30),
+        metadata: old[metadata],
+        metadata + "/RECORD": file("e", 22),
+    }
+
+    changed, units = plan._units({"roots": {plan.SUPPORT: old}}, {"roots": {plan.SUPPORT: new}})
+
+    assert changed == sorted(path for path in old.keys() | new.keys() if old.get(path) != new.get(path))
+    assert [unit["path"] for unit in units if unit["kind"] == "public_tree"] == [project, metadata]
+    assert all(unit["kind"] == "public_tree" for unit in units)
+    assert units[0]["before"].get(project + "/service.py") == file("a", 10)
+    assert units[0]["after"].get(project + "/vault_backup.py") == file("d", 30)
 
 
 @pytest.mark.parametrize("path,node", [
@@ -123,7 +152,19 @@ def test_expanded_installer_script_resources_are_exact_and_non_symlink(tmp_path)
         candidate.expanded_script_resource_names(scripts)
 
 
-def test_sparse_materialization_moves_only_planned_files_and_symlinks(tmp_path):
+def test_builder_public_inputs_are_owned_bounded_regular_files(tmp_path):
+    public = tmp_path / "input.json"
+    public.write_bytes(b"safe")
+    assert candidate.read_owned_bytes(public, 4) == b"safe"
+    with pytest.raises(ValueError, match="unsafe_public_input"):
+        candidate.read_owned_bytes(public, 3)
+    alias = tmp_path / "input-alias.json"
+    alias.symlink_to(public)
+    with pytest.raises(OSError):
+        candidate.read_owned_bytes(alias, 4)
+
+
+def test_sparse_materialization_copies_only_planned_files_and_symlinks(tmp_path):
     source_image = tmp_path / "source"
     source_support = source_image / candidate.SUPPORT_RELATIVE
     runtime = source_support / "runtime"
@@ -143,6 +184,48 @@ def test_sparse_materialization_moves_only_planned_files_and_symlinks(tmp_path):
     assert candidate.public_payload_inventory(support) == inventory
     assert (support / "runtime/current").is_symlink()
     assert not (support / "runtime/unplanned.py").exists()
+    assert (source_support / "runtime/module.py").read_text() == "safe"
+    assert (source_support / "runtime/current").is_symlink()
+
+
+def test_target_image_manifest_is_checked_and_source_image_is_preserved(tmp_path):
+    public = tmp_path / "PublicImage"
+    applications = public / "Applications"
+    support = public / candidate.SUPPORT_RELATIVE
+    app = support / "owner.app"
+    (applications).mkdir(parents=True)
+    (app / "Contents/_CodeSignature").mkdir(parents=True)
+    (app / "Contents/_CodeSignature/CodeResources").write_bytes(b"signed resources")
+    (support / "runtime").mkdir()
+    (support / "runtime/changed.py").write_bytes(b"source-current")
+    app_target = "../Library/Application Support/Account Access/owner.app"
+    (applications / "Account Access.app").symlink_to(app_target)
+    before = candidate.public_payload_inventory(support)
+    manifest = {"roots": {
+        candidate.SUPPORT_RELATIVE_ROOT: before,
+        "/Applications/Account Access.app": {"": {"kind": "symlink", "target": app_target}},
+    }}
+    plan = {"units": [{"kind": "direct_file", "path": "runtime/changed.py",
+                       "after": before["runtime/changed.py"]}]}
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+
+    image, packaged_support, sparse_nodes, _bytes, app_nodes, inventory = candidate.extract_sparse_target(
+        public, scripts, manifest, plan)
+
+    assert image == scripts / "TargetImage"
+    assert candidate.public_payload_inventory(support) == before
+    assert candidate.public_payload_inventory(packaged_support) == inventory
+    assert sparse_nodes == 3
+    assert app_nodes > 0
+
+    tampered = dict(manifest)
+    tampered["roots"] = dict(manifest["roots"])
+    tampered["roots"][candidate.SUPPORT_RELATIVE_ROOT] = {**before, "runtime/changed.py": file("f")}
+    other_scripts = tmp_path / "other-scripts"
+    other_scripts.mkdir()
+    with pytest.raises(ValueError, match="target_public_image_manifest_mismatch"):
+        candidate.extract_sparse_target(public, other_scripts, tampered, plan)
 
 
 def test_sparse_inventory_preserves_symlinks_and_refuses_symlink_directories(tmp_path):

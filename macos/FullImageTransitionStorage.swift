@@ -63,7 +63,7 @@ struct FullImageFileOperation: Codable, Equatable {
     var path: String { unit == .directPublicFile ? (directPath ?? "") : unit.path }
     var mode: UInt16 { unit == .directPublicFile ? (directMode ?? 0) : unit.mode }
     func validate(ownerDevice: Int32) throws {
-        let directPlan = planSHA256 == "f15129413f71a65e61a53f690b6676306ae905b3b8ba4e5df966c70f423287d5"
+        let directPlan = planSHA256 == "681f2b48c2b35bc1ccdb4309da636b1b88fcbeb2b2ae982b92dbf0c4198dd51e"
         guard schema == 1, FullImageJSON.hex(planSHA256), (0..<(directPlan ? 256 : 64)).contains(index),
               before != nil || after != nil, before != after else { throw FullImageFailure.journal }
         if unit == .directPublicFile {
@@ -235,7 +235,7 @@ final class FullImageMixedStorage: ComponentTransitionStorage {
         let plans = units.map { unit -> String in
             switch unit { case .file(let storage): return storage.operation.planSHA256; case .tree(let storage): return storage.operation.planSHA256 }
         }
-        let directPlan = "f15129413f71a65e61a53f690b6676306ae905b3b8ba4e5df966c70f423287d5"
+        let directPlan = "681f2b48c2b35bc1ccdb4309da636b1b88fcbeb2b2ae982b92dbf0c4198dd51e"
         let operationLimit = plans.first == directPlan ? 256 : 64
         guard !tokens.isEmpty, tokens.count <= operationLimit, Set(plans).count == 1, Set(tokens.map(\.path)).count == tokens.count,
               Set(tokens.map(\.slot)).count == tokens.count,

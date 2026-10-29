@@ -98,15 +98,19 @@ def main() -> None:
     (output / "run.stderr").write_bytes(executed.stderr)
     require(executed.returncode == 0 and not executed.stderr, "native_direct_probe_failed")
     report = json.loads(executed.stdout)
-    require(report == {"status": "PASSED", "changed_nodes": 207, "units": 191, "direct_files_added": 7,
-        "direct_files_removed": 9, "projection_checks": 2, "refusal_checks": 4,
+    plan = json.loads(raws["plan.json"])
+    direct_units = [unit for unit in plan["units"] if unit.get("kind") == "direct_file"]
+    require(report == {"status": "PASSED", "changed_nodes": len(plan["changed"]), "units": len(plan["units"]),
+        "direct_files_added": sum(unit.get("before") is None for unit in direct_units),
+        "direct_files_removed": sum(unit.get("after") is None for unit in direct_units),
+        "projection_checks": 2, "refusal_checks": 4,
         "installed_reads": False, "service_actions": False, "production_ready": False}, "native_report_mismatch")
     require(all(digest((ROOT / name).read_bytes()) == value for name, value in pins.items()), "source_changed_during_compile")
     summary = {"status": "PASSED", "native": report, "source_sha256": pins,
         "public_inputs_sha256": {name: digest(raw) for name, raw in raws.items()},
         "installed_reads": False, "service_actions": False, "production_ready": False}
     (output / "result.json").write_text(json.dumps(summary, sort_keys=True, indent=2) + "\n")
-    print(json.dumps({"status": "PASSED", "changed_nodes": 207, "units": 191,
+    print(json.dumps({"status": "PASSED", "changed_nodes": len(plan["changed"]), "units": len(plan["units"]),
         "installed_reads": False, "production_ready": False}, sort_keys=True))
 
 

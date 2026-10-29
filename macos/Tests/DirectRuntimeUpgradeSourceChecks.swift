@@ -66,10 +66,15 @@ import Darwin
             try require(actualOwnerBundle == expectedOwnerBundle)
             try require(payloadTree.nodes["owner.app/Contents/_CodeSignature/CodeResources"]?.kind == "file")
             let count = source.units.count
-            try require(count == 191 && source.changed.count == 207)
-            try require(source.units.filter { if case .tree = $0 { return true }; return false }.count == 3)
+            guard let changedRows = planValue["changed"] as? [String],
+                  let unitRows = planValue["units"] as? [[String: Any]] else { throw FullImageFailure.source }
+            try require(count == unitRows.count && source.changed.count == changedRows.count)
+            try require(PublicTreeUnit.directRuntimeDeltaCases.contains(.project)
+                && PublicTreeUnit.directRuntimeDeltaCases.contains(.distInfo))
+            try require(source.units.filter { if case .tree = $0 { return true }; return false }.count == 5)
             try require(source.units.filter { if case .file = $0 { return true }; return false }.count == 5)
-            try require(source.units.filter { if case .directFile = $0 { return true }; return false }.count == 183)
+            let directCount = source.units.filter { if case .directFile = $0 { return true }; return false }.count
+            try require(directCount == unitRows.filter { $0["kind"] as? String == "direct_file" }.count)
             try require(source.targetSourceCommit == DirectRuntimeUpgradeSource.sourceCommit)
             let stagedRows = try rows(FullImagePublicView.projection(source: source,
                 states: Array(repeating: .staged, count: count)))
@@ -88,7 +93,13 @@ import Darwin
                 if before == nil { additions += 1 }
                 if after == nil { removals += 1 }
             }
-            try require(additions == 7 && removals == 9)
+            let expectedAdditions = unitRows.filter {
+                $0["kind"] as? String == "direct_file" && $0["before"] is NSNull
+            }.count
+            let expectedRemovals = unitRows.filter {
+                $0["kind"] as? String == "direct_file" && $0["after"] is NSNull
+            }.count
+            try require(additions == expectedAdditions && removals == expectedRemovals)
             let first = source.units.enumerated().compactMap { index, unit -> FullImageFileOperation? in
                 guard case .directFile(let path, let mode, let before, let after) = unit else { return nil }
                 return FullImageFileOperation(schema: 1, unit: .directPublicFile, planSHA256: directPlan,
@@ -115,7 +126,12 @@ import Darwin
                         targetSourceCommit: DirectRuntimeUpgradeSource.sourceCommit))
             } catch { refusals += 1 }
             try require(refusals == 4)
-            print("{\"status\":\"PASSED\",\"changed_nodes\":207,\"units\":191,\"direct_files_added\":7,\"direct_files_removed\":9,\"projection_checks\":2,\"refusal_checks\":4,\"installed_reads\":false,\"service_actions\":false,\"production_ready\":false}")
+            let report: [String: Any] = ["status": "PASSED", "changed_nodes": source.changed.count,
+                "units": count, "direct_files_added": additions, "direct_files_removed": removals,
+                "projection_checks": 2, "refusal_checks": refusals, "installed_reads": false,
+                "service_actions": false, "production_ready": false]
+            let encoded = try JSONSerialization.data(withJSONObject: report, options: [.sortedKeys])
+            print(String(decoding: encoded, as: UTF8.self))
         } catch {
             fputs("direct_runtime_upgrade_source_checks_refused\n", stderr)
             exit(1)

@@ -12,13 +12,15 @@ from macos import full_image_update as image
 
 
 BEFORE = "568c79ca3b45ffc357bc5af2b420d481e729630b0120dc6d0058c1a396ad21b1"
-AFTER = "78113e53f553cdec0bfb9d0744406a18baaaa3327e1be834af5b45b74c3926aa"
-TARGET_SOURCE = "51f9ea5e11434ccdac25e955787de5e27e034eec"
+AFTER = "bb14a99941c7a82938cd0e9b3f91a16ab975e6cdd61a30741d29726a7f7bed38"
+TARGET_SOURCE = "35ffa63df4a178f699be7b4cba3d73404b48e182"
 ORIGINAL_RECEIPT_MANIFEST = image.ORIGINAL_MANIFEST
 MARKER = "account-access-exact-installed-runtime-delta-v1"
 SUPPORT = image.SUPPORT
 APPLICATION = image.APPLICATION
 DIRECT_TREES = (
+    "runtime/lib/python3.12/site-packages/account_access",
+    "runtime/lib/python3.12/site-packages/account_access-0.8.0.dist-info",
     "runtime/lib/python3.12/site-packages/authlib-1.8.0.dist-info",
     "runtime/lib/python3.12/site-packages/authlib-1.9.1.dist-info",
     "runtime/lib/python3.12/site-packages/authlib/oauth2/drafts",
@@ -80,7 +82,10 @@ def _units(before, after):
         owned = [name for name in changed if _below(name, path)]
         if not owned:
             continue
-        require(bool(old_rows) != bool(new_rows))
+        if path in {image.PACKAGE, image.DIST_INFO}:
+            require(bool(old_rows) and bool(new_rows))
+        else:
+            require(bool(old_rows) != bool(new_rows))
         for rows in (old_rows, new_rows):
             if rows:
                 require(rows.get(path) == {"kind": "directory", "mode": 0o755})

@@ -19,7 +19,7 @@ enum PublicTreeUnit: String, CaseIterable {
     // The runtime successor has a separate typed set. In particular, adding
     // `bin` here must not expand the first complete-image release contract.
     static let runtimeUpgradeCases: [Self] = [.runtimeOwner, .pythonRoot, .runtimeRoot, .browsers, .wheels, .binRoot]
-    static let directRuntimeDeltaCases: [Self] = [.authlibOldDistInfo, .authlibNewDistInfo, .authlibDrafts]
+    static let directRuntimeDeltaCases: [Self] = [.project, .distInfo, .authlibOldDistInfo, .authlibNewDistInfo, .authlibDrafts]
     var path: String {
         switch self {
         case .owner, .runtimeOwner: return "owner.app"
