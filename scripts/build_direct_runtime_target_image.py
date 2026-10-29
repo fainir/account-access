@@ -158,6 +158,12 @@ def command(argv: list[str]) -> subprocess.CompletedProcess:
     return result
 
 
+def safe_error_reason(exc: BaseException) -> str:
+    """Expose only closed, machine-safe reason codes for a failed build step."""
+    reason = str(exc)
+    return reason if re.fullmatch(r"[a-z0-9_:-]{1,96}", reason) else "direct_runtime_target_image_build_refused"
+
+
 def build(args) -> dict:
     require(sys.platform == "darwin" and os.getuid() == os.geteuid() != 0, "ordinary_mac_required")
     require(re.fullmatch(r"[a-f0-9]{40}", args.source) is not None, "source_revision_invalid")
@@ -270,8 +276,8 @@ def main() -> int:
     try:
         print(json.dumps(build(args), sort_keys=True))
         return 0
-    except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError, subprocess.SubprocessError):
-        print(json.dumps({"status": "REFUSED", "reason": "direct_runtime_target_image_build_refused"}))
+    except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError, subprocess.SubprocessError) as exc:
+        print(json.dumps({"status": "REFUSED", "reason": safe_error_reason(exc)}))
         return 1
 
 

@@ -9,7 +9,7 @@ import zipfile
 
 import pytest
 
-from scripts.build_direct_runtime_target_image import replace_project_wheel
+from scripts.build_direct_runtime_target_image import replace_project_wheel, safe_error_reason
 
 
 def wheel(path: Path, *, extra: bool = False) -> None:
@@ -87,3 +87,10 @@ def test_refuses_existing_package_symlink(tmp_path):
 
     with pytest.raises(ValueError, match="existing_project_install_invalid"):
         replace_project_wheel(target, project, wheelhouse)
+
+
+def test_safe_build_error_reports_only_closed_reason_codes():
+    assert safe_error_reason(ValueError("source_revision_invalid")) == "source_revision_invalid"
+    assert safe_error_reason(ValueError("secret=/private/path/token")) == (
+        "direct_runtime_target_image_build_refused"
+    )
