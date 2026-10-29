@@ -122,6 +122,11 @@ its website session and its local password-source link; it keeps approved reads
 and shared verification methods. These controls are in the development build
 and are not in the currently published preview.
 
+In the 0.8 development candidate, the local CLI can create and restore a
+password-protected encrypted vault backup. Stop Account Access first; the restore
+command validates the archive and asks for explicit confirmation before replacing
+the vault. See the [vault backup and restore guide](docs/vault-backup.md).
+
 **Chrome and other CSV imports are snapshots.** Re-import after changing a
 password. The 0.8 candidate supports ongoing updates from approved Bitwarden
 items through a separate, explicitly connected local vault session, and from

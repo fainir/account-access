@@ -2,6 +2,7 @@
 
 import base64
 import hashlib
+import hmac
 import json
 import os
 import secrets
@@ -86,22 +87,31 @@ def load_key(root: Path, key_file: Path | None = None, *, create=False) -> bytes
 
 
 class Store:
-    def __init__(self, root: Path, key: bytes):
+    def __init__(self, root: Path, key: bytes, *, key_file: Path | None = None):
         self.root = root.resolve()
         if root.is_symlink():
             raise AccessError("DENIED", "symlink_path")
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
         check_private(self.root)
-        self.aes = AESGCM(key)
+        self._key = bytes(key)
+        self.key_file = Path(key_file) if key_file else None
+        (self.root / "locks").mkdir(mode=0o700, exist_ok=True)
+        check_private(self.root / "locks")
+        from .vault_backup import recover_pending_restore
+        with self.lock("vault-restore", timeout=0):
+            recover_pending_restore(self.root, key=self._key)
+        self.aes = AESGCM(self._key)
         self.path = self.root / "state.db"
         if self.path.exists():
             check_private(self.path)
         else:
             private_file(self.path, b"")
-        (self.root / "locks").mkdir(mode=0o700, exist_ok=True)
-        check_private(self.root / "locks")
         with self.db() as db:
+            version = db.execute("PRAGMA user_version").fetchone()[0]
+            if version not in (0, 1):
+                raise AccessError("NEEDS_USER", "unsupported_vault_schema")
             db.executescript("""
+                BEGIN IMMEDIATE;
                 CREATE TABLE IF NOT EXISTS records (id TEXT PRIMARY KEY, value BLOB NOT NULL);
                 CREATE TABLE IF NOT EXISTS grants (
                     principal TEXT, account TEXT, operation TEXT, fingerprint TEXT, expires REAL,
@@ -121,7 +131,36 @@ class Store:
                     next_at REAL DEFAULT 0, UNIQUE(principal, request_key));
                 CREATE TABLE IF NOT EXISTS schedules (
                     id TEXT PRIMARY KEY, principal TEXT, interval REAL, next_at REAL, enabled INTEGER);
+                PRAGMA user_version=1;
+                COMMIT;
             """)
+
+    def replace_key(self, key):
+        if not isinstance(key, bytes) or len(key) != 32:
+            raise AccessError("DENIED", "invalid_vault_key")
+        if self.key_file:
+            private_file(self.key_file, key, replace=self.key_file.exists())
+        else:
+            import base64
+            import keyring
+
+            backend = keyring.get_keyring()
+            allowed = ("keyring.backends.macOS", "keyring.backends.Windows", "keyring.backends.SecretService")
+            if not type(backend).__module__.startswith(allowed):
+                raise AccessError("NEEDS_USER", "secure_keyring_unavailable", "vault")
+            service = "account-access:" + hashlib.sha256(str(self.root.resolve()).encode()).hexdigest()[:24]
+            try:
+                keyring.set_password(service, "master", base64.b64encode(key).decode())
+            except Exception:
+                try:
+                    saved = keyring.get_password(service, "master")
+                    saved_key = base64.b64decode(saved, validate=True) if saved else b""
+                except Exception:
+                    raise AccessError("NEEDS_USER", "vault_restore_recovery_required", "vault") from None
+                if not hmac.compare_digest(saved_key, key):
+                    raise AccessError("NEEDS_USER", "vault_locked", "vault") from None
+        self._key = bytes(key)
+        self.aes = AESGCM(self._key)
 
     @contextmanager
     def db(self):
