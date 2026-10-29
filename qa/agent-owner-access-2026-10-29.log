@@ -1,0 +1,5 @@
+2026-10-29 - Installed Account Access launcher smoke after build 114 Installer success.
+
+- `/Users/nirfeinstein/.agents/skills/account-access/scripts/access accounts` returned only three synthetic accounts in `controlled-demo`, service version 0.6.0. No Harel, Phoenix, Gmail or Lemon Squeezy account connection was available through the agent launcher.
+- `scripts/access run demo-web summary` returned `RETRYABLE`, reason `browser_execution_failed`. The operation did not return account data. No personal account, password, cookie or verification code was accessed.
+- The live `/Applications/Account Access.app` window is still at `Upgrade AI connection`. Retest the launcher after the owner approves that connection; do not use a different login path to bypass the protected boundary.
