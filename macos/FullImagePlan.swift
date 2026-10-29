@@ -312,8 +312,10 @@ struct FullImageSource: PublicImageTransitionSource {
             guard !privateNames.contains(first) else { throw FullImageFailure.source }
         }
         let oldPeers = try identity(oldIdentity, tree: old), newPeers = try identity(newIdentity, tree: new)
-        guard oldPeers["broker"] == newPeers["broker"], oldPeers["bootstrap"] == newPeers["bootstrap"],
-              let provenance = plan["provenance"] as? [String: Any],
+        // New code hashes may differ, but identity() validates their fixed
+        // Developer ID team and bundle IDs and the target manifest/plan pin
+        // them before any runtime policy is derived.
+        guard let provenance = plan["provenance"] as? [String: Any],
               Set(provenance.keys) == ["component_source_commit", "target_source_commit", "original_manifest_sha256", "component_plan_sha256", "component_head_sha256", "base_manifest_sha256", "target_manifest_sha256", "target_source_files", "designated_requirements", "provider_manifest_sha256", "provider_source_bundle_sha256"],
               provenance["component_source_commit"] as? String == pins.predecessorSourceCommit,
               provenance["target_source_commit"] as? String == pins.targetSourceCommit,
