@@ -30,7 +30,7 @@ Statuses: todo | building (who) | verified | owner | waiting | cut (reason)
 
 | Gate | Status | Evidence |
 |---|---|---|
-| Security: endpoint authorization, secret handling, input validation, auth rate limits, dependency audit | todo | Controlled checks pass; real service deployment and release audit not complete. |
+| Security: endpoint authorization, secret handling, input validation, auth rate limits, dependency audit | todo | [Pinned Python dependency audit](qa/security-dependency-audit-2026-10-29.log) found no known vulnerabilities. Endpoint, native runtime and release security review remain incomplete. |
 | Data: reversible migrations, tested backup/restore, user data export/delete | todo | No production restore acceptance recorded. |
 | Reliability: health checks, alerts, structured logs, retries/idempotency, provider-down behavior | todo | Installer update/recovery currently being diagnosed; production monitoring not verified. |
 | Performance: key surfaces on mobile, Lighthouse performance and accessibility at least 90 where applicable | todo | No complete release measurement recorded. |
