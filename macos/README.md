@@ -23,8 +23,11 @@ retry, not updates over an installed image. The attempt preserved the existing
 app and service. Its build report incorrectly said `fresh_install_only: false`;
 the source now marks these packages as first-install only and returns a fixed
 `existing_installation_requires_update` diagnostic for this journal mismatch.
-Use a separately qualified successor package to update an existing installation;
-build 116 is not that package.
+The current source checks the protected install journal before hashing the
+bundled runtime, so a mismatched image refuses before the expensive payload
+walk. That check preserves same-image retry recovery but does not add update
+support. Use a separately qualified successor package to update an existing
+installation; build 116 is not that package.
 
 The owner app's managed-client setup now turns known protected-store response
 codes into fixed, actionable messages without displaying response details,

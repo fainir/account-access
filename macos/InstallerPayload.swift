@@ -12,6 +12,8 @@ enum InstallerPayloadFailure: String, Error {
     case object = "unsafe_installer_payload_object"
     case changed = "installer_payload_changed"
     case limit = "installer_payload_limit"
+    case installJournal = "invalid_installer_install_journal"
+    case updateRequired = "existing_installation_requires_update"
     case execution = "installer_source_not_started"
 }
 
@@ -454,6 +456,68 @@ enum InstallerPayloadIO {
         defer { Darwin.close(root) }
         return try verifyImage(root, manifest: manifest, owner: 0, opaquePrivateBranches: opaquePrivateBranches)
     }
+    static func validateInstallIntent(_ data: Data?, targetManifestSHA256: String) throws {
+        guard let data else { return }
+        guard data.count <= 8192,
+              let value = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              Set(value.keys) == ["managed_by", "manifest_sha256", "owner_uid", "schema"],
+              value["managed_by"] as? String == "account-access-public-image-install-v1",
+              let schema = value["schema"] as? NSNumber, CFGetTypeID(schema) != CFBooleanGetTypeID(), schema.intValue == 1,
+              let owner = value["owner_uid"] as? NSNumber, CFGetTypeID(owner) != CFBooleanGetTypeID(),
+              owner.doubleValue > 0, owner.doubleValue == Double(owner.int64Value),
+              let installedDigest = value["manifest_sha256"] as? String,
+              installedDigest.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil,
+              targetManifestSHA256.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil,
+              let canonical = try? JSONSerialization.data(withJSONObject: value, options: [.sortedKeys]),
+              canonical == data else { throw InstallerPayloadFailure.installJournal }
+        guard installedDigest == targetManifestSHA256 else { throw InstallerPayloadFailure.updateRequired }
+    }
+    static func preflightExistingInstall(_ manifest: InstallerPayloadManifest, from root: Int32,
+                                         objectOwner: uid_t) throws {
+        let support = try walkDirectory("/Library/Application Support", from: root, owner: objectOwner)
+        defer { Darwin.close(support) }
+        let journal = openat(support, "Account Access Installer", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        if journal < 0 {
+            if errno == ENOENT { return }
+            throw InstallerPayloadFailure.installJournal
+        }
+        defer { Darwin.close(journal) }
+        let journalInfo = try check(journal, owner: objectOwner, directory: true)
+        guard journalInfo.st_mode & 0o7777 == 0o700 else { throw InstallerPayloadFailure.installJournal }
+        let intent = openat(journal, "intent.json", O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC)
+        if intent < 0 {
+            if errno == ENOENT { return }
+            throw InstallerPayloadFailure.installJournal
+        }
+        defer { Darwin.close(intent) }
+        var before = stat()
+        guard fstat(intent, &before) == 0, before.st_uid == objectOwner,
+              before.st_mode & S_IFMT == S_IFREG, before.st_mode & 0o6000 == 0,
+              before.st_mode & 0o7777 == 0o600, before.st_size > 0, before.st_size <= 8192,
+              before.st_nlink == 1 || before.st_nlink == 2 else { throw InstallerPayloadFailure.installJournal }
+        try noGrantACL(intent)
+        if before.st_nlink == 2 {
+            var pending = stat()
+            guard fstatat(journal, ".pending-intent.json", &pending, AT_SYMLINK_NOFOLLOW) == 0,
+                  pending.st_uid == objectOwner, pending.st_mode & S_IFMT == S_IFREG,
+                  pending.st_mode & 0o7777 == 0o600, pending.st_nlink == 2,
+                  same(before, pending) else { throw InstallerPayloadFailure.installJournal }
+        }
+        var data = Data(), buffer = [UInt8](repeating: 0, count: 8192)
+        while true {
+            let count = Darwin.read(intent, &buffer, buffer.count)
+            if count < 0 && errno == EINTR { continue }
+            guard count >= 0, data.count + count <= 8192 else { throw InstallerPayloadFailure.installJournal }
+            if count == 0 { break }
+            data.append(contentsOf: buffer.prefix(count))
+        }
+        var after = stat(), named = stat()
+        guard data.count == before.st_size, fstat(intent, &after) == 0, same(before, after),
+              fstatat(journal, "intent.json", &named, AT_SYMLINK_NOFOLLOW) == 0, same(after, named) else {
+            throw InstallerPayloadFailure.installJournal
+        }
+        try validateInstallIntent(data, targetManifestSHA256: manifest.sha256)
+    }
     static func verifyApplicationAlias(from root: Int32, owner: uid_t) throws -> InstallerPayloadCounts {
         let parent = try walkDirectory("/Applications", from: root, owner: owner, sharedApplicationParent: true)
         defer { Darwin.close(parent) }
@@ -521,6 +585,13 @@ enum InstallerPayloadIO {
         defer { Darwin.close(file) }
         let data = try read(file, maximum: InstallerPayloadManifest.maximumManifest, owner: 0)
         let manifest = try InstallerPayloadManifest(data)
+        // Refuse a different installed image before walking the bundled 25k-file
+        // runtime. This check only reads the protected intent; matching and
+        // interrupted installs still take the full verification/recovery path.
+        let installedRoot = open("/", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard installedRoot >= 0 else { throw InstallerPayloadFailure.path }
+        defer { Darwin.close(installedRoot) }
+        try preflightExistingInstall(manifest, from: installedRoot, objectOwner: 0)
         let image = openat(resources, "PublicImage", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
         guard image >= 3, image != file else { throw InstallerPayloadFailure.path }
         defer { Darwin.close(image) }
