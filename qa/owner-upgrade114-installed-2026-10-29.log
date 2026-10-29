@@ -1,0 +1,7 @@
+2026-10-29 - Account-Access-Owner-Upgrade-114 Installer QA on the owner Mac.
+
+- First postinstall attempt began at 10:25:19 and ended at 10:27:22 with PackageKit error 112. The helper reason/checkpoint was not captured, so the specific cause of that attempt is unknown.
+- Retried the same signed, notarized package. PackageKit started the postinstall at 10:33:42; Installer reported success at 10:39:22 (391.96 seconds total). The live Installer accessibility state displayed “The installation was successful. The software was installed.”
+- `pkgutil --payload-files` returned no payload entries; the flat package contains only `PackageInfo` and `Scripts`. This is a script-only update package, so absence of a PackageKit receipt is expected and is not evidence of failure.
+- Launched `/Applications/Account Access.app` after the package run. It opened as version 0.8.0 build 110 and displayed “Upgrade AI connection.” The protected owner app is also version 0.8.0 build 110. The broker remains the previously smoke-tested 0.6.0; this package only updates the owner component.
+- A separate `~/Applications/Account Access.app` copy remains version 0.6.0 build 7. No credentials or account data were read. The app connection upgrade and fresh agent smoke still require the owner action in READINESS.md.

@@ -2,16 +2,18 @@
 
 This is a native installer and owner interface for macOS 14 (Sonoma) or later.
 
-**Current owner-Mac status (29 October):** the signed, notarized build 113
-reached PackageKit postinstall and failed when macOS terminated its script at
-the 1,800-second limit. The symbolicated stack traced the delay to repeated
-full-tree verification. Build 114 adds a single strict content pass followed
-by process-local metadata checks for the read-only predecessor proof. Its
-signature, notarization, Gatekeeper assessment, package structure and payload
-inventory pass. It is open in Installer, but no installation transaction or
-receipt exists yet; protected-service and installed-agent smoke tests remain
-unverified. Harel/Phoenix SMS, Lemon Squeezy authenticator, real website email
-verification and physical-phone delivery also remain unverified. See
+**Current owner-Mac status (29 October):** build 113 reached PackageKit
+postinstall and failed at the 1,800-second limit during repeated full-tree
+verification. The signed and notarized build 114 adds a single strict content
+pass followed by process-local metadata checks. Its first owner-Mac postinstall
+attempt returned generic PackageKit error 112; retrying the same package then
+completed successfully in 391.96 seconds. The package is script-only, so it
+does not create a PackageKit receipt. The installed `/Applications` app launches
+as version 0.8.0 build 110 but still needs the owner's AI connection upgrade.
+A separate per-user copy is stale at 0.6.0 build 7. Protected-service and
+installed-agent acceptance, app restart recovery, the complete consumer
+package, Harel/Phoenix SMS, Lemon Squeezy authenticator, real website email
+verification and physical-phone delivery remain unverified. See
 [current acceptance](../docs/production-gates.md).
 
 Consumer package builds also require the pinned Bitwarden OSS npm CLI and its
