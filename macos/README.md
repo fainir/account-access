@@ -53,6 +53,9 @@ download directions. The source archive is a separate release asset; it is not
 copied into the installed runtime. See [runtime/source packaging](../docs/bitwarden-packaging.md)
 for exact validation and source-scope limits. Consumer assembly fails if the
 pinned runtime or reviewed source materials are missing.
+The full offline payload is archived by Apple's `pkgbuild` with a 30-minute
+bounded timeout; it contains over 25,000 files, so a complete signed package can
+take substantially longer than the small owner-app build.
 The current 0.8 runtime candidate uses Python 3.12.16 and requires **Apple silicon
 (M-series)**, running natively. Its cryptography dependency no longer publishes Intel Mac wheels;
 Intel and Rosetta bootstrap sessions stop before downloads or runtime changes.

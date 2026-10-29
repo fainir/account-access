@@ -60,13 +60,18 @@ exec "$AC_PACKAGE_SCRIPTS/AccountAccess-installerverify" --install
 
 
 def command(arguments, *, input_data=None):
+    # A consumer package walks the full offline runtime (including thousands
+    # of Node and Python files). On a real Mac, pkgbuild can exceed ten minutes
+    # while still making progress. Keep ordinary checks short, but give this
+    # bounded local archive step enough time to finish.
+    timeout = 1800 if arguments and arguments[0] == "/usr/bin/pkgbuild" and "--scripts" in arguments else 600
     return subprocess.run(
         arguments,
         check=True,
         stdin=subprocess.DEVNULL if input_data is None else None,
         input=input_data,
         capture_output=True,
-        timeout=600,
+        timeout=timeout,
         env={"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "LANG": "C"},
     )
 

@@ -45,6 +45,20 @@ def test_distribution_refuses_missing_or_invalid_space_estimate(size):
         package.distribution("0.8.0", "arm64", install_bytes=size)
 
 
+def test_full_payload_pkgbuild_has_a_bounded_archive_timeout(monkeypatch):
+    calls = []
+
+    def run(arguments, **kwargs):
+        calls.append((arguments, kwargs["timeout"]))
+        return SimpleNamespace(stdout=b"", stderr=b"")
+
+    monkeypatch.setattr(package.subprocess, "run", run)
+    package.command(["/usr/bin/pkgbuild", "--nopayload", "--scripts", "scripts", "payload.pkg"])
+    package.command(["/usr/bin/productbuild", "--distribution", "Distribution.xml", "product.pkg"])
+
+    assert [timeout for _, timeout in calls] == [1800, 600]
+
+
 @pytest.mark.skipif(sys.platform != "darwin", reason="Apple package tools required")
 def test_actual_script_only_product_preserves_capacity_check_and_native_byte_units(tmp_path):
     # Assemble and inspect a tiny inert package as an ordinary user. No package
