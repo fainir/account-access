@@ -993,6 +993,26 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
                 precondition(!failure.explanation.contains(privateFailureText))
             }
         }
+        let managedSetupFailures: [(String, ManagedAgentSetupFailure, String)] = [
+            ("owner_setup_authorization_required", .setupAuthorizationRequired, "Approve the current setup dialog"),
+            ("owner_channel_unavailable", .ownerChannelUnavailable, "protected owner channel is reconnecting"),
+            ("owner_backend_unavailable", .ownerBackendUnavailable, "protected app is not responding"),
+            ("broker_worker_recovering", .serviceRecovering, "protected service is restarting"),
+            ("vault_setup_repair_required", .vaultRepairRequired, "account store needs repair"),
+            ("unrecognized_private_reason", .connectionResponseRejected, "refused the connection response"),
+        ]
+        for (reason, expectedFailure, expectedMessage) in managedSetupFailures {
+            do {
+                _ = try owner.checkedOwnerResponse(503, ["reason": reason, "detail": privateFailureText], managedClientSetup: true)
+                preconditionFailure("Managed-client setup failure was accepted")
+            } catch {
+                let failure = ManagedAgentConnectionFailure(stage: .enroll, error: error)
+                precondition(failure.failure == expectedFailure)
+                precondition(failure.explanation.localizedCaseInsensitiveContains(expectedMessage))
+                precondition(!failure.explanation.contains(privateFailureText))
+                precondition(!failure.explanation.contains(reason))
+            }
+        }
         let verificationFailure = ManagedAgentConnectionFailure(stage: .verify)
         precondition(verificationFailure.explanation.contains("checking the completed connection"))
         print("PASS: connection failures identify their exact closed stage, stop without replay, and hide arbitrary errors, responses and capabilities; conflicts and revocations require review")

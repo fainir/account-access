@@ -3,7 +3,11 @@ import Foundation
 import CryptoKit
 import Darwin
 
-enum ManagedAgentSetupFailure: Error { case unavailable, invalidResponse, connectionConflict, connectionRevoked }
+enum ManagedAgentSetupFailure: Error, Equatable {
+    case unavailable, invalidResponse, connectionConflict, connectionRevoked
+    case setupAuthorizationRequired, ownerChannelUnavailable, ownerBackendUnavailable
+    case serviceRecovering, vaultRepairRequired, connectionResponseRejected
+}
 
 struct ManagedAgentConnectionFailure: Error {
     enum Stage: String, CaseIterable {
@@ -20,18 +24,30 @@ struct ManagedAgentConnectionFailure: Error {
         }
     }
     let stage: Stage
-    let conflict: Bool
-    let revoked: Bool
+    let failure: ManagedAgentSetupFailure?
     init(stage: Stage, error: Error? = nil) {
         self.stage = stage
-        if case ManagedAgentSetupFailure.connectionConflict? = error { conflict = true } else { conflict = false }
-        if case ManagedAgentSetupFailure.connectionRevoked? = error { revoked = true } else { revoked = false }
+        failure = error as? ManagedAgentSetupFailure
+    }
+    var conflict: Bool { failure == .connectionConflict }
+    var revoked: Bool { failure == .connectionRevoked }
+    private var detail: String {
+        switch failure {
+        case .some(.connectionConflict): return "An existing connection conflicts with this setup and needs review."
+        case .some(.connectionRevoked): return "This connection was revoked and cannot be re-enabled by retrying setup."
+        case .some(.setupAuthorizationRequired): return "The Mac approval was not accepted for this request. Approve the current setup dialog before continuing."
+        case .some(.ownerChannelUnavailable): return "The protected owner channel is reconnecting. Check the connection status before retrying."
+        case .some(.ownerBackendUnavailable): return "The protected app is not responding. Check its status before retrying."
+        case .some(.serviceRecovering): return "The protected service is restarting. Wait until it is ready, then check the connection status."
+        case .some(.vaultRepairRequired): return "The protected account store needs repair. Your saved data is preserved."
+        case .some(.connectionResponseRejected): return "The protected service refused the connection response. Check the connection status before retrying."
+        case .some(.invalidResponse): return "Account Access could not verify the connection response. Check the current connection status before retrying."
+        case .some(.unavailable): return "The local AI connection files could not be verified. Repair the existing Account Access setup before continuing."
+        case nil: return "Reopen Account Access to check its current state before retrying."
+        }
     }
     var explanation: String {
         // Fixed text only: never interpolate an error, response, path or capability.
-        let detail = conflict ? "An existing connection conflicts with this setup and needs review."
-            : revoked ? "This connection was revoked and cannot be re-enabled by retrying setup."
-            : "Reopen Account Access to check its current state before retrying."
         return "The AI connection stopped while \(stage.description). \(detail) Your saved accounts and tool preferences are preserved."
     }
 }

@@ -1,4 +1,4 @@
-"""Assemble an offline Mac package with protected same-image install recovery."""
+"""Assemble an offline Mac first-install package with same-image retry recovery."""
 
 import argparse
 import hashlib
@@ -350,7 +350,7 @@ def assemble_preassembled(args):
         if preassembled_manifest(manifest_path, args.preassembled_sha256) != manifest:
             raise ValueError("preassembled_manifest_changed")
         report = {"status": "BUILT", "version": version, "architecture": args.architecture,
-            "development": False, "offline_runtime": True, "fresh_install_only": False,
+            "development": False, "offline_runtime": True, "fresh_install_only": True,
             "installation_strategy": "verified-script-image-v1", "recovery_scope": "same-image-same-owner-only",
             "preassembled_image": True, "preassembled_source_unchanged": True, "runtime_transformed": False,
             "production_ready": False, "notarized": False, "installed": False,
@@ -572,7 +572,7 @@ def assemble(args):
             "architecture": args.architecture,
             "development": args.development,
             "offline_runtime": True,
-            "fresh_install_only": False,
+            "fresh_install_only": True,
             "installation_strategy": "verified-script-image-v1",
             "recovery_scope": "same-image-same-owner-only",
             "production_ready": False,

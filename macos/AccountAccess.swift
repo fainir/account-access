@@ -869,7 +869,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 let response = try native.request(route, body: body, setupProgress: { phase in
                     self.ownerApprovalProgress(phase, identifier: approvalProgressID, context: approvalContext)
                 })
-                return try checkedOwnerResponse(response.0, response.1, pending: route == "owner/vault/enroll", bitwarden: bitwardenRequest)
+                return try checkedOwnerResponse(response.0, response.1, pending: route == "owner/vault/enroll",
+                                                bitwarden: bitwardenRequest,
+                                                managedClientSetup: route == "owner/client/enroll" || route == "owner/client/installed")
             } catch DesktopOwnerFailure.approval {
                 throw Failure.message("Setup was not approved. Your saved connections are preserved. Try the setup action again when you are ready to approve it on this Mac.")
             } catch DesktopOwnerFailure.approvalTimedOut {
@@ -910,7 +912,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                       let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
                     throw Failure.message("The local app could not complete this step. Your existing connections are preserved.")
                 }
-                result = .success(try self.checkedOwnerResponse(response.statusCode, payload, bitwarden: bitwardenRequest))
+                result = .success(try self.checkedOwnerResponse(response.statusCode, payload, bitwarden: bitwardenRequest,
+                                                                 managedClientSetup: route == "owner/client/enroll" || route == "owner/client/installed"))
             } catch { result = .failure(error) }
         }.resume()
         guard done.wait(timeout: .now() + (route == "owner/bitwarden/connect" ? 75 : 35)) == .success else {
@@ -919,10 +922,21 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         return try result.get()
     }
 
-    func checkedOwnerResponse(_ code: Int, _ payload: [String: Any], pending: Bool = false, bitwarden: Bool = false) throws -> [String: Any] {
+    func checkedOwnerResponse(_ code: Int, _ payload: [String: Any], pending: Bool = false, bitwarden: Bool = false,
+                              managedClientSetup: Bool = false) throws -> [String: Any] {
         if code == 200 || (pending && code == 202) { return payload }
         if payload["reason"] as? String == "client_connection_conflict" { throw ManagedAgentSetupFailure.connectionConflict }
         if payload["reason"] as? String == "portable_client_revoked" { throw ManagedAgentSetupFailure.connectionRevoked }
+        if managedClientSetup {
+            switch payload["reason"] as? String {
+            case "owner_setup_authorization_required": throw ManagedAgentSetupFailure.setupAuthorizationRequired
+            case "owner_channel_unavailable": throw ManagedAgentSetupFailure.ownerChannelUnavailable
+            case "owner_backend_unavailable": throw ManagedAgentSetupFailure.ownerBackendUnavailable
+            case "broker_worker_recovering": throw ManagedAgentSetupFailure.serviceRecovering
+            case "vault_setup_repair_required": throw ManagedAgentSetupFailure.vaultRepairRequired
+            default: throw ManagedAgentSetupFailure.connectionResponseRejected
+            }
+        }
         if bitwarden && payload["reason"] as? String == "password_source_access_removed" {
             throw Failure.message("Bitwarden did not accept this connection. Check the personal API key, region and master password, or reconnect if access was revoked.")
         }

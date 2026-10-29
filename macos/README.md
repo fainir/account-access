@@ -16,6 +16,29 @@ package, Harel/Phoenix SMS, Lemon Squeezy authenticator, real website email
 verification and physical-phone delivery remain unverified. See
 [current acceptance](../docs/production-gates.md).
 
+The complete build 116 package was then opened over this existing installation.
+Installer returned error 112 because its protected install journal belongs to a
+different image. The full package supports a first install and an identical
+retry, not updates over an installed image. The attempt preserved the existing
+app and service. Its build report incorrectly said `fresh_install_only: false`;
+the source now marks these packages as first-install only and returns a fixed
+`existing_installation_requires_update` diagnostic for this journal mismatch.
+Use a separately qualified successor package to update an existing installation;
+build 116 is not that package.
+
+The owner app's managed-client setup now turns known protected-store response
+codes into fixed, actionable messages without displaying response details,
+paths or client tokens. Its native regression cases are in
+`macos/Tests/OwnerScreenChecks.swift`. On this build Mac, Swift type-checking is
+not available because the installed compiler (6.4.0.34.1) does not match the
+available macOS 27 SDK (6.4.0.31.4); only syntax parsing ran. The system app is
+still build 110 and has not received this source change.
+The focused installer/package/transaction suite passes 125 cases with one
+host-specific volume-query skip, and the 45-case browser-session module passes.
+The full-suite attempt is incomplete: the default sandbox denied loopback socket
+binding, and a loopback-enabled retry was interrupted after 650 passes and one
+skip during a storage lock wait. No claim of full-suite acceptance is made.
+
 Consumer package builds also require the pinned Bitwarden OSS npm CLI and its
 reviewed corresponding-source release asset. Add these maintainer arguments to
 `python -m macos.system_package`:

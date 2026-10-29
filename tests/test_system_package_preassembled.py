@@ -155,6 +155,7 @@ def test_preassembled_image_reuses_production_envelope_without_runtime_or_native
     assert {"com.fainir.accountaccess", "com.fainir.accountaccess.broker", "com.fainir.accountaccess.bootstrap",
             "com.fainir.accountaccess.installerverify"} <= set(checks)
     assert result["preassembled_source_unchanged"] and result["native_manifest_preflight"]
+    assert result["fresh_install_only"] is True
     assert not any(result[name] for name in ["production_ready", "notarized", "installed", "runtime_transformed"])
     if unsigned:
         assert result["unsigned_package"] and result["installer_signed"] is False
