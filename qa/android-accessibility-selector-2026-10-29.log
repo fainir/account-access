@@ -1,5 +1,8 @@
 Android 15 manual-code accessibility selector regression
 
+- The hosted rerun found that `TYPE_NUMBER_VARIATION_PASSWORD` alone did not expose the code EditText as a masked accessibility node. `MainActivity` now also applies `PasswordTransformationMethod` explicitly, preserving the six-digit numeric keyboard and masking entered codes.
+- Rebuilt the phone preview and instrumentation APKs from this source with `sh android/build.sh` and `sh android/test/build.sh` -> both passed. `apksigner verify` passed for each; `aapt2 dump badging` confirmed package `com.fainir.accountaccess.phone`, version `1`, target SDK `36`.
+- The hosted Android 11/15 run for the previous source still failed its masked-field assertion; the above source change requires a fresh emulator run before this flow is considered verified.
 - `ACCOUNT_ACCESS_JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home sh android/build.sh` -> passed; produced the development preview APK in a new ignored `dist/android/` directory.
 - `ACCOUNT_ACCESS_JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home sh android/test/build.sh` -> passed.
 - `apksigner verify` -> passed for both the phone preview APK and instrumentation APK.
