@@ -12,10 +12,12 @@ from pathlib import Path
 import httpx2 as httpx
 
 from account_access.demo import DEMO_PASSWORD
+from account_access.errors import AccessError
 from account_access.factors import enroll
 from account_access.install import install_skill
 from account_access.owner import make_owner_server
 from account_access.password_import import apply, preview
+from account_access import phone as phone_module
 from account_access.verification_demo import environment, write_password_export
 
 
@@ -25,6 +27,18 @@ def fixture_acknowledged(output):
     return isinstance(output, str) and re.search(
         r'^Broadcast completed: result=1, data="fixture_notification_posted"\s*$',
         output, re.MULTILINE) is not None
+
+
+PHONE_DELIVERY_REFUSALS = frozenset({
+    "unknown_phone_source", "invalid_phone_message", "phone_message_mismatch",
+    "phone_pairing_changed", "no_current_login_window", "phone_message_limit",
+    "verification_source_enrollment_changed",
+})
+
+
+def safe_phone_refusal(reason):
+    """Return only a fixed server refusal category for synthetic Android QA."""
+    return reason if isinstance(reason, str) and reason in PHONE_DELIVERY_REFUSALS else "delivery_refused"
 
 
 def main():
@@ -45,6 +59,17 @@ def main():
         root = Path(temporary)
         with environment(root, relay=True) as (provider, broker, mailbox):
             install_skill(broker.store, "generic", root / "skills")
+            phone_refusals = []
+            original_phone_deliver = phone_module.deliver
+
+            def capture_phone_refusal(*args, **kwargs):
+                try:
+                    return original_phone_deliver(*args, **kwargs)
+                except AccessError as error:
+                    phone_refusals.append(safe_phone_refusal(error.reason))
+                    raise
+
+            phone_module.deliver = capture_phone_refusal
             server, token = make_owner_server(broker, guided=True)
             thread = threading.Thread(target=server.serve_forever, daemon=True)
             thread.start()
@@ -118,7 +143,8 @@ def main():
                     assert results and "PASS_BLOCKED:" in results[0], results
                 else:
                     assert completed["status"] == "COMPLETED", {"result": completed, "instrumentation": diagnostics,
-                                                                 "fixture_delivery": delivery_diagnostics}
+                                                                 "fixture_delivery": delivery_diagnostics,
+                                                                 "phone_delivery_refusals": phone_refusals}
                     assert results and "PASS:" in results[0], results
                     delivery_mode["value"] = "manual"
                     first_manual_worker = len(workers)
@@ -170,6 +196,7 @@ def main():
                 server.shutdown()
                 server.server_close()
                 thread.join(timeout=5)
+                phone_module.deliver = original_phone_deliver
 
 
 if __name__ == "__main__":
