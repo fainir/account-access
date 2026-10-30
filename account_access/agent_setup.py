@@ -196,7 +196,7 @@ def _skill_snapshot(target):
         before = path.lstat()
         _checked(path, directory=True, private=True)
         expected = {Path(item).name for item in SKILL_FILES | SKILL_DIRECTORIES
-                    if item and str(Path(item).parent) == (name or ".")}
+                    if item and Path(item).parent == Path(name or ".")}
         if (stat.S_IMODE(before.st_mode) != 0o700 or set(os.listdir(path)) != expected
                 or _stamp(path.lstat()) != _stamp(before)):
             raise AccessError("NEEDS_USER", "client_migration_requires_review")
@@ -558,7 +558,7 @@ def status(home, hosts, *, python=RUNTIME, socket=SOCKET, codex_home=None):
             "python": str(python),
         }:
             return {"status": "NOT_INSTALLED"}
-    from .install import launcher_text
+    from .install import SKILL_TEMPLATE_FILES, launcher_text
     from .integration import codex_rule_block, session_guidance
 
     source = Path(__file__).resolve().parent / "skills/account-access"
@@ -567,16 +567,11 @@ def status(home, hosts, *, python=RUNTIME, socket=SOCKET, codex_home=None):
         *([Path(".claude/skills")] if "claude" in hosts else []),
     ]:
         target = Path(home) / relative / "account-access"
-        for template in source.rglob("*"):
-            if template.is_file():
-                destination = target / template.relative_to(source)
-                expected = (
-                    launcher_text(target, python).encode()
-                    if template.relative_to(source) == Path("scripts/access")
-                    else template.read_bytes()
-                )
-                if _checked(destination, private=True) != expected:
-                    return {"status": "NOT_INSTALLED"}
+        for relative in SKILL_TEMPLATE_FILES:
+            if _checked(target / relative, private=True) != (source / relative).read_bytes():
+                return {"status": "NOT_INSTALLED"}
+        if _checked(target / "scripts/access", private=True) != launcher_text(target, python).encode():
+            return {"status": "NOT_INSTALLED"}
     for host in hosts:
         directory = codex_home if host == "codex" else home / ".claude"
         skill = Path(home) / (
