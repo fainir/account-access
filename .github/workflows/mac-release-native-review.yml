@@ -2,7 +2,7 @@ name: Mac release native qualification
 on:
   push:
     branches: [codex/production-security-authlib-20261028]
-    paths: [artifacts/release120-native-inputs.json]
+    paths: [artifacts/release120-native-inputs.json, scripts/build_direct_runtime_upgrade_candidate.py]
   workflow_dispatch:
 permissions:
   contents: read

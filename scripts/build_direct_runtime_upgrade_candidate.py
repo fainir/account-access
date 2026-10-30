@@ -123,15 +123,16 @@ def reviewed_ci_helper(run_id, source, destination):
     """Accept only our successful exact-commit compiler workflow's artifact."""
     require(type(run_id) is int and run_id > 0, 'compiled_helper_run_invalid')
     base = f'repos/{REPOSITORY}/actions/runs/{run_id}'
-    metadata = json.loads(checked(['gh', 'api', base], timeout=60))
+    metadata = json.loads(checked(['gh', 'api', '--hostname', 'github.com', base], timeout=60))
     validate_compile_run(metadata, source)
-    assets = json.loads(checked(['gh', 'api', base + '/artifacts'], timeout=60))
+    assets = json.loads(checked(['gh', 'api', '--hostname', 'github.com', base + '/artifacts'], timeout=60))
     candidates = [item for item in assets['artifacts'] if item['name'] == 'release-compiled-updater']
     require(len(candidates) == 1 and candidates[0].get('expired') is False, 'compiled_helper_artifact_missing')
     asset = candidates[0]
     require(type(asset['id']) is int and 0 < asset['size_in_bytes'] <= 16 * 1024 * 1024,
             'compiled_helper_artifact_invalid')
-    raw = checked(['gh', 'api', f'repos/{REPOSITORY}/actions/artifacts/{asset["id"]}/zip'], timeout=180)
+    raw = checked(['gh', 'api', '--hostname', 'github.com',
+                   f'repos/{REPOSITORY}/actions/artifacts/{asset["id"]}/zip'], timeout=180)
     require(len(raw) <= 16 * 1024 * 1024 and asset.get('digest') == 'sha256:' + digest(raw),
             'compiled_helper_archive_digest_mismatch')
     with zipfile.ZipFile(io.BytesIO(raw)) as archive:
