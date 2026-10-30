@@ -29,8 +29,11 @@ import Darwin
             // Runtime 95 already published root:wheel descendants. A later
             // root:admin support directory must not change their expected GID.
             for unit in PublicTreeUnit.directRuntimeDeltaCases {
+                try require(unit.publishedPredecessorGroups && !unit.runtimeUpgrade)
                 try require(unit.precedingGroup("", legacy: 80, published: 0) == 0)
+                try require(unit.precedingGroup("nested/file", legacy: 80, published: 0) == 0)
             }
+            try require(!PublicTreeUnit.project.publishedPredecessorGroups && !PublicTreeUnit.distInfo.publishedPredecessorGroups)
             try require(PublicTreeUnit.project.precedingGroup("", legacy: 80, published: 0) == 80)
             try require(PublicTreeUnit.distInfo.precedingGroup("", legacy: 80, published: 0) == 80)
             try require(!PublicTreeUnit.fullImageCases.contains(.directProject)

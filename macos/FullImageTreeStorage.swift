@@ -54,6 +54,7 @@ enum PublicTreeUnit: String, CaseIterable {
     var beforePresent: Bool { ![Self.pythonPipInfo, .runtimePipInfo, .authlibNewDistInfo, .authlibDrafts, .joserfcNewDistInfo].contains(self) }
     var afterPresent: Bool { ![Self.pythonOldPipInfo, .runtimeOldPipInfo, .authlibOldDistInfo, .joserfcOldDistInfo].contains(self) }
     var runtimeUpgrade: Bool { Self.runtimeUpgradeCases.contains(self) }
+    var publishedPredecessorGroups: Bool { runtimeUpgrade || Self.directRuntimeDeltaCases.contains(self) }
     // Package85 and the preceding cache repair published these exact nodes as
     // root:wheel; other nodes kept the original support group's metadata. This closed
     // mapping validates each old node without changing it or allowing any GID.
@@ -220,7 +221,7 @@ enum PublicTreeIO {
         }
     }
     static func metadata(_ fd: Int32, inventory: PublicTreeInventory, owner: uid_t, group: gid_t, name: String = "", priorReleaseGroup: gid_t? = nil) throws {
-        guard let tree = inventory.tree, priorReleaseGroup == nil || inventory.unit.runtimeUpgrade else { throw PublicTreeFailure.invalid }
+        guard let tree = inventory.tree, priorReleaseGroup == nil || inventory.unit.publishedPredecessorGroups else { throw PublicTreeFailure.invalid }
         func expectedGroup(_ path: String) -> gid_t {
             priorReleaseGroup.map { inventory.unit.precedingGroup(path, legacy: group, published: $0) } ?? group
         }
@@ -511,7 +512,7 @@ final class PublicTreeStorage {
             try PublicTreeIO.noACL(fd)
             guard info.st_gid == attachment.parentGroup, info.st_nlink > 0, info.st_mode & 0o7777 == mode else { throw PublicTreeFailure.invalid }
         }
-        let before = try PublicTreeIO.observeOptional(targetParent, name: unit.name, inventory: old, owner: owner, group: beforeGroup, attachment: targetAttachment, priorReleaseGroup: unit.runtimeUpgrade ? group : nil)
+        let before = try PublicTreeIO.observeOptional(targetParent, name: unit.name, inventory: old, owner: owner, group: beforeGroup, attachment: targetAttachment, priorReleaseGroup: unit.publishedPredecessorGroups ? group : nil)
         let after = try PublicTreeIO.observeOptional(retainedParent, name: unit.slot, inventory: new, owner: owner, group: group, attachment: retainedAttachment)
         try targetAttachment.verify(targetParent, role: .target(unit), owner: owner, group: targetAttachment.parentGroup, mode: 0o755)
         try retainedAttachment.verify(retainedParent, role: .retained(unit), owner: owner, group: retainedAttachment.parentGroup, mode: 0o700)
@@ -698,7 +699,7 @@ final class PublicTreeStorage {
                   try identity(retained, unit.slot, operation.before),
                   try PublicTreeIO.observeOptional(retained.fd, name: unit.slot, inventory: old,
                     owner: owner, group: beforeGroup, attachment: retained.attachment,
-                    priorReleaseGroup: unit.runtimeUpgrade ? group : nil) == expected(operation.before) else {
+                    priorReleaseGroup: unit.publishedPredecessorGroups ? group : nil) == expected(operation.before) else {
                 throw PublicTreeFailure.changed
             }
             try parents(); try journalUnchanged()
@@ -706,7 +707,7 @@ final class PublicTreeStorage {
         }
         if try identity(target, unit.name, operation.before), try identity(retained, unit.slot, operation.after) {
             guard previous != .applied,
-                  try PublicTreeIO.observeOptional(target.fd, name: unit.name, inventory: old, owner: owner, group: beforeGroup, attachment: target.attachment, priorReleaseGroup: unit.runtimeUpgrade ? group : nil) == expected(operation.before),
+                  try PublicTreeIO.observeOptional(target.fd, name: unit.name, inventory: old, owner: owner, group: beforeGroup, attachment: target.attachment, priorReleaseGroup: unit.publishedPredecessorGroups ? group : nil) == expected(operation.before),
                   try PublicTreeIO.observeOptional(retained.fd, name: unit.slot, inventory: new, owner: owner, group: group, attachment: retained.attachment) == expected(operation.after) else { throw PublicTreeFailure.changed }
             try rememberFastSnapshots(.staged)
             try parents()
@@ -715,7 +716,7 @@ final class PublicTreeStorage {
         guard previous != nil, previous != .rolledBack,
               try identity(target, unit.name, operation.after), try identity(retained, unit.slot, operation.before),
               try PublicTreeIO.observeOptional(target.fd, name: unit.name, inventory: new, owner: owner, group: group, attachment: target.attachment) == expected(operation.after),
-              try PublicTreeIO.observeOptional(retained.fd, name: unit.slot, inventory: old, owner: owner, group: beforeGroup, attachment: retained.attachment, priorReleaseGroup: unit.runtimeUpgrade ? group : nil) == expected(operation.before) else { throw PublicTreeFailure.changed }
+              try PublicTreeIO.observeOptional(retained.fd, name: unit.slot, inventory: old, owner: owner, group: beforeGroup, attachment: retained.attachment, priorReleaseGroup: unit.publishedPredecessorGroups ? group : nil) == expected(operation.before) else { throw PublicTreeFailure.changed }
         try rememberFastSnapshots(.applied)
         try parents()
         return .applied
@@ -759,12 +760,12 @@ final class PublicTreeStorage {
         }
         if state == .staged {
             try remember(operation.before, old, target, unit.name, beforeGroup,
-                         unit.runtimeUpgrade ? group : nil)
+                         unit.publishedPredecessorGroups ? group : nil)
             try remember(operation.after, new, retained, unit.slot, group, nil)
         } else {
             try remember(operation.after, new, target, unit.name, group, nil)
             try remember(operation.before, old, retained, unit.slot, beforeGroup,
-                         unit.runtimeUpgrade ? group : nil)
+                         unit.publishedPredecessorGroups ? group : nil)
         }
         fastSnapshots = snapshots
     }
@@ -805,12 +806,12 @@ final class PublicTreeStorage {
         }
         if current == .staged {
             try compare(target, unit.name, old, operation.before, beforeGroup,
-                        unit.runtimeUpgrade ? group : nil)
+                        unit.publishedPredecessorGroups ? group : nil)
             try compare(retained, unit.slot, new, operation.after, group, nil)
         } else {
             try compare(target, unit.name, new, operation.after, group, nil)
             try compare(retained, unit.slot, old, operation.before, beforeGroup,
-                        unit.runtimeUpgrade ? group : nil)
+                        unit.publishedPredecessorGroups ? group : nil)
         }
         return current
     }
@@ -848,7 +849,7 @@ final class PublicTreeStorage {
         let name = current == .staged ? unit.name : unit.slot
         let result = try PublicTreeIO.observeOptional(parent.fd, name: name, inventory: old,
             owner: owner, group: beforeGroup, attachment: parent.attachment,
-            priorReleaseGroup: unit.runtimeUpgrade ? group : nil)
+            priorReleaseGroup: unit.publishedPredecessorGroups ? group : nil)
         guard result == operation.before, try state() == current else { throw PublicTreeFailure.changed }
         return result
     }
