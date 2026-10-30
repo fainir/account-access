@@ -20,3 +20,4 @@ Claude Code). READINESS.md is the definition of done; PRODUCT.md is the spec; GO
 - Before handing off an owner installation, reveal the verified package in Finder at its persistent location so it is selected and easy to find. (2026-10-30)
 - For root-only native verifier probes, open manifest fixtures inside the privileged child; sudo closes inherited FDs, and a user-owned manifest fails the owner check before image verification. (2026-10-30)
 - The full combined Swift updater fixture can exceed local Mac 27.2 compile timeouts; the exact-source disposable-Mac CI type-check and Installer matrix are required for native qualification. (2026-10-30)
+- The disposable macOS 15 worker may attach FinderInfo to its preinstalled Google Chrome bundle. Remove only `com.apple.FinderInfo` on that ephemeral runner before the signed-Chrome probe; retain strict `codesign` verification so resource forks and signature changes still fail. (2026-10-30)
