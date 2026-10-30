@@ -17,3 +17,4 @@ Claude Code). READINESS.md is the definition of done; PRODUCT.md is the spec; GO
 - Before building an updater, verify the exact installed receipt and require the package predecessor to match it; never advance the candidate chain from an installer that did not complete successfully. (2026-10-29)
 - For owner app updates, inspect the actual running GUI bundle ID before quitting: the stale per-user UI uses com.fainir.accountaccess.verification, while the canonical /Applications app uses com.fainir.accountaccess. Verify the UI process exits before starting Installer. (2026-10-30)
 - Before requesting an owner install, verify the exact persistent package path exists and recheck its signed, stapled and Gatekeeper state; temporary build candidates can disappear, making an old Downloads claim stale. (2026-10-30)
+- Before handing off an owner installation, reveal the verified package in Finder at its persistent location so it is selected and easy to find. (2026-10-30)
