@@ -8,7 +8,7 @@ struct DirectRuntimeUpgradeSource: PublicImageTransitionSource {
     // Installer entrypoints continue to return their fixed refusal response.
     struct Refused: Error { let line: UInt }
     static let managedBy = "account-access-exact-installed-runtime-delta-v1"
-    static let planSHA256 = "7949dee76094337190bd9efa31b7e09fc478bf62a3bbdfd44824cc9ba3f3d58b"
+    static let planSHA256 = FullImageFileOperation.directRuntimePlanSHA256
     static let beforeSHA256 = "568c79ca3b45ffc357bc5af2b420d481e729630b0120dc6d0058c1a396ad21b1"
     static let afterSHA256 = "6ab5f90fa72dfed84c295d5df4741d3cb9aaf6a0fa89ed155b4cb76400570874"
     static let sourceCommit = "beda6324d836458a35045ee0d2acd579238d6929"
