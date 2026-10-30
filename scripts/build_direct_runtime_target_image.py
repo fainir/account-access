@@ -1,6 +1,6 @@
-"""Build a source-current public image for the exact build-110 direct updater.
+"""Build a pinned source-current public image for the direct updater.
 
-This is an offline image preparation tool. It copies the reviewed build-116
+This is an offline image preparation tool. It copies the reviewed build-118
 public image, replaces only signed owner/native code and the Account Access
 Python project, recalculates derived metadata and the public manifest, and
 never opens Installer or touches an installed Account Access path.
@@ -25,7 +25,9 @@ from installer import install
 from installer.sources import WheelFile
 
 ROOT = Path(__file__).resolve().parents[1]
-BASE_IMAGE_SHA256 = "78113e53f553cdec0bfb9d0744406a18baaaa3327e1be834af5b45b74c3926aa"
+BASE_IMAGE_SHA256 = "bb14a99941c7a82938cd0e9b3f91a16ab975e6cdd61a30741d29726a7f7bed38"
+BASE_IMAGE_BUILD = 118
+TARGET_APP_BUILD = 119
 TEAM = "WBULD6N4NQ"
 VERSION = "0.8.0"
 ARCHITECTURE = "arm64"
@@ -167,15 +169,19 @@ def safe_error_reason(exc: BaseException) -> str:
 def build(args) -> dict:
     require(sys.platform == "darwin" and os.getuid() == os.geteuid() != 0, "ordinary_mac_required")
     require(re.fullmatch(r"[a-f0-9]{40}", args.source) is not None, "source_revision_invalid")
+    require(re.fullmatch(r"[a-f0-9]{40}", args.target_source) is not None, "target_source_revision_invalid")
     require(subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, timeout=30).decode().strip()
             == args.source, "source_revision_mismatch")
+    ancestry = subprocess.run(["git", "merge-base", "--is-ancestor", args.target_source, args.source],
+                              cwd=ROOT, stdin=subprocess.DEVNULL, capture_output=True, timeout=30)
+    require(ancestry.returncode == 0, "target_source_not_in_builder_history")
     require(not subprocess.check_output(["git", "status", "--porcelain", "--untracked-files=all"],
                                         cwd=ROOT, timeout=30).strip(), "source_tree_not_clean")
     source = args.source_image.absolute()
     manifest_path = args.source_manifest.absolute()
     output = args.output.absolute()
     require(source.is_dir() and not source.is_symlink() and manifest_path.is_file()
-            and not manifest_path.is_symlink(), "reviewed_build116_image_required")
+            and not manifest_path.is_symlink(), "reviewed_build118_image_required")
     require(output.parent.is_dir() and not os.path.lexists(output)
             and not output.is_relative_to(source) and not source.is_relative_to(output), "new_output_required")
 
@@ -193,8 +199,8 @@ def build(args) -> dict:
     wheel = args.wheel.absolute()
     version, team, embedded_wheel, _requirements = inspect_app(app, development=False)
     info = plistlib.loads((app / "Contents/Info.plist").read_bytes())
-    require(version == VERSION and team == TEAM and info.get("CFBundleVersion") == "118",
-            "current_signed_build118_app_required")
+    require(version == VERSION and team == TEAM and info.get("CFBundleVersion") == str(TARGET_APP_BUILD),
+            "current_signed_build119_app_required")
     require(embedded_wheel.read_bytes() == wheel.read_bytes(), "embedded_project_wheel_mismatch")
     rows = {}
     for key, name, identifier in [
@@ -253,10 +259,12 @@ def build(args) -> dict:
     require(make_manifest(source, VERSION, ARCHITECTURE) == original_manifest, "source_image_changed")
     require(not os.path.lexists(args.manifest_output), "new_manifest_required")
     args.manifest_output.write_bytes(manifest)
-    report = {"schema": 1, "status": "TARGET_IMAGE_QUALIFIED", "source_commit": args.source,
+    report = {"schema": 1, "status": "TARGET_IMAGE_QUALIFIED", "builder_commit": args.source,
+        "target_source_commit": args.target_source,
+        "source_image_build": BASE_IMAGE_BUILD,
         "source_manifest_sha256": BASE_IMAGE_SHA256, "target_manifest_sha256": hashlib.sha256(manifest).hexdigest(),
         "target_manifest": str(args.manifest_output), "target_manifest_bytes": len(manifest),
-        "owner_app_build": 118, "project_wheel_sha256": project_sha,
+        "owner_app_build": TARGET_APP_BUILD, "project_wheel_sha256": project_sha,
         "project_wheel_runtime_scripts": list(scripts), "developer_team": TEAM,
         "native_manifest_preflight": True, "native_payload_audit": audit,
         "source_image_unchanged": True, "installer_executed": False, "installed": False,
@@ -272,6 +280,7 @@ def main() -> int:
     for name in ["source-image", "source-manifest", "app", "native", "wheel", "output", "report", "manifest-output"]:
         parser.add_argument("--" + name, required=True, type=Path)
     parser.add_argument("--source", required=True)
+    parser.add_argument("--target-source", required=True)
     args = parser.parse_args()
     try:
         print(json.dumps(build(args), sort_keys=True))
