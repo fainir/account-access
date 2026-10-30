@@ -74,3 +74,63 @@ def test_only_synthetic_evidence_is_made_readable_for_artifact_upload(tmp_path):
     assert log.stat().st_mode & 0o777 == 0o644
     assert (tmp_path / 'report.json').stat().st_mode & 0o777 == 0o644
     assert retained.stat().st_mode & 0o777 == 0o700
+
+
+def service_output(state='running', pid='123'):
+    return (f'system/{probe.LABEL} = {{\n\tstate = {state}\n\tpid = {pid}\n'
+            '\tendpoint = {\n\t\tstate = active\n\t}\n}\n').encode()
+
+
+@pytest.mark.parametrize('state,pid', [('spawn scheduled', '123'), ('exited', '123'),
+                                     ('running', '0'), ('running', '-1'), ('active', '123')])
+def test_registered_crashed_or_pidless_service_cannot_pass(state, pid):
+    with pytest.raises(ValueError, match='protected_service_not_running'):
+        probe.running_service_pid(service_output(state, pid))
+
+
+def test_nested_running_endpoint_cannot_hide_a_crashed_daemon():
+    raw = b'job = {\n\tstate = exited\n\t\tstate = running\n\t\tpid = 123\n}\n'
+    with pytest.raises(ValueError, match='protected_service_not_running'):
+        probe.running_service_pid(raw)
+
+
+def test_service_must_keep_same_running_pid_across_health_checks(monkeypatch):
+    monkeypatch.setattr(probe.time, 'sleep', lambda _: None)
+    responses = iter([service_output(), service_output(pid='124')])
+    with pytest.raises(ValueError, match='protected_service_restarted_during_check'):
+        probe.verify_live_service(lambda *_: SimpleNamespace(stdout=next(responses)), 'health')
+
+
+def test_stable_running_daemon_passes_three_health_checks(monkeypatch):
+    monkeypatch.setattr(probe.time, 'sleep', lambda _: None)
+    calls = []
+
+    def command(label, arguments):
+        calls.append((label, arguments))
+        return SimpleNamespace(stdout=service_output())
+
+    probe.verify_live_service(command, 'health')
+    assert len(calls) == 3
+    assert all(arguments == ['/bin/launchctl', 'print', 'system/' + probe.LABEL]
+               for _, arguments in calls)
+
+
+def test_normal_launch_transition_is_bounded_and_can_become_ready(monkeypatch):
+    monkeypatch.setattr(probe.time, 'sleep', lambda _: None)
+    responses = iter([service_output('spawn scheduled'), service_output('xpcproxy'),
+                      service_output(), service_output(), service_output()])
+    probe.verify_live_service(lambda *_: SimpleNamespace(stdout=next(responses)), 'health')
+    assert next(responses, None) is None
+
+
+def test_permanently_crashing_loaded_job_fails_after_bounded_startup(monkeypatch):
+    monkeypatch.setattr(probe.time, 'sleep', lambda _: None)
+    calls = []
+
+    def command(*_):
+        calls.append(None)
+        return SimpleNamespace(stdout=service_output('spawn scheduled'))
+
+    with pytest.raises(ValueError, match='protected_service_not_running'):
+        probe.verify_live_service(command, 'health')
+    assert len(calls) == 30

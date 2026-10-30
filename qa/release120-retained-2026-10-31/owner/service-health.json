@@ -1,0 +1,19 @@
+{
+  "installed_build": 120,
+  "installed_version": "0.8.0",
+  "service_running_after_controlled_restart": true,
+  "stable_pid_samples": 3,
+  "socket_directories": {
+    "run": {
+      "uid": 0,
+      "mode": "0o755"
+    },
+    "control": {
+      "uid": 0,
+      "mode": "0o700"
+    }
+  },
+  "prior_installer_logs_pass_stronger_running_state_check": 2,
+  "account_credentials_read": false,
+  "full_mac_reboot_performed": false
+}

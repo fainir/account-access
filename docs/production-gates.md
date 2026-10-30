@@ -1,10 +1,10 @@
 # Production acceptance
 
-## Current qualification - 30 October 2026
+## Current qualification - 31 October 2026
 
-Build 120 passes the technical Mac release gates. Both packages are signed, notarized, stapled and Gatekeeper accepted. Disposable Macs passed fresh installation, repair, exact build-110 upgrade and reapply, including root recovery and vault/receipt preservation. Application CI passed 4,508 tests with 112 platform-specific skips, lint and the dependency audit.
+Build 120 is installed on the owner Mac. Both packages are signed, notarized, stapled and Gatekeeper accepted. Disposable Macs passed fresh installation, repair, exact build-110 upgrade and reapply, including root recovery, older unpublished-preparation preservation and vault/receipt preservation. Exact-source application CI passed 4,509 tests with 112 platform-specific skips, lint and the dependency audit.
 
-The owner Mac is still build 110. Native installation approval, AI enrollment, private verification setup, Android publisher key/physical-phone acceptance and public-release contact/legal approvals remain in [READINESS.md](../READINESS.md). The production download has not been published. [Final release evidence](../qa/gates/release120-security-2026-10-30.md).
+On the owner Mac, restored two absent socket parent directories using the installed checked primitive; the protected service then passed a controlled restart and stable running-PID samples, and the app reopened. The cause of the missing directories is unproven; a full OS reboot was not performed. [Owner acceptance](../qa/release120-retained-2026-10-31/owner/notes.md). AI connection approval, private verification setup, Android publisher key/physical-phone acceptance and public-release contact/legal approvals remain in [READINESS.md](../READINESS.md). The production download has not been published. The installed legacy launcher is not enrolled in the protected store and still reports service unavailable; end-to-end agent access is not claimed.
 
 ## Earlier acceptance history
 

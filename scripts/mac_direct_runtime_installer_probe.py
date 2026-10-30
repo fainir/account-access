@@ -13,10 +13,12 @@ import os
 from pathlib import Path
 import plistlib
 import pwd
+import re
 import runpy
 import subprocess
 import sys
 import tarfile
+import time
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE = Path('/Library/Application Support/Account Access')
@@ -57,6 +59,36 @@ def digest(raw):
 
 def encoded(value):
     return json.dumps(value, sort_keys=True, separators=(',', ':')).encode()
+
+
+def running_service_pid(raw):
+    """A loaded launchd job or an active nested endpoint is not a live daemon."""
+    text = raw.decode('utf-8', errors='replace')
+    states = re.findall(r'^\tstate = ([^\n]+)$', text, re.MULTILINE)
+    pids = re.findall(r'^\tpid = ([1-9][0-9]*)$', text, re.MULTILINE)
+    require(states == ['running'] and len(pids) == 1, 'protected_service_not_running')
+    return int(pids[0])
+
+
+def verify_live_service(command, label):
+    pid = None
+    samples = 0
+    for attempt in range(30):
+        raw = command(label, ['/bin/launchctl', 'print', 'system/' + LABEL]).stdout
+        try:
+            current = running_service_pid(raw)
+        except ValueError:
+            if pid is not None or attempt == 29:
+                raise
+            time.sleep(1)
+            continue
+        require(pid is None or current == pid, 'protected_service_restarted_during_check')
+        pid = current
+        samples += 1
+        if samples == 3:
+            return
+        time.sleep(1)
+    raise ValueError('protected_service_not_running')
 
 
 def publish_report(output, report):
@@ -163,7 +195,7 @@ def run(args):
         sentinel.chmod(0o600)
         os.chown(sentinel, pwd.getpwnam('_accountaccess').pw_uid, pwd.getpwnam('_accountaccess').pw_gid)
         sentinel_state = (sentinel.stat().st_dev, sentinel.stat().st_ino, sentinel.read_bytes())
-        command('live-predecessor', ['/bin/launchctl', 'print', 'system/' + LABEL])
+        verify_live_service(command, 'live-predecessor')
         roots = {str(p): [p.lstat().st_dev + 1, p.lstat().st_ino] for p in (BASE, APP)}
         JOURNAL.mkdir(mode=0o700)
         # The real installer creates this root-owned maintenance lease.
@@ -246,7 +278,7 @@ def run(args):
                   all((JOURNAL / n).read_bytes() == encoded(v) for n, v in records.items()))
             head = json.loads((TRANSITION / 'head.json').read_bytes())
             check(attempt + '_verified_head', head['plan_sha256'] == PLAN and head['manifest_sha256'] == AFTER)
-            command(attempt + '-live-service', ['/bin/launchctl', 'print', 'system/' + LABEL])
+            verify_live_service(command, attempt + '-live-service')
             info = plistlib.loads((BASE / 'owner.app/Contents/Info.plist').read_bytes())
             check(attempt + '_app_build120', info['CFBundleVersion'] == '120')
             command(attempt + '-installed-jose-guard', ['/usr/bin/sudo', '-n', '-u', 'runner',
@@ -323,7 +355,7 @@ def fresh_run(args):
             command(attempt + '-installed-jose-guard', ['/usr/bin/sudo', '-n', '-u', 'runner',
                     BASE / 'runtime/bin/python', '-I', '-B', '-c', JOSE_CHECK])
             check(attempt + '_patched_dependency_guard', True)
-            command(attempt + '-live-service', ['/bin/launchctl', 'print', 'system/' + LABEL])
+            verify_live_service(command, attempt + '-live-service')
             # Only this just-created fixture app can exist in this empty VM.
             subprocess.run(['/usr/bin/pkill', '-u', str(owner), '-x', 'AccountAccess'],
                            capture_output=True, timeout=30)
