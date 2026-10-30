@@ -4,15 +4,17 @@ This is a native installer and owner interface for macOS 14 (Sonoma) or later.
 
 **Current owner-Mac status (30 October):** `/Applications/Account Access.app`
 still reports version 0.8.0 build 110; there is no build-119 install receipt.
-The source-current build 119 app and public target image are qualified from the
-pinned build-118 base, and all shared/runtime/direct native updater probes pass.
-The build-119 direct-update package is Developer ID signed, Apple-notarized,
-stapled, Gatekeeper accepted and independently expanded. It is in Downloads as
-`Account-Access-Direct-Upgrade-119-signed.pkg`. The previous build-118 installer
-is superseded and should not be used because it does not contain the current
-agent setup fix. The build-119 package has not been installed yet. After
-installation, verify the app version, protected-service restart and fresh
-Codex/Claude Code access before enabling real account acceptance.
+The build-119 candidate was qualified from the pinned build-118 base, but its
+package file is now missing from both its temporary build directory and
+Downloads. The previous handoff incorrectly said it was available in Downloads.
+Do not install the older build-117 package. The build-118 source image and the
+build-119 package output must be restored or rebuilt before owner installation.
+When rebuilding, pass `--publish-to /Users/<owner>/Downloads/Account-Access-Direct-Upgrade-119-signed.pkg`
+to `scripts/build_direct_runtime_upgrade_candidate.py`; the builder atomically
+publishes without overwriting and rechecks the copied signature, notarization,
+staple and Gatekeeper result. Only ask for installation after that path exists
+and those checks pass. Then verify the app version, protected-service restart
+and fresh Codex/Claude Code access before enabling real account acceptance.
 Harel/Phoenix SMS, Lemon Squeezy authenticator, real website email verification
 and physical-phone delivery also remain unverified. See
 [current acceptance](../docs/production-gates.md).

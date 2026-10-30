@@ -17,6 +17,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 PLAN_SHA256 = "d73f29c04cce63b39abd9df657f9e2258a7cb7eb9e1c5a858bffb86be19c5e5e"
@@ -46,6 +47,48 @@ def digest(raw: bytes) -> str:
 def file_digest(path: Path) -> str:
     with path.open("rb") as stream:
         return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
+def publish_package(source: Path, destination: Path, expected_sha256: str) -> Path:
+    """Publish a fully qualified package atomically without replacing a prior release."""
+    source_info = source.lstat()
+    require(stat.S_ISREG(source_info.st_mode) and source_info.st_uid == os.getuid(),
+        "publish_source_invalid")
+    require(re.fullmatch(r"[a-f0-9]{64}", expected_sha256) is not None,
+        "publish_digest_invalid")
+    parent = destination.parent.absolute()
+    parent_info = parent.lstat()
+    require(stat.S_ISDIR(parent_info.st_mode) and parent_info.st_uid == os.getuid(),
+        "publish_destination_parent_invalid")
+    destination = parent / destination.name
+    require(not os.path.lexists(destination), "publish_destination_exists")
+
+    with source.open("rb") as incoming:
+        descriptor, temporary_name = tempfile.mkstemp(prefix=f".{destination.name}.",
+            suffix=".publishing", dir=parent)
+        temporary = Path(temporary_name)
+        try:
+            with os.fdopen(descriptor, "wb") as outgoing:
+                shutil.copyfileobj(incoming, outgoing, length=8 * 1024 * 1024)
+                outgoing.flush()
+                os.fsync(outgoing.fileno())
+            os.chmod(temporary, 0o644, follow_symlinks=False)
+            require(file_digest(temporary) == expected_sha256, "publish_copy_digest_mismatch")
+            # Hard-link creation is atomic and fails if another file appeared at destination.
+            os.link(temporary, destination, follow_symlinks=False)
+            os.unlink(temporary)
+            directory_fd = os.open(parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+            require(file_digest(destination) == expected_sha256, "publish_final_digest_mismatch")
+            return destination
+        finally:
+            try:
+                temporary.unlink()
+            except FileNotFoundError:
+                pass
 
 
 def encoded(value) -> bytes:
@@ -464,8 +507,20 @@ exec "$AC_PACKAGE_SCRIPTS/AccountAccess-runtimeupgrade"
         "signed_target_image_inventory_mismatch")
     command("independent-owner-signature", ["/usr/bin/codesign", "--verify", "--strict", "--verbose=2",
         packaged_support / "owner.app"], timeout=120)
+    published = None
+    if args.publish_to is not None:
+        published = publish_package(signed, args.publish_to, file_digest(signed))
+        published_signature = command("published-package-signature", ["/usr/sbin/pkgutil", "--check-signature",
+            published], timeout=60)
+        require(b"Developer ID Installer" in published_signature
+            and b"Notarization: trusted" in published_signature, "published_package_trust_missing")
+        command("published-staple-verify", ["/usr/bin/xcrun", "stapler", "validate", "-v", published], timeout=120)
+        command("published-gatekeeper", ["/usr/sbin/spctl", "--assess", "--type", "install", "--verbose",
+            published], timeout=120)
     report = {"schema": 1, "status": "BUILT_NOT_INSTALLED", "package": str(signed),
         "package_sha256": file_digest(signed), "package_bytes": signed.stat().st_size,
+        "published_package": str(published) if published is not None else None,
+        "published_package_sha256": file_digest(published) if published is not None else None,
         "notarization": "Accepted", "stapled": True, "gatekeeper": "accepted",
         "helper_sha256": file_digest(helper), "helper_signature": "Developer ID Application verified",
         "installer_signature": "Developer ID Installer verified",
@@ -505,5 +560,7 @@ if __name__ == "__main__":
     parser.add_argument("--application-identity", default="E42D109853911EC536C2A07B769D4FC5B7B96BB9")
     parser.add_argument("--installer-identity", default="Developer ID Installer: Nir Feinstein (WBULD6N4NQ)")
     parser.add_argument("--notary-profile", default="AccountAccessPublisher")
+    parser.add_argument("--publish-to", type=Path,
+        help="Atomically copy the fully qualified package to a persistent path, rechecking signature, notarization and Gatekeeper there")
     parser.add_argument("--output", required=True, type=Path)
     build(parser.parse_args())

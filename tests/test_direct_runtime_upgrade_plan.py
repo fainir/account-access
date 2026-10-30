@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+
 import pytest
 
 from macos import direct_runtime_upgrade_plan as plan
@@ -162,6 +164,47 @@ def test_builder_public_inputs_are_owned_bounded_regular_files(tmp_path):
     alias.symlink_to(public)
     with pytest.raises(OSError):
         candidate.read_owned_bytes(alias, 4)
+
+
+def test_publish_package_is_atomic_durable_and_does_not_replace(tmp_path):
+    source = tmp_path / "candidate.pkg"
+    source.write_bytes(b"qualified package")
+    destination = tmp_path / "Downloads" / "Account-Access-Direct-Upgrade.pkg"
+    destination.parent.mkdir()
+    expected = hashlib.sha256(source.read_bytes()).hexdigest()
+
+    assert candidate.publish_package(source, destination, expected) == destination
+    assert destination.read_bytes() == source.read_bytes()
+    assert destination.stat().st_mode & 0o777 == 0o644
+    assert list(destination.parent.iterdir()) == [destination]
+
+    with pytest.raises(ValueError, match="publish_destination_exists"):
+        candidate.publish_package(source, destination, expected)
+    assert destination.read_bytes() == source.read_bytes()
+
+
+def test_publish_package_refuses_mismatch_and_unsafe_destinations(tmp_path):
+    source = tmp_path / "candidate.pkg"
+    source.write_bytes(b"qualified package")
+    destination = tmp_path / "published.pkg"
+
+    with pytest.raises(ValueError, match="publish_copy_digest_mismatch"):
+        candidate.publish_package(source, destination, "0" * 64)
+    assert not destination.exists()
+    assert list(tmp_path.iterdir()) == [source]
+
+    alias = tmp_path / "alias.pkg"
+    alias.symlink_to(source)
+    with pytest.raises(ValueError, match="publish_source_invalid"):
+        candidate.publish_package(alias, destination, hashlib.sha256(source.read_bytes()).hexdigest())
+
+    real_parent = tmp_path / "real-parent"
+    real_parent.mkdir()
+    foreign_parent = tmp_path / "foreign"
+    foreign_parent.symlink_to(real_parent, target_is_directory=True)
+    foreign_destination = foreign_parent / "published.pkg"
+    with pytest.raises(ValueError, match="publish_destination_parent_invalid"):
+        candidate.publish_package(source, foreign_destination, hashlib.sha256(source.read_bytes()).hexdigest())
 
 
 def test_sparse_materialization_copies_only_planned_files_and_symlinks(tmp_path):
