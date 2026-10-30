@@ -16,7 +16,7 @@
     "macos/FullImageTreeAttachment.swift": "8bb445ede216844f0a32144e99c27a9f06a80b7a76f4e78fbd9f30b65ce22a65",
     "macos/FullImageTreeStorage.swift": "30d67bb671020d070ecedfa0986e99de6ae2a1a653eb4fb012f4932b7f869fae",
     "macos/FullImagePlan.swift": "be714d798f25917690ddeced984a6a2578b05a5bbea9f8c97f333d0f8630f450",
-    "macos/FullImageTransitionStorage.swift": "d60c24bc6e0474a527cbc129147bcd50a13e2127fced64f8b600d4af535d0ce6",
+    "macos/FullImageTransitionStorage.swift": "18cf82ab4b7dc3ab558b7d3af1ab412ae46f393adaf9397ab06556cd1fb90446",
     "macos/FullImageGlobalJournal.swift": "9958edbc3ebafb6c884778ba65676cdc8e69a3c946c69a30f0c2b7639b160de3",
     "macos/RuntimeUpgradeSource.swift": "feeabd2738af0b01d52243e0669c2bb73ef1b5686e2284a749f051a219cb97d4",
     "macos/DirectRuntimeUpgradeSource.swift": "4866aa925931f688ef4b6ac85af34ced333c9e6f9a757afa96c98aec79f91a49",
