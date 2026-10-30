@@ -28,6 +28,7 @@ IDENTIFIER = "com.fainir.accountaccess.system"
 PREASSEMBLED_MANIFEST_SHA256 = "d1f74db86890b306f989b65a8c521ce3b0879f261ded122dd409be2ca2fbe317"
 PREASSEMBLED_CONFIGURATION_MANIFEST_SHA256 = "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da"
 PREASSEMBLED_BROKER_REPAIR_MANIFEST_SHA256 = "5a732de4623ba50aefa6d31c54e7b1eae660b2921341f95042c5675d922d808b"
+PREASSEMBLED_BUILD119_MANIFEST_SHA256 = "630e77605faac2dfdace9faaa5da55e671335c6b18e62114d7f0224a8574f24c"
 
 # Installer provides the target volume as argument 3. The verified coordinator
 # owns all image publication and recovery; PackageKit writes no target payload.
@@ -268,7 +269,8 @@ def package_image(args, root, scripts, manifest, output, version):
 def preassembled_manifest(path, expected):
     if (not isinstance(expected, str) or re.fullmatch("[a-f0-9]{64}", expected) is None
             or expected not in {PREASSEMBLED_MANIFEST_SHA256, PREASSEMBLED_CONFIGURATION_MANIFEST_SHA256,
-                                PREASSEMBLED_BROKER_REPAIR_MANIFEST_SHA256}):
+                                PREASSEMBLED_BROKER_REPAIR_MANIFEST_SHA256,
+                                PREASSEMBLED_BUILD119_MANIFEST_SHA256}):
         raise ValueError("reviewed_preassembled_image_required")
     descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
     try:

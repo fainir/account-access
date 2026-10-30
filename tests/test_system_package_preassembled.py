@@ -18,6 +18,7 @@ from test_payload_audit import thin
     "d1f74db86890b306f989b65a8c521ce3b0879f261ded122dd409be2ca2fbe317",
     "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da",
     "5a732de4623ba50aefa6d31c54e7b1eae660b2921341f95042c5675d922d808b",
+    "630e77605faac2dfdace9faaa5da55e671335c6b18e62114d7f0224a8574f24c",
 ])
 def test_reviewed_images_reach_manifest_validation(tmp_path, digest):
     # Review admits exact image hashes; all manifest, inventory and peer checks remain.
@@ -27,7 +28,8 @@ def test_reviewed_images_reach_manifest_validation(tmp_path, digest):
 
 @pytest.mark.parametrize("digest", [None, True, "f" * 64,
     "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55db",
-    "5a732de4623ba50aefa6d31c54e7b1eae660b2921341f95042c5675d922d808a"])
+    "5a732de4623ba50aefa6d31c54e7b1eae660b2921341f95042c5675d922d808a",
+    "630e77605faac2dfdace9faaa5da55e671335c6b18e62114d7f0224a8574f24d"])
 def test_unreviewed_images_refuse_before_manifest_paths(tmp_path, digest):
     with pytest.raises(ValueError, match="reviewed_preassembled_image_required"):
         package.preassembled_manifest(tmp_path / "missing-manifest", digest)
