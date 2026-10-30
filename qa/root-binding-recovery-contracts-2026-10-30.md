@@ -12,8 +12,10 @@ Checks on the current source changes:
 - `uv run ruff check` on changed Python source and test files - passed.
 - `python3 -m py_compile` on changed Python source files - passed.
 - `git diff --check` - passed.
+- Exact-source hosted macOS native acceptance on commit `952902e64ac5638f5e7c50e43cce7a35a328c507` - passed, including warnings-as-errors Swift compilation, all 386 ordinary core fixture assertions, all 41 policy assertions, ordinary updater refusal and ordinary root-revalidation refusal ([workflow](https://github.com/fainir/account-access/actions/runs/41057988364); [retained native report](native-component-update-952902e/report.json)). The fixture recorded no installed reads, root execution or service actions.
 
-Native Swift type-check and synthetic fixtures, plus the actual Installer
-root-replacement fixture, have not passed yet. They require exact-source
-disposable macOS CI. This source-contract result does not qualify or authorize an
-owner install. Build 119 remains rejected and must not be retried.
+The actual Installer root-replacement scenario is still pending. It requires a
+newly built, signed root-revalidation package and candidate, followed by exact-
+source disposable macOS Installer qualification. This native result does not
+qualify or authorize an owner install. Build 119 remains rejected and must not
+be retried.

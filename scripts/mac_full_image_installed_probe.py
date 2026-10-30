@@ -53,7 +53,7 @@ EXACT_INPUTS = {
     'macos/BrokerRepairMain.swift': '94cc06f81f6c3bb32592e98658efe96fe911dc7e9d9e5b7d84877ca703239f37',
     'macos/BrokerRepairRoutes.swift': 'b49184efd4298198b16628a526b14253b5a3202a1370018b2a0c3f5b17d1b8aa',
     'macos/BrokerRepairSource.swift': '4202b1f7e9b2d08c2797037351d745798c0ab9bfcbdf4d0ee4970779c8db3fc0',
-    'macos/ComponentUpdate.swift': '2ca027fed7ef90c0cdd016ef2aa681bb47fea36bc8c7e0e3c280ff6681c19bde',
+    'macos/ComponentUpdate.swift': '9595a0ad973473414e4eb0f54784340fb22b3d75cc8f2a876fefa59433d52649',
     'macos/ComponentUpdateIdentity.swift': 'a19a5c5bb645e5091f987f9fd5f457b34df0e280ef272513de68f9dd12b35370',
     'macos/ComponentUpdatePolicies.swift': '7aca759f4b9fad195851ce12d81550ec08a0753c43515574c23fc74d247060ab',
     'macos/DirectRuntimeUpgradeSource.swift': 'fb89cf89aa55077527bc096f2da5b26285aa82271d74c3d6032c45a8a93bd585',
@@ -66,7 +66,7 @@ EXACT_INPUTS = {
     'macos/FullImageTreeStorage.swift': '17eddfb96064a6d2bdd174b546447ca0f8eeff16270724f2dfb1d39a863c8a8c',
     'macos/FullImageUpdateMain.swift': '80e8dff1dfd9aa04396cfc149087763365ebce801b3af42a6ff1bc7741d9ab5d',
     'macos/FullImageUpdatePolicies.swift': '5e7979aa6bbec9fb6d3bee200abcea482aaad753a8f2011042a9f0d62355b0d9',
-    'macos/InstallationRootBinding.swift': 'bdfd959f69ce60f2c1d573d3e165b97f3303f66d9347f959f0662cf06dad0a58',
+    'macos/InstallationRootBinding.swift': 'ece31268ede6e615f3d648d0fb7f405056c987dc4f096b2293b94fea4c74fe24',
     'macos/InstallerPayload.swift': 'f00ba30f3192b556364995745d5dd0527b844a58da9d52a92fb60a6f33fb2df2',
     'macos/RootStoreVolumeBinding.swift': '850cae7fd1653e873c3d851953219ceae83b2a96a7c44d2861c4982b63cf0d6a',
     'macos/RootStoreVolumePublication.swift': '523fcd2507ec5f956178cc1951e55b0882ea385db373f17ea32b4f308c510c15',
@@ -88,7 +88,7 @@ EXACT_INPUTS = {
     'macos/source-fragments/FullImageInstalledAdapter.swift.inc': '0b66200d82a8239a41bdeadb6b1be336f6644c32032aa45bbdf8d45257a732ab',
     'macos/source-fragments/RuntimeUpgradeInstalledAdapter.swift.inc': 'c5ef1e6d82019437fd7a8cb8eb373ab081333ab12db936e75e71659012698762',
 }
-COMPOSED_SHA256 = 'ef32b7d37ff5db6eb718e7d76b69978f2fb8ce41e149d9f342f7f5d66dd69694'
+COMPOSED_SHA256 = '0eebb214354c88fba9f4582e5999739462445f5a15e6cdd75b0cf7b4f76d31a8'
 GUARD_ENV = "ACCOUNT_ACCESS_FULL_IMAGE_PROBE_GUARD"
 DISPATCHER = b'''import Foundation
 import Darwin
