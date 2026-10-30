@@ -2,7 +2,7 @@ name: Direct runtime root recovery Installer acceptance
 on:
   push:
     branches: [codex/production-security-authlib-20261028]
-    paths: [artifacts/direct-runtime-root-recovery-inputs.json]
+    paths: [artifacts/direct-runtime-root-recovery-inputs.json, scripts/mac_direct_runtime_installer_probe.py]
   workflow_dispatch:
 permissions:
   contents: read

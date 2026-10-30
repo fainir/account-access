@@ -166,6 +166,9 @@ def run(args):
         command('live-predecessor', ['/bin/launchctl', 'print', 'system/' + LABEL])
         roots = {str(p): [p.lstat().st_dev + 1, p.lstat().st_ino] for p in (BASE, APP)}
         JOURNAL.mkdir(mode=0o700)
+        # The real installer creates this root-owned maintenance lease.
+        # Synthetic receipts must reproduce it before invoking the updater.
+        (JOURNAL / "lock").touch(mode=0o600, exist_ok=False)
         records = {'intent.json': {'schema': 1, 'managed_by': 'account-access-public-image-install-v1',
                     'manifest_sha256': ORIGINAL, 'owner_uid': owner},
                    'complete.json': {'manifest_sha256': ORIGINAL, 'owner_uid': owner, 'status': 'REGISTERED'},
