@@ -21,7 +21,7 @@ jobs:
         run: |
           mkdir "$RUNNER_TEMP/direct-inputs"
           AC_RELEASE=$(python3 -c 'import json; print(json.load(open("artifacts/direct-runtime-root-recovery-inputs.json"))["release_tag"])')
-          gh release download "$AC_RELEASE" --repo fainir/account-access --pattern baseline.tar.gz --pattern candidate.pkg --dir "$RUNNER_TEMP/direct-inputs"
+          gh release download "$AC_RELEASE" --repo fainir/account-access --pattern baseline.tar.gz --pattern candidate.pkg --pattern fresh.pkg --dir "$RUNNER_TEMP/direct-inputs"
           python3 - "$RUNNER_TEMP/direct-inputs" <<'PY'
           import hashlib, json, pathlib, sys
           contract = json.loads(pathlib.Path('artifacts/direct-runtime-root-recovery-inputs.json').read_bytes())
@@ -41,6 +41,10 @@ jobs:
     needs: public-inputs
     runs-on: macos-15
     timeout-minutes: 80
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [upgrade, fresh]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -59,16 +63,16 @@ jobs:
             GITHUB_REPOSITORY="$GITHUB_REPOSITORY" GITHUB_RUN_ID="$GITHUB_RUN_ID" \
             GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" GITHUB_SHA="$GITHUB_SHA" \
             "$AC_PYTHON" -I -B "$GITHUB_WORKSPACE/scripts/mac_direct_runtime_installer_probe.py" \
-              --inputs "$RUNNER_TEMP/direct-inputs" --output "$RUNNER_TEMP/direct-installer-evidence"
+              --inputs "$RUNNER_TEMP/direct-inputs" --output "$RUNNER_TEMP/direct-installer-evidence" --mode '${{ matrix.mode }}'
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: direct-installer-evidence
+          name: direct-installer-evidence-${{ matrix.mode }}
           path: ${{ runner.temp }}/direct-installer-evidence/*.log
           retention-days: 7
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: direct-installer-result
+          name: direct-installer-result-${{ matrix.mode }}
           path: ${{ runner.temp }}/direct-installer-evidence/report.json
           retention-days: 7

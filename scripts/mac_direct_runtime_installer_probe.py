@@ -73,6 +73,8 @@ def archive_members(archive, manifest):
 
 
 def run(args):
+    if getattr(args, 'mode', 'upgrade') == 'fresh':
+        return fresh_run(args)
     # The shared guard checks root, ARM64, hosted runner, repo and run identity.
     shared = runpy.run_path(str(ROOT / 'scripts/mac_component_update_installer_probe.py'))
     shared['guard']()
@@ -216,8 +218,87 @@ def run(args):
         (args.output / 'report.json').write_bytes(encoded(report) + b'\n')
 
 
+def fresh_run(args):
+    """Exercise the public-download package, including identical-image repair."""
+    shared = runpy.run_path(str(ROOT / 'scripts/mac_component_update_installer_probe.py'))
+    shared['guard']()
+    require(all(not os.path.lexists(p) for p in (BASE, APP, JOURNAL, BINDING, TRANSITION, JOB)),
+            'fresh_hosted_namespaces_required')
+    owner = os.stat('/dev/console').st_uid
+    require(owner > 0 and pwd.getpwuid(owner).pw_name == 'runner', 'hosted_console_required')
+    contract = json.loads((ROOT / 'artifacts/direct-runtime-root-recovery-inputs.json').read_bytes())
+    package = args.inputs / 'fresh.pkg'
+    with package.open('rb') as stream:
+        require(hashlib.file_digest(stream, 'sha256').hexdigest() == contract['assets']['fresh.pkg']['sha256']
+                and package.stat().st_size == contract['assets']['fresh.pkg']['bytes'], 'fresh_input_digest_mismatch')
+    args.output.mkdir(mode=0o700)
+    report = {'status': 'FAILED', 'mode': 'fresh', 'checks': [], 'personal_accounts_used': 0,
+              'production_ready': False}
+
+    def command(label, argv, timeout=120):
+        result = subprocess.run(list(map(str, argv)), stdin=subprocess.DEVNULL,
+                                capture_output=True, timeout=timeout)
+        (args.output / (label + '.log')).write_bytes((result.stdout + result.stderr)[:128 * 1024])
+        require(result.returncode == 0, 'command_failed:' + label)
+        return result
+
+    def check(name, value):
+        require(value, name)
+        report['checks'].append(name)
+        (args.output / 'report.json').write_bytes(encoded(report) + b'\n')
+
+    try:
+        command('signature', ['/usr/sbin/pkgutil', '--check-signature', package])
+        command('gatekeeper', ['/usr/sbin/spctl', '--assess', '--type', 'install', package])
+        command('staple', ['/usr/bin/xcrun', 'stapler', 'validate', package])
+        command('expand', ['/usr/sbin/pkgutil', '--expand-full', package, args.output / 'expanded'], 300)
+        manifests = list((args.output / 'expanded').rglob('RecoveryManifest.json'))
+        check('one_pinned_fresh_manifest', len(manifests) == 1 and digest(manifests[0].read_bytes()) == AFTER)
+        target = json.loads(manifests[0].read_bytes())
+        for attempt in ('install', 'repair'):
+            log_path = Path('/var/log/install.log')
+            offset = log_path.stat().st_size
+            try:
+                command(attempt, ['/usr/sbin/installer', '-dumplog', '-verboseR', '-pkg', package, '-target', '/'], 2100)
+            finally:
+                with log_path.open('rb') as stream:
+                    stream.seek(offset)
+                    (args.output / (attempt + '-daemon.log')).write_bytes(stream.read(128 * 1024))
+            shared['verify_image'](target)
+            check(attempt + '_exact_public_image', True)
+            info = plistlib.loads((BASE / 'owner.app/Contents/Info.plist').read_bytes())
+            check(attempt + '_owner_build119', info['CFBundleVersion'] == '119')
+            command(attempt + '-live-service', ['/bin/launchctl', 'print', 'system/' + LABEL])
+            # Only this just-created fixture app can exist in this empty VM.
+            subprocess.run(['/usr/bin/pkill', '-u', str(owner), '-x', 'AccountAccess'],
+                           capture_output=True, timeout=30)
+            sentinel = BASE / 'vault/data/installer-fixture-sentinel'
+            if attempt == 'install':
+                sentinel.write_bytes(b'Synthetic fresh-install private store\n')
+                sentinel.chmod(0o600)
+                identity = pwd.getpwnam('_accountaccess')
+                os.chown(sentinel, identity.pw_uid, identity.pw_gid)
+                state = (sentinel.stat().st_ino, sentinel.read_bytes(), BASE.stat().st_ino)
+                receipts = {p.name: p.read_bytes() for p in JOURNAL.iterdir()
+                            if p.name in ('intent.json', 'ready.json', 'published.json', 'complete.json')}
+            else:
+                check('repair_preserves_vault_and_root',
+                      (sentinel.stat().st_ino, sentinel.read_bytes(), BASE.stat().st_ino) == state)
+                check('repair_preserves_receipts', all((JOURNAL / n).read_bytes() == v for n, v in receipts.items()))
+        report['status'] = 'PASSED'
+    except Exception as error:
+        report['failure_reason'] = str(error) if isinstance(error, ValueError) else type(error).__name__
+        raise
+    finally:
+        stopped = subprocess.run(['/bin/launchctl', 'bootout', 'system/' + LABEL],
+                                 capture_output=True, timeout=30)
+        report['created_job_stopped_or_absent'] = stopped.returncode in (0, 113)
+        (args.output / 'report.json').write_bytes(encoded(report) + b'\n')
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--inputs', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--mode', choices=['upgrade', 'fresh'], default='upgrade')
     run(parser.parse_args())

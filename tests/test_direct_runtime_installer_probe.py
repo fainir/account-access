@@ -54,8 +54,9 @@ def test_archive_hardlink_cannot_replace_the_manifest():
             probe.archive_members(source, MANIFEST)
 
 
-def test_probe_refuses_an_ordinary_owner_context_before_inputs(tmp_path):
-    args = SimpleNamespace(inputs=tmp_path / 'missing', output=tmp_path / 'output')
+@pytest.mark.parametrize('mode', ['upgrade', 'fresh'])
+def test_probe_refuses_an_ordinary_owner_context_before_inputs(tmp_path, mode):
+    args = SimpleNamespace(inputs=tmp_path / 'missing', output=tmp_path / 'output', mode=mode)
     with pytest.raises(ValueError, match='component_installer_acceptance_failed'):
         probe.run(args)
     assert not args.output.exists()
