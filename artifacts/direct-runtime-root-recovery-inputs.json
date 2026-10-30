@@ -1,21 +1,21 @@
 {
   "schema": 1,
-  "release_tag": "qa-direct-root-recovery119-20261030",
+  "release_tag": "qa-direct-root-recovery120-20261030",
   "assets": {
     "baseline.tar.gz": {
       "sha256": "57e5d850cd34c95f5a803a842c365479bf5e31e5874a1fef82b1715de4ab7291",
       "bytes": 313900092
     },
     "candidate.pkg": {
-      "sha256": "d61c38565b38799c185f92ca35d211b8be0c7cf6021658365e24ca820cf5fddd",
-      "bytes": 229386848
+      "sha256": "d2cbe90731dbe104b3dd4f42dfacb9bd0342670ea1edc644ce111d6deb93ca78",
+      "bytes": 229481175
     },
     "fresh.pkg": {
-      "sha256": "e9ced80a3175647a6bb8f85eef7384312eeeff6664c0ea5f6e162ea8afe6cf75",
-      "bytes": 289224482
+      "sha256": "a592354a71b91f110858c0839f8eeebd0df354747154ce434c7ead91e1757317",
+      "bytes": 289224662
     }
   },
   "before_manifest_sha256": "568c79ca3b45ffc357bc5af2b420d481e729630b0120dc6d0058c1a396ad21b1",
-  "after_manifest_sha256": "630e77605faac2dfdace9faaa5da55e671335c6b18e62114d7f0224a8574f24c",
+  "after_manifest_sha256": "6ab5f90fa72dfed84c295d5df4741d3cb9aaf6a0fa89ed155b4cb76400570874",
   "personal_accounts_used": 0
 }
