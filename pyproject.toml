@@ -18,6 +18,7 @@ dependencies = [
   "filelock>=4.2.4,<5",
   "pyotp>=2.9,<3",
   "onepassword-sdk==0.4.1",
+  "joserfc>=1.7.6,<2",
 ]
 
 [project.scripts]
