@@ -45,6 +45,15 @@ def encoded(value):
     return json.dumps(value, sort_keys=True, separators=(',', ':')).encode()
 
 
+def publish_report(output, report):
+    # Only these synthetic/public logs leave the disposable root fixture.
+    (output / 'report.json').write_bytes(encoded(report) + b'\n')
+    for path in output.iterdir():
+        if path.is_file() and not path.is_symlink() and path.suffix in {'.log', '.json'}:
+            path.chmod(0o644)
+    output.chmod(0o755)
+
+
 def archive_members(archive, manifest):
     """Exact manifest membership, without private branches or archive links as files."""
     expected = {'PublicImage', 'PublicImage/Library', 'PublicImage/Library/Application Support',
@@ -147,7 +156,10 @@ def run(args):
                    'published.json': {'manifest_sha256': ORIGINAL, 'roots': roots}}
         for name, value in records.items():
             write(JOURNAL / name, value)
-        volume = plistlib.loads(command('volume', ['/usr/sbin/diskutil', 'info', '-plist', BASE]).stdout)['VolumeUUID'].lower()
+        data_volume = Path('/System/Volumes/Data')
+        require(BASE.stat().st_dev == APP.lstat().st_dev == data_volume.stat().st_dev,
+                'fixture_data_volume_mismatch')
+        volume = plistlib.loads(command('volume', ['/usr/sbin/diskutil', 'info', '-plist', data_volume]).stdout)['VolumeUUID'].lower()
         policies = {'install': BASE / 'broker/install.json', 'host': BASE / 'broker/host.json',
                     'owner': BASE / 'owner.json', 'worker': BASE / 'broker/worker.json', 'service': JOB}
         prior = {'schema': 1, 'managed_by': 'account-access-installation-root-revalidation-v1',
@@ -215,7 +227,7 @@ def run(args):
             stopped = subprocess.run(['/bin/launchctl', 'bootout', 'system/' + LABEL],
                                      capture_output=True, timeout=30)
             report['created_job_stopped_or_absent'] = stopped.returncode in (0, 113)
-        (args.output / 'report.json').write_bytes(encoded(report) + b'\n')
+        publish_report(args.output, report)
 
 
 def fresh_run(args):
@@ -245,7 +257,7 @@ def fresh_run(args):
     def check(name, value):
         require(value, name)
         report['checks'].append(name)
-        (args.output / 'report.json').write_bytes(encoded(report) + b'\n')
+        publish_report(args.output, report)
 
     try:
         command('signature', ['/usr/sbin/pkgutil', '--check-signature', package])

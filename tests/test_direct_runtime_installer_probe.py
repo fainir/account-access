@@ -60,3 +60,17 @@ def test_probe_refuses_an_ordinary_owner_context_before_inputs(tmp_path, mode):
     with pytest.raises(ValueError, match='component_installer_acceptance_failed'):
         probe.run(args)
     assert not args.output.exists()
+
+
+def test_only_synthetic_evidence_is_made_readable_for_artifact_upload(tmp_path):
+    tmp_path.chmod(0o700)
+    log = tmp_path / 'install.log'
+    log.write_text('synthetic')
+    log.chmod(0o600)
+    retained = tmp_path / 'baseline'
+    retained.mkdir(mode=0o700)
+    probe.publish_report(tmp_path, {'status': 'PASSED', 'personal_accounts_used': 0})
+    assert tmp_path.stat().st_mode & 0o777 == 0o755
+    assert log.stat().st_mode & 0o777 == 0o644
+    assert (tmp_path / 'report.json').stat().st_mode & 0o777 == 0o644
+    assert retained.stat().st_mode & 0o777 == 0o700
