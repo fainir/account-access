@@ -1,14 +1,14 @@
 // One exact migration from the installed build-110 public image to the
-// source-current build-119 runtime image. It grants no path authority beyond the
+// source-current build-120 runtime image. It grants no path authority beyond the
 // manifest delta and is kept separate from the general update contracts.
 import Foundation
 
 struct DirectRuntimeUpgradeSource: PublicImageTransitionSource {
     static let managedBy = "account-access-exact-installed-runtime-delta-v1"
-    static let planSHA256 = "d73f29c04cce63b39abd9df657f9e2258a7cb7eb9e1c5a858bffb86be19c5e5e"
+    static let planSHA256 = "7949dee76094337190bd9efa31b7e09fc478bf62a3bbdfd44824cc9ba3f3d58b"
     static let beforeSHA256 = "568c79ca3b45ffc357bc5af2b420d481e729630b0120dc6d0058c1a396ad21b1"
-    static let afterSHA256 = "630e77605faac2dfdace9faaa5da55e671335c6b18e62114d7f0224a8574f24c"
-    static let sourceCommit = "d5f7c074a4cc1df48b743bf109cf6d99986a2ca5"
+    static let afterSHA256 = "6ab5f90fa72dfed84c295d5df4741d3cb9aaf6a0fa89ed155b4cb76400570874"
+    static let sourceCommit = "beda6324d836458a35045ee0d2acd579238d6929"
     static let originalReceipt = "5618053e6f8ed0a8720a9d2f7dde317425cecda6a970abd90c499fbfe27b43a8"
 
     struct Pins {

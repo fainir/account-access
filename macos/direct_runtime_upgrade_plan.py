@@ -12,8 +12,8 @@ from macos import full_image_update as image
 
 
 BEFORE = "568c79ca3b45ffc357bc5af2b420d481e729630b0120dc6d0058c1a396ad21b1"
-AFTER = "630e77605faac2dfdace9faaa5da55e671335c6b18e62114d7f0224a8574f24c"
-TARGET_SOURCE = "d5f7c074a4cc1df48b743bf109cf6d99986a2ca5"
+AFTER = "6ab5f90fa72dfed84c295d5df4741d3cb9aaf6a0fa89ed155b4cb76400570874"
+TARGET_SOURCE = "beda6324d836458a35045ee0d2acd579238d6929"
 ORIGINAL_RECEIPT_MANIFEST = image.ORIGINAL_MANIFEST
 MARKER = "account-access-exact-installed-runtime-delta-v1"
 SUPPORT = image.SUPPORT
@@ -24,6 +24,9 @@ DIRECT_TREES = (
     "runtime/lib/python3.12/site-packages/authlib-1.8.0.dist-info",
     "runtime/lib/python3.12/site-packages/authlib-1.9.1.dist-info",
     "runtime/lib/python3.12/site-packages/authlib/oauth2/drafts",
+    "runtime/lib/python3.12/site-packages/joserfc",
+    "runtime/lib/python3.12/site-packages/joserfc-1.7.5.dist-info",
+    "runtime/lib/python3.12/site-packages/joserfc-1.7.7.dist-info",
 )
 FIXED_FILES = (
     "package-identity.json",
@@ -82,7 +85,7 @@ def _units(before, after):
         owned = [name for name in changed if _below(name, path)]
         if not owned:
             continue
-        if path in {image.PACKAGE, image.DIST_INFO}:
+        if path in {image.PACKAGE, image.DIST_INFO, "runtime/lib/python3.12/site-packages/joserfc"}:
             require(bool(old_rows) and bool(new_rows))
         else:
             require(bool(old_rows) != bool(new_rows))

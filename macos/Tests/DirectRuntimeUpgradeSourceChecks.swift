@@ -26,6 +26,15 @@ import Darwin
     static func main() {
         do {
             guard CommandLine.arguments.count == 2 else { throw FullImageFailure.source }
+            // Runtime 95 already published root:wheel descendants. A later
+            // root:admin support directory must not change their expected GID.
+            for unit in PublicTreeUnit.directRuntimeDeltaCases {
+                try require(unit.precedingGroup("", legacy: 80, published: 0) == 0)
+            }
+            try require(PublicTreeUnit.project.precedingGroup("", legacy: 80, published: 0) == 80)
+            try require(PublicTreeUnit.distInfo.precedingGroup("", legacy: 80, published: 0) == 80)
+            try require(!PublicTreeUnit.fullImageCases.contains(.directProject)
+                && !PublicTreeUnit.fullImageCases.contains(.directDistInfo))
             let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
             func read(_ name: String, max: Int) throws -> Data {
                 let url = root.appendingPathComponent(name, isDirectory: false)
@@ -69,9 +78,9 @@ import Darwin
             guard let changedRows = planValue["changed"] as? [String],
                   let unitRows = planValue["units"] as? [[String: Any]] else { throw FullImageFailure.source }
             try require(count == unitRows.count && source.changed.count == changedRows.count)
-            try require(PublicTreeUnit.directRuntimeDeltaCases.contains(.project)
-                && PublicTreeUnit.directRuntimeDeltaCases.contains(.distInfo))
-            try require(source.units.filter { if case .tree = $0 { return true }; return false }.count == 5)
+            try require(PublicTreeUnit.directRuntimeDeltaCases.contains(.directProject)
+                && PublicTreeUnit.directRuntimeDeltaCases.contains(.directDistInfo))
+            try require(source.units.filter { if case .tree = $0 { return true }; return false }.count == 8)
             try require(source.units.filter { if case .file = $0 { return true }; return false }.count == 5)
             let directCount = source.units.filter { if case .directFile = $0 { return true }; return false }.count
             try require(directCount == unitRows.filter { $0["kind"] as? String == "direct_file" }.count)

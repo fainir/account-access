@@ -1,4 +1,4 @@
-"""Build the exact signed, notarized build-110 to source-current build-119 updater.
+"""Build the exact signed, notarized build-110 to source-current build-120 updater.
 
 This builder reads a qualified public image and manifest, compiles the fixed
 root helper, and produces a reviewable installer. It never runs Installer or
@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
@@ -18,15 +19,16 @@ import stat
 import subprocess
 import sys
 import tempfile
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-PLAN_SHA256 = "d73f29c04cce63b39abd9df657f9e2258a7cb7eb9e1c5a858bffb86be19c5e5e"
+PLAN_SHA256 = "7949dee76094337190bd9efa31b7e09fc478bf62a3bbdfd44824cc9ba3f3d58b"
 BEFORE_SHA256 = "568c79ca3b45ffc357bc5af2b420d481e729630b0120dc6d0058c1a396ad21b1"
-AFTER_SHA256 = "630e77605faac2dfdace9faaa5da55e671335c6b18e62114d7f0224a8574f24c"
-TARGET_SOURCE = "d5f7c074a4cc1df48b743bf109cf6d99986a2ca5"
-TARGET_IMAGE_BUILDER_COMMIT = "217b614cb0f38c1f51f9c62dc094cf9f26165108"
-BASE_IMAGE_SHA256 = "bb14a99941c7a82938cd0e9b3f91a16ab975e6cdd61a30741d29726a7f7bed38"
-COMPONENT_ID = "com.fainir.accountaccess.directruntimeupgrade119recovery"
+AFTER_SHA256 = "6ab5f90fa72dfed84c295d5df4741d3cb9aaf6a0fa89ed155b4cb76400570874"
+TARGET_SOURCE = "beda6324d836458a35045ee0d2acd579238d6929"
+TARGET_IMAGE_BUILDER_COMMIT = "beda6324d836458a35045ee0d2acd579238d6929"
+BASE_IMAGE_SHA256 = "630e77605faac2dfdace9faaa5da55e671335c6b18e62114d7f0224a8574f24c"
+COMPONENT_ID = "com.fainir.accountaccess.directruntimeupgrade120recovery"
 HELPER_ID = "com.fainir.accountaccess.componentupdate"
 TEAM = "WBULD6N4NQ"
 SUPPORT_RELATIVE = "Library/Application Support/Account Access"
@@ -104,6 +106,40 @@ def checked(argv, *, timeout=120, cwd=ROOT):
     result = run(argv, timeout=timeout, cwd=cwd)
     require(result.returncode == 0, "command_failed:" + Path(str(argv[0])).name)
     return result.stdout
+
+
+def validate_compile_run(metadata, source):
+    require(metadata.get('head_sha') == source and metadata.get('status') == 'completed'
+        and metadata.get('conclusion') == 'success'
+        and metadata.get('path') == '.github/workflows/mac-release-native-review.yml'
+        and metadata.get('repository', {}).get('full_name') == REPOSITORY,
+        'compiled_helper_run_not_qualified')
+
+
+REPOSITORY = 'fainir/account-access'
+
+
+def reviewed_ci_helper(run_id, source, destination):
+    """Accept only our successful exact-commit compiler workflow's artifact."""
+    require(type(run_id) is int and run_id > 0, 'compiled_helper_run_invalid')
+    base = f'repos/{REPOSITORY}/actions/runs/{run_id}'
+    metadata = json.loads(checked(['gh', 'api', base], timeout=60))
+    validate_compile_run(metadata, source)
+    assets = json.loads(checked(['gh', 'api', base + '/artifacts'], timeout=60))
+    candidates = [item for item in assets['artifacts'] if item['name'] == 'release-compiled-updater']
+    require(len(candidates) == 1 and candidates[0].get('expired') is False, 'compiled_helper_artifact_missing')
+    asset = candidates[0]
+    require(type(asset['id']) is int and 0 < asset['size_in_bytes'] <= 16 * 1024 * 1024,
+            'compiled_helper_artifact_invalid')
+    raw = checked(['gh', 'api', f'repos/{REPOSITORY}/actions/artifacts/{asset["id"]}/zip'], timeout=180)
+    require(len(raw) <= 16 * 1024 * 1024 and asset.get('digest') == 'sha256:' + digest(raw),
+            'compiled_helper_archive_digest_mismatch')
+    with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+        require(archive.namelist() == ['AccountAccess-runtimeupgrade'], 'compiled_helper_archive_inventory_invalid')
+        info = archive.infolist()[0]
+        require(0 < info.file_size <= 16 * 1024 * 1024, 'compiled_helper_binary_invalid')
+        destination.write_bytes(archive.read(info))
+    destination.chmod(0o755)
 
 
 def expanded_script_resource_names(scripts: Path) -> set[str]:
@@ -336,6 +372,31 @@ def verify_qa(args, sources, plan):
     return shared, runtime, direct
 
 
+def prepare_updater_sources(sources, shared, source_plan, code):
+    code.mkdir(mode=0o700)
+    paths = []
+    for name, raw in sources.items():
+        if name == "macos/ComponentUpdate.swift" or name in shared["FRAGMENTS"]:
+            continue
+        target = code / Path(name).name
+        target.write_bytes(raw)
+        paths.append(str(target))
+    composed = code / "ComponentUpdate.swift"
+    composed.write_bytes(b"\n".join([sources["macos/ComponentUpdate.swift"],
+        *(sources[fragment] for fragment in shared["FRAGMENTS"])]))
+    paths.append(str(composed))
+    source_files = ",".join(json.dumps(key) + ":" + json.dumps(value)
+        for key, value in sorted(source_plan["target_source_files"].items()))
+    compiled_pins = code / "CompiledPins.swift"
+    compiled_pins.write_bytes(shared["DUMMY_COMPILED_PINS"] + (
+        "\nenum RuntimeUpgradeCompiledPins { static let value = RuntimeUpgradeSource.Pins("
+        f'planSHA256: "{PLAN_SHA256}", beforeSHA256: "{BEFORE_SHA256}", afterSHA256: "{AFTER_SHA256}", '
+        f'repairPlan: "{"0" * 64}", repairSource: "{"0" * 40}", targetSource: "{TARGET_SOURCE}", '
+        f"sourceFiles: [{source_files}], direct: true) }}\n").encode())
+    paths.append(str(compiled_pins))
+    return paths
+
+
 def build(args):
     require(sys.platform == "darwin" and os.getuid() == os.geteuid() != 0, "ordinary_mac_required")
     require(re.fullmatch(r"[a-f0-9]{40}", args.source) is not None, "source_revision_invalid")
@@ -375,8 +436,8 @@ def build(args):
     target_qualification_raw = read_owned_bytes(args.target_qualification, 2 * 1024 * 1024)
     target_qualification = json.loads(target_qualification_raw)
     require(target_qualification.get("status") == "TARGET_IMAGE_QUALIFIED"
-        and target_qualification.get("owner_app_build") == 119
-        and target_qualification.get("source_image_build") == 118
+        and target_qualification.get("owner_app_build") == 120
+        and target_qualification.get("source_image_build") == 119
         and target_qualification.get("source_manifest_sha256") == BASE_IMAGE_SHA256
         and target_qualification.get("source_image_unchanged") is True
         and target_qualification.get("builder_commit") == TARGET_IMAGE_BUILDER_COMMIT
@@ -413,35 +474,18 @@ def build(args):
     (scripts / "TargetIdentity.json").write_bytes(new_identity_raw)
     require((support / "package-identity.json").read_bytes() == new_identity_raw,
         "target_identity_payload_mismatch")
-    code = output / "source"
-    code.mkdir(mode=0o700)
-    paths = []
-    for name, raw in sources.items():
-        if name == "macos/ComponentUpdate.swift" or name in shared["FRAGMENTS"]:
-            continue
-        target = code / Path(name).name
-        target.write_bytes(raw)
-        paths.append(str(target))
-    composed = code / "ComponentUpdate.swift"
-    composed.write_bytes(b"\n".join([sources["macos/ComponentUpdate.swift"],
-        *(sources[fragment] for fragment in shared["FRAGMENTS"])]))
-    paths.append(str(composed))
-    source_files = ",".join(json.dumps(key) + ":" + json.dumps(value)
-        for key, value in sorted(source_plan["target_source_files"].items()))
-    compiled_pins = code / "CompiledPins.swift"
-    compiled_pins.write_bytes(shared["DUMMY_COMPILED_PINS"] + (
-        "\nenum RuntimeUpgradeCompiledPins { static let value = RuntimeUpgradeSource.Pins("
-        f'planSHA256: "{PLAN_SHA256}", beforeSHA256: "{BEFORE_SHA256}", afterSHA256: "{AFTER_SHA256}", '
-        f'repairPlan: "{"0" * 64}", repairSource: "{"0" * 40}", targetSource: "{TARGET_SOURCE}", '
-        f"sourceFiles: [{source_files}], direct: true) }}\n").encode())
-    paths.append(str(compiled_pins))
+    paths = prepare_updater_sources(sources, shared, source_plan, output / "source")
     helper = scripts / "AccountAccess-runtimeupgrade"
-    command("compile-updater", ["/usr/bin/xcrun", "swiftc", "-j", "2", "-O", "-whole-module-optimization",
-        "-parse-as-library", "-warnings-as-errors", "-D", "ACCOUNT_ACCESS_RUNTIME_UPGRADE_MAIN",
-        "-target", "arm64-apple-macos14", "-module-cache-path", output / "module-cache",
-        "-framework", "Foundation", "-framework", "CryptoKit", "-framework", "Security", *paths, "-o", helper], timeout=1800)
+    if getattr(args, 'compiled_run', None) is not None:
+        reviewed_ci_helper(args.compiled_run, args.source, helper)
+        command('compiled-helper-architecture', ['/usr/bin/lipo', '-verify_arch', 'arm64', helper])
+    else:
+        command("compile-updater", ["/usr/bin/xcrun", "swiftc", "-j", "2", "-O", "-whole-module-optimization",
+            "-parse-as-library", "-warnings-as-errors", "-D", "ACCOUNT_ACCESS_RUNTIME_UPGRADE_MAIN",
+            "-target", "arm64-apple-macos14", "-module-cache-path", output / "module-cache",
+            "-framework", "Foundation", "-framework", "CryptoKit", "-framework", "Security", *paths, "-o", helper], timeout=1800)
     helper.chmod(0o755)
-    command("sign-updater", ["/usr/bin/codesign", "--options", "runtime", "--timestamp", "--identifier",
+    command("sign-updater", ["/usr/bin/codesign", "--force", "--options", "runtime", "--timestamp", "--identifier",
         HELPER_ID, "--sign", args.application_identity, helper], timeout=180)
     command("verify-updater-signature", ["/usr/bin/codesign", "--verify", "--strict", "-R=anchor apple generic and identifier "
         f'"{HELPER_ID}" and certificate leaf[subject.OU] = "{TEAM}" and !(entitlement["com.apple.security.get-task-allow"] exists)',
@@ -478,10 +522,10 @@ exec "$AC_PACKAGE_SCRIPTS/AccountAccess-runtimeupgrade"
         and info.count(b'postinstall-action="none"') == 1, "package_info_contract_mismatch")
     info_path.write_bytes(info.replace(b'timeout="600"', b'timeout="1800"').replace(
         b'postinstall-action="none"', b'postinstall-action="restart"'))
-    package = output / "Account-Access-Direct-Upgrade-119-root-recovery.pkg"
+    package = output / "Account-Access-Direct-Upgrade-120-root-recovery.pkg"
     command("assemble-package", ["/usr/bin/xar", "--compression=none", "-cf", package,
         "PackageInfo", "Scripts"], cwd=container, timeout=600)
-    signed = output / "Account-Access-Direct-Upgrade-119-root-recovery-signed.pkg"
+    signed = output / "Account-Access-Direct-Upgrade-120-root-recovery-signed.pkg"
     command("sign-package", ["/usr/bin/productsign", "--sign", args.installer_identity, package, signed], timeout=300)
     package.unlink()
     notary_raw = command("notarize", ["/usr/bin/xcrun", "notarytool", "submit", signed,
@@ -539,7 +583,7 @@ exec "$AC_PACKAGE_SCRIPTS/AccountAccess-runtimeupgrade"
         "ordinary_user_refusal": True, "installer_executed": False, "installed": False,
         "source_revision": args.source, "shared_qa": str(args.shared_qa), "runtime_qa": str(args.runtime_qa),
         "direct_qa": str(args.direct_qa), "notary_status": "Accepted", "notary_id": notarization.get("id"),
-        "production_ready": False}
+        "production_ready": False, 'compiled_run': getattr(args, 'compiled_run', None)}
     (output / "review.json").write_bytes(encoded(report))
     print(json.dumps({key: report[key] for key in ["status", "package", "package_sha256", "package_bytes",
         "notarization", "stapled", "gatekeeper", "installed", "production_ready"]}, sort_keys=True))
@@ -548,6 +592,8 @@ exec "$AC_PACKAGE_SCRIPTS/AccountAccess-runtimeupgrade"
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", required=True)
+    parser.add_argument('--compiled-run', type=int,
+        help='Successful exact-commit release native workflow; signing still occurs only on this Mac')
     parser.add_argument("--target-image", required=True, type=Path)
     parser.add_argument("--target-manifest", required=True, type=Path)
     parser.add_argument("--target-qualification", required=True, type=Path)

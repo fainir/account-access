@@ -28,8 +28,22 @@ JOB = Path('/Library/LaunchDaemons/com.fainir.accountaccess.broker.plist')
 LABEL = 'com.fainir.accountaccess.broker'
 ORIGINAL = '5618053e6f8ed0a8720a9d2f7dde317425cecda6a970abd90c499fbfe27b43a8'
 BEFORE = '568c79ca3b45ffc357bc5af2b420d481e729630b0120dc6d0058c1a396ad21b1'
-AFTER = '630e77605faac2dfdace9faaa5da55e671335c6b18e62114d7f0224a8574f24c'
-PLAN = 'd73f29c04cce63b39abd9df657f9e2258a7cb7eb9e1c5a858bffb86be19c5e5e'
+AFTER = '6ab5f90fa72dfed84c295d5df4741d3cb9aaf6a0fa89ed155b4cb76400570874'
+PLAN = '7949dee76094337190bd9efa31b7e09fc478bf62a3bbdfd44824cc9ba3f3d58b'
+JOSE_CHECK = '''import importlib.metadata, json
+from joserfc import jws
+from joserfc.errors import ExceededSizeError
+assert importlib.metadata.version('joserfc') == '1.7.7'
+class NoSegmentCopies(bytes):
+    def split(self, *args, **kwargs):
+        raise AssertionError('oversized input copied before rejection')
+try:
+    jws.deserialize_compact(NoSegmentCopies(b'a' * 1000000 + b'.b.c'), None)
+except ExceededSizeError:
+    print(json.dumps({'status': 'PASSED', 'joserfc': '1.7.7'}))
+else:
+    raise AssertionError('oversized input accepted')
+'''
 
 
 def require(value, reason):
@@ -140,6 +154,9 @@ def run(args):
         sys.path.insert(0, str(ROOT))
         from account_access import system_provision as provision
         provision.activate(provision.Layout.installed(), owner)
+        # Match the qualified owner predecessor: root:admin support root,
+        # root:wheel published runtime. Do not normalize runtime descendants.
+        os.chown(BASE, 0, 80)
         # A synthetic private inode must survive the updater untouched.
         sentinel = BASE / 'vault/data/installer-fixture-sentinel'
         sentinel.write_bytes(b'Synthetic private store; no credentials\n')
@@ -174,6 +191,7 @@ def run(args):
         previous_root = BASE.with_name('Account Access Hosted Previous Root')
         BASE.rename(previous_root)
         BASE.mkdir(mode=0o755)
+        os.chown(BASE, 0, 80)
         for child in previous_root.iterdir():
             child.rename(BASE / child.name)
         previous_root.rmdir()
@@ -211,7 +229,10 @@ def run(args):
             check(attempt + '_verified_head', head['plan_sha256'] == PLAN and head['manifest_sha256'] == AFTER)
             command(attempt + '-live-service', ['/bin/launchctl', 'print', 'system/' + LABEL])
             info = plistlib.loads((BASE / 'owner.app/Contents/Info.plist').read_bytes())
-            check(attempt + '_app_build119', info['CFBundleVersion'] == '119')
+            check(attempt + '_app_build120', info['CFBundleVersion'] == '120')
+            command(attempt + '-installed-jose-guard', ['/usr/bin/sudo', '-n', '-u', 'runner',
+                    BASE / 'runtime/bin/python', '-I', '-B', '-c', JOSE_CHECK])
+            check(attempt + '_patched_dependency_guard', True)
             if attempt == 'install':
                 stable = {str(p): (p.stat().st_ino, p.read_bytes()) for p in
                           [BINDING / 'recovered-v2.json', TRANSITION / 'head.json', *policies.values()]}
@@ -279,7 +300,10 @@ def fresh_run(args):
             shared['verify_image'](target)
             check(attempt + '_exact_public_image', True)
             info = plistlib.loads((BASE / 'owner.app/Contents/Info.plist').read_bytes())
-            check(attempt + '_owner_build119', info['CFBundleVersion'] == '119')
+            check(attempt + '_owner_build120', info['CFBundleVersion'] == '120')
+            command(attempt + '-installed-jose-guard', ['/usr/bin/sudo', '-n', '-u', 'runner',
+                    BASE / 'runtime/bin/python', '-I', '-B', '-c', JOSE_CHECK])
+            check(attempt + '_patched_dependency_guard', True)
             command(attempt + '-live-service', ['/bin/launchctl', 'print', 'system/' + LABEL])
             # Only this just-created fixture app can exist in this empty VM.
             subprocess.run(['/usr/bin/pkill', '-u', str(owner), '-x', 'AccountAccess'],

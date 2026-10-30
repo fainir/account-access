@@ -9,6 +9,58 @@ from macos import direct_runtime_upgrade_plan as plan
 from scripts import build_direct_runtime_upgrade_candidate as candidate
 
 
+@pytest.mark.parametrize('field,value', [
+    ('head_sha', 'b' * 40), ('status', 'in_progress'), ('conclusion', 'failure'),
+    ('path', '.github/workflows/unrelated.yml'), ('repository', {'full_name': 'other/repo'}),
+])
+def test_compiled_helper_rejects_other_sources_or_workflows(field, value):
+    metadata = {'head_sha': 'a' * 40, 'status': 'completed', 'conclusion': 'success',
+                'path': '.github/workflows/mac-release-native-review.yml',
+                'repository': {'full_name': 'fainir/account-access'}}
+    candidate.validate_compile_run(metadata, 'a' * 40)
+    metadata[field] = value
+    with pytest.raises(ValueError, match='compiled_helper_run_not_qualified'):
+        candidate.validate_compile_run(metadata, 'a' * 40)
+
+
+def test_jose_patch_replaces_package_and_both_versioned_metadata_trees():
+    package, old_info, new_info = plan.DIRECT_TREES[-3:]
+    old = {'': {'kind': 'directory', 'mode': 0o755},
+           package: {'kind': 'directory', 'mode': 0o755}, package + '/guard.py': file('a'),
+           old_info: {'kind': 'directory', 'mode': 0o755}, old_info + '/RECORD': file('b')}
+    new = {'': old[''], package: old[package], package + '/guard.py': file('c'),
+           new_info: {'kind': 'directory', 'mode': 0o755}, new_info + '/RECORD': file('d')}
+    changed, units = plan._units({'roots': {plan.SUPPORT: old}}, {'roots': {plan.SUPPORT: new}})
+    assert [u['path'] for u in units] == [package, old_info, new_info]
+    assert all(u['kind'] == 'public_tree' for u in units)
+    assert units[1]['after'] is None and units[2]['before'] is None
+    assert sorted(p for u in units for p in u['changed']) == changed
+
+
+def test_ci_helper_refuses_unexpected_archive_paths(tmp_path, monkeypatch):
+    import io
+    import json
+    import zipfile
+    stream = io.BytesIO()
+    with zipfile.ZipFile(stream, 'w') as archive:
+        archive.writestr('../outside', b'not-a-reviewed-helper')
+    raw = stream.getvalue()
+    metadata = {'head_sha': 'a' * 40, 'status': 'completed', 'conclusion': 'success',
+                'path': '.github/workflows/mac-release-native-review.yml',
+                'repository': {'full_name': 'fainir/account-access'}}
+    asset = {'id': 7, 'name': 'release-compiled-updater', 'expired': False,
+             'size_in_bytes': len(raw), 'digest': 'sha256:' + hashlib.sha256(raw).hexdigest()}
+    def checked(argv, **kwargs):
+        if argv[-1].endswith('/zip'):
+            return raw
+        return json.dumps({'artifacts': [asset]} if argv[-1].endswith('/artifacts') else metadata).encode()
+    monkeypatch.setattr(candidate, 'checked', checked)
+    output = tmp_path / 'helper'
+    with pytest.raises(ValueError, match='compiled_helper_archive_inventory_invalid'):
+        candidate.reviewed_ci_helper(2, 'a' * 40, output)
+    assert not output.exists()
+
+
 def test_first_direct_update_recovers_root_binding_before_receipt_recheck():
     adapter = (Path(__file__).parents[1] / "macos/source-fragments/RuntimeUpgradeInstalledAdapter.swift.inc").read_text()
     recovery = adapter.index("private static func recoverDirectRootBindingIfRequired")

@@ -11,6 +11,8 @@ enum PublicTreeUnit: String, CaseIterable {
     case runtimePip, runtimeOldPipInfo, runtimePipInfo, runtimeEnsurePip
     case runtimeOwner, pythonRoot, runtimeRoot, browsers, wheels, binRoot
     case authlibOldDistInfo, authlibNewDistInfo, authlibDrafts
+    case joserfcPackage, joserfcOldDistInfo, joserfcNewDistInfo
+    case directProject, directDistInfo
     // The first complete-image release has a separate closed set. Adding a
     // successor tree must never expand that release's accepted plan.
     static let fullImageCases: [Self] = [.owner, .project, .distInfo, .pythonProvider, .provider,
@@ -19,12 +21,13 @@ enum PublicTreeUnit: String, CaseIterable {
     // The runtime successor has a separate typed set. In particular, adding
     // `bin` here must not expand the first complete-image release contract.
     static let runtimeUpgradeCases: [Self] = [.runtimeOwner, .pythonRoot, .runtimeRoot, .browsers, .wheels, .binRoot]
-    static let directRuntimeDeltaCases: [Self] = [.project, .distInfo, .authlibOldDistInfo, .authlibNewDistInfo, .authlibDrafts]
+    static let directRuntimeDeltaCases: [Self] = [.directProject, .directDistInfo, .authlibOldDistInfo, .authlibNewDistInfo, .authlibDrafts,
+        .joserfcPackage, .joserfcOldDistInfo, .joserfcNewDistInfo]
     var path: String {
         switch self {
         case .owner, .runtimeOwner: return "owner.app"
-        case .project: return "runtime/lib/python3.12/site-packages/account_access"
-        case .distInfo: return "runtime/lib/python3.12/site-packages/account_access-0.8.0.dist-info"
+        case .project, .directProject: return "runtime/lib/python3.12/site-packages/account_access"
+        case .distInfo, .directDistInfo: return "runtime/lib/python3.12/site-packages/account_access-0.8.0.dist-info"
         case .pythonProvider: return "python/libexec/bitwarden"
         case .provider: return "runtime/libexec/bitwarden"
         case .pythonPip: return "python/lib/python3.12/site-packages/pip"
@@ -43,15 +46,22 @@ enum PublicTreeUnit: String, CaseIterable {
         case .authlibOldDistInfo: return "runtime/lib/python3.12/site-packages/authlib-1.8.0.dist-info"
         case .authlibNewDistInfo: return "runtime/lib/python3.12/site-packages/authlib-1.9.1.dist-info"
         case .authlibDrafts: return "runtime/lib/python3.12/site-packages/authlib/oauth2/drafts"
+        case .joserfcPackage: return "runtime/lib/python3.12/site-packages/joserfc"
+        case .joserfcOldDistInfo: return "runtime/lib/python3.12/site-packages/joserfc-1.7.5.dist-info"
+        case .joserfcNewDistInfo: return "runtime/lib/python3.12/site-packages/joserfc-1.7.7.dist-info"
         }
     }
-    var beforePresent: Bool { ![Self.pythonPipInfo, .runtimePipInfo, .authlibNewDistInfo, .authlibDrafts].contains(self) }
-    var afterPresent: Bool { ![Self.pythonOldPipInfo, .runtimeOldPipInfo, .authlibOldDistInfo].contains(self) }
+    var beforePresent: Bool { ![Self.pythonPipInfo, .runtimePipInfo, .authlibNewDistInfo, .authlibDrafts, .joserfcNewDistInfo].contains(self) }
+    var afterPresent: Bool { ![Self.pythonOldPipInfo, .runtimeOldPipInfo, .authlibOldDistInfo, .joserfcOldDistInfo].contains(self) }
     var runtimeUpgrade: Bool { Self.runtimeUpgradeCases.contains(self) }
     // Package85 and the preceding cache repair published these exact nodes as
     // root:wheel; other nodes kept the original support group's metadata. This closed
     // mapping validates each old node without changing it or allowing any GID.
     func precedingGroup(_ relative: String, legacy: gid_t, published: gid_t) -> gid_t {
+        // The exact build-110 predecessor has already published its entire
+        // runtime as root:wheel. Its support root can retain group admin.
+        // Separate typed direct units keep the first image's legacy contract.
+        if Self.directRuntimeDeltaCases.contains(self) { return published }
         guard runtimeUpgrade else { return legacy }
         let absolute = path + (relative.isEmpty ? "" : "/" + relative)
         for unit in Self.fullImageCases where unit.afterPresent {
