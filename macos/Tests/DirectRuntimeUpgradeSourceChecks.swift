@@ -145,7 +145,7 @@ import Darwin
             let encoded = try JSONSerialization.data(withJSONObject: report, options: [.sortedKeys])
             print(String(decoding: encoded, as: UTF8.self))
         } catch {
-            fputs("direct_runtime_upgrade_source_checks_refused\n", stderr)
+            fputs("direct_runtime_upgrade_source_checks_refused: \(error)\n", stderr)
             exit(1)
         }
     }

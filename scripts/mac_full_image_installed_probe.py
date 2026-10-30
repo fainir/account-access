@@ -56,7 +56,7 @@ EXACT_INPUTS = {
     'macos/ComponentUpdate.swift': '9595a0ad973473414e4eb0f54784340fb22b3d75cc8f2a876fefa59433d52649',
     'macos/ComponentUpdateIdentity.swift': 'a19a5c5bb645e5091f987f9fd5f457b34df0e280ef272513de68f9dd12b35370',
     'macos/ComponentUpdatePolicies.swift': '7aca759f4b9fad195851ce12d81550ec08a0753c43515574c23fc74d247060ab',
-    'macos/DirectRuntimeUpgradeSource.swift': '68c111910d760ba07f10b7544f4befc39d7f1179af8e1bb647363059f9cadfb2',
+    'macos/DirectRuntimeUpgradeSource.swift': '59c6f4787a2e3a2e0ee8c5c7e2d9505f2597946540c7a8ddf2c4aa54d851f185',
     'macos/FullImageGlobalJournal.swift': '9958edbc3ebafb6c884778ba65676cdc8e69a3c946c69a30f0c2b7639b160de3',
     'macos/FullImageInstalledIO.swift': '83e8ea141e879e4ad282e175bc5fcb1d2246ef278bc9767639d4bd047c2da184',
     'macos/FullImagePlan.swift': 'be714d798f25917690ddeced984a6a2578b05a5bbea9f8c97f333d0f8630f450',

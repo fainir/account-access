@@ -2,7 +2,7 @@ name: Mac release native qualification
 on:
   push:
     branches: [codex/production-security-authlib-20261028]
-    paths: [artifacts/release120-native-inputs.json, scripts/build_direct_runtime_upgrade_candidate.py, macos/FullImageTreeStorage.swift]
+    paths: [artifacts/release120-native-inputs.json, scripts/build_direct_runtime_upgrade_candidate.py, macos/FullImageTreeStorage.swift, macos/DirectRuntimeUpgradeSource.swift]
   workflow_dispatch:
 permissions:
   contents: read
@@ -107,4 +107,5 @@ jobs:
             ${{ runner.temp }}/native-full/*.log
             ${{ runner.temp }}/native-runtime/*.stderr
             ${{ runner.temp }}/native-direct/*.stderr
+            ${{ runner.temp }}/native-direct/*.stdout
           retention-days: 7
