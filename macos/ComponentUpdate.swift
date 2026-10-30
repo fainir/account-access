@@ -1125,12 +1125,24 @@ enum ComponentController {
         }
         checkpoint("current_binding")
         let current = try InstallationRootBinding.capture(withVolumeUUID: true)
-        var existingProof: Data?
+        var existingProof: Data?, previousProof: Data?, recoveryNeeded = false
         if hasNamespace {
             let existing = try InstallationRootBinding.receiptDirectory(create: false)
             defer { Darwin.close(existing) }
             let names = try InstallerPayloadIO.contents(existing)
-            if names == [InstallationRootBinding.receiptName] {
+            if names == [InstallationRootBinding.receiptName]
+                || names == [InstallationRootBinding.receiptName, InstallationRootBinding.pendingRecoveryName] {
+                previousProof = try InstallationRootBinding.readOriginalSupplement(existing)
+                do {
+                    try InstallationRootBinding.validateSupplement(previousProof!, legacy: legacy, current: current)
+                    existingProof = previousProof
+                } catch {
+                    try InstallationRootBinding.requireRecoveryReplacement(previous: previousProof!, legacy: legacy, current: current)
+                    existingProof = previousProof
+                    recoveryNeeded = true
+                }
+            } else if names == [InstallationRootBinding.receiptName, InstallationRootBinding.recoveryName] {
+                previousProof = try InstallationRootBinding.readOriginalSupplement(existing)
                 existingProof = try InstallationRootBinding.readSupplement(existing)
                 try InstallationRootBinding.validateSupplement(existingProof!, legacy: legacy, current: current)
             } else {
@@ -1194,6 +1206,29 @@ enum ComponentController {
         let bindingDirectory = try InstallationRootBinding.receiptDirectory(create: true)
         defer { Darwin.close(bindingDirectory) }
         let names = try InstallerPayloadIO.contents(bindingDirectory)
+        if names == [InstallationRootBinding.receiptName, InstallationRootBinding.recoveryName] {
+            let proof = try InstallationRootBinding.readSupplement(bindingDirectory)
+            guard proof == existingProof else { throw ComponentUpdateFailure.base }
+            try InstallationRootBinding.validateSupplement(proof, legacy: legacy, current: current)
+            try verifyCurrent()
+            return "ALREADY_REVALIDATED"
+        }
+        if recoveryNeeded {
+            guard names == [InstallationRootBinding.receiptName]
+                    || names == [InstallationRootBinding.receiptName, InstallationRootBinding.pendingRecoveryName],
+                  let previousProof else { throw ComponentUpdateFailure.journal }
+            let data = try InstallationRootBinding.recoverySupplement(legacy: legacy, previous: previousProof, current: current,
+                planSHA256: source.planDigest, sourceCommit: sourceCommit, policyHashes: hashes)
+            try InstallationRootBinding.prepareRecoverySupplement(bindingDirectory, data: data)
+            try verifyCurrent()
+            try ComponentFiles.rename(bindingDirectory, InstallationRootBinding.pendingRecoveryName,
+                                      bindingDirectory, InstallationRootBinding.recoveryName, swap: false)
+            try InstallationRootBinding.validateSupplement(InstallationRootBinding.readSupplement(bindingDirectory),
+                                                            legacy: legacy, current: current)
+            try verifyCurrent()
+            checkpoint("finished")
+            return "RECOVERED_ROOT"
+        }
         if names == [InstallationRootBinding.receiptName] {
             let proof = try InstallationRootBinding.readSupplement(bindingDirectory)
             guard proof == existingProof else { throw ComponentUpdateFailure.base }

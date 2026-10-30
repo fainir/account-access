@@ -18,3 +18,5 @@ Claude Code). READINESS.md is the definition of done; PRODUCT.md is the spec; GO
 - For owner app updates, inspect the actual running GUI bundle ID before quitting: the stale per-user UI uses com.fainir.accountaccess.verification, while the canonical /Applications app uses com.fainir.accountaccess. Verify the UI process exits before starting Installer. (2026-10-30)
 - Before requesting an owner install, verify the exact persistent package path exists and recheck its signed, stapled and Gatekeeper state; temporary build candidates can disappear, making an old Downloads claim stale. (2026-10-30)
 - Before handing off an owner installation, reveal the verified package in Finder at its persistent location so it is selected and easy to find. (2026-10-30)
+- For root-only native verifier probes, open manifest fixtures inside the privileged child; sudo closes inherited FDs, and a user-owned manifest fails the owner check before image verification. (2026-10-30)
+- The full combined Swift updater fixture can exceed local Mac 27.2 compile timeouts; the exact-source disposable-Mac CI type-check and Installer matrix are required for native qualification. (2026-10-30)
