@@ -118,3 +118,10 @@ def test_missing_journal_report_and_truthy_named_assertion_are_refused():
 def test_a_missing_actual_refusal_cannot_pass(guard):
     with pytest.raises(probe.Refused):
         probe.Probe.qualify(InertProbe(refusal=guard))
+
+
+def test_reviewed_source_pins_match_complete_composition():
+    originals = {name: probe.source_bytes(name) for name in probe.EXACT_INPUTS}
+    assert {name: probe.digest(raw) for name, raw in originals.items()} == probe.EXACT_INPUTS
+    composed = b"\n".join(originals[name] for name in ["macos/ComponentUpdate.swift", *probe.FRAGMENTS])
+    assert probe.digest(composed) == probe.COMPOSED_SHA256
