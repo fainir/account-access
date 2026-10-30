@@ -257,7 +257,7 @@ def fresh_run(args):
     def check(name, value):
         require(value, name)
         report['checks'].append(name)
-        publish_report(args.output, report)
+        (args.output / 'report.json').write_bytes(encoded(report) + b'\n')
 
     try:
         command('signature', ['/usr/sbin/pkgutil', '--check-signature', package])
@@ -305,7 +305,7 @@ def fresh_run(args):
         stopped = subprocess.run(['/bin/launchctl', 'bootout', 'system/' + LABEL],
                                  capture_output=True, timeout=30)
         report['created_job_stopped_or_absent'] = stopped.returncode in (0, 113)
-        (args.output / 'report.json').write_bytes(encoded(report) + b'\n')
+        publish_report(args.output, report)
 
 
 if __name__ == '__main__':
