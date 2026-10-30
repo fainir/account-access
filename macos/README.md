@@ -3,20 +3,15 @@
 This is a native installer and owner interface for macOS 14 (Sonoma) or later.
 
 **Current owner-Mac status (30 October):** `/Applications/Account Access.app`
-still reports version 0.8.0 build 110; the build-118 system update has not been
-installed. Build 118 is a signed and notarized direct update pinned to the
-installed build-110 image. Its signature, Apple ticket, Gatekeeper assessment
-and independently expanded payload passed local qualification. The exact
-package is in Downloads as
-`Account-Access-Direct-Upgrade-118-signed.pkg`. Old Installer failures were
-specific safety refusals hidden behind generic PackageKit error 112: build 104
-required the owner app to close, while build 109 could not verify predecessor
-repair history. Build 118 was opened in a fresh Installer window after closing
-the stale per-user Account Access app; Installer is now waiting for the native
-macOS Touch ID or password authorization. The installed build and protected
-service have not changed yet. Do not treat Installer opening or the approval
-prompt as a completed installation. After approval, verify build 118, restart
-recovery, and fresh Codex/Claude Code access before enabling real account
+still reports version 0.8.0 build 110; there is no build-119 install receipt.
+The source-current build 119 app and public target image are qualified from the
+pinned build-118 base, and all shared/runtime/direct native updater probes pass.
+The signed, notarized direct-update package is still being assembled. The
+previous build-118 installer is superseded and should not be used because it
+does not contain the current agent setup fix. Build 119 must pass package
+signature, notarization, Gatekeeper and independent expansion checks before it
+is opened in Installer. After installation, verify the app version, protected
+service restart and fresh Codex/Claude Code access before enabling real account
 acceptance. Harel/Phoenix SMS, Lemon Squeezy authenticator, real website email
 verification and physical-phone delivery also remain unverified. See
 [current acceptance](../docs/production-gates.md).
@@ -208,6 +203,10 @@ and private sign-in acceptance remain open.
 uv build
 ACCOUNT_ACCESS_MAC_BUILD=77 sh macos/build.sh
 ```
+
+That command creates a development app. Signed system installs must also set
+`ACCOUNT_ACCESS_SYSTEM_INSTALL=1`; the direct-update builder refuses a bundle
+without this marker before copying it into the qualified image.
 
 For Developer ID signing, set `ACCOUNT_ACCESS_SIGNING_IDENTITY` to your own certificate name before building. The app and ZIP are written to `dist/macos/`.
 

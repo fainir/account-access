@@ -1,4 +1,4 @@
-"""Build the exact signed, notarized build-110 to source-current build-118 updater.
+"""Build the exact signed, notarized build-110 to source-current build-119 updater.
 
 This builder reads a qualified public image and manifest, compiles the fixed
 root helper, and produces a reviewable installer. It never runs Installer or
@@ -19,11 +19,13 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-PLAN_SHA256 = "681f2b48c2b35bc1ccdb4309da636b1b88fcbeb2b2ae982b92dbf0c4198dd51e"
+PLAN_SHA256 = "d73f29c04cce63b39abd9df657f9e2258a7cb7eb9e1c5a858bffb86be19c5e5e"
 BEFORE_SHA256 = "568c79ca3b45ffc357bc5af2b420d481e729630b0120dc6d0058c1a396ad21b1"
-AFTER_SHA256 = "bb14a99941c7a82938cd0e9b3f91a16ab975e6cdd61a30741d29726a7f7bed38"
-TARGET_SOURCE = "35ffa63df4a178f699be7b4cba3d73404b48e182"
-COMPONENT_ID = "com.fainir.accountaccess.directruntimeupgrade118"
+AFTER_SHA256 = "630e77605faac2dfdace9faaa5da55e671335c6b18e62114d7f0224a8574f24c"
+TARGET_SOURCE = "d5f7c074a4cc1df48b743bf109cf6d99986a2ca5"
+TARGET_IMAGE_BUILDER_COMMIT = "217b614cb0f38c1f51f9c62dc094cf9f26165108"
+BASE_IMAGE_SHA256 = "bb14a99941c7a82938cd0e9b3f91a16ab975e6cdd61a30741d29726a7f7bed38"
+COMPONENT_ID = "com.fainir.accountaccess.directruntimeupgrade119"
 HELPER_ID = "com.fainir.accountaccess.componentupdate"
 TEAM = "WBULD6N4NQ"
 SUPPORT_RELATIVE = "Library/Application Support/Account Access"
@@ -330,10 +332,12 @@ def build(args):
     target_qualification_raw = read_owned_bytes(args.target_qualification, 2 * 1024 * 1024)
     target_qualification = json.loads(target_qualification_raw)
     require(target_qualification.get("status") == "TARGET_IMAGE_QUALIFIED"
-        and target_qualification.get("owner_app_build") == 118
-        and target_qualification.get("source_manifest_sha256") == "78113e53f553cdec0bfb9d0744406a18baaaa3327e1be834af5b45b74c3926aa"
+        and target_qualification.get("owner_app_build") == 119
+        and target_qualification.get("source_image_build") == 118
+        and target_qualification.get("source_manifest_sha256") == BASE_IMAGE_SHA256
         and target_qualification.get("source_image_unchanged") is True
-        and target_qualification.get("source_commit") == TARGET_SOURCE
+        and target_qualification.get("builder_commit") == TARGET_IMAGE_BUILDER_COMMIT
+        and target_qualification.get("target_source_commit") == TARGET_SOURCE
         and target_qualification.get("target_manifest_sha256") == AFTER_SHA256
         and target_qualification.get("project_wheel_sha256") == source_plan["project_wheel_sha256"]
         and target_qualification.get("native_manifest_preflight") is True
@@ -431,10 +435,10 @@ exec "$AC_PACKAGE_SCRIPTS/AccountAccess-runtimeupgrade"
         and info.count(b'postinstall-action="none"') == 1, "package_info_contract_mismatch")
     info_path.write_bytes(info.replace(b'timeout="600"', b'timeout="1800"').replace(
         b'postinstall-action="none"', b'postinstall-action="restart"'))
-    package = output / "Account-Access-Direct-Upgrade-118.pkg"
+    package = output / "Account-Access-Direct-Upgrade-119.pkg"
     command("assemble-package", ["/usr/bin/xar", "--compression=none", "-cf", package,
         "PackageInfo", "Scripts"], cwd=container, timeout=600)
-    signed = output / "Account-Access-Direct-Upgrade-118-signed.pkg"
+    signed = output / "Account-Access-Direct-Upgrade-119-signed.pkg"
     command("sign-package", ["/usr/bin/productsign", "--sign", args.installer_identity, package, signed], timeout=300)
     package.unlink()
     notary_raw = command("notarize", ["/usr/bin/xcrun", "notarytool", "submit", signed,
@@ -466,6 +470,8 @@ exec "$AC_PACKAGE_SCRIPTS/AccountAccess-runtimeupgrade"
         "helper_sha256": file_digest(helper), "helper_signature": "Developer ID Application verified",
         "installer_signature": "Developer ID Installer verified",
         "target_image_manifest_sha256": AFTER_SHA256,
+        "target_source_commit": TARGET_SOURCE,
+        "target_image_builder_commit": TARGET_IMAGE_BUILDER_COMMIT,
         "target_image_qualification": str(args.target_qualification),
         "target_image_qualification_sha256": digest(target_qualification_raw),
         "plan_sha256": PLAN_SHA256, "before_manifest_sha256": BEFORE_SHA256,

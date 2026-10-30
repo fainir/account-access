@@ -2,7 +2,7 @@
 
 This planner has no installation, filesystem, service, signing or credential
 authority. It only accepts the public image currently installed on the owner
-Mac and the already signed build-116 image. The native controller independently
+Mac and the qualified build-119 image. The native controller independently
 checks both complete manifests and every changed file before it moves anything.
 """
 
@@ -12,8 +12,8 @@ from macos import full_image_update as image
 
 
 BEFORE = "568c79ca3b45ffc357bc5af2b420d481e729630b0120dc6d0058c1a396ad21b1"
-AFTER = "bb14a99941c7a82938cd0e9b3f91a16ab975e6cdd61a30741d29726a7f7bed38"
-TARGET_SOURCE = "35ffa63df4a178f699be7b4cba3d73404b48e182"
+AFTER = "630e77605faac2dfdace9faaa5da55e671335c6b18e62114d7f0224a8574f24c"
+TARGET_SOURCE = "d5f7c074a4cc1df48b743bf109cf6d99986a2ca5"
 ORIGINAL_RECEIPT_MANIFEST = image.ORIGINAL_MANIFEST
 MARKER = "account-access-exact-installed-runtime-delta-v1"
 SUPPORT = image.SUPPORT
