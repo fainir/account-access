@@ -75,7 +75,10 @@ struct FullImageFileOperation: Codable, Equatable {
                   ["owner.app", "python", "runtime", "browsers", "wheels", "bin"].contains(parts[0]),
                   [before, after].compactMap({ $0 }).allSatisfy({ $0.mode == directMode }) else { throw FullImageFailure.journal }
         } else {
-            guard (0..<64).contains(index), directPath == nil, directMode == nil else { throw FullImageFailure.journal }
+            let directPolicy = directPlan && [FullImageFileUnit.hostPolicy, .ownerPolicy, .installRecord, .head].contains(unit)
+            guard (0..<(directPolicy ? 256 : 64)).contains(index), directPath == nil, directMode == nil else {
+                throw FullImageFailure.journal
+            }
         }
         if let publicUnit = unit.publicUnit {
             guard (before != nil) == publicUnit.beforePresent,

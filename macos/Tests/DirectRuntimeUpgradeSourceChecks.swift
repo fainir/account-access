@@ -105,6 +105,55 @@ import Darwin
                 if before == nil { additions += 1 }
                 if after == nil { removals += 1 }
             }
+            // Exercise the complete journal, including the four policy records
+            // appended beyond the original 64-operation transition limit.
+            var journalOperations: [FullImageDurableOperation] = []
+            for (index, unit) in source.units.enumerated() {
+                let inode = UInt64(100_000 + index * 2)
+                switch unit {
+                case .tree(let tree, let old, let new):
+                    func pin(_ inventory: PublicTreeInventory, _ inode: UInt64) -> PublicTreePin? {
+                        inventory.inventorySHA256.map {
+                            PublicTreePin(device: 7, inode: inode, owner: 0, group: 0, mode: 0o755, inventorySHA256: $0)
+                        }
+                    }
+                    journalOperations.append(.init(tree: PublicTreeOperation(schema: 2, unit: tree.rawValue,
+                        planSHA256: directPlan, beforeManifestSHA256: source.before.sha256,
+                        afterManifestSHA256: source.after.sha256, before: pin(old, inode), after: pin(new, inode + 1))))
+                case .file(let file, let before, let after):
+                    journalOperations.append(.init(file: FullImageFileOperation(schema: 1,
+                        unit: .init(publicUnit: file), planSHA256: directPlan, index: index,
+                        before: object(before, inode: inode), after: object(after, inode: inode + 1))))
+                case .directFile(let path, let mode, let before, let after):
+                    journalOperations.append(.init(file: FullImageFileOperation(schema: 1,
+                        unit: .directPublicFile, planSHA256: directPlan, index: index,
+                        before: object(before, inode: inode), after: object(after, inode: inode + 1),
+                        directPath: path, directMode: mode)))
+                }
+            }
+            let proof = String(repeating: "e", count: 64)
+            let policy = ComponentObject(device: 7, inode: 300_000, mode: 0o644, bytes: 1, sha256: proof)
+            let plist = ComponentObject(device: 7, inode: 300_001, mode: 0o644, bytes: 1, sha256: proof)
+            let dynamic: [FullImageFileUnit: Data] = [.hostPolicy: Data("synthetic host".utf8),
+                .ownerPolicy: Data("synthetic owner".utf8), .installRecord: Data("synthetic install".utf8),
+                .head: try FullImageGlobalIntent.newHead(source: source, predecessorEvidenceSHA256: proof)]
+            for unit in [FullImageFileUnit.hostPolicy, .ownerPolicy, .installRecord, .head] {
+                let index = journalOperations.count, inode = UInt64(100_000 + index * 2), raw = dynamic[unit]!
+                let before = unit == .head ? nil : ComponentObject(device: 7, inode: inode,
+                    mode: unit.mode, bytes: 1, sha256: proof)
+                let after = ComponentObject(device: 7, inode: inode + 1, mode: unit.mode,
+                    bytes: Int64(raw.count), sha256: FullImageJSON.hash(raw))
+                journalOperations.append(.init(file: FullImageFileOperation(schema: 1, unit: unit,
+                    planSHA256: directPlan, index: index, before: before, after: after)))
+            }
+            let intent = FullImageGlobalIntent(schema: 2, managedBy: DirectRuntimeUpgradeSource.managedBy,
+                planSHA256: directPlan, beforeManifestSHA256: source.before.sha256,
+                afterManifestSHA256: source.after.sha256, targetSourceCommit: source.targetSourceCommit,
+                predecessorEvidenceSHA256: proof, ownerUID: 501, brokerUID: 499, initialService: nil,
+                workerPolicy: policy, servicePlist: plist, operations: journalOperations, automaticRebootRecovery: false)
+            try intent.validate(source: source, predecessorEvidenceSHA256: proof, workerPolicy: policy,
+                servicePlist: plist, ownerUID: 501, brokerUID: 499, publicOwner: 0, publicGroup: 0,
+                beforeGroup: 80, device: 7, dynamic: dynamic)
             let expectedAdditions = unitRows.filter {
                 $0["kind"] as? String == "direct_file" && $0["before"] is NSNull
             }.count
@@ -128,6 +177,11 @@ import Darwin
                 index: 256, before: first.before, after: first.after, directPath: first.directPath, directMode: first.directMode))
             refuses(.init(schema: 1, unit: .directPublicFile, planSHA256: directPlan,
                 index: first.index, before: first.before, after: first.after, directPath: "runtime/../broker/install.json", directMode: first.directMode))
+            let policyOperation = journalOperations[count].file!
+            refuses(.init(schema: 1, unit: .hostPolicy, planSHA256: String(repeating: "0", count: 64),
+                index: count, before: policyOperation.before, after: policyOperation.after))
+            refuses(.init(schema: 1, unit: .requirements, planSHA256: directPlan,
+                index: count, before: policyOperation.before, after: policyOperation.after))
             var tampered = planRaw; tampered[tampered.startIndex] ^= 1
             do {
                 _ = try DirectRuntimeUpgradeSource.load(plan: tampered, before: beforeRaw, after: afterRaw,
@@ -137,10 +191,10 @@ import Darwin
                         afterSHA256: DirectRuntimeUpgradeSource.afterSHA256,
                         targetSourceCommit: DirectRuntimeUpgradeSource.sourceCommit))
             } catch { refusals += 1 }
-            try require(refusals == 4)
+            try require(refusals == 6)
             let report: [String: Any] = ["status": "PASSED", "changed_nodes": source.changed.count,
                 "units": count, "direct_files_added": additions, "direct_files_removed": removals,
-                "projection_checks": 2, "refusal_checks": refusals, "installed_reads": false,
+                "projection_checks": 2, "journal_operations": journalOperations.count, "refusal_checks": refusals, "installed_reads": false,
                 "service_actions": false, "production_ready": false]
             let encoded = try JSONSerialization.data(withJSONObject: report, options: [.sortedKeys])
             print(String(decoding: encoded, as: UTF8.self))

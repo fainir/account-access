@@ -61,7 +61,7 @@ EXACT_INPUTS = {
     'macos/FullImageInstalledIO.swift': '83e8ea141e879e4ad282e175bc5fcb1d2246ef278bc9767639d4bd047c2da184',
     'macos/FullImagePlan.swift': 'be714d798f25917690ddeced984a6a2578b05a5bbea9f8c97f333d0f8630f450',
     'macos/FullImagePredecessorAuthority.swift': '39a6c5b35ab1614f89983c799dd603b2585b9d219d7b3d7908e73b750209f603',
-    'macos/FullImageTransitionStorage.swift': 'd60c24bc6e0474a527cbc129147bcd50a13e2127fced64f8b600d4af535d0ce6',
+    'macos/FullImageTransitionStorage.swift': '18cf82ab4b7dc3ab558b7d3af1ab412ae46f393adaf9397ab06556cd1fb90446',
     'macos/FullImageTreeAttachment.swift': '8bb445ede216844f0a32144e99c27a9f06a80b7a76f4e78fbd9f30b65ce22a65',
     'macos/FullImageTreeStorage.swift': '30d67bb671020d070ecedfa0986e99de6ae2a1a653eb4fb012f4932b7f869fae',
     'macos/FullImageUpdateMain.swift': '80e8dff1dfd9aa04396cfc149087763365ebce801b3af42a6ff1bc7741d9ab5d',
