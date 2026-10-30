@@ -6,14 +6,15 @@ This is a native installer and owner interface for macOS 14 (Sonoma) or later.
 still reports version 0.8.0 build 110; there is no build-119 install receipt.
 The source-current build 119 app and public target image are qualified from the
 pinned build-118 base, and all shared/runtime/direct native updater probes pass.
-The signed, notarized direct-update package is still being assembled. The
-previous build-118 installer is superseded and should not be used because it
-does not contain the current agent setup fix. Build 119 must pass package
-signature, notarization, Gatekeeper and independent expansion checks before it
-is opened in Installer. After installation, verify the app version, protected
-service restart and fresh Codex/Claude Code access before enabling real account
-acceptance. Harel/Phoenix SMS, Lemon Squeezy authenticator, real website email
-verification and physical-phone delivery also remain unverified. See
+The build-119 direct-update package is Developer ID signed, Apple-notarized,
+stapled, Gatekeeper accepted and independently expanded. It is in Downloads as
+`Account-Access-Direct-Upgrade-119-signed.pkg`. The previous build-118 installer
+is superseded and should not be used because it does not contain the current
+agent setup fix. The build-119 package has not been installed yet. After
+installation, verify the app version, protected-service restart and fresh
+Codex/Claude Code access before enabling real account acceptance.
+Harel/Phoenix SMS, Lemon Squeezy authenticator, real website email verification
+and physical-phone delivery also remain unverified. See
 [current acceptance](../docs/production-gates.md).
 
 The complete build 116 package was then opened over this existing installation.
