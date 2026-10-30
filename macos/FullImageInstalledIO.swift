@@ -326,7 +326,8 @@ enum FullImagePreparationInspector {
         }
         guard InstallerPayloadIO.same(before, try InstallerPayloadIO.check(fd, owner: owner, directory: true)) else { throw FullImageFailure.journal }
     }
-    static func retained(_ namespace: Int32, plan: String, owner: uid_t, group: gid_t) throws -> Int {
+    static func retained(_ namespace: Int32, plan: String, owner: uid_t, group: gid_t,
+                         allowOtherPlanPreparations: Bool = false) throws -> Int {
         guard FullImageJSON.hex(plan) else { throw FullImageFailure.journal }
         let before = try InstallerPayloadIO.check(namespace, owner: owner, directory: true)
         guard before.st_gid == group, before.st_mode & 0o7777 == 0o700 else { throw FullImageFailure.journal }
@@ -334,8 +335,22 @@ enum FullImagePreparationInspector {
         var count = 0, nodes = 0, bytes: Int64 = 0
         for name in try InstallerPayloadIO.contents(namespace) {
             if name == "transition-" + plan || name == "head.json" { continue }
-            guard name.hasPrefix(prefix), let uuid = UUID(uuidString: String(name.dropFirst(prefix.count))),
-                  uuid.uuidString.lowercased() == String(name.dropFirst(prefix.count)) else { throw FullImageFailure.journal }
+            // Unpublished preparations carry no authority and are never used as
+            // payload or history. A direct successor may retain an older plan's
+            // preparation after the same bounded metadata inspection. Published
+            // foreign transitions and malformed names remain conflicts.
+            let selectedPrefix: String
+            if name.hasPrefix(prefix) { selectedPrefix = prefix }
+            else {
+                let marker = ".preparing-", hashEnd = marker.count + 64
+                guard allowOtherPlanPreparations, name.hasPrefix(marker), name.count > hashEnd,
+                      name[name.index(name.startIndex, offsetBy: hashEnd)] == "-" else { throw FullImageFailure.journal }
+                let retainedPlan = String(name.dropFirst(marker.count).prefix(64))
+                guard FullImageJSON.hex(retainedPlan) else { throw FullImageFailure.journal }
+                selectedPrefix = marker + retainedPlan + "-"
+            }
+            guard let uuid = UUID(uuidString: String(name.dropFirst(selectedPrefix.count))),
+                  uuid.uuidString.lowercased() == String(name.dropFirst(selectedPrefix.count)) else { throw FullImageFailure.journal }
             count += 1; guard count <= 8 else { throw FullImageFailure.journal }
             var before = stat(), after = stat()
             guard fstatat(namespace, name, &before, AT_SYMLINK_NOFOLLOW) == 0 else { throw FullImageFailure.journal }

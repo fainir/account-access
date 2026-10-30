@@ -23,6 +23,64 @@ import Darwin
     private static func object(_ node: InstallerPayloadNode?, inode: UInt64) -> ComponentObject? {
         node.map { .init(device: 7, inode: inode, mode: UInt16($0.mode!), bytes: $0.size!, sha256: $0.sha256!) }
     }
+    private static func retainedPreparationChecks() throws -> Int {
+        let rootPath = NSTemporaryDirectory() + "account-access-retained-" + UUID().uuidString.lowercased()
+        guard mkdir(rootPath, 0o700) == 0 else { throw FullImageFailure.object }
+        defer { try? FileManager.default.removeItem(atPath: rootPath) }
+        let root = open(rootPath, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard root >= 0 else { throw FullImageFailure.object }
+        defer { Darwin.close(root) }
+        func directory(_ parent: Int32, _ name: String) throws -> Int32 {
+            guard mkdirat(parent, name, 0o700) == 0 else { throw FullImageFailure.object }
+            let fd = openat(parent, name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+            guard fd >= 0 else { throw FullImageFailure.object }
+            return fd
+        }
+        let namespace = try directory(root, "namespace"); defer { Darwin.close(namespace) }
+        let current = DirectRuntimeUpgradeSource.planSHA256
+        let old = "681f2b48c2b35bc1ccdb4309da636b1b88fcbeb2b2ae982b92dbf0c4198dd51e"
+        let name = ".preparing-" + old + "-" + UUID().uuidString.lowercased()
+        let retained = try directory(namespace, name); defer { Darwin.close(retained) }
+        let content = Data("earlier unpublished preparation".utf8)
+        _ = try ComponentFiles.writeExclusive(retained, "partial", data: content, owner: getuid(), mode: 0o600)
+        let before = try ComponentFiles.observe(retained, "partial", owner: getuid())
+        var checks = 0
+        func observe(_ allow: Bool = true) throws -> Int {
+            try FullImagePreparationInspector.retained(namespace, plan: current, owner: getuid(), group: getgid(),
+                allowOtherPlanPreparations: allow)
+        }
+        func refuses(_ body: () throws -> Void) throws {
+            var rejected = false
+            do { try body() } catch { rejected = true }
+            try require(rejected); checks += 1
+        }
+        try refuses { _ = try observe(false) }
+        try require(try observe() == 1); checks += 1
+        try require(try ComponentFiles.observe(retained, "partial", owner: getuid()) == before)
+        try require(try Data(contentsOf: URL(fileURLWithPath: rootPath + "/namespace/" + name + "/partial")) == content)
+        checks += 1
+        let publishedName = "transition-" + old
+        let published = try directory(namespace, publishedName); Darwin.close(published)
+        try refuses { _ = try observe() }
+        try FileManager.default.removeItem(atPath: rootPath + "/namespace/" + publishedName)
+        let malformed = try directory(namespace, ".preparing-not-a-plan"); Darwin.close(malformed)
+        try refuses { _ = try observe() }
+        try FileManager.default.removeItem(atPath: rootPath + "/namespace/.preparing-not-a-plan")
+        guard linkat(retained, "partial", root, "outside-hardlink", 0) == 0 else { throw FullImageFailure.object }
+        try refuses { _ = try observe() }
+        guard unlinkat(root, "outside-hardlink", 0) == 0,
+              fchmodat(retained, "partial", 0o666, 0) == 0 else { throw FullImageFailure.object }
+        try refuses { _ = try observe() }
+        guard fchmodat(retained, "partial", 0o600, 0) == 0 else { throw FullImageFailure.object }
+        for _ in 0..<7 {
+            let child = try directory(namespace, ".preparing-" + old + "-" + UUID().uuidString.lowercased())
+            Darwin.close(child)
+        }
+        try require(try observe() == 8); checks += 1
+        let ninth = try directory(namespace, ".preparing-" + old + "-" + UUID().uuidString.lowercased()); Darwin.close(ninth)
+        try refuses { _ = try observe() }
+        return checks
+    }
     static func main() {
         do {
             guard CommandLine.arguments.count == 2 else { throw FullImageFailure.source }
@@ -192,9 +250,11 @@ import Darwin
                         targetSourceCommit: DirectRuntimeUpgradeSource.sourceCommit))
             } catch { refusals += 1 }
             try require(refusals == 6)
+            let retainedChecks = try retainedPreparationChecks()
+            try require(retainedChecks == 9)
             let report: [String: Any] = ["status": "PASSED", "changed_nodes": source.changed.count,
                 "units": count, "direct_files_added": additions, "direct_files_removed": removals,
-                "projection_checks": 2, "journal_operations": journalOperations.count, "refusal_checks": refusals, "installed_reads": false,
+                "retained_preparation_checks": retainedChecks, "projection_checks": 2, "journal_operations": journalOperations.count, "refusal_checks": refusals, "installed_reads": false,
                 "service_actions": false, "production_ready": false]
             let encoded = try JSONSerialization.data(withJSONObject: report, options: [.sortedKeys])
             print(String(decoding: encoded, as: UTF8.self))

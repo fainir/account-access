@@ -399,7 +399,8 @@ extension ComponentController {
         // from intent bytes or normalize an existing installed object.
         let beforeGroup = support.identity.group
         guard try InstallerPayloadIO.check(namespace, owner: 0, directory: true).st_ino == namespaceRoute.identity.inode else { throw FullImageFailure.object }
-        let orphans = try FullImagePreparationInspector.retained(namespace, plan: pins.planSHA256, owner: 0, group: 0)
+        let orphans = try FullImagePreparationInspector.retained(namespace, plan: pins.planSHA256, owner: 0, group: 0,
+            allowOtherPlanPreparations: source.directRuntimeDelta)
         let hasIntent = try InstallerPayloadIO.contents(namespace).contains("transition-" + pins.planSHA256)
         if source.directRuntimeDelta && hasIntent { try originalReceipt(original, ownerUID: ownerUID) }
         // This namespace belongs to exactly this repaired-image successor. A foreign head

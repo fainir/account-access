@@ -200,6 +200,20 @@ def run(args):
         previous_root.rmdir()
         check('same_volume_support_root_replaced', BASE.stat().st_ino != roots[str(BASE)][1])
         image_matches(manifest)
+        # Reproduce the owner's retained, unpublished earlier-plan preparation.
+        # It stays opaque and must keep its original inode and bytes.
+        TRANSITION.mkdir(mode=0o700)
+        os.chown(TRANSITION, 0, 0)
+        prior_preparation = TRANSITION / '.preparing-681f2b48c2b35bc1ccdb4309da636b1b88fcbeb2b2ae982b92dbf0c4198dd51e-ddff6846-ab86-4335-a2d1-16c0b0a7738b'
+        prior_preparation.mkdir(mode=0o700)
+        (prior_preparation / 'files').mkdir(mode=0o700)
+        (prior_preparation / 'trees').mkdir(mode=0o700)
+        (prior_preparation / 'trees/public').mkdir(mode=0o755)
+        prior_file = prior_preparation / 'files/partial'
+        prior_file.write_bytes(b'Synthetic earlier unpublished public preparation\n')
+        prior_file.chmod(0o644)
+        prior_state = (prior_preparation.stat().st_ino, prior_file.stat().st_ino, prior_file.read_bytes())
+        check('earlier_unpublished_preparation_seeded', True)
         candidate = args.inputs / 'candidate.pkg'
         command('candidate-signature', ['/usr/sbin/pkgutil', '--check-signature', candidate])
         command('candidate-gatekeeper', ['/usr/sbin/spctl', '--assess', '--type', 'install', candidate])
@@ -219,6 +233,8 @@ def run(args):
                     (args.output / (attempt + '-daemon.log')).write_bytes(stream.read(128 * 1024))
             image_matches(target)
             check(attempt + '_exact_target', True)
+            check(attempt + '_prior_preparation_preserved',
+                  (prior_preparation.stat().st_ino, prior_file.stat().st_ino, prior_file.read_bytes()) == prior_state)
             recovery = json.loads((BINDING / 'recovered-v2.json').read_bytes())
             check(attempt + '_recovery_bound', recovery['schema'] == 2
                   and recovery['previous_supplement_sha256'] == digest(encoded(prior))
