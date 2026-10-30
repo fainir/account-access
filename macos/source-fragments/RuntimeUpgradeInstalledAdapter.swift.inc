@@ -253,6 +253,91 @@ extension ComponentController {
 }
 
 extension ComponentController {
+    private static func recoverDirectRootBindingIfRequired(source: RuntimeUpgradeSource, original: Int32,
+            ownerUID: uid_t, ownerGroup: gid_t, brokerUID: uid_t,
+            installData: Data, hostData: Data, profileData: Data,
+            worker: (Data, ComponentObject), servicePlist: ComponentObject) throws {
+        let legacy = try InstallationRootBinding.readLegacy(original, ownerUID: ownerUID,
+            manifestSHA256: DirectRuntimeUpgradeSource.originalReceipt)
+        guard try InstallationRootBinding.hasSupplementNamespace() else {
+            guard try InstallationRootBinding.exactLegacy(legacy,
+                    current: InstallationRootBinding.capture(withVolumeUUID: false)) else {
+                throw ComponentUpdateFailure.base
+            }
+            return
+        }
+
+        let binding = try InstallationRootBinding.receiptDirectory(create: false)
+        defer { Darwin.close(binding) }
+        let names = try InstallerPayloadIO.contents(binding)
+        if names == [InstallationRootBinding.receiptName, InstallationRootBinding.recoveryName] {
+            try originalReceipt(original, ownerUID: ownerUID)
+            return
+        }
+        guard names == [InstallationRootBinding.receiptName]
+                || names == [InstallationRootBinding.receiptName, InstallationRootBinding.pendingRecoveryName] else {
+            throw ComponentUpdateFailure.journal
+        }
+        let previous = try InstallationRootBinding.readOriginalSupplement(binding)
+        let current = try InstallationRootBinding.capture(withVolumeUUID: true)
+        do {
+            try InstallationRootBinding.validateSupplement(previous, legacy: legacy, current: current)
+            try originalReceipt(original, ownerUID: ownerUID)
+            return
+        } catch {
+            try InstallationRootBinding.requireRecoveryReplacement(previous: previous, legacy: legacy, current: current)
+        }
+
+        let install = try publicRead("broker/install.json", mode: 0o600)
+        let host = try publicRead("broker/host.json", mode: 0o644)
+        let profile = try publicRead("owner.json", mode: 0o644)
+        let brokerPolicy = try runtimeDirectPolicy(source: source, install: installData, host: hostData,
+            profile: profileData, worker: worker.0, ownerUID: ownerUID)
+        guard brokerPolicy.brokerUID == brokerUID, install.0 == installData, host.0 == hostData,
+              profile.0 == profileData, worker.1.mode == 0o644, servicePlist.mode == 0o644 else {
+            throw ComponentUpdateFailure.base
+        }
+        try identity(ownerUID, brokerUID)
+        let service = ComponentRevalidationServiceObserver(observe: {
+            try ComponentCommands.launchctl(["print", "system/" + label])
+        }, attest: {
+            try ComponentUpdateIdentity.jobSnapshot(output: $0, allowedPeers: [source.oldPeers["broker"]!])
+        })
+        let hashes = ["install": install.1.sha256, "host": host.1.sha256, "owner": profile.1.sha256,
+                      "worker": worker.1.sha256, "service": servicePlist.sha256]
+        let verifyCurrent = {
+            try ComponentProcesses.requireOwnerClosed()
+            guard try owner().0 == ownerUID, try owner().1 == ownerGroup,
+                  try InstallationRootBinding.readLegacy(original, ownerUID: ownerUID,
+                      manifestSHA256: DirectRuntimeUpgradeSource.originalReceipt) == legacy,
+                  try InstallationRootBinding.readOriginalSupplement(binding) == previous,
+                  try InstallationRootBinding.capture(withVolumeUUID: true) == current,
+                  try publicRead("broker/install.json", mode: 0o600) == install,
+                  try publicRead("broker/host.json", mode: 0o644) == host,
+                  try publicRead("owner.json", mode: 0o644) == profile,
+                  try publicRead("broker/worker.json", mode: 0o644) == worker,
+                  try jobPlist(ownerGroup: ownerGroup) == servicePlist else { throw ComponentUpdateFailure.base }
+            let policy = try runtimeDirectPolicy(source: source, install: install.0, host: host.0,
+                profile: profile.0, worker: worker.0, ownerUID: ownerUID)
+            guard policy.brokerUID == brokerUID else { throw ComponentUpdateFailure.base }
+            try identity(ownerUID, brokerUID)
+            _ = try InstallerPayloadIO.installedImage(source.before, opaquePrivateBranches: true)
+            try runtimeSignatures(source, root: InstallerPayloadManifest.support, after: false)
+            try service.verify()
+        }
+        try verifyCurrent()
+        let data = try InstallationRootBinding.recoverySupplement(legacy: legacy, previous: previous,
+            current: current, planSHA256: source.planSHA256, sourceCommit: source.targetSourceCommit,
+            policyHashes: hashes)
+        try InstallationRootBinding.prepareRecoverySupplement(binding, data: data)
+        try verifyCurrent()
+        try ComponentFiles.rename(binding, InstallationRootBinding.pendingRecoveryName,
+                                  binding, InstallationRootBinding.recoveryName, swap: false)
+        try InstallationRootBinding.validateSupplement(InstallationRootBinding.readSupplement(binding),
+                                                        legacy: legacy, current: current)
+        try verifyCurrent()
+    }
+
     static func runRuntimeUpgrade(resources: Int32, pins: RuntimeUpgradeSource.Pins,
             repairPins: BrokerRepairSource.Pins, predecessorPins: FullImageSourcePins,
             checkpoint: (FullImageInstallCheckpoint) -> Void = { _ in }) throws -> String {
@@ -299,7 +384,7 @@ extension ComponentController {
         let (ownerUID, ownerGroup) = try owner()
         let original = try directory(oldJournal, mode: 0o700); defer { Darwin.close(original) }
         let originalLease = try lease(original, "lock"); defer { Darwin.close(originalLease) }
-        try originalReceipt(original, ownerUID: ownerUID)
+        if !source.directRuntimeDelta { try originalReceipt(original, ownerUID: ownerUID) }
         let brokerDirectory = try InstallerPayloadIO.directory(ComponentSource.support + "/broker", owner: 0)
         defer { Darwin.close(brokerDirectory) }
         let provisionLease = try lease(brokerDirectory, "install.lock"); defer { Darwin.close(provisionLease) }
@@ -316,6 +401,7 @@ extension ComponentController {
         guard try InstallerPayloadIO.check(namespace, owner: 0, directory: true).st_ino == namespaceRoute.identity.inode else { throw FullImageFailure.object }
         let orphans = try FullImagePreparationInspector.retained(namespace, plan: pins.planSHA256, owner: 0, group: 0)
         let hasIntent = try InstallerPayloadIO.contents(namespace).contains("transition-" + pins.planSHA256)
+        if source.directRuntimeDelta && hasIntent { try originalReceipt(original, ownerUID: ownerUID) }
         // This namespace belongs to exactly this repaired-image successor. A foreign head
         // cannot select another predecessor or authorize a second transition.
         if !hasIntent { guard try ComponentFiles.observe(namespace, "head.json", owner: 0) == nil else { throw FullImageFailure.journal } }
@@ -383,6 +469,14 @@ extension ComponentController {
         }
         try identity(ownerUID, authority.brokerUID)
         guard matches(worker.1, authority.workerPolicy), matches(plist, authority.servicePlist) else { throw FullImageFailure.object }
+        if source.directRuntimeDelta && !hasIntent {
+            guard let directOriginals else { throw FullImageFailure.predecessor }
+            try recoverDirectRootBindingIfRequired(source: source, original: original, ownerUID: ownerUID,
+                ownerGroup: ownerGroup, brokerUID: authority.brokerUID,
+                installData: directOriginals.install, hostData: directOriginals.host,
+                profileData: directOriginals.profile, worker: worker, servicePlist: plist)
+            try originalReceipt(original, ownerUID: ownerUID)
+        }
         checkpoint(.preparation)
         let intent: FullImageGlobalIntent
         if let preliminary { intent = preliminary }

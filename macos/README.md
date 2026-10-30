@@ -3,18 +3,16 @@
 This is a native installer and owner interface for macOS 14 (Sonoma) or later.
 
 **Current owner-Mac status (30 October):** `/Applications/Account Access.app`
-still reports version 0.8.0 build 110; there is no build-119 install receipt.
-The build-119 candidate was qualified from the pinned build-118 base, but its
-package file is now missing from both its temporary build directory and
-Downloads. The previous handoff incorrectly said it was available in Downloads.
-Do not install the older build-117 package. The build-118 source image and the
-build-119 package output must be restored or rebuilt before owner installation.
-When rebuilding, pass `--publish-to /Users/<owner>/Downloads/Account-Access-Direct-Upgrade-119-signed.pkg`
-to `scripts/build_direct_runtime_upgrade_candidate.py`; the builder atomically
-publishes without overwriting and rechecks the copied signature, notarization,
-staple and Gatekeeper result. Only ask for installation after that path exists
-and those checks pass. Then verify the app version, protected-service restart
-and fresh Codex/Claude Code access before enabling real account acceptance.
+still reports version 0.8.0 build 110. The persistent build-119 package in
+Downloads was opened in Installer and safely refused before mutation with
+`component_base_not_verified` at the context checkpoint. Do not retry it: its
+updater predates the direct root-recovery fix. The direct 110-to-119 source path
+now performs the recovery before preparation and passes local full-image,
+72-case runtime and 184-unit direct native probes. It still needs hosted CI,
+actual Installer acceptance, and a newly signed, notarized, stapled and
+Gatekeeper-checked successor before installation. After that install, verify the app version, protected
+service restart and fresh Codex/Claude Code access before enabling real account
+acceptance. See [the production ledger](../READINESS.md).
 Harel/Phoenix SMS, Lemon Squeezy authenticator, real website email verification
 and physical-phone delivery also remain unverified. See
 [current acceptance](../docs/production-gates.md).

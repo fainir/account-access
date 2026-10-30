@@ -48,6 +48,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--inputs", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--resume", action="store_true",
+                        help="reuse an exact-source native compile in this output directory")
     args = parser.parse_args()
     require(sys.platform == "darwin" and os.getuid() > 0 and os.geteuid() == os.getuid(), "ordinary_mac_required")
     inputs = args.inputs.absolute()
@@ -55,7 +57,11 @@ def main() -> None:
     require(stat.S_ISDIR(info.st_mode) and info.st_uid == os.getuid(), "unsafe_input_directory")
     raws = {name: read_public_input(inputs, name) for name in INPUTS}
     output = args.output.absolute()
-    output.mkdir(mode=0o700)
+    if args.resume:
+        info = output.lstat()
+        require(output.is_dir() and not output.is_symlink() and info.st_uid == os.getuid(), "unsafe_resume_output")
+    else:
+        output.mkdir(mode=0o700)
     shared = runpy.run_path(str(ROOT / "scripts/mac_full_image_installed_probe.py"))
     names = ["macos/" + name for name in shared["DEPENDENCIES"]]
     names += ["macos/ComponentUpdate.swift", *shared["FRAGMENTS"], "macos/FullImageInstalledIO.swift",
@@ -63,9 +69,13 @@ def main() -> None:
               "macos/Tests/DirectRuntimeUpgradeSourceChecks.swift"]
     require(len(names) == len(set(names)), "duplicate_native_source")
     sources = output / "sources"
-    sources.mkdir(mode=0o700)
+    if args.resume:
+        require(sources.is_dir() and not sources.is_symlink(), "resume_sources_missing")
+    else:
+        sources.mkdir(mode=0o700)
     pins: dict[str, str] = {}
     paths: list[str] = []
+    compiler_basenames: set[str] = set()
     for name in names:
         raw = (ROOT / name).read_bytes()
         if name == "macos/ComponentUpdate.swift":
@@ -73,27 +83,44 @@ def main() -> None:
             raw = b"\n".join([raw, *fragments])
         if name in shared["FRAGMENTS"]:
             continue
-        destination = sources / Path(name).name
-        require(not destination.exists(), "duplicate_compiler_basename")
-        destination.write_bytes(raw)
+        basename = Path(name).name
+        require(basename not in compiler_basenames, "duplicate_compiler_basename")
+        compiler_basenames.add(basename)
+        destination = sources / basename
+        if args.resume:
+            require(destination.is_file() and not destination.is_symlink() and destination.read_bytes() == raw,
+                    "resume_source_mismatch")
+        else:
+            destination.write_bytes(raw)
         pins[name] = digest((ROOT / name).read_bytes())
         if name == "macos/ComponentUpdate.swift":
             for fragment in shared["FRAGMENTS"]:
                 pins[fragment] = digest((ROOT / fragment).read_bytes())
         paths.append(str(destination))
     data = output / "inputs"
-    data.mkdir(mode=0o700)
-    for name, raw in raws.items():
-        (data / name).write_bytes(raw)
+    if args.resume:
+        require(data.is_dir() and not data.is_symlink(), "resume_inputs_missing")
+        for name, raw in raws.items():
+            item = data / name
+            require(item.is_file() and not item.is_symlink() and item.read_bytes() == raw, "resume_input_mismatch")
+    else:
+        data.mkdir(mode=0o700)
+        for name, raw in raws.items():
+            (data / name).write_bytes(raw)
     binary = output / "direct-source-check"
     command = ["/usr/bin/xcrun", "swiftc", "-j", "2", "-parse-as-library", "-warnings-as-errors",
         "-framework", "Foundation", "-framework", "CryptoKit", "-framework", "Security", *paths, "-o", str(binary)]
-    result = subprocess.run(command, cwd=ROOT, stdin=subprocess.DEVNULL, capture_output=True, timeout=900)
-    (output / "compile.stdout").write_bytes(result.stdout)
-    (output / "compile.stderr").write_bytes(result.stderr)
-    require(result.returncode == 0 and not result.stderr, "native_direct_probe_compile_failed")
+    if args.resume:
+        require(binary.is_file() and not binary.is_symlink()
+                and not (output / "compile.stdout").read_bytes()
+                and not (output / "compile.stderr").read_bytes(), "resume_native_compile_incomplete")
+    else:
+        result = subprocess.run(command, cwd=ROOT, stdin=subprocess.DEVNULL, capture_output=True, timeout=900)
+        (output / "compile.stdout").write_bytes(result.stdout)
+        (output / "compile.stderr").write_bytes(result.stderr)
+        require(result.returncode == 0 and not result.stderr, "native_direct_probe_compile_failed")
     executed = subprocess.run([str(binary), str(data)], cwd=ROOT, stdin=subprocess.DEVNULL,
-        capture_output=True, timeout=120)
+        capture_output=True, timeout=600)
     (output / "run.stdout").write_bytes(executed.stdout)
     (output / "run.stderr").write_bytes(executed.stderr)
     require(executed.returncode == 0 and not executed.stderr, "native_direct_probe_failed")

@@ -1,11 +1,28 @@
 from __future__ import annotations
 
 import hashlib
+from pathlib import Path
 
 import pytest
 
 from macos import direct_runtime_upgrade_plan as plan
 from scripts import build_direct_runtime_upgrade_candidate as candidate
+
+
+def test_first_direct_update_recovers_root_binding_before_receipt_recheck():
+    adapter = (Path(__file__).parents[1] / "macos/source-fragments/RuntimeUpgradeInstalledAdapter.swift.inc").read_text()
+    recovery = adapter.index("private static func recoverDirectRootBindingIfRequired")
+    run = adapter.index("static func runRuntimeUpgrade")
+    resumed_receipt = adapter.index("if source.directRuntimeDelta && hasIntent { try originalReceipt")
+    first_attempt = adapter.index("if source.directRuntimeDelta && !hasIntent {")
+    recovery_call = adapter.index("try recoverDirectRootBindingIfRequired", first_attempt)
+    post_recovery_receipt = adapter.index("try originalReceipt(original, ownerUID: ownerUID)", recovery_call)
+    preparation = adapter.index("checkpoint(.preparation)", post_recovery_receipt)
+
+    assert recovery < run < resumed_receipt < first_attempt < recovery_call < post_recovery_receipt < preparation
+    assert "InstallationRootBinding.recoverySupplement" in adapter[recovery:run]
+    assert "InstallationRootBinding.validateSupplement" in adapter[recovery:run]
+    assert "try InstallationRootBinding.capture(withVolumeUUID: true) == current" in adapter[recovery:run]
 
 
 def file(digest: str, size: int = 1, mode: int = 0o644):

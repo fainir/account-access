@@ -86,9 +86,9 @@ EXACT_INPUTS = {
     'macos/source-fragments/BrokerRepairInstalledAdapter.swift.inc': '78bf44ef76b136733f2b21b53879872915582d463d1a12a1ef6a5fe2c8402dca',
     'macos/source-fragments/CompletedComponentPredecessor.swift.inc': 'bda8f8138e64f4f1bad0a05e35f63a4d05922ff19d12a1e0d8371ac8cb886be7',
     'macos/source-fragments/FullImageInstalledAdapter.swift.inc': '0b66200d82a8239a41bdeadb6b1be336f6644c32032aa45bbdf8d45257a732ab',
-    'macos/source-fragments/RuntimeUpgradeInstalledAdapter.swift.inc': 'c5ef1e6d82019437fd7a8cb8eb373ab081333ab12db936e75e71659012698762',
+    'macos/source-fragments/RuntimeUpgradeInstalledAdapter.swift.inc': '1a6003690556096c405291e89710a7b2d6ca75228b203b5fc3501c06ac729a65',
 }
-COMPOSED_SHA256 = '0eebb214354c88fba9f4582e5999739462445f5a15e6cdd75b0cf7b4f76d31a8'
+COMPOSED_SHA256 = '43ef446b15597c53b4fd7b348d1b7e7c31fe5fb45c3ec48e7e949ca07ab47ec0'
 GUARD_ENV = "ACCOUNT_ACCESS_FULL_IMAGE_PROBE_GUARD"
 DISPATCHER = b'''import Foundation
 import Darwin

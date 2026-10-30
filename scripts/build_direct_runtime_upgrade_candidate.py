@@ -26,7 +26,7 @@ AFTER_SHA256 = "630e77605faac2dfdace9faaa5da55e671335c6b18e62114d7f0224a8574f24c
 TARGET_SOURCE = "d5f7c074a4cc1df48b743bf109cf6d99986a2ca5"
 TARGET_IMAGE_BUILDER_COMMIT = "217b614cb0f38c1f51f9c62dc094cf9f26165108"
 BASE_IMAGE_SHA256 = "bb14a99941c7a82938cd0e9b3f91a16ab975e6cdd61a30741d29726a7f7bed38"
-COMPONENT_ID = "com.fainir.accountaccess.directruntimeupgrade119"
+COMPONENT_ID = "com.fainir.accountaccess.directruntimeupgrade119recovery"
 HELPER_ID = "com.fainir.accountaccess.componentupdate"
 TEAM = "WBULD6N4NQ"
 SUPPORT_RELATIVE = "Library/Application Support/Account Access"
@@ -478,10 +478,10 @@ exec "$AC_PACKAGE_SCRIPTS/AccountAccess-runtimeupgrade"
         and info.count(b'postinstall-action="none"') == 1, "package_info_contract_mismatch")
     info_path.write_bytes(info.replace(b'timeout="600"', b'timeout="1800"').replace(
         b'postinstall-action="none"', b'postinstall-action="restart"'))
-    package = output / "Account-Access-Direct-Upgrade-119.pkg"
+    package = output / "Account-Access-Direct-Upgrade-119-root-recovery.pkg"
     command("assemble-package", ["/usr/bin/xar", "--compression=none", "-cf", package,
         "PackageInfo", "Scripts"], cwd=container, timeout=600)
-    signed = output / "Account-Access-Direct-Upgrade-119-signed.pkg"
+    signed = output / "Account-Access-Direct-Upgrade-119-root-recovery-signed.pkg"
     command("sign-package", ["/usr/bin/productsign", "--sign", args.installer_identity, package, signed], timeout=300)
     package.unlink()
     notary_raw = command("notarize", ["/usr/bin/xcrun", "notarytool", "submit", signed,
