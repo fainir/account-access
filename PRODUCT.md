@@ -21,12 +21,12 @@ Complete a reviewed sign-in step locally, using only the credentials and verific
 | Authenticator verification | Enroll an original setup key or supported QR and use a current TOTP code for a supported login. | Invalid, expired or mismatched codes fail without changing enrollment or revealing the secret. |
 | AI agent access | A fresh local Codex or Claude Code session discovers approved operations and requests a permitted read in ordinary language. | Unsupported sites, unapproved operations, unavailable service or expired owner permission are refused without returning secrets. |
 | Account data controls | Review, edit, export or delete saved account data, and create or restore a password-protected encrypted vault backup. | Invalid export requests preserve the vault; a wrong backup passphrase or interrupted restore leaves the prior vault intact; deletion does not claim secure erasure of external copies. |
-| Harel and Phoenix sign-in | Use a reviewed insurer connector and approved Android SMS, returning only permitted session status. | Unrecognized page changes, unsupported challenges or insurer outages stop before an unapproved action. |
 | Recovery and privacy | Revoke access, expire a session and recover from a provider outage without sharing secrets. | Replayed, stale or ambiguous verification and unauthorized callers are refused and logged without secret values. |
 
 ## Non-goals
 
 - Arbitrary websites are not automatically supported. Each site needs a reviewed, narrow connector.
+- Direct Harel and Phoenix sign-in automation is excluded from v1. Their provider-specific request and challenge contracts have not passed private acceptance; Account Access must refuse these flows until each connector is separately qualified.
 - The agent cannot make payments, change policy details, approve account recovery or bypass a site's own owner challenge.
 - Cloud agents cannot reach the local service unless a separately reviewed secure relay is added.
 - Chrome live password sync is not shipped; Chrome import is a reviewed snapshot.
@@ -58,8 +58,9 @@ The product is local-first. The owner app and protected service run on Apple sil
 - 2026-10-28 - Keep Account Access local-first and support only reviewed connectors.
 - 2026-10-28 - Treat Harel and Phoenix as requested provider targets, not as supported until their real sign-in flows pass QA.
 - 2026-10-28 - Do not publish a production release until the signed installer, protected service and agent path pass on the owner Mac.
+- 2026-10-30 - Keep Harel and Phoenix out of v1's supported-provider list until their exact login, SMS delivery and authenticated-session contracts pass review and owner acceptance. The generic login engine must continue to refuse unqualified insurer flows.
 - 2026-10-28 - No cloud hosting or paid SMS relay is assumed for v1; recurring provider cost remains $0 unless the owner approves a later service.
 
 ## Open questions
 
-- None for the current build. The requested insurer set is Harel and Phoenix; exact account acceptance will remain an owner action after connectors exist.
+- None for v1. Harel and Phoenix remain future provider targets and require separate connector implementation and acceptance before being listed as supported.

@@ -5,6 +5,18 @@ Neither provider is currently a bundled supported connector. Public-page
 inspection on 22 October 2026 did not submit an identity number, contact detail,
 password or code, and did not access an insurance account.
 
+## v1 release scope
+
+As of 30 October 2026, Harel and Phoenix are not supported by the v1 release.
+Their observed login forms are not sufficient to implement a safe connector:
+Harel's complete request/challenge flow is not qualified, and Phoenix's
+state-bound request contract is unavailable. The generic login engine must
+continue to refuse these sites. Reopen this work only after the exact
+provider-owned login sequence, SMS binding, success marker and session scope
+are documented and each provider passes synthetic refusal tests plus owner
+acceptance on the real site and paired phone. Do not market either insurer as
+supported before that evidence exists.
+
 | Provider | Official entry | Public login observed | Remaining provider evidence |
 | --- | --- | --- | --- |
 | Harel | [Personal area](https://www.harel-group.co.il/Pages/login-page/Login.aspx) | Header controls `#idUser` / `#phone`; the direct login dialog uses `#uid` / `#phone` and defaults to SMS. | Bound request sequence, live code screen, sender/template, authenticated marker, session expiry and session-status scope. |
