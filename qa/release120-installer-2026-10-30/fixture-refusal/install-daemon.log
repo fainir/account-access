@@ -1,0 +1,61 @@
+2026-10-30 19:14:30+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installer[3027]: Referenced component packages (1) trustLevel=350
+2026-10-30 19:14:30+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installer[3027]: -[IFPKGDerivedDocument sortedPackageLocations]: result = (
+	    "file://localhost"
+	)
+2026-10-30 19:14:30+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installer[3027]: -[IFDInstallController(Private) _buildInstallPlanReturningError:]: location = file://localhost
+2026-10-30 19:14:30+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installer[3027]: -[IFDInstallController(Private) _buildInstallPlanReturningError:]: file://localhost/Users/runner/work/_temp/direct-inputs/candidate.pkg
+2026-10-30 19:14:30+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installer[3027]: Set authorization level to root for session
+2026-10-30 19:14:30+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installer[3027]: Authorization is being checked, waiting until authorization arrives.
+2026-10-30 19:14:30+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installer[3027]: Administrator authorization granted.
+2026-10-30 19:14:30+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installer[3027]: Packages have been authorized for installation.
+2026-10-30 19:14:30+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installer[3027]: Will use PK session
+2026-10-30 19:14:30+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installer[3027]: Using authorization level of root for IFPKInstallElement
+2026-10-30 19:14:30+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installer[3027]: Starting installation:
+2026-10-30 19:14:30+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installer[3027]: Configuring volume "Macintosh HD"
+2026-10-30 19:14:30+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installer[3027]: Preparing disk for local booted install.
+2026-10-30 19:14:30+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installer[3027]: Free space on "Macintosh HD": 43.65 GB (43647373312 bytes).
+2026-10-30 19:14:30+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installer[3027]: Create temporary directory "/var/folders/zz/zyxvpxvq6csfxvn_n0000000000000/T//Install.3027tnlQSW"
+2026-10-30 19:14:30+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installer[3027]: IFPKInstallElement (1 packages)
+2026-10-30 19:14:30+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installer[3027]: Current Path: /usr/sbin/installer
+2026-10-30 19:14:30+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installer[3027]: Current Path: /opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/Resources/Python.app/Contents/MacOS/Python
+2026-10-30 19:14:30+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installer[3027]: Current Path: /usr/bin/sudo
+2026-10-30 19:14:30+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installd[556]: PackageKit: Adding client PKInstallDaemonClient pid=3027, uid=0 (/usr/sbin/installer)
+2026-10-30 19:14:30+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installer[3027]: PackageKit: Enqueuing install with framework-specified quality of service (utility)
+2026-10-30 19:14:30+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installd[556]: PackageKit: Set reponsibility for install to 965
+2026-10-30 19:14:30+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installd[556]: PackageKit: Hosted team responsibility for install set to team:(WBULD6N4NQ)
+2026-10-30 19:14:30+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installd[556]: PackageKit: ----- Begin install -----
+2026-10-30 19:14:30+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installd[556]: PackageKit: request=PKInstallRequest <1 packages, destination=/>
+2026-10-30 19:14:30+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installd[556]: PackageKit: packages=(
+	    "PKLeopardPackage <id=com.fainir.accountaccess.directruntimeupgrade120recovery, version=0.8.0, url=file://localhost/Users/runner/work/_temp/direct-inputs/candidate.pkg>"
+	)
+2026-10-30 19:14:34+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installd[556]: PackageKit: prevent user idle system sleep
+2026-10-30 19:14:34+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installd[556]: PackageKit: suspending Spotlight indexing
+2026-10-30 19:14:34+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installd[556]: PackageKit: suspending backupd
+2026-10-30 19:14:34+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB install_monitor[3050]: Temporarily excluding: /Applications, /Library, /System, /bin, /private, /sbin, /usr
+2026-10-30 19:14:34+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installd[556]: PackageKit: Using trashcan path /var/folders/zz/zyxvpxvq6csfxvn_n0000000000000/T/PKInstallSandboxTrash/DCAF265A-3259-4EBC-A296-224E8431F0FF.sandboxTrash for sandbox /Library/InstallerSandboxes/.PKInstallSandboxManager/DCAF265A-3259-4EBC-A296-224E8431F0FF.activeSandbox
+2026-10-30 19:14:34+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installd[556]: PackageKit: Shoving /Library/InstallerSandboxes/.PKInstallSandboxManager/DCAF265A-3259-4EBC-A296-224E8431F0FF.activeSandbox/Root (0 items) to /
+2026-10-30 19:14:34+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installd[556]: PackageKit (package_script_service): Preparing to execute script "./postinstall" in /private/tmp/PKInstallSandbox.u1OsHA/Scripts/com.fainir.accountaccess.directruntimeupgrade120recovery.C3Llcn
+2026-10-30 19:14:34+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB package_script_service[3051]: PackageKit: Preparing to execute script "postinstall" in /tmp/PKInstallSandbox.u1OsHA/Scripts/com.fainir.accountaccess.directruntimeupgrade120recovery.C3Llcn
+2026-10-30 19:14:34+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB package_script_service[3051]: Set responsibility to pid: 965, responsible_path: /opt/hca/hosted-compute-agent
+2026-10-30 19:14:34+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB package_script_service[3051]: Hosted team responsibility for script set to team:(WBULD6N4NQ)
+2026-10-30 19:14:34+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB package_script_service[3051]: PackageKit: Executing script "postinstall" in /tmp/PKInstallSandbox.u1OsHA/Scripts/com.fainir.accountaccess.directruntimeupgrade120recovery.C3Llcn
+2026-10-30 19:14:38+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB package_script_service[3051]: ./postinstall: {"schema":1,"status":"REFUSED","reason":"component_transition_conflict","checkpoint":"context"}
+2026-10-30 19:14:38+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB package_script_service[3051]: PackageKit: Hosted team responsible for script has been cleared.
+2026-10-30 19:14:38+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB package_script_service[3051]: Responsibility set back to self.
+2026-10-30 19:14:38+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installd[556]: PackageKit: releasing Spotlight indexing
+2026-10-30 19:14:38+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB install_monitor[3050]: Re-included: /Applications, /Library, /System, /bin, /private, /sbin, /usr
+2026-10-30 19:14:39+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installd[556]: PackageKit: releasing backupd
+2026-10-30 19:14:39+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installd[556]: PackageKit: allow user idle system sleep
+2026-10-30 19:14:39+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installd[556]: PackageKit: Install Failed: Error Domain=PKInstallErrorDomain Code=112 "An error occurred while running scripts from the package “candidate.pkg”." UserInfo={NSFilePath=./postinstall, NSURL=file://localhost/Users/runner/work/_temp/direct-inputs/candidate.pkg, PKInstallPackageIdentifier=com.fainir.accountaccess.directruntimeupgrade120recovery, NSLocalizedDescription=An error occurred while running scripts from the package “candidate.pkg”.} {
+	    NSFilePath = "./postinstall";
+	    NSLocalizedDescription = "An error occurred while running scripts from the package \U201ccandidate.pkg\U201d.";
+	    NSURL = "file://localhost/Users/runner/work/_temp/direct-inputs/candidate.pkg";
+	    PKInstallPackageIdentifier = "com.fainir.accountaccess.directruntimeupgrade120recovery";
+	}
+2026-10-30 19:14:39+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installd[556]: PackageKit: Cleared responsibility for install from 3027.
+2026-10-30 19:14:39+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installd[556]: PackageKit: Hosted team responsible for install has been cleared.
+2026-10-30 19:14:39+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installd[556]: PackageKit: Running idle tasks
+2026-10-30 19:14:39+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installd[556]: PackageKit: Removing client PKInstallDaemonClient pid=3027, uid=0 (/usr/sbin/installer)
+2026-10-30 19:14:39+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installer[3027]: install:didFailWithError:Error Domain=PKInstallErrorDomain Code=112 "An error occurred while running scripts from the package “candidate.pkg”." UserInfo={NSFilePath=./postinstall, NSURL=file://localhost/Users/runner/work/_temp/direct-inputs/candidate.pkg, PKInstallPackageIdentifier=com.fainir.accountaccess.directruntimeupgrade120recovery, NSLocalizedDescription=An error occurred while running scripts from the package “candidate.pkg”.}
+2026-10-30 19:14:39+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installd[556]: PackageKit: Done with sandbox removals
+2026-10-30 19:14:39+00 sjc20-bb714-ac195ecf-c1d4-42b2-8b86-995a7dcb878f-2EF2AF4156BB installer[3027]: Install failed: The Installer encountered an error that caused the installation to fail. Contact the software manufacturer for assistance.
