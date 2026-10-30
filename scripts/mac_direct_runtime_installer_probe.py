@@ -172,7 +172,16 @@ def run(args):
         target = json.loads((args.output / 'expanded/Scripts/TargetManifest.json').read_bytes())
         check('pinned_target_manifest', digest((args.output / 'expanded/Scripts/TargetManifest.json').read_bytes()) == AFTER)
         for attempt in ('install', 'reapply'):
-            command(attempt, ['/usr/sbin/installer', '-dumplog', '-verboseR', '-pkg', candidate, '-target', '/'], 2100)
+            log_path = Path('/var/log/install.log')
+            offset = log_path.stat().st_size
+            try:
+                command(attempt, ['/usr/sbin/installer', '-dumplog', '-verboseR', '-pkg', candidate, '-target', '/'], 2100)
+            finally:
+                # This VM contains only the probe's synthetic state. Preserve
+                # the new daemon output so a refusal identifies its checkpoint.
+                with log_path.open('rb') as stream:
+                    stream.seek(offset)
+                    (args.output / (attempt + '-daemon.log')).write_bytes(stream.read(128 * 1024))
             image_matches(target)
             check(attempt + '_exact_target', True)
             recovery = json.loads((BINDING / 'recovered-v2.json').read_bytes())
@@ -201,7 +210,9 @@ def run(args):
         raise
     finally:
         if touched:
-            command('stop-created-job', ['/bin/launchctl', 'bootout', 'system/' + LABEL])
+            stopped = subprocess.run(['/bin/launchctl', 'bootout', 'system/' + LABEL],
+                                     capture_output=True, timeout=30)
+            report['created_job_stopped_or_absent'] = stopped.returncode in (0, 113)
         (args.output / 'report.json').write_bytes(encoded(report) + b'\n')
 
 
