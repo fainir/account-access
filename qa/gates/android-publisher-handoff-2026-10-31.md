@@ -53,3 +53,11 @@ No QR, token or code may be read into agent output.
 Keytool's native password prompt and public-certificate export follow
 [Oracle's keytool documentation](https://docs.oracle.com/en/java/javase/12/tools/keytool.html).
 This handoff does not change the Android app image or the signed Mac packages.
+
+The implementation is pushed. Its [application/native CI](https://github.com/fainir/account-access/actions/runs/41233999568),
+[Mac worker CI](https://github.com/fainir/account-access/actions/runs/41233999585)
+and [Android journey](https://github.com/fainir/account-access/actions/runs/41233999572)
+are in progress; do not infer a pass from dispatch. The existing follow-up is
+temporarily active every 30 minutes with the same prompt to read their actual
+results and any completed publisher report, then restore its daily noon cadence
+for the unchanged macOS 14 wait. No new automation was created.
