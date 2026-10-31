@@ -17,11 +17,28 @@ have both actual artifact reports read back in the
 [offline/journey evidence](android-offline-build-2026-10-31.md).
 
 The [Mac separate-user workflow](https://github.com/fainir/account-access/actions/runs/41238775359)
-is still running at this check: its Installer-context job succeeded, and the
-cross-user job is executing offline/fully prepared package-install acceptance.
-Do not verify the aggregate publisher regression gate until this workflow's
-actual completion has been read back. The existing 30-minute follow-up remains
-active for that job; restore daily noon afterward for the dated macOS 14 wait.
+completed successfully at 22:51:54 Asia/Jerusalem. Both jobs report success:
+Installer context and cross-user acceptance. Actual artifact read-back found:
+
+| Artifact | Actual completed results |
+|---|---|
+| `mac-installer-context` | Three JSON reports: installed image VERIFIED, eight native source-handoff checks PASSED, actual Installer sandbox report PASSED. |
+| `mac-component-update-native` | Five JSON reports, including 60 core and eight policy checks PASSED, ordinary main/revalidation results and the aggregate PASSED report. |
+| `mac-worker-boundary-acceptance` | Eighteen reports, all PASSED; 426 reported checks cover distinct user identities, authorization/key boundaries, native messaging/browser integration, provisioning and both package modes. |
+
+The offline package report records `actual_installer_used: true` with sixteen
+checks. The prepared package records twenty-three checks and
+`prepared_runtime_executed: true`. Both are controlled development fixtures;
+`publisher_signed_package`, `positive_consumer_install_verified` and
+`production_ready` remain false, and `private_signins` is zero. This verifies
+current-source regression acceptance, not a new consumer release or private MFA.
+The previously qualified publisher-signed build-122 packages remain separate.
+
+The publisher regression gate is now verified. The existing follow-up was
+restored through the automation tool to ACTIVE daily noon, with its original
+prompt and chat target unchanged. Actual saved cadence was read back as
+`FREQ=DAILY;BYHOUR=12;BYMINUTE=0`. Its remaining purpose is the dated macOS 14
+compatibility check on 1 November; it must not repeat the pending signing ask.
 
 Installed state was read through the normal public launcher: app build 122,
 version 0.8.0, browser runtime READY, background recovery RUNNING, zero current or
