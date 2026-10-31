@@ -8,4 +8,6 @@ Restored the same public login through Import passwords using that export. Selec
 
 The source data controls and recovery suite covers authorization, wrong input and failure recovery (`tests/test_account_data.py`, `tests/test_vault_backup.py`). Portable backup of the protected vault is excluded from v1; this exported login is not a complete vault backup.
 
+After the restored login and evidence were verified, the temporary public export was moved to Trash. Its contents were never opened. The public login remains saved in Account Access.
+
 The first modal screenshot returned a blank image and one capture failed. Neither is used as evidence. Raising the owner window and capturing its combined state produced the valid import-result image above. The sign-in warning in that image is expected on the still-installed build 120; browser runtime repair remains D1/D4.

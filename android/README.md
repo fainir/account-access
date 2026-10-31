@@ -7,7 +7,7 @@ Android's notification-access permission grants broader access than the app's ow
 ## Setup
 
 1. Install the signed **development preview APK** from the release. It is not a Play Store distribution or a validated production phone release.
-2. In Account Access on the computer, open **Verification methods**, select the configured Android source, and click **Pair Android phone**.
+2. In the build-121 Mac candidate, open **Verification → Set up Android phone**. Enter the exact sender number or contact name shown in the phone notification, then choose **Save sender and pair Android**. This connection test is available before connecting a website. For an existing website-specific Android source, select that source and choose **Pair Android phone**.
 3. Open the phone companion and scan that QR. Camera permission is requested for this scan. Paste pairing is also available.
 4. On Android 11–14, enable **login notification access** in the Android system screen for automatic delivery. Both devices must stay on the same private Wi-Fi, and the SMS app must display the matching notification. On Android 15 and newer, the owner can enter a code manually in the companion if Android hides it from notifications; this manual path still requires pairing and Android's computer association.
 
@@ -17,6 +17,15 @@ Android** and confirm the matching discovered device in Android before enabling
 notification access. The Mac advertises a fresh discovery UUID for five minutes,
 or until you leave the pairing screen. The UUID contains no account or login data.
 Messages still travel through certificate-pinned HTTPS on private Wi-Fi.
+
+After Android confirms the computer, choose **Continue to connection test** on
+the Mac, then **Start message test**. Within two minutes, have the selected
+sender send this exact SMS: `Account Access connection test: 123456.` The Mac
+reports delivery without returning the message or test value to an AI. Cancel,
+expiry, changed pairing, unrelated messages and ambiguous deliveries stop the
+test. This test creates no website permissions and does not establish a private
+website sign-in. Pairing prepared means a QR was issued; only the completed
+message check confirms delivery.
 
 The app uses ordinary Bluetooth LE discovery, without privileged self-managed,
 computer or watch roles. Android can redact login codes from ordinary notification

@@ -154,6 +154,9 @@ connection, so sync cannot undo your edit.
 | Authenticator TOTP | Enroll the website's original setup key or supported QR locally | Generate and submit its changing six-digit code |
 
 See the [step-by-step Gmail, SMS and Google Authenticator guide](docs/gmail-authenticator-and-sms.md).
+The build-121 candidate also offers **Verification → Set up Android phone**
+before a website is connected. Its bounded [connection test](android/README.md#setup)
+confirms only a matching test message and creates no website permissions.
 The public preview has no ready-to-use consumer Google OAuth application, and
 some Google accounts cannot create app passwords. Email support depends on a
 configured Gmail API or TLS IMAP connection; arbitrary webmail is not supported.

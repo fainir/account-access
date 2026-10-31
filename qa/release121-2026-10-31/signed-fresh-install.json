@@ -2,7 +2,7 @@
   "status": "BUILT",
   "version": "0.8.0",
   "architecture": "arm64",
-  "source_commit": "46d3594d1d5502e835911b2f6a2771e446f26a55",
+  "source_commit": "9d522470201fb9d99a58679bc40bfbafa398e1fd",
   "source_tree_clean": true,
   "development": false,
   "offline_runtime": true,
@@ -23,19 +23,19 @@
     "publisher_signatures_verified": true,
     "notarization_verified": false
   },
-  "payload_manifest_sha256": "1917cff3a29b8306549287f4e6ac4fcc393dc4445f21a3ab0019c55e457b2053",
+  "payload_manifest_sha256": "0eb9a5bfab615f23f9d3d6e98f7895f7bf46e6196ef8a1e5e07115906f4d443c",
   "installer_verifier_sha256": "af3fa2fa83fa65f65ff7efbf33140ec7cb2234cc1aecbafdd07a22cbdfbe0b03",
   "payload_manifest_counts": {
-    "files": 25168,
+    "files": 25170,
     "directories": 2298,
     "aliases": 21
   },
-  "required_install_bytes": 2075975680,
+  "required_install_bytes": 2075811840,
   "native_manifest_preflight": true,
-  "sha256": "8d61efee13ffad87f81d6e86806161ef7fd251e397d347d842f2e535ed622ae3",
+  "sha256": "cda41f0f0e12f96c2a7af9a4d752abdcad9d9e5648b08861150899b5c949be31",
   "stapled": true,
   "gatekeeper": "accepted",
-  "notarization_id": "9d2981ea-94d0-4432-933b-8a375a41dad8",
-  "published_sha256": "8d61efee13ffad87f81d6e86806161ef7fd251e397d347d842f2e535ed622ae3",
-  "unstapled_package_sha256": "20327cdd673af004e1b420ba0d54c7a185fbcdb706048499b6f4b3f57b23f9f7"
+  "notarization_id": "8877ff2d-1e0c-4bfe-af1d-5e585c0aefdb",
+  "published_sha256": "cda41f0f0e12f96c2a7af9a4d752abdcad9d9e5648b08861150899b5c949be31",
+  "source_program_commit": "08d8f444c65a3a3e26aa94f7ecec5e3372582973"
 }

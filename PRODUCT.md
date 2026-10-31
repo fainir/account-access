@@ -57,6 +57,7 @@ The product is local-first. The owner app and protected service run on Apple sil
 ## Decisions
 
 - 2026-10-31 - Remove the unsupported protected-vault backup promise from v1. Preserve the tested legacy CLI separately; do not request a passphrase, access its protected key or bypass the service boundary to make that CLI target the installed vault. Installer rollback and per-account owner data controls remain in scope.
+- 2026-10-31 - Make Android pairing reachable without a website through an owner-only connection test. It accepts only the chosen sender and fixed test template in a two-minute window, creates no account grants, and does not establish private-provider sign-in acceptance.
 
 - 2026-10-28 - Keep Account Access local-first and support only reviewed connectors.
 - 2026-10-28 - Treat Harel and Phoenix as requested provider targets, not as supported until their real sign-in flows pass QA.

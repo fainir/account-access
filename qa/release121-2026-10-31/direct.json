@@ -1,26 +1,26 @@
 {
   "installed_reads": false,
   "native": {
-    "changed_nodes": 17,
+    "changed_nodes": 25,
     "direct_files_added": 0,
     "direct_files_removed": 0,
     "installed_reads": false,
-    "journal_operations": 20,
+    "journal_operations": 21,
     "production_ready": false,
     "projection_checks": 2,
     "refusal_checks": 8,
     "retained_preparation_checks": 9,
     "service_actions": false,
     "status": "PASSED",
-    "units": 16
+    "units": 17
   },
   "production_ready": false,
   "public_inputs_sha256": {
-    "after.json": "1917cff3a29b8306549287f4e6ac4fcc393dc4445f21a3ab0019c55e457b2053",
+    "after.json": "0eb9a5bfab615f23f9d3d6e98f7895f7bf46e6196ef8a1e5e07115906f4d443c",
     "before.json": "6ab5f90fa72dfed84c295d5df4741d3cb9aaf6a0fa89ed155b4cb76400570874",
-    "new-identity.json": "1aafa8179273bdd2f3766f0ef31a0aa0c31bd8bfbb0f860b1a5283fe72c016ea",
+    "new-identity.json": "c66e4f0f914f5a7c91f4b8e9883f122a0374177717232983c94b58f293d43b1d",
     "old-identity.json": "a2516e260e7970d198626d77b849c578a98a232f4a2f6114e7ae0d6050cda4d2",
-    "plan.json": "59b7741173281a6f72701f91b99ada75cc53e3bb85f2f42c666fd33b021dff69"
+    "plan.json": "e6498358b62136b0b608e83f500566e545df0f48e6b4e9c12994254b46afad67"
   },
   "service_actions": false,
   "source_sha256": {
@@ -32,12 +32,12 @@
     "macos/ComponentUpdate.swift": "9595a0ad973473414e4eb0f54784340fb22b3d75cc8f2a876fefa59433d52649",
     "macos/ComponentUpdateIdentity.swift": "a19a5c5bb645e5091f987f9fd5f457b34df0e280ef272513de68f9dd12b35370",
     "macos/ComponentUpdatePolicies.swift": "7aca759f4b9fad195851ce12d81550ec08a0753c43515574c23fc74d247060ab",
-    "macos/DirectRuntimeUpgradeSource.swift": "f9c31e992ad95ac18d9d95d7c02e75dd651853e0fc4f210c000a96cd4b4ce2c9",
+    "macos/DirectRuntimeUpgradeSource.swift": "e875e8462c6134dd5c7a1f96e96f6f35f9cf91bb1445bc043cf55c349c57af68",
     "macos/FullImageGlobalJournal.swift": "f263183ffea8b33c15c90732c2fd54625da8bb7e34aa2de30311ca01589c8c7c",
     "macos/FullImageInstalledIO.swift": "58b02bd1a606a3700ac4aef706e13fbd4b9a69811af5b843edd4937487b3f154",
     "macos/FullImagePlan.swift": "be714d798f25917690ddeced984a6a2578b05a5bbea9f8c97f333d0f8630f450",
     "macos/FullImagePredecessorAuthority.swift": "39a6c5b35ab1614f89983c799dd603b2585b9d219d7b3d7908e73b750209f603",
-    "macos/FullImageTransitionStorage.swift": "e2b910cee11717175d0170a44b1ee2d4ffc9be641a1d71517eaaf0583b5aa0f5",
+    "macos/FullImageTransitionStorage.swift": "b919ed729cff3a03eb17e2dd8e5357ca6d2d78e4ad8dbac6057a29043000b53d",
     "macos/FullImageTreeAttachment.swift": "8bb445ede216844f0a32144e99c27a9f06a80b7a76f4e78fbd9f30b65ce22a65",
     "macos/FullImageTreeStorage.swift": "30d67bb671020d070ecedfa0986e99de6ae2a1a653eb4fb012f4932b7f869fae",
     "macos/FullImageUpdatePolicies.swift": "5e7979aa6bbec9fb6d3bee200abcea482aaad753a8f2011042a9f0d62355b0d9",
