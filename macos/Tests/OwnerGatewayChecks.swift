@@ -174,6 +174,30 @@ enum GatewayChecks {
         let loginForget = try OwnerGatewayRoute("owner/account/forget", body: loginExportBody)
         result["saved_login_export_requires_owner_authorization"] = loginExport.requiresSetup
         result["saved_login_forget_is_explicit_restricted_action"] = !loginForget.requiresSetup
+        let exampleUpdate: [String: Any] = ["account": "personal-store", "fingerprint": String(repeating: "a", count: 64)]
+        result["browser_update_requires_exact_binding_and_owner_setup"] = try OwnerGatewayRoute("owner/browser-update",
+            body: JSONSerialization.data(withJSONObject: exampleUpdate)).requiresSetup
+        result["browser_update_rejects_missing_or_extra_authority"] = [
+            [:], ["account": "../bad", "fingerprint": String(repeating: "a", count: 64)],
+            ["account": "personal-store", "fingerprint": "bad"],
+            exampleUpdate.merging(["url": "https://unreviewed.example"]) { _, new in new }
+        ].allSatisfy { (try? OwnerGatewayRoute("owner/browser-update", body: JSONSerialization.data(withJSONObject: $0))) == nil }
+        let phoneSetup = try OwnerGatewayRoute("owner/phone/test/configure", body: JSONSerialization.data(withJSONObject: ["sender": "Fixture sender"]))
+        let emptyTest = try JSONSerialization.data(withJSONObject: [:] as [String: Any])
+        let phoneStart = try OwnerGatewayRoute("owner/phone/test/start", body: emptyTest)
+        let phoneCheck = try OwnerGatewayRoute("owner/phone/test/check", body: emptyTest)
+        let phoneCancel = try OwnerGatewayRoute("owner/phone/test/cancel", body: emptyTest)
+        result["phone_test_start_and_configuration_require_owner_setup"] = phoneSetup.requiresSetup
+            && phoneStart.requiresSetup
+        result["phone_test_poll_and_cancel_keep_existing_owner_channel_without_new_approval"] =
+            !phoneCheck.requiresSetup && !phoneCancel.requiresSetup
+        result["phone_test_rejects_arbitrary_window_or_code_arguments"] = ["start", "check", "cancel"].allSatisfy { action in
+            (try? OwnerGatewayRoute("owner/phone/test/" + action,
+                body: JSONSerialization.data(withJSONObject: ["code": "123456"]))) == nil
+        }
+        result["phone_test_sender_rejects_empty_controls_and_oversize"] = ["", " ", "sender\n", "x" + String(UnicodeScalar(0)!), String(repeating: "x", count: 201)].allSatisfy {
+            (try? OwnerGatewayRoute("owner/phone/test/configure", body: JSONSerialization.data(withJSONObject: ["sender": $0]))) == nil
+        }
         result["saved_login_routes_require_exact_account_handle"] = [
             ["account": "../etc"], ["account": "Demo"], ["account": "demo-web", "path": "unsafe"], [:]
         ].allSatisfy {

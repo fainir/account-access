@@ -801,6 +801,7 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         owner.showAndroidTest()
         precondition(owner.androidTestSender?.stringValue == "Fixture sender")
         precondition(descendants(owner.stack).compactMap { ($0 as? NSButton)?.title }.contains("Start message test"))
+        precondition(descendants(owner.stack).compactMap { ($0 as? NSButton)?.title }.contains("Disconnect test phone"))
         owner.androidConnectionTest = [:]
         print("PASS: browser runtime failure is visible and Android setup is reachable without a website source; pairing is distinct from delivery")
         owner.serviceEnvironment = "public-example"

@@ -55,6 +55,10 @@ NATIVE_CHECKS = {
     "bitwarden_connect_rejects_invalid_scope_credentials_and_numeric_consent",
     "bitwarden_disconnect_is_restriction_with_normal_budget",
     "bitwarden_exact_item_and_generation_are_validated",
+    "browser_update_requires_exact_binding_and_owner_setup", "browser_update_rejects_missing_or_extra_authority",
+    "phone_test_start_and_configuration_require_owner_setup",
+    "phone_test_poll_and_cancel_keep_existing_owner_channel_without_new_approval",
+    "phone_test_rejects_arbitrary_window_or_code_arguments", "phone_test_sender_rejects_empty_controls_and_oversize",
 }
 
 

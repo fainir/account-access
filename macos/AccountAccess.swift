@@ -3433,6 +3433,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         if androidConnectionTest["pairing_prepared"] as? Bool == true {
             label("Pairing is prepared. Scan the QR and finish Android's permissions before starting the test. Pairing alone does not confirm message delivery.", 14, .secondaryLabelColor)
             action("Start message test", #selector(startAndroidTest))
+            action("Disconnect test phone", #selector(disconnectAndroidTest))
         }
         action("Back to Verification", #selector(showFactors))
     }
@@ -3512,6 +3513,18 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             do {
                 _ = try self.request("owner/phone/test/cancel", body: [:])
                 DispatchQueue.main.async { self.busy = false; self.showAndroidTest() }
+            } catch { self.fail(error, retry: #selector(self.showAndroidTest)) }
+        }
+    }
+
+    @objc func disconnectAndroidTest() {
+        guard !busy else { return }
+        busy = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                _ = try self.request("owner/source/revoke", body: ["source": "android-connection-test"])
+                let state = try self.request("owner/state")
+                DispatchQueue.main.async { self.busy = false; self.accept(state); self.showAndroidTest() }
             } catch { self.fail(error, retry: #selector(self.showAndroidTest)) }
         }
     }

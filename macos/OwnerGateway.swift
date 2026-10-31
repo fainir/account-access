@@ -183,11 +183,13 @@ struct OwnerGatewayRoute {
         "owner/mailbox/oauth/begin", "owner/mailbox/oauth/finish", "owner/mailbox/oauth/cancel", "owner/mailbox/oauth/check",
         "owner/device-email/preview", "owner/device-email/apply", "owner/device-email/discard", "owner/device-email/remove",
         "owner/password-sync/reconnect", "owner/password-sync/disconnect", "owner/phone/pair", "owner/stop", "owner/vault/enroll", "owner/client/enroll", "owner/client/installed", "owner/browser-message",
-        "owner/account/export", "owner/account/forget"
+        "owner/account/export", "owner/account/forget", "owner/browser-update",
+        "owner/phone/test/configure", "owner/phone/test/start", "owner/phone/test/check", "owner/phone/test/cancel"
     ]
     static let restrictions: Set<String> = ["owner/stop", "owner/revoke", "owner/source/revoke",
         "owner/mailbox/remove", "owner/mailbox/oauth/cancel", "owner/password-sync/disconnect", "owner/authenticator/discard",
-        "owner/device-email/discard", "owner/device-email/remove", "owner/bitwarden/disconnect", "owner/account/forget"]
+        "owner/device-email/discard", "owner/device-email/remove", "owner/bitwarden/disconnect", "owner/account/forget",
+        "owner/phone/test/cancel"]
 
     init(_ route: String, body: Data?) throws {
         var browserNeedsSetup: Bool?
@@ -203,6 +205,29 @@ struct OwnerGatewayRoute {
                 throw OwnerGatewayError.invalidPolicy // Requires a future trusted host handoff.
             }
             if route == "owner/vault/enroll", !value.isEmpty { throw OwnerGatewayError.invalidPolicy }
+            if route == "owner/browser-update" {
+                guard Set(value.keys) == ["account", "fingerprint"],
+                      let account = value["account"] as? String,
+                      account.range(of: "^[a-z][a-z0-9_-]{0,63}$", options: .regularExpression) != nil,
+                      let fingerprint = value["fingerprint"] as? String,
+                      fingerprint.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil else {
+                    throw OwnerGatewayError.invalidPolicy
+                }
+            }
+            if route == "owner/phone/test/configure" {
+                guard Set(value.keys) == ["sender"], let sender = value["sender"] as? String,
+                      (1...200).contains(sender.unicodeScalars.count),
+                      sender == sender.trimmingCharacters(in: .whitespacesAndNewlines),
+                      sender.unicodeScalars.allSatisfy({ $0.value >= 32 && $0.value != 127 }) else {
+                    throw OwnerGatewayError.invalidPolicy
+                }
+            }
+            if ["owner/phone/test/start", "owner/phone/test/check", "owner/phone/test/cancel"].contains(route) {
+                guard value.isEmpty else { throw OwnerGatewayError.invalidPolicy }
+                // Polling an already approved test can consume/discard a local
+                // test value but never starts a window or returns its contents.
+                if route == "owner/phone/test/check" { browserNeedsSetup = false }
+            }
             if route == "owner/account/export" || route == "owner/account/forget" {
                 guard Set(value.keys) == ["account"], let account = value["account"] as? String,
                       account.range(of: "^[a-z][a-z0-9_-]{0,63}$", options: .regularExpression) != nil else {

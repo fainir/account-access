@@ -398,7 +398,7 @@ enum ComponentCommands {
     struct Result { let status: Int32; let output: Data }
     // This parent owns and reaps its exact child. A PID cannot be reused before
     // waitpid; timeout/oversize never signals a service or adopted process.
-    static func launchctl(_ arguments: [String]) throws -> Result {
+    static func launchctl(_ arguments: [String], timeout: TimeInterval = 20) throws -> Result {
         let allowed: Set<[String]> = [
             ["print-disabled", "system"], ["print", "system/com.fainir.accountaccess.broker"],
             ["disable", "system/com.fainir.accountaccess.broker"],
@@ -407,7 +407,7 @@ enum ComponentCommands {
             ["bootstrap", "system", "/Library/LaunchDaemons/com.fainir.accountaccess.broker.plist"],
         ]
         guard getuid() == 0, geteuid() == 0, allowed.contains(arguments) else { throw ComponentUpdateFailure.context }
-        return try executeLaunchctl(arguments, timeout: 20)
+        return try executeLaunchctl(arguments, timeout: timeout)
     }
     enum UserDomainAction: String { case bootout, bootstrap }
     static func launchctlUserDomain(_ action: UserDomainAction, brokerUID: uid_t, timeout: TimeInterval) throws -> Result {
@@ -531,6 +531,27 @@ enum ComponentCommands {
         result.status == (113 << 8) && result.output == Data((
             "Bad request.\nCould not find service \"com.fainir.accountaccess.broker\" in domain for system\n"
         ).utf8)
+    }
+    static func waitUntilAbsent(observe: (TimeInterval) throws -> Result,
+                                clock: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
+                                pause: (TimeInterval) -> Void = { usleep(useconds_t($0 * 1_000_000)) }) throws {
+        let deadline = clock() + 20
+        for _ in 0..<81 {
+            let remaining = deadline - clock()
+            guard remaining.isFinite, remaining > 0 else { throw ComponentUpdateFailure.quiescence }
+            let result = try observe(min(20, remaining))
+            guard clock() <= deadline else { throw ComponentUpdateFailure.quiescence }
+            if definitivelyAbsent(result) { return }
+            // Bootout can return while an enrolled worker is still shutting
+            // down. A valid observation of this exact job may settle; an
+            // unknown error, malformed output or expired deadline must refuse.
+            guard result.status == 0 else { throw ComponentUpdateFailure.quiescence }
+            _ = try ComponentUpdateIdentity.printedPID(result.output)
+            let delay = min(0.25, deadline - clock())
+            guard delay.isFinite, delay > 0 else { throw ComponentUpdateFailure.quiescence }
+            pause(delay)
+        }
+        throw ComponentUpdateFailure.quiescence
     }
 }
 
@@ -720,9 +741,9 @@ final class ComponentLaunchdBarrier: ComponentServiceBarrier {
         _ = try ComponentCommands.launchctl(["bootout", "system/com.fainir.accountaccess.broker"])
         // A generic nonzero never establishes absence. Require the one exact
         // missing-service response, even after our own successful bootout.
-        guard ComponentCommands.definitivelyAbsent(try ComponentCommands.launchctl([
-            "print", "system/com.fainir.accountaccess.broker",
-        ])) else { throw ComponentUpdateFailure.quiescence }
+        try ComponentCommands.waitUntilAbsent(observe: { timeout in
+            try ComponentCommands.launchctl(["print", "system/com.fainir.accountaccess.broker"], timeout: timeout)
+        })
         try userDomain.quiesce()
         try requireDisabledAndQuiescent()
         try record("disabled_quiescence_confirmed")
