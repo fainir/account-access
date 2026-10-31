@@ -22,7 +22,8 @@ The public example does not validate a private website account. Real private
 email/SMS/TOTP sign-in and physical Android acceptance remain owner steps. The
 Android 0.8.0 APK is publisher-signed with native Mac Keychain custody and passes
 [actual emulator acceptance](qa/gates/android-publisher-acceptance-2026-10-31.md).
-Final publisher/legal release approval remains required. The existing mailbox
+The publisher approved the complete privacy notice and terms on 1 November
+2026; the remaining acceptance checks still gate public release. The existing mailbox
 has already passed its connection check. Namecheap remains paused at its
 unrecognized challenge; Harel and Phoenix are outside v1 support. Portable
 protected-vault backup is also outside v1. See [the current production ledger](READINESS.md).

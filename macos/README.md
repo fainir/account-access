@@ -23,9 +23,9 @@ whose predecessor failed validation. The original installation journal and
 prior update histories remain security inputs.
 
 The candidate is a draft, not the public 0.7.4 preview download. Private website
-email/TOTP acceptance, physical-phone delivery and final publisher/legal approval
-remain owner steps in [READINESS.md](../READINESS.md).
-Android publisher signing and native Mac Keychain custody are complete; the
+email/TOTP acceptance and physical-phone delivery remain owner steps in [READINESS.md](../READINESS.md).
+The publisher approved the complete 0.8.0 privacy notice and terms on 1 November
+2026. Android publisher signing and native Mac Keychain custody are complete; the
 actual signed APK passes emulator acceptance. The [customer release draft](../docs/mac-release-candidate.md)
 identifies the correct Mac packages and adjacent third-party source download.
 The existing mailbox is already connected and checked. Historical build notes

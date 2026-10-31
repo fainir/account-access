@@ -1,6 +1,6 @@
 # Account Access release copy draft
 
-**Status: owner/legal review required. Do not publish this draft or accept it as terms.**
+**Status: the publisher approved the complete 0.8.0 privacy notice and terms on 1 November 2026. They take effect with the public release. Store listing copy remains proposed; the product release remains a draft pending the recorded acceptance checks.**
 
 ## Publisher details
 
@@ -20,7 +20,7 @@ Account Access helps you keep sign-in details and verification inside a protecte
 
 Account Access supports only reviewed connectors. It does not provide automatic Chrome password sync, arbitrary-site support, a cloud relay, insurance policy access, payments, policy changes or account recovery. Harel and Phoenix are not supported connectors yet. Verify a site's current compatibility in the app before relying on it.
 
-## Privacy notice draft
+## Approved privacy notice
 
 The complete publication text is prepared in [Privacy notice](privacy.md).
 The following short description is release-listing copy, not a replacement for
@@ -34,17 +34,18 @@ Local AI tools receive only their approved results and status. Those tools may t
 
 You control which accounts and operations are connected. You can review, export and forget supported saved logins. Forgetting a login keeps its reviewed connector, shared verification sources and audit/task history; disconnect shared sources separately. Local configuration and history have no general automatic retention period in v1. Two-minute login-code expiry and the 24-hour structural-diagnostic display limit do not promise physical erasure or a background storage purge. Portable full-vault backup and restore of the installed protected service is not included in v1. A user-requested login CSV export contains a plaintext password and should be stored securely. Removing local data does not erase copies held by websites, email providers, Android, Chrome, AI tools, exports or backups.
 
-The [data-handling disclosure](data-handling.md) records the verified technical details, permissions, recipients and removal limits for this candidate. For support or privacy requests, contact [welcometothebestplace@gmail.com](mailto:welcometothebestplace@gmail.com). Do not include passwords, verification codes or recovery keys. The owner must approve the final notice and release terms before publication.
+The [data-handling disclosure](data-handling.md) records the verified technical details, permissions, recipients and removal limits for this candidate. For support or privacy requests, contact [welcometothebestplace@gmail.com](mailto:welcometothebestplace@gmail.com). Do not include passwords, verification codes or recovery keys. The owner approved the complete privacy notice and terms on 1 November 2026; do not request that approval again for these unchanged documents.
 
-## Terms summary draft
+## Terms summary
 
 The complete publication text is prepared in [Terms of use](terms.md).
 
 Use Account Access only for accounts you own or are authorized to access. Review every requested account operation. Account Access supports only the sites and actions listed by the current app; it is not a password-recovery, insurance-advice, financial-transaction or policy-change service. Website providers can change their pages, authentication requirements and availability at any time. Never share passwords, recovery codes or one-time codes with an AI agent or in support messages.
 
 This short summary does not replace the full terms or the repository's MIT
-License. The complete privacy notice and terms remain drafts for owner/legal
-approval before publication.
+License. The publisher approved the complete privacy notice and terms on 1 November
+2026. They take effect with the public release; the separate store listing
+text has not been submitted or approved by a store.
 
 ## Pre-publication owner checklist
 

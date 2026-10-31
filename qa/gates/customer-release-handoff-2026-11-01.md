@@ -1,5 +1,7 @@
 # Customer release handoff - 1 November 2026
 
+Publisher approval has since completed: see [approval and next action](publisher-approval-2026-11-01.md). The staged-review section below records the preparation, not a new pending approval.
+
 ## Verified this session
 
 The normal installed Account Access launcher reports service 0.8.0, browser
@@ -8,7 +10,7 @@ reads version 0.8.0/build 122. Discovery only was performed: the authorized
 public example retains saved access, and private Namecheap remains paused with
 needs_attention. No private read, new enrollment or code retrieval was attempted.
 
-Created a separate [0.8.0 customer release draft](https://github.com/fainir/account-access/releases/tag/untagged-dbf1a28267fe00d5b6ef),
+Created a separate [0.8.0 customer release draft](https://github.com/fainir/account-access/releases/tag/untagged-270c0c3b7fa304bc7299),
 reusing the unchanged qualified packages. The original build-122 QA release and
 its four pinned assets remain intact for the dated macOS 14 check. No installer
 was rebuilt and no Android APK was uploaded.

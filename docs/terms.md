@@ -1,7 +1,7 @@
 # Account Access terms of use
 
-Release-approval draft for version 0.8.0, prepared 31 October 2026.
-This text takes effect with the public release after publisher approval.
+Publisher-approved for version 0.8.0 on 1 November 2026.
+This text takes effect when version 0.8.0 is publicly released.
 
 ## Publisher and software license
 

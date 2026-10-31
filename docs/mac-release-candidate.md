@@ -1,8 +1,9 @@
 # Account Access 0.8.0 - build 122
 
 Publication-review draft. This is not the public 0.7.4 preview download.
-Final publisher approval, remaining private/physical verification acceptance
-and macOS 14 qualification are recorded in READINESS.md before publication.
+The publisher approved the complete privacy notice and terms on 1 November
+2026. Remaining private/physical verification acceptance and macOS 14
+qualification are recorded in READINESS.md before publication.
 
 ## Choose your Mac package
 
@@ -48,10 +49,11 @@ is connected. Bluetooth association, carrier SMS delivery and physical phone
 performance remain unqualified. The Android APK is not part of this Mac upload
 and nothing has been submitted to Play Store.
 
-Prepared [privacy notice](https://github.com/fainir/account-access/blob/7903cafa50d1510dd56011e5450b48df415aca7a/docs/privacy.md)
+Publisher-approved [privacy notice](https://github.com/fainir/account-access/blob/7903cafa50d1510dd56011e5450b48df415aca7a/docs/privacy.md)
 and [terms](https://github.com/fainir/account-access/blob/7903cafa50d1510dd56011e5450b48df415aca7a/docs/terms.md)
 identify Nir Fainshtein, עוסק פטור, and the owner-selected support/privacy contact.
-They take effect only with the public release after publisher approval.
+The owner approved both complete documents on 1 November 2026. Their reviewed
+substantive text is unchanged and takes effect only with the public release.
 This draft adds no subscription, purchase or cloud SMS relay.
 
 Full acceptance evidence: [production ledger](https://github.com/fainir/account-access/blob/codex/production-security-authlib-20261028/READINESS.md).
