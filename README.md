@@ -12,36 +12,22 @@ Access automatically when relevant, without a slash command or an MCP server.
 Codex and Claude Code have been exercised; other local agents can load the same
 skill or use the CLI.
 
-**Public download: 0.7.4 preview. Development candidate: 0.8.0. Neither is a
-production release.** Websites need reviewed connectors; importing a password
-does not make an arbitrary website supported. Private password/code logins,
-physical phone delivery and notarized consumer installation remain unverified.
-The 0.8 Mac runtime targets **Apple silicon and macOS 14 or later**. See the
-[current production gates](docs/production-gates.md).
+**Public download: 0.7.4 preview. Qualified Mac candidate: 0.8.0 build 122.**
+The candidate is installed on the owner Mac. Its signed/notarized packages passed
+actual fresh install, repair, upgrade and reapply; the protected browser worker
+is READY. Both installed Codex and Claude launchers completed the authorized
+public example, returning only six product names/prices. [Acceptance evidence](qa/release122-2026-10-31/acceptance.md).
 
-Earlier owner testing completed a protected setup, one approved personal Chrome
-password import and a Gmail mailbox check. A successful private website login
-has not been established. Package 91 subsequently installed, but **Connect
-automatically** failed. Runtime 92 contains the connection fix; package 93's
-attempt to install it left the old public image intact and the broker disabled.
-Package 94 passed all four actual Installer and recovery scenarios, including
-that disabled-service condition. It installed on the owner Mac on 25 October,
-but the account worker cannot start: the upgrade recreated 20 public Python
-links with root-only permissions. Package 95 fixes link staging and repairs the
-completed package 94 image. It passed all five actual Installer scenarios,
-including checks under both ordinary-user identities. It installed successfully
-on the owner Mac; after a normal restart, all public files and aliases passed
-verification and the app opened to **Upgrade AI connection**. That upgrade then
-failed after the owner reported macOS approval; one explicit retry also failed.
-On 28 October, the installed skill successfully returned the permitted account
-list from the protected service in the current Codex task. This verifies account
-discovery through the installed agent launcher. Harel and Phoenix are not
-configured. It does not verify a private website sign-in or the owner app's
-upgrade screen.
-Personal email/SMS/TOTP login, the physical Android phone
-and consumer distribution remain open acceptance gates.
-[Initial owner observations](artifacts/owner-startup-and-import-213509c-20261021.json) ·
-[current acceptance status](docs/production-gates.md).
+The public example does not validate a private website account. Real private
+email/SMS/TOTP sign-in, physical Android and publisher-key custody, and the
+public legal/contact release review remain owner steps. The existing mailbox
+has already passed its connection check. Namecheap remains paused at its
+unrecognized challenge; Harel and Phoenix are outside v1 support. Portable
+protected-vault backup is also outside v1. See [the current production ledger](READINESS.md).
+
+Websites need reviewed connectors; importing a password does not add arbitrary
+website support. The Mac candidate targets **Apple silicon and macOS 14 or
+later**. It remains a draft release and is not the preview download below.
 
 ![Account Access dashboard](docs/account-dashboard.png)
 
@@ -59,7 +45,7 @@ fresh agent session after installing so it loads the new instructions.
 
 The preview is Developer ID signed, but Apple notarization is pending. A fresh
 download can be blocked by Gatekeeper; installation on a clean separate Mac has
-not been validated. The protected 0.8 installer is still under development and
+not been validated. The qualified protected 0.8 candidate remains a draft and
 is **not** the download above. [Mac distribution notes](macos/README.md).
 
 Linux has a [developer setup guide](docs/setup.md#linux-sandbox-setup). Native

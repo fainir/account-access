@@ -1,2 +1,9 @@
-There has been no change in the accessibility tree for Window: "".
-The focused UI element is 29 button OK
+Window: "", App: Account Access.
+0 dialog Description: alert, Secondary Actions: Raise
+	1 image Account Access alert
+	2 text Enter the test message sender Use the exact phone number or contact name shown in the Android notification, without spaces before or after it.
+	3 button OK
+4 menu bar
+	5 Account Access
+
+The focused UI element is 3 button OK

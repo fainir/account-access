@@ -2,52 +2,31 @@
 
 This is a native installer and owner interface for macOS 14 (Sonoma) or later.
 
-**Current owner-Mac status (30 October):** `/Applications/Account Access.app`
-still reports version 0.8.0 build 110. The persistent build-119 package in
-Downloads was opened in Installer and safely refused before mutation with
-`component_base_not_verified` at the context checkpoint. Do not retry it: its
-updater predates the direct root-recovery fix. The direct 110-to-119 source path
-now performs the recovery before preparation and passes local full-image,
-72-case runtime and 184-unit direct native probes. It still needs hosted CI,
-actual Installer acceptance, and a newly signed, notarized, stapled and
-Gatekeeper-checked successor before installation. After that install, verify the app version, protected
-service restart and fresh Codex/Claude Code access before enabling real account
-acceptance. See [the production ledger](../READINESS.md).
-Harel/Phoenix SMS, Lemon Squeezy authenticator, real website email verification
-and physical-phone delivery also remain unverified. See
-[current acceptance](../docs/production-gates.md).
+**Current owner-Mac status (31 October):** Account Access 0.8.0 build 122 is
+installed. The protected worker reports browser READY and background recovery
+RUNNING with zero failures. Both installed AI launchers completed the approved
+public example, returning only product names and prices. The native app shows
+Automatic and Example connected. Private Namecheap remains paused; no private
+website sign-in is claimed.
 
-The complete build 116 package was then opened over this existing installation.
-Installer returned error 112 because its protected install journal belongs to a
-different image. The full package supports a first install and an identical
-retry, not updates over an installed image. The attempt preserved the existing
-app and service. Its build report incorrectly said `fresh_install_only: false`;
-the source now marks these packages as first-install only and returns a fixed
-`existing_installation_requires_update` diagnostic for this journal mismatch.
-The current source checks the protected install journal before hashing the
-bundled runtime, so a mismatched image refuses before the expensive payload
-walk. That check preserves same-image retry recovery but does not add update
-support. Use a separately qualified successor package to update an existing
-installation; build 116 is not that package.
+The signed, notarized, stapled and Gatekeeper-accepted packages passed actual
+macOS 15 fresh install/repair and exact upgrade/reapply. The owner update and
+final reapplication preserved the private vault, installation binding and both
+earlier recovery namespaces. A real enrolled-service restart qualified the
+bounded wait through launchd's measured SIGTERMed state. No full OS reboot was
+performed. [Current acceptance and limits](../qa/release122-2026-10-31/acceptance.md).
 
-The owner app's managed-client setup now turns known protected-store response
-codes into fixed, actionable messages without displaying response details,
-paths or client tokens. Its native regression cases are in
-`macos/Tests/OwnerScreenChecks.swift`. On this build Mac, Swift type-checking is
-not available because the installed compiler (6.4.0.34.1) does not match the
-available macOS 27 SDK (6.4.0.31.4); only syntax parsing ran. The system app is
-still build 110 and has not received this source change.
-The focused installer/package/transaction suite passes 125 cases with one
-host-specific volume-query skip, and the 45-case browser-session module passes.
-The local full-suite attempt was incomplete because the default sandbox denied
-loopback sockets and its permitted retry was interrupted during a storage lock
-wait. The same source commit passed the full Python suite in GitHub CI, along
-with native owner UI/gateway/upgrade checks, Android 11/15 journeys, cross-user
-password/email/SMS/authenticator recovery and an offline development-package
-smoke install ([CI](https://github.com/fainir/account-access/actions/runs/40866251182),
-[Mac acceptance](https://github.com/fainir/account-access/actions/runs/40866251306)).
-That VM package was a development fixture; it does not qualify a signed update
-on the owner's installed Mac.
+Use the fresh package only for a clean installation or identical-image repair.
+An installed predecessor needs its separately qualified exact updater. Never
+apply an older full package over an existing protected image or retry a package
+whose predecessor failed validation. The original installation journal and
+prior update histories remain security inputs.
+
+The candidate is a draft, not the public 0.7.4 preview download. Private website
+email/TOTP acceptance, Android publisher-key custody and physical-phone delivery,
+and public legal/contact review remain owner steps in [READINESS.md](../READINESS.md).
+The existing mailbox is already connected and checked. Historical build notes
+below do not describe the current installed state.
 
 Consumer package builds also require the pinned Bitwarden OSS npm CLI and its
 reviewed corresponding-source release asset. Add these maintainer arguments to
