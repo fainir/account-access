@@ -106,6 +106,14 @@ The checked-in launcher stages version 0.8.0/code 2 in
 the previous APK and a strictly higher version code. A preview certificate is
 not a publisher certificate.
 
+The launcher resolves the installed `uv` runtime without relying on Terminal's
+shell startup configuration. A first identity uses the fixed `phone` alias;
+only existing identities need an alias question. If setup stops, its printed
+step and `dist/android-publisher-setup-status.txt` contain only a fixed diagnostic
+category, with no entered values, passwords, keys or raw signer errors. This is
+the current status, not a transcript. Do not delete or replace a partially
+created identity to retry; keep it for review.
+
 `scripts/build_android_release.py` builds with an existing publisher keystore
 outside the checkout. It requires the independently recorded certificate
 SHA-256, an explicit non-preview version, and either an initial-release choice

@@ -10,6 +10,11 @@ import pytest
 from scripts import android_publisher_setup as setup
 
 
+@pytest.fixture(autouse=True)
+def isolated_diagnostic(tmp_path, monkeypatch):
+    monkeypatch.setattr(setup, 'STATUS_FILE', tmp_path / 'setup-status.txt')
+
+
 def fixture(tmp_path):
     parent = tmp_path / 'publisher'
     parent.mkdir(mode=0o700)
@@ -120,6 +125,54 @@ def test_existing_identity_requires_private_key_and_independent_pin(tmp_path):
     key.chmod(0o644)
     with pytest.raises(ValueError):
         setup.existing_identity(key, 'phone', 'a' * 64)
+
+
+def test_diagnostic_records_only_a_fixed_phase_and_refuses_external_links(tmp_path):
+    setup.save_status('create_identity', failed=True)
+    assert setup.STATUS_FILE.read_text() == 'STOPPED create_identity\n'
+    assert setup.STATUS_FILE.stat().st_mode & 0o777 == 0o600
+    setup.save_status('a private password or exception must never be recorded', failed=True)
+    assert setup.STATUS_FILE.read_text() == 'STOPPED create_identity\n'
+    target = tmp_path / 'keep-owner-file'
+    target.write_text('retained')
+    setup.STATUS_FILE.unlink()
+    setup.STATUS_FILE.symlink_to(target)
+    setup.save_status('signing_apk')
+    assert target.read_text() == 'retained'
+
+
+def test_diagnostic_refuses_hardlinked_files_before_truncating(tmp_path):
+    setup.STATUS_FILE.write_text('retained')
+    setup.STATUS_FILE.chmod(0o600)
+    os.link(setup.STATUS_FILE, tmp_path / 'retained-link')
+    setup.save_status('signing_apk')
+    assert setup.STATUS_FILE.read_text() == 'retained'
+
+
+def test_first_release_uses_fixed_alias_without_an_unnecessary_owner_question(tmp_path, monkeypatch):
+    destination, _ = fixture(tmp_path)
+    terminal = SimpleNamespace(isatty=lambda: True, write=lambda _: None, flush=lambda: None)
+    monkeypatch.setattr(setup.sys, 'stdin', terminal)
+    monkeypatch.setattr(setup.sys, 'stdout', terminal)
+    replies = iter(['2', ' CREATE AND SIGN '])
+    monkeypatch.setattr('builtins.input', lambda _: next(replies))
+    calls = []
+
+    def create(directory, publisher, alias, **kwargs):
+        calls.append(('create', alias, kwargs['owner_confirmation']))
+        return destination / 'phone.p12', 'a' * 64
+
+    def sign(args):
+        calls.append(('sign', args.alias))
+        return {'certificate_sha256': 'a' * 64}
+
+    monkeypatch.setattr(setup, 'create_identity', create)
+    monkeypatch.setattr(setup, 'build', sign)
+    assert setup.main(['--publisher-name', 'Publisher', '--publisher-directory', str(destination),
+                       '--output', str(tmp_path / 'output'), '--version-code', '2',
+                       '--version-name', '0.8.0']) == 0
+    assert calls == [('create', 'phone', 'CREATE AND SIGN'), ('sign', 'phone')]
+    assert setup.STATUS_FILE.read_text() == 'CURRENT signed_candidate\n'
 
 
 @pytest.mark.skipif(not (setup.JAVA / 'bin/keytool').is_file(), reason='local JDK fixture')
