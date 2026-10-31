@@ -68,3 +68,7 @@ The product is local-first. The owner app and protected service run on Apple sil
 ## Open questions
 
 - None for v1. Harel and Phoenix remain future provider targets and require separate connector implementation and acceptance before being listed as supported.
+
+## Publisher identity
+
+The owner supplied the legal publisher name **Nir Fainshtein** and business status **עוסק פטור** on 31 October 2026. The public support/privacy email remains to be chosen. Preserve the issued Apple certificate name as credential metadata; it is separate from release-copy publisher details.

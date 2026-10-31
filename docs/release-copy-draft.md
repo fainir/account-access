@@ -2,6 +2,14 @@
 
 **Status: owner/legal review required. Do not publish this draft or accept it as terms.**
 
+## Publisher details
+
+- Legal publisher name: **Nir Fainshtein**.
+- Business status: **עוסק פטור**, as stated by the owner on 31 October 2026.
+- Public support/privacy contact: awaiting the owner's choice.
+
+These details do not change the existing Apple-issued signing certificate identity.
+
 ## Short description
 
 Account Access is a local-first macOS app that helps you manage approved sign-ins and verification for supported sites. Its optional Android companion can deliver an approved SMS login code to the local Mac service.
@@ -30,7 +38,7 @@ This summary is not a complete agreement and makes no warranty or liability dete
 
 ## Pre-publication owner checklist
 
-- Supply the legal publisher name, privacy/support contact and mailing address if required by the chosen store.
+- Supply the public privacy/support contact and mailing address if required by the chosen store. The legal publisher name and business status are recorded above.
 - Have qualified counsel review the privacy notice and full terms for the release regions and intended users.
 - Verify analytics, crash reporting, diagnostics, retention, deletion, Android permissions and every external data recipient against the final signed build.
 - Prepare store screenshots and data-safety answers from the release build; do not list Harel or Phoenix until their complete login journeys pass.
