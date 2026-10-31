@@ -77,6 +77,49 @@ def installed_browser_command():
             'PATH=/usr/bin:/bin:/usr/sbin:/sbin', 'LANG=en_US.UTF-8', 'HOME=' + str(BASE / 'home'),
             'PLAYWRIGHT_BROWSERS_PATH=' + str(BASE / 'browsers'),
             BASE / 'runtime/bin/python', '-I', '-B', '-c', BROWSER_CHECK]
+
+
+def browser_crash_summary(raw, pid):
+    try:
+        decoder = json.JSONDecoder()
+        first, end = decoder.raw_decode(raw.lstrip())
+        body = decoder.decode(raw.lstrip()[end:].lstrip()) if raw.lstrip()[end:].strip() else first
+        if type(body) is not dict or body.get('pid') != pid:
+            return None
+        summary = {key: body[key] for key in ('pid', 'procName', 'exception', 'termination', 'asi') if key in body}
+        index = body.get('faultingThread')
+        threads = body.get('threads', [])
+        if type(index) is int and isinstance(threads, list) and 0 <= index < len(threads):
+            summary['symbols'] = [frame['symbol'] for frame in threads[index].get('frames', [])[:20]
+                                  if isinstance(frame, dict) and isinstance(frame.get('symbol'), str)]
+        return summary
+    except (ValueError, TypeError, KeyError, AttributeError):
+        return None
+
+
+def capture_browser_failure(output, raw):
+    # Never inspect an owner's crash history. This is restricted to the same
+    # empty hosted fixture as Installer acceptance, with one exact child PID.
+    runpy.run_path(str(ROOT / 'scripts/mac_component_update_installer_probe.py'))['guard']()
+    match = re.search(rb'<launched> pid=([1-9][0-9]*)', raw)
+    if not match:
+        return
+    pid = int(match[1])
+    folders = [Path('/Library/Logs/DiagnosticReports'), BASE / 'home/Library/Logs/DiagnosticReports']
+    for folder in folders:
+        for path in folder.glob('chrome-headless-shell*.ips'):
+            if path.is_symlink() or not path.is_file() or path.stat().st_size > 2 * 1024 * 1024:
+                continue
+            summary = browser_crash_summary(path.read_text(), pid)
+            if summary:
+                (output / 'browser-crash.log').write_text(json.dumps(summary, indent=2) + '\n')
+    try:
+        result = subprocess.run(['/usr/bin/log', 'show', '--last', '2m', '--style', 'compact',
+            '--predicate', 'processID == ' + str(pid)], capture_output=True, timeout=20)
+        (output / 'browser-system.log').write_bytes((result.stdout + result.stderr)[:128 * 1024])
+    except subprocess.TimeoutExpired:
+        pass
+
 JOSE_CHECK = '''import importlib.metadata, json
 from joserfc import jws
 from joserfc.errors import ExceededSizeError
@@ -196,6 +239,8 @@ def run(args):
         result = subprocess.run(list(map(str, argv)), stdin=subprocess.DEVNULL,
                                 capture_output=True, timeout=timeout)
         (args.output / (label + '.log')).write_bytes((result.stdout + result.stderr)[:128 * 1024])
+        if result.returncode != expected and label.endswith('publisher-sandboxed-browser'):
+            capture_browser_failure(args.output, result.stderr)
         require(result.returncode == expected, 'command_failed:' + label)
         return result
 
@@ -405,6 +450,8 @@ def fresh_run(args):
         result = subprocess.run(list(map(str, argv)), stdin=subprocess.DEVNULL,
                                 capture_output=True, timeout=timeout)
         (args.output / (label + '.log')).write_bytes((result.stdout + result.stderr)[:128 * 1024])
+        if result.returncode != 0 and label.endswith('publisher-sandboxed-browser'):
+            capture_browser_failure(args.output, result.stderr)
         require(result.returncode == 0, 'command_failed:' + label)
         return result
 

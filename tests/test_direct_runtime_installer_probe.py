@@ -8,6 +8,20 @@ import pytest
 from scripts import mac_direct_runtime_installer_probe as probe
 
 
+def test_browser_crash_summary_keeps_only_the_exact_fixture_child():
+    import json
+    body = {'pid': 123, 'procName': 'chrome-headless-shell', 'exception': {'signal': 'SIGTRAP'},
+            'asi': {'chromium': ['FATAL: fixture bootstrap failure']}, 'faultingThread': 0,
+            'threads': [{'frames': [{'symbol': 'FixtureCrash', 'imageOffset': 1234}]}],
+            'machineIdentifier': 'never included'}
+    raw = json.dumps({'header': True}) + '\n' + json.dumps(body)
+    value = probe.browser_crash_summary(raw, 123)
+    assert value['symbols'] == ['FixtureCrash']
+    assert 'machineIdentifier' not in value and 'threads' not in value
+    assert probe.browser_crash_summary(raw, 456) is None
+    assert probe.browser_crash_summary('not a crash report', 123) is None
+
+
 def archive(extra=None):
     stream = io.BytesIO()
     with tarfile.open(fileobj=stream, mode='w') as target:

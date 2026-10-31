@@ -135,6 +135,11 @@ import Darwin
             })
             try require(actualOwnerBundle == expectedOwnerBundle)
             try require(payloadTree.nodes["owner.app/Contents/_CodeSignature/CodeResources"]?.kind == "file")
+            for name in ["AccountAccess-broker", "AccountAccess-bootstrap", "AccountAccess-installerverify"] {
+                let path = "bin/" + name
+                try require(payloadTree.nodes[path]?.kind == "file")
+                try require(payloadTree.nodes[path]?.sha256 == source.after.trees[InstallerPayloadManifest.support]!.nodes[path]?.sha256)
+            }
             let count = source.units.count
             guard let changedRows = planValue["changed"] as? [String],
                   let unitRows = planValue["units"] as? [[String: Any]] else { throw FullImageFailure.source }

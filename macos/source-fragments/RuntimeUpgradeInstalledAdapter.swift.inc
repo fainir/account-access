@@ -124,6 +124,14 @@ extension ComponentController {
             // Preserve the complete signed bundle for notarization and verify
             // its sealed resources before applying the small direct delta.
             included.formUnion(ownerBundle)
+            // These unchanged trust anchors are still verified from the
+            // installer resource before any installed context is opened.
+            // A small successor need not replace them to carry their exact bytes.
+            for name in ["AccountAccess-broker", "AccountAccess-bootstrap", "AccountAccess-installerverify"] {
+                let path = "bin/" + name
+                guard complete.nodes[path]?.kind == "file" else { throw FullImageFailure.source }
+                included.insert(path)
+            }
         }
         // Add all explicit manifest parents. They remain unchanged public
         // directories and are necessary to validate the sparse payload root.

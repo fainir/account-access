@@ -169,11 +169,17 @@ def test_delta_refuses_path_traversal_even_if_it_is_a_file():
         plan._units({"roots": {plan.SUPPORT: old}}, {"roots": {plan.SUPPORT: new}})
 
 
-def test_updater_resource_carries_complete_signed_owner_bundle():
+@pytest.mark.parametrize('missing_anchor', [None, 'AccountAccess-broker', 'AccountAccess-bootstrap',
+                                           'AccountAccess-installerverify'])
+def test_updater_resource_carries_complete_signed_owner_bundle_and_unchanged_trust_anchors(missing_anchor):
     tree = {
         "": {"kind": "directory", "mode": 0o755},
         "runtime": {"kind": "directory", "mode": 0o755},
         "runtime/update.py": file("a"),
+        "bin": {"kind": "directory", "mode": 0o755},
+        "bin/AccountAccess-broker": file("d"),
+        "bin/AccountAccess-bootstrap": file("e"),
+        "bin/AccountAccess-installerverify": file("f"),
         "owner.app": {"kind": "directory", "mode": 0o755},
         "owner.app/Contents": {"kind": "directory", "mode": 0o755},
         "owner.app/Contents/MacOS": {"kind": "directory", "mode": 0o755},
@@ -181,9 +187,15 @@ def test_updater_resource_carries_complete_signed_owner_bundle():
         "owner.app/Contents/_CodeSignature": {"kind": "directory", "mode": 0o755},
         "owner.app/Contents/_CodeSignature/CodeResources": file("c"),
     }
-    sparse, package = candidate.updater_payload_nodes({"units": [{
+    plan_value = {"units": [{
         "kind": "direct_file", "path": "runtime/update.py", "after": file("a"),
-    }]}, {"roots": {candidate.SUPPORT_RELATIVE_ROOT: tree}})
+    }]}
+    if missing_anchor:
+        del tree['bin/' + missing_anchor]
+        with pytest.raises(ValueError, match='target_payload_trust_anchors_missing'):
+            candidate.updater_payload_nodes(plan_value, {"roots": {candidate.SUPPORT_RELATIVE_ROOT: tree}})
+        return
+    sparse, package = candidate.updater_payload_nodes(plan_value, {"roots": {candidate.SUPPORT_RELATIVE_ROOT: tree}})
 
     assert sparse == {
         "": tree[""], "runtime": tree["runtime"], "runtime/update.py": tree["runtime/update.py"],
@@ -310,6 +322,9 @@ def test_target_image_manifest_is_checked_and_source_image_is_preserved(tmp_path
     (app / "Contents/_CodeSignature/CodeResources").write_bytes(b"signed resources")
     (support / "runtime").mkdir()
     (support / "runtime/changed.py").write_bytes(b"source-current")
+    (support / "bin").mkdir()
+    for name in ['AccountAccess-broker', 'AccountAccess-bootstrap', 'AccountAccess-installerverify']:
+        (support / 'bin' / name).write_bytes(b'fictional trust anchor')
     app_target = "../Library/Application Support/Account Access/owner.app"
     (applications / "Account Access.app").symlink_to(app_target)
     before = candidate.public_payload_inventory(support)

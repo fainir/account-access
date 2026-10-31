@@ -279,7 +279,12 @@ def updater_payload_nodes(plan: dict, after: dict):
         "target_owner_bundle_link_refused")
     require(all(path not in planned or planned[path] == node for path, node in owner_bundle.items()),
         "owner_bundle_plan_conflict")
-    return planned, planned | owner_bundle
+    trust_paths = ['bin', 'bin/AccountAccess-broker', 'bin/AccountAccess-bootstrap',
+                   'bin/AccountAccess-installerverify']
+    require(tree.get('bin', {}).get('kind') == 'directory'
+        and all(tree.get(path, {}).get('kind') == 'file' for path in trust_paths[1:]),
+        'target_payload_trust_anchors_missing')
+    return planned, planned | owner_bundle | {path: tree[path] for path in trust_paths}
 
 
 def create_sparse_directories(target_image: Path, inventory: dict[str, dict]) -> None:

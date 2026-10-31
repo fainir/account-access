@@ -10,6 +10,11 @@ on:
         options: ['121', '120']
         default: '121'
         description: Exact pinned release to exercise
+      journey:
+        type: choice
+        options: ['both', 'fresh', 'upgrade']
+        default: 'both'
+        description: Installer journey to exercise
 env:
   AC_RELEASE: ${{ inputs.release || '121' }}
 permissions:
@@ -53,7 +58,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mode: [upgrade, fresh]
+        mode: ${{ fromJSON(inputs.journey == 'fresh' && '["fresh"]' || inputs.journey == 'upgrade' && '["upgrade"]' || '["upgrade","fresh"]') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
