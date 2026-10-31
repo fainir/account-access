@@ -776,6 +776,24 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         precondition(unclassifiedText.contains("The service source could not be verified. This connection does not establish personal-account access."))
         precondition(unclassifiedText.contains("AI connection source unverified"))
         precondition(!unclassifiedText.contains("Ready in every new session"))
+        owner.accounts = [["account": "example", "environment": "public-example", "connected": true, "portable_ready": true],
+                          ["account": "service", "environment": "live", "connected": false, "portable_ready": true]]
+        owner.ready()
+        views = descendants(owner.stack)
+        let mixedAgentText = views.compactMap { ($0 as? NSTextField)?.stringValue }
+        precondition(mixedAgentText.contains("AI tools connected"))
+        precondition(mixedAgentText.contains("Automatic"))
+        precondition(!mixedAgentText.contains("AI connection source unverified"))
+        precondition(mixedAgentText.contains("0 ready · 1 service connections"))
+        precondition(mixedAgentText.contains("1 ready · 1 example connections"))
+        owner.serviceEnvironment = "public-example"
+        owner.accounts.removeLast()
+        owner.ready()
+        views = descendants(owner.stack)
+        let publicAgentText = views.compactMap { ($0 as? NSTextField)?.stringValue }
+        precondition(publicAgentText.contains("Example connection ready"))
+        precondition(!publicAgentText.contains("AI connection source unverified"))
+        precondition(!publicAgentText.contains("Ready in every new session"))
         owner.serviceEnvironment = "live"
         owner.accounts = [["account": "personal-service", "label": "Personal service", "environment": "live",
                            "connected": true, "portable_ready": true]]

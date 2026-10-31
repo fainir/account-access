@@ -1,0 +1,41 @@
+name: Mac runtime successor owner image
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compile-owner:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
+      - run: uv sync --locked
+      - name: Verify source labels and failure states in the native owner screen
+        run: |
+          xcrun swiftc -O -parse-as-library -D ACCOUNT_ACCESS_UI_CHECKS \
+            -framework AppKit -framework CryptoKit -framework CoreBluetooth -framework ServiceManagement -lsqlite3 -lbsm \
+            macos/AccountAccess.swift macos/MailboxOAuthLoopback.swift macos/OwnerGateway.swift macos/DesktopOwnerConnection.swift \
+            macos/BrowserNativeHost.swift macos/ManagedAgentSetup.swift macos/WorkerBootstrap.swift macos/WorkerListenerBindings.swift \
+            macos/BackgroundRecovery.swift macos/MessageText.swift macos/MessagesReader.swift macos/SystemMessagesReader.swift \
+            macos/Tests/OwnerScreenChecks.swift -o "$RUNNER_TEMP/owner-checks"
+          "$RUNNER_TEMP/owner-checks" > "$RUNNER_TEMP/owner-checks.log"
+      - name: Build the source wheel and universal owner app without publisher credentials
+        env:
+          ACCOUNT_ACCESS_MAC_BUILD: '121'
+          ACCOUNT_ACCESS_SYSTEM_INSTALL: '1'
+        run: |
+          uv build --wheel
+          ACCOUNT_ACCESS_MAC_OUTPUT="$RUNNER_TEMP/release-owner" sh macos/build.sh
+          cp dist/account_access-0.8.0-py3-none-any.whl "$RUNNER_TEMP/release-owner/"
+          cp "$RUNNER_TEMP/owner-checks.log" "$RUNNER_TEMP/release-owner/"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: runtime121-owner-image
+          path: |
+            ${{ runner.temp }}/release-owner/Account-Access-Mac.zip
+            ${{ runner.temp }}/release-owner/account_access-0.8.0-py3-none-any.whl
+            ${{ runner.temp }}/release-owner/owner-checks.log
+          retention-days: 7

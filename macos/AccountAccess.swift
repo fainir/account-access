@@ -959,6 +959,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             throw Failure.message("Bitwarden did not accept this connection. Check the personal API key, region and master password, or reconnect if access was revoked.")
         }
         let reasons = [
+            "browser_driver_unavailable": "The local browser could not start. Use Repair installation in the Account Access menu, then check this account again.",
             "owner_setup_authorization_required": "Approve this setup action on your Mac to continue.",
             "owner_channel_unavailable": "The protected app reconnected. Check setup progress before trying this action again.",
             "owner_backend_unavailable": "The protected app is temporarily unavailable. Check progress before retrying this action.",
@@ -3454,6 +3455,16 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             setupDetail = "Ask normally in " + tools + ". No special command required."
             setupStatus = "Automatic"
             setupGood = true
+        } else if serviceEnvironment == "mixed" && !accounts.isEmpty && unclassified.isEmpty {
+            setupTitle = "AI tools connected"
+            setupDetail = "Ask normally in " + tools + ". Example accounts are labeled separately; each account shows its sign-in status."
+            setupStatus = "Automatic"
+            setupGood = true
+        } else if serviceEnvironment == "public-example" && !examples.isEmpty && unclassified.isEmpty {
+            setupTitle = "Example connection ready"
+            setupDetail = "Your AI tools can use the approved public testing accounts. These results do not validate access to personal accounts."
+            setupStatus = "Example only"
+            setupGood = false
         } else {
             setupTitle = "AI connection source unverified"
             setupDetail = "The service source could not be verified. Confirm the connection in Account Access before using real sign-ins."

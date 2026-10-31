@@ -542,6 +542,17 @@ class Browser:
             except Exception:
                 pass  # Safe diagnostics must not change the operation's public error.
             raise AccessError("RETRYABLE", "browser_execution_failed") from None
+        except Exception:
+            # A driver that exits before its protocol starts raises a generic
+            # exception, rather than PlaywrightError. Keep its crash output and
+            # exception text private, and distinguish it from website failures.
+            if failure_stage[0] != "playwright_start":
+                raise
+            try:
+                self.store.audit("service", account, "", "browser_execution_failed", "playwright_start")
+            except Exception:
+                pass
+            raise AccessError("RETRYABLE", "browser_driver_unavailable") from None
 
     def result(self, page, op, config):
         # A status-only operation still requires the normal authenticated marker
