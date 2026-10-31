@@ -77,11 +77,23 @@ def test_probe_refuses_an_ordinary_owner_context_before_inputs(tmp_path, mode, r
     assert not args.output.exists()
 
 
-def test_worker_health_fixture_never_seeds_a_client_on_an_owner_mac():
+def test_service_browser_fixture_never_runs_on_an_owner_mac(tmp_path):
     calls = []
     with pytest.raises(ValueError, match='component_installer_acceptance_failed'):
-        probe.worker_browser_health(lambda *args: calls.append(args), 'offline')
+        probe.service_browser_check(lambda *args: calls.append(args), tmp_path, 'offline')
     assert calls == []
+
+
+@pytest.mark.parametrize('code,raw,expected', [
+    (68, b'NSURLErrorDomain Code=-1005', True),
+    (68, b'NSURLErrorDomain Code=-1001', True),
+    (68, b'NSURLErrorDomain Code=-1009', True),
+    (68, b'Ticket validation failed', False),
+    (65, b'NSURLErrorDomain Code=-1005', False),
+    (0, b'NSURLErrorDomain Code=-1005', False),
+])
+def test_only_known_apple_transport_errors_can_get_one_retry(code, raw, expected):
+    assert probe.apple_network_failure(SimpleNamespace(returncode=code, stdout=raw, stderr=b'')) is expected
 
 
 def test_only_synthetic_evidence_is_made_readable_for_artifact_upload(tmp_path):
