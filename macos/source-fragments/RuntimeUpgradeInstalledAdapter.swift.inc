@@ -39,8 +39,10 @@ private struct RuntimeUpgradeAuthority {
     static func bindDirect(source: RuntimeUpgradeSource, install: Data, host: Data, profile: Data,
                            ownerUID: uid_t, brokerUID: uid_t, workerPolicy: ComponentObject,
                            servicePlist: ComponentObject) throws -> Self {
-        guard source.directRuntimeDelta, source.before.sha256 == DirectRuntimeUpgradeSource.beforeSHA256,
-              source.after.sha256 == DirectRuntimeUpgradeSource.afterSHA256,
+        _ = try DirectRuntimeUpgradeSource.release(.init(planSHA256: source.planSHA256,
+            beforeSHA256: source.before.sha256, afterSHA256: source.after.sha256,
+            targetSourceCommit: source.targetSourceCommit))
+        guard source.directRuntimeDelta,
               ownerUID > 0, ownerUID != brokerUID, (450..<500).contains(brokerUID),
               workerPolicy.mode == 0o644, servicePlist.mode == 0o644 else { throw FullImageFailure.predecessor }
         let evidence: [String: Any] = ["schema": 1, "managed_by": "account-access-exact-runtime-predecessor-v1",
@@ -390,7 +392,12 @@ extension ComponentController {
         let provisionLease = try lease(brokerDirectory, "install.lock"); defer { Darwin.close(provisionLease) }
         try ComponentProcesses.requireOwnerClosed()
         let library = try InstallerPayloadIO.directory("/Library/Application Support", owner: 0); defer { Darwin.close(library) }
-        let namespaceKind: PublicImageNamespace = source.directRuntimeDelta ? .directRuntimeRecovery : .runtimeUpgrade
+        let namespaceKind: PublicImageNamespace
+        if source.directRuntimeDelta {
+            namespaceKind = try DirectRuntimeUpgradeSource.release(.init(planSHA256: source.planSHA256,
+                beforeSHA256: source.before.sha256, afterSHA256: source.after.sha256,
+                targetSourceCommit: source.targetSourceCommit)).namespace
+        } else { namespaceKind = .runtimeUpgrade }
         let namespace = try FullImageNamespaceDirectory.installed(library, kind: namespaceKind); defer { Darwin.close(namespace) }
         let routes = try FullImageInstalledRoutes.installed(kind: namespaceKind)
         let support = try routes.support(), namespaceRoute = try routes.namespace()

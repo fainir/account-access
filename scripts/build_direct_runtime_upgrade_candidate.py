@@ -7,6 +7,7 @@ writes to an installed Account Access path.
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 import hashlib
 import io
 import json
@@ -35,6 +36,32 @@ SUPPORT_RELATIVE = "Library/Application Support/Account Access"
 SUPPORT_RELATIVE_ROOT = "/" + SUPPORT_RELATIVE
 RESOURCE_NAMES = {"RuntimeUpgradePlan.json", "BaseManifest.json", "TargetManifest.json", "BaseIdentity.json",
     "TargetIdentity.json", "TargetImage", "AccountAccess-runtimeupgrade", "postinstall"}
+
+
+@dataclass(frozen=True)
+class Release:
+    number: str
+    plan: str
+    before: str
+    after: str
+    target_source: str
+    image_builder: str
+    image_base: str
+    base_identity: str
+    component_id: str
+    package_stem: str
+
+
+RELEASE120 = Release('120', PLAN_SHA256, BEFORE_SHA256, AFTER_SHA256, TARGET_SOURCE,
+    TARGET_IMAGE_BUILDER_COMMIT, BASE_IMAGE_SHA256,
+    '3462087a742f96baab0dbcc5e66e84c1aa408e828f216024529a5d05e7eb7248',
+    COMPONENT_ID, 'Account-Access-Direct-Upgrade-120-root-recovery')
+RELEASE121 = Release('121', '59b7741173281a6f72701f91b99ada75cc53e3bb85f2f42c666fd33b021dff69',
+    AFTER_SHA256, '1917cff3a29b8306549287f4e6ac4fcc393dc4445f21a3ab0019c55e457b2053',
+    '806f7ce52499729c48fd0d9f88e6ff60b20b72ce', '2d99e0281ad75fbbb82f9a42eea7cffd6dc2aa57', AFTER_SHA256,
+    'a2516e260e7970d198626d77b849c578a98a232f4a2f6114e7ae0d6050cda4d2',
+    'com.fainir.accountaccess.runtimejit121', 'Account-Access-Runtime-121-JIT-fix')
+RELEASES = {'120': RELEASE120, '121': RELEASE121}
 
 
 def require(value: bool, reason: str) -> None:
@@ -119,14 +146,16 @@ def validate_compile_run(metadata, source):
 REPOSITORY = 'fainir/account-access'
 
 
-def reviewed_ci_helper(run_id, source, destination):
+def reviewed_ci_helper(run_id, source, destination, *, artifact_name='release-compiled-updater'):
     """Accept only our successful exact-commit compiler workflow's artifact."""
     require(type(run_id) is int and run_id > 0, 'compiled_helper_run_invalid')
     base = f'repos/{REPOSITORY}/actions/runs/{run_id}'
     metadata = json.loads(checked(['gh', 'api', '--hostname', 'github.com', base], timeout=60))
     validate_compile_run(metadata, source)
     assets = json.loads(checked(['gh', 'api', '--hostname', 'github.com', base + '/artifacts'], timeout=60))
-    candidates = [item for item in assets['artifacts'] if item['name'] == 'release-compiled-updater']
+    require(artifact_name in {'release-compiled-updater', 'release-compiled-updater-121'},
+            'compiled_helper_artifact_invalid')
+    candidates = [item for item in assets['artifacts'] if item['name'] == artifact_name]
     require(len(candidates) == 1 and candidates[0].get('expired') is False, 'compiled_helper_artifact_missing')
     asset = candidates[0]
     require(type(asset['id']) is int and 0 < asset['size_in_bytes'] <= 16 * 1024 * 1024,
@@ -344,7 +373,7 @@ def source_inputs(shared):
     return {name: (ROOT / name).read_bytes() for name in names}
 
 
-def verify_qa(args, sources, plan):
+def verify_qa(args, sources, plan, *, release=RELEASE120):
     shared = read_json(args.shared_qa, 16 * 1024 * 1024)
     runtime = read_json(args.runtime_qa, 8 * 1024 * 1024)
     direct = read_json(args.direct_qa, 8 * 1024 * 1024)
@@ -366,14 +395,14 @@ def verify_qa(args, sources, plan):
                 require(all_hashes.setdefault(name, value) == value, "qa_source_hashes_disagree")
     for name, raw in sources.items():
         require(all_hashes.get(name) == digest(raw), "qa_does_not_match_build_source")
-    require(direct.get("public_inputs_sha256", {}).get("plan.json") == PLAN_SHA256,
+    require(direct.get("public_inputs_sha256", {}).get("plan.json") == release.plan,
         "direct_qa_plan_mismatch")
     require(plan["managed_by"] == "account-access-exact-installed-runtime-delta-v1",
         "direct_plan_marker_mismatch")
     return shared, runtime, direct
 
 
-def prepare_updater_sources(sources, shared, source_plan, code):
+def prepare_updater_sources(sources, shared, source_plan, code, *, release=RELEASE120):
     code.mkdir(mode=0o700)
     paths = []
     for name, raw in sources.items():
@@ -391,14 +420,42 @@ def prepare_updater_sources(sources, shared, source_plan, code):
     compiled_pins = code / "CompiledPins.swift"
     compiled_pins.write_bytes(shared["DUMMY_COMPILED_PINS"] + (
         "\nenum RuntimeUpgradeCompiledPins { static let value = RuntimeUpgradeSource.Pins("
-        f'planSHA256: "{PLAN_SHA256}", beforeSHA256: "{BEFORE_SHA256}", afterSHA256: "{AFTER_SHA256}", '
-        f'repairPlan: "{"0" * 64}", repairSource: "{"0" * 40}", targetSource: "{TARGET_SOURCE}", '
+        f'planSHA256: "{release.plan}", beforeSHA256: "{release.before}", afterSHA256: "{release.after}", '
+        f'repairPlan: "{"0" * 64}", repairSource: "{"0" * 40}", targetSource: "{release.target_source}", '
         f"sourceFiles: [{source_files}], direct: true) }}\n").encode())
     paths.append(str(compiled_pins))
     return paths
 
 
+def verify_target_qualification(report, release, plan):
+    common = (report.get('status') == 'TARGET_IMAGE_QUALIFIED'
+        and report.get('owner_app_build') == int(release.number)
+        and report.get('source_image_build') == int(release.number) - 1
+        and report.get('builder_commit') == release.image_builder
+        and report.get('target_source_commit') == release.target_source
+        and report.get('project_wheel_sha256') == plan['project_wheel_sha256'])
+    if release.number == '120':
+        qualified = (report.get('source_manifest_sha256') == release.image_base
+            and report.get('source_image_unchanged') is True
+            and report.get('target_manifest_sha256') == release.after
+            and report.get('native_manifest_preflight') is True
+            and report.get('installed') is False and report.get('installer_executed') is False
+            and report.get('native_payload_audit', {}).get('publisher_signatures_verified') is True)
+    elif release.number == '121':
+        from scripts.build_jit_update_image import JIT, JIT_ROLES
+        qualified = (report.get('base_manifest_sha256') == release.image_base
+            and report.get('manifest_sha256') == release.after
+            and report.get('publisher_sandboxed_browser_execution') is True
+            and report.get('native_audit', {}).get('publisher_signatures_verified') is True
+            and report.get('installed_paths_changed') is False and report.get('account_data_used') is False
+            and report.get('jit_roles') == sorted(JIT_ROLES) and report.get('entitlements') == JIT)
+    else:
+        qualified = False
+    require(common and qualified, 'target_image_qualification_mismatch')
+
+
 def build(args):
+    release = RELEASES[getattr(args, 'release', '120')]
     require(sys.platform == "darwin" and os.getuid() == os.geteuid() != 0, "ordinary_mac_required")
     require(re.fullmatch(r"[a-f0-9]{40}", args.source) is not None, "source_revision_invalid")
     require(git_bytes("rev-parse", "HEAD").decode().strip() == args.source, "source_revision_mismatch")
@@ -406,18 +463,18 @@ def build(args):
     output = args.output.absolute()
     require(output.parent.is_dir() and not os.path.lexists(output), "output_must_be_new")
     plan_raw = read_owned_bytes(args.plan, 34 * 1024 * 1024)
-    require(digest(plan_raw) == PLAN_SHA256, "plan_hash_mismatch")
+    require(digest(plan_raw) == release.plan, "plan_hash_mismatch")
     require(re.fullmatch(r"[A-F0-9]{40}", args.application_identity) is not None, "application_identity_invalid")
     shared = runpy.run_path(str(ROOT / "scripts/mac_full_image_installed_probe.py"))
     sources = source_inputs(shared)
     for name, raw in sources.items():
         require(git_bytes("show", args.source + ":" + name) == raw, "source_not_committed")
     source_plan = json.loads(plan_raw)
-    shared_qa, runtime_qa, direct_qa = verify_qa(args, sources, source_plan)
+    shared_qa, runtime_qa, direct_qa = verify_qa(args, sources, source_plan, release=release)
     before_raw = read_owned_bytes(args.base_manifest, 16 * 1024 * 1024)
     old_identity_raw = read_owned_bytes(args.base_identity, 8192)
-    require(digest(before_raw) == BEFORE_SHA256, "base_manifest_mismatch")
-    require(digest(old_identity_raw) == "3462087a742f96baab0dbcc5e66e84c1aa408e828f216024529a5d05e7eb7248",
+    require(digest(before_raw) == release.before, "base_manifest_mismatch")
+    require(digest(old_identity_raw) == release.base_identity,
         "base_identity_mismatch")
     import sys as _sys
     _sys.path.insert(0, str(ROOT))
@@ -436,27 +493,14 @@ def build(args):
     target_manifest_path = args.target_manifest.absolute()
     target_qualification_raw = read_owned_bytes(args.target_qualification, 2 * 1024 * 1024)
     target_qualification = json.loads(target_qualification_raw)
-    require(target_qualification.get("status") == "TARGET_IMAGE_QUALIFIED"
-        and target_qualification.get("owner_app_build") == 120
-        and target_qualification.get("source_image_build") == 119
-        and target_qualification.get("source_manifest_sha256") == BASE_IMAGE_SHA256
-        and target_qualification.get("source_image_unchanged") is True
-        and target_qualification.get("builder_commit") == TARGET_IMAGE_BUILDER_COMMIT
-        and target_qualification.get("target_source_commit") == TARGET_SOURCE
-        and target_qualification.get("target_manifest_sha256") == AFTER_SHA256
-        and target_qualification.get("project_wheel_sha256") == source_plan["project_wheel_sha256"]
-        and target_qualification.get("native_manifest_preflight") is True
-        and target_qualification.get("installed") is False
-        and target_qualification.get("installer_executed") is False
-        and target_qualification.get("native_payload_audit", {}).get("publisher_signatures_verified") is True,
-        "target_image_qualification_mismatch")
+    verify_target_qualification(target_qualification, release, source_plan)
     require(target_image.is_dir() and not target_image.is_symlink()
         and {path.name for path in target_image.iterdir()} == {"Applications", "Library"},
         "target_public_image_missing")
     after_raw = read_owned_bytes(target_manifest_path, 16 * 1024 * 1024)
-    require(digest(after_raw) == AFTER_SHA256, "target_manifest_missing_or_mismatched")
+    require(digest(after_raw) == release.after, "target_manifest_missing_or_mismatched")
     after = json.loads(after_raw)
-    require(all(digest(git_bytes("show", TARGET_SOURCE + ":" + name)) == file_hash
+    require(all(digest(git_bytes("show", release.target_source + ":" + name)) == file_hash
         for name, file_hash in source_plan["target_source_files"].items()), "target_source_files_mismatch")
     scripts = output / "scripts"
     scripts.mkdir(mode=0o700)
@@ -469,16 +513,17 @@ def build(args):
     command("target-owner-signature", ["/usr/bin/codesign", "--verify", "--strict", "--verbose=2",
         support / "owner.app"], timeout=120)
     new_identity_raw = (support / "package-identity.json").read_bytes()
-    direct_planner.parse(plan_raw, expected_sha256=PLAN_SHA256, before_manifest=before_raw,
+    direct_planner.parse(plan_raw, expected_sha256=release.plan, before_manifest=before_raw,
         after_manifest=after_raw, old_identity=old_identity_raw, new_identity=new_identity_raw,
-        source_files=source_plan["target_source_files"])
+        source_files=source_plan["target_source_files"], release=release.number)
     (scripts / "TargetIdentity.json").write_bytes(new_identity_raw)
     require((support / "package-identity.json").read_bytes() == new_identity_raw,
         "target_identity_payload_mismatch")
-    paths = prepare_updater_sources(sources, shared, source_plan, output / "source")
+    paths = prepare_updater_sources(sources, shared, source_plan, output / "source", release=release)
     helper = scripts / "AccountAccess-runtimeupgrade"
     if getattr(args, 'compiled_run', None) is not None:
-        reviewed_ci_helper(args.compiled_run, args.source, helper)
+        reviewed_ci_helper(args.compiled_run, args.source, helper,
+            artifact_name='release-compiled-updater' if release.number == '120' else 'release-compiled-updater-121')
         command('compiled-helper-architecture', ['/usr/bin/lipo', '-verify_arch', 'arm64', helper])
     else:
         command("compile-updater", ["/usr/bin/xcrun", "swiftc", "-j", "2", "-O", "-whole-module-optimization",
@@ -510,7 +555,7 @@ exec "$AC_PACKAGE_SCRIPTS/AccountAccess-runtimeupgrade"
     command("postinstall-syntax", ["/bin/sh", "-n", scripts / "postinstall"], timeout=30)
     require({path.name for path in scripts.iterdir()} == RESOURCE_NAMES, "installer_resource_inventory_mismatch")
     raw_pkg = output / "unsigned.pkg"
-    command("package-resources", ["/usr/bin/pkgbuild", "--nopayload", "--identifier", COMPONENT_ID,
+    command("package-resources", ["/usr/bin/pkgbuild", "--nopayload", "--identifier", release.component_id,
         "--version", "0.8.0", "--scripts", scripts, raw_pkg], timeout=600)
     container = output / "container"
     container.mkdir(mode=0o700)
@@ -519,14 +564,14 @@ exec "$AC_PACKAGE_SCRIPTS/AccountAccess-runtimeupgrade"
     require({path.name for path in container.iterdir()} == {"PackageInfo", "Scripts"}, "unexpected_package_container")
     info_path = container / "PackageInfo"
     info = info_path.read_bytes()
-    require(COMPONENT_ID.encode() in info and info.count(b'timeout="600"') == 1
+    require(release.component_id.encode() in info and info.count(b'timeout="600"') == 1
         and info.count(b'postinstall-action="none"') == 1, "package_info_contract_mismatch")
     info_path.write_bytes(info.replace(b'timeout="600"', b'timeout="1800"').replace(
         b'postinstall-action="none"', b'postinstall-action="restart"'))
-    package = output / "Account-Access-Direct-Upgrade-120-root-recovery.pkg"
+    package = output / (release.package_stem + ".pkg")
     command("assemble-package", ["/usr/bin/xar", "--compression=none", "-cf", package,
         "PackageInfo", "Scripts"], cwd=container, timeout=600)
-    signed = output / "Account-Access-Direct-Upgrade-120-root-recovery-signed.pkg"
+    signed = output / (release.package_stem + "-signed.pkg")
     command("sign-package", ["/usr/bin/productsign", "--sign", args.installer_identity, package, signed], timeout=300)
     package.unlink()
     notary_raw = command("notarize", ["/usr/bin/xcrun", "notarytool", "submit", signed,
@@ -569,13 +614,13 @@ exec "$AC_PACKAGE_SCRIPTS/AccountAccess-runtimeupgrade"
         "notarization": "Accepted", "stapled": True, "gatekeeper": "accepted",
         "helper_sha256": file_digest(helper), "helper_signature": "Developer ID Application verified",
         "installer_signature": "Developer ID Installer verified",
-        "target_image_manifest_sha256": AFTER_SHA256,
-        "target_source_commit": TARGET_SOURCE,
-        "target_image_builder_commit": TARGET_IMAGE_BUILDER_COMMIT,
+        "target_image_manifest_sha256": release.after,
+        "target_source_commit": release.target_source,
+        "target_image_builder_commit": release.image_builder,
         "target_image_qualification": str(args.target_qualification),
         "target_image_qualification_sha256": digest(target_qualification_raw),
-        "plan_sha256": PLAN_SHA256, "before_manifest_sha256": BEFORE_SHA256,
-        "after_manifest_sha256": AFTER_SHA256, "sparse_nodes": sparse_nodes, "sparse_file_bytes": sparse_bytes,
+        "plan_sha256": release.plan, "before_manifest_sha256": release.before,
+        "after_manifest_sha256": release.after, "sparse_nodes": sparse_nodes, "sparse_file_bytes": sparse_bytes,
         "owner_bundle_nodes": owner_bundle_nodes, "owner_bundle_signature": "Developer ID Application verified",
         "packaged_target_image_nodes": len(updater_payload_inventory),
         "plan_unit_count": len(source_plan["units"]),
@@ -592,6 +637,7 @@ exec "$AC_PACKAGE_SCRIPTS/AccountAccess-runtimeupgrade"
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--release', choices=['120', '121'], default='120')
     parser.add_argument("--source", required=True)
     parser.add_argument('--compiled-run', type=int,
         help='Successful exact-commit release native workflow; signing still occurs only on this Mac')

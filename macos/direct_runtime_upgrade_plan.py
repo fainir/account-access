@@ -14,6 +14,9 @@ from macos import full_image_update as image
 BEFORE = "568c79ca3b45ffc357bc5af2b420d481e729630b0120dc6d0058c1a396ad21b1"
 AFTER = "6ab5f90fa72dfed84c295d5df4741d3cb9aaf6a0fa89ed155b4cb76400570874"
 TARGET_SOURCE = "beda6324d836458a35045ee0d2acd579238d6929"
+RELEASES = {"120": (BEFORE, AFTER, TARGET_SOURCE),
+            "121": (AFTER, "1917cff3a29b8306549287f4e6ac4fcc393dc4445f21a3ab0019c55e457b2053",
+                    "806f7ce52499729c48fd0d9f88e6ff60b20b72ce")}
 ORIGINAL_RECEIPT_MANIFEST = image.ORIGINAL_MANIFEST
 MARKER = "account-access-exact-installed-runtime-delta-v1"
 SUPPORT = image.SUPPORT
@@ -131,9 +134,11 @@ def _units(before, after):
 
 
 def derive(*, before_manifest: bytes, after_manifest: bytes, old_identity: bytes,
-           new_identity: bytes, source_files: dict[str, str]) -> bytes:
-    require(type(before_manifest) is bytes and image.digest(before_manifest) == BEFORE)
-    require(type(after_manifest) is bytes and image.digest(after_manifest) == AFTER)
+           new_identity: bytes, source_files: dict[str, str], release: str = "120") -> bytes:
+    require(type(release) is str and release in RELEASES)
+    before_pin, after_pin, target_source = RELEASES[release]
+    require(type(before_manifest) is bytes and image.digest(before_manifest) == before_pin)
+    require(type(after_manifest) is bytes and image.digest(after_manifest) == after_pin)
     before, after = image._manifest(before_manifest), image._manifest(after_manifest)
     old, new = _rows(before, SUPPORT), _rows(after, SUPPORT)
     require(before["roots"][APPLICATION] == after["roots"][APPLICATION]
@@ -157,10 +162,10 @@ def derive(*, before_manifest: bytes, after_manifest: bytes, old_identity: bytes
     value = {
         "schema": 1,
         "managed_by": MARKER,
-        "before_manifest_sha256": BEFORE,
-        "after_manifest_sha256": AFTER,
+        "before_manifest_sha256": before_pin,
+        "after_manifest_sha256": after_pin,
         "original_install_receipt_manifest_sha256": ORIGINAL_RECEIPT_MANIFEST,
-        "target_source": TARGET_SOURCE,
+        "target_source": target_source,
         "target_source_files": source_files,
         "old_peers": old_peers,
         "new_peers": new_peers,

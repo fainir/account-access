@@ -109,12 +109,12 @@ import Darwin
             let afterRaw = try read("after.json", max: InstallerPayloadManifest.maximumManifest)
             let oldIdentity = try read("old-identity.json", max: 8192)
             let newIdentity = try read("new-identity.json", max: 8192)
+            guard let selected = DirectRuntimeUpgradeSource.releases.first(where: {
+                $0.pins.planSHA256 == FullImageJSON.hash(planRaw)
+            }) else { throw FullImageFailure.source }
             let source = try DirectRuntimeUpgradeSource.load(plan: planRaw, before: beforeRaw, after: afterRaw,
                 oldIdentity: oldIdentity, newIdentity: newIdentity,
-                pins: .init(planSHA256: DirectRuntimeUpgradeSource.planSHA256,
-                    beforeSHA256: DirectRuntimeUpgradeSource.beforeSHA256,
-                    afterSHA256: DirectRuntimeUpgradeSource.afterSHA256,
-                    targetSourceCommit: DirectRuntimeUpgradeSource.sourceCommit))
+                pins: selected.pins)
             let planValue = try FullImageJSON.object(planRaw, maximum: 34 * 1024 * 1024)
             guard let targetSourceFiles = planValue["target_source_files"] as? [String: String] else {
                 throw FullImageFailure.source
@@ -141,11 +141,13 @@ import Darwin
             try require(count == unitRows.count && source.changed.count == changedRows.count)
             try require(PublicTreeUnit.directRuntimeDeltaCases.contains(.directProject)
                 && PublicTreeUnit.directRuntimeDeltaCases.contains(.directDistInfo))
-            try require(source.units.filter { if case .tree = $0 { return true }; return false }.count == 8)
-            try require(source.units.filter { if case .file = $0 { return true }; return false }.count == 5)
+            let jitRepair = source.planSHA256 == FullImageFileOperation.jitRuntimePlanSHA256
+            try require(source.units.filter { if case .tree = $0 { return true }; return false }.count == (jitRepair ? 2 : 8))
+            try require(source.units.filter { if case .file = $0 { return true }; return false }.count == (jitRepair ? 4 : 5))
+            try require(selected.namespace.name == (jitRepair ? "Account Access Runtime JIT Repair" : "Account Access Runtime Recovery"))
             let directCount = source.units.filter { if case .directFile = $0 { return true }; return false }.count
             try require(directCount == unitRows.filter { $0["kind"] as? String == "direct_file" }.count)
-            try require(source.targetSourceCommit == DirectRuntimeUpgradeSource.sourceCommit)
+            try require(source.targetSourceCommit == selected.pins.targetSourceCommit)
             let stagedRows = try rows(FullImagePublicView.projection(source: source,
                 states: Array(repeating: .staged, count: count)))
             let appliedRows = try rows(FullImagePublicView.projection(source: source,
@@ -237,19 +239,26 @@ import Darwin
                 index: first.index, before: first.before, after: first.after, directPath: "runtime/../broker/install.json", directMode: first.directMode))
             let policyOperation = journalOperations[count].file!
             refuses(.init(schema: 1, unit: .hostPolicy, planSHA256: String(repeating: "0", count: 64),
-                index: count, before: policyOperation.before, after: policyOperation.after))
+                index: max(count, 64), before: policyOperation.before, after: policyOperation.after))
             refuses(.init(schema: 1, unit: .requirements, planSHA256: directPlan,
-                index: count, before: policyOperation.before, after: policyOperation.after))
+                index: max(count, 64), before: policyOperation.before, after: policyOperation.after))
             var tampered = planRaw; tampered[tampered.startIndex] ^= 1
             do {
                 _ = try DirectRuntimeUpgradeSource.load(plan: tampered, before: beforeRaw, after: afterRaw,
                     oldIdentity: oldIdentity, newIdentity: newIdentity,
-                    pins: .init(planSHA256: DirectRuntimeUpgradeSource.planSHA256,
-                        beforeSHA256: DirectRuntimeUpgradeSource.beforeSHA256,
-                        afterSHA256: DirectRuntimeUpgradeSource.afterSHA256,
-                        targetSourceCommit: DirectRuntimeUpgradeSource.sourceCommit))
+                    pins: selected.pins)
             } catch { refusals += 1 }
-            try require(refusals == 6)
+            guard let other = DirectRuntimeUpgradeSource.releases.first(where: {
+                $0.pins.planSHA256 != selected.pins.planSHA256
+            }) else { throw FullImageFailure.source }
+            for mixed in [DirectRuntimeUpgradeSource.Pins(planSHA256: selected.pins.planSHA256,
+                    beforeSHA256: other.pins.beforeSHA256, afterSHA256: selected.pins.afterSHA256,
+                    targetSourceCommit: selected.pins.targetSourceCommit),
+                .init(planSHA256: selected.pins.planSHA256, beforeSHA256: selected.pins.beforeSHA256,
+                    afterSHA256: selected.pins.afterSHA256, targetSourceCommit: other.pins.targetSourceCommit)] {
+                do { _ = try DirectRuntimeUpgradeSource.release(mixed) } catch { refusals += 1 }
+            }
+            try require(refusals == 8)
             let retainedChecks = try retainedPreparationChecks()
             try require(retainedChecks == 9)
             let report: [String: Any] = ["status": "PASSED", "changed_nodes": source.changed.count,

@@ -20,6 +20,28 @@ struct DirectRuntimeUpgradeSource: PublicImageTransitionSource {
         let afterSHA256: String
         let targetSourceCommit: String
     }
+    struct Release {
+        let pins: Pins
+        let namespace: PublicImageNamespace
+        func matches(_ other: Pins) -> Bool {
+            pins.planSHA256 == other.planSHA256 && pins.beforeSHA256 == other.beforeSHA256
+                && pins.afterSHA256 == other.afterSHA256 && pins.targetSourceCommit == other.targetSourceCommit
+        }
+    }
+    // Each release remains a complete compiled tuple. A package cannot mix a
+    // predecessor, source, manifest or namespace from different releases.
+    static let releases: [Release] = [
+        .init(pins: .init(planSHA256: planSHA256, beforeSHA256: beforeSHA256,
+                         afterSHA256: afterSHA256, targetSourceCommit: sourceCommit), namespace: .directRuntimeRecovery),
+        .init(pins: .init(planSHA256: FullImageFileOperation.jitRuntimePlanSHA256,
+                         beforeSHA256: afterSHA256,
+                         afterSHA256: "1917cff3a29b8306549287f4e6ac4fcc393dc4445f21a3ab0019c55e457b2053",
+                         targetSourceCommit: "806f7ce52499729c48fd0d9f88e6ff60b20b72ce"), namespace: .runtimeJITRepair)
+    ]
+    static func release(_ pins: Pins) throws -> Release {
+        guard let value = releases.first(where: { $0.matches(pins) }) else { throw Refused(line: #line) }
+        return value
+    }
     let pins: Pins
     var planSHA256: String { pins.planSHA256 }
     var targetSourceCommit: String { pins.targetSourceCommit }
@@ -131,6 +153,9 @@ struct DirectRuntimeUpgradeSource: PublicImageTransitionSource {
     }
     static func load(plan raw: Data, before beforeRaw: Data, after afterRaw: Data,
                      oldIdentity: Data, newIdentity: Data, pins: Pins) throws -> Self {
+        let selected = try release(pins).pins
+        let planSHA256 = selected.planSHA256, beforeSHA256 = selected.beforeSHA256
+        let afterSHA256 = selected.afterSHA256, sourceCommit = selected.targetSourceCommit
         guard pins.planSHA256 == planSHA256, pins.beforeSHA256 == beforeSHA256,
               pins.afterSHA256 == afterSHA256, pins.targetSourceCommit == sourceCommit,
               FullImageJSON.hash(raw) == planSHA256, FullImageJSON.hash(beforeRaw) == beforeSHA256,

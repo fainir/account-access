@@ -130,7 +130,7 @@ def main() -> None:
     require(report == {"status": "PASSED", "changed_nodes": len(plan["changed"]), "units": len(plan["units"]),
         "direct_files_added": sum(unit.get("before") is None for unit in direct_units),
         "direct_files_removed": sum(unit.get("after") is None for unit in direct_units),
-        "retained_preparation_checks": 9, "projection_checks": 2, "journal_operations": len(plan["units"]) + 4, "refusal_checks": 6,
+        "retained_preparation_checks": 9, "projection_checks": 2, "journal_operations": len(plan["units"]) + 4, "refusal_checks": 8,
         "installed_reads": False, "service_actions": False, "production_ready": False}, "native_report_mismatch")
     require(all(digest((ROOT / name).read_bytes()) == value for name, value in pins.items()), "source_changed_during_compile")
     summary = {"status": "PASSED", "native": report, "source_sha256": pins,

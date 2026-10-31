@@ -56,12 +56,12 @@ EXACT_INPUTS = {
     'macos/ComponentUpdate.swift': '9595a0ad973473414e4eb0f54784340fb22b3d75cc8f2a876fefa59433d52649',
     'macos/ComponentUpdateIdentity.swift': 'a19a5c5bb645e5091f987f9fd5f457b34df0e280ef272513de68f9dd12b35370',
     'macos/ComponentUpdatePolicies.swift': '7aca759f4b9fad195851ce12d81550ec08a0753c43515574c23fc74d247060ab',
-    'macos/DirectRuntimeUpgradeSource.swift': '4866aa925931f688ef4b6ac85af34ced333c9e6f9a757afa96c98aec79f91a49',
-    'macos/FullImageGlobalJournal.swift': '9958edbc3ebafb6c884778ba65676cdc8e69a3c946c69a30f0c2b7639b160de3',
+    'macos/DirectRuntimeUpgradeSource.swift': 'f9c31e992ad95ac18d9d95d7c02e75dd651853e0fc4f210c000a96cd4b4ce2c9',
+    'macos/FullImageGlobalJournal.swift': 'f263183ffea8b33c15c90732c2fd54625da8bb7e34aa2de30311ca01589c8c7c',
     'macos/FullImageInstalledIO.swift': '58b02bd1a606a3700ac4aef706e13fbd4b9a69811af5b843edd4937487b3f154',
     'macos/FullImagePlan.swift': 'be714d798f25917690ddeced984a6a2578b05a5bbea9f8c97f333d0f8630f450',
     'macos/FullImagePredecessorAuthority.swift': '39a6c5b35ab1614f89983c799dd603b2585b9d219d7b3d7908e73b750209f603',
-    'macos/FullImageTransitionStorage.swift': '18cf82ab4b7dc3ab558b7d3af1ab412ae46f393adaf9397ab06556cd1fb90446',
+    'macos/FullImageTransitionStorage.swift': 'e2b910cee11717175d0170a44b1ee2d4ffc9be641a1d71517eaaf0583b5aa0f5',
     'macos/FullImageTreeAttachment.swift': '8bb445ede216844f0a32144e99c27a9f06a80b7a76f4e78fbd9f30b65ce22a65',
     'macos/FullImageTreeStorage.swift': '30d67bb671020d070ecedfa0986e99de6ae2a1a653eb4fb012f4932b7f869fae',
     'macos/FullImageUpdateMain.swift': '80e8dff1dfd9aa04396cfc149087763365ebce801b3af42a6ff1bc7741d9ab5d',
@@ -86,9 +86,9 @@ EXACT_INPUTS = {
     'macos/source-fragments/BrokerRepairInstalledAdapter.swift.inc': '78bf44ef76b136733f2b21b53879872915582d463d1a12a1ef6a5fe2c8402dca',
     'macos/source-fragments/CompletedComponentPredecessor.swift.inc': 'bda8f8138e64f4f1bad0a05e35f63a4d05922ff19d12a1e0d8371ac8cb886be7',
     'macos/source-fragments/FullImageInstalledAdapter.swift.inc': '0b66200d82a8239a41bdeadb6b1be336f6644c32032aa45bbdf8d45257a732ab',
-    'macos/source-fragments/RuntimeUpgradeInstalledAdapter.swift.inc': '86c1d5a9c55a8f4565375d163a3d8c145b30b54ccbfcf6d748944ea9ee982a15',
+    'macos/source-fragments/RuntimeUpgradeInstalledAdapter.swift.inc': '2f569f7f70ee053269990739dbf1bc8ef5cb19959b774a9deae84912a7fa65da',
 }
-COMPOSED_SHA256 = 'ea6cb0754b8094efd0c014ddf141e958f4b49c3d233d203d44de33c7b3eb7506'
+COMPOSED_SHA256 = 'b075840f18489936c015e68a6b973da88be83c7af7c1c50b64d48199d701f4c3'
 GUARD_ENV = "ACCOUNT_ACCESS_FULL_IMAGE_PROBE_GUARD"
 DISPATCHER = b'''import Foundation
 import Darwin
