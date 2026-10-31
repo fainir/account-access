@@ -59,13 +59,16 @@ def selected_release(args):
     return RELEASES[getattr(args, 'release', '120')]
 
 
-BROWSER_CHECK = '''import json, os
+BROWSER_CHECK = '''import json, os, sys
 # Match WorkerBootstrap's service-home cwd and private file creation policy.
 os.chdir(os.environ['HOME'])
 os.umask(0o077)
 from playwright.sync_api import sync_playwright
+flags = sys.argv[1:]
+assert flags in [[], ['--enable-logging=stderr'], ['--enable-logging=stderr', '--disable-gpu'],
+                 ['--enable-logging=stderr', '--disable-gpu', '--disable-software-rasterizer']]
 with sync_playwright() as pw:
-    b = pw.chromium.launch(headless=True, chromium_sandbox=True)
+    b = pw.chromium.launch(headless=True, chromium_sandbox=True, args=flags)
     c = b.new_context(offline=True)
     p = c.new_page()
     p.set_content('<title>Installed runtime check</title><script>window.runtimeAnswer=6*7</script>')
@@ -123,6 +126,22 @@ def capture_browser_failure(output, raw):
         (output / 'browser-system.log').write_bytes((result.stdout + result.stderr)[:128 * 1024])
     except subprocess.TimeoutExpired:
         pass
+    # Diagnose the same immutable installed program, with its sandbox retained.
+    # These runs cannot turn the failed default acceptance check into a pass.
+    variants = [('logging', ['--enable-logging=stderr']),
+                ('without-gpu', ['--enable-logging=stderr', '--disable-gpu']),
+                ('without-software-gpu', ['--enable-logging=stderr', '--disable-gpu', '--disable-software-rasterizer'])]
+    for name, flags in variants:
+        try:
+            result = subprocess.run(list(map(str, installed_browser_command())) + flags,
+                                    cwd=BASE / 'home', capture_output=True, timeout=45)
+            raw = result.stdout + result.stderr
+            code = result.returncode
+        except subprocess.TimeoutExpired as exc:
+            raw = (exc.stdout or b'') + (exc.stderr or b'')
+            code = 'timeout'
+        (output / ('browser-diagnostic-' + name + '.log')).write_bytes(
+            ('exit_code=' + str(code) + '\n').encode() + raw[:128 * 1024])
 
 JOSE_CHECK = '''import importlib.metadata, json
 from joserfc import jws
