@@ -15,6 +15,11 @@ on:
         options: ['both', 'fresh', 'upgrade']
         default: 'both'
         description: Installer journey to exercise
+      platform:
+        type: choice
+        options: ['macos-15', 'macos-14', 'macos-26']
+        default: 'macos-15'
+        description: Exact hosted Apple silicon OS to qualify
 env:
   AC_RELEASE: ${{ inputs.release || '122' }}
 permissions:
@@ -53,7 +58,7 @@ jobs:
           retention-days: 3
   actual-installer:
     needs: public-inputs
-    runs-on: macos-15
+    runs-on: ${{ inputs.platform == 'macos-14' && 'macos-14' || inputs.platform == 'macos-26' && 'macos-26' || 'macos-15' }}
     timeout-minutes: 80
     strategy:
       fail-fast: false

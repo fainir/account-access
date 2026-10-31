@@ -12,6 +12,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import platform
 import plistlib
 import pwd
 import re
@@ -316,7 +317,8 @@ def run(args):
             require(hashlib.file_digest(stream, 'sha256').hexdigest() == contract['assets'][name]['sha256']
                     and data.stat().st_size == contract['assets'][name]['bytes'], 'input_digest_mismatch')
     args.output.mkdir(mode=0o700)
-    report = {'status': 'FAILED', 'checks': [], 'personal_accounts_used': 0, 'production_ready': False}
+    report = {'status': 'FAILED', 'checks': [], 'personal_accounts_used': 0, 'production_ready': False,
+              'macos_version': platform.mac_ver()[0], 'architecture': platform.machine()}
 
     def command(label, argv, timeout=120, expected=0):
         result = subprocess.run(list(map(str, argv)), stdin=subprocess.DEVNULL,
@@ -534,7 +536,8 @@ def fresh_run(args):
                 and package.stat().st_size == contract['assets']['fresh.pkg']['bytes'], 'fresh_input_digest_mismatch')
     args.output.mkdir(mode=0o700)
     report = {'status': 'FAILED', 'mode': 'fresh', 'checks': [], 'personal_accounts_used': 0,
-              'production_ready': False}
+              'production_ready': False, 'macos_version': platform.mac_ver()[0],
+              'architecture': platform.machine()}
 
     def command(label, argv, timeout=120):
         result = subprocess.run(list(map(str, argv)), stdin=subprocess.DEVNULL,
