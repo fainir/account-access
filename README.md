@@ -19,11 +19,17 @@ is READY. Both installed Codex and Claude launchers completed the authorized
 public example, returning only six product names/prices. [Acceptance evidence](qa/release122-2026-10-31/acceptance.md).
 
 The public example does not validate a private website account. Real private
-email/SMS/TOTP sign-in, physical Android and publisher-key custody, and the
-public legal/contact release review remain owner steps. The existing mailbox
+email/SMS/TOTP sign-in and physical Android acceptance remain owner steps. The
+Android 0.8.0 APK is publisher-signed with native Mac Keychain custody and passes
+[actual emulator acceptance](qa/gates/android-publisher-acceptance-2026-10-31.md).
+Final publisher/legal release approval remains required. The existing mailbox
 has already passed its connection check. Namecheap remains paused at its
 unrecognized challenge; Harel and Phoenix are outside v1 support. Portable
 protected-vault backup is also outside v1. See [the current production ledger](READINESS.md).
+
+The [customer release draft](docs/mac-release-candidate.md) identifies the full
+installer, exact build-121 updater and matching third-party source download.
+Its assets remain unpublished while the recorded acceptance and approvals finish.
 
 The candidate's [data-handling disclosure](docs/data-handling.md) explains local
 storage, provider/AI recipients, Android permissions and retention/removal limits.
