@@ -10,11 +10,11 @@ Automatic and Example connected. Private Namecheap remains paused; no private
 website sign-in is claimed.
 
 The signed, notarized, stapled and Gatekeeper-accepted packages passed actual
-macOS 15 fresh install/repair and exact upgrade/reapply. The owner update and
+macOS 15 and 26 fresh install/repair and exact upgrade/reapply. The owner update and
 final reapplication preserved the private vault, installation binding and both
 earlier recovery namespaces. A real enrolled-service restart qualified the
 bounded wait through launchd's measured SIGTERMed state. No full OS reboot was
-performed. [Current acceptance and limits](../qa/release122-2026-10-31/acceptance.md).
+performed. macOS 14 execution remains a recorded provider wait; it is not qualified by the minimum deployment target. [Current acceptance and limits](../qa/release122-2026-10-31/acceptance.md).
 
 Use the fresh package only for a clean installation or identical-image repair.
 An installed predecessor needs its separately qualified exact updater. Never

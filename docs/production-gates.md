@@ -8,7 +8,7 @@ The qualified Mac candidate is 0.8.0 build 122. It is installed on the owner Mac
 the protected browser worker reports READY. Both installed Codex and Claude
 launchers return only the approved public example's product names/prices.
 Signed/notarized fresh install, repair, upgrade and reapply passed on disposable
-macOS 15; owner update/reapplication and real service restart also passed.
+macOS 15 and 26; owner update/reapplication and real service restart also passed.
 [Acceptance evidence and limits](../qa/release122-2026-10-31/acceptance.md).
 
 Private website email/TOTP acceptance, Android publisher identity and physical
@@ -18,3 +18,5 @@ paused at its unrecognized challenge. Harel/Phoenix and portable protected-vault
 backup are outside v1. Public-example success does not establish private-account
 acceptance. The qualified packages remain a draft; the public download is still
 0.7.4 preview. The ledger records the remaining owner actions precisely.
+
+The real owner worker passes on macOS 27.2. macOS 14 remains unqualified because its runner was cancelled before VM creation during a scheduled brownout; D4 records the daily next check.
