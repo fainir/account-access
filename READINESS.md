@@ -52,6 +52,7 @@ Statuses: todo | building (who) | verified | owner | waiting | cut (reason)
 5. Sign in to Lemon Squeezy through Account Access once with your authenticator app -> confirms its private TOTP challenge and enrollment against the real site. Keep the password and codes in their intended apps.
 6. Before any public listing, review [the release copy draft](docs/release-copy-draft.md) with qualified counsel, supply the privacy/support contact and mailing address where required, and confirm the final build's data/permission disclosures -> unblocks the legal/store gate.
 7. In Account Access > Accounts > Namecheap, review the existing unrecognized sign-in challenge (`b56217f0353d484add171f6bc78b5239`) using **Review sign-in help** -> unblocks private provider acceptance only if its reviewed flow supports the required step. Do not disable two-factor authentication, bypass a challenge, or resubmit this paused operation without resolving it. The required action is review of the unrecognized authentication page.
+8. Account Access has staged export of only the public SauceDemo example to its private task folder. The first prompt expired safely without export completion. After the updated app is installed, repeat the staged public-example export and approve the separate macOS **Authorize Account Access setup** prompt with Touch ID or your Mac login password -> unblocks installed public-example export acceptance (F8). Never enter the password in chat; the prompt expires safely if unanswered.
 
 ## Waiting on third parties
 
