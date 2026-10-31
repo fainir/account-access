@@ -1,4 +1,9 @@
-# First Android identity with Mac Keychain - prepared for owner approval
+# First Android identity with Mac Keychain - completed after owner approval
+
+Completed: the owner selected the first-release option and the managed operation
+created one identity and signed one candidate. Independent artifact checks pass.
+See [actual acceptance](android-publisher-acceptance-2026-10-31.md). The remainder
+records the reviewed preparation and safeguards, not a new pending approval.
 
 The owner asked the agent to finish production readiness after the manual
 publisher handoff. A prepared first-release option now requires one named owner
