@@ -5,6 +5,9 @@ import android.content.Context;
 import android.os.Bundle;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.app.UiAutomation;
+import android.accessibilityservice.AccessibilityServiceInfo;
+import android.view.accessibility.AccessibilityWindowInfo;
+import android.text.InputType;
 import java.util.ArrayDeque;
 import org.json.JSONObject;
 
@@ -12,9 +15,16 @@ public final class LoginChecks extends Instrumentation {
  static final String NOTIFICATION_TAG="account-access-fixture";
  Bundle args;
  void enterManualCode(String code) throws Exception {
+  Context context=getTargetContext();
+  context.startActivity(new android.content.Intent(context,MainActivity.class)
+    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK|android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));
+  waitForIdleSync();
   UiAutomation automation=getUiAutomation();
+  AccessibilityServiceInfo service=automation.getServiceInfo();
+  service.flags|=AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
+  automation.setServiceInfo(service);
   AccessibilityNodeInfo input=findNode(automation,"Account Access login code input");
-  if(input==null)throw new Exception("Manual code field is missing from the phone app");
+  if(input==null)throw new Exception("Manual code field is missing from the phone app; owned_window="+(phoneRoot(automation)!=null));
   if(!"android.widget.EditText".contentEquals(input.getClassName()) || !input.isPassword())
    throw new Exception("Manual code field security semantics invalid: class="+input.getClassName()+", masked="+input.isPassword()+", input_type="+input.getInputType());
   input.performAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS);
@@ -28,21 +38,27 @@ public final class LoginChecks extends Instrumentation {
   waitForIdleSync();
  }
  AccessibilityNodeInfo findNode(UiAutomation automation,String description) throws Exception {
-  long deadline=System.currentTimeMillis()+5000;
+  long deadline=System.currentTimeMillis()+10000;
   while(System.currentTimeMillis()<deadline){
-   AccessibilityNodeInfo root=automation.getRootInActiveWindow();
+   AccessibilityNodeInfo root=phoneRoot(automation);
    if(root!=null){
     ArrayDeque<AccessibilityNodeInfo> pending=new ArrayDeque<>();pending.add(root);
     while(!pending.isEmpty()){
      AccessibilityNodeInfo node=pending.removeFirst();
+     boolean owned=getTargetContext().getPackageName().contentEquals(node.getPackageName()==null?"":node.getPackageName());
      CharSequence actual=node.getContentDescription();
-     if(actual!=null&&description.contentEquals(actual))return node;
+     if(owned&&actual!=null&&description.contentEquals(actual))return node;
      // Android can omit a password EditText's content description from the
      // automation tree. Keep the field discoverable by its fixed visible hint,
      // then assert that it is still a masked EditText before entering a code.
      CharSequence hint=node.getHintText();
-     if("Account Access login code input".equals(description)
+     if(owned&&"Account Access login code input".equals(description)
         && hint!=null&&"Six-digit login code".contentEquals(hint))return node;
+     // Password-node labels can be redacted. Match the sole owned masked
+     // numeric input; the pairing input is text, and other apps are excluded.
+     if(owned&&"Account Access login code input".equals(description)
+        &&"android.widget.EditText".contentEquals(node.getClassName())&&node.isPassword()
+        &&(node.getInputType()&InputType.TYPE_MASK_CLASS)==InputType.TYPE_CLASS_NUMBER)return node;
      for(int i=0;i<node.getChildCount();i++){AccessibilityNodeInfo child=node.getChild(i);if(child!=null)pending.addLast(child);}
     }
    }
@@ -56,7 +72,7 @@ public final class LoginChecks extends Instrumentation {
   return null;
  }
  boolean scrollForward(UiAutomation automation){
-  AccessibilityNodeInfo root=automation.getRootInActiveWindow();
+  AccessibilityNodeInfo root=phoneRoot(automation);
   if(root==null)return false;
   ArrayDeque<AccessibilityNodeInfo> pending=new ArrayDeque<>();pending.add(root);
   while(!pending.isEmpty()){
@@ -65,6 +81,16 @@ public final class LoginChecks extends Instrumentation {
    for(int i=0;i<node.getChildCount();i++){AccessibilityNodeInfo child=node.getChild(i);if(child!=null)pending.addLast(child);}
   }
   return false;
+ }
+ AccessibilityNodeInfo phoneRoot(UiAutomation automation){
+  String own=getTargetContext().getPackageName();
+  AccessibilityNodeInfo active=automation.getRootInActiveWindow();
+  if(active!=null&&own.contentEquals(active.getPackageName()==null?"":active.getPackageName()))return active;
+  for(AccessibilityWindowInfo window:automation.getWindows()){
+   AccessibilityNodeInfo root=window.getRoot();
+   if(root!=null&&own.contentEquals(root.getPackageName()==null?"":root.getPackageName()))return root;
+  }
+  return null;
  }
  @Override public void onCreate(Bundle arguments){args=arguments;start();}
  @Override public void onStart(){
