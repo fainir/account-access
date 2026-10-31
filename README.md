@@ -25,6 +25,9 @@ has already passed its connection check. Namecheap remains paused at its
 unrecognized challenge; Harel and Phoenix are outside v1 support. Portable
 protected-vault backup is also outside v1. See [the current production ledger](READINESS.md).
 
+The candidate's [data-handling disclosure](docs/data-handling.md) explains local
+storage, provider/AI recipients, Android permissions and retention/removal limits.
+
 Websites need reviewed connectors; importing a password does not add arbitrary
 website support. The Mac candidate targets **Apple silicon and macOS 14 or
 later**. It remains a draft release and is not the preview download below. macOS 15 and 26 Installer journeys pass, and the real owner worker passes on 27.2. macOS 14 execution is waiting on a scheduled runner outage; see D4 in the ledger.
