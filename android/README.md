@@ -93,6 +93,18 @@ signing identity and is not an upgrade-stable production distribution.
 
 ## Publisher signing candidate
 
+For a first Android production identity, the agent can prepare
+`python -m scripts.android_keychain_publisher` and request explicit approval of
+one new identity and one signed APK. The approved mode generates the password
+inside the child and stores it in native Mac Keychain, verifies storage before
+key generation, and uses the pinned SDK signer. It refuses existing identity
+or output directories and has no plaintext storage fallback. Its Keychain
+service reference and public certificate remain beside the private keystore
+outside the checkout; retain these and the Keychain credential for updates.
+It does not install or upload the candidate. Without
+`--approve-first-identity`, it only checks and describes the plan. This option
+cannot replace an existing production signer. [Prepared scope and checks](../qa/gates/android-keychain-plan-2026-10-31.md).
+
 On the publisher's Mac, open [`publisher-setup.command`](publisher-setup.command)
 locally for the owner-present setup. Choose an existing publisher identity, or
 explicitly confirm creation only for the first Android production identity.
