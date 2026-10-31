@@ -3688,7 +3688,11 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
               let fingerprint = update["fingerprint"] as? String else { return }
         let alert = NSAlert()
         alert.messageText = "Update this website's sign-in connection?"
-        alert.informativeText = "Use GitHub's current public profile heading for an existing heading-only read. Follow exact versioned scripts and styles declared by GitHub's HTTPS login response, with anonymous downloads from GitHub's asset host. Other destinations, queries, asset POSTs and page-driven discovery stay blocked. The recovery page can be viewed for diagnosis; a recovery-code field stops automatic sign-in. Approved account reads and connected verification sources stay the same."
+        if update["kind"] as? String == "public_example_assets" {
+            alert.informativeText = "Use the reviewed current SauceDemo script at its existing HTTPS address. Your approved product read, saved login, verification methods and permission expiry stay the same. This is a public testing example and does not validate access to a personal account."
+        } else {
+            alert.informativeText = "Use GitHub's current public profile heading for an existing heading-only read. Follow exact versioned scripts and styles declared by GitHub's HTTPS login response, with anonymous downloads from GitHub's asset host. Other destinations, queries, asset POSTs and page-driven discovery stay blocked. The recovery page can be viewed for diagnosis; a recovery-code field stops automatic sign-in. Approved account reads and connected verification sources stay the same."
+        }
         alert.addButton(withTitle: "Update connection")
         alert.addButton(withTitle: "Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else { return }

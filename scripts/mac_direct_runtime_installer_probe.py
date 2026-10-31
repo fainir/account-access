@@ -142,6 +142,39 @@ def capture_browser_failure(output, raw):
             code = 'timeout'
         (output / ('browser-diagnostic-' + name + '.log')).write_bytes(
             ('exit_code=' + str(code) + '\n').encode() + raw[:128 * 1024])
+    helper = output / 'browser-context-probe'
+    build = subprocess.run(['/usr/bin/xcrun', 'clang', '-Wno-deprecated-declarations',
+        str(ROOT / 'macos/Tests/BrowserServiceContextProbe.c'), '-framework', 'Security', '-o', str(helper)],
+        capture_output=True, timeout=120)
+    (output / 'browser-context-build.log').write_bytes((build.stdout + build.stderr)[:128 * 1024])
+    if build.returncode != 0:
+        return
+    actor = pwd.getpwnam('_accountaccess')
+    # Remove only sudo's identity switch; the reviewed helper performs the
+    # same permanent group/gid/uid drop as WorkerBootstrap before exec.
+    arguments = list(map(str, installed_browser_command()))[4:]
+    contexts = [('dropper', [], 'plain'),
+                ('per-user-domain', ['/bin/launchctl', 'asuser', str(actor.pw_uid)], 'plain'),
+                ('private-session', [], 'session'),
+                ('private-subset-before', [], 'subset-before'),
+                ('private-subset-after', [], 'subset-after')]
+    job = subprocess.run(['/bin/launchctl', 'print', 'system/' + LABEL], capture_output=True, timeout=15)
+    try:
+        broker_pid = running_service_pid(job.stdout)
+        contexts.append(('broker-domain', ['/bin/launchctl', 'bsexec', str(broker_pid)], 'plain'))
+    except ValueError:
+        pass
+    for name, prefix, mode in contexts:
+        try:
+            result = subprocess.run(prefix + [str(helper), mode] + arguments,
+                                    cwd=BASE / 'home', capture_output=True, timeout=45)
+            raw = result.stdout + result.stderr
+            code = result.returncode
+        except subprocess.TimeoutExpired as exc:
+            raw = (exc.stdout or b'') + (exc.stderr or b'')
+            code = 'timeout'
+        (output / ('browser-context-' + name + '.log')).write_bytes(
+            ('exit_code=' + str(code) + '\n').encode() + raw[:128 * 1024])
 
 JOSE_CHECK = '''import importlib.metadata, json
 from joserfc import jws
