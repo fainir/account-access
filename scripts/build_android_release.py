@@ -82,7 +82,8 @@ def source_names():
             and all(not p.is_symlink() for p in app.rglob("*")))
     assets = sorted(p for p in (app / "assets").rglob("*") if p.is_file())
     require([str(p.relative_to(app / "assets")) for p in assets] == ["THIRD_PARTY_NOTICES.txt"])
-    names = ["android/build.sh", "android/app/AndroidManifest.xml", "scripts/build_android_release.py",
+    names = ["android/build.sh", "android/vendor/zxing-core-3.5.3.jar",
+             "android/app/AndroidManifest.xml", "scripts/build_android_release.py",
              *(str(p.relative_to(ROOT)) for p in sorted((app / "src").rglob("*.java"))),
              *(str(p.relative_to(ROOT)) for p in assets)]
     require(all((ROOT / name).is_file() and not (ROOT / name).is_symlink() for name in names))

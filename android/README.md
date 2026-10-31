@@ -62,7 +62,7 @@ sh android/build.sh
 sh android/test/build.sh
 ```
 
-The build downloads checksum-pinned [ZXing Core 3.5.3](https://github.com/zxing/zxing), licensed under Apache-2.0, for on-device QR decoding. No cloud scanning service is used. The APK uses a local development signing identity; replacing it with a production signing identity and validating physical phones are release work.
+The build uses the [vendored, checksum-pinned ZXing Core 3.5.3](vendor/README.md), licensed under Apache-2.0, for on-device QR decoding. It needs no QR-library download and uses no cloud scanning service. The preview APK uses a local development signing identity; publisher signing and physical-phone validation are separate release work.
 
 The APK bundles the upstream ZXing 3.5.3 license and notice text. Open **Open
 source licenses** in the phone companion to read it without a network connection.
