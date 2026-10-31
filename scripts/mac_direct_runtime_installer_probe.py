@@ -59,7 +59,10 @@ def selected_release(args):
     return RELEASES[getattr(args, 'release', '120')]
 
 
-BROWSER_CHECK = '''import json
+BROWSER_CHECK = '''import json, os
+# Match WorkerBootstrap's service-home cwd and private file creation policy.
+os.chdir(os.environ['HOME'])
+os.umask(0o077)
 from playwright.sync_api import sync_playwright
 with sync_playwright() as pw:
     b = pw.chromium.launch(headless=True, chromium_sandbox=True)
@@ -75,6 +78,7 @@ print(json.dumps({'status': 'PASSED', 'sandboxed_browser': True, 'external_websi
 def installed_browser_command():
     return ['/usr/bin/sudo', '-n', '-u', '_accountaccess', '/usr/bin/env', '-i',
             'PATH=/usr/bin:/bin:/usr/sbin:/sbin', 'LANG=en_US.UTF-8', 'HOME=' + str(BASE / 'home'),
+            'USER=_accountaccess', 'LOGNAME=_accountaccess',
             'PLAYWRIGHT_BROWSERS_PATH=' + str(BASE / 'browsers'),
             BASE / 'runtime/bin/python', '-I', '-B', '-c', BROWSER_CHECK]
 
@@ -107,7 +111,7 @@ def capture_browser_failure(output, raw):
     pid = int(match[1])
     folders = [Path('/Library/Logs/DiagnosticReports'), BASE / 'home/Library/Logs/DiagnosticReports']
     for folder in folders:
-        for path in folder.glob('chrome-headless-shell*.ips'):
+        for path in folder.glob('*.ips'):
             if path.is_symlink() or not path.is_file() or path.stat().st_size > 2 * 1024 * 1024:
                 continue
             summary = browser_crash_summary(path.read_text(), pid)
