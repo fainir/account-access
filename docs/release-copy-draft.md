@@ -22,6 +22,10 @@ Account Access supports only reviewed connectors. It does not provide automatic 
 
 ## Privacy notice draft
 
+The complete publication text is prepared in [Privacy notice](privacy.md).
+The following short description is release-listing copy, not a replacement for
+that notice.
+
 Account Access keeps saved secrets in encrypted records on your Mac. Depending on features you enable, these may include login credentials, identity and phone details for a reviewed sign-in, email connection material, authenticator seeds, Android pairing material, approved site session state and task results. Configuration, record identifiers, permission and audit metadata are protected by local file permissions but are not all encrypted fields. Verification codes are handled for the active approved sign-in and must not be shared with an AI agent.
 
 When you use a supported sign-in, the relevant website receives the information required by that site's login flow. When you connect Gmail or IMAP, the mail provider receives the connection requests and permissions required for the selected mailbox operation. Configured Gmail OAuth uses the mailbox-wide `gmail.readonly` scope; Account Access applies narrower login-message filters locally. Optional password-manager connections contact the selected provider for the approved item. When you pair Android, the phone sends matching SMS notification details to the Mac over pinned HTTPS on private Wi-Fi. Notification access is broad at the Android permission level, with sender/template filtering in the app. The current product is local-first and does not require an Account Access hosted account database or cloud SMS relay.
@@ -34,9 +38,13 @@ The [data-handling disclosure](data-handling.md) records the verified technical 
 
 ## Terms summary draft
 
+The complete publication text is prepared in [Terms of use](terms.md).
+
 Use Account Access only for accounts you own or are authorized to access. Review every requested account operation. Account Access supports only the sites and actions listed by the current app; it is not a password-recovery, insurance-advice, financial-transaction or policy-change service. Website providers can change their pages, authentication requirements and availability at any time. Never share passwords, recovery codes or one-time codes with an AI agent or in support messages.
 
-This summary is not a complete agreement and makes no warranty or liability determination. Obtain owner/legal review and complete the required jurisdiction-specific terms before publication.
+This short summary does not replace the full terms or the repository's MIT
+License. The complete privacy notice and terms remain drafts for owner/legal
+approval before publication.
 
 ## Pre-publication owner checklist
 

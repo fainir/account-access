@@ -93,6 +93,19 @@ signing identity and is not an upgrade-stable production distribution.
 
 ## Publisher signing candidate
 
+On the publisher's Mac, open [`publisher-setup.command`](publisher-setup.command)
+locally for the owner-present setup. Choose an existing publisher identity, or
+explicitly confirm creation only for the first Android production identity.
+New-key passwords are entered into keytool's local hidden prompt; existing-key
+passwords are entered into the signer's local hidden prompt. Nothing is installed
+or uploaded by this setup. It refuses to overwrite an existing key directory,
+retains a partially created identity for review, and records the new public
+certificate before signing. Keep the key and its password for future updates.
+The checked-in launcher stages version 0.8.0/code 2 in
+`dist/android-publisher-2`; an update to a previous publisher release requires
+the previous APK and a strictly higher version code. A preview certificate is
+not a publisher certificate.
+
 `scripts/build_android_release.py` builds with an existing publisher keystore
 outside the checkout. It requires the independently recorded certificate
 SHA-256, an explicit non-preview version, and either an initial-release choice
