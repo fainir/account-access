@@ -20,7 +20,7 @@ Complete a reviewed sign-in step locally, using only the credentials and verific
 | Android SMS verification | Pair Android, approve the source and deliver a fresh matching SMS to a supported login. | Missing permissions, Android notification redaction, stale codes or a changed pairing refuse delivery and identify the next action. |
 | Authenticator verification | Enroll an original setup key or supported QR and use a current TOTP code for a supported login. | Invalid, expired or mismatched codes fail without changing enrollment or revealing the secret. |
 | AI agent access | A fresh local Codex or Claude Code session discovers approved operations and requests a permitted read in ordinary language. | Unsupported sites, unapproved operations, unavailable service or expired owner permission are refused without returning secrets. |
-| Account data controls | Review, edit, export or delete saved account data, and create or restore a password-protected encrypted vault backup. | Invalid export requests preserve the vault; a wrong backup passphrase or interrupted restore leaves the prior vault intact; deletion does not claim secure erasure of external copies. |
+| Account data controls | Review, edit, export or forget saved account logins through the native owner app. | Invalid export requests preserve the vault; plaintext exports are identified; forgetting a login preserves its reviewed connector and does not claim secure erasure of external copies. |
 | Recovery and privacy | Revoke access, expire a session and recover from a provider outage without sharing secrets. | Replayed, stale or ambiguous verification and unauthorized callers are refused and logged without secret values. |
 
 ## Non-goals
@@ -30,6 +30,7 @@ Complete a reviewed sign-in step locally, using only the credentials and verific
 - The agent cannot make payments, change policy details, approve account recovery or bypass a site's own owner challenge.
 - Cloud agents cannot reach the local service unless a separately reviewed secure relay is added.
 - Chrome live password sync is not shipped; Chrome import is a reviewed snapshot.
+- Portable backup and restore of the installed protected service vault is excluded from v1. The legacy per-user CLI backup cannot reach that store. A future owner maintenance flow must coordinate worker shutdown, supervisor-owned key custody and restore recovery before this can be advertised.
 
 ## Success metric
 
@@ -54,6 +55,8 @@ The product is local-first. The owner app and protected service run on Apple sil
 | Approval and event | account, operation, decision, time, fixed result category | Sanitized local audit data; no password, cookie, message body or code. |
 
 ## Decisions
+
+- 2026-10-31 - Remove the unsupported protected-vault backup promise from v1. Preserve the tested legacy CLI separately; do not request a passphrase, access its protected key or bypass the service boundary to make that CLI target the installed vault. Installer rollback and per-account owner data controls remain in scope.
 
 - 2026-10-28 - Keep Account Access local-first and support only reviewed connectors.
 - 2026-10-28 - Treat Harel and Phoenix as requested provider targets, not as supported until their real sign-in flows pass QA.

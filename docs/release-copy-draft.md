@@ -18,7 +18,7 @@ Account Access is designed to keep the account data you save in its encrypted lo
 
 When you use a supported sign-in, the relevant website receives the information required by that site's login flow. When you connect Gmail or IMAP, the mail provider receives the connection requests and permissions required for the selected mailbox operation. When you pair Android, the phone and Mac use the approved local connection to deliver matching SMS verification data. The current product is local-first and does not require an Account Access hosted account database or cloud SMS relay.
 
-You control which accounts and operations are connected. You can review and delete saved account data and create an encrypted vault backup. A user-requested export may contain plaintext and should be stored securely. Deleting data from Account Access does not erase copies held by websites, email providers, Android, Chrome or backups you created elsewhere.
+You control which accounts and operations are connected. You can review, export and forget supported saved logins. Portable full-vault backup and restore of the installed protected service is not included in v1. A user-requested export may contain plaintext and should be stored securely. Deleting data from Account Access does not erase copies held by websites, email providers, Android, Chrome or backups you created elsewhere.
 
 Before publication, the owner must verify the final release's analytics and diagnostic behavior, retention details, exact Android permissions, mailbox scopes, supported-site list, deletion behavior and the contact address for privacy requests. No public support or privacy contact has been supplied in this draft.
 

@@ -1,4 +1,14 @@
-# Encrypted vault backup and restore
+# Legacy per-user vault backup and restore
+
+These commands apply only to the older per-user CLI store. They do **not**
+back up or restore the protected vault used by the installed macOS app. The
+installed service has no portable full-vault backup/restore owner route in v1.
+Do not change permissions, retrieve its key or run these commands as its service
+account to work around that boundary. The native app supports explicit
+per-account login export and forgetting a saved login; exports are plaintext
+and are not complete vault backups.
+
+The following instructions are only for an existing legacy CLI installation.
 
 Account Access can create a password-protected backup containing the encrypted
 vault, approved account configuration and the vault key wrapped inside the
