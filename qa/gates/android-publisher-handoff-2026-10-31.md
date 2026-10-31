@@ -57,7 +57,9 @@ This handoff does not change the Android app image or the signed Mac packages.
 The implementation is pushed. Its [application/native CI](https://github.com/fainir/account-access/actions/runs/41233999568),
 [Mac worker CI](https://github.com/fainir/account-access/actions/runs/41233999585)
 and [Android journey](https://github.com/fainir/account-access/actions/runs/41233999572)
-are in progress; do not infer a pass from dispatch. The existing follow-up is
+were dispatched. Completed read-back now reports Android success, along with the
+separate-user and component-review checks. Application/native and Mac-worker
+checks remain in progress; do not infer their pass from dispatch. The existing follow-up is
 temporarily active every 30 minutes with the same prompt to read their actual
 results and any completed publisher report, then restore its daily noon cadence
 for the unchanged macOS 14 wait. No new automation was created.
