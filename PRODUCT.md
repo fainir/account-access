@@ -71,4 +71,4 @@ The product is local-first. The owner app and protected service run on Apple sil
 
 ## Publisher identity
 
-The owner supplied the legal publisher name **Nir Fainshtein** and business status **עוסק פטור** on 31 October 2026. The public support/privacy email remains to be chosen. Preserve the issued Apple certificate name as credential metadata; it is separate from release-copy publisher details.
+The owner supplied the legal publisher name **Nir Fainshtein**, business status **עוסק פטור** and public support/privacy contact **welcometothebestplace@gmail.com** on 31 October 2026. Preserve the issued Apple certificate name as credential metadata; it is separate from release-copy publisher details.

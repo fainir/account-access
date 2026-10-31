@@ -36,7 +36,9 @@ agent access, invalid/replaced OAuth grants, phone-window cleanup and refusal,
 and diagnostic value exclusion/age/binding. They use isolated fixtures; no
 private account, message, credential, pairing token or code was read.
 
-Public support/privacy contact and owner approval of final release terms remain
-the legal/store gate. Legal publisher name and business status are already saved.
+The owner supplied public support/privacy contact welcometothebestplace@gmail.com
+after this technical review; it is now included in both disclosure documents.
+Legal publisher name and business status are also saved. Owner approval of final
+release terms remains the legal/store gate.
 The existing daily follow-up retains the unchanged packages for the 1 November
 12:00 Asia/Jerusalem macOS 14 runner check; no new package was assembled.

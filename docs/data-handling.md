@@ -99,7 +99,8 @@ maps these statements to the shipped source and behavioral checks. Actual
 [installed Mac acceptance](../qa/release122-2026-10-31/acceptance.md) covers the
 public example and local owner controls, not private MFA acceptance.
 
-Publisher: **Nir Fainshtein**, **עוסק פטור** (owner supplied). The public
-support/privacy email still needs the owner's choice. Final public release text
-and any store declaration remain subject to owner approval in
+Publisher: **Nir Fainshtein**, **עוסק פטור** (owner supplied). Public support and
+privacy requests: [welcometothebestplace@gmail.com](mailto:welcometothebestplace@gmail.com),
+chosen by the owner on 31 October 2026. Do not send passwords, login codes or
+recovery keys. Final public release text and any store declaration remain subject to owner approval in
 [READINESS.md](../READINESS.md); no store review has been submitted.

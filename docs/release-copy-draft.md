@@ -6,7 +6,7 @@
 
 - Legal publisher name: **Nir Fainshtein**.
 - Business status: **עוסק פטור**, as stated by the owner on 31 October 2026.
-- Public support/privacy contact: awaiting the owner's choice.
+- Public support/privacy contact: **[welcometothebestplace@gmail.com](mailto:welcometothebestplace@gmail.com)**, chosen by the owner on 31 October 2026.
 
 These details do not change the existing Apple-issued signing certificate identity.
 
@@ -30,7 +30,7 @@ Local AI tools receive only their approved results and status. Those tools may t
 
 You control which accounts and operations are connected. You can review, export and forget supported saved logins. Forgetting a login keeps its reviewed connector, shared verification sources and audit/task history; disconnect shared sources separately. Local configuration and history have no general automatic retention period in v1. Two-minute login-code expiry and the 24-hour structural-diagnostic display limit do not promise physical erasure or a background storage purge. Portable full-vault backup and restore of the installed protected service is not included in v1. A user-requested login CSV export contains a plaintext password and should be stored securely. Removing local data does not erase copies held by websites, email providers, Android, Chrome, AI tools, exports or backups.
 
-The [data-handling disclosure](data-handling.md) records the verified technical details, permissions, recipients and removal limits for this candidate. The owner must choose the public contact address and approve the final notice and release terms before publication. No public support or privacy contact has been supplied in this draft.
+The [data-handling disclosure](data-handling.md) records the verified technical details, permissions, recipients and removal limits for this candidate. For support or privacy requests, contact [welcometothebestplace@gmail.com](mailto:welcometothebestplace@gmail.com). Do not include passwords, verification codes or recovery keys. The owner must approve the final notice and release terms before publication.
 
 ## Terms summary draft
 
@@ -40,7 +40,7 @@ This summary is not a complete agreement and makes no warranty or liability dete
 
 ## Pre-publication owner checklist
 
-- Supply the public privacy/support contact and mailing address if required by the chosen store. The legal publisher name and business status are recorded above.
+- Public privacy/support contact, legal publisher name and business status are recorded above. Add a mailing address if required by the chosen store.
 - Have qualified counsel review the privacy notice and full terms for the release regions and intended users.
 - Review the prepared [data-handling disclosure](data-handling.md), which has been checked against the candidate source. Recheck it if the release behavior changes; physical Android and private MFA acceptance remain separate ledger rows.
 - Prepare store screenshots and data-safety answers from the release build; do not list Harel or Phoenix until their complete login journeys pass.
