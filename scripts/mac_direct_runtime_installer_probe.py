@@ -52,8 +52,8 @@ class Release:
 RELEASES = {
     '120': Release('120', BEFORE, AFTER, PLAN, TRANSITION,
                    'direct-runtime-root-recovery-inputs.json', PLAN),
-    '121': Release('121', AFTER, '1917cff3a29b8306549287f4e6ac4fcc393dc4445f21a3ab0019c55e457b2053',
-                   '59b7741173281a6f72701f91b99ada75cc53e3bb85f2f42c666fd33b021dff69',
+    '121': Release('121', AFTER, '0eb9a5bfab615f23f9d3d6e98f7895f7bf46e6196ef8a1e5e07115906f4d443c',
+                   'e6498358b62136b0b608e83f500566e545df0f48e6b4e9c12994254b46afad67',
                    BASE.parent / 'Account Access Runtime JIT Repair', 'runtime121-installer-inputs.json', PLAN),
 }
 

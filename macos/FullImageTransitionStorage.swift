@@ -52,7 +52,7 @@ enum FullImageFileUnit: String, Codable, CaseIterable {
 
 struct FullImageFileOperation: Codable, Equatable {
     static let directRuntimePlanSHA256 = "7949dee76094337190bd9efa31b7e09fc478bf62a3bbdfd44824cc9ba3f3d58b"
-    static let jitRuntimePlanSHA256 = "59b7741173281a6f72701f91b99ada75cc53e3bb85f2f42c666fd33b021dff69"
+    static let jitRuntimePlanSHA256 = "e6498358b62136b0b608e83f500566e545df0f48e6b4e9c12994254b46afad67"
     let schema: Int
     let unit: FullImageFileUnit
     let planSHA256: String

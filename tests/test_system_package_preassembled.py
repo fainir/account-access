@@ -20,7 +20,7 @@ from test_payload_audit import thin
     "5a732de4623ba50aefa6d31c54e7b1eae660b2921341f95042c5675d922d808b",
     "630e77605faac2dfdace9faaa5da55e671335c6b18e62114d7f0224a8574f24c",
     "6ab5f90fa72dfed84c295d5df4741d3cb9aaf6a0fa89ed155b4cb76400570874",
-    "1917cff3a29b8306549287f4e6ac4fcc393dc4445f21a3ab0019c55e457b2053",
+    "0eb9a5bfab615f23f9d3d6e98f7895f7bf46e6196ef8a1e5e07115906f4d443c",
 ])
 def test_reviewed_images_reach_manifest_validation(tmp_path, digest):
     # Review admits exact image hashes; all manifest, inventory and peer checks remain.
