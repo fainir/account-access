@@ -1,0 +1,13 @@
+{
+  "status": "CACHED_STATE",
+  "submission_id": "baa689c9-d69b-4bbc-8a26-3ce320f5c2f2",
+  "apple_status": "Accepted",
+  "package": {
+    "team": "WBULD6N4NQ",
+    "certificate_sha256": "333f08ecdb56967369880369b3ba475db8865b1eca5ee92cb338e6f0c797c406",
+    "trusted_timestamp": "2026-10-31 16:40:37 +0000"
+  },
+  "archive_sha256": "32b962cc5a25f5b11166e2e99b0b65bba4805b012bef4932776a4276daefa4bf",
+  "production_qa": "not_evaluated",
+  "cached_phase": "READY_FOR_RELEASE_REVIEW"
+}
