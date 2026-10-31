@@ -2,8 +2,16 @@ name: Direct runtime root recovery Installer acceptance
 on:
   push:
     branches: [codex/production-security-authlib-20261028]
-    paths: [artifacts/direct-runtime-root-recovery-inputs.json, scripts/mac_direct_runtime_installer_probe.py]
+    paths: [artifacts/direct-runtime-root-recovery-inputs.json, artifacts/runtime121-installer-inputs.json, scripts/mac_direct_runtime_installer_probe.py]
   workflow_dispatch:
+    inputs:
+      release:
+        type: choice
+        options: ['121', '120']
+        default: '121'
+        description: Exact pinned release to exercise
+env:
+  AC_RELEASE: ${{ inputs.release || '121' }}
 permissions:
   contents: read
 jobs:
@@ -20,11 +28,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir "$RUNNER_TEMP/direct-inputs"
-          AC_RELEASE=$(python3 -c 'import json; print(json.load(open("artifacts/direct-runtime-root-recovery-inputs.json"))["release_tag"])')
-          gh release download "$AC_RELEASE" --repo fainir/account-access --pattern baseline.tar.gz --pattern candidate.pkg --pattern fresh.pkg --dir "$RUNNER_TEMP/direct-inputs"
+          AC_RELEASE_TAG=$(python3 -c 'import json,os; names={"120":"direct-runtime-root-recovery-inputs.json","121":"runtime121-installer-inputs.json"}; print(json.load(open("artifacts/"+names[os.environ["AC_RELEASE"]]))["release_tag"])')
+          gh release download "$AC_RELEASE_TAG" --repo fainir/account-access --pattern baseline.tar.gz --pattern candidate.pkg --pattern fresh.pkg --dir "$RUNNER_TEMP/direct-inputs"
           python3 - "$RUNNER_TEMP/direct-inputs" <<'PY'
-          import hashlib, json, pathlib, sys
-          contract = json.loads(pathlib.Path('artifacts/direct-runtime-root-recovery-inputs.json').read_bytes())
+          import hashlib, json, os, pathlib, sys
+          names = {'120': 'direct-runtime-root-recovery-inputs.json', '121': 'runtime121-installer-inputs.json'}
+          contract = json.loads((pathlib.Path('artifacts') / names[os.environ['AC_RELEASE']]).read_bytes())
           for name, pin in contract['assets'].items():
               path = pathlib.Path(sys.argv[1]) / name
               with path.open('rb') as stream:
@@ -63,7 +72,7 @@ jobs:
             GITHUB_REPOSITORY="$GITHUB_REPOSITORY" GITHUB_RUN_ID="$GITHUB_RUN_ID" \
             GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" GITHUB_SHA="$GITHUB_SHA" \
             "$AC_PYTHON" -I -B "$GITHUB_WORKSPACE/scripts/mac_direct_runtime_installer_probe.py" \
-              --inputs "$RUNNER_TEMP/direct-inputs" --output "$RUNNER_TEMP/direct-installer-evidence" --mode '${{ matrix.mode }}'
+              --inputs "$RUNNER_TEMP/direct-inputs" --output "$RUNNER_TEMP/direct-installer-evidence" --mode '${{ matrix.mode }}' --release "$AC_RELEASE"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+from dataclasses import dataclass
 import hashlib
 import json
 import os
@@ -32,6 +33,50 @@ ORIGINAL = '5618053e6f8ed0a8720a9d2f7dde317425cecda6a970abd90c499fbfe27b43a8'
 BEFORE = '568c79ca3b45ffc357bc5af2b420d481e729630b0120dc6d0058c1a396ad21b1'
 AFTER = '6ab5f90fa72dfed84c295d5df4741d3cb9aaf6a0fa89ed155b4cb76400570874'
 PLAN = '7949dee76094337190bd9efa31b7e09fc478bf62a3bbdfd44824cc9ba3f3d58b'
+
+
+@dataclass(frozen=True)
+class Release:
+    number: str
+    before: str
+    after: str
+    plan: str
+    transition: Path
+    contract: str
+    recovery_plan: str
+
+
+RELEASES = {
+    '120': Release('120', BEFORE, AFTER, PLAN, TRANSITION,
+                   'direct-runtime-root-recovery-inputs.json', PLAN),
+    '121': Release('121', AFTER, '1917cff3a29b8306549287f4e6ac4fcc393dc4445f21a3ab0019c55e457b2053',
+                   '59b7741173281a6f72701f91b99ada75cc53e3bb85f2f42c666fd33b021dff69',
+                   BASE.parent / 'Account Access Runtime JIT Repair', 'runtime121-installer-inputs.json', PLAN),
+}
+
+
+def selected_release(args):
+    return RELEASES[getattr(args, 'release', '120')]
+
+
+BROWSER_CHECK = '''import json
+from playwright.sync_api import sync_playwright
+with sync_playwright() as pw:
+    b = pw.chromium.launch(headless=True, chromium_sandbox=True)
+    c = b.new_context(offline=True)
+    p = c.new_page()
+    p.set_content('<title>Installed runtime check</title><script>window.runtimeAnswer=6*7</script>')
+    assert p.title() == 'Installed runtime check' and p.evaluate('window.runtimeAnswer') == 42
+    b.close()
+print(json.dumps({'status': 'PASSED', 'sandboxed_browser': True, 'external_website_used': False}))
+'''
+
+
+def installed_browser_command():
+    return ['/usr/bin/sudo', '-n', '-u', '_accountaccess', '/usr/bin/env', '-i',
+            'PATH=/usr/bin:/bin:/usr/sbin:/sbin', 'LANG=en_US.UTF-8', 'HOME=' + str(BASE / 'home'),
+            'PLAYWRIGHT_BROWSERS_PATH=' + str(BASE / 'browsers'),
+            BASE / 'runtime/bin/python', '-I', '-B', '-c', BROWSER_CHECK]
 JOSE_CHECK = '''import importlib.metadata, json
 from joserfc import jws
 from joserfc.errors import ExceededSizeError
@@ -128,16 +173,17 @@ def archive_members(archive, manifest):
 
 
 def run(args):
+    release = selected_release(args)
     if getattr(args, 'mode', 'upgrade') == 'fresh':
         return fresh_run(args)
     # The shared guard checks root, ARM64, hosted runner, repo and run identity.
     shared = runpy.run_path(str(ROOT / 'scripts/mac_component_update_installer_probe.py'))
     shared['guard']()
-    require(all(not os.path.lexists(p) for p in (BASE, APP, JOURNAL, BINDING, TRANSITION, JOB)),
+    require(all(not os.path.lexists(p) for p in (BASE, APP, JOURNAL, BINDING, release.transition, JOB)),
             'fresh_hosted_namespaces_required')
     owner = os.stat('/dev/console').st_uid
     require(owner > 0 and pwd.getpwuid(owner).pw_name == 'runner', 'hosted_console_required')
-    contract = json.loads((ROOT / 'artifacts/direct-runtime-root-recovery-inputs.json').read_bytes())
+    contract = json.loads((ROOT / 'artifacts' / release.contract).read_bytes())
     for name in ('baseline.tar.gz', 'candidate.pkg'):
         data = args.inputs / name
         with data.open('rb') as stream:
@@ -171,7 +217,7 @@ def run(args):
             member = archive.getmember('BaseManifest.json')
             require(member.isfile() and member.size < 16 * 1024 * 1024, 'baseline_manifest_invalid')
             raw = archive.extractfile(member).read()
-            check('pinned_predecessor_manifest', digest(raw) == BEFORE)
+            check('pinned_predecessor_manifest', digest(raw) == release.before)
             manifest = json.loads(raw)
             members = archive_members(archive, manifest)
             archive.extractall(args.output / 'baseline', members=members, filter='data')
@@ -231,12 +277,42 @@ def run(args):
             child.rename(BASE / child.name)
         previous_root.rmdir()
         check('same_volume_support_root_replaced', BASE.stat().st_ino != roots[str(BASE)][1])
+        completed_objects = None
+        if release.number == '121':
+            # Reproduce the completed build-120 root recovery and its separate
+            # published namespace. The successor must preserve both verbatim.
+            recovery = {'schema': 2, 'managed_by': 'account-access-installation-root-recovery-v2',
+                'base_manifest_sha256': ORIGINAL, 'owner_uid': owner,
+                'original_receipt_sha256': {n: digest(encoded(v)) for n, v in records.items()},
+                'previous_supplement_sha256': digest(encoded(prior)),
+                'previous_supplement': base64.b64encode(encoded(prior)).decode(),
+                'publisher_team': 'WBULD6N4NQ', 'publisher_identifier': 'com.fainir.accountaccess.componentupdate',
+                'authorizing_plan_sha256': release.recovery_plan,
+                'authorizing_source_commit': 'beda6324d836458a35045ee0d2acd579238d6929',
+                'policy_sha256': {n: digest(p.read_bytes()) for n, p in policies.items()},
+                'roots': {str(p): {'inode': p.lstat().st_ino, 'volume_uuid': volume} for p in (BASE, APP)}}
+            write(BINDING / 'recovered-v2.json', recovery)
+            earlier = RELEASES['120'].transition
+            require(not os.path.lexists(earlier), 'predecessor_namespace_not_empty')
+            earlier.mkdir(mode=0o700)
+            completed = earlier / ('transition-' + release.recovery_plan)
+            completed.mkdir(mode=0o700)
+            write(earlier / 'head.json', {'schema': 1, 'managed_by': 'account-access-full-image-head-v1',
+                'plan_sha256': release.recovery_plan, 'manifest_sha256': release.before,
+                'before_manifest_sha256': RELEASES['120'].before,
+                'source_commit': 'beda6324d836458a35045ee0d2acd579238d6929',
+                'predecessor_evidence_sha256': 'c' * 64,
+                'state': 'public_image_verified_gui_unverified', 'automatic_reboot_recovery': False})
+            write(completed / 'completed-fixture.json', {'synthetic': True})
+            completed_objects = {p: (p.stat().st_ino, p.read_bytes()) for p in
+                                 [BINDING / 'recovered-v2.json', earlier / 'head.json', completed / 'completed-fixture.json']}
+            check('completed_predecessor_recovery_and_namespace_seeded', True)
         image_matches(manifest)
         # Reproduce the owner's retained, unpublished earlier-plan preparation.
         # It stays opaque and must keep its original inode and bytes.
-        TRANSITION.mkdir(mode=0o700)
-        os.chown(TRANSITION, 0, 0)
-        prior_preparation = TRANSITION / '.preparing-681f2b48c2b35bc1ccdb4309da636b1b88fcbeb2b2ae982b92dbf0c4198dd51e-ddff6846-ab86-4335-a2d1-16c0b0a7738b'
+        release.transition.mkdir(mode=0o700)
+        os.chown(release.transition, 0, 0)
+        prior_preparation = release.transition / '.preparing-681f2b48c2b35bc1ccdb4309da636b1b88fcbeb2b2ae982b92dbf0c4198dd51e-ddff6846-ab86-4335-a2d1-16c0b0a7738b'
         prior_preparation.mkdir(mode=0o700)
         (prior_preparation / 'files').mkdir(mode=0o700)
         (prior_preparation / 'trees').mkdir(mode=0o700)
@@ -251,7 +327,7 @@ def run(args):
         command('candidate-gatekeeper', ['/usr/sbin/spctl', '--assess', '--type', 'install', candidate])
         command('expand-candidate', ['/usr/sbin/pkgutil', '--expand-full', candidate, args.output / 'expanded'], 300)
         target = json.loads((args.output / 'expanded/Scripts/TargetManifest.json').read_bytes())
-        check('pinned_target_manifest', digest((args.output / 'expanded/Scripts/TargetManifest.json').read_bytes()) == AFTER)
+        check('pinned_target_manifest', digest((args.output / 'expanded/Scripts/TargetManifest.json').read_bytes()) == release.after)
         for attempt in ('install', 'reapply'):
             log_path = Path('/var/log/install.log')
             offset = log_path.stat().st_size
@@ -271,22 +347,27 @@ def run(args):
             check(attempt + '_recovery_bound', recovery['schema'] == 2
                   and recovery['previous_supplement_sha256'] == digest(encoded(prior))
                   and base64.b64decode(recovery['previous_supplement']) == encoded(prior)
-                  and recovery['authorizing_plan_sha256'] == PLAN)
+                  and recovery['authorizing_plan_sha256'] == release.recovery_plan)
             check(attempt + '_private_inode_preserved',
                   (sentinel.stat().st_dev, sentinel.stat().st_ino, sentinel.read_bytes()) == sentinel_state)
             check(attempt + '_legacy_receipts_preserved',
                   all((JOURNAL / n).read_bytes() == encoded(v) for n, v in records.items()))
-            head = json.loads((TRANSITION / 'head.json').read_bytes())
-            check(attempt + '_verified_head', head['plan_sha256'] == PLAN and head['manifest_sha256'] == AFTER)
+            head = json.loads((release.transition / 'head.json').read_bytes())
+            check(attempt + '_verified_head', head['plan_sha256'] == release.plan and head['manifest_sha256'] == release.after)
             verify_live_service(command, attempt + '-live-service')
+            if release.number == '121':
+                command(attempt + '-publisher-sandboxed-browser', installed_browser_command())
+                check(attempt + '_publisher_sandboxed_browser', True)
+                check(attempt + '_completed_predecessor_history_preserved',
+                      completed_objects == {p: (p.stat().st_ino, p.read_bytes()) for p in completed_objects})
             info = plistlib.loads((BASE / 'owner.app/Contents/Info.plist').read_bytes())
-            check(attempt + '_app_build120', info['CFBundleVersion'] == '120')
+            check(attempt + '_app_build' + release.number, info['CFBundleVersion'] == release.number)
             command(attempt + '-installed-jose-guard', ['/usr/bin/sudo', '-n', '-u', 'runner',
                     BASE / 'runtime/bin/python', '-I', '-B', '-c', JOSE_CHECK])
             check(attempt + '_patched_dependency_guard', True)
             if attempt == 'install':
                 stable = {str(p): (p.stat().st_ino, p.read_bytes()) for p in
-                          [BINDING / 'recovered-v2.json', TRANSITION / 'head.json', *policies.values()]}
+                          [BINDING / 'recovered-v2.json', release.transition / 'head.json', *policies.values()]}
             else:
                 check('reapply_preserves_policies_and_head',
                       stable == {p: (Path(p).stat().st_ino, Path(p).read_bytes()) for p in stable})
@@ -304,13 +385,14 @@ def run(args):
 
 def fresh_run(args):
     """Exercise the public-download package, including identical-image repair."""
+    release = selected_release(args)
     shared = runpy.run_path(str(ROOT / 'scripts/mac_component_update_installer_probe.py'))
     shared['guard']()
-    require(all(not os.path.lexists(p) for p in (BASE, APP, JOURNAL, BINDING, TRANSITION, JOB)),
+    require(all(not os.path.lexists(p) for p in (BASE, APP, JOURNAL, BINDING, release.transition, JOB)),
             'fresh_hosted_namespaces_required')
     owner = os.stat('/dev/console').st_uid
     require(owner > 0 and pwd.getpwuid(owner).pw_name == 'runner', 'hosted_console_required')
-    contract = json.loads((ROOT / 'artifacts/direct-runtime-root-recovery-inputs.json').read_bytes())
+    contract = json.loads((ROOT / 'artifacts' / release.contract).read_bytes())
     package = args.inputs / 'fresh.pkg'
     with package.open('rb') as stream:
         require(hashlib.file_digest(stream, 'sha256').hexdigest() == contract['assets']['fresh.pkg']['sha256']
@@ -337,7 +419,7 @@ def fresh_run(args):
         command('staple', ['/usr/bin/xcrun', 'stapler', 'validate', package])
         command('expand', ['/usr/sbin/pkgutil', '--expand-full', package, args.output / 'expanded'], 300)
         manifests = list((args.output / 'expanded').rglob('RecoveryManifest.json'))
-        check('one_pinned_fresh_manifest', len(manifests) == 1 and digest(manifests[0].read_bytes()) == AFTER)
+        check('one_pinned_fresh_manifest', len(manifests) == 1 and digest(manifests[0].read_bytes()) == release.after)
         target = json.loads(manifests[0].read_bytes())
         for attempt in ('install', 'repair'):
             log_path = Path('/var/log/install.log')
@@ -351,11 +433,14 @@ def fresh_run(args):
             shared['verify_image'](target)
             check(attempt + '_exact_public_image', True)
             info = plistlib.loads((BASE / 'owner.app/Contents/Info.plist').read_bytes())
-            check(attempt + '_owner_build120', info['CFBundleVersion'] == '120')
+            check(attempt + '_owner_build' + release.number, info['CFBundleVersion'] == release.number)
             command(attempt + '-installed-jose-guard', ['/usr/bin/sudo', '-n', '-u', 'runner',
                     BASE / 'runtime/bin/python', '-I', '-B', '-c', JOSE_CHECK])
             check(attempt + '_patched_dependency_guard', True)
             verify_live_service(command, attempt + '-live-service')
+            if release.number == '121':
+                command(attempt + '-publisher-sandboxed-browser', installed_browser_command())
+                check(attempt + '_publisher_sandboxed_browser', True)
             # Only this just-created fixture app can exist in this empty VM.
             subprocess.run(['/usr/bin/pkill', '-u', str(owner), '-x', 'AccountAccess'],
                            capture_output=True, timeout=30)
@@ -388,4 +473,5 @@ if __name__ == '__main__':
     parser.add_argument('--inputs', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--mode', choices=['upgrade', 'fresh'], default='upgrade')
+    parser.add_argument('--release', choices=['120', '121'], default='120')
     run(parser.parse_args())
