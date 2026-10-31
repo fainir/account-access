@@ -287,6 +287,19 @@ enum ComponentUpdateIdentityChecks {
             return observations < 3 ? present : absent
         }, clock: { now }, pause: { now += $0 })
         guard observations == 3, now == 0.5 else { throw ComponentUpdateFailure.context }; count += 1
+        let stopping = ComponentCommands.Result(status: 0,
+            output: printData(program + "\tstate = SIGTERMed\n\tpid = 123\n"))
+        try rejects { _ = try ComponentUpdateIdentity.printedPID(stopping.output) }; count += 1
+        now = 0; observations = 0
+        try ComponentCommands.waitUntilAbsent(observe: { _ in
+            observations += 1
+            return observations < 3 ? stopping : absent
+        }, clock: { now }, pause: { now += $0 })
+        guard observations == 3, now == 0.5 else { throw ComponentUpdateFailure.context }; count += 1
+        for fields in ["\tstate = SIGTERMed\n\tpid = 0\n", "\tstate = terminating\n\tpid = 123\n"] {
+            let invalid = ComponentCommands.Result(status: 0, output: printData(program + fields))
+            try rejects { try ComponentCommands.waitUntilAbsent(observe: { _ in invalid }) }; count += 1
+        }
         now = 0; observations = 0
         try rejects {
             try ComponentCommands.waitUntilAbsent(observe: { _ in observations += 1; return present },
@@ -311,6 +324,7 @@ enum ComponentUpdateIdentityChecks {
                         "saved_process_identity_bound_to_birth_and_boot": true,
                         "process_group_error_not_empty": true,
                         "root_job_removal_waits_for_exact_absence_with_one_deadline": true,
+                        "terminating_job_observation_never_grants_pid_authority": true,
                         "root_job_removal_refuses_unknown_errors_and_late_success": true].merging(revalidation.1) { _, _ in true }
                             .merging(systemProcesses.1) { _, _ in true })
     }

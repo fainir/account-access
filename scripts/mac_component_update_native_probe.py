@@ -54,6 +54,7 @@ CORE_CHECKS = frozenset({
     "fixed_job_parser_accepts_only_closed_states", "foreign_or_malformed_job_print_rejected",
     "saved_process_identity_bound_to_birth_and_boot", "process_group_error_not_empty",
     "root_job_removal_waits_for_exact_absence_with_one_deadline",
+    "terminating_job_observation_never_grants_pid_authority",
     "root_job_removal_refuses_unknown_errors_and_late_success",
     "root_revalidation_attests_each_current_lifecycle_independently",
     "root_revalidation_command_failure_never_reuses_prior_authority",
@@ -104,7 +105,7 @@ def fixture_result(raw, *, kind):
     """A count or optimistic summary alone cannot satisfy native acceptance."""
     value = json.loads(raw)
     expected = CORE_CHECKS if kind == "core" else POLICY_CHECKS
-    count_key, count = ("ordinary_fixture_assertions", 392) if kind == "core" else ("count", 41)
+    count_key, count = ("ordinary_fixture_assertions", 396) if kind == "core" else ("count", 41)
     if (not isinstance(value, dict)
             or set(value) != {"schema", "status", "checks", count_key, "installed_reads", "service_actions"}
             or type(value["schema"]) is not int or value["schema"] != 1

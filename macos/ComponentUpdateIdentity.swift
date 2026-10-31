@@ -225,6 +225,17 @@ enum ComponentUpdateIdentity {
     // A narrow parser for successful bounded print of this exact fixed job.
     // Only root-level fields count; nested dictionaries cannot smuggle a PID.
     static func printedPID(_ output: Data) throws -> Int32? {
+        try parsePID(output, allowingTermination: false)
+    }
+
+    // This observation grants no PID authority. During removal launchd keeps
+    // the exact job visible as SIGTERMed until its enrolled worker exits.
+    // Only the later exact missing-service response confirms removal.
+    static func validateRemovalObservation(_ output: Data) throws {
+        _ = try parsePID(output, allowingTermination: true)
+    }
+
+    private static func parsePID(_ output: Data, allowingTermination: Bool) throws -> Int32? {
         guard !output.isEmpty, output.count <= 256 * 1024, !output.contains(0),
               let text = String(data: output, encoding: .utf8) else { throw ComponentUpdateFailure.quiescence }
         let lines = text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
@@ -264,7 +275,8 @@ enum ComponentUpdateIdentity {
             throw ComponentUpdateFailure.quiescence
         }
         if let value = fields["pid"] {
-            guard state == "running", matches(value, "^[1-9][0-9]{0,9}$"),
+            guard (state == "running" || allowingTermination && state == "SIGTERMed"),
+                  matches(value, "^[1-9][0-9]{0,9}$"),
                   let pid = Int32(value), pid > 1 else { throw ComponentUpdateFailure.quiescence }
             return pid
         }

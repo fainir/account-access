@@ -59,6 +59,8 @@ Statuses: todo | building (who) | verified | owner | waiting | cut (reason)
 7. In Account Access > Accounts > Namecheap, review the existing unrecognized sign-in challenge (`b56217f0353d484add171f6bc78b5239`) using **Review sign-in help** -> unblocks private provider acceptance only if its reviewed flow supports the required step. Do not disable two-factor authentication, bypass a challenge, or resubmit this paused operation without resolving it. The required action is review of the unrecognized authentication page.
 8. Completed on 31 October: the owner approved macOS setup, and the native public-example export completed as a 78-byte owner-only file. The backed-up example was then forgotten and restored through normal import; both AI launchers retained their approved reads. [Installed data controls](qa/release121-2026-10-31/owner-data-controls.md). Do not request export consent or the same completed setup action again.
 
+9. In the separate macOS “Authorize Account Access setup” dialog already opened by Account Access, approve the reviewed public SauceDemo connection repair with Touch ID or your Mac login password locally -> unblocks D5/D8 and the public F6 read. This is a new connection-maintenance approval; the completed export approval remains complete. No password belongs in chat.
+
 ## Waiting on third parties
 
 | What | Since | Next check | Notes |

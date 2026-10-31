@@ -546,7 +546,7 @@ enum ComponentCommands {
             // down. A valid observation of this exact job may settle; an
             // unknown error, malformed output or expired deadline must refuse.
             guard result.status == 0 else { throw ComponentUpdateFailure.quiescence }
-            _ = try ComponentUpdateIdentity.printedPID(result.output)
+            try ComponentUpdateIdentity.validateRemovalObservation(result.output)
             let delay = min(0.25, deadline - clock())
             guard delay.isFinite, delay > 0 else { throw ComponentUpdateFailure.quiescence }
             pause(delay)
