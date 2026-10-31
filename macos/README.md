@@ -2,17 +2,52 @@
 
 This is a native installer and owner interface for macOS 14 (Sonoma) or later.
 
-**Current owner-Mac status (25 October):** runtime package 95 installed and
-restarted successfully; its public image and aliases match the reviewed target.
-One personal Chrome credential was imported locally. The app's AI-connection
-upgrade failed after the owner approved macOS authorization, and the installed
-agent launcher returned `RETRYABLE/service_unavailable` during account
-discovery without returning account metadata. The installed owner app remains
-bundle version 92. Diagnostic package 101 passed all seven actual Installer
-scenarios but is still uninstalled on this Mac; its outer package is unsigned
-and unnotarized. Harel/Phoenix SMS, Lemon Squeezy authenticator, real website
-email verification and physical-phone delivery remain unverified. See
+**Current owner-Mac status (30 October):** `/Applications/Account Access.app`
+still reports version 0.8.0 build 110. The persistent build-119 package in
+Downloads was opened in Installer and safely refused before mutation with
+`component_base_not_verified` at the context checkpoint. Do not retry it: its
+updater predates the direct root-recovery fix. The direct 110-to-119 source path
+now performs the recovery before preparation and passes local full-image,
+72-case runtime and 184-unit direct native probes. It still needs hosted CI,
+actual Installer acceptance, and a newly signed, notarized, stapled and
+Gatekeeper-checked successor before installation. After that install, verify the app version, protected
+service restart and fresh Codex/Claude Code access before enabling real account
+acceptance. See [the production ledger](../READINESS.md).
+Harel/Phoenix SMS, Lemon Squeezy authenticator, real website email verification
+and physical-phone delivery also remain unverified. See
 [current acceptance](../docs/production-gates.md).
+
+The complete build 116 package was then opened over this existing installation.
+Installer returned error 112 because its protected install journal belongs to a
+different image. The full package supports a first install and an identical
+retry, not updates over an installed image. The attempt preserved the existing
+app and service. Its build report incorrectly said `fresh_install_only: false`;
+the source now marks these packages as first-install only and returns a fixed
+`existing_installation_requires_update` diagnostic for this journal mismatch.
+The current source checks the protected install journal before hashing the
+bundled runtime, so a mismatched image refuses before the expensive payload
+walk. That check preserves same-image retry recovery but does not add update
+support. Use a separately qualified successor package to update an existing
+installation; build 116 is not that package.
+
+The owner app's managed-client setup now turns known protected-store response
+codes into fixed, actionable messages without displaying response details,
+paths or client tokens. Its native regression cases are in
+`macos/Tests/OwnerScreenChecks.swift`. On this build Mac, Swift type-checking is
+not available because the installed compiler (6.4.0.34.1) does not match the
+available macOS 27 SDK (6.4.0.31.4); only syntax parsing ran. The system app is
+still build 110 and has not received this source change.
+The focused installer/package/transaction suite passes 125 cases with one
+host-specific volume-query skip, and the 45-case browser-session module passes.
+The local full-suite attempt was incomplete because the default sandbox denied
+loopback sockets and its permitted retry was interrupted during a storage lock
+wait. The same source commit passed the full Python suite in GitHub CI, along
+with native owner UI/gateway/upgrade checks, Android 11/15 journeys, cross-user
+password/email/SMS/authenticator recovery and an offline development-package
+smoke install ([CI](https://github.com/fainir/account-access/actions/runs/40866251182),
+[Mac acceptance](https://github.com/fainir/account-access/actions/runs/40866251306)).
+That VM package was a development fixture; it does not qualify a signed update
+on the owner's installed Mac.
 
 Consumer package builds also require the pinned Bitwarden OSS npm CLI and its
 reviewed corresponding-source release asset. Add these maintainer arguments to
@@ -27,11 +62,16 @@ reviewed corresponding-source release asset. Add these maintainer arguments to
 For both runtime inspection and final assembly, also supply
 `--pip-wheel /absolute/path/to/pip-26.2.2-py3-none-any.whl`. Its exact upstream
 SHA256 is `fd7f4dfa8190e014013b9f08f3e973f4e4c26ffd179a204895533a7254813a70`.
-The maintainer assembler refreshes the reviewed Python input's active pip and
-ensurepip seed in its private copies before signing-plan generation. It checks
-the bundled CA certificates as data and never runs pip or ensurepip. Source
-inputs remain unchanged. Unknown input profiles are refused; this is not an
-installed-runtime repair or an audit of OS or embedded native trust stores.
+Use the reviewed Python 3.12.16 Apple-silicon archive from python-build-standalone
+release `20261026` as the `--python` input:
+`cpython-3.12.16+20261026-aarch64-apple-darwin-install_only.tar.gz`,
+SHA256 `fbf4afef53c2a6b72bb741bc06d5671a9dfaf87bd84e5aa73ac9b3d0d589f14e`.
+The assembler pins the extracted Python tree and refuses any other source
+profile. It re-installs the same hash-pinned pip wheel into private copies so
+entry points target the protected runtime path, then checks the active pip,
+ensurepip seed and bundled CA certificates as data. It never runs pip or
+ensurepip. Source inputs remain unchanged. This is not an installed-runtime
+repair or an audit of OS or embedded native trust stores.
 
 Prepare the source asset with `python -m macos.bitwarden_sources --output NEW_DIRECTORY`.
 Both assets are verified and staged before runtime inspection/signing. The
@@ -46,8 +86,11 @@ download directions. The source archive is a separate release asset; it is not
 copied into the installed runtime. See [runtime/source packaging](../docs/bitwarden-packaging.md)
 for exact validation and source-scope limits. Consumer assembly fails if the
 pinned runtime or reviewed source materials are missing.
-The current 0.8 runtime candidate requires **Apple silicon (M-series)**, running
-natively. Its cryptography dependency no longer publishes Intel Mac wheels;
+The full offline payload is archived by Apple's `pkgbuild` with a 30-minute
+bounded timeout; it contains over 25,000 files, so a complete signed package can
+take substantially longer than the small owner-app build.
+The current 0.8 runtime candidate uses Python 3.12.16 and requires **Apple silicon
+(M-series)**, running natively. Its cryptography dependency no longer publishes Intel Mac wheels;
 Intel and Rosetta bootstrap sessions stop before downloads or runtime changes.
 Universal native executables alone do not establish Intel runtime support.
 See the [upstream platform change](https://cryptography.io/en/50.0.2/changelog/#v49-0-0).
@@ -162,6 +205,10 @@ uv build
 ACCOUNT_ACCESS_MAC_BUILD=77 sh macos/build.sh
 ```
 
+That command creates a development app. Signed system installs must also set
+`ACCOUNT_ACCESS_SYSTEM_INSTALL=1`; the direct-update builder refuses a bundle
+without this marker before copying it into the qualified image.
+
 For Developer ID signing, set `ACCOUNT_ACCESS_SIGNING_IDENTITY` to your own certificate name before building. The app and ZIP are written to `dist/macos/`.
 
 Build the wheel first: the wheel and its SHA-256 are embedded in the app's signed bundle. Installation verifies that pin before installing the bundled package. The standalone shell path downloads the package and checks its manifest; when a signed-app pin is supplied, it checks that too. Rebuild the app if the wheel changes.
@@ -189,10 +236,12 @@ remain separate acceptance gates.
 The 0.8 candidate adds **Repair installation…** to the app menu. Installation explicitly stops and restarts the background service after replacing the package, including a repair with an unchanged version number. Credentials, grants and task checkpoints are preserved. The candidate also includes local Authenticator transfer-QR selection for browser verification. These are not evidence of completed physical-device or private mailbox QA; see [production acceptance](../docs/production-gates.md).
 
 Public Mac distribution needs a signed installer package and Apple
-notarization. The application identity is present locally, but a fresh identity
-inventory found no Developer ID Installer identity; package 101's outer
-package is unsigned. No live notarization or stapling has been completed. Apple
-uses Developer ID Application to sign apps and Developer ID Installer to sign
+notarization. The local Keychain now contains a valid Developer ID Installer
+identity as well as the application identity, and the existing Notary profile
+passed a read-only Apple history check on 27 October. This only confirms the
+local signing credentials; package 101's outer package remains unsigned and no
+specific Account Access package hash has been correlated with an Apple ticket.
+Apple uses Developer ID Application to sign apps and Developer ID Installer to sign
 packages distributed outside the Mac App Store
 ([certificate overview](https://developer.apple.com/help/account/certificates/certificates-overview/)).
 A public download is not ready for release. The recording demonstrates the
@@ -204,8 +253,9 @@ This is release engineering, not an end-user installation step. The current
 protected distribution is the complete **flat installer package**, which users
 download and open in Installer. It needs both the Developer ID Application
 identity used for the payload and a separate **Developer ID Installer** identity
-with its private key. A valid Notary service Keychain profile is also required.
-These Apple-issued identities and credentials cannot be created by the helper.
+with its private key. A valid Notary service Keychain profile is also required;
+the existing `AccountAccessPublisher` profile is now confirmed usable for a
+read-only status query. These Apple-issued identities and credentials cannot be created by the helper.
 Use a Mac running macOS 14 or later with Xcode tools. The helper never disables
 Gatekeeper, changes policy rules or removes quarantine to obtain a passing result.
 
@@ -356,7 +406,7 @@ Version 0.7.2 also verifies the import summary: a saved password with an unfinis
 ```sh
 xcrun swiftc -O -parse-as-library -D ACCOUNT_ACCESS_UI_CHECKS \
   -framework AppKit -framework CryptoKit -framework ServiceManagement -lsqlite3 -lbsm \
-  macos/AccountAccess.swift macos/OwnerGateway.swift macos/DesktopOwnerConnection.swift \
+  macos/AccountAccess.swift macos/MailboxOAuthLoopback.swift macos/OwnerGateway.swift macos/DesktopOwnerConnection.swift \
   macos/BrowserNativeHost.swift macos/ManagedAgentSetup.swift macos/WorkerBootstrap.swift macos/WorkerListenerBindings.swift \
   macos/BackgroundRecovery.swift macos/MessageText.swift macos/MessagesReader.swift \
   macos/SystemMessagesReader.swift macos/Tests/OwnerScreenChecks.swift \

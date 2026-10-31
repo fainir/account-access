@@ -1,0 +1,25 @@
+{
+  "client_discovery": [
+    {
+      "host": "agents",
+      "status": "OK",
+      "service_version": "0.8.0",
+      "environment": "live",
+      "approved_account_count": 1,
+      "operation_names": [
+        "status"
+      ]
+    },
+    {
+      "host": "claude",
+      "status": "OK",
+      "service_version": "0.8.0",
+      "environment": "live",
+      "approved_account_count": 1,
+      "operation_names": [
+        "status"
+      ]
+    }
+  ],
+  "credentials_read": false
+}

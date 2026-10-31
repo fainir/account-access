@@ -1,0 +1,4 @@
+2026-10-28 22:31:10 IST - Installer ran the signed build 112 postinstall after native macOS authentication.
+2026-10-28 22:44:19 IST - Helper refused with reason `owner_upgrade_predecessor_not_verified`, checkpoint `predecessor_final_head_read`.
+2026-10-28 22:44:19 IST - PackageKit reported Installer error 112; `pkgutil --pkg-info com.fainir.accountaccess.ownerupgrade112` confirmed no receipt.
+2026-10-28 - Failure occurred during predecessor verification before the package receipt was written. Build 113 uses the existing APFS identity translator while retaining exact inode, mode, size and digest checks.

@@ -35,15 +35,19 @@ LIBRARY = Path("lib/python3.12/site-packages")
 ENSUREPIP = Path("lib/python3.12/ensurepip")
 DIST = "pip-26.2.2.dist-info"
 EXECUTABLE_MEMBERS = {"pip/_internal/__init__.py", "pip/_vendor/certifi/tests/test_certify.py"}
-SOURCE_DIST = "pip-26.2.1.dist-info"
-SOURCE_SEED = "pip-25.0.1-py3-none-any.whl"
+SOURCE_PYTHON_VERSION = (3, 12, 16)
+SOURCE_PYTHON_BUILD = "20261026"
+SOURCE_PYTHON_ARCHIVE_SHA256 = "fbf4afef53c2a6b72bb741bc06d5671a9dfaf87bd84e5aa73ac9b3d0d589f14e"
+SOURCE_PYTHON_TREE_SHA256 = "3d27278e2225401bdf90aac85174432b8c952ea450069aa42f72d11458733ea0"
+SOURCE_DIST = "pip-26.2.2.dist-info"
+SOURCE_SEED = "pip-26.2.2-py3-none-any.whl"
 SOURCE_PINS = {
-    str(LIBRARY / "pip/__init__.py"): "04aa76ceab0f4341e292daae35637f2f8718b183313cc2fb588d1304cb9c0443",
-    str(LIBRARY / "pip/_vendor/vendor.txt"): "3df0c9601bfa2e0dca23cc574a4f900a4d7fdad060ab203fab8354350ed93320",
-    str(LIBRARY / "pip/_vendor/certifi/__init__.py"): "f96d51ff2f1609a4a44f5b5d8eec47ff34c1658d581fac5081d3759db05a8ce1",
-    str(LIBRARY / "pip/_vendor/certifi/cacert.pem"): "bbc7e9c01d7551bb8a159b5dedd989b8ee3ce105aff522b68eb1b01bf854cab0",
-    str(ENSUREPIP / "__init__.py"): "90f6c76cd9ef7ed6daa198bb9ef771139683487f1b061211be7aa511831b2028",
-    str(ENSUREPIP / "_bundled" / SOURCE_SEED): "c46efd13b6aa8279f33f2864459c8ce587ea6a1a59ee20de055868d8f7688f7f",
+    str(LIBRARY / "pip/__init__.py"): "4ba3dbbe728e0a53a2d5da9dfdb1fdfe3db050e4978ed667ea1ff9b4a0681cd8",
+    str(LIBRARY / "pip/_vendor/vendor.txt"): "2b44b4bc5b7da9dcda38099dc92c52cc3dda2a714cd189b439c0668401418630",
+    str(LIBRARY / "pip/_vendor/certifi/__init__.py"): "f8ccfc10235998c7edd340f2f305b5f3d71aed978aea82a02af30d7877bee902",
+    str(LIBRARY / "pip/_vendor/certifi/cacert.pem"): CA_SHA256,
+    str(ENSUREPIP / "__init__.py"): "8f0078bbd91951a077b639ed348a06cf4ec46263e2d677795558c6f22de8957a",
+    str(ENSUREPIP / "_bundled" / SOURCE_SEED): WHEEL_SHA256,
 }
 
 
@@ -219,6 +223,7 @@ def refresh(payload, wheel):
     receipt = payload / "runtime-ca-refresh.json"
     _require(not receipt.exists() and not receipt.is_symlink())
     before = tree_digest(root)
+    _require(before == SOURCE_PYTHON_TREE_SHA256)
     for relative, pin in SOURCE_PINS.items():
         _require(_sha(_regular(root, relative)) == pin)
     library, bundled = root / LIBRARY, root / ENSUREPIP / "_bundled"
@@ -230,7 +235,7 @@ def refresh(payload, wheel):
     for name in ("pip", "pip3", "pip3.12"):
         _regular(root, "bin/" + name)
     source = _regular(root, ENSUREPIP / "__init__.py")
-    needle = b'_PIP_VERSION = "25.0.1"'
+    needle = b'_PIP_VERSION = "26.2.2"'
     _require(source.count(needle) == 1)
     replacement = source.replace(needle, b'_PIP_VERSION = "26.2.2"')
     # All input/profile/ZIP checks precede mutations. Failure discards this
@@ -251,6 +256,10 @@ def refresh(payload, wheel):
     _verify(root, files, _sha(replacement))
     report = {
         "schema": 1, "transform": "account-access-frozen-python312-packaging-ca-refresh-v1",
+        "source_python_version": ".".join(map(str, SOURCE_PYTHON_VERSION)),
+        "source_python_build": SOURCE_PYTHON_BUILD,
+        "source_python_archive_sha256": SOURCE_PYTHON_ARCHIVE_SHA256,
+        "source_python_tree_sha256": SOURCE_PYTHON_TREE_SHA256,
         "source_python_sha256": before, "refreshed_python_sha256": tree_digest(root),
         "official_pip_wheel_sha256": WHEEL_SHA256, "pip_version": VERSION,
         "certifi_version": "2026.10.19", "ca_sha256": CA_SHA256, "ca_certificates": len(fingerprints),

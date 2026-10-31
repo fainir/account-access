@@ -1,13 +1,361 @@
 # Production acceptance
 
+## Current qualification - 31 October 2026
+
+Build 120 is installed on the owner Mac. Both packages are signed, notarized, stapled and Gatekeeper accepted. Disposable Macs passed fresh installation, repair, exact build-110 upgrade and reapply, including root recovery, older unpublished-preparation preservation and vault/receipt preservation. Exact-source application CI passed 4,509 tests with 112 platform-specific skips, lint and the dependency audit.
+
+On the owner Mac, restored two absent socket parent directories using the installed checked primitive; the protected service then passed a controlled restart and stable running-PID samples, and the app reopened. The cause of the missing directories is unproven; a full OS reboot was not performed. [Owner acceptance](../qa/release120-retained-2026-10-31/owner/notes.md). Retained two exact public-only duplicate preview backups so the normal app's AI connection upgrade could complete. Both installed Codex and Claude launchers now discover approved reads from service 0.8.0; the existing Namecheap challenge remains paused, and a separate public example test awaits explicit test-sign-in consent. [Connection evidence](../qa/release120-retained-2026-10-31/owner/connection-repair.md). Private verification setup, Android publisher key/physical-phone acceptance and public-release contact/legal approvals remain in [READINESS.md](../READINESS.md). The production download has not been published; successful private provider access is not claimed.
+
+## Earlier acceptance history
+
 **Account Access remains a preview. Production readiness is false.**
 
-Updated 26 October 2026. The requested outcome is installation, local Chrome
+Updated 28 October 2026. The requested outcome is installation, local Chrome
 password import, email/SMS/authenticator setup, and later approved sign-ins
 through the user's existing AI agent. Controlled tests cover those mechanisms;
 they do not establish personal-account or physical-phone acceptance.
 
+## Build 106 owner-update failure and recovery fix
+
+Build 106 was Developer ID Installer signed, notarized, stapled, and accepted
+by Gatekeeper, but its installation **failed** on the owner Mac. Installer
+wrote no receipt and the installed app did not change. The fixed-label helper
+diagnostic identified `owner_upgrade_transition_conflict` at
+`predecessor_runtime_intent_structure`; the package evidence records the
+failure and does not claim a successful install. [Build 106 QA record](../artifacts/owner-upgrade106-build-20261028.json).
+
+The source repair treats the completed runtime transition as a read-only
+historical observation. It permits an APFS device-number change after restart
+only when the worker and service objects retain matching inode, mode, byte
+count, and SHA-256, and after the exact broker-repair intent and persistent
+installation-root volume receipt are revalidated. Regression checks cover the
+allowed device-only change and reject mismatched inode, content hash, recorded
+device, or current device. The updated source now passes runtime-source
+qualification, final native owner-upgrade qualification (69 owner/runtime
+checks, 477 tree checks, and 324 mixed-storage checks), and shared installed-
+source qualification. The first replacement build 107 package is from source commit
+`9a99641b84cb25b58756c79463f87e2fc452f4bb`, Developer ID Installer signed,
+accepted by Apple's notary service, stapled, and Gatekeeper accepted. Its SHA-256
+is `219ff44e97891ae5a541dae2911430eadea4c4101f878f698713e029a0b94dba`.
+The owner approved it, but PackageKit failed extraction with error 110 and
+underlying POSIX `EISDIR` for the `Scripts` entry. The package had stored that
+entry as a directory, which `pkgutil` expansion did not catch. No package
+receipt was created and the installed app did not change. Build 108 now uses
+`pkgbuild` to archive the scripts component and checks the resulting package
+with `xar`, `pkgutil`, and Installer's read-only package parser before signing.
+[Build 107 failure and QA record](../artifacts/owner-upgrade107-build-20261028.json).
+
+The corrected build 108 package uses Apple's `pkgbuild` scripts archive. Its
+package-format checks passed, but after macOS authorization its protected
+postinstall refused with `owner_upgrade_source_not_verified` at
+`predecessor_repair_history`; no package receipt was written. Build 109
+recompiled the helper with finer fixed-label checkpoints and again passed
+package signature, notarization, stapling, Gatekeeper and Installer parser
+checks. The owner-authorized installation still refused with the same outer
+reason and checkpoint, before writing a receipt. The 109 diagnostic did not
+identify the field-level history mismatch, so the exact installed predecessor
+object remains unqualified. Build 109 reused the same pinned build-106 package
+base that had already failed owner-state validation; changing diagnostic labels
+did not repair that predecessor relationship. [Build 108 failure](../artifacts/owner-upgrade108-build-20261028.json) ·
+[Build 109 evidence](../artifacts/owner-upgrade109-build-20261028.json).
+
+The authoritative local launcher still reports version 0.6.0 in
+`controlled-demo` mode with three synthetic accounts. The installed owner app
+reports version 0.8.0, build 92. These facts confirm that signing and package
+parsing are not the release blocker: the live agent/account service is still a
+demo, the owner-state predecessor history rejects the update, and the real
+account, insurer and physical-phone acceptance below remains incomplete.
+
+Build 110 advanced beyond the earlier history checkpoint: the protected
+history, route, intent, and evidence checks passed. Its remaining refusal was
+the missing nested component payload documented below.
+
+Build 110 is a diagnostic follow-up from source `92857dfa33bddfa191dd87c079022dd86aaa4a2c`.
+It split the post-proof route, intent, evidence, component-revalidation and
+stability checks into fixed labels. The owner, shared-image, and runtime native
+probes passed (79 owner checks, 480 shared-image checks, 69 runtime checks,
+477 tree checks and 324 mixed-storage checks); eleven package-builder tests
+passed. The package was signed, notarized, stapled, Gatekeeper accepted, and
+parsed by Installer. After macOS authorization, its postinstall **refused**
+with `owner_upgrade_source_not_verified` at
+`predecessor_component_revalidation`; PackageKit reported script error 112 and
+created no receipt. The history, route, intent, and evidence checks had passed.
+The immediate cause was packaging: the nested
+`Scripts/Predecessor/Predecessor/CompletedImage` directory was empty, while the
+helper revalidates the component plan and its full target image from that
+directory. The builder had excluded every file under `Predecessor/CompletedImage`
+and then silently recreated an empty directory. This was a package defect, not
+a missing Touch ID approval. The earlier “waiting for authorization” status in
+the build record was stale and has been corrected. [Build 110 failure and
+evidence](../artifacts/owner-upgrade110-build-20261028.json).
+
+The replacement source now restores the exact frozen package-95 completed-image
+payload and inventory into the build-109 scripts component, checks the full
+predecessor projection and required target files, and removes only the exact
+top-level unchanged `TargetImage` after extraction. This also avoids macOS tar's
+broad wildcard matching that previously removed nested target payloads. The
+package-95 archive and inventory were recovered from the pinned private draft
+release and match their recorded SHA-256 values; the extracted archive matched
+all 55,020 inventory rows. Focused regression QA passes (113 tests), the
+broader MFA suite passes (41 tests), and Ruff passes. Fresh native QA against
+the exact package source passes: 79 owner checks, 480 shared-image checks, 69
+runtime checks, 477 tree checks, and 324 mixed-storage checks. The corrected
+package was then built from source `31d9561f4356a107826b51a43841803887992c21`,
+signed, notarized, stapled, Gatekeeper-accepted and accepted by Installer's
+parser. Its SHA-256 is
+`223232416738344adb4b08b4451acc2b0071d5d88956c9df380f4b7b25f452a4` (Apple
+submission `c3deef3c-4dbb-4216-8b10-16dbb984b2f0`). The first owner-Mac attempt
+refused because Account Access was open. After it was closed, an authorized
+retry passed source, payload, history, route, intent, evidence and component
+revalidation, then refused at `predecessor_view` with
+`owner_upgrade_predecessor_not_verified`. Installer created no receipt and the
+installed app did not change. [Owner-Mac result](../artifacts/owner-upgrade110-fixed-install-20261028.json).
+
+The current source adds fixed sub-checkpoints inside that read-only predecessor
+view so the next refusal identifies whether the mismatch is in the owner,
+policy, journal, receipt, repair proof, applied operation states, layout,
+public projection or final stability pass. Focused regressions pass (42 tests),
+and refreshed native probes pass: 79 owner, 513 shared-image, 69 runtime, 477
+tree-storage and 324 mixed-storage checks. These diagnostics do not relax the
+predecessor checks or establish production readiness. The install and real
+account/device gates remain open.
+[Build 110 failure evidence](../artifacts/owner-upgrade110-build-20261028.json).
+
+The signed and notarized build-110 proof-boundary package from source
+`d09d1aae656a2d44637065d933f759b348e50844` passed shared-source, runtime and
+owner QA (595 shared checks, 69 runtime checks, 79 owner checks, 477 tree
+checks and 324 mixed-storage checks). Apple accepted and stapled it; Gatekeeper
+and Installer's parser accepted it. After macOS authorization, the owner Mac
+ran its postinstall for 12 minutes 42 seconds and refused with
+`owner_upgrade_predecessor_not_verified` at
+`predecessor_view_repair_proof_compare`. PackageKit created no receipt. That
+checkpoint is the last report before a compound final-stability guard, so it
+does not identify which guard failed. The next diagnostic splits the final
+tree-history, journal-head and mounted-volume comparisons into separate
+read/compare checkpoints without relaxing them. [Build 110 proof-boundary
+install evidence](../artifacts/owner-upgrade110-proof-boundary-install-20261028.json).
+
+The first full Python run completed with 4,503 passed, 4 skipped, and 2 failed.
+One failure was a stale native-image fixture expectation; it is corrected and
+covered by a regression assertion. The other was a browser-review cancellation
+test that passed in isolation on rerun; its broader MFA suite now passes all 41
+tests. The refreshed native probes passed without touching the installed app.
+
+The current owner app shows the Codex/Claude connection as automatic for every
+new session. Its Accounts page reports **0 ready** and one Namecheap sign-in
+blocked by an unreviewed redirect. Its Verification page reports that the
+Gmail mailbox connection passed its last check; a website login-code flow still
+requires a supported website account. This confirms the agent bridge and
+mailbox check separately, not successful account authentication. The installed
+launcher still reports version 0.6.0 in `controlled-demo` mode with synthetic
+accounts. No Chrome import, Android SMS pairing, authenticator login, or
+Harel/Phoenix account acceptance is recorded. Production readiness remains
+false.
+
+Even after a corrected installer succeeds, acceptance still requires Chrome
+password-import validation, end-to-end email/SMS/authenticator login-code
+flows, physical Android 15 pairing, and a protected operation through the
+user's real AI agent. Harel and Phoenix do not currently have supported product
+connectors, and the CLI still exposes only controlled-demo accounts. These
+are separate open release gates.
+
+## Build 104 owner-successor candidate
+
+The build 104 universal owner app compiled from source commit `9c375d1` and
+passed Apple's notarization, stapling and Gatekeeper distribution assessment on
+28 October. The notarized app archive SHA-256 is
+`b84c0847bc58c44f37314b990d6f8e4c65f6c373a7719747f751557f34b5f9be` (Apple
+submission `5cd324b6-cd32-4e92-a846-2d1ff44a88f0`). It includes the bounded
+two-minute macOS-approval wait and clearer owner instructions.
+
+A separate, exact build 104 owner-successor system package has now been built
+from controller commit `b323226`, signed with Developer ID Installer, accepted
+by Apple's notary service, stapled, and accepted by Gatekeeper on 28 October.
+The delivery package SHA-256 is
+`900f9053f1eb5d256870c9a55eb5d60b598c1043b404e812912a4bb38d25b425` (Apple
+submission `60a82655-c874-4be3-8635-0c4a57ed7be1`). The native owner-upgrade
+qualification probe now passes after freeing disk space. Installer owner-Mac
+opened the package, but no receipt exists and installation has not been
+confirmed; this remains a release candidate, not a production release. Two
+focused owner-package tests and 146 controlled-flow tests for agent setup,
+Chrome import, email, SMS, authenticator factors and verification pass. Follow-up
+QA on source commit `da010d5` passed 4,481 local Python tests (four skipped),
+Ruff, both hosted full-suite jobs, and local native owner UI, gateway and
+upgrade checks. Hosted native Mac jobs remain queued. These fixture tests do not
+count as personal-account acceptance. [Follow-up QA record](../artifacts/followup-qa-da010d5-20261028.json).
+[Build 104 system-package record](../artifacts/owner-timeout104-system-package-20261028.json) ·
+[Build 104 app signing and notarization record](../artifacts/owner-timeout104-notarization-20261028.json) ·
+[Build 104 successor delta](../artifacts/owner-timeout104-successor-delta-20261028.json).
+
+The installed build 92 owner app currently shows “3 connected · 5 accounts”
+and “Ready in every new session”; its Verification page shows an authenticator
+for the synthetic Juniper Workspace. The home screen does not label those
+accounts as examples. The approved agent launcher, however, returns only three
+synthetic `controlled-demo` accounts, and its permitted browser read fails.
+The launcher is the authoritative account inventory; the old dashboard's
+ready labels do not prove personal access. The package preserves the installed
+Python runtime while replacing build 104 owner and broker components; its exact
+predecessor and payload manifests are pinned in the package evidence. Build 92
+remains installed. Reopening the notarized package cleared the orphaned
+Installer process; a fresh Install action reached macOS authorization, but no
+package receipt has appeared yet. Installer postflight and installed-build
+verification remain open. The current source now labels a `controlled-demo`
+agent connection “Demo connection only” and shows “Ready in every new session”
+only for a `live` service. The native UI regression check passes; build 104
+does not include the fix, but build 106 above does. [Status fix QA record](../artifacts/owner-ui-readiness-status-20261028.json).
+
+The installed agent launcher currently reports service version `0.6.0`,
+environment `controlled-demo`, and three synthetic accounts. It does not list
+Harel, Phoenix or the user's email account. No personal credentials, mailbox
+messages, insurance records or verification codes were read. The existing
+browser tabs are not an approved substitute for the connected-account launcher.
+Production acceptance still requires a supported real-account enrollment and
+fresh login test, Chrome import of a user-selected export, email/SMS delivery,
+authenticator verification, and physical Android 15 pairing. This repeated
+read-only result supersedes the earlier “live” environment label in the prior
+connection check. [Current agent account discovery](../artifacts/current-agent-account-discovery-20261028.json) ·
+[Earlier connection check](../artifacts/current-agent-connection-check-20261028.json).
+
+Public Chrome inspection shows Harel's login requires a national ID and mobile
+number, then offers an SMS or email code. Phoenix's login endpoint currently
+returns a provider error page before showing a form. No login details were
+entered and no code was requested. These observations do not demonstrate that
+the controlled-demo service can enroll either site. [Public login inspection](../artifacts/provider-public-login-inspection-20261028.json).
+
+## Public distribution status
+
+The latest published GitHub release remains **0.7.4 preview**, published on
+15 October 2026. There is no published 0.8.0 production release; the signed
+build 102 update is a local QA candidate and has not passed owner-Mac install
+acceptance. [Current release check](../artifacts/current-public-release-status-20261028.json).
+
+## Signing and build 103 installation result
+
+On 27 October, the local Keychain inventory confirmed a valid Developer ID
+Installer identity and the existing `AccountAccessPublisher` notarization
+profile. On 28 October, the build 103 system package from this checkout was
+Developer ID Installer signed, accepted by Apple's notary service, stapled and
+validated by both `stapler` and Gatekeeper. Its unsigned-package source SHA-256
+is `37fbec856da25cd719f9cae787fa86ff2badf3542fac50a2d706b0864fc3fec7`; the
+stapled delivery package SHA-256 is
+`a8623256aff321faf979b3edea7dced627177bcb3550365af221fb005c194f50`, with Apple
+submission `f1061074-e3a9-4caa-98aa-970918f7dea7`.
+
+The package is the protected **fresh-install** route. Installing it over the
+existing owner installation correctly refused during its postinstall check
+with the sanitized result `system_install_not_completed`; the existing broker
+LaunchDaemon was running, and both installed app bundles remained build 92
+(runtime Python 3.12.15). This attempt did not upgrade the owner installation.
+The separate owner-upgrade route has not passed the actual owner predecessor
+check: package 101 was refused at `predecessor`. Diagnostic package 102 is now
+Developer ID Installer signed, notarized, stapled and Gatekeeper accepted, but
+the owner-Mac installation has not completed and no package receipt exists.
+Production readiness remains false. [Package 103 owner-Mac result](../artifacts/fresh-install103-owner-refusal-20261028.json) ·
+[Signing readiness](../artifacts/owner-signing-readiness-20261027.json)
+
+## Local qualification on 28 October
+
+The Authlib security audit found six advisories in locked version 1.8.0. The
+project minimum is now Authlib 1.9.1; the project lock and hash-pinned Mac runtime
+requirements pin 1.9.1 below major version 2. The lock check and runtime
+requirements export comparison pass. `pip-audit --local` reports no known
+vulnerabilities in third-party dependencies; it cannot audit this unpublished
+project package. Ruff passes, and `uv build` produces both source and wheel
+distributions. A clean temporary Python environment installed the hash-verified
+runtime requirements and the wheel; the installed `account-access --help`
+command succeeds. This validates the Python CLI distribution, not the Mac
+system installer.
+
+The full Python suite passes on source commit `6c1dc5d` with Authlib 1.9.1:
+4,479 passed, four skipped, zero failed. Ruff and the third-party dependency
+audit also pass; the audit cannot assess the unpublished project package. Native
+owner-upgrade fixture checks also pass (32 parser, 26
+namespace, 21 preparation, 477 tree-storage and 324 mixed-storage checks). The
+native probe used temporary fixtures only; it did not read or change the
+installed app. These results qualify local source and test fixtures, not a
+signed product update or real-account/device acceptance. [Local QA evidence](../artifacts/local-qa-20261028.json)
+· [Current source QA](../artifacts/current-local-qa-20261028.json)
+
+The current source commit also builds both Python distributions, installs the
+wheel into a new Python 3.13.2 environment, and runs the installed CLI entry
+point successfully. Ruff and the third-party dependency audit pass; the audit
+cannot assess the unpublished project package. This does not qualify the Mac
+system installer or a clean consumer Mac. The full suite on commit `3579548`
+also passes: 4,479 passed, four skipped, zero failed. [Current Python package
+and source smoke](../artifacts/current-python-package-smoke-20261028.json).
+
 ## Owner Mac acceptance after approval
+
+The latest owner-screen inspection now shows the mailbox connection as checked
+and its last email-access check as passed. No mailbox messages or login codes
+were read. A fresh run of each permitted operation through the installed agent
+launcher still reports service version `0.6.0`, environment
+`controlled-demo`, and only three synthetic accounts; all three `summary`
+operations return `RETRYABLE/browser_execution_failed`. This separates a
+successful mailbox connection check from the agent's ability to use the
+protected store and fetch a verification message. Chrome's import screen is
+available and documents the local CSV preview and approval flow, but no personal
+export was imported. The task browser blocks Chrome's internal
+`chrome://password-manager/settings` URL, so the owner must export the CSV in
+Chrome before that local import can be exercised. [Current owner and agent
+smoke](../artifacts/current-owner-agent-smoke-20261028.json).
+
+The installed app's current account catalog contains three public examples,
+Namecheap, PyPI and Read the Docs with authenticator support. It has no Harel or
+Phoenix connector, so those insurer login journeys cannot be tested through the
+product until reviewed connectors are added.
+
+Native owner-upgrade qualification initially stopped because the system volume
+had only about 422 MiB free. After space was freed, the complete native owner
+probe passed, including shared, owner-namespace, preparation, tree-storage and
+mixed-storage checks. The required 2 GiB threshold remains unchanged. This
+qualifies the update controller against fixtures; the actual signed package
+still needs Installer acceptance on this owner Mac.
+
+Earlier on 28 October, the installed Account Access skill's
+`scripts/access accounts` command returned service version `0.8.0` and
+environment `live`. A later discovery returned `0.6.0` / `controlled-demo`,
+and the latest three permitted browser reads all failed retryably. The earlier
+live result is not current acceptance evidence. The requested Harel and Phoenix
+accounts are not configured; no insurer login or code request was made. Direct
+UI inspection confirms the installed owner app is build 92; its mailbox status
+has since advanced from a pending macOS approval to a passed connection check.
+The signed build 102 diagnostic update has not passed actual owner-Mac Installer
+acceptance. [Earlier agent connection check](../artifacts/current-agent-connection-check-20261028.json).
+
+The current source now bounds the native macOS setup-approval wait to two
+minutes. If Authorization Services does not return, the request fails without
+sending account setup data; a late approval is discarded and its external form
+is cleared. Repeated attempts cannot stack another OS prompt, and closing the
+owner connection does not wait behind the pending system dialog. The focused
+native connection checks pass, and the native owner-screen checks compile and
+pass. These checks use fixtures and do not prove a real macOS approval. This
+change is source-only: the installed owner app remains build 92, so production
+acceptance is still false. [Synthetic native check report](../artifacts/current-owner-approval-timeout-native-20261028.json).
+
+Hosted Android acceptance on the same source commit passed automatic and
+owner-entered SMS login on Android 11. On Android 15, it confirmed that both
+notification forwarding and manual code transfer are refused without the
+system's computer association ([run 40635545547](https://github.com/fainir/account-access/actions/runs/40635545547)).
+Positive Android 15 association, manual transfer after pairing, the physical
+phone and insurer SMS delivery remain untested.
+
+Hosted Mac cross-user acceptance also passed on the same source commit ([run
+40635538964](https://github.com/fainir/account-access/actions/runs/40635538964)).
+The controlled-demo run verified password, encrypted email, pinned HTTPS SMS
+and authenticator-factor recovery across distinct user IDs; a fresh synthetic
+password-and-SMS browser login; session reuse; revoked/ungranted-operation
+refusal; credential/code exclusion from agent output; offline prepared-runtime
+installation; and interrupted-install recovery. It used zero private sign-ins
+and no physical phone. It did not verify genuine owner approval, a publisher-
+signed consumer package, or Chrome marketplace installation. [Sanitized hosted
+Mac results](../artifacts/hosted-mac-cross-user-acceptance-20261028.json).
+
+A second hosted run on the same commit completed successfully as well ([run
+40635545534](https://github.com/fainir/account-access/actions/runs/40635545534)).
+It repeated the controlled cross-user journey and passed the Mac worker-boundary
+and Installer-context checks. This repeat adds no private-account or physical-
+phone evidence and does not change the production-readiness decision.
 
 After the owner approved the native macOS prompt on 26 October, the installed
 app opened its Accounts screen. It lists three connected synthetic accounts
@@ -135,12 +483,13 @@ production runtime path validator; all five native public-tree checks pass.
 The app opens to **Upgrade AI connection**, replacing the earlier startup error.
 The subsequent connection upgrade failed after the owner reported macOS
 approval. Reopening still offered the upgrade, and one explicit retry returned
-the same generic error. The installed app does not identify the failing step;
-the current agent connection and real-account operations remain unverified.
-The installed agent launcher also returned `RETRYABLE/service_unavailable` on
-three account-discovery checks; it returned no account metadata, and no login
-operation or code request was made. This is the launcher's generic unavailable
-result and does not identify its underlying cause.
+the same generic error. The installed app does not identify the failing step.
+On 25 October, the installed agent launcher returned
+`RETRYABLE/service_unavailable` on three account-discovery checks; it returned
+no account metadata, and no login operation or code request was made. The
+current 28 October account-discovery check above succeeded, so the earlier
+service-unavailable result is historical. Real website operations remain
+unverified.
 [Launcher discovery](../artifacts/owner-agent-launcher-discovery-20261025.json).
 The bounded Installer result observed before restart was
 `ALREADY_UPDATED_GUI_UNVERIFIED` at `complete`; the same bounded reader was
@@ -312,11 +661,15 @@ It remains a local diagnostic candidate, not a release installer.
 [Diagnostic build record](../artifacts/owner101-diagnostic-build-20261026.json).
 The seven disposable-Mac passes did not cover this existing owner state, so
 they do not qualify package 101 for upgrade or establish production readiness.
-The local signing inventory contains one Developer ID Application identity but
-no Developer ID Installer identity, which Apple requires for a signed package.
-No notarization submission or stapling has been made. The signing pipeline is
-documented and locally tested, but this Mac currently lacks the identity needed
-to produce the trusted installer. [Local signing readiness](../artifacts/owner101-installer-signing-readiness-20261025.json) ·
+The 25 October inventory below is historical. On 27 October, the local
+Keychain inventory found one valid Developer ID Installer identity and the
+existing Notary profile passed a read-only Apple history query. That query was
+not correlated with a known Account Access package hash, and no package was
+submitted from this checkout.
+Candidate 101 remains unsigned and unstapled; the new certificate does not make
+that old package trusted. The current source still needs successful owner-state
+qualification before a new package can be treated as a release candidate.
+[Earlier local signing readiness](../artifacts/owner101-installer-signing-readiness-20261025.json) ·
 [Apple certificate types](https://developer.apple.com/help/account/certificates/certificates-overview/).
 [Package 101 build](../artifacts/owner-upgrade101-build-20261025.json) ·
 [Standard build command](../artifacts/owner-upgrade101-build-command.py.txt) ·
@@ -326,6 +679,20 @@ to produce the trusted installer. [Local signing readiness](../artifacts/owner10
 [Native source evidence](../artifacts/owner101-native-source-ci-20261025.json) ·
 [Live-process evidence](../artifacts/owner101-live-witness-20261025.json) ·
 [Full Installer acceptance](../artifacts/owner-upgrade101-installer-acceptance-20261025.json).
+
+On 28 October, controller source `2349c0f` preserved the fixed predecessor
+checkpoint in the owner-facing refusal result, so a new owner-machine refusal
+can identify the failed checkpoint without exposing private helper text. The
+current-source native image, runtime and owner-upgrade checks passed; the runtime
+and owner-upgrade probes each reported 68 checks and no installed reads. The
+standard builder produced a new diagnostic candidate, then the Developer ID
+Installer signature, Apple notarization, stapling and Gatekeeper assessment all
+passed. Package SHA-256 is
+`bfcf9b5094f5dc1810ccc62d04df7c5eb0dd61c0bdbf283b97ba638c56ef5cb7`; Apple
+submission `1665e1ea-db01-4203-9eca-974b59050713` was accepted. The package is
+open in Installer for the owner-state check, but actual Installer acceptance
+has not completed. It remains uninstalled and `production_ready` is false.
+[Current package record](../artifacts/owner-upgrade102-build-20261028.json).
 
 Qualification source `d81e11f` passed 4,344 Python tests (112 skipped), dependency
 auditing and all three native jobs. The three native archives and all 53 source
@@ -357,14 +724,14 @@ qualify the owner Mac's connection.
 
 | User journey | Verified evidence | Remaining acceptance |
 | --- | --- | --- |
-| Install and connect the AI agent | Package 95 owner installation, normal restart, complete public-image verification and app opening to AI connection upgrade; runtime 92 fresh-install CI | Complete and verify the current agent connection and protected account operations; clean downloaded installation and interrupted-operation recovery |
+| Install and connect the AI agent | Package 95 owner installation/restart and complete public-image verification; current installed skill account discovery returns `OK` from the protected service | Resolve the owner app's upgrade-screen discrepancy; verify a protected website operation and sign-in; clean downloaded installation and interrupted-operation recovery |
 | Import Chrome passwords | One approved personal credential imported locally through protected owner setup; controlled format, review and permission tests | Fresh private-website login using the imported credential; representative export coverage. Imports are snapshots; Chrome live sync is not implemented |
 | Email verification | A real Gmail enrollment and mailbox check passed; controlled fresh-code login and sender/template checks | Actual website email delivery and completed login. Consumer Gmail OAuth also needs a publisher-configured Google application and real consent/renewal QA |
-| Android SMS | Android 11 emulator completes a synthetic browser SMS login; Android 15 emulator refuses delivery without association | Physical Android 15+ installation, system-approved computer association, carrier notification delivery, reconnect and completed insurer login |
+| Android SMS | Android 11 emulator completes a synthetic browser SMS login. New owner-entered fallback uses only six ASCII digits and the paired account's reviewed template; Android 15 checks refusal without computer association and no code persistence | Positive Android 15 association and manual transfer; physical installation, carrier notification delivery, reconnect and completed insurer login |
 | Harel and Phoenix | Public login-page investigation; narrow identity/phone session-status machinery | Reviewed connectors for each complete flow, private local enrollment, verified sender/template and authenticated marker. Neither insurer is currently supported end to end |
 | Lemon Squeezy authenticator | TOTP and supported QR/transfer-batch fixtures; official provider setup documentation reviewed | Reviewed provider login flow, local owner enrollment of the existing account and completed real TOTP login |
 | Agent continuation | Installed portable CLI/skill, durable approved-operation tasks, synthetic authentication recovery, session reuse and revocation checks | Real-account task continuation, session reuse, expiry, password change, source revocation and restart without restoring revoked access |
-| Consumer distribution | Developer ID signed native components; offline package and provenance checks | Developer ID Installer signing, Apple notarization/stapling, downloaded clean-Mac qualification and production Android distribution |
+| Consumer distribution | Build 103 fresh-install package and diagnostic package 102 are Developer ID Installer signed and notarized; offline package and provenance checks | Successful clean downloaded-Mac installation, qualified owner upgrade, and production Android distribution |
 
 The installed skill starts with permitted-account discovery. It can submit
 supported operations as durable tasks and resume them after owner authentication.

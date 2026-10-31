@@ -27,7 +27,8 @@ DEPENDENCIES = (
     "InstallerPayload.swift", "InstallationRootBinding.swift", "ComponentUpdateIdentity.swift",
     "ComponentUpdatePolicies.swift", "FullImageUpdatePolicies.swift", "FullImageTreeAttachment.swift",
     "FullImageTreeStorage.swift", "FullImagePlan.swift", "FullImageTransitionStorage.swift",
-    "FullImageGlobalJournal.swift", "RuntimeUpgradeSource.swift", "BrokerRepairSource.swift", "BrokerRepairIntent.swift",
+    "FullImageGlobalJournal.swift", "RuntimeUpgradeSource.swift", "DirectRuntimeUpgradeSource.swift",
+    "BrokerRepairSource.swift", "BrokerRepairIntent.swift",
     "BrokerRepairHistory.swift", "BrokerRepairJournal.swift", "BrokerRepairRoutes.swift",
     "RootStoreVolumeBinding.swift", "RootStoreVolumePublication.swift", "StoreVolumeMigrationAuthority.swift", "StoreVolumeMigration.swift",
 )
@@ -46,47 +47,48 @@ FRAGMENTS = ("macos/source-fragments/CompletedComponentPredecessor.swift.inc",
 ENTRYPOINT = "FullImageUpdateMain.swift"
 REPAIR_ENTRYPOINT = "BrokerRepairMain.swift"
 EXACT_INPUTS = {
-    'macos/source-fragments/RuntimeUpgradeInstalledAdapter.swift.inc': '5ff9022b0aa0ef53327749e693aa4f06c5b19577907d15d494cbe62f3285a9b3',
-    'macos/RuntimeUpgradeSource.swift': '930ce72d36c58b0a5257938491eba5e85fbaba62fc6825969ff019a841b7039b',
-    'macos/BrokerRepairMain.swift': '94cc06f81f6c3bb32592e98658efe96fe911dc7e9d9e5b7d84877ca703239f37',
     'macos/BrokerRepairHistory.swift': '162597fe43479ba7c35e533a779b2766c1f740d6071c988b93aa931c74f06fb4',
     'macos/BrokerRepairIntent.swift': 'b1a54ef15d3f9c082da7f276e9818f2b46a0d1dbc139b0ba492a7884d7b9a9dd',
     'macos/BrokerRepairJournal.swift': '434d3c3e10a8c85806ce8248036838ea55c20028a8576593386e91b99b304371',
+    'macos/BrokerRepairMain.swift': '94cc06f81f6c3bb32592e98658efe96fe911dc7e9d9e5b7d84877ca703239f37',
     'macos/BrokerRepairRoutes.swift': 'b49184efd4298198b16628a526b14253b5a3202a1370018b2a0c3f5b17d1b8aa',
     'macos/BrokerRepairSource.swift': '4202b1f7e9b2d08c2797037351d745798c0ab9bfcbdf4d0ee4970779c8db3fc0',
-    'macos/ComponentUpdate.swift': '944d1689ca7c350ebf43bf32811de02442748b9a7b4c7bd96f63e1a14bee0f94',
-    'macos/ComponentUpdateIdentity.swift': '815e9043ca55ae59436f68c2ec8d802267562af1cc863c331f3b401da5decb08',
+    'macos/ComponentUpdate.swift': '9595a0ad973473414e4eb0f54784340fb22b3d75cc8f2a876fefa59433d52649',
+    'macos/ComponentUpdateIdentity.swift': 'a19a5c5bb645e5091f987f9fd5f457b34df0e280ef272513de68f9dd12b35370',
     'macos/ComponentUpdatePolicies.swift': '7aca759f4b9fad195851ce12d81550ec08a0753c43515574c23fc74d247060ab',
-    'macos/FullImageGlobalJournal.swift': '5cffb6f97d308115def2bd2b0769ba7287a87a028964f2d895c34d8103585e67',
-    'macos/FullImageInstalledIO.swift': '0582a2b4d0a23f78b0259549e1574b1b4424ef09437d8a0604727960c8830582',
-    'macos/FullImagePlan.swift': '715eabab88da1c2d5be412bdd2c117f08f21688a7f3eae3db25db23bfce10774',
+    'macos/DirectRuntimeUpgradeSource.swift': 'e875e8462c6134dd5c7a1f96e96f6f35f9cf91bb1445bc043cf55c349c57af68',
+    'macos/FullImageGlobalJournal.swift': 'f263183ffea8b33c15c90732c2fd54625da8bb7e34aa2de30311ca01589c8c7c',
+    'macos/FullImageInstalledIO.swift': '58b02bd1a606a3700ac4aef706e13fbd4b9a69811af5b843edd4937487b3f154',
+    'macos/FullImagePlan.swift': 'be714d798f25917690ddeced984a6a2578b05a5bbea9f8c97f333d0f8630f450',
     'macos/FullImagePredecessorAuthority.swift': '39a6c5b35ab1614f89983c799dd603b2585b9d219d7b3d7908e73b750209f603',
-    'macos/FullImageTransitionStorage.swift': '24012b8e6f8d95f95923196bf84fcbf32cf03fab333213c66ca3ac6cfd5e9e86',
+    'macos/FullImageTransitionStorage.swift': 'b919ed729cff3a03eb17e2dd8e5357ca6d2d78e4ad8dbac6057a29043000b53d',
     'macos/FullImageTreeAttachment.swift': '8bb445ede216844f0a32144e99c27a9f06a80b7a76f4e78fbd9f30b65ce22a65',
-    'macos/FullImageTreeStorage.swift': '227299673bdebac965523783aded895863aff0b778db8cc67c68a0131f71f1b3',
+    'macos/FullImageTreeStorage.swift': '30d67bb671020d070ecedfa0986e99de6ae2a1a653eb4fb012f4932b7f869fae',
     'macos/FullImageUpdateMain.swift': '80e8dff1dfd9aa04396cfc149087763365ebce801b3af42a6ff1bc7741d9ab5d',
-    'macos/FullImageUpdatePolicies.swift': '67864c4c5226ee467401e1d93ec79e89ba8bb9c5a0e4608a55994e9d26f05416',
-    'macos/InstallationRootBinding.swift': 'bdfd959f69ce60f2c1d573d3e165b97f3303f66d9347f959f0662cf06dad0a58',
-    'macos/InstallerPayload.swift': '03876624a57cfe84d850b1998f636acaa039ce6fd4822d8df60ffeab7cd9c81d',
+    'macos/FullImageUpdatePolicies.swift': '5e7979aa6bbec9fb6d3bee200abcea482aaad753a8f2011042a9f0d62355b0d9',
+    'macos/InstallationRootBinding.swift': 'ece31268ede6e615f3d648d0fb7f405056c987dc4f096b2293b94fea4c74fe24',
+    'macos/InstallerPayload.swift': 'f00ba30f3192b556364995745d5dd0527b844a58da9d52a92fb60a6f33fb2df2',
     'macos/RootStoreVolumeBinding.swift': '850cae7fd1653e873c3d851953219ceae83b2a96a7c44d2861c4982b63cf0d6a',
     'macos/RootStoreVolumePublication.swift': '523fcd2507ec5f956178cc1951e55b0882ea385db373f17ea32b4f308c510c15',
+    'macos/RuntimeUpgradeSource.swift': 'feeabd2738af0b01d52243e0669c2bb73ef1b5686e2284a749f051a219cb97d4',
     'macos/StoreVolumeMigration.swift': '6a0170525feb34144d37e0ce1580cd9f4bf007a24bd92126e00405e577315ae3',
     'macos/StoreVolumeMigrationAuthority.swift': '1aacffcd330e6d3bc0c96d3576b812ac62109bc63d67d693cbe8b96be0eadf66',
     'macos/Tests/BrokerRepairIntentChecks.swift': 'f3dc81b84c635f4ada2987d033996608522dcb1c473a2fe85d8d4e3a1235a405',
     'macos/Tests/BrokerRepairRecoveryChecks.swift': '27ae8cdc9881ebec60eb0667f09f59ea76d65fea41fcf5f3208384bd4d6f35ef',
     'macos/Tests/BrokerRepairSourceChecks.swift': 'ad6def26f6519fdc3d3b4f829ccb79b6c4134a7622983e64aabca3f14c6bb5ac',
     'macos/Tests/CombinedPredecessorAuthorityChecks.swift': '16d1921b6edc83654e46d1084ff9a3eaa904506ba0e7c04aa605c538882ee67c',
-    'macos/Tests/FullImageGlobalJournalChecks.swift': '1887f7b48b7be3d2b30d89fac01f746ca374208dd0a53af0a7e086ff5ab022d8',
-    'macos/Tests/FullImageInstalledChecks.swift': '7d2537ebb8b736aff4bea07b6947198bcabffe76f137169982c4ec5c8632b0cf',
+    'macos/Tests/FullImageGlobalJournalChecks.swift': '246c005c2d762c85aac191b24d641ebb97b54efd2ce806a319ae93bde2292a0d',
+    'macos/Tests/FullImageInstalledChecks.swift': 'bafea83ca3b448321eda673b8646295b851b50025573fc9bddde7e9231c04ba0',
     'macos/Tests/FullImageInstalledSourceFixture.swift': '7c448f2ee2339735a9e0ac11e151ef135998143b20979f3ad963a4e747658ba4',
     'macos/Tests/FullImageLegacyGroupChecks.swift': '783c7166faf8844feb90dfe1c35c8a5364bb0c8328a2538ff6ab337bc5ee0992',
     'macos/Tests/FullImageNamespaceChecks.swift': '86a7cdc1063f8bcb497b0decc5dcc3025f8639f3f2c9d0de5e72945fdca7be92',
     'macos/Tests/FullImagePredecessorAuthorityChecks.swift': '34e940e3d6acc9878c57a1f96ed8cf2f805966db857dbea03e8c8c41b0fb75b4',
-    'macos/source-fragments/BrokerRepairInstalledAdapter.swift.inc': 'beb91918e2ce3fd3033360d49ff825b7dc46814cba812d838195efa758ee28a0',
+    'macos/source-fragments/BrokerRepairInstalledAdapter.swift.inc': '78bf44ef76b136733f2b21b53879872915582d463d1a12a1ef6a5fe2c8402dca',
     'macos/source-fragments/CompletedComponentPredecessor.swift.inc': 'bda8f8138e64f4f1bad0a05e35f63a4d05922ff19d12a1e0d8371ac8cb886be7',
-    'macos/source-fragments/FullImageInstalledAdapter.swift.inc': 'b94548b2b81f2aabf4269411792fb6a1b9b9f26096c88018f34ca11af29fabf4',
+    'macos/source-fragments/FullImageInstalledAdapter.swift.inc': '0b66200d82a8239a41bdeadb6b1be336f6644c32032aa45bbdf8d45257a732ab',
+    'macos/source-fragments/RuntimeUpgradeInstalledAdapter.swift.inc': 'ca044e67ef2b39ef30d87109b0bc0862b1b7d2bafb7f224e0ede739206b658a9',
 }
-COMPOSED_SHA256 = "3d731dd42e55393bc5ba7f8fc2c55c5e75b6b780d202eaa62e480a68280070ce"
+COMPOSED_SHA256 = '4f0fc5c91567fafcb120a26270af8594476ba2a10d7ac4d736f201671317ffdf'
 GUARD_ENV = "ACCOUNT_ACCESS_FULL_IMAGE_PROBE_GUARD"
 DISPATCHER = b'''import Foundation
 import Darwin
@@ -376,7 +378,7 @@ class Probe:
         require(len(reports) == 6 and all(report.get("status") == "PASSED" for report in reports[:4]), "fixture_reports_refused")
         require(reports[0].get("count") == 159 and isinstance(reports[0].get("checks"), dict)
                 and len(reports[0]["checks"]) == 159 and all(value is True for value in reports[0]["checks"].values())
-                and reports[1].get("checks") == 465, "fixture_assertion_count_changed")
+                and reports[1].get("checks") == 625, "fixture_assertion_count_changed")
         namespace = reports[2]
         require((namespace.get("checks"), namespace.get("supplemental_group_case")) in {
             (29, "UNAVAILABLE_NO_DISTINCT_GROUP"),

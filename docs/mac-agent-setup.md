@@ -14,6 +14,15 @@ and the broker's public client ID without enrolling again or requesting setup
 approval. A manual reopen after a lost response checks state; it does not repeat
 a write automatically.
 
+### Approve setup on this Mac
+
+When Account Access asks for setup approval, macOS opens a separate dialog named
+**Authorize Account Access setup**. Approve it with Touch ID or your Mac login
+password. This is the password used to sign in to this Mac, not an Apple ID or
+Developer account password. Keep the Account Access window open; it continues
+after macOS accepts the approval. Never enter this password in Account Access,
+an agent conversation, or a website.
+
 The native app invokes the immutable system runtime as the ordinary owner user:
 
 `/Library/Application Support/Account Access/runtime/bin/python`

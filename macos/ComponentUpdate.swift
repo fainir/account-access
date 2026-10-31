@@ -72,6 +72,12 @@ protocol ComponentTransitionStorage {
     func verifyOldView() throws
     func verifyRecoverableView() throws
     func verifyNewView() throws
+    func serviceDidQuiesce() throws
+}
+
+extension ComponentTransitionStorage {
+    // Storage that does not own directory trees has no post-barrier fast path.
+    func serviceDidQuiesce() throws {}
 }
 
 enum ComponentTransitionResult {
@@ -102,6 +108,7 @@ final class ComponentTransition {
         else { try storage.verifyOldView() }
         try service.disableAndQuiesce(recovering: recovering)
         do {
+            try storage.serviceDidQuiesce()
             if recovering { try storage.verifyRecoverableView() }
             else { try storage.verifyOldView() }
             for (index, operation) in storage.operations.enumerated() where operation.target != .head {
@@ -187,12 +194,33 @@ enum ComponentFiles {
     }
     static func observe(_ parent: Int32, _ name: String, owner: uid_t) throws -> ComponentObject? {
         try self.name(name)
-        var info = stat()
-        if fstatat(parent, name, &info, AT_SYMLINK_NOFOLLOW) != 0 {
+        var pathInfo = stat()
+        if fstatat(parent, name, &pathInfo, AT_SYMLINK_NOFOLLOW) != 0 {
             guard errno == ENOENT else { throw ComponentUpdateFailure.object }
             return nil
         }
-        return try read(parent, name, owner: owner).1
+        let fd = openat(parent, name, O_RDONLY | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK)
+        guard fd >= 0 else { throw ComponentUpdateFailure.object }; defer { Darwin.close(fd) }
+        let before = try InstallerPayloadIO.check(fd, owner: owner, directory: false)
+        try InstallerPayloadIO.noACL(fd)
+        guard InstallerPayloadIO.same(pathInfo, before), before.st_size >= 0,
+              before.st_size <= InstallerPayloadManifest.maximumFile else { throw ComponentUpdateFailure.object }
+        var count: Int64 = 0, hasher = SHA256(), buffer = [UInt8](repeating: 0, count: 1024 * 1024)
+        while true {
+            let amount = Darwin.read(fd, &buffer, buffer.count)
+            if amount < 0 && errno == EINTR { continue }
+            guard amount >= 0, count <= before.st_size - Int64(amount) else { throw ComponentUpdateFailure.object }
+            if amount == 0 { break }
+            count += Int64(amount); hasher.update(data: buffer.prefix(amount))
+        }
+        let digest = hasher.finalize().map { String(format: "%02x", $0) }.joined()
+        var pathAfter = stat()
+        let after = try InstallerPayloadIO.check(fd, owner: owner, directory: false)
+        guard count == before.st_size, InstallerPayloadIO.same(before, after),
+              fstatat(parent, name, &pathAfter, AT_SYMLINK_NOFOLLOW) == 0,
+              InstallerPayloadIO.same(before, pathAfter) else { throw ComponentUpdateFailure.object }
+        return ComponentObject(device: before.st_dev, inode: before.st_ino,
+            mode: UInt16(before.st_mode & 0o7777), bytes: before.st_size, sha256: digest)
     }
     static func writeExclusive(_ parent: Int32, _ name: String, data: Data, owner: uid_t, mode: mode_t) throws -> ComponentObject {
         try self.name(name)
@@ -1097,12 +1125,24 @@ enum ComponentController {
         }
         checkpoint("current_binding")
         let current = try InstallationRootBinding.capture(withVolumeUUID: true)
-        var existingProof: Data?
+        var existingProof: Data?, previousProof: Data?, recoveryNeeded = false
         if hasNamespace {
             let existing = try InstallationRootBinding.receiptDirectory(create: false)
             defer { Darwin.close(existing) }
             let names = try InstallerPayloadIO.contents(existing)
-            if names == [InstallationRootBinding.receiptName] {
+            if names == [InstallationRootBinding.receiptName]
+                || names == [InstallationRootBinding.receiptName, InstallationRootBinding.pendingRecoveryName] {
+                previousProof = try InstallationRootBinding.readOriginalSupplement(existing)
+                do {
+                    try InstallationRootBinding.validateSupplement(previousProof!, legacy: legacy, current: current)
+                    existingProof = previousProof
+                } catch {
+                    try InstallationRootBinding.requireRecoveryReplacement(previous: previousProof!, legacy: legacy, current: current)
+                    existingProof = previousProof
+                    recoveryNeeded = true
+                }
+            } else if names == [InstallationRootBinding.receiptName, InstallationRootBinding.recoveryName] {
+                previousProof = try InstallationRootBinding.readOriginalSupplement(existing)
                 existingProof = try InstallationRootBinding.readSupplement(existing)
                 try InstallationRootBinding.validateSupplement(existingProof!, legacy: legacy, current: current)
             } else {
@@ -1166,6 +1206,29 @@ enum ComponentController {
         let bindingDirectory = try InstallationRootBinding.receiptDirectory(create: true)
         defer { Darwin.close(bindingDirectory) }
         let names = try InstallerPayloadIO.contents(bindingDirectory)
+        if names == [InstallationRootBinding.receiptName, InstallationRootBinding.recoveryName] {
+            let proof = try InstallationRootBinding.readSupplement(bindingDirectory)
+            guard proof == existingProof else { throw ComponentUpdateFailure.base }
+            try InstallationRootBinding.validateSupplement(proof, legacy: legacy, current: current)
+            try verifyCurrent()
+            return "ALREADY_REVALIDATED"
+        }
+        if recoveryNeeded {
+            guard names == [InstallationRootBinding.receiptName]
+                    || names == [InstallationRootBinding.receiptName, InstallationRootBinding.pendingRecoveryName],
+                  let previousProof else { throw ComponentUpdateFailure.journal }
+            let data = try InstallationRootBinding.recoverySupplement(legacy: legacy, previous: previousProof, current: current,
+                planSHA256: source.planDigest, sourceCommit: sourceCommit, policyHashes: hashes)
+            try InstallationRootBinding.prepareRecoverySupplement(bindingDirectory, data: data)
+            try verifyCurrent()
+            try ComponentFiles.rename(bindingDirectory, InstallationRootBinding.pendingRecoveryName,
+                                      bindingDirectory, InstallationRootBinding.recoveryName, swap: false)
+            try InstallationRootBinding.validateSupplement(InstallationRootBinding.readSupplement(bindingDirectory),
+                                                            legacy: legacy, current: current)
+            try verifyCurrent()
+            checkpoint("finished")
+            return "RECOVERED_ROOT"
+        }
         if names == [InstallationRootBinding.receiptName] {
             let proof = try InstallationRootBinding.readSupplement(bindingDirectory)
             guard proof == existingProof else { throw ComponentUpdateFailure.base }

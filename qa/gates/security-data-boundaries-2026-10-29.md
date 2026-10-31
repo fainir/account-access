@@ -1,0 +1,9 @@
+# Security and saved-account boundary checks - 2026-10-29
+
+- `uv run pytest -q tests/test_security.py tests/test_access.py tests/test_managed_client.py tests/test_worker_boundary.py tests/test_account_data.py tests/test_owner_reviews.py`: **92 passed** after the auth-throttle changes.
+- The API regression covers every HTTP route without a bearer capability, rejects malformed token shapes before hashing, verifies task reads are principal-scoped, and exercises the failure limit, `429` response, `Retry-After`, and recovery after the window. Existing checks cover grant changes, response redaction, worker boundaries, request validation, file permissions and tamper refusal.
+- `uv run ruff check account_access/service.py account_access/storage.py tests/test_security.py` and Python compilation passed.
+- `uv run pip-audit -r account_access/runtime-requirements.txt`: **No known vulnerabilities found**.
+- Gitleaks source scan: `account_access` has 0 findings. The [606-commit history triage](gitleaks-history-triage-2026-10-29.md) reviewed all 237 `generic-api-key` matches across 69 files and confirmed they are literal `REDACTED` marker false positives in historical QA/build artifacts and source manifests; there are no findings in current HEAD and no credential rotation or history rewrite is indicated. No matched values were displayed or committed.
+- The authentication limiter stores only per-process HMACs of peer labels, bounds retained peers to 1,024, and does not retain bearer tokens or peer addresses. It uses an eight-failure, 60-second window by default.
+- **Gate remains building:** the local source security controls and dependency audit pass and historical secret findings are triaged, but the changed runtime has not yet been included in a signed/notarized successor. The Data gate remains open for installed-app acceptance.

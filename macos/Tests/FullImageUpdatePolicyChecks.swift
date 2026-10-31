@@ -32,6 +32,10 @@ private struct PolicyFixture {
         new = old
         new["owner"] = ComponentPeerSignature(team: "ABCDEFGHIJ", identifier: "com.fainir.accountaccess",
             hashes: [String(repeating: "4", count: 40), String(repeating: "5", count: 40)])
+        new["broker"] = ComponentPeerSignature(team: "ABCDEFGHIJ", identifier: "com.fainir.accountaccess.broker",
+            hashes: [String(repeating: "6", count: 40)])
+        new["bootstrap"] = ComponentPeerSignature(team: "ABCDEFGHIJ", identifier: "com.fainir.accountaccess.bootstrap",
+            hashes: [String(repeating: "7", count: 40)])
     }
     static func data(_ value: [String: Any]) throws -> Data {
         try JSONSerialization.data(withJSONObject: value, options: .sortedKeys)
@@ -52,12 +56,13 @@ private struct PolicyFixture {
             guard let value = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw PolicyCheckFailure.assertion }
             return value
         }
-        var expectedInstall = fixture.install, expectedHost = fixture.host
-        let expectedOwner = fixture.owner
+        var expectedInstall = fixture.install, expectedHost = fixture.host, expectedOwner = fixture.owner
         expectedInstall["payload_fingerprint"] = PolicyFixture.newFingerprint
         expectedHost["owner_hashes"] = fixture.new["owner"]!.hashes
-        // The complete records, including both IDs, must survive unchanged
-        // except for the two explicitly authorized owner-pin/fingerprint fields.
+        expectedHost["bootstrap_hashes"] = fixture.new["bootstrap"]!.hashes
+        expectedOwner["server_hashes"] = fixture.new["broker"]!.hashes
+        // Exact records survive except for the target-pinned peer hashes and
+        // the payload fingerprint; owner and broker IDs remain fixed.
         try require(NSDictionary(dictionary: try object(result.install)).isEqual(to: expectedInstall))
         try require(NSDictionary(dictionary: try object(result.host)).isEqual(to: expectedHost))
         try require(NSDictionary(dictionary: try object(result.owner)).isEqual(to: expectedOwner))
@@ -90,8 +95,9 @@ private struct PolicyFixture {
             { $0.owner["server_hashes"] = [String(repeating: "0", count: 40)] },
             { $0.owner["server_identifier"] = "other.broker" },
             { $0.new["owner"] = ComponentPeerSignature(team: "ABCDEFGHIJ", identifier: "com.fainir.accountaccess", hashes: [String(repeating: "F", count: 40)]) },
-            { $0.new["broker"] = ComponentPeerSignature(team: "ABCDEFGHIJ", identifier: "com.fainir.accountaccess.broker", hashes: [String(repeating: "6", count: 40)]) },
             { $0.new["broker"] = ComponentPeerSignature(team: "ABCDEFGHIJ", identifier: "com.fainir.accountaccess.broker", hashes: [String(repeating: "4", count: 40), String(repeating: "4", count: 40)]) },
+            { $0.new["broker"] = ComponentPeerSignature(team: "OTHERTEAM1", identifier: "com.fainir.accountaccess.broker", hashes: [String(repeating: "6", count: 40)]) },
+            { $0.new["broker"] = ComponentPeerSignature(team: "ABCDEFGHIJ", identifier: "com.attacker.broker", hashes: [String(repeating: "6", count: 40)]) },
             { $0.new["bootstrap"] = ComponentPeerSignature(team: "OTHERTEAM1", identifier: "com.fainir.accountaccess.bootstrap", hashes: [String(repeating: "6", count: 40)]) },
             { $0.old.removeValue(forKey: "bootstrap") },
             { $0.new["extra"] = $0.new["broker"] },
@@ -136,14 +142,14 @@ private struct PolicyFixture {
         let report: [String: Any] = ["schema": 1, "status": "PASSED", "count": checks,
             "installed_reads": false, "service_actions": false, "production_ready": false,
             "checks": ["exact_install_record_preserved_except_fingerprint": true,
-                       "exact_host_policy_preserved_except_owner_hashes": true,
-                       "exact_owner_profile_preserved_byte_values": true,
+                       "exact_host_policy_preserved_except_target_peer_hashes": true,
+                       "exact_owner_profile_preserved_except_target_broker_hashes": true,
                        "owner_and_broker_uids_preserved": true,
                        "invalid_records_paths_signatures_rejected": true,
                        "foreign_root_or_broker_console_rejected": true,
                        "invalid_fingerprint_rejected": true,
                        "duplicate_plain_or_escaped_key_rejected": true]]
-        guard checks == 46 else { throw PolicyCheckFailure.assertion }
+        guard checks == 47 else { throw PolicyCheckFailure.assertion }
         print(String(decoding: try JSONSerialization.data(withJSONObject: report, options: .sortedKeys), as: UTF8.self))
     }
 }

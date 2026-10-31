@@ -38,6 +38,20 @@ private enum FixtureFailure: Error { case failed, interruption }
         }
         guard fchmod(fd, 0o644) == 0, fsync(fd) == 0 else { throw FixtureFailure.failed }
     }
+    private static func overwrite(_ parent: Int32, _ name: String, _ data: Data) throws {
+        let fd = openat(parent, name, O_WRONLY | O_NOFOLLOW | O_CLOEXEC)
+        guard fd >= 0 else { throw FixtureFailure.failed }
+        defer { Darwin.close(fd) }
+        guard ftruncate(fd, 0) == 0 else { throw FixtureFailure.failed }
+        try data.withUnsafeBytes { bytes in
+            var offset = 0
+            while offset < bytes.count {
+                let written = Darwin.write(fd, bytes.baseAddress!.advanced(by: offset), bytes.count - offset)
+                guard written > 0 else { throw FixtureFailure.failed }; offset += written
+            }
+        }
+        guard fsync(fd) == 0 else { throw FixtureFailure.failed }
+    }
     private static func row(_ data: Data) -> [String: Any] {
         ["kind": "file", "mode": 0o644, "size": data.count, "sha256": PublicTreeInventory.digest(data)]
     }
@@ -239,6 +253,25 @@ private enum FixtureFailure: Error { case failed, interruption }
                     owner: getuid(), group: getgid(), attachment: scenario.targetAttachment) == scenario.operation.before)
             }
             do {
+                let scenario = try Scenario(root: root, anchor: anchor, name: "quiesced-fast-state", unit: .owner)
+                let storage = try scenario.storage()
+                try expect(try storage.state() == .staged)
+                try storage.enableQuiescedFastState()
+                try storage.apply()
+                try expect(try storage.state() == .applied)
+                try storage.reverse()
+                try expect(try storage.state() == .staged)
+            }
+            do {
+                let scenario = try Scenario(root: root, anchor: anchor, name: "quiesced-fast-state-detects-change", unit: .owner)
+                let storage = try scenario.storage()
+                try expect(try storage.state() == .staged)
+                try storage.enableQuiescedFastState()
+                let staged = try scenario.stagedFD(); defer { Darwin.close(staged) }
+                try overwrite(staged, "value.txt", Data(repeating: 0x78, count: Data("new-tree-longer".utf8).count))
+                try refuses { _ = try storage.state() }
+            }
+            do {
                 let scenario = try Scenario(root: root, anchor: anchor, name: "completed-projection", unit: .owner)
                 let storage = try scenario.storage()
                 try expect(try storage.originalObservation() == scenario.operation.before)
@@ -398,8 +431,9 @@ private enum FixtureFailure: Error { case failed, interruption }
                 }
             }
             let originalChecks = 63 + (symlinkACLQualified ? 2 : 0)
-            // Nine additional units add 45 round-trip checks; read-only reopen adds four.
-            try expect(count == originalChecks + 49 + 18)
+            // Nine additional units add 45 round-trip checks; read-only reopen adds 19.
+            // The quiesced fast path adds three forward/rollback checks and one tamper refusal.
+            try expect(count == originalChecks + 49 + 19 + 4)
             let optional = PublicTreeUnit.fullImageCases.filter { $0.beforePresent != $0.afterPresent }
             try expect(optional.count == 4 && PublicTreeUnit.fullImageCases.count == 13)
             for (index, unit) in optional.enumerated() {
@@ -474,7 +508,7 @@ private enum FixtureFailure: Error { case failed, interruption }
                     owner: getuid(), group: getgid(), planSHA256: scenario.operation.planSHA256) }
             }
             try refuses { _ = try manifest(.project, Data(), present: false) }
-            guard count == originalChecks + 49 + 18 + 2 + 4 * 26 + 1 else { throw FixtureFailure.failed }
+            guard count == originalChecks + 49 + 19 + 4 + 2 + 4 * 26 + 1 else { throw FixtureFailure.failed }
             // Fictional historical journal bytes, never an installed receipt.
             // Cover replacement, creation and removal on both sides of rename.
             for (index, unit) in PublicTreeUnit.fullImageCases.enumerated() {
@@ -518,7 +552,7 @@ private enum FixtureFailure: Error { case failed, interruption }
             }
             // Whole runtime trees use the same inode-bound atomic exchange.
             // Verify real moves, interrupted retry, and reverse for each new role.
-            let runtimeUnits: [PublicTreeUnit] = [.runtimeOwner, .pythonRoot, .runtimeRoot, .browsers, .wheels]
+            let runtimeUnits: [PublicTreeUnit] = [.runtimeOwner, .pythonRoot, .runtimeRoot, .browsers, .wheels, .binRoot]
             for (index, unit) in runtimeUnits.enumerated() {
                 let scenario = try Scenario(root: root, anchor: anchor, name: "runtime-\(index)", unit: unit)
                 try expect(!PublicTreeUnit.fullImageCases.contains(unit))

@@ -1,6 +1,30 @@
 from account_access.broker import Broker
 
 
+def test_driver_crash_before_protocol_start_has_a_safe_specific_failure(env, monkeypatch):
+    import json
+    from account_access import browser
+
+    _, broker, _ = env
+    secret = 'fictional-driver-crash-secret'
+
+    class FailedDriver:
+        def __enter__(self):
+            raise Exception(secret)
+
+        def __exit__(self, *_):
+            raise AssertionError('failed entry has no exit')
+
+    monkeypatch.setattr(browser, 'sync_playwright', FailedDriver)
+    result = broker.run('test', 'demo-web', 'summary')
+    assert result == {'status': 'RETRYABLE', 'reason': 'browser_driver_unavailable', 'account': 'demo-web'}
+    with broker.store.db() as db:
+        rows = [dict(row) for row in db.execute(
+            "SELECT reason FROM audit WHERE principal='service' AND event='browser_execution_failed'")]
+    assert rows == [{'reason': 'playwright_start'}]
+    assert secret not in json.dumps(result) + json.dumps(rows)
+
+
 def test_browser_channel_is_explicit_reviewed_configuration(env):
     import pytest
     from pydantic import ValidationError

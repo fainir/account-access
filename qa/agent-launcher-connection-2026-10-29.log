@@ -1,0 +1,4 @@
+2026-10-29 - Ran the installed Account Access skill launcher with its documented `accounts` read.
+Result: status OK; service version 0.6.0; environment controlled-demo; 3 permitted synthetic accounts; 3 permitted operations; all 3 report saved access.
+No account labels or operation names were retained in this evidence file.
+This proves the installed launcher reaches the protected service. It does not prove a browser sign-in or a live Codex/Claude model call; the prior installed synthetic browser smoke failed twice.

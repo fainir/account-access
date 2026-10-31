@@ -1,0 +1,58 @@
+PASS: protected bundle validation cannot fall back to public alias resources
+PASS: password files are bounded regular UTF-8 files; symlinks, pipes, directories and oversized exports are refused
+PASS: account login export is explicit, destination writes replace links safely, and files are owner-only
+PASS: service-account sync needs no Connect server; provider switching clears tokens; fields fit the narrow window
+PASS: token replacement needs only a masked new token and current generation; cancellation clears the secret without changing the source
+PASS: Bitwarden requires explicit vault consent, masks setup credentials, preserves master-password text and clears cancelled secrets
+PASS: imported Bitwarden item IDs need no reentry; manual IDs stay advanced, replacement tokens are absent and unavailable runtime hides enrollment
+PASS: import summary distinguishes saved credentials from verified sign-in and exposes repair without blank credential fields
+PASS: stopped sign-ins show a plain-language failure and an optional owner-only technical detail action
+PASS: browser security checks have a specific explanation without a misleading transport error
+PASS: authenticator setup masks keys and accepts bounded complete transfer image selections
+PASS: saved mailbox credentials and a checked connection cannot claim completed website code delivery
+PASS: unusable or nonrenewable Google grants require reconnection without claiming saved access or exposing arbitrary reasons
+PASS: Gmail setup is available before any website source and masks its app password; other providers require explicit TLS settings
+PASS: a checked matching mailbox is reusable without another password entry; another recipient is never offered
+PASS: reviewed sign-in repairs are available without entering the password again
+PASS: native requests verify a restarted local service without rebuilding or clearing an unsaved form
+PASS: failed owner identity verification sends no setup request and preserves the unsaved form
+PASS: a lost setup response is surfaced without replaying the request or clearing an idle form
+PASS: saving verification setup cannot retry blocked website checks or presence challenges
+PASS: owner-visible troubleshooting stays visible after a transient retry
+PASS: finishing a stopped review returns the failed account state without claiming connection
+PASS: identity and phone enrollment uses distinct masked fields; changing login kind clears values and restores password labels
+PASS: an offered SMS method has a setup action before any SMS source exists
+PASS: pre-request failures cannot claim SMS delivery was tested; owner attention distinguishes unknown pages and required presence
+PASS: email and unpaired-phone failures explain their repair without claiming an SMS test
+PASS: verification detail view excludes arbitrary data and admits only closed routes and known control names
+PASS: first stopped-page details reject secret-bearing or malformed data, preserve unknown methods and disappear with the current challenge
+PASS: Chrome session setup shows expected username and temporary cookie access before preparing; it never asks for a password
+PASS: unsupported or unapproved accounts have no Chrome session-transfer action
+PASS: Chrome failures explain known repair cases without displaying arbitrary backend data
+PASS: background recovery health shows fixed retry/stopped messages and clears after recovery without exception details
+PASS: examples and legacy demo responses stay labeled; AI setup reports demo-only, unverified, and live readiness truthfully
+PASS: macOS background approval has a specific settings action and does not claim the current service is unavailable
+PASS: native Pause sends one stop request, clears local setup secrets and offers explicit Resume
+PASS: protected package refuses missing registration without starting legacy credential storage
+PASS: isolated first setup and durable pause have explicit owner actions; repair never exposes raw errors or offers reset
+PASS: native setup accepts pending enrollment and automatically reads worker state without the legacy capability file
+PASS: lost native enrollment response is never replayed; reopening reconnects with a read and no new OS prompt
+PASS: a fresh isolated account view waits for portable client setup; both hosts connect without a selector, and reopening verifies without another enrollment or approval
+PASS: checked Gmail reuse submits one exact review without secrets, consent or retrying a blocked website; missing revision stops locally
+PASS: changed local capability identity is refused before any native enrollment request
+PASS: connection failures identify their exact closed stage, stop without replay, and hide arbitrary errors, responses and capabilities; conflicts and revocations require review
+PASS: all agent setup actions preserve only a bounded owner-home Codex namespace; browser setup and unrelated credential or runtime variables stay excluded
+PASS: failed or unknown client discovery cannot become fresh setup, read a capability or silently enroll
+PASS: a recognized preview connection offers an explicit upgrade, waits for the owner, then connects both agents through the new approved capability
+PASS: saved Google access checks its reusable mailbox address without another consent flow or mailbox password
+CHECK: rejected native mailbox retry preserved address: true; password blank: true
+CHECK: rejected native mailbox retry preserved address: true; password blank: true
+PASS: rejected native mailbox setup retains only nonsecret context, clears passwords, requires explicit retry and cannot replace a navigated screen
+PASS: import completion offers verification for SMS-only and device-email-only setup
+PASS: device-email preview/apply require fresh setup; exact discard/removal are restrictive and arbitrary filters or mailbox URLs are refused
+PASS: native PyPI device email reuses a checked mailbox without secret reentry, shows a review and cancels without applying
+PASS: native device-email confirmation sends one apply and reports saved setup without claiming delivery
+PASS: stale native device-email apply is not replayed; navigation/pause clear review and missing mailboxes offer setup or restrictive disconnect
+PASS: Claude Code actions show honest local guidance; unsupported visible sign-in help makes no verification request
+PASS: approval feedback ignores delayed first/accepted events after page, window or operation changes and fronts only its current setup
+PASS: UI fixtures use only temporary roots, synthetic owner profiles, fake helpers and intercepted URL requests

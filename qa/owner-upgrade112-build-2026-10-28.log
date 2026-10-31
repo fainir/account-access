@@ -1,0 +1,4 @@
+2026-10-28 - Build 112 used source commit c44ed72 and passed the 88-case focused source/builder suite. The optimized arm64 helper compiled and refused ordinary-user execution before any installed reads or writes.
+2026-10-28 - The builder verified 27,532 predecessor projection rows and exact signed-package contents. Developer ID signature, Apple notarization, stapling, Gatekeeper assessment and Installer parsing all passed.
+2026-10-28 - Package: dist/owner-upgrade112-signed-20261028/Account-Access-Owner-Upgrade-112.pkg. The owner authorized the install; postinstall failed at `predecessor_final_head_read` with `owner_upgrade_predecessor_not_verified`. No receipt was installed.
+2026-10-28 - The likely cause is comparing a historical APFS device number as if it persisted across restart; the existing secure matcher supports that translation while preserving inode, mode, size and digest checks. Build 113 carries the tested change.

@@ -281,11 +281,11 @@ def test_generic_verification_rejection_clears_all_password_fields_before_reply(
             page.get_by_role("button", name="Verification", exact=True).click()
             factor = page.locator('[data-verification-source="fictional-source"]')
             if kind == "imap":
-                factor.get_by_label("username", exact=True).fill("owner@example.test")
+                factor.get_by_label("Email address", exact=True).fill("owner@example.test")
                 factor.get_by_label("Mailbox application password", exact=True).fill("fictional-mail-secret")
             else:
-                factor.get_by_label("sid", exact=True).fill("fictional-gateway-id")
-                factor.get_by_label("auth_token", exact=True).fill("fictional-gateway-token")
+                factor.get_by_label("Twilio account SID", exact=True).fill("fictional-gateway-id")
+                factor.get_by_label("Twilio auth token", exact=True).fill("fictional-gateway-token")
             factor.get_by_role("button", name="Enable verification", exact=True).click()
             assert entered.wait(2)
             assert factor.locator('input[type="password"]').evaluate_all("fields=>fields.every(field=>field.value==='')")
@@ -295,6 +295,37 @@ def test_generic_verification_rejection_clears_all_password_fields_before_reply(
             assert broker.store.get("source:fictional-source") is None
     finally:
         release.set()
+
+
+def test_verification_page_fits_phone_and_desktop_and_labels_all_setup_fields(env, monkeypatch):
+    with owner_page(env[1], monkeypatch) as page:
+        for width, height in [(375, 812), (1440, 1000)]:
+            page.set_viewport_size({"width": width, "height": height})
+            page.get_by_role("button", name="Verification", exact=True).click()
+            page.locator("#factors").wait_for(state="visible")
+            assert page.evaluate("document.documentElement.scrollWidth") <= width
+            assert page.locator("nav button").evaluate_all(
+                "buttons => buttons.every(button => button.getBoundingClientRect().height >= 44)"
+            )
+            seed = card(page).get_by_label("Authenticator setup key or otpauth link", exact=True)
+            assert seed.locator("xpath=ancestor::label[1]").inner_text() == "Authenticator setup key or otpauth link"
+            details = page.locator("details").filter(has=page.get_by_text("Connect Gmail or email", exact=True))
+            details.locator("summary").click()
+            summary = details.locator("summary")
+            assert summary.evaluate("node => node.getBoundingClientRect().height") >= 44
+            provider = details.get_by_label("Email provider", exact=True)
+            provider.select_option(label="Other email · TLS IMAP")
+            for label in ["Email address", "Application password", "IMAP server", "TLS port"]:
+                field = details.get_by_label(label, exact=True)
+                assert field.is_visible()
+                assert field.locator("xpath=ancestor::label[1]").inner_text().startswith(label)
+            assert page.locator("#factors button:visible").evaluate_all(
+                "buttons => buttons.every(button => button.getBoundingClientRect().height >= 44)"
+            )
+            page.get_by_role("button", name="Password sync", exact=True).click()
+            assert page.evaluate("document.documentElement.scrollWidth") <= width
+            page.get_by_role("button", name="Import passwords", exact=True).click()
+            assert page.evaluate("document.documentElement.scrollWidth") <= width
 
 
 def test_owner_totp_state_does_not_wait_for_active_source_or_code_window_lock(env, monkeypatch):

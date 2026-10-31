@@ -1,0 +1,3 @@
+2026-10-29 - Rebuilt the current 0.8.0 owner app as universal build 115 from the latest source and wheel.
+The Developer ID Application signature passes `codesign --verify --deep --strict`; the app's pinned wheel SHA-256 matches the built wheel. The exported ZIP was extracted and the app signature still verifies.
+Candidate: `dist/macos115-review/Account-Access-Mac.zip`. It is not notarized, assembled into the complete system installer, or installed; those release and owner-Mac checks remain open.

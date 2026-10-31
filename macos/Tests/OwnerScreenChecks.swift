@@ -253,6 +253,36 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
                                 styleMask: [.titled, .resizable], backing: .buffered, defer: false)
         owner.base = URL(string: "http://127.0.0.1:1/")!
         owner.token = "synthetic-ui-session"
+        owner.accounts = [["account": "fixture", "label": "Fixture account", "route": "browser",
+                           "portable_ready": true, "connected": true,
+                           "saved_login_available": true, "saved_login_exportable": true,
+                           "operations": []]]
+        owner.ready()
+        var accountActions = descendants(owner.stack).compactMap { $0 as? NSButton }
+        precondition(accountActions.contains { $0.title == "Export saved login…" && $0.action == #selector(AccountAccess.exportSavedLogin) })
+        precondition(accountActions.contains { $0.title == "Forget saved login" && $0.action == #selector(AccountAccess.forgetSavedLogin) })
+        owner.window.setContentSize(NSSize(width: 880, height: 650))
+        owner.window.contentView!.layoutSubtreeIfNeeded()
+        for control in accountActions where ["Export saved login…", "Forget saved login"].contains(control.title) {
+            precondition(control.frame.width > 0 && control.frame.height > 0)
+        }
+        owner.accounts[0]["saved_login_exportable"] = false
+        owner.ready()
+        accountActions = descendants(owner.stack).compactMap { $0 as? NSButton }
+        precondition(!accountActions.contains { $0.title == "Export saved login…" })
+        precondition(accountActions.contains { $0.title == "Forget saved login" })
+        let exportSentinel = fixtureRoot.appendingPathComponent("export-sentinel.txt")
+        let selectedExport = fixtureRoot.appendingPathComponent("saved-login.csv")
+        try! Data("keep this file".utf8).write(to: exportSentinel)
+        try! FileManager.default.createSymbolicLink(at: selectedExport, withDestinationURL: exportSentinel)
+        try! AccountAccess.writePrivateExport(Data("url,username,password\r\nhttps://fixture.test,owner,synthetic\r\n".utf8), to: selectedExport)
+        var exportedInfo = stat()
+        precondition(lstat(selectedExport.path, &exportedInfo) == 0
+            && exportedInfo.st_mode & S_IFMT == S_IFREG
+            && exportedInfo.st_mode & 0o077 == 0
+            && (try? String(contentsOf: selectedExport, encoding: .utf8))?.contains("synthetic") == true
+            && (try? String(contentsOf: exportSentinel, encoding: .utf8)) == "keep this file")
+        print("PASS: account login export is explicit, destination writes replace links safely, and files are owner-only")
         owner.accounts = [["account": "fixture", "label": "Fixture account",
                            "route": "browser", "portable_ready": true]]
         owner.showPasswordSync()
@@ -724,7 +754,16 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         precondition(inheritedExampleText.contains("1 ready · 1 example connections"))
         precondition(inheritedExampleText.contains("Example connected"))
         precondition(inheritedExampleText.contains("Example connection. These results do not validate access to a personal account."))
+        owner.agents = ["codex"]
+        owner.automaticSessions = ["codex": ["enabled": true]]
+        owner.ready()
+        views = descendants(owner.stack)
+        let demoAgentText = views.compactMap { ($0 as? NSTextField)?.stringValue }
+        precondition(demoAgentText.contains("Demo connection only"))
+        precondition(demoAgentText.contains("Example only"))
+        precondition(!demoAgentText.contains("Ready in every new session"))
         owner.serviceEnvironment = "mixed"
+        owner.systemAgentClientID = String(repeating: "a", count: 64)
         precondition(AccountAccess.effectiveEnvironment(owner.accounts[0], fallback: owner.serviceEnvironment) == "unclassified")
         precondition(AccountAccess.verificationEnvironment(legacyAuthenticator, accounts: owner.accounts,
                                                            fallback: owner.serviceEnvironment) == "unclassified")
@@ -735,9 +774,63 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         precondition(unclassifiedText.contains("1 connections · source unverified"))
         precondition(unclassifiedText.contains("Source unverified"))
         precondition(unclassifiedText.contains("The service source could not be verified. This connection does not establish personal-account access."))
+        precondition(unclassifiedText.contains("AI connection source unverified"))
+        precondition(!unclassifiedText.contains("Ready in every new session"))
+        owner.accounts = [["account": "example", "environment": "public-example", "connected": true, "portable_ready": true],
+                          ["account": "service", "environment": "live", "connected": false, "portable_ready": true]]
+        owner.ready()
+        views = descendants(owner.stack)
+        let mixedAgentText = views.compactMap { ($0 as? NSTextField)?.stringValue }
+        precondition(mixedAgentText.contains("AI tools connected"))
+        precondition(mixedAgentText.contains("Automatic"))
+        precondition(!mixedAgentText.contains("AI connection source unverified"))
+        precondition(mixedAgentText.contains("0 ready · 1 service connections"))
+        precondition(mixedAgentText.contains("1 ready · 1 example connections"))
+        owner.browserRuntime = ["status": "UNAVAILABLE"]
+        owner.ready()
+        precondition(descendants(owner.stack).compactMap { ($0 as? NSTextField)?.stringValue }
+            .contains("Website sign-in needs repair"))
+        owner.browserRuntime = [:]
+        owner.androidConnectionTest = ["available": true, "configured": false, "pairing_prepared": false]
+        owner.showFactors()
+        precondition(descendants(owner.stack).compactMap { ($0 as? NSButton)?.title }.contains("Set up Android phone"))
+        owner.showAndroidTest()
+        precondition(owner.androidTestSender?.stringValue == "")
+        precondition(!descendants(owner.stack).compactMap { ($0 as? NSButton)?.title }.contains("Start message test"))
+        owner.androidConnectionTest = ["available": true, "configured": true, "pairing_prepared": true, "sender": "Fixture sender"]
+        owner.showAndroidTest()
+        precondition(owner.androidTestSender?.stringValue == "Fixture sender")
+        precondition(descendants(owner.stack).compactMap { ($0 as? NSButton)?.title }.contains("Start message test"))
+        owner.androidConnectionTest = [:]
+        print("PASS: browser runtime failure is visible and Android setup is reachable without a website source; pairing is distinct from delivery")
+        owner.serviceEnvironment = "public-example"
+        owner.accounts.removeLast()
+        owner.ready()
+        views = descendants(owner.stack)
+        let publicAgentText = views.compactMap { ($0 as? NSTextField)?.stringValue }
+        precondition(publicAgentText.contains("Example connection ready"))
+        precondition(!publicAgentText.contains("AI connection source unverified"))
+        precondition(!publicAgentText.contains("Ready in every new session"))
+        owner.serviceEnvironment = "live"
+        owner.accounts = [["account": "personal-service", "label": "Personal service", "environment": "live",
+                           "connected": true, "portable_ready": true]]
+        owner.systemAgentClientID = nil
+        owner.ready()
+        views = descendants(owner.stack)
+        var liveAgentText = views.compactMap { ($0 as? NSTextField)?.stringValue }
+        precondition(liveAgentText.contains("Check your AI connection"))
+        precondition(liveAgentText.contains("Needs check"))
+        precondition(!liveAgentText.contains("Ready in every new session"))
+        precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Check connection"))
+        owner.systemAgentClientID = String(repeating: "a", count: 64)
+        owner.ready()
+        views = descendants(owner.stack)
+        liveAgentText = views.compactMap { ($0 as? NSTextField)?.stringValue }
+        precondition(liveAgentText.contains("Ready in every new session"))
+        precondition(liveAgentText.contains("Automatic"))
         owner.accounts = []
         precondition(owner.requestText.contains("what needs attention"))
-        print("PASS: public examples and legacy demo responses stay labeled as examples; mixed or unknown sources never claim personal-account access")
+        print("PASS: examples and legacy demo responses stay labeled; AI setup reports demo-only, unverified, and live readiness truthfully")
         owner.backgroundServiceStatus = "requires_approval"
         owner.ready()
         views = descendants(owner.stack)
@@ -945,6 +1038,79 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
                 precondition(!failure.explanation.contains(privateFailureText))
             }
         }
+        let managedSetupFailures: [(String, ManagedAgentSetupFailure, String)] = [
+            ("owner_setup_authorization_required", .setupAuthorizationRequired, "Approve the current setup dialog"),
+            ("owner_channel_unavailable", .ownerChannelUnavailable, "protected owner channel is reconnecting"),
+            ("owner_backend_unavailable", .ownerBackendUnavailable, "protected app is not responding"),
+            ("broker_worker_recovering", .serviceRecovering, "protected service is restarting"),
+            ("vault_setup_repair_required", .vaultRepairRequired, "account store needs repair"),
+            ("unrecognized_private_reason", .connectionResponseRejected, "refused the connection response"),
+        ]
+        for (reason, expectedFailure, expectedMessage) in managedSetupFailures {
+            do {
+                _ = try owner.checkedOwnerResponse(503, ["reason": reason, "detail": privateFailureText], managedClientSetup: true)
+                preconditionFailure("Managed-client setup failure was accepted")
+            } catch {
+                let failure = ManagedAgentConnectionFailure(stage: .enroll, error: error)
+                precondition(failure.failure == expectedFailure)
+                precondition(failure.explanation.localizedCaseInsensitiveContains(expectedMessage))
+                precondition(!failure.explanation.contains(privateFailureText))
+                precondition(!failure.explanation.contains(reason))
+            }
+        }
+        let desktopSetupFailures: [(DesktopOwnerFailure, ManagedAgentSetupFailure, String)] = [
+            (.approvalTimedOut, .setupApprovalTimedOut, "No macOS approval finished"),
+            (.approvalPending, .setupApprovalPending, "A previous macOS approval is still open"),
+            (.approval, .setupNotApproved, "will not reopen an approval dialog"),
+            (.unavailable, .ownerBackendUnavailable, "protected app is not responding"),
+            (.response, .connectionResponseRejected, "refused the connection response"),
+        ]
+        for (desktopFailure, expectedFailure, expectedMessage) in desktopSetupFailures {
+            let mapped = ManagedAgentSetupFailure.desktopFailure(desktopFailure)
+            let failure = ManagedAgentConnectionFailure(stage: .enroll, error: mapped)
+            precondition(mapped == expectedFailure)
+            precondition(failure.explanation.localizedCaseInsensitiveContains(expectedMessage))
+            precondition(!failure.explanation.contains(privateFailureText))
+            precondition(!failure.explanation.contains(nativeChannel.clientToken))
+        }
+        for (gatewayFailure, expectedFailure, expectedMessage) in [
+            (OwnerGatewayError.unavailable, ManagedAgentSetupFailure.ownerBackendUnavailable, "protected app is not responding"),
+            (OwnerGatewayError.invalidPolicy, ManagedAgentSetupFailure.connectionResponseRejected, "refused the connection response"),
+            (OwnerGatewayError.invalidResponse, ManagedAgentSetupFailure.connectionResponseRejected, "refused the connection response"),
+        ] {
+            let mapped = ManagedAgentSetupFailure.ownerGatewayFailure(gatewayFailure)
+            let failure = ManagedAgentConnectionFailure(stage: .enroll, error: mapped)
+            precondition(mapped == expectedFailure)
+            precondition(failure.explanation.localizedCaseInsensitiveContains(expectedMessage))
+            precondition(!failure.explanation.contains(privateFailureText))
+        }
+        let helperFailures: [(String, String, ManagedAgentSetupFailure)] = [
+            ("NEEDS_USER", "client_migration_requires_review", .agentMigrationReview),
+            ("NEEDS_USER", "client_setup_permissions_need_review", .agentPermissionsReview),
+            ("NEEDS_USER", "client_upgrade_needs_repair", .agentSetupNeedsRepair),
+            ("NEEDS_USER", "client_upgrade_not_supported", .agentSetupUnsupported),
+            ("NEEDS_USER", "client_connection_not_confirmed", .clientConnectionNotConfirmed),
+            ("RETRYABLE", "client_setup_busy", .agentSetupRetryable),
+        ]
+        for (status, reason, expectedFailure) in helperFailures {
+            let data = try! JSONSerialization.data(withJSONObject: ["status": status, "reason": reason])
+            do {
+                _ = try ManagedAgentSetup.helperResponse(exitStatus: 78, data: data)
+                preconditionFailure("Allowlisted helper failure was accepted")
+            } catch let failure as ManagedAgentSetupFailure {
+                precondition(failure == expectedFailure)
+            } catch { preconditionFailure("Helper failure escaped its closed error type") }
+        }
+        let privateHelperFailure = try! JSONSerialization.data(withJSONObject: [
+            "status": "NEEDS_USER", "reason": privateFailureText, "detail": privateFailureText,
+        ])
+        do {
+            _ = try ManagedAgentSetup.helperResponse(exitStatus: 78, data: privateHelperFailure)
+            preconditionFailure("Private helper details were accepted")
+        } catch let failure as ManagedAgentSetupFailure {
+            precondition(failure == .unavailable)
+        } catch { preconditionFailure("Unknown helper failure escaped its closed error type") }
+        print("PASS: native helper errors expose only allowlisted reasons and keep arbitrary details private")
         let verificationFailure = ManagedAgentConnectionFailure(stage: .verify)
         precondition(verificationFailure.explanation.contains("checking the completed connection"))
         print("PASS: connection failures identify their exact closed stage, stop without replay, and hide arbitrary errors, responses and capabilities; conflicts and revocations require review")
@@ -1300,7 +1466,7 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         let liveFeedback = feedbackOwner.ownerSetupContext.snapshot(), liveFeedbackID = UUID()
         feedbackOwner.ownerApprovalProgress(.requestingApproval, identifier: liveFeedbackID, context: liveFeedback)
         drainApprovalFeedback("approval_live_begin_drained")
-        requireLocalUX(feedbackOwner.status.stringValue.contains("macOS approval requested")
+        requireLocalUX(feedbackOwner.status.stringValue == "Find the separate macOS dialog “Authorize Account Access setup” and approve with Touch ID or your Mac login password. If no dialog appears, wait up to two minutes; the request stops without sending account setup data."
                        && replacementWindow.approvalFrontRequests == 1, "approval_live_begin_rendered_once")
         feedbackOwner.ownerApprovalProgress(.approvalAccepted, identifier: liveFeedbackID, context: liveFeedback)
         feedbackOwner.page("A later page", "The accepted event must not change this page")
@@ -1317,6 +1483,28 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
                        "approval_live_pair_completes_without_extra_front")
         feedbackOwner.busy = false
         print("PASS: approval feedback ignores delayed first/accepted events after page, window or operation changes and fronts only its current setup")
+        let failedConnectionOwner = AccountAccess(
+            fixtureRoot: fixtureRoot,
+            session: fixtureSession,
+            managedAgents: ManagedAgentSetup(
+                helper: { _ in throw ManagedAgentSetupFailure.setupApprovalPending },
+                readToken: { throw ManagedAgentSetupFailure.unavailable }
+            ),
+            ownerProfile: missingFixtureProfile
+        )
+        failedConnectionOwner.window = OwnerApprovalWindowFixture(
+            contentRect: NSRect(x: 0, y: 0, width: 1040, height: 740),
+            styleMask: [.titled], backing: .buffered, defer: false
+        )
+        failedConnectionOwner.connectSystemAgents()
+        let failedConnectionDeadline = Date().addingTimeInterval(5)
+        while failedConnectionOwner.busy && Date() < failedConnectionDeadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+        }
+        requireLocalUX(!failedConnectionOwner.busy
+                       && descendants(failedConnectionOwner.stack).compactMap { ($0 as? NSButton)?.title }
+                           .contains("Reopen and check status"), "connection_failure_reopens_and_checks_status")
+        print("PASS: interrupted AI setup points to its actual recovery action without replaying authorization")
         requireLocalUX(fixtureProfileReads == 1 && helperLock.withLock { unexpectedHelperCalls == 0 }, "fixture_dependencies_only")
         print("PASS: UI fixtures use only temporary roots, synthetic owner profiles, fake helpers and intercepted URL requests")
 

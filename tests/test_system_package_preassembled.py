@@ -18,6 +18,9 @@ from test_payload_audit import thin
     "d1f74db86890b306f989b65a8c521ce3b0879f261ded122dd409be2ca2fbe317",
     "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da",
     "5a732de4623ba50aefa6d31c54e7b1eae660b2921341f95042c5675d922d808b",
+    "630e77605faac2dfdace9faaa5da55e671335c6b18e62114d7f0224a8574f24c",
+    "6ab5f90fa72dfed84c295d5df4741d3cb9aaf6a0fa89ed155b4cb76400570874",
+    "0eb9a5bfab615f23f9d3d6e98f7895f7bf46e6196ef8a1e5e07115906f4d443c",
 ])
 def test_reviewed_images_reach_manifest_validation(tmp_path, digest):
     # Review admits exact image hashes; all manifest, inventory and peer checks remain.
@@ -27,7 +30,10 @@ def test_reviewed_images_reach_manifest_validation(tmp_path, digest):
 
 @pytest.mark.parametrize("digest", [None, True, "f" * 64,
     "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55db",
-    "5a732de4623ba50aefa6d31c54e7b1eae660b2921341f95042c5675d922d808a"])
+    "5a732de4623ba50aefa6d31c54e7b1eae660b2921341f95042c5675d922d808a",
+    "630e77605faac2dfdace9faaa5da55e671335c6b18e62114d7f0224a8574f24d",
+    "6ab5f90fa72dfed84c295d5df4741d3cb9aaf6a0fa89ed155b4cb76400570875",
+    "1917cff3a29b8306549287f4e6ac4fcc393dc4445f21a3ab0019c55e457b2054"])
 def test_unreviewed_images_refuse_before_manifest_paths(tmp_path, digest):
     with pytest.raises(ValueError, match="reviewed_preassembled_image_required"):
         package.preassembled_manifest(tmp_path / "missing-manifest", digest)
@@ -86,6 +92,9 @@ def fixture_image(tmp_path, monkeypatch):
 def setup_commands(monkeypatch, args, peers, *, reject=None, on_audit=None):
     calls, checks = [], []
     monkeypatch.setattr(package, "sys", SimpleNamespace(platform="darwin"))
+    monkeypatch.setattr(package, "package_source_provenance", lambda *, require_clean: {
+        "source_commit": "d" * 40, "source_tree_clean": True,
+    })
 
     def signature(path, identifier, *, fixture):
         assert fixture is False
@@ -155,6 +164,8 @@ def test_preassembled_image_reuses_production_envelope_without_runtime_or_native
     assert {"com.fainir.accountaccess", "com.fainir.accountaccess.broker", "com.fainir.accountaccess.bootstrap",
             "com.fainir.accountaccess.installerverify"} <= set(checks)
     assert result["preassembled_source_unchanged"] and result["native_manifest_preflight"]
+    assert result["source_commit"] == "d" * 40 and result["source_tree_clean"] is True
+    assert result["fresh_install_only"] is True
     assert not any(result[name] for name in ["production_ready", "notarized", "installed", "runtime_transformed"])
     if unsigned:
         assert result["unsigned_package"] and result["installer_signed"] is False

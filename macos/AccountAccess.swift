@@ -304,6 +304,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
     var busy = false { didSet { if busy != oldValue { ownerSetupContext.invalidate() } } }
     var backgroundRecovery: [String: Any] = [:]
+    var browserRuntime: [String: Any] = [:]
+    var androidConnectionTest: [String: Any] = [:]
+    var androidTestSender: NSTextField?
     var backgroundServiceStatus = "unknown"
     var serviceEnvironment = "unclassified"
     var failedAccount: String?
@@ -846,7 +849,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                     self.status = progressLabel
                 }
                 self.systemApprovalProgress = (identifier, progressLabel)
-                progressLabel.stringValue = "macOS approval requested. Approve it on this Mac, or cancel the macOS dialog."
+                progressLabel.stringValue = "Find the separate macOS dialog “Authorize Account Access setup” and approve with Touch ID or your Mac login password. If no dialog appears, wait up to two minutes; the request stops without sending account setup data."
                 window.makeKeyAndOrderFront(nil)
                 NSApp.activate(ignoringOtherApps: true)
             case .approvalAccepted:
@@ -860,28 +863,52 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
 
     func request(_ route: String, body: [String: Any]? = nil) throws -> [String: Any] {
         let approvalContext = ownerSetupContext.snapshot() // Before any transport lock or queued feedback.
+        let managedClientSetup = route == "owner/client/enroll" || route == "owner/client/installed"
         ownerConnectionLock.lock()
         defer { ownerConnectionLock.unlock() }
         let bitwardenRequest = route.hasPrefix("owner/bitwarden/") || (body?["connection"] as? [String: Any])?["provider"] as? String == "bitwarden"
-        if let native = try nativeOwner() {
+        let native: DesktopOwnerConnection?
+        do { native = try nativeOwner() }
+        catch {
+            if managedClientSetup { throw ManagedAgentSetupFailure.ownerBackendUnavailable }
+            throw error
+        }
+        if let native {
             do {
                 let approvalProgressID = UUID()
                 let response = try native.request(route, body: body, setupProgress: { phase in
                     self.ownerApprovalProgress(phase, identifier: approvalProgressID, context: approvalContext)
                 })
-                return try checkedOwnerResponse(response.0, response.1, pending: route == "owner/vault/enroll", bitwarden: bitwardenRequest)
+                return try checkedOwnerResponse(response.0, response.1, pending: route == "owner/vault/enroll",
+                                                bitwarden: bitwardenRequest,
+                                                managedClientSetup: managedClientSetup)
             } catch DesktopOwnerFailure.approval {
+                if managedClientSetup { throw ManagedAgentSetupFailure.desktopFailure(.approval) }
                 throw Failure.message("Setup was not approved. Your saved connections are preserved. Try the setup action again when you are ready to approve it on this Mac.")
-            } catch is DesktopOwnerFailure {
+            } catch DesktopOwnerFailure.approvalTimedOut {
+                if managedClientSetup { throw ManagedAgentSetupFailure.desktopFailure(.approvalTimedOut) }
+                throw Failure.message("The macOS approval dialog did not finish within two minutes. If it is still open, finish or cancel it on this Mac before trying again. No account setup data was sent.")
+            } catch DesktopOwnerFailure.approvalPending {
+                if managedClientSetup { throw ManagedAgentSetupFailure.desktopFailure(.approvalPending) }
+                throw Failure.message("A previous macOS approval dialog is still open. Finish or cancel it on this Mac before trying again. No account setup data was sent.")
+            } catch let error as DesktopOwnerFailure {
+                if managedClientSetup { throw ManagedAgentSetupFailure.desktopFailure(error) }
                 throw Failure.message("The protected app did not respond. Check setup progress before trying the action again. Your saved connections are preserved.")
-            } catch is OwnerGatewayError {
+            } catch let error as OwnerGatewayError {
+                if managedClientSetup { throw ManagedAgentSetupFailure.ownerGatewayFailure(error) }
                 throw Failure.message("This action is not available through the protected connection yet. Your saved connections are preserved.")
             }
         }
         // A supervised restart changes the port and capability. Verify the
         // current registration before sending any setup data. This does not
         // replay an operation whose response was lost or rebuild its form.
-        if !route.hasPrefix("owner/ready?") { try loadOwner() }
+        if !route.hasPrefix("owner/ready?") {
+            do { try loadOwner() }
+            catch {
+                if managedClientSetup { throw ManagedAgentSetupFailure.ownerBackendUnavailable }
+                throw error
+            }
+        }
         guard let url = URL(string: route, relativeTo: base)?.absoluteURL,
               url.scheme == "http", url.host == "127.0.0.1", url.port == base.port,
               url.user == nil, url.password == nil else {
@@ -906,7 +933,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                       let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
                     throw Failure.message("The local app could not complete this step. Your existing connections are preserved.")
                 }
-                result = .success(try self.checkedOwnerResponse(response.statusCode, payload, bitwarden: bitwardenRequest))
+                result = .success(try self.checkedOwnerResponse(response.statusCode, payload, bitwarden: bitwardenRequest,
+                                                                 managedClientSetup: route == "owner/client/enroll" || route == "owner/client/installed"))
             } catch { result = .failure(error) }
         }.resume()
         guard done.wait(timeout: .now() + (route == "owner/bitwarden/connect" ? 75 : 35)) == .success else {
@@ -915,14 +943,26 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         return try result.get()
     }
 
-    func checkedOwnerResponse(_ code: Int, _ payload: [String: Any], pending: Bool = false, bitwarden: Bool = false) throws -> [String: Any] {
+    func checkedOwnerResponse(_ code: Int, _ payload: [String: Any], pending: Bool = false, bitwarden: Bool = false,
+                              managedClientSetup: Bool = false) throws -> [String: Any] {
         if code == 200 || (pending && code == 202) { return payload }
         if payload["reason"] as? String == "client_connection_conflict" { throw ManagedAgentSetupFailure.connectionConflict }
         if payload["reason"] as? String == "portable_client_revoked" { throw ManagedAgentSetupFailure.connectionRevoked }
+        if managedClientSetup {
+            switch payload["reason"] as? String {
+            case "owner_setup_authorization_required": throw ManagedAgentSetupFailure.setupAuthorizationRequired
+            case "owner_channel_unavailable": throw ManagedAgentSetupFailure.ownerChannelUnavailable
+            case "owner_backend_unavailable": throw ManagedAgentSetupFailure.ownerBackendUnavailable
+            case "broker_worker_recovering": throw ManagedAgentSetupFailure.serviceRecovering
+            case "vault_setup_repair_required": throw ManagedAgentSetupFailure.vaultRepairRequired
+            default: throw ManagedAgentSetupFailure.connectionResponseRejected
+            }
+        }
         if bitwarden && payload["reason"] as? String == "password_source_access_removed" {
             throw Failure.message("Bitwarden did not accept this connection. Check the personal API key, region and master password, or reconnect if access was revoked.")
         }
         let reasons = [
+            "browser_driver_unavailable": "The local browser could not start. Use Repair installation in the Account Access menu, then check this account again.",
             "owner_setup_authorization_required": "Approve this setup action on your Mac to continue.",
             "owner_channel_unavailable": "The protected app reconnected. Check setup progress before trying this action again.",
             "owner_backend_unavailable": "The protected app is temporarily unavailable. Check progress before retrying this action.",
@@ -959,6 +999,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             "password_file_too_large": "The password export is too large. Export fewer accounts and try again.",
             "invalid_password_export": "The password file could not be read. Export a fresh UTF-8 CSV or unencrypted Bitwarden JSON file and try again.",
             "unsupported_password_export": "Choose a supported password CSV or unencrypted Bitwarden JSON export.",
+            "saved_login_unavailable": "This account has no complete saved login to export. The account connector and approvals are preserved.",
+            "saved_login_export_unsupported": "This sign-in uses identity and phone details that cannot be exported as a password CSV.",
             "import_connector_changed": "This account's connection changed after the import review. Choose the password file again and review the current account permissions.",
             "import_authenticator_changed": "This account's authenticator changed after the import review. Choose the password file again before replacing its authenticator key.",
             "pypi_manual_setup_unavailable": "Manual PyPI setup is unavailable in this pilot. Use the reviewed automatic route; your saved login is preserved.",
@@ -1137,7 +1179,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             } catch {
                 let failure = error as? ManagedAgentConnectionFailure
                     ?? ManagedAgentConnectionFailure(stage: connectionFinished ? .verify : .prepare, error: error)
-                self.fail(Failure.message(failure.explanation), retry: #selector(self.reopen))
+                self.fail(Failure.message(failure.explanation), retry: #selector(self.reopen), retryTitle: "Reopen and check status")
             }
         }
     }
@@ -1163,6 +1205,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     func accept(_ state: [String: Any]) {
         serviceEnvironment = state["environment"] as? String ?? "unclassified"
         backgroundRecovery = state["background_recovery"] as? [String: Any] ?? [:]
+        browserRuntime = state["browser_runtime"] as? [String: Any] ?? [:]
+        androidConnectionTest = state["android_connection_test"] as? [String: Any] ?? [:]
         navigationFailures = state["navigation_failures"] as? [[String: Any]] ?? []
         browserUpdates = state["browser_updates"] as? [[String: Any]] ?? []
         smsSetups = state["sms_setups"] as? [[String: Any]] ?? []
@@ -1174,6 +1218,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         accounts = state["accounts"] as? [[String: Any]] ?? []
         sources = (state["code_sources"] as? [[String: Any]] ?? []).filter {
             $0["message_purpose"] as? String != "pypi-device-confirmation"
+                && $0["id"] as? String != "android-connection-test"
         }
         mailboxes = state["mailboxes"] as? [[String: Any]] ?? []
         mailboxOAuth = state["mailbox_oauth"] as? [[String: Any]] ?? []
@@ -2321,6 +2366,10 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             }
         }
         action("Connect Gmail or email", #selector(showEmailSetup))
+        if androidConnectionTest["available"] as? Bool == true {
+            let panel = card("Android phone", "Pair the companion and check one matching test message before connecting a website. This test does not sign in to a private account.", status: "Connection test", good: false)
+            panel.addArrangedSubview(NSButton(title: "Set up Android phone", target: self, action: #selector(showAndroidTest)))
+        }
         showDeviceEmailCards()
         if sources.isEmpty && smsSetups.isEmpty && deviceEmailSetups.isEmpty {
             card("Connect a website", "You can save your mailbox now. Website verification methods appear after you connect a supported account.", status: "One-time setup", good: false)
@@ -3323,6 +3372,10 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
 
     @objc func pairPhone() {
         guard let source = factorMenu.selectedItem?.representedObject as? [String: Any], let id = source["id"] as? String else { return }
+        pairPhoneSource(id)
+    }
+
+    func pairPhoneSource(_ id: String, connectionTest: Bool = false) {
         busy = true
         DispatchQueue.global(qos: .userInitiated).async {
             do {
@@ -3332,6 +3385,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
                 DispatchQueue.main.async {
                     self.busy = false
+                    if connectionTest { self.androidConnectionTest["pairing_prepared"] = true }
                     self.page("Pair your Android phone", "Scan this QR with the Account Access companion. Keep both devices on the same private Wi-Fi. Android 15 or newer also needs Bluetooth discovery and Android's device confirmation; keep this screen open while connecting.")
                     self.phonePairingPayload = String(data: data, encoding: .utf8)
                     let discoveryStatus = self.makeLabel("Preparing Bluetooth discovery…", 14, .secondaryLabelColor)
@@ -3357,9 +3411,108 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                     paste.action = #selector(self.copyPhonePairing)
                     paste.identifier = NSUserInterfaceItemIdentifier("copy-phone-pairing")
                     self.stack.addArrangedSubview(paste)
-                    self.action("Back", #selector(self.backToConnections))
+                    self.action(connectionTest ? "Continue to connection test" : "Back", connectionTest ? #selector(self.showAndroidTest) : #selector(self.backToConnections))
                 }
             } catch { self.fail(error, retry: #selector(self.showFactors)) }
+        }
+    }
+
+    @objc func showAndroidTest() {
+        section = "verification"
+        page("Android connection test", "Check the companion with a test message. This opens no website and grants no account access.")
+        label("Sender exactly as shown in your Android notification", 15)
+        let field = NSTextField()
+        field.placeholderString = "Phone number or contact name"
+        field.stringValue = androidConnectionTest["sender"] as? String ?? ""
+        field.heightAnchor.constraint(equalToConstant: 40).isActive = true
+        stack.addArrangedSubview(field)
+        field.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        androidTestSender = field
+        label("Choose someone who can send a test SMS. Only this sender and the exact connection-test message are accepted. Other notifications are ignored.", 14, .secondaryLabelColor)
+        primary("Save sender and pair Android", #selector(prepareAndroidTest))
+        if androidConnectionTest["pairing_prepared"] as? Bool == true {
+            label("Pairing is prepared. Scan the QR and finish Android's permissions before starting the test. Pairing alone does not confirm message delivery.", 14, .secondaryLabelColor)
+            action("Start message test", #selector(startAndroidTest))
+        }
+        action("Back to Verification", #selector(showFactors))
+    }
+
+    @objc func prepareAndroidTest() {
+        guard !busy else { return }
+        let sender = androidTestSender?.stringValue ?? ""
+        guard !sender.isEmpty, sender == sender.trimmingCharacters(in: .whitespacesAndNewlines), sender.count <= 200 else {
+            let alert = NSAlert()
+            alert.messageText = "Enter the test message sender"
+            alert.informativeText = "Use the exact phone number or contact name shown in the Android notification, without spaces before or after it."
+            alert.runModal()
+            window.makeFirstResponder(androidTestSender)
+            return
+        }
+        busy = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let result = try self.request("owner/phone/test/configure", body: ["sender": sender])
+                guard let source = result["source"] as? String else { throw Failure.message("Android setup could not finish. Try saving the sender again.") }
+                let state = try self.request("owner/state")
+                DispatchQueue.main.async {
+                    self.busy = false; self.accept(state); self.pairPhoneSource(source, connectionTest: true)
+                }
+            } catch { self.fail(error, retry: #selector(self.showAndroidTest)) }
+        }
+    }
+
+    @objc func startAndroidTest() {
+        guard !busy else { return }
+        busy = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                _ = try self.request("owner/phone/test/start", body: [:])
+                DispatchQueue.main.async {
+                    self.busy = false
+                    self.page("Waiting for your test message", "Within two minutes, have your chosen sender send this exact SMS to your paired Android phone: Account Access connection test: 123456. Keep the companion connected and notification access enabled. The test value stays local and is discarded after checking.")
+                    self.progress()
+                    self.action("Cancel test", #selector(self.cancelAndroidTest)).isEnabled = true
+                    self.pollAndroidTest(self.stack)
+                }
+            } catch { self.fail(error, retry: #selector(self.showAndroidTest)) }
+        }
+    }
+
+    func pollAndroidTest(_ screen: NSStackView) {
+        guard stack === screen else { return }
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let result = try self.request("owner/phone/test/check", body: [:])
+                DispatchQueue.main.async {
+                    guard self.stack === screen else { return }
+                    if result["status"] as? String == "WAITING" {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { self.pollAndroidTest(screen) }
+                        return
+                    }
+                    let completed = result["status"] as? String == "COMPLETED"
+                    self.page(completed ? "Android test message received" : "Test message was not confirmed", completed
+                        ? "The paired companion delivered one fresh matching test message. No code or message body was sent to your AI. Private website sign-in still requires its own supported connection."
+                        : "Check the sender, exact test message, notification access and Wi-Fi, then try again. No private account was accessed.")
+                    self.action("Review Android setup", #selector(self.showAndroidTest))
+                    self.action("Back to Verification", #selector(self.showFactors))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    guard self.stack === screen else { return }
+                    self.fail(error, retry: #selector(self.showAndroidTest))
+                }
+            }
+        }
+    }
+
+    @objc func cancelAndroidTest() {
+        guard !busy else { return }
+        busy = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                _ = try self.request("owner/phone/test/cancel", body: [:])
+                DispatchQueue.main.async { self.busy = false; self.showAndroidTest() }
+            } catch { self.fail(error, retry: #selector(self.showAndroidTest)) }
         }
     }
 
@@ -3384,17 +3537,62 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         } else if backgroundRecovery["status"] as? String == "STOPPED" {
             card("Background recovery stopped", "Use Repair installation in the app menu to restart it. Your saved connections are preserved.", status: "Stopped", good: false)
         }
+        if browserRuntime["status"] as? String == "UNAVAILABLE" {
+            card("Website sign-in needs repair", "The installed browser could not complete its offline startup check. Use Repair installation in the app menu. Your saved logins and permissions are preserved.", status: "Needs repair", good: false)
+        }
         let serviceAccounts = accounts.filter { Self.isLive($0, fallback: serviceEnvironment) }
         let examples = accounts.filter { Self.isExample($0, fallback: serviceEnvironment) }
         let unclassified = accounts.filter { Self.effectiveEnvironment($0, fallback: serviceEnvironment) == "unclassified" }
         let connected = serviceAccounts.filter(Self.isReady)
         let detected = agents.filter { ["codex", "claude"].contains($0) }
-        let automatic = !detected.isEmpty && detected.allSatisfy { automaticSessions[$0]?["enabled"] as? Bool == true }
+        let configured = !detected.isEmpty && detected.allSatisfy { automaticSessions[$0]?["enabled"] as? Bool == true }
+        let clientVerified = systemAgentClientID?.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil
         let tools = detected.map { $0 == "claude" ? "Claude Code" : "Codex" }.joined(separator: " + ")
-        let setup = card(automatic ? "Ready in every new session" : "Connect your AI tools",
-                         automatic ? "Ask normally in " + tools + ". No special command required." : "Finish automatic setup so your AI can use connected accounts in new sessions.",
-                         status: automatic ? "Automatic" : "Setup needed", good: automatic)
-        if !automatic {
+        let setupTitle: String
+        let setupDetail: String
+        let setupStatus: String
+        let setupGood: Bool
+        if serviceEnvironment == "controlled-demo" {
+            setupTitle = "Demo connection only"
+            setupDetail = "The AI connection is configured for fictional example accounts. Connect a personal account before using real sign-ins."
+            setupStatus = "Example only"
+            setupGood = false
+        } else if !configured {
+            setupTitle = "Connect your AI tools"
+            setupDetail = "Finish automatic setup so your AI can use connected accounts in new sessions."
+            setupStatus = "Setup needed"
+            setupGood = false
+        } else if !clientVerified {
+            setupTitle = "Check your AI connection"
+            setupDetail = "A saved setup flag is present, but this app has not verified the installed agent launcher against the protected account store. Check it before relying on new sessions."
+            setupStatus = "Needs check"
+            setupGood = false
+        } else if serviceEnvironment == "live" {
+            setupTitle = "Ready in every new session"
+            setupDetail = "Ask normally in " + tools + ". No special command required."
+            setupStatus = "Automatic"
+            setupGood = true
+        } else if serviceEnvironment == "mixed" && !accounts.isEmpty && unclassified.isEmpty {
+            setupTitle = "AI tools connected"
+            setupDetail = "Ask normally in " + tools + ". Example accounts are labeled separately; each account shows its sign-in status."
+            setupStatus = "Automatic"
+            setupGood = true
+        } else if serviceEnvironment == "public-example" && !examples.isEmpty && unclassified.isEmpty {
+            setupTitle = "Example connection ready"
+            setupDetail = "Your AI tools can use the approved public testing accounts. These results do not validate access to personal accounts."
+            setupStatus = "Example only"
+            setupGood = false
+        } else {
+            setupTitle = "AI connection source unverified"
+            setupDetail = "The service source could not be verified. Confirm the connection in Account Access before using real sign-ins."
+            setupStatus = "Needs verification"
+            setupGood = false
+        }
+        let setup = card(setupTitle, setupDetail, status: setupStatus, good: setupGood)
+        if configured && !clientVerified {
+            let check = NSButton(title: "Check connection", target: self, action: #selector(reopen))
+            setup.addArrangedSubview(check)
+        } else if !configured {
             let fix = NSButton(title: "Finish automatic setup", target: self, action: #selector(installAgents))
             setup.addArrangedSubview(fix)
         }
@@ -3436,6 +3634,22 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 let chrome = NSButton(title: "Use signed-in Chrome", target: self, action: #selector(showBrowserSession))
                 chrome.identifier = NSUserInterfaceItemIdentifier(account["account"] as? String ?? "")
                 body.addArrangedSubview(chrome)
+            }
+            if account["saved_login_available"] as? Bool == true,
+               let id = account["account"] as? String {
+                let controls = NSStackView()
+                controls.orientation = .horizontal
+                controls.alignment = .centerY
+                controls.spacing = 8
+                if account["saved_login_exportable"] as? Bool == true {
+                    let export = NSButton(title: "Export saved login…", target: self, action: #selector(exportSavedLogin))
+                    export.identifier = NSUserInterfaceItemIdentifier(id)
+                    controls.addArrangedSubview(export)
+                }
+                let forget = NSButton(title: "Forget saved login", target: self, action: #selector(forgetSavedLogin))
+                forget.identifier = NSUserInterfaceItemIdentifier(id)
+                controls.addArrangedSubview(forget)
+                body.addArrangedSubview(controls)
             }
             if (pending || !active), let id = account["account"] as? String, let detail = verificationDetails[id] {
                 let inspect = NSButton(title: "Show verification details", target: self, action: #selector(showVerificationDetails))
@@ -3492,13 +3706,110 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
 
     @objc func reviewAccount(_ sender: NSButton) { selectedAccount = sender.identifier?.rawValue; connections() }
 
+    @objc func exportSavedLogin(_ sender: NSButton) {
+        guard !busy, let account = sender.identifier?.rawValue,
+              account.range(of: "^[a-z][a-z0-9_-]{0,63}$", options: .regularExpression) != nil else { return }
+        let warning = NSAlert()
+        warning.messageText = "Export this saved login as plain text?"
+        warning.informativeText = "The CSV will contain the website address, username and password and will not be encrypted. Choose a private location and keep the file secure. This is a snapshot of the login saved on this Mac."
+        warning.addButton(withTitle: "Choose File")
+        warning.addButton(withTitle: "Cancel")
+        guard warning.runModal() == .alertFirstButtonReturn else { return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.commaSeparatedText]
+        panel.nameFieldStringValue = account + "-saved-login.csv"
+        panel.canCreateDirectories = false
+        panel.isExtensionHidden = false
+        panel.message = "Save an unencrypted CSV snapshot of this saved website login."
+        guard panel.runModal() == .OK, let destination = panel.url else { return }
+        busy = true
+        page("Exporting your saved login", "Account Access will create the plain-text CSV you selected.")
+        progress()
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let result = try self.request("owner/account/export", body: ["account": account])
+                guard result["status"] as? String == "EXPORTED",
+                      let csv = result["csv"] as? String, !csv.isEmpty,
+                      csv.utf8.count <= 16384 else { throw Failure.message("The saved login could not be exported.") }
+                try Self.writePrivateExport(Data(csv.utf8), to: destination)
+                let state = try self.request("owner/state")
+                DispatchQueue.main.async {
+                    self.busy = false
+                    self.accept(state)
+                    self.ready()
+                    self.status.stringValue = "Plain-text CSV saved. Keep it secure or delete it when you are finished."
+                }
+            } catch { self.fail(error, retry: #selector(self.showReady)) }
+        }
+    }
+
+    @objc func forgetSavedLogin(_ sender: NSButton) {
+        guard !busy, let account = sender.identifier?.rawValue,
+              account.range(of: "^[a-z][a-z0-9_-]{0,63}$", options: .regularExpression) != nil else { return }
+        let confirmation = NSAlert()
+        confirmation.messageText = "Forget this saved login and website session?"
+        confirmation.informativeText = "Account Access will remove this account’s locally saved username, password, website session, and password-source link. Its approved AI reads and shared email, SMS, or authenticator setups stay in place. This does not change the password at the website."
+        confirmation.addButton(withTitle: "Forget Saved Login")
+        confirmation.addButton(withTitle: "Cancel")
+        guard confirmation.runModal() == .alertFirstButtonReturn else { return }
+        busy = true
+        page("Removing the saved login", "The account connector and approved reads remain available for a new sign-in.")
+        progress()
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let result = try self.request("owner/account/forget", body: ["account": account])
+                guard result["status"] as? String == "FORGOTTEN" else {
+                    throw Failure.message("The saved login could not be removed.")
+                }
+                let state = try self.request("owner/state")
+                DispatchQueue.main.async { self.busy = false; self.accept(state); self.ready() }
+            } catch { self.fail(error, retry: #selector(self.showReady)) }
+        }
+    }
+
+    static func writePrivateExport(_ data: Data, to destination: URL) throws {
+        let failure = Failure.message("The plain-text export could not be saved securely. Choose another file location and try again.")
+        guard destination.isFileURL, destination.path.hasPrefix("/"),
+              !data.isEmpty, data.count <= 16384 else { throw failure }
+        let parent = destination.deletingLastPathComponent().path
+        var parentInfo = stat()
+        guard stat(parent, &parentInfo) == 0, parentInfo.st_mode & S_IFMT == S_IFDIR else { throw failure }
+        var template = Array((parent + "/.account-access-export.XXXXXX").utf8CString)
+        let descriptor = mkstemp(&template)
+        guard descriptor >= 0 else { throw failure }
+        let temporary = String(cString: template)
+        var published = false
+        defer {
+            _ = Darwin.close(descriptor)
+            if !published { _ = Darwin.unlink(temporary) }
+        }
+        guard fchmod(descriptor, mode_t(S_IRUSR | S_IWUSR)) == 0 else { throw failure }
+        try data.withUnsafeBytes { raw in
+            guard let base = raw.baseAddress else { throw failure }
+            var offset = 0
+            while offset < raw.count {
+                let count = Darwin.write(descriptor, base.advanced(by: offset), raw.count - offset)
+                if count < 0 && errno == EINTR { continue }
+                guard count > 0 else { throw failure }
+                offset += count
+            }
+        }
+        guard fsync(descriptor) == 0,
+              Darwin.rename(temporary, destination.path) == 0 else { throw failure }
+        published = true
+    }
+
     @objc func updateBrowserConnection(_ sender: NSButton) {
         guard let account = sender.identifier?.rawValue,
               let update = browserUpdates.first(where: { $0["account"] as? String == account }),
               let fingerprint = update["fingerprint"] as? String else { return }
         let alert = NSAlert()
         alert.messageText = "Update this website's sign-in connection?"
-        alert.informativeText = "Use GitHub's current public profile heading for an existing heading-only read. Follow exact versioned scripts and styles declared by GitHub's HTTPS login response, with anonymous downloads from GitHub's asset host. Other destinations, queries, asset POSTs and page-driven discovery stay blocked. The recovery page can be viewed for diagnosis; a recovery-code field stops automatic sign-in. Approved account reads and connected verification sources stay the same."
+        if update["kind"] as? String == "public_example_assets" {
+            alert.informativeText = "Use the reviewed current SauceDemo script from the same HTTPS website. Your approved product read, saved login, verification methods and permission expiry stay the same. This is a public testing example and does not validate access to a personal account."
+        } else {
+            alert.informativeText = "Use GitHub's current public profile heading for an existing heading-only read. Follow exact versioned scripts and styles declared by GitHub's HTTPS login response, with anonymous downloads from GitHub's asset host. Other destinations, queries, asset POSTs and page-driven discovery stay blocked. The recovery page can be viewed for diagnosis; a recovery-code field stops automatic sign-in. Approved account reads and connected verification sources stay the same."
+        }
         alert.addButton(withTitle: "Update connection")
         alert.addButton(withTitle: "Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else { return }
@@ -3575,14 +3886,14 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         else if agents.contains("codex") { useAgent("codex") }
     }
 
-    func fail(_ error: Error, retry: Selector) {
+    func fail(_ error: Error, retry: Selector, retryTitle: String = "Try again") {
         let explanation: String
         if case Failure.message(let message) = error { explanation = message }
         else { explanation = "This step could not finish. Check your connection and try again. Your saved accounts are preserved." }
         DispatchQueue.main.async {
             self.busy = false
             self.page("This step needs attention", explanation)
-            self.action("Try again", retry)
+            self.action(retryTitle, retry)
                     if !self.sources.isEmpty { self.action("Review verification methods", #selector(self.showFactors)) }
         }
     }

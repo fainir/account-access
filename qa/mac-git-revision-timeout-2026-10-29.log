@@ -1,0 +1,14 @@
+Mac installer-context CI timeout repair
+Date: 2026-10-29
+
+Baseline evidence: GitHub run 40921880396 failed in the real Installer-context probe at `git rev-parse HEAD`; the five-second subprocess timeout expired. The earlier Installer sandbox checks in that job passed. Later artifact upload failures were secondary to the probe exiting before it created its evidence directory.
+
+Change: increased the checkout verification timeout to 30 seconds while retaining a finite bound. Added an AST regression that requires the exact revision check to keep this 30-second maximum.
+
+Local verification:
+- `uv run pytest -q tests/test_mac_launchctl_disable_probe.py`: 23 passed.
+- `uv run ruff check scripts/mac_launchctl_disable_probe.py tests/test_mac_launchctl_disable_probe.py`: passed.
+- `python3 -m py_compile scripts/mac_launchctl_disable_probe.py tests/test_mac_launchctl_disable_probe.py`: passed.
+- `git diff --check`: passed.
+
+Scope: local code and fixture checks only; the next GitHub macOS run must confirm the cold-checkout behavior. No installed files, account data, services or installer were touched.

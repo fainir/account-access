@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "checked_at": "2026-10-28",
+  "repository": "fainir/account-access",
+  "latest_published_release": {
+    "version": "0.7.4",
+    "tag": "v0.7.4",
+    "title": "Account Access 0.7.4 preview — clear owner diagnostics",
+    "published_at": "2026-10-15T11:03:45Z",
+    "prerelease": true
+  },
+  "0.8.0_production_release_published": false,
+  "production_ready": false,
+  "source": "GitHub releases API"
+}

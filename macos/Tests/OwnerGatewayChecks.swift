@@ -169,6 +169,18 @@ enum GatewayChecks {
             ("browser_handoff_route", "owner/browser-session/start")] {
             result["reject_" + name] = (try? OwnerGatewayRoute(route, body: grant)) == nil
         }
+        let loginExportBody = try JSONSerialization.data(withJSONObject: ["account": "demo-web"])
+        let loginExport = try OwnerGatewayRoute("owner/account/export", body: loginExportBody)
+        let loginForget = try OwnerGatewayRoute("owner/account/forget", body: loginExportBody)
+        result["saved_login_export_requires_owner_authorization"] = loginExport.requiresSetup
+        result["saved_login_forget_is_explicit_restricted_action"] = !loginForget.requiresSetup
+        result["saved_login_routes_require_exact_account_handle"] = [
+            ["account": "../etc"], ["account": "Demo"], ["account": "demo-web", "path": "unsafe"], [:]
+        ].allSatisfy {
+            let body = (try? JSONSerialization.data(withJSONObject: $0)) ?? Data()
+            return (try? OwnerGatewayRoute("owner/account/export", body: body)) == nil
+                && (try? OwnerGatewayRoute("owner/account/forget", body: body)) == nil
+        }
         let bitwardenUUID = "12345678-1234-1234-1234-123456789abc"
         let bitwardenConnect: [String: Any] = ["region": "us", "client_id": "user." + bitwardenUUID,
             "client_secret": "synthetic-api-secret", "master_password": "  synthetic 🔐 master  ", "consent_vault_access": true]

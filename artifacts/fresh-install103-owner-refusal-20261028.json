@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "date": "2026-10-28",
+  "status": "FRESH_INSTALL_NOT_APPLICABLE_TO_EXISTING_OWNER_INSTALL",
+  "source_package_sha256": "37fbec856da25cd719f9cae787fa86ff2badf3542fac50a2d706b0864fc3fec7",
+  "stapled_package_sha256": "a8623256aff321faf979b3edea7dced627177bcb3550365af221fb005c194f50",
+  "notarization_submission_id": "f1061074-e3a9-4caa-98aa-970918f7dea7",
+  "notarization_status": "Accepted",
+  "stapler_validation": "PASSED",
+  "gatekeeper_install_assessment": "PASSED",
+  "package_signature": "Developer ID Installer, trusted timestamp",
+  "owner_install_attempt": {
+    "result": "REFUSED",
+    "sanitized_installer_reason": "system_install_not_completed",
+    "existing_broker_launch_daemon": "RUNNING",
+    "installed_app_version_before": 92,
+    "installed_app_version_after": 92,
+    "installed_runtime_python_before": "3.12.15",
+    "installed_runtime_python_after": "3.12.15",
+    "interpretation": "This package is the fresh-install route; it did not upgrade the existing installation."
+  },
+  "production_ready": false,
+  "remaining_gate": "A signed and notarized owner-upgrade package must pass the existing owner predecessor check and installed acceptance."
+}

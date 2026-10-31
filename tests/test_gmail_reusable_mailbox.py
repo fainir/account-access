@@ -26,7 +26,7 @@ ADDRESS = "fictional@example.test"
 def saved_google(tmp_path):
     state = SimpleNamespace(status=200, profile={"emailAddress": ADDRESS, "messagesTotal": 19,
         "threadsTotal": 11, "historyId": "not-needed"}, profiles=0, refreshes=0,
-        profile_delay=0, refresh_delay=0, hook=lambda: None)
+        profile_delay=0, refresh_delay=0, refresh_started=threading.Event(), hook=lambda: None)
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
@@ -55,6 +55,7 @@ def saved_google(tmp_path):
             assert self.path == "/token"
             self.rfile.read(int(self.headers["Content-Length"]))
             state.refreshes += 1
+            state.refresh_started.set()
             time.sleep(state.refresh_delay)
             self.reply(200, {"access_token": "synthetic-renewed-access", "refresh_token": "synthetic-renewed-refresh",
                              "token_type": "Bearer", "expires_in": 3600, "scope": gmail.GMAIL_SCOPE})
@@ -251,10 +252,25 @@ def test_explicit_refresh_budget_marks_uncertain_rotation_without_blind_retry(sa
     broker, http = saved_google
     connection = broker.store.get("connection:google")
     authorization = connection["authorization_id"]
-    http.refresh_delay = .2
+    # Wait until the local server has definitely received the refresh request
+    # before allowing the deliberate read timeout to race against it.
+    http.refresh_delay = .6
+    result = {}
     started = time.monotonic()
-    with pytest.raises(AccessError, match="refresh_outcome_uncertain"):
-        broker.oauth.token("google", broker.store.config(), force=True, refresh_timeout=.05)
+
+    def refresh_once():
+        try:
+            broker.oauth.token("google", broker.store.config(), force=True, refresh_timeout=.2)
+        except AccessError as exc:
+            result["error"] = exc
+
+    worker = threading.Thread(target=refresh_once)
+    worker.start()
+    assert http.refresh_started.wait(timeout=1), "refresh request never reached the local provider"
+    worker.join(timeout=1)
+    assert not worker.is_alive(), "bounded refresh did not return after its deadline"
+    assert isinstance(result.get("error"), AccessError)
+    assert result["error"].reason == "refresh_outcome_uncertain"
     assert time.monotonic() - started < 1
     current = broker.store.get("connection:google")
     assert current["refresh_in_flight"] and current["authorization_id"] == authorization

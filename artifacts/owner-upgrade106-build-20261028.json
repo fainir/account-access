@@ -1,0 +1,82 @@
+{
+  "schema": 1,
+  "date": "2026-10-28",
+  "status": "NOTARIZED_STAPLED_INSTALL_FAILED",
+  "production_ready": false,
+  "source_commit": "07226797864c7a501a46a6e88d738be657e3b153",
+  "product": {
+    "bundle_identifier": "com.fainir.accountaccess",
+    "version": "0.8.0",
+    "candidate_owner_build": 110,
+    "package_build": 106,
+    "architecture": "arm64",
+    "minimum_macos": "14.0"
+  },
+  "package": {
+    "path": "../dist/owner-upgrade106-review-20261028b/Account-Access-Owner-Upgrade-106.pkg",
+    "sha256": "cc90db7297051b324f87c3f4f11e06a3710626bda02c9d886bb6193890c5933d",
+    "bytes": 13738539,
+    "signing_identity": "Developer ID Installer: Nir Feinstein (WBULD6N4NQ)",
+    "notary_submission_id": "b83665cf-a727-429f-a0a9-49d6d7a0a2c8",
+    "notary_status": "Accepted",
+    "stapler_validation": "PASSED",
+    "gatekeeper_install_assessment": "PASSED"
+  },
+  "payload": {
+    "target_owner_app_sha256": "ed9e90546c6f87ea59e91f12ff5757a348066fc127a15c07b7fe85251d1d8c5d",
+    "target_identity_sha256": "3462087a742f96baab0dbcc5e66e84c1aa408e828f216024529a5d05e7eb7248",
+    "helper_sha256": "7f66bab0947c7d4dbf0237f49d45b91d7a915a66bbfa81410e5d5b79c289e595",
+    "changed_units": [
+      "owner.app/Contents/Info.plist",
+      "owner.app/Contents/MacOS/AccountAccess",
+      "package-identity.json"
+    ],
+    "app_bundle_signature": "PASSED",
+    "embedded_runtime_preserved": true,
+    "diagnostics": "Fixed reason and sub-checkpoint labels; no journal bytes, paths, identities, or raw error text"
+  },
+  "automated_qa": {
+    "installed_source_qualification": "PASSED",
+    "runtime_upgrade_checks": {
+      "status": "PASSED",
+      "count": 68
+    },
+    "owner_upgrade_source_checks": {
+      "status": "PASSED",
+      "count": 69
+    },
+    "tree_checks": {
+      "status": "PASSED",
+      "count": 477
+    },
+    "mixed_checks": {
+      "status": "PASSED",
+      "count": 324
+    },
+    "ruff": "PASSED",
+    "git_diff_check": "PASSED",
+    "physical_owner_install": "FAILED"
+  },
+  "owner_qa": {
+    "installer_execution": "FAILED",
+    "installer_receipt": "NOT_FOUND",
+    "installed_build_verification": "NOT_RUN",
+    "service_and_agent_smoke": "NOT_RUN",
+    "rollback_and_recovery": "NOT_RUN"
+  },
+  "feature_acceptance": {
+    "chrome_password_import": "PENDING_OWNER_CHROME_EXPORT",
+    "personal_email_code": "PENDING",
+    "physical_android_15_sms_pairing": "PENDING",
+    "authenticator_login": "PENDING",
+    "harel_connector": "UNSUPPORTED",
+    "phoenix_connector": "UNSUPPORTED",
+    "real_account_ai_agent_access": "PENDING"
+  },
+  "failure": {
+    "reason": "owner_upgrade_transition_conflict",
+    "checkpoint": "predecessor_runtime_intent_structure",
+    "evidence": "Owner-upgrade helper fixed-label diagnostic after Installer reported failure",
+    "package_state": "No package receipt; installed app unchanged"
+  }
+}

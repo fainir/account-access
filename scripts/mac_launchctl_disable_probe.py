@@ -408,7 +408,7 @@ def main():
             or re.fullmatch(r"[0-9]+", os.environ.get("GITHUB_RUN_ATTEMPT", "")) is None):
         parser.error("Requires an ordinary GitHub runner in a disposable Mac CI VM")
     source_commit = os.environ.get("GITHUB_SHA", "")
-    current = subprocess.check_output(["/usr/bin/git", "rev-parse", "HEAD"], timeout=5, text=True).strip()
+    current = subprocess.check_output(["/usr/bin/git", "rev-parse", "HEAD"], timeout=30, text=True).strip()
     if re.fullmatch(r"[0-9a-f]{40}", source_commit) is None or current != source_commit:
         parser.error("Requires the exact checked-out GitHub source commit")
     output = args.output.absolute()

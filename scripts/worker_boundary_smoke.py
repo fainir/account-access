@@ -70,6 +70,18 @@ def stage(name):
     print(json.dumps({"stage": name}), file=sys.stderr, flush=True)
 
 
+def wait_for_launch_job_absence(target, *, timeout=10, run=subprocess.run,
+                               pause=time.sleep, clock=time.monotonic):
+    """Boundedly wait for launchd's job registry to reflect a completed bootout."""
+    deadline = clock() + timeout
+    while clock() < deadline:
+        result = run(["/bin/launchctl", "print", target], capture_output=True)
+        if result.returncode != 0:
+            return True
+        pause(min(0.1, deadline - clock()))
+    return False
+
+
 def fixture_listener_prefix(agent_socket, owner_socket, agent_path, owner_path):
     """Describe the disposable CI parent's real direct-bind descriptors.
 
@@ -607,7 +619,8 @@ def provisioned_system_broker(prefix, roles):
         private_snapshot = {path: public_identity(path) for path in private_paths}
         command(["/bin/launchctl", "bootout", target])
         booted = False
-        assert subprocess.run(["/bin/launchctl", "print", target], capture_output=True).returncode != 0
+        if not wait_for_launch_job_absence(target):
+            raise RuntimeError("system_broker_bootout_not_observed")
         ready.unlink()
         repaired = activate(layout, roles["agent"].pw_uid)
         booted = True

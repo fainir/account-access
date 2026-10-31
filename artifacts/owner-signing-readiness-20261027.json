@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "date": "2026-10-27",
+  "scope": "local macOS signing and notarization credential readiness",
+  "developer_id_application_identities": 1,
+  "developer_id_installer_identities": 1,
+  "developer_id_installer_identity_valid": true,
+  "notary_profile_label": "AccountAccessPublisher",
+  "notary_profile_read_only_history_check": "succeeded",
+  "package_specific_apple_acceptance_verified": false,
+  "package_submitted_by_this_turn": false,
+  "production_ready": false
+}

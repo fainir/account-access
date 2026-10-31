@@ -1,0 +1,20 @@
+{
+  "source_commit": "6c0ecb68aa96f117996f69b464872f3682435efa",
+  "payload_manifest_sha256": "6ab5f90fa72dfed84c295d5df4741d3cb9aaf6a0fa89ed155b4cb76400570874",
+  "notarized": true,
+  "stapled": true,
+  "gatekeeper": "accepted",
+  "notarization_id": "d9dff7cf-6563-4765-8b72-3a278c6c3212",
+  "published_package": "/Users/nirfeinstein/Downloads/Account-Access-0.8.0-build120-signed.pkg",
+  "published_sha256": "a592354a71b91f110858c0839f8eeebd0df354747154ce434c7ead91e1757317",
+  "published_bytes": 289224662,
+  "native_payload_audit": {
+    "native_files": 49,
+    "executables": 11,
+    "bundles": 1,
+    "wheels": 34,
+    "publisher_signatures_verified": true,
+    "notarization_verified": false
+  },
+  "installed": false
+}

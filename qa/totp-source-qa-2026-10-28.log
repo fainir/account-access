@@ -1,0 +1,5 @@
+Authenticator source QA - 2026-10-28
+
+Coverage: tests/test_multifactor.py, tests/test_authenticator_import.py, tests/test_readthedocs.py, tests/test_authenticator_setup_ui.py (95 collected).
+Concurrent run: 93 passed; two timing-sensitive tests timed out while the optimized native Swift probe compiled.
+Isolated rerun, without compiler load: both failed tests passed (2 passed in 47.47s).

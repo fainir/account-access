@@ -12,10 +12,12 @@ from pathlib import Path
 import httpx2 as httpx
 
 from account_access.demo import DEMO_PASSWORD
+from account_access.errors import AccessError
 from account_access.factors import enroll
 from account_access.install import install_skill
 from account_access.owner import make_owner_server
 from account_access.password_import import apply, preview
+from account_access import phone as phone_module
 from account_access.verification_demo import environment, write_password_export
 
 
@@ -25,6 +27,18 @@ def fixture_acknowledged(output):
     return isinstance(output, str) and re.search(
         r'^Broadcast completed: result=1, data="fixture_notification_posted"\s*$',
         output, re.MULTILINE) is not None
+
+
+PHONE_DELIVERY_REFUSALS = frozenset({
+    "unknown_phone_source", "invalid_phone_message", "phone_message_mismatch",
+    "phone_pairing_changed", "no_current_login_window", "phone_message_limit",
+    "verification_source_enrollment_changed",
+})
+
+
+def safe_phone_refusal(reason):
+    """Return only a fixed server refusal category for synthetic Android QA."""
+    return reason if isinstance(reason, str) and reason in PHONE_DELIVERY_REFUSALS else "delivery_refused"
 
 
 def main():
@@ -45,6 +59,17 @@ def main():
         root = Path(temporary)
         with environment(root, relay=True) as (provider, broker, mailbox):
             install_skill(broker.store, "generic", root / "skills")
+            phone_refusals = []
+            original_phone_deliver = phone_module.deliver
+
+            def capture_phone_refusal(*args, **kwargs):
+                try:
+                    return original_phone_deliver(*args, **kwargs)
+                except AccessError as error:
+                    phone_refusals.append(safe_phone_refusal(error.reason))
+                    raise
+
+            phone_module.deliver = capture_phone_refusal
             server, token = make_owner_server(broker, guided=True)
             thread = threading.Thread(target=server.serve_forever, daemon=True)
             thread.start()
@@ -64,10 +89,12 @@ def main():
                 results = []
                 workers = []
                 delivery_diagnostics = []
+                delivery_mode = {"value": "notification"}
                 def deliver(kind, code):
                     assert kind == "sms"
                     def instrument():
                         process = subprocess.Popen([str(adb), "shell", "am", "instrument", "-w", "-e", "pairing_file", "/data/local/tmp/account-access-pairing.json", "-e", "login_code", code,
+                               "-e", "delivery_mode", delivery_mode["value"],
                                "com.fainir.accountaccess.phone.tests/com.fainir.accountaccess.LoginChecks"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
                         output = []
                         timed_out = threading.Event()
@@ -81,7 +108,7 @@ def main():
                                 output.append(line)
                                 if "phase=PAIRING_AND_FILTER_READY" in line:
                                     command("shell", "cmd", "notification", "allow_listener", listener)
-                                if "phase=NOTIFICATION_READY" in line:
+                                if "phase=NOTIFICATION_READY" in line and delivery_mode["value"] == "notification":
                                     broadcast = command("shell", shlex.join([
                                         # This is the shell-permission-protected test APK,
                                         # which may still be stopped after installation.
@@ -116,28 +143,49 @@ def main():
                     assert results and "PASS_BLOCKED:" in results[0], results
                 else:
                     assert completed["status"] == "COMPLETED", {"result": completed, "instrumentation": diagnostics,
-                                                                 "fixture_delivery": delivery_diagnostics}
+                                                                 "fixture_delivery": delivery_diagnostics,
+                                                                 "phone_delivery_refusals": phone_refusals}
                     assert results and "PASS:" in results[0], results
+                    delivery_mode["value"] = "manual"
+                    first_manual_worker = len(workers)
+                    broker.store.put("connection:example-sms", None)
+                    broker.store.put("login-attempt:example-sms", 0)
+                    broker.store.resolve_login("example-sms")
+                    completed = broker.run("generic", "example-sms", "summary")
+                    for worker in workers[first_manual_worker:]:
+                        worker.join(timeout=100)
+                        assert not worker.is_alive(), "Manual-code instrumentation did not stop"
+                    diagnostics = [[line for line in output.splitlines() if "INSTRUMENTATION_RESULT: result=" in line] for output in results]
+                    assert completed["status"] == "COMPLETED", {"result": completed, "instrumentation": diagnostics}
+                    assert len(results) == 2 and "PASS_MANUAL:" in results[1], results
+                    delivery_diagnostics.append({"manual_code_phone_ui_to_browser_login": True})
                 assert delivery_diagnostics and any(d.get("fixture_notification_posted") is True for d in delivery_diagnostics)
                 assert all(all(v is True for v in d.values()) for d in delivery_diagnostics)
                 if android_api >= 35:
                     assert any(d.get("unrelated_notification_posted") is True for d in delivery_diagnostics)
-                assert provider.sms_count == (0 if android_api >= 35 else 1)
+                assert provider.sms_count == (0 if android_api >= 35 else 2)
                 assert DEMO_PASSWORD not in json.dumps(completed)
                 report = {"status": "BLOCKED_AS_EXPECTED" if android_api >= 35 else "COMPLETED",
                           "browser_sms_verifications": provider.sms_count,
                           "android_api": str(android_api),
                           "notification_forwarding_without_association_refused": android_api >= 35,
+                          "manual_code_template_contract_checked": True,
+                          "manual_code_phone_ui_to_browser_login": android_api < 35,
+                          "manual_code_refused_without_android_association": android_api >= 35,
+                          "manual_code_persistence_checked": android_api >= 35,
                           "positive_bluetooth_computer_association_qualified": False,
                           "physical_phone_delivery_qualified": False,
                           "test_notification_posting_acknowledged": True,
                           "blocked_status_preserved_after_unrelated_notification": android_api >= 35,
                           "checks": (["Keystore encrypted pairing", "Legacy QR requests new discovery", "Invalid discovery UUID rejected",
                                       "QR alone cannot grant permission", "Actual Android notification refused without association",
-                                      "Unrelated notification preserves blocked login status"]
+                                      "Owner-entered SMS code uses exact reviewed template", "Owner-entered SMS code refused without computer association",
+                                      "Owner-entered SMS code is not persisted", "Unrelated notification preserves blocked login status"]
                                      if android_api >= 35 else
                                      ["Keystore encrypted pairing", "Private destination restriction", "Actual Android notification listener",
-                                      "Certificate-pinned HTTPS ingress", "Browser code submission", "No code in agent result"]),
+                                      "Owner-entered code from phone UI reaches paired computer and completes browser login",
+                                      "Certificate-pinned HTTPS ingress",
+                                      "Browser code submission", "No code in agent result"]),
                           "limits": "Synthetic emulator checks only. Android 15 positive Bluetooth pairing and all physical-phone delivery remain unqualified."}
                 Path("artifacts/android-journey.json").write_text(json.dumps(report, indent=2) + "\n")
                 print(json.dumps(report))
@@ -148,6 +196,7 @@ def main():
                 server.shutdown()
                 server.server_close()
                 thread.join(timeout=5)
+                phone_module.deliver = original_phone_deliver
 
 
 if __name__ == "__main__":

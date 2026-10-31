@@ -33,7 +33,11 @@ including checks under both ordinary-user identities. It installed successfully
 on the owner Mac; after a normal restart, all public files and aliases passed
 verification and the app opened to **Upgrade AI connection**. That upgrade then
 failed after the owner reported macOS approval; one explicit retry also failed.
-The current agent connection and account operations remain unverified.
+On 28 October, the installed skill successfully returned the permitted account
+list from the protected service in the current Codex task. This verifies account
+discovery through the installed agent launcher. Harel and Phoenix are not
+configured. It does not verify a private website sign-in or the owner app's
+upgrade screen.
 Personal email/SMS/TOTP login, the physical Android phone
 and consumer distribution remain open acceptance gates.
 [Initial owner observations](artifacts/owner-startup-and-import-213509c-20261021.json) ·
@@ -112,6 +116,18 @@ plaintext passwords: keep them local and use the app's option to move the export
 to Trash afterward. This does not securely erase it or empty Trash. Never upload
 an export or paste credentials into chat.
 
+In the account list, **Export saved login** creates an owner-selected plain-text
+CSV for a supported website login. **Forget saved login** removes that login,
+its website session and its local password-source link; it keeps approved reads
+and shared verification methods. These controls are in the development build
+and are not in the currently published preview.
+
+The legacy per-user CLI has a password-protected backup and restore feature.
+It does **not** back up or restore the protected vault used by the installed Mac
+app. Portable protected-vault backup is outside v1; do not run the legacy
+commands expecting them to recover the installed service. See the
+[scope and legacy backup guide](docs/vault-backup.md).
+
 **Chrome and other CSV imports are snapshots.** Re-import after changing a
 password. The 0.8 candidate supports ongoing updates from approved Bitwarden
 items through a separate, explicitly connected local vault session, and from
@@ -138,6 +154,9 @@ connection, so sync cannot undo your edit.
 | Authenticator TOTP | Enroll the website's original setup key or supported QR locally | Generate and submit its changing six-digit code |
 
 See the [step-by-step Gmail, SMS and Google Authenticator guide](docs/gmail-authenticator-and-sms.md).
+The build-121 candidate also offers **Verification → Set up Android phone**
+before a website is connected. Its bounded [connection test](android/README.md#setup)
+confirms only a matching test message and creates no website permissions.
 The public preview has no ready-to-use consumer Google OAuth application, and
 some Google accounts cannot create app passwords. Email support depends on a
 configured Gmail API or TLS IMAP connection; arbitrary webmail is not supported.

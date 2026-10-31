@@ -28,15 +28,18 @@ def enable_source(broker, enabled):
         replace_source(broker.store, SOURCE, {"enabled": enabled}, db=db)
 
 
-def configure(env, *, revoke_on_delivery=False, javascript=False):
+def configure(env, *, revoke_on_delivery=False, javascript=False, harel_public_form=False):
     provider, broker, _ = env
     provider.identity_contact_mode = True
+    provider.identity_contact_harel_form = harel_public_form
+    provider.identity_contact_get_attempted = False
     base = provider.base + "/sms"
+    identity_selector = "#uid" if harel_public_form else "#identity"
     spec = BrowserAccount(
         kind="browser", label="Fictional identity login", login_url=base + "/login", ready_selector="#ready",
         javascript=javascript,
         login=LoginForm(submit_selector="#login-submit", code_wait_ms=5000,
-                        identity_contact={"identity_selector": "#identity", "phone_selector": "#phone",
+                        identity_contact={"identity_selector": identity_selector, "phone_selector": "#phone",
                                           "post_url": base + "/login"},
                         factors={"sms": {"code_source": SOURCE, "code_selector": "#code",
                                          "code_submit_selector": "#code-submit"}}),
@@ -141,6 +144,21 @@ def test_identity_flow_refuses_incomplete_or_changed_authority(env, case):
     assert not broker.store.get("connection:" + ACCOUNT)
     if case not in {"revoked_during_delivery", "skipped_sms", "redirect_replay"}:
         assert provider.login_count == 0 and not provider.identity_contact_received
+
+
+def test_harel_public_get_form_refuses_before_identity_or_phone_enters_url(env):
+    """Pin the public Harel form shape without submitting to the real insurer."""
+    provider, broker, _ = env
+    configure(env, harel_public_form=True)
+    provider.identity_contact_form_method = "get"
+    result = broker.run("test", ACCOUNT, "status")
+    assert result["status"] == "NEEDS_USER"
+    assert result["reason"] == "login_form_destination_changed"
+    assert not provider.identity_contact_get_attempted
+    assert provider.login_count == provider.sms_count == 0
+    assert not provider.identity_contact_received
+    assert not broker.store.get("connection:" + ACCOUNT)
+    assert all(secret not in json.dumps(result) for secret in CREDENTIAL.values())
 
 
 def test_identity_owner_enrollment_is_separate_and_does_not_clear_presence_gates(env):

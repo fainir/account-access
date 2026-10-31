@@ -19,6 +19,7 @@ import plistlib
 import pwd
 import grp
 import re
+import shutil
 import stat
 import subprocess
 import sys
@@ -51,11 +52,13 @@ CHECKS = frozenset({"fresh_hosted_vm", "reviewed_public_inputs", "candidate_expa
                     "reapplication_preserved_bytes_and_ids", "created_job_stopped"})
 REVALIDATION_NAMESPACE = Path("/Library/Application Support/Account Access Installation Binding")
 REVALIDATION_RECEIPT = REVALIDATION_NAMESPACE / "revalidated-v1.json"
+RECOVERY_RECEIPT = REVALIDATION_NAMESPACE / "recovered-v2.json"
 REVALIDATION_CHECKS = frozenset({"reviewed_revalidation_input", "genuine_signed_revalidation_helper",
     "exact_legacy_revalidation_no_receipt", "synthetic_device_mismatch_same_inodes",
     "actual_revalidation_installer", "protected_supplement_created", "revalidation_reapplication",
     "original_receipts_unchanged", "supplement_preserved_by_component", "bounded_pending_receipt_recovered",
-    "revalidation_after_component"})
+    "synthetic_same_volume_support_root_replacement", "same_volume_support_inode_recovery",
+    "recovery_receipt_preserved_by_component", "revalidation_after_component"})
 
 
 def require(value):
@@ -1016,6 +1019,83 @@ def synthetic_device_mismatch(report):
         "root_inodes_unchanged": True, "old_ready_sha256": sha(ready), "fixture_ready_sha256": sha(changed)}
 
 
+def synthetic_support_root_replacement(report, manifest):
+    """Rebuild only public manifest entries and move private branches opaquely."""
+    guard()
+    require(report.get("root_revalidation_requested") is True
+            and report.get("environment") == "fresh-hosted-mac-actual-installer"
+            and report.get("personal_accounts_used") == 0 and report.get("enrollment_attempted") is False
+            and report.get("checks", {}).get("actual_candidate_installer") is False
+            and os.path.lexists(REVALIDATION_RECEIPT) and not os.path.lexists(RECOVERY_RECEIPT)
+            and set(manifest.get("roots", {})) == {str(BASE), str(APP)})
+    parent = BASE.parent
+    suffix = os.environ["GITHUB_RUN_ID"]
+    backup = parent / (".Account Access recovery source " + suffix)
+    staging = parent / (".Account Access recovery target " + suffix)
+    require(not os.path.lexists(backup) and not os.path.lexists(staging))
+    before = BASE.lstat()
+    os.rename(BASE, backup)
+    try:
+        os.mkdir(staging, 0o700)
+        rows = manifest["roots"][str(BASE)]
+        directories = []
+        for relative, node in sorted(rows.items(), key=lambda row: (row[0].count("/"), row[0])):
+            if not relative:
+                directories.append((relative, node))
+                continue
+            parts = Path(relative).parts
+            if parts[0] in PRIVATE:
+                continue
+            source, target = backup / relative, staging / relative
+            info = source.lstat()
+            kind = node["kind"]
+            if kind == "directory":
+                target.mkdir(mode=0o700)
+                directories.append((relative, node))
+            elif kind == "file":
+                shutil.copy2(source, target, follow_symlinks=False)
+                os.chown(target, info.st_uid, info.st_gid)
+                os.chmod(target, stat.S_IMODE(info.st_mode))
+            else:
+                os.symlink(node["target"], target)
+                os.chown(target, info.st_uid, info.st_gid, follow_symlinks=False)
+        for name in sorted(PRIVATE):
+            source, target = backup / name, staging / name
+            if os.path.lexists(source):
+                os.rename(source, target)
+        for relative, _node in sorted(directories, key=lambda row: (-row[0].count("/"), row[0])):
+            source = backup if not relative else backup / relative
+            target = staging if not relative else staging / relative
+            info = source.lstat()
+            os.chown(target, info.st_uid, info.st_gid)
+            os.chmod(target, stat.S_IMODE(info.st_mode))
+        os.rename(staging, BASE)
+        after = BASE.lstat()
+        require(after.st_ino != before.st_ino and after.st_uid == 0
+                and stat.S_IMODE(after.st_mode) == stat.S_IMODE(before.st_mode))
+        verify_image(manifest)
+        shutil.rmtree(backup)
+        report["synthetic_root_replacement"] = {"root_inode_changed": True,
+            "public_manifest_entries_rebuilt": len(rows), "private_branches_opened": False,
+            "personal_accounts_used": 0}
+    except Exception:
+        for source in (BASE, staging):
+            if os.path.lexists(source) and os.path.lexists(backup):
+                for name in sorted(PRIVATE):
+                    candidate, destination = source / name, backup / name
+                    if os.path.lexists(candidate) and not os.path.lexists(destination):
+                        os.rename(candidate, destination)
+        if os.path.lexists(BASE) and os.path.lexists(backup):
+            shutil.rmtree(BASE)
+        if os.path.lexists(staging):
+            shutil.rmtree(staging)
+        if not os.path.lexists(BASE) and os.path.lexists(backup):
+            os.rename(backup, BASE)
+        elif os.path.lexists(backup):
+            shutil.rmtree(backup)
+        raise
+
+
 def synthetic_pending_receipt(report, expected):
     """Arrange an interrupted publication only from this VM's generated proof."""
     guard()
@@ -1178,6 +1258,23 @@ def run(args):
                         and fixed_records() == fixture_retained)
                 supplement = (sha(generated_supplement), stamp(REVALIDATION_RECEIPT.lstat()))
                 report["root_revalidation_checks"]["bounded_pending_receipt_recovered"] = True
+                report["failure_stage"] = "synthetic_same_volume_support_root_replacement"
+                base_manifest = json.loads(read_file(stage / "base-manifest.json", maximum=16 * 1024 * 1024))
+                synthetic_support_root_replacement(report, base_manifest)
+                verify_image(base_manifest)
+                report["root_revalidation_checks"]["synthetic_same_volume_support_root_replacement"] = True
+                report["failure_stage"] = "same_volume_support_inode_recovery"
+                candidate_install(stage / "root-revalidation.pkg", report=report, output=output,
+                    log="root-replacement-installer.log", daemon_log="root-replacement-daemon-install.log")
+                require((sha(read_file(REVALIDATION_RECEIPT, maximum=8192)), stamp(REVALIDATION_RECEIPT.lstat())) == supplement
+                        and fixed_records() == fixture_retained)
+                protected_metadata(RECOVERY_RECEIPT.lstat(), mode=0o600, directory=False)
+                recovery_record = json.loads(read_file(RECOVERY_RECEIPT, maximum=8192))
+                require(recovery_record.get("schema") == 2
+                        and recovery_record.get("managed_by") == "account-access-installation-root-recovery-v2"
+                        and recovery_record.get("previous_supplement_sha256") == supplement[0])
+                recovery_supplement = (sha(read_file(RECOVERY_RECEIPT, maximum=8192)), stamp(RECOVERY_RECEIPT.lstat()))
+                report["root_revalidation_checks"]["same_volume_support_inode_recovery"] = True
             report["failure_stage"] = "baseline_public_records"
             before, retained = policies(), fixed_records()
             diagnostic_install, diagnostic_plan = before["install"], review["plan_sha256"]
@@ -1217,10 +1314,13 @@ def run(args):
             if root_revalidation:
                 require((sha(read_file(REVALIDATION_RECEIPT, maximum=8192)), stamp(REVALIDATION_RECEIPT.lstat())) == supplement)
                 report["root_revalidation_checks"]["supplement_preserved_by_component"] = True
+                require((sha(read_file(RECOVERY_RECEIPT, maximum=8192)), stamp(RECOVERY_RECEIPT.lstat())) == recovery_supplement)
+                report["root_revalidation_checks"]["recovery_receipt_preserved_by_component"] = True
                 report["failure_stage"] = "root_revalidation_after_component"
                 candidate_install(stage / "root-revalidation.pkg", report=report, output=output,
                     log="root-after-component-installer.log", daemon_log="root-after-component-daemon-install.log")
                 require((sha(read_file(REVALIDATION_RECEIPT, maximum=8192)), stamp(REVALIDATION_RECEIPT.lstat())) == supplement
+                        and (sha(read_file(RECOVERY_RECEIPT, maximum=8192)), stamp(RECOVERY_RECEIPT.lstat())) == recovery_supplement
                         and policies() == expected and fixed_records() == retained)
                 report["root_revalidation_checks"]["revalidation_after_component"] = True
             report["failure_stage"] = "public_staging_cleanup"

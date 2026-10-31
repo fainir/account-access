@@ -182,11 +182,12 @@ struct OwnerGatewayRoute {
         "owner/mailbox/password", "owner/mailbox/remove", "owner/password-sync", "owner/bitwarden/connect", "owner/bitwarden/disconnect",
         "owner/mailbox/oauth/begin", "owner/mailbox/oauth/finish", "owner/mailbox/oauth/cancel", "owner/mailbox/oauth/check",
         "owner/device-email/preview", "owner/device-email/apply", "owner/device-email/discard", "owner/device-email/remove",
-        "owner/password-sync/reconnect", "owner/password-sync/disconnect", "owner/phone/pair", "owner/stop", "owner/vault/enroll", "owner/client/enroll", "owner/client/installed", "owner/browser-message"
+        "owner/password-sync/reconnect", "owner/password-sync/disconnect", "owner/phone/pair", "owner/stop", "owner/vault/enroll", "owner/client/enroll", "owner/client/installed", "owner/browser-message",
+        "owner/account/export", "owner/account/forget"
     ]
     static let restrictions: Set<String> = ["owner/stop", "owner/revoke", "owner/source/revoke",
         "owner/mailbox/remove", "owner/mailbox/oauth/cancel", "owner/password-sync/disconnect", "owner/authenticator/discard",
-        "owner/device-email/discard", "owner/device-email/remove", "owner/bitwarden/disconnect"]
+        "owner/device-email/discard", "owner/device-email/remove", "owner/bitwarden/disconnect", "owner/account/forget"]
 
     init(_ route: String, body: Data?) throws {
         var browserNeedsSetup: Bool?
@@ -202,6 +203,12 @@ struct OwnerGatewayRoute {
                 throw OwnerGatewayError.invalidPolicy // Requires a future trusted host handoff.
             }
             if route == "owner/vault/enroll", !value.isEmpty { throw OwnerGatewayError.invalidPolicy }
+            if route == "owner/account/export" || route == "owner/account/forget" {
+                guard Set(value.keys) == ["account"], let account = value["account"] as? String,
+                      account.range(of: "^[a-z][a-z0-9_-]{0,63}$", options: .regularExpression) != nil else {
+                    throw OwnerGatewayError.invalidPolicy
+                }
+            }
             if route == "owner/bitwarden/connect" {
                 guard Set(value.keys) == ["region", "client_id", "client_secret", "master_password", "consent_vault_access"],
                       let region = value["region"] as? String, ["us", "eu"].contains(region),

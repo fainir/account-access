@@ -17,7 +17,7 @@ def reports():
     scope = dict.fromkeys(["installed_reads", "root_execution", "service_actions", "production_ready"], False)
     return [
         dict(scope, status="PASSED", count=159, checks=dict.fromkeys(map(str, range(159)), True)),
-        dict(scope, status="PASSED", checks=465),
+        dict(scope, status="PASSED", checks=625),
         dict(scope, status="PASSED", checks=40,
              supplemental_group_case="PASSED_INHERITED_DIFFERENT_GROUP_CORRECTED_ONLY_ON_NEW_INODE"),
         dict(scope, status="PASSED", checks=63, ordinary_temp_only=True,
@@ -75,6 +75,9 @@ def test_one_compile_requires_every_fixture_and_all_six_guards():
 @pytest.mark.parametrize("index,key,value", [
     (0, "count", 141),
     (1, "checks", 141),
+    (1, "checks", 465),
+    (1, "checks", 480),
+    (1, "checks", 622),
     (2, "supplemental_group_case", "UNREVIEWED"),
     (3, "status", "SKIPPED"),
     (3, "checks", 62),
@@ -115,3 +118,10 @@ def test_missing_journal_report_and_truthy_named_assertion_are_refused():
 def test_a_missing_actual_refusal_cannot_pass(guard):
     with pytest.raises(probe.Refused):
         probe.Probe.qualify(InertProbe(refusal=guard))
+
+
+def test_reviewed_source_pins_match_complete_composition():
+    originals = {name: probe.source_bytes(name) for name in probe.EXACT_INPUTS}
+    assert {name: probe.digest(raw) for name, raw in originals.items()} == probe.EXACT_INPUTS
+    composed = b"\n".join(originals[name] for name in ["macos/ComponentUpdate.swift", *probe.FRAGMENTS])
+    assert probe.digest(composed) == probe.COMPOSED_SHA256

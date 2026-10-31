@@ -152,15 +152,17 @@ def test_revalidation_arguments_are_all_or_none_and_hash_bounded():
         probe.revalidation_requested(SimpleNamespace(**{**args, "root_revalidation_sha256": "main"}))
 
 
-@pytest.mark.parametrize("fixture", ["device", "pending"])
+@pytest.mark.parametrize("fixture", ["device", "pending", "root"])
 def test_synthetic_installation_mutation_is_unreachable_on_owner_mac(monkeypatch, fixture):
     monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
     monkeypatch.setattr(probe.os, "open", lambda *_args, **_kwargs: pytest.fail("fixture touched filesystem before host guard"))
     with pytest.raises(ValueError):
         if fixture == "device":
             probe.synthetic_device_mismatch({"root_revalidation_requested": True})
-        else:
+        elif fixture == "pending":
             probe.synthetic_pending_receipt({"root_revalidation_requested": True}, b"{}xx")
+        else:
+            probe.synthetic_support_root_replacement({"root_revalidation_requested": True}, {})
 
 
 @pytest.mark.parametrize("path", ["macos/../private.py", "macos//x.py", "/macos/x.py", "secrets/x.py"])

@@ -6,12 +6,14 @@ import Darwin
 
 // Closed native selection; journal or package JSON never supplies a root path.
 enum PublicImageNamespace {
-    case fullImage, runtimeUpgrade, ownerUpgrade
+    case fullImage, runtimeUpgrade, ownerUpgrade, directRuntimeRecovery, runtimeJITRepair
     var name: String {
         switch self {
         case .fullImage: return "Account Access Full Images"
         case .runtimeUpgrade: return "Account Access Runtime Updates"
         case .ownerUpgrade: return "Account Access Owner Updates"
+        case .directRuntimeRecovery: return "Account Access Runtime Recovery"
+        case .runtimeJITRepair: return "Account Access Runtime JIT Repair"
         }
     }
     var path: String { "/Library/Application Support/" + name }
@@ -44,7 +46,7 @@ struct FullImageDurableOperation: Codable, Equatable {
     func path() throws -> String {
         switch kind {
         case .file:
-            guard let file, tree == nil else { throw FullImageFailure.journal }; return file.unit.path
+            guard let file, tree == nil else { throw FullImageFailure.journal }; return file.path
         case .tree:
             guard file == nil, let tree, let unit = PublicTreeUnit(rawValue: tree.unit) else { throw FullImageFailure.journal }; return unit.path
         }
@@ -84,6 +86,7 @@ struct FullImageDurableOperation: Codable, Equatable {
 }
 
 struct FullImageGlobalIntent: Codable, Equatable {
+    private static let directRuntimeManagedBy = "account-access-exact-installed-runtime-delta-v1"
     let schema: Int
     let managedBy: String
     let planSHA256: String
@@ -109,10 +112,11 @@ struct FullImageGlobalIntent: Codable, Equatable {
         var raw = try FullImageJSON.canonical(value); raw.append(10); return raw
     }
     func validateStructure(device: Int32, publicOwner: uid_t, publicGroup: gid_t, beforeGroup: gid_t? = nil) throws {
-        guard schema == 2, managedBy == "account-access-full-image-transition-v2", !automaticRebootRecovery,
+        let operationLimit = managedBy == Self.directRuntimeManagedBy ? 256 : 64
+        guard schema == 2, ["account-access-full-image-transition-v2", Self.directRuntimeManagedBy].contains(managedBy), !automaticRebootRecovery,
               [planSHA256, beforeManifestSHA256, afterManifestSHA256, predecessorEvidenceSHA256].allSatisfy({ FullImageJSON.hex($0) }),
               beforeManifestSHA256 != afterManifestSHA256, FullImageJSON.hex(targetSourceCommit, count: 40),
-              ownerUID > 0, ownerUID != brokerUID, (450..<500).contains(brokerUID), (1...64).contains(operations.count) else { throw FullImageFailure.journal }
+              ownerUID > 0, ownerUID != brokerUID, (450..<500).contains(brokerUID), (1...operationLimit).contains(operations.count) else { throw FullImageFailure.journal }
         if let initialService { try ComponentUpdateIdentity.validateSnapshot(initialService) }
         for value in [workerPolicy, servicePlist] {
             guard value.device == device, value.inode > 0, value.mode == 0o644, value.bytes >= 0, value.bytes <= 8192,
@@ -133,13 +137,15 @@ struct FullImageGlobalIntent: Codable, Equatable {
                   publicOwner: uid_t, publicGroup: gid_t, beforeGroup: gid_t? = nil, device: Int32,
                   dynamic: [FullImageFileUnit: Data]) throws {
         try validateStructure(device: device, publicOwner: publicOwner, publicGroup: publicGroup, beforeGroup: beforeGroup)
-        guard schema == 2, managedBy == "account-access-full-image-transition-v2", !automaticRebootRecovery,
+        let expectedManagedBy = source.directRuntimeDelta ? Self.directRuntimeManagedBy : "account-access-full-image-transition-v2"
+        let operationLimit = source.directRuntimeDelta ? 256 : 64
+        guard schema == 2, managedBy == expectedManagedBy, !automaticRebootRecovery,
               planSHA256 == source.planSHA256, beforeManifestSHA256 == source.before.sha256,
               afterManifestSHA256 == source.after.sha256, targetSourceCommit == source.targetSourceCommit,
               FullImageJSON.hex(predecessorEvidenceSHA256), self.predecessorEvidenceSHA256 == predecessorEvidenceSHA256,
               self.ownerUID == ownerUID, self.brokerUID == brokerUID, ownerUID > 0, ownerUID != brokerUID,
               (450..<500).contains(brokerUID), self.workerPolicy == workerPolicy, self.servicePlist == servicePlist,
-              operations.count == source.units.count + 4, operations.count <= 64,
+              operations.count == source.units.count + 4, operations.count <= operationLimit,
               Set(dynamic.keys) == [.hostPolicy, .ownerPolicy, .installRecord, .head] else { throw FullImageFailure.journal }
         guard dynamic[.head] == (try Self.newHead(source: source, predecessorEvidenceSHA256: predecessorEvidenceSHA256)) else { throw FullImageFailure.journal }
         if let initialService { try ComponentUpdateIdentity.validateSnapshot(initialService) }
@@ -172,6 +178,10 @@ struct FullImageGlobalIntent: Codable, Equatable {
                 case .file(let unit, let before, let after):
                     guard let file = operation.file, file.unit.publicUnit == unit,
                           matches(file.before, before), matches(file.after, after) else { throw FullImageFailure.journal }
+                case .directFile(let path, let mode, let before, let after):
+                    guard let file = operation.file, file.unit == .directPublicFile,
+                          file.directPath == path, file.directMode == mode,
+                          matches(file.before, before), matches(file.after, after) else { throw FullImageFailure.journal }
                 }
             } else {
                 let unit = [FullImageFileUnit.hostPolicy, .ownerPolicy, .installRecord, .head][index - source.units.count]
@@ -193,6 +203,32 @@ struct FullImageGlobalIntent: Codable, Equatable {
             guard try encoder.encode(operations[index].token()) == encoder.encode(storage.operations[index]) else { throw FullImageFailure.journal }
         }
     }
+}
+
+// These fixed labels make an Installer refusal diagnosable without logging
+// journal bytes, paths, identities, provider data, or underlying error text.
+enum FullImageIntentReadContext: String {
+    case fullImage = "full_image_intent"
+    case runtimeUpgrade = "runtime_upgrade_intent"
+    case predecessorRuntime = "predecessor_runtime_intent"
+    case ownerUpgrade = "owner_upgrade_intent"
+    case brokerRepairHistory = "broker_repair_history_intent"
+}
+enum FullImageIntentReadCheckpoint: String {
+    case attachmentBefore = "attachment_before"
+    case directoryIdentity = "directory_identity"
+    case directoryMode = "directory_mode"
+    case intentFile = "intent_file"
+    case decode = "decode"
+    case structure = "structure"
+    case sourceValidation = "source_validation"
+    case stability = "stability"
+    case attachmentAfter = "attachment_after"
+}
+struct FullImageIntentReadDiagnostic: Error {
+    let context: FullImageIntentReadContext
+    let checkpoint: FullImageIntentReadCheckpoint
+    let failure: Error
 }
 
 final class FullImageGlobalJournal {
@@ -404,23 +440,36 @@ final class FullImageGlobalJournal {
     // source/predecessor validator must accept it before it is returned.
     static func readIntent(directory: Int32, owner: uid_t, group: gid_t, beforeGroup: gid_t? = nil,
                            historicalObservation: Bool = false,
+                           diagnosticContext: FullImageIntentReadContext = .fullImage,
                            validateIntent: (FullImageGlobalIntent) throws -> Void,
                            verifyAttachment: (Int32) throws -> Void) throws -> FullImageGlobalIntent {
-        try verifyAttachment(directory)
-        let identity = try PublicTreeDirectoryIdentity.observe(directory, owner: owner, group: group)
-        guard identity.mode == 0o700 else { throw FullImageFailure.journal }
-        let file = try inspect(directory, "intent.json", owner: owner, group: group, maximum: maximumIntent, readBody: true)
-        let value = try decoded(FullImageGlobalIntent.self, raw: file.data, maximum: maximumIntent)
-        // This read grants no transition authority. A completed-image caller
-        // must qualify the historical evidence against the persistent volume
-        // receipt before opening read-only storage with this recorded device.
-        try value.validateStructure(device: historicalObservation ? value.workerPolicy.device : identity.device,
-            publicOwner: owner, publicGroup: group, beforeGroup: beforeGroup)
-        try validateIntent(value)
-        guard try inspect(directory, "intent.json", owner: owner, group: group, maximum: maximumIntent, readBody: true).pin == file.pin,
-              try PublicTreeDirectoryIdentity.observe(directory, owner: owner, group: group) == identity else { throw FullImageFailure.journal }
-        try verifyAttachment(directory)
-        return value
+        var checkpoint = FullImageIntentReadCheckpoint.attachmentBefore
+        do {
+            try verifyAttachment(directory)
+            checkpoint = .directoryIdentity
+            let identity = try PublicTreeDirectoryIdentity.observe(directory, owner: owner, group: group)
+            checkpoint = .directoryMode
+            guard identity.mode == 0o700 else { throw FullImageFailure.journal }
+            checkpoint = .intentFile
+            let file = try inspect(directory, "intent.json", owner: owner, group: group, maximum: maximumIntent, readBody: true)
+            checkpoint = .decode
+            let value = try decoded(FullImageGlobalIntent.self, raw: file.data, maximum: maximumIntent)
+            // This read grants no transition authority. A completed-image caller
+            // must qualify the historical evidence against the persistent volume
+            // receipt before opening read-only storage with this recorded device.
+            checkpoint = .structure
+            try value.validateStructure(device: historicalObservation ? value.workerPolicy.device : identity.device,
+                publicOwner: owner, publicGroup: group, beforeGroup: beforeGroup)
+            checkpoint = .sourceValidation
+            try validateIntent(value)
+            checkpoint = .stability
+            guard try inspect(directory, "intent.json", owner: owner, group: group, maximum: maximumIntent, readBody: true).pin == file.pin,
+                  try PublicTreeDirectoryIdentity.observe(directory, owner: owner, group: group) == identity else { throw FullImageFailure.journal }
+            checkpoint = .attachmentAfter
+            try verifyAttachment(directory)
+            return value
+        } catch let diagnostic as FullImageIntentReadDiagnostic { throw diagnostic }
+        catch { throw FullImageIntentReadDiagnostic(context: diagnosticContext, checkpoint: checkpoint, failure: error) }
     }
     // `expected` was validated against the source, verified predecessor and
     // staged objects before this call. Reopen always requires the same bytes.

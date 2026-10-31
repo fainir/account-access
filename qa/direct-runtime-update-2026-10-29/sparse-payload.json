@@ -1,0 +1,16 @@
+{
+  "after_manifest_sha256": "78113e53f553cdec0bfb9d0744406a18baaaa3327e1be834af5b45b74c3926aa",
+  "before_manifest_sha256": "568c79ca3b45ffc357bc5af2b420d481e729630b0120dc6d0058c1a396ad21b1",
+  "direct_files_added": 7,
+  "direct_files_removed": 9,
+  "installed_image_modified": false,
+  "installed_reads": false,
+  "installer_operations": 195,
+  "plan_sha256": "f15129413f71a65e61a53f690b6676306ae905b3b8ba4e5df966c70f423287d5",
+  "production_ready": false,
+  "schema": 1,
+  "source_package_sha256": "02eaa0c5ace1354208a173cf260b4f1236357ce0cae5671570918b39ea9f3942",
+  "sparse_payload_file_bytes": 492857038,
+  "sparse_payload_nodes": 289,
+  "status": "PASSED"
+}
