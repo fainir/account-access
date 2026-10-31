@@ -3,7 +3,27 @@ from copy import deepcopy
 
 import pytest
 
-from scripts.build_jit_update_image import JIT, JIT_ROLES, publisher_jit_plan
+from scripts.build_jit_update_image import JIT, JIT_ROLES, NODE, install_driver_files, publisher_jit_plan
+
+
+def test_wheel_record_metadata_cannot_make_the_prepared_runtime_writable(tmp_path):
+    from account_access.package_manifest import inventory
+    unpacked = tmp_path / 'wheel'
+    runtime = tmp_path / 'runtime'
+    for name, mode in [(NODE, 0o755), ('playwright-1.63.0.dist-info/RECORD', 0o644)]:
+        source = unpacked / name
+        destination = runtime / 'lib/python3.12/site-packages' / name
+        source.parent.mkdir(parents=True, exist_ok=True)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        source.write_bytes(b'new prepared bytes')
+        source.chmod(0o664)
+        destination.write_bytes(b'old bytes')
+        destination.chmod(mode)
+    install_driver_files(unpacked, runtime)
+    result = inventory(runtime)
+    assert result['lib/python3.12/site-packages/playwright-1.63.0.dist-info/RECORD']['mode'] == 0o644
+    assert result['lib/python3.12/site-packages/' + NODE]['mode'] == 0o755
+    assert (runtime / 'lib/python3.12/site-packages/' / NODE).read_bytes() == b'new prepared bytes'
 
 
 def preparation():

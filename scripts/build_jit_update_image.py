@@ -73,6 +73,14 @@ def publisher_jit_plan(receipt):
     return plan
 
 
+def install_driver_files(unpacked, runtime):
+    # A wheel's RECORD can be group-writable upstream. The verified image
+    # already has the required public modes; copying bytes retains those modes
+    # instead of importing archive metadata into the prepared runtime.
+    for name in (NODE, 'playwright-1.63.0.dist-info/RECORD'):
+        shutil.copyfile(unpacked / name, runtime / 'lib/python3.12/site-packages' / name)
+
+
 def build(args):
     require(sys.platform == 'darwin' and os.getuid() == os.geteuid() != 0, 'ordinary_mac_required')
     repository = Path(__file__).resolve().parents[1]
@@ -84,8 +92,9 @@ def build(args):
             and stat.S_IMODE(image_root.parent.stat().st_mode) == 0o700,
             'private_repository_build_copy_required')
     args.image = image_root
-    require(subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=repository).decode().strip() == args.source,
-            'source_revision_mismatch')
+    builder_commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=repository).decode().strip()
+    require(subprocess.run(['git', 'diff', '--quiet', args.source, builder_commit, '--', 'account_access', 'macos'],
+                           cwd=repository).returncode == 0, 'target_program_source_changed')
     require(not subprocess.check_output(['git', 'status', '--porcelain'], cwd=repository).strip(),
             'source_tree_not_clean')
     require(args.owner_source == args.source, 'owner_binary_source_mismatch')
@@ -132,9 +141,7 @@ def build(args):
         repack_wheel(wheel, unpacked, entries)
         with WheelFile.open(wheel) as source:
             source.validate_record(validate_contents=True)
-        shutil.copy2(node, installed_node)
-        record = Path('playwright-1.63.0.dist-info/RECORD')
-        shutil.copy2(unpacked / record, payload / 'runtime/lib/python3.12/site-packages' / record)
+        install_driver_files(unpacked, payload / 'runtime')
         native['wheels/' + PLAYWRIGHT + '/' + NODE]['prepared_sha256'] = sha(node)
         chrome = payload / CHROME
         require(sha(chrome) == native[CHROME]['prepared_sha256'], 'browser_preparation_changed')
@@ -206,7 +213,7 @@ print('PUBLISHER_SANDBOXED_BROWSER_READY')
     require(result.stdout.strip() == b'PUBLISHER_SANDBOXED_BROWSER_READY', 'signed_browser_probe_failed')
     report = {'status': 'TARGET_IMAGE_QUALIFIED', 'owner_app_build': 121, 'source_image_build': 120,
               'base_manifest_sha256': BASE_SHA256, 'manifest_sha256': hashlib.sha256(raw_manifest).hexdigest(),
-              'builder_commit': args.source, 'target_source_commit': args.source,
+              'builder_commit': builder_commit, 'target_source_commit': args.source,
               'jit_roles': sorted(JIT_ROLES), 'entitlements': JIT,
               'publisher_sandboxed_browser_execution': True, 'native_audit': audit,
               'project_wheel_sha256': project_sha, 'installed_paths_changed': False, 'account_data_used': False}
