@@ -321,6 +321,7 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                 state = {"accounts": accounts, "principals": principals, "grants": grants,
                          "local_host_actions": local_host_actions,
                          "background_recovery": broker.worker_health.view(),
+                         "browser_runtime": broker.browser_health.view(),
                          "integrations": integrations,
                          "automatic_sessions": automatic_sessions,
                          "connection_jobs": connection_jobs,
@@ -342,6 +343,8 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                         item["password_sync_suggestion"] = suggestion
                 from .browser_updates import view as browser_updates
                 state["browser_updates"] = browser_updates(broker.store)
+                from .phone_test import view as phone_test
+                state["android_connection_test"] = phone_test(broker.store)
                 from .sms_setup import view as sms_setup
                 state["sms_setups"] = sms_setup(broker.store)
                 from .device_email_setup import view as device_email_setups
@@ -579,6 +582,19 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                     if set(data) != {"source"}:
                         raise ValueError()
                     self.send(200, phone.pair(data["source"]))
+                    return
+                if self.path == "/owner/phone/test/configure":
+                    from .phone_test import configure
+                    if set(data) != {"sender"}:
+                        raise ValueError()
+                    self.send(200, configure(broker, data["sender"]))
+                    return
+                if self.path in {"/owner/phone/test/start", "/owner/phone/test/check", "/owner/phone/test/cancel"}:
+                    from .phone_test import start, check
+                    if data:
+                        raise ValueError()
+                    result = start(broker) if self.path.endswith('/start') else check(broker, cancel=self.path.endswith('/cancel'))
+                    self.send(200, result)
                     return
                 if self.path == "/owner/source":
                     from .factors import enroll

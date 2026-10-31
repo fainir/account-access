@@ -304,6 +304,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
     var busy = false { didSet { if busy != oldValue { ownerSetupContext.invalidate() } } }
     var backgroundRecovery: [String: Any] = [:]
+    var browserRuntime: [String: Any] = [:]
+    var androidConnectionTest: [String: Any] = [:]
+    var androidTestSender: NSTextField?
     var backgroundServiceStatus = "unknown"
     var serviceEnvironment = "unclassified"
     var failedAccount: String?
@@ -1202,6 +1205,8 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     func accept(_ state: [String: Any]) {
         serviceEnvironment = state["environment"] as? String ?? "unclassified"
         backgroundRecovery = state["background_recovery"] as? [String: Any] ?? [:]
+        browserRuntime = state["browser_runtime"] as? [String: Any] ?? [:]
+        androidConnectionTest = state["android_connection_test"] as? [String: Any] ?? [:]
         navigationFailures = state["navigation_failures"] as? [[String: Any]] ?? []
         browserUpdates = state["browser_updates"] as? [[String: Any]] ?? []
         smsSetups = state["sms_setups"] as? [[String: Any]] ?? []
@@ -1213,6 +1218,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         accounts = state["accounts"] as? [[String: Any]] ?? []
         sources = (state["code_sources"] as? [[String: Any]] ?? []).filter {
             $0["message_purpose"] as? String != "pypi-device-confirmation"
+                && $0["id"] as? String != "android-connection-test"
         }
         mailboxes = state["mailboxes"] as? [[String: Any]] ?? []
         mailboxOAuth = state["mailbox_oauth"] as? [[String: Any]] ?? []
@@ -2360,6 +2366,10 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             }
         }
         action("Connect Gmail or email", #selector(showEmailSetup))
+        if androidConnectionTest["available"] as? Bool == true {
+            let panel = card("Android phone", "Pair the companion and check one matching test message before connecting a website. This test does not sign in to a private account.", status: "Connection test", good: false)
+            panel.addArrangedSubview(NSButton(title: "Set up Android phone", target: self, action: #selector(showAndroidTest)))
+        }
         showDeviceEmailCards()
         if sources.isEmpty && smsSetups.isEmpty && deviceEmailSetups.isEmpty {
             card("Connect a website", "You can save your mailbox now. Website verification methods appear after you connect a supported account.", status: "One-time setup", good: false)
@@ -3362,6 +3372,10 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
 
     @objc func pairPhone() {
         guard let source = factorMenu.selectedItem?.representedObject as? [String: Any], let id = source["id"] as? String else { return }
+        pairPhoneSource(id)
+    }
+
+    func pairPhoneSource(_ id: String, connectionTest: Bool = false) {
         busy = true
         DispatchQueue.global(qos: .userInitiated).async {
             do {
@@ -3371,6 +3385,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
                 DispatchQueue.main.async {
                     self.busy = false
+                    if connectionTest { self.androidConnectionTest["pairing_prepared"] = true }
                     self.page("Pair your Android phone", "Scan this QR with the Account Access companion. Keep both devices on the same private Wi-Fi. Android 15 or newer also needs Bluetooth discovery and Android's device confirmation; keep this screen open while connecting.")
                     self.phonePairingPayload = String(data: data, encoding: .utf8)
                     let discoveryStatus = self.makeLabel("Preparing Bluetooth discovery…", 14, .secondaryLabelColor)
@@ -3396,9 +3411,108 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                     paste.action = #selector(self.copyPhonePairing)
                     paste.identifier = NSUserInterfaceItemIdentifier("copy-phone-pairing")
                     self.stack.addArrangedSubview(paste)
-                    self.action("Back", #selector(self.backToConnections))
+                    self.action(connectionTest ? "Continue to connection test" : "Back", connectionTest ? #selector(self.showAndroidTest) : #selector(self.backToConnections))
                 }
             } catch { self.fail(error, retry: #selector(self.showFactors)) }
+        }
+    }
+
+    @objc func showAndroidTest() {
+        section = "verification"
+        page("Android connection test", "Check the companion with a test message. This opens no website and grants no account access.")
+        label("Sender exactly as shown in your Android notification", 15)
+        let field = NSTextField()
+        field.placeholderString = "Phone number or contact name"
+        field.stringValue = androidConnectionTest["sender"] as? String ?? ""
+        field.heightAnchor.constraint(equalToConstant: 40).isActive = true
+        stack.addArrangedSubview(field)
+        field.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        androidTestSender = field
+        label("Choose someone who can send a test SMS. Only this sender and the exact connection-test message are accepted. Other notifications are ignored.", 14, .secondaryLabelColor)
+        primary("Save sender and pair Android", #selector(prepareAndroidTest))
+        if androidConnectionTest["pairing_prepared"] as? Bool == true {
+            label("Pairing is prepared. Scan the QR and finish Android's permissions before starting the test. Pairing alone does not confirm message delivery.", 14, .secondaryLabelColor)
+            action("Start message test", #selector(startAndroidTest))
+        }
+        action("Back to Verification", #selector(showFactors))
+    }
+
+    @objc func prepareAndroidTest() {
+        guard !busy else { return }
+        let sender = androidTestSender?.stringValue ?? ""
+        guard !sender.isEmpty, sender == sender.trimmingCharacters(in: .whitespacesAndNewlines), sender.count <= 200 else {
+            let alert = NSAlert()
+            alert.messageText = "Enter the test message sender"
+            alert.informativeText = "Use the exact phone number or contact name shown in the Android notification, without spaces before or after it."
+            alert.runModal()
+            window.makeFirstResponder(androidTestSender)
+            return
+        }
+        busy = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let result = try self.request("owner/phone/test/configure", body: ["sender": sender])
+                guard let source = result["source"] as? String else { throw Failure.message("Android setup could not finish. Try saving the sender again.") }
+                let state = try self.request("owner/state")
+                DispatchQueue.main.async {
+                    self.busy = false; self.accept(state); self.pairPhoneSource(source, connectionTest: true)
+                }
+            } catch { self.fail(error, retry: #selector(self.showAndroidTest)) }
+        }
+    }
+
+    @objc func startAndroidTest() {
+        guard !busy else { return }
+        busy = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                _ = try self.request("owner/phone/test/start", body: [:])
+                DispatchQueue.main.async {
+                    self.busy = false
+                    self.page("Waiting for your test message", "Within two minutes, have your chosen sender send this exact SMS to your paired Android phone: Account Access connection test: 123456. Keep the companion connected and notification access enabled. The test value stays local and is discarded after checking.")
+                    self.progress()
+                    self.action("Cancel test", #selector(self.cancelAndroidTest)).isEnabled = true
+                    self.pollAndroidTest(self.stack)
+                }
+            } catch { self.fail(error, retry: #selector(self.showAndroidTest)) }
+        }
+    }
+
+    func pollAndroidTest(_ screen: NSStackView) {
+        guard stack === screen else { return }
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let result = try self.request("owner/phone/test/check", body: [:])
+                DispatchQueue.main.async {
+                    guard self.stack === screen else { return }
+                    if result["status"] as? String == "WAITING" {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { self.pollAndroidTest(screen) }
+                        return
+                    }
+                    let completed = result["status"] as? String == "COMPLETED"
+                    self.page(completed ? "Android test message received" : "Test message was not confirmed", completed
+                        ? "The paired companion delivered one fresh matching test message. No code or message body was sent to your AI. Private website sign-in still requires its own supported connection."
+                        : "Check the sender, exact test message, notification access and Wi-Fi, then try again. No private account was accessed.")
+                    self.action("Review Android setup", #selector(self.showAndroidTest))
+                    self.action("Back to Verification", #selector(self.showFactors))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    guard self.stack === screen else { return }
+                    self.fail(error, retry: #selector(self.showAndroidTest))
+                }
+            }
+        }
+    }
+
+    @objc func cancelAndroidTest() {
+        guard !busy else { return }
+        busy = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                _ = try self.request("owner/phone/test/cancel", body: [:])
+                DispatchQueue.main.async { self.busy = false; self.showAndroidTest() }
+            } catch { self.fail(error, retry: #selector(self.showAndroidTest)) }
         }
     }
 
@@ -3422,6 +3536,9 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             card("Background recovery is retrying", "Background recovery hit an internal problem and is retrying automatically. Your saved connections and completed task steps are preserved.", status: "Retrying", good: false)
         } else if backgroundRecovery["status"] as? String == "STOPPED" {
             card("Background recovery stopped", "Use Repair installation in the app menu to restart it. Your saved connections are preserved.", status: "Stopped", good: false)
+        }
+        if browserRuntime["status"] as? String == "UNAVAILABLE" {
+            card("Website sign-in needs repair", "The installed browser could not complete its offline startup check. Use Repair installation in the app menu. Your saved logins and permissions are preserved.", status: "Needs repair", good: false)
         }
         let serviceAccounts = accounts.filter { Self.isLive($0, fallback: serviceEnvironment) }
         let examples = accounts.filter { Self.isExample($0, fallback: serviceEnvironment) }
@@ -3689,7 +3806,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         let alert = NSAlert()
         alert.messageText = "Update this website's sign-in connection?"
         if update["kind"] as? String == "public_example_assets" {
-            alert.informativeText = "Use the reviewed current SauceDemo script at its existing HTTPS address. Your approved product read, saved login, verification methods and permission expiry stay the same. This is a public testing example and does not validate access to a personal account."
+            alert.informativeText = "Use the reviewed current SauceDemo script from the same HTTPS website. Your approved product read, saved login, verification methods and permission expiry stay the same. This is a public testing example and does not validate access to a personal account."
         } else {
             alert.informativeText = "Use GitHub's current public profile heading for an existing heading-only read. Follow exact versioned scripts and styles declared by GitHub's HTTPS login response, with anonymous downloads from GitHub's asset host. Other destinations, queries, asset POSTs and page-driven discovery stay blocked. The recovery page can be viewed for diagnosis; a recovery-code field stops automatic sign-in. Approved account reads and connected verification sources stay the same."
         }

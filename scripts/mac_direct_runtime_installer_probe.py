@@ -9,6 +9,7 @@ import argparse
 import base64
 from dataclasses import dataclass
 import hashlib
+import http.client
 import json
 import os
 from pathlib import Path
@@ -16,6 +17,8 @@ import plistlib
 import pwd
 import re
 import runpy
+import secrets
+import socket
 import subprocess
 import sys
 import tarfile
@@ -84,6 +87,38 @@ def installed_browser_command():
             'USER=_accountaccess', 'LOGNAME=_accountaccess',
             'PLAYWRIGHT_BROWSERS_PATH=' + str(BASE / 'browsers'),
             BASE / 'runtime/bin/python', '-I', '-B', '-c', BROWSER_CHECK]
+
+
+def worker_browser_health(command, label):
+    # This never runs on an owner Mac. The fixture is empty, and this client
+    # has no account or operation grants. Seed only its synthetic public token
+    # verifier; no vault key, owner token or existing client is read.
+    runpy.run_path(str(ROOT / 'scripts/mac_component_update_installer_probe.py'))['guard']()
+    token = secrets.token_urlsafe(32)
+    verifier = hashlib.sha256(token.encode()).hexdigest()
+    seed = '''import os, sqlite3, sys
+os.umask(0o077)
+with sqlite3.connect(sys.argv[1]) as db:
+    db.execute('INSERT INTO clients(digest,principal,revoked) VALUES (?,?,0)', (sys.argv[2], 'installer-runtime-test'))
+'''
+    command(label + '-synthetic-client', ['/usr/bin/sudo', '-n', '-u', '_accountaccess',
+            BASE / 'runtime/bin/python', '-I', '-B', '-c', seed, BASE / 'vault/data/state.db', verifier])
+    connection = http.client.HTTPConnection('localhost', timeout=10)
+    channel = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        channel.settimeout(10)
+        channel.connect(str(BASE / 'run/agent.sock'))
+        connection.sock = channel
+        connection.request('GET', '/v1/accounts', headers={'Authorization': 'Bearer ' + token})
+        response = connection.getresponse()
+        raw = response.read(65537)
+        require(response.status == 200 and len(raw) <= 65536, 'worker_browser_health_unavailable')
+        data = json.loads(raw)
+        require(data.get('status') == 'OK' and data.get('accounts') == []
+                and data.get('browser_runtime') == {'status': 'READY'}, 'worker_browser_health_not_ready')
+    finally:
+        connection.close()
+        channel.close()
 
 
 def browser_crash_summary(raw, pid):
@@ -457,7 +492,7 @@ def run(args):
             check(attempt + '_verified_head', head['plan_sha256'] == release.plan and head['manifest_sha256'] == release.after)
             verify_live_service(command, attempt + '-live-service')
             if release.number == '121':
-                command(attempt + '-publisher-sandboxed-browser', installed_browser_command())
+                worker_browser_health(command, attempt + '-publisher-sandboxed-browser')
                 check(attempt + '_publisher_sandboxed_browser', True)
                 check(attempt + '_completed_predecessor_history_preserved',
                       completed_objects == {p: (p.stat().st_ino, p.read_bytes()) for p in completed_objects})
@@ -542,7 +577,7 @@ def fresh_run(args):
             check(attempt + '_patched_dependency_guard', True)
             verify_live_service(command, attempt + '-live-service')
             if release.number == '121':
-                command(attempt + '-publisher-sandboxed-browser', installed_browser_command())
+                worker_browser_health(command, attempt + '-publisher-sandboxed-browser')
                 check(attempt + '_publisher_sandboxed_browser', True)
             # Only this just-created fixture app can exist in this empty VM.
             subprocess.run(['/usr/bin/pkill', '-u', str(owner), '-x', 'AccountAccess'],

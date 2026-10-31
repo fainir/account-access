@@ -1,6 +1,39 @@
 """Reviewed public testing-site adapters; published demo identities only."""
 
+import re
+
+from .errors import AccessError
 from .models import Configuration
+
+
+def inventory_result(page, operation, account):
+    """The reviewed store example returns only names/prices, never card text."""
+    if (account.login_url != "https://www.saucedemo.com/"
+            or operation.url != "https://www.saucedemo.com/inventory.html"
+            or operation.fields != {"heading": "[data-test='title']", "items": "[data-test='inventory-list']"}):
+        return None
+    lists = page.locator("[data-test='inventory-list']")
+    if lists.count() != 1:
+        raise AccessError("NEEDS_USER", "public_example_layout_changed")
+    cards = lists.locator("[data-test='inventory-item']")
+    count = cards.count()
+    if not 1 <= count <= 32:
+        raise AccessError("NEEDS_USER", "public_example_layout_changed")
+    items = []
+    for index in range(count):
+        card = cards.nth(index)
+        name = card.locator("[data-test='inventory-item-name']")
+        price = card.locator("[data-test='inventory-item-price']")
+        if name.count() != 1 or price.count() != 1:
+            raise AccessError("NEEDS_USER", "public_example_layout_changed")
+        name_text = name.inner_text(timeout=5000).strip()
+        price_text = price.inner_text(timeout=5000).strip()
+        if not 1 <= len(name_text) <= 256 or re.fullmatch(r"\$[0-9]{1,6}\.[0-9]{2}", price_text) is None:
+            raise AccessError("NEEDS_USER", "public_example_layout_changed")
+        items.append({"name": name_text, "price": price_text})
+    if cards.count() != count:
+        raise AccessError("NEEDS_USER", "public_example_layout_changed")
+    return {"items": items}
 
 
 def configuration():

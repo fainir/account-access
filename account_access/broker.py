@@ -31,7 +31,9 @@ MESSAGES = {
 class Broker:
     def __init__(self, store):
         from .worker_health import WorkerHealth
+        from .browser_health import BrowserHealth
         self.worker_health = WorkerHealth()
+        self.browser_health = BrowserHealth()
         self.store = store
         self.oauth = OAuth(store)
         self.codes = Codes(store, self.oauth)
@@ -114,6 +116,7 @@ class Broker:
                                "operations": operations})
         return {"status": "OK", "accounts": result, "service_version": __version__,
                 "background_recovery": self.worker_health.view(),
+                "browser_runtime": self.browser_health.view(),
                 "environment": aggregate(result, test_mode=config.test_mode)}
 
     def connection_view(self, account, config, *, display_snapshot=None):

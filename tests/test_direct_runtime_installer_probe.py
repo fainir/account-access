@@ -77,6 +77,13 @@ def test_probe_refuses_an_ordinary_owner_context_before_inputs(tmp_path, mode, r
     assert not args.output.exists()
 
 
+def test_worker_health_fixture_never_seeds_a_client_on_an_owner_mac():
+    calls = []
+    with pytest.raises(ValueError, match='component_installer_acceptance_failed'):
+        probe.worker_browser_health(lambda *args: calls.append(args), 'offline')
+    assert calls == []
+
+
 def test_only_synthetic_evidence_is_made_readable_for_artifact_upload(tmp_path):
     tmp_path.chmod(0o700)
     log = tmp_path / 'install.log'

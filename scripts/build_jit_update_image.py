@@ -98,6 +98,7 @@ def build(args):
     require(not subprocess.check_output(['git', 'status', '--porcelain'], cwd=repository).strip(),
             'source_tree_not_clean')
     require(args.owner_source == args.source, 'owner_binary_source_mismatch')
+    require(args.bootstrap_source == args.source, 'bootstrap_binary_source_mismatch')
     require(hashlib.sha256(manifest(args.image, '0.8.0', 'arm64')).hexdigest() == BASE_SHA256,
             'exact_build120_image_required')
     payload = args.image / SUPPORT
@@ -180,6 +181,14 @@ def build(args):
     identity_path = payload / 'package-identity.json'
     identity = json.loads(identity_path.read_bytes())
     identity['signatures']['owner'] = signature(app, 'com.fainir.accountaccess')
+    bootstrap = payload / 'bin/AccountAccess-bootstrap'
+    require(bootstrap.is_file() and not bootstrap.is_symlink()
+            and args.bootstrap.is_file() and not args.bootstrap.is_symlink(), 'bootstrap_input_invalid')
+    shutil.copyfile(args.bootstrap, bootstrap)
+    command(['/usr/bin/codesign', '--force', '--options', 'runtime', '--timestamp', '--identifier',
+             'com.fainir.accountaccess.bootstrap', '--sign', IDENTITY, bootstrap])
+    command(['/usr/bin/codesign', '--verify', '--strict', '--all-architectures', bootstrap])
+    identity['signatures']['bootstrap'] = signature(bootstrap, 'com.fainir.accountaccess.bootstrap')
     identity_path.write_text(json.dumps(identity, sort_keys=True) + '\n')
     image_path = payload / 'runtime-image.json'
     image = json.loads(image_path.read_bytes())
@@ -214,6 +223,7 @@ print('PUBLISHER_SANDBOXED_BROWSER_READY')
     report = {'status': 'TARGET_IMAGE_QUALIFIED', 'owner_app_build': 121, 'source_image_build': 120,
               'base_manifest_sha256': BASE_SHA256, 'manifest_sha256': hashlib.sha256(raw_manifest).hexdigest(),
               'builder_commit': builder_commit, 'target_source_commit': args.source,
+              'bootstrap_source_commit': args.bootstrap_source,
               'jit_roles': sorted(JIT_ROLES), 'entitlements': JIT,
               'publisher_sandboxed_browser_execution': True, 'native_audit': audit,
               'project_wheel_sha256': project_sha, 'installed_paths_changed': False, 'account_data_used': False}
@@ -226,6 +236,8 @@ if __name__ == '__main__':
     parser.add_argument('--image', type=Path, required=True)
     parser.add_argument('--source', required=True)
     parser.add_argument('--owner-source', required=True)
+    parser.add_argument('--bootstrap-source', required=True)
+    parser.add_argument('--bootstrap', type=Path, required=True)
     parser.add_argument('--owner-app', type=Path, required=True)
     parser.add_argument('--project-wheel', type=Path, required=True)
     parser.add_argument('--manifest-output', type=Path, required=True)

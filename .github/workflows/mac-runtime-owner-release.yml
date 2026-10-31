@@ -34,6 +34,9 @@ jobs:
           ACCOUNT_ACCESS_MAC_OUTPUT="$RUNNER_TEMP/release-owner" sh macos/build.sh
           cp dist/account_access-0.8.0-py3-none-any.whl "$RUNNER_TEMP/release-owner/"
           cp "$RUNNER_TEMP/owner-checks.log" "$RUNNER_TEMP/release-owner/"
+          xcrun swiftc -O -parse-as-library -warnings-as-errors -D ACCOUNT_ACCESS_WORKER_BOOTSTRAP_MAIN \
+            -target arm64-apple-macos14 -framework Foundation -framework Security \
+            macos/WorkerBootstrap.swift macos/WorkerListenerBindings.swift -o "$RUNNER_TEMP/release-owner/AccountAccess-bootstrap"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: runtime121-owner-image
@@ -41,4 +44,5 @@ jobs:
             ${{ runner.temp }}/release-owner/Account-Access-Mac.zip
             ${{ runner.temp }}/release-owner/account_access-0.8.0-py3-none-any.whl
             ${{ runner.temp }}/release-owner/owner-checks.log
+            ${{ runner.temp }}/release-owner/AccountAccess-bootstrap
           retention-days: 7

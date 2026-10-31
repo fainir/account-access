@@ -786,6 +786,23 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         precondition(!mixedAgentText.contains("AI connection source unverified"))
         precondition(mixedAgentText.contains("0 ready · 1 service connections"))
         precondition(mixedAgentText.contains("1 ready · 1 example connections"))
+        owner.browserRuntime = ["status": "UNAVAILABLE"]
+        owner.ready()
+        precondition(descendants(owner.stack).compactMap { ($0 as? NSTextField)?.stringValue }
+            .contains("Website sign-in needs repair"))
+        owner.browserRuntime = [:]
+        owner.androidConnectionTest = ["available": true, "configured": false, "pairing_prepared": false]
+        owner.showFactors()
+        precondition(descendants(owner.stack).compactMap { ($0 as? NSButton)?.title }.contains("Set up Android phone"))
+        owner.showAndroidTest()
+        precondition(owner.androidTestSender?.stringValue == "")
+        precondition(!descendants(owner.stack).compactMap { ($0 as? NSButton)?.title }.contains("Start message test"))
+        owner.androidConnectionTest = ["available": true, "configured": true, "pairing_prepared": true, "sender": "Fixture sender"]
+        owner.showAndroidTest()
+        precondition(owner.androidTestSender?.stringValue == "Fixture sender")
+        precondition(descendants(owner.stack).compactMap { ($0 as? NSButton)?.title }.contains("Start message test"))
+        owner.androidConnectionTest = [:]
+        print("PASS: browser runtime failure is visible and Android setup is reachable without a website source; pairing is distinct from delivery")
         owner.serviceEnvironment = "public-example"
         owner.accounts.removeLast()
         owner.ready()

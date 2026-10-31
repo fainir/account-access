@@ -560,6 +560,10 @@ class Browser:
         self.check(page, config)
         if op.session_only:
             return {"authenticated": True}
+        from .public_demo import inventory_result
+        public_result = inventory_result(page, op, config)
+        if public_result is not None:
+            return public_result
         return {name: page.locator(selector).first.inner_text(timeout=5000)[:100_000]
                 for name, selector in op.fields.items()}
 
