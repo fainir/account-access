@@ -8,14 +8,15 @@ reads version 0.8.0/build 122. Discovery only was performed: the authorized
 public example retains saved access, and private Namecheap remains paused with
 needs_attention. No private read, new enrollment or code retrieval was attempted.
 
-Created a separate [0.8.0 customer release draft](https://github.com/fainir/account-access/releases/tag/untagged-c0ed62d641c19cf70db1),
+Created a separate [0.8.0 customer release draft](https://github.com/fainir/account-access/releases/tag/untagged-dbf1a28267fe00d5b6ef),
 reusing the unchanged qualified packages. The original build-122 QA release and
 its four pinned assets remain intact for the dated macOS 14 check. No installer
 was rebuilt and no Android APK was uploaded.
 
 Actual GitHub release read-back confirms `isDraft: true`, `publishedAt: null`,
-target commit `7903cafa50d1510dd56011e5450b48df415aca7a`, and exactly three
-completed assets. Each server-reported digest and byte count matches its local
+target commit `13c5621ae436bdbe36ebab64f963d1ec52021a8e`, and exactly three
+completed assets. This source target includes the current customer instructions;
+the privacy/terms are unchanged from the exact reviewed revisions. Each server-reported digest and byte count matches its local
 qualified input:
 
 | Customer download | Bytes | Purpose |
