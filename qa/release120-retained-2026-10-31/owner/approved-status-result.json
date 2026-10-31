@@ -1,0 +1,13 @@
+{
+  "status": "NEEDS_USER",
+  "account": "personal-namecheap",
+  "challenge": {
+    "id": "b56217f0353d484add171f6bc78b5239",
+    "account": "personal-namecheap",
+    "kind": "unknown",
+    "reason": "browser_state_unrecognized",
+    "required_action": "The page needs review because its authentication state was not recognized.",
+    "created": 1792574638.739254
+  },
+  "website_request_sent": false
+}

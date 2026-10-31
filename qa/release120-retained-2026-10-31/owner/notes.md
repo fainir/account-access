@@ -1,5 +1,9 @@
 # Build 120 on the owner Mac - 31 October 2026
 
+The AI connection was subsequently repaired and upgraded successfully; see
+[the later connection acceptance](connection-repair.md). The installation
+observations below describe the earlier state and remain useful evidence.
+
 The corrected signed updater completed successfully at 00:49 local time. The
 owner's earlier install approval was already given; no repeat approval was
 requested. The installed app is version 0.8.0, build 120.
