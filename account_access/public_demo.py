@@ -7,7 +7,7 @@ def configuration():
     sauce = "https://www.saucedemo.com"
     internet = "https://the-internet.herokuapp.com"
     duende = "https://demo.duendesoftware.com"
-    assets = [sauce + "/assets/index-D3OxT1jE.js", sauce + "/assets/index-aSZoiKGF.css"]
+    assets = [sauce + "/assets/index-DnLqFcJI.js", sauce + "/assets/index-aSZoiKGF.css"]
     accounts = {}
     for handle, user in [("sauce-standard", "standard_user"), ("sauce-problem", "problem_user"),
                          ("sauce-locked", "locked_out_user")]:

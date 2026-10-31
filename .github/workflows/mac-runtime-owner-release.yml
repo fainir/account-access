@@ -1,5 +1,8 @@
 name: Mac runtime successor owner image
 on:
+  push:
+    branches: [codex/production-security-authlib-20261028]
+    paths: [.github/workflows/mac-runtime-owner-release.yml]
   workflow_dispatch:
 permissions:
   contents: read
