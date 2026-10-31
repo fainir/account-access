@@ -14,8 +14,8 @@ Ruff on changed Python files: All checks passed!
 ```
 
 The offline cases run the actual build script with a failing fake curl, verify
-that valid pinned bytes reach Java without a network call, and require a missing
-or modified/linked dependency to refuse before compilation.
+that valid pinned bytes reach Java without a network call, and require modified
+or linked dependency bytes to refuse before compilation.
 
 A real JDK/Android SDK unsigned build then completed using a generated 0.8.0
 release manifest and `ACCOUNT_ACCESS_ANDROID_UNSIGNED_ONLY=1`. Output:
@@ -41,7 +41,19 @@ owned-window boolean provide safe failure diagnostics. Pairing/notification
 authority and production app code are unchanged. Local JDK compilation of all
 instrumentation sources against the actual 0.8 app classes and SDK 36 exits zero.
 
-Actual hosted API 30/35 journeys must still pass before this locator correction
-is accepted; this document does not substitute compilation for emulator QA.
-Publisher signing awaits the named first-identity approval, and real private
-MFA/physical pairing remain separate owner actions.
+Completed [hosted journey](https://github.com/fainir/account-access/actions/runs/41238775371)
+now passes both API 30 and API 35 on the corrected source. Read-back found exactly
+two preview artifacts and read both actual journey reports from their ZIPs
+without extracting the APKs:
+
+- API 30: status `COMPLETED`, two browser SMS verifications, notification and
+  owner-entered UI paths both pass, with no code in the agent result.
+- API 35: status `BLOCKED_AS_EXPECTED`, zero browser verifications, manual and
+  notification codes refused without association, no manual-code persistence,
+  and unrelated notifications preserve the blocked status.
+- Both reports explicitly leave positive Bluetooth pairing and physical-phone
+  delivery unqualified. Their package remains development-signed.
+
+This verifies the emulator locator correction and source build, not a
+publisher-signed physical deployment. Publisher signing awaits the named
+first-identity approval; real private MFA/physical pairing remain owner actions.
