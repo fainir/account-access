@@ -61,7 +61,12 @@ RELEASE121 = Release('121', 'e6498358b62136b0b608e83f500566e545df0f48e6b4e9c1299
     '08d8f444c65a3a3e26aa94f7ecec5e3372582973', '0f891039d12a06bde718662b4d7ef5feb1fa6b87', AFTER_SHA256,
     'a2516e260e7970d198626d77b849c578a98a232f4a2f6114e7ae0d6050cda4d2',
     'com.fainir.accountaccess.runtimejit121', 'Account-Access-Runtime-121-JIT-fix')
-RELEASES = {'120': RELEASE120, '121': RELEASE121}
+RELEASE122 = Release('122', '233c1ef31180ef7b5b738820dd8d034eea2b9202d8b749eaa752e694d9e156cc',
+    RELEASE121.after, 'b6537a7617db5a53540adca82023fdbf50ef45e9ca9e9dd1ae46dd682639832d',
+    '26b30499a2da40d66e239563a03289f8066c694e', '8ffabeac02b66ea22d80c40e40b43c4a16298442', RELEASE121.after,
+    'c66e4f0f914f5a7c91f4b8e9883f122a0374177717232983c94b58f293d43b1d',
+    'com.fainir.accountaccess.ownerconnection122', 'Account-Access-Owner-Connection-122')
+RELEASES = {'120': RELEASE120, '121': RELEASE121, '122': RELEASE122}
 
 
 def require(value: bool, reason: str) -> None:
@@ -153,7 +158,7 @@ def reviewed_ci_helper(run_id, source, destination, *, artifact_name='release-co
     metadata = json.loads(checked(['gh', 'api', '--hostname', 'github.com', base], timeout=60))
     validate_compile_run(metadata, source)
     assets = json.loads(checked(['gh', 'api', '--hostname', 'github.com', base + '/artifacts'], timeout=60))
-    require(artifact_name in {'release-compiled-updater', 'release-compiled-updater-121'},
+    require(artifact_name in {'release-compiled-updater', 'release-compiled-updater-121', 'release-compiled-updater-122'},
             'compiled_helper_artifact_invalid')
     candidates = [item for item in assets['artifacts'] if item['name'] == artifact_name]
     require(len(candidates) == 1 and candidates[0].get('expired') is False, 'compiled_helper_artifact_missing')
@@ -454,6 +459,16 @@ def verify_target_qualification(report, release, plan):
             and report.get('native_audit', {}).get('publisher_signatures_verified') is True
             and report.get('installed_paths_changed') is False and report.get('account_data_used') is False
             and report.get('jit_roles') == sorted(JIT_ROLES) and report.get('entitlements') == JIT)
+    elif release.number == '122':
+        from scripts.build_jit_update_image import JIT_ROLES
+        qualified = (report.get('base_manifest_sha256') == release.image_base
+            and report.get('manifest_sha256') == release.after
+            and report.get('owner_source_commit') == report.get('native_source_commit') == release.target_source
+            and report.get('native_dependency_bytes_unchanged') is True
+            and report.get('publisher_sandboxed_browser_execution') is True
+            and report.get('native_audit', {}).get('publisher_signatures_verified') is True
+            and report.get('jit_roles') == sorted(JIT_ROLES)
+            and report.get('installed_paths_changed') is False and report.get('account_data_used') is False)
     else:
         qualified = False
     require(common and qualified, 'target_image_qualification_mismatch')
@@ -528,7 +543,7 @@ def build(args):
     helper = scripts / "AccountAccess-runtimeupgrade"
     if getattr(args, 'compiled_run', None) is not None:
         reviewed_ci_helper(args.compiled_run, args.source, helper,
-            artifact_name='release-compiled-updater' if release.number == '120' else 'release-compiled-updater-121')
+            artifact_name='release-compiled-updater' if release.number == '120' else 'release-compiled-updater-' + release.number)
         command('compiled-helper-architecture', ['/usr/bin/lipo', '-verify_arch', 'arm64', helper])
     else:
         command("compile-updater", ["/usr/bin/xcrun", "swiftc", "-j", "2", "-O", "-whole-module-optimization",
@@ -642,7 +657,7 @@ exec "$AC_PACKAGE_SCRIPTS/AccountAccess-runtimeupgrade"
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--release', choices=['120', '121'], default='120')
+    parser.add_argument('--release', choices=['120', '121', '122'], default='120')
     parser.add_argument("--source", required=True)
     parser.add_argument('--compiled-run', type=int,
         help='Successful exact-commit release native workflow; signing still occurs only on this Mac')

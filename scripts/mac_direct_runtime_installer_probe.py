@@ -52,6 +52,10 @@ RELEASES = {
     '121': Release('121', AFTER, '0eb9a5bfab615f23f9d3d6e98f7895f7bf46e6196ef8a1e5e07115906f4d443c',
                    'e6498358b62136b0b608e83f500566e545df0f48e6b4e9c12994254b46afad67',
                    BASE.parent / 'Account Access Runtime JIT Repair', 'runtime121-installer-inputs.json', PLAN),
+    '122': Release('122', '0eb9a5bfab615f23f9d3d6e98f7895f7bf46e6196ef8a1e5e07115906f4d443c',
+                   'b6537a7617db5a53540adca82023fdbf50ef45e9ca9e9dd1ae46dd682639832d',
+                   '233c1ef31180ef7b5b738820dd8d034eea2b9202d8b749eaa752e694d9e156cc',
+                   BASE.parent / 'Account Access Owner Connection Repair', 'runtime122-installer-inputs.json', PLAN),
 }
 
 
@@ -402,7 +406,7 @@ def run(args):
         previous_root.rmdir()
         check('same_volume_support_root_replaced', BASE.stat().st_ino != roots[str(BASE)][1])
         completed_objects = None
-        if release.number == '121':
+        if release.number in {'121', '122'}:
             # Reproduce the completed build-120 root recovery and its separate
             # published namespace. The successor must preserve both verbatim.
             recovery = {'schema': 2, 'managed_by': 'account-access-installation-root-recovery-v2',
@@ -416,20 +420,27 @@ def run(args):
                 'policy_sha256': {n: digest(p.read_bytes()) for n, p in policies.items()},
                 'roots': {str(p): {'inode': p.lstat().st_ino, 'volume_uuid': volume} for p in (BASE, APP)}}
             write(BINDING / 'recovered-v2.json', recovery)
-            earlier = RELEASES['120'].transition
-            require(not os.path.lexists(earlier), 'predecessor_namespace_not_empty')
-            earlier.mkdir(mode=0o700)
-            completed = earlier / ('transition-' + release.recovery_plan)
-            completed.mkdir(mode=0o700)
-            write(earlier / 'head.json', {'schema': 1, 'managed_by': 'account-access-full-image-head-v1',
-                'plan_sha256': release.recovery_plan, 'manifest_sha256': release.before,
-                'before_manifest_sha256': RELEASES['120'].before,
-                'source_commit': 'beda6324d836458a35045ee0d2acd579238d6929',
-                'predecessor_evidence_sha256': 'c' * 64,
-                'state': 'public_image_verified_gui_unverified', 'automatic_reboot_recovery': False})
-            write(completed / 'completed-fixture.json', {'synthetic': True})
-            completed_objects = {p: (p.stat().st_ino, p.read_bytes()) for p in
-                                 [BINDING / 'recovered-v2.json', earlier / 'head.json', completed / 'completed-fixture.json']}
+            completed_objects = {BINDING / 'recovered-v2.json': (
+                (BINDING / 'recovered-v2.json').stat().st_ino, (BINDING / 'recovered-v2.json').read_bytes())}
+            for number in (['120', '121'] if release.number == '122' else ['120']):
+                historical = RELEASES[number]
+                earlier = historical.transition
+                require(not os.path.lexists(earlier), 'predecessor_namespace_not_empty')
+                earlier.mkdir(mode=0o700)
+                completed = earlier / ('transition-' + historical.plan)
+                completed.mkdir(mode=0o700)
+                write(earlier / 'head.json', {'schema': 1, 'managed_by': 'account-access-full-image-head-v1',
+                    'plan_sha256': historical.plan, 'manifest_sha256': historical.after,
+                    'before_manifest_sha256': historical.before,
+                    'source_commit': ('beda6324d836458a35045ee0d2acd579238d6929' if number == '120'
+                                      else '08d8f444c65a3a3e26aa94f7ecec5e3372582973'),
+                    'predecessor_evidence_sha256': 'c' * 64,
+                    'state': 'public_image_verified_gui_unverified', 'automatic_reboot_recovery': False})
+                # These are synthetic historical sentinels, not a fabricated
+                # claim that the previous transition ran on this empty VM.
+                write(completed / 'completed-fixture.json', {'synthetic': True})
+                completed_objects.update({p: (p.stat().st_ino, p.read_bytes()) for p in
+                                          [earlier / 'head.json', completed / 'completed-fixture.json']})
             check('completed_predecessor_recovery_and_namespace_seeded', True)
         image_matches(manifest)
         # Reproduce the owner's retained, unpublished earlier-plan preparation.
@@ -479,7 +490,7 @@ def run(args):
             head = json.loads((release.transition / 'head.json').read_bytes())
             check(attempt + '_verified_head', head['plan_sha256'] == release.plan and head['manifest_sha256'] == release.after)
             verify_live_service(command, attempt + '-live-service')
-            if release.number == '121':
+            if release.number in {'121', '122'}:
                 service_browser_check(command, args.output, attempt + '-publisher-sandboxed-browser')
                 check(attempt + '_publisher_sandboxed_browser', True)
                 check(attempt + '_completed_predecessor_history_preserved',
@@ -571,7 +582,7 @@ def fresh_run(args):
                     BASE / 'runtime/bin/python', '-I', '-B', '-c', JOSE_CHECK])
             check(attempt + '_patched_dependency_guard', True)
             verify_live_service(command, attempt + '-live-service')
-            if release.number == '121':
+            if release.number in {'121', '122'}:
                 service_browser_check(command, args.output, attempt + '-publisher-sandboxed-browser')
                 check(attempt + '_publisher_sandboxed_browser', True)
             # Only this just-created fixture app can exist in this empty VM.
@@ -606,5 +617,5 @@ if __name__ == '__main__':
     parser.add_argument('--inputs', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--mode', choices=['upgrade', 'fresh'], default='upgrade')
-    parser.add_argument('--release', choices=['120', '121'], default='120')
+    parser.add_argument('--release', choices=['120', '121', '122'], default='120')
     run(parser.parse_args())

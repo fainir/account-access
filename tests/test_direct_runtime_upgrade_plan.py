@@ -23,6 +23,33 @@ def test_compiled_helper_rejects_other_sources_or_workflows(field, value):
         candidate.validate_compile_run(metadata, 'a' * 40)
 
 
+@pytest.mark.parametrize('change', ['owner-source', 'broker-source', 'dependency-change', 'numeric-proof', 'image'])
+def test_owner_connection_image_requires_matching_native_source_and_unchanged_dependencies(change):
+    from scripts.build_jit_update_image import JIT_ROLES
+    release = candidate.RELEASE122
+    report = {'status': 'TARGET_IMAGE_QUALIFIED', 'owner_app_build': 122, 'source_image_build': 121,
+              'builder_commit': release.image_builder, 'target_source_commit': release.target_source,
+              'owner_source_commit': release.target_source, 'native_source_commit': release.target_source,
+              'project_wheel_sha256': 'a' * 64, 'base_manifest_sha256': release.before,
+              'manifest_sha256': release.after, 'native_dependency_bytes_unchanged': True,
+              'publisher_sandboxed_browser_execution': True,
+              'native_audit': {'publisher_signatures_verified': True}, 'jit_roles': sorted(JIT_ROLES),
+              'installed_paths_changed': False, 'account_data_used': False}
+    candidate.verify_target_qualification(report, release, {'project_wheel_sha256': 'a' * 64})
+    if change == 'owner-source':
+        report['owner_source_commit'] = 'b' * 40
+    elif change == 'broker-source':
+        report['native_source_commit'] = 'b' * 40
+    elif change == 'dependency-change':
+        report['native_dependency_bytes_unchanged'] = False
+    elif change == 'numeric-proof':
+        report['native_dependency_bytes_unchanged'] = 1
+    else:
+        report['manifest_sha256'] = release.before
+    with pytest.raises(ValueError, match='target_image_qualification_mismatch'):
+        candidate.verify_target_qualification(report, release, {'project_wheel_sha256': 'a' * 64})
+
+
 def test_jose_patch_replaces_package_and_both_versioned_metadata_trees():
     package, old_info, new_info = plan.DIRECT_TREES[-3:]
     old = {'': {'kind': 'directory', 'mode': 0o755},

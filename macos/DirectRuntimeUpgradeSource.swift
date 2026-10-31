@@ -36,7 +36,11 @@ struct DirectRuntimeUpgradeSource: PublicImageTransitionSource {
         .init(pins: .init(planSHA256: FullImageFileOperation.jitRuntimePlanSHA256,
                          beforeSHA256: afterSHA256,
                          afterSHA256: "0eb9a5bfab615f23f9d3d6e98f7895f7bf46e6196ef8a1e5e07115906f4d443c",
-                         targetSourceCommit: "08d8f444c65a3a3e26aa94f7ecec5e3372582973"), namespace: .runtimeJITRepair)
+                         targetSourceCommit: "08d8f444c65a3a3e26aa94f7ecec5e3372582973"), namespace: .runtimeJITRepair),
+        .init(pins: .init(planSHA256: FullImageFileOperation.ownerConnectionPlanSHA256,
+                         beforeSHA256: "0eb9a5bfab615f23f9d3d6e98f7895f7bf46e6196ef8a1e5e07115906f4d443c",
+                         afterSHA256: "b6537a7617db5a53540adca82023fdbf50ef45e9ca9e9dd1ae46dd682639832d",
+                         targetSourceCommit: "26b30499a2da40d66e239563a03289f8066c694e"), namespace: .ownerConnectionRepair)
     ]
     static func release(_ pins: Pins) throws -> Release {
         guard let value = releases.first(where: { $0.matches(pins) }) else { throw Refused(line: #line) }

@@ -53,6 +53,7 @@ enum FullImageFileUnit: String, Codable, CaseIterable {
 struct FullImageFileOperation: Codable, Equatable {
     static let directRuntimePlanSHA256 = "7949dee76094337190bd9efa31b7e09fc478bf62a3bbdfd44824cc9ba3f3d58b"
     static let jitRuntimePlanSHA256 = "e6498358b62136b0b608e83f500566e545df0f48e6b4e9c12994254b46afad67"
+    static let ownerConnectionPlanSHA256 = "233c1ef31180ef7b5b738820dd8d034eea2b9202d8b749eaa752e694d9e156cc"
     let schema: Int
     let unit: FullImageFileUnit
     let planSHA256: String
@@ -65,7 +66,7 @@ struct FullImageFileOperation: Codable, Equatable {
     var path: String { unit == .directPublicFile ? (directPath ?? "") : unit.path }
     var mode: UInt16 { unit == .directPublicFile ? (directMode ?? 0) : unit.mode }
     func validate(ownerDevice: Int32) throws {
-        let directPlan = [Self.directRuntimePlanSHA256, Self.jitRuntimePlanSHA256].contains(planSHA256)
+        let directPlan = [Self.directRuntimePlanSHA256, Self.jitRuntimePlanSHA256, Self.ownerConnectionPlanSHA256].contains(planSHA256)
         guard schema == 1, FullImageJSON.hex(planSHA256), (0..<(directPlan ? 256 : 64)).contains(index),
               before != nil || after != nil, before != after else { throw FullImageFailure.journal }
         if unit == .directPublicFile {

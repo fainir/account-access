@@ -2,13 +2,13 @@ name: Direct runtime root recovery Installer acceptance
 on:
   push:
     branches: [codex/production-security-authlib-20261028]
-    paths: [artifacts/direct-runtime-root-recovery-inputs.json, artifacts/runtime121-installer-inputs.json]
+    paths: [artifacts/direct-runtime-root-recovery-inputs.json, artifacts/runtime121-installer-inputs.json, artifacts/runtime122-installer-inputs.json]
   workflow_dispatch:
     inputs:
       release:
         type: choice
-        options: ['121', '120']
-        default: '121'
+        options: ['122', '121', '120']
+        default: '122'
         description: Exact pinned release to exercise
       journey:
         type: choice
@@ -16,7 +16,7 @@ on:
         default: 'both'
         description: Installer journey to exercise
 env:
-  AC_RELEASE: ${{ inputs.release || '121' }}
+  AC_RELEASE: ${{ inputs.release || '122' }}
 permissions:
   contents: read
 jobs:
@@ -33,11 +33,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir "$RUNNER_TEMP/direct-inputs"
-          AC_RELEASE_TAG=$(python3 -c 'import json,os; names={"120":"direct-runtime-root-recovery-inputs.json","121":"runtime121-installer-inputs.json"}; print(json.load(open("artifacts/"+names[os.environ["AC_RELEASE"]]))["release_tag"])')
+          AC_RELEASE_TAG=$(python3 -c 'import json,os; names={"120":"direct-runtime-root-recovery-inputs.json","121":"runtime121-installer-inputs.json","122":"runtime122-installer-inputs.json"}; print(json.load(open("artifacts/"+names[os.environ["AC_RELEASE"]]))["release_tag"])')
           gh release download "$AC_RELEASE_TAG" --repo fainir/account-access --pattern baseline.tar.gz --pattern candidate.pkg --pattern fresh.pkg --dir "$RUNNER_TEMP/direct-inputs"
           python3 - "$RUNNER_TEMP/direct-inputs" <<'PY'
           import hashlib, json, os, pathlib, sys
-          names = {'120': 'direct-runtime-root-recovery-inputs.json', '121': 'runtime121-installer-inputs.json'}
+          names = {'120': 'direct-runtime-root-recovery-inputs.json', '121': 'runtime121-installer-inputs.json', '122': 'runtime122-installer-inputs.json'}
           contract = json.loads((pathlib.Path('artifacts') / names[os.environ['AC_RELEASE']]).read_bytes())
           for name, pin in contract['assets'].items():
               path = pathlib.Path(sys.argv[1]) / name
