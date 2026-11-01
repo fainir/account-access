@@ -11,7 +11,12 @@ paused live Namecheap account and connected public shopping example. Browser
 status was READY; recovery was RUNNING with zero failures. No private operation
 was submitted and no credential, code or seed was read.
 
-F5 remains owner acceptance. The already-staged action needs the owner's existing
-Read the Docs credentials entered only in the native form and **Connect account**.
-The checked permission alone does not verify connection or a TOTP login. If the
-owner does not own this account, no signup is requested.
+At 09:56 Asia/Jerusalem the owner said they do not know Read the Docs. The
+unsuitable request is withdrawn. A fresh native observation still showed empty
+credentials and disabled Connect account; navigation back to **Accounts** showed
+only the paused Namecheap and connected public example. No account was saved
+and no credential, seed or code was entered.
+
+F5 remains unverified personal acceptance. Do not repeat this request, substitute
+another assumed account or request signup. Continue only when an existing
+supported TOTP account is chosen by its owner; any setup stays in native UI.
