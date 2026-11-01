@@ -12,32 +12,36 @@ Access automatically when relevant, without a slash command or an MCP server.
 Codex and Claude Code have been exercised; other local agents can load the same
 skill or use the CLI.
 
-**Public download: 0.7.4 preview. Qualified Mac candidate: 0.8.0 build 122.**
-The candidate is installed on the owner Mac. Its signed/notarized packages passed
-actual fresh install, repair, upgrade and reapply; the protected browser worker
-is READY. Both installed Codex and Claude launchers completed the authorized
-public example, returning only six product names/prices. [Acceptance evidence](qa/release122-2026-10-31/acceptance.md).
+**Public download: 0.7.4 preview. Qualified Mac candidate: 0.8.0 build 123.**
+The signed/notarized build-123 packages passed actual fresh install, repair,
+upgrade and reapply on macOS 14.8.9, 15.8.2 and 26.6.2 arm64. Current-source CI
+passes 4,656 tests, Ruff/audit and native checks; all 18 Mac worker reports pass.
+[Build-123 acceptance](qa/release123-2026-11-01/acceptance.md).
 
-The public example does not validate a private website account. Real private
-email/SMS/TOTP sign-in and physical Android acceptance remain owner steps. The
-Android 0.8.0 APK is publisher-signed with native Mac Keychain custody and passes
-[actual emulator acceptance](qa/gates/android-publisher-acceptance-2026-10-31.md).
+The owner Mac has build 123 installed. After a confirmed full OS restart, its
+protected worker is READY and both installed Codex/Claude launchers returned six
+approved public product names/prices. The saved vault and recovery directory
+identities and permissions are preserved. That example does not validate a private account.
+Build 123 adds a reviewed Betterloop connector returning only sign-in status;
+its real private acceptance and email/SMS/TOTP personal acceptance remain open.
+
+The Android 0.8.0 APK is publisher-signed with native Mac Keychain custody and
+passes [actual emulator acceptance](qa/gates/android-publisher-acceptance-2026-10-31.md).
+Physical-phone delivery remains unqualified; no phone is currently connected.
 The publisher approved the complete privacy notice and terms on 1 November
-2026; the remaining acceptance checks still gate public release. The existing mailbox
-has already passed its connection check. Namecheap remains paused at its
-unrecognized challenge; Harel and Phoenix are outside v1 support. Portable
-protected-vault backup is also outside v1. See [the current production ledger](READINESS.md).
+2026. Publication remains gated by the recorded acceptance checks. Namecheap
+stays paused; Harel, Phoenix and portable protected-vault backup are outside v1.
+See [the current production ledger](READINESS.md).
 
-The [customer release draft](docs/mac-release-candidate.md) identifies the full
-installer, exact build-121 updater and matching third-party source download.
-Its assets remain unpublished while the recorded acceptance and approvals finish.
-
-The candidate's [data-handling disclosure](docs/data-handling.md) explains local
-storage, provider/AI recipients, Android permissions and retention/removal limits.
+The [customer release draft](docs/mac-release-candidate.md) identifies the current
+build-123 full installer, exact legacy predecessor updates and matching third-party
+source. Earlier build-122 assets remain explicitly labeled legacy. Nothing has
+been published from this draft. The [data-handling disclosure](docs/data-handling.md)
+explains storage, provider/AI recipients, permissions and retention/removal limits.
 
 Websites need reviewed connectors; importing a password does not add arbitrary
-website support. The Mac candidate targets **Apple silicon and macOS 14 or
-later**. It remains a draft release and is not the preview download below. macOS 14.8.9, 15 and 26 Installer journeys pass, and the real owner worker passes on 27.2; see D4 in the ledger.
+website support. The Mac candidate targets **Apple silicon and macOS 14 or later**
+and remains separate from the public preview download below.
 
 ![Account Access dashboard](docs/account-dashboard.png)
 
@@ -80,7 +84,7 @@ must be awake and its secure keyring available. If you pause access, reopen the
 app to resume it.
 
 The built-in catalog includes public SauceDemo and The Internet test accounts.
-The 0.8 candidate also includes narrow Namecheap, PyPI and Read the Docs
+The 0.8 candidate also includes narrow Betterloop, Namecheap, PyPI and Read the Docs
 Community pilots; private acceptance is unfinished. Read the Docs requires a
 locally enrolled authenticator and permits only checking the signed-in username.
 PyPI supports the reviewed password/authenticator

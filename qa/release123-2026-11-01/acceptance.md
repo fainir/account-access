@@ -3,7 +3,7 @@
 Build 123 adds the reviewed Betterloop session-status connector. The only runtime
 Python module changed from the qualified build-122 image is `catalog.py`.
 There is no private sign-in, MFA delivery, saved credential or new grant yet.
-The installed owner Mac remains on build 122 until its separate native update.
+Build 123 is now installed on the owner Mac, with post-reboot acceptance below.
 
 ## Completed native and package checks
 
@@ -54,10 +54,62 @@ classification/form/connector cases pass; the Mac worker workflow now includes
 Betterloop's guarded multipart/refusal cases. Runtime bytes did not change and
 neither installer was rebuilt for this test-only correction.
 
-## Remaining
+## Completed signed Installer and source regression
 
-Actual fresh/repair and upgrade/reapply on disposable Macs, corrected complete
-source CI and owner-Mac installation remain open. Do not treat signature,
-notarization or fixture reports as completed installation or private acceptance.
-The customer 0.8.0 draft remains the older build-122 candidate until its successor
-is qualified. No Android signing, upload, phone installation or publication.
+Actual signed-package fresh/repair and upgrade/reapply pass on all three
+Apple silicon test systems: [macOS 14.8.9](https://github.com/fainir/account-access/actions/runs/41291378897),
+[macOS 15.8.2](https://github.com/fainir/account-access/actions/runs/41291108135),
+and [macOS 26.6.2](https://github.com/fainir/account-access/actions/runs/41291389080).
+All six report artifacts were read: 11 fresh/repair and 27 upgrade/reapply checks
+on each OS, 114 checks total. Each verifies build 123, live signed browser
+execution, the patched dependency guard, private sentinel/receipt preservation,
+and exact retention of earlier 120/121/122 recovery histories after update/reapply.
+The fixtures contain no personal account and stop their created job afterward.
+
+The [corrected complete regression](https://github.com/fainir/account-access/actions/runs/41291108144)
+passes **4,656 tests with 113 skips**, Ruff, dependency audit (no known
+vulnerabilities), native owner UI, gateway and updater checks.
+Source/binary code is unchanged by the fixture correction.
+Real private Betterloop acceptance remains open. Do not treat signature,
+notarization or fixture reports as private acceptance.
+The qualified build-123 files are staged in the existing unpublished
+customer draft. Earlier build-122 artifacts remain explicitly labeled legacy;
+no asset deletion or publication is required for this handoff. No Android signing, upload, phone installation or publication.
+
+Before requesting the owner update, seven existing directory/alias identities
+were captured in [the owner installation log](owner-installed.log), using only
+metadata. No private file or configuration was opened. The app was build 122
+at that capture and is now build 123.
+
+The [completed current-source Mac worker run](https://github.com/fainir/account-access/actions/runs/41291108214)
+was read back: all 18 report files are PASSED and all 426 check values are true.
+This includes [16 offline-package checks](account-access-mac-package.json) and
+[23 prepared-package checks](account-access-mac-prepared-package.json), with
+`prepared_runtime_executed: true`. They are controlled development fixtures;
+the separate three-OS signed-package reports establish publisher Installer acceptance.
+
+## Installed owner Mac after full OS restart
+
+The owner reported installation and restart. Independent read-back confirms
+app version 0.8.0/build 123. The kernel boot time is 1 November at 11:38:37
+Asia/Jerusalem, after the pre-install log was created at 11:20:14. This verifies
+an actual OS restart, not only a service restart.
+
+All seven captured directory/alias inode identities, modes, users and groups
+remain unchanged. Device numbers changed consistently after the reboot/remount.
+The vault and prior recovery directories were inspected by metadata only.
+The installed owner wheel and public runtime catalog match the qualified
+build-123 image byte for byte, including the reviewed Betterloop connector.
+
+Normal installed discovery reports browser READY, recovery RUNNING and zero
+failures. Both installed launchers, Codex and Claude Code, completed the existing
+approved public-example inventory operation: six items each, names/prices only.
+The private Namecheap account remains paused and was not retried.
+[Actual installed observations](owner-installed.log).
+
+The post-restart native GUI handoff could not be observed because the configured
+computer-use RPC is unavailable in this session. No UI success or staged
+credential form is claimed. No private Betterloop account, credential or new
+grant was used. Restore supported native UI control before staging an existing
+account's local connection; browsing history alone does not establish ownership.
+Private email/TOTP and physical-phone acceptance remain the ledger's owner rows.

@@ -33,9 +33,12 @@ among runtime Python modules, with no added/removed runtime module.
 
 ## Installed acceptance remains open
 
-The installed app is still build 122 and has no Betterloop entry. A matching
-successor, signature/notarization and exact predecessor update acceptance must
-finish before asking the owner to connect Betterloop locally. No private login,
+The signed/notarized successor and exact predecessor update now pass, including
+actual owner-Mac build-123 installation and public-example checks after a full
+OS restart. Its installed owner wheel and runtime catalog match the qualified
+image and include Betterloop. [Installed acceptance](../release123-2026-11-01/acceptance.md).
+Native UI control is currently unavailable, so no local credential form is staged.
+An owner-recognized existing account still needs local connection. No private login,
 new grant, saved credential, production release or real MFA success is claimed.
 Do not use the Chrome login page as a substitute for installed Account Access.
 No raw browsing history or history URLs are retained in this evidence.
@@ -55,4 +58,5 @@ namespace and retains the previous 120, 121 and 122 recovery histories.
 The release/packaging tests pass 168 cases with one platform skip; the focused
 frozen-source/catalog/contract run passes 82 cases. Those sets overlap; they are
 not an additional 250 distinct checks. Ruff and frozen-input validation pass.
-Actual native contract qualification and signed Installer acceptance remain next.
+Actual native contract qualification and signed Installer acceptance now pass;
+the completed reports are linked in the build-123 acceptance above.

@@ -1,74 +1,47 @@
 # Customer release handoff - 1 November 2026
 
-Publisher approval has since completed: see [approval and next action](publisher-approval-2026-11-01.md). The staged-review section below records the preparation, not a new pending approval.
+The current candidate is build 123. Its [signed-package and source acceptance](../release123-2026-11-01/acceptance.md)
+passes on macOS 14.8.9, 15.8.2 and 26.6.2 arm64. Current-source CI passes 4,656
+tests, Ruff/audit/native checks, and all 18 Mac worker reports pass 426 checks.
+The owner Mac now has build 123 installed. Protected-service health, qualified
+runtime/catalog bytes and both approved public-example launcher reads pass
+after a confirmed full OS restart, with all seven original directory/alias
+inode identities, permissions and ownership preserved.
 
-## Verified this session
+## Actual customer draft read-back
 
-The normal installed Account Access launcher reports service 0.8.0, browser
-READY, recovery RUNNING, zero consecutive/total failures. Installed app plist
-reads version 0.8.0/build 122. Discovery only was performed: the authorized
-public example retains saved access, and private Namecheap remains paused with
-needs_attention. No private read, new enrollment or code retrieval was attempted.
+The existing 0.8.0 draft now has **five complete assets**, with qualified current
+files and explicit legacy labels. No earlier asset was deleted or overwritten.
+Exact server bytes/digests match the qualified inputs, and server notes match
+[the prepared notes](../../docs/mac-release-candidate.md). The release remains
+`isDraft: true`, `publishedAt: null`, targeting qualified source commit
+`e3aaa9e6272bb810cf5519536ed4a652b13fa2da`.
 
-Created a separate [0.8.0 customer release draft](https://github.com/fainir/account-access/releases/tag/untagged-ad01a66db9f16a147682),
-reusing the unchanged qualified packages. The original build-122 QA release and
-its four pinned assets remain intact for the dated macOS 14 check. No installer
-was rebuilt and no Android APK was uploaded.
-
-Actual GitHub release read-back confirms `isDraft: true`, `publishedAt: null`,
-target commit `13c5621ae436bdbe36ebab64f963d1ec52021a8e`, and exactly three
-completed assets. This source target includes the current customer instructions;
-the privacy/terms are unchanged from the exact reviewed revisions. Each server-reported digest and byte count matches its local
-qualified input:
-
-| Customer download | Bytes | Purpose |
+| Download | Bytes | Purpose |
 |---|---:|---|
-| Account-Access-0.8.0-Mac-arm64.pkg | 289,330,711 | Clean Mac installation or qualified identical-image repair |
-| Account-Access-0.8.0-update-from-build121.pkg | 5,813,686 | Exact protected build-121-to-122 update only |
-| account-access-bitwarden-2026.10.0-corresponding-source.tar.gz | 219,117,936 | Adjacent third-party source download at no additional charge |
+| Account-Access-0.8.0-build123-Mac-arm64.pkg | 289,327,752 | Current clean install or qualified identical-image repair |
+| Account-Access-0.8.0-update-from-build122.pkg | 6,072,318 | Exact qualified legacy protected 122-to-123 update |
+| Account-Access-0.8.0-update-from-build121.pkg | 5,813,686 | Legacy 121-to-122 bridge, followed by the current updater |
+| Account-Access-0.8.0-Mac-arm64.pkg | 289,330,711 | Earlier build-122 full installer, explicitly labeled legacy |
+| account-access-bitwarden-2026.10.0-corresponding-source.tar.gz | 219,117,936 | Required unchanged matching third-party source, no additional charge |
 
-The existing `macos.bitwarden_runtime.source_bundle` verifier passed against
-the actual archive. Its digest matches both build-122 runtime manifests and
-their required source asset. This technical read-back is not an independent
-legal audit; existing source-review scope limits remain unchanged.
+Current draft: https://github.com/fainir/account-access/releases/tag/untagged-728152bbd8832eb5491b
 
-The exact release notes were read back from GitHub and matched
-[the prepared notes](../../docs/mac-release-candidate.md). The real Chrome page
-shows Draft, the two installer choices, an adjacent no-additional-charge source
-link, and Assets 3. Future public download URLs are explicitly documented as
-unavailable until publication; no successful public download is claimed.
+The current image changes only the runtime catalog module and related package/
+owner metadata. Dependency/JIT and Bitwarden program/source bytes are unchanged.
+Existing third-party source verification remains valid. No independent legal
+certification or successful public download is claimed.
 
-README and Mac distribution notes now correctly record completed Android
-signing/Keychain custody and emulator acceptance. They retain the physical and
-private MFA limits and point to the customer package/source instructions.
+## Remaining owner acceptance
 
-## One staged publisher action
+The complete privacy notice and terms were approved on 1 November; do not ask
+again for the unchanged bodies. Store listing copy remains proposed. Native
+installation is complete; personal connection acceptance remains. No new
+credential handoff is staged while native UI control is unavailable.
+No unfamiliar-service signup, password/code in chat, Play upload or phone action.
 
-The exact complete [privacy notice](https://github.com/fainir/account-access/blob/7903cafa50d1510dd56011e5450b48df415aca7a/docs/privacy.md)
-and [terms](https://github.com/fainir/account-access/blob/7903cafa50d1510dd56011e5450b48df415aca7a/docs/terms.md)
-are open in two owner Chrome review tabs and retained as handoffs. Both visible
-pages show version 0.8.0, draft status, Nir Fainshtein, עוסק פטור and the selected
-support/privacy contact. [Staged terms screen](publisher-terms-review-2026-11-01.png).
-
-The owner is asked once to approve using those two documents for the 0.8.0
-public release, at no fee. The documents remain drafts until that response;
-no acceptance is inferred from the request to finish the product. The existing
-owner-actions skill reserves statements in the owner's own name for the owner.
-Physical/private MFA and the existing paused Namecheap challenge remain
-separate. No phone action is requested after the owner chose emulator testing.
-
-## Next check and cleanup
-
-The macOS 14 check completed on 1 November after the owner requested continuation.
-Both unchanged-package reports pass on actual macOS 14.8.9 arm64: 11 fresh/repair
-and 27 upgrade/reapply checks. [Actual acceptance](../release122-2026-10-31/acceptance.md).
-The completed follow-up was deleted through the automation tool and its saved
-configuration is absent. No noon retry is needed.
-
-The stopped disposable API 35 AVD and the emulator/system image restored for
-its completed tests were more than 30 minutes old, outside the keep list, and
-had no open files. Removed only those test dependencies through avdmanager and
-sdkmanager. SDK build tools/ADB, final APK/report, private publisher identity,
-Mac packages/source and linked QA screenshots were preserved. The customer
-asset aliases use APFS clones, so no new binary build or full duplicate payload
-was needed.
+The earlier macOS 14 follow-up was deleted when that check passed. The new hourly
+release-acceptance follow-up was deleted through the app tool after the installed checks completed.
+No personal-enrollment polling remains.
+Final installers, matching source and linked QA evidence are retained; temporary
+package-assembly copies were removed automatically by their builders.

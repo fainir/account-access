@@ -2,20 +2,25 @@
 
 This is a native installer and owner interface for macOS 14 (Sonoma) or later.
 
-**Current owner-Mac status (31 October):** Account Access 0.8.0 build 122 is
-installed. The protected worker reports browser READY and background recovery
-RUNNING with zero failures. Both installed AI launchers completed the approved
-public example, returning only product names and prices. The native app shows
-Automatic and Example connected. Private Namecheap remains paused; no private
-website sign-in is claimed.
+**Current owner-Mac status (1 November):** Account Access 0.8.0 build 123
+is installed. After a confirmed full OS restart, browser READY, recovery RUNNING
+with zero failures and both approved public example reads pass. The installed
+owner wheel and runtime catalog match the qualified build-123 image. No successful
+private website sign-in is claimed.
 
-The signed, notarized, stapled and Gatekeeper-accepted packages passed actual
-macOS 15 and 26 fresh install/repair and exact upgrade/reapply. The owner update and
-final reapplication preserved the private vault, installation binding and both
-earlier recovery namespaces. A real enrolled-service restart qualified the
-bounded wait through launchd's measured SIGTERMed state. No full OS reboot was
-performed. Actual fresh/repair and upgrade/reapply also passed on macOS 14.8.9 arm64 on 1 November; its minimum deployment target is now qualified by execution. [Current acceptance and limits](../qa/release122-2026-10-31/acceptance.md).
+The signed/notarized/stapled build-123 packages pass actual fresh/repair and
+exact upgrade/reapply on macOS 14.8.9, 15.8.2 and 26.6.2 arm64. All 114 checks
+verify browser execution, patched dependency guards and data/receipt/earlier-
+history preservation. Current-source regression passes 4,656 tests, lint/audit
+and native checks; 18 Mac worker reports pass all 426 checks. Build 123 adds the
+reviewed Betterloop session-status connector. [Current acceptance and remaining
+owner steps](../qa/release123-2026-11-01/acceptance.md).
 
+The build-123 update and subsequent OS restart preserve all seven recorded
+directory/alias inode identities, modes and ownership, including the vault,
+installation binding and earlier recovery namespaces. Device numbers changed
+with the reboot/remount. Only metadata and public program files were read.
+Earlier build-122 acceptance qualified the measured SIGTERMed wait.
 Use the fresh package only for a clean installation or identical-image repair.
 An installed predecessor needs its separately qualified exact updater. Never
 apply an older full package over an existing protected image or retry a package
