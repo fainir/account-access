@@ -1,4 +1,4 @@
-"""Prepare a private build-121 copy as the matching build-122 owner/broker image.
+"""Prepare a matching owner/broker successor from one exact public predecessor.
 
 No installed paths or account data are accessed. Existing JIT/native dependency
 bytes stay fixed; only the reviewed project wheel, owner and native helpers are
@@ -26,9 +26,14 @@ from scripts.build_direct_runtime_target_image import replace_project_wheel
 from scripts.build_jit_update_image import CHROME, IDENTITY, JIT_ROLES, NODE, PLAYWRIGHT, SUPPORT, require, sha
 
 BASE_SHA256 = '0eb9a5bfab615f23f9d3d6e98f7895f7bf46e6196ef8a1e5e07115906f4d443c'
+RELEASES = {'122': (121, 122, BASE_SHA256),
+            '123': (122, 123, 'b6537a7617db5a53540adca82023fdbf50ef45e9ca9e9dd1ae46dd682639832d')}
 
 
 def build(args):
+    release = getattr(args, 'release', '122')
+    require(type(release) is str and release in RELEASES, 'unsupported_image_release')
+    before_build, target_build, base_sha256 = RELEASES[release]
     require(sys.platform == 'darwin' and os.getuid() == os.geteuid() != 0, 'ordinary_mac_required')
     repository = Path(__file__).resolve().parents[1]
     root = args.image.absolute()
@@ -40,8 +45,8 @@ def build(args):
     require(subprocess.run(['git', 'diff', '--quiet', args.source, revision, '--', 'account_access', 'macos'],
                            cwd=repository).returncode == 0, 'target_program_source_changed')
     require(not subprocess.check_output(['git', 'status', '--porcelain'], cwd=repository).strip(), 'source_tree_not_clean')
-    require(hashlib.sha256(manifest(root, '0.8.0', 'arm64')).hexdigest() == BASE_SHA256,
-            'exact_build121_image_required')
+    require(hashlib.sha256(manifest(root, '0.8.0', 'arm64')).hexdigest() == base_sha256,
+            'exact_predecessor_image_required')
     payload = root / SUPPORT
     prep_path = payload / 'runtime-preparation.json'
     prep = json.loads(prep_path.read_bytes())
@@ -70,9 +75,9 @@ def build(args):
 
     source_app = args.owner_app
     info = plistlib.loads((source_app / 'Contents/Info.plist').read_bytes())
-    require(not source_app.is_symlink() and info['CFBundleVersion'] == '122'
+    require(not source_app.is_symlink() and info['CFBundleVersion'] == str(target_build)
             and info['AccountAccessWheelSHA256'] == project_sha
-            and info.get('AccountAccessSystemInstallationRequired') is True, 'bound_owner_build122_required')
+            and info.get('AccountAccessSystemInstallationRequired') is True, 'bound_owner_successor_required')
     app = payload / 'owner.app'
     shutil.rmtree(app)  # Only this verified invocation-owned public build copy.
     shutil.copytree(source_app, app, symlinks=True)
@@ -122,8 +127,8 @@ def build(args):
     require(result.stdout.strip() == b'SIGNED_OFFLINE_BROWSER_READY', 'signed_browser_probe_failed')
     raw_manifest = manifest(root, '0.8.0', 'arm64')
     args.manifest_output.write_bytes(raw_manifest)
-    report = {'status': 'TARGET_IMAGE_QUALIFIED', 'owner_app_build': 122, 'source_image_build': 121,
-              'base_manifest_sha256': BASE_SHA256, 'manifest_sha256': hashlib.sha256(raw_manifest).hexdigest(),
+    report = {'status': 'TARGET_IMAGE_QUALIFIED', 'owner_app_build': target_build, 'source_image_build': before_build,
+              'base_manifest_sha256': base_sha256, 'manifest_sha256': hashlib.sha256(raw_manifest).hexdigest(),
               'builder_commit': revision, 'target_source_commit': args.source,
               'owner_source_commit': args.owner_source, 'native_source_commit': args.native_source,
               'project_wheel_sha256': project_sha, 'native_audit': audit,
@@ -136,6 +141,7 @@ def build(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--release', choices=['122', '123'], default='122')
     for name in ['image', 'owner-app', 'native', 'project-wheel', 'manifest-output', 'report']:
         parser.add_argument('--' + name, type=Path, required=True)
     for name in ['source', 'owner-source', 'native-source']:

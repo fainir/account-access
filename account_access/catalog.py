@@ -24,6 +24,32 @@ RTD_READY = (".ui.top.right.pointing.wide.dropdown .wide.menu > .header"
              ":has(+ a[href='/accounts/edit/'])")
 RTD_USERNAME = ("#edit-content .ui.centered.card > .content > .meta code, "
                 "#edit-content .ui.centered.card > .content:not(:has(> .meta code)) > .header")
+BETTERLOOP_ACCOUNT = "personal-betterloop"
+BETTERLOOP_ROOT = "https://betterloopai.com"
+BETTERLOOP_READY = ("header nav[aria-label='Account']:has(a[href='/app/account']) "
+                    "form > button:has-text('Log out')")
+
+
+def betterloop():
+    """Native-form password connector returning only authenticated session status.
+
+    No page text, project identifiers, keys, billing or account actions are
+    operations. JavaScript stays disabled; only /login accepts a POST.
+    """
+    login = BETTERLOOP_ROOT + "/login"
+    return BrowserAccount(
+        kind="browser", label="Betterloop", login_url=login,
+        ready_selector=BETTERLOOP_READY,
+        login=LoginForm(username_selector="main form #email[name='email'][type='email']",
+                        password_selector="main form #password[name='password'][type='password']",
+                        submit_selector=("main form:has(#password) button[type='submit']:not([form])"
+                                         ":not([formaction]):not([formmethod]):not([formenctype])")),
+        challenge_selectors={"login": "main form #password[name='password'][type='password']"},
+        read_resources=[login],
+        login_resources=[BETTERLOOP_ROOT + "/app"],
+        login_post_urls=[login],
+        operations={"status": BrowserOperation(url=BETTERLOOP_ROOT + "/app/account",
+            description="Confirm your Betterloop sign-in status", session_only=True)})
 
 
 def pypi():
@@ -164,6 +190,7 @@ def entries():
     result["personal-namecheap"] = namecheap()
     result[PYPI_ACCOUNT] = pypi()
     result[RTD_ACCOUNT] = readthedocs()
+    result[BETTERLOOP_ACCOUNT] = betterloop()
     return result
 
 
