@@ -62,7 +62,7 @@ jobs:
       - name: Check exact-item password sync, source containment and owner setup
         run: uv run pytest -q tests/test_bitwarden_cleanup.py tests/test_bitwarden_source.py tests/test_bitwarden_runtime.py tests/test_bitwarden_sources.py tests/test_bitwarden_notices.py tests/test_bitwarden_sync_ui.py tests/test_password_import_sync_hint.py tests/test_owner_bitwarden_source.py tests/test_bitwarden_device_email.py tests/test_bitwarden_journey.py tests/test_bitwarden_browser_revocation.py
       - name: Check reviewed website imports and native form destinations
-        run: uv run pytest -q tests/test_readthedocs.py tests/test_native_form_target.py tests/test_account_context.py
+        run: uv run pytest -q tests/test_betterloop.py tests/test_readthedocs.py tests/test_native_form_target.py tests/test_account_context.py
       - name: Compile and check the permanent identity-drop launcher
         run: |
           for AC_BOOTSTRAP_ARCH in arm64 x86_64; do
