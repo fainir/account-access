@@ -22,4 +22,18 @@ The native Verification screen also reports an existing mailbox with its last co
 
 Final compatibility read-back: the unchanged packages also pass [all four actual Installer journeys on macOS 26.6.2 arm64](https://github.com/fainir/account-access/actions/runs/41224876706). [Fresh/repair](macos26-fresh.json) records eleven checks; [upgrade/reapply](macos26-upgrade.json) records twenty-seven. The real owner Mac is macOS 27.2. [Current Mac cross-user CI](https://github.com/fainir/account-access/actions/runs/41222791525) and [Android CI](https://github.com/fainir/account-access/actions/runs/41222791409) passed.
 
-macOS 14 did not execute: GitHub cancelled both jobs before VM creation during a scheduled runner brownout. [Actual provider wait and next check](macos14-runner-wait.md). It remains unqualified; the existing stable follow-up is active daily at noon for one retry outside the published outage, then pauses on success or records a test-host action after retirement. No further public sign-in, export, AI enrollment or completed repair approval is needed.
+The earlier macOS 14 runner outage is resolved. On 1 November the same packages
+passed [actual macOS 14.8.9 arm64 execution](https://github.com/fainir/account-access/actions/runs/41286876216).
+Both completed result artifacts were read: [fresh/repair](macos14-fresh-result/report.json)
+records 11 checks; [upgrade/reapply](macos14-upgrade-result/report.json) records 27.
+They confirm publisher-signed sandboxed browser execution under the service identity,
+patched dependency checks and preserved vault/receipts/earlier histories. Both
+fixture jobs stopped their created service. They used zero personal accounts and
+retain `production_ready: false`; installer qualification does not prove private MFA.
+The completed follow-up was deleted through the automation tool and its config is
+absent. No further public sign-in, export, AI enrollment or completed repair approval is needed.
+
+On 1 November both installed Codex and Claude launchers again completed
+`personal-store inventory`: six public-example product names/prices each. Installed
+discovery reports browser READY, recovery RUNNING and zero failures; Namecheap
+remains paused. These public results do not close private-provider acceptance.

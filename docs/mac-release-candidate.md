@@ -2,8 +2,8 @@
 
 Publication-review draft. This is not the public 0.7.4 preview download.
 The publisher approved the complete privacy notice and terms on 1 November
-2026. Remaining private/physical verification acceptance and macOS 14
-qualification are recorded in READINESS.md before publication.
+2026. Remaining private/physical verification acceptance is recorded in READINESS.md
+before publication. macOS 14 qualification is complete.
 
 ## Choose your Mac package
 
@@ -29,12 +29,12 @@ application retains its MIT license; bundled programs retain their own licenses.
 ## What this candidate has passed
 
 The unchanged signed, notarized and stapled build-122 packages passed actual
-fresh/repair and upgrade/reapply on macOS 15 and 26.6.2. The installed owner Mac
+fresh/repair and upgrade/reapply on macOS 14.8.9, 15 and 26.6.2. The installed owner Mac
 on 27.2 runs the protected browser and recovery worker with zero failures.
 The approved public example returns only names/prices through both installed
 AI launchers. No full OS reboot or successful private-provider login is claimed.
-The intended minimum is macOS 14 on Apple silicon; macOS 14 remains unqualified
-because the hosted runner has not started during its published brownout.
+The minimum macOS 14 Apple silicon configuration passed actual hosted execution
+on 1 November, including signed browser startup under the service identity.
 
 ## Current scope and remaining acceptance
 

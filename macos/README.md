@@ -14,7 +14,7 @@ macOS 15 and 26 fresh install/repair and exact upgrade/reapply. The owner update
 final reapplication preserved the private vault, installation binding and both
 earlier recovery namespaces. A real enrolled-service restart qualified the
 bounded wait through launchd's measured SIGTERMed state. No full OS reboot was
-performed. macOS 14 execution remains a recorded provider wait; it is not qualified by the minimum deployment target. [Current acceptance and limits](../qa/release122-2026-10-31/acceptance.md).
+performed. Actual fresh/repair and upgrade/reapply also passed on macOS 14.8.9 arm64 on 1 November; its minimum deployment target is now qualified by execution. [Current acceptance and limits](../qa/release122-2026-10-31/acceptance.md).
 
 Use the fresh package only for a clean installation or identical-image repair.
 An installed predecessor needs its separately qualified exact updater. Never

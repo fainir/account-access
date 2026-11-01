@@ -1,4 +1,13 @@
-# macOS 14 acceptance wait - 31 October 2026
+# macOS 14 acceptance - resolved 1 November 2026
+
+The earlier provider wait below is resolved by [completed run 41286876216](https://github.com/fainir/account-access/actions/runs/41286876216).
+Actual macOS 14.8.9 arm64 reports pass [fresh/repair](macos14-fresh-result/report.json)
+and [upgrade/reapply](macos14-upgrade-result/report.json), 11 and 27 checks.
+The same pinned signed packages were used. The completed follow-up was deleted;
+no noon retry or replacement monitor is needed. Details: [acceptance](acceptance.md).
+
+## Earlier provider failure
+
 
 The exact unchanged signed build-122 packages were dispatched for fresh/repair and upgrade/reapply. GitHub cancelled both Mac jobs before any VM or test step started. This is not a product test result.
 

@@ -10,7 +10,7 @@ reads version 0.8.0/build 122. Discovery only was performed: the authorized
 public example retains saved access, and private Namecheap remains paused with
 needs_attention. No private read, new enrollment or code retrieval was attempted.
 
-Created a separate [0.8.0 customer release draft](https://github.com/fainir/account-access/releases/tag/untagged-270c0c3b7fa304bc7299),
+Created a separate [0.8.0 customer release draft](https://github.com/fainir/account-access/releases/tag/untagged-ad01a66db9f16a147682),
 reusing the unchanged qualified packages. The original build-122 QA release and
 its four pinned assets remain intact for the dated macOS 14 check. No installer
 was rebuilt and no Android APK was uploaded.
@@ -59,10 +59,11 @@ separate. No phone action is requested after the owner chose emulator testing.
 
 ## Next check and cleanup
 
-The existing daily follow-up remains the single watcher for the macOS 14 runner
-qualification: 1 November at 12:00 Asia/Jerusalem, outside the recorded outage.
-Do not retry early or repeat publisher/signing questions. On completion, read
-both actual OS/architecture reports and remove the completed follow-up.
+The macOS 14 check completed on 1 November after the owner requested continuation.
+Both unchanged-package reports pass on actual macOS 14.8.9 arm64: 11 fresh/repair
+and 27 upgrade/reapply checks. [Actual acceptance](../release122-2026-10-31/acceptance.md).
+The completed follow-up was deleted through the automation tool and its saved
+configuration is absent. No noon retry is needed.
 
 The stopped disposable API 35 AVD and the emulator/system image restored for
 its completed tests were more than 30 minutes old, outside the keep list, and

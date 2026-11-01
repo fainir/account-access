@@ -23,7 +23,7 @@ The existing Namecheap challenge remains paused and no phone is connected.
 
 Actual GitHub API read-back confirms the release notes exactly match the
 updated local approval wording, all three existing asset bytes/digests are
-unchanged, `isDraft: true`, and `publishedAt: null`. Current draft: https://github.com/fainir/account-access/releases/tag/untagged-270c0c3b7fa304bc7299.
+unchanged, `isDraft: true`, and `publishedAt: null`. Current draft: https://github.com/fainir/account-access/releases/tag/untagged-ad01a66db9f16a147682.
 
 The next owner step is staged in the installed native app at Add account >
 Read the Docs · authenticator. Provider selection is complete; username and
