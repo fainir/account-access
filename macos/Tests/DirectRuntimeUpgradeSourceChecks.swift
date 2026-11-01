@@ -148,9 +148,10 @@ import Darwin
                 && PublicTreeUnit.directRuntimeDeltaCases.contains(.directDistInfo))
             let jitRepair = source.planSHA256 == FullImageFileOperation.jitRuntimePlanSHA256
             let ownerRepair = source.planSHA256 == FullImageFileOperation.ownerConnectionPlanSHA256
-            try require(source.units.filter { if case .tree = $0 { return true }; return false }.count == (ownerRepair ? 1 : jitRepair ? 2 : 8))
-            try require(source.units.filter { if case .file = $0 { return true }; return false }.count == (ownerRepair || jitRepair ? 4 : 5))
-            try require(selected.namespace.name == (ownerRepair ? "Account Access Owner Connection Repair" : jitRepair ? "Account Access Runtime JIT Repair" : "Account Access Runtime Recovery"))
+            let betterloop = source.planSHA256 == FullImageFileOperation.betterloopPlanSHA256
+            try require(source.units.filter { if case .tree = $0 { return true }; return false }.count == (ownerRepair ? 1 : jitRepair || betterloop ? 2 : 8))
+            try require(source.units.filter { if case .file = $0 { return true }; return false }.count == (ownerRepair || jitRepair || betterloop ? 4 : 5))
+            try require(selected.namespace.name == (betterloop ? "Account Access Betterloop Connection" : ownerRepair ? "Account Access Owner Connection Repair" : jitRepair ? "Account Access Runtime JIT Repair" : "Account Access Runtime Recovery"))
             let directCount = source.units.filter { if case .directFile = $0 { return true }; return false }.count
             try require(directCount == unitRows.filter { $0["kind"] as? String == "direct_file" }.count)
             try require(source.targetSourceCommit == selected.pins.targetSourceCommit)

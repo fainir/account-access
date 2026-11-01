@@ -39,3 +39,20 @@ finish before asking the owner to connect Betterloop locally. No private login,
 new grant, saved credential, production release or real MFA success is claimed.
 Do not use the Chrome login page as a substitute for installed Account Access.
 No raw browsing history or history URLs are retained in this evidence.
+
+## Matching successor image
+
+[Completed owner/broker compilation](https://github.com/fainir/account-access/actions/runs/41288435608)
+passed native UI checks and produced build 123 with the exact new embedded wheel.
+The matching private image copy passed [actual image qualification](../release123-2026-11-01/image-qualification.json):
+49 native-file publisher signatures, unchanged dependency/JIT bytes and real
+signed sandboxed-browser execution. No installed path or account data changed.
+This image audit does not claim notarization or Installer acceptance.
+
+Its exact predecessor delta has 15 units and 16 changed nodes, including two
+public Python trees. The build-122-to-123 native contract uses its own compiled
+namespace and retains the previous 120, 121 and 122 recovery histories.
+The release/packaging tests pass 168 cases with one platform skip; the focused
+frozen-source/catalog/contract run passes 82 cases. Those sets overlap; they are
+not an additional 250 distinct checks. Ruff and frozen-input validation pass.
+Actual native contract qualification and signed Installer acceptance remain next.

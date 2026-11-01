@@ -23,11 +23,12 @@ def test_compiled_helper_rejects_other_sources_or_workflows(field, value):
         candidate.validate_compile_run(metadata, 'a' * 40)
 
 
+@pytest.mark.parametrize('release_number', ['122', '123'])
 @pytest.mark.parametrize('change', ['owner-source', 'broker-source', 'dependency-change', 'numeric-proof', 'image'])
-def test_owner_connection_image_requires_matching_native_source_and_unchanged_dependencies(change):
+def test_owner_connection_image_requires_matching_native_source_and_unchanged_dependencies(change, release_number):
     from scripts.build_jit_update_image import JIT_ROLES
-    release = candidate.RELEASE122
-    report = {'status': 'TARGET_IMAGE_QUALIFIED', 'owner_app_build': 122, 'source_image_build': 121,
+    release = candidate.RELEASES[release_number]
+    report = {'status': 'TARGET_IMAGE_QUALIFIED', 'owner_app_build': int(release.number), 'source_image_build': int(release.number) - 1,
               'builder_commit': release.image_builder, 'target_source_commit': release.target_source,
               'owner_source_commit': release.target_source, 'native_source_commit': release.target_source,
               'project_wheel_sha256': 'a' * 64, 'base_manifest_sha256': release.before,

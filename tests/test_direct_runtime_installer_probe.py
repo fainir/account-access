@@ -69,7 +69,7 @@ def test_archive_hardlink_cannot_replace_the_manifest():
 
 
 @pytest.mark.parametrize('mode', ['upgrade', 'fresh'])
-@pytest.mark.parametrize('release', ['120', '121', '122'])
+@pytest.mark.parametrize('release', ['120', '121', '122', '123'])
 def test_probe_refuses_an_ordinary_owner_context_before_inputs(tmp_path, mode, release):
     args = SimpleNamespace(inputs=tmp_path / 'missing', output=tmp_path / 'output', mode=mode, release=release)
     with pytest.raises(ValueError, match='component_installer_acceptance_failed'):
