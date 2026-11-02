@@ -12,6 +12,29 @@ enum RootWorkerProcessFailure: String, Error {
     case ownershipLost = "worker_process_ownership_lost"
     case changedSocket = "worker_socket_identity_changed"
     case paused = "worker_store_paused"
+    case startupTimedOut = "worker_startup_timed_out"
+    case bootstrapExited = "worker_bootstrap_exited"
+}
+
+// Readiness has a bounded monotonic deadline. The caller retains ownership of
+// the child and supplies its waitpid/health checks; no PID or path is adopted.
+enum WorkerStartupReadiness {
+    static let timeout: TimeInterval = 120
+
+    static func wait(childAlive: () throws -> Bool, health: (TimeInterval) throws -> Bool,
+                     clock: () -> TimeInterval, pause: (TimeInterval) -> Void) throws {
+        let deadline = clock() + timeout
+        while true {
+            let remaining = deadline - clock()
+            guard remaining > 0 else { throw RootWorkerProcessFailure.startupTimedOut }
+            guard try childAlive() else { throw RootWorkerProcessFailure.bootstrapExited }
+            if (try? health(min(1, remaining))) == true {
+                guard clock() <= deadline else { throw RootWorkerProcessFailure.startupTimedOut }
+                return
+            }
+            pause(min(0.1, max(0, deadline - clock())))
+        }
+    }
 }
 
 final class RootWorkerProcess {
@@ -152,21 +175,17 @@ final class RootWorkerProcess {
             let backend = try OwnerUnixBackend(path: plan.ownerSocket, capability: capability, port: port)
             child = try spawn([channel.readDescriptor()] + descriptors)
             try channel.transmit()
-            let deadline = ProcessInfo.processInfo.systemUptime + 30
-            while ProcessInfo.processInfo.systemUptime < deadline {
+            try WorkerStartupReadiness.wait(childAlive: {
+                guard let ownedChild = self.child else { throw RootWorkerProcessFailure.ownershipLost }
                 var status: Int32 = 0
-                let state = waitpid(child!, &status, WNOHANG)
-                if state == child! { child = nil; exitStatus = status; throw RootWorkerProcessFailure.unavailable }
+                let state = waitpid(ownedChild, &status, WNOHANG)
+                if state == ownedChild { self.child = nil; self.exitStatus = status; return false }
                 guard state == 0 else { throw RootWorkerProcessFailure.ownershipLost }
-                let remaining = deadline - ProcessInfo.processInfo.systemUptime
-                guard remaining > 0 else { throw RootWorkerProcessFailure.unavailable }
-                if let result = try? backend.health(timeout: min(1, remaining)), result.0 == 200 {
-                    guard listeners == nil || getpgid(child!) == getpgrp() else { throw RootListenerFailure.context }
-                    return backend
-                }
-                Thread.sleep(forTimeInterval: 0.1)
-            }
-            throw RootWorkerProcessFailure.unavailable
+                return true
+            }, health: { budget in try backend.health(timeout: budget).0 == 200 },
+                clock: { ProcessInfo.processInfo.systemUptime }, pause: { Thread.sleep(forTimeInterval: $0) })
+            guard let child, listeners == nil || getpgid(child) == getpgrp() else { throw RootListenerFailure.context }
+            return backend
         } catch {
             try stop()
             throw error

@@ -9,3 +9,9 @@ before	/Library/Application Support/Account Access Runtime JIT Repair	16777234	6
 before	/Library/Application Support/Account Access Owner Connection Repair	16777234	625610012	0o40700	0	0
 before	/Library/Application Support/Account Access Betterloop Connection	16777234	632999024	0o40700	0	0
 Installer handoff: exact qualified update-from-build123.pkg opened; Standard Install on Macintosh HD observed. Installer UI actions/state reads then timed out; Open picker was last observable surface, not an authorization dialog. Finder remains controllable and exact updater is selected. Installed public app metadata still reports build 123. No private contents, new account grant or code was accessed.
+
+Owner reported Installer failed. Scoped PackageKit read-back identifies component_owner_app_close_required at checkpoint context on both earlier attempts; no transition directory existed and build remained 123.
+The installed Account Access menu Quit Account Access was selected; process inventory confirmed zero owner GUI processes. The same unchanged updater was reopened and Continue Installation selected.
+PackageKit at 2026-11-02 14:37:49 Asia/Jerusalem reports UPDATED_GUI_UNVERIFIED, checkpoint complete. Kernel boot at 2026-11-02 14:38:46 Asia/Jerusalem independently confirms a full OS restart after installation.
+Post-reboot installed version/build is 0.8.0/124. Owner wheel and runtime catalog.py/models.py/browser.py exactly match the qualified public image. All eight original inode/mode/uid/gid identities survive; device numbers changed after reboot/remount. New Lemon transition directory exists, root-owned mode 0700. No private files/configuration or credentials were read.
+Initial installed launcher discovery is RETRYABLE/service_unavailable. Root launchd job is running, but broker store-startup log reports worker_start/worker_process_unavailable. Normal installed app launch requested for recovery; protected reads are not yet accepted.

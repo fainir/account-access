@@ -1,0 +1,9 @@
+Controlled fake clock; exact production readiness loop; no root, actual process, key, account, network or private-file access.
+Before: 30-second window, readiness at 45 seconds -> FAIL worker_startup_timed_out
+After: bounded 120-second window ->
+PASS cold_live_worker_ready_after_45_seconds
+PASS unready_worker_stops_at_fixed_deadline
+PASS child_exit_refuses_before_health_probe
+PASS ownership_failure_is_preserved
+PASS temporary_health_transport_failure_can_recover
+PASS health_reply_cannot_outlive_deadline

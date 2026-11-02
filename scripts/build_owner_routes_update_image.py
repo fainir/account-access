@@ -28,7 +28,8 @@ from scripts.build_jit_update_image import CHROME, IDENTITY, JIT_ROLES, NODE, PL
 BASE_SHA256 = '0eb9a5bfab615f23f9d3d6e98f7895f7bf46e6196ef8a1e5e07115906f4d443c'
 RELEASES = {'122': (121, 122, BASE_SHA256),
             '123': (122, 123, 'b6537a7617db5a53540adca82023fdbf50ef45e9ca9e9dd1ae46dd682639832d'),
-            '124': (123, 124, '5f3390496afaa436c64e3629cc125cbb4017e9deec8f70e4f5eb06c16e790930')}
+            '124': (123, 124, '5f3390496afaa436c64e3629cc125cbb4017e9deec8f70e4f5eb06c16e790930'),
+            '125': (124, 125, '37cadaf59502657983f6cdb4a3bec0a755eb5e0dd041b625151ee51608ab2d8f')}
 
 
 def build(args):
@@ -142,7 +143,7 @@ def build(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--release', choices=['122', '123', '124'], default='122')
+    parser.add_argument('--release', choices=['122', '123', '124', '125'], default='122')
     for name in ['image', 'owner-app', 'native', 'project-wheel', 'manifest-output', 'report']:
         parser.add_argument('--' + name, type=Path, required=True)
     for name in ['source', 'owner-source', 'native-source']:

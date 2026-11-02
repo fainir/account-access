@@ -2,8 +2,10 @@
 
 Publication-review draft. The public download is still the 0.7.4 preview.
 The publisher approved the complete privacy notice and terms on 1 November
-2026. Build 124's signed Installer and source qualification are complete.
-Owner-Mac installation and automated private MFA acceptance remain pending.
+2026. Build 124's automated signed-Installer and source checks passed. It is now
+installed after a full Mac restart, but its protected worker fails startup on
+the owner Mac. That defect is under investigation; publication is on hold.
+Automated private MFA acceptance remains pending.
 
 ## Choose your Mac package
 
@@ -17,7 +19,10 @@ image repair. It does not replace another protected image. The 0.7.4 preview
 is not a qualified protected predecessor. Earlier full installers and bridges
 are retained and labeled legacy; new installations should choose build 124.
 
-Open the appropriate package in macOS Installer and follow its native prompts.
+Before updating, choose **Account Access > Quit Account Access** and let the app
+exit. Then open the exact updater in macOS Installer and follow its native prompts.
+If an update fails while the app is still open, quit it from that menu and rerun
+the same updater. The updater stops before changing the installation in that case.
 After installation, open Account Access and finish local owner setup. Start a
 fresh Codex or Claude Code session after agent integration is connected.
 Passwords, codes and authenticator keys belong in local setup, never in chat.

@@ -15,6 +15,8 @@ import Darwin
             (WorkerLaunchFailure.treeOwner, "worker_runtime_tree_owner_mismatch"),
             (RootListenerFailure.metadata, "broker_socket_activation_metadata_invalid"),
             (RootWorkerProcessFailure.ownershipLost, "worker_process_ownership_lost"),
+            (RootWorkerProcessFailure.startupTimedOut, "worker_startup_timed_out"),
+            (RootWorkerProcessFailure.bootstrapExited, "worker_bootstrap_exited"),
             (RootWorkerChannelFailure.unavailable, "worker_secret_channel_unavailable"),
             (RootStoreInitializationFailure.invalidReceipt, "store_initializer_receipt_invalid"),
             (RootPublicationFailure.unsafeState, "vault_publication_unsafe_state"),
@@ -49,6 +51,8 @@ import Darwin
             (RootKeychainFailure(operation: .load, status: -12345), "system_keychain_load_failed"),
             (RootVaultRecordFailure(.data, result: ["private": "fictional-secret"] as CFDictionary), "vault_key_data_result_invalid"),
             (RootWorkerProcessFailure.unavailable, "worker_process_unavailable"),
+            (RootWorkerProcessFailure.startupTimedOut, "worker_startup_timed_out"),
+            (RootWorkerProcessFailure.bootstrapExited, "worker_bootstrap_exited"),
             (UntrustedFailure(), "store_startup_unavailable"),
             (NSError(domain: "fictional-private-path", code: -12345,
                 userInfo: [NSLocalizedDescriptionKey: "fictional-secret"]), "store_startup_unavailable")

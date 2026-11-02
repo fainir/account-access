@@ -356,6 +356,10 @@ enum DesktopVaultRepair {
             return "macOS could not provide access to the existing encryption key."
         case ("worker_start", "worker_process_unavailable"):
             return "The protected account service did not finish starting."
+        case ("worker_start", "worker_startup_timed_out"):
+            return "The protected account service exceeded its startup time limit. Your saved connections are preserved."
+        case ("worker_start", "worker_bootstrap_exited"):
+            return "The protected account service exited before it became ready. Your saved connections are preserved."
         default: return nil
         }
     }

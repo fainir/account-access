@@ -92,3 +92,34 @@ metadata identities, service/browser health and approved reads through both
 installed AI launchers. Then stage Lemon's local import/grant and existing
 authenticator enrollment. The completed manual Chrome sign-in is not repeated.
 Real protected-service Lemon MFA remains F5; no new credential/grant/seed was used.
+
+## Actual owner installation and new startup defect
+
+The owner reported failure. Scoped PackageKit read-back shows both earlier
+attempts refused at context with component_owner_app_close_required. The actual
+Quit Account Access menu exited the owner GUI process. The same unchanged
+package completed at 14:37:49 Asia/Jerusalem, 2 November. Kernel boot at 14:38:46
+confirms a full OS restart. Exact installed public owner wheel/catalog/models/
+browser and all eight original inode/mode/uid/gid identities pass; device numbers
+changed after the reboot. The install handoff is complete and must not be asked
+again. [Exact outcomes](owner-installer-outcome.log), [owner observations](owner-installed.log).
+
+Current installed discovery is RETRYABLE/service_unavailable. The launchd broker
+is running, but public startup diagnostics record worker_start/worker_process_unavailable.
+A bootstrap lived approximately 43 seconds, matching the code's 30-second
+readiness deadline plus bounded 12-second shutdown. This is an inference; the
+old diagnostic does not distinguish timeout from child exit. Public metadata
+audits now pass in 0.76 seconds, with no private data/configuration/key access.
+Normal owner app launch does not recover the failed worker. D18 is buildable
+work and current installed acceptance remains incomplete.
+
+Best way first: keep [Apple's daemon/session boundaries](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/)
+and a finite [monotonic uptime](https://developer.apple.com/documentation/foundation/processinfo/systemuptime)
+deadline. Preserve all code/path/key/listener/UID checks and owned-child cleanup.
+The proposed fix uses a bounded 120-second readiness window and closed timeout/
+child-exit diagnostics. A fake-clock slow-start regression fails at the original
+30 seconds and passes at 45 seconds with the new window; six cases also cover
+deadline expiry, early exit, ownership failure, transient health errors and
+late health replies. No signature or privilege boundary changes. Actual native
+compilation, exact build-125 package qualification and installed acceptance are
+still required; this does not establish the real startup cause or a completed fix.
