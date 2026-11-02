@@ -2,11 +2,10 @@
 
 Publication-review draft. The public download is still the 0.7.4 preview.
 The publisher approved the complete privacy notice and terms on 1 November
-2026. Build 125's source and signed-Installer checks pass. It adds bounded
-slow-start handling and precise exit diagnostics after the owner Mac's
-build-124 restart exposed a service-startup failure. Actual owner-Mac recovery
-remains pending; publication is on hold. Automated private MFA acceptance is
-separate and remains pending.
+2026. Build 125 is now installed on the owner Mac after a full OS restart.
+Its protected worker/browser and both installed agents' approved private and
+public reads are verified. Real private MFA remains pending; the release stays
+unpublished while the remaining personal acceptance is completed.
 
 ## Choose your Mac package
 
@@ -15,6 +14,10 @@ separate and remains pending.
 - **Existing qualified protected build 123:** first use the [123-to-124 bridge](https://github.com/fainir/account-access/releases/download/v0.8.0/Account-Access-0.8.0-update-from-build123.pkg), then the current updater above.
 - **Existing qualified protected build 122:** start with the [122-to-123 bridge](https://github.com/fainir/account-access/releases/download/v0.8.0/Account-Access-0.8.0-update-from-build122.pkg), followed by 123-to-124 and 124-to-125.
 - **Existing qualified protected build 121:** start with the [121-to-122 bridge](https://github.com/fainir/account-access/releases/download/v0.8.0/Account-Access-0.8.0-update-from-build121.pkg), then follow each bridge in order to 125. Each accepts only its reviewed predecessor.
+
+After the build-125 installation and restart complete, continue using the app.
+Do not rerun the completed 124-to-125 updater; an already completed transition
+can safely refuse reapplication after restart.
 
 The current full installer supports clean installation and qualified identical-
 image repair. It does not replace another protected image. The 0.7.4 preview
@@ -60,15 +63,18 @@ Build 124 adds a reviewed Lemon Squeezy password/authenticator connector whose
 only operation reports whether the session is authenticated. It returns no
 dashboard contents, passwords or authenticator keys to AI agents. The owner
 completed manual Chrome MFA to qualify the website's actual forms and success
-state. Installed protected-service login and authenticator enrollment remain
+state. Lemon Squeezy login and authenticator enrollment remain
 separate acceptance; no automated private Lemon Squeezy success is claimed.
 
-The owner-selected Betterloop Chrome import and real private password/session
-login passed on installed build 123. Both Codex and Claude Code returned only
-authenticated=true, classified as live. That build also passed installed
-runtime/public-example checks after a full OS restart. Build 124's later reboot
-exposed the current startup defect; its recovery is not established by these
-historical reads. Real private email, SMS and TOTP acceptance remain unqualified.
+The owner-selected Betterloop Chrome import was completed on installed build
+123 and its existing narrow grant survives the update. After build 125 and a
+full restart on macOS 27.2, both actual installed Codex and Claude launchers
+returned only authenticated=true with outer environment live. Each separately
+returned the six public-example names/prices. Worker health is RUNNING with
+zero failures; browser runtime is READY. All nine prior metadata identities
+and selected public program bytes match. Namecheap remains paused.
+[Installed evidence](https://github.com/fainir/account-access/blob/codex/production-security-authlib-20261028/qa/release125-2026-11-02/acceptance.md).
+Real private email, SMS and TOTP acceptance remain unqualified.
 
 ## Current scope and remaining acceptance
 

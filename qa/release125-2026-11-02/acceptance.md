@@ -50,8 +50,9 @@ is complete below.
 The interrupted first updater assembly stopped before packaging because the
 post-reboot developer PATH omitted Homebrew's gh. Restarting assembly with the
 normal publisher PATH completed; no earlier package/notary submission existed.
-Installed worker recovery is still unverified. Do not claim this is the real
-startup cause or a completed production fix until actual installed checks pass.
+Qualification alone did not verify owner-Mac recovery or prove the original
+startup cause. The completed installed checks are recorded below; the original
+timeout cause remains an inference.
 
 ## Actual signed Installer acceptance
 
@@ -79,7 +80,8 @@ the existing unpublished draft. Server digest, size and complete upload state
 match both local files; the draft now has nine assets with no replacement or
 deletion. Exact 125 notes, current/legacy labels, tested source target and unpublished
 state were read back. [Customer handoff](../gates/customer-release-handoff-2026-11-02.md). The owner
-Mac remains build 124; no build-125 installation or recovered private read is claimed.
+Mac was still build 124 at that qualification checkpoint. Subsequent build-125
+installation and recovered private reads are recorded below.
 
 ## Actual worker and package acceptance
 
@@ -98,7 +100,7 @@ include actual execution. Native framing, desktop XPC, private sockets,
 password/email/SMS/TOTP, browser identity and initial-enrollment boundaries pass.
 These fixtures do not establish real owner approval, private MFA, physical SMS
 or current owner-Mac recovery. No production package was rebuilt for test-only
-changes. The owner-Mac build-125 installation is the remaining technical handoff.
+changes. The subsequent owner-Mac installation and acceptance follow below.
 
 ## D16 connector and signed-update completion
 
@@ -108,7 +110,48 @@ the current checkout and the actual qualified build-125 wheel byte for byte.
 The exact updater's source/compiler run, final digest and Apple/Gatekeeper
 results match the completed native run and published Installer contract.
 [Source and CI binding](d16-ci-binding.log). No job, test suite or package was
-repeated. D16's connector and signed-update work is complete; its remaining
-owner status covers installed acceptance after action 12. Personal Lemon
-credential/grant/TOTP enrollment and real MFA remain F5, with no new account
-operation or owner request during this verification.
+repeated. D16's connector, signed-update and subsequent installed acceptance
+are complete. Personal Lemon credential/grant/TOTP enrollment and real MFA
+remain F5/action 13. No new Lemon account operation or grant is claimed.
+
+## Completed owner-Mac acceptance
+
+The actual exact update completed at 20:07:27 Asia/Jerusalem on 2 November;
+full kernel boot at 20:08:09 confirms the restart. Public metadata now reports
+0.8.0/build 125 on macOS 27.2. Eleven selected native/identity/Python/wheel
+files match the qualified image, all nine existing metadata identities survive,
+and the new 125 recovery namespace is root-owned 0700. Private contents and
+configuration were not opened. [Actual observations](owner-installed.log),
+[scoped postinstall results](owner-installer-outcome.log).
+
+The post-restart worker is RUNNING with zero failures and browser is READY.
+Both installed agent launchers discover their existing narrow grants and
+complete the real approved Betterloop session-status read with outer environment
+live and authenticated=true. The Codex response was read directly from stdout;
+the [Claude response](installed-claude-private.json) is retained. Separate
+[Codex public-example](installed-codex-public.json) and
+[Claude public-example](installed-claude-public.json) reads each return six
+names/prices. [Final health/discovery](installed-accounts.json).
+The actual native app reopens with Automatic integration and Betterloop Connected;
+Namecheap remains paused. [Native screen](installed-accounts.png).
+
+An unnecessary repeated updater invocation after tool interruption was refused
+at journal. It did not disrupt the installed worker or the private/public reads
+above. The recorded device changed after reboot; the native journal deliberately
+rejects historical-device mutation, but the exact wrapped failure was not read
+from protected state. This does not qualify successful owner-Mac reapplication.
+Do not rerun a completed predecessor updater or weaken that guard.
+
+Before the update, normal quit was requested only for the verified owner bundle
+and independent process read-back confirmed exit. This follows the existing
+saveApplication implementation and Apple's [normal-quit API](https://developer.apple.com/documentation/appkit/nsrunningapplication/terminate%28%29?language=objc).
+The key lesson from the redundant reapply is to re-read installed build and
+completed postinstall results after any interruption before taking another
+Installer action.
+
+D16's installed connector and D18's post-restart worker acceptance are complete.
+Real private MFA remains unverified: Lemon still needs a local credential grant
+and existing-authenticator enrollment. Its native import file chooser is staged;
+the original export is absent from Downloads and Trash is uninspected. No new
+export, manual Chrome MFA or completed import approval is requested. The completed
+installation follow-up was deleted; remaining personal steps stay owner rows.
