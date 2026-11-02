@@ -13,6 +13,12 @@ fixtures do not qualify this provider; its authenticated challenge, owner-local
 authenticator enrollment and successful private sign-in remain untested.
 [Sanitized public-page check](../artifacts/lemon-squeezy-public-login-check-20261028.json).
 
+On 2 November the owner selected Lemon Squeezy as an existing MFA account.
+The public form was rechecked in personal Chrome and the official authenticator
+documentation reviewed. Its actual code challenge still requires owner presence
+before connector implementation. [Current review and handoff](../qa/lemon-squeezy-2026-11-02/review.md).
+No new signup, credential/code access, enrollment or installed support is claimed.
+
 ## Namecheap password pilot
 
 The 0.8 candidate adds **Namecheap** to the native account picker and password
