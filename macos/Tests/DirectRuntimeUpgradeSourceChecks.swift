@@ -150,9 +150,10 @@ import Darwin
             let ownerRepair = source.planSHA256 == FullImageFileOperation.ownerConnectionPlanSHA256
             let betterloop = source.planSHA256 == FullImageFileOperation.betterloopPlanSHA256
             let lemonSqueezy = source.planSHA256 == FullImageFileOperation.lemonSqueezyPlanSHA256
-            try require(source.units.filter { if case .tree = $0 { return true }; return false }.count == (ownerRepair ? 1 : jitRepair || betterloop || lemonSqueezy ? 2 : 8))
-            try require(source.units.filter { if case .file = $0 { return true }; return false }.count == (ownerRepair || jitRepair || betterloop || lemonSqueezy ? 4 : 5))
-            try require(selected.namespace.name == (lemonSqueezy ? "Account Access Lemon Squeezy Connection" : betterloop ? "Account Access Betterloop Connection" : ownerRepair ? "Account Access Owner Connection Repair" : jitRepair ? "Account Access Runtime JIT Repair" : "Account Access Runtime Recovery"))
+            let workerStartup = source.planSHA256 == FullImageFileOperation.workerStartupPlanSHA256
+            try require(source.units.filter { if case .tree = $0 { return true }; return false }.count == (workerStartup ? 0 : ownerRepair ? 1 : jitRepair || betterloop || lemonSqueezy ? 2 : 8))
+            try require(source.units.filter { if case .file = $0 { return true }; return false }.count == (workerStartup ? 1 : ownerRepair || jitRepair || betterloop || lemonSqueezy ? 4 : 5))
+            try require(selected.namespace.name == (workerStartup ? "Account Access Worker Startup Recovery" : lemonSqueezy ? "Account Access Lemon Squeezy Connection" : betterloop ? "Account Access Betterloop Connection" : ownerRepair ? "Account Access Owner Connection Repair" : jitRepair ? "Account Access Runtime JIT Repair" : "Account Access Runtime Recovery"))
             let directCount = source.units.filter { if case .directFile = $0 { return true }; return false }.count
             try require(directCount == unitRows.filter { $0["kind"] as? String == "direct_file" }.count)
             try require(source.targetSourceCommit == selected.pins.targetSourceCommit)

@@ -76,7 +76,13 @@ RELEASE124 = Release('124', '01d9a9a601875f45f7be80c94004f6c41b3fbe4fb44ba62af46
     '276207e2b6f098db0ce860cf6c664d2f6657f4ce', '276207e2b6f098db0ce860cf6c664d2f6657f4ce', RELEASE123.after,
     'f29221487f1b3a2466dbd17d463e1bc6bd3cc3ba67dcc3aca44145106248247d',
     'com.fainir.accountaccess.lemonsqueezy124', 'Account-Access-Lemon-Squeezy-124')
-RELEASES = {'120': RELEASE120, '121': RELEASE121, '122': RELEASE122, '123': RELEASE123, '124': RELEASE124}
+RELEASE125 = Release('125', '5243ef5b66ce6f96f7acac06a6c20d0365ec1281c39157438ad873c77568222c',
+    RELEASE124.after, '8abffd8078832752aa13c59e58834b0a9b669656758dab47d4418ae663c41bcd',
+    'e0d65ce1803295d96dde96e465bd7e3ace18f32d', 'b8aa5efb57ed39a4806db343adf4e1bf369cf10a', RELEASE124.after,
+    'ba147d63f0ece3b237952834eb135b718d457df03eca596ca5e5202bd270e4da',
+    'com.fainir.accountaccess.workerstartup125', 'Account-Access-Worker-Startup-125')
+RELEASES = {'120': RELEASE120, '121': RELEASE121, '122': RELEASE122, '123': RELEASE123,
+            '124': RELEASE124, '125': RELEASE125}
 
 
 def require(value: bool, reason: str) -> None:
@@ -169,7 +175,8 @@ def reviewed_ci_helper(run_id, source, destination, *, artifact_name='release-co
     validate_compile_run(metadata, source)
     assets = json.loads(checked(['gh', 'api', '--hostname', 'github.com', base + '/artifacts'], timeout=60))
     require(artifact_name in {'release-compiled-updater', 'release-compiled-updater-121',
-                             'release-compiled-updater-122', 'release-compiled-updater-123', 'release-compiled-updater-124'},
+                             'release-compiled-updater-122', 'release-compiled-updater-123',
+                             'release-compiled-updater-124', 'release-compiled-updater-125'},
             'compiled_helper_artifact_invalid')
     candidates = [item for item in assets['artifacts'] if item['name'] == artifact_name]
     require(len(candidates) == 1 and candidates[0].get('expired') is False, 'compiled_helper_artifact_missing')
@@ -470,7 +477,7 @@ def verify_target_qualification(report, release, plan):
             and report.get('native_audit', {}).get('publisher_signatures_verified') is True
             and report.get('installed_paths_changed') is False and report.get('account_data_used') is False
             and report.get('jit_roles') == sorted(JIT_ROLES) and report.get('entitlements') == JIT)
-    elif release.number in {'122', '123', '124'}:
+    elif release.number in {'122', '123', '124', '125'}:
         from scripts.build_jit_update_image import JIT_ROLES
         qualified = (report.get('base_manifest_sha256') == release.image_base
             and report.get('manifest_sha256') == release.after
@@ -668,7 +675,7 @@ exec "$AC_PACKAGE_SCRIPTS/AccountAccess-runtimeupgrade"
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--release', choices=['120', '121', '122', '123', '124'], default='120')
+    parser.add_argument('--release', choices=['120', '121', '122', '123', '124', '125'], default='120')
     parser.add_argument("--source", required=True)
     parser.add_argument('--compiled-run', type=int,
         help='Successful exact-commit release native workflow; signing still occurs only on this Mac')

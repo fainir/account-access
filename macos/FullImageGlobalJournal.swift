@@ -6,7 +6,7 @@ import Darwin
 
 // Closed native selection; journal or package JSON never supplies a root path.
 enum PublicImageNamespace {
-    case fullImage, runtimeUpgrade, ownerUpgrade, directRuntimeRecovery, runtimeJITRepair, ownerConnectionRepair, betterloopConnection, lemonSqueezyConnection
+    case fullImage, runtimeUpgrade, ownerUpgrade, directRuntimeRecovery, runtimeJITRepair, ownerConnectionRepair, betterloopConnection, lemonSqueezyConnection, workerStartupRecovery
     var name: String {
         switch self {
         case .fullImage: return "Account Access Full Images"
@@ -17,6 +17,7 @@ enum PublicImageNamespace {
         case .ownerConnectionRepair: return "Account Access Owner Connection Repair"
         case .betterloopConnection: return "Account Access Betterloop Connection"
         case .lemonSqueezyConnection: return "Account Access Lemon Squeezy Connection"
+        case .workerStartupRecovery: return "Account Access Worker Startup Recovery"
         }
     }
     var path: String { "/Library/Application Support/" + name }

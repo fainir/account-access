@@ -23,7 +23,7 @@ d833d43ee2e5d75a453362488d7ed1e53ee6bbce, isDraft=true, publishedAt=null.
 | Account-Access-0.8.0-Mac-arm64.pkg | 289,330,711 | Retained legacy build-122 full installer |
 | account-access-bitwarden-2026.10.0-corresponding-source.tar.gz | 219,117,936 | Required unchanged matching source, no charge |
 
-Current draft: https://github.com/fainir/account-access/releases/tag/untagged-e1a7b919962d3e90613e
+Current draft: https://github.com/fainir/account-access/releases/tag/untagged-2da58b8621908bd00cb4
 
 Both current package digests are bound in the [actual Installer contract](../../artifacts/runtime124-installer-inputs.json).
 Dependencies, JIT and Bitwarden bytes are unchanged. Previously approved privacy/
@@ -32,3 +32,9 @@ is needed. No public-download success, independent legal certification, Play
 upload, physical-phone acceptance or automated private Lemon MFA is claimed.
 The hourly qualification follow-up checks only the active installation handoff,
 stays quiet while unchanged, and retires after installation/available checks.
+
+Owner update: build 124 is installed after a full OS restart; public bytes and
+eight identities match. Post-reboot worker startup fails and D18 is buildable.
+The exact current draft notes now include that hold and the Quit Account Access
+preflight; read-back confirms the body, seven assets and unpublished state.
+No new installation or private MFA success follows from those metadata edits.
