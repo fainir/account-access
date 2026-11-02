@@ -44,7 +44,11 @@ struct DirectRuntimeUpgradeSource: PublicImageTransitionSource {
         .init(pins: .init(planSHA256: FullImageFileOperation.betterloopPlanSHA256,
                          beforeSHA256: "b6537a7617db5a53540adca82023fdbf50ef45e9ca9e9dd1ae46dd682639832d",
                          afterSHA256: "5f3390496afaa436c64e3629cc125cbb4017e9deec8f70e4f5eb06c16e790930",
-                         targetSourceCommit: "d16c4263cf4b1e9f4dda2bd9bf9ca7e429f75265"), namespace: .betterloopConnection)
+                         targetSourceCommit: "d16c4263cf4b1e9f4dda2bd9bf9ca7e429f75265"), namespace: .betterloopConnection),
+        .init(pins: .init(planSHA256: FullImageFileOperation.lemonSqueezyPlanSHA256,
+                         beforeSHA256: "5f3390496afaa436c64e3629cc125cbb4017e9deec8f70e4f5eb06c16e790930",
+                         afterSHA256: "37cadaf59502657983f6cdb4a3bec0a755eb5e0dd041b625151ee51608ab2d8f",
+                         targetSourceCommit: "276207e2b6f098db0ce860cf6c664d2f6657f4ce"), namespace: .lemonSqueezyConnection)
     ]
     static func release(_ pins: Pins) throws -> Release {
         guard let value = releases.first(where: { $0.matches(pins) }) else { throw Refused(line: #line) }

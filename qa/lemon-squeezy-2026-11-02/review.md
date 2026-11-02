@@ -156,3 +156,21 @@ add these as unique totals. Ruff passes. Complete source CI and matching
 build-124 owner/broker compilation are next, followed by the exact 123-to-124
 image/update and actual signed Installer qualification. No installed upgrade,
 new private grant, seed enrollment or automated live MFA success is claimed.
+
+## Build 124 qualification in progress
+
+The corrected local provider, marker, MFA and prior-provider regression passes
+110 tests. All 164 exact-update, manifest, sparse-payload and source-freeze tests
+pass; Ruff passes. Matching source-276207e owner/broker compilation completed in
+[run 41435565761](https://github.com/fainir/account-access/actions/runs/41435565761).
+The owner app reports build 124 and its embedded project wheel exactly matches
+the source wheel. The [signed target image](../release124-2026-11-02/image-qualification.json)
+passes the 49-file native audit, unchanged dependency/JIT verification and actual
+sandboxed browser execution. No installed path or personal account was accessed.
+
+The exact 123-to-124 public plan contains 15 units and 18 changed nodes. Its
+public five-file native fixture archive was read back from the QA prerelease
+with matching digest/size. The predecessor archive contains exactly 27,494
+manifest nodes/parents and no private branches. Earlier 120/121/122/123 histories
+remain separate. Native updater compilation, signed packages and actual Installer
+acceptance remain pending. This does not establish installed Lemon access or MFA.

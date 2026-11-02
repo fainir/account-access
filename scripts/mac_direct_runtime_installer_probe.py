@@ -61,6 +61,10 @@ RELEASES = {
                    '5f3390496afaa436c64e3629cc125cbb4017e9deec8f70e4f5eb06c16e790930',
                    '3c8ce477abff55e5ace62d19a99ee28672e53ae25af6733a1b615f0de6015218',
                    BASE.parent / 'Account Access Betterloop Connection', 'runtime123-installer-inputs.json', PLAN),
+    '124': Release('124', '5f3390496afaa436c64e3629cc125cbb4017e9deec8f70e4f5eb06c16e790930',
+                   '37cadaf59502657983f6cdb4a3bec0a755eb5e0dd041b625151ee51608ab2d8f',
+                   '01d9a9a601875f45f7be80c94004f6c41b3fbe4fb44ba62af46fb3c758b916ac',
+                   BASE.parent / 'Account Access Lemon Squeezy Connection', 'runtime124-installer-inputs.json', PLAN),
 }
 
 
@@ -412,7 +416,7 @@ def run(args):
         previous_root.rmdir()
         check('same_volume_support_root_replaced', BASE.stat().st_ino != roots[str(BASE)][1])
         completed_objects = None
-        if release.number in {'121', '122', '123'}:
+        if release.number in {'121', '122', '123', '124'}:
             # Reproduce the completed build-120 root recovery and its separate
             # published namespace. The successor must preserve both verbatim.
             recovery = {'schema': 2, 'managed_by': 'account-access-installation-root-recovery-v2',
@@ -428,7 +432,8 @@ def run(args):
             write(BINDING / 'recovered-v2.json', recovery)
             completed_objects = {BINDING / 'recovered-v2.json': (
                 (BINDING / 'recovered-v2.json').stat().st_ino, (BINDING / 'recovered-v2.json').read_bytes())}
-            history = {'121': ['120'], '122': ['120', '121'], '123': ['120', '121', '122']}[release.number]
+            history = {'121': ['120'], '122': ['120', '121'], '123': ['120', '121', '122'],
+                       '124': ['120', '121', '122', '123']}[release.number]
             report['retained_predecessor_namespaces'] = history
             for number in history:
                 historical = RELEASES[number]
@@ -442,7 +447,8 @@ def run(args):
                     'before_manifest_sha256': historical.before,
                     'source_commit': {'120': 'beda6324d836458a35045ee0d2acd579238d6929',
                                       '121': '08d8f444c65a3a3e26aa94f7ecec5e3372582973',
-                                      '122': '26b30499a2da40d66e239563a03289f8066c694e'}[number],
+                                      '122': '26b30499a2da40d66e239563a03289f8066c694e',
+                                      '123': 'd16c4263cf4b1e9f4dda2bd9bf9ca7e429f75265'}[number],
                     'predecessor_evidence_sha256': 'c' * 64,
                     'state': 'public_image_verified_gui_unverified', 'automatic_reboot_recovery': False})
                 # These are synthetic historical sentinels, not a fabricated
@@ -499,7 +505,7 @@ def run(args):
             head = json.loads((release.transition / 'head.json').read_bytes())
             check(attempt + '_verified_head', head['plan_sha256'] == release.plan and head['manifest_sha256'] == release.after)
             verify_live_service(command, attempt + '-live-service')
-            if release.number in {'121', '122', '123'}:
+            if release.number in {'121', '122', '123', '124'}:
                 service_browser_check(command, args.output, attempt + '-publisher-sandboxed-browser')
                 check(attempt + '_publisher_sandboxed_browser', True)
                 check(attempt + '_completed_predecessor_history_preserved',
@@ -592,7 +598,7 @@ def fresh_run(args):
                     BASE / 'runtime/bin/python', '-I', '-B', '-c', JOSE_CHECK])
             check(attempt + '_patched_dependency_guard', True)
             verify_live_service(command, attempt + '-live-service')
-            if release.number in {'121', '122', '123'}:
+            if release.number in {'121', '122', '123', '124'}:
                 service_browser_check(command, args.output, attempt + '-publisher-sandboxed-browser')
                 check(attempt + '_publisher_sandboxed_browser', True)
             # Only this just-created fixture app can exist in this empty VM.
@@ -627,5 +633,5 @@ if __name__ == '__main__':
     parser.add_argument('--inputs', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--mode', choices=['upgrade', 'fresh'], default='upgrade')
-    parser.add_argument('--release', choices=['120', '121', '122', '123'], default='120')
+    parser.add_argument('--release', choices=['120', '121', '122', '123', '124'], default='120')
     run(parser.parse_args())

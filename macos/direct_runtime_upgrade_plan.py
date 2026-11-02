@@ -22,7 +22,10 @@ RELEASES = {"120": (BEFORE, AFTER, TARGET_SOURCE),
                     "26b30499a2da40d66e239563a03289f8066c694e"),
             "123": ("b6537a7617db5a53540adca82023fdbf50ef45e9ca9e9dd1ae46dd682639832d",
                     "5f3390496afaa436c64e3629cc125cbb4017e9deec8f70e4f5eb06c16e790930",
-                    "d16c4263cf4b1e9f4dda2bd9bf9ca7e429f75265")}
+                    "d16c4263cf4b1e9f4dda2bd9bf9ca7e429f75265"),
+            "124": ("5f3390496afaa436c64e3629cc125cbb4017e9deec8f70e4f5eb06c16e790930",
+                    "37cadaf59502657983f6cdb4a3bec0a755eb5e0dd041b625151ee51608ab2d8f",
+                    "276207e2b6f098db0ce860cf6c664d2f6657f4ce")}
 ORIGINAL_RECEIPT_MANIFEST = image.ORIGINAL_MANIFEST
 MARKER = "account-access-exact-installed-runtime-delta-v1"
 SUPPORT = image.SUPPORT
