@@ -14,7 +14,8 @@ enum RootSupervisorChecks {
         return status
     }
     static func run(_ value: [String: Any], identity: String) throws -> [String: Bool] {
-        guard let hash = value["bootstrap_hash"] as? String else { throw RootWorkerProcessFailure.unsafeCode }
+        guard let hash = value["bootstrap_hash"] as? String,
+              let delayedHash = value["delayed_bootstrap_hash"] as? String else { throw RootWorkerProcessFailure.unsafeCode }
         let policy = try WorkerLaunchPaths.lexical(value["worker_launcher"])
         let root = try WorkerLaunchPaths.protected(WorkerLaunchPaths.lexical(value["root"]))
         let binary = root.appendingPathComponent("mac-worker-bootstrap").path
@@ -86,6 +87,20 @@ enum RootSupervisorChecks {
         time += 1; try stable.tick()
         checks["stable_running_period_restores_restart_budget"] = stable.state == .running && stable.pid != nil
         try stable.stop()
+        // This separately signed fixture adds only a fixed 35-second delay
+        // after the launcher's root guard. It then uses the production session,
+        // key handoff, identity drop and worker readiness protocol unchanged.
+        let delayedPeer = try OwnerGatewayPeer.fixture(uid: 0, codeHash: delayedHash)
+        let delayed = try RootWorkerSupervisor.fixture(policy: policy,
+            bootstrap: root.appendingPathComponent("mac-worker-bootstrap-delayed").path,
+            peer: delayedPeer, vault: identity, invalidateOwners: {}, clock: { time })
+        defer { try? delayed.stop() }
+        let delayedStart = ProcessInfo.processInfo.systemUptime
+        try delayed.start()
+        let elapsed = ProcessInfo.processInfo.systemUptime - delayedStart
+        checks["slow_live_worker_ready_after_old_deadline"] = delayed.state == .running
+            && delayed.pid != nil && elapsed >= 35 && elapsed < WorkerStartupReadiness.timeout
+        try delayed.stop()
         let workerPolicy = try WorkerLaunchPaths.object(plan.workerPolicy)
         let state = try WorkerLaunchPaths.lexical(workerPolicy["root"])
         let pausePath = URL(fileURLWithPath: state).appendingPathComponent("service.paused").path

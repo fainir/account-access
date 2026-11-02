@@ -1,5 +1,5 @@
 name: Mac separate-user worker acceptance
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
 permissions:
   contents: read
 defaults:
@@ -87,6 +87,15 @@ jobs:
           /tmp/ac-worker-listener-binding-checks
           xcrun swiftc -O -parse-as-library -D ACCOUNT_ACCESS_WORKER_BOOTSTRAP_MAIN -framework Foundation \
             macos/WorkerBootstrap.swift macos/WorkerListenerBindings.swift -o /tmp/ac-mac-worker-bootstrap
+          uv run python - <<'PYROOTDELAY'
+          from pathlib import Path
+          source = Path('macos/WorkerBootstrap.swift').read_text()
+          anchor = '    static func run(_ argv: [String]) throws -> Never {\n        guard getuid() == 0, geteuid() == 0 else { throw WorkerLaunchFailure.rootRequired }\n'
+          assert source.count(anchor) == 1
+          Path('/tmp/DelayedWorkerBootstrap.swift').write_text(source.replace(anchor, anchor + '        Thread.sleep(forTimeInterval: 35)\n'))
+          PYROOTDELAY
+          xcrun swiftc -O -parse-as-library -D ACCOUNT_ACCESS_WORKER_BOOTSTRAP_MAIN -framework Foundation \
+            /tmp/DelayedWorkerBootstrap.swift macos/WorkerListenerBindings.swift -o /tmp/ac-mac-worker-bootstrap-delayed
           xcrun swiftc -O -parse-as-library -D ACCOUNT_ACCESS_GATEWAY_CHECKS -D ACCOUNT_ACCESS_ROOT_GATEWAY_DAEMON \
             -framework Foundation -framework Security macos/WorkerBootstrap.swift macos/WorkerListenerBindings.swift macos/OwnerGateway.swift \
             macos/OwnerAuthorizationPolicy.swift macos/OwnerGatewayHost.swift macos/Tests/RootOwnerGatewayChecks.swift -o /tmp/ac-root-owner-gateway
@@ -191,6 +200,8 @@ jobs:
           sudo install -m 644 scripts/mac_key_handoff_probe.py "$AC_MAC_WORKER_PREFIX/key-handoff-probe.py"
           sudo install -m 755 /tmp/ac-mac-worker-bootstrap "$AC_MAC_WORKER_PREFIX/mac-worker-bootstrap"
           sudo codesign --force --options runtime --sign - "$AC_MAC_WORKER_PREFIX/mac-worker-bootstrap"
+          sudo install -m 755 /tmp/ac-mac-worker-bootstrap-delayed "$AC_MAC_WORKER_PREFIX/mac-worker-bootstrap-delayed"
+          sudo codesign --force --options runtime --sign - "$AC_MAC_WORKER_PREFIX/mac-worker-bootstrap-delayed"
           sudo install -m 755 /tmp/ac-root-owner-gateway "$AC_MAC_WORKER_PREFIX/root-owner-gateway"
           sudo install -m 755 /tmp/ac-root-owner-client "$AC_MAC_WORKER_PREFIX/root-owner-client"
           sudo install -m 755 /tmp/ac-root-owner-client "$AC_MAC_WORKER_PREFIX/root-owner-client-denied"

@@ -12,7 +12,8 @@ CHECKS = {"existing_store_started", "synthetic_owner_session_active_before_crash
           "pause_stops_running_worker", "pause_survives_future_ticks", "paused_start_never_launches_worker",
           "paused_native_health_remains_available", "paused_owner_reads_do_not_start_worker",
           "stable_running_period_restores_restart_budget", "dangling_pause_symlink_still_prevents_start",
-          "missing_key_is_terminal_without_enrollment", "missing_key_not_recreated"}
+          "missing_key_is_terminal_without_enrollment", "missing_key_not_recreated",
+          "slow_live_worker_ready_after_old_deadline"}
 
 
 def validate(value):
