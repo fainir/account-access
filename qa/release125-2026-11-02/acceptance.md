@@ -43,8 +43,9 @@ reason correctly identifies bootstrap exit. The test now requires that exact
 reason; production code and qualified packages are unchanged. The same CI-only
 change adds a separately signed bootstrap that sleeps 35 seconds, then uses
 the actual key handoff, identity drop and worker protocol. Eighteen local
-validator/readiness checks and Ruff pass; the actual delayed-worker run remains
-in progress. The later focused validator/readiness/Installer suite passes 55 tests.
+validator/readiness checks and Ruff pass. The later focused
+validator/readiness/Installer suite passes 55 tests; actual worker qualification
+is complete below.
 
 The interrupted first updater assembly stopped before packaging because the
 post-reboot developer PATH omitted Homebrew's gh. Restarting assembly with the
@@ -79,3 +80,22 @@ match both local files; the draft now has nine assets with no replacement or
 deletion. Exact 125 notes, current/legacy labels, tested source target and unpublished
 state were read back. [Customer handoff](../gates/customer-release-handoff-2026-11-02.md). The owner
 Mac remains build 124; no build-125 installation or recovered private read is claimed.
+
+## Actual worker and package acceptance
+
+[Mac worker run 41460707153](https://github.com/fainir/account-access/actions/runs/41460707153)
+completed successfully at test-only revision f352d39. All 18 actual reports
+were downloaded and read; their 427 check values pass. All 16 dedicated evidence
+validators pass against those files. The [22-check supervisor report](worker/account-access-mac-root-supervisor.json)
+includes slow_live_worker_ready_after_old_deadline=true from the real signed
+35-second delayed-bootstrap fixture. The [staged-enrollment report](worker/account-access-mac-staged-enrollment.json)
+also passes the precise wrong-key bootstrap-exit refusal and subsequent correct-key
+recovery. These checks use synthetic data and disposable System keychain entries.
+
+The [16-check offline package](worker/account-access-mac-package.json) and
+[23-check prepared package](worker/account-access-mac-prepared-package.json)
+include actual execution. Native framing, desktop XPC, private sockets,
+password/email/SMS/TOTP, browser identity and initial-enrollment boundaries pass.
+These fixtures do not establish real owner approval, private MFA, physical SMS
+or current owner-Mac recovery. No production package was rebuilt for test-only
+changes. The owner-Mac build-125 installation is the remaining technical handoff.

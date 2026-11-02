@@ -4,9 +4,9 @@ Publication-review draft. The public download is still the 0.7.4 preview.
 The publisher approved the complete privacy notice and terms on 1 November
 2026. Build 125's source and signed-Installer checks pass. It adds bounded
 slow-start handling and precise exit diagnostics after the owner Mac's
-build-124 restart exposed a service-startup failure. Worker qualification and
-actual owner-Mac recovery remain pending; publication is on hold. Automated
-private MFA acceptance is separate and remains pending.
+build-124 restart exposed a service-startup failure. Actual owner-Mac recovery
+remains pending; publication is on hold. Automated private MFA acceptance is
+separate and remains pending.
 
 ## Choose your Mac package
 
@@ -47,7 +47,8 @@ checks and preservation of private test data, receipts, policies and all five
 earlier recovery histories. Native qualification preserves all earlier update
 contracts. Complete source regression passes 4,712 tests with 114 skips, Ruff,
 dependency audit and native UI/gateway/updater checks. Matching Mac worker
-acceptance, including a real delayed-bootstrap journey, is being finalized.
+acceptance passes all 18 actual reports and 427 checks, including a real
+35-second delayed-bootstrap journey, key custody and prepared-runtime execution.
 These controlled tests use no personal accounts.
 
 Build 125 allows a finite 120-second startup window and distinguishes timeout
