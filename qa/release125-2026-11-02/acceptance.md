@@ -76,5 +76,6 @@ created fixture job is stopped or absent. Zero personal accounts were used.
 Customer-named package copies match these final tested bytes and were added to
 the existing unpublished draft. Server digest, size and complete upload state
 match both local files; the draft now has nine assets with no replacement or
-deletion. Notes/labels will be reconciled after worker qualification. The owner
+deletion. Exact 125 notes, current/legacy labels, tested source target and unpublished
+state were read back. [Customer handoff](../gates/customer-release-handoff-2026-11-02.md). The owner
 Mac remains build 124; no build-125 installation or recovered private read is claimed.
