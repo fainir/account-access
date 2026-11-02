@@ -68,3 +68,44 @@ SMS and TOTP acceptance remain F3/F4/F5 and must not be inferred from this test.
 No signup, password/code access, private retry, raw browsing history, upload,
 release publication or physical phone action occurred. No recurring private
 enrollment monitor was created; the owner's reply resumes this handoff.
+
+
+## 2 November - actual native import review staged
+
+Best way: Google documents owner-authorized local Chrome export; this app's
+existing Import saved passwords flow keeps file contents inside the native
+app/protected service and lets the owner approve selected supported reads.
+Use that established flow, not a script that opens a password CSV or browser
+password store. No source/runtime change or installer rebuild is needed.
+
+The owner said the export is in Downloads. Metadata-only listing found the
+current Chrome Passwords.csv (87,134 bytes, modified 2 November 11:36:31
+Asia/Jerusalem). No CSV byte, credential file or password database was read by
+the agent. The installed public app plist is 0.8.0/build 123.
+
+The newly available native UI tool opened the exact installed owner app.
+Accounts visibly showed Automatic and the existing public example; private
+Namecheap remained paused. Import passwords > Choose password file opened the
+native picker. The user changed the app during file selection; fresh read-back
+showed the app's review, so selection was not repeated. The review exposes one
+Betterloop match and other supported rows. No password is displayed.
+
+The Betterloop checkbox is now checked (value 1). Every other supported row
+remains unchecked (value 0). Its sole listed permission is “Confirm your
+Betterloop sign-in status”. The option “Move the plaintext export file to Trash
+after importing” remains checked. Import selected accounts is visible. No
+private identifier, unrelated login metadata or screenshot is retained here.
+
+The final import button has not been clicked. New security-sensitive AI access
+requires action-time confirmation under the native computer-use policy. The
+one owner action is to click Import selected accounts in this already staged
+review, completing any native Mac authorization locally. This saves only the
+selected Betterloop credential/grant and moves the plaintext export to Trash;
+it neither imports other entries nor empties Trash.
+
+On completion, inspect actual native status and normal installed discovery.
+Only after the Betterloop status grant appears may the launchers run it.
+No final import, saved grant, real private login or MFA success is claimed yet.
+Do not ask for another export or manual password re-entry. Native UI recovery
+is independent of the earlier Chrome internal-URL rejection; no blocked browser
+action, alternate Chrome surface or private-store workaround was attempted.
