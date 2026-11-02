@@ -1,6 +1,6 @@
 """Bundled, owner-selectable connectors. No URLs or selectors are accepted from the browser."""
 
-from .models import BrowserAccount, BrowserOperation, CodeSource, Configuration, LoginFactor, LoginForm
+from .models import BrowserAccount, BrowserOperation, CodeSource, Configuration, LoginFactor, LoginForm, ServerPageMarker
 from .public_demo import configuration
 from .account_context import describe
 
@@ -28,6 +28,41 @@ BETTERLOOP_ACCOUNT = "personal-betterloop"
 BETTERLOOP_ROOT = "https://betterloopai.com"
 BETTERLOOP_READY = ("header nav[aria-label='Account']:has(a[href='/app/account']) "
                     "form > button:has-text('Log out')")
+LEMON_ACCOUNT = "personal-lemonsqueezy"
+LEMON_SOURCE = "personal-lemonsqueezy-totp"
+LEMON_AUTH = "https://auth.lemonsqueezy.com"
+LEMON_APP = "https://app.lemonsqueezy.com"
+LEMON_PASSWORD_FORM = f"form[action='{LEMON_AUTH}/login']"
+LEMON_CODE_FORM = f"form[action='{LEMON_AUTH}/2fa-challenge']"
+
+
+def lemonsqueezy():
+    """Reviewed native password/TOTP flow; only boolean session status leaves it."""
+    return BrowserAccount(
+        kind="browser", label="Lemon Squeezy · authenticator", login_url=LEMON_AUTH + "/login",
+        password_import_origins=[LEMON_APP, "https://lemonsqueezy.com", "https://www.lemonsqueezy.com"],
+        # The empty Inertia root is invisible without scripts. Its exact URL
+        # and top-level page metadata prove readiness; a pre-MFA logout cannot.
+        ready_selector="html", ready_page=ServerPageMarker(
+            selector="#app", component="App/Dashboard", url=LEMON_APP + "/dashboard"),
+        login=LoginForm(
+            username_selector=LEMON_PASSWORD_FORM + " #email[name='email'][type='email']",
+            password_selector=LEMON_PASSWORD_FORM + " #password[name='password'][type='password']",
+            submit_selector=(LEMON_PASSWORD_FORM + " button[type='submit']:not([form])"
+                             ":not([formaction]):not([formmethod]):not([formenctype])"),
+            factors={"totp": LoginFactor(
+                code_selector=LEMON_CODE_FORM + " #code[name='code'][type='text']",
+                code_submit_selector=(LEMON_CODE_FORM + " button[type='submit']:not([form])"
+                                      ":not([formaction]):not([formmethod]):not([formenctype])"),
+                code_source=LEMON_SOURCE)}),
+        challenge_selectors={
+            "login": LEMON_PASSWORD_FORM + " #password[name='password']",
+            "totp": LEMON_CODE_FORM + " #code[name='code']"},
+        read_resources=[LEMON_AUTH + "/login", LEMON_AUTH + "/2fa-challenge"],
+        login_resources=[LEMON_AUTH + "/2fa-challenge", LEMON_APP + "/dashboard"],
+        login_post_urls=[LEMON_AUTH + "/login", LEMON_AUTH + "/2fa-challenge"],
+        operations={"status": BrowserOperation(url=LEMON_APP + "/dashboard",
+            description="Confirm your Lemon Squeezy sign-in status", session_only=True)})
 
 
 def betterloop():
@@ -80,6 +115,7 @@ def include_sources(config, specs):
     staged = config.model_copy(deep=True)
     _include_pypi_source(staged, specs)
     _include_readthedocs_source(staged, specs)
+    _include_lemonsqueezy_source(staged, specs)
     config.code_sources = staged.code_sources
 
 
@@ -120,6 +156,26 @@ def _include_readthedocs_source(config, specs):
         raise AccessError("DENIED", "catalog_code_source_conflict")
     if existing is None:
         config.code_sources[RTD_SOURCE] = expected
+
+
+def _include_lemonsqueezy_source(config, specs):
+    """Define the selected source without enrolling or adopting another seed."""
+    selected = specs.get(LEMON_ACCOUNT)
+    if selected is None or not selected.login or selected.login.sources() != {LEMON_SOURCE}:
+        return
+    expected = CodeSource(kind="totp")
+    existing = config.code_sources.get(LEMON_SOURCE)
+    connected = config.accounts.get(LEMON_ACCOUNT)
+    if connected is None and selected != lemonsqueezy():
+        from .errors import AccessError
+        raise AccessError("DENIED", "catalog_connector_changed")
+    if existing is not None and (
+            not isinstance(connected, BrowserAccount) or not connected.login
+            or LEMON_SOURCE not in connected.login.sources() or existing != expected):
+        from .errors import AccessError
+        raise AccessError("DENIED", "catalog_code_source_conflict")
+    if existing is None:
+        config.code_sources[LEMON_SOURCE] = expected
 
 
 def readthedocs():
@@ -191,6 +247,7 @@ def entries():
     result[PYPI_ACCOUNT] = pypi()
     result[RTD_ACCOUNT] = readthedocs()
     result[BETTERLOOP_ACCOUNT] = betterloop()
+    result[LEMON_ACCOUNT] = lemonsqueezy()
     return result
 
 

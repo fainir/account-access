@@ -379,12 +379,38 @@ class Browser:
                 return kind
         return None
 
+    def ready(self, page, config):
+        if not page.locator(config.ready_selector).first.is_visible():
+            return False
+        marker = config.ready_page
+        if marker is None:
+            return True
+        if page.url != marker.url:
+            return False
+        root = page.locator(marker.selector)
+        if root.count() != 1:
+            return False
+        # Parse inside the browser and return only a boolean. Never copy the
+        # server's private page props into Python, diagnostics or agent results.
+        return root.evaluate("""(element, expected) => {
+            const raw = element.getAttribute(expected.attribute);
+            if (raw === null || raw.length > 4000000) return false;
+            try {
+                const value = JSON.parse(raw);
+                return value !== null && typeof value === 'object' && !Array.isArray(value)
+                    && Object.prototype.hasOwnProperty.call(value, 'component')
+                    && Object.prototype.hasOwnProperty.call(value, 'url')
+                    && value.component === expected.component && value.url === expected.path;
+            } catch { return false; }
+        }""", {"attribute": marker.attribute, "component": marker.component,
+                "path": urlsplit(marker.url).path}) is True
+
     def check(self, page, config):
         self.check_authority(page)
         kind = self.challenge(page, config)
         if kind:
             raise AccessError("NEEDS_USER", "browser_" + kind + "_required", kind)
-        if not page.locator(config.ready_selector).first.is_visible():
+        if not self.ready(page, config):
             raise AccessError("NEEDS_USER", "browser_state_unrecognized", "unknown")
 
     def wait_state(self, page, config, *, after_submit=False, previous_kind=None):
@@ -396,7 +422,7 @@ class Browser:
             prior = previous_kind or ("login" if after_submit else None)
             if kind and kind != prior:
                 return
-            if page.locator(config.ready_selector).first.is_visible():
+            if self.ready(page, config):
                 return
             if time.monotonic() >= deadline:
                 return

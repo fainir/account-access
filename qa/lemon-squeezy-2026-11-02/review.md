@@ -98,3 +98,61 @@ After that action, inspect only the authenticated destination and structural
 ready marker, excluding account/financial content. Complete the guarded
 connector and test its known challenge and refusal paths, then qualify the
 installed successor and local owner enrollment before product MFA acceptance.
+
+
+## Signed-in destination observed; implementation method
+
+The owner replied “i signed in”. In the same Chrome tab, the location is now
+https://app.lemonsqueezy.com/dashboard and the code form is absent. No password,
+code, cookie, browser storage or private dashboard text/value was read.
+
+The page uses Inertia: its existing #app DOM data-page attribute reports only
+the selected component field App/Dashboard and URL path /dashboard. Dashboard
+props, account identities, financials and API keys were excluded from output.
+The exact escaped-slash JSON CSS match was checked and occurs once. The initial
+#app can be empty/invisible with JavaScript off, so use html:has(the exact #app
+marker), not visibility of the empty app element or a pre-MFA logout form.
+
+Inertia's [official protocol](https://v1.inertiajs.com/the-protocol) documents
+that the initial full HTML carries the page object in data-page, without
+rendering the client components. Therefore keep JavaScript disabled, read only
+this server component/route marker and return authenticated=true. Do not
+whitelist the dashboard's payment/analytics scripts or expose any props.
+
+Before implementation: use fixed native POST password and /2fa-challenge forms,
+a separate owner-enrolled TOTP source, exact auth/app destinations and one
+status-only operation. Test successful password/TOTP and session reuse, expired
+sessions, absent/revoked factors, malformed forms/overrides/redirects, pre-MFA
+logout decoys, wrong component/route and private-data canaries. Preserve all
+existing catalog entries/fingerprints. Then qualify the exact signed successor
+before a new local credential/grant and authenticator setup. The manual Chrome
+MFA observation alone is not Account Access acceptance.
+
+
+## Guarded implementation and focused verification
+
+Implemented a separate Lemon Squeezy catalog entry with fixed password and TOTP
+POST destinations, JavaScript off, a distinct initially unenrolled source and
+one session-status operation. Password import uses exact HTTPS origin aliases;
+no payment, API-key, settings, logout or account-change operation is granted.
+
+Testing exposed that CSS substring checks can match nested dashboard-like props
+inside the wrong page. Replaced that prototype with a typed ServerPageMarker:
+exact current browser URL, exactly one #app, bounded JSON parsed inside the
+browser, and exact own top-level component/url fields. Only a boolean leaves
+that predicate. The feature permits only script-free session-status operations;
+its active definition is permission-bound, while absence preserves every old
+connector fingerprint. A legacy fixture needed the new absent field removed
+from its historical expected schema, without changing runtime fingerprints.
+
+Twenty dedicated server-marker tests pass, including nested decoys, wrong
+component/route/destination, malformed/oversized JSON, duplicate roots, result
+scope restrictions and legacy fingerprints. The initial provider/catalog run
+passed 60 cases with one stale count expectation; both counts now reflect five
+private catalog services. The later Lemon/multifactor run passed 70 runtime
+cases with only the historical schema fixture mismatch described above.
+The corrected marker/legacy/spec run passes separately. Sets overlap; do not
+add these as unique totals. Ruff passes. Complete source CI and matching
+build-124 owner/broker compilation are next, followed by the exact 123-to-124
+image/update and actual signed Installer qualification. No installed upgrade,
+new private grant, seed enrollment or automated live MFA success is claimed.
