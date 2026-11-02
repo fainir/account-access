@@ -2,7 +2,9 @@
 
 Build 123 adds the reviewed Betterloop session-status connector. The only runtime
 Python module changed from the qualified build-122 image is `catalog.py`.
-There is no private sign-in, MFA delivery, saved credential or new grant yet.
+At initial image qualification no private sign-in or new grant had been used.
+[Private Betterloop acceptance passed on 2 November](../betterloop-private-2026-11-02/acceptance.md);
+real MFA delivery remains separate.
 Build 123 is now installed on the owner Mac, with post-reboot acceptance below.
 
 ## Completed native and package checks
@@ -70,8 +72,9 @@ The [corrected complete regression](https://github.com/fainir/account-access/act
 passes **4,656 tests with 113 skips**, Ruff, dependency audit (no known
 vulnerabilities), native owner UI, gateway and updater checks.
 Source/binary code is unchanged by the fixture correction.
-Real private Betterloop acceptance remains open. Do not treat signature,
-notarization or fixture reports as private acceptance.
+Real private Betterloop acceptance subsequently passed on 2 November through
+the installed native Chrome import and both AI launchers; see the private
+acceptance above. Signature/notarization/fixture reports alone do not establish it.
 The qualified build-123 files are staged in the existing unpublished
 customer draft. Earlier build-122 artifacts remain explicitly labeled legacy;
 no asset deletion or publication is required for this handoff. No Android signing, upload, phone installation or publication.
@@ -113,3 +116,7 @@ credential form is claimed. No private Betterloop account, credential or new
 grant was used. Restore supported native UI control before staging an existing
 account's local connection; browsing history alone does not establish ownership.
 Private email/TOTP and physical-phone acceptance remain the ledger's owner rows.
+
+Native UI control was restored on 2 November. The earlier unstaged handoff is
+resolved by the owner-approved Chrome import and verified private results linked
+above; do not repeat its credential/export/grant requests.

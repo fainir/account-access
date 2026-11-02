@@ -23,7 +23,10 @@ protected worker is READY and both installed Codex/Claude launchers returned six
 approved public product names/prices. The saved vault and recovery directory
 identities and permissions are preserved. That example does not validate a private account.
 Build 123 adds a reviewed Betterloop connector returning only sign-in status;
-its real private acceptance and email/SMS/TOTP personal acceptance remain open.
+its real private password/session acceptance now passes after the owner-selected
+Chrome import. Both installed AI launchers return only authenticated=true.
+[Private acceptance](qa/betterloop-private-2026-11-02/acceptance.md).
+Real email/SMS/TOTP personal acceptance remains open.
 
 The Android 0.8.0 APK is publisher-signed with native Mac Keychain custody and
 passes [actual emulator acceptance](qa/gates/android-publisher-acceptance-2026-10-31.md).
@@ -85,7 +88,8 @@ app to resume it.
 
 The built-in catalog includes public SauceDemo and The Internet test accounts.
 The 0.8 candidate also includes narrow Betterloop, Namecheap, PyPI and Read the Docs
-Community pilots; private acceptance is unfinished. Read the Docs requires a
+Community pilots. Betterloop's password/status acceptance passes; other private
+provider and MFA acceptance remains unfinished. Read the Docs requires a
 locally enrolled authenticator and permits only checking the signed-in username.
 PyPI supports the reviewed password/authenticator
 route. In **Verification**, you can link an already checked mailbox for PyPI's

@@ -31,15 +31,16 @@ Ruff passes for the changed catalog, test and preflight source. The existing
 build-122 wheel was compared with the current source: only `catalog.py` differs
 among runtime Python modules, with no added/removed runtime module.
 
-## Installed acceptance remains open
+## Installed acceptance completed on 2 November
 
 The signed/notarized successor and exact predecessor update now pass, including
 actual owner-Mac build-123 installation and public-example checks after a full
 OS restart. Its installed owner wheel and runtime catalog match the qualified
 image and include Betterloop. [Installed acceptance](../release123-2026-11-01/acceptance.md).
-Native UI control is currently unavailable, so no local credential form is staged.
-An owner-recognized existing account still needs local connection. No private login,
-new grant, saved credential, production release or real MFA success is claimed.
+The owner-approved local Chrome import and real private Betterloop sign-in now
+pass, with both installed AI results returning only authenticated=true.
+[Private acceptance](../betterloop-private-2026-11-02/acceptance.md). No public
+release or real MFA success is claimed.
 Do not use the Chrome login page as a substitute for installed Account Access.
 No raw browsing history or history URLs are retained in this evidence.
 

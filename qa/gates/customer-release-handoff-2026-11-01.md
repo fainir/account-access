@@ -25,7 +25,7 @@ Exact server bytes/digests match the qualified inputs, and server notes match
 | Account-Access-0.8.0-Mac-arm64.pkg | 289,330,711 | Earlier build-122 full installer, explicitly labeled legacy |
 | account-access-bitwarden-2026.10.0-corresponding-source.tar.gz | 219,117,936 | Required unchanged matching third-party source, no additional charge |
 
-Current draft: https://github.com/fainir/account-access/releases/tag/untagged-728152bbd8832eb5491b
+Current draft: https://github.com/fainir/account-access/releases/tag/untagged-7b1b17ef2aeaf57707b8
 
 The current image changes only the runtime catalog module and related package/
 owner metadata. Dependency/JIT and Bitwarden program/source bytes are unchanged.
@@ -36,8 +36,10 @@ certification or successful public download is claimed.
 
 The complete privacy notice and terms were approved on 1 November; do not ask
 again for the unchanged bodies. Store listing copy remains proposed. Native
-installation is complete; personal connection acceptance remains. No new
-credential handoff is staged while native UI control is unavailable.
+installation is complete. The owner-selected Betterloop Chrome import, native
+private sign-in and both installed AI status reads pass on 2 November.
+[Private acceptance](../betterloop-private-2026-11-02/acceptance.md).
+Real email/SMS/TOTP and other private-provider acceptance remain separate.
 No unfamiliar-service signup, password/code in chat, Play upload or phone action.
 
 The earlier macOS 14 follow-up was deleted when that check passed. The new hourly

@@ -1,5 +1,10 @@
 # Betterloop owner handoff - 1 November 2026
 
+**Resolved 2 November:** the owner-approved Chrome import and real private
+Betterloop sign-in passed. Both installed AI status reads return only
+authenticated=true. [Final acceptance](../betterloop-private-2026-11-02/acceptance.md).
+The remaining text records the earlier handoff; its pending requests are complete.
+
 The owner confirmed: “yes its email and password”. This establishes an existing
 Betterloop account for the requested private-account test. It supplies no
 password, new local grant, successful sign-in or MFA evidence.

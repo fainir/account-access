@@ -2,11 +2,14 @@
 
 This is a native installer and owner interface for macOS 14 (Sonoma) or later.
 
-**Current owner-Mac status (1 November):** Account Access 0.8.0 build 123
+**Current owner-Mac status (2 November):** Account Access 0.8.0 build 123
 is installed. After a confirmed full OS restart, browser READY, recovery RUNNING
 with zero failures and both approved public example reads pass. The installed
-owner wheel and runtime catalog match the qualified build-123 image. No successful
-private website sign-in is claimed.
+owner wheel and runtime catalog match the qualified build-123 image. The real
+owner-selected Betterloop Chrome import and private sign-in now pass. Both
+installed AI launchers return only authenticated=true with outer environment live.
+[Private acceptance](../qa/betterloop-private-2026-11-02/acceptance.md).
+Real email/SMS/TOTP and other private-provider acceptance remain separate.
 
 The signed/notarized/stapled build-123 packages pass actual fresh/repair and
 exact upgrade/reapply on macOS 14.8.9, 15.8.2 and 26.6.2 arm64. All 114 checks

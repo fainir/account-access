@@ -44,9 +44,12 @@ pass all 426 checks, including actual prepared-runtime execution.
 Build 123 adds a reviewed Betterloop password connector whose only operation
 returns authenticated session status. It does not return page text, project
 information, API keys or billing data. Its native multipart form passed 11 live
-anonymous checks; this is not completed private account acceptance. The owner
-Mac also passes installed-runtime and public-example checks after a full OS
-restart. Successful private-provider login remains unqualified.
+anonymous checks. On 2 November the owner-selected Chrome import and real private
+Betterloop sign-in passed in the installed app; both Codex and Claude Code
+returned only authenticated=true, classified as live. This is password/session
+acceptance, not email/SMS/TOTP verification. The owner Mac also passes installed-
+runtime and public-example checks after a full OS restart. Other private
+providers and real MFA remain unqualified.
 
 ## Current scope and remaining acceptance
 
