@@ -62,3 +62,39 @@ the fixed status-only connector, then qualify its installed successor before
 requesting local credential/grant and authenticator enrollment. Do not add an
 unreviewed route or broaden an existing provider's grants. Existing Betterloop
 acceptance stays complete and Namecheap stays paused.
+
+
+## Actual authenticator challenge observed
+
+After the owner replied “i did”, the same staged Chrome tab was at
+https://auth.lemonsqueezy.com/2fa-challenge with heading “Enter your 2FA code”.
+Only DOM structure and attributes were inspected; no input or token value,
+password, current code, recovery code, cookie or storage value was read.
+
+The observed challenge contract is:
+
+- POST https://auth.lemonsqueezy.com/2fa-challenge,
+  application/x-www-form-urlencoded.
+- Hidden _token input present; value excluded.
+- Exactly one visible required code field: id=code, name=code, type=text,
+  autocomplete empty. Select it only within that exact challenge form.
+- One Sign in submit button; no formaction/formmethod overrides.
+- A separate POST https://auth.lemonsqueezy.com/logout form is already present
+  before MFA completes. A logout form alone must never establish readiness.
+
+The real MFA contract is now observed. Its post-login destination and reliable
+signed-in marker are still unknown and must be observed before adding a
+status-only connector. The page's logout form is explicitly insufficient.
+No incomplete connector was added to the installed catalog.
+
+The unique visible code field is focused for the owner. The next exact owner
+action is to enter the current authenticator code in this Chrome prompt and
+click Sign in, then reply “signed in”. Values remain unread by the agent. This
+completes the owner's normal manual sign-in only; it will not be recorded as
+Account Access's automated MFA acceptance. No QR/seed export, factor reset,
+new enrollment or recovery-code use is requested.
+
+After that action, inspect only the authenticated destination and structural
+ready marker, excluding account/financial content. Complete the guarded
+connector and test its known challenge and refusal paths, then qualify the
+installed successor and local owner enrollment before product MFA acceptance.
