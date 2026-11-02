@@ -1,0 +1,7 @@
+D16 source binding: qualified build-125 wheel matches tested F1/F352/current catalog, models and browser byte for byte.
+D16 provider/marker/form test files match completed worker CI source F352.
+Exact signed updater source and compiled run match completed native CI; final package matches the actual Installer contract.
+Apple Accepted, stapled and Gatekeeper accepted; seven public changed files; no rebuild or new account operation.
+mac-cross-user	Check reviewed website imports and native form destinations	﻿2026-11-02T14:34:00.7695500Z ##[group]Run uv run pytest -q tests/test_worker_startup_readiness.py tests/test_lemonsqueezy.py tests/test_server_page_marker.py tests/test_betterloop.py tests/test_readthedocs.py tests/test_native_form_target.py tests/test_account_context.py
+mac-cross-user	Check reviewed website imports and native form destinations	2026-11-02T14:34:00.7699880Z [36;1muv run pytest -q tests/test_worker_startup_readiness.py tests/test_lemonsqueezy.py tests/test_server_page_marker.py tests/test_betterloop.py tests/test_readthedocs.py tests/test_native_form_target.py tests/test_account_context.py[0m
+mac-cross-user	Check reviewed website imports and native form destinations	2026-11-02T14:36:41.3051570Z 73 passed in 159.28s (0:02:39)

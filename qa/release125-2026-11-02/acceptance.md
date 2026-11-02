@@ -99,3 +99,16 @@ password/email/SMS/TOTP, browser identity and initial-enrollment boundaries pass
 These fixtures do not establish real owner approval, private MFA, physical SMS
 or current owner-Mac recovery. No production package was rebuilt for test-only
 changes. The owner-Mac build-125 installation is the remaining technical handoff.
+
+## D16 connector and signed-update completion
+
+The existing completed worker CI contains 73 passing guarded-provider/form/
+readiness cases. Its catalog, model, browser and relevant test sources match
+the current checkout and the actual qualified build-125 wheel byte for byte.
+The exact updater's source/compiler run, final digest and Apple/Gatekeeper
+results match the completed native run and published Installer contract.
+[Source and CI binding](d16-ci-binding.log). No job, test suite or package was
+repeated. D16's connector and signed-update work is complete; its remaining
+owner status covers installed acceptance after action 12. Personal Lemon
+credential/grant/TOTP enrollment and real MFA remain F5, with no new account
+operation or owner request during this verification.
