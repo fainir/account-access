@@ -42,3 +42,19 @@ refusal of the actual newer model through that old transition. All 160 focused
 historical/image/update tests pass with lint. This changes only a test; program
 and package bytes remain unchanged. [Corrected complete CI](https://github.com/fainir/account-access/actions/runs/41438932448)
 is running and is required before owner installation. Private automated TOTP acceptance remains separate.
+
+## Actual Installer journeys in progress
+
+The same final package bytes are dispatched once on [macOS 15](https://github.com/fainir/account-access/actions/runs/41439176186),
+[macOS 14](https://github.com/fainir/account-access/actions/runs/41439179854) and
+[macOS 26](https://github.com/fainir/account-access/actions/runs/41439183599).
+The actual [macOS 14 upgrade/reapply report](macos14-upgrade/report.json) passes
+all 27 checks: build 124, live signed browser, patched dependency guard, private
+sentinel inode, legacy receipts, policies and histories 120/121/122/123 survive.
+No personal accounts were used; the created fixture job is stopped. Other
+journeys are still running. Do not infer success from workflow dispatch/upload.
+
+Seven complete assets were read back in the existing unpublished customer draft:
+the two build-124 candidates, four retained legacy packages and unchanged matching
+third-party source. Their server sizes/digests match; no asset was overwritten or
+deleted and publication remains null. Notes will be updated after qualification.
