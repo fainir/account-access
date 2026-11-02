@@ -24,8 +24,12 @@ preparation checks. No installed reads or service actions occurred in these prob
 
 The full signed installer is Apple Accepted, stapled and Gatekeeper accepted.
 Actual stapler validate succeeds; pkgutil reports trusted Apple notarization and
-the existing Developer ID Installer. Its final hash starts 33ecb2e9. The exact
-updater is currently being notarized, followed by actual Installer acceptance.
+the existing Developer ID Installer. Its final hash starts 33ecb2e9. The [exact updater](updater-package.json) is also
+Apple Accepted, stapled and Gatekeeper accepted, including the persistent copy.
+Its signed packaged target and complete owner signature are independently read
+back. Ordinary-user invocation refuses. Both exact package digests, byte counts
+and complete QA release asset states match [the Installer contract](../../artifacts/runtime124-installer-inputs.json).
+Actual Installer acceptance is next.
 Neither package has been installed on the owner Mac.
 
 ## Historical regression correction
@@ -36,5 +40,5 @@ the old signed configuration-model upgrade with the moving current models.py.
 The historical Python/native pins stay unchanged. The corrected test exercises
 refusal of the actual newer model through that old transition. All 160 focused
 historical/image/update tests pass with lint. This changes only a test; program
-and package bytes remain unchanged. Corrected complete CI is required before
-owner installation. Private automated TOTP acceptance remains separate.
+and package bytes remain unchanged. [Corrected complete CI](https://github.com/fainir/account-access/actions/runs/41438932448)
+is running and is required before owner installation. Private automated TOTP acceptance remains separate.

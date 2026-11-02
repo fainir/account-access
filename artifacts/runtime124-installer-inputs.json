@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "release_tag": "qa-lemonsqueezy124-20261102",
+  "assets": {
+    "baseline.tar.gz": {
+      "sha256": "e97a931b090852d139b1d8c6a24a4565d815658ee12a2f1a8ca8666a87eef693",
+      "bytes": 289371222
+    },
+    "candidate.pkg": {
+      "sha256": "fa0ebd21101277d936c9a564c3451f51fb682ded255752e2b2abbf2fd4bf6926",
+      "bytes": 6074988
+    },
+    "fresh.pkg": {
+      "sha256": "33ecb2e9dcb55fa0b5c09c02d766cb99a843c7fcebdfd27834524027386100a3",
+      "bytes": 289321568
+    }
+  },
+  "before_manifest_sha256": "5f3390496afaa436c64e3629cc125cbb4017e9deec8f70e4f5eb06c16e790930",
+  "after_manifest_sha256": "37cadaf59502657983f6cdb4a3bec0a755eb5e0dd041b625151ee51608ab2d8f",
+  "personal_accounts_used": 0
+}
