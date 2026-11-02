@@ -174,3 +174,8 @@ with matching digest/size. The predecessor archive contains exactly 27,494
 manifest nodes/parents and no private branches. Earlier 120/121/122/123 histories
 remain separate. Native updater compilation, signed packages and actual Installer
 acceptance remain pending. This does not establish installed Lemon access or MFA.
+
+The matching native updater qualification now passes all seven actual reports,
+including unchanged earlier contracts. Full-source regression found one stale
+historical-model assertion; the corrected refusal test preserves old pins and
+passes with 159 related cases. [Package/native acceptance record](../release124-2026-11-02/acceptance.md).

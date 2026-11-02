@@ -173,9 +173,17 @@ def configuration_extension(inputs):
     return inputs
 
 
-def test_configuration_upgrade_profile_matches_reviewed_model_source():
+def test_historical_configuration_profile_refuses_the_later_model_source(inputs):
+    # The historical signed transition retains its reviewed model bytes. New
+    # connector models use a separate exact transition, never a widened old one.
     raw = (Path(__file__).parents[1] / "account_access/models.py").read_bytes()
-    assert plan.CONFIGURATION_MODEL_AFTER == file_node(raw)
+    current = file_node(raw)
+    assert current != plan.CONFIGURATION_MODEL_AFTER
+    configuration_extension(inputs)
+    inputs["after"]["roots"][plan.SUPPORT][plan.PACKAGE + "/models.py"] = current
+    inputs["provenance"]["target_source_files"]["account_access/models.py"] = current["sha256"]
+    with pytest.raises(plan.Refused):
+        plan.derive(**arguments(inputs))
 
 
 def test_explicit_configuration_extension_does_not_claim_unchanged_source(inputs):
