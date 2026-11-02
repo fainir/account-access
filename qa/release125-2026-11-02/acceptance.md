@@ -133,7 +133,7 @@ the [Claude response](installed-claude-private.json) is retained. Separate
 [Claude public-example](installed-claude-public.json) reads each return six
 names/prices. [Final health/discovery](installed-accounts.json).
 The actual native app reopens with Automatic integration and Betterloop Connected;
-Namecheap remains paused. [Native screen](installed-accounts.png).
+Namecheap remains paused. [Native screen](installed-accounts.jpg).
 
 An unnecessary repeated updater invocation after tool interruption was refused
 at journal. It did not disrupt the installed worker or the private/public reads
