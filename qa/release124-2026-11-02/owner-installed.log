@@ -1,0 +1,11 @@
+Before build-124 owner installation: 2026-11-02T13:58:15+02:00; version=0.8.0; build=123
+Directory/alias metadata only; no private file, vault contents or configuration was opened.
+before	/Library/Application Support/Account Access	16777234	617554083	0o40755	0	80
+before	/Applications/Account Access.app	16777234	556369026	0o120755	0	80
+before	/Library/Application Support/Account Access/vault	16777234	556370482	0o40755	0	80
+before	/Library/Application Support/Account Access Installation Binding	16777234	563018617	0o40700	0	80
+before	/Library/Application Support/Account Access Runtime Recovery	16777234	615512526	0o40700	0	0
+before	/Library/Application Support/Account Access Runtime JIT Repair	16777234	625270576	0o40700	0	0
+before	/Library/Application Support/Account Access Owner Connection Repair	16777234	625610012	0o40700	0	0
+before	/Library/Application Support/Account Access Betterloop Connection	16777234	632999024	0o40700	0	0
+Installer handoff: exact qualified update-from-build123.pkg opened; Standard Install on Macintosh HD observed. Installer UI actions/state reads then timed out; Open picker was last observable surface, not an authorization dialog. Finder remains controllable and exact updater is selected. Installed public app metadata still reports build 123. No private contents, new account grant or code was accessed.

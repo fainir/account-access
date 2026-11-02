@@ -29,7 +29,7 @@ Apple Accepted, stapled and Gatekeeper accepted, including the persistent copy.
 Its signed packaged target and complete owner signature are independently read
 back. Ordinary-user invocation refuses. Both exact package digests, byte counts
 and complete QA release asset states match [the Installer contract](../../artifacts/runtime124-installer-inputs.json).
-Actual Installer acceptance is next.
+Actual signed Installer acceptance is complete on all three supported test systems.
 Neither package has been installed on the owner Mac.
 
 ## Historical regression correction
@@ -41,20 +41,54 @@ The historical Python/native pins stay unchanged. The corrected test exercises
 refusal of the actual newer model through that old transition. All 160 focused
 historical/image/update tests pass with lint. This changes only a test; program
 and package bytes remain unchanged. [Corrected complete CI](https://github.com/fainir/account-access/actions/runs/41438932448)
-is running and is required before owner installation. Private automated TOTP acceptance remains separate.
+passes all 4,704 tests with 113 skips, Ruff, dependency audit (no known vulnerabilities), and native UI/gateway/updater checks. Private automated TOTP acceptance remains separate.
 
-## Actual Installer journeys in progress
+## Completed actual signed Installer and worker acceptance
 
-The same final package bytes are dispatched once on [macOS 15](https://github.com/fainir/account-access/actions/runs/41439176186),
-[macOS 14](https://github.com/fainir/account-access/actions/runs/41439179854) and
+The exact final bytes pass both actual Installer journeys on
+[macOS 14](https://github.com/fainir/account-access/actions/runs/41439179854),
+[macOS 15](https://github.com/fainir/account-access/actions/runs/41439176186) and
 [macOS 26](https://github.com/fainir/account-access/actions/runs/41439183599).
-The actual [macOS 14 upgrade/reapply report](macos14-upgrade/report.json) passes
-all 27 checks: build 124, live signed browser, patched dependency guard, private
-sentinel inode, legacy receipts, policies and histories 120/121/122/123 survive.
-No personal accounts were used; the created fixture job is stopped. Other
-journeys are still running. Do not infer success from workflow dispatch/upload.
+All six reports were downloaded and read: [14 fresh](macos14-fresh/report.json),
+[14 upgrade](macos14-upgrade/report.json), [15 fresh](macos15-fresh/report.json),
+[15 upgrade](macos15-upgrade/report.json), [26 fresh](macos26-fresh/report.json),
+[26 upgrade](macos26-upgrade/report.json). Each OS passes 11 fresh/repair and
+27 upgrade/reapply checks: **114 total**. Build 124, actual publisher-signed
+sandboxed browser execution, patched dependency guards, private sentinel/root
+inodes, receipts and policies pass. Histories 120/121/122/123 survive every
+upgrade/reapply. No personal accounts were used; fixture jobs are stopped.
 
-Seven complete assets were read back in the existing unpublished customer draft:
-the two build-124 candidates, four retained legacy packages and unchanged matching
-third-party source. Their server sizes/digests match; no asset was overwritten or
-deleted and publication remains null. Notes will be updated after qualification.
+[Current-source Mac worker acceptance](https://github.com/fainir/account-access/actions/runs/41438932447)
+passes all 18 actual reports and 426 true check values, including
+[16 offline-package](account-access-mac-package.json) and
+[23 prepared-package](account-access-mac-prepared-package.json) checks with
+actual prepared-runtime execution. The matching runtime-source run 41435565714
+also passed all 18/426. These worker fixtures are separate from publisher-signed
+Installer acceptance. Current-source Android, separate-user and component
+review workflows also completed successfully; no Android rebuild or upload.
+
+The [existing unpublished customer draft](../gates/customer-release-handoff-2026-11-02.md)
+has seven complete assets. Server bytes/digests, current/legacy labels, exact
+notes, source target, draft state and null publication were read back. No asset
+was overwritten or deleted. Publisher-approved policy/terms bodies are unchanged.
+
+## Owner-Mac installation handoff
+
+The owner Mac still reports 0.8.0/build 123. Eight existing directory/alias
+identities are captured in [the pre-install log](owner-installed.log), by
+metadata only. The exact qualified 123-to-124 updater matches its final digest
+and is [selected in Finder](install-handoff.png). Installer was opened for that
+file and reached Standard Install on Macintosh HD. Subsequent Installer actions
+and state reads timed out, while Finder remained controllable. The last
+observable Installer surface was an Open file picker, not an authorization
+dialog. No owner-Mac installation or new OS approval is claimed. Do not repeat
+hidden clicks or force-stop an unknown install backend.
+
+The one handoff is to open the selected updater and complete the native Mac
+installation locally; restart Installer first if it remains frozen. The local
+Mac approval belongs to the owner and no password belongs in chat. After the
+installed build changes, verify exact public owner/runtime bytes, all eight
+metadata identities, service/browser health and approved reads through both
+installed AI launchers. Then stage Lemon's local import/grant and existing
+authenticator enrollment. The completed manual Chrome sign-in is not repeated.
+Real protected-service Lemon MFA remains F5; no new credential/grant/seed was used.

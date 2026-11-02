@@ -179,3 +179,18 @@ The matching native updater qualification now passes all seven actual reports,
 including unchanged earlier contracts. Full-source regression found one stale
 historical-model assertion; the corrected refusal test preserves old pins and
 passes with 159 related cases. [Package/native acceptance record](../release124-2026-11-02/acceptance.md).
+
+## Completed buildable qualification
+
+Build 124 now passes complete corrected CI (4,704 tests/113 skips, lint,
+audit and native checks), all 18 current Mac worker reports/426 checks,
+seven native update reports and all 114 signed Installer checks across
+macOS 14/15/26. Both packages are signed, Apple Accepted, stapled and
+Gatekeeper accepted. [Final evidence](../release124-2026-11-02/acceptance.md).
+
+The Mac still has build 123. Its exact qualified updater is selected in Finder;
+Installer reached Standard Install, then UI control became unresponsive.
+The one owner handoff is local installation/OS approval, with no password in
+chat. After installed verification, stage local Lemon import/grant and existing
+authenticator enrollment. The completed manual Chrome sign-in is not repeated,
+and automated private MFA remains unclaimed.
