@@ -43,11 +43,38 @@ reason correctly identifies bootstrap exit. The test now requires that exact
 reason; production code and qualified packages are unchanged. The same CI-only
 change adds a separately signed bootstrap that sleeps 35 seconds, then uses
 the actual key handoff, identity drop and worker protocol. Eighteen local
-validator/readiness checks and Ruff pass; the actual delayed-worker run and
-three-OS Installer qualification are next.
+validator/readiness checks and Ruff pass; the actual delayed-worker run remains
+in progress. The later focused validator/readiness/Installer suite passes 55 tests.
 
 The interrupted first updater assembly stopped before packaging because the
 post-reboot developer PATH omitted Homebrew's gh. Restarting assembly with the
 normal publisher PATH completed; no earlier package/notary submission existed.
 Installed worker recovery is still unverified. Do not claim this is the real
 startup cause or a completed production fix until actual installed checks pass.
+
+## Actual signed Installer acceptance
+
+All six final-byte reports were downloaded and read. Both journeys pass on
+[macOS 14](https://github.com/fainir/account-access/actions/runs/41460717727),
+[macOS 15](https://github.com/fainir/account-access/actions/runs/41460712207) and
+[macOS 26](https://github.com/fainir/account-access/actions/runs/41460722560),
+using test-only revision f352d39 and the
+[exact published-input contract](../../artifacts/runtime125-installer-inputs.json).
+
+| OS | Fresh / identical repair | Update / reapply |
+|---|---|---|
+| 14.8.9 arm64 | [11 checks](macos14-fresh/report.json) | [27 checks](macos14-upgrade/report.json) |
+| 15.8.2 arm64 | [11 checks](macos15-fresh/report.json) | [27 checks](macos15-upgrade/report.json) |
+| 26.6.2 arm64 | [11 checks](macos26-fresh/report.json) | [27 checks](macos26-upgrade/report.json) |
+
+All 114 checks pass. The actual installed public image/build 125, publisher-signed
+sandboxed browser, dependency guard, synthetic private/root inodes, receipts,
+policies and reapplication pass. Every upgrade/reapply preserves recovery
+histories 120/121/122/123/124 and earlier incomplete public preparation. Every
+created fixture job is stopped or absent. Zero personal accounts were used.
+
+Customer-named package copies match these final tested bytes and were added to
+the existing unpublished draft. Server digest, size and complete upload state
+match both local files; the draft now has nine assets with no replacement or
+deletion. Notes/labels will be reconciled after worker qualification. The owner
+Mac remains build 124; no build-125 installation or recovered private read is claimed.
