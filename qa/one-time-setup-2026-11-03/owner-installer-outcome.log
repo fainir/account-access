@@ -1,0 +1,6 @@
+2026-11-03 13:37:14+02 Nirs-MacBook-Air-2 Installer[16377]: 		Account-Access-0.8.0-update-from-build125.pkg : com.fainir.accountaccess.automaticsetup126 : 0.8.0
+	    "PKLeopardPackage <id=com.fainir.accountaccess.automaticsetup126, version=0.8.0, url=file://localhost/Users/nirfeinstein/.codex/worktrees/upgrade-continuation/login%20soltion/dist/customer-release-0.8.0/Account-Access-0.8.0-update-from-build125.pkg>"
+2026-11-03 13:37:16+02 Nirs-MacBook-Air-2 installd[80070]: PackageKit (package_script_service): Preparing to execute script "./postinstall" in /private/tmp/PKInstallSandbox.Wv6tWO/Scripts/com.fainir.accountaccess.automaticsetup126.RFQsok
+2026-11-03 13:37:16+02 Nirs-MacBook-Air-2 package_script_service[23254]: PackageKit: Preparing to execute script "postinstall" in /tmp/PKInstallSandbox.Wv6tWO/Scripts/com.fainir.accountaccess.automaticsetup126.RFQsok
+2026-11-03 13:37:16+02 Nirs-MacBook-Air-2 package_script_service[23254]: PackageKit: Executing script "postinstall" in /tmp/PKInstallSandbox.Wv6tWO/Scripts/com.fainir.accountaccess.automaticsetup126.RFQsok
+2026-11-03 13:39:44+02 Nirs-MacBook-Air-2 package_script_service[23254]: ./postinstall: {"schema":1,"status":"UPDATED_GUI_UNVERIFIED","checkpoint":"complete","gui_verified":false,"account_qa_verified":false}
