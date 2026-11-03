@@ -155,3 +155,33 @@ and existing-authenticator enrollment. Its native import file chooser is staged;
 the original export is absent from Downloads and Trash is uninspected. No new
 export, manual Chrome MFA or completed import approval is requested. The completed
 installation follow-up was deleted; remaining personal steps stay owner rows.
+
+
+## Local Lemon enrollment handoff - 3 November
+
+The owner replied “i selected”. Actual installed native import review shows
+four unsupported entries and no selectable supported account. The
+[review screenshot](import-no-matches.jpg) contains no login identities or
+credentials. Import was not submitted; the export was not moved or deleted.
+The agent did not open the selected file, Chrome's credential stores or any
+protected configuration. Exact HTTPS Lemon auth/app/root origins are already
+present in the qualified catalog; this observation does not establish which
+websites the selected export contains and does not justify broader matching.
+
+The actual installed launcher discovery remains limited to existing Namecheap,
+public-example store and Betterloop grants; there is no Lemon account/grant.
+Worker state is RUNNING, consecutive_failures=0, failures_total=1, browser READY.
+This is one recovered historical failure rather than the zero total observed
+on 2 November; its private cause was not inspected. No new private operation
+or repeated acceptance suite was run for this local setup handoff.
+
+Opened Add account and selected the existing Lemon Squeezy · authenticator
+connector, without submitting it. Its [actual native form](lemon-local-connection.jpg)
+shows blank email/password, unchecked “Confirm your Lemon Squeezy sign-in
+status” permission and disabled Connect account. No assumed support/Play email
+was entered. Action 13 is complete; new action 14 requires the owner to enter
+the existing login locally, approve only this status read, connect and complete
+any local Mac approval. The Account Access skill requires credentials to stay
+outside agent-visible input/output; creating this new grant also needs the
+owner's concrete approval. No grant, authenticator source or real MFA success
+is claimed. Original authenticator enrollment remains the following local step.
