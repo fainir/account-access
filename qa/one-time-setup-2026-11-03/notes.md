@@ -177,3 +177,20 @@ All [102 focused checks](retained-history-fixture-tests.log) and Ruff pass.
 This changes only the disposable test driver; qualified program, native updater
 and signed package bytes remain unchanged. Keep all existing fresh-install
 journeys and rerun only upgrade journeys with this corrected driver.
+
+All original fresh/repair reports passed and were read back:
+[macOS 14](macos14-fresh/report.json), [15](macos15-fresh/report.json),
+[26](macos26-fresh/report.json), each with 11 checks.
+The unchanged final updater now passes all 27 actual
+[macOS-14 update/reapply checks](macos14-upgrade/report.json) in
+[corrected-driver run 41626228498](https://github.com/fainir/account-access/actions/runs/41626228498).
+It preserves all six 120-125 historical namespaces, private fixture inode,
+original receipts, recovery binding and prior unpublished preparation.
+Corrected-driver macOS 15 is 41626232760 and macOS 26 is 41626568521; retain
+those existing runs. Initial 26 also stopped at the same pre-Installer KeyError
+[report](initial-macos26-upgrade.json). No package was rebuilt or owner action requested.
+
+The later helper [Mac-worker run 41622483229](https://github.com/fainir/account-access/actions/runs/41622483229)
+also passed: all 18 new actual reports, 427 checks and 15 validators were read.
+Current worker evidence replaces the equivalent earlier controlled reports;
+both completed runs remain linked, and their counts are not added.
