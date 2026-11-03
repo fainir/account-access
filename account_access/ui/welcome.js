@@ -195,6 +195,11 @@ el("password-file").onchange=async()=>{
  importPreview=null;el("import-review").replaceChildren();el("import-review").hidden=true;
  try {if(file.size>4000000)throw new Error("password_file_too_large");let contents;try{contents=new TextDecoder("utf-8",{fatal:true}).decode(await file.arrayBuffer());}catch{throw new Error("invalid_password_export");}importPreview=await call("/owner/import/preview",{csv:contents});
  const review=el("import-review");review.replaceChildren();review.hidden=false;
+ if(!importPreview.rows.some(row=>row.matches.length)){
+  review.append(text("strong","No supported logins found"),text("p","This file has no logins matching a supported website. Nothing was imported. Your saved accounts and verification connections are unchanged."));
+  const retry=text("button","Choose another password file");retry.type="button";retry.onclick=()=>el("password-file").click();review.append(retry);
+  importPreview=null;el("password-file").value="";return;
+ }
  review.append(text("p","Select up to 32 logins and approve their reads. Selected saved logins will be replaced. Passwords are hidden."));
  const inputs=[];const importAuth=document.createElement("input");importAuth.type="checkbox";const authLabel=text("label","Also enroll included authenticator keys for supported login recovery");authLabel.prepend(importAuth);if(importPreview.rows.some(x=>x.has_authenticator))review.append(authLabel);
  for(const row of importPreview.rows.filter(x=>x.matches.length).slice(0,200)){
@@ -355,7 +360,7 @@ function renderAuthenticator(container,source){
  const names=source.accounts.map(id=>state.accounts.find(account=>account.account===id)?.label||id).join(", ");
  const card=text("div","");card.className="account";card.dataset.authenticatorSource=source.id;card.setAttribute("aria-label","Authenticator · "+names);
  card.append(text("strong","Authenticator"),text("p",names));const badge=text("span",source.enrolled?"Setup saved":"One-time setup");badge.className="badge"+(source.enrolled?"":" pending");card.append(badge);
- card.append(text("p","Use the website's original setup key or otpauth link, rather than a current six-digit code. For Google Authenticator on your phone, open Verification in the Account Access desktop app to import its complete Transfer codes export."),text("p","This copies the authenticator key to this computer for unattended sign-in. It stays encrypted locally and out of AI chat. Your phone keeps generating codes; push, passkey or fingerprint approval still needs you."));
+ card.append(text("p","Use the website's original setup key or otpauth link, rather than a current six-digit code. In the Account Access desktop app, Automatic sign-in can import one complete Google Authenticator Transfer codes export and review multiple website mappings together."),text("p","This copies the authenticator key to this computer for unattended sign-in. It stays encrypted locally and out of AI chat. Your phone keeps generating codes; push, passkey or fingerprint approval still needs you."));
  const form=document.createElement("form"),seed=document.createElement("input");seed.type="password";seed.required=true;seed.maxLength=2048;seed.autocomplete="off";seed.placeholder="Paste the setup key or otpauth link";const seedLabel=labeledControl("Authenticator setup key or otpauth link",seed);
  const draft={card,context:source.setup_context,revision:source.setup_revision,active:false,secrets:[seed]};setupDrafts.set(key,draft);
  seed.oninput=()=>{if(!card.isConnected||view!=="verification"||locallyPaused||setupOperations.has(key))return;draft.active=!!seed.value;setupDrafts.set(key,draft);};

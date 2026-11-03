@@ -529,6 +529,18 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                         raise ValueError()
                     self.send(200, apply(broker, data["account"], data["fingerprint"]))
                     return
+                if self.path == "/owner/authenticator/batch-preview":
+                    from .authenticator_import import batch_preview
+                    if set(data) != {"uris"}:
+                        raise ValueError()
+                    self.send(200, batch_preview(broker.store, data["uris"]))
+                    return
+                if self.path == "/owner/authenticator/batch-apply":
+                    from .authenticator_import import batch_apply
+                    if set(data) != {"id", "selections"}:
+                        raise ValueError()
+                    self.send(200, batch_apply(broker.store, data["id"], data["selections"]))
+                    return
                 if self.path == "/owner/authenticator/preview":
                     from .authenticator_import import preview
                     if set(data) not in ({"source", "uri"}, {"source", "uris"}):

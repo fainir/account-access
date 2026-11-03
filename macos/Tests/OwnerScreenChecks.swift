@@ -176,6 +176,19 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
     func invalidate() { isAvailable = false }
 }
 
+final class AuthenticatorBatchPreviewAction: NSObject {
+    let owner: AccountAccess
+    init(_ owner: AccountAccess) { self.owner = owner }
+    @objc func openReview() {
+        owner.chooseAuthenticatorBatch([
+            "id": String(repeating: "a", count: 48),
+            "accounts": [["index": 0, "label": "Fictional first account"],
+                         ["index": 1, "label": "Fictional second account"]],
+            "sources": [["id": "first-totp", "label": "Fictional website A", "accounts": ["fixture"]],
+                        ["id": "second-totp", "label": "Fictional website B", "accounts": ["fixture"]]]])
+    }
+}
+
 @main struct OwnerScreenChecks {
     static func main() {
         setbuf(stdout, nil)
@@ -257,6 +270,75 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
                            "portable_ready": true, "connected": true,
                            "saved_login_available": true, "saved_login_exportable": true,
                            "operations": []]]
+        if let mode = ProcessInfo.processInfo.environment["ACCOUNT_ACCESS_SETUP_UI_QA"]
+            ?? Bundle.main.object(forInfoDictionaryKey: "AccountAccessSetupQA") as? String {
+            // This binary is compiled only with ACCOUNT_ACCESS_UI_CHECKS. Its
+            // ordinary temp home and blocked helpers cannot touch an install.
+            owner.window.title = "Account Access - controlled setup QA"
+            owner.androidConnectionTest = ["available": true]
+            owner.sources = [["id": "fixture-totp", "kind": "totp", "accounts": ["fixture"]]]
+            if mode == "empty-import" {
+                owner.reviewImport(["id": String(repeating: "a", count: 48), "rows": [], "unsupported": 4])
+            } else {
+                owner.showAutomaticSetup()
+            }
+            NSApp.setActivationPolicy(.regular)
+            owner.window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            let reviewAction = AuthenticatorBatchPreviewAction(owner)
+            if mode == "authenticator-review" {
+                owner.page("Controlled authenticator review", "Only fictional website labels are used. No private account, grant or authenticator key can be changed.")
+                owner.stack.addArrangedSubview(NSButton(title: "Review fictional export", target: reviewAction, action: #selector(AuthenticatorBatchPreviewAction.openReview)))
+            }
+            withExtendedLifetime(reviewAction) { NSApp.run() }
+            return
+        }
+        owner.showAutomaticSetup()
+        var setupViews = descendants(owner.stack)
+        let setupButtons = setupViews.compactMap { ($0 as? NSButton)?.title }
+        precondition(setupButtons.contains("Import my passwords"))
+        precondition(setupButtons.contains("Import my authenticator accounts"))
+        precondition(setupButtons.contains("Review my email connection"))
+        precondition(setupButtons.contains("Review SMS verification"))
+        precondition(setupViews.compactMap { ($0 as? NSTextField)?.stringValue }.contains("Owner confirmation"))
+        precondition(setupViews.compactMap { ($0 as? NSTextField)?.stringValue }.contains { $0.contains("cannot import passkeys") })
+        owner.reviewImport(["id": String(repeating: "a", count: 48), "rows": [], "unsupported": 4])
+        setupViews = descendants(owner.stack)
+        let emptyButtons = setupViews.compactMap { ($0 as? NSButton)?.title }
+        precondition(emptyButtons.contains("Choose another password file"))
+        precondition(!emptyButtons.contains("Import selected accounts"))
+        precondition(!emptyButtons.contains("Move the plaintext export file to Trash after importing"))
+        precondition(owner.importRows.isEmpty)
+        print("PASS: one-time setup exposes all five methods and no-match imports offer safe recovery without import/deletion controls")
+        let importButton = NSButton()
+        owner.authenticatorBatchButton = importButton
+        let firstMenu = NSPopUpButton(), secondMenu = NSPopUpButton()
+        for menu in [firstMenu, secondMenu] {
+            menu.addItem(withTitle: "Do not import")
+            for index in 0..<2 {
+                menu.addItem(withTitle: "Fictional key " + String(index))
+                menu.lastItem?.representedObject = index
+            }
+        }
+        owner.authenticatorBatchMenus = [("first", firstMenu), ("second", secondMenu)]
+        owner.authenticatorBatchChanged()
+        precondition(!importButton.isEnabled)
+        firstMenu.selectItem(at: 1)
+        owner.authenticatorBatchChanged()
+        precondition(importButton.isEnabled)
+        secondMenu.selectItem(at: 1)
+        owner.authenticatorBatchChanged()
+        precondition(!importButton.isEnabled)
+        secondMenu.selectItem(at: 2)
+        owner.authenticatorBatchChanged()
+        precondition(importButton.isEnabled)
+        owner.authenticatorBatchMenus = []
+        owner.authenticatorBatchButton = nil
+        for route in ["owner/authenticator/batch-preview", "owner/authenticator/batch-apply"] {
+            let request = try! OwnerGatewayRoute(route, body: Data("{}".utf8))
+            precondition(request.requiresSetup)
+        }
+        print("PASS: batch authenticator review starts unselected, refuses duplicate keys and requires native owner authorization")
         owner.ready()
         var accountActions = descendants(owner.stack).compactMap { $0 as? NSButton }
         precondition(accountActions.contains { $0.title == "Export saved login…" && $0.action == #selector(AccountAccess.exportSavedLogin) })

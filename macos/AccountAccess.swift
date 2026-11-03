@@ -198,6 +198,12 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     var mailboxKind: NSPopUpButton!
     var factorMailboxMenu: NSPopUpButton?
     var factorEntryViews: [NSView] = []
+    var authenticatorBatchMenus: [(String, NSPopUpButton)] = []
+    var authenticatorBatchButton: NSButton?
+    var authenticatorBatchNotice: NSTextField?
+    var authenticatorBatchPreviewID: String?
+    var authenticatorBatchTargets: [[String: Any]] = []
+    var authenticatorBatchGeneration = 0
     var editingMailbox: String?
     enum MailboxRetryContext {
         case connect(provider: Int, username: String, host: String, port: String)
@@ -411,6 +417,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             return .terminateCancel
         }
         clearDeviceEmailReview()
+        clearAuthenticatorBatchReview()
         return .terminateNow
     }
 
@@ -421,6 +428,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         ownerSetupContext.invalidate()
         systemApprovalProgress = nil
         if !preservingDeviceEmailReview { clearDeviceEmailReview() }
+        clearAuthenticatorBatchReview()
         clearBitwardenFields()
         for field in mailboxFields.values where field is NSSecureTextField { field.stringValue = "" }
         let shell = NSView()
@@ -443,6 +451,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             sidebar.addArrangedSubview(makeLabel("Your AI. Your accounts.", 13, .secondaryLabelColor))
             let navigation: [(String, String, Selector, String)] = [
                 ("Accounts", "rectangle.grid.2x2", #selector(showReady), "accounts"),
+                ("Automatic sign-in", "key", #selector(showAutomaticSetup), "automatic-setup"),
                 ("Verification", "checkmark.shield", #selector(showFactors), "verification"),
                 ("Import passwords", "arrow.down.doc", #selector(importPasswords), "import"),
                 ("Password sync", "arrow.triangle.2.circlepath", #selector(showPasswordSync), "sync"),
@@ -1707,6 +1716,29 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         action("Back to my accounts", #selector(showReady))
     }
 
+    @objc func showAutomaticSetup() {
+        guard !busy else { return }
+        section = "automatic-setup"
+        page("Set up automatic sign-in", "Save your logins and connect their verification methods once. Account Access reuses them for your approved account reads.")
+        card("Passwords", "Import one password export and review all matching accounts together. Saved passwords are reused without another import. If a password changes, update it or connect a live password source.")
+        action("Import my passwords", #selector(importPasswords))
+        action("Keep passwords current", #selector(showPasswordSync))
+        card("Authenticator app", "Transfer existing authenticator keys locally, then select which website each key belongs to. Account Access generates future codes itself; you do not copy each changing code. Gmail does not connect an authenticator app.")
+        action("Import my authenticator accounts", #selector(readAuthenticatorBatchQR))
+        action("Review saved authenticators", #selector(showFactors))
+        card("Gmail or email", "Connect your mailbox once. Supported websites reuse that connection for fresh matching sign-in emails. A saved mailbox alone does not enable an unsupported website.")
+        action("Review my email connection", #selector(showFactors))
+        card("SMS on Android", "Pair your phone once and approve its SMS notification permissions. Future supported logins use matching fresh messages while your phone is connected. An emulator cannot receive your real phone's SMS.")
+        if androidConnectionTest["available"] as? Bool == true {
+            action("Connect my Android phone", #selector(showAndroidTest))
+        } else {
+            action("Review SMS verification", #selector(showFactors))
+        }
+        card("Passkeys and approval prompts", "Passkeys may ask for your fingerprint, PIN or security-key touch. That approval stays with you. Account Access cannot import passkeys from a password CSV or turn an owner-presence check into unattended sign-in.", status: "Owner confirmation", good: false)
+        card("What runs automatically", "For a supported website with saved access and approved reads, your AI can request work without asking for the password or each login code. A new website, missing verification method, revoked permission or owner-presence challenge still needs setup or your approval. Reusing a connection does not grant more account access.")
+        primary("Use my connected accounts", #selector(showReady))
+    }
+
     @objc func choosePasswordFile() {
         let picker = NSOpenPanel()
         picker.allowedContentTypes = [.commaSeparatedText, .json]
@@ -1777,6 +1809,14 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             }
             stack.addArrangedSubview(select)
             importRows.append((id, check, select, row["has_authenticator"] as? Bool == true))
+        }
+        guard !importRows.isEmpty else {
+            page("No supported logins found", "This file has no logins matching a supported website. Nothing was imported, and the export file has not been moved or deleted.")
+            card("Keep your existing setup", "Your saved accounts and verification connections are unchanged. Choose a password export containing a supported website, or review the available account connections. Importing cannot add a website connector.")
+            primary("Choose another password file", #selector(choosePasswordFile))
+            action("Review supported websites", #selector(backToConnections))
+            action("Set up automatic sign-in", #selector(showAutomaticSetup))
+            return
         }
         label("Unsupported logins: " + String(preview["unsupported"] as? Int ?? 0) + ". These will not be saved; importing cannot add a website connector.", 14, .secondaryLabelColor)
         deleteExport = NSButton(checkboxWithTitle: "Move the plaintext export file to Trash after importing", target: nil, action: nil)
@@ -2343,6 +2383,10 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     @objc func showFactors() {
         section = "verification"
         page("Verification", "Connect email, SMS or an authenticator once. Login codes stay out of your AI chat.")
+        action("Set up automatic sign-in", #selector(showAutomaticSetup))
+        if sources.contains(where: { $0["kind"] as? String == "totp" }) {
+            action("Import authenticator accounts together", #selector(readAuthenticatorBatchQR))
+        }
         showGmailOAuthCards()
         for mailbox in mailboxes {
             guard let id = mailbox["id"] as? String else { continue }
@@ -3180,12 +3224,12 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         }
     }
 
-    @objc func readAuthenticatorQR() {
+    func chooseAuthenticatorQRTexts() -> [String]? {
         let picker = NSOpenPanel()
         picker.allowedContentTypes = [.png, .jpeg]
         picker.allowsMultipleSelection = true
         picker.message = "Select the website setup QR, or all images from one Google Authenticator export."
-        guard picker.runModal() == .OK else { return }
+        guard picker.runModal() == .OK else { return nil }
         let urls = picker.urls
         var messages: [String] = []
         let detector = CIDetector(ofType: CIDetectorTypeQRCode, context: nil, options: [CIDetectorAccuracy: CIDetectorAccuracyHigh])
@@ -3204,8 +3248,13 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             alert.messageText = "Choose authenticator QR images"
             alert.informativeText = "Choose one website setup QR, or all QR images from one Google Authenticator export (up to 16). Every image must contain an authenticator QR. No account was changed."
             alert.runModal()
-            return
+            return nil
         }
+        return texts
+    }
+
+    @objc func readAuthenticatorQR() {
+        guard let texts = chooseAuthenticatorQRTexts() else { return }
         if texts.count == 1, let text = texts.first, text.hasPrefix("otpauth://totp/") {
             factorFields["seed"]?.stringValue = text; return
         }
@@ -3216,6 +3265,145 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 let preview = try self.request("owner/authenticator/preview", body: ["source": id, "uris": texts])
                 DispatchQueue.main.async { self.busy = false; self.chooseAuthenticator(preview, source: source) }
             } catch { self.fail(error, retry: #selector(self.showFactors)) }
+        }
+    }
+
+    @objc func readAuthenticatorBatchQR() {
+        guard !busy else { return }
+        guard sources.contains(where: { $0["kind"] as? String == "totp" && !($0["accounts"] as? [String] ?? []).isEmpty }) else {
+            section = "automatic-setup"
+            page("Import your website logins first", "Authenticator keys must be linked to supported websites you have configured. No authenticator or account permission has changed.")
+            primary("Import my passwords", #selector(importPasswords))
+            action("Review supported websites", #selector(backToConnections))
+            return
+        }
+        guard let texts = chooseAuthenticatorQRTexts() else { return }
+        guard texts.allSatisfy({ $0.hasPrefix("otpauth-migration://offline?") }) else {
+            fail(Failure.message("Choose a complete Google Authenticator transfer export to connect several accounts together. For a website's original setup QR, choose its authenticator in Verification instead."), retry: #selector(showFactors))
+            return
+        }
+        busy = true
+        page("Reviewing your authenticator export", "Keys stay in the encrypted local service. Nothing is enrolled until you approve the website mappings.")
+        progress()
+        let generation = authenticatorBatchGeneration
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let preview = try self.request("owner/authenticator/batch-preview", body: ["uris": texts])
+                DispatchQueue.main.async {
+                    self.busy = false
+                    guard generation == self.authenticatorBatchGeneration else {
+                        if let id = preview["id"] as? String { self.discardAuthenticatorBatchID(id) }
+                        return
+                    }
+                    self.chooseAuthenticatorBatch(preview)
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    guard generation == self.authenticatorBatchGeneration else { self.busy = false; return }
+                    self.fail(error, retry: #selector(self.showFactors))
+                }
+            }
+        }
+    }
+
+    func discardAuthenticatorBatchID(_ id: String) {
+        DispatchQueue.global(qos: .utility).async {
+            _ = try? self.request("owner/authenticator/discard", body: ["id": id])
+        }
+    }
+
+    func clearAuthenticatorBatchReview() {
+        authenticatorBatchGeneration += 1
+        let id = authenticatorBatchPreviewID
+        authenticatorBatchPreviewID = nil
+        authenticatorBatchTargets = []
+        authenticatorBatchMenus = []
+        authenticatorBatchButton = nil
+        authenticatorBatchNotice = nil
+        if let id { discardAuthenticatorBatchID(id) }
+    }
+
+    @objc func authenticatorBatchChanged() {
+        let chosen = authenticatorBatchMenus.compactMap { $0.1.selectedItem?.representedObject as? Int }
+        let duplicates = Set(chosen).count != chosen.count
+        authenticatorBatchButton?.isEnabled = !chosen.isEmpty && !duplicates
+        authenticatorBatchNotice?.stringValue = duplicates
+            ? "A key can be selected for only one website source. Review the duplicate selection."
+            : "Only selected keys will be saved. Unselected keys are discarded."
+    }
+
+    func chooseAuthenticatorBatch(_ preview: [String: Any]) {
+        guard let ident = preview["id"] as? String,
+              ident.range(of: "^[a-f0-9]{48}$", options: .regularExpression) != nil,
+              let entries = preview["accounts"] as? [[String: Any]], (1...100).contains(entries.count),
+              let targets = preview["sources"] as? [[String: Any]], (1...100).contains(targets.count) else {
+            fail(Failure.message("This authenticator review is unavailable. Choose the complete export again."), retry: #selector(showFactors))
+            return
+        }
+        section = "automatic-setup"
+        page("Connect your authenticator accounts", "Match each selected key to its website and account. Nothing is enrolled until you approve the mappings.")
+        authenticatorBatchPreviewID = ident
+        authenticatorBatchTargets = targets
+        card("Approve local automatic sign-in", "Each selected key replaces that website's saved authenticator key and is copied to this Mac for automatic sign-in. Keys stay encrypted locally. Existing approved reads are unchanged; unselected keys are discarded.")
+        for target in targets {
+            guard let id = target["id"] as? String else { continue }
+            let title = target["label"] as? String ?? "Website authenticator"
+            label(title, 14, .labelColor, .semibold)
+            let menu = NSPopUpButton()
+            menu.setAccessibilityLabel("Authenticator key for " + title)
+            menu.addItem(withTitle: "Do not import")
+            for entry in entries {
+                guard let index = entry["index"] as? Int, (0..<100).contains(index) else { continue }
+                menu.addItem(withTitle: entry["label"] as? String ?? "Authenticator account")
+                menu.lastItem?.representedObject = index
+            }
+            menu.target = self
+            menu.action = #selector(authenticatorBatchChanged)
+            stack.addArrangedSubview(menu)
+            menu.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+            authenticatorBatchMenus.append((id, menu))
+        }
+        authenticatorBatchNotice = label("Only selected keys will be saved. Unselected keys are discarded.", 13, .secondaryLabelColor)
+        authenticatorBatchButton = primary("Import selected authenticators", #selector(applyAuthenticatorBatch))
+        action("Cancel authenticator import", #selector(cancelAuthenticatorBatch))
+        authenticatorBatchChanged()
+    }
+
+    @objc func cancelAuthenticatorBatch() { clearAuthenticatorBatchReview(); showAutomaticSetup() }
+
+    @objc func applyAuthenticatorBatch() {
+        guard !busy, let ident = authenticatorBatchPreviewID,
+              authenticatorBatchButton?.isEnabled == true else { return }
+        let selections: [[String: Any]] = authenticatorBatchMenus.compactMap { source, menu in
+            guard let index = menu.selectedItem?.representedObject as? Int else { return nil }
+            return ["source": source, "index": index]
+        }
+        guard !selections.isEmpty else { return }
+        let selected = Set(selections.compactMap { $0["source"] as? String })
+        let linked = Array(Set(authenticatorBatchTargets.filter { selected.contains($0["id"] as? String ?? "") }
+            .flatMap { $0["accounts"] as? [String] ?? [] })).sorted()
+        authenticatorBatchPreviewID = nil // The apply consumes it; navigation must not discard it first.
+        busy = true
+        page("Connecting your authenticators", "Existing account permissions stay unchanged.")
+        progress()
+        let generation = authenticatorBatchGeneration
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                _ = try self.request("owner/authenticator/batch-apply", body: ["id": ident, "selections": selections])
+                let issues = self.verifyLinkedAccounts(linked)
+                let state = try self.request("owner/state")
+                DispatchQueue.main.async {
+                    self.busy = false
+                    guard generation == self.authenticatorBatchGeneration else { return }
+                    self.accept(state)
+                    self.showImportSummary(linked, issues: issues, verification: true)
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    guard generation == self.authenticatorBatchGeneration else { self.busy = false; return }
+                    self.fail(error, retry: #selector(self.showFactors))
+                }
+            }
         }
     }
 

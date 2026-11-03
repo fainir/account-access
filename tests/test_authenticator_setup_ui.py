@@ -40,6 +40,31 @@ def card(page):
     return page.locator('[data-authenticator-source="demo-totp"]')
 
 
+@pytest.mark.parametrize("width", [375, 1440])
+def test_no_matching_passwords_offer_another_file_without_importing_or_changing_sources(env, monkeypatch, width):
+    _, broker, _ = env
+    broker.store.new_client("generic")
+    before = broker.store.get("source:demo-totp")
+    with owner_page(broker, monkeypatch) as page:
+        page.set_viewport_size({"width": width, "height": 900})
+        failures = []
+        page.on("pageerror", lambda error: failures.append(str(error)))
+        page.get_by_role("button", name="Import passwords", exact=True).click()
+        export = b"url,username,password\nhttps://unsupported.example.test/,fictional,fictional-password\n"
+        page.locator("#password-file").set_input_files({"name": "fictional.csv", "mimeType": "text/csv", "buffer": export})
+        review = page.locator("#import-review")
+        review.get_by_text("No supported logins found", exact=True).wait_for()
+        assert review.get_by_role("button", name="Import selected accounts").count() == 0
+        assert review.get_by_role("button", name="Choose another password file").is_visible()
+        assert page.locator("#password-file").input_value() == ""
+        assert broker.store.get("source:demo-totp") == before
+        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+        with page.expect_file_chooser() as picker:
+            review.get_by_role("button", name="Choose another password file").click()
+        assert not picker.value.is_multiple()
+        assert not failures
+
+
 def test_password_import_then_ui_authenticator_setup_survives_poll_and_completes_reused_reads(env, monkeypatch):
     provider, broker, _ = env
     broker.store.new_client("generic")

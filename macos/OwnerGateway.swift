@@ -177,7 +177,8 @@ struct OwnerGatewayRoute {
     static let writes: Set<String> = [
         "owner/credential", "owner/grant", "owner/revoke", "owner/add", "owner/verify",
         "owner/import/preview", "owner/import/apply", "owner/authenticator/preview",
-        "owner/authenticator/apply", "owner/authenticator/discard", "owner/source",
+        "owner/authenticator/apply", "owner/authenticator/batch-preview", "owner/authenticator/batch-apply",
+        "owner/authenticator/discard", "owner/source",
         "owner/source/check", "owner/source/revoke", "owner/mailbox/connect", "owner/mailbox/check",
         "owner/mailbox/password", "owner/mailbox/remove", "owner/password-sync", "owner/bitwarden/connect", "owner/bitwarden/disconnect",
         "owner/mailbox/oauth/begin", "owner/mailbox/oauth/finish", "owner/mailbox/oauth/cancel", "owner/mailbox/oauth/check",
