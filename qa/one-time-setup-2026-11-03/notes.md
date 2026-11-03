@@ -44,9 +44,12 @@ Actual native UI was opened with CUA and inspected: [setup top](setup-top.jpg),
 picker; Cancel returns to the same unchanged no-match screen. The batch page
 starts with Do not import for both fictional websites and a disabled submit.
 Native selection-state transitions are also exercised by the compiled fixture.
-CUA's menu-selection control reported a changed-app guard and then
-noWindowsAvailable; this is a control failure, not a successful user selection.
-No CUA-driven completed native batch import or installed acceptance is claimed.
+The first CUA menu attempt reported a changed-app guard and then
+noWindowsAvailable. After native control recovered, actual selection, duplicate
+refusal and cancellation passed: [duplicate selection](authenticator-duplicate.jpg)
+disables Import and explains the error; [two distinct selections](authenticator-mappings.jpg)
+enable it. Cancel returns to Automatic sign-in. The controlled preview is not a
+completed native batch import or installed acceptance.
 The earlier modal prototype also produced a blank modal capture; a full review
 page now provides readable screenshot evidence and more room for many accounts.
 
@@ -114,3 +117,13 @@ manifest; all existing publisher, peer identity, complete inventory and native
 preflight checks remain. [Full-package source regression](fresh-source-tests.log)
 passes 101 tests with one platform skip. This packaging-only addition does not
 change the frozen 2ca9de3 program or a53567d native updater inputs.
+
+The existing Mac-worker artifact was downloaded and all 18 reports read back:
+427 check values are true, and all 15 dedicated validators invoked by that
+workflow pass [validation](worker-validation.log). No private account is used.
+
+The full signed build-126 package assembled successfully at packaging source
+0714900; its complete 25,170-file/2,298-directory/21-alias manifest is unchanged
+from the qualified image. Native audits/preflight pass. The existing Apple
+notarization job was submitted once and is being checked; no customer release
+publication, installation or owner import has occurred.

@@ -1,0 +1,16 @@
+Existing run 41614265385: 18 actual reports, all 427 checks true.
+check_mac_root_owner_report: PASSED
+check_mac_key_custody_report: PASSED
+check_mac_owner_policy_report: PASSED
+check_mac_key_handoff_report: PASSED
+check_mac_root_supervisor_report: PASSED
+check_mac_root_coordinator_report: PASSED
+check_mac_staged_enrollment_report: PASSED
+check_mac_initial_setup_report: PASSED
+check_mac_initial_gateway_report: PASSED
+check_mac_provisioning_report: PASSED
+check_mac_native_messages_report: PASSED
+check_mac_native_browser_report: PASSED
+check_mac_native_system_browser_report: PASSED
+check_mac_protected_browser_report: PASSED
+check_mac_signed_chrome_report: PASSED
