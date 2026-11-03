@@ -57,7 +57,7 @@ were used. Browser cache was initially absent, affecting an unchanged original
 browser test too; the pinned project's official headless browser install fixed
 that environment issue.
 
-[Final focused source regression](source-tests.log) passes 206 tests, including actual local browser/MFA, native-route API, import and web-UI behavior. The [16-case batch security subset](batch-security.log) and earlier [97-case local web/import regression](ui-regression.log) overlap that set; they are not added to its total. All [14 image/predecessor safety checks](image-builder-tests.log) pass separately. Ruff passes.
+[Final focused source regression](source-tests.log) passes 206 tests, including actual local browser/MFA, native-route API, import and web-UI behavior. The [16-case batch security subset](batch-security.log) and earlier [97-case local web/import regression](ui-regression.log) overlap that set; they are not added to its total. All [16 image/predecessor/CLI safety checks](image-builder-tests.log) pass separately. Ruff passes.
 The controlled batch engine test imports two sources together, then completes a
 real local password/TOTP browser login without owner code entry. No real Google
 Authenticator export, private MFA, physical SMS, passkey ceremony or new grant
@@ -66,3 +66,21 @@ A signed matching owner/broker/runtime update and installed acceptance remain
 necessary before this candidate can be called shipped.
 
 The build-126 native compilation workflow retains choices 121–125 and uses 126 for this new source. Its public image builder is bound to the actual qualified build-125 manifest. The updater, signed packages and installed acceptance have not been created or claimed yet.
+
+
+## Build and existing CI
+
+Program source 2ca9de3 is pushed. [Native owner build 126](https://github.com/fainir/account-access/actions/runs/41614265465)
+completed successfully and its actual runtime126-owner-image archive is
+present locally. The [main source checks](https://github.com/fainir/account-access/actions/runs/41614265449)
+and [Mac worker checks](https://github.com/fainir/account-access/actions/runs/41614265385)
+remain the primary running qualifications. The existing [separate-user run](https://github.com/fainir/account-access/actions/runs/41614265397)
+and [component run](https://github.com/fainir/account-access/actions/runs/41614265387) pass.
+Automatic pull-request duplicates were cancelled and read back as completed/
+cancelled; the primary push runs remain. No manual duplicate was dispatched.
+
+Inspection of the real image CLI found its separate hard-coded version choices
+excluded 126 despite the new profile. Choices now come from the profile table;
+actual child-process CLI tests accept both retained 125 and new 126 before
+requesting image inputs. Program source is unchanged by this publisher-only fix.
+Use the current builder and retain the compiled 2ca9de3 owner/broker/wheel bytes.

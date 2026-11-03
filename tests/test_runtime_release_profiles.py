@@ -1,10 +1,23 @@
 """A signed image alone cannot qualify the installed-browser repair."""
 from copy import deepcopy
+from pathlib import Path
+import subprocess
+import sys
 
 import pytest
 
 from scripts import build_direct_runtime_upgrade_candidate as candidate
 from scripts.build_jit_update_image import JIT, JIT_ROLES
+
+
+@pytest.mark.parametrize('release', ['125', '126'])
+def test_owner_image_cli_accepts_release_before_requesting_image_inputs(release):
+    result = subprocess.run([sys.executable, '-m', 'scripts.build_owner_routes_update_image',
+                             '--release', release], cwd=Path(__file__).resolve().parents[1],
+                            capture_output=True, text=True, timeout=10)
+    assert result.returncode == 2
+    assert 'the following arguments are required' in result.stderr
+    assert 'invalid choice' not in result.stderr
 
 
 def jit_report():

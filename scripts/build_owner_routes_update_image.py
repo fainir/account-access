@@ -144,7 +144,7 @@ def build(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--release', choices=['122', '123', '124', '125'], default='122')
+    parser.add_argument('--release', choices=tuple(RELEASES), default='122')
     for name in ['image', 'owner-app', 'native', 'project-wheel', 'manifest-output', 'report']:
         parser.add_argument('--' + name, type=Path, required=True)
     for name in ['source', 'owner-source', 'native-source']:
