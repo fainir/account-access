@@ -1,11 +1,33 @@
 """Safety boundaries of the root-only disposable Installer acceptance probe."""
 import io
+from dataclasses import replace
 from types import SimpleNamespace
 import tarfile
 
 import pytest
 
 from scripts import mac_direct_runtime_installer_probe as probe
+
+
+@pytest.mark.parametrize('number', ['120', '121', '122', '123', '124', '125', '126'])
+def test_retained_history_head_uses_the_reviewed_release_tuple(number):
+    from scripts.build_direct_runtime_upgrade_candidate import RELEASES as published
+    release = probe.RELEASES[number]
+    value = probe.historical_head(release)
+    assert value['source_commit'] == published[number].target_source
+    assert value['plan_sha256'] == release.plan
+    assert value['manifest_sha256'] == release.after
+    assert value['before_manifest_sha256'] == release.before
+    assert value['automatic_reboot_recovery'] is False
+    if number == '125':
+        assert value['source_commit'] == 'e0d65ce1803295d96dde96e465bd7e3ace18f32d'
+
+
+@pytest.mark.parametrize('field,value', [('number', '127'), ('before', 'a' * 64),
+                                      ('after', 'a' * 64), ('plan', 'a' * 64)])
+def test_retained_history_refuses_unpublished_or_mismatched_release(field, value):
+    with pytest.raises(ValueError):
+        probe.historical_head(replace(probe.RELEASES['125'], **{field: value}))
 
 
 def test_browser_crash_summary_keeps_only_the_exact_fixture_child():

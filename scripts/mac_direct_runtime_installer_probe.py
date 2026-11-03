@@ -80,6 +80,20 @@ def selected_release(args):
     return RELEASES[getattr(args, 'release', '120')]
 
 
+def historical_head(historical):
+    """Seed public fixture history from the same reviewed publisher release pins."""
+    from scripts.build_direct_runtime_upgrade_candidate import RELEASES as published
+    pinned = published.get(historical.number)
+    require(pinned is not None
+            and (historical.before, historical.after, historical.plan)
+            == (pinned.before, pinned.after, pinned.plan), 'historical_release_tuple_invalid')
+    return {'schema': 1, 'managed_by': 'account-access-full-image-head-v1',
+            'plan_sha256': historical.plan, 'manifest_sha256': historical.after,
+            'before_manifest_sha256': historical.before, 'source_commit': pinned.target_source,
+            'predecessor_evidence_sha256': 'c' * 64,
+            'state': 'public_image_verified_gui_unverified', 'automatic_reboot_recovery': False}
+
+
 BROWSER_CHECK = '''import json, os, sys
 # Match WorkerBootstrap's service-home cwd and private file creation policy.
 os.chdir(os.environ['HOME'])
@@ -452,16 +466,7 @@ def run(args):
                 earlier.mkdir(mode=0o700)
                 completed = earlier / ('transition-' + historical.plan)
                 completed.mkdir(mode=0o700)
-                write(earlier / 'head.json', {'schema': 1, 'managed_by': 'account-access-full-image-head-v1',
-                    'plan_sha256': historical.plan, 'manifest_sha256': historical.after,
-                    'before_manifest_sha256': historical.before,
-                    'source_commit': {'120': 'beda6324d836458a35045ee0d2acd579238d6929',
-                                      '121': '08d8f444c65a3a3e26aa94f7ecec5e3372582973',
-                                      '122': '26b30499a2da40d66e239563a03289f8066c694e',
-                                      '123': 'd16c4263cf4b1e9f4dda2bd9bf9ca7e429f75265',
-                                      '124': '276207e2b6f098db0ce860cf6c664d2f6657f4ce'}[number],
-                    'predecessor_evidence_sha256': 'c' * 64,
-                    'state': 'public_image_verified_gui_unverified', 'automatic_reboot_recovery': False})
+                write(earlier / 'head.json', historical_head(historical))
                 # These are synthetic historical sentinels, not a fabricated
                 # claim that the previous transition ran on this empty VM.
                 write(completed / 'completed-fixture.json', {'synthetic': True})

@@ -161,3 +161,19 @@ existing 126 runs: [macOS 14](https://github.com/fainir/account-access/actions/r
 [26](https://github.com/fainir/account-access/actions/runs/41625157789).
 All three public-input jobs passed. Actual acceptance remains pending until
 their final report files are downloaded and read. No owner action is staged yet.
+
+## Retained-history fixture repair
+
+Initial [macOS 14](initial-macos14-upgrade.json) and
+[15](initial-macos15-upgrade.json) upgrade drivers stopped with KeyError after
+three setup checks, before candidate-signature/Installer execution. Both seeded
+histories included 125, but the separate source-commit map ended at 124.
+The created synthetic service was stopped; no owner account or Mac was used.
+
+The fixture now builds each historical public head from the reviewed publisher
+release table and refuses a mismatched manifest/plan tuple. Regression exercises
+all 120-126 heads, exact build-125 source and unknown/mismatched tuple refusal.
+All [102 focused checks](retained-history-fixture-tests.log) and Ruff pass.
+This changes only the disposable test driver; qualified program, native updater
+and signed package bytes remain unchanged. Keep all existing fresh-install
+journeys and rerun only upgrade journeys with this corrected driver.
