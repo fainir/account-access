@@ -1,0 +1,41 @@
+{
+  "status": "PASSED",
+  "environment": "controlled-demo",
+  "production_ready": false,
+  "private_signins": 0,
+  "platform": "macos",
+  "real_distinct_uids": true,
+  "checks": {
+    "different_nonroot_uid": true,
+    "approved_api_password_email_sms_totp_reads": true,
+    "ungranted_operation_denied": true,
+    "vault_database_read_denied": true,
+    "vault_database_write_denied": true,
+    "owner_configuration_read_denied": true,
+    "runtime_write_denied": true,
+    "runtime_replacement_denied": true,
+    "policy_write_denied": true,
+    "worker_signal_denied": true,
+    "worker_task_port_denied": true,
+    "native_launcher_requires_root": true,
+    "private_owner_channel_denied": true,
+    "agent_api_has_no_owner_routes": true,
+    "agent_has_no_passwordless_sudo": true,
+    "agent_cannot_impersonate_worker": true,
+    "provider_confirmed_four_passwords_all_factors": true,
+    "tls_imap_message_fetched": true,
+    "pinned_https_sms_delivered": true,
+    "revoked_operation_denied": true,
+    "worker_still_alive_after_denied_attacks": true,
+    "graceful_worker_exit": true,
+    "worker_output_has_no_credentials": true,
+    "native_broker_identity_drop_verified": true,
+    "native_runtime_writable_descendant_rejected": true
+  },
+  "remaining": [
+    "trusted production supervisor and lifecycle",
+    "trusted owner enrollment gateway",
+    "consumer installer integration",
+    "private-account and physical-phone acceptance"
+  ]
+}

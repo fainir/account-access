@@ -127,3 +127,24 @@ The full signed build-126 package assembled successfully at packaging source
 from the qualified image. Native audits/preflight pass. The existing Apple
 notarization job was submitted once and is being checked; no customer release
 publication, installation or owner import has occurred.
+
+## Final signed packages
+
+All nine actual [native reports](native/direct.json) pass in
+[run 41622483331](https://github.com/fainir/account-access/actions/runs/41622483331),
+including retained 120-125 contracts and the new 15-unit/17-node 126 plan.
+The updater uses that exact a53567d compiler artifact; the packaging-only
+0714900 change does not affect its reviewed source inputs.
+
+Both final packages are signed, Apple-accepted, stapled and accepted by
+Gatekeeper. The [6.1 MB exact updater](updater-qualification.json) independently
+expands and verifies its resource inventory, owner signature and ordinary-user
+refusal. The [289 MB full installer](fresh-qualification.json) passes its trusted
+certificate/timestamp, immutable Apple submission, stapled ticket and policy
+assessment. Neither has been installed on the owner Mac.
+
+All three public synthetic Installer inputs were uploaded to the same QA
+prerelease and read back: matching server digests, byte counts and uploaded
+state. [Exact contract](../../artifacts/runtime126-installer-inputs.json).
+The next checks use these final bytes on macOS 14, 15 and 26; no customer release
+or private account data is involved.
