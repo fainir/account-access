@@ -148,3 +148,16 @@ prerelease and read back: matching server digests, byte counts and uploaded
 state. [Exact contract](../../artifacts/runtime126-installer-inputs.json).
 The next checks use these final bytes on macOS 14, 15 and 26; no customer release
 or private account data is involved.
+
+The updated helper/source [CI run 41622483380](https://github.com/fainir/account-access/actions/runs/41622483380)
+also completed successfully: 4,742 tests, 114 skips, Ruff, dependency audit and
+all three native jobs pass [read-back](source-helper-ci-summary.log).
+This includes the new release guard/CLI/refusal checks; totals are not added
+to the earlier program-source regression.
+
+Final-byte Installer runs at dca3dd3 were dispatched once after confirming no
+existing 126 runs: [macOS 14](https://github.com/fainir/account-access/actions/runs/41625148580),
+[15](https://github.com/fainir/account-access/actions/runs/41625153664) and
+[26](https://github.com/fainir/account-access/actions/runs/41625157789).
+All three public-input jobs passed. Actual acceptance remains pending until
+their final report files are downloaded and read. No owner action is staged yet.
