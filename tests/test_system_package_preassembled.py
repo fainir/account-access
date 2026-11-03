@@ -25,6 +25,7 @@ from test_payload_audit import thin
     "5f3390496afaa436c64e3629cc125cbb4017e9deec8f70e4f5eb06c16e790930",
     "37cadaf59502657983f6cdb4a3bec0a755eb5e0dd041b625151ee51608ab2d8f",
     "8abffd8078832752aa13c59e58834b0a9b669656758dab47d4418ae663c41bcd",
+    "0e1c1f3a2b05f3eb5f9acd32b7a55bea28d775411519d41be0401b43d852d20f",
 ])
 def test_reviewed_images_reach_manifest_validation(tmp_path, digest):
     # Review admits exact image hashes; all manifest, inventory and peer checks remain.

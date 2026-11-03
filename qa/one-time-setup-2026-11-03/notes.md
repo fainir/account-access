@@ -107,3 +107,10 @@ the exact updater. Signed packages and installed acceptance remain pending.
 The existing worker and Android runs also completed successfully; no duplicate
 was dispatched. Technical continuation is scheduled hourly as
 account-access-one-time-setup-release and stays quiet on unchanged state.
+
+The retained full-installer allowlist stopped before output creation because it
+had no reviewed build-126 image. Added only the independently qualified exact
+manifest; all existing publisher, peer identity, complete inventory and native
+preflight checks remain. [Full-package source regression](fresh-source-tests.log)
+passes 101 tests with one platform skip. This packaging-only addition does not
+change the frozen 2ca9de3 program or a53567d native updater inputs.
