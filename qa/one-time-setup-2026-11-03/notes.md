@@ -74,7 +74,8 @@ Program source 2ca9de3 is pushed. [Native owner build 126](https://github.com/fa
 completed successfully and its actual runtime126-owner-image archive is
 present locally. The [main source checks](https://github.com/fainir/account-access/actions/runs/41614265449)
 and [Mac worker checks](https://github.com/fainir/account-access/actions/runs/41614265385)
-remain the primary running qualifications. The existing [separate-user run](https://github.com/fainir/account-access/actions/runs/41614265397)
+completed successfully. The main run reports 4,731 passing tests and 114 skips,
+with lint and dependency audit passing; [read-back](source-ci-summary.log). The existing [separate-user run](https://github.com/fainir/account-access/actions/runs/41614265397)
 and [component run](https://github.com/fainir/account-access/actions/runs/41614265387) pass.
 Automatic pull-request duplicates were cancelled and read back as completed/
 cancelled; the primary push runs remain. No manual duplicate was dispatched.
@@ -84,3 +85,25 @@ excluded 126 despite the new profile. Choices now come from the profile table;
 actual child-process CLI tests accept both retained 125 and new 126 before
 requesting image inputs. Program source is unchanged by this publisher-only fix.
 Use the current builder and retain the compiled 2ca9de3 owner/broker/wheel bytes.
+
+## Qualified image and updater contract
+
+The matching build-126 [image qualification](target126-qualification.json)
+reports TARGET_IMAGE_QUALIFIED: 49 native files, 11 executables, one bundle,
+34 wheels, publisher signatures and actual sandboxed browser execution pass.
+Dependencies and required JIT roles are unchanged. No installed paths or account
+data were used. Image qualification alone does not claim notarization.
+
+The exact 125-to-126 plan has 15 units and 17 changed nodes. A separate Automatic
+Setup recovery namespace retains every prior history. All 140 [focused updater
+checks](update-source-tests.log) pass, including current image/source refusals,
+retained profile CLIs and refusal before any owner-Mac Installer probe inputs.
+The public five-file [qualification archive](https://github.com/fainir/account-access/releases/tag/qa-automatic-setup126-20261103)
+was independently read back with the expected size/digest and uploaded state.
+It contains no credentials or customer installer. The native qualification
+workflow now checks all retained 120-125 plans and the new 126 plan and compiles
+the exact updater. Signed packages and installed acceptance remain pending.
+
+The existing worker and Android runs also completed successfully; no duplicate
+was dispatched. Technical continuation is scheduled hourly as
+account-access-one-time-setup-release and stays quiet on unchanged state.

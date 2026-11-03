@@ -11,8 +11,10 @@ from scripts.build_jit_update_image import JIT, JIT_ROLES
 
 
 @pytest.mark.parametrize('release', ['125', '126'])
-def test_owner_image_cli_accepts_release_before_requesting_image_inputs(release):
-    result = subprocess.run([sys.executable, '-m', 'scripts.build_owner_routes_update_image',
+@pytest.mark.parametrize('module', ['scripts.build_owner_routes_update_image',
+                                  'scripts.build_direct_runtime_upgrade_candidate'])
+def test_release_cli_accepts_profile_before_requesting_image_inputs(release, module):
+    result = subprocess.run([sys.executable, '-m', module,
                              '--release', release], cwd=Path(__file__).resolve().parents[1],
                             capture_output=True, text=True, timeout=10)
     assert result.returncode == 2

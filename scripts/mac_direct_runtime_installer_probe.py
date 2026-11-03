@@ -69,6 +69,10 @@ RELEASES = {
                    '8abffd8078832752aa13c59e58834b0a9b669656758dab47d4418ae663c41bcd',
                    '5243ef5b66ce6f96f7acac06a6c20d0365ec1281c39157438ad873c77568222c',
                    BASE.parent / 'Account Access Worker Startup Recovery', 'runtime125-installer-inputs.json', PLAN),
+    '126': Release('126', '8abffd8078832752aa13c59e58834b0a9b669656758dab47d4418ae663c41bcd',
+                   '0e1c1f3a2b05f3eb5f9acd32b7a55bea28d775411519d41be0401b43d852d20f',
+                   'f8cdd9ac1cb10d1eec0eaa89ded8ba295a82c946d4dd706c28c30234704db676',
+                   BASE.parent / 'Account Access Automatic Setup', 'runtime126-installer-inputs.json', PLAN),
 }
 
 
@@ -420,7 +424,7 @@ def run(args):
         previous_root.rmdir()
         check('same_volume_support_root_replaced', BASE.stat().st_ino != roots[str(BASE)][1])
         completed_objects = None
-        if release.number in {'121', '122', '123', '124', '125'}:
+        if release.number in {'121', '122', '123', '124', '125', '126'}:
             # Reproduce the completed build-120 root recovery and its separate
             # published namespace. The successor must preserve both verbatim.
             recovery = {'schema': 2, 'managed_by': 'account-access-installation-root-recovery-v2',
@@ -438,7 +442,8 @@ def run(args):
                 (BINDING / 'recovered-v2.json').stat().st_ino, (BINDING / 'recovered-v2.json').read_bytes())}
             history = {'121': ['120'], '122': ['120', '121'], '123': ['120', '121', '122'],
                        '124': ['120', '121', '122', '123'],
-                       '125': ['120', '121', '122', '123', '124']}[release.number]
+                       '125': ['120', '121', '122', '123', '124'],
+                       '126': ['120', '121', '122', '123', '124', '125']}[release.number]
             report['retained_predecessor_namespaces'] = history
             for number in history:
                 historical = RELEASES[number]
@@ -511,7 +516,7 @@ def run(args):
             head = json.loads((release.transition / 'head.json').read_bytes())
             check(attempt + '_verified_head', head['plan_sha256'] == release.plan and head['manifest_sha256'] == release.after)
             verify_live_service(command, attempt + '-live-service')
-            if release.number in {'121', '122', '123', '124', '125'}:
+            if release.number in {'121', '122', '123', '124', '125', '126'}:
                 service_browser_check(command, args.output, attempt + '-publisher-sandboxed-browser')
                 check(attempt + '_publisher_sandboxed_browser', True)
                 check(attempt + '_completed_predecessor_history_preserved',
@@ -604,7 +609,7 @@ def fresh_run(args):
                     BASE / 'runtime/bin/python', '-I', '-B', '-c', JOSE_CHECK])
             check(attempt + '_patched_dependency_guard', True)
             verify_live_service(command, attempt + '-live-service')
-            if release.number in {'121', '122', '123', '124', '125'}:
+            if release.number in {'121', '122', '123', '124', '125', '126'}:
                 service_browser_check(command, args.output, attempt + '-publisher-sandboxed-browser')
                 check(attempt + '_publisher_sandboxed_browser', True)
             # Only this just-created fixture app can exist in this empty VM.
@@ -639,5 +644,5 @@ if __name__ == '__main__':
     parser.add_argument('--inputs', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--mode', choices=['upgrade', 'fresh'], default='upgrade')
-    parser.add_argument('--release', choices=['120', '121', '122', '123', '124', '125'], default='120')
+    parser.add_argument('--release', choices=tuple(RELEASES), default='120')
     run(parser.parse_args())
