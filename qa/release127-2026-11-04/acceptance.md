@@ -55,9 +55,44 @@ assets are independently [read back](qa-release-readback.json): complete states,
 server sizes/digests and unchanged unpublished draft match all pins. Existing
 controlled Installer journeys are dispatched once per OS at sourcecc6d903.
 
+## Actual signed Installer acceptance
+
+All six completed journeys pass on exact sourcecc6d903 and unchanged final
+package bytes. No personal account or private credential was used.
+
+| OS | Fresh / identical repair | Update / reapply |
+|---|---|---|
+|14.8.9 arm64|[11 checks](macos14-fresh/report.json)|[27 checks](macos14-upgrade/report.json)|
+|15.8.2 arm64|[11 checks](macos15-fresh/report.json)|[27 checks](macos15-upgrade/report.json)|
+|26.6.2 arm64|[11 checks](macos26-fresh/report.json)|[27 checks](macos26-upgrade/report.json)|
+
+All114 checks pass: exact127 public bytes/build, publisher sandboxed browser,
+patched dependency guard, fixture private inode, receipts/policies, original
+recovery binding, all seven120-126 histories and old unpublished preparation.
+Every fixture job is stopped/absent. Completed runs:
+[macOS14](https://github.com/fainir/account-access/actions/runs/41828689075),
+[macOS15](https://github.com/fainir/account-access/actions/runs/41828681946),
+[macOS26](https://github.com/fainir/account-access/actions/runs/41828695162).
+
+## Owner Mac and customer handoff
+
 [Actual owner preflight](owner-preflight.json) matches all14 selected public
 files, including browser.py, to qualified126 and preserves11 metadata roots.
 Installed discovery still shows the four original/new grants, browser READY,
 and the exact Lemon status permission. Google Authenticator is unenrolled.
-The installed app remains126; no new private operation, authenticator import,
-owner install approval or public customer release is claimed.
+The final customer draft has13 exact labeled assets, all11 prior IDs/bytes
+preserved, qualified sourcecc6d903, matching notes, tagv0.8.0 and unpublished
+state independently [read back](customer-release-readback.json). No public
+release or private MFA success is claimed.
+
+The canonical owner GUI was normally quit and zero matching processes verified.
+Reading its AX state after quitting had reopened it; the second normal Quit was
+followed by Finder/process observation instead. Finder selected the exact
+persistent126-to-127 updater; native Installer opened that precise file URL.
+Continue/Install advanced into real installation without a new owner request.
+Native AX reports Running package scripts; scoped postinstall starts14:40:37.
+Do not call this an approval wait or retry Installer. Inspect actual build and
+scoped completion before proceeding to health and the approved Lemon read.
+During installation free space briefly measured367MiB, then recovered to2.3GiB
+while only read-only cache inspections ran. No cache purge, user-file deletion,
+protected-data read, permission bypass or force termination occurred.
