@@ -91,8 +91,13 @@ RELEASE127 = Release('127', '314c85866b85c46e84bec4a1b861ac001d557f775da21061a4b
     '15ef230b90bf89e5ab3179fa8ffa5a3e5240bdda', '843a1210ecab3d2c8c94586b7a3e790e62940f8b', RELEASE126.after,
     'ac62d0d51ea3e0f1997f6fa34cf547ff4f9a423fac15106ca48976bfb6b9eceb',
     'com.fainir.accountaccess.loginnavigation127', 'Account-Access-Login-Navigation-127')
+RELEASE128 = Release('128', 'b29f2af04f476dfd52e5a5dde162f3f9a7cfb2522e621eea69810e54189df216',
+    RELEASE127.after, '38f593c6a4d87114ba61eb8e782ae2da104224a8ef09e4a92fe9eee6feabee87',
+    '13fc473136e6f7d0f932bc3e171d248cebdf8a7d', '3891173bd79ca0a894f111e34bb23dfd33cf774f', RELEASE127.after,
+    'd5d21bd2f1aaa7e7ed9d83d0a937036998b7f3d285bc2386cddba9fd19818268',
+    'com.fainir.accountaccess.harelemail128', 'Account-Access-Harel-Email-128')
 RELEASES = {'120': RELEASE120, '121': RELEASE121, '122': RELEASE122, '123': RELEASE123,
-            '124': RELEASE124, '125': RELEASE125, '126': RELEASE126, '127': RELEASE127}
+            '124': RELEASE124, '125': RELEASE125, '126': RELEASE126, '127': RELEASE127, '128': RELEASE128}
 
 
 def require(value: bool, reason: str) -> None:
@@ -187,7 +192,8 @@ def reviewed_ci_helper(run_id, source, destination, *, artifact_name='release-co
     require(artifact_name in {'release-compiled-updater', 'release-compiled-updater-121',
                              'release-compiled-updater-122', 'release-compiled-updater-123',
                              'release-compiled-updater-124', 'release-compiled-updater-125',
-                             'release-compiled-updater-126', 'release-compiled-updater-127'},
+                             'release-compiled-updater-126', 'release-compiled-updater-127',
+                             'release-compiled-updater-128'},
             'compiled_helper_artifact_invalid')
     candidates = [item for item in assets['artifacts'] if item['name'] == artifact_name]
     require(len(candidates) == 1 and candidates[0].get('expired') is False, 'compiled_helper_artifact_missing')
@@ -488,7 +494,7 @@ def verify_target_qualification(report, release, plan):
             and report.get('native_audit', {}).get('publisher_signatures_verified') is True
             and report.get('installed_paths_changed') is False and report.get('account_data_used') is False
             and report.get('jit_roles') == sorted(JIT_ROLES) and report.get('entitlements') == JIT)
-    elif release.number in {'122', '123', '124', '125', '126', '127'}:
+    elif release.number in {'122', '123', '124', '125', '126', '127', '128'}:
         from scripts.build_jit_update_image import JIT_ROLES
         qualified = (report.get('base_manifest_sha256') == release.image_base
             and report.get('manifest_sha256') == release.after

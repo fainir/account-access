@@ -59,6 +59,7 @@ struct FullImageFileOperation: Codable, Equatable {
     static let workerStartupPlanSHA256 = "5243ef5b66ce6f96f7acac06a6c20d0365ec1281c39157438ad873c77568222c"
     static let automaticSetupPlanSHA256 = "f8cdd9ac1cb10d1eec0eaa89ded8ba295a82c946d4dd706c28c30234704db676"
     static let loginNavigationPlanSHA256 = "314c85866b85c46e84bec4a1b861ac001d557f775da21061a4bb02e58a644f9f"
+    static let harelEmailPlanSHA256 = "b29f2af04f476dfd52e5a5dde162f3f9a7cfb2522e621eea69810e54189df216"
     let schema: Int
     let unit: FullImageFileUnit
     let planSHA256: String
@@ -74,7 +75,8 @@ struct FullImageFileOperation: Codable, Equatable {
         let directPlan = [Self.directRuntimePlanSHA256, Self.jitRuntimePlanSHA256,
                           Self.ownerConnectionPlanSHA256, Self.betterloopPlanSHA256,
                           Self.lemonSqueezyPlanSHA256, Self.workerStartupPlanSHA256,
-                          Self.automaticSetupPlanSHA256, Self.loginNavigationPlanSHA256].contains(planSHA256)
+                          Self.automaticSetupPlanSHA256, Self.loginNavigationPlanSHA256,
+                          Self.harelEmailPlanSHA256].contains(planSHA256)
         guard schema == 1, FullImageJSON.hex(planSHA256), (0..<(directPlan ? 256 : 64)).contains(index),
               before != nil || after != nil, before != after else { throw FullImageFailure.journal }
         if unit == .directPublicFile {

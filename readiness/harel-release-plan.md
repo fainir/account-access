@@ -2,6 +2,10 @@
 
 Prepared 2026-11-04 from HEAD `3c5520a4030f0cfb846e080053b6de2677a35807` plus the coordinator's unfinished D22 tree. This lane inspected public source and release evidence only. No build, signing, installation, dispatch, upload, publication, private account read or owner request was performed. The coordinator owns implementation, ledger, processes and git.
 
+## Actual qualification update - 4 November, 21:20 local
+
+The original planning snapshot below is historical. Program P is now `13fc473136e6f7d0f932bc3e171d248cebdf8a7d`; image builder B is `3891173bd79ca0a894f111e34bb23dfd33cf774f`. The actual signed128 image qualifies from127, all196 Harel tests pass in its packaged Python3.12.16, and the real15-unit/24-change plan is registered. Shared/direct native qualification, eight retained120-127 fixtures and254 integrated Python profile tests pass. All72 runtime native checks and the ordinary-user refusal also pass. Clean helper source Q, signed exact update assembly and corrected full local CI remain. No128 installer or private Harel acceptance is claimed. See [current ledger](../READINESS.md) and [image qualification](../qa/ordered-verification-2026-11-04/image128-qualification.json).
+
 ## Current policy
 
 Nir superseded hosted CI on 4 November: Actions budget is $0 and no GitHub Actions may run. The hosted-workflow sequence below is retained as the prior release reference only. New 128 owner/wheel/native builds and native probes must run locally with exact source binding, ordinary-user synthetic roots and the existing builder local-compiler path (omit `--compiled-run`). Never run disposable-root Installer/cross-user probes on the owner Mac. Current source qualification uses `bash ~/.agents/skills/ship/scripts/ci-local.sh`; new final-byte multi-OS Installer acceptance needs an available isolated Mac environment before claiming those results.

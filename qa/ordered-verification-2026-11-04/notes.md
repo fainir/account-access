@@ -142,3 +142,11 @@ phase. Do not ask for the checked mailbox password again. The existing two-hour
 follow-up continues delivery and stays quiet on unchanged state.
 
 The [local CI migration](../../readiness/local-ci-transition.md) passed306 workflow/asset checks,14 gateway report checks, shell syntax, minimal-PATH input validation and a controlled dependency-failure/cleanup run. Full local CI is next, after this clean source push.
+
+## Actual signed image and native updater qualification
+
+The actual signed128 image qualifies from127, with unchanged third-party dependency bytes and the publisher-signed sandboxed browser READY. [Image report](image128-qualification.json). All196 controlled Harel checks pass in the actual packaged Python3.12.16 using its imported program modules; the image manifest remains unchanged afterward. [Runtime log](packaged-harel-tests.log).
+
+The actual exact update plan has15 units,24 changed nodes and73 project source files. The current native [shared adapter](native-full128.json) and [direct128 plan](native-direct128.json) report PASSED, retain six ordinary-user refusal guards and do not access installed paths. The same current compiled direct binary passes every retained120-127 fixture with its original counts, namespace and source binding; no eightfold recompilation or historical contract modification. [Eight actual results](native-compatibility128.log). The integrated profile/planner/package/probe suite passes254 tests; full lint is clean. [Test log](helper-profile-tests.log).
+
+All72 [runtime native checks](native-runtime128.json) and the actual ordinary-user updater refusal also pass. Signed package assembly and one final corrected full clean-source local CI remain required before staging installation. The initial full run is recorded honestly as failed; its29 fixture/clean-source failures all pass targeted corrected rechecks. [Initial and corrected evidence](local-ci-initial.md). No128 installer, native owner Harel enrollment, private email or SMS success is claimed here.

@@ -27,6 +27,7 @@ from test_payload_audit import thin
     "8abffd8078832752aa13c59e58834b0a9b669656758dab47d4418ae663c41bcd",
     "0e1c1f3a2b05f3eb5f9acd32b7a55bea28d775411519d41be0401b43d852d20f",
     "82b953e0698ee73468c2cff8aa546c5b94368fbf1fe24036e2623d039fee2f06",
+    "38f593c6a4d87114ba61eb8e782ae2da104224a8ef09e4a92fe9eee6feabee87",
 ])
 def test_reviewed_images_reach_manifest_validation(tmp_path, digest):
     # Review admits exact image hashes; all manifest, inventory and peer checks remain.
@@ -39,6 +40,7 @@ def test_reviewed_images_reach_manifest_validation(tmp_path, digest):
     "5a732de4623ba50aefa6d31c54e7b1eae660b2921341f95042c5675d922d808a",
     "630e77605faac2dfdace9faaa5da55e671335c6b18e62114d7f0224a8574f24d",
     "6ab5f90fa72dfed84c295d5df4741d3cb9aaf6a0fa89ed155b4cb76400570875",
+    "38f593c6a4d87114ba61eb8e782ae2da104224a8ef09e4a92fe9eee6feabee88",
     "1917cff3a29b8306549287f4e6ac4fcc393dc4445f21a3ab0019c55e457b2054"])
 def test_unreviewed_images_refuse_before_manifest_paths(tmp_path, digest):
     with pytest.raises(ValueError, match="reviewed_preassembled_image_required"):

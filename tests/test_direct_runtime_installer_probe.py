@@ -9,7 +9,7 @@ import pytest
 from scripts import mac_direct_runtime_installer_probe as probe
 
 
-@pytest.mark.parametrize('number', ['120', '121', '122', '123', '124', '125', '126', '127'])
+@pytest.mark.parametrize('number', ['120', '121', '122', '123', '124', '125', '126', '127', '128'])
 def test_retained_history_head_uses_the_reviewed_release_tuple(number):
     from scripts.build_direct_runtime_upgrade_candidate import RELEASES as published
     release = probe.RELEASES[number]
@@ -21,6 +21,23 @@ def test_retained_history_head_uses_the_reviewed_release_tuple(number):
     assert value['automatic_reboot_recovery'] is False
     if number == '125':
         assert value['source_commit'] == 'e0d65ce1803295d96dde96e465bd7e3ace18f32d'
+
+
+@pytest.mark.parametrize('number', ['121', '122', '123', '124', '125', '126', '127', '128'])
+def test_successor_fixture_preserves_every_earlier_exact_namespace(number):
+    expected = [str(value) for value in range(120, int(number))]
+    assert probe.RETAINED_HISTORY[number] == expected
+    assert all(probe.historical_head(probe.RELEASES[earlier]) for earlier in expected)
+
+
+def test_harel_installer_profile_has_a_distinct_namespace_and_original_recovery_binding():
+    from scripts.build_direct_runtime_upgrade_candidate import RELEASE128
+    release = probe.RELEASES['128']
+    assert (release.before, release.after, release.plan) == (RELEASE128.before, RELEASE128.after, RELEASE128.plan)
+    assert release.transition == probe.BASE.parent / 'Account Access Harel Email'
+    assert release.transition not in {item.transition for key, item in probe.RELEASES.items() if key != '128'}
+    assert release.recovery_plan == probe.PLAN == probe.RELEASES['120'].plan
+    assert release.contract == 'runtime128-installer-inputs.json'
 
 
 @pytest.mark.parametrize('field,value', [('number', '127'), ('before', 'a' * 64),
@@ -91,7 +108,7 @@ def test_archive_hardlink_cannot_replace_the_manifest():
 
 
 @pytest.mark.parametrize('mode', ['upgrade', 'fresh'])
-@pytest.mark.parametrize('release', ['120', '121', '122', '123', '124', '125', '126', '127'])
+@pytest.mark.parametrize('release', ['120', '121', '122', '123', '124', '125', '126', '127', '128'])
 def test_probe_refuses_an_ordinary_owner_context_before_inputs(tmp_path, mode, release):
     args = SimpleNamespace(inputs=tmp_path / 'missing', output=tmp_path / 'output', mode=mode, release=release)
     with pytest.raises(ValueError, match='component_installer_acceptance_failed'):

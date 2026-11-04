@@ -77,6 +77,19 @@ RELEASES = {
                    '82b953e0698ee73468c2cff8aa546c5b94368fbf1fe24036e2623d039fee2f06',
                    '314c85866b85c46e84bec4a1b861ac001d557f775da21061a4bb02e58a644f9f',
                    BASE.parent / 'Account Access Login Navigation', 'runtime127-installer-inputs.json', PLAN),
+    '128': Release('128', '82b953e0698ee73468c2cff8aa546c5b94368fbf1fe24036e2623d039fee2f06',
+                   '38f593c6a4d87114ba61eb8e782ae2da104224a8ef09e4a92fe9eee6feabee87',
+                   'b29f2af04f476dfd52e5a5dde162f3f9a7cfb2522e621eea69810e54189df216',
+                   BASE.parent / 'Account Access Harel Email', 'runtime128-installer-inputs.json', PLAN),
+}
+
+RETAINED_HISTORY = {
+    '121': ['120'], '122': ['120', '121'], '123': ['120', '121', '122'],
+    '124': ['120', '121', '122', '123'],
+    '125': ['120', '121', '122', '123', '124'],
+    '126': ['120', '121', '122', '123', '124', '125'],
+    '127': ['120', '121', '122', '123', '124', '125', '126'],
+    '128': ['120', '121', '122', '123', '124', '125', '126', '127'],
 }
 
 
@@ -442,7 +455,7 @@ def run(args):
         previous_root.rmdir()
         check('same_volume_support_root_replaced', BASE.stat().st_ino != roots[str(BASE)][1])
         completed_objects = None
-        if release.number in {'121', '122', '123', '124', '125', '126', '127'}:
+        if release.number in {'121', '122', '123', '124', '125', '126', '127', '128'}:
             # Reproduce the completed build-120 root recovery and its separate
             # published namespace. The successor must preserve both verbatim.
             recovery = {'schema': 2, 'managed_by': 'account-access-installation-root-recovery-v2',
@@ -458,11 +471,7 @@ def run(args):
             write(BINDING / 'recovered-v2.json', recovery)
             completed_objects = {BINDING / 'recovered-v2.json': (
                 (BINDING / 'recovered-v2.json').stat().st_ino, (BINDING / 'recovered-v2.json').read_bytes())}
-            history = {'121': ['120'], '122': ['120', '121'], '123': ['120', '121', '122'],
-                       '124': ['120', '121', '122', '123'],
-                       '125': ['120', '121', '122', '123', '124'],
-                       '126': ['120', '121', '122', '123', '124', '125'],
-                       '127': ['120', '121', '122', '123', '124', '125', '126']}[release.number]
+            history = RETAINED_HISTORY[release.number]
             report['retained_predecessor_namespaces'] = history
             for number in history:
                 historical = RELEASES[number]
@@ -526,7 +535,7 @@ def run(args):
             head = json.loads((release.transition / 'head.json').read_bytes())
             check(attempt + '_verified_head', head['plan_sha256'] == release.plan and head['manifest_sha256'] == release.after)
             verify_live_service(command, attempt + '-live-service')
-            if release.number in {'121', '122', '123', '124', '125', '126', '127'}:
+            if release.number in {'121', '122', '123', '124', '125', '126', '127', '128'}:
                 service_browser_check(command, args.output, attempt + '-publisher-sandboxed-browser')
                 check(attempt + '_publisher_sandboxed_browser', True)
                 check(attempt + '_completed_predecessor_history_preserved',
@@ -619,7 +628,7 @@ def fresh_run(args):
                     BASE / 'runtime/bin/python', '-I', '-B', '-c', JOSE_CHECK])
             check(attempt + '_patched_dependency_guard', True)
             verify_live_service(command, attempt + '-live-service')
-            if release.number in {'121', '122', '123', '124', '125', '126', '127'}:
+            if release.number in {'121', '122', '123', '124', '125', '126', '127', '128'}:
                 service_browser_check(command, args.output, attempt + '-publisher-sandboxed-browser')
                 check(attempt + '_publisher_sandboxed_browser', True)
             # Only this just-created fixture app can exist in this empty VM.
