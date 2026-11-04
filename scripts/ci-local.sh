@@ -73,11 +73,11 @@ case "$AC_CI_OUTPUT" in /*) ;; *) AC_CI_OUTPUT="$PWD/$AC_CI_OUTPUT" ;; esac
 [ ! -e "$AC_CI_OUTPUT" ] && [ ! -L "$AC_CI_OUTPUT" ] || { echo 'CI output must be a new directory' >&2; exit 1; }
 mkdir -p -- "$(dirname -- "$AC_CI_OUTPUT")"
 mkdir -m 700 -- "$AC_CI_OUTPUT"
-AC_CI_WORK=$(mktemp -d /tmp/aa-ci.XXXXXX)
-# Darwin inherits /tmp's wheel group. Test-owned set-group fixtures require
+AC_CI_WORK=$(mktemp -d /private/tmp/aa-ci.XXXXXX)
+trap 'rm -rf -- "$AC_CI_WORK"' EXIT
+# Darwin inherits /private/tmp's wheel group. Test-owned set-group fixtures require
 # the current user's group, without granting anyone access through this 0700 root.
 chgrp "$(id -g)" "$AC_CI_WORK"
-trap 'rm -rf -- "$AC_CI_WORK"' EXIT
 mkdir -p "$AC_CI_WORK/modules" "$AC_CI_WORK/home" "$AC_CI_WORK/data" "$AC_CI_WORK/runtime"
 export PYTHONDONTWRITEBYTECODE=1
 export UV_OFFLINE=1
