@@ -1,0 +1,37 @@
+{
+  "id": 433859029,
+  "tag_name": "qa-login-navigation127-20261104",
+  "draft": true,
+  "published_at": null,
+  "target_commitish": "15ef230b90bf89e5ab3179fa8ffa5a3e5240bdda",
+  "assets": [
+    {
+      "id": 709395946,
+      "name": "baseline.tar.gz",
+      "size": 304651017,
+      "state": "uploaded",
+      "digest": "sha256:cf808b699fe77c1820cae51e60b352a2231b9964552a2a8f92eb5d8bcd89cb03"
+    },
+    {
+      "id": 709395950,
+      "name": "candidate.pkg",
+      "size": 6104806,
+      "state": "uploaded",
+      "digest": "sha256:a7bfcfccac742651da9572c67c66e1bdbed22a953ce978aa864e8186b7d42a2b"
+    },
+    {
+      "id": 709401584,
+      "name": "fresh.pkg",
+      "size": 289354598,
+      "state": "uploaded",
+      "digest": "sha256:e5764586fadb339e3dea49bfd2e10360e1b2d739fac79415b3b3fc8f96ad803c"
+    },
+    {
+      "id": 709339550,
+      "name": "release127-native-inputs.tar.gz",
+      "size": 2538152,
+      "state": "uploaded",
+      "digest": "sha256:21a1422975d6f4e6281d3df46be451459b1f97a34b1fed0c4b3852314a0824db"
+    }
+  ]
+}

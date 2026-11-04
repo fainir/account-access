@@ -51,8 +51,9 @@ and native preflight checks pass. Both persistent customer copies independently
 pass signature, ticket and Gatekeeper checks. The
 [final Installer input contract](../../artifacts/runtime127-installer-inputs.json)
 pins the qualified package bytes and exact public126 baseline. All four QA-only
-assets will be checked against server size/digest/complete state before the
-three existing controlled Installer journeys are dispatched.
+assets are independently [read back](qa-release-readback.json): complete states,
+server sizes/digests and unchanged unpublished draft match all pins. Existing
+controlled Installer journeys are dispatched once per OS at sourcecc6d903.
 
 [Actual owner preflight](owner-preflight.json) matches all14 selected public
 files, including browser.py, to qualified126 and preserves11 metadata roots.
