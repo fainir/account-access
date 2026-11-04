@@ -42,3 +42,37 @@ existing-key transfer as the next single owner action. The completed manual Chro
 MFA, Betterloop import, mailbox setup and build-126 installation are not repeated.
 Physical SMS, email-challenge acceptance, Namecheap and publication retain their
 recorded limits. No package, source CI job or personal-enrollment monitor was created.
+
+## Import completed after the reported failure
+
+The owner confirmed native setup approval and reported that the import did not
+work. On inspection the app was back at its initial import page and discovery
+still had only the original three accounts. No earlier error remained visible,
+so the prior failure cause is not established. In particular, preview expiry
+was not observed and must not be stated as the cause.
+
+The same export was still available in the native Downloads picker. A fresh
+native preview was created without re-exporting or reading the file. Only Lemon
+Squeezy and its same status permission were selected. The exact import completed:
+
+- Native result: Passwords imported; selected login encrypted locally.
+- Installed discovery: new personal-lemonsqueezy, environment live, only status
+  with description Confirm your Lemon Squeezy sign-in status.
+- The original three accounts/grants remain present; Namecheap was not retried.
+- Worker RUNNING/zero failures and browser READY.
+- Native account check: website took too long to connect; configuration preserved.
+- One permitted installed status read: RETRYABLE, browser_execution_failed.
+- Native Verification exposes the matching unenrolled Lemon authenticator source.
+
+This verifies the saved import/grant, not private sign-in or MFA. No authenticator
+seed, code or QR was read, supplied or enrolled; no additional private sign-in
+retry follows the one diagnostic read.
+
+Investigation D20: public unauthenticated application navigation presents an auth
+redirect interstitial ([provider response](https://app.lemonsqueezy.com/dashboard)).
+The existing controlled fixture jumps directly from the dashboard to the password
+form, omitting that intermediate route. Reproduce the failure with a controlled
+interstitial before changing any routing. Keep the fixed approved destinations,
+POST validation and session-only result. This is a candidate explanation, not a
+confirmed live root cause. Chrome diagnostic control was interrupted by changed
+app state, then timed out; no product conclusion comes from that failed control.
