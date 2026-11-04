@@ -35,7 +35,28 @@ files), and a separate fixed Login Navigation recovery namespace. Existing
 
 ## Delivery and installed acceptance
 
-Matching native helper compilation, signed/notarized full and update packages,
-actual Installer acceptance and owner-Mac installation are in progress. The
-installed app remains 126; no new private operation, authenticator import,
+[Exact-source native run](https://github.com/fainir/account-access/actions/runs/41825605936)
+completed successfully at source 6fcba2e. All ten downloaded reports pass:
+[shared](native/full-image.json), [runtime](native/runtime.json),
+[new exact plan](native/direct.json), and all seven retained 120-126 contracts.
+The fixed helper is compiled from that same run. The
+[6.1 MB updater](updater-qualification.json) is signed, Apple-accepted, stapled,
+Gatekeeper accepted and independently expanded with its exact owner signature
+and resource inventory. Its persistent customer copy passes signature/ticket/
+Gatekeeper checks again. No owner installation yet.
+
+The [289 MB full installer](fresh-qualification.json) is signed, Apple-accepted,
+stapled and Gatekeeper accepted. Its exact image inventory, unchanged-source
+and native preflight checks pass. Both persistent customer copies independently
+pass signature, ticket and Gatekeeper checks. The
+[final Installer input contract](../../artifacts/runtime127-installer-inputs.json)
+pins the qualified package bytes and exact public126 baseline. All four QA-only
+assets will be checked against server size/digest/complete state before the
+three existing controlled Installer journeys are dispatched.
+
+[Actual owner preflight](owner-preflight.json) matches all14 selected public
+files, including browser.py, to qualified126 and preserves11 metadata roots.
+Installed discovery still shows the four original/new grants, browser READY,
+and the exact Lemon status permission. Google Authenticator is unenrolled.
+The installed app remains126; no new private operation, authenticator import,
 owner install approval or public customer release is claimed.

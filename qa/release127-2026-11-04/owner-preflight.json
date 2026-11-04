@@ -1,0 +1,89 @@
+{
+  "checked_at": "2026-11-04T12:01:36.847101+00:00",
+  "installed_build": "126",
+  "matched_qualified_public_files": [
+    "package-identity.json",
+    "owner.app/Contents/Info.plist",
+    "owner.app/Contents/_CodeSignature/CodeResources",
+    "owner.app/Contents/MacOS/AccountAccess",
+    "owner.app/Contents/Resources/account_access.whl",
+    "bin/AccountAccess-bootstrap",
+    "bin/AccountAccess-broker",
+    "bin/AccountAccess-installerverify",
+    "runtime/bin/python3.12",
+    "wheels/account_access-0.8.0-py3-none-any.whl",
+    "runtime/lib/python3.12/site-packages/account_access/authenticator_import.py",
+    "runtime/lib/python3.12/site-packages/account_access/owner.py",
+    "runtime/lib/python3.12/site-packages/account_access/ui/welcome.js",
+    "runtime/lib/python3.12/site-packages/account_access/browser.py"
+  ],
+  "metadata_only_roots": {
+    "/Library/Application Support/Account Access": {
+      "inode": 617554083,
+      "uid": 0,
+      "gid": 80,
+      "mode": "0o755"
+    },
+    "/Applications/Account Access.app": {
+      "inode": 556369026,
+      "uid": 0,
+      "gid": 80,
+      "mode": "0o755"
+    },
+    "/Library/Application Support/Account Access/vault": {
+      "inode": 556370482,
+      "uid": 0,
+      "gid": 80,
+      "mode": "0o755"
+    },
+    "/Library/Application Support/Account Access Installation Binding": {
+      "inode": 563018617,
+      "uid": 0,
+      "gid": 80,
+      "mode": "0o700"
+    },
+    "/Library/Application Support/Account Access Runtime Recovery": {
+      "inode": 615512526,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o700"
+    },
+    "/Library/Application Support/Account Access Runtime JIT Repair": {
+      "inode": 625270576,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o700"
+    },
+    "/Library/Application Support/Account Access Owner Connection Repair": {
+      "inode": 625610012,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o700"
+    },
+    "/Library/Application Support/Account Access Betterloop Connection": {
+      "inode": 632999024,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o700"
+    },
+    "/Library/Application Support/Account Access Lemon Squeezy Connection": {
+      "inode": 638243838,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o700"
+    },
+    "/Library/Application Support/Account Access Worker Startup Recovery": {
+      "inode": 639464971,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o700"
+    },
+    "/Library/Application Support/Account Access Automatic Setup": {
+      "inode": 643697536,
+      "uid": 0,
+      "gid": 0,
+      "mode": "0o700"
+    }
+  },
+  "credential_or_policy_files_read": false
+}
