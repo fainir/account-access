@@ -1,8 +1,7 @@
 name: Fresh repaired image 87 build and static review
+# Historical runbook only; the $0 CI policy forbids dispatching GitHub Actions.
 on:
-  push:
-    branches: [codex/full-image-update]
-    paths: [artifacts/fresh-image87-build-request.json]
+  workflow_dispatch:
 permissions:
   contents: read
 defaults:

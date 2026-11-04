@@ -73,6 +73,24 @@ final class OwnerApprovalWindowFixture: NSWindow {
 
 final class NativeOwnerScreenFixture: DesktopOwnerChannel {
     var isAvailable = false
+    private let harelLock = NSLock()
+    private var harelLog: [(String, [String: Any])] = []
+    private var harelPhase = "WAITING_CODE"
+    private var harelRevision = 0
+    private var harelDone = false
+    private var harelHoldRoute: String?
+    private var harelHeldReply: (() -> Void)?
+    var harelRequests: [(String, [String: Any])] { harelLock.withLock { harelLog } }
+    func completeHarel() { harelLock.withLock { harelDone = true } }
+    func holdHarel(_ route: String) { harelLock.withLock { harelHoldRoute = route } }
+    var harelReplyPending: Bool { harelLock.withLock { harelHeldReply != nil } }
+    func releaseHarelReply() {
+        let reply = harelLock.withLock { () -> (() -> Void)? in
+            defer { harelHeldReply = nil }
+            return harelHeldReply
+        }
+        reply?()
+    }
     var enrollments = 0
     var lostNextEnrollment = false
     var clientEnrollments = 0
@@ -106,6 +124,39 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
     func prepare(reply: @escaping (Bool) -> Void) { isAvailable = true; reply(true) }
     func authorizeSetup(_ form: Data, reply: @escaping (Bool) -> Void) { reply(form.count == 32) }
     func request(_ route: String, body: Data?, reply: @escaping (Int, Data) -> Void) {
+        if route.hasPrefix("owner/harel/") {
+            let input = body.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } ?? [:]
+            let response: [String: Any] = harelLock.withLock {
+                harelLog.append((route, input))
+                if route.hasSuffix("/start") { harelPhase = "WAITING_CODE"; harelDone = false }
+                if route.hasSuffix("/code") { harelPhase = "REVIEW" }
+                if route.hasSuffix("/approve") { harelPhase = "TESTING" }
+                if route.hasSuffix("/cancel") { harelPhase = "CANCELLED" }
+                if harelDone && harelPhase == "TESTING" {
+                    harelPhase = "COMPLETED"
+                    state["accounts"] = [["account": "personal-harel", "label": "Fictional Harel", "route": "browser",
+                        "environment": "controlled-demo", "connected": true, "portable_ready": true,
+                        "operations": [["name": "status", "description": "Confirm sign-in status"]]]]
+                }
+                harelRevision += 1
+                var value: [String: Any] = ["id": input["id"] ?? "", "status": harelPhase, "revision": harelRevision]
+                if harelPhase == "REVIEW" {
+                    value["candidate"] = String(repeating: "c", count: 32)
+                    value["review"] = ["sender": "login@example.test", "recipient": "fixture@example.test",
+                        "subject": "Fictional Harel sign-in", "template": "Fictional Harel sign-in: {code}"]
+                }
+                return value
+            }
+            let encoded = try! JSONSerialization.data(withJSONObject: response)
+            let held = harelLock.withLock { () -> Bool in
+                guard harelHoldRoute == route else { return false }
+                harelHoldRoute = nil
+                harelHeldReply = { reply(200, encoded) }
+                return true
+            }
+            if !held { reply(200, encoded) }
+            return
+        }
         if route == "owner/verify" { verificationRequestLock.withLock { verificationRequests += 1 } }
         if route == "owner/source" {
             let request = body.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } ?? [:]
@@ -190,6 +241,87 @@ final class AuthenticatorBatchPreviewAction: NSObject {
 }
 
 @main struct OwnerScreenChecks {
+    static func waitForHarel(_ condition: () -> Bool) {
+        let deadline = Date().addingTimeInterval(5)
+        while !condition() && Date() < deadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
+        precondition(condition())
+    }
+
+    static func checkHarel(_ owner: AccountAccess, _ channel: NativeOwnerScreenFixture) {
+        func harelViews(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(harelViews) }
+        owner.fixtureSystemOwnerSelected = true
+        owner.systemOwner = DesktopOwnerConnection(makeChannel: { channel }, acquire: { Data(repeating: 0x46, count: 32) })
+        owner.systemOwnerReady = true
+        let checked: [String: Any] = ["available": true, "mailboxes": [[
+            "id": "mailbox-" + String(repeating: "b", count: 24), "label": "Checked fixture mailbox", "recipient": "fixture@example.test"]]]
+        owner.harelEmailSetup = checked
+        owner.busy = false
+        owner.window.setContentSize(NSSize(width: 880, height: 740))
+        owner.showHarelEmailSetup()
+        owner.window.contentView?.layoutSubtreeIfNeeded()
+        precondition(owner.window.contentView!.bounds.width == 880)
+        precondition(owner.harelConsent!.frame.width <= owner.stack.bounds.width)
+        precondition(owner.harelFields.count == 2 && owner.harelStart?.isEnabled == false)
+        owner.harelFields["identity"]!.stringValue = "000000000"
+        owner.harelFields["phone"]!.stringValue = "0500000000"
+        owner.harelConsent!.state = .on
+        owner.harelInputChanged()
+        precondition(owner.harelStart?.isEnabled == true)
+        let oldFields = owner.harelFields
+        let mailboxWrites = channel.mailboxPostCount
+        owner.startHarelEmail()
+        precondition(oldFields.values.allSatisfy { $0.stringValue.isEmpty })
+        waitForHarel { owner.harelPhase == "WAITING_CODE" && !owner.busy }
+        precondition(channel.harelRequests.filter { $0.0 == "owner/harel/start" }.count == 1)
+        owner.harelFields["code"]!.stringValue = "654321"
+        let codeField = owner.harelFields["code"]!
+        channel.holdHarel("owner/harel/code")
+        owner.submitHarelCode()
+        precondition(codeField.stringValue.isEmpty)
+        waitForHarel { channel.harelReplyPending }
+        let pendingID = owner.harelJobID!
+        owner.acceptHarel(["id": pendingID, "status": "WAITING_CODE", "revision": owner.harelRevision + 1], id: pendingID, epoch: owner.harelEpoch)
+        precondition(owner.busy && owner.harelMutationButton?.isEnabled == false)
+        owner.submitHarelCode()
+        precondition(channel.harelRequests.filter { $0.0 == "owner/harel/code" }.count == 1)
+        channel.releaseHarelReply()
+        waitForHarel { owner.harelPhase == "REVIEW" && !owner.busy }
+        let text = harelViews(owner.stack).compactMap { ($0 as? NSTextField)?.stringValue }.joined(separator: " ")
+        precondition(text.contains("••••••") && !text.contains("654321"))
+        precondition(channel.harelRequests.filter { $0.0 == "owner/harel/approve" }.isEmpty)
+        let id = owner.harelJobID!
+        let epoch = owner.harelEpoch
+        owner.acceptHarel(["id": id, "status": "WAITING_CODE", "revision": owner.harelRevision - 1], id: id, epoch: epoch)
+        precondition(owner.harelPhase == "REVIEW" && owner.harelFields.isEmpty)
+        channel.holdHarel("owner/harel/approve")
+        owner.approveHarelEmail()
+        waitForHarel { channel.harelReplyPending }
+        owner.acceptHarel(["id": id, "status": "REVIEW", "revision": owner.harelRevision + 1], id: id, epoch: epoch)
+        precondition(owner.busy && owner.harelMutationButton?.isEnabled == false)
+        owner.approveHarelEmail()
+        precondition(channel.harelRequests.filter { $0.0 == "owner/harel/approve" }.count == 1)
+        channel.releaseHarelReply()
+        waitForHarel { owner.harelPhase == "TESTING" && owner.busy }
+        precondition(owner.harelFields.isEmpty && channel.mailboxPostCount == mailboxWrites)
+        channel.completeHarel()
+        waitForHarel { owner.harelJobID == nil && !owner.busy }
+        precondition(owner.status.stringValue.contains("Harel email sign-in verified"))
+        let starts = channel.harelRequests.filter { $0.0 == "owner/harel/start" }
+        precondition(starts.count == 1 && starts[0].1["identity"] as? String == "000000000" && starts[0].1["password"] == nil)
+        precondition(channel.harelRequests.filter { $0.0 == "owner/harel/code" }.count == 1)
+        precondition(channel.harelRequests.filter { $0.0 == "owner/harel/approve" }.count == 1)
+        print("PASS: native Harel reuses a checked mailbox, masks local fields, reviews a redacted pattern and verifies automatic delivery before completion")
+        print("PASS: pre-mutation Harel polls cannot unlock held code or approval requests or dispatch a duplicate action")
+        owner.harelEmailSetup = checked
+        owner.showHarelEmailSetup()
+        let draft = owner.harelFields["identity"]!
+        draft.stringValue = "000000000"
+        owner.showReady()
+        precondition(draft.stringValue.isEmpty && owner.harelFields.isEmpty)
+        owner.acceptHarel(["id": id, "status": "WAITING_CODE", "revision": 9999], id: id, epoch: epoch)
+        precondition(owner.harelFields.isEmpty && owner.harelJobID == nil)
+        print("PASS: Harel navigation clears drafts and rejects stale replies without another email or grant")
+    }
     static func main() {
         setbuf(stdout, nil)
         let legacy = Bundle.main
@@ -277,14 +409,48 @@ final class AuthenticatorBatchPreviewAction: NSObject {
             owner.window.title = "Account Access - controlled setup QA"
             owner.androidConnectionTest = ["available": true]
             owner.sources = [["id": "fixture-totp", "kind": "totp", "accounts": ["fixture"]]]
+            owner.harelEmailSetup = ["available": true, "mailboxes": [["id": "mailbox-" + String(repeating: "b", count: 24),
+                "label": "Checked fixture mailbox", "recipient": "fixture@example.test"]]]
+            if ProcessInfo.processInfo.environment["ACCOUNT_ACCESS_QA_NARROW"] == "1" {
+                owner.window.setContentSize(NSSize(width: 880, height: 740))
+            }
             if mode == "empty-import" {
                 owner.reviewImport(["id": String(repeating: "a", count: 48), "rows": [], "unsupported": 4])
+            } else if mode.hasPrefix("harel-") {
+                owner.showHarelEmailSetup()
+                if mode != "harel-setup" {
+                    let id = String(repeating: "a", count: 32)
+                    owner.harelJobID = id
+                    owner.harelPollScheduled = true // Render-only: no request or delivery.
+                    var response: [String: Any] = ["id": id, "revision": 1, "status": mode == "harel-code" ? "WAITING_CODE" : mode == "harel-review" ? "REVIEW" : "TESTING"]
+                    if mode == "harel-review" {
+                        response["candidate"] = id
+                        response["review"] = ["sender": "login@example.test", "recipient": "fixture@example.test",
+                            "subject": "Fictional Harel sign-in", "template": "Fictional Harel sign-in code: {code}"]
+                    }
+                    owner.acceptHarel(response, id: id, epoch: owner.harelEpoch)
+                }
             } else {
                 owner.showAutomaticSetup()
             }
             NSApp.setActivationPolicy(.regular)
             owner.window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
+            if let output = ProcessInfo.processInfo.environment["ACCOUNT_ACCESS_QA_SNAPSHOT_OUTPUT"],
+               let view = owner.window.contentView {
+                owner.window.appearance = NSAppearance(named: .aqua)
+                view.wantsLayer = true
+                view.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+                view.layoutSubtreeIfNeeded()
+                view.displayIfNeeded()
+                RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+                if let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+                    view.cacheDisplay(in: view.bounds, to: bitmap)
+                    try! bitmap.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: output))
+                }
+                owner.clearHarelSetup(cancel: false)
+                return
+            }
             let reviewAction = AuthenticatorBatchPreviewAction(owner)
             if mode == "authenticator-review" {
                 owner.page("Controlled authenticator review", "Only fictional website labels are used. No private account, grant or authenticator key can be changed.")
@@ -1597,6 +1763,7 @@ final class AuthenticatorBatchPreviewAction: NSObject {
                            .contains("Reopen and check status"), "connection_failure_reopens_and_checks_status")
         print("PASS: interrupted AI setup points to its actual recovery action without replaying authorization")
         requireLocalUX(fixtureProfileReads == 1 && helperLock.withLock { unexpectedHelperCalls == 0 }, "fixture_dependencies_only")
+        checkHarel(owner, nativeChannel)
         print("PASS: UI fixtures use only temporary roots, synthetic owner profiles, fake helpers and intercepted URL requests")
 
 

@@ -57,6 +57,8 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
     sms_setups = {}
     guard = threading.Lock()
     verification_slots = threading.BoundedSemaphore(4)
+    from .harel_setup import HarelSetup
+    harel_setup = HarelSetup(broker)
 
     def verify(account, job_id, visible=False, setup_method=None, review_stop=None):
         with verification_slots:
@@ -408,6 +410,10 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                                                        if isinstance(spec, BrowserAccount) and spec.login
                                                        and key in spec.login.sources()]})
                 state["code_sources"] = source_views
+                if guided and server_socket is not None and not local_host_actions:
+                    from .harel_setup import available, _vacant
+                    state["harel_email_setup"] = {"available": _vacant(broker.store, config),
+                                                  "mailboxes": available(broker.store)}
                 self.send(200, state)
             else:
                 self.send(404, {"status": "DENIED"})
@@ -427,6 +433,28 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                 if not 0 < length <= limit:
                     raise ValueError()
                 data = json.loads(self.rfile.read(length))
+                if self.path.startswith("/owner/harel/"):
+                    if local_host_actions or server_socket is None or not guided:
+                        raise AccessError("DENIED", "trusted_owner_route_required")
+                    if self.path == "/owner/harel/start":
+                        result = harel_setup.start(data)
+                    elif self.path == "/owner/harel/code":
+                        if type(data) is not dict or set(data) != {"id", "code"}:
+                            raise ValueError()
+                        result = harel_setup.code(data["id"], data["code"])
+                    elif self.path == "/owner/harel/approve":
+                        if type(data) is not dict or set(data) != {"id", "candidate"}:
+                            raise ValueError()
+                        result = harel_setup.approve(data["id"], data["candidate"])
+                    elif self.path in {"/owner/harel/check", "/owner/harel/cancel"}:
+                        if type(data) is not dict or set(data) != {"id"}:
+                            raise ValueError()
+                        action = harel_setup.check if self.path.endswith("/check") else harel_setup.cancel
+                        result = action(data["id"])
+                    else:
+                        raise ValueError()
+                    self.send(200, result)
+                    return
                 if self.path in {"/owner/device-email/preview", "/owner/device-email/apply",
                                  "/owner/device-email/discard", "/owner/device-email/remove"}:
                     from . import device_email_setup
@@ -874,6 +902,7 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
 
     class OwnerServer(ThreadingHTTPServer):
         def server_close(self):
+            harel_setup.close()
             with guard:
                 for setup in sms_setups.values():
                     setup["stop"].set()

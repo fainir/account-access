@@ -1,12 +1,6 @@
 name: Completed repair predecessor acceptance
+# Historical runbook only; the $0 CI policy forbids dispatching GitHub Actions.
 on:
-  push:
-    branches: [codex/full-image-update]
-    paths:
-      - .github/workflows/mac-completed-repair-review.yml
-      - macos/Tests/CompletedBrokerRepairProbe.swift
-      - scripts/mac_completed_repair_probe.py
-      - artifacts/repair91-full-image-pins.swift
   workflow_dispatch:
 permissions:
   contents: read

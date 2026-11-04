@@ -1,14 +1,12 @@
 name: Mac runtime successor owner image
+# Historical runbook only; the $0 CI policy forbids dispatching GitHub Actions.
 on:
-  push:
-    branches: [codex/production-security-authlib-20261028]
-    paths: [.github/workflows/mac-runtime-owner-release.yml]
   workflow_dispatch:
     inputs:
       release:
         type: choice
-        options: ['127', '126', '125', '124', '123', '122', '121']
-        default: '127'
+        options: ['128', '127', '126', '125', '124', '123', '122', '121']
+        default: '128'
         description: Native owner and broker build number
 permissions:
   contents: read
@@ -33,7 +31,7 @@ jobs:
           "$RUNNER_TEMP/owner-checks" > "$RUNNER_TEMP/owner-checks.log"
       - name: Build the source wheel and universal owner app without publisher credentials
         env:
-          ACCOUNT_ACCESS_MAC_BUILD: ${{ inputs.release || '127' }}
+          ACCOUNT_ACCESS_MAC_BUILD: ${{ inputs.release || '128' }}
           ACCOUNT_ACCESS_SYSTEM_INSTALL: '1'
         run: |
           uv build --wheel
@@ -46,7 +44,7 @@ jobs:
           bash macos/build-broker.sh "$RUNNER_TEMP/release-owner/native"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: runtime${{ inputs.release || '127' }}-owner-image
+          name: runtime${{ inputs.release || '128' }}-owner-image
           path: |
             ${{ runner.temp }}/release-owner/Account-Access-Mac.zip
             ${{ runner.temp }}/release-owner/account_access-0.8.0-py3-none-any.whl

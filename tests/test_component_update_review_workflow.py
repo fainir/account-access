@@ -46,9 +46,9 @@ def request():
             "AC_CANDIDATE_ASSET_ID": "34", "AC_REVIEW_ASSET_ID": "56"}
 
 
-def test_push_runs_only_ordinary_contracts_and_actions_are_pinned():
+def test_historical_manual_workflow_preserves_contract_jobs_and_pinned_actions():
     triggers = WORKFLOW.get("on", WORKFLOW.get(True))
-    assert "workflow_dispatch" in triggers and "push" in triggers
+    assert set(triggers) == {"workflow_dispatch"}
     assert JOBS["ordinary-contracts"]["if"] == "github.event_name == 'push'"
     for name in ("download-public-inputs", "actual-installer-review"):
         assert JOBS[name]["if"] == "github.event_name == 'workflow_dispatch' && github.repository == 'fainir/account-access'"
@@ -60,11 +60,19 @@ def test_push_runs_only_ordinary_contracts_and_actions_are_pinned():
     assert "test_component_update_review_workflow.py" in ordinary and "sudo" not in ordinary
 
 
-def test_exact_candidate_source_contracts_run_on_every_push():
-    # Native-only fixes still need this ninth source gate. A paths/branches
-    # filter would leave a genuine frozen candidate without its required run.
+def test_zero_budget_policy_keeps_candidate_checks_local():
+    # Historical job bodies remain for reference; no push may spend Actions.
     triggers = WORKFLOW.get("on", WORKFLOW.get(True))
-    assert triggers["push"] is None
+    assert set(triggers) == {"workflow_dispatch"}
+
+
+@pytest.mark.parametrize("workflow", sorted(PATH.parent.glob("*.yml")), ids=lambda path: path.name)
+def test_every_workflow_has_no_automatic_triggers_under_zero_budget_policy(workflow):
+    # Check every workflow, including future additions, rather than just names
+    # known today. YAML 1.1 treats an unquoted `on` key as boolean True.
+    document = yaml.safe_load(workflow.read_text())
+    triggers = document.get("on", document.get(True))
+    assert isinstance(triggers, dict) and set(triggers) == {"workflow_dispatch"}
 
 
 def test_only_linux_download_has_draft_visibility_and_mac_has_no_token():

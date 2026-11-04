@@ -1,8 +1,6 @@
 name: Direct runtime root recovery Installer acceptance
+# Historical runbook only; the $0 CI policy forbids dispatching GitHub Actions.
 on:
-  push:
-    branches: [codex/production-security-authlib-20261028]
-    paths: [artifacts/direct-runtime-root-recovery-inputs.json, artifacts/runtime121-installer-inputs.json, artifacts/runtime122-installer-inputs.json, artifacts/runtime123-installer-inputs.json, artifacts/runtime124-installer-inputs.json, artifacts/runtime125-installer-inputs.json, artifacts/runtime126-installer-inputs.json, artifacts/runtime127-installer-inputs.json]
   workflow_dispatch:
     inputs:
       release:

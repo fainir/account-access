@@ -31,7 +31,8 @@ RELEASES = {'122': (121, 122, BASE_SHA256),
             '124': (123, 124, '5f3390496afaa436c64e3629cc125cbb4017e9deec8f70e4f5eb06c16e790930'),
             '125': (124, 125, '37cadaf59502657983f6cdb4a3bec0a755eb5e0dd041b625151ee51608ab2d8f'),
             '126': (125, 126, '8abffd8078832752aa13c59e58834b0a9b669656758dab47d4418ae663c41bcd'),
-            '127': (126, 127, '0e1c1f3a2b05f3eb5f9acd32b7a55bea28d775411519d41be0401b43d852d20f')}
+            '127': (126, 127, '0e1c1f3a2b05f3eb5f9acd32b7a55bea28d775411519d41be0401b43d852d20f'),
+            '128': (127, 128, '82b953e0698ee73468c2cff8aa546c5b94368fbf1fe24036e2623d039fee2f06')}
 
 OFFLINE_BROWSER_PROBE = """from account_access.browser_health import BrowserHealth
 h = BrowserHealth()

@@ -198,6 +198,24 @@ enum GatewayChecks {
         result["phone_test_sender_rejects_empty_controls_and_oversize"] = ["", " ", "sender\n", "x" + String(UnicodeScalar(0)!), String(repeating: "x", count: 201)].allSatisfy {
             (try? OwnerGatewayRoute("owner/phone/test/configure", body: JSONSerialization.data(withJSONObject: ["sender": $0]))) == nil
         }
+        let harelID = String(repeating: "a", count: 32)
+        let harelStart: [String: Any] = ["id": harelID, "mailbox": "mailbox-" + String(repeating: "b", count: 24),
+            "identity": "000000000", "phone": "0500000000", "consent": true]
+        result["harel_start_requires_native_setup"] = try OwnerGatewayRoute("owner/harel/start", body: JSONSerialization.data(withJSONObject: harelStart)).requiresSetup
+        result["harel_continuations_consume_only_existing_attempt"] = try [
+            ("code", ["id": harelID, "code": "654321"]), ("approve", ["id": harelID, "candidate": harelID]),
+            ("check", ["id": harelID]), ("cancel", ["id": harelID])
+        ].allSatisfy { !((try OwnerGatewayRoute("owner/harel/" + $0.0, body: JSONSerialization.data(withJSONObject: $0.1))).requiresSetup) }
+        result["harel_rejects_extra_targets_and_unapproved_start"] = [
+            harelStart.merging(["url": "https://unreviewed.invalid"], uniquingKeysWith: { _, new in new }),
+            harelStart.merging(["consent": 1], uniquingKeysWith: { _, new in new }),
+            harelStart.merging(["mailbox": "gmail-mailbox-" + String(repeating: "b", count: 24)], uniquingKeysWith: { _, new in new })
+        ].allSatisfy { (try? OwnerGatewayRoute("owner/harel/start", body: JSONSerialization.data(withJSONObject: $0))) == nil }
+        result["harel_rejects_code_or_filter_in_check_and_approval"] = [
+            ("check", ["id": harelID, "code": "654321"]),
+            ("approve", ["id": harelID, "candidate": harelID, "sender": "unreviewed@example.test"]),
+            ("code", ["id": harelID, "code": "654321\n"])
+        ].allSatisfy { (try? OwnerGatewayRoute("owner/harel/" + $0.0, body: JSONSerialization.data(withJSONObject: $0.1))) == nil }
         result["saved_login_routes_require_exact_account_handle"] = [
             ["account": "../etc"], ["account": "Demo"], ["account": "demo-web", "path": "unsafe"], [:]
         ].allSatisfy {

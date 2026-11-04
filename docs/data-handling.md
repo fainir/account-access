@@ -5,6 +5,10 @@ companion source. This factual disclosure supports the release privacy notice;
 it is not a claim that the Android companion has passed physical-phone acceptance
 or that the candidate has been publicly released.
 
+The Harel email setup described below was reviewed against the 4 November
+source candidate and controlled fixtures. It is not yet installed or accepted
+with the owner's private Harel account.
+
 ## What stays on your devices
 
 Saved passwords, website sessions, verification-source secrets and task results
@@ -37,6 +41,32 @@ profile, which may contain encrypted vault entries beyond the one selected
 login. Account Access saves that source profile and unlock session inside its
 encrypted records; it does not save the master password. Exact-item output
 filtering is not a claim that the provider downloaded only one encrypted item.
+
+## Harel email setup candidate
+
+The owner chooses an already checked TLS mailbox and enters the identity number
+and mobile number registered with Harel in masked native fields. Harel receives
+those details over its fixed HTTPS sign-in protocol after the owner approves one
+email request. No insurance, medical or payment operation is supported.
+
+For the first message review, the app reads at most 20 new messages addressed to
+the selected mailbox within the current two-minute sign-in window. It compares
+the code entered locally by the owner with a fresh Harel login message, then
+shows its sender, recipient, subject and message pattern with the code removed.
+Those initial reads can include other new mail to that recipient. The app asks
+separately before requesting a second email to test automatic code handling.
+Later matching reads require the exact approved sender, recipient, subject and
+template. A checked mailbox alone does not grant this login-message source.
+
+Only after the fresh automatic sign-in succeeds does the app save the identity,
+mobile number and session as encrypted local records, the reviewed message
+filter as local configuration, and the status-only agent permission. Cancellation
+or failure does not create that saved connection. Bounded encrypted attempt
+markers prevent replay after cancellation or restart; they contain no identity,
+phone number, code, message pattern or session cookies. Older markers are pruned
+during later setup operations, not by a guaranteed background erasure service.
+The local AI receives only authenticated-session status, never the login code,
+message body or identity details.
 
 ## Android permissions and local storage
 

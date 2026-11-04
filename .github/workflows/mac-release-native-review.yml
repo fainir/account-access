@@ -1,8 +1,6 @@
 name: Mac release native qualification
+# Historical runbook only; the $0 CI policy forbids dispatching GitHub Actions.
 on:
-  push:
-    branches: [codex/production-security-authlib-20261028]
-    paths: [artifacts/release120-native-inputs.json, artifacts/release121-native-inputs.json, artifacts/release122-native-inputs.json, artifacts/release123-native-inputs.json, artifacts/release124-native-inputs.json, artifacts/release125-native-inputs.json, artifacts/release126-native-inputs.json, artifacts/release127-native-inputs.json, scripts/build_direct_runtime_upgrade_candidate.py, macos/FullImageTreeStorage.swift, macos/DirectRuntimeUpgradeSource.swift, macos/FullImageTransitionStorage.swift, macos/FullImageGlobalJournal.swift, scripts/mac_direct_runtime_upgrade_probe.py, macos/Tests/DirectRuntimeUpgradeSourceChecks.swift, macos/FullImageInstalledIO.swift, macos/source-fragments/RuntimeUpgradeInstalledAdapter.swift.inc, scripts/mac_full_image_installed_probe.py, .github/workflows/mac-release-native-review.yml]
   workflow_dispatch:
 permissions:
   contents: read

@@ -23,6 +23,17 @@ def test_release_cli_accepts_profile_before_requesting_image_inputs(release, mod
     assert 'invalid choice' not in result.stderr
 
 
+def test_harel_image_profile_requires_the_installed_127_predecessor():
+    assert owner_image.RELEASES['128'] == (
+        127, 128, '82b953e0698ee73468c2cff8aa546c5b94368fbf1fe24036e2623d039fee2f06')
+    result = subprocess.run(
+        [sys.executable, '-m', 'scripts.build_owner_routes_update_image', '--release', '128'],
+        cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True, timeout=10)
+    assert result.returncode == 2
+    assert 'the following arguments are required' in result.stderr
+    assert 'invalid choice' not in result.stderr
+
+
 @pytest.mark.parametrize('statuses,ready,calls', [
     (['READY'], True, 1),
     (['UNAVAILABLE', 'READY'], True, 2),

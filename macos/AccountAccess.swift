@@ -184,6 +184,21 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     var principals: [String] = []
     var sources: [[String: Any]] = []
     var mailboxes: [[String: Any]] = []
+    var harelEmailSetup: [String: Any] = [:]
+    var harelFields: [String: NSSecureTextField] = [:]
+    var harelMailbox: NSPopUpButton?
+    var harelConsent: NSButton?
+    var harelStart: NSButton?
+    var harelJobID: String?
+    var harelCandidate: String?
+    var harelPhase = ""
+    var harelEpoch = 0
+    var harelRevision = 0
+    var harelPollScheduled = false
+    var harelPendingMutation: Int?
+    var harelMutationCounter = 0
+    var harelMutationButton: NSButton?
+    var harelOwnsBusy = false
     var mailboxOAuth: [[String: Any]] = []
     var deviceEmailSetups: [[String: Any]] = []
     var deviceEmailMailboxMenus: [String: NSPopUpButton] = [:]
@@ -418,16 +433,18 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         }
         clearDeviceEmailReview()
         clearAuthenticatorBatchReview()
+        clearHarelSetup()
         return .terminateNow
     }
 
-    func page(_ title: String, _ subtitle: String, preservingDeviceEmailReview: Bool = false) {
+    func page(_ title: String, _ subtitle: String, preservingDeviceEmailReview: Bool = false, preservingHarelSetup: Bool = false) {
         phonePairingAdvertiser?.stop()
         phonePairingAdvertiser = nil
         phonePairingPayload = nil
         ownerSetupContext.invalidate()
         systemApprovalProgress = nil
         if !preservingDeviceEmailReview { clearDeviceEmailReview() }
+        if !preservingHarelSetup { clearHarelSetup() }
         clearAuthenticatorBatchReview()
         clearBitwardenFields()
         for field in mailboxFields.values where field is NSSecureTextField { field.stringValue = "" }
@@ -1230,6 +1247,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
                 && $0["id"] as? String != "android-connection-test"
         }
         mailboxes = state["mailboxes"] as? [[String: Any]] ?? []
+        harelEmailSetup = state["harel_email_setup"] as? [String: Any] ?? [:]
         mailboxOAuth = state["mailbox_oauth"] as? [[String: Any]] ?? []
         deviceEmailSetups = state["device_email_setups"] as? [[String: Any]] ?? []
         principals = state["principals"] as? [String] ?? []
@@ -1405,6 +1423,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         let connected = accounts.filter { $0["connected"] as? Bool == true && $0["portable_ready"] as? Bool != false }
         page("Connect an account", "Choose a supported account and approve its reads. You only do this once.")
         primary("Import saved passwords", #selector(importPasswords))
+        if harelEmailSetup["available"] as? Bool == true { action("Connect Harel with email", #selector(showHarelEmailSetup)) }
         let available = catalog.filter { entry in
             entry["id"] as? String == selectedAccount || !connected.contains { $0["account"] as? String == entry["id"] as? String }
         }
@@ -1499,7 +1518,283 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         ["identity_phone_sms", "identity_phone_email"].contains(entry["login_method"] as? String ?? "")
     }
 
-    func controlTextDidChange(_ notification: Notification) { connectionInputChanged() }
+    func clearHarelSetup(cancel: Bool = true) {
+        if harelOwnsBusy { busy = false }
+        harelOwnsBusy = false
+        harelEpoch += 1
+        for field in harelFields.values { field.stringValue = "" }
+        harelFields = [:]
+        harelMailbox = nil
+        harelConsent = nil
+        harelStart = nil
+        let previous = harelJobID
+        harelJobID = nil
+        harelCandidate = nil
+        harelPhase = ""
+        harelRevision = 0
+        harelPollScheduled = false
+        harelPendingMutation = nil
+        harelMutationButton = nil
+        if cancel, let previous {
+            DispatchQueue.global(qos: .userInitiated).async {
+                _ = try? self.request("owner/harel/cancel", body: ["id": previous])
+            }
+        }
+    }
+
+    func addHarelField(_ key: String, _ title: String) {
+        label(title, 14, .secondaryLabelColor)
+        let field = NSSecureTextField()
+        field.placeholderString = title
+        field.font = .systemFont(ofSize: 18)
+        field.delegate = self
+        field.heightAnchor.constraint(equalToConstant: 40).isActive = true
+        stack.addArrangedSubview(field)
+        field.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        harelFields[key] = field
+    }
+
+    @objc func showHarelEmailSetup() {
+        clearHarelSetup()
+        section = "add"
+        page("Connect Harel with email", "Set up this sign-in once. Later supported sign-ins use your saved email connection automatically.", preservingHarelSetup: true)
+        card("Only sign-in status", "Your AI can confirm whether Harel is signed in. It cannot read policies, medical information or payment details.")
+        let choices = harelEmailSetup["mailboxes"] as? [[String: Any]] ?? []
+        guard harelEmailSetup["available"] as? Bool == true, !choices.isEmpty else {
+            card("Check an email connection first", "Connect and check the mailbox Harel sends your login codes to in Verification. Gmail through its saved application password is supported; an existing checked connection does not need its password again.")
+            action("Review email connections", #selector(showFactors))
+            action("Back", #selector(backToConnections))
+            return
+        }
+        label("Use your checked mailbox", 14, .secondaryLabelColor)
+        let menu = NSPopUpButton()
+        for choice in choices {
+            menu.addItem(withTitle: (choice["label"] as? String ?? "Email") + " · " + (choice["recipient"] as? String ?? ""))
+            menu.lastItem?.representedObject = choice["id"]
+        }
+        stack.addArrangedSubview(menu)
+        harelMailbox = menu
+        addHarelField("identity", "Identity number")
+        addHarelField("phone", "Mobile number registered with Harel")
+        label("Use digits only. The mobile number starts with 05.", 13, .secondaryLabelColor)
+        label("This requests one Harel login email and reviews new mail in the selected mailbox for this sign-in. Sign-in status access is saved only after you approve the email pattern and the automatic test succeeds.", 14, .secondaryLabelColor)
+        let consent = NSButton(checkboxWithTitle: "Allow this Harel email setup", target: self, action: #selector(harelInputChanged))
+        stack.addArrangedSubview(consent)
+        consent.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        harelConsent = consent
+        harelStart = primary("Send Harel login email", #selector(startHarelEmail))
+        harelInputChanged()
+        action("Cancel", #selector(cancelHarelEmail))
+    }
+
+    @objc func harelInputChanged() {
+        guard harelJobID == nil, let consent = harelConsent else { return }
+        let identity = harelFields["identity"]?.stringValue ?? ""
+        let phone = harelFields["phone"]?.stringValue ?? ""
+        harelStart?.isEnabled = consent.state == .on
+            && identity.range(of: "^[0-9]{5,9}\\z", options: .regularExpression) != nil
+            && phone.range(of: "^05[0-9]{8}\\z", options: .regularExpression) != nil
+    }
+
+    @objc func startHarelEmail() {
+        guard !busy, harelConsent?.state == .on, harelStart?.isEnabled == true,
+              let mailbox = harelMailbox?.selectedItem?.representedObject as? String else { return }
+        let random = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
+        let id = String(format: "%08x", UInt32(Date().timeIntervalSince1970)) + String(random.prefix(24))
+        let body: [String: Any] = ["id": id, "mailbox": mailbox, "consent": true,
+                                   "identity": harelFields["identity"]?.stringValue ?? "",
+                                   "phone": harelFields["phone"]?.stringValue ?? ""]
+        for field in harelFields.values { field.stringValue = "" }
+        harelJobID = id
+        let epoch = harelEpoch
+        busy = true
+        harelOwnsBusy = true
+        harelPhase = "STARTING"
+        page("Requesting your Harel email", "One sign-in email is requested using the email choice. No SMS fallback is used.", preservingHarelSetup: true)
+        progress()
+        action("Cancel", #selector(cancelHarelEmail))
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let result = try self.request("owner/harel/start", body: body)
+                DispatchQueue.main.async { self.acceptHarel(result, id: id, epoch: epoch) }
+            } catch { self.harelFailure(id: id, epoch: epoch) }
+        }
+    }
+
+    func harelFailure(id: String, epoch: Int, mutation: Int? = nil) {
+        // Read back a possibly accepted operation once. Never replay its
+        // start/code/approval body after losing the reply.
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let result = try self.request("owner/harel/check", body: ["id": id])
+                DispatchQueue.main.async {
+                    guard self.harelJobID == id, self.harelEpoch == epoch else { return }
+                    self.harelPollScheduled = false
+                    self.acceptHarel(result, id: id, epoch: epoch, mutation: mutation)
+                }
+            } catch { self.finishHarelFailure(id: id, epoch: epoch, mutation: mutation) }
+        }
+    }
+
+    func finishHarelFailure(id: String, epoch: Int, mutation: Int? = nil) {
+        DispatchQueue.main.async {
+            guard self.harelJobID == id, self.harelEpoch == epoch else { return }
+            if let mutation, self.harelPendingMutation != mutation { return }
+            if mutation == nil && self.harelPendingMutation != nil { self.harelPollScheduled = false; return }
+            self.busy = false
+            self.clearHarelSetup()
+            self.page("Harel setup could not finish", "Your existing connections are preserved. No automatic replacement email was requested.")
+            self.action("Review Harel email setup", #selector(self.showHarelEmailSetup))
+            self.action("Back", #selector(self.backToConnections))
+        }
+    }
+
+    func pollHarel(id: String, epoch: Int) {
+        guard harelJobID == id, harelEpoch == epoch, !harelPollScheduled, harelPendingMutation == nil else { return }
+        harelPollScheduled = true
+        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 1) {
+            do {
+                let result = try self.request("owner/harel/check", body: ["id": id])
+                DispatchQueue.main.async {
+                    guard self.harelJobID == id, self.harelEpoch == epoch else { return }
+                    self.harelPollScheduled = false
+                    self.acceptHarel(result, id: id, epoch: epoch)
+                }
+            } catch { self.harelFailure(id: id, epoch: epoch) }
+        }
+    }
+
+    func acceptHarel(_ result: [String: Any], id: String, epoch: Int, mutation: Int? = nil) {
+        guard harelJobID == id, harelEpoch == epoch else { return }
+        if let mutation {
+            guard harelPendingMutation == mutation else { return }
+            harelPendingMutation = nil
+            harelPhase = "" // Re-render a reconciled unchanged state with fresh feedback.
+        } else if harelPendingMutation != nil {
+            return // A pre-mutation poll cannot unlock or replace the pending action.
+        }
+        guard let revision = result["revision"] as? Int, revision > 0 else { finishHarelFailure(id: id, epoch: epoch); return }
+        if revision < harelRevision { pollHarel(id: id, epoch: epoch); return }
+        harelRevision = revision
+        let phase = result["status"] as? String ?? "NEEDS_USER"
+        if phase == "COMPLETED" {
+            clearHarelSetup(cancel: false)
+            busy = true
+            let finishedEpoch = harelEpoch
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    let state = try self.request("owner/state")
+                    DispatchQueue.main.async {
+                        guard self.harelEpoch == finishedEpoch else { return }
+                        self.busy = false
+                        self.accept(state)
+                        self.ready()
+                        let connected = self.accounts.contains { $0["account"] as? String == "personal-harel"
+                            && $0["connected"] as? Bool == true && $0["portable_ready"] as? Bool == true }
+                        self.status.stringValue = connected
+                            ? "Harel email sign-in verified. Your saved mailbox and approved status read are ready."
+                            : "Your Harel access changed before setup finished. Review its current connection and permissions."
+                    }
+                } catch { self.fail(error, retry: #selector(self.reopen)) }
+            }
+            return
+        }
+        if ["NEEDS_USER", "CANCELLED"].contains(phase) {
+            busy = false
+            clearHarelSetup(cancel: false)
+            let reason = result["reason"] as? String ?? ""
+            let detail: String
+            switch reason {
+            case "harel_owner_verification_required": detail = "Harel requires an additional owner verification step. Account Access stopped before any declaration, document or card action. Your existing connections are preserved."
+            case "harel_mailbox_changed", "mailbox_uid_validity_changed": detail = "The selected email connection changed during setup. Check it in Verification, then review Harel again. Its saved password does not need to be entered again."
+            case "login_code_window_expired": detail = "This sign-in window expired. No saved Harel access was created. Start a new review when you are ready to open the email."
+            case "harel_request_outcome_uncertain": detail = "Harel did not confirm the sign-in request. Account Access stopped and will not send another email automatically."
+            case "login_retry_cooldown": detail = "Wait one minute before requesting another Harel sign-in email. Your existing connections are preserved."
+            case "harel_verification_method_changed": detail = "Harel did not return the selected email method. No SMS fallback or code submission was made."
+            default: detail = "Harel email setup did not complete. Your other connections are preserved. Review the selected mailbox and try again when ready."
+            }
+            page("Harel email needs review", detail)
+            action("Review email connections", #selector(showFactors))
+            action("Review Harel setup", #selector(showHarelEmailSetup))
+            action("Back", #selector(backToConnections))
+            return
+        }
+        busy = !["WAITING_CODE", "REVIEW"].contains(phase)
+        harelOwnsBusy = busy
+        if phase != harelPhase {
+            harelPhase = phase
+            for field in harelFields.values { field.stringValue = "" }
+            harelFields = [:]
+            harelMutationButton = nil
+            if phase == "WAITING_CODE" {
+                page("Confirm your first Harel email", "Enter the fresh code from the Harel email here once. After you approve its message pattern, later matching codes are handled automatically.", preservingHarelSetup: true)
+                if result["reason"] as? String == "harel_email_not_found" {
+                    label("That code did not match a new Harel login email in the selected mailbox. Check the email and enter its current code; another email has not been requested.", 15)
+                }
+                addHarelField("code", "Harel email login code")
+                harelMutationButton = primary("Review this login email", #selector(submitHarelCode))
+            } else if phase == "REVIEW", let review = result["review"] as? [String: Any], let candidate = result["candidate"] as? String {
+                harelCandidate = candidate
+                page("Approve Harel login emails", "Approve this pattern and one additional Harel login email to verify automatic code handling. You will not need to enter that second code. Your AI receives only sign-in status.", preservingHarelSetup: true)
+                let pattern = (review["template"] as? String ?? "").replacingOccurrences(of: "{code}", with: "••••••")
+                card("Your Harel sign-in message", "From: " + (review["sender"] as? String ?? "") + "\nTo: " + (review["recipient"] as? String ?? "") + "\nSubject: " + (review["subject"] as? String ?? "") + "\n\n" + pattern)
+                harelMutationButton = primary("Approve and test automatic email sign-in", #selector(approveHarelEmail))
+            } else {
+                let title = phase == "TESTING" ? "Testing automatic Harel email" : phase == "VERIFYING" ? "Confirming your Harel email" : "Checking your Harel email"
+                let detail = phase == "TESTING"
+                    ? "After the short sign-in cooldown, one additional email verifies automatic delivery from your checked mailbox. Leave this screen open; no code entry is needed."
+                    : "Your first code stays local. No SMS fallback is used."
+                page(title, detail, preservingHarelSetup: true)
+                progress()
+            }
+            action("Cancel", #selector(cancelHarelEmail))
+        }
+        pollHarel(id: id, epoch: epoch)
+    }
+
+    @objc func submitHarelCode() {
+        guard !busy, let id = harelJobID, let code = harelFields["code"]?.stringValue,
+              code.range(of: "^[0-9]{6}\\z", options: .regularExpression) != nil else { return }
+        harelFields["code"]?.stringValue = ""
+        busy = true
+        harelOwnsBusy = true
+        harelMutationCounter += 1
+        let mutation = harelMutationCounter
+        harelPendingMutation = mutation
+        harelMutationButton?.isEnabled = false
+        let epoch = harelEpoch
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let result = try self.request("owner/harel/code", body: ["id": id, "code": code])
+                DispatchQueue.main.async { self.acceptHarel(result, id: id, epoch: epoch, mutation: mutation) }
+            } catch { self.harelFailure(id: id, epoch: epoch, mutation: mutation) }
+        }
+    }
+
+    @objc func approveHarelEmail() {
+        guard !busy, let id = harelJobID, let candidate = harelCandidate else { return }
+        busy = true
+        harelOwnsBusy = true
+        harelMutationCounter += 1
+        let mutation = harelMutationCounter
+        harelPendingMutation = mutation
+        harelMutationButton?.isEnabled = false
+        let epoch = harelEpoch
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let result = try self.request("owner/harel/approve", body: ["id": id, "candidate": candidate])
+                DispatchQueue.main.async { self.acceptHarel(result, id: id, epoch: epoch, mutation: mutation) }
+            } catch { self.harelFailure(id: id, epoch: epoch, mutation: mutation) }
+        }
+    }
+
+    @objc func cancelHarelEmail() {
+        clearHarelSetup()
+        busy = false
+        connections()
+    }
+
+    func controlTextDidChange(_ notification: Notification) { connectionInputChanged(); harelInputChanged() }
 
     @objc func connectionInputChanged() {
         guard let permission, let username, let password else { return }
@@ -1697,6 +1992,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
 
     @objc func showReady() {
         guard !busy else { return }
+        clearHarelSetup()
         clearDeviceEmailReview()
         busy = true
         DispatchQueue.global(qos: .userInitiated).async {
@@ -1727,17 +2023,18 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         card("Passwords", "Import one password export and review all matching accounts together. Saved passwords are reused without another import. If a password changes, update it or connect a live password source.")
         action("Import my passwords", #selector(importPasswords))
         action("Keep passwords current", #selector(showPasswordSync))
-        card("Authenticator app", "Transfer existing authenticator keys locally, then select which website each key belongs to. Account Access generates future codes itself; you do not copy each changing code. Gmail does not connect an authenticator app.")
-        action("Import my authenticator accounts", #selector(readAuthenticatorBatchQR))
-        action("Review saved authenticators", #selector(showFactors))
         card("Gmail or email", "Connect your mailbox once. Supported websites reuse that connection for fresh matching sign-in emails. A saved mailbox alone does not enable an unsupported website.")
         action("Review my email connection", #selector(showFactors))
+        if harelEmailSetup["available"] as? Bool == true { action("Connect Harel with email", #selector(showHarelEmailSetup)) }
         card("SMS on Android", "Pair your phone once and approve its SMS notification permissions. Future supported logins use matching fresh messages while your phone is connected. An emulator cannot receive your real phone's SMS.")
         if androidConnectionTest["available"] as? Bool == true {
             action("Connect my Android phone", #selector(showAndroidTest))
         } else {
             action("Review SMS verification", #selector(showFactors))
         }
+        card("Authenticator app", "Transfer existing authenticator keys locally, then select which website each key belongs to. Account Access generates future codes itself; you do not copy each changing code. Gmail does not connect an authenticator app.")
+        action("Import my authenticator accounts", #selector(readAuthenticatorBatchQR))
+        action("Review saved authenticators", #selector(showFactors))
         card("Passkeys and approval prompts", "Passkeys may ask for your fingerprint, PIN or security-key touch. That approval stays with you. Account Access cannot import passkeys from a password CSV or turn an owner-presence check into unattended sign-in.", status: "Owner confirmation", good: false)
         card("What runs automatically", "For a supported website with saved access and approved reads, your AI can request work without asking for the password or each login code. A new website, missing verification method, revoked permission or owner-presence challenge still needs setup or your approval. Reusing a connection does not grant more account access.")
         primary("Use my connected accounts", #selector(showReady))
@@ -2388,6 +2685,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         section = "verification"
         page("Verification", "Connect email, SMS or an authenticator once. Login codes stay out of your AI chat.")
         action("Set up automatic sign-in", #selector(showAutomaticSetup))
+        if harelEmailSetup["available"] as? Bool == true { action("Connect Harel with email", #selector(showHarelEmailSetup)) }
         if sources.contains(where: { $0["kind"] as? String == "totp" }) {
             action("Import authenticator accounts together", #selector(readAuthenticatorBatchQR))
         }

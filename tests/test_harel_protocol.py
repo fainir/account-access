@@ -127,8 +127,8 @@ def test_redirect_error_and_uncertain_request_never_replay(endpoint, status):
     ("ProcessError", "EmailServiceFailed"), ("TechnicalError", "fixture-private-error"),
     ("process", "SwitchOTPChannel"), ("IsPowerOfAttorney", True),
     ("IsDecleration", True), ("Activation", True), ("EmailNeedsVerification", True),
-    ("redirect", True), ("OTPChannel", 0), ("OTPChannel", True), ("OTPChannel", "1"),
-    ("details", {"SendOtpOnMount": True}), ("details", {"SendOtpOnMount": False}),
+    ("process", "closeWindow"), ("OTPChannel", 0), ("OTPChannel", True), ("OTPChannel", "1"),
+    ("details", {"SendOtpOnMount": True}), ("details", {"SendOtpOnMount": "false"}),
     ("details", "unrecognized")])
 def test_changed_channel_and_nonlogin_branch_stop_without_switch_or_code(field, value):
     provider = Provider()
@@ -284,6 +284,21 @@ def test_populated_anonymous_status_cannot_create_an_owner_session():
         session.open()
         with pytest.raises(AccessError, match="harel_session_marker_changed"):
             session.session_status()
+
+
+def test_numeric_inactive_flags_and_ui_redirect_data_do_not_expand_requests():
+    provider = Provider()
+    provider.replace["StartProcess"] = response({"ProcessSuccess": "OTPWasSent", "OTPChannel": 1,
+                                                  "details": {"SendOtpOnMount": False}, "Activation": 0})
+    with requested(provider) as session:
+        def verified(_):
+            provider.authenticated = True
+            return response({"ProcessSuccess": "UserLoggedIn", "current": USER,
+                             "IsDecleration": 0, "Activation": 0, "EmailNeedsVerification": 0,
+                             "redirect": True, "path": "https://unreviewed.invalid"})
+        provider.replace["SCValidateOTP"] = verified
+        assert session.submit_code(CODE) == {"authenticated": True}
+    assert all(str(request.url).startswith(harel.ORIGIN + "/") for request in provider.requests)
 
 
 @pytest.mark.parametrize("channel,method", [("email", "identity_phone_email"), ("sms", "identity_phone_sms")])

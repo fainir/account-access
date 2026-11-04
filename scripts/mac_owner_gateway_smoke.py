@@ -28,6 +28,8 @@ NATIVE_CHECKS = {
     "health_readiness_deadline_enforced", "invalid_health_timeouts_rejected",
     "worker_generation_retires_live_owner_session", "worker_generation_accepts_new_owner_connection",
     "actual_python_owner_api_reached", "allow_authorization_rule_rejected", "authorization_cannot_survive_disconnect",
+    "harel_start_requires_native_setup", "harel_continuations_consume_only_existing_attempt",
+    "harel_rejects_extra_targets_and_unapproved_start", "harel_rejects_code_or_filter_in_check_and_approval",
     "authorized_authenticator_setup_reached_broker", "authorized_csv_preview_reached_broker",
     "authorized_grant_reached_broker", "bounded_http_framing", "client_rejects_wrong_server_code",
     "closed_channel_refuses_setup_input", "closed_session_cannot_reauthorize", "code_identity_injection_rejected",
@@ -154,11 +156,17 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--signing-identity", help="Existing public Developer ID identity label/hash; never a secret")
     parser.add_argument("--report", type=Path, required=True)
+    parser.add_argument("--workdir", type=Path, help="New invocation-owned private fixture directory")
+    parser.add_argument("--diagnostics", type=Path, help="New directory for bounded synthetic failure diagnostics")
     args = parser.parse_args()
     if sys.platform != "darwin" or os.getuid() == 0:
         parser.error("Run as an ordinary Mac user, never root")
     os.umask(0o077)
-    root = Path(tempfile.mkdtemp(prefix="aa-gateway-", dir="/tmp"))
+    if args.workdir is None:
+        root = Path(tempfile.mkdtemp(prefix="aa-gateway-", dir="/tmp"))
+    else:
+        root = args.workdir.absolute()
+        root.mkdir(mode=0o700)  # Refuse an existing path, including a symlink.
     # On failure, keep only fictional artifacts for investigation, never replace
     # or restart an installed Account Access instance to make a test pass.
     completed = False
@@ -197,12 +205,18 @@ def main():
                     input=json.dumps(message).encode(), capture_output=True, timeout=240)
                 # Raw traces are synthetic but may contain setup payloads. Keep
                 # them private; emit only the fixed acceptance report below.
-                diagnostics = SOURCE / "artifacts/video/work/private-pilot/mac-owner-gateway" / root.name
-                diagnostics.mkdir(parents=True, exist_ok=True, mode=0o700)
-                (diagnostics / "stdout.txt").write_bytes(result.stdout)
-                (diagnostics / "stderr.txt").write_bytes(result.stderr)
-                (diagnostics / "fixture-path.txt").write_text(str(root))
-                report = json.loads(result.stdout)
+                report = None
+                try:
+                    report = json.loads(result.stdout)
+                finally:
+                    if (args.diagnostics is None or result.returncode or not isinstance(report, dict)
+                            or report.get("status") != "PASSED"):
+                        diagnostics = (args.diagnostics.absolute() if args.diagnostics is not None else
+                            SOURCE / "artifacts/video/work/private-pilot/mac-owner-gateway" / root.name)
+                        diagnostics.mkdir(parents=True, exist_ok=args.diagnostics is None, mode=0o700)
+                        (diagnostics / "stdout.txt").write_bytes(result.stdout[:128 * 1024])
+                        (diagnostics / "stderr.txt").write_bytes(result.stderr[:128 * 1024])
+                        (diagnostics / "fixture-path.txt").write_text(str(root))
                 if result.returncode or report.get("status") != "PASSED":
                     print(json.dumps({"status": "FAILED", "stage": report.get("stage", stage),
                                       "failed_checks": report.get("failed_checks", []), "production_ready": False}))

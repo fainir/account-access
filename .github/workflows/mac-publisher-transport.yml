@@ -1,14 +1,6 @@
 name: Genuine publisher transport review
+# Historical runbook only; the $0 CI policy forbids dispatching GitHub Actions.
 on:
-  push:
-    branches: [codex/production-auth]
-    paths:
-      - .github/workflows/mac-publisher-transport.yml
-      - scripts/mac_publisher_processes.py
-      - tests/test_mac_publisher_processes.py
-      - scripts/mac_publisher_transport_probe.py
-      - scripts/check_mac_publisher_transport_report.py
-      - tests/test_mac_publisher_transport.py
   workflow_dispatch:
 permissions:
   contents: read

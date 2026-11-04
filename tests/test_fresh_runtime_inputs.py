@@ -100,8 +100,7 @@ def test_workflow_tests_a_fresh_host_without_transferring_tokens():
     import yaml
     value = yaml.safe_load((ROOT / '.github/workflows/mac-fresh-image89-installer-review.yml').read_text())
     trigger = value.get('on', value.get(True))
-    assert trigger == {'push': {'branches': ['codex/full-image-update'],
-                               'paths': ['artifacts/fresh-image89-installer-inputs.json']}}
+    assert trigger == {'workflow_dispatch': None}
     job = value['jobs']['actual-installer']
     assert job['permissions'] == {'contents': 'read'}
     assert 'GH_TOKEN' not in json.dumps(job)
@@ -139,7 +138,7 @@ def test_runtime92_workflow_uses_only_the_new_frozen_contract():
     import yaml
     value = yaml.safe_load((ROOT / '.github/workflows/mac-fresh-image92-installer-review.yml').read_text())
     trigger = value.get('on', value.get(True))
-    assert trigger['push']['paths'] == ['artifacts/fresh-image92-installer-inputs.json']
+    assert trigger == {'workflow_dispatch': None}
     job = value['jobs']['actual-installer']
     assert job['permissions'] == {'contents': 'read'}
     assert 'GH_TOKEN' not in json.dumps(job)

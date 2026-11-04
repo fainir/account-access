@@ -420,12 +420,12 @@ def test_public_identity_snapshot_preserves_observed_gid_and_detects_inode_chang
 
 
 @pytest.mark.parametrize("cohort", [80, 84])
-def test_workflow_has_one_fresh_host_and_only_committed_contract_trigger(cohort):
+def test_historical_manual_workflow_keeps_one_fresh_host_and_committed_contract(cohort):
     root = Path(__file__).resolve().parents[1]
     filename = "mac-fresh-image-installer-review.yml" if cohort == 80 else "mac-fresh-image84-installer-review.yml"
     workflow = yaml.safe_load((root / ".github/workflows" / filename).read_text())
     trigger = workflow.get("on", workflow.get(True))
-    assert trigger == {"push": {"branches": ["codex/full-image-update"], "paths": [inputs.cohort_pins(cohort)[3]]}}
+    assert trigger == {"workflow_dispatch": None}
     actual = workflow["jobs"]["actual-installer"]
     assert actual["runs-on"] == "macos-15" and "strategy" not in actual
     shell = next(step["run"] for step in actual["steps"] if "run" in step)

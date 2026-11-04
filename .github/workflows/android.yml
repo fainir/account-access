@@ -1,5 +1,7 @@
 name: Android login-code journey
-on: [push, pull_request]
+# Historical runbook only; the $0 CI policy forbids dispatching GitHub Actions.
+on:
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:

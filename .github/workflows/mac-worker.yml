@@ -1,5 +1,7 @@
 name: Mac separate-user worker acceptance
-on: [push, pull_request, workflow_dispatch]
+# Historical runbook only; the $0 CI policy forbids dispatching GitHub Actions.
+on:
+  workflow_dispatch:
 permissions:
   contents: read
 defaults:

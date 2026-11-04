@@ -56,10 +56,14 @@ def _stop_branch(details):
     # support only OTPWasSent -> UserLoggedIn, never its generic Continue.
     for key in ("ProcessError", "TechnicalError", "UserInputError", "process",
                 "IsPowerOfAttorney", "IsDecleration", "Activation",
-                "EmailNeedsVerification", "IsShowHasatProductMsg", "redirect"):
+                "EmailNeedsVerification", "IsShowHasatProductMsg"):
         value = details.get(key)
-        if value is not None and value is not False and value != "":
+        if value is not None and value is not False and value != "" and not (type(value) is int and value == 0):
             fail("harel_owner_verification_required", "action")
+
+
+def _inactive_mount(value):
+    return value is None or value is False or type(value) is int and value == 0
 
 
 def _user(details):
@@ -258,7 +262,7 @@ class HarelLogin:
         if (details.get("ProcessSuccess") != "OTPWasSent"
                 or type(details.get("OTPChannel")) is not int
                 or details["OTPChannel"] != CHANNELS[self.channel]
-                or extra is not None and (not isinstance(extra, dict) or extra.get("SendOtpOnMount") is not None)):
+                or extra is not None and (not isinstance(extra, dict) or not _inactive_mount(extra.get("SendOtpOnMount")))):
             fail("harel_verification_method_changed", self.channel)
         self._phase = "code"
         return {"status": "CODE_REQUESTED", "method": self.channel}

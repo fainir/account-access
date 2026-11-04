@@ -1,9 +1,7 @@
 name: Fresh image 84 Installer acceptance
+# Historical runbook only; the $0 CI policy forbids dispatching GitHub Actions.
 on:
-  push:
-    branches: [codex/full-image-update]
-    # Source-only changes cannot schedule an unreviewed or repeated package.
-    paths: [artifacts/fresh-image84-installer-inputs.json]
+  workflow_dispatch:
 permissions:
   contents: read
 defaults:

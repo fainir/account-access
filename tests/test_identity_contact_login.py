@@ -283,7 +283,7 @@ def test_owner_browser_masks_identity_phone_and_saves_distinct_fields(env):
             page.goto(base + "/manage#" + token)
             page.get_by_text("Save identity and phone for permitted login recovery", exact=True).click()
             identity = page.get_by_label("Identity number", exact=True)
-            phone = page.get_by_label("Phone number for login SMS", exact=True)
+            phone = page.get_by_label("Mobile number registered with the website", exact=True)
             assert identity.get_attribute("type") == phone.get_attribute("type") == "password"
             identity.fill("browser-fixture-identity")
             phone.fill("browser-fixture-phone")
@@ -314,7 +314,7 @@ def test_guided_browser_adds_identity_login_with_owner_selected_sms_scope(env, m
             page.locator("#service option").wait_for(state="attached")
             page.locator("#show-connect").click()
             identity = page.get_by_label("Identity number", exact=True)
-            phone = page.get_by_label("Phone number for login SMS", exact=True)
+            phone = page.get_by_label("Mobile number registered with the website", exact=True)
             assert identity.get_attribute("type") == phone.get_attribute("type") == "password"
             identity.fill(CREDENTIAL["identity"])
             phone.fill(CREDENTIAL["phone"])
