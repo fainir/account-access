@@ -1,0 +1,12 @@
+Actual packaged Harel module: /Users/nirfeinstein/.codex/worktrees/upgrade-continuation/login soltion/dist/root-recovery-release/harel128/PublicImage/Library/Application Support/Account Access/runtime/lib/python3.12/site-packages/account_access/harel_setup.py
+........................................................................ [ 36%]
+........................................................................ [ 73%]
+....................................................                     [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/_pytest/config/__init__.py:1464
+  /Users/nirfeinstein/.codex/worktrees/upgrade-continuation/login soltion/.venv/lib/python3.13/site-packages/_pytest/config/__init__.py:1464: PytestConfigWarning: Unknown config option: asyncio_mode
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+196 passed, 1 warning in 59.55s
