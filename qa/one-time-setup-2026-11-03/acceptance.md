@@ -94,3 +94,11 @@ owner can transfer the existing authenticator keys locally. Do not repeat the
 withdrawn manual password handoff, completed Chrome MFA or mailbox setup. Private
 QR/key/code input and passkey/security-key/biometric/push presence remain local
 owner actions. Physical SMS and publication stay in the ledger.
+
+## Native setup resumed - 4 November
+
+Native control returned; the installed Accounts, Automatic sign-in and private
+import review now open normally. A complete Chrome export reaches review with
+Lemon Squeezy matched. Only that connection and status permission are selected;
+the final import is staged for owner approval. No saved new grant, private TOTP
+or transfer success is claimed. [Current handoff](native-enrollment-2026-11-04.md).
