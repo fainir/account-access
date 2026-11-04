@@ -11,7 +11,7 @@ from scripts import build_owner_routes_update_image as owner_image
 from scripts.build_jit_update_image import JIT, JIT_ROLES
 
 
-@pytest.mark.parametrize('release', ['125', '126'])
+@pytest.mark.parametrize('release', ['125', '126', '127'])
 @pytest.mark.parametrize('module', ['scripts.build_owner_routes_update_image',
                                   'scripts.build_direct_runtime_upgrade_candidate'])
 def test_release_cli_accepts_profile_before_requesting_image_inputs(release, module):

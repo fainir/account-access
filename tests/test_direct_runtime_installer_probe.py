@@ -9,7 +9,7 @@ import pytest
 from scripts import mac_direct_runtime_installer_probe as probe
 
 
-@pytest.mark.parametrize('number', ['120', '121', '122', '123', '124', '125', '126'])
+@pytest.mark.parametrize('number', ['120', '121', '122', '123', '124', '125', '126', '127'])
 def test_retained_history_head_uses_the_reviewed_release_tuple(number):
     from scripts.build_direct_runtime_upgrade_candidate import RELEASES as published
     release = probe.RELEASES[number]
@@ -91,7 +91,7 @@ def test_archive_hardlink_cannot_replace_the_manifest():
 
 
 @pytest.mark.parametrize('mode', ['upgrade', 'fresh'])
-@pytest.mark.parametrize('release', ['120', '121', '122', '123', '124', '125', '126'])
+@pytest.mark.parametrize('release', ['120', '121', '122', '123', '124', '125', '126', '127'])
 def test_probe_refuses_an_ordinary_owner_context_before_inputs(tmp_path, mode, release):
     args = SimpleNamespace(inputs=tmp_path / 'missing', output=tmp_path / 'output', mode=mode, release=release)
     with pytest.raises(ValueError, match='component_installer_acceptance_failed'):
