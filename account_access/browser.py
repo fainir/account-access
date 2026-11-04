@@ -513,7 +513,13 @@ class Browser:
                     failure_stage[0] = "page_create"
                     page = self.page(context)
                     failure_stage[0] = "page_navigation"
-                    page.goto(op.url, timeout=15000, wait_until="domcontentloaded")
+                    # Session-only checks with an exact server-page marker can
+                    # enter through their already reviewed authentication URL.
+                    # An anonymous application URL may use an unrelated SSO
+                    # bridge; it must not broaden our navigation authority.
+                    entry = (config.login_url if config.login and config.ready_page and op.session_only
+                             and config.login_url in config.read_resources else op.url)
+                    page.goto(entry, timeout=15000, wait_until="domcontentloaded")
                     failure_stage[0] = "page_ready"
                     self.wait_state(page, config)
                     failure_stage[0] = "authentication_check"

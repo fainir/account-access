@@ -76,3 +76,32 @@ interstitial before changing any routing. Keep the fixed approved destinations,
 POST validation and session-only result. This is a candidate explanation, not a
 confirmed live root cause. Chrome diagnostic control was interrupted by changed
 app state, then timed out; no product conclusion comes from that failed control.
+
+## Controlled routing repair
+
+A controlled application gate now reproduces the extra auth-redirect route.
+With the original runner and a working pinned Chromium, all three new cases
+failed with the same RETRYABLE/browser_execution_failed result: fresh/reused/expired
+session, missing authenticator and disabled authenticator. [Before repair](d20-before-fix.log).
+The initial local attempts had a removed browser cache and were not valid routing
+evidence; the recorded before-repair run followed the pinned headless install.
+
+The candidate enters the already permitted authentication URL for session-only
+checks that have an exact server-page readiness marker. Other operations keep
+their original start URL. The status operation, allowed origins/resources/POSTs,
+connector fingerprint, stored credentials and existing grants are unchanged.
+It does not permit the intermediate query route or execute its scripts.
+
+All [94 focused browser/provider/import/security cases](d20-source-regression.log)
+pass, including actual local password/TOTP, warm-session reuse, expired-session
+recovery and refusal before password submission when the source is missing or
+disabled. All [14 existing publisher profile checks](d20-image-profile.log) pass;
+the image CLI accepts 127 against the exact qualified 126 predecessor. Ruff and
+git diff checks pass. The current native owner compilation workflow now targets
+127 while retaining all old build choices.
+
+This proves the repaired controlled behavior. It does not establish that the
+owner’s live failure has the same cause, nor claim installed 127 or private MFA.
+Source/owner CI, signed matching delivery and installed read-back must follow.
+No new installer, source/grant changes on the owner Mac or authenticator import
+have occurred during this source qualification.

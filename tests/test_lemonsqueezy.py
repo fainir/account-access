@@ -89,7 +89,7 @@ def test_catalog_does_not_adopt_an_unrelated_seed_and_merge_is_atomic(env):
 @contextmanager
 def fixture(env, *, password_method="post", password_action=None, code_method="post", code_action=None,
             reject_password=False, reject_code=False, component="App/Dashboard", route="/dashboard",
-            redirect_path="/dashboard", code_submit_extra=""):
+            redirect_path="/dashboard", code_submit_extra="", application_login_bridge=False):
     auth, broker, _ = env
     app = DemoProvider().start()
     parent = auth.server.RequestHandlerClass
@@ -150,11 +150,15 @@ def fixture(env, *, password_method="post", password_action=None, code_method="p
             if self.server.server_port == app.server.server_port:
                 if self.path == "/dashboard":
                     if not live["valid"] or self.cookie("lemon_fixture") != "connected":
+                        if application_login_bridge:
+                            return self.redirect(app.base + "/auth/redirect?url=" + app.base + "/dashboard")
                         return self.redirect(spec.login_url)
                     return self.page(page_object(component, route)
                                      + "<script>fetch('/settings/payouts',{method:'POST'})</script>")
                 return self.send(404, "Unexpected application route")
             if self.path == "/login":
+                if live["valid"] and self.cookie("lemon_fixture") == "connected":
+                    return self.redirect(app.base + "/dashboard")
                 return self.login_page()
             if self.path == "/2fa-challenge":
                 return self.code_page()
@@ -221,6 +225,38 @@ def test_real_engine_uses_password_and_totp_reuses_session_and_never_extracts_pr
         broker.store.put("login-attempt:" + LEMON_ACCOUNT, 0)
         assert broker.run("test", LEMON_ACCOUNT, "status")["status"] in {"DENIED", "NEEDS_USER"}
         assert len(attempts) == 4
+
+
+def test_session_status_uses_reviewed_authentication_entry_without_application_bridge(env):
+    with fixture(env, application_login_bridge=True) as (broker, attempts, requests, live):
+        for _ in range(2):
+            result = broker.run("test", LEMON_ACCOUNT, "status")
+            assert result["status"] == "COMPLETED", result
+            assert result["data"] == {"authenticated": True}
+            assert all(secret not in json.dumps(result) for secret in (USER, PASSWORD, SEED, CSRF, PRIVATE))
+        assert attempts == ["password", "totp"]
+        live["valid"] = False
+        broker.store.put("login-attempt:" + LEMON_ACCOUNT, 0)
+        result = broker.run("test", LEMON_ACCOUNT, "status")
+        assert result["status"] == "COMPLETED", result
+        assert attempts == ["password", "totp", "password", "totp"]
+        assert not any("/auth/redirect" in path or "?" in path for _, _, path in requests)
+        assert {path for _, method, path in requests if method == "POST"} == {"/login", "/2fa-challenge"}
+
+
+@pytest.mark.parametrize("disabled", [False, True])
+def test_new_status_connection_reaches_missing_authenticator_without_application_bridge(env, disabled):
+    with fixture(env, application_login_bridge=True) as (broker, attempts, requests, _):
+        if disabled:
+            revoke(broker.store, LEMON_SOURCE)
+        else:
+            broker.store.put("source:" + LEMON_SOURCE, None)
+        result = broker.run("test", LEMON_ACCOUNT, "status")
+        assert result["status"] == "NEEDS_USER", result
+        assert result["reason"] == ("verification_source_disabled" if disabled else "authenticator_not_enrolled")
+        assert not attempts
+        assert not any("/auth/redirect" in path for _, _, path in requests)
+        assert broker.store.get("connection:" + LEMON_ACCOUNT) is None
 
 
 @pytest.mark.parametrize("change", [
