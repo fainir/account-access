@@ -59,7 +59,7 @@ struct FullImageFileOperation: Codable, Equatable {
     static let workerStartupPlanSHA256 = "5243ef5b66ce6f96f7acac06a6c20d0365ec1281c39157438ad873c77568222c"
     static let automaticSetupPlanSHA256 = "f8cdd9ac1cb10d1eec0eaa89ded8ba295a82c946d4dd706c28c30234704db676"
     static let loginNavigationPlanSHA256 = "314c85866b85c46e84bec4a1b861ac001d557f775da21061a4bb02e58a644f9f"
-    static let harelEmailPlanSHA256 = "b29f2af04f476dfd52e5a5dde162f3f9a7cfb2522e621eea69810e54189df216"
+    static let harelEmailPlanSHA256 = "473c73a28ac13345bc626eee0ae30d82a7a984a6e4566a0c332c06b62a8aecaf"
     let schema: Int
     let unit: FullImageFileUnit
     let planSHA256: String

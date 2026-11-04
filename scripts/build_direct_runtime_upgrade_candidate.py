@@ -91,9 +91,9 @@ RELEASE127 = Release('127', '314c85866b85c46e84bec4a1b861ac001d557f775da21061a4b
     '15ef230b90bf89e5ab3179fa8ffa5a3e5240bdda', '843a1210ecab3d2c8c94586b7a3e790e62940f8b', RELEASE126.after,
     'ac62d0d51ea3e0f1997f6fa34cf547ff4f9a423fac15106ca48976bfb6b9eceb',
     'com.fainir.accountaccess.loginnavigation127', 'Account-Access-Login-Navigation-127')
-RELEASE128 = Release('128', 'b29f2af04f476dfd52e5a5dde162f3f9a7cfb2522e621eea69810e54189df216',
-    RELEASE127.after, '38f593c6a4d87114ba61eb8e782ae2da104224a8ef09e4a92fe9eee6feabee87',
-    '13fc473136e6f7d0f932bc3e171d248cebdf8a7d', '3891173bd79ca0a894f111e34bb23dfd33cf774f', RELEASE127.after,
+RELEASE128 = Release('128', '473c73a28ac13345bc626eee0ae30d82a7a984a6e4566a0c332c06b62a8aecaf',
+    RELEASE127.after, '7b1eccdab5c75cf80963ee005ecb5dca66e64041acc9f50aa65aa3dc2b8131ba',
+    '605a0495345742194a8e82397da25ac9b6bc3e37', '605a0495345742194a8e82397da25ac9b6bc3e37', RELEASE127.after,
     'd5d21bd2f1aaa7e7ed9d83d0a937036998b7f3d285bc2386cddba9fd19818268',
     'com.fainir.accountaccess.harelemail128', 'Account-Access-Harel-Email-128')
 RELEASES = {'120': RELEASE120, '121': RELEASE121, '122': RELEASE122, '123': RELEASE123,

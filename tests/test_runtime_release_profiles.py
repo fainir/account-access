@@ -54,8 +54,8 @@ def test_harel_updater_qualification_is_bound_to_the_qualified_127_successor():
     release = candidate.RELEASE128
     assert release.before == release.image_base == candidate.RELEASE127.after
     assert release.after == PREASSEMBLED_BUILD128_MANIFEST_SHA256
-    assert release.target_source == '13fc473136e6f7d0f932bc3e171d248cebdf8a7d'
-    assert release.image_builder == '3891173bd79ca0a894f111e34bb23dfd33cf774f'
+    assert release.target_source == '605a0495345742194a8e82397da25ac9b6bc3e37'
+    assert release.image_builder == '605a0495345742194a8e82397da25ac9b6bc3e37'
     assert release.base_identity == 'd5d21bd2f1aaa7e7ed9d83d0a937036998b7f3d285bc2386cddba9fd19818268'
     assert release.component_id == 'com.fainir.accountaccess.harelemail128'
     assert release.package_stem == 'Account-Access-Harel-Email-128'

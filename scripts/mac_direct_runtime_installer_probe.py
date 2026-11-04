@@ -78,8 +78,8 @@ RELEASES = {
                    '314c85866b85c46e84bec4a1b861ac001d557f775da21061a4bb02e58a644f9f',
                    BASE.parent / 'Account Access Login Navigation', 'runtime127-installer-inputs.json', PLAN),
     '128': Release('128', '82b953e0698ee73468c2cff8aa546c5b94368fbf1fe24036e2623d039fee2f06',
-                   '38f593c6a4d87114ba61eb8e782ae2da104224a8ef09e4a92fe9eee6feabee87',
-                   'b29f2af04f476dfd52e5a5dde162f3f9a7cfb2522e621eea69810e54189df216',
+                   '7b1eccdab5c75cf80963ee005ecb5dca66e64041acc9f50aa65aa3dc2b8131ba',
+                   '473c73a28ac13345bc626eee0ae30d82a7a984a6e4566a0c332c06b62a8aecaf',
                    BASE.parent / 'Account Access Harel Email', 'runtime128-installer-inputs.json', PLAN),
 }
 
