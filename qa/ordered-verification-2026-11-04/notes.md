@@ -153,4 +153,8 @@ All72 [runtime native checks](native-runtime128.json) and the actual ordinary-us
 
 The exact local [signed128 updater](signed-update128.json) is Apple Accepted, stapled and Gatekeeper accepted,6,099,873 bytes. Both retained package copies match its final digest. Actual127 preflight matches14 selected public files and preserves all12 prior metadata identities; no private file read. [Preflight](owner128-preflight.json).
 
-The final Q full CI was interrupted by the19:54 desktop heartbeat at67% with no reported pytest failure. The managed CI/pytest process is confirmed gone; there is no final pytest result or green status. The next clean documentation source will rerun the same shared wrapper in a detached ordinary process session; code/image/helper/package bytes are unchanged. Installation stays unstaged until the complete final result is read back.
+The Q full CI stopped at67% before the confirmed19:46:58UTC Mac reboot; the later19:54 heartbeat was not the cause. The managed CI/pytest process is confirmed gone; there is no final pytest result or green status. The next clean documentation source will rerun the same shared wrapper in a detached ordinary process session; code/image/helper/package bytes are unchanged. Installation stays unstaged until the complete final result is read back.
+
+## New postboot release hold
+
+The completed detached [full local CI](local-ci-final.md) passes5145 tests/5 skips, all permitted native stages and actual GitHub local-ci success. Current127 nevertheless fails its first worker-start deadline after the newly observed kernel reboot; both installed launchers are unavailable. Hold the uninstalled signed128 candidate, implement and independently review D29 safe bounded initial-start recovery, then qualify one necessary corrected image/update. Do not ask for installation or personal Harel setup yet. No current private sign-in succeeds or new owner action is claimed.
