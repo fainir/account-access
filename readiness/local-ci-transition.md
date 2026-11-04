@@ -38,3 +38,9 @@ Retained 127 hosted reports remain valid historical evidence for their exact 127
 - A fake dependency-tool failure exercised the real runner: nonzero exit, later stages UNRUN, output paths containing spaces handled, and its scratch root removed. No dependency sync, native compilation, package, signing or full CI occurred in this lane. The coordinator will run full local CI after the clean source push.
 
 Changed ownership handed back: `.github/workflows/`, `scripts/ci-local.sh`, optional gateway fixture paths, five workflow assertion suites and this memo. No git mutation, owner request, private read or Actions usage was performed.
+
+## First full-run environment correction
+
+The coordinator found three fixture failures caused by the runner context: inherited077 turned an expected0755 directory into0700 and made a0600 mutation unchanged; Darwin /tmp wheel inheritance cleared a set-group bit because the ordinary user was not in that group. Product permission checks were correct. The scratch root now takes the current primary group, and each child runs under022 while its0700 parent and0600 redirected logs stay private. The exact three failing tests pass together (3 in 31.30s); a corrected full run remains required. The live script was replaced atomically so its ongoing old run keeps its original inode and is not changed mid-execution.
+
+The first full pytest completed with 5078 passed,5 skipped,29 failed. In the corrected environment25 further permission cases pass; one remaining packaging case correctly refuses the coordinator’s in-flight uncommitted runner edit. Commit first, then rerun that exact case. Keep the tree clean throughout the final full run, and use the final updater source for that run rather than repeating an intermediate source-only job. No production permission check was weakened.

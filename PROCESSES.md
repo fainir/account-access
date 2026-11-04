@@ -4,7 +4,7 @@ READINESS.md defines completion. This file assigns the work and its runners.
 
 ## Strategy
 
-- Diagnosis: 39 flow rows have 26 verified, 8 owner, 4 building and 1 cut. Installed 127 preserves four grants, but real Harel email/SMS and authenticator acceptance are unfinished. More source tests alone cannot close those flows.
+- Diagnosis: 40 flow rows have 26 verified, 8 owner, 5 building and 1 cut. Installed 127 preserves four grants, but real Harel email/SMS and authenticator acceptance are unfinished. More source tests alone cannot close those flows.
 - Guiding policy: prove one installed sign-in method at a time in the owner's order. Retain qualified 127 and completed imports while the Harel email candidate is built. Keep private values in the native app and return only sign-in status.
 - Coherent actions: preserve F2/D15's actual Chrome/password evidence; finish D21/D22's checked-mailbox review and fresh automatic email test; qualify and deliver one matching update in D23; then take F4 SMS and F5 authenticator enrollment in that order, preserving paused challenges.
 - Feasible because: the Mac, installed service, checked TLS mailbox, existing publisher tooling and local native/test tooling exist. No OWNER.md is present and no new spending, account, publisher identity or upload is authorized here. GitHub Actions budget is $0 and no Actions may run. Existing approvals stay in READINESS.md; native presence remains the owner's action. The riskiest assumption is Harel's private response/message shape; its cheapest honest test is one qualified native setup and one explicitly approved automatic email login.

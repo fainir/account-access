@@ -74,6 +74,9 @@ case "$AC_CI_OUTPUT" in /*) ;; *) AC_CI_OUTPUT="$PWD/$AC_CI_OUTPUT" ;; esac
 mkdir -p -- "$(dirname -- "$AC_CI_OUTPUT")"
 mkdir -m 700 -- "$AC_CI_OUTPUT"
 AC_CI_WORK=$(mktemp -d /tmp/aa-ci.XXXXXX)
+# Darwin inherits /tmp's wheel group. Test-owned set-group fixtures require
+# the current user's group, without granting anyone access through this 0700 root.
+chgrp "$(id -g)" "$AC_CI_WORK"
 trap 'rm -rf -- "$AC_CI_WORK"' EXIT
 mkdir -p "$AC_CI_WORK/modules" "$AC_CI_WORK/home" "$AC_CI_WORK/data" "$AC_CI_WORK/runtime"
 export PYTHONDONTWRITEBYTECODE=1
@@ -92,7 +95,8 @@ ci_step() {
   local label=$1
   shift
   echo "RUN: $label"
-  if "$@" >"$AC_CI_OUTPUT/$label.log" 2>&1; then
+  # Logs/root remain private; child fixtures use the standard build umask.
+  if (umask 022; "$@") >"$AC_CI_OUTPUT/$label.log" 2>&1; then
     echo "PASS: $label"
   else
     local result=$?
