@@ -1,0 +1,25 @@
+# Corrected build128 - source qualification and staged native install
+
+Verified5November2026, following the actual127 worker startup failure. This is a local exact127-to-128 candidate; it is not installed, public fresh128/multi-OS acceptance or private Harel acceptance.
+
+The corrected program/owner/native image source and actual image builder are605a0495345742194a8e82397da25ac9b6bc3e37. Helper source32e58707c685f2f409af01ff5789afec84be3a01 binds the actual image/plan. The original held128 candidate is superseded for delivery; do not install it. All120-127 release contracts remain unchanged.
+
+## Read back after completion
+
+- The shared local wrapper finished with zero failed stages:5146 pytest passes/5 skips in1968.15seconds, audit/lint/build, both-architecture owner/gateway checks,64 native UI groups,84 synthetic XPC checks, desktop/browser/mailbox/isolated launch and shared/runtime/owner-upgrade source probes. Total2577seconds. Actual GitHub local-ci state is success, created22:33:00UTC4November. [Actual output](corrected-local-ci.log), [qualified source](https://github.com/fainir/account-access/commit/32e58707c685f2f409af01ff5789afec84be3a01).
+- Independent [startup review](../../readiness/cold-start-review.md) covers exact timeout classification, cleanup-before-retry, authority/phase/pause revalidation, finite budget and lock order. A paused launch initially returned false readiness; it was fixed and tested. Thirteen new recovery groups plus six existing readiness groups pass. Full real broker compilation passes with warnings as errors for arm64/x86_64; all five actual owner/native binaries are universal and verify.
+- The corrected [signed image](image128-corrected-qualification.json) qualifies from127: unchanged dependency bytes and Python project wheel, sandboxed browser READY, no installed/account data. All73 packaged Python source hashes match605a049; the Python3.12.16/wheel bytes are the same ones that passed196 packaged Harel checks. The new exact plan has15 units/24 changes. Fresh integrated checks pass256 tests.
+- Actual helper [shared](native-full128-corrected.json), [runtime](native-runtime128-corrected.json) and [direct](native-direct128-corrected.json) reports pass with matching source hashes, six ordinary refusal guards,72 runtime checks and the actual new plan. The same new direct binary passes all eight120-127 fixtures. [Actual results](corrected-native-qualification.log).
+- The corrected [signed updater](signed-update128-corrected.json) is6,103,411 bytes, SHA25687880be3836237c72f6d71381a88b7b372b2f3be57810c04ca4034b2d44637fc. Both retained copies match. It is Apple Accepted, stapled and Gatekeeper accepted; the persistent copy was independently rechecked immediately before staging. No new key, fee, upload or Actions run.
+
+## Native owner action21
+
+Installed build remains127. Both launchers last returned service_unavailable after its new kernel restart; no private sign-in was retried. Owner GUI846 was normally terminated through its exact bundle/path, then independent process inventory confirmed exit. No force termination or service/data reset.
+
+Finder selects the persistent corrected package and native Installer28899 is open. Its actual opened-document log and live file descriptors both reference `dist/root-recovery-release/harel128/coldstart-v2/Account-Access-0.8.0-build128-recovery-update-from-build127.pkg`. [Native staging](corrected-installer-staging.log). The generic top-component-null/background warning also occurred on successfully installed127; actual signature, notary and Gatekeeper checks pass. It is not an observed installation failure. No authorization, installation or new kernel acceptance is claimed.
+
+One new local action: complete this corrected128 installation using Touch ID or the Mac login password in macOS, then use Installer's Restart action if prompted. Existing127/Chrome/mailbox approvals remain complete; never request passwords/codes in chat or reapply old packages. The two-hour technical follow-up remains active and must stay quiet while this same action is pending.
+
+After completion, compare the installed public image/73 Python files with the corrected target, preserve all12 prior metadata identities and the new fixed namespace, verify worker/browser and both launchers' already approved private-status/public-example reads, and verify a new kernel boot. Only then stage Harel native identity/phone/first-code enrollment with the checked mailbox and narrow status/source consent. Real Harel email, SMS and authenticator remain unverified. Isolated root child/listener and Pause-to-Resume fixture integration also remain unrun; ordinary tests do not claim those results.
+
+Verify loop: actual127 reboot failed; independent review rejected paused-without-worker readiness; corrected source/native/package qualification passed. Real installed/cold-boot and private email checks are owner-dependent, so the product is not declared production ready.
