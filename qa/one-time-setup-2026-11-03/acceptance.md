@@ -2,8 +2,8 @@
 
 Build 126 is installed on the owner Mac after a full OS restart. One-time setup,
 batch Google Authenticator review and no-match password-import recovery are
-built and delivered. Real private Lemon credential/grant/authenticator enrollment
-has not happened. No password, private QR/key, code, Chrome store or protected
+built and delivered. Lemon credential/status-grant import completed on 4 November;
+private authenticator enrollment and automatic sign-in remain unfinished. No password, private QR/key, code, Chrome store or protected
 configuration file was read by the agent.
 
 ## Source and native UI
@@ -99,6 +99,8 @@ owner actions. Physical SMS and publication stay in the ledger.
 
 Native control returned; the installed Accounts, Automatic sign-in and private
 import review now open normally. A complete Chrome export reaches review with
-Lemon Squeezy matched. Only that connection and status permission are selected;
-the final import is staged for owner approval. No saved new grant, private TOTP
-or transfer success is claimed. [Current handoff](native-enrollment-2026-11-04.md).
+Lemon Squeezy matched. Its exact status-only import is now saved and independently
+discovered after the reported failure. Native website checking times out and one
+installed read returns browser_execution_failed. The D20 controlled repair passes
+94 source cases and is in matching-build qualification. No private TOTP or
+transfer success is claimed. [Current handoff](native-enrollment-2026-11-04.md).

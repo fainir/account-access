@@ -105,3 +105,22 @@ owner’s live failure has the same cause, nor claim installed 127 or private MF
 Source/owner CI, signed matching delivery and installed read-back must follow.
 No new installer, source/grant changes on the owner Mac or authenticator import
 have occurred during this source qualification.
+
+## Existing qualification in flight
+
+Program is 15ef230b90bf89e5ab3179fa8ffa5a3e5240bdda. [Source CI](https://github.com/fainir/account-access/actions/runs/41814053650)
+and [Mac worker](https://github.com/fainir/account-access/actions/runs/41814053618)
+are running. The [owner/wheel compile](https://github.com/fainir/account-access/actions/runs/41814053787)
+completed successfully; the actual downloaded artifact has seven files. Its
+inner owner bundle Info.plist says build 127 and binds the exact included wheel;
+its native owner check log has 61 PASS groups. Inputs remain in the kept ignored
+`dist/root-recovery-release/login127/ci-owner` directory. This is compiled input,
+not a publisher-qualified image, signed update or installed acceptance.
+
+Existing Android, separate-user and retained-component workflows report success.
+The three active pull-request duplicates were canceled and read back canceled;
+one already-completed duplicate was preserved. No manual duplicate was dispatched.
+The new technical follow-up finish-account-access-live-login-repair was read back
+as ACTIVE every two hours with an eight-line stable prompt. It will continue the
+recorded CI and matching delivery, staying quiet while unchanged, and delete
+itself after installation and available acceptance. No new owner action was asked.
