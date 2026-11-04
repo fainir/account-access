@@ -1462,7 +1462,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
 
     @objc func serviceChanged() {
         let entry = services.selectedItem?.representedObject as? [String: Any] ?? [:]
-        let identityPhone = entry["login_method"] as? String == "identity_phone_sms"
+        let identityPhone = Self.isIdentityPhone(entry)
         if (username is NSSecureTextField) != identityPhone,
            let index = stack.arrangedSubviews.firstIndex(of: username) {
             let replacement: NSTextField = identityPhone ? NSSecureTextField() : NSTextField()
@@ -1477,7 +1477,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
             replacement.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         }
         loginIdentityLabel?.stringValue = identityPhone ? "Identity number" : "Email or username"
-        loginSecretLabel?.stringValue = identityPhone ? "Phone number for login SMS" : "Password"
+        loginSecretLabel?.stringValue = identityPhone ? "Mobile number registered with the website" : "Password"
         username.placeholderString = identityPhone ? "Identity number" : "Email or username"
         password.placeholderString = identityPhone ? "Phone number" : "Password"
         let operations = entry["operations"] as? [[String: Any]] ?? []
@@ -1489,10 +1489,14 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
     }
 
     static func loginCredential(entry: [String: Any], identity: String, secret: String) -> [String: String] {
-        if entry["login_method"] as? String == "identity_phone_sms" {
+        if isIdentityPhone(entry) {
             return ["identity": identity, "phone": secret]
         }
         return ["username": identity, "password": secret]
+    }
+
+    static func isIdentityPhone(_ entry: [String: Any]) -> Bool {
+        ["identity_phone_sms", "identity_phone_email"].contains(entry["login_method"] as? String ?? "")
     }
 
     func controlTextDidChange(_ notification: Notification) { connectionInputChanged() }
@@ -2062,7 +2066,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         showBitwardenSyncCards()
         card("Connect 1Password", "Use a service account with read-only access to a dedicated vault, or an existing Connect server. Choose the exact login item for an account you already imported. Tokens stay encrypted locally; the app cannot add accounts or permissions through sync.")
         syncAccounts = NSPopUpButton()
-        for account in accounts where account["route"] as? String == "browser" && account["portable_ready"] as? Bool == true && account["login_method"] as? String != "identity_phone_sms" {
+        for account in accounts where account["route"] as? String == "browser" && account["portable_ready"] as? Bool == true && !Self.isIdentityPhone(account) {
             syncAccounts.addItem(withTitle: account["label"] as? String ?? "Account")
             syncAccounts.lastItem?.representedObject = account["account"]
         }
@@ -2150,7 +2154,7 @@ final class AccountAccess: NSObject, NSApplicationDelegate, NSTextFieldDelegate 
         }
         card("Connect Bitwarden once", "Bitwarden JSON imports are snapshots. Connect your vault once to keep selected, already-approved passwords current automatically. Your master password is used only to unlock setup and is never saved.")
         action("Connect Bitwarden", #selector(showBitwardenConnect))
-        let choices = accounts.filter { $0["route"] as? String == "browser" && $0["portable_ready"] as? Bool == true && $0["login_method"] as? String != "identity_phone_sms" }
+        let choices = accounts.filter { $0["route"] as? String == "browser" && $0["portable_ready"] as? Bool == true && !Self.isIdentityPhone($0) }
         let connectedVaults = bitwardenConnections.filter { ($0["status"] as? String ?? "CONNECTED") == "CONNECTED" }
         guard !connectedVaults.isEmpty, !choices.isEmpty else {
             label("Import and approve a supported login, then select it here after connecting Bitwarden.", 14, .secondaryLabelColor)

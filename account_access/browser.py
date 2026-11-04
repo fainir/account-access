@@ -448,6 +448,10 @@ class Browser:
         if connection and connection["fingerprint"] != self.store.config().fingerprint(account):
             raise AccessError("DENIED", "connection_configuration_changed")
         state = connection.get("state") if connection else None
+        if config.login and config.login.identity_contact and config.login.identity_contact.protocol == "harel-otp-v1":
+            from .harel_login import read
+            return read(self, account, op, config, state=state, secret_values=secret_values,
+                        setup_method=setup_method, review_stop=review_stop, on_code_request=on_code_request)
         failure_stage = ["playwright_start"]
         try:
             with sync_playwright() as pw:
@@ -1152,6 +1156,8 @@ class Browser:
     def connect(self, account, *, headless=False, complete=None):
         """Owner interactive connection. Login resources remain allowlisted; no screenshots/logs."""
         config = self.store.config().accounts[account]
+        if config.login and config.login.identity_contact and config.login.identity_contact.protocol:
+            raise AccessError("NEEDS_USER", "harel_native_setup_required", "login")
         if config.login_challenge:
             raise AccessError("NEEDS_USER", "pypi_manual_setup_unavailable", "unknown")
         with self.store.lock("account:" + account, timeout=5):

@@ -669,12 +669,14 @@ final class AuthenticatorBatchPreviewAction: NSObject {
             ["id": "identity-fixture", "label": "Fictional identity login", "login_method": "identity_phone_sms",
              "operations": [["name": "status", "description": "Confirm the signed-in session"]]],
             ["id": "password-fixture", "label": "Fictional password login",
+             "operations": [["name": "status", "description": "Confirm the signed-in session"]]],
+            ["id": "identity-email-fixture", "label": "Fictional identity email login", "login_method": "identity_phone_email",
              "operations": [["name": "status", "description": "Confirm the signed-in session"]]]
         ]
         owner.connections()
         precondition(owner.username is NSSecureTextField && owner.password != nil)
         precondition(owner.loginIdentityLabel?.stringValue == "Identity number")
-        precondition(owner.loginSecretLabel?.stringValue == "Phone number for login SMS")
+        precondition(owner.loginSecretLabel?.stringValue == "Mobile number registered with the website")
         owner.username.stringValue = "fictional-identity"
         owner.password.stringValue = "fictional-phone"
         let identityEntry = owner.services.selectedItem!.representedObject as! [String: Any]
@@ -686,6 +688,12 @@ final class AuthenticatorBatchPreviewAction: NSObject {
         precondition(owner.loginIdentityLabel?.stringValue == "Email or username" && owner.loginSecretLabel?.stringValue == "Password")
         precondition(AccountAccess.loginCredential(entry: [:], identity: "fictional-user", secret: "fictional-password")
             == ["username": "fictional-user", "password": "fictional-password"])
+        owner.services.selectItem(at: 2)
+        owner.serviceChanged()
+        precondition(owner.username is NSSecureTextField && owner.username.stringValue.isEmpty && owner.password.stringValue.isEmpty)
+        let emailIdentityEntry = owner.services.selectedItem!.representedObject as! [String: Any]
+        precondition(AccountAccess.loginCredential(entry: emailIdentityEntry, identity: "fictional-identity", secret: "fictional-phone")
+            == ["identity": "fictional-identity", "phone": "fictional-phone"])
         owner.catalog = savedCatalog
         owner.accounts = savedAccounts
         print("PASS: identity and phone enrollment uses distinct masked fields; changing login kind clears values and restores password labels")

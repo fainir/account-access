@@ -120,6 +120,7 @@ class IdentityContactFields(StrictModel):
     identity_selector: str = Field(min_length=1, max_length=500)
     phone_selector: str = Field(min_length=1, max_length=500)
     post_url: str
+    protocol: Literal["harel-otp-v1"] | None = None
 
 
 class LoginForm(StrictModel):
@@ -142,8 +143,9 @@ class LoginForm(StrictModel):
     @model_validator(mode="after")
     def one_factor_configuration(self):
         if self.identity_contact:
+            allowed_factors = {"email", "sms"} if self.identity_contact.protocol == "harel-otp-v1" else {"sms"}
             if (self.username_selector or self.password_selector or self.identity_step
-                    or self.device_email_source or set(self.factors) != {"sms"}
+                    or self.device_email_source or len(self.factors) != 1 or not set(self.factors) <= allowed_factors
                     or self.choices or self.code_requests or self.choice_toggle_selector):
                 raise ValueError("Identity and phone login requires its own fields and a single SMS factor")
             if self.identity_contact.identity_selector == self.identity_contact.phone_selector:
@@ -296,6 +298,9 @@ class Configuration(StrictModel):
                 urls = [account.login_url, *account.read_resources, *account.login_resources,
                         *account.login_assets, *account.login_post_urls]
                 if account.login:
+                    if account.login.identity_contact and account.login.identity_contact.protocol:
+                        from .harel_login import validate_configuration
+                        validate_configuration(account)
                     if account.login.identity_contact and (
                             account.password_import_origins or account.login_challenge
                             or account.login_asset_discovery
@@ -382,6 +387,8 @@ class Configuration(StrictModel):
         if isinstance(self.accounts[account], BrowserAccount) and data.get("login"):
             if data["login"].get("identity_contact") is None:
                 data["login"].pop("identity_contact", None)
+            elif data["login"]["identity_contact"].get("protocol") is None:
+                data["login"]["identity_contact"].pop("protocol", None)
             if data["login"].get("device_email_source") is None:
                 data["login"].pop("device_email_source", None)
             if data["login"].get("identity_step") is None:
