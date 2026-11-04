@@ -7,6 +7,7 @@ import sys
 import pytest
 
 from scripts import build_direct_runtime_upgrade_candidate as candidate
+from scripts import build_owner_routes_update_image as owner_image
 from scripts.build_jit_update_image import JIT, JIT_ROLES
 
 
@@ -20,6 +21,34 @@ def test_release_cli_accepts_profile_before_requesting_image_inputs(release, mod
     assert result.returncode == 2
     assert 'the following arguments are required' in result.stderr
     assert 'invalid choice' not in result.stderr
+
+
+@pytest.mark.parametrize('statuses,ready,calls', [
+    (['READY'], True, 1),
+    (['UNAVAILABLE', 'READY'], True, 2),
+    (['UNAVAILABLE', 'UNAVAILABLE'], False, 2),
+])
+def test_publisher_browser_probe_requires_real_readiness_and_bounds_retries(monkeypatch, capsys, statuses, ready, calls):
+    from account_access import browser_health
+
+    checked = []
+
+    class Health:
+        def check(self):
+            checked.append(statuses[len(checked)])
+
+        def view(self):
+            return {'status': checked[-1]}
+
+    monkeypatch.setattr(browser_health, 'BrowserHealth', Health)
+    if ready:
+        exec(owner_image.OFFLINE_BROWSER_PROBE, {})
+        assert capsys.readouterr().out.strip() == 'SIGNED_OFFLINE_BROWSER_READY'
+    else:
+        with pytest.raises(AssertionError):
+            exec(owner_image.OFFLINE_BROWSER_PROBE, {})
+        assert not capsys.readouterr().out
+    assert len(checked) == calls
 
 
 def jit_report():

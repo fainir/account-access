@@ -33,6 +33,16 @@ RELEASES = {'122': (121, 122, BASE_SHA256),
             '126': (125, 126, '8abffd8078832752aa13c59e58834b0a9b669656758dab47d4418ae663c41bcd'),
             '127': (126, 127, '0e1c1f3a2b05f3eb5f9acd32b7a55bea28d775411519d41be0401b43d852d20f')}
 
+OFFLINE_BROWSER_PROBE = """from account_access.browser_health import BrowserHealth
+h = BrowserHealth()
+for _ in range(2):
+    h.check()
+    if h.view() == {'status': 'READY'}:
+        break
+assert h.view() == {'status': 'READY'}
+print('SIGNED_OFFLINE_BROWSER_READY')
+"""
+
 
 def build(args):
     release = getattr(args, 'release', '122')
@@ -123,9 +133,8 @@ def build(args):
             'prepared_dependency_wheel_changed')
     audit = audit_payload([app, payload / 'python', payload / 'runtime', payload / 'browsers', payload / 'bin'],
                           sorted((payload / 'wheels').glob('*.whl')), 'arm64', command, development=False)
-    probe = "from account_access.browser_health import BrowserHealth; h=BrowserHealth(); h.check(); assert h.view()=={'status':'READY'}; print('SIGNED_OFFLINE_BROWSER_READY')"
     with tempfile.TemporaryDirectory(prefix='owner-routes-browser-') as home:
-        result = command([payload / 'runtime/bin/python', '-I', '-B', '-c', probe], timeout=60,
+        result = command([payload / 'runtime/bin/python', '-I', '-B', '-c', OFFLINE_BROWSER_PROBE], timeout=60,
             env={'PATH': '/usr/bin:/bin:/usr/sbin:/sbin', 'HOME': home, 'LANG': 'en_US.UTF-8',
                  'PLAYWRIGHT_BROWSERS_PATH': str((payload / 'browsers').resolve())})
     require(result.stdout.strip() == b'SIGNED_OFFLINE_BROWSER_READY', 'signed_browser_probe_failed')
