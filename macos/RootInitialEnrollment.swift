@@ -215,7 +215,18 @@ final class RootInitialEnrollment: OwnerVaultEnrollmentBackend {
                 guard let approval else { throw RootPublicationFailure.notVerified }
                 try worker.resumeEnrollment(approval)
             } else if worker.state != .running {
-                try worker.start()
+                guard try worker.start(revalidateBeforeRetry: { [self] in
+                    if try interrupted(record) { return false }
+                    guard try record.isAuthorized(owner: owner), try record.phase() == .published else {
+                        throw RootPublicationFailure.notVerified
+                    }
+                    return true
+                }) else {
+                    lock.lock()
+                    if !stopped && current == .initializing && pendingResume == nil { current = .paused }
+                    lock.unlock()
+                    return
+                }
             }
             checkpoint = .pauseRestore
             let journalPaused = try record.isPaused()
