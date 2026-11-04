@@ -7,7 +7,13 @@ password or code, and did not access an insurance account.
 
 ## v1 release scope
 
-As of 30 October 2026, Harel and Phoenix are not supported by the v1 release.
+On 4 November the owner reopened Harel for email verification first, then SMS.
+Implementation and private acceptance are pending; Harel is not yet supported.
+Phoenix remains excluded. Preserve the earlier public observations below while
+qualifying Harel's current email choice and exact request/response contract.
+Identity, phone and codes stay in local setup; only session status may leave it.
+
+As of 30 October 2026, Harel and Phoenix were excluded from the v1 release.
 Their observed login forms are not sufficient to implement a safe connector:
 Harel's complete request/challenge flow is not qualified, and Phoenix's
 state-bound request contract is unavailable. The generic login engine must
@@ -136,8 +142,11 @@ The login dialog is also displayed without awaiting all logging responses. A
 connector must account for this overlap rather than assume four sequential
 completed requests. The separate `CustomerRouting` entry has different promise
 handling and is not interchangeable with the reviewed direct entry.
-The dialog's submission handler separately calls `ContextConfig` with an SMS
-channel value of zero, then `StartProcess` with the entered identity and phone.
+The dialog's submission handler separately calls `ContextConfig` with the
+selected channel (`Sms: 0`, `Email: 1`), then `StartProcess` with the entered
+identity and phone. A fresh public-source review on 4 November corrects the
+earlier description of an unconditional SMS channel: the state starts at SMS,
+but the email radio changes the value passed to `ContextConfig` before submit.
 Thus the direct route does not remove the need to review preparatory requests.
 An additional fresh anonymous HTTP session on 25 October reached the direct
 page and the page-opening `ContextConfig` POST with HTTP 200. The configuration

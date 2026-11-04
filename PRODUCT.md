@@ -28,7 +28,7 @@ The owner clarified on 3 November: import passwords once, connect the existing a
 ## Non-goals
 
 - Arbitrary websites are not automatically supported. Each site needs a reviewed, narrow connector.
-- Direct Harel and Phoenix sign-in automation is excluded from v1. Their provider-specific request and challenge contracts have not passed private acceptance; Account Access must refuse these flows until each connector is separately qualified.
+- Phoenix sign-in automation is excluded from v1. Harel was reopened on 4 November for email verification first, then SMS. Harel remains unavailable until its fixed provider protocol, local setup and real status-only acceptance pass; the generic engine must continue to refuse its unsafe native GET form.
 - The agent cannot make payments, change policy details, approve account recovery or bypass a site's own owner challenge.
 - Cloud agents cannot reach the local service unless a separately reviewed secure relay is added.
 - Chrome live password sync is not shipped; Chrome import is a reviewed snapshot.
@@ -58,6 +58,8 @@ The product is local-first. The owner app and protected service run on Apple sil
 
 ## Decisions
 
+- 2026-11-04 - Follow the owner's acceptance order: existing Chrome import and email/password, then Harel email, then Harel SMS, then Google Authenticator. Preserve completed imports, mailbox setup and paused challenges. Harel requires its own local identity/mobile enrollment, not a Chrome password. Return only authenticated-session status; stronger identity, declarations and insurance data stay outside the connector.
+
 - 2026-11-03 - Use one setup path for reusable passwords, authenticator, Gmail and SMS sources; preserve existing completed setup. Add batch authenticator review with explicit mappings rather than fuzzy website matching or repeated transfer imports. Google documents local transfer QR exports ([guide](https://support.google.com/accounts/answer/1066447)). Password CSV does not carry passkeys; [Apple](https://developer.apple.com/documentation/authenticationservices/supporting-passkeys) and [WebAuthn](https://www.w3.org/TR/webauthn/) retain owner presence/verification. No virtual authenticator, weakened verification or cross-site credential authority is introduced.
 
 - 2026-10-31 - Remove the unsupported protected-vault backup promise from v1. Preserve the tested legacy CLI separately; do not request a passphrase, access its protected key or bypass the service boundary to make that CLI target the installed vault. Installer rollback and per-account owner data controls remain in scope.
@@ -71,7 +73,7 @@ The product is local-first. The owner app and protected service run on Apple sil
 
 ## Open questions
 
-- None for v1. Harel and Phoenix remain future provider targets and require separate connector implementation and acceptance before being listed as supported.
+- Harel's email/SMS protocol and local source binding are active implementation work. Phoenix stays excluded. No new owner decision is needed before the Harel candidate is concrete and qualified.
 
 ## Publisher identity
 
