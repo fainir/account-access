@@ -6,6 +6,10 @@ Prepared 2026-11-04 from HEAD `3c5520a4030f0cfb846e080053b6de2677a35807` plus th
 
 Nir superseded hosted CI on 4 November: Actions budget is $0 and no GitHub Actions may run. The hosted-workflow sequence below is retained as the prior release reference only. New 128 owner/wheel/native builds and native probes must run locally with exact source binding, ordinary-user synthetic roots and the existing builder local-compiler path (omit `--compiled-run`). Never run disposable-root Installer/cross-user probes on the owner Mac. Current source qualification uses `bash ~/.agents/skills/ship/scripts/ci-local.sh`; new final-byte multi-OS Installer acceptance needs an available isolated Mac environment before claiming those results.
 
+## Immediate delivery scope
+
+Prepare the exact 127-to-128 **local update candidate** first so the unknown private Harel contract can be accepted before another full customer release is assembled. Source/ordinary native qualification, signing/notarization and installed checks remain required. Preserve existing full127/download assets. New full128 and final multi-OS publication acceptance follow real provider qualification on an available isolated surface; do not infer them from local fixtures or use the owner Mac as a disposable test host. The Mac currently has roughly 1-2GiB free, so avoid parallel native compilers and redundant full-image/package copies.
+
 ## Approach and fixed predecessor
 
 Follow the already qualified 127 sequence: finish and freeze program source, compile matching owner/wheel/helpers, prepare one image from the exact public predecessor, qualify a new exact delta, then qualify the final signed packages in disposable Installer journeys. Retain every older tuple, namespace and asset. This follows the repository's demonstrated pattern rather than introducing a new release path. Sources: [127 acceptance](../qa/release127-2026-11-04/acceptance.md), [image publisher](../scripts/build_owner_routes_update_image.py), [updater publisher](../scripts/build_direct_runtime_upgrade_candidate.py), [Installer probe](../scripts/mac_direct_runtime_installer_probe.py).
