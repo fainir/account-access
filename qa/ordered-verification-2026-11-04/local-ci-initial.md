@@ -12,3 +12,5 @@ The shared wrapper ran program source13fc473 in2802s and GitHub reports its loca
 No installed paths or owner data changed. Final full local CI is still required at the new helper source, after actual128 manifest/plan bindings exist. Do not repeat an intermediate unchanged source-only full job.
 
 Policy read-back additionally confirms all31 repository-controlled workflows are disabled_manually ([actual workflow state](actions-workflow-policy.json)); the repository Actions switch is disabled. Dynamic GitHub system entries are not repository workflows. No Actions run was started.
+
+The shared native probe was actually rerun from canonical private scratch and [reports PASSED](full-image-canonical.json), with sources stable, six guarded-main refusals and no installed reads. This verifies the path correction without relaxing its guard. The final full local CI remains pending actual128 helper bindings.
