@@ -1,0 +1,41 @@
+{
+  "status": "BUILT",
+  "version": "0.8.0",
+  "architecture": "arm64",
+  "source_commit": "9d522470201fb9d99a58679bc40bfbafa398e1fd",
+  "source_tree_clean": true,
+  "development": false,
+  "offline_runtime": true,
+  "fresh_install_only": true,
+  "installation_strategy": "verified-script-image-v1",
+  "recovery_scope": "same-image-same-owner-only",
+  "preassembled_image": true,
+  "preassembled_source_unchanged": true,
+  "runtime_transformed": false,
+  "production_ready": false,
+  "notarized": true,
+  "installed": false,
+  "native_payload_audit": {
+    "native_files": 49,
+    "executables": 11,
+    "bundles": 1,
+    "wheels": 34,
+    "publisher_signatures_verified": true,
+    "notarization_verified": false
+  },
+  "payload_manifest_sha256": "0eb9a5bfab615f23f9d3d6e98f7895f7bf46e6196ef8a1e5e07115906f4d443c",
+  "installer_verifier_sha256": "af3fa2fa83fa65f65ff7efbf33140ec7cb2234cc1aecbafdd07a22cbdfbe0b03",
+  "payload_manifest_counts": {
+    "files": 25170,
+    "directories": 2298,
+    "aliases": 21
+  },
+  "required_install_bytes": 2075811840,
+  "native_manifest_preflight": true,
+  "sha256": "cda41f0f0e12f96c2a7af9a4d752abdcad9d9e5648b08861150899b5c949be31",
+  "stapled": true,
+  "gatekeeper": "accepted",
+  "notarization_id": "8877ff2d-1e0c-4bfe-af1d-5e585c0aefdb",
+  "published_sha256": "cda41f0f0e12f96c2a7af9a4d752abdcad9d9e5648b08861150899b5c949be31",
+  "source_program_commit": "08d8f444c65a3a3e26aa94f7ecec5e3372582973"
+}

@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "release_tag": "qa-native-routes122-20261031",
+  "assets": {
+    "baseline.tar.gz": {
+      "sha256": "a2fd2e0c452ae93ffe3ec0e4ccaa3b17e8af3b2db95307f49ba7d01c482bad2a",
+      "bytes": 314644539
+    },
+    "candidate.pkg": {
+      "sha256": "2bf86403885c2e0717fc9962e8a0571c218a2c531fcbf9be39962c94868aadd2",
+      "bytes": 5813686
+    },
+    "fresh.pkg": {
+      "sha256": "6c4d6b52da4220dd3590630da01400fc99acc57e515a69a7d1f3ecd008cd5105",
+      "bytes": 289330711
+    }
+  },
+  "before_manifest_sha256": "0eb9a5bfab615f23f9d3d6e98f7895f7bf46e6196ef8a1e5e07115906f4d443c",
+  "after_manifest_sha256": "b6537a7617db5a53540adca82023fdbf50ef45e9ca9e9dd1ae46dd682639832d",
+  "personal_accounts_used": 0
+}

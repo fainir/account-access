@@ -1,4 +1,5 @@
 name: Broker repair 87 Installer acceptance
+# Historical runbook only; the $0 CI policy forbids dispatching GitHub Actions.
 on:
   workflow_dispatch:
 permissions:

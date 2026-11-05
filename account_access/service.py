@@ -1,10 +1,16 @@
 """Private HTTP API over a Unix socket; the same API can be placed behind authenticated TLS."""
 
 import threading
+import hashlib
+import hmac
+import math
+import secrets
+import time
+from collections import OrderedDict, deque
 from contextlib import asynccontextmanager
 
 import anyio
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -13,7 +19,62 @@ from .errors import AccessError
 from .models import RunRequest, TaskRequest
 
 
-def create_app(broker, *, worker=True):
+class _AuthFailureLimiter:
+    """Bound repeated invalid credentials without retaining peer addresses."""
+
+    def __init__(self, *, limit=8, window=60, max_peers=1024, clock=time.monotonic):
+        self.limit = limit
+        self.window = window
+        self.max_peers = max_peers
+        self.clock = clock
+        self._key = secrets.token_bytes(32)
+        self._failures = OrderedDict()
+        self._lock = threading.Lock()
+
+    def _peer_key(self, request):
+        client = request.scope.get("client")
+        peer = client[0] if isinstance(client, (tuple, list)) and client else "local"
+        if not isinstance(peer, str):
+            peer = "local"
+        return hmac.digest(self._key, peer[:256].encode("utf-8", "replace"), hashlib.sha256)
+
+    def _prune(self, peer, now):
+        failures = self._failures.get(peer)
+        if failures is None:
+            return None
+        while failures and now - failures[0] >= self.window:
+            failures.popleft()
+        if not failures:
+            del self._failures[peer]
+            return None
+        self._failures.move_to_end(peer)
+        return failures
+
+    def retry_after(self, request):
+        peer = self._peer_key(request)
+        now = self.clock()
+        with self._lock:
+            failures = self._prune(peer, now)
+            if failures is None or len(failures) < self.limit:
+                return None
+            return max(1, math.ceil(self.window - (now - failures[0])))
+
+    def failed(self, request):
+        peer = self._peer_key(request)
+        now = self.clock()
+        with self._lock:
+            failures = self._prune(peer, now)
+            if failures is None:
+                failures = deque()
+                self._failures[peer] = failures
+            failures.append(now)
+            self._failures.move_to_end(peer)
+            while len(self._failures) > self.max_peers:
+                self._failures.popitem(last=False)
+
+
+def create_app(broker, *, worker=True, auth_failure_limit=8, auth_failure_window=60,
+               clock=time.monotonic):
     stop = threading.Event()
     active_thread = None
 
@@ -56,11 +117,24 @@ def create_app(broker, *, worker=True):
     app = FastAPI(title="Account Access", version="1", lifespan=lifespan,
                   docs_url=None, redoc_url=None, openapi_url=None)
     bearer = HTTPBearer(auto_error=False)
+    auth_failures = _AuthFailureLimiter(limit=auth_failure_limit,
+                                        window=auth_failure_window, clock=clock)
 
-    def principal(auth: HTTPAuthorizationCredentials | None = Depends(bearer)):
+    def principal(request: Request,
+                  auth: HTTPAuthorizationCredentials | None = Depends(bearer)):
+        retry_after = auth_failures.retry_after(request)
+        if retry_after is not None:
+            raise HTTPException(429, "authentication_rate_limited",
+                                headers={"Retry-After": str(retry_after)})
         if not auth or auth.scheme.lower() != "bearer":
+            auth_failures.failed(request)
             raise AccessError("DENIED", "invalid_client")
-        return broker.store.client(auth.credentials)
+        try:
+            return broker.store.client(auth.credentials)
+        except AccessError as exc:
+            if exc.reason == "invalid_client":
+                auth_failures.failed(request)
+            raise
 
     @app.middleware("http")
     async def restrict_requests(request: Request, call_next):

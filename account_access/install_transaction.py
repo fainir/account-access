@@ -251,7 +251,16 @@ def main():
         # installer. Never expose arbitrary filesystem messages or pathnames.
         no_space = (isinstance(error, ImageConflict) and str(error) == "insufficient_install_space"
                     or isinstance(error, OSError) and error.errno == errno.ENOSPC)
-        reason = "insufficient_install_space" if no_space else "system_install_not_completed"
+        if no_space:
+            reason = "insufficient_install_space"
+        elif isinstance(error, ImageConflict) and str(error) == "install_record_conflict":
+            # The complete offline package supports a first install and an
+            # identical interrupted-install retry. It is not an updater for a
+            # different installed image; keep that distinction actionable
+            # without exposing paths or arbitrary exception text.
+            reason = "existing_installation_requires_update"
+        else:
+            reason = "system_install_not_completed"
         print(json.dumps({"status": "FAILED", "reason": reason}))
         return 78
 

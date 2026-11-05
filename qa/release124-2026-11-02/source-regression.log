@@ -1,0 +1,4 @@
+Run 41438932448; source d833d43ee2e5d75a453362488d7ed1e53ee6bbce
+test	Audit dependencies before browser setup and long-running tests	2026-11-02T11:42:52.5633141Z No known vulnerabilities found
+test	Run uv run ruff check account_access tests scripts macos/notarize.py macos/system_package.py macos/payload_audit.py macos/runtime_prepare.py macos/runtime_image.py macos/runtime_ca.py macos/full_image_update.py macos/bitwarden_runtime.py macos/bitwarden_sources.py macos/bitwarden_notices.py	2026-11-02T11:43:16.7684293Z All checks passed!
+test	Run uv run pytest -q	2026-11-02T12:03:58.0949934Z 4704 passed, 113 skipped in 1239.77s (0:20:39)

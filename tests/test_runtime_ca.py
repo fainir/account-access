@@ -70,11 +70,11 @@ def staged(tmp_path, monkeypatch, wheel_data):
     source = tmp_path / "immutable-source"
     library = source / ca.LIBRARY
     originals = {
-        "pip/__init__.py": b'__version__ = "26.2.1"\n',
+        "pip/__init__.py": b'__version__ = "26.2.2"\n',
         "pip/_vendor/vendor.txt": b"    certifi==2026.6.17\n",
         "pip/_vendor/certifi/__init__.py": b'__version__ = "2026.06.17"\n',
         "pip/_vendor/certifi/cacert.pem": b"old data - never executed",
-        ca.SOURCE_DIST + "/METADATA": b"Name: pip\nVersion: 26.2.1\n",
+        ca.SOURCE_DIST + "/METADATA": b"Name: pip\nVersion: 26.2.2\n",
         ca.SOURCE_DIST + "/RECORD": b"old manifest\n",
         "unrelated/__init__.py": b"unrelated source remains byte identical\n",
     }
@@ -84,7 +84,7 @@ def staged(tmp_path, monkeypatch, wheel_data):
         path.write_bytes(data)
     initializer = source / ca.ENSUREPIP / "__init__.py"
     initializer.parent.mkdir(parents=True)
-    initializer.write_bytes(b'# synthetic ensurepip implementation\n_PIP_VERSION = "25.0.1"\n')
+    initializer.write_bytes(b'# synthetic ensurepip implementation\n_PIP_VERSION = "26.2.2"\n')
     seed = source / ca.ENSUREPIP / "_bundled" / ca.SOURCE_SEED
     seed.parent.mkdir()
     seed.write_bytes(b"old seed - never imported or executed")
@@ -93,6 +93,7 @@ def staged(tmp_path, monkeypatch, wheel_data):
         (source / "bin" / name).write_bytes(b"old wrapper - never executed")
     pins = {name: digest((source / name).read_bytes()) for name in ca.SOURCE_PINS}
     monkeypatch.setattr(ca, "SOURCE_PINS", pins)
+    monkeypatch.setattr(ca, "SOURCE_PYTHON_TREE_SHA256", ca.tree_digest(source))
     payload = tmp_path / "private-copy"
     payload.mkdir()
     shutil.copytree(source, payload / "python")
@@ -116,13 +117,16 @@ def test_exact_source_profile_refreshed_in_private_copy_and_cloned_runtime(stage
     report = ca.refresh(payload, wheel)
     assert inventory(source) == before
     assert report["pip_version"] == "26.2.2"
+    assert report["source_python_tree_sha256"] == ca.SOURCE_PYTHON_TREE_SHA256
     assert report["certifi_version"] == "2026.10.19"
     assert report["package_code_executed"] is False
     assert report["system_or_embedded_native_trust_stores_audited"] is False
     assert json.loads((payload / "runtime-ca-refresh.json").read_bytes()) == report
     python = payload / "python"
     assert b'_PIP_VERSION = "26.2.2"' in (python / ca.ENSUREPIP / "__init__.py").read_bytes()
-    assert not (python / ca.ENSUREPIP / "_bundled" / ca.SOURCE_SEED).exists()
+    seed = python / ca.ENSUREPIP / "_bundled" / ca.SOURCE_SEED
+    assert seed.is_file()
+    assert digest(seed.read_bytes()) == ca.WHEEL_SHA256
     assert not (python / "bin/pip3.12").exists()
     assert (python / ca.LIBRARY / "unrelated/__init__.py").read_bytes() == before[str(ca.LIBRARY / "unrelated/__init__.py")]
     shutil.copytree(python, payload / "runtime")
@@ -225,7 +229,7 @@ def test_refresh_refuses_non_stage_before_reading_any_wheel(tmp_path, monkeypatc
 def test_duplicate_original_ensurepip_constant_refuses_even_with_fixture_source_pin(staged, monkeypatch):
     payload, wheel, _, _ = staged
     path = payload / "python" / ca.ENSUREPIP / "__init__.py"
-    path.write_bytes(path.read_bytes() + b'_PIP_VERSION = "25.0.1"\n')
+    path.write_bytes(path.read_bytes() + b'_PIP_VERSION = "26.2.2"\n')
     pins = {**ca.SOURCE_PINS, str(ca.ENSUREPIP / "__init__.py"): digest(path.read_bytes())}
     monkeypatch.setattr(ca, "SOURCE_PINS", pins)
     before = inventory(payload / "python")

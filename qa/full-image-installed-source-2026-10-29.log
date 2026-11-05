@@ -1,0 +1,15 @@
+# Full-image installed-source regression - 2026-10-29
+
+The source change in `macos/InstallerPayload.swift` is an input to the frozen
+installed-adapter review. Refreshed its exact source pin in
+`scripts/mac_full_image_installed_probe.py` after verifying the file digest.
+
+Checks passed:
+
+- `uv run pytest -q tests/test_mac_full_image_installed_probe.py` - 33 passed.
+- `uv run ruff check scripts/mac_full_image_installed_probe.py` - passed.
+- `uv run python scripts/mac_full_image_installed_probe.py --output /private/tmp/account-access-full-image-installed-a52fa37` - passed; native compile 268.847s, ordinary fixture runtime 196.57s, all six guard refusals and both ordinary entrypoint refusals passed.
+- Probe result reports `production_ready: false`, with no installed reads, root execution, service actions, or provider process/network use.
+
+This verifies the reviewed installed-adapter source bundle and ordinary temporary
+fixtures only. It does not build, install, or qualify a different-image updater.

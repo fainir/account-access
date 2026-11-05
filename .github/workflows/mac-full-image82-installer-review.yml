@@ -1,11 +1,6 @@
 name: Full image 82 diagnostic Installer acceptance
+# Historical runbook only; the $0 CI policy forbids dispatching GitHub Actions.
 on:
-  # The new workflow need not be merged into default just to qualify a candidate.
-  # A reviewed new asset contract schedules acceptance on this exact branch.
-  # Source-only fixes must not rerun an already-refused candidate package.
-  push:
-    branches: [codex/full-image-update]
-    paths: [artifacts/full-image-installer82-inputs.json]
   workflow_dispatch:
 permissions:
   contents: read

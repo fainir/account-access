@@ -200,6 +200,33 @@ enum InstallationRootBindingTests {
         try refuses { try InstallationRootBinding.validateSupplement(supplement, legacy: legacy, current: current(supportInode: 123_457)) }
         try refuses { try InstallationRootBinding.validateSupplement(supplement, legacy: legacy, current: current(applicationInode: 654_322)) }
         passed["supplement_binds_uuid_and_both_original_inodes_across_device_renumbering"] = true
+        group = "verified_support_root_replacement_requires_same_volume_and_original_application_alias"
+        let replacedSupport = current(supportInode: 123_457)
+        let recovery = try InstallationRootBinding.recoverySupplement(legacy: legacy, previous: supplement,
+            current: replacedSupport, planSHA256: plan, sourceCommit: revision, policyHashes: policies)
+        try InstallationRootBinding.validateSupplement(recovery, legacy: legacy, current: replacedSupport); checks += 1
+        let recoveredVolume = try InstallationRootBinding.componentVolume(recovery, legacy: legacy, current: replacedSupport,
+            planSHA256: plan, workerSHA256: policies["worker"]!, serviceSHA256: policies["service"]!)
+        try expect(recoveredVolume == replacedSupport[paths[0]]!)
+        try refuses { _ = try InstallationRootBinding.recoverySupplement(legacy: legacy, previous: supplement,
+            current: current(), planSHA256: plan, sourceCommit: revision, policyHashes: policies) }
+        try refuses { _ = try InstallationRootBinding.recoverySupplement(legacy: legacy, previous: supplement,
+            current: current(supportInode: 123_457, applicationInode: 654_322), planSHA256: plan,
+            sourceCommit: revision, policyHashes: policies) }
+        try refuses { _ = try InstallationRootBinding.recoverySupplement(legacy: legacy, previous: supplement,
+            current: current(supportInode: 123_457, uuid: differentVolume), planSHA256: plan,
+            sourceCommit: revision, policyHashes: policies) }
+        let changedRecoveryDigest = try changed(recovery) { $0["previous_supplement_sha256"] = String(repeating: "f", count: 64) }
+        try refuses { try InstallationRootBinding.validateSupplement(changedRecoveryDigest, legacy: legacy,
+            current: replacedSupport) }
+        try refuses { try InstallationRootBinding.validateSupplement(recovery, legacy: legacy,
+            current: current(supportInode: 123_458)) }
+        try refuses { try InstallationRootBinding.validateSupplement(recovery, legacy: legacy,
+            current: current(supportInode: 123_457, applicationInode: 654_322)) }
+        try refuses { _ = try InstallationRootBinding.recoverySupplement(legacy: legacy,
+            previous: supplement + Data([32]), current: replacedSupport, planSHA256: plan,
+            sourceCommit: revision, policyHashes: policies) }
+        passed["verified_support_root_replacement_requires_same_volume_and_original_application_alias"] = true
         group = "supplement_requires_supported_canonical_nonzero_volume_uuid"
 
         for uuid in ["", "unsupported", volume.uppercased(), "00000000-0000-0000-0000-000000000000"] {

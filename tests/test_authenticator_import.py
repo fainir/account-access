@@ -40,6 +40,155 @@ def uri(parameters=None, batch_size=1, batch_index=None, batch_id=None):
     return "otpauth-migration://offline?data=" + quote(base64.b64encode(payload).decode(), safe="")
 
 
+def batch_fixture(broker):
+    from account_access.catalog import LEMON_SOURCE, LEMON_ACCOUNT, add
+    add(broker.store, LEMON_ACCOUNT)
+    first = field(1, b"Hello!\xde\xad\xbe\xef") + field(2, b"owner@example.test") + field(4, 1) + field(5, 1) + field(6, 2)
+    second = field(1, b"separate-second-key") + field(2, b"other@example.test") + field(4, 1) + field(5, 1) + field(6, 2)
+    review = transfer.batch_preview(broker.store, [uri([first, second])])
+    return review, [{"source": "demo-totp", "index": 0}, {"source": LEMON_SOURCE, "index": 1}]
+
+
+def test_one_transfer_enrolls_selected_sources_without_adding_credentials_or_grants(env):
+    provider, broker, _ = env
+    review, selections = batch_fixture(broker)
+    with broker.store.db() as db:
+        grants = [tuple(row) for row in db.execute("SELECT * FROM grants")]
+    assert {item["id"] for item in review["sources"]} >= {item["source"] for item in selections}
+    assert "seed" not in json.dumps(review) and "JBSWY3DPEHPK3PXP" not in json.dumps(review)
+    assert transfer.batch_apply(broker.store, review["id"], selections)["status"] == "ENROLLED"
+    assert broker.store.get("source:demo-totp")["seed"] == "JBSWY3DPEHPK3PXP"
+    assert broker.store.get("source:personal-lemonsqueezy-totp") is not None
+    assert broker.store.get("credential:personal-lemonsqueezy") is None
+    with broker.store.db() as db:
+        assert [tuple(row) for row in db.execute("SELECT * FROM grants")] == grants
+    # The original supported fixture can then sign in without owner code entry.
+    result = broker.run("test", "demo-mfa", "summary")
+    assert result["status"] == "COMPLETED", result
+    assert provider.totp_count == 1
+    with pytest.raises(AccessError, match="authenticator_preview_expired"):
+        transfer.batch_apply(broker.store, review["id"], selections)
+
+
+@pytest.mark.parametrize("change", ["generation", "configuration", "account", "expiry"])
+def test_stale_batch_changes_no_selected_source(env, change):
+    from account_access.factors import revoke
+    _, broker, _ = env
+    review, selections = batch_fixture(broker)
+    if change == "generation":
+        revoke(broker.store, selections[1]["source"])
+    elif change in {"configuration", "account"}:
+        config = broker.store.config()
+        if change == "configuration":
+            config.code_sources[selections[1]["source"]].sender = "changed"
+        else:
+            config.accounts["personal-lemonsqueezy"].operations["status"].description = "Changed read"
+        broker.store.configure(config)
+    else:
+        staged = broker.store.get("authenticator-import:" + review["id"])
+        staged["expires"] = time.time() - 1
+        broker.store.put("authenticator-import:" + review["id"], staged)
+    before = {item["source"]: broker.store.get("source:" + item["source"]) for item in selections}
+    with pytest.raises(AccessError, match="authenticator_(selection_changed|preview_expired)"):
+        transfer.batch_apply(broker.store, review["id"], selections)
+    assert {key: broker.store.get("source:" + key) for key in before} == before
+
+
+@pytest.mark.parametrize("selections", [[], [{"source": "demo-totp", "index": True}],
+    [{"source": "unknown", "index": 0}], [{"source": "demo-totp", "index": -1}],
+    [{"source": "demo-totp", "index": 100}],
+    [{"source": "demo-totp", "index": 0}, {"source": "demo-totp", "index": 1}],
+    [{"source": "demo-totp", "index": 0}, {"source": "personal-lemonsqueezy-totp", "index": 0}],
+    [{"source": "demo-totp", "index": 0, "grant": True}]])
+def test_invalid_batch_selection_is_atomic(env, selections):
+    _, broker, _ = env
+    review, valid = batch_fixture(broker)
+    before = {item["source"]: broker.store.get("source:" + item["source"]) for item in valid}
+    with pytest.raises(AccessError, match="invalid_authenticator_selection"):
+        transfer.batch_apply(broker.store, review["id"], selections)
+    assert {key: broker.store.get("source:" + key) for key in before} == before
+
+
+def test_batch_commit_failure_rolls_back_every_source_and_preview(env, monkeypatch):
+    _, broker, _ = env
+    review, selections = batch_fixture(broker)
+    before = {item["source"]: broker.store.get("source:" + item["source"]) for item in selections}
+    original = broker.store.put
+
+    def fail(key, value, db=None):
+        if key == "authenticator-import:" + review["id"] and value is None:
+            raise OSError("controlled batch interruption")
+        return original(key, value, db=db)
+
+    monkeypatch.setattr(broker.store, "put", fail)
+    with pytest.raises(OSError, match="controlled batch interruption"):
+        transfer.batch_apply(broker.store, review["id"], selections)
+    assert {key: broker.store.get("source:" + key) for key in before} == before
+    assert broker.store.get("authenticator-import:" + review["id"]) is not None
+    monkeypatch.setattr(broker.store, "put", original)
+    transfer.batch_apply(broker.store, review["id"], selections)
+
+
+def test_batch_and_single_reviews_cannot_be_used_interchangeably_or_after_cancel(env):
+    _, broker, _ = env
+    review, selections = batch_fixture(broker)
+    with pytest.raises(AccessError, match="invalid_authenticator_selection"):
+        transfer.apply(broker.store, review["id"], 0)
+    single = transfer.preview(broker.store, "demo-totp", uri())
+    with pytest.raises(AccessError, match="invalid_authenticator_selection"):
+        transfer.batch_apply(broker.store, single["id"], selections)
+    transfer.discard(broker.store, review["id"])
+    with pytest.raises(AccessError, match="authenticator_preview_expired"):
+        transfer.batch_apply(broker.store, review["id"], selections)
+
+
+def test_unselected_source_changes_do_not_expand_or_invalidate_selected_import(env):
+    from account_access.factors import enroll
+    _, broker, _ = env
+    review, selections = batch_fixture(broker)
+    other = selections[1]["source"]
+    enroll(broker.store, other, {"seed": "JBSWY3DPEHPK3PXP"})
+    before = broker.store.get("source:" + other)
+    generation = broker.store.get("source-generation:" + other)
+    result = transfer.batch_apply(broker.store, review["id"], selections[:1])
+    assert result["sources"] == ["demo-totp"]
+    assert broker.store.get("source:" + other) == before
+    assert broker.store.get("source-generation:" + other) == generation
+
+
+def test_batch_endpoints_require_owner_origin_and_do_not_accept_agent_credentials(env):
+    _, broker, client_token = env
+    server, token = make_owner_server(broker, guided=True)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{server.server_port}"
+    try:
+        with httpx.Client(base_url=base, trust_env=False) as client:
+            owner = {"Authorization": "Bearer " + token, "Origin": base}
+            for headers in [{}, {"Authorization": "Bearer " + client_token, "Origin": base},
+                            {"Authorization": "Bearer " + token, "Origin": "https://attacker.example"}]:
+                assert client.post("/owner/authenticator/batch-preview", json={"uris": [uri()]}, headers=headers).status_code == 403
+                assert client.post("/owner/authenticator/batch-apply", json={}, headers=headers).status_code == 403
+            response = client.post("/owner/authenticator/batch-preview", json={"uris": [uri()]}, headers=owner)
+            assert response.status_code == 200
+            assert "seed" not in response.text and "JBSWY3DPEHPK3PXP" not in response.text
+            ident = response.json()["id"]
+            assert client.post("/owner/authenticator/batch-apply", json={"id": ident, "selections": [
+                {"source": "demo-totp", "index": True}]}, headers=owner).status_code == 403
+            response = client.post("/owner/authenticator/batch-apply", json={"id": ident, "selections": [
+                {"source": "demo-totp", "index": 0}]}, headers=owner)
+            assert response.status_code == 200 and response.json()["sources"] == ["demo-totp"]
+            assert client.post("/owner/authenticator/batch-preview", json={"uris": [uri()], "grant": True}, headers=owner).status_code == 400
+        with TestClient(create_app(broker, worker=False)) as agent:
+            for route in ["batch-preview", "batch-apply"]:
+                assert agent.post("/owner/authenticator/" + route, json={},
+                                  headers={"Authorization": "Bearer " + client_token}).status_code == 404
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
 def test_owner_selects_one_key_then_real_browser_sign_in(env):
     provider, broker, _ = env
     broker.store.put("source:demo-totp", None)

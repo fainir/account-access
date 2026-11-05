@@ -177,16 +177,21 @@ struct OwnerGatewayRoute {
     static let writes: Set<String> = [
         "owner/credential", "owner/grant", "owner/revoke", "owner/add", "owner/verify",
         "owner/import/preview", "owner/import/apply", "owner/authenticator/preview",
-        "owner/authenticator/apply", "owner/authenticator/discard", "owner/source",
+        "owner/authenticator/apply", "owner/authenticator/batch-preview", "owner/authenticator/batch-apply",
+        "owner/authenticator/discard", "owner/source",
         "owner/source/check", "owner/source/revoke", "owner/mailbox/connect", "owner/mailbox/check",
         "owner/mailbox/password", "owner/mailbox/remove", "owner/password-sync", "owner/bitwarden/connect", "owner/bitwarden/disconnect",
         "owner/mailbox/oauth/begin", "owner/mailbox/oauth/finish", "owner/mailbox/oauth/cancel", "owner/mailbox/oauth/check",
         "owner/device-email/preview", "owner/device-email/apply", "owner/device-email/discard", "owner/device-email/remove",
-        "owner/password-sync/reconnect", "owner/password-sync/disconnect", "owner/phone/pair", "owner/stop", "owner/vault/enroll", "owner/client/enroll", "owner/client/installed", "owner/browser-message"
+        "owner/password-sync/reconnect", "owner/password-sync/disconnect", "owner/phone/pair", "owner/stop", "owner/vault/enroll", "owner/client/enroll", "owner/client/installed", "owner/browser-message",
+        "owner/account/export", "owner/account/forget", "owner/browser-update",
+        "owner/phone/test/configure", "owner/phone/test/start", "owner/phone/test/check", "owner/phone/test/cancel",
+        "owner/harel/start", "owner/harel/code", "owner/harel/check", "owner/harel/approve", "owner/harel/cancel"
     ]
     static let restrictions: Set<String> = ["owner/stop", "owner/revoke", "owner/source/revoke",
         "owner/mailbox/remove", "owner/mailbox/oauth/cancel", "owner/password-sync/disconnect", "owner/authenticator/discard",
-        "owner/device-email/discard", "owner/device-email/remove", "owner/bitwarden/disconnect"]
+        "owner/device-email/discard", "owner/device-email/remove", "owner/bitwarden/disconnect", "owner/account/forget",
+        "owner/phone/test/cancel", "owner/harel/cancel"]
 
     init(_ route: String, body: Data?) throws {
         var browserNeedsSetup: Bool?
@@ -201,7 +206,70 @@ struct OwnerGatewayRoute {
             if route == "owner/verify", (value["visible"] as? Bool) == true {
                 throw OwnerGatewayError.invalidPolicy // Requires a future trusted host handoff.
             }
+            if route.hasPrefix("owner/harel/") {
+                guard let id = value["id"] as? String,
+                      id.range(of: "^[a-f0-9]{32}\\z", options: .regularExpression) != nil else {
+                    throw OwnerGatewayError.invalidPolicy
+                }
+                if route == "owner/harel/start" {
+                    guard Set(value.keys) == ["id", "mailbox", "identity", "phone", "consent"],
+                          let mailbox = value["mailbox"] as? String,
+                          mailbox.range(of: "^mailbox-[a-f0-9]{24}\\z", options: .regularExpression) != nil,
+                          let identity = value["identity"] as? String,
+                          identity.range(of: "^[0-9]{5,9}\\z", options: .regularExpression) != nil,
+                          let phone = value["phone"] as? String,
+                          phone.range(of: "^05[0-9]{8}\\z", options: .regularExpression) != nil,
+                          let consent = value["consent"] as? NSNumber,
+                          CFGetTypeID(consent) == CFBooleanGetTypeID(), consent.boolValue else {
+                        throw OwnerGatewayError.invalidPolicy
+                    }
+                } else if route == "owner/harel/code" {
+                    guard Set(value.keys) == ["id", "code"], let code = value["code"] as? String,
+                          code.range(of: "^[0-9]{6}\\z", options: .regularExpression) != nil else {
+                        throw OwnerGatewayError.invalidPolicy
+                    }
+                } else if route == "owner/harel/approve" {
+                    guard Set(value.keys) == ["id", "candidate"], let candidate = value["candidate"] as? String,
+                          candidate.range(of: "^[a-f0-9]{32}\\z", options: .regularExpression) != nil else {
+                        throw OwnerGatewayError.invalidPolicy
+                    }
+                } else if Set(value.keys) != ["id"] {
+                    throw OwnerGatewayError.invalidPolicy
+                }
+                // Only start can create a request or new authority. Later
+                // steps consume that exact native, owner-approved attempt.
+                browserNeedsSetup = route == "owner/harel/start"
+            }
             if route == "owner/vault/enroll", !value.isEmpty { throw OwnerGatewayError.invalidPolicy }
+            if route == "owner/browser-update" {
+                guard Set(value.keys) == ["account", "fingerprint"],
+                      let account = value["account"] as? String,
+                      account.range(of: "^[a-z][a-z0-9_-]{0,63}$", options: .regularExpression) != nil,
+                      let fingerprint = value["fingerprint"] as? String,
+                      fingerprint.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil else {
+                    throw OwnerGatewayError.invalidPolicy
+                }
+            }
+            if route == "owner/phone/test/configure" {
+                guard Set(value.keys) == ["sender"], let sender = value["sender"] as? String,
+                      (1...200).contains(sender.unicodeScalars.count),
+                      sender == sender.trimmingCharacters(in: .whitespacesAndNewlines),
+                      sender.unicodeScalars.allSatisfy({ $0.value >= 32 && $0.value != 127 }) else {
+                    throw OwnerGatewayError.invalidPolicy
+                }
+            }
+            if ["owner/phone/test/start", "owner/phone/test/check", "owner/phone/test/cancel"].contains(route) {
+                guard value.isEmpty else { throw OwnerGatewayError.invalidPolicy }
+                // Polling an already approved test can consume/discard a local
+                // test value but never starts a window or returns its contents.
+                if route == "owner/phone/test/check" { browserNeedsSetup = false }
+            }
+            if route == "owner/account/export" || route == "owner/account/forget" {
+                guard Set(value.keys) == ["account"], let account = value["account"] as? String,
+                      account.range(of: "^[a-z][a-z0-9_-]{0,63}$", options: .regularExpression) != nil else {
+                    throw OwnerGatewayError.invalidPolicy
+                }
+            }
             if route == "owner/bitwarden/connect" {
                 guard Set(value.keys) == ["region", "client_id", "client_secret", "master_password", "consent_vault_access"],
                       let region = value["region"] as? String, ["us", "eu"].contains(region),

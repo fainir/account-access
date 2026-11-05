@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "date": "2026-10-28",
+  "status": "READY_FOR_RELEASE_REVIEW",
+  "bundle": {
+    "identifier": "com.fainir.accountaccess",
+    "version": "0.8.0",
+    "build": "104",
+    "team": "WBULD6N4NQ",
+    "source_commit": "9c375d1655f8fb27aa4389b11f546193e05b05f5",
+    "wheel_sha256": "43a7830bdc978394c716654a2016fb30a1a599083bedf142ef26c9dcbaf18733",
+    "cdhashes": {
+      "arm64": "63473ba944eadd612c21a124bc94f864d936ff00",
+      "x86_64": "fb6c6f01bc47c44b8fec6b61956f15d294c4aa5b"
+    }
+  },
+  "artifact": "dist/notarization-owner-timeout-104/Account-Access-Mac-notarized.zip",
+  "submission_id": "5cd324b6-cd32-4e92-a846-2d1ff44a88f0",
+  "apple_notarization": "Accepted",
+  "stapler_validation": "PASSED",
+  "gatekeeper_distribution_assessment": "PASSED",
+  "archive_sha256": "b84c0847bc58c44f37314b990d6f8e4c65f6c373a7719747f751557f34b5f9be",
+  "production_qa": "not_evaluated",
+  "system_installer": false,
+  "installed_on_owner_mac": false,
+  "production_ready": false
+}

@@ -1,0 +1,4 @@
+2026-10-28 - Account Access installed launcher, synthetic controlled-demo account `demo-web`, operation `summary`.
+Attempt 1: RETRYABLE, reason `browser_execution_failed`.
+Attempt 2 (one permitted retry): RETRYABLE, reason `browser_execution_failed`.
+No personal account data was accessed. Installed service reports version 0.6.0, environment `controlled-demo`.

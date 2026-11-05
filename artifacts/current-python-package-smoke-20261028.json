@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "date": "2026-10-28",
+  "source_commit": "3579548e27ad289e5f54b30c58d1000239334d9f",
+  "production_ready": false,
+  "python_suite": {
+    "command": ".venv/bin/pytest -q",
+    "status": "PASSED",
+    "collected": 4483,
+    "passed": 4479,
+    "skipped": 4,
+    "failed": 0,
+    "duration_seconds": 1175.94
+  },
+  "ruff": "PASSED",
+  "pip_audit": {
+    "status": "PASSED",
+    "finding": "No known vulnerabilities found in audited third-party dependencies",
+    "project_package_audited": false
+  },
+  "build": {
+    "status": "PASSED",
+    "source_distribution": {
+      "filename": "account_access-0.8.0.tar.gz",
+      "sha256": "5eda674735b8cfee03476430050f32a398132081069ecd63408f67164daee1de"
+    },
+    "wheel": {
+      "filename": "account_access-0.8.0-py3-none-any.whl",
+      "sha256": "b2d137622429de58a0e9d0f863c2dfaec500143b6c45459369e3df9cd8df8e29"
+    }
+  },
+  "clean_environment_install": {
+    "status": "PASSED",
+    "tested_python_versions": ["3.12.12", "3.13.2"],
+    "authlib": "1.9.1",
+    "entrypoint": "account-access --help",
+    "entrypoint_status": "PASSED"
+  },
+  "limits": "Qualifies the portable Python source/wheel build and CLI entrypoint only. It is not a Mac system-installer, clean-Mac, private-login, email, authenticator, physical-phone, or consumer-release test."
+}

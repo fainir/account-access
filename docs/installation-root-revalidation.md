@@ -1,6 +1,6 @@
 # Installation root revalidation
 
-This development recovery path passed actual disposable-Mac Installer
+The original device-number recovery path passed actual disposable-Mac Installer
 qualification at package source `93fc906`, using the corrected controller
 `abe6e02`. All 26 recovery-route checks passed, including repeat installation and
 an interrupted-write fixture. On the affected personal Mac, native Installer
@@ -35,6 +35,14 @@ authorized attestation of the current installation. The old receipt does not
 contain a volume UUID, so this operation cannot prove historical volume
 continuity.
 
+On 2026-10-30 the owner-authorized build-119 Installer attempt safely refused
+at `context`: the protected v1 support-root inode had changed, while the
+application alias inode and volume UUID still matched. The installed app and
+service remained at build 110. The corrected native public-image verifier
+passed all 27,485 manifest entries. A separate v2 recovery path is being added
+for this exact same-volume support-root replacement; it is not qualified until
+the exact-source native CI and disposable-Mac Installer matrix pass.
+
 ## What it checks
 
 The package must run through the native root Installer path with the expected
@@ -43,9 +51,11 @@ the supplemental receipt, it checks:
 
 - All four original immutable receipt files, their schema, original owner,
   base manifest and completed publication state.
-- Both fixed installation roots, their original inodes, protected ownership,
-  literal application alias and a nonempty persistent volume UUID. Both roots
-  must identify the same current volume. An inode replacement is refused.
+- Both fixed installation roots, protected ownership, literal application
+  alias and a nonempty persistent volume UUID. The existing v1 path still
+  requires both original inodes. The recovery-v2 path is limited to a changed
+  support-root inode when the previous v1 receipt verifies, both receipts name
+  the same volume, and the `/Applications` alias inode remains unchanged.
 - The complete pinned public installation image and installed owner, broker
   and bootstrap signatures. Private account directories remain opaque.
 - The typed protected policies, reserved operating-system service identity,
@@ -68,13 +78,15 @@ credentials, codes, browser sessions, mailbox messages or vault keys.
 
 ## What it saves
 
-The four original receipts stay byte-for-byte unchanged. One supplementary
-receipt is published in a separate root-owned directory with mode `0700`; its
-file has mode `0600`, one link and no ACL. It binds the original receipt hashes,
-owner and base generation to both unchanged inodes and the current volume UUID.
-The issuing source, plan, publisher and policy hashes record creation evidence.
-Policy hashes are not permanent equality requirements: a legitimate component
-update changes some policy values.
+The four original receipts stay byte-for-byte unchanged. The v1 path publishes
+one supplementary receipt in a root-owned directory with mode `0700`; its file
+has mode `0600`, one link and no ACL. A verified support-root replacement adds
+a v2 receipt beside the unchanged v1 receipt. V2 carries the prior v1 receipt,
+its digest, the original receipt hashes and the current roots. It does not
+authorize an application-alias replacement or a volume change. The issuing
+source, plan, publisher and policy hashes record creation evidence. Policy
+hashes are not permanent equality requirements: a legitimate component update
+changes some policy values.
 
 Publication uses a fixed pending file, an exclusive rename and filesystem
 synchronization. A retry can finish an interrupted pending file only when its
@@ -98,9 +110,12 @@ refused operation into success.
 
 ## Limits
 
-- Creating a new binding is allowed only for a valid device-number mismatch
-  with both original inodes still matching. A changed inode requires a separate
-  reviewed recovery procedure; this package does not adopt it.
+- Creating a v1 binding is allowed only for a valid device-number mismatch
+  with both original inodes still matching. V2 recovery changes only the
+  support-root inode and requires the previous protected v1 receipt, the same
+  volume UUID, the unchanged application alias inode, a full matching public
+  image and fresh signature/service checks. A changed alias or volume remains
+  refused.
 - An existing valid binding can be checked again against the exact base image
   or the exact corresponding component-updated image. Revalidation does not
   start, stop or reconfigure the service.

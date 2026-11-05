@@ -19,7 +19,7 @@ import time
 from types import SimpleNamespace
 import xml.etree.ElementTree as ET
 
-HARNESS_SHA = "a4507756990cf6ff96e666653dab7aa7d636f1c37a01027dce9fae0e465311da"
+HARNESS_SHA = "1b790d06ae7d20bc04d9f356b364145cc24afdba9a42cd63e5c9089911d3b92b"
 CASES = {"short": (15, 25), "long": (900, 610)}
 PREFIX = "com.fainir.accountaccess.installer-timeout-qa."
 

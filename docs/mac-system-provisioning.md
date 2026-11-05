@@ -123,17 +123,19 @@ its unfinished mailbox form remain untouched.
 
 `uv run python -m macos.system_package` builds an installer archive without
 installing anything on the build host. Inputs are the protected-mode owner app,
-matching broker/bootstrap executables, a standalone Python 3.12 distribution,
+matching broker/bootstrap executables, the pinned standalone Python 3.12.16 distribution,
 a binary wheelhouse and the matching browser runtime. The wheel in the owner
 app must match its signed hash. The runtime dependency hash lock comes from that
 wheel. The current binary runtime requires Apple silicon and macOS 14 or later.
 Consumer inspection and assembly also require `--pip-wheel` pointing to the
 exact official `pip-26.2.2-py3-none-any.whl` pinned by `macos/runtime_ca.py`.
-Only fresh private copies of the reviewed Python profile are changed: active
-pip and the ensurepip seed both receive the upstream CA fix before signing.
-The generated runtime is checked again for the same refreshed bytes. Pip and
-ensurepip are never executed for this transformation; source inputs and any
-installed runtime remain untouched. This does not audit other trust stores.
+Only the Python-build-standalone release 20261026 Apple-silicon archive for
+Python 3.12.16 is accepted. Its archive SHA-256 and extracted tree digest are
+pinned in `macos/runtime_ca.py`. The assembler re-installs the same hash-pinned
+pip wheel into fresh private copies so entry points target the protected
+runtime path, then checks active pip, the ensurepip seed and bundled CA bytes.
+Pip and ensurepip are never executed for this transformation; source inputs and
+any installed runtime remain untouched. This does not audit other trust stores.
 The assembler refuses Intel before opening supplied payload paths: the pinned
 cryptography release has no Intel Mac wheel. Native universal builds do not
 establish a usable Intel runtime, and source compilation is not an installer

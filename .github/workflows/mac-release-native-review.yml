@@ -1,0 +1,154 @@
+name: Mac release native qualification
+# Historical runbook only; the $0 CI policy forbids dispatching GitHub Actions.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  public-inputs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir "$RUNNER_TEMP/native-inputs"
+          gh release download qa-direct-root-recovery119-20261030 --repo fainir/account-access --pattern release120-native-inputs.tar.gz --dir "$RUNNER_TEMP/native-inputs"
+          gh release download qa-runtime-jit121-20261031 --repo fainir/account-access --pattern release121-native-inputs.tar.gz --dir "$RUNNER_TEMP/native-inputs"
+          gh release download qa-native-routes122-20261031 --repo fainir/account-access --pattern release122-native-inputs.tar.gz --dir "$RUNNER_TEMP/native-inputs"
+          gh release download qa-betterloop123-20261101 --repo fainir/account-access --pattern release123-native-inputs.tar.gz --dir "$RUNNER_TEMP/native-inputs"
+          gh release download qa-lemonsqueezy124-20261102 --repo fainir/account-access --pattern release124-native-inputs.tar.gz --dir "$RUNNER_TEMP/native-inputs"
+          gh release download qa-worker-startup125-20261102 --repo fainir/account-access --pattern release125-native-inputs.tar.gz --dir "$RUNNER_TEMP/native-inputs"
+          gh release download qa-automatic-setup126-20261103 --repo fainir/account-access --pattern release126-native-inputs.tar.gz --dir "$RUNNER_TEMP/native-inputs"
+          gh release download qa-login-navigation127-20261104 --repo fainir/account-access --pattern release127-native-inputs.tar.gz --dir "$RUNNER_TEMP/native-inputs"
+          python3 - "$RUNNER_TEMP/native-inputs" <<'PY'
+          import hashlib, json, pathlib, sys
+          root = pathlib.Path(sys.argv[1])
+          pin = json.loads(pathlib.Path('artifacts/release120-native-inputs.json').read_bytes())
+          assert hashlib.sha256((root / 'release120-native-inputs.tar.gz').read_bytes()).hexdigest() == pin['sha256']
+          pin = json.loads(pathlib.Path('artifacts/release121-native-inputs.json').read_bytes())
+          assert hashlib.sha256((root / 'release121-native-inputs.tar.gz').read_bytes()).hexdigest() == pin['sha256']
+          pin = json.loads(pathlib.Path('artifacts/release122-native-inputs.json').read_bytes())
+          assert hashlib.sha256((root / 'release122-native-inputs.tar.gz').read_bytes()).hexdigest() == pin['sha256']
+          pin = json.loads(pathlib.Path('artifacts/release123-native-inputs.json').read_bytes())
+          assert hashlib.sha256((root / 'release123-native-inputs.tar.gz').read_bytes()).hexdigest() == pin['sha256']
+          pin = json.loads(pathlib.Path('artifacts/release124-native-inputs.json').read_bytes())
+          assert hashlib.sha256((root / 'release124-native-inputs.tar.gz').read_bytes()).hexdigest() == pin['sha256']
+          pin = json.loads(pathlib.Path('artifacts/release125-native-inputs.json').read_bytes())
+          assert hashlib.sha256((root / 'release125-native-inputs.tar.gz').read_bytes()).hexdigest() == pin['sha256']
+          pin = json.loads(pathlib.Path('artifacts/release126-native-inputs.json').read_bytes())
+          assert hashlib.sha256((root / 'release126-native-inputs.tar.gz').read_bytes()).hexdigest() == pin['sha256']
+          assert (root / 'release126-native-inputs.tar.gz').stat().st_size == pin['bytes']
+          pin = json.loads(pathlib.Path('artifacts/release127-native-inputs.json').read_bytes())
+          assert hashlib.sha256((root / 'release127-native-inputs.tar.gz').read_bytes()).hexdigest() == pin['sha256']
+          assert (root / 'release127-native-inputs.tar.gz').stat().st_size == pin['bytes']
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-native-public-inputs
+          path: ${{ runner.temp }}/native-inputs
+          retention-days: 3
+  qualify-and-compile:
+    needs: public-inputs
+    runs-on: macos-15
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
+      - run: uv sync --locked
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          name: release-native-public-inputs
+          path: ${{ runner.temp }}/native-inputs
+      - name: Extract five reviewed public plan files for each release
+        run: |
+          python3 - <<'PY'
+          import os, pathlib, tarfile
+          root = pathlib.Path(os.environ['RUNNER_TEMP'])
+          for release, output in [('120', 'compat-direct-inputs'), ('121', 'jit-direct-inputs'), ('122', 'connection-direct-inputs'), ('123', 'betterloop-direct-inputs'), ('124', 'lemon-direct-inputs'), ('125', 'startup-direct-inputs'), ('126', 'automatic-direct-inputs'), ('127', 'direct-inputs')]:
+              with tarfile.open(root / f'native-inputs/release{release}-native-inputs.tar.gz') as archive:
+                  expected = {'plan.json', 'before.json', 'after.json', 'old-identity.json', 'new-identity.json'}
+                  members = archive.getmembers()
+                  assert len(members) == 5 and {m.name for m in members} == expected
+                  assert all(m.isfile() and 0 < m.size <= 34 * 1024 * 1024 for m in members)
+                  archive.extractall(root / output, filter='data')
+          PY
+      - name: Verify shared installed adapter and refusal boundaries
+        run: uv run python scripts/mac_full_image_installed_probe.py --output "$RUNNER_TEMP/native-full"
+      - name: Verify runtime source, recovery and ordinary-user refusal
+        run: uv run python scripts/mac_runtime_upgrade_probe.py --output "$RUNNER_TEMP/native-runtime"
+      - name: Verify exact 110-to-120 plan, projections and published runtime groups
+        run: uv run python scripts/mac_direct_runtime_upgrade_probe.py --inputs "$RUNNER_TEMP/compat-direct-inputs" --output "$RUNNER_TEMP/native-direct-compat"
+      - name: Verify exact 120-to-121 plan compatibility
+        run: uv run python scripts/mac_direct_runtime_upgrade_probe.py --inputs "$RUNNER_TEMP/jit-direct-inputs" --output "$RUNNER_TEMP/native-jit-compat"
+      - name: Verify exact 121-to-122 plan compatibility
+        run: uv run python scripts/mac_direct_runtime_upgrade_probe.py --inputs "$RUNNER_TEMP/connection-direct-inputs" --output "$RUNNER_TEMP/native-connection-compat"
+      - name: Verify exact 122-to-123 Betterloop plan compatibility
+        run: uv run python scripts/mac_direct_runtime_upgrade_probe.py --inputs "$RUNNER_TEMP/betterloop-direct-inputs" --output "$RUNNER_TEMP/native-betterloop-compat"
+      - name: Verify exact 123-to-124 Lemon Squeezy plan compatibility
+        run: uv run python scripts/mac_direct_runtime_upgrade_probe.py --inputs "$RUNNER_TEMP/lemon-direct-inputs" --output "$RUNNER_TEMP/native-lemon-compat"
+      - name: Verify exact 124-to-125 startup recovery compatibility
+        run: uv run python scripts/mac_direct_runtime_upgrade_probe.py --inputs "$RUNNER_TEMP/startup-direct-inputs" --output "$RUNNER_TEMP/native-startup-compat"
+      - name: Verify exact 125-to-126 automatic setup compatibility
+        run: uv run python scripts/mac_direct_runtime_upgrade_probe.py --inputs "$RUNNER_TEMP/automatic-direct-inputs" --output "$RUNNER_TEMP/native-automatic-compat"
+      - name: Verify exact 126-to-127 login navigation and tuple refusals
+        run: uv run python scripts/mac_direct_runtime_upgrade_probe.py --inputs "$RUNNER_TEMP/direct-inputs" --output "$RUNNER_TEMP/native-direct"
+      - name: Compile the fixed updater without publisher credentials
+        run: |
+          uv run python - <<'PY'
+          import json, os, pathlib, runpy, subprocess
+          from scripts import build_direct_runtime_upgrade_candidate as build
+          root = pathlib.Path(os.environ['RUNNER_TEMP'])
+          shared = runpy.run_path('scripts/mac_full_image_installed_probe.py')
+          plan = json.loads((root / 'direct-inputs/plan.json').read_bytes())
+          assert build.digest((root / 'direct-inputs/plan.json').read_bytes()) == build.RELEASE127.plan
+          output = root / 'release-compiled'
+          output.mkdir()
+          sources = build.prepare_updater_sources(build.source_inputs(shared), shared, plan, output / 'source', release=build.RELEASE127)
+          binary = output / 'AccountAccess-runtimeupgrade'
+          subprocess.run(['/usr/bin/xcrun', 'swiftc', '-j', '2', '-O', '-whole-module-optimization',
+              '-parse-as-library', '-warnings-as-errors', '-D', 'ACCOUNT_ACCESS_RUNTIME_UPGRADE_MAIN',
+              '-target', 'arm64-apple-macos14', '-framework', 'Foundation', '-framework', 'CryptoKit',
+              '-framework', 'Security', *sources, '-o', str(binary)], check=True, timeout=1800)
+          result = subprocess.run([str(binary)], capture_output=True, timeout=30)
+          assert result.returncode == 78 and not result.stderr
+          assert json.loads(result.stdout)['reason'] == 'runtime_upgrade_installer_context_required'
+          PY
+      - run: |
+          mkdir "$RUNNER_TEMP/native-results"
+          cp "$RUNNER_TEMP/native-full/result.json" "$RUNNER_TEMP/native-results/full-image.json"
+          cp "$RUNNER_TEMP/native-runtime/result.json" "$RUNNER_TEMP/native-results/runtime.json"
+          cp "$RUNNER_TEMP/native-direct/result.json" "$RUNNER_TEMP/native-results/direct.json"
+          cp "$RUNNER_TEMP/native-direct-compat/result.json" "$RUNNER_TEMP/native-results/direct-compat.json"
+          cp "$RUNNER_TEMP/native-jit-compat/result.json" "$RUNNER_TEMP/native-results/jit-compat.json"
+          cp "$RUNNER_TEMP/native-connection-compat/result.json" "$RUNNER_TEMP/native-results/connection-compat.json"
+          cp "$RUNNER_TEMP/native-betterloop-compat/result.json" "$RUNNER_TEMP/native-results/betterloop-compat.json"
+          cp "$RUNNER_TEMP/native-lemon-compat/result.json" "$RUNNER_TEMP/native-results/lemon-compat.json"
+          cp "$RUNNER_TEMP/native-startup-compat/result.json" "$RUNNER_TEMP/native-results/startup-compat.json"
+          cp "$RUNNER_TEMP/native-automatic-compat/result.json" "$RUNNER_TEMP/native-results/automatic-compat.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-native-results
+          path: ${{ runner.temp }}/native-results
+          retention-days: 7
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-compiled-updater-127
+          path: ${{ runner.temp }}/release-compiled/AccountAccess-runtimeupgrade
+          retention-days: 7
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: failure()
+        with:
+          name: native-failure-diagnostics
+          path: |
+            ${{ runner.temp }}/native-full/*.log
+            ${{ runner.temp }}/native-runtime/*.stderr
+            ${{ runner.temp }}/native-direct/*.stderr
+            ${{ runner.temp }}/native-direct/*.stdout
+          retention-days: 7

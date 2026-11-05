@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "date": "2026-10-28",
+  "source_commit": "3579548e27ad289e5f54b30c58d1000239334d9f",
+  "workflow_run": 40635538964,
+  "workflow": "Mac separate-user worker acceptance",
+  "repeat_workflow_runs": [40635545534],
+  "conclusion": "success",
+  "environment": "controlled-demo",
+  "private_signins": 0,
+  "verified": {
+    "real_distinct_user_ids": true,
+    "cross_user_password_email_sms_totp_recovery": true,
+    "provider_confirmed_four_factor_passwords": true,
+    "pinned_https_sms_delivery": true,
+    "fresh_password_and_sms_browser_login": true,
+    "session_reuse_without_second_password_or_sms": true,
+    "revocation_and_ungranted_operation_refusal": true,
+    "credentials_and_codes_absent_from_agent_results": true,
+    "offline_prepared_runtime_installation": true,
+    "interrupted_install_recovery": true,
+    "packaged_chrome_extension_native_bridge": true
+  },
+  "not_verified": {
+    "private_account_signin": true,
+    "physical_sms_delivery": true,
+    "genuine_owner_approval": true,
+    "positive_consumer_install": true,
+    "publisher_signed_package": true,
+    "chrome_extension_marketplace_install": true
+  },
+  "production_ready": false,
+  "limits": "Hosted controlled-demo acceptance only. No private website or phone was used. It does not qualify a signed consumer installation, owner approval, insurer login, or physical SMS delivery."
+}

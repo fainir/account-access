@@ -1,4 +1,4 @@
-"""Assemble an offline Mac package with protected same-image install recovery."""
+"""Assemble an offline Mac first-install package with same-image retry recovery."""
 
 import argparse
 import hashlib
@@ -28,6 +28,16 @@ IDENTIFIER = "com.fainir.accountaccess.system"
 PREASSEMBLED_MANIFEST_SHA256 = "d1f74db86890b306f989b65a8c521ce3b0879f261ded122dd409be2ca2fbe317"
 PREASSEMBLED_CONFIGURATION_MANIFEST_SHA256 = "05553235819dd43d76d8f1d506f3da16a57617e63c5f8c49bf58c298e11b55da"
 PREASSEMBLED_BROKER_REPAIR_MANIFEST_SHA256 = "5a732de4623ba50aefa6d31c54e7b1eae660b2921341f95042c5675d922d808b"
+PREASSEMBLED_BUILD120_MANIFEST_SHA256 = "6ab5f90fa72dfed84c295d5df4741d3cb9aaf6a0fa89ed155b4cb76400570874"
+PREASSEMBLED_BUILD121_MANIFEST_SHA256 = "0eb9a5bfab615f23f9d3d6e98f7895f7bf46e6196ef8a1e5e07115906f4d443c"
+PREASSEMBLED_BUILD122_MANIFEST_SHA256 = "b6537a7617db5a53540adca82023fdbf50ef45e9ca9e9dd1ae46dd682639832d"
+PREASSEMBLED_BUILD123_MANIFEST_SHA256 = "5f3390496afaa436c64e3629cc125cbb4017e9deec8f70e4f5eb06c16e790930"
+PREASSEMBLED_BUILD124_MANIFEST_SHA256 = "37cadaf59502657983f6cdb4a3bec0a755eb5e0dd041b625151ee51608ab2d8f"
+PREASSEMBLED_BUILD125_MANIFEST_SHA256 = "8abffd8078832752aa13c59e58834b0a9b669656758dab47d4418ae663c41bcd"
+PREASSEMBLED_BUILD126_MANIFEST_SHA256 = "0e1c1f3a2b05f3eb5f9acd32b7a55bea28d775411519d41be0401b43d852d20f"
+PREASSEMBLED_BUILD127_MANIFEST_SHA256 = "82b953e0698ee73468c2cff8aa546c5b94368fbf1fe24036e2623d039fee2f06"
+PREASSEMBLED_BUILD128_MANIFEST_SHA256 = "7b1eccdab5c75cf80963ee005ecb5dca66e64041acc9f50aa65aa3dc2b8131ba"
+PREASSEMBLED_BUILD119_MANIFEST_SHA256 = "630e77605faac2dfdace9faaa5da55e671335c6b18e62114d7f0224a8574f24c"
 
 # Installer provides the target volume as argument 3. The verified coordinator
 # owns all image publication and recovery; PackageKit writes no target payload.
@@ -60,13 +70,18 @@ exec "$AC_PACKAGE_SCRIPTS/AccountAccess-installerverify" --install
 
 
 def command(arguments, *, input_data=None):
+    # A consumer package walks the full offline runtime (including thousands
+    # of Node and Python files). On a real Mac, pkgbuild can exceed ten minutes
+    # while still making progress. Keep ordinary checks short, but give this
+    # bounded local archive step enough time to finish.
+    timeout = 1800 if arguments and arguments[0] == "/usr/bin/pkgbuild" and "--scripts" in arguments else 600
     return subprocess.run(
         arguments,
         check=True,
         stdin=subprocess.DEVNULL if input_data is None else None,
         input=input_data,
         capture_output=True,
-        timeout=600,
+        timeout=timeout,
         env={"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "LANG": "C"},
     )
 
@@ -203,6 +218,34 @@ def build_context(args):
     return unsigned_package
 
 
+def package_source_provenance(*, require_clean):
+    """Bind a package report to a committed source revision.
+
+    Distribution packages built from an uncommitted tree cannot be reproduced
+    or audited. Development fixtures retain their current local workflow.
+    """
+    root = Path(__file__).resolve().parents[1]
+    try:
+        revision = subprocess.run(
+            ["/usr/bin/git", "rev-parse", "--verify", "HEAD"], cwd=root,
+            stdin=subprocess.DEVNULL, capture_output=True, check=False, timeout=10,
+        )
+        status = subprocess.run(
+            ["/usr/bin/git", "status", "--porcelain", "--untracked-files=all"], cwd=root,
+            stdin=subprocess.DEVNULL, capture_output=True, check=False, timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        raise ValueError("package_source_revision_required") from None
+    raw_revision = revision.stdout.strip()
+    if (revision.returncode != 0 or status.returncode != 0
+            or re.fullmatch(rb"[0-9a-f]{40}", raw_revision) is None):
+        raise ValueError("package_source_revision_required")
+    clean = not status.stdout
+    if require_clean and not clean:
+        raise ValueError("committed_package_source_required")
+    return {"source_commit": raw_revision.decode("ascii"), "source_tree_clean": clean}
+
+
 def package_image(args, root, scripts, manifest, output, version):
     """Unchanged protected same-image Installer envelope for either build route."""
     install_bytes = ImageManifest(manifest, hashlib.sha256(manifest).hexdigest()).required_space(copies=2)
@@ -235,7 +278,12 @@ def package_image(args, root, scripts, manifest, output, version):
 def preassembled_manifest(path, expected):
     if (not isinstance(expected, str) or re.fullmatch("[a-f0-9]{64}", expected) is None
             or expected not in {PREASSEMBLED_MANIFEST_SHA256, PREASSEMBLED_CONFIGURATION_MANIFEST_SHA256,
-                                PREASSEMBLED_BROKER_REPAIR_MANIFEST_SHA256}):
+                                PREASSEMBLED_BROKER_REPAIR_MANIFEST_SHA256,
+                                PREASSEMBLED_BUILD119_MANIFEST_SHA256, PREASSEMBLED_BUILD120_MANIFEST_SHA256,
+                                PREASSEMBLED_BUILD121_MANIFEST_SHA256, PREASSEMBLED_BUILD122_MANIFEST_SHA256,
+                                PREASSEMBLED_BUILD123_MANIFEST_SHA256, PREASSEMBLED_BUILD124_MANIFEST_SHA256,
+                                PREASSEMBLED_BUILD125_MANIFEST_SHA256, PREASSEMBLED_BUILD126_MANIFEST_SHA256,
+                                PREASSEMBLED_BUILD127_MANIFEST_SHA256, PREASSEMBLED_BUILD128_MANIFEST_SHA256}):
         raise ValueError("reviewed_preassembled_image_required")
     descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
     try:
@@ -285,6 +333,7 @@ def assemble_preassembled(args):
         raise ValueError("preassembled_and_transform_inputs_conflict")
     if not getattr(args, "preassembled_image", None) or not getattr(args, "preassembled_manifest", None):
         raise ValueError("reviewed_preassembled_image_required")
+    provenance = package_source_provenance(require_clean=True)
     manifest_path = Path(args.preassembled_manifest).absolute()
     manifest = preassembled_manifest(manifest_path, getattr(args, "preassembled_sha256", None))
     source = Path(args.preassembled_image).absolute()
@@ -345,7 +394,8 @@ def assemble_preassembled(args):
         if preassembled_manifest(manifest_path, args.preassembled_sha256) != manifest:
             raise ValueError("preassembled_manifest_changed")
         report = {"status": "BUILT", "version": version, "architecture": args.architecture,
-            "development": False, "offline_runtime": True, "fresh_install_only": False,
+            **provenance,
+            "development": False, "offline_runtime": True, "fresh_install_only": True,
             "installation_strategy": "verified-script-image-v1", "recovery_scope": "same-image-same-owner-only",
             "preassembled_image": True, "preassembled_source_unchanged": True, "runtime_transformed": False,
             "production_ready": False, "notarized": False, "installed": False,
@@ -361,6 +411,7 @@ def assemble_preassembled(args):
 
 def assemble(args):
     unsigned_package = build_context(args)
+    provenance = package_source_provenance(require_clean=not args.development)
     app, native, python, browsers, wheels = [
         Path(getattr(args, name)).resolve(strict=True)
         for name in ["app", "native", "python", "browsers", "wheels"]
@@ -530,8 +581,9 @@ def assemble(args):
                 ]
             ).stdout
         )
+        required_python = [3, 12] if args.development else [3, 12, 16]
         if (type(found) is not list or len(found) != 3 or type(found[0]) is not list
-                or len(found[0]) != 3 or found[0][:2] != [3, 12]
+                or len(found[0]) != 3 or found[0][:len(required_python)] != required_python
                 or any(type(value) is not int or value < 0 for value in found[0])
                 or found[1] != args.architecture or found[2] is not True):
             raise ValueError("matching_standalone_python_required")
@@ -564,9 +616,10 @@ def assemble(args):
             "status": "BUILT",
             "version": version,
             "architecture": args.architecture,
+            **provenance,
             "development": args.development,
             "offline_runtime": True,
-            "fresh_install_only": False,
+            "fresh_install_only": True,
             "installation_strategy": "verified-script-image-v1",
             "recovery_scope": "same-image-same-owner-only",
             "production_ready": False,

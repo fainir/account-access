@@ -57,6 +57,8 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
     sms_setups = {}
     guard = threading.Lock()
     verification_slots = threading.BoundedSemaphore(4)
+    from .harel_setup import HarelSetup
+    harel_setup = HarelSetup(broker)
 
     def verify(account, job_id, visible=False, setup_method=None, review_stop=None):
         with verification_slots:
@@ -229,6 +231,9 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                             "SELECT * FROM challenges WHERE account=? AND resolved IS NULL", (account,))]
                         observed = (record("connection:" + account) or {},
                                     record("credential:" + account) or {}, pending)
+                        saved_credential = observed[1]
+                        saved_login = (isinstance(spec, BrowserAccount) and spec.login is not None
+                                       and spec.login.credential_ready(saved_credential))
                         from .browser_diagnostics import PREFIX, owner_view
                         try:
                             diagnostic = owner_view(config, account, pending, record(PREFIX + account))
@@ -241,6 +246,8 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                                     item["diagnostics"] = diagnostic["diagnostics"]
                         accounts.append({"account": account, **describe(spec, test_mode=config.test_mode), "route": spec.kind,
                                          **broker.connection_view(account, config, display_snapshot=observed),
+                                         "saved_login_available": bool(saved_login or observed[0]),
+                                         "saved_login_exportable": bool(saved_login and not spec.login.identity_contact),
                                          "operations": [{"name": name, "description": op.description} for name, op in spec.operations.items()],
                                          "challenges": challenges})
                     principals = [r[0] for r in db.execute("SELECT DISTINCT principal FROM clients WHERE revoked=0")]
@@ -316,6 +323,7 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                 state = {"accounts": accounts, "principals": principals, "grants": grants,
                          "local_host_actions": local_host_actions,
                          "background_recovery": broker.worker_health.view(),
+                         "browser_runtime": broker.browser_health.view(),
                          "integrations": integrations,
                          "automatic_sessions": automatic_sessions,
                          "connection_jobs": connection_jobs,
@@ -337,6 +345,8 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                         item["password_sync_suggestion"] = suggestion
                 from .browser_updates import view as browser_updates
                 state["browser_updates"] = browser_updates(broker.store)
+                from .phone_test import view as phone_test
+                state["android_connection_test"] = phone_test(broker.store)
                 from .sms_setup import view as sms_setup
                 state["sms_setups"] = sms_setup(broker.store)
                 from .device_email_setup import view as device_email_setups
@@ -400,6 +410,10 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                                                        if isinstance(spec, BrowserAccount) and spec.login
                                                        and key in spec.login.sources()]})
                 state["code_sources"] = source_views
+                if guided and server_socket is not None and not local_host_actions:
+                    from .harel_setup import available, _vacant
+                    state["harel_email_setup"] = {"available": _vacant(broker.store, config),
+                                                  "mailboxes": available(broker.store)}
                 self.send(200, state)
             else:
                 self.send(404, {"status": "DENIED"})
@@ -419,6 +433,28 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                 if not 0 < length <= limit:
                     raise ValueError()
                 data = json.loads(self.rfile.read(length))
+                if self.path.startswith("/owner/harel/"):
+                    if local_host_actions or server_socket is None or not guided:
+                        raise AccessError("DENIED", "trusted_owner_route_required")
+                    if self.path == "/owner/harel/start":
+                        result = harel_setup.start(data)
+                    elif self.path == "/owner/harel/code":
+                        if type(data) is not dict or set(data) != {"id", "code"}:
+                            raise ValueError()
+                        result = harel_setup.code(data["id"], data["code"])
+                    elif self.path == "/owner/harel/approve":
+                        if type(data) is not dict or set(data) != {"id", "candidate"}:
+                            raise ValueError()
+                        result = harel_setup.approve(data["id"], data["candidate"])
+                    elif self.path in {"/owner/harel/check", "/owner/harel/cancel"}:
+                        if type(data) is not dict or set(data) != {"id"}:
+                            raise ValueError()
+                        action = harel_setup.check if self.path.endswith("/check") else harel_setup.cancel
+                        result = action(data["id"])
+                    else:
+                        raise ValueError()
+                    self.send(200, result)
+                    return
                 if self.path in {"/owner/device-email/preview", "/owner/device-email/apply",
                                  "/owner/device-email/discard", "/owner/device-email/remove"}:
                     from . import device_email_setup
@@ -521,6 +557,18 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                         raise ValueError()
                     self.send(200, apply(broker, data["account"], data["fingerprint"]))
                     return
+                if self.path == "/owner/authenticator/batch-preview":
+                    from .authenticator_import import batch_preview
+                    if set(data) != {"uris"}:
+                        raise ValueError()
+                    self.send(200, batch_preview(broker.store, data["uris"]))
+                    return
+                if self.path == "/owner/authenticator/batch-apply":
+                    from .authenticator_import import batch_apply
+                    if set(data) != {"id", "selections"}:
+                        raise ValueError()
+                    self.send(200, batch_apply(broker.store, data["id"], data["selections"]))
+                    return
                 if self.path == "/owner/authenticator/preview":
                     from .authenticator_import import preview
                     if set(data) not in ({"source", "uri"}, {"source", "uris"}):
@@ -574,6 +622,19 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                     if set(data) != {"source"}:
                         raise ValueError()
                     self.send(200, phone.pair(data["source"]))
+                    return
+                if self.path == "/owner/phone/test/configure":
+                    from .phone_test import configure
+                    if set(data) != {"sender"}:
+                        raise ValueError()
+                    self.send(200, configure(broker, data["sender"]))
+                    return
+                if self.path in {"/owner/phone/test/start", "/owner/phone/test/check", "/owner/phone/test/cancel"}:
+                    from .phone_test import start, check
+                    if data:
+                        raise ValueError()
+                    result = start(broker) if self.path.endswith('/start') else check(broker, cancel=self.path.endswith('/cancel'))
+                    self.send(200, result)
                     return
                 if self.path == "/owner/source":
                     from .factors import enroll
@@ -671,6 +732,18 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
                         threading.Thread(target=verify, args=(account, ident), daemon=True).start()
                         result["jobs"].append({"account": account, "id": ident})
                     self.send(200, result)
+                    return
+                if self.path == "/owner/account/export":
+                    if type(data) is not dict or set(data) != {"account"}:
+                        raise ValueError()
+                    from .account_data import export_login
+                    self.send(200, export_login(broker.store, data["account"]))
+                    return
+                if self.path == "/owner/account/forget":
+                    if type(data) is not dict or set(data) != {"account"}:
+                        raise ValueError()
+                    from .account_data import forget_login
+                    self.send(200, forget_login(broker.store, data["account"]))
                     return
                 if guided and self.path == "/owner/add":
                     from .catalog import add, entries
@@ -829,6 +902,7 @@ def make_owner_server(broker, *, guided=False, instance_key=None, owner_token=No
 
     class OwnerServer(ThreadingHTTPServer):
         def server_close(self):
+            harel_setup.close()
             with guard:
                 for setup in sms_setups.values():
                     setup["stop"].set()

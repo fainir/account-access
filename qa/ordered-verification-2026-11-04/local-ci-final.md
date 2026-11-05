@@ -1,0 +1,11 @@
+# Completed local CI and new installed failure - 4 November 2026
+
+The shared local wrapper completed on clean pushed source66b69b6daea38fab86c329aa830df2d4b954703a:5145 pytest passes,5 skips in1869.48seconds, lint/dependency audit/build, both-architecture typechecks,64 native UI groups,84 synthetic XPC checks, desktop/browser/mailbox/isolated launch, shared source/six guards,72 runtime checks and all owner-upgrade groups passed. Zero failed stages. Wrapper duration3267seconds. The actual GitHub local-ci status read back success, created20:51:10UTC. [Actual wrapper output](local-ci-final.log). No Actions ran. Installer/cross-user/multi-OS/physical-phone/private-MFA journeys remain unrun for128.
+
+HelperQdfe3daf and full-CI source66b69b6 differ only in five documentation/evidence files; qualified program13fc473, native helper and signed package bytes are unchanged. The 6,099,873-byte128 updater remains signed, Apple Accepted, stapled and Gatekeeper accepted, but is now HELD, not staged or installed.
+
+A new actual reboot exposed an installed127 failure. Current boot: { sec = 1793821618, usec = 94451 } Wed Nov  4 21:46:58 2026. This postdates127 installation. The initial managed CI ended before this boot; attributing its loss to the later heartbeat was incorrect. The final detached CI above completed successfully after reboot.
+
+Actual127 broker remains running, but no worker is present. Both installed launchers return RETRYABLE/service_unavailable. The fixed public store-startup log records worker_start / worker_startup_timed_out at21:54:24 local. [Sanitized native diagnostic](postboot127-store-startup.log), [Codex](postboot127-codex-accounts.json), [Claude](postboot127-claude-accounts.json). No credential, key, policy or account data file was read. No private operation or owner command was attempted.
+
+D29 must fix initial worker-start recovery before asking for the Harel installation. Current program catches that timeout, pauses the worker and retains needsRepair; a safe recovery must remain bounded and revalidate prior authorization/pause/state, without key replacement, reset or write replay. Personal email/SMS/TOTP remain unverified. No new owner action has been requested.

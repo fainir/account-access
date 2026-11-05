@@ -1,10 +1,6 @@
 name: Broker repair 90 Installer acceptance
+# Historical runbook only; the $0 CI policy forbids dispatching GitHub Actions.
 on:
-  push:
-    branches: [codex/full-image-update]
-    paths:
-      - artifacts/broker-repair-installer90-inputs.json
-      - .github/workflows/mac-broker-repair90-installer-review.yml
   workflow_dispatch:
 permissions:
   contents: read

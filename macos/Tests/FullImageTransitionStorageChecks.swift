@@ -111,8 +111,8 @@ private enum MixedCheckFailure: Error { case failed, interrupted }
         deinit { (descriptors + [target, retained, root]).forEach { Darwin.close($0) } }
         func storage() throws -> FullImageMixedStorage {
             try FullImageMixedStorage(units: trees.map { .tree($0) } + files.map { .file($0) },
-                writeEvent: { self.events.append(($0, $1)) }, verifyOld: {}, verifyRecoverable: {},
-                verifyNew: { if self.failNew { self.failNew = false; throw MixedCheckFailure.interrupted } })
+                writeEvent: { self.events.append(($0, $1)) }, verifyOld: { _ in }, verifyRecoverable: { _ in },
+                verifyNew: { _ in if self.failNew { self.failNew = false; throw MixedCheckFailure.interrupted } })
         }
         func observe(_ operation: FullImageFileOperation, device: Int32?,
                      projection: (() throws -> ComponentObject?)? = nil) throws -> FullImageFileStorage {

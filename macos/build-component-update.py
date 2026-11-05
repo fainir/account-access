@@ -80,6 +80,9 @@ CORE_CHECKS = frozenset({
     "partial_swap_recovery_finishes_coherent_group", "post_swap_failure_rolls_back", "concurrent_replacement_preserved_disabled",
     "fixed_job_parser_accepts_only_closed_states", "foreign_or_malformed_job_print_rejected",
     "saved_process_identity_bound_to_birth_and_boot", "process_group_error_not_empty",
+    "root_job_removal_waits_for_exact_absence_with_one_deadline",
+    "terminating_job_observation_never_grants_pid_authority",
+    "root_job_removal_refuses_unknown_errors_and_late_success",
     "root_revalidation_attests_each_current_lifecycle_independently",
     "root_revalidation_command_failure_never_reuses_prior_authority",
     "root_revalidation_malformed_or_forged_observation_refused",
@@ -95,6 +98,7 @@ CORE_CHECKS = frozenset({
     "legacy_bounded_json_and_plain_escaped_nested_duplicates_rejected",
     "device_only_migration_never_accepts_inode_or_root_set_changes",
     "supplement_binds_uuid_and_both_original_inodes_across_device_renumbering",
+    "verified_support_root_replacement_requires_same_volume_and_original_application_alias",
     "supplement_requires_supported_canonical_nonzero_volume_uuid",
     "supplement_owner_publisher_schema_plan_source_policy_provenance_fail_closed",
     "supplement_fixed_root_schema_uuid_and_inode_cannot_be_substituted",
@@ -263,7 +267,7 @@ def validate_native_report(files, *, source, sources, run_id, run_attempt=1):
     core, policy = report.get("core_fixture_json", {}), report.get("policy_fixture_json", {})
     if (set(core) != {"schema", "status", "checks", "ordinary_fixture_assertions", "installed_reads", "service_actions"}
             or type(core.get("schema")) is not int or core["schema"] != 1 or core.get("status") != "PASSED"
-            or type(core.get("ordinary_fixture_assertions")) is not int or core["ordinary_fixture_assertions"] != 377
+            or type(core.get("ordinary_fixture_assertions")) is not int or core["ordinary_fixture_assertions"] != 396
             or not _true_checks(core.get("checks"), CORE_CHECKS)
             or set(policy) != {"schema", "status", "checks", "count", "installed_reads", "service_actions"}
             or type(policy.get("schema")) is not int or policy["schema"] != 1 or policy.get("status") != "PASSED"

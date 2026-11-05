@@ -118,6 +118,50 @@ final class DesktopChannelFixture: DesktopOwnerChannel {
             })
         } && cancelledProgress == 1 && cancelledChannel.requests == 0 && cancelledChannel.approvals == 0
 
+        let pendingApprovalChannel = DesktopChannelFixture()
+        let lateCleanup = DispatchSemaphore(value: 0)
+        let lateCleanupLock = NSLock()
+        var lateCleanupCount = 0, pendingApprovalAcquireCount = 0
+        var pendingApprovalAcquiring = false
+        let pendingApproval = DesktopOwnerConnection(makeChannel: { pendingApprovalChannel }, acquire: {
+            lateCleanupLock.lock(); pendingApprovalAcquireCount += 1; pendingApprovalAcquiring = true
+            let attempt = pendingApprovalAcquireCount; lateCleanupLock.unlock()
+            if attempt == 1 { Thread.sleep(forTimeInterval: 0.15) }
+            return Data(repeating: 0x49, count: 32)
+        }, closeApproval: {
+            lateCleanupLock.lock()
+            let acquisitionWasActive = pendingApprovalAcquiring
+            pendingApprovalAcquiring = false
+            if acquisitionWasActive { lateCleanupCount += 1 }
+            lateCleanupLock.unlock()
+            if acquisitionWasActive { lateCleanup.signal() }
+        }, approvalTimeout: 0.01)
+        func timedOutApproval(_ operation: () throws -> Void) -> Bool {
+            do { try operation(); return false }
+            catch DesktopOwnerFailure.approvalTimedOut { return true }
+            catch { return false }
+        }
+        func pendingApprovalRefused(_ operation: () throws -> Void) -> Bool {
+            do { try operation(); return false }
+            catch DesktopOwnerFailure.approvalPending { return true }
+            catch { return false }
+        }
+        checks["owner_approval_wait_is_bounded_and_never_sends_setup_body"] = timedOutApproval {
+            _ = try pendingApproval.request("owner/import/preview", body: ["csv": "synthetic"])
+        } && pendingApprovalChannel.requests == 0
+        pendingApproval.close()
+        lateCleanupLock.lock(); let closeLeftPendingApprovalAlone = lateCleanupCount == 0; lateCleanupLock.unlock()
+        checks["close_during_pending_os_prompt_defers_cleanup_without_blocking"] = closeLeftPendingApprovalAlone
+        checks["pending_os_approval_does_not_stack_a_second_prompt"] = pendingApprovalRefused {
+            _ = try pendingApproval.request("owner/import/preview", body: ["csv": "synthetic"])
+        } && pendingApprovalChannel.requests == 0
+        let lateCleanupObserved = lateCleanup.wait(timeout: .now() + 2) == .success
+        lateCleanupLock.lock(); let lateCleanupWasCalledOnce = lateCleanupCount == 1; lateCleanupLock.unlock()
+        let pendingApprovalRetryStatus = try pendingApproval.request("owner/import/preview", body: ["csv": "synthetic"]).0
+        checks["late_owner_approval_is_discarded_and_releases_pending_state"] = lateCleanupObserved && lateCleanupWasCalledOnce
+            && pendingApprovalRetryStatus == 200
+            && pendingApprovalChannel.requests == 1
+
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("ac-owner-profile-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
         defer { try? FileManager.default.removeItem(at: directory) }

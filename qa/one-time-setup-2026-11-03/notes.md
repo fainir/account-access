@@ -1,0 +1,196 @@
+# One-time setup candidate - 3 November 2026
+
+The owner clarified the core job: one password import, reusable authenticator,
+SMS and Gmail connections, then approved automatic sign-ins. The owner identified
+**Google Authenticator** through the in-app question. The old manual Lemon
+password handoff is superseded; existing completed mailbox/Betterloop setup stays done.
+
+The best implementation keeps credentials and codes in the local protected
+service, reuses existing grants, and imports a complete authenticator export
+with explicit account/source mappings. [Google's transfer guide](https://support.google.com/accounts/answer/1066447)
+describes the owner-unlocked local export. [Apple passkeys](https://developer.apple.com/documentation/authenticationservices/supporting-passkeys)
+and [WebAuthn](https://www.w3.org/TR/webauthn/) retain owner presence/verification.
+No passkey import or unattended platform-presence bypass is implemented.
+
+## Implemented source
+
+- Native Automatic sign-in setup links the existing password import/sync,
+  authenticator transfer, email setup and Android pairing surfaces. It explains
+  exactly what is reused and when owner approval is required.
+- One complete Google Authenticator export is decoded once. The native review
+  offers explicit mappings to existing configured TOTP sources. Every mapping
+  starts unselected. Duplicate key mappings disable the import control.
+- Owner-only batch endpoints bind every selected source to its configuration,
+  linked account fingerprints and enrollment generation. All selected keys and
+  preview consumption commit in one SQLite transaction. Stale, revoked,
+  duplicate or invalid selections make no changes. Unselected sources are kept;
+  no website credentials, account definitions or AI grants are added.
+- Leaving the review discards its encrypted preview. Late preview/apply replies
+  cannot replace a navigated screen. The existing single-site setup path stays.
+- Zero-match password exports now have a clear recovery screen and no enabled
+  no-op Import action or file-deletion control. The local web setup also offers
+  a new file and clears its file input so selecting the same file works again.
+
+## Current evidence and limits
+
+The compiled native fixture passes all 61 PASS groups, including new setup,
+no-match recovery, duplicate selection and required native setup authorization:
+[native check output](native-checks.log). It uses only a temporary home,
+intercepted owner requests and blocked managed helpers, never the installed vault.
+
+Actual native UI was opened with CUA and inspected: [setup top](setup-top.jpg),
+[SMS/passkey guidance](setup-bottom.jpg), [empty import](empty-import.jpg) and
+[batch review](authenticator-review.jpg). Choose another file opens the native
+picker; Cancel returns to the same unchanged no-match screen. The batch page
+starts with Do not import for both fictional websites and a disabled submit.
+Native selection-state transitions are also exercised by the compiled fixture.
+The first CUA menu attempt reported a changed-app guard and then
+noWindowsAvailable. After native control recovered, actual selection, duplicate
+refusal and cancellation passed: [duplicate selection](authenticator-duplicate.jpg)
+disables Import and explains the error; [two distinct selections](authenticator-mappings.jpg)
+enable it. Cancel returns to Automatic sign-in. The controlled preview is not a
+completed native batch import or installed acceptance.
+The earlier modal prototype also produced a blank modal capture; a full review
+page now provides readable screenshot evidence and more room for many accounts.
+
+Actual localhost web UI at [375px](web-empty-375.png) and
+[1440px](web-empty-1440.png) shows safe no-match recovery with no horizontal
+overflow or page errors. Only fictional exports and isolated browser profiles
+were used. Browser cache was initially absent, affecting an unchanged original
+browser test too; the pinned project's official headless browser install fixed
+that environment issue.
+
+[Final focused source regression](source-tests.log) passes 206 tests, including actual local browser/MFA, native-route API, import and web-UI behavior. The [16-case batch security subset](batch-security.log) and earlier [97-case local web/import regression](ui-regression.log) overlap that set; they are not added to its total. All [16 image/predecessor/CLI safety checks](image-builder-tests.log) pass separately. Ruff passes.
+The controlled batch engine test imports two sources together, then completes a
+real local password/TOTP browser login without owner code entry. No real Google
+Authenticator export, private MFA, physical SMS, passkey ceremony or new grant
+was performed. Installed build 125 and its qualified release assets are unchanged.
+A signed matching owner/broker/runtime update and installed acceptance remain
+necessary before this candidate can be called shipped.
+
+The build-126 native compilation workflow retains choices 121–125 and uses 126 for this new source. Its public image builder is bound to the actual qualified build-125 manifest. The updater, signed packages and installed acceptance have not been created or claimed yet.
+
+
+## Build and existing CI
+
+Program source 2ca9de3 is pushed. [Native owner build 126](https://github.com/fainir/account-access/actions/runs/41614265465)
+completed successfully and its actual runtime126-owner-image archive is
+present locally. The [main source checks](https://github.com/fainir/account-access/actions/runs/41614265449)
+and [Mac worker checks](https://github.com/fainir/account-access/actions/runs/41614265385)
+completed successfully. The main run reports 4,731 passing tests and 114 skips,
+with lint and dependency audit passing; [read-back](source-ci-summary.log). The existing [separate-user run](https://github.com/fainir/account-access/actions/runs/41614265397)
+and [component run](https://github.com/fainir/account-access/actions/runs/41614265387) pass.
+Automatic pull-request duplicates were cancelled and read back as completed/
+cancelled; the primary push runs remain. No manual duplicate was dispatched.
+
+Inspection of the real image CLI found its separate hard-coded version choices
+excluded 126 despite the new profile. Choices now come from the profile table;
+actual child-process CLI tests accept both retained 125 and new 126 before
+requesting image inputs. Program source is unchanged by this publisher-only fix.
+Use the current builder and retain the compiled 2ca9de3 owner/broker/wheel bytes.
+
+## Qualified image and updater contract
+
+The matching build-126 [image qualification](target126-qualification.json)
+reports TARGET_IMAGE_QUALIFIED: 49 native files, 11 executables, one bundle,
+34 wheels, publisher signatures and actual sandboxed browser execution pass.
+Dependencies and required JIT roles are unchanged. No installed paths or account
+data were used. Image qualification alone does not claim notarization.
+
+The exact 125-to-126 plan has 15 units and 17 changed nodes. A separate Automatic
+Setup recovery namespace retains every prior history. All 140 [focused updater
+checks](update-source-tests.log) pass, including current image/source refusals,
+retained profile CLIs and refusal before any owner-Mac Installer probe inputs.
+The public five-file [qualification archive](https://github.com/fainir/account-access/releases/tag/qa-automatic-setup126-20261103)
+was independently read back with the expected size/digest and uploaded state.
+It contains no credentials or customer installer. The native qualification
+workflow now checks all retained 120-125 plans and the new 126 plan and compiles
+the exact updater. Signed packages and installed acceptance remain pending.
+
+The existing worker and Android runs also completed successfully; no duplicate
+was dispatched. Technical continuation is scheduled hourly as
+account-access-one-time-setup-release and stays quiet on unchanged state.
+
+The retained full-installer allowlist stopped before output creation because it
+had no reviewed build-126 image. Added only the independently qualified exact
+manifest; all existing publisher, peer identity, complete inventory and native
+preflight checks remain. [Full-package source regression](fresh-source-tests.log)
+passes 101 tests with one platform skip. This packaging-only addition does not
+change the frozen 2ca9de3 program or a53567d native updater inputs.
+
+The existing Mac-worker artifact was downloaded and all 18 reports read back:
+427 check values are true, and all 15 dedicated validators invoked by that
+workflow pass [validation](worker-validation.log). No private account is used.
+
+The full signed build-126 package assembled successfully at packaging source
+0714900; its complete 25,170-file/2,298-directory/21-alias manifest is unchanged
+from the qualified image. Native audits/preflight pass. The existing Apple
+notarization job was submitted once and is being checked; no customer release
+publication, installation or owner import has occurred.
+
+## Final signed packages
+
+All nine actual [native reports](native/direct.json) pass in
+[run 41622483331](https://github.com/fainir/account-access/actions/runs/41622483331),
+including retained 120-125 contracts and the new 15-unit/17-node 126 plan.
+The updater uses that exact a53567d compiler artifact; the packaging-only
+0714900 change does not affect its reviewed source inputs.
+
+Both final packages are signed, Apple-accepted, stapled and accepted by
+Gatekeeper. The [6.1 MB exact updater](updater-qualification.json) independently
+expands and verifies its resource inventory, owner signature and ordinary-user
+refusal. The [289 MB full installer](fresh-qualification.json) passes its trusted
+certificate/timestamp, immutable Apple submission, stapled ticket and policy
+assessment. Neither has been installed on the owner Mac.
+
+All three public synthetic Installer inputs were uploaded to the same QA
+prerelease and read back: matching server digests, byte counts and uploaded
+state. [Exact contract](../../artifacts/runtime126-installer-inputs.json).
+The next checks use these final bytes on macOS 14, 15 and 26; no customer release
+or private account data is involved.
+
+The updated helper/source [CI run 41622483380](https://github.com/fainir/account-access/actions/runs/41622483380)
+also completed successfully: 4,742 tests, 114 skips, Ruff, dependency audit and
+all three native jobs pass [read-back](source-helper-ci-summary.log).
+This includes the new release guard/CLI/refusal checks; totals are not added
+to the earlier program-source regression.
+
+Final-byte Installer runs at dca3dd3 were dispatched once after confirming no
+existing 126 runs: [macOS 14](https://github.com/fainir/account-access/actions/runs/41625148580),
+[15](https://github.com/fainir/account-access/actions/runs/41625153664) and
+[26](https://github.com/fainir/account-access/actions/runs/41625157789).
+All three public-input jobs passed. Actual acceptance remains pending until
+their final report files are downloaded and read. No owner action is staged yet.
+
+## Retained-history fixture repair
+
+Initial [macOS 14](initial-macos14-upgrade.json) and
+[15](initial-macos15-upgrade.json) upgrade drivers stopped with KeyError after
+three setup checks, before candidate-signature/Installer execution. Both seeded
+histories included 125, but the separate source-commit map ended at 124.
+The created synthetic service was stopped; no owner account or Mac was used.
+
+The fixture now builds each historical public head from the reviewed publisher
+release table and refuses a mismatched manifest/plan tuple. Regression exercises
+all 120-126 heads, exact build-125 source and unknown/mismatched tuple refusal.
+All [102 focused checks](retained-history-fixture-tests.log) and Ruff pass.
+This changes only the disposable test driver; qualified program, native updater
+and signed package bytes remain unchanged. Keep all existing fresh-install
+journeys and rerun only upgrade journeys with this corrected driver.
+
+All original fresh/repair reports passed and were read back:
+[macOS 14](macos14-fresh/report.json), [15](macos15-fresh/report.json),
+[26](macos26-fresh/report.json), each with 11 checks.
+The unchanged final updater now passes all 27 actual
+[macOS-14 update/reapply checks](macos14-upgrade/report.json) in
+[corrected-driver run 41626228498](https://github.com/fainir/account-access/actions/runs/41626228498).
+It preserves all six 120-125 historical namespaces, private fixture inode,
+original receipts, recovery binding and prior unpublished preparation.
+Corrected-driver macOS 15 is 41626232760 and macOS 26 is 41626568521; retain
+those existing runs. Initial 26 also stopped at the same pre-Installer KeyError
+[report](initial-macos26-upgrade.json). No package was rebuilt or owner action requested.
+
+The later helper [Mac-worker run 41622483229](https://github.com/fainir/account-access/actions/runs/41622483229)
+also passed: all 18 new actual reports, 427 checks and 15 validators were read.
+Current worker evidence replaces the equivalent earlier controlled reports;
+both completed runs remain linked, and their counts are not added.

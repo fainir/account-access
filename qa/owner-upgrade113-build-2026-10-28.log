@@ -1,0 +1,4 @@
+2026-10-28 - Rebuilt the owner-upgrade helper from the committed build 113 sources with optimized arm64 compilation; the unprivileged execution probe refused as designed.
+2026-10-28 - Verified all 27,532 predecessor projection rows against the compiled helper input; package signature and exact archived payload validation passed.
+2026-10-28 - Apple notarization returned Accepted, stapling validation passed, and Gatekeeper assessed the package as accepted from Notarized Developer ID.
+2026-10-28 - Installer package parser validation passed. Package status is NOTARIZED_STAPLED_PENDING_OWNER_INSTALL; the owner-Mac installation and protected-service smoke have not yet passed.

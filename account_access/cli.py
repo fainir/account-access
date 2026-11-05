@@ -38,7 +38,7 @@ def owner_store(args, create=False):
     if key_file and not args.development:
         raise AccessError("DENIED", "file_key_requires_development_mode")
     root.mkdir(mode=0o700, parents=True, exist_ok=True)
-    return Store(root, load_key(root, key_file, create=create))
+    return Store(root, load_key(root, key_file, create=create), key_file=key_file)
 
 
 def steps(text):
@@ -155,6 +155,10 @@ def parser():
     session = sub.add_parser("import-session")
     session.add_argument("account")
     session.add_argument("--file", required=True)
+    backup = sub.add_parser("backup", help="Create a password-protected local vault backup")
+    backup.add_argument("--file", required=True, help="New backup file path; existing files are never replaced")
+    restore = sub.add_parser("restore", help="Restore a portable encrypted vault backup")
+    restore.add_argument("--file", required=True, help="Password-protected Account Access backup")
     demo = sub.add_parser("demo")
     demo.add_argument("--install", action="store_true", help="Install test-only skill connections into Codex and Claude Code")
     demo.add_argument("--public-sites", action="store_true", help="Also enroll published SauceDemo and The Internet demo identities")
@@ -223,6 +227,22 @@ def main(argv=None):
             runner(Path(args.root), args.generation,
                    key_file=Path(args.key_file).expanduser() if args.key_file else None)
             return 0
+        if args.command in {"backup", "restore"}:
+            store = owner_store(args, create=args.command == "restore")
+            from .vault_backup import create_backup, restore_backup
+            if args.command == "backup":
+                passphrase = getpass.getpass("New backup passphrase (12+ characters): ")
+                confirmation = getpass.getpass("Confirm backup passphrase: ")
+                if passphrase != confirmation:
+                    raise AccessError("DENIED", "backup_passphrase_mismatch")
+                print_json(create_backup(store, args.file, passphrase))
+                return 0
+            if input("This replaces the current local vault. Type RESTORE to continue: ") != "RESTORE":
+                raise AccessError("DENIED", "backup_restore_not_confirmed")
+            passphrase = getpass.getpass("Backup passphrase: ")
+            print_json(restore_backup(store, args.file, passphrase))
+            return 0
+
         from .broker import Broker
         store = owner_store(args, create=args.command == "init")
         broker = Broker(store)

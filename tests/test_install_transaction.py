@@ -270,6 +270,7 @@ def test_entrypoint_refuses_unsupported_arguments_before_dispatch(monkeypatch, c
 
 @pytest.mark.parametrize("error,reason", [
     (image.ImageConflict("insufficient_install_space"), "insufficient_install_space"),
+    (image.ImageConflict("install_record_conflict"), "existing_installation_requires_update"),
     (image.ImageConflict("install_space_check_failed"), "system_install_not_completed"),
     (image.ImageConflict("synthetic private pathname"), "system_install_not_completed"),
     (OSError("insufficient_install_space"), "system_install_not_completed"),

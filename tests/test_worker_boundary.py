@@ -12,6 +12,7 @@ import pytest
 from account_access.errors import AccessError
 from account_access.owner import make_owner_server
 from account_access.worker_bootstrap import BootstrapError, read_bootstrap, read_policy, root_managed_path, take_listener
+from scripts.worker_boundary_smoke import wait_for_launch_job_absence
 
 
 def pipe_message(data):
@@ -19,6 +20,50 @@ def pipe_message(data):
     os.write(writer, data)
     os.close(writer)
     return reader
+
+
+def test_launchctl_bootout_wait_rechecks_until_job_is_absent():
+    time_value = [0.0]
+    observations = iter([0, 0, 1])
+    calls = []
+
+    def run(arguments, *, capture_output):
+        calls.append((arguments, capture_output))
+        return type("Result", (), {"returncode": next(observations)})()
+
+    def pause(duration):
+        time_value[0] += duration
+
+    assert wait_for_launch_job_absence(
+        "system/fixture",
+        timeout=1,
+        run=run,
+        pause=pause,
+        clock=lambda: time_value[0],
+    )
+    assert len(calls) == 3
+    assert all(call == (["/bin/launchctl", "print", "system/fixture"], True) for call in calls)
+
+
+def test_launchctl_bootout_wait_times_out_while_job_remains_registered():
+    time_value = [0.0]
+    calls = []
+
+    def run(arguments, *, capture_output):
+        calls.append(arguments)
+        return type("Result", (), {"returncode": 0})()
+
+    def pause(duration):
+        time_value[0] += duration
+
+    assert not wait_for_launch_job_absence(
+        "system/fixture",
+        timeout=0.2,
+        run=run,
+        pause=pause,
+        clock=lambda: time_value[0],
+    )
+    assert len(calls) == 2
 
 
 def test_private_bootstrap_consumes_once_closes_and_redacts():

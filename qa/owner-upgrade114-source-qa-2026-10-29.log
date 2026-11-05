@@ -1,0 +1,4 @@
+2026-10-29 - Fresh native owner-update probes passed: 79 owner checks, 26 namespace checks, 21 preparation checks, 482 strict tree checks and 324 mixed transition checks. No installed reads, writes or service actions.
+2026-10-29 - Runtime compatibility probe passed 69 planner checks and compiled the actual update entry point; ordinary launch refused with runtime_upgrade_installer_context_required. No installed reads.
+2026-10-29 - Full installed-image compatibility probe compiled once and passed fixtures, namespace/recovery checks, invalid-argument guards and ordinary-launch refusal. Sources stayed stable; no installed reads or writes.
+2026-10-29 - These are source/fixture QA only, not proof of a signed package install. Build 113's owner-Mac postinstall exceeded PackageKit's 1,800-second limit; build 114 still requires package signing/notarization and a real owner-Mac install.

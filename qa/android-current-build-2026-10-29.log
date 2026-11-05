@@ -1,0 +1,5 @@
+2026-10-29 - `sh android/build.sh` succeeded for the Android preview app.
+2026-10-29 - `sh android/test/build.sh` succeeded for the Android instrumentation APK.
+2026-10-29 - `apksigner verify --verbose` passed for both APKs. The preview targets SDK 36 and carries the development preview signer, not a publisher signer.
+Local `adb devices -l` found no attached phone or emulator, and the Android emulator binary/AVD is not installed on this Mac. This is build/signature evidence only; runtime journey remains with CI and physical Android 15+ pairing/SMS acceptance remains unverified.
+The [GitHub Android emulator journey](https://github.com/fainir/account-access/actions/runs/40797912092) passed on the current source revision: Android 11 automatic and owner-entered SMS login; Android 15 refused notification/manual delivery without computer association. It does not prove a positive paired Android 15 login or carrier delivery.

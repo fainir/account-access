@@ -1,0 +1,25 @@
+# Installer update preflight source QA - 2026-10-29
+
+Commands and final results:
+
+- `uv run pytest -q tests/test_installer_payload_native.py` - 80 passed in 163.79s.
+- `uv run pytest -q tests/test_system_package.py tests/test_system_package_preassembled.py` - 83 passed, 1 skipped in 18.25s.
+- `uv run ruff check` - passed.
+
+The ordinary-user native fixture compiled `macos/InstallerPayload.swift` and
+`macos/Tests/InstallerPayloadChecks.swift`. New cases exercise the filesystem
+preflight with no journal, an exact same-image intent, a different-image intent,
+a malformed intent, and the legitimate two-link interrupted-record state.
+The production installer now reads only the fixed root-owned install journal
+before verifying the full bundled image; different-image packages return the
+fixed `existing_installation_requires_update` result before the 25,000-file walk.
+Same-image and incomplete-install paths still use the full verifier and recovery.
+
+Additional checks: `xcrun swiftc -frontend -parse macos/InstallerPayload.swift macos/Tests/InstallerPayloadChecks.swift` passed; `git diff --check` passed.
+
+The first filesystem-fixture run caught that the shared regular-file checker
+rejects the journal's legitimate two-link crash-recovery state. The preflight
+now validates that state explicitly; all final native cases pass.
+
+Scope limit: no signed package was rebuilt or installed, no update behavior was
+added, and this does not establish owner-Mac installer acceptance.

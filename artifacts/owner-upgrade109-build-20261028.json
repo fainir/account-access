@@ -1,0 +1,61 @@
+{
+  "agent_launcher": {
+    "environment": "controlled-demo",
+    "real_insurer_accounts": 0,
+    "service_version": "0.6.0",
+    "status": "OK",
+    "synthetic_accounts": 3
+  },
+  "automated_qa": {
+    "candidate_package_tests": "PASSED (5)",
+    "installed_reads_by_qa": false,
+    "installed_source_qualification": "PASSED",
+    "installed_writes_by_qa": false,
+    "mixed_storage_checks": 324,
+    "owner_native_checks": 79,
+    "ruff": "PASSED",
+    "runtime_native_checks": 69,
+    "tree_checks": 477
+  },
+  "base_package_sha256": "cc90db7297051b324f87c3f4f11e06a3710626bda02c9d886bb6193890c5933d",
+  "date": "2026-10-28",
+  "failure": {
+    "checkpoint": "predecessor_repair_history",
+    "evidence": "PackageKit postinstall fixed-label refusal at 2026-10-28 13:48:51 +0200",
+    "field_level_cause": "Not reported by the fixed-label refusal. The exact predecessor-history object or predicate remains unverified.",
+    "package_state": "Scripts-only package; helper refused before the successor update; no receipt was written",
+    "reason": "owner_upgrade_source_not_verified"
+  },
+  "helper_sha256": "c51b054d1fc37ada176f390e97402e175efa91aba9c3cb666e80c4ed163d277d",
+  "notarization": {
+    "gatekeeper": "ACCEPTED_NOTARIZED_DEVELOPER_ID",
+    "installer_package_parser": "PASSED",
+    "stapled": true,
+    "status": "Accepted",
+    "submission_id": "0d49a3bc-426e-488c-b77e-05d93c27a247"
+  },
+  "owner_mac_observation": {
+    "installer_window_opened": true,
+    "macos_authorization_granted": true,
+    "package_receipt_found": false,
+    "postinstall_started": true,
+    "status": "FAILED"
+  },
+  "package_build": 109,
+  "package_path": "../dist/owner-upgrade109-review-20261028/Account-Access-Owner-Upgrade-109.pkg",
+  "package_sha256": "0528d4a545c14c92c58a8ebe03660e8d75efd7d38b67db92ccc913a5249ce2a0",
+  "product_build": 110,
+  "production_gates_open": [
+    "owner_state_predecessor_history_qualification",
+    "installed_agent_service_smoke",
+    "real_account_acceptance",
+    "physical_android_15_sms_acceptance",
+    "harel_connector",
+    "phoenix_connector",
+    "real_authenticator_login"
+  ],
+  "production_ready": false,
+  "schema": 1,
+  "source_commit": "168651ccf3c67d61382d0fce23cc5f2983bcd676",
+  "status": "NOTARIZED_STAPLED_INSTALL_FAILED_PREFLIGHT"
+}

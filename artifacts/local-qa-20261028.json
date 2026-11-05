@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "date": "2026-10-28",
+  "scope": "local source, dependency, packaging, and owner-upgrade fixture QA",
+  "base_commit": "9a89f61a2895dc986a42eb08698b5497670065e5",
+  "tracked_worktree_diff_sha256": "250bb475a4b3e1318ab7f7ab9daec1f9c2b485a20b2fcb4687c6ab7d2e405843",
+  "production_ready": false,
+  "python_suite": {
+    "command": "uv run --locked pytest",
+    "status": "PASSED",
+    "collected": 4481,
+    "passed": 4477,
+    "skipped": 4,
+    "failed": 0,
+    "duration_seconds": 2875.79,
+    "authlib_version": "1.9.1"
+  },
+  "security": {
+    "authlib_minimum": "1.9.1",
+    "authlib_locked_version": "1.9.1",
+    "authlib_runtime_version": "1.9.1",
+    "pip_audit": "no known vulnerabilities found",
+    "project_package_audit": "skipped because account-access 0.8.0 is not published on PyPI",
+    "lock_check": "passed",
+    "runtime_requirements_match_lock_export": true
+  },
+  "lint": {
+    "command": "uv run --locked ruff check account_access tests scripts macos/notarize.py macos/system_package.py macos/payload_audit.py macos/runtime_prepare.py macos/runtime_image.py macos/runtime_ca.py macos/full_image_update.py macos/bitwarden_runtime.py macos/bitwarden_sources.py macos/bitwarden_notices.py",
+    "status": "PASSED"
+  },
+  "python_distributions": {
+    "command": "uv build --out-dir /tmp/account-access-build-20261028-final",
+    "status": "PASSED",
+    "authlib_metadata_requirement": ">=1.9.1,<2",
+    "sdist_sha256": "29621bf6041b76960579f659af8ab0a8a27b99598826b52cebe0b3d75324440f",
+    "wheel_sha256": "c6d5032669783b3bdeff4944dc5885ff9be56efa2631d4af8413e44c7f8484a3"
+  },
+  "isolated_wheel_install": {
+    "status": "PASSED",
+    "environment": "/tmp/account-access-wheel-install-20261028",
+    "runtime_requirements_installed_with_hashes": true,
+    "authlib_installed_version": "1.9.1",
+    "wheel_installed": true,
+    "console_script_help": "PASSED"
+  },
+  "owner_upgrade_native_fixture": {
+    "status": "PASSED",
+    "parser_checks": 32,
+    "namespace_checks": 26,
+    "preparation_checks": 21,
+    "tree_storage_checks": 477,
+    "mixed_storage_checks": 324,
+    "ordinary_entrypoint_refusal": true,
+    "installed_reads": false,
+    "installed_writes": false,
+    "production_ready": false
+  },
+  "owner_acceptance_snapshot": {
+    "installed_app_version": "0.8.0",
+    "installed_app_build": "92",
+    "connected_android_devices": 0,
+    "signed_account_access_package_submitted_to_apple": false,
+    "signed_account_access_package_installed": false
+  },
+  "open_release_gates": [
+    "Build inputs for the next owner upgrade are pinned private GitHub draft assets; the approved downloader only runs in the hosted repository workflow, which was previously stopped at the owner's request.",
+    "The installed owner app still needs a qualified, signed and notarized update plus downloaded installation and restart acceptance.",
+    "Real Harel/Phoenix login journeys, real email delivery, Lemon Squeezy TOTP, physical Android SMS delivery, and real agent continuation remain unverified."
+  ]
+}

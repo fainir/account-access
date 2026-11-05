@@ -1,0 +1,40 @@
+{
+  "status": "OK",
+  "service_version": "0.8.0",
+  "environment": "mixed",
+  "background_recovery": {
+    "status": "RUNNING",
+    "consecutive_failures": 0,
+    "failures_total": 0,
+    "last_success": 1793706345.625398,
+    "last_failure": null,
+    "next_retry_at": null,
+    "in_progress": false
+  },
+  "browser_runtime": {
+    "status": "READY"
+  },
+  "accounts": [
+    {
+      "account": "personal-namecheap",
+      "environment": "live",
+      "operations": [
+        "status"
+      ]
+    },
+    {
+      "account": "personal-store",
+      "environment": "public-example",
+      "operations": [
+        "inventory"
+      ]
+    },
+    {
+      "account": "personal-betterloop",
+      "environment": "live",
+      "operations": [
+        "status"
+      ]
+    }
+  ]
+}

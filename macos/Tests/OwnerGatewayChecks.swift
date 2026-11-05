@@ -169,6 +169,60 @@ enum GatewayChecks {
             ("browser_handoff_route", "owner/browser-session/start")] {
             result["reject_" + name] = (try? OwnerGatewayRoute(route, body: grant)) == nil
         }
+        let loginExportBody = try JSONSerialization.data(withJSONObject: ["account": "demo-web"])
+        let loginExport = try OwnerGatewayRoute("owner/account/export", body: loginExportBody)
+        let loginForget = try OwnerGatewayRoute("owner/account/forget", body: loginExportBody)
+        result["saved_login_export_requires_owner_authorization"] = loginExport.requiresSetup
+        result["saved_login_forget_is_explicit_restricted_action"] = !loginForget.requiresSetup
+        let exampleUpdate: [String: Any] = ["account": "personal-store", "fingerprint": String(repeating: "a", count: 64)]
+        result["browser_update_requires_exact_binding_and_owner_setup"] = try OwnerGatewayRoute("owner/browser-update",
+            body: JSONSerialization.data(withJSONObject: exampleUpdate)).requiresSetup
+        result["browser_update_rejects_missing_or_extra_authority"] = [
+            [:], ["account": "../bad", "fingerprint": String(repeating: "a", count: 64)],
+            ["account": "personal-store", "fingerprint": "bad"],
+            exampleUpdate.merging(["url": "https://unreviewed.example"]) { _, new in new }
+        ].allSatisfy { (try? OwnerGatewayRoute("owner/browser-update", body: JSONSerialization.data(withJSONObject: $0))) == nil }
+        let phoneSetup = try OwnerGatewayRoute("owner/phone/test/configure", body: JSONSerialization.data(withJSONObject: ["sender": "Fixture sender"]))
+        let emptyTest = try JSONSerialization.data(withJSONObject: [:] as [String: Any])
+        let phoneStart = try OwnerGatewayRoute("owner/phone/test/start", body: emptyTest)
+        let phoneCheck = try OwnerGatewayRoute("owner/phone/test/check", body: emptyTest)
+        let phoneCancel = try OwnerGatewayRoute("owner/phone/test/cancel", body: emptyTest)
+        result["phone_test_start_and_configuration_require_owner_setup"] = phoneSetup.requiresSetup
+            && phoneStart.requiresSetup
+        result["phone_test_poll_and_cancel_keep_existing_owner_channel_without_new_approval"] =
+            !phoneCheck.requiresSetup && !phoneCancel.requiresSetup
+        result["phone_test_rejects_arbitrary_window_or_code_arguments"] = ["start", "check", "cancel"].allSatisfy { action in
+            (try? OwnerGatewayRoute("owner/phone/test/" + action,
+                body: JSONSerialization.data(withJSONObject: ["code": "123456"]))) == nil
+        }
+        result["phone_test_sender_rejects_empty_controls_and_oversize"] = ["", " ", "sender\n", "x" + String(UnicodeScalar(0)!), String(repeating: "x", count: 201)].allSatisfy {
+            (try? OwnerGatewayRoute("owner/phone/test/configure", body: JSONSerialization.data(withJSONObject: ["sender": $0]))) == nil
+        }
+        let harelID = String(repeating: "a", count: 32)
+        let harelStart: [String: Any] = ["id": harelID, "mailbox": "mailbox-" + String(repeating: "b", count: 24),
+            "identity": "000000000", "phone": "0500000000", "consent": true]
+        result["harel_start_requires_native_setup"] = try OwnerGatewayRoute("owner/harel/start", body: JSONSerialization.data(withJSONObject: harelStart)).requiresSetup
+        result["harel_continuations_consume_only_existing_attempt"] = try [
+            ("code", ["id": harelID, "code": "654321"]), ("approve", ["id": harelID, "candidate": harelID]),
+            ("check", ["id": harelID]), ("cancel", ["id": harelID])
+        ].allSatisfy { !((try OwnerGatewayRoute("owner/harel/" + $0.0, body: JSONSerialization.data(withJSONObject: $0.1))).requiresSetup) }
+        result["harel_rejects_extra_targets_and_unapproved_start"] = [
+            harelStart.merging(["url": "https://unreviewed.invalid"], uniquingKeysWith: { _, new in new }),
+            harelStart.merging(["consent": 1], uniquingKeysWith: { _, new in new }),
+            harelStart.merging(["mailbox": "gmail-mailbox-" + String(repeating: "b", count: 24)], uniquingKeysWith: { _, new in new })
+        ].allSatisfy { (try? OwnerGatewayRoute("owner/harel/start", body: JSONSerialization.data(withJSONObject: $0))) == nil }
+        result["harel_rejects_code_or_filter_in_check_and_approval"] = [
+            ("check", ["id": harelID, "code": "654321"]),
+            ("approve", ["id": harelID, "candidate": harelID, "sender": "unreviewed@example.test"]),
+            ("code", ["id": harelID, "code": "654321\n"])
+        ].allSatisfy { (try? OwnerGatewayRoute("owner/harel/" + $0.0, body: JSONSerialization.data(withJSONObject: $0.1))) == nil }
+        result["saved_login_routes_require_exact_account_handle"] = [
+            ["account": "../etc"], ["account": "Demo"], ["account": "demo-web", "path": "unsafe"], [:]
+        ].allSatisfy {
+            let body = (try? JSONSerialization.data(withJSONObject: $0)) ?? Data()
+            return (try? OwnerGatewayRoute("owner/account/export", body: body)) == nil
+                && (try? OwnerGatewayRoute("owner/account/forget", body: body)) == nil
+        }
         let bitwardenUUID = "12345678-1234-1234-1234-123456789abc"
         let bitwardenConnect: [String: Any] = ["region": "us", "client_id": "user." + bitwardenUUID,
             "client_secret": "synthetic-api-secret", "master_password": "  synthetic 🔐 master  ", "consent_vault_access": true]

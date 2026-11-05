@@ -1,12 +1,6 @@
 name: Runtime successor Installer acceptance
+# Historical runbook only; the $0 CI policy forbids dispatching GitHub Actions.
 on:
-  push:
-    branches: [codex/full-image-update]
-    paths:
-      - .github/workflows/mac-runtime-upgrade-review.yml
-      - scripts/mac_runtime_upgrade_installer_probe.py
-      - scripts/download_runtime_upgrade_inputs.py
-      - artifacts/runtime-upgrade95-installer-inputs.json
   workflow_dispatch:
     inputs:
       identity_only:

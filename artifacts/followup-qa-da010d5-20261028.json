@@ -1,0 +1,69 @@
+{
+  "schema": 1,
+  "date": "2026-10-28",
+  "source_commit": "da010d50544fea1a0d20498c0e7ac212e2c37b6d",
+  "production_ready": false,
+  "source_qa": {
+    "python_suite": {
+      "command": "uv run pytest -q",
+      "status": "PASSED",
+      "passed": 4481,
+      "skipped": 4,
+      "failed": 0,
+      "duration_seconds": 1148.97
+    },
+    "lint": {
+      "command": "uv run ruff check .",
+      "status": "PASSED"
+    },
+    "hosted_full_suite": [
+      {"run_id": 40651612939, "status": "PASSED"},
+      {"run_id": 40651620837, "status": "PASSED"}
+    ],
+    "native_owner_ui": {"status": "PASSED", "scope": "synthetic owner UI and setup checks"},
+    "native_owner_gateway": {"status": "PASSED", "checks": 71, "scope": "fictional XPC peers and owner routes"},
+    "native_owner_upgrade": {
+      "status": "PASSED",
+      "ordinary_context_refusals": 2,
+      "namespace_checks": 26,
+      "preparation_checks": 21,
+      "tree_storage_checks": 477,
+      "mixed_storage_checks": 324,
+      "installed_reads": false,
+      "installed_writes": false
+    },
+    "hosted_native_macos_jobs": "PENDING"
+  },
+  "owner_mac": {
+    "installed_app_build": 92,
+    "owner_ui_snapshot": {
+      "accounts_screen_summary": "3 connected · 5 accounts",
+      "automatic_agent_label": "Ready in every new session",
+      "verification_screen": "Authenticator · Juniper Workspace",
+      "example_warning_visible_on_home": false,
+      "interpretation": "These labels are not corroborated by the approved launcher; it returns only three synthetic controlled-demo accounts."
+    },
+    "candidate_build": 104,
+    "candidate_package_sha256": "900f9053f1eb5d256870c9a55eb5d60b598c1043b404e812912a4bb38d25b425",
+    "signature_notarization_gatekeeper": "PASSED",
+    "installer_stage": "Installation Type — Standard Install on Macintosh HD",
+    "install_action_attempted": true,
+    "installer_receipt": "NOT_FOUND",
+    "installed_build_verification": "PENDING"
+  },
+  "installed_agent": {
+    "service_version": "0.6.0",
+    "environment": "controlled-demo",
+    "synthetic_accounts": 3,
+    "demo_web_summary_retry": {"status": "RETRYABLE", "reason": "browser_execution_failed"}
+  },
+  "feature_acceptance": {
+    "chrome_password_export_import": "PENDING_OWNER_EXPORT",
+    "real_email_code_delivery": "PENDING",
+    "physical_android_15_sms_pairing": "PENDING",
+    "harel_connector": "UNSUPPORTED",
+    "phoenix_connector": "UNSUPPORTED",
+    "lemon_squeezy_authenticator_login": "PENDING"
+  },
+  "private_credentials_messages_policy_data_or_codes_read": false
+}

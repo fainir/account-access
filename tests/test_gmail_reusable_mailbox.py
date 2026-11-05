@@ -26,7 +26,7 @@ ADDRESS = "fictional@example.test"
 def saved_google(tmp_path):
     state = SimpleNamespace(status=200, profile={"emailAddress": ADDRESS, "messagesTotal": 19,
         "threadsTotal": 11, "historyId": "not-needed"}, profiles=0, refreshes=0,
-        profile_delay=0, refresh_delay=0, hook=lambda: None)
+        profile_delay=0, refresh_delay=0, refresh_started=threading.Event(), hook=lambda: None)
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
@@ -55,6 +55,7 @@ def saved_google(tmp_path):
             assert self.path == "/token"
             self.rfile.read(int(self.headers["Content-Length"]))
             state.refreshes += 1
+            state.refresh_started.set()
             time.sleep(state.refresh_delay)
             self.reply(200, {"access_token": "synthetic-renewed-access", "refresh_token": "synthetic-renewed-refresh",
                              "token_type": "Bearer", "expires_in": 3600, "scope": gmail.GMAIL_SCOPE})
@@ -251,10 +252,25 @@ def test_explicit_refresh_budget_marks_uncertain_rotation_without_blind_retry(sa
     broker, http = saved_google
     connection = broker.store.get("connection:google")
     authorization = connection["authorization_id"]
-    http.refresh_delay = .2
+    # Wait until the local server has definitely received the refresh request
+    # before allowing the deliberate read timeout to race against it.
+    http.refresh_delay = .6
+    result = {}
     started = time.monotonic()
-    with pytest.raises(AccessError, match="refresh_outcome_uncertain"):
-        broker.oauth.token("google", broker.store.config(), force=True, refresh_timeout=.05)
+
+    def refresh_once():
+        try:
+            broker.oauth.token("google", broker.store.config(), force=True, refresh_timeout=.2)
+        except AccessError as exc:
+            result["error"] = exc
+
+    worker = threading.Thread(target=refresh_once)
+    worker.start()
+    assert http.refresh_started.wait(timeout=1), "refresh request never reached the local provider"
+    worker.join(timeout=1)
+    assert not worker.is_alive(), "bounded refresh did not return after its deadline"
+    assert isinstance(result.get("error"), AccessError)
+    assert result["error"].reason == "refresh_outcome_uncertain"
     assert time.monotonic() - started < 1
     current = broker.store.get("connection:google")
     assert current["refresh_in_flight"] and current["authorization_id"] == authorization
@@ -270,6 +286,15 @@ def test_google_profile_picker_real_http_device_mail_login_and_session_reuse(dev
     parent = provider.server.RequestHandlerClass
     profile_path, messages_path = "/gmail/v1/users/me/profile", "/gmail/v1/users/me/messages"
     state["profiles"], state["gmail_lists"] = 0, 0
+    messages = {}
+
+    def capture_delivery():
+        if state["mail"]:
+            generation = state["totps"]
+            ident = "fresh" if generation == 1 else "fresh-" + str(generation)
+            if ident not in messages:
+                messages[ident] = {"id": ident, "internalDate": str(int(time.time() * 1000)),
+                                   "raw": encoded(state["mail"])}
 
     class Handler(parent):
         def do_GET(self):
@@ -279,11 +304,12 @@ def test_google_profile_picker_real_http_device_mail_login_and_session_reuse(dev
                 self.send(200, {"emailAddress": ADDRESS})
             elif path == messages_path:
                 state["gmail_lists"] += 1
-                self.send(200, {"messages": [{"id": "fresh"}]} if state["mail"] else {})
-            elif path == messages_path + "/fresh":
-                state["mail_reads"].append("fresh")
-                self.send(200, {"id": "fresh", "internalDate": str(int(time.time() * 1000)),
-                                "raw": encoded(state["mail"])})
+                capture_delivery()
+                self.send(200, {"messages": [{"id": ident} for ident in messages]})
+            elif path.startswith(messages_path + "/") and path.rsplit("/", 1)[1] in messages:
+                ident = path.rsplit("/", 1)[1]
+                state["mail_reads"].append(ident)
+                self.send(200, messages[ident])
             else:
                 super().do_GET()
 
@@ -304,7 +330,8 @@ def test_google_profile_picker_real_http_device_mail_login_and_session_reuse(dev
     review = setup.preview(broker.store, "pypi-device",
                            broker.store.config().fingerprint("pypi-device"), result["id"])
     assert state["passwords"] == state["gmail_lists"] == 0
-    setup.apply(broker.store, review["id"])
+    source_id = setup.apply(broker.store, review["id"])["source"]
+    assert source_id == broker.store.config().accounts["pypi-device"].login.device_email_source
     assert state["passwords"] == state["gmail_lists"] == 0
     actual = broker.run("test", "pypi-device", "status")
     assert actual["status"] == "COMPLETED", actual
@@ -314,6 +341,23 @@ def test_google_profile_picker_real_http_device_mail_login_and_session_reuse(dev
     assert state["email_token"] not in json.dumps(actual)
     assert broker.run("test", "pypi-device", "status")["status"] == "COMPLETED"
     assert state["passwords"] == state["totps"] == state["confirmations"] == 1
+    profile = broker.store.get(gmail.PROFILE_PREFIX + result["id"])
+    enrolled = broker.store.get("source:" + source_id)
+    assert profile is not None and enrolled is not None
+    # New objects reopen this fixture's encrypted state. Neither mailbox
+    # identity checking nor source setup is repeated after session expiry.
+    broker = Broker(Store(broker.store.root, broker.store._key))
+    broker.store.put("connection:pypi-device", None)
+    broker.store.put("login-attempt:pypi-device", 0)  # Accelerated fixture cooldown only.
+    fresh = broker.run("test", "pypi-device", "status")
+    assert fresh["status"] == "COMPLETED", fresh
+    assert state["passwords"] == state["totps"] == state["confirmations"] == 2
+    assert state["profiles"] == 1 and state["projects"] == 0
+    assert state["mail_reads"] == ["fresh", "fresh-2"]
+    assert set(messages) == {"fresh", "fresh-2"}  # Old mail remains and must be baselined out.
+    assert broker.store.get(gmail.PROFILE_PREFIX + result["id"]) == profile
+    assert broker.store.get("source:" + source_id) == enrolled
+    assert state["email_token"] not in json.dumps(fresh)
     before = state["gmail_lists"]
     connection = broker.store.get("connection:google")
     connection["revoked"] = True
@@ -325,6 +369,6 @@ def test_google_profile_picker_real_http_device_mail_login_and_session_reuse(dev
     # Device mail is optional until PyPI asks for it: the approved password
     # and primary TOTP can run, but revoked mail never starts a baseline/read
     # or confirmation request, and cannot claim a completed sign-in.
-    assert state["passwords"] == state["totps"] == 2
-    assert state["confirmations"] == 1
+    assert state["passwords"] == state["totps"] == 3
+    assert state["confirmations"] == 2
     assert state["gmail_lists"] == before

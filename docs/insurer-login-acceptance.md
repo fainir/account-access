@@ -5,10 +5,57 @@ Neither provider is currently a bundled supported connector. Public-page
 inspection on 22 October 2026 did not submit an identity number, contact detail,
 password or code, and did not access an insurance account.
 
+## v1 release scope
+
+On 4 November the owner reopened Harel for email verification first, then SMS.
+Implementation and private acceptance are pending; Harel is not yet supported.
+Phoenix remains excluded. Preserve the earlier public observations below while
+qualifying Harel's current email choice and exact request/response contract.
+Identity, phone and codes stay in local setup; only session status may leave it.
+
+As of 30 October 2026, Harel and Phoenix were excluded from the v1 release.
+Their observed login forms are not sufficient to implement a safe connector:
+Harel's complete request/challenge flow is not qualified, and Phoenix's
+state-bound request contract is unavailable. The generic login engine must
+continue to refuse these sites. Reopen this work only after the exact
+provider-owned login sequence, SMS binding, success marker and session scope
+are documented and each provider passes synthetic refusal tests plus owner
+acceptance on the real site and paired phone. Do not market either insurer as
+supported before that evidence exists.
+
 | Provider | Official entry | Public login observed | Remaining provider evidence |
 | --- | --- | --- | --- |
 | Harel | [Personal area](https://www.harel-group.co.il/Pages/login-page/Login.aspx) | Header controls `#idUser` / `#phone`; the direct login dialog uses `#uid` / `#phone` and defaults to SMS. | Bound request sequence, live code screen, sender/template, authenticated marker, session expiry and session-status scope. |
 | Phoenix | [Personal area](https://my.fnx.co.il/policies) | Redirect to `auth.fnx.co.il/u/login` with a per-attempt state. Identity type and number, then phone or email, followed by Send code. | Bound redirect/state handling, exact send-code endpoint, code screen, sender/template, authenticated marker, session expiry and read scope. |
+
+Fresh anonymous inspection in Chrome on 28 October reconfirmed Harel's direct
+dialog with ID and mobile fields, SMS selected by default and email as an
+alternative. Phoenix's personal-area entry redirected to its authentication
+host and described a one-time code to mobile or email; it also offered a phone
+call. No values were entered and no code was requested. The transient Phoenix
+state parameter was not retained. The official Phoenix entry produced a
+state-bound login page; opening the authentication URL without that state showed
+a generic configuration error. [Sanitized public-page check](../artifacts/insurer-public-login-check-20261028.json).
+
+A fresh read-only check in the owner's Chrome on 30 October again showed
+Harel's ID and mobile inputs, SMS selected, and a Continue button. DOM metadata
+confirmed that the visible dialog is a separate native `GET` form to the login
+path; the page also has an unrelated hidden SharePoint `POST` form. No value was
+entered, no button was pressed and no code was requested. This confirms that
+loosening the generic connector's POST-only refusal would expose the ID and
+phone in a URL; it does not qualify a Harel connector. The provider's reviewed
+JavaScript submission sequence still needs to be implemented and tested with
+synthetic fixtures before owner account acceptance.
+
+A fresh check of public insurer guidance on 29 October found Harel's official
+FAQ explicitly describes entry with an identity number and mobile number,
+followed by a one-time SMS code; first entry may also ask for the identity
+document's issue date ([Harel FAQ](https://www.harel-group.co.il/long-term-savings/saving-and-investment/information/faq)).
+Phoenix's official personal-information registration page currently presents
+identity/contact fields and a “Send code” action ([Phoenix registration](https://myinfo.fnx.co.il/Fnx/MyZone/Registration/Registration?page=31)).
+That is a registration page, not proof of the existing-account login flow or
+the code-delivery channel. No fields were entered and no code was requested.
+These public checks do not qualify either connector or change F9's status.
 
 Harel's [official FAQ](https://www.harel-group.co.il/long-term-savings/independent-and-employees/information/faq)
 describes identity/phone verification and possible first-login identity-issuance
@@ -95,8 +142,11 @@ The login dialog is also displayed without awaiting all logging responses. A
 connector must account for this overlap rather than assume four sequential
 completed requests. The separate `CustomerRouting` entry has different promise
 handling and is not interchangeable with the reviewed direct entry.
-The dialog's submission handler separately calls `ContextConfig` with an SMS
-channel value of zero, then `StartProcess` with the entered identity and phone.
+The dialog's submission handler separately calls `ContextConfig` with the
+selected channel (`Sms: 0`, `Email: 1`), then `StartProcess` with the entered
+identity and phone. A fresh public-source review on 4 November corrects the
+earlier description of an unconditional SMS channel: the state starts at SMS,
+but the email radio changes the value passed to `ContextConfig` before submit.
 Thus the direct route does not remove the need to review preparatory requests.
 An additional fresh anonymous HTTP session on 25 October reached the direct
 page and the page-opening `ContextConfig` POST with HTTP 200. The configuration

@@ -1,0 +1,3 @@
+2026-10-28 - Build 111 candidate builder tests passed: 13 tests.
+Pinned build 109, runtime package 95 and inventory files match their reviewed inputs.
+The builder reuses the reviewed build 109 package, compiles the current checkpoint fix, and assigns the successor package identity. Package signing, notarization and owner installation remain unverified for build 111.

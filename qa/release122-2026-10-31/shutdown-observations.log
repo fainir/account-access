@@ -1,0 +1,4 @@
+{"elapsed": 0.01, "status": 0, "fields": ["\tstate = SIGTERMed", "\tprogram = /Library/Application Support/Account Access/bin/AccountAccess-broker", "\tpid = 29642"]}
+{"elapsed": 12.12, "status": 113, "fields": [], "message": "Bad request.\nCould not find service \"com.fainir.accountaccess.broker\" in domain for system\n"}
+{"bootout_status": 0, "bootout_output": ""}
+{"bootstrap_status": 0, "bootstrap_output": ""}

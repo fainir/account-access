@@ -48,10 +48,12 @@ class DemoProvider:
         self.password = DEMO_PASSWORD
         self.login_redirect = None
         self.identity_contact_mode = False
+        self.identity_contact_harel_form = False
         self.identity_contact_form_method = "post"
         self.identity_contact_submit_target = None
         self.identity_contact_skip_sms = False
         self.identity_contact_received = False
+        self.identity_contact_get_attempted = False
         self.lock = threading.Lock()
         provider = self
 
@@ -82,6 +84,13 @@ class DemoProvider:
             def login_form(self, mfa=False, prefix=None):
                 path = (prefix or ("/mfa" if mfa else "/web")) + "/login"
                 if provider.identity_contact_mode and path == "/sms/login":
+                    if provider.identity_contact_harel_form:
+                        return ('<h1>Fictional public insurer form shape</h1><form id="identity-login" '
+                                f'action="/sms/login" method="{provider.identity_contact_form_method}">'
+                                '<label>Identity<input name="identity" id="uid"></label>'
+                                '<label>Phone<input name="phone" id="phone" type="tel"></label>'
+                                '<label><input id="otp-channel-sms" type="radio" name="channel" value="sms" checked>SMS</label>'
+                                '<button id="login-submit">Continue</button></form>')
                     return ('<h1>Fictional identity and phone login</h1><form id="identity-login" '
                             f'action="/sms/login" method="{provider.identity_contact_form_method}">'
                             '<label>Identity<input name="identity" id="identity"></label>'
@@ -93,6 +102,8 @@ class DemoProvider:
             def do_GET(self):
                 parts = urlsplit(self.path)
                 query = parse_qs(parts.query)
+                if provider.identity_contact_harel_form and parts.path == "/sms/login" and query:
+                    provider.identity_contact_get_attempted = True
                 if parts.path == "/oauth/authorize":
                     code = secrets.token_urlsafe(24)
                     provider.codes[code] = {k: v[0] for k, v in query.items()}

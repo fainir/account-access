@@ -49,7 +49,7 @@ def test_build_refuses_wrong_execution_context_before_paths_or_processes(monkeyp
 def test_fresh84_workflow_downloads_and_builds_only_its_reviewed_cohort():
     import yaml
     workflow = yaml.safe_load((ROOT / ".github/workflows/mac-fresh-image84-build-review.yml").read_text())
-    assert workflow.get("on", workflow.get(True))["push"]["paths"] == ["artifacts/fresh-image84-build-request.json"]
+    assert workflow.get("on", workflow.get(True)) == {"workflow_dispatch": None}
     for job in workflow["jobs"].values():
         actions = [step["uses"] for step in job["steps"] if "uses" in step]
         assert actions[0] == "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"

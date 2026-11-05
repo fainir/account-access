@@ -57,7 +57,7 @@ private enum InstallationRevalidationReport {
     static func emit(status: String, checkpoint: String? = nil, publisherVerified: Bool) {
         let checkpoints: Set<String> = ["source", "legacy", "current_binding", "protected_policies", "public_image",
             "installed_signatures", "service", "publish", "finished"]
-        let statuses: Set<String> = ["REVALIDATED", "ALREADY_BOUND", "ALREADY_REVALIDATED", "REFUSED"]
+        let statuses: Set<String> = ["REVALIDATED", "ALREADY_BOUND", "ALREADY_REVALIDATED", "RECOVERED_ROOT", "REFUSED"]
         guard statuses.contains(status), checkpoint == nil || checkpoints.contains(checkpoint!) else { return }
         var value: [String: Any] = ["schema": 1, "status": status, "production_ready": false]
         if let checkpoint {

@@ -1,0 +1,182 @@
+2026-10-30 19:21:58+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[2211]: Referenced component packages (1) trustLevel=350
+2026-10-30 19:21:58+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[2211]: -[IFPKGDerivedDocument sortedPackageLocations]: result = (
+	    "file://localhost"
+	)
+2026-10-30 19:21:58+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[2211]: -[IFDInstallController(Private) _buildInstallPlanReturningError:]: location = file://localhost
+2026-10-30 19:21:58+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[2211]: -[IFDInstallController(Private) _buildInstallPlanReturningError:]: file://localhost/Users/runner/work/_temp/direct-inputs/candidate.pkg
+2026-10-30 19:21:58+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[2211]: Set authorization level to root for session
+2026-10-30 19:21:58+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[2211]: Authorization is being checked, waiting until authorization arrives.
+2026-10-30 19:21:58+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[2211]: Administrator authorization granted.
+2026-10-30 19:21:58+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[2211]: Packages have been authorized for installation.
+2026-10-30 19:21:58+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[2211]: Will use PK session
+2026-10-30 19:21:58+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[2211]: Using authorization level of root for IFPKInstallElement
+2026-10-30 19:21:58+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[2211]: Starting installation:
+2026-10-30 19:21:58+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[2211]: Configuring volume "Macintosh HD"
+2026-10-30 19:21:58+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[2211]: Preparing disk for local booted install.
+2026-10-30 19:21:58+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[2211]: Free space on "Macintosh HD": 43.72 GB (43717857280 bytes).
+2026-10-30 19:21:58+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[2211]: Create temporary directory "/var/folders/zz/zyxvpxvq6csfxvn_n0000000000000/T//Install.2211Sqqw1x"
+2026-10-30 19:21:58+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[2211]: IFPKInstallElement (1 packages)
+2026-10-30 19:21:58+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[2211]: Current Path: /usr/sbin/installer
+2026-10-30 19:21:58+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[2211]: Current Path: /opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/Resources/Python.app/Contents/MacOS/Python
+2026-10-30 19:21:58+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[2211]: Current Path: /usr/bin/sudo
+2026-10-30 19:21:58+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: Adding client PKInstallDaemonClient pid=2211, uid=0 (/usr/sbin/installer)
+2026-10-30 19:21:58+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[2211]: PackageKit: Enqueuing install with framework-specified quality of service (utility)
+2026-10-30 19:21:58+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: Set reponsibility for install to 927
+2026-10-30 19:21:58+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: Hosted team responsibility for install set to team:(WBULD6N4NQ)
+2026-10-30 19:21:58+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: ----- Begin install -----
+2026-10-30 19:21:58+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: request=PKInstallRequest <1 packages, destination=/>
+2026-10-30 19:21:58+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: packages=(
+	    "PKLeopardPackage <id=com.fainir.accountaccess.directruntimeupgrade120recovery, version=0.8.0, url=file://localhost/Users/runner/work/_temp/direct-inputs/candidate.pkg>"
+	)
+2026-10-30 19:22:01+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: prevent user idle system sleep
+2026-10-30 19:22:01+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: suspending Spotlight indexing
+2026-10-30 19:22:01+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: suspending backupd
+2026-10-30 19:22:01+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: Using trashcan path /var/folders/zz/zyxvpxvq6csfxvn_n0000000000000/T/PKInstallSandboxTrash/A242D620-2B66-4E51-B3F6-F87B91C45537.sandboxTrash for sandbox /Library/InstallerSandboxes/.PKInstallSandboxManager/A242D620-2B66-4E51-B3F6-F87B91C45537.activeSandbox
+2026-10-30 19:22:01+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 install_monitor[2219]: Temporarily excluding: /Applications, /Library, /System, /bin, /private, /sbin, /usr
+2026-10-30 19:22:01+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: Shoving /Library/InstallerSandboxes/.PKInstallSandboxManager/A242D620-2B66-4E51-B3F6-F87B91C45537.activeSandbox/Root (0 items) to /
+2026-10-30 19:22:01+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit (package_script_service): Preparing to execute script "./postinstall" in /private/tmp/PKInstallSandbox.t1tGhQ/Scripts/com.fainir.accountaccess.directruntimeupgrade120recovery.tufjgU
+2026-10-30 19:22:01+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 package_script_service[2220]: PackageKit: Preparing to execute script "postinstall" in /tmp/PKInstallSandbox.t1tGhQ/Scripts/com.fainir.accountaccess.directruntimeupgrade120recovery.tufjgU
+2026-10-30 19:22:01+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 package_script_service[2220]: Set responsibility to pid: 927, responsible_path: /opt/hca/hosted-compute-agent
+2026-10-30 19:22:01+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 package_script_service[2220]: Hosted team responsibility for script set to team:(WBULD6N4NQ)
+2026-10-30 19:22:01+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 package_script_service[2220]: PackageKit: Executing script "postinstall" in /tmp/PKInstallSandbox.t1tGhQ/Scripts/com.fainir.accountaccess.directruntimeupgrade120recovery.tufjgU
+2026-10-30 19:22:47+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Adding client SUUpdateServiceClient pid=2834, uid=0, installAuth=NO rights=(), transactions=0 (/System/Library/PrivateFrameworks/XprotectFramework.framework/Versions/A/XPCServices/XProtectUpdateService.xpc/Contents/MacOS/XProtectUpdateService)
+2026-10-30 19:23:44+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: BackgroundActivity: Starting Background Check Activity
+2026-10-30 19:23:44+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: BackgroundActivity: Starting background actions now.
+2026-10-30 19:23:44+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: BackgroundActions: Automatic check parameters: autoDownload=NO, autoConfigData=NO, autoCriticalInstall=NO
+2026-10-30 19:23:44+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: SoftwareUpdate: Should Check=YES.  Next check=10/29/26, 3:25 AM (interval=86280.000000, A/C=YES
+2026-10-30 19:23:44+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: SoftwareUpdate: Fire periodic check for interval
+2026-10-30 19:23:44+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: BackgroundActions: checking for updates
+2026-10-30 19:23:44+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: -[SUBackgroundManager synchronousRefreshAvailableUpdatesIfRequired]: Posting com.apple.softwareupdate.legacyBackgroundScanInitiated notification
+2026-10-30 19:23:44+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: SUScan: Scan for client pid 245 (/System/Library/CoreServices/Software Update.app/Contents/Resources/softwareupdated)
+2026-10-30 19:23:44+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Got status 200
+2026-10-30 19:23:45+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: SUScan: Using catalog https://swscan.apple.com/content/catalogs/others/index-15-14-13-12-10.16-10.15-10.14-10.13-10.12-10.11-10.10-10.9-mountainlion-lion-snowleopard-leopard.merged-1.sucatalog.gz
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Failed to get bridge device
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Failed to get bridge device
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'system.ioregistry.fromPath('IODeviceTree:/rom\@0').version') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Failed to get bridge device
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Failed to get bridge device
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Failed to get bridge device
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Failed to get bridge device
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Failed to get bridge device
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Failed to get bridge device
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: JS: 15.8.2
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:46+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:47+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Failed to get bridge device
+2026-10-30 19:23:47+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Failed to get bridge device
+2026-10-30 19:23:47+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:47+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:47+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:47+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:47+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:47+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:47+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:47+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:48+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:48+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:48+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:48+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:48+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Failed to get bridge device
+2026-10-30 19:23:48+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Failed to get bridge device
+2026-10-30 19:23:48+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:48+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:48+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: JS: No bundle at/Applications/SafeView.app
+2026-10-30 19:23:48+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:48+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Package Authoring: error running installation-check script: TypeError: null is not an object (evaluating 'cpuFeatures.split') at x-distribution:///installer-gui-script%5B1%5D/installation-check%5B1%5D/@script
+2026-10-30 19:23:48+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: SUScan: Elapsed scan time = 4.2
+2026-10-30 19:23:48+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Refreshing available updates from scan
+2026-10-30 19:23:48+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Scan (f=1, d=1) completed
+2026-10-30 19:23:48+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: 4 updates found:
+	012-04872	 | MRTConfigData 1.93
+	061-06985	 | Gatekeeper Compatibility Data 1.0
+	142-44024	 | XProtectPlistConfigData 5368
+	142-44702	 | XProtectPayloads 170
+2026-10-30 19:23:48+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: SUOSNotificationBundleHandler: Should notify? NO (Notification pending=0, bundle exists=0, mdmInitiatedNotificationBundleInstall=0)
+2026-10-30 19:23:48+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: BackgroundActions: Legacy scan completed
+2026-10-30 19:23:48+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: BackgroundActions: 0 user-visible product(s):
+2026-10-30 19:23:48+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: BackgroundActions: 4 enabled config-data product(s): 012-04872, 061-06985, 142-44024, 142-44702 (want active updates only)
+2026-10-30 19:23:48+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: BackgroundActions: 0 firmware product(s):
+2026-10-30 19:23:48+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: BackgroundActions: 0 Critical product(s) - [download and install now: ], [download and queue for post logout now: ], [download only: ], [no action: ]
+2026-10-30 19:23:48+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: BackgroundActivity: Starting background download now.
+2026-10-30 19:23:48+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: SUOSUServiceDaemon: DO MSU BACKGROUND ACTIONS!
+2026-10-30 19:23:48+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: BackgroundActivity: Finished Background Check Activity
+2026-10-30 19:23:48+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: SUOSUServiceDaemon: BackgroundActivity: Perform background scan
+2026-10-30 19:23:48+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: -[SUOSUServiceDaemon doBackgroundActionsWithCompletion:]_block_invoke: Posting com.apple.softwareupdate.AutoBackgroundScanInitiated notification
+2026-10-30 19:23:48+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: SUOSUMobileSoftwareUpdateController: Starting scan with options: Background=1, MDMInitiated=0, BuddyInitiated=0, requestedPMV=(null))
+2026-10-30 19:23:48+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: SUOSUMobileSoftwareUpdateController: Set bridgeOS catalog override to catalogURL default
+2026-10-30 19:23:48+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: SUOSUMobileSoftwareUpdateController: Setting requestedPMV to nil
+2026-10-30 19:23:48+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: SUOSULoginCredentialPolicyManager: No update downloaded and prepared.
+2026-10-30 19:23:50+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: MiniSoftwareUpdate: using pinning policy for swscan.apple.com: MacSoftwareUpdate (included with OS)
+2026-10-30 19:23:50+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: MiniSoftwareUpdate: using pinning policy for swdist.apple.com: MacSoftwareUpdate (included with OS)
+2026-10-30 19:23:51+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: SUOSUMobileSoftwareUpdateController: Scan finished
+2026-10-30 19:23:51+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: 	majorPrimaryDescriptor: SUMacControllerDescriptor(UUID:203B9E94-1AAF-5C7D-954A-E00272E580AB SU:macOS 27.2 26B123 (Customer)(SU) SFR:(null) BRAIN:26B123 BRIDGEOS:NO((null)) ROSETTA:YES((null)) RECOVERYOS:YES SPLAT:(null))
+2026-10-30 19:23:51+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: 	minorPrimaryDescriptor: (null)
+2026-10-30 19:23:51+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: SUOSUServiceDaemon: Setting availableMobileSoftwareUpdates = (
+	    "<SUOSUProduct: MSU_UPDATE_26B123_patch_27.2_major>"
+	)
+2026-10-30 19:23:51+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: SUOSUBackgroundDownloadEvaluator: Background download disabled.
+2026-10-30 19:23:51+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: SUOSUServiceDaemon: BackgroundActivity: No products eligible for background download.
+2026-10-30 19:23:51+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: softwareupdated: Posting com.apple.softwareupdate.AutoBackgroundScanFinished notification
+2026-10-30 19:23:51+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: int main(int, const char **)_block_invoke: Removed old declarations upon successful update
+2026-10-30 19:23:51+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: SUOSUInactivityPredictor: Predicting an inactivity between Fri Oct 30 19:23:51 2026 and Sat Oct 31 19:23:51 2026
+2026-10-30 19:23:51+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: -[SUOSUServiceDaemon scheduleUpdatesAvailableBSDNotification]_block_invoke: Scheduling for Fri Oct 30 21:23:51 2026 (7199 seconds)
+2026-10-30 19:23:51+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: -[SUOSUManagedServiceDaemon invalidAndRemoveOldDeclarations]_block_invoke: Removed 0 invalid declarations
+2026-10-30 19:25:47+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Adding client SUUpdateServiceClient pid=101, uid=0, installAuth=NO rights=(), transactions=0 (/usr/libexec/keybagd)
+2026-10-30 19:26:49+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 nbagent[7601]: NBUpdateController: Using catalog URL: https://swscan.apple.com/content/catalogs/others/index-noticeboard-10.10-noticeboard-10.9-noticeboard.merged-1.sucatalog
+2026-10-30 19:26:49+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 nbagent[7601]: MiniSoftwareUpdate: using pinning policy for swscan.apple.com: MacSoftwareUpdate (included with OS)
+2026-10-30 19:26:49+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 nbagent[7601]: MiniSoftwareUpdate: using pinning policy for swdist.apple.com: MacSoftwareUpdate (included with OS)
+2026-10-30 19:26:49+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 nbagent[7601]: NBUpdateController: Filtered installable products: (
+	)
+2026-10-30 19:28:11+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 softwareupdated[245]: Adding client SUUpdateServiceClient pid=178, uid=0, installAuth=NO rights=(), transactions=0 (/usr/libexec/syspolicyd)
+2026-10-30 19:29:13+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 package_script_service[2220]: ./postinstall: {"schema":1,"status":"UPDATED_GUI_UNVERIFIED","checkpoint":"complete","gui_verified":false,"account_qa_verified":false}
+2026-10-30 19:29:13+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 package_script_service[2220]: PackageKit: Hosted team responsible for script has been cleared.
+2026-10-30 19:29:13+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 package_script_service[2220]: Responsibility set back to self.
+2026-10-30 19:29:13+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: No Intel binaries to translate.
+2026-10-30 19:29:13+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: Installed "candidate" ()
+2026-10-30 19:29:13+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: Successfully wrote install history to /Library/Receipts/InstallHistory.plist
+2026-10-30 19:29:13+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: releasing Spotlight indexing
+2026-10-30 19:29:13+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 install_monitor[2219]: Re-included: /Applications, /Library, /System, /bin, /private, /sbin, /usr
+2026-10-30 19:29:13+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: releasing backupd
+2026-10-30 19:29:13+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: allow user idle system sleep
+2026-10-30 19:29:13+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: ----- End install -----
+2026-10-30 19:29:13+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: 435.4s elapsed install time
+2026-10-30 19:29:13+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: Cleared responsibility for install from 2211.
+2026-10-30 19:29:13+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: Hosted team responsible for install has been cleared.
+2026-10-30 19:29:13+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: Running idle tasks
+2026-10-30 19:29:13+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: Removing client PKInstallDaemonClient pid=2211, uid=0 (/usr/sbin/installer)
+2026-10-30 19:29:13+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: Done with sandbox removals
+2026-10-30 19:29:14+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[2211]: Removing temporary directory "/var/folders/zz/zyxvpxvq6csfxvn_n0000000000000/T//Install.2211Sqqw1x"
+2026-10-30 19:29:14+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[2211]: Finalize disk "Macintosh HD"
+2026-10-30 19:29:14+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[2211]: Notifying system of updated components
+2026-10-30 19:29:14+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[2211]: 
+2026-10-30 19:29:14+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[2211]: **** Summary Information ****
+2026-10-30 19:29:14+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[2211]:   Operation      Elapsed time
+2026-10-30 19:29:14+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[2211]: -----------------------------
+2026-10-30 19:29:14+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[2211]:        zero      0.00 seconds
+2026-10-30 19:29:14+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[2211]:        disk      0.00 seconds
+2026-10-30 19:29:14+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[2211]:     install      435.83 seconds
+2026-10-30 19:29:14+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[2211]:     -total-      435.83 seconds
+2026-10-30 19:29:14+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[2211]: 

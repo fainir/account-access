@@ -50,6 +50,29 @@ LEGACY_AGENT_TEMPLATE = "fd20307cf6e0ff731323deccae9d4b645d16b32c5f0baf33be8c2a3
 SKILL_FILES = {".account-access-install", "installation.json", "SKILL.md",
                "agents/openai.yaml", "scripts/access", "scripts/access.py"}
 SKILL_DIRECTORIES = {"", "agents", "scripts"}
+# Only these fixed setup failures may cross the native helper boundary. In
+# particular, never serialize an exception, path, response, token or user file.
+SETUP_FAILURES = {
+    "client_migration_requires_review": "NEEDS_USER",
+    "client_migration_required": "NEEDS_USER",
+    "existing_skill_would_be_overwritten": "NEEDS_USER",
+    "client_setup_permissions_need_review": "NEEDS_USER",
+    "client_setup_needs_repair": "NEEDS_USER",
+    "client_upgrade_needs_repair": "NEEDS_USER",
+    "client_upgrade_not_supported": "NEEDS_USER",
+    "client_connection_not_confirmed": "NEEDS_USER",
+    "client_setup_busy": "RETRYABLE",
+    "client_setup_changed": "RETRYABLE",
+}
+
+
+def setup_failure_payload(error):
+    """Return fixed, non-sensitive diagnostics for the native owner UI."""
+    reason = error.reason if isinstance(error, AccessError) else None
+    status = SETUP_FAILURES.get(reason) if type(reason) is str else None
+    if status is None:
+        return {"status": "NEEDS_USER", "reason": "agent_setup_not_completed"}
+    return {"status": status, "reason": reason}
 
 
 def _no_acl(fd):
@@ -173,7 +196,7 @@ def _skill_snapshot(target):
         before = path.lstat()
         _checked(path, directory=True, private=True)
         expected = {Path(item).name for item in SKILL_FILES | SKILL_DIRECTORIES
-                    if item and str(Path(item).parent) == (name or ".")}
+                    if item and Path(item).parent == Path(name or ".")}
         if (stat.S_IMODE(before.st_mode) != 0o700 or set(os.listdir(path)) != expected
                 or _stamp(path.lstat()) != _stamp(before)):
             raise AccessError("NEEDS_USER", "client_migration_requires_review")
@@ -535,7 +558,7 @@ def status(home, hosts, *, python=RUNTIME, socket=SOCKET, codex_home=None):
             "python": str(python),
         }:
             return {"status": "NOT_INSTALLED"}
-    from .install import launcher_text
+    from .install import SKILL_TEMPLATE_FILES, launcher_text
     from .integration import codex_rule_block, session_guidance
 
     source = Path(__file__).resolve().parent / "skills/account-access"
@@ -544,16 +567,11 @@ def status(home, hosts, *, python=RUNTIME, socket=SOCKET, codex_home=None):
         *([Path(".claude/skills")] if "claude" in hosts else []),
     ]:
         target = Path(home) / relative / "account-access"
-        for template in source.rglob("*"):
-            if template.is_file():
-                destination = target / template.relative_to(source)
-                expected = (
-                    launcher_text(target, python).encode()
-                    if template.relative_to(source) == Path("scripts/access")
-                    else template.read_bytes()
-                )
-                if _checked(destination, private=True) != expected:
-                    return {"status": "NOT_INSTALLED"}
+        for relative in SKILL_TEMPLATE_FILES:
+            if _checked(target / relative, private=True) != (source / relative).read_bytes():
+                return {"status": "NOT_INSTALLED"}
+        if _checked(target / "scripts/access", private=True) != launcher_text(target, python).encode():
+            return {"status": "NOT_INSTALLED"}
     for host in hosts:
         directory = codex_home if host == "codex" else home / ".claude"
         skill = Path(home) / (
@@ -598,9 +616,10 @@ def main(argv=None):
             home, hosts, codex_home=codex_home, **options)
         print(json.dumps(result))
         return 0
-    except Exception:
-        # Never stringify input, token, filesystem contents or an exception.
-        print('{"status":"NEEDS_USER","reason":"agent_setup_not_completed"}')
+    except Exception as error:
+        # Serialize only an explicitly allowlisted reason. Never stringify an
+        # exception or include input, token, filesystem contents or response data.
+        print(json.dumps(setup_failure_payload(error)))
         return 78
 
 

@@ -1,0 +1,87 @@
+{
+  "status": "OK",
+  "accounts": [
+    {
+      "account": "personal-namecheap",
+      "label": "Namecheap",
+      "environment": "live",
+      "environment_source": "connector-configuration",
+      "route": "browser",
+      "connected": false,
+      "verified_now": false,
+      "connection_state": "needs_attention",
+      "automatic_recovery_available": false,
+      "operations": [
+        {
+          "name": "status",
+          "description": "Confirm your signed-in Namecheap username"
+        }
+      ]
+    },
+    {
+      "account": "personal-store",
+      "label": "Personal shopping account · Public example",
+      "environment": "public-example",
+      "environment_source": "connector-configuration",
+      "route": "browser",
+      "connected": true,
+      "verified_now": false,
+      "connection_state": "saved_access",
+      "automatic_recovery_available": true,
+      "operations": [
+        {
+          "name": "inventory",
+          "description": "Read product names and prices"
+        }
+      ]
+    },
+    {
+      "account": "personal-betterloop",
+      "label": "Betterloop",
+      "environment": "live",
+      "environment_source": "connector-configuration",
+      "route": "browser",
+      "connected": true,
+      "verified_now": false,
+      "connection_state": "saved_access",
+      "automatic_recovery_available": true,
+      "operations": [
+        {
+          "name": "status",
+          "description": "Confirm your Betterloop sign-in status"
+        }
+      ]
+    },
+    {
+      "account": "personal-lemonsqueezy",
+      "label": "Lemon Squeezy · authenticator",
+      "environment": "live",
+      "environment_source": "connector-configuration",
+      "route": "browser",
+      "connected": false,
+      "verified_now": false,
+      "connection_state": "needs_attention",
+      "automatic_recovery_available": false,
+      "operations": [
+        {
+          "name": "status",
+          "description": "Confirm your Lemon Squeezy sign-in status"
+        }
+      ]
+    }
+  ],
+  "service_version": "0.8.0",
+  "background_recovery": {
+    "status": "RUNNING",
+    "consecutive_failures": 0,
+    "failures_total": 0,
+    "last_success": 1793799450.105141,
+    "last_failure": null,
+    "next_retry_at": null,
+    "in_progress": false
+  },
+  "browser_runtime": {
+    "status": "READY"
+  },
+  "environment": "mixed"
+}

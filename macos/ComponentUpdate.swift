@@ -72,6 +72,12 @@ protocol ComponentTransitionStorage {
     func verifyOldView() throws
     func verifyRecoverableView() throws
     func verifyNewView() throws
+    func serviceDidQuiesce() throws
+}
+
+extension ComponentTransitionStorage {
+    // Storage that does not own directory trees has no post-barrier fast path.
+    func serviceDidQuiesce() throws {}
 }
 
 enum ComponentTransitionResult {
@@ -102,6 +108,7 @@ final class ComponentTransition {
         else { try storage.verifyOldView() }
         try service.disableAndQuiesce(recovering: recovering)
         do {
+            try storage.serviceDidQuiesce()
             if recovering { try storage.verifyRecoverableView() }
             else { try storage.verifyOldView() }
             for (index, operation) in storage.operations.enumerated() where operation.target != .head {
@@ -187,12 +194,33 @@ enum ComponentFiles {
     }
     static func observe(_ parent: Int32, _ name: String, owner: uid_t) throws -> ComponentObject? {
         try self.name(name)
-        var info = stat()
-        if fstatat(parent, name, &info, AT_SYMLINK_NOFOLLOW) != 0 {
+        var pathInfo = stat()
+        if fstatat(parent, name, &pathInfo, AT_SYMLINK_NOFOLLOW) != 0 {
             guard errno == ENOENT else { throw ComponentUpdateFailure.object }
             return nil
         }
-        return try read(parent, name, owner: owner).1
+        let fd = openat(parent, name, O_RDONLY | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK)
+        guard fd >= 0 else { throw ComponentUpdateFailure.object }; defer { Darwin.close(fd) }
+        let before = try InstallerPayloadIO.check(fd, owner: owner, directory: false)
+        try InstallerPayloadIO.noACL(fd)
+        guard InstallerPayloadIO.same(pathInfo, before), before.st_size >= 0,
+              before.st_size <= InstallerPayloadManifest.maximumFile else { throw ComponentUpdateFailure.object }
+        var count: Int64 = 0, hasher = SHA256(), buffer = [UInt8](repeating: 0, count: 1024 * 1024)
+        while true {
+            let amount = Darwin.read(fd, &buffer, buffer.count)
+            if amount < 0 && errno == EINTR { continue }
+            guard amount >= 0, count <= before.st_size - Int64(amount) else { throw ComponentUpdateFailure.object }
+            if amount == 0 { break }
+            count += Int64(amount); hasher.update(data: buffer.prefix(amount))
+        }
+        let digest = hasher.finalize().map { String(format: "%02x", $0) }.joined()
+        var pathAfter = stat()
+        let after = try InstallerPayloadIO.check(fd, owner: owner, directory: false)
+        guard count == before.st_size, InstallerPayloadIO.same(before, after),
+              fstatat(parent, name, &pathAfter, AT_SYMLINK_NOFOLLOW) == 0,
+              InstallerPayloadIO.same(before, pathAfter) else { throw ComponentUpdateFailure.object }
+        return ComponentObject(device: before.st_dev, inode: before.st_ino,
+            mode: UInt16(before.st_mode & 0o7777), bytes: before.st_size, sha256: digest)
     }
     static func writeExclusive(_ parent: Int32, _ name: String, data: Data, owner: uid_t, mode: mode_t) throws -> ComponentObject {
         try self.name(name)
@@ -370,7 +398,7 @@ enum ComponentCommands {
     struct Result { let status: Int32; let output: Data }
     // This parent owns and reaps its exact child. A PID cannot be reused before
     // waitpid; timeout/oversize never signals a service or adopted process.
-    static func launchctl(_ arguments: [String]) throws -> Result {
+    static func launchctl(_ arguments: [String], timeout: TimeInterval = 20) throws -> Result {
         let allowed: Set<[String]> = [
             ["print-disabled", "system"], ["print", "system/com.fainir.accountaccess.broker"],
             ["disable", "system/com.fainir.accountaccess.broker"],
@@ -379,7 +407,7 @@ enum ComponentCommands {
             ["bootstrap", "system", "/Library/LaunchDaemons/com.fainir.accountaccess.broker.plist"],
         ]
         guard getuid() == 0, geteuid() == 0, allowed.contains(arguments) else { throw ComponentUpdateFailure.context }
-        return try executeLaunchctl(arguments, timeout: 20)
+        return try executeLaunchctl(arguments, timeout: timeout)
     }
     enum UserDomainAction: String { case bootout, bootstrap }
     static func launchctlUserDomain(_ action: UserDomainAction, brokerUID: uid_t, timeout: TimeInterval) throws -> Result {
@@ -503,6 +531,27 @@ enum ComponentCommands {
         result.status == (113 << 8) && result.output == Data((
             "Bad request.\nCould not find service \"com.fainir.accountaccess.broker\" in domain for system\n"
         ).utf8)
+    }
+    static func waitUntilAbsent(observe: (TimeInterval) throws -> Result,
+                                clock: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
+                                pause: (TimeInterval) -> Void = { usleep(useconds_t($0 * 1_000_000)) }) throws {
+        let deadline = clock() + 20
+        for _ in 0..<81 {
+            let remaining = deadline - clock()
+            guard remaining.isFinite, remaining > 0 else { throw ComponentUpdateFailure.quiescence }
+            let result = try observe(min(20, remaining))
+            guard clock() <= deadline else { throw ComponentUpdateFailure.quiescence }
+            if definitivelyAbsent(result) { return }
+            // Bootout can return while an enrolled worker is still shutting
+            // down. A valid observation of this exact job may settle; an
+            // unknown error, malformed output or expired deadline must refuse.
+            guard result.status == 0 else { throw ComponentUpdateFailure.quiescence }
+            try ComponentUpdateIdentity.validateRemovalObservation(result.output)
+            let delay = min(0.25, deadline - clock())
+            guard delay.isFinite, delay > 0 else { throw ComponentUpdateFailure.quiescence }
+            pause(delay)
+        }
+        throw ComponentUpdateFailure.quiescence
     }
 }
 
@@ -692,9 +741,9 @@ final class ComponentLaunchdBarrier: ComponentServiceBarrier {
         _ = try ComponentCommands.launchctl(["bootout", "system/com.fainir.accountaccess.broker"])
         // A generic nonzero never establishes absence. Require the one exact
         // missing-service response, even after our own successful bootout.
-        guard ComponentCommands.definitivelyAbsent(try ComponentCommands.launchctl([
-            "print", "system/com.fainir.accountaccess.broker",
-        ])) else { throw ComponentUpdateFailure.quiescence }
+        try ComponentCommands.waitUntilAbsent(observe: { timeout in
+            try ComponentCommands.launchctl(["print", "system/com.fainir.accountaccess.broker"], timeout: timeout)
+        })
         try userDomain.quiesce()
         try requireDisabledAndQuiescent()
         try record("disabled_quiescence_confirmed")
@@ -1097,12 +1146,24 @@ enum ComponentController {
         }
         checkpoint("current_binding")
         let current = try InstallationRootBinding.capture(withVolumeUUID: true)
-        var existingProof: Data?
+        var existingProof: Data?, previousProof: Data?, recoveryNeeded = false
         if hasNamespace {
             let existing = try InstallationRootBinding.receiptDirectory(create: false)
             defer { Darwin.close(existing) }
             let names = try InstallerPayloadIO.contents(existing)
-            if names == [InstallationRootBinding.receiptName] {
+            if names == [InstallationRootBinding.receiptName]
+                || names == [InstallationRootBinding.receiptName, InstallationRootBinding.pendingRecoveryName] {
+                previousProof = try InstallationRootBinding.readOriginalSupplement(existing)
+                do {
+                    try InstallationRootBinding.validateSupplement(previousProof!, legacy: legacy, current: current)
+                    existingProof = previousProof
+                } catch {
+                    try InstallationRootBinding.requireRecoveryReplacement(previous: previousProof!, legacy: legacy, current: current)
+                    existingProof = previousProof
+                    recoveryNeeded = true
+                }
+            } else if names == [InstallationRootBinding.receiptName, InstallationRootBinding.recoveryName] {
+                previousProof = try InstallationRootBinding.readOriginalSupplement(existing)
                 existingProof = try InstallationRootBinding.readSupplement(existing)
                 try InstallationRootBinding.validateSupplement(existingProof!, legacy: legacy, current: current)
             } else {
@@ -1166,6 +1227,29 @@ enum ComponentController {
         let bindingDirectory = try InstallationRootBinding.receiptDirectory(create: true)
         defer { Darwin.close(bindingDirectory) }
         let names = try InstallerPayloadIO.contents(bindingDirectory)
+        if names == [InstallationRootBinding.receiptName, InstallationRootBinding.recoveryName] {
+            let proof = try InstallationRootBinding.readSupplement(bindingDirectory)
+            guard proof == existingProof else { throw ComponentUpdateFailure.base }
+            try InstallationRootBinding.validateSupplement(proof, legacy: legacy, current: current)
+            try verifyCurrent()
+            return "ALREADY_REVALIDATED"
+        }
+        if recoveryNeeded {
+            guard names == [InstallationRootBinding.receiptName]
+                    || names == [InstallationRootBinding.receiptName, InstallationRootBinding.pendingRecoveryName],
+                  let previousProof else { throw ComponentUpdateFailure.journal }
+            let data = try InstallationRootBinding.recoverySupplement(legacy: legacy, previous: previousProof, current: current,
+                planSHA256: source.planDigest, sourceCommit: sourceCommit, policyHashes: hashes)
+            try InstallationRootBinding.prepareRecoverySupplement(bindingDirectory, data: data)
+            try verifyCurrent()
+            try ComponentFiles.rename(bindingDirectory, InstallationRootBinding.pendingRecoveryName,
+                                      bindingDirectory, InstallationRootBinding.recoveryName, swap: false)
+            try InstallationRootBinding.validateSupplement(InstallationRootBinding.readSupplement(bindingDirectory),
+                                                            legacy: legacy, current: current)
+            try verifyCurrent()
+            checkpoint("finished")
+            return "RECOVERED_ROOT"
+        }
         if names == [InstallationRootBinding.receiptName] {
             let proof = try InstallationRootBinding.readSupplement(bindingDirectory)
             guard proof == existingProof else { throw ComponentUpdateFailure.base }

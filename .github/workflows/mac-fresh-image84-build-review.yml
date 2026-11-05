@@ -1,8 +1,7 @@
 name: Fresh image 84 package build and static review
+# Historical runbook only; the $0 CI policy forbids dispatching GitHub Actions.
 on:
-  push:
-    branches: [codex/full-image-update]
-    paths: [artifacts/fresh-image84-build-request.json]
+  workflow_dispatch:
 permissions:
   contents: read
 defaults:

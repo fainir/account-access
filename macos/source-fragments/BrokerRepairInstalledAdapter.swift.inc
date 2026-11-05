@@ -2,6 +2,14 @@
 // ordinary-user authority. Packaging must independently pin this controller.
 enum BrokerRepairCheckpoint: String, CaseIterable { case context, source, predecessor, preparation, journal, transition, migration, complete }
 
+enum CompletedBrokerRepairCheckpoint: String, CaseIterable {
+    case context, source, resourcePath = "resource_path", signature, owner, routes, history, policy, publicView = "public_view", evidence
+}
+struct CompletedBrokerRepairDiagnostic: Error {
+    let checkpoint: CompletedBrokerRepairCheckpoint
+    let failure: Error
+}
+
 // Minted only after the completed repair's exact history, retained objects and
 // current public image verify twice. It grants no account/store authority.
 struct CompletedBrokerRepairProof {
@@ -33,20 +41,36 @@ extension ComponentController {
     private static func completedBrokerRepairLocked(resources: Int32, pins: BrokerRepairSource.Pins,
             predecessorPins: FullImageSourcePins, expectedEvidenceSHA256: String? = nil,
             historical: ((FullImageFileUnit) throws -> (Data, ComponentObject))? = nil) throws -> CompletedBrokerRepairProof {
+        var checkpoint = CompletedBrokerRepairCheckpoint.context
+        do {
+            return try completedBrokerRepairBody(resources: resources, pins: pins, predecessorPins: predecessorPins,
+                expectedEvidenceSHA256: expectedEvidenceSHA256, historical: historical, checkpoint: { checkpoint = $0 })
+        } catch let diagnostic as CompletedBrokerRepairDiagnostic { throw diagnostic }
+        catch { throw CompletedBrokerRepairDiagnostic(checkpoint: checkpoint, failure: error) }
+    }
+    private static func completedBrokerRepairBody(resources: Int32, pins: BrokerRepairSource.Pins,
+            predecessorPins: FullImageSourcePins, expectedEvidenceSHA256: String?,
+            historical: ((FullImageFileUnit) throws -> (Data, ComponentObject))?,
+            checkpoint: (CompletedBrokerRepairCheckpoint) -> Void) throws -> CompletedBrokerRepairProof {
         guard getuid() == 0, geteuid() == 0 else { throw ComponentUpdateFailure.context }
         guard (historical == nil) == (expectedEvidenceSHA256 == nil),
               expectedEvidenceSHA256.map({ FullImageJSON.hex($0) }) ?? true else { throw ComponentUpdateFailure.journal }
+        checkpoint(.source)
         let source = try repairSource(resources, pins: pins)
         guard pins.predecessorPlanSHA256 == predecessorPins.planSHA256,
               pins.beforeManifestSHA256 == predecessorPins.targetManifestSHA256 else { throw ComponentUpdateFailure.source }
+        checkpoint(.resourcePath)
         let payloadPath = try FullImageFDCanonicalPath.installed(resources)
+        checkpoint(.signature)
         try payloadPath.checked { path in
             try ComponentUpdateIdentity.verifyStatic(path: path + "/AccountAccess-broker", peer: source.newPeers["broker"]!, designated: nil)
         }
+        checkpoint(.owner)
         let (ownerUID, ownerGroup) = try owner()
         let original = try directory(oldJournal, mode: 0o700); defer { Darwin.close(original) }
         try originalReceipt(original, ownerUID: ownerUID)
         try ComponentProcesses.requireOwnerClosed()
+        checkpoint(.routes)
         let routes = try BrokerRepairRoutes(plan: pins.planSHA256, predecessorPlan: pins.predecessorPlanSHA256)
         let namespace = try routes.namespace(), backup = try routes.transition()
         let namespaceNames: Set<String> = ["head.json", "transition-" + pins.planSHA256]
@@ -104,6 +128,7 @@ extension ComponentController {
             try originalReceipt(original, ownerUID: ownerUID)
         }
         func completeView() throws {
+            checkpoint(.publicView)
             try unchanged()
             if historical == nil {
                 _ = try InstallerPayloadIO.installedImage(source.after, opaquePrivateBranches: true)
@@ -133,8 +158,10 @@ extension ComponentController {
             }
             try unchanged()
         }
+        checkpoint(.history)
         let completedHistory = try journalEvidence()
         try completeView()
+        checkpoint(.policy)
         let evidence = try FullImageJSON.encode(["schema": 1,
             "managed_by": "account-access-completed-broker-repair-v1",
             "plan_sha256": pins.planSHA256, "manifest_sha256": source.after.sha256,
@@ -147,6 +174,7 @@ extension ComponentController {
         if let expectedEvidenceSHA256 {
             guard FullImageJSON.hash(evidence) == expectedEvidenceSHA256 else { throw ComponentUpdateFailure.journal }
         }
+        checkpoint(.evidence)
         try completeView()
         guard try journalEvidence() == completedHistory else { throw ComponentUpdateFailure.journal }
         try unchanged()
@@ -194,7 +222,8 @@ extension ComponentController {
         }
         let history = try routes.predecessorHistory(), support = try routes.support()
         let fullIntent = try FullImageGlobalJournal.readIntent(directory: history.fd, owner: 0, group: 0,
-            beforeGroup: support.identity.group, historicalObservation: true, validateIntent: { value in
+            beforeGroup: support.identity.group, historicalObservation: true, diagnosticContext: .brokerRepairHistory,
+            validateIntent: { value in
                 guard value.planSHA256 == pins.planSHA256, value.afterManifestSHA256 == pins.targetManifestSHA256,
                       value.targetSourceCommit == pins.targetSourceCommit, value.predecessorEvidenceSHA256 == expected,
                       value.ownerUID == intent.transition.ownerUID, value.brokerUID == intent.transition.brokerUID,

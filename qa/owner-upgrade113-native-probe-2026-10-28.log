@@ -1,0 +1,4 @@
+2026-10-28 - `scripts/mac_owner_upgrade_probe.py` passed against build 113 source.
+2026-10-28 - Native fixtures passed: 79 owner source checks, 26 namespace checks, 21 preparation checks, 477 tree checks and 324 transition-storage checks.
+2026-10-28 - Ordinary-user execution refused with `owner_upgrade_installer_context_required`; installed reads and writes, root execution and service actions were all false.
+2026-10-28 - This validates the APFS head matcher in the composed helper; the dedicated APFS identity probe and signed owner-Mac install remain.

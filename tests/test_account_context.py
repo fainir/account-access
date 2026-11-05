@@ -5,11 +5,14 @@ import pytest
 from playwright.sync_api import sync_playwright
 
 from account_access.account_context import aggregate, describe, environment
-from account_access.catalog import PYPI_ACCOUNT, RTD_ACCOUNT, entries, include_sources, namecheap, view
+from account_access.catalog import BETTERLOOP_ACCOUNT, LEMON_ACCOUNT, PYPI_ACCOUNT, RTD_ACCOUNT, entries, include_sources, namecheap, view
 from account_access.models import Configuration, TaskRequest
 from account_access.owner import make_owner_server
 from account_access.password_import import apply, preview
 from account_access.public_demo import configuration as public_configuration
+
+
+EXAMPLE_ACCOUNTS = {"personal-store", "work-store", "member-portal"}
 
 
 def test_reviewed_examples_are_derived_without_changing_configuration_or_grants(env, monkeypatch):
@@ -89,8 +92,10 @@ def test_import_review_and_catalog_label_examples_without_altering_permission_fi
     assert len(matches) == 2
     assert all(item["environment"] == "public-example" and "Public example" in item["label"] for item in matches)
     assert "fictional-preview-password" not in json.dumps(staged)
-    assert all(item["environment"] == "public-example" for item in view()
-               if item["id"] not in {"personal-namecheap", PYPI_ACCOUNT, RTD_ACCOUNT})
+    catalog = view()
+    assert {item["id"] for item in catalog if item["environment"] == "public-example"} == EXAMPLE_ACCOUNTS
+    assert {item["id"] for item in catalog if item["environment"] == "live"} == {
+        "personal-namecheap", PYPI_ACCOUNT, RTD_ACCOUNT, BETTERLOOP_ACCOUNT, LEMON_ACCOUNT}
     apply(broker, staged["id"], [{"row": "0", "account": "personal-store", "operations": ["inventory"]}], ["test"])
     spec = broker.store.config().accounts["personal-store"]
     assert spec.label == "Personal shopping account"  # Saved authority is unchanged.
@@ -136,9 +141,11 @@ def test_owner_browser_counts_examples_separately_and_uses_explicit_example_prom
     broker.store.new_client("generic")
     for key, spec in config.accounts.items():
         broker.grant("generic", key, list(spec.operations))
-        if key not in {"personal-namecheap", PYPI_ACCOUNT, RTD_ACCOUNT}:
+        if key in EXAMPLE_ACCOUNTS:
             # Stored-state projection test only; no website session or private login is claimed.
             broker.store.put("connection:" + key, {"fingerprint": config.fingerprint(key)})
+    assert broker.store.get("connection:" + BETTERLOOP_ACCOUNT) is None
+    assert broker.store.get("connection:" + LEMON_ACCOUNT) is None
     owner, token = make_owner_server(broker, guided=True)
     thread = threading.Thread(target=owner.serve_forever, daemon=True)
     thread.start()
@@ -150,12 +157,12 @@ def test_owner_browser_counts_examples_separately_and_uses_explicit_example_prom
                 page = browser.new_page()
                 page.goto(f"http://127.0.0.1:{owner.server_port}/#" + token)
                 page.locator("#connected").get_by_text("Personal shopping account · Public example", exact=True).wait_for()
-                assert page.locator("#account-count").inner_text() == "0 ready · 3 service connections · 3 ready / 3 examples"
+                assert page.locator("#account-count").inner_text() == "0 ready · 5 service connections · 3 ready / 3 examples"
                 assert page.get_by_text("Example connected", exact=True).count() == 3
                 assert "example accounts" in page.locator("#prompts").inner_text()
                 broker.store.put("connection:personal-namecheap", {"fingerprint": config.fingerprint("personal-namecheap")})
                 page.evaluate("refresh()")
-                assert page.locator("#account-count").inner_text() == "1 ready · 3 service connections · 3 ready / 3 examples"
+                assert page.locator("#account-count").inner_text() == "1 ready · 5 service connections · 3 ready / 3 examples"
                 assert "connected services" in page.locator("#prompts").inner_text()
                 assert "example accounts" not in page.locator("#prompts").inner_text()
                 assert provider.api_count == before

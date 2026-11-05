@@ -1,0 +1,1 @@
+{"checks":["pinned_predecessor_manifest","exact_signed_public_predecessor","same_volume_support_root_replaced","completed_predecessor_recovery_and_namespace_seeded","earlier_unpublished_preparation_seeded","pinned_target_manifest"],"created_job_stopped_or_absent":true,"failure_reason":"command_failed:install","personal_accounts_used":0,"production_ready":false,"status":"FAILED"}

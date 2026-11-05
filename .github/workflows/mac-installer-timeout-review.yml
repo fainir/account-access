@@ -1,8 +1,7 @@
 name: Installer script deadline qualification
+# Historical runbook only; the $0 CI policy forbids dispatching GitHub Actions.
 on:
-  push:
-    branches: [codex/full-image-update]
-    paths: [scripts/mac_installer_timeout_probe.py, .github/workflows/mac-installer-timeout-review.yml]
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:

@@ -1,0 +1,1 @@
+{"checks":["one_pinned_fresh_manifest","install_exact_public_image","install_owner_build121","install_patched_dependency_guard"],"created_job_stopped_or_absent":true,"failure_reason":"command_failed:install-publisher-sandboxed-browser","mode":"fresh","personal_accounts_used":0,"production_ready":false,"status":"FAILED"}

@@ -39,7 +39,8 @@ def describe(spec, *, test_mode=False):
     result = {"label": spec.label + (" · Public example" if context == "public-example" else ""),
               "environment": context, "environment_source": "connector-configuration"}
     if isinstance(spec, BrowserAccount) and spec.login and spec.login.identity_contact:
-        result["login_method"] = "identity_phone_sms"
+        result["login_method"] = ("identity_phone_email" if set(spec.login.factors) == {"email"}
+                                  else "identity_phone_sms")
     return result
 
 

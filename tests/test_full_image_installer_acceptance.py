@@ -500,7 +500,7 @@ def test_new_normal_workflow_preserves_frozen_assets_and_failed_matrix():
     workflow = yaml.safe_load((root / '.github/workflows/mac-full-image-normal-installer-review.yml').read_text())
     events = workflow.get('on', workflow.get(True))
     gate = 'artifacts/full-image-installer81-normal-acceptance.json'
-    assert events['push']['paths'] == [gate]
+    assert events == {'workflow_dispatch': None}
     assert workflow['jobs']['actual-installer']['strategy']['matrix']['scenario'] == ['install-reapply']
     assert workflow['jobs']['actual-installer']['timeout-minutes'] == 45
     commands = '\n'.join(step.get('run', '') for step in workflow['jobs']['download-reviewed-inputs']['steps'])
@@ -520,10 +520,7 @@ def test_diagnostic_package_workflow_keeps_host_and_asset_boundaries(cohort):
     root = Path(__file__).resolve().parents[1]
     workflow = yaml.safe_load((root / f'.github/workflows/mac-full-image{cohort}-installer-review.yml').read_text())
     events = workflow.get('on', workflow.get(True))
-    expected_paths = [f'artifacts/full-image-installer{cohort}-inputs.json']
-    if cohort in (83, 84, 85):
-        expected_paths.append(f'.github/workflows/mac-full-image{cohort}-installer-review.yml')
-    assert events['push']['paths'] == expected_paths
+    assert events == {'workflow_dispatch': None}
     download = workflow['jobs']['download-reviewed-inputs']
     actual = workflow['jobs']['actual-installer']
     assert [step['uses'] for step in download['steps'] if 'uses' in step] == [

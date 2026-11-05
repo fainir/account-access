@@ -36,6 +36,7 @@ function bitwardenProblem(error){message(error.message==="password_source_access
 function clearBitwardenSetup(){document.querySelectorAll("[data-bitwarden-secret]").forEach(field=>field.value="");document.querySelectorAll("[data-bitwarden-consent]").forEach(field=>field.checked=false);document.querySelectorAll("[data-bitwarden-active]").forEach(form=>delete form.dataset.bitwardenActive);}
 function problem(e){message(friendly[e.message]||"Setup needs attention: "+e.message);}
 function text(tag,value){const n=document.createElement(tag);n.textContent=value;return n;}
+function labeledControl(title,control){const label=document.createElement("label");label.className="field";label.append(text("span",title),control);control.setAttribute("aria-label",title);return label;}
 function renderRecoveryHealth(health){
  if(locallyPaused)return;
  const recovery=health?.status;
@@ -49,12 +50,12 @@ async function checkRecoveryHealth(){
  try{renderRecoveryHealth(await call("/owner/health"));}catch{renderRecoveryHealth({status:"UNAVAILABLE"});}finally{healthBusy=false;}
 }
 function permission(){
- const choice=state.catalog.find(x=>x.id===el("service").value),identityPhone=choice?.login_method==="identity_phone_sms";
+ const choice=state.catalog.find(x=>x.id===el("service").value),identityPhone=["identity_phone_sms","identity_phone_email"].includes(choice?.login_method);
  el("permission").textContent=choice?"Allowed: "+choice.operations.map(x=>x.description).join("; "):"";
  const username=el("username"),password=el("password"),nextType=identityPhone?"password":"text";
  if(username.type!==nextType){username.value="";password.value="";}username.type=nextType;
  username.parentElement.firstChild.textContent=identityPhone?"Identity number":"Email or username";
- password.parentElement.firstChild.textContent=identityPhone?"Phone number for login SMS":"Password";
+ password.parentElement.firstChild.textContent=identityPhone?"Mobile number registered with the website":"Password";
  username.autocomplete=identityPhone?"off":"username";password.autocomplete=identityPhone?"off":"current-password";
  username.maxLength=password.maxLength=identityPhone?128:4096;
 }
@@ -124,7 +125,7 @@ async function refresh(){
 el("service").onchange=()=>{permission();el("allow").checked=false;el("username").value="";el("password").value="";};
 el("stop").onclick=async()=>{if(!confirm("Stop Account Access? Your saved connections will be kept."))return;clearMaskedInputs();clearDeviceEmailReview();clearBitwardenSetup();clearSetupDrafts();try{await call("/owner/stop",{});locallyPaused=true;clearInterval(healthTimer);message("Account Access is paused. Open the app to resume it.");el("service-status").textContent="Paused";el("recovery-health").hidden=true;document.querySelectorAll("button,input,select").forEach(x=>x.disabled=true);}catch(e){problem(e);}};
 el("manage").onclick=e=>{e.preventDefault();location.href="/manage#"+capability;};
-el("account-form").onsubmit=async e=>{e.preventDefault();if(locallyPaused||el("add").disabled)return;el("add").disabled=true;try{if(!el("allow").checked)throw new Error("Choose the reads you want to allow.");const service=el("service").value,identityPhone=state.catalog.find(x=>x.id===service)?.login_method==="identity_phone_sms";const fields=identityPhone?{identity:el("username").value,phone:el("password").value}:{username:el("username").value,password:el("password").value};const payload={service,...fields,agents:["generic"]};el("username").value="";el("password").value="";const request=call("/owner/add",payload);for(const key of Object.keys(fields)){fields[key]="";payload[key]="";}await request;if(locallyPaused)return;el("username").value="";el("allow").checked=false;message("Signing in. You can connect another account while this finishes.");await refresh();}catch(e){if(!locallyPaused)problem(e);}finally{el("add").disabled=locallyPaused;}};
+el("account-form").onsubmit=async e=>{e.preventDefault();if(locallyPaused||el("add").disabled)return;el("add").disabled=true;try{if(!el("allow").checked)throw new Error("Choose the reads you want to allow.");const service=el("service").value,identityPhone=["identity_phone_sms","identity_phone_email"].includes(state.catalog.find(x=>x.id===service)?.login_method);const fields=identityPhone?{identity:el("username").value,phone:el("password").value}:{username:el("username").value,password:el("password").value};const payload={service,...fields,agents:["generic"]};el("username").value="";el("password").value="";const request=call("/owner/add",payload);for(const key of Object.keys(fields)){fields[key]="";payload[key]="";}await request;if(locallyPaused)return;el("username").value="";el("allow").checked=false;message("Signing in. You can connect another account while this finishes.");await refresh();}catch(e){if(!locallyPaused)problem(e);}finally{el("add").disabled=locallyPaused;}};
 if(capability)call("/owner/state").then(initial=>initial.local_host_actions===false?null:call("/owner/install",{})).then(refresh).then(()=>{healthTimer=setInterval(checkRecoveryHealth,5000);document.addEventListener("visibilitychange",checkRecoveryHealth);}).catch(problem);else message("Open Account Access from its launcher to unlock your setup page.");
 
 let importPreview=null;
@@ -152,7 +153,7 @@ function renderPasswordSync(){
   }else card.append(text("p","A check is in progress. Reopen Password sync to refresh this connection before replacing its token."));
   const remove=text("button","Disconnect and remove saved login");remove.type="button";remove.onclick=async()=>{if(!confirm("Disconnect this source and remove its locally saved password and session? Your existing read permissions remain."))return;try{await call("/owner/password-sync/disconnect",{account:link.account});await refresh();}catch(error){problem(error);}};card.append(remove);container.append(card);
  }
- const choices=state.accounts.filter(item=>item.route==="browser"&&item.portable_ready&&item.login_method!=="identity_phone_sms");
+ const choices=state.accounts.filter(item=>item.route==="browser"&&item.portable_ready&&!["identity_phone_sms","identity_phone_email"].includes(item.login_method));
  renderBitwardenSync(container,choices);
  const card=text("div","");card.className="card";card.append(text("h2","Connect 1Password"),text("p","Use a service account with read-only access to a dedicated vault, or an existing Connect server. Select the exact item for a login you already imported. Tokens stay encrypted locally and out of AI chat."));container.append(card);
  if(!choices.length){card.append(text("p","Import and approve a supported login first."));return;}
@@ -194,6 +195,11 @@ el("password-file").onchange=async()=>{
  importPreview=null;el("import-review").replaceChildren();el("import-review").hidden=true;
  try {if(file.size>4000000)throw new Error("password_file_too_large");let contents;try{contents=new TextDecoder("utf-8",{fatal:true}).decode(await file.arrayBuffer());}catch{throw new Error("invalid_password_export");}importPreview=await call("/owner/import/preview",{csv:contents});
  const review=el("import-review");review.replaceChildren();review.hidden=false;
+ if(!importPreview.rows.some(row=>row.matches.length)){
+  review.append(text("strong","No supported logins found"),text("p","This file has no logins matching a supported website. Nothing was imported. Your saved accounts and verification connections are unchanged."));
+  const retry=text("button","Choose another password file");retry.type="button";retry.onclick=()=>el("password-file").click();review.append(retry);
+  importPreview=null;el("password-file").value="";return;
+ }
  review.append(text("p","Select up to 32 logins and approve their reads. Selected saved logins will be replaced. Passwords are hidden."));
  const inputs=[];const importAuth=document.createElement("input");importAuth.type="checkbox";const authLabel=text("label","Also enroll included authenticator keys for supported login recovery");authLabel.prepend(importAuth);if(importPreview.rows.some(x=>x.has_authenticator))review.append(authLabel);
  for(const row of importPreview.rows.filter(x=>x.matches.length).slice(0,200)){
@@ -235,18 +241,18 @@ function renderMailboxes(container){
   const key="mailbox-edit:"+mailbox.id,previous=setupDrafts.get(key);const valid=/^[a-f0-9]{64}$/.test(mailbox.setup_revision||"");
   if(previous?.active&&valid&&previous.revision===mailbox.setup_revision)card.append(previous.card);
   else{
-   if(previous)clearSetupDraft(key);const edit=document.createElement("form"),password=document.createElement("input");password.type="password";password.required=true;password.autocomplete="off";password.maxLength=4096;password.placeholder="New mailbox application password";password.setAttribute("aria-label",password.placeholder);
+   if(previous)clearSetupDraft(key);const edit=document.createElement("form"),password=document.createElement("input");password.type="password";password.required=true;password.autocomplete="off";password.maxLength=4096;password.placeholder="Enter the new application password";const passwordLabel=labeledControl("New mailbox application password",password);
    const draft={card:edit,revision:mailbox.setup_revision,active:false,secrets:[password]};setupDrafts.set(key,draft);password.oninput=()=>{if(!setupOperations.has(key)&&edit.isConnected&&view==="verification"&&!locallyPaused){draft.active=!!password.value;setupDrafts.set(key,draft);}};
-   const update=text("button","Update app password");update.type="submit";const cancel=text("button","Cancel mailbox password change");cancel.type="button";cancel.onclick=()=>{if(setupOperations.has(key))return;clearSetupDraft(key);renderFactors();};password.disabled=update.disabled=cancel.disabled=!valid||setupOperations.has(key);edit.append(password,update,cancel);
+   const update=text("button","Update app password");update.type="submit";const cancel=text("button","Cancel mailbox password change");cancel.type="button";cancel.onclick=()=>{if(setupOperations.has(key))return;clearSetupDraft(key);renderFactors();};password.disabled=update.disabled=cancel.disabled=!valid||setupOperations.has(key);edit.append(passwordLabel,update,cancel);
    edit.onsubmit=async event=>{event.preventDefault();if(locallyPaused||setupOperations.has(key)||setupDrafts.get(key)!==draft||update.disabled)return;const operation={cancelled:false,epoch:setupEpoch};setupOperations.set(key,operation);draft.active=true;password.disabled=update.disabled=cancel.disabled=true;const payload={id:mailbox.id,password:password.value};password.value="";try{const request=call("/owner/mailbox/password",payload);payload.password="";await request;}catch(error){if(!operation.cancelled&&operation.epoch===setupEpoch&&!locallyPaused)problem(error);}finally{password.value="";draft.active=false;if(setupOperations.get(key)===operation)setupOperations.delete(key);if(!locallyPaused){password.disabled=update.disabled=cancel.disabled=locallyPaused;await refresh().catch(problem);}}};card.append(edit);
   }
   const disconnect=text("button","Disconnect mailbox");disconnect.type="button";disconnect.onclick=async()=>{if(!confirm("Remove the saved mailbox password? Websites using it will pause when they next need an email code."))return;clearSetupDraft(key);try{await call("/owner/mailbox/remove",{id:mailbox.id});await refresh();}catch(e){problem(e);}};card.append(disconnect);container.append(card);
  }
  const newKey="mailbox-new",previousNew=setupDrafts.get(newKey);if(previousNew?.active){container.append(previousNew.card);return;}
- const details=document.createElement("details");details.append(text("summary","Connect Gmail or email"));const form=document.createElement("form");const provider=document.createElement("select");provider.setAttribute("aria-label","Email provider");for(const label of ["Gmail","Other email · TLS IMAP"])provider.append(text("option",label));form.append(provider);const fields={};
- for(const [name,label] of [["username","Email address"],["password","Application password"],["host","IMAP server"],["port","TLS port"]]){const input=document.createElement("input");input.type=name==="password"?"password":name==="port"?"number":"text";input.required=true;input.placeholder=label;input.setAttribute("aria-label",label);fields[name]=input;form.append(input);}
+ const details=document.createElement("details");details.append(text("summary","Connect Gmail or email"));const form=document.createElement("form");const provider=document.createElement("select");for(const label of ["Gmail","Other email · TLS IMAP"])provider.append(text("option",label));form.append(labeledControl("Email provider",provider));const fields={};
+ for(const [name,title] of [["username","Email address"],["password","Application password"],["host","IMAP server"],["port","TLS port"]]){const input=document.createElement("input");input.type=name==="password"?"password":name==="port"?"number":"text";input.required=true;input.placeholder=title;fields[name]=input;form.append(labeledControl(title,input));}
  const newDraft={card:details,active:false,secrets:[fields.password]};setupDrafts.set(newKey,newDraft);const activate=()=>{if(details.isConnected&&view==="verification"&&!locallyPaused){newDraft.active=true;setupDrafts.set(newKey,newDraft);}};Object.values(fields).forEach(field=>field.oninput=activate);details.ontoggle=()=>{if(details.open)activate();else if(!setupOperations.has(newKey)){clearSetupDraft(newKey);}};
- provider.onchange=()=>{const gmail=provider.selectedIndex===0;fields.host.value=gmail?"imap.gmail.com":"";fields.port.value="993";fields.host.readOnly=fields.port.readOnly=gmail;fields.host.hidden=fields.port.hidden=gmail;if(details.isConnected)activate();};provider.onchange();
+ provider.onchange=()=>{const gmail=provider.selectedIndex===0;fields.host.value=gmail?"imap.gmail.com":"";fields.port.value="993";fields.host.readOnly=fields.port.readOnly=gmail;for(const name of ["host","port"]){fields[name].closest("label").hidden=gmail;fields[name].hidden=false;}if(details.isConnected)activate();};provider.onchange();
  details.append(text("p","For Gmail, create a Google app password for Account Access with 2-Step Verification enabled. If Google does not offer app passwords, use the configured Google browser connection above."));const google=text("a","Open Google App passwords");google.href="https://myaccount.google.com/apppasswords";google.target="_blank";google.rel="noreferrer";details.append(google);const save=text("button","Connect mailbox");save.type="submit";const cancel=text("button","Cancel mailbox setup");cancel.type="button";cancel.onclick=()=>{if(setupOperations.has(newKey))return;clearSetupDraft(newKey);renderFactors();};form.append(save,cancel);
  const controls=[save,cancel,provider,...Object.values(fields)];controls.forEach(control=>control.disabled=setupOperations.has(newKey));
  form.onsubmit=async event=>{
@@ -354,14 +360,14 @@ function renderAuthenticator(container,source){
  const names=source.accounts.map(id=>state.accounts.find(account=>account.account===id)?.label||id).join(", ");
  const card=text("div","");card.className="account";card.dataset.authenticatorSource=source.id;card.setAttribute("aria-label","Authenticator · "+names);
  card.append(text("strong","Authenticator"),text("p",names));const badge=text("span",source.enrolled?"Setup saved":"One-time setup");badge.className="badge"+(source.enrolled?"":" pending");card.append(badge);
- card.append(text("p","Use the website's original setup key or otpauth link, rather than a current six-digit code. For Google Authenticator on your phone, open Verification in the Account Access desktop app to import its complete Transfer codes export."),text("p","This copies the authenticator key to this computer for unattended sign-in. It stays encrypted locally and out of AI chat. Your phone keeps generating codes; push, passkey or fingerprint approval still needs you."));
- const form=document.createElement("form"),seed=document.createElement("input");seed.type="password";seed.required=true;seed.maxLength=2048;seed.autocomplete="off";seed.placeholder="Authenticator setup key or otpauth link";seed.setAttribute("aria-label",seed.placeholder);
+ card.append(text("p","Use the website's original setup key or otpauth link, rather than a current six-digit code. In the Account Access desktop app, Automatic sign-in can import one complete Google Authenticator Transfer codes export and review multiple website mappings together."),text("p","This copies the authenticator key to this computer for unattended sign-in. It stays encrypted locally and out of AI chat. Your phone keeps generating codes; push, passkey or fingerprint approval still needs you."));
+ const form=document.createElement("form"),seed=document.createElement("input");seed.type="password";seed.required=true;seed.maxLength=2048;seed.autocomplete="off";seed.placeholder="Paste the setup key or otpauth link";const seedLabel=labeledControl("Authenticator setup key or otpauth link",seed);
  const draft={card,context:source.setup_context,revision:source.setup_revision,active:false,secrets:[seed]};setupDrafts.set(key,draft);
  seed.oninput=()=>{if(!card.isConnected||view!=="verification"||locallyPaused||setupOperations.has(key))return;draft.active=!!seed.value;setupDrafts.set(key,draft);};
  const submit=text("button",source.enrolled?"Update verification":"Enable verification");submit.type="submit";
  const cancel=text("button","Cancel authenticator setup");cancel.type="button";cancel.onclick=()=>{if(setupOperations.has(key))return;clearSetupDraft(key);renderFactors();};
  seed.disabled=submit.disabled=cancel.disabled=!valid||!!pending;
- form.append(seed,submit,cancel);card.append(form);
+ form.append(seedLabel,submit,cancel);card.append(form);
  form.onsubmit=async event=>{
   event.preventDefault();if(locallyPaused||view!=="verification"||setupOperations.has(key)||setupDrafts.get(key)!==draft||submit.disabled)return;
   const operation={context:draft.context,epoch:setupEpoch,cancelled:false};setupOperations.set(key,operation);draft.active=true;seed.disabled=submit.disabled=cancel.disabled=true;
@@ -397,7 +403,7 @@ function renderFactors(){
    mailboxMenu.value=source.linked_mailbox||mailboxMenu.options[0]?.value||"";form.append(mailboxMenu);
   }
   if(email&&source.sender&&source.recipient&&source.subject)card.append(text("p",`Only login messages from ${source.sender} to ${source.recipient} with subject “${source.subject}”.`));
-  for(const name of names){const input=document.createElement("input");input.type=name==="username"?"text":"password";input.required=true;input.placeholder=name==="seed"?"Authenticator setup key or otpauth link":name==="password"?"Mailbox application password":name;input.setAttribute("aria-label",input.placeholder);fields[name]=input;form.append(input);}
+  for(const name of names){const title=name==="username"?"Email address":name==="password"?"Mailbox application password":name==="sid"?"Twilio account SID":name==="auth_token"?"Twilio auth token":"Authenticator setup key or otpauth link";const input=document.createElement("input");input.type=name==="username"?"text":"password";input.required=true;input.placeholder=name==="seed"?"Paste the setup key or otpauth link":title;fields[name]=input;form.append(labeledControl(title,input));}
   if(mailboxMenu){if(!source.enrolled&&mailboxMenu.options.length===2){const saved=(state.mailboxes||[]).find(x=>x.id===mailboxMenu.options[1].value);if(saved?.connection_check?.status==="VERIFIED")mailboxMenu.selectedIndex=1;}mailboxMenu.onchange=()=>Object.values(fields).forEach(input=>{input.disabled=!!mailboxMenu.value;input.hidden=input.disabled;if(input.disabled)input.value="";});mailboxMenu.onchange();}
   if(source.kind==="mac_messages")card.append(text("p","Enable iPhone text forwarding to this Mac and grant the signed Account Access app Full Disk Access in macOS privacy settings."));
   if(source.kind==="gmail")card.append(text("p","Choose a connected, checked Gmail mailbox to avoid signing in again. Only this website's configured login messages are used. If no mailbox is offered, connect and check the configured Google account above first."));

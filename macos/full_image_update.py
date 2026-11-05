@@ -258,7 +258,13 @@ def _derive(before_manifest, after_manifest, old_identity, new_identity, provena
     _require(before["roots"][APPLICATION] == after["roots"][APPLICATION] and old[""] == new[""])
     provenance = _provenance(provenance, before_manifest, after_manifest)
     old_peers, new_peers = _identity(old_identity, old), _identity(new_identity, new)
-    _require(all(old_peers[kind] == new_peers[kind] for kind in ("broker", "bootstrap")))
+    # The signed target image and canonical plan pin the successor code hashes.
+    # Allow those hashes to rotate only inside the already closed Developer ID
+    # team and bundle identities enforced by _identity on both manifests.
+    for kind in ("broker", "bootstrap"):
+        _require(old_peers[kind]["team"] == new_peers[kind]["team"] == TEAM)
+        _require(old_peers[kind]["identifier"] == new_peers[kind]["identifier"]
+                 == "com.fainir.accountaccess." + kind)
     for path in ("bin/AccountAccess-broker", "bin/AccountAccess-bootstrap", "runtime/bin/python3.12"):
         _require(old.get(path) == new.get(path) and new.get(path, {}).get("kind") == "file"
                  and new[path]["mode"] & 0o111)

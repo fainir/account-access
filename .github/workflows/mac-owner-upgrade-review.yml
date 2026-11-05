@@ -1,18 +1,6 @@
 name: Owner successor Installer acceptance
+# Historical runbook only; the $0 CI policy forbids dispatching GitHub Actions.
 on:
-  push:
-    branches: [codex/full-image-update]
-    paths:
-      - .github/workflows/mac-owner-upgrade-review.yml
-      - scripts/mac_owner_upgrade_installer_probe.py
-      - scripts/mac_owner_upgrade_compatibility_probe.py
-      - scripts/download_owner_upgrade_inputs.py
-      - scripts/download_owner_upgrade97_inputs.py
-      - artifacts/owner-upgrade97-installer-inputs.json
-      - artifacts/owner-upgrade98-installer-inputs.json
-      - artifacts/owner-upgrade99-installer-inputs.json
-      - artifacts/owner-upgrade100-installer-inputs.json
-      - artifacts/owner-upgrade101-installer-inputs.json
   workflow_dispatch:
     inputs:
       identity_only:

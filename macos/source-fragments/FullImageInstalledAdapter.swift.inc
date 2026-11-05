@@ -9,10 +9,57 @@ enum FullImageInstallCheckpoint: String, CaseIterable {
     case predecessorNamespace = "predecessor_namespace"
     case predecessorIntent = "predecessor_intent"
     case predecessorRepairHistory = "predecessor_repair_history"
+    case predecessorRepairRoute = "predecessor_repair_route"
+    case predecessorRepairIntent = "predecessor_repair_intent"
+    case predecessorRepairEvidence = "predecessor_repair_evidence"
+    case predecessorComponentRevalidation = "predecessor_component_revalidation"
+    case predecessorRepairStability = "predecessor_repair_stability"
     case predecessorAuthority = "predecessor_authority"
     case predecessorPolicy = "predecessor_policy"
     case predecessorStorage = "predecessor_storage"
     case predecessorView = "predecessor_view"
+    case predecessorViewRoutes = "predecessor_view_routes"
+    case predecessorViewOwner = "predecessor_view_owner"
+    case predecessorViewPolicies = "predecessor_view_policies"
+    case predecessorViewJournal = "predecessor_view_journal"
+    case predecessorViewOriginalReceipt = "predecessor_view_original_receipt"
+    case predecessorViewRepairProof = "predecessor_view_repair_proof"
+    case predecessorViewRepairProofStructure = "predecessor_view_repair_proof_structure"
+    case predecessorViewRepairProofSchema = "predecessor_view_repair_proof_schema"
+    case predecessorViewRepairProofManagedBy = "predecessor_view_repair_proof_managed_by"
+    case predecessorViewRepairProofPlan = "predecessor_view_repair_proof_plan"
+    case predecessorViewRepairProofManifest = "predecessor_view_repair_proof_manifest"
+    case predecessorViewRepairProofSource = "predecessor_view_repair_proof_source"
+    case predecessorViewRepairProofOwner = "predecessor_view_repair_proof_owner"
+    case predecessorViewRepairProofBroker = "predecessor_view_repair_proof_broker"
+    case predecessorViewRepairProofIntent = "predecessor_view_repair_proof_intent"
+    case predecessorViewRepairProofHistory = "predecessor_view_repair_proof_history"
+    case predecessorViewRepairProofPredecessorEvidence = "predecessor_view_repair_proof_predecessor_evidence"
+    case predecessorViewRepairProofHead = "predecessor_view_repair_proof_head"
+    case predecessorViewRepairProofMount = "predecessor_view_repair_proof_mount"
+    case predecessorViewRepairProofWorker = "predecessor_view_repair_proof_worker"
+    case predecessorViewRepairProofService = "predecessor_view_repair_proof_service"
+    case predecessorViewRepairProofHost = "predecessor_view_repair_proof_host"
+    case predecessorViewRepairProofEncoding = "predecessor_view_repair_proof_encoding"
+    case predecessorViewRepairProofRecheck = "predecessor_view_repair_proof_recheck"
+    case predecessorViewRepairProofCompare = "predecessor_view_repair_proof_compare"
+    case predecessorViewRepairProofCompareError = "predecessor_view_repair_proof_compare_error"
+    case predecessorViewRepairProofSameHashMismatch = "predecessor_view_repair_proof_same_hash_mismatch"
+    case predecessorFinalTreeHistoryRead = "predecessor_final_tree_history_read"
+    case predecessorFinalTreeHistoryCompare = "predecessor_final_tree_history_compare"
+    case predecessorFinalTreeHistoryVerified = "predecessor_final_tree_history_verified"
+    case predecessorInitialHeadRead = "predecessor_initial_head_read"
+    case predecessorFinalHeadRead = "predecessor_final_head_read"
+    case predecessorFinalHeadCompare = "predecessor_final_head_compare"
+    case predecessorFinalHeadVerified = "predecessor_final_head_verified"
+    case predecessorFinalRootsRead = "predecessor_final_roots_read"
+    case predecessorFinalRootsCompare = "predecessor_final_roots_compare"
+    case predecessorFinalRootsVerified = "predecessor_final_roots_verified"
+    case predecessorViewBefore = "predecessor_view_before"
+    case predecessorViewStates = "predecessor_view_states"
+    case predecessorViewLayout = "predecessor_view_layout"
+    case predecessorViewProjection = "predecessor_view_projection"
+    case predecessorViewAfter = "predecessor_view_after"
     case predecessorEvidence = "predecessor_evidence"
     case preparationCapacity = "preparation_capacity", preparationPolicy = "preparation_policy"
     case preparationDynamic = "preparation_dynamic", preparationBegin = "preparation_begin"
@@ -24,6 +71,71 @@ enum FullImageInstallCheckpoint: String, CaseIterable {
     case verificationFirstView = "verification_first_view", verificationEvidence = "verification_evidence"
     case verificationFinalView = "verification_final_view"
 }
+
+// When a second read of the same completed repair produces a different proof,
+// report only which fixed proof field changed. Never include account contents,
+// paths, or hash values in Installer diagnostics.
+enum CompletedRuntimeRepairEvidenceDifference: Equatable, CaseIterable {
+    case same, structure, schema, managedBy, plan, manifest, source, owner, broker
+    case intent, history, predecessorEvidence, head, mount, worker, service, host, encoding
+
+    var key: String? {
+        switch self {
+        case .same, .structure, .encoding: return nil
+        case .schema: return "schema"
+        case .managedBy: return "managed_by"
+        case .plan: return "plan_sha256"
+        case .manifest: return "manifest_sha256"
+        case .source: return "source_commit"
+        case .owner: return "owner_uid"
+        case .broker: return "broker_uid"
+        case .intent: return "intent_sha256"
+        case .history: return "history_sha256"
+        case .predecessorEvidence: return "predecessor_evidence_sha256"
+        case .head: return "head_sha256"
+        case .mount: return "mount_sha256"
+        case .worker: return "worker_sha256"
+        case .service: return "service_sha256"
+        case .host: return "host_sha256"
+        }
+    }
+
+    var checkpoint: FullImageInstallCheckpoint {
+        switch self {
+        case .same: return .predecessorViewRepairProofSameHashMismatch
+        case .structure: return .predecessorViewRepairProofStructure
+        case .schema: return .predecessorViewRepairProofSchema
+        case .managedBy: return .predecessorViewRepairProofManagedBy
+        case .plan: return .predecessorViewRepairProofPlan
+        case .manifest: return .predecessorViewRepairProofManifest
+        case .source: return .predecessorViewRepairProofSource
+        case .owner: return .predecessorViewRepairProofOwner
+        case .broker: return .predecessorViewRepairProofBroker
+        case .intent: return .predecessorViewRepairProofIntent
+        case .history: return .predecessorViewRepairProofHistory
+        case .predecessorEvidence: return .predecessorViewRepairProofPredecessorEvidence
+        case .head: return .predecessorViewRepairProofHead
+        case .mount: return .predecessorViewRepairProofMount
+        case .worker: return .predecessorViewRepairProofWorker
+        case .service: return .predecessorViewRepairProofService
+        case .host: return .predecessorViewRepairProofHost
+        case .encoding: return .predecessorViewRepairProofEncoding
+        }
+    }
+
+    static func compare(_ original: Data, _ rechecked: Data) throws -> Self {
+        let left = try FullImageJSON.object(original, maximum: 8192)
+        let right = try FullImageJSON.object(rechecked, maximum: 8192)
+        let fields = allCases.compactMap(\.key)
+        guard Set(left.keys) == Set(fields), Set(right.keys) == Set(fields) else { return .structure }
+        for field in allCases {
+            guard let key = field.key else { continue }
+            guard try FullImageJSON.canonical(left[key]!) == FullImageJSON.canonical(right[key]!) else { return field }
+        }
+        return original == rechecked ? .same : .encoding
+    }
+}
+
 private final class FullImageStorageReference {
     weak var storage: FullImageMixedStorage?
 }
@@ -161,7 +273,8 @@ extension ComponentController {
               intent.ownerUID == ownerUID, intent.operations.count == source.units.count + 4 else { throw FullImageFailure.journal }
     }
     private static func fullLayout(source: any PublicImageTransitionSource, routes: FullImageInstalledRoutes,
-                                    storage: FullImageMixedStorage, intent: FullImageGlobalIntent) throws {
+                                    storage: FullImageMixedStorage, intent: FullImageGlobalIntent,
+                                    states suppliedStates: [ComponentOperationState]? = nil) throws {
         let transition = try routes.transition(plan: source.planSHA256)
         guard try InstallerPayloadIO.contents(transition.fd) == ["files", "trees", "global"] else { throw FullImageFailure.journal }
         let trees = openat(transition.fd, "trees", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
@@ -169,9 +282,13 @@ extension ComponentController {
         let info = try InstallerPayloadIO.check(trees, owner: 0, directory: true); try PublicTreeIO.noACL(trees)
         guard info.st_gid == 0, info.st_mode & 0o7777 == 0o700,
               try InstallerPayloadIO.contents(trees) == Set(source.units.compactMap { if case .tree(let unit, _, _) = $0 { return unit.rawValue }; return nil }) else { throw FullImageFailure.journal }
+        let states: [ComponentOperationState]
+        if let suppliedStates { states = suppliedStates }
+        else { states = try storage.operations.map { try storage.state($0) } }
+        guard states.count == intent.operations.count else { throw FullImageFailure.journal }
         var fileSlots: Set<String> = []
         for (index, operation) in intent.operations.enumerated() {
-            let state = try storage.state(storage.operations[index])
+            let state = states[index]
             guard state != .conflict else { throw FullImageFailure.object }
             if let file = operation.file {
                 if (state == .staged ? file.after : file.before) != nil { fileSlots.insert(file.slot) }
@@ -259,6 +376,7 @@ extension ComponentController {
             let global = try routes.globalJournal(plan: pins.planSHA256)
             preliminary = try FullImageGlobalJournal.readIntent(directory: global.fd, owner: 0, group: 0, beforeGroup: beforeGroup,
                 historicalObservation: verificationOnly,
+                diagnosticContext: .fullImage,
                 validateIntent: { try fullPreliminary($0, source: source, ownerUID: ownerUID) }, verifyAttachment: global.verify)
         } else { preliminary = nil }
         // This mode never repairs an interrupted full-image transition. It can
@@ -340,6 +458,8 @@ extension ComponentController {
                         targetAttachment: target.attachment(.target(unit)), retainedAttachment: temporary.attachment(.retained(unit)),
                         old: old, new: new, owner: 0, group: 0, beforeGroup: beforeGroup, planSHA256: pins.planSHA256)
                     operations.append(FullImageDurableOperation(tree: record))
+                case .directFile:
+                    throw FullImageFailure.source
                 }
             }
             checkpoint(.preparationDynamicStage)
@@ -429,12 +549,12 @@ extension ComponentController {
             _ = try revalidateCompletedPredecessor(resources: predecessorResources, planPin: pins.predecessor.planSHA256,
                 expectedEvidenceSHA256: intent.predecessorEvidenceSHA256, recordedDevice: observationDevice)
         }
-        let verifyPublic = {
+        func verifyPublic(_ operationStates: [ComponentOperationState], completeImage: Bool) throws {
             guard let storage = reference.storage else { throw FullImageFailure.journal }
             try verifyUnchanged()
-            try fullLayout(source: source, routes: routes, storage: storage, intent: intent)
-            let states = try Array(storage.operations.prefix(source.units.count)).map { try storage.state($0) }
-            try FullImagePublicView.verify(source: source, states: states, support: support.fd, owner: 0)
+            try fullLayout(source: source, routes: routes, storage: storage, intent: intent, states: operationStates)
+            let states = Array(operationStates.prefix(source.units.count))
+            if completeImage { try FullImagePublicView.verify(source: source, states: states, support: support.fd, owner: 0) }
             guard let ownerIndex = source.units.firstIndex(where: { $0.path == PublicTreeUnit.owner.path }) else { throw FullImageFailure.source }
             try fullVerifySignatures(source: source, root: InstallerPayloadManifest.support, after: states[ownerIndex] == .applied)
             let root = open("/", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
@@ -445,14 +565,11 @@ extension ComponentController {
         let storage = try FullImageMixedStorage(units: units, writeEvent: { event, operation in
             guard let storage = reference.storage else { throw FullImageFailure.journal }
             try journal.writeTransition(event, operation: operation, state: storage.state)
-        }, verifyOld: verifyPublic, verifyRecoverable: verifyPublic, verifyNew: verifyPublic)
+        }, verifyOld: { try verifyPublic($0, completeImage: false) },
+           verifyRecoverable: { try verifyPublic($0, completeImage: false) },
+           verifyNew: { try verifyPublic($0, completeImage: true) })
         reference.storage = storage
         try intent.verifyStorage(storage)
-        // A completed predecessor must pass the stricter complete-image view
-        // below. Do not first repeat the recoverable-image walk, which checks
-        // the same trees while allowing a mixture of staged/applied units.
-        // Mutable recovery retains its existing verification sequence.
-        if !verificationOnly { try storage.verifyRecoverableView() }
         if try storage.state(storage.operations.last!) == .applied {
             // verifyNewView checks every non-head unit; the head was checked
             // immediately above. The mutable path keeps its existing guard.

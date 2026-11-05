@@ -1,0 +1,3 @@
+Command: `uv run pytest -q`
+Result: 4,530 passed, 4 skipped in 18m 37s.
+The run completed with exit code 0 after the restrictive-umask fixture fix.

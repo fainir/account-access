@@ -351,7 +351,7 @@ def run(args):
     revision = os.environ["GITHUB_SHA"]
     global h, f
     h_path = args.repository / "scripts/mac_component_update_installer_probe.py"
-    require(digest(h_path.read_bytes()) == "a4507756990cf6ff96e666653dab7aa7d636f1c37a01027dce9fae0e465311da")
+    require(digest(h_path.read_bytes()) == "1b790d06ae7d20bc04d9f356b364145cc24afdba9a42cd63e5c9089911d3b92b")
     h = SimpleNamespace(**runpy.run_path(str(h_path)))
     for name in ("mac_broker_repair_installer_probe.py", "mac_full_image_installer_probe.py", selected["download"]):
         path = args.repository / "scripts" / name

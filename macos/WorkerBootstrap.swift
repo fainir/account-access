@@ -2,6 +2,7 @@
 // bit, elevation request, service installation or credential-file fallback.
 import Foundation
 import Darwin
+import Security
 
 enum WorkerLaunchFailure: String, Error {
     case rootRequired = "worker_launcher_requires_root"
@@ -16,6 +17,7 @@ enum WorkerLaunchFailure: String, Error {
     case invalidIdentity = "invalid_worker_launcher_identity"
     case invalidDescriptors = "invalid_worker_launcher_descriptors"
     case identityDropFailed = "worker_identity_drop_failed"
+    case securitySessionFailed = "worker_security_session_failed"
     case executionFailed = "worker_execution_failed"
 }
 
@@ -368,6 +370,7 @@ enum MacWorkerBootstrap {
                   let secret = Int32(argv[3]), let receipt = Int32(argv[5]), secret != receipt else {
                 throw WorkerLaunchFailure.invalidArguments
             }
+            try createWorkerSession()
             let plan = try MacWorkerEnrollmentPlan(policy: argv[1])
             try checkFD(secret, type: S_IFIFO)
             try checkFD(receipt, type: S_IFSOCK)
@@ -387,6 +390,7 @@ enum MacWorkerBootstrap {
               argv[4] == "--agent-fd", argv[6] == "--owner-fd",
               let secretFD = Int32(argv[3]), let agentFD = Int32(argv[5]), let ownerFD = Int32(argv[7]),
               Set([secretFD, agentFD, ownerFD]).count == 3 else { throw WorkerLaunchFailure.invalidArguments }
+        try createWorkerSession()
         let plan = try MacWorkerPlan(policy: argv[1])
         try checkFD(secretFD, type: S_IFIFO)
         try checkFD(agentFD, type: S_IFSOCK)
@@ -406,6 +410,16 @@ enum MacWorkerBootstrap {
         }
         try dropIdentity(plan)
         try replaceImage(plan.python, arguments: plan.arguments + ["--listener-bindings", bindings.hex], environment: plan.environment)
+    }
+
+    static func createWorkerSession() throws {
+        // The root supervisor keeps its own session and keys. This single-use
+        // child creates an isolated security/bootstrap session before any
+        // Security calls and before permanently dropping identity. Chromium's
+        // sandboxed children then rendezvous within the worker's own session.
+        // No graphic/TTY access or parent authorization handles are inherited.
+        guard getuid() == 0, geteuid() == 0 else { throw WorkerLaunchFailure.rootRequired }
+        guard SessionCreate([], []) == errSecSuccess else { throw WorkerLaunchFailure.securitySessionFailed }
     }
 
     static func dropIdentity(_ plan: MacWorkerPlan) throws {
