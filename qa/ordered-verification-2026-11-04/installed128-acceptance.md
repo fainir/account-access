@@ -152,3 +152,5 @@ Action 21 (installation/restart) is complete. New action 22 is local first-use H
 
 No Harel request, first message/code, identity/phone enrollment, email pattern, automatic test or Harel grant has occurred in this run. Harel email remains unverified, followed by SMS and then Google Authenticator in the owner's order. The existing Lemon task and Namecheap challenge are preserved. No full product or unattended-MFA completion is claimed.
 
+Follow-up on 5 November: another permitted installed Betterloop status operation returned `COMPLETED`, outer environment `live`, and only `authenticated: true`. Discovery still reports the four standing grants, browser `READY`, recovery `RUNNING` and zero consecutive failures; its cumulative failure count is now one, so the earlier zero-total-failures observation is historical. Native Harel setup remains at the same empty secure fields, unchecked consent and disabled Send button. Action22 is unchanged; no private Harel request or new permission occurred. Existing one-time-flow regression evidence remains valid because no runtime or test source changed.
+
