@@ -286,6 +286,15 @@ def test_google_profile_picker_real_http_device_mail_login_and_session_reuse(dev
     parent = provider.server.RequestHandlerClass
     profile_path, messages_path = "/gmail/v1/users/me/profile", "/gmail/v1/users/me/messages"
     state["profiles"], state["gmail_lists"] = 0, 0
+    messages = {}
+
+    def capture_delivery():
+        if state["mail"]:
+            generation = state["totps"]
+            ident = "fresh" if generation == 1 else "fresh-" + str(generation)
+            if ident not in messages:
+                messages[ident] = {"id": ident, "internalDate": str(int(time.time() * 1000)),
+                                   "raw": encoded(state["mail"])}
 
     class Handler(parent):
         def do_GET(self):
@@ -295,11 +304,12 @@ def test_google_profile_picker_real_http_device_mail_login_and_session_reuse(dev
                 self.send(200, {"emailAddress": ADDRESS})
             elif path == messages_path:
                 state["gmail_lists"] += 1
-                self.send(200, {"messages": [{"id": "fresh"}]} if state["mail"] else {})
-            elif path == messages_path + "/fresh":
-                state["mail_reads"].append("fresh")
-                self.send(200, {"id": "fresh", "internalDate": str(int(time.time() * 1000)),
-                                "raw": encoded(state["mail"])})
+                capture_delivery()
+                self.send(200, {"messages": [{"id": ident} for ident in messages]})
+            elif path.startswith(messages_path + "/") and path.rsplit("/", 1)[1] in messages:
+                ident = path.rsplit("/", 1)[1]
+                state["mail_reads"].append(ident)
+                self.send(200, messages[ident])
             else:
                 super().do_GET()
 
@@ -320,7 +330,8 @@ def test_google_profile_picker_real_http_device_mail_login_and_session_reuse(dev
     review = setup.preview(broker.store, "pypi-device",
                            broker.store.config().fingerprint("pypi-device"), result["id"])
     assert state["passwords"] == state["gmail_lists"] == 0
-    setup.apply(broker.store, review["id"])
+    source_id = setup.apply(broker.store, review["id"])["source"]
+    assert source_id == broker.store.config().accounts["pypi-device"].login.device_email_source
     assert state["passwords"] == state["gmail_lists"] == 0
     actual = broker.run("test", "pypi-device", "status")
     assert actual["status"] == "COMPLETED", actual
@@ -330,6 +341,23 @@ def test_google_profile_picker_real_http_device_mail_login_and_session_reuse(dev
     assert state["email_token"] not in json.dumps(actual)
     assert broker.run("test", "pypi-device", "status")["status"] == "COMPLETED"
     assert state["passwords"] == state["totps"] == state["confirmations"] == 1
+    profile = broker.store.get(gmail.PROFILE_PREFIX + result["id"])
+    enrolled = broker.store.get("source:" + source_id)
+    assert profile is not None and enrolled is not None
+    # New objects reopen this fixture's encrypted state. Neither mailbox
+    # identity checking nor source setup is repeated after session expiry.
+    broker = Broker(Store(broker.store.root, broker.store._key))
+    broker.store.put("connection:pypi-device", None)
+    broker.store.put("login-attempt:pypi-device", 0)  # Accelerated fixture cooldown only.
+    fresh = broker.run("test", "pypi-device", "status")
+    assert fresh["status"] == "COMPLETED", fresh
+    assert state["passwords"] == state["totps"] == state["confirmations"] == 2
+    assert state["profiles"] == 1 and state["projects"] == 0
+    assert state["mail_reads"] == ["fresh", "fresh-2"]
+    assert set(messages) == {"fresh", "fresh-2"}  # Old mail remains and must be baselined out.
+    assert broker.store.get(gmail.PROFILE_PREFIX + result["id"]) == profile
+    assert broker.store.get("source:" + source_id) == enrolled
+    assert state["email_token"] not in json.dumps(fresh)
     before = state["gmail_lists"]
     connection = broker.store.get("connection:google")
     connection["revoked"] = True
@@ -341,6 +369,6 @@ def test_google_profile_picker_real_http_device_mail_login_and_session_reuse(dev
     # Device mail is optional until PyPI asks for it: the approved password
     # and primary TOTP can run, but revoked mail never starts a baseline/read
     # or confirmation request, and cannot claim a completed sign-in.
-    assert state["passwords"] == state["totps"] == 2
-    assert state["confirmations"] == 1
+    assert state["passwords"] == state["totps"] == 3
+    assert state["confirmations"] == 2
     assert state["gmail_lists"] == before

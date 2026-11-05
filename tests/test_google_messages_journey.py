@@ -90,6 +90,8 @@ def test_password_to_messages_reader_to_native_host_to_browser(env, monkeypatch,
         <mws-conversation-snippet>111111 is your GitHub authentication code.</mws-conversation-snippet>
         <mws-relative-timestamp><div aria-label="Now"></div></mws-relative-timestamp></mws-conversation-list-item></nav></mws-conversations-list>"""
     result = []
+    armed_windows = set()
+    enrolled = broker.store.get("source:google-sms")
     with sync_playwright() as pw:
         browser = pw.chromium.launch(chromium_sandbox=True)
         context = browser.new_context()
@@ -99,36 +101,53 @@ def test_password_to_messages_reader_to_native_host_to_browser(env, monkeypatch,
         page.evaluate("""() => {window.chrome={runtime:{id:'fixture',onMessage:{addListener:handler=>window.receive=handler}}};
             window.pollSMS=request=>new Promise(resolve=>window.receive({method:'poll',request},{id:'fixture'},resolve));}""")
         page.add_script_tag(path=RESOURCES / "reader.js")
-        worker = threading.Thread(
-            target=lambda: result.append(broker.run("test", "google-login", "summary"))
-        )
-        worker.start()
-        deadline = time.monotonic() + 25
-        while worker.is_alive() and time.monotonic() < deadline:
+        for attempt in range(2):
+            if attempt:
+                provider.sessions.clear()
+                broker.store.put("login-attempt:google-login", 0)  # Accelerated fixture cooldown only.
+            worker = threading.Thread(
+                target=lambda: result.append(broker.run("test", "google-login", "summary"))
+            )
+            worker.start()
             try:
-                incoming = mailbox.get_nowait()
-                page.evaluate(
-                    """code=>{const row=document.querySelector('mws-conversation-list-item').cloneNode(true);
-                    row.querySelector('a').setAttribute('href','/web/conversations/current');
-                    row.querySelector('mws-conversation-snippet').textContent=code+' is your GitHub authentication code.';
-                    document.querySelector('nav').prepend(row);}""",
-                    incoming,
-                )
-            except queue.Empty:
-                pass
-            for pending in exchange({"method": "pending"}).get("pending", []):
-                snapshot = page.evaluate("request=>window.pollSMS(request)", pending)
-                base = {"source": pending["source"], "window": pending["window"]}
-                if snapshot.get("armed"):
-                    assert provider.login_count == 0
-                    exchange({"method": "armed", **base})
-                if snapshot.get("candidates"):
-                    exchange({"method": "deliver", **base, "messages": snapshot["candidates"]})
-            page.wait_for_timeout(50)
-        worker.join(timeout=5)
+                deadline = time.monotonic() + 25
+                while worker.is_alive() and time.monotonic() < deadline:
+                    try:
+                        incoming = mailbox.get_nowait()
+                        page.evaluate(
+                            """item=>{const row=document.querySelector('mws-conversation-list-item').cloneNode(true);
+                            row.querySelector('a').setAttribute('href','/web/conversations/current-'+item.attempt);
+                            row.querySelector('mws-conversation-snippet').textContent=item.code+' is your GitHub authentication code.';
+                            document.querySelector('nav').prepend(row);}""",
+                            {"code": incoming, "attempt": attempt},
+                        )
+                    except queue.Empty:
+                        pass
+                    for pending in exchange({"method": "pending"}).get("pending", []):
+                        snapshot = page.evaluate("request=>window.pollSMS(request)", pending)
+                        base = {"source": pending["source"], "window": pending["window"]}
+                        if snapshot.get("armed"):
+                            assert provider.login_count == attempt
+                            armed_windows.add((pending["source"], pending["window"]))
+                            exchange({"method": "armed", **base})
+                        if snapshot.get("candidates"):
+                            exchange({"method": "deliver", **base, "messages": snapshot["candidates"]})
+                    page.wait_for_timeout(50)
+            finally:
+                if worker.is_alive():
+                    # Abort only this synthetic window if the reader/assertion
+                    # fails, then join before the browser or bridge is closed.
+                    broker.store.put("code-window:google-sms", None)
+                worker.join(timeout=10)
+            assert not worker.is_alive()
+            assert len(result) == attempt + 1 and result[-1]["status"] == "COMPLETED", result
+            assert provider.login_count == provider.sms_count == attempt + 1
+            assert provider.last_login_code not in json.dumps(result)
         browser.close()
     assert not worker.is_alive()
     assert result and result[0]["status"] == "COMPLETED"
-    assert provider.login_count == 1 and provider.sms_count == 1
+    assert len(result) == len(armed_windows) == 2
+    assert provider.login_count == provider.sms_count == 2
+    assert broker.store.get("source:google-sms") == enrolled
     assert provider.last_login_code not in json.dumps(result)
     cleanup.close()
