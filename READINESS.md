@@ -131,7 +131,7 @@ Apple notarization awaits the profile refresh in action23. The local CI Python s
 ## Next run
 
 Follow the owner's explicit order:
-0. Follow the active local CI run to its final report, then rerun on a fixed source checkout. After action23, submit the existing `build130/notary-update/` and `build130/notary-fresh/` preparations through `macos/notarize.py` with the existing profile. Verify the stapled update in Gatekeeper, then stage the exact128-to-130 installation and verify the installed broker and approved reads. The 129 fallback is also bound to installed128. D32 is complete.
+0. Follow the existing native CI stages to their final report. The completed Python stage is being rerun from one fixed revision under `dist/local-ci-clean-python-20261116/`. After action23, submit the existing `build130/notary-update/` and `build130/notary-fresh/` preparations through `macos/notarize.py` with the existing profile. Verify the stapled update in Gatekeeper, then stage the exact128-to-130 installation and verify the installed broker and approved reads. The 129 fallback is also bound to installed128. D32 is complete.
 1. Preserve verified Chrome/password import and actual128 private-status/public-example acceptance through both launchers. Do not re-import or reinstall.
 2. Complete staged native Harel email enrollment/action22. Use the checked mailbox without asking for its password. Keep identity/mobile/first code local; preserve UID/arrival/profile/attempt binding, exact redacted pattern review and separate automatic second-email approval. Real Harel email is unverified; no Harel grant exists yet.
 3. Harel SMS follows email acceptance. Physical carrier delivery remains distinct from the completed emulator tests.
