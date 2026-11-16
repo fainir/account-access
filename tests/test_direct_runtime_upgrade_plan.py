@@ -51,8 +51,12 @@ def test_owner_connection_image_requires_matching_native_source_and_unchanged_de
         candidate.verify_target_qualification(report, release, {'project_wheel_sha256': 'a' * 64})
 
 
-def test_jose_patch_replaces_package_and_both_versioned_metadata_trees():
-    package, old_info, new_info = plan.DIRECT_TREES[-3:]
+@pytest.mark.parametrize('trees', [
+    plan.DIRECT_TREES[-3:],
+    (plan.OPENTELEMETRY, plan.OPENTELEMETRY_OLD, plan.OPENTELEMETRY_NEW),
+])
+def test_security_patch_replaces_package_and_both_versioned_metadata_trees(trees):
+    package, old_info, new_info = trees
     old = {'': {'kind': 'directory', 'mode': 0o755},
            package: {'kind': 'directory', 'mode': 0o755}, package + '/guard.py': file('a'),
            old_info: {'kind': 'directory', 'mode': 0o755}, old_info + '/RECORD': file('b')}
@@ -63,6 +67,16 @@ def test_jose_patch_replaces_package_and_both_versioned_metadata_trees():
     assert all(u['kind'] == 'public_tree' for u in units)
     assert units[1]['after'] is None and units[2]['before'] is None
     assert sorted(p for u in units for p in u['changed']) == changed
+
+
+def test_opentelemetry_update_cannot_reinstall_the_predecessor():
+    directory = {'kind': 'directory', 'mode': 0o755}
+    patched = {'': directory, plan.OPENTELEMETRY_NEW: directory,
+               plan.OPENTELEMETRY_NEW + '/RECORD': file('a')}
+    vulnerable = {'': directory, plan.OPENTELEMETRY_OLD: directory,
+                  plan.OPENTELEMETRY_OLD + '/RECORD': file('b')}
+    with pytest.raises(plan.Refused):
+        plan._units({'roots': {plan.SUPPORT: patched}}, {'roots': {plan.SUPPORT: vulnerable}})
 
 
 def test_ci_helper_refuses_unexpected_archive_paths(tmp_path, monkeypatch):

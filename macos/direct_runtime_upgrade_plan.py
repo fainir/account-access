@@ -42,12 +42,18 @@ ORIGINAL_RECEIPT_MANIFEST = image.ORIGINAL_MANIFEST
 MARKER = "account-access-exact-installed-runtime-delta-v1"
 SUPPORT = image.SUPPORT
 APPLICATION = image.APPLICATION
+OPENTELEMETRY = image.SITE + "opentelemetry"
+OPENTELEMETRY_OLD = image.SITE + "opentelemetry_api-1.45.1.dist-info"
+OPENTELEMETRY_NEW = image.SITE + "opentelemetry_api-1.45.2.dist-info"
 DIRECT_TREES = (
     "runtime/lib/python3.12/site-packages/account_access",
     "runtime/lib/python3.12/site-packages/account_access-0.8.0.dist-info",
     "runtime/lib/python3.12/site-packages/authlib-1.8.0.dist-info",
     "runtime/lib/python3.12/site-packages/authlib-1.9.1.dist-info",
     "runtime/lib/python3.12/site-packages/authlib/oauth2/drafts",
+    OPENTELEMETRY,
+    OPENTELEMETRY_OLD,
+    OPENTELEMETRY_NEW,
     "runtime/lib/python3.12/site-packages/joserfc",
     "runtime/lib/python3.12/site-packages/joserfc-1.7.5.dist-info",
     "runtime/lib/python3.12/site-packages/joserfc-1.7.7.dist-info",
@@ -109,8 +115,13 @@ def _units(before, after):
         owned = [name for name in changed if _below(name, path)]
         if not owned:
             continue
-        if path in {image.PACKAGE, image.DIST_INFO, "runtime/lib/python3.12/site-packages/joserfc"}:
+        if path in {image.PACKAGE, image.DIST_INFO, OPENTELEMETRY,
+                    "runtime/lib/python3.12/site-packages/joserfc"}:
             require(bool(old_rows) and bool(new_rows))
+        elif path == OPENTELEMETRY_OLD:
+            require(bool(old_rows) and not new_rows)
+        elif path == OPENTELEMETRY_NEW:
+            require(not old_rows and bool(new_rows))
         else:
             require(bool(old_rows) != bool(new_rows))
         for rows in (old_rows, new_rows):

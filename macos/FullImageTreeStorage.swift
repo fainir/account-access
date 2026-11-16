@@ -11,6 +11,7 @@ enum PublicTreeUnit: String, CaseIterable {
     case runtimePip, runtimeOldPipInfo, runtimePipInfo, runtimeEnsurePip
     case runtimeOwner, pythonRoot, runtimeRoot, browsers, wheels, binRoot
     case authlibOldDistInfo, authlibNewDistInfo, authlibDrafts
+    case opentelemetryPackage, opentelemetryOldDistInfo, opentelemetryNewDistInfo
     case joserfcPackage, joserfcOldDistInfo, joserfcNewDistInfo
     case directProject, directDistInfo
     // The first complete-image release has a separate closed set. Adding a
@@ -22,6 +23,7 @@ enum PublicTreeUnit: String, CaseIterable {
     // `bin` here must not expand the first complete-image release contract.
     static let runtimeUpgradeCases: [Self] = [.runtimeOwner, .pythonRoot, .runtimeRoot, .browsers, .wheels, .binRoot]
     static let directRuntimeDeltaCases: [Self] = [.directProject, .directDistInfo, .authlibOldDistInfo, .authlibNewDistInfo, .authlibDrafts,
+        .opentelemetryPackage, .opentelemetryOldDistInfo, .opentelemetryNewDistInfo,
         .joserfcPackage, .joserfcOldDistInfo, .joserfcNewDistInfo]
     var path: String {
         switch self {
@@ -46,13 +48,18 @@ enum PublicTreeUnit: String, CaseIterable {
         case .authlibOldDistInfo: return "runtime/lib/python3.12/site-packages/authlib-1.8.0.dist-info"
         case .authlibNewDistInfo: return "runtime/lib/python3.12/site-packages/authlib-1.9.1.dist-info"
         case .authlibDrafts: return "runtime/lib/python3.12/site-packages/authlib/oauth2/drafts"
+        case .opentelemetryPackage: return "runtime/lib/python3.12/site-packages/opentelemetry"
+        case .opentelemetryOldDistInfo: return "runtime/lib/python3.12/site-packages/opentelemetry_api-1.45.1.dist-info"
+        case .opentelemetryNewDistInfo: return "runtime/lib/python3.12/site-packages/opentelemetry_api-1.45.2.dist-info"
         case .joserfcPackage: return "runtime/lib/python3.12/site-packages/joserfc"
         case .joserfcOldDistInfo: return "runtime/lib/python3.12/site-packages/joserfc-1.7.5.dist-info"
         case .joserfcNewDistInfo: return "runtime/lib/python3.12/site-packages/joserfc-1.7.7.dist-info"
         }
     }
-    var beforePresent: Bool { ![Self.pythonPipInfo, .runtimePipInfo, .authlibNewDistInfo, .authlibDrafts, .joserfcNewDistInfo].contains(self) }
-    var afterPresent: Bool { ![Self.pythonOldPipInfo, .runtimeOldPipInfo, .authlibOldDistInfo, .joserfcOldDistInfo].contains(self) }
+    var beforePresent: Bool { ![Self.pythonPipInfo, .runtimePipInfo, .authlibNewDistInfo, .authlibDrafts,
+                               .opentelemetryNewDistInfo, .joserfcNewDistInfo].contains(self) }
+    var afterPresent: Bool { ![Self.pythonOldPipInfo, .runtimeOldPipInfo, .authlibOldDistInfo,
+                              .opentelemetryOldDistInfo, .joserfcOldDistInfo].contains(self) }
     var runtimeUpgrade: Bool { Self.runtimeUpgradeCases.contains(self) }
     var publishedPredecessorGroups: Bool { runtimeUpgrade || Self.directRuntimeDeltaCases.contains(self) }
     // Package85 and the preceding cache repair published these exact nodes as
