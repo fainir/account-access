@@ -83,6 +83,8 @@ Action23 is the current owner action for signed delivery. Corrected128 installat
 
 23. Finder > build129 > open **Refresh Apple Notarization.command** and use its Terminal prompts to update the Apple notary profile with the developer Apple ID and a fresh Apple app-specific password. Keep those credentials local. The same existing `AccountAccessPublisher` profile is used for build130. [Package evidence](qa/ordered-verification-2026-11-04/socket-recovery-2026-11-16.md#build-130-combined-update).
 
+   Nov 16, 19:13 IST: Nir reported running the refresh command. Apple still rejected the saved profile with HTTP401, and both packages remain prepared with no submission ID. Confirm whether Terminal reported that it saved the credentials or stopped with an error, without sharing any credentials.
+
 22. Account Access > Connect Harel with email, already open with the existing checked mailbox selected -> enter the identity number and registered mobile in its secure fields, tick Allow this Harel email setup and click Send Harel login email -> unblocks F3/F9/F12 first-use email verification. Enter identity/codes only in the native app; no mailbox password or new Chrome export. Later pattern consent and the separate automatic second-email test stay local. [Actual installed acceptance](qa/ordered-verification-2026-11-04/installed128-acceptance.md).
 
 ### Completed approvals and deferred later setup
