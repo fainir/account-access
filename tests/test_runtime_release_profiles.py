@@ -37,6 +37,14 @@ def test_harel_image_profile_requires_the_installed_127_predecessor():
     assert 'invalid choice' not in result.stderr
 
 
+def test_recovery_image_pins_installed_128_and_requires_the_security_wheel():
+    import argparse
+
+    assert owner_image.RELEASES['130'] == (128, 130, candidate.RELEASE128.after)
+    with pytest.raises(ValueError, match='opentelemetry_wheel_release_mismatch'):
+        owner_image.build(argparse.Namespace(release='130'))
+
+
 def harel_report():
     return owner_release_report(candidate.RELEASE128)
 

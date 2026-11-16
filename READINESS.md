@@ -131,7 +131,7 @@ Apple notarization awaits the profile refresh in action23. Full local CI restart
 ## Next run
 
 Follow the owner's explicit order:
-0. Finish the current local CI retry. After action23, notarize and staple the existing signed build129 package, verify Gatekeeper, then stage native installation and verify the installed broker and approved reads. Qualify a signed successor containing the separately tested D31 startup fix. The release inputs and package are in `dist/root-recovery-release/build129/`. D32 is complete.
+0. Finish the current local CI retry and qualify build130 as a direct update from installed128. It combines the security patch in build129 with the D31 startup fix so installation can take one approval. Keep build129 as a qualified signed fallback. After action23, notarize the combined package, verify Gatekeeper, then stage native installation and verify the installed broker and approved reads. D32 is complete.
 1. Preserve verified Chrome/password import and actual128 private-status/public-example acceptance through both launchers. Do not re-import or reinstall.
 2. Complete staged native Harel email enrollment/action22. Use the checked mailbox without asking for its password. Keep identity/mobile/first code local; preserve UID/arrival/profile/attempt binding, exact redacted pattern review and separate automatic second-email approval. Real Harel email is unverified; no Harel grant exists yet.
 3. Harel SMS follows email acceptance. Physical carrier delivery remains distinct from the completed emulator tests.

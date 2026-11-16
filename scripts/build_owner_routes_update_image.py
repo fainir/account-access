@@ -1,8 +1,9 @@
 """Prepare a matching owner/broker successor from one exact public predecessor.
 
 No installed paths or account data are accessed. Existing JIT/native dependency
-bytes stay fixed. Build 129 additionally replaces the exact reviewed pure-Python
-OpenTelemetry wheel. Publisher signing and payload/browser verification occur here.
+bytes stay fixed. Builds 129 and 130 both replace the exact reviewed pure-Python
+OpenTelemetry wheel from build 128. Build 130 also carries the broker startup
+fix. Publisher signing and payload/browser verification occur here.
 """
 
 import argparse
@@ -36,7 +37,9 @@ RELEASES = {'122': (121, 122, BASE_SHA256),
             '126': (125, 126, '8abffd8078832752aa13c59e58834b0a9b669656758dab47d4418ae663c41bcd'),
             '127': (126, 127, '0e1c1f3a2b05f3eb5f9acd32b7a55bea28d775411519d41be0401b43d852d20f'),
             '128': (127, 128, '82b953e0698ee73468c2cff8aa546c5b94368fbf1fe24036e2623d039fee2f06'),
-            '129': (128, 129, '7b1eccdab5c75cf80963ee005ecb5dca66e64041acc9f50aa65aa3dc2b8131ba')}
+            '129': (128, 129, '7b1eccdab5c75cf80963ee005ecb5dca66e64041acc9f50aa65aa3dc2b8131ba'),
+            '130': (128, 130, '7b1eccdab5c75cf80963ee005ecb5dca66e64041acc9f50aa65aa3dc2b8131ba')}
+OPENTELEMETRY_RELEASES = {'129', '130'}
 
 OTEL_BEFORE = '1.45.1'
 OTEL_AFTER = '1.45.2'
@@ -103,7 +106,8 @@ def build(args):
     release = getattr(args, 'release', '122')
     require(type(release) is str and release in RELEASES, 'unsupported_image_release')
     opentelemetry_wheel = getattr(args, 'opentelemetry_wheel', None)
-    require((release == '129') == (opentelemetry_wheel is not None), 'opentelemetry_wheel_release_mismatch')
+    upgrades_opentelemetry = release in OPENTELEMETRY_RELEASES
+    require(upgrades_opentelemetry == (opentelemetry_wheel is not None), 'opentelemetry_wheel_release_mismatch')
     before_build, target_build, base_sha256 = RELEASES[release]
     require(sys.platform == 'darwin' and os.getuid() == os.geteuid() != 0, 'ordinary_mac_required')
     repository = Path(__file__).resolve().parents[1]
@@ -111,7 +115,7 @@ def build(args):
     require(root.resolve(strict=True) == root and root.is_relative_to(repository / 'dist')
             and root.stat().st_uid == os.getuid() and root.parent.stat().st_uid == os.getuid()
             and stat.S_IMODE(root.parent.stat().st_mode) == 0o700, 'private_repository_build_copy_required')
-    if release == '129':
+    if upgrades_opentelemetry:
         outputs = [args.manifest_output.absolute(), args.report.absolute()]
         require(len(set(outputs)) == 2 and all(path.parent == root.parent and not os.path.lexists(path)
                                                 for path in outputs), 'private_new_release_outputs_required')
@@ -223,7 +227,7 @@ def build(args):
               'installed_paths_changed': False, 'account_data_used': False}
     if opentelemetry_wheel is not None:
         report.update(opentelemetry_api_version=OTEL_AFTER, opentelemetry_wheel_sha256=OTEL_PATCHED)
-    mode = 'xb' if release == '129' else 'wb'
+    mode = 'xb' if upgrades_opentelemetry else 'wb'
     with args.manifest_output.open(mode) as output:
         output.write(raw_manifest)
     with args.report.open(mode) as output:
