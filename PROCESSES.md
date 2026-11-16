@@ -4,7 +4,7 @@ READINESS.md defines completion. This file assigns the work and its runners.
 
 ## Strategy
 
-- Diagnosis: 33 of 44 flow rows are verified, two have current reliability work, eight need owner actions and one is cut. Build128's earlier postboot pass remains valid for that boot. On 16 November missing socket parents caused a service outage; the restored job and both discoveries pass, while approved operation acceptance must be recovered (D31/D32). Real Harel enrollment remains the first owner step.
+- Diagnosis: 33 of 45 flow rows are verified, three have reliability or security release work, eight need owner actions and one is cut. Build128's earlier postboot pass remains valid for that boot. On 16 November missing socket parents caused a service outage; both discoveries pass after restoration, while approved operation acceptance and a patched signed runtime remain open (D31/D32/D33). Real Harel enrollment remains the first owner step.
 - Guiding policy: prove one installed method at a time in the owner's order. Reuse the verified Chrome import and checked mailbox. Keep private values and first-use code/pattern approval in the native app; return only sign-in status to AI.
 - Coherent actions: preserve F2/D15 and historical F1/F6/D23/D29 evidence; verify current approved agent reads (D32) and safe unattended launchd recovery (D31). Complete native Harel action22/F3/F9, then the separately approved automatic second-email test; take SMS/F4 next and Google Authenticator/F5/action18 last. Preserve paused Namecheap/Lemon challenges and all prior release contracts.
 - Feasible because: build128 is installed; its broker, native form and checked mailbox are available. Local controlled qualification remains available; root fault injection requires a disposable Mac. GitHub Actions budget remains $0; no new account, spending, key or upload is authorized. The cheapest next runtime test is the durable public-example task; real Harel requires owner enrollment.
@@ -27,7 +27,7 @@ READINESS.md defines completion. This file assigns the work and its runners.
 |---|---|---|---|---|---|
 | Ordered email then SMS | F3/F9/F4/P1 | session | account_access/, macos/AccountAccess.swift, provider tests, qa/ordered-verification-2026-11-04/ | 1 | owner action22 |
 | Deferred authenticator and publication | F5/F10/F12 | session | release evidence and native enrollment review | 1 | verified Harel email then SMS; owner approvals |
-| Installed service reliability | product, P4 | session | broker startup code and installed-service evidence (D31/D32) | 1 | |
+| Installed service reliability | product, P4 | session | broker startup code, security release inputs and evidence (D31/D32/D33) | 1 | |
 
 Coordinator owns ledgers/git. The original build128 installation follow-up was deleted. Current recovery checks are D31/D32; the native Harel form remains open. No personal-enrollment monitor is scheduled. Preserve the existing approved Chrome/mailbox setup and private challenges. Root fault injection, fresh128/multi-OS public delivery and physical-phone acceptance remain explicitly unqualified.
 
