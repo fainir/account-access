@@ -41,20 +41,26 @@ def require(value, reason):
         raise ValueError(reason)
 
 
-def replace_joserfc(runtime, wheel, expected_sha256):
-    require(sha(wheel) == expected_sha256, 'jose_wheel_digest_mismatch')
-    require(wheel.name == 'joserfc-1.7.7-py3-none-any.whl', 'jose_wheel_identity_mismatch')
+def replace_pure_python_dependency(runtime, wheel, *, expected_sha256, distribution,
+                                   package, before, after, label):
+    require(wheel.is_file() and not wheel.is_symlink() and sha(wheel) == expected_sha256,
+            f'{label}_wheel_digest_mismatch')
+    require(wheel.name == f'{distribution}-{after}-py3-none-any.whl',
+            f'{label}_wheel_identity_mismatch')
+    new_info = f'{distribution}-{after}.dist-info'
     with zipfile.ZipFile(wheel) as archive:
         entries = list(wheel_entries(archive))
-        require(entries and all(item.filename.startswith(('joserfc/', 'joserfc-1.7.7.dist-info/'))
-                and not item.filename.endswith(('.so', '.dylib', '.bundle', '.pyc')) for item in entries),
-                'jose_wheel_contents_refused')
+        require(entries and all(item.filename.startswith((package + '/', new_info + '/'))
+                and not item.filename.lower().endswith(('.so', '.dylib', '.bundle', '.pyc', '.pth'))
+                for item in entries), f'{label}_wheel_contents_refused')
     site = runtime / 'lib/python3.12/site-packages'
-    old = [site / 'joserfc', site / 'joserfc-1.7.5.dist-info']
-    require(all(p.is_dir() and not p.is_symlink() for p in old), 'old_jose_layout_invalid')
+    old = [site / package, site / f'{distribution}-{before}.dist-info']
+    require(all(p.is_dir() and not p.is_symlink() for p in old)
+            and not os.path.lexists(site / new_info), f'old_{label}_layout_invalid')
     for directory in old:
-        require(all(not p.is_symlink() for p in directory.rglob('*')), 'old_jose_link_refused')
-    with tempfile.TemporaryDirectory(prefix='jose-wheel-', dir=runtime.parent) as temporary:
+        require(all(not p.is_symlink() and (p.is_file() or p.is_dir())
+                    for p in directory.rglob('*')), f'old_{label}_link_refused')
+    with tempfile.TemporaryDirectory(prefix=f'{label}-wheel-', dir=runtime.parent) as temporary:
         staged = Path(temporary) / 'runtime'
         (staged / 'lib/python3.12/site-packages').mkdir(parents=True)
         (staged / 'bin').mkdir()
@@ -62,14 +68,20 @@ def replace_joserfc(runtime, wheel, expected_sha256):
             source.validate_record(validate_contents=True)
             install(source, Destination(staged, 'account-access'),
                     additional_metadata={'INSTALLER': b'account-access-static-runtime-image 1\n'})
-        require(not list((staged / 'bin').iterdir()), 'jose_wheel_scripts_refused')
+        require(not list((staged / 'bin').iterdir()), f'{label}_wheel_scripts_refused')
         staged_site = staged / 'lib/python3.12/site-packages'
-        require({p.name for p in staged_site.iterdir()} == {'joserfc', 'joserfc-1.7.7.dist-info'},
-                'jose_staged_layout_invalid')
+        require({p.name for p in staged_site.iterdir()} == {package, new_info},
+                f'{label}_staged_layout_invalid')
         for directory in old:
             shutil.rmtree(directory)
         for directory in staged_site.iterdir():
             shutil.copytree(directory, site / directory.name)
+
+
+def replace_joserfc(runtime, wheel, expected_sha256):
+    replace_pure_python_dependency(runtime, wheel, expected_sha256=expected_sha256,
+                                   distribution='joserfc', package='joserfc',
+                                   before='1.7.5', after='1.7.7', label='jose')
 
 
 def build(args):

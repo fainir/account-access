@@ -17,7 +17,7 @@ if [ "${#AC_BUILD}" -gt 9 ] || [ "$AC_BUILD" -le 76 ]; then
 fi
 AC_OUTPUT=${ACCOUNT_ACCESS_MAC_OUTPUT:-"$AC_SOURCE/dist/macos"}
 AC_APP="$AC_OUTPUT/Account Access.app"
-AC_WHEEL="$AC_SOURCE/dist/account_access-0.8.0-py3-none-any.whl"
+AC_WHEEL=${ACCOUNT_ACCESS_MAC_WHEEL:-"$AC_SOURCE/dist/account_access-0.8.0-py3-none-any.whl"}
 if [ ! -f "$AC_WHEEL" ]; then
   echo "Build the 0.8.0 wheel with uv build before building the Mac installer." >&2
   exit 1
