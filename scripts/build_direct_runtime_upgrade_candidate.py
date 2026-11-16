@@ -96,8 +96,14 @@ RELEASE128 = Release('128', '473c73a28ac13345bc626eee0ae30d82a7a984a6e4566a0c332
     '605a0495345742194a8e82397da25ac9b6bc3e37', '605a0495345742194a8e82397da25ac9b6bc3e37', RELEASE127.after,
     'd5d21bd2f1aaa7e7ed9d83d0a937036998b7f3d285bc2386cddba9fd19818268',
     'com.fainir.accountaccess.harelemail128', 'Account-Access-Harel-Email-128')
+RELEASE129 = Release('129', '6dd9129728fd6f51387b307baba3939a8a80de6fc88f9e1a706f3459543a422d',
+    RELEASE128.after, 'eed1dc4089428fae0e9e4323fb12676d49681293ae7ca8d84bad324b53311129',
+    '8aba52dcd91e7b1fcdcebfe128a47c3e42a84167', '8aba52dcd91e7b1fcdcebfe128a47c3e42a84167', RELEASE128.after,
+    'd8f3799c880f1decd9f0c490840bebc42b7885c7758781b8da1bf52a9b7a9b61',
+    'com.fainir.accountaccess.opentelemetrysecurity129', 'Account-Access-OpenTelemetry-Security-129')
 RELEASES = {'120': RELEASE120, '121': RELEASE121, '122': RELEASE122, '123': RELEASE123,
-            '124': RELEASE124, '125': RELEASE125, '126': RELEASE126, '127': RELEASE127, '128': RELEASE128}
+            '124': RELEASE124, '125': RELEASE125, '126': RELEASE126, '127': RELEASE127,
+            '128': RELEASE128, '129': RELEASE129}
 
 
 def require(value: bool, reason: str) -> None:
@@ -494,7 +500,7 @@ def verify_target_qualification(report, release, plan):
             and report.get('native_audit', {}).get('publisher_signatures_verified') is True
             and report.get('installed_paths_changed') is False and report.get('account_data_used') is False
             and report.get('jit_roles') == sorted(JIT_ROLES) and report.get('entitlements') == JIT)
-    elif release.number in {'122', '123', '124', '125', '126', '127', '128'}:
+    elif release.number in {'122', '123', '124', '125', '126', '127', '128', '129'}:
         from scripts.build_jit_update_image import JIT_ROLES
         qualified = (report.get('base_manifest_sha256') == release.image_base
             and report.get('manifest_sha256') == release.after
@@ -504,6 +510,10 @@ def verify_target_qualification(report, release, plan):
             and report.get('native_audit', {}).get('publisher_signatures_verified') is True
             and report.get('jit_roles') == sorted(JIT_ROLES)
             and report.get('installed_paths_changed') is False and report.get('account_data_used') is False)
+        if release.number == '129':
+            from scripts.build_owner_routes_update_image import OTEL_AFTER, OTEL_PATCHED
+            qualified = (qualified and report.get('opentelemetry_api_version') == OTEL_AFTER
+                and report.get('opentelemetry_wheel_sha256') == OTEL_PATCHED)
     else:
         qualified = False
     require(common and qualified, 'target_image_qualification_mismatch')

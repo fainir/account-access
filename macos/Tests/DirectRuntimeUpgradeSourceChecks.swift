@@ -154,12 +154,21 @@ import Darwin
             let automaticSetup = source.planSHA256 == FullImageFileOperation.automaticSetupPlanSHA256
             let loginNavigation = source.planSHA256 == FullImageFileOperation.loginNavigationPlanSHA256
             let harelEmail = source.planSHA256 == FullImageFileOperation.harelEmailPlanSHA256
-            try require(source.units.filter { if case .tree = $0 { return true }; return false }.count == (workerStartup ? 0 : ownerRepair ? 1 : jitRepair || betterloop || lemonSqueezy || automaticSetup || loginNavigation || harelEmail ? 2 : 8))
-            try require(source.units.filter { if case .file = $0 { return true }; return false }.count == (workerStartup ? 1 : ownerRepair || jitRepair || betterloop || lemonSqueezy || automaticSetup || loginNavigation || harelEmail ? 4 : 5))
-            try require(selected.namespace.name == (harelEmail ? "Account Access Harel Email" : loginNavigation ? "Account Access Login Navigation" : automaticSetup ? "Account Access Automatic Setup" : workerStartup ? "Account Access Worker Startup Recovery" : lemonSqueezy ? "Account Access Lemon Squeezy Connection" : betterloop ? "Account Access Betterloop Connection" : ownerRepair ? "Account Access Owner Connection Repair" : jitRepair ? "Account Access Runtime JIT Repair" : "Account Access Runtime Recovery"))
+            let opentelemetrySecurity = source.planSHA256 == FullImageFileOperation.opentelemetrySecurityPlanSHA256
+            let treeCount = source.units.filter { if case .tree = $0 { return true }; return false }.count
+            let fixedCount = source.units.filter { if case .file = $0 { return true }; return false }.count
+            if opentelemetrySecurity {
+                try require(treeCount == 5 && fixedCount == 4)
+                try require(selected.namespace.name == "Account Access OpenTelemetry Security")
+            } else {
+                try require(treeCount == (workerStartup ? 0 : ownerRepair ? 1 : jitRepair || betterloop || lemonSqueezy || automaticSetup || loginNavigation || harelEmail ? 2 : 8))
+                try require(fixedCount == (workerStartup ? 1 : ownerRepair || jitRepair || betterloop || lemonSqueezy || automaticSetup || loginNavigation || harelEmail ? 4 : 5))
+                try require(selected.namespace.name == (harelEmail ? "Account Access Harel Email" : loginNavigation ? "Account Access Login Navigation" : automaticSetup ? "Account Access Automatic Setup" : workerStartup ? "Account Access Worker Startup Recovery" : lemonSqueezy ? "Account Access Lemon Squeezy Connection" : betterloop ? "Account Access Betterloop Connection" : ownerRepair ? "Account Access Owner Connection Repair" : jitRepair ? "Account Access Runtime JIT Repair" : "Account Access Runtime Recovery"))
+            }
             let directCount = source.units.filter { if case .directFile = $0 { return true }; return false }.count
             try require(directCount == unitRows.filter { $0["kind"] as? String == "direct_file" }.count)
             if harelEmail { try require(count == 15 && source.changed.count == 24 && directCount == 9) }
+            if opentelemetrySecurity { try require(count == 20 && source.changed.count == 35 && directCount == 11) }
             try require(source.targetSourceCommit == selected.pins.targetSourceCommit)
             let stagedRows = try rows(FullImagePublicView.projection(source: source,
                 states: Array(repeating: .staged, count: count)))

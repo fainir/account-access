@@ -33,3 +33,9 @@ Local owner compilation completed successfully. The ZIP under `dist/root-recover
 The proposed 128-to-129 direct updater now has three exact tree units for OpenTelemetry: replace the package, remove 1.45.1 metadata and add 1.45.2 metadata. The forward test and the negative reverse update pass. Python and Swift agree on ordering and polarity under independent review. All 143 focused tests, lint, Swift parsing, native input pins and the existing signed release profile tests pass. The 129 signed profile will require the real target manifest and completed installer qualification.
 
 The installed service still reports browser READY. Harel enrollment is absent, and the open native form still has unchecked setup consent and a disabled Send button. Lemon remains paused. No private email, SMS or authenticator test was started.
+
+## Build 129 update
+
+The publisher-signed universal 129 image contains the reviewed 1.45.2 wheel and passes signature checks for 49 native files, including 11 executables. Its signed Chromium passed the sandboxed online-to-offline smoke check. The predecessor 128 image remains intact. The image and exact manifests are in `dist/root-recovery-release/build129/` with `target129-qualification.json`.
+
+The exact updater plan has 20 units and 35 changed paths. The ordinary-user direct update probe passed both public inventory projections, history checks and refusal checks. The shared native tree probe passed all six guarded entry-point refusals. The native runtime upgrade probe passed 72 checks. Reports are in `exact-direct-qualification/`, `exact-tree-qualification/` and `exact-runtime-qualification/`. The 226 focused source tests, lint and 30 workflow input checks also passed. The tests used local fixtures and public release inputs. They did not write to the installed service.

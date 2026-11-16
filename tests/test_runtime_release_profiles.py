@@ -14,7 +14,7 @@ from scripts import build_owner_routes_update_image as owner_image
 from scripts.build_jit_update_image import JIT, JIT_ROLES
 
 
-@pytest.mark.parametrize('release', ['125', '126', '127', '128'])
+@pytest.mark.parametrize('release', ['125', '126', '127', '128', '129'])
 @pytest.mark.parametrize('module', ['scripts.build_owner_routes_update_image',
                                   'scripts.build_direct_runtime_upgrade_candidate'])
 def test_release_cli_accepts_profile_before_requesting_image_inputs(release, module):
@@ -38,8 +38,12 @@ def test_harel_image_profile_requires_the_installed_127_predecessor():
 
 
 def harel_report():
-    release = candidate.RELEASE128
-    return {'status': 'TARGET_IMAGE_QUALIFIED', 'owner_app_build': 128, 'source_image_build': 127,
+    return owner_release_report(candidate.RELEASE128)
+
+
+def owner_release_report(release):
+    return {'status': 'TARGET_IMAGE_QUALIFIED', 'owner_app_build': int(release.number),
+            'source_image_build': int(release.number) - 1,
             'builder_commit': release.image_builder, 'target_source_commit': release.target_source,
             'owner_source_commit': release.target_source, 'native_source_commit': release.target_source,
             'base_manifest_sha256': release.before, 'manifest_sha256': release.after,
@@ -47,6 +51,33 @@ def harel_report():
             'publisher_sandboxed_browser_execution': True,
             'native_audit': {'publisher_signatures_verified': True}, 'jit_roles': sorted(JIT_ROLES),
             'installed_paths_changed': False, 'account_data_used': False}
+
+
+def test_opentelemetry_installer_matches_the_exact_direct_plan_and_image_builder():
+    from macos.direct_runtime_upgrade_plan import RELEASES
+
+    release = candidate.RELEASE129
+    assert RELEASES['129'] == (candidate.RELEASE128.after, release.after, release.target_source)
+    assert owner_image.RELEASES['129'] == (128, 129, release.before)
+    report = owner_release_report(release)
+    report.update(opentelemetry_api_version=owner_image.OTEL_AFTER,
+                  opentelemetry_wheel_sha256=owner_image.OTEL_PATCHED)
+    candidate.verify_target_qualification(report, release, {'project_wheel_sha256': 'a' * 64})
+
+
+@pytest.mark.parametrize('field, value', [
+    ('opentelemetry_api_version', '1.45.1'),
+    ('opentelemetry_wheel_sha256', 'f' * 64),
+    ('manifest_sha256', candidate.RELEASE128.after),
+])
+def test_opentelemetry_installer_refuses_the_old_version_or_mixed_image(field, value):
+    release = candidate.RELEASE129
+    report = owner_release_report(release)
+    report.update(opentelemetry_api_version=owner_image.OTEL_AFTER,
+                  opentelemetry_wheel_sha256=owner_image.OTEL_PATCHED)
+    report[field] = value
+    with pytest.raises(ValueError, match='target_image_qualification_mismatch'):
+        candidate.verify_target_qualification(report, release, {'project_wheel_sha256': 'a' * 64})
 
 
 def test_harel_updater_qualification_is_bound_to_the_qualified_127_successor():
