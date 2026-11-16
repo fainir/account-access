@@ -126,12 +126,12 @@ First Android identity approval received on 31 October: the owner selected “Fi
 
 ## Waiting on third parties
 
-Apple notarization awaits the profile refresh in action23. Full local CI restarted after the system reboot. Actual installed128 starts cleanly with the repaired directories intact and both launchers complete fresh approved Betterloop status operations. GitHub Actions remain disabled with a $0 budget. Personal Harel enrollment/action22, physical-phone, authenticator and publication actions remain in this ledger.
+Apple notarization awaits the profile refresh in action23. The local CI Python stage finished with 5,154 passed, 5 skipped and 3 failures. Two Harel fixtures exceeded their five-second wait and the source-pin test read files changed during the run. The focused current-checkout suite passed all 197 tests. Native CI stages are still active. Installed128 and its broker are healthy. Harel is unenrolled, physical SMS is unverified, and Lemon still requires authenticator enrollment.
 
 ## Next run
 
 Follow the owner's explicit order:
-0. Finish the current local CI retry. After action23, submit the existing `build130/notary-update/` and `build130/notary-fresh/` preparations through `macos/notarize.py` with the existing profile. Verify the stapled update in Gatekeeper, then stage the exact128-to-130 installation and verify the installed broker and approved reads. The 129 fallback is also bound to installed128. D32 is complete.
+0. Follow the active local CI run to its final report, then rerun on a fixed source checkout. After action23, submit the existing `build130/notary-update/` and `build130/notary-fresh/` preparations through `macos/notarize.py` with the existing profile. Verify the stapled update in Gatekeeper, then stage the exact128-to-130 installation and verify the installed broker and approved reads. The 129 fallback is also bound to installed128. D32 is complete.
 1. Preserve verified Chrome/password import and actual128 private-status/public-example acceptance through both launchers. Do not re-import or reinstall.
 2. Complete staged native Harel email enrollment/action22. Use the checked mailbox without asking for its password. Keep identity/mobile/first code local; preserve UID/arrival/profile/attempt binding, exact redacted pattern review and separate automatic second-email approval. Real Harel email is unverified; no Harel grant exists yet.
 3. Harel SMS follows email acceptance. Physical carrier delivery remains distinct from the completed emulator tests.
