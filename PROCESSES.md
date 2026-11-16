@@ -4,11 +4,11 @@ READINESS.md defines completion. This file assigns the work and its runners.
 
 ## Strategy
 
-- Diagnosis: 34 of 45 flow rows are verified, two have reliability or security release work, eight need owner actions and one is cut. Both AI launchers now complete their approved operations after socket repair. The exact build128 public image and patched build129 inputs are verified. Unattended socket recovery and signed delivery remain D31/D33.
+- Diagnosis: 34 of 45 flow rows are verified, two have reliability or security release work, eight need owner actions and one is cut. Both AI launchers complete their approved operations after socket repair. Build130 combines the two fixes in one exact update from installed128. The fresh installer is signed and independently verified.
 - Guiding policy: prove one installed method at a time in the owner's order. Reuse the verified Chrome import and checked mailbox. Keep private values and first-use code/pattern approval in the native app; return only sign-in status to AI.
 - Coherent actions: preserve F2/D15 and historical F1/F6/D23/D29 evidence; verify current approved agent reads (D32) and safe unattended launchd recovery (D31). Complete native Harel action22/F3/F9, then the separately approved automatic second-email test; take SMS/F4 next and Google Authenticator/F5/action18 last. Preserve paused Namecheap/Lemon challenges and all prior release contracts.
 - Feasible because: build128 is installed; its broker, native form and checked mailbox are available. Local controlled qualification remains available; root fault injection requires a disposable Mac. GitHub Actions budget remains $0; no new account, spending, key or upload is authorized. The cheapest next runtime test is the durable public-example task; real Harel requires owner enrollment.
-- Next objective: notarize the existing signed build129 update after action23, then verify installation. Release the separately tested broker startup fix and verify its installed recovery. Qualify real Harel email when action22 is completed.
+- Next objective: notarize the build130 packages after action23, then verify the update on installed128 and startup recovery on a disposable installation. Qualify real Harel email when action22 is completed.
 - Review by: 2026-11-18
 
 ## Processes
