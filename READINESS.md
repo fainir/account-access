@@ -126,7 +126,7 @@ First Android identity approval received on 31 October: the owner selected “Fi
 
 ## Waiting on third parties
 
-Apple notarization awaits the profile refresh in action23. The original local CI run finished with Python as its only failed stage and all native stages passed. The fixed-checkout Python rerun and the supplemental Node checks passed 5,162 total tests with five environment or fixture skips. The three native source reports match the current checkout. Installed128 and its broker are healthy. Harel is unenrolled, physical SMS is unverified, and Lemon still requires authenticator enrollment.
+Apple notarization awaits the profile refresh in action23. Gatekeeper rejected both signed build130 packages as `Unnotarized Developer ID`. The original local CI run finished with Python as its only failed stage and all native stages passed. The fixed-checkout Python rerun and the supplemental Node checks passed 5,162 total tests with five environment or fixture skips. The three native source reports match the current checkout. Installed128 and its broker are healthy. Harel is unenrolled, physical SMS is unverified, and Lemon still requires authenticator enrollment. [Evidence](qa/ordered-verification-2026-11-04/socket-recovery-2026-11-16.md#build-130-combined-update).
 
 ## Next run
 
