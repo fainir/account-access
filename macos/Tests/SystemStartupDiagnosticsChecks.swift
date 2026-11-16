@@ -11,6 +11,7 @@ import Darwin
         let cases: [(Error, String)] = [
             (RootVaultKeyFailure.daemonRequired, "system_daemon_context_required"),
             (SystemBrokerFailure.policy, "system_broker_invalid_policy"),
+            (SystemBrokerFailure.socketParents, "system_broker_socket_parents_unsafe"),
             (OwnerPolicyFailure.readback, "owner_policy_readback_invalid"),
             (WorkerLaunchFailure.treeOwner, "worker_runtime_tree_owner_mismatch"),
             (RootListenerFailure.metadata, "broker_socket_activation_metadata_invalid"),

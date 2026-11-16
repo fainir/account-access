@@ -8,7 +8,7 @@ READINESS.md defines completion. This file assigns the work and its runners.
 - Guiding policy: prove one installed method at a time in the owner's order. Reuse the verified Chrome import and checked mailbox. Keep private values and first-use code/pattern approval in the native app; return only sign-in status to AI.
 - Coherent actions: preserve F2/D15 and historical F1/F6/D23/D29 evidence; verify current approved agent reads (D32) and safe unattended launchd recovery (D31). Complete native Harel action22/F3/F9, then the separately approved automatic second-email test; take SMS/F4 next and Google Authenticator/F5/action18 last. Preserve paused Namecheap/Lemon challenges and all prior release contracts.
 - Feasible because: build128 is installed; its broker, native form and checked mailbox are available. Local controlled qualification remains available; root fault injection requires a disposable Mac. GitHub Actions budget remains $0; no new account, spending, key or upload is authorized. The cheapest next runtime test is the durable public-example task; real Harel requires owner enrollment.
-- Next objective: assemble the patched successor, prove recovery with missing socket parents in isolation and run signed update acceptance. Qualify real Harel email when action22 is completed.
+- Next objective: notarize the existing signed build129 update after action23, then verify installation. Release the separately tested broker startup fix and verify its installed recovery. Qualify real Harel email when action22 is completed.
 - Review by: 2026-11-18
 
 ## Processes

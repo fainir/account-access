@@ -8,7 +8,58 @@ import OSLog
 enum SystemBrokerFailure: String, Error {
     case arguments = "system_broker_invalid_arguments"
     case policy = "system_broker_invalid_policy"
+    case socketParents = "system_broker_socket_parents_unsafe"
     case unavailable = "system_broker_unavailable"
+}
+
+enum BrokerSocketParents {
+    private static let support = "/Library/Application Support/Account Access"
+
+    static func prepareInstalled() throws {
+        guard getuid() == 0, geteuid() == 0, getppid() == 1, getpgrp() == getpid() else {
+            throw RootVaultKeyFailure.daemonRequired
+        }
+        try prepare(in: support)
+    }
+
+    // launchd can bind lazily on the first activation call. Supply the fixed
+    // parents before MacWorkerPlan checks them, so launchd cannot first create
+    // the private control directory with its default 0755 mode.
+    static func prepare(in path: String) throws {
+        guard try WorkerLaunchPaths.protected(path).path == path else { throw SystemBrokerFailure.socketParents }
+        let root = open(path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard root >= 0 else { throw SystemBrokerFailure.socketParents }
+        defer { close(root) }
+        var rootInfo = stat()
+        guard fstat(root, &rootInfo) == 0, rootInfo.st_uid == 0,
+              rootInfo.st_mode & 0o7022 == 0 else { throw SystemBrokerFailure.socketParents }
+
+        func exists(_ name: String, mode: mode_t) throws -> Bool {
+            let fd = openat(root, name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+            guard fd >= 0 else {
+                if errno == ENOENT { return false }
+                throw SystemBrokerFailure.socketParents
+            }
+            defer { close(fd) }
+            var info = stat()
+            guard fstat(fd, &info) == 0, info.st_uid == 0, info.st_dev == rootInfo.st_dev,
+                  info.st_mode & 0o7777 == mode else { throw SystemBrokerFailure.socketParents }
+            try WorkerLaunchPaths.rejectGrantACL(path + "/" + name)
+            return true
+        }
+
+        let parents: [(String, mode_t)] = [("run", 0o755), ("control", 0o700)]
+        let missing = try parents.filter { try !exists($0.0, mode: $0.1) }
+        guard !missing.isEmpty else { return }
+        // The daemon's 077 umask would create run as 0700. Use the fixed modes
+        // at creation, before any application threads, keys or workers start.
+        let previous = umask(0o022)
+        defer { umask(previous) }
+        for (name, mode) in missing {
+            guard mkdirat(root, name, mode) == 0 || errno == EEXIST,
+                  try exists(name, mode: mode) else { throw SystemBrokerFailure.socketParents }
+        }
+    }
 }
 
 // Startup failures expose only this closed vocabulary. No error descriptions,
@@ -113,6 +164,7 @@ struct SystemBrokerSettings {
             owner = try OwnerGatewayPeer(uid: uid, team: team, identifier: ownerID, codeHashes: ownerHashes)
             bootstrapPeer = try OwnerGatewayPeer(uid: 0, team: team, identifier: bootstrapID, codeHashes: bootstrapHashes)
         }
+        if !fixture && path == Self.installedPolicy { try BrokerSocketParents.prepareInstalled() }
         let plan = try MacWorkerEnrollmentPlan(policy: enrollmentPolicy, requireEmptyStage: false)
         let worker = try MacWorkerPlan(policy: workerPolicy)
         brokerUID = worker.uid
