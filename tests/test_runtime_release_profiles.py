@@ -14,7 +14,7 @@ from scripts import build_owner_routes_update_image as owner_image
 from scripts.build_jit_update_image import JIT, JIT_ROLES
 
 
-@pytest.mark.parametrize('release', ['125', '126', '127', '128', '129'])
+@pytest.mark.parametrize('release', ['125', '126', '127', '128', '129', '130'])
 @pytest.mark.parametrize('module', ['scripts.build_owner_routes_update_image',
                                   'scripts.build_direct_runtime_upgrade_candidate'])
 def test_release_cli_accepts_profile_before_requesting_image_inputs(release, module):
@@ -51,7 +51,7 @@ def harel_report():
 
 def owner_release_report(release):
     return {'status': 'TARGET_IMAGE_QUALIFIED', 'owner_app_build': int(release.number),
-            'source_image_build': int(release.number) - 1,
+            'source_image_build': release.predecessor_build or int(release.number) - 1,
             'builder_commit': release.image_builder, 'target_source_commit': release.target_source,
             'owner_source_commit': release.target_source, 'native_source_commit': release.target_source,
             'base_manifest_sha256': release.before, 'manifest_sha256': release.after,
@@ -59,6 +59,33 @@ def owner_release_report(release):
             'publisher_sandboxed_browser_execution': True,
             'native_audit': {'publisher_signatures_verified': True}, 'jit_roles': sorted(JIT_ROLES),
             'installed_paths_changed': False, 'account_data_used': False}
+
+
+def test_recovery_installer_accepts_128_and_refuses_the_uninstalled_129():
+    from macos.direct_runtime_upgrade_plan import RELEASES
+
+    release = candidate.RELEASE130
+    assert RELEASES['130'] == (candidate.RELEASE128.after, release.after, release.target_source)
+    assert owner_image.RELEASES['130'] == (128, 130, release.before)
+    assert release.component_id != candidate.RELEASE129.component_id
+    report = owner_release_report(release)
+    report.update(opentelemetry_api_version=owner_image.OTEL_AFTER,
+                  opentelemetry_wheel_sha256=owner_image.OTEL_PATCHED)
+    plan = {'project_wheel_sha256': 'a' * 64}
+    candidate.verify_target_qualification(report, release, plan)
+    report['source_image_build'] = 129
+    with pytest.raises(ValueError, match='target_image_qualification_mismatch'):
+        candidate.verify_target_qualification(report, release, plan)
+
+
+def test_recovery_fresh_installer_is_bound_to_the_same_qualified_image(tmp_path):
+    from macos import system_package
+
+    assert system_package.PREASSEMBLED_BUILD130_MANIFEST_SHA256 == candidate.RELEASE130.after
+    with pytest.raises(FileNotFoundError):
+        system_package.preassembled_manifest(tmp_path / 'missing.json', candidate.RELEASE130.after)
+    with pytest.raises(ValueError, match='reviewed_preassembled_image_required'):
+        system_package.preassembled_manifest(tmp_path / 'missing.json', candidate.RELEASE129.after)
 
 
 def test_opentelemetry_installer_matches_the_exact_direct_plan_and_image_builder():

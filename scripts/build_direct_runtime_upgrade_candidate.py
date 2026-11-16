@@ -50,6 +50,7 @@ class Release:
     base_identity: str
     component_id: str
     package_stem: str
+    predecessor_build: int | None = None
 
 
 RELEASE120 = Release('120', PLAN_SHA256, BEFORE_SHA256, AFTER_SHA256, TARGET_SOURCE,
@@ -101,9 +102,14 @@ RELEASE129 = Release('129', '6dd9129728fd6f51387b307baba3939a8a80de6fc88f9e1a706
     '8aba52dcd91e7b1fcdcebfe128a47c3e42a84167', '8aba52dcd91e7b1fcdcebfe128a47c3e42a84167', RELEASE128.after,
     'd8f3799c880f1decd9f0c490840bebc42b7885c7758781b8da1bf52a9b7a9b61',
     'com.fainir.accountaccess.opentelemetrysecurity129', 'Account-Access-OpenTelemetry-Security-129')
+RELEASE130 = Release('130', '10b5e1b1790875966cf6c5bed84bf9830dd279f5aebe4d50568c263d75c1210b',
+    RELEASE128.after, '0602047f0314bd9c608bc18c8dd5acb1d9c08ebe67eb59de321bb2b51ad435a3',
+    'dbe99a29fb8e087c6e2265b053872806fe60bcd2', '32c4994dfce52f8607a6acbad23a8350d94dbaef', RELEASE128.after,
+    RELEASE129.base_identity, 'com.fainir.accountaccess.brokerstartupsecurity130',
+    'Account-Access-Broker-Startup-Security-130', predecessor_build=128)
 RELEASES = {'120': RELEASE120, '121': RELEASE121, '122': RELEASE122, '123': RELEASE123,
             '124': RELEASE124, '125': RELEASE125, '126': RELEASE126, '127': RELEASE127,
-            '128': RELEASE128, '129': RELEASE129}
+            '128': RELEASE128, '129': RELEASE129, '130': RELEASE130}
 
 
 def require(value: bool, reason: str) -> None:
@@ -479,9 +485,10 @@ def prepare_updater_sources(sources, shared, source_plan, code, *, release=RELEA
 
 
 def verify_target_qualification(report, release, plan):
+    predecessor = release.predecessor_build if release.predecessor_build is not None else int(release.number) - 1
     common = (report.get('status') == 'TARGET_IMAGE_QUALIFIED'
         and report.get('owner_app_build') == int(release.number)
-        and report.get('source_image_build') == int(release.number) - 1
+        and report.get('source_image_build') == predecessor
         and report.get('builder_commit') == release.image_builder
         and report.get('target_source_commit') == release.target_source
         and report.get('project_wheel_sha256') == plan['project_wheel_sha256'])
@@ -500,7 +507,7 @@ def verify_target_qualification(report, release, plan):
             and report.get('native_audit', {}).get('publisher_signatures_verified') is True
             and report.get('installed_paths_changed') is False and report.get('account_data_used') is False
             and report.get('jit_roles') == sorted(JIT_ROLES) and report.get('entitlements') == JIT)
-    elif release.number in {'122', '123', '124', '125', '126', '127', '128', '129'}:
+    elif release.number in {'122', '123', '124', '125', '126', '127', '128', '129', '130'}:
         from scripts.build_jit_update_image import JIT_ROLES
         qualified = (report.get('base_manifest_sha256') == release.image_base
             and report.get('manifest_sha256') == release.after
@@ -510,7 +517,7 @@ def verify_target_qualification(report, release, plan):
             and report.get('native_audit', {}).get('publisher_signatures_verified') is True
             and report.get('jit_roles') == sorted(JIT_ROLES)
             and report.get('installed_paths_changed') is False and report.get('account_data_used') is False)
-        if release.number == '129':
+        if release.number in {'129', '130'}:
             from scripts.build_owner_routes_update_image import OTEL_AFTER, OTEL_PATCHED
             qualified = (qualified and report.get('opentelemetry_api_version') == OTEL_AFTER
                 and report.get('opentelemetry_wheel_sha256') == OTEL_PATCHED)

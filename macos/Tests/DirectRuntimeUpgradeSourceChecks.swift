@@ -155,11 +155,13 @@ import Darwin
             let loginNavigation = source.planSHA256 == FullImageFileOperation.loginNavigationPlanSHA256
             let harelEmail = source.planSHA256 == FullImageFileOperation.harelEmailPlanSHA256
             let opentelemetrySecurity = source.planSHA256 == FullImageFileOperation.opentelemetrySecurityPlanSHA256
+            let brokerStartupSecurity = source.planSHA256 == FullImageFileOperation.brokerStartupSecurityPlanSHA256
             let treeCount = source.units.filter { if case .tree = $0 { return true }; return false }.count
             let fixedCount = source.units.filter { if case .file = $0 { return true }; return false }.count
-            if opentelemetrySecurity {
+            if opentelemetrySecurity || brokerStartupSecurity {
                 try require(treeCount == 5 && fixedCount == 4)
-                try require(selected.namespace.name == "Account Access OpenTelemetry Security")
+                let namespace = brokerStartupSecurity ? "Account Access Broker Startup Security" : "Account Access OpenTelemetry Security"
+                try require(selected.namespace.name == namespace)
             } else {
                 try require(treeCount == (workerStartup ? 0 : ownerRepair ? 1 : jitRepair || betterloop || lemonSqueezy || automaticSetup || loginNavigation || harelEmail ? 2 : 8))
                 try require(fixedCount == (workerStartup ? 1 : ownerRepair || jitRepair || betterloop || lemonSqueezy || automaticSetup || loginNavigation || harelEmail ? 4 : 5))
@@ -168,7 +170,10 @@ import Darwin
             let directCount = source.units.filter { if case .directFile = $0 { return true }; return false }.count
             try require(directCount == unitRows.filter { $0["kind"] as? String == "direct_file" }.count)
             if harelEmail { try require(count == 15 && source.changed.count == 24 && directCount == 9) }
-            if opentelemetrySecurity { try require(count == 20 && source.changed.count == 35 && directCount == 11) }
+            if opentelemetrySecurity || brokerStartupSecurity {
+                try require(count == 20 && source.changed.count == 35 && directCount == 11)
+            }
+            if brokerStartupSecurity { try require(source.changed.contains("bin/AccountAccess-broker")) }
             try require(source.targetSourceCommit == selected.pins.targetSourceCommit)
             let stagedRows = try rows(FullImagePublicView.projection(source: source,
                 states: Array(repeating: .staged, count: count)))

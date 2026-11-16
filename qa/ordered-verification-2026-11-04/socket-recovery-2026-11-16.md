@@ -57,3 +57,9 @@ The Mac restarted at 14:50 local during the source CI retry. Neither the CI proc
 The full CI run restarted after reboot against commit `dbe99a2`. Its local report directory is `dist/local-ci-20261116T125726Z/`. The earlier interrupted run had a failure in the controlled password-import/authenticator UI journey. That exact journey passed in 7.72 seconds on the fresh boot. The final full CI result is pending.
 
 The new broker, bootstrap and installer verifier completed local builds in `dist/root-recovery-release/socket-parent-recovery/`. Each contains arm64 and x86_64 and passes strict ad-hoc signature verification. The new broker is ready for publisher image assembly.
+
+## Build 130 combined update
+
+The publisher-signed build130 image in `dist/root-recovery-release/build130/` passed the native payload signature audit and signed sandboxed browser execution. It contains the tested broker startup fix and the reviewed OpenTelemetry 1.45.2 wheel. The exact installed128 public image remains its predecessor. This gives both changes in one update. The older signed129 package remains a fallback from build128.
+
+Independent review confirmed that the owner app uses the identical source and resources, with the build marker set to 130 and the signatures renewed. The two signed executable slices match outside their signature blobs. The exact plan re-derived byte for byte, covers 20 units and 35 changed paths, replaces the broker, and preserves the application alias. The target contains public software only. The package source binding refuses build129 as a predecessor. The focused updater and fresh-installer checks passed, with 230 and 120 test results respectively.
