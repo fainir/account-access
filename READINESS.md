@@ -126,7 +126,7 @@ First Android identity approval received on 31 October: the owner selected “Fi
 
 ## Waiting on third parties
 
-Apple notarization awaits the profile refresh in action23. A system restart interrupted the first full local CI retry. Actual installed128 starts cleanly after that restart with the repaired directories intact. GitHub Actions remain disabled with a $0 budget. Personal Harel enrollment/action22, physical-phone, authenticator and publication actions remain in this ledger.
+Apple notarization awaits the profile refresh in action23. Full local CI restarted after the system reboot. Actual installed128 starts cleanly with the repaired directories intact and both launchers complete fresh approved Betterloop status operations. GitHub Actions remain disabled with a $0 budget. Personal Harel enrollment/action22, physical-phone, authenticator and publication actions remain in this ledger.
 
 ## Next run
 
