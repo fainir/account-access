@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "date": "2026-10-28",
+  "status": "FAILED",
+  "check": "installed owner UI mailbox status and approved agent-launcher smoke",
+  "owner_ui": {
+    "mailbox_connection": "checked",
+    "last_mailbox_check": "passed",
+    "mailbox_messages_read": false,
+    "ready_accounts": 0,
+    "service_connections": 1,
+    "supported_catalog": [
+      "Personal shopping account · Public example",
+      "Work shopping account · Public example",
+      "Membership account · Public example",
+      "Namecheap",
+      "PyPI",
+      "Read the Docs · authenticator"
+    ]
+  },
+  "agent_launcher": {
+    "service_version": "0.6.0",
+    "environment": "controlled-demo",
+    "accounts": ["demo-web", "demo-mfa", "example-sms"],
+    "operation": "summary",
+    "results": {
+      "demo-web": {"status": "RETRYABLE", "reason": "browser_execution_failed"},
+      "demo-mfa": {"status": "RETRYABLE", "reason": "browser_execution_failed"},
+      "example-sms": {"status": "RETRYABLE", "reason": "browser_execution_failed"}
+    }
+  },
+  "requested_insurer_targets_configured": false,
+  "harel_or_phoenix_connector_available": false,
+  "chrome_password_export_import_completed": false,
+  "android_15_physical_device_tested": false,
+  "private_password_or_verification_code_read": false,
+  "login_or_code_attempted": false,
+  "production_ready": false,
+  "limits": "The owner UI reports that its mailbox connection check passed, but the approved agent launcher still exposes only synthetic controlled-demo accounts and every permitted demo browser read is retryable. This does not prove email-code retrieval, a supported website sign-in, Chrome import, SMS delivery, authenticator verification, or Android 15 pairing. The Chrome export page was not opened because the browser safety policy blocks chrome:// URLs; an owner-exported CSV can be imported through the local app."
+}

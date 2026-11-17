@@ -70,6 +70,18 @@ def stage(name):
     print(json.dumps({"stage": name}), file=sys.stderr, flush=True)
 
 
+def wait_for_launch_job_absence(target, *, timeout=10, run=subprocess.run,
+                               pause=time.sleep, clock=time.monotonic):
+    """Boundedly wait for launchd's job registry to reflect a completed bootout."""
+    deadline = clock() + timeout
+    while clock() < deadline:
+        result = run(["/bin/launchctl", "print", target], capture_output=True)
+        if result.returncode != 0:
+            return True
+        pause(min(0.1, deadline - clock()))
+    return False
+
+
 def fixture_listener_prefix(agent_socket, owner_socket, agent_path, owner_path):
     """Describe the disposable CI parent's real direct-bind descriptors.
 
@@ -607,7 +619,8 @@ def provisioned_system_broker(prefix, roles):
         private_snapshot = {path: public_identity(path) for path in private_paths}
         command(["/bin/launchctl", "bootout", target])
         booted = False
-        assert subprocess.run(["/bin/launchctl", "print", target], capture_output=True).returncode != 0
+        if not wait_for_launch_job_absence(target):
+            raise RuntimeError("system_broker_bootout_not_observed")
         ready.unlink()
         repaired = activate(layout, roles["agent"].pw_uid)
         booted = True
@@ -926,9 +939,15 @@ def root_key_custody(prefix, roles, client_token):
     signed = subprocess.run(["/usr/bin/codesign", "-d", "--verbose=4", str(prefix / "mac-worker-bootstrap")], capture_output=True, timeout=10)
     hashes = re.findall(rb"^CDHash=([a-f0-9]{40})$", signed.stderr, re.MULTILINE)
     assert signed.returncode == 0 and len(hashes) == 1
+    delayed_binary = prefix / "mac-worker-bootstrap-delayed"
+    root_managed_path(delayed_binary)
+    delayed_signature = subprocess.run(["/usr/bin/codesign", "-d", "--verbose=4", str(delayed_binary)],
+        capture_output=True, timeout=10)
+    delayed_hashes = re.findall(rb"^CDHash=([a-f0-9]{40})$", delayed_signature.stderr, re.MULTILINE)
+    assert delayed_signature.returncode == 0 and len(delayed_hashes) == 1
     policy.write_text(json.dumps({"fixture": "account-access-system-key-ci-v1", "vault_id": identity, "root": str(prefix),
         "launcher": str(prefix / "mac-launcher.json"), "worker_launcher": str(prefix / "key-worker-launcher.json"),
-        "bootstrap_hash": hashes[0].decode()}))
+        "bootstrap_hash": hashes[0].decode(), "delayed_bootstrap_hash": delayed_hashes[0].decode()}))
     policy.chmod(0o644)
     label = "com.fainir.accountaccess.qa.key-custody"
     if subprocess.run(["/bin/launchctl", "print", "system/" + label], capture_output=True).returncode == 0:
@@ -1002,7 +1021,8 @@ def root_key_custody(prefix, roles, client_token):
                             "vault_key_already_enrolled", "invalid_vault_key_record", "system_keychain_unavailable", "root_key_checks_failed",
                             "vault_key_reference_result_invalid", "vault_key_data_result_invalid", "vault_key_enrollment_readback_invalid",
                             "worker_secret_channel_unavailable", "worker_secret_channel_already_consumed",
-                            "worker_process_invalid_state", "worker_process_unavailable", "worker_socket_already_occupied",
+                            "worker_process_invalid_state", "worker_process_unavailable", "worker_startup_timed_out",
+                            "worker_bootstrap_exited", "worker_socket_already_occupied",
                             "worker_bootstrap_code_rejected", "worker_process_ownership_lost", "worker_socket_identity_changed",
                             "worker_store_paused", "vault_publication_busy", "vault_publication_unsafe_state",
                             "vault_publication_requires_verified_stage", "vault_publication_unavailable",

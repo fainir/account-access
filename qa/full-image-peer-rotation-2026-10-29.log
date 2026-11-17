@@ -1,0 +1,20 @@
+2026-10-29 - F1 full-image update peer-identity rotation regression.
+
+The full-image successor may rotate broker and bootstrap code hashes only when
+the new identity file, target manifest, plan, fixed Developer ID team and bundle
+identifiers, designated requirements, and derived policy pins all agree. The
+ordinary component and owner-app upgrade paths retain their stricter peer
+identity rules.
+
+Passed: 34 installed-probe pin tests; Ruff and `git diff --check`; native policy
+fixture (47 checks); full native installed-adapter fixture (159 source, 625
+adapter, 40 namespace, 63 legacy-group, 164 journal, and 191 broker-repair
+checks); synthetic plan fixtures (17 checks for the standard target, 19 for the
+configuration extension); the existing runtime-source/entrypoint probe also passed 69 checks with ordinary-user refusal. Plan fixtures accept the fully pinned rotation and
+refuse it when the target identity is absent from the manifest or the manifest
+changes without the matching plan. The probes report no installed reads, root
+execution, service actions, or provider use. Every report keeps
+`production_ready: false` and establishes no installed or signature authority.
+
+This is source and fixture evidence only. No signed successor package was built
+or installed; F1 remains open for the qualified update and real owner acceptance.

@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "status": "TARGET_IMAGE_QUALIFIED",
+  "source_image_build": 119,
+  "source_manifest_sha256": "630e77605faac2dfdace9faaa5da55e671335c6b18e62114d7f0224a8574f24c",
+  "source_image_unchanged": true,
+  "owner_app_build": 120,
+  "target_manifest_sha256": "6ab5f90fa72dfed84c295d5df4741d3cb9aaf6a0fa89ed155b4cb76400570874",
+  "project_wheel_sha256": "e22646af365514915779d7fdb9a51e0d6ee9790bc0abe4169763ab3770b063b4",
+  "joserfc_version": "1.7.7",
+  "joserfc_wheel_sha256": "06979cfbab78bc802f14c0358f32969826cc26720e13cb38926ffdc86bc0cb2c",
+  "builder_commit": "beda6324d836458a35045ee0d2acd579238d6929",
+  "target_source_commit": "beda6324d836458a35045ee0d2acd579238d6929",
+  "native_payload_audit": {
+    "native_files": 49,
+    "executables": 11,
+    "bundles": 1,
+    "wheels": 34,
+    "publisher_signatures_verified": true,
+    "notarization_verified": false
+  },
+  "native_manifest_preflight": true,
+  "installed": false,
+  "installer_executed": false,
+  "production_ready": false
+}

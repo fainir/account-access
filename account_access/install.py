@@ -11,9 +11,12 @@ from pathlib import Path
 from .errors import AccessError
 from .storage import private_file
 
+SKILL_SOURCE = Path(__file__).resolve().parent / "skills/account-access"
+SKILL_TEMPLATE_FILES = ("SKILL.md", "agents/openai.yaml", "scripts/access.py")
+
 
 def launcher_text(target, python):
-    return ("#!/bin/sh\nexec " + shlex.quote(str(python)) + " -I "
+    return ("#!/bin/sh\nexec " + shlex.quote(str(python)) + " -B -I "
             + shlex.quote(str(target / "scripts/access.py")) + ' "$@"\n')
 
 
@@ -64,16 +67,15 @@ def check_skill_target(target, config_file):
 
 def sync_skill(target, config_file, *, python=None):
     python = str(python or sys.executable)
-    source = Path(__file__).resolve().parent / "skills/account-access"
+    source = SKILL_SOURCE
     marker = target / ".account-access-install"
     check_skill_target(target, config_file)
     target.mkdir(mode=0o700, parents=True, exist_ok=True)
-    for entry in source.iterdir():
-        dest = target / entry.name
-        if entry.is_dir():
-            shutil.copytree(entry, dest, dirs_exist_ok=True)
-        else:
-            shutil.copy2(entry, dest)
+    for relative in SKILL_TEMPLATE_FILES:
+        entry = source / relative
+        dest = target / relative
+        dest.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        shutil.copy2(entry, dest)
     # A generated launcher avoids requiring python3 on the agent's PATH.
     launcher = target / "scripts/access"
     launcher.write_text(launcher_text(target, python))

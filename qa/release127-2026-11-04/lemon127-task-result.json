@@ -1,0 +1,21 @@
+{
+  "status": "NEEDS_USER",
+  "task_id": "82250e562d9b8864541c3d2854885eee",
+  "progress": 0,
+  "total": 1,
+  "results": [],
+  "blocked": {
+    "status": "NEEDS_USER",
+    "reason": "authenticator_not_enrolled",
+    "account": "personal-lemonsqueezy",
+    "challenge": {
+      "id": "b68d7ac0307f278a37d06d8841ef30cb",
+      "account": "personal-lemonsqueezy",
+      "kind": "totp",
+      "reason": "authenticator_not_enrolled",
+      "required_action": "Complete the authenticator login challenge or enroll its approved code source.",
+      "created": 1793799436.41469
+    }
+  },
+  "untrusted_data": true
+}

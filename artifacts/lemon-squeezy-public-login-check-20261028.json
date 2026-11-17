@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "date": "2026-10-28",
+  "source_commit": "e9926087b8f256fc16a0bd1c2a413566ace33514",
+  "status": "PUBLIC_LOGIN_PAGE_OBSERVED",
+  "provider": "Lemon Squeezy",
+  "page": "https://auth.lemonsqueezy.com/login",
+  "public_options_observed": ["google", "twitter", "email_password"],
+  "authenticator_challenge_visible_before_sign_in": false,
+  "credentials_entered": false,
+  "sign_in_submitted": false,
+  "authenticated_session_confirmed": false,
+  "totp_connector_qualified": false,
+  "production_ready": false,
+  "limits": "Anonymous public login page only. The authenticator challenge and successful private sign-in were not observed."
+}

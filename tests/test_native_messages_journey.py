@@ -33,6 +33,7 @@ def collector(broker, provider, *, revoke=False):
     stopped = threading.Event()
     arrived = threading.Event()
     messages, seen, failures = [], [], []
+    after_row = 41
 
     def deliver(kind, code):
         assert kind == "sms"
@@ -44,6 +45,7 @@ def collector(broker, provider, *, revoke=False):
     provider.delivery = deliver
 
     def serve():
+        nonlocal after_row
         try:
             with httpx.Client(
                 transport=httpx.HTTPTransport(uds=path),
@@ -65,14 +67,16 @@ def collector(broker, provider, *, revoke=False):
                     assert body["sender"] == "Example"
                     assert body["template"] == "Example login: {code}"
                     if body["action"] == "begin":
-                        assert provider.login_count == 0 and not arrived.is_set()
-                        response = {"status": "READY", "after_row": 41}
+                        assert provider.login_count == len(messages)
+                        arrived.clear()
+                        after_row = 41 + len(messages)
+                        response = {"status": "READY", "after_row": after_row}
                     else:
-                        assert body["after_row"] == 41 and body["used"] == []
+                        assert body["after_row"] == after_row and body["used"] == []
                         assert arrived.wait(2)
                         response = {
                             "status": "FOUND",
-                            "id": "fixture-new-message",
+                            "id": "fixture-new-message-" + str(len(messages)),
                             "code": messages[-1],
                         }
                     answer = client.post(
@@ -132,6 +136,8 @@ def test_password_private_collector_and_sms_browser_login(env, revoke):
     configure(broker)
     with collector(broker, provider, revoke=revoke) as (seen, arrived):
         result = broker.run("test", "isolated-sms", "summary")
+        results = [result]
+        submitted_codes = [provider.last_login_code] if provider.last_login_code else []
         assert provider.login_count == 1 and arrived.is_set()
         assert seen[0] == "begin"
         if revoke:
@@ -141,11 +147,24 @@ def test_password_private_collector_and_sms_browser_login(env, revoke):
         else:
             assert result["status"] == "COMPLETED" and provider.sms_count == 1
             assert seen == ["begin", "read"]
-            assert broker.run("test", "isolated-sms", "summary")["status"] == "COMPLETED"
+            saved = broker.run("test", "isolated-sms", "summary")
+            results.append(saved)
+            assert saved["status"] == "COMPLETED"
             assert provider.login_count == 1 and seen == ["begin", "read"]
+            source = broker.store.get("source:owner-sms")
+            provider.sessions.clear()
+            broker.store.put("login-attempt:isolated-sms", 0)  # Accelerated fixture cooldown only.
+            fresh = broker.run("test", "isolated-sms", "summary")
+            results.append(fresh)
+            if provider.last_login_code:
+                submitted_codes.append(provider.last_login_code)
+            assert fresh["status"] == "COMPLETED", fresh
+            assert provider.login_count == provider.sms_count == 2
+            assert seen == ["begin", "read", "begin", "read"]
+            assert broker.store.get("source:owner-sms") == source
         assert broker.store.get("code-window:owner-sms") is None
         with broker.store.db() as db:
             events = [dict(row) for row in db.execute("SELECT * FROM audit")]
-        if provider.last_login_code:
-            assert provider.last_login_code not in json.dumps(result)
-            assert provider.last_login_code not in json.dumps(events)
+        for code in submitted_codes:
+            assert code not in json.dumps(results)
+            assert code not in json.dumps(events)

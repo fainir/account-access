@@ -133,6 +133,24 @@ def test_root_source_requires_fresh_hex_token_shape(token):
         probe.root_source(token)
 
 
+def test_ci_revision_binding_allows_slow_checkout_but_stays_bounded():
+    tree = ast.parse(SOURCE.read_text())
+    calls = [node for node in ast.walk(tree)
+             if isinstance(node, ast.Call)
+             and isinstance(node.func, ast.Attribute)
+             and node.func.attr == "check_output"
+             and isinstance(node.func.value, ast.Name)
+             and node.func.value.id == "subprocess"
+             and len(node.args) == 1
+             and isinstance(node.args[0], ast.List)
+             and [item.value for item in node.args[0].elts if isinstance(item, ast.Constant)]
+             == ["/usr/bin/git", "rev-parse", "HEAD"]]
+    assert len(calls) == 1
+    timeout = next(keyword.value.value for keyword in calls[0].keywords
+                   if keyword.arg == "timeout" and isinstance(keyword.value, ast.Constant))
+    assert timeout == 30
+
+
 def test_owner_mac_is_refused_before_package_or_output_creation(tmp_path, monkeypatch):
     output = tmp_path / "evidence"
     monkeypatch.setattr(probe.sys, "argv", [str(SOURCE), "--output", str(output)])

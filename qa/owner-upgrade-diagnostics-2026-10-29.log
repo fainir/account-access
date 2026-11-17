@@ -1,0 +1,12 @@
+Mac owner-upgrade source probe - 2026-10-29
+Command: uv run python scripts/mac_owner_upgrade_probe.py --output qa/owner-upgrade-source-2026-10-29-final
+Result: PASSED
+- 79 runtime and refusal checks passed.
+- Ordinary-context owner and runtime entrypoints refused as required.
+- 26 namespace and 21 preparation checks passed.
+- Fixed-tree storage: 482 checks passed, including symlink/ACL refusal.
+- Mixed-storage transition: 324 checks passed.
+- Installed reads/writes, root execution, service actions, and provider calls: none.
+- Probe report explicitly says production_ready=false; this validates source behavior, not a signed update or live install.
+Focused regression: uv run pytest -q tests/test_owner_upgrade110_diagnostic.py -> 10 passed.
+Ruff and git diff --check: passed.

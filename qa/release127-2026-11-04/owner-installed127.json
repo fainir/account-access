@@ -1,0 +1,42 @@
+{
+  "checked_at": "2026-11-04T13:36:08.907901+00:00",
+  "installed_build": "127",
+  "matched_qualified_public_files": [
+    "package-identity.json",
+    "owner.app/Contents/Info.plist",
+    "owner.app/Contents/_CodeSignature/CodeResources",
+    "owner.app/Contents/MacOS/AccountAccess",
+    "owner.app/Contents/Resources/account_access.whl",
+    "bin/AccountAccess-bootstrap",
+    "bin/AccountAccess-broker",
+    "bin/AccountAccess-installerverify",
+    "runtime/bin/python3.12",
+    "wheels/account_access-0.8.0-py3-none-any.whl",
+    "runtime/lib/python3.12/site-packages/account_access/authenticator_import.py",
+    "runtime/lib/python3.12/site-packages/account_access/owner.py",
+    "runtime/lib/python3.12/site-packages/account_access/ui/welcome.js",
+    "runtime/lib/python3.12/site-packages/account_access/browser.py"
+  ],
+  "preserved_prior_metadata_roots": [
+    "/Library/Application Support/Account Access",
+    "/Applications/Account Access.app",
+    "/Library/Application Support/Account Access/vault",
+    "/Library/Application Support/Account Access Installation Binding",
+    "/Library/Application Support/Account Access Runtime Recovery",
+    "/Library/Application Support/Account Access Runtime JIT Repair",
+    "/Library/Application Support/Account Access Owner Connection Repair",
+    "/Library/Application Support/Account Access Betterloop Connection",
+    "/Library/Application Support/Account Access Lemon Squeezy Connection",
+    "/Library/Application Support/Account Access Worker Startup Recovery",
+    "/Library/Application Support/Account Access Automatic Setup"
+  ],
+  "new_namespace": {
+    "path": "/Library/Application Support/Account Access Login Navigation",
+    "uid": 0,
+    "gid": 0,
+    "mode": "0o700",
+    "inode": 656889563
+  },
+  "boot": "kern.boottime: { sec = 1793797855, usec = 479614 } Wed Nov  4 15:10:55 2026",
+  "credential_or_policy_files_read": false
+}

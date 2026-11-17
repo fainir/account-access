@@ -1,0 +1,2 @@
+2026-10-28 - `uv run pytest -q tests/test_sms_gateway.py tests/test_sms_setup.py tests/test_email_codes.py tests/test_gmail_mailbox_binding.py tests/test_gmail_source_enrollment.py tests/test_authenticator_import.py tests/test_authenticator_setup_ui.py`
+138 passed in 349.13s. Synthetic source coverage only; this does not qualify the owner's Gmail account, Android device, SMS delivery or private authenticator site.

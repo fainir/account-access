@@ -379,12 +379,38 @@ class Browser:
                 return kind
         return None
 
+    def ready(self, page, config):
+        if not page.locator(config.ready_selector).first.is_visible():
+            return False
+        marker = config.ready_page
+        if marker is None:
+            return True
+        if page.url != marker.url:
+            return False
+        root = page.locator(marker.selector)
+        if root.count() != 1:
+            return False
+        # Parse inside the browser and return only a boolean. Never copy the
+        # server's private page props into Python, diagnostics or agent results.
+        return root.evaluate("""(element, expected) => {
+            const raw = element.getAttribute(expected.attribute);
+            if (raw === null || raw.length > 4000000) return false;
+            try {
+                const value = JSON.parse(raw);
+                return value !== null && typeof value === 'object' && !Array.isArray(value)
+                    && Object.prototype.hasOwnProperty.call(value, 'component')
+                    && Object.prototype.hasOwnProperty.call(value, 'url')
+                    && value.component === expected.component && value.url === expected.path;
+            } catch { return false; }
+        }""", {"attribute": marker.attribute, "component": marker.component,
+                "path": urlsplit(marker.url).path}) is True
+
     def check(self, page, config):
         self.check_authority(page)
         kind = self.challenge(page, config)
         if kind:
             raise AccessError("NEEDS_USER", "browser_" + kind + "_required", kind)
-        if not page.locator(config.ready_selector).first.is_visible():
+        if not self.ready(page, config):
             raise AccessError("NEEDS_USER", "browser_state_unrecognized", "unknown")
 
     def wait_state(self, page, config, *, after_submit=False, previous_kind=None):
@@ -396,7 +422,7 @@ class Browser:
             prior = previous_kind or ("login" if after_submit else None)
             if kind and kind != prior:
                 return
-            if page.locator(config.ready_selector).first.is_visible():
+            if self.ready(page, config):
                 return
             if time.monotonic() >= deadline:
                 return
@@ -422,6 +448,10 @@ class Browser:
         if connection and connection["fingerprint"] != self.store.config().fingerprint(account):
             raise AccessError("DENIED", "connection_configuration_changed")
         state = connection.get("state") if connection else None
+        if config.login and config.login.identity_contact and config.login.identity_contact.protocol == "harel-otp-v1":
+            from .harel_login import read
+            return read(self, account, op, config, state=state, secret_values=secret_values,
+                        setup_method=setup_method, review_stop=review_stop, on_code_request=on_code_request)
         failure_stage = ["playwright_start"]
         try:
             with sync_playwright() as pw:
@@ -487,7 +517,13 @@ class Browser:
                     failure_stage[0] = "page_create"
                     page = self.page(context)
                     failure_stage[0] = "page_navigation"
-                    page.goto(op.url, timeout=15000, wait_until="domcontentloaded")
+                    # Session-only checks with an exact server-page marker can
+                    # enter through their already reviewed authentication URL.
+                    # An anonymous application URL may use an unrelated SSO
+                    # bridge; it must not broaden our navigation authority.
+                    entry = (config.login_url if config.login and config.ready_page and op.session_only
+                             and config.login_url in config.read_resources else op.url)
+                    page.goto(entry, timeout=15000, wait_until="domcontentloaded")
                     failure_stage[0] = "page_ready"
                     self.wait_state(page, config)
                     failure_stage[0] = "authentication_check"
@@ -542,6 +578,17 @@ class Browser:
             except Exception:
                 pass  # Safe diagnostics must not change the operation's public error.
             raise AccessError("RETRYABLE", "browser_execution_failed") from None
+        except Exception:
+            # A driver that exits before its protocol starts raises a generic
+            # exception, rather than PlaywrightError. Keep its crash output and
+            # exception text private, and distinguish it from website failures.
+            if failure_stage[0] != "playwright_start":
+                raise
+            try:
+                self.store.audit("service", account, "", "browser_execution_failed", "playwright_start")
+            except Exception:
+                pass
+            raise AccessError("RETRYABLE", "browser_driver_unavailable") from None
 
     def result(self, page, op, config):
         # A status-only operation still requires the normal authenticated marker
@@ -549,6 +596,10 @@ class Browser:
         self.check(page, config)
         if op.session_only:
             return {"authenticated": True}
+        from .public_demo import inventory_result
+        public_result = inventory_result(page, op, config)
+        if public_result is not None:
+            return public_result
         return {name: page.locator(selector).first.inner_text(timeout=5000)[:100_000]
                 for name, selector in op.fields.items()}
 
@@ -1105,6 +1156,8 @@ class Browser:
     def connect(self, account, *, headless=False, complete=None):
         """Owner interactive connection. Login resources remain allowlisted; no screenshots/logs."""
         config = self.store.config().accounts[account]
+        if config.login and config.login.identity_contact and config.login.identity_contact.protocol:
+            raise AccessError("NEEDS_USER", "harel_native_setup_required", "login")
         if config.login_challenge:
             raise AccessError("NEEDS_USER", "pypi_manual_setup_unavailable", "unknown")
         with self.store.lock("account:" + account, timeout=5):

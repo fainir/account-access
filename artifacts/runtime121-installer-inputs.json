@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "release_tag": "qa-runtime-jit121-20261031",
+  "assets": {
+    "baseline.tar.gz": {
+      "sha256": "d985af514ecb438da778b666d266b3247c4f46261a853e90a0ce53abd733f724",
+      "bytes": 314644257
+    },
+    "candidate.pkg": {
+      "sha256": "13f856fc84d3b3703db7a481230035c9b8ef5f82b25101ccc3e66e0862c11705",
+      "bytes": 161311124
+    },
+    "fresh.pkg": {
+      "sha256": "cda41f0f0e12f96c2a7af9a4d752abdcad9d9e5648b08861150899b5c949be31",
+      "bytes": 289206736
+    }
+  },
+  "before_manifest_sha256": "6ab5f90fa72dfed84c295d5df4741d3cb9aaf6a0fa89ed155b4cb76400570874",
+  "after_manifest_sha256": "0eb9a5bfab615f23f9d3d6e98f7895f7bf46e6196ef8a1e5e07115906f4d443c",
+  "personal_accounts_used": 0
+}

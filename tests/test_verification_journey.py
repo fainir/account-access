@@ -1,10 +1,14 @@
 import json
+import os
+import subprocess
+import sys
 import tempfile
 import threading
 import time
 from pathlib import Path
 
 import httpx2 as httpx
+import pytest
 
 from account_access.demo import DEMO_PASSWORD, DEMO_SEED
 from account_access.install import install_skill
@@ -13,7 +17,44 @@ from account_access.owner import make_owner_server
 from account_access.verification_demo import environment, write_password_export
 
 
-def test_owner_import_and_three_verification_channels_complete_one_task():
+REOPENED_WORKER = """
+import json, os, sqlite3, sys, time
+from pathlib import Path
+from account_access.broker import Broker
+from account_access.models import TaskRequest
+from account_access.storage import Store, load_key
+
+root = Path(sys.argv[1])
+handles = json.loads(sys.argv[2])
+# Only this test's temporary synthetic vault is opened. Nothing uses the
+# owner's keychain, installation or Messages database.
+store = Store(root, load_key(root, root / "demo.key"))
+worker = Broker(store)
+messages = root / "example-messages.db"
+def baseline(*_):
+    with sqlite3.connect(messages) as db:
+        return db.execute("SELECT COALESCE(MAX(ROWID),0) FROM message").fetchone()[0]
+worker.codes.messages_baseline = baseline
+worker.codes.messages = lambda source_id, source, started, used: worker.codes.messages_at(
+    messages, source, started, used, after_row=store.get("code-window:" + source_id)["after_row"])
+for handle in handles:
+    store.put("login-attempt:" + handle, 0)  # Accelerated fixture cooldown only.
+request = TaskRequest.model_validate({"key": "after-process-restart", "steps": [
+    {"account": handle, "operation": "summary"} for handle in handles]})
+task = worker.submit("generic", request)
+deadline = time.monotonic() + 30
+while time.monotonic() < deadline:
+    worker.tick()
+    result = worker.task("generic", task["task_id"])
+    if result["status"] == "COMPLETED":
+        break
+    time.sleep(.1)
+print(json.dumps({"pid": os.getpid(), "result": result}))
+"""
+
+
+@pytest.mark.parametrize("restart", [False, True])
+def test_owner_import_and_three_verification_channels_complete_one_task(restart):
     with tempfile.TemporaryDirectory(prefix="aa-mfa-", dir="/tmp") as temporary:
         root = Path(temporary)
         with environment(root) as (provider, broker, mailbox):
@@ -49,25 +90,46 @@ def test_owner_import_and_three_verification_channels_complete_one_task():
                     assert all(state["connection_jobs"][job["id"]]["status"] == "CONNECTED" for job in jobs), json.dumps(state["connection_jobs"])
                     assert provider.totp_count == provider.email_count == provider.sms_count == 1
                     assert mailbox.fetches == 1
+                    sources = {name: broker.store.get("source:" + name)
+                               for name in broker.store.config().code_sources}
+                    with broker.store.db() as db:
+                        grants = [tuple(row) for row in db.execute("SELECT * FROM grants ORDER BY rowid")]
+                        setup_events = [tuple(row) for row in db.execute(
+                            "SELECT * FROM audit WHERE event IN ('password_imported','factor_enrolled') ORDER BY rowid")]
                     provider.sessions.clear()
-                    for handle in handles:
-                        broker.store.put("login-attempt:" + handle, 0)  # Accelerated fixture, not production throttle.
-                    request = TaskRequest.model_validate({"key": "all-verification-types", "steps": [{"account": handle, "operation": "summary"} for handle in handles]})
-                    task = broker.submit("generic", request)
-                    deadline = time.monotonic() + 30
-                    while time.monotonic() < deadline:
-                        broker.tick()
-                        result = broker.task("generic", task["task_id"])
-                        if result["status"] == "COMPLETED":
-                            break
-                        time.sleep(.1)
+                    if restart:
+                        process = subprocess.run([sys.executable, "-I", "-c", REOPENED_WORKER,
+                                                  str(root), json.dumps(handles)],
+                                                 capture_output=True, text=True, timeout=60)
+                        assert process.returncode == 0, process.stderr
+                        restarted = json.loads(process.stdout)
+                        assert restarted["pid"] != os.getpid()
+                        result = restarted["result"]
+                    else:
+                        for handle in handles:
+                            broker.store.put("login-attempt:" + handle, 0)  # Accelerated fixture, not production throttle.
+                        request = TaskRequest.model_validate({"key": "all-verification-types", "steps": [{"account": handle, "operation": "summary"} for handle in handles]})
+                        task = broker.submit("generic", request)
+                        deadline = time.monotonic() + 30
+                        while time.monotonic() < deadline:
+                            broker.tick()
+                            result = broker.task("generic", task["task_id"])
+                            if result["status"] == "COMPLETED":
+                                break
+                            time.sleep(.1)
                     assert result["status"] == "COMPLETED", result
                     assert result["progress"] == result["total"] == 4
                     assert provider.totp_count == provider.email_count == provider.sms_count == 2
                     assert DEMO_PASSWORD not in json.dumps(result) and DEMO_SEED not in json.dumps(result)
                     assert provider.last_login_code not in json.dumps(result)
+                    assert mailbox.fetches == 2
+                    assert {name: broker.store.get("source:" + name) for name in sources} == sources
+                    assert all(broker.store.get("code-window:" + name) is None for name in sources)
                     with broker.store.db() as db:
                         audit = [dict(row) for row in db.execute("SELECT * FROM audit")]
+                        assert [tuple(row) for row in db.execute("SELECT * FROM grants ORDER BY rowid")] == grants
+                        assert [tuple(row) for row in db.execute(
+                            "SELECT * FROM audit WHERE event IN ('password_imported','factor_enrolled') ORDER BY rowid")] == setup_events
                     assert {x["reason"] for x in audit if x["event"] == "login_factor_completed"} == {"totp", "email", "sms"}
                     assert provider.last_login_code not in json.dumps(audit)
             finally:

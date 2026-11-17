@@ -48,9 +48,12 @@ private enum PlanFixtureFailure: Error { case failed }
                     targetSourceFiles: p["targetSourceFiles"] as! [String: String], providerManifestSHA256: p["providerManifestSHA256"] as! String,
                     providerSourceBundleSHA256: p["providerSourceBundleSHA256"] as! String)
             }
-            func load(_ plan: Data, _ supplied: FullImageSourcePins? = nil) throws -> FullImageSource {
-                try FullImageSource.load(plan: plan, before: before, after: after, oldIdentity: oldIdentity,
-                    newIdentity: newIdentity, providerManifest: provider, caReceipt: ca, pins: supplied ?? pins(plan))
+            func load(_ plan: Data, _ supplied: FullImageSourcePins? = nil,
+                      before planBefore: Data? = nil, after planAfter: Data? = nil,
+                      newIdentity planIdentity: Data? = nil) throws -> FullImageSource {
+                try FullImageSource.load(plan: plan, before: planBefore ?? before, after: planAfter ?? after,
+                    oldIdentity: oldIdentity, newIdentity: planIdentity ?? newIdentity,
+                    providerManifest: provider, caReceipt: ca, pins: supplied ?? pins(plan))
             }
             print("PLAN_FIXTURE_STAGE: begin_complete_image"); fflush(stdout)
             let source = try load(raw)
@@ -59,6 +62,53 @@ private enum PlanFixtureFailure: Error { case failed }
             let expectedTarget = expected?["target_manifest_sha256"] as? String ?? "ecb39f380b9666babab4384a24c6fcddce6c13274e7d9b25d75013a2464dd3d5"
             print("PLAN_FIXTURE_STAGE: complete_image_loaded"); fflush(stdout)
             try expect(Int64(source.changed.count) == expectedCount && source.units.count == 25)
+            // A code-hash rotation is accepted only when the exact target
+            // identity file, target manifest, update plan and policy pins all
+            // agree. Team and bundle identifiers remain the product's fixed
+            // Developer ID identities.
+            func canonical(_ value: Any) throws -> Data {
+                var data = try FullImageJSON.canonical(value); data.append(10); return data
+            }
+            var rotatedIdentity = try FullImageJSON.object(newIdentity, maximum: 8192)
+            var signatures = rotatedIdentity["signatures"] as! [String: Any]
+            for (kind, hash) in [("broker", String(repeating: "6", count: 40)),
+                                 ("bootstrap", String(repeating: "7", count: 40))] {
+                var peer = signatures[kind] as! [String: Any]
+                peer["hashes"] = [hash]
+                signatures[kind] = peer
+            }
+            rotatedIdentity["signatures"] = signatures
+            let rotatedIdentityRaw = try canonical(rotatedIdentity)
+            try refuses { _ = try load(raw, nil, before: before, after: after, newIdentity: rotatedIdentityRaw) }
+            var rotatedManifest = try FullImageJSON.object(after, maximum: 16 * 1024 * 1024)
+            var roots = rotatedManifest["roots"] as! [String: Any]
+            var support = roots[InstallerPayloadManifest.support] as! [String: Any]
+            var identityNode = support["package-identity.json"] as! [String: Any]
+            identityNode["size"] = rotatedIdentityRaw.count
+            identityNode["sha256"] = FullImageJSON.hash(rotatedIdentityRaw)
+            support["package-identity.json"] = identityNode
+            roots[InstallerPayloadManifest.support] = support
+            rotatedManifest["roots"] = roots
+            let rotatedAfter = try canonical(rotatedManifest)
+            try refuses { _ = try load(raw, pins(raw, target: FullImageJSON.hash(rotatedAfter)),
+                before: before, after: rotatedAfter, newIdentity: rotatedIdentityRaw) }
+            var rotatedPlan = try FullImageJSON.object(raw, maximum: 34 * 1024 * 1024)
+            rotatedPlan["new_peers"] = signatures
+            var provenance = rotatedPlan["provenance"] as! [String: Any]
+            provenance["target_manifest_sha256"] = FullImageJSON.hash(rotatedAfter)
+            rotatedPlan["provenance"] = provenance
+            var rotatedUnits = rotatedPlan["units"] as! [[String: Any]]
+            let identityUnit = rotatedUnits.firstIndex { $0["path"] as? String == "package-identity.json" }!
+            rotatedUnits[identityUnit]["after"] = ["kind": "file", "mode": identityNode["mode"]!,
+                "size": identityNode["size"]!, "sha256": identityNode["sha256"]!]
+            rotatedPlan["units"] = rotatedUnits
+            let rotatedPlanRaw = try canonical(rotatedPlan)
+            let rotatedSource = try load(rotatedPlanRaw,
+                pins(rotatedPlanRaw, target: FullImageJSON.hash(rotatedAfter)),
+                before: before, after: rotatedAfter, newIdentity: rotatedIdentityRaw)
+            try expect(rotatedSource.changed.count == source.changed.count
+                && rotatedSource.newPeers["broker"]?.hashes == [String(repeating: "6", count: 40)]
+                && rotatedSource.newPeers["bootstrap"]?.hashes == [String(repeating: "7", count: 40)])
             let trees = source.units.compactMap { unit -> PublicTreeUnit? in
                 if case .tree(let tree, _, _) = unit { return tree }; return nil
             }

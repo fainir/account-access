@@ -11,7 +11,7 @@ import time
 import pytest
 import uvicorn
 
-from account_access.agent_setup import RELATIVE, UPGRADE_SLOT, install, prepare, status
+from account_access.agent_setup import RELATIVE, UPGRADE_SLOT, install, prepare, setup_failure_payload, status
 from account_access.errors import AccessError
 from account_access.managed_client import enroll
 from account_access.service import create_app
@@ -25,6 +25,35 @@ def home_at(tmp_path):
     (home / ".codex/AGENTS.md").write_text("Keep my Codex preferences.\n")
     (home / ".claude/CLAUDE.md").write_text("Keep my Claude preferences.\n")
     return home
+
+
+@pytest.mark.parametrize(
+    ("reason", "status"),
+    [
+        ("client_migration_requires_review", "NEEDS_USER"),
+        ("client_setup_permissions_need_review", "NEEDS_USER"),
+        ("client_upgrade_needs_repair", "NEEDS_USER"),
+        ("client_connection_not_confirmed", "NEEDS_USER"),
+        ("client_setup_busy", "RETRYABLE"),
+        ("client_setup_changed", "RETRYABLE"),
+    ],
+)
+def test_helper_reports_only_allowlisted_setup_reason(reason, status):
+    assert setup_failure_payload(AccessError(status, reason)) == {
+        "status": status,
+        "reason": reason,
+    }
+
+
+def test_helper_hides_unknown_error_details_and_private_reasons():
+    private = "fictional-token-and-private-user-path"
+    for error in [
+        AccessError("NEEDS_USER", private),
+        RuntimeError(private),
+    ]:
+        payload = setup_failure_payload(error)
+        assert payload == {"status": "NEEDS_USER", "reason": "agent_setup_not_completed"}
+        assert private not in json.dumps(payload)
 
 
 def test_prepare_is_private_idempotent_and_does_not_install_or_expose_capability(tmp_path):

@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "release_tag": "qa-direct-root-recovery120-20261030",
+  "assets": {
+    "baseline.tar.gz": {
+      "sha256": "57e5d850cd34c95f5a803a842c365479bf5e31e5874a1fef82b1715de4ab7291",
+      "bytes": 313900092
+    },
+    "candidate.pkg": {
+      "sha256": "c347b0e3c2ae5bc5350c6663323663711f91eab4a7262b3059a79a8fb7b759d2",
+      "bytes": 229482705
+    },
+    "fresh.pkg": {
+      "sha256": "a592354a71b91f110858c0839f8eeebd0df354747154ce434c7ead91e1757317",
+      "bytes": 289224662
+    }
+  },
+  "before_manifest_sha256": "568c79ca3b45ffc357bc5af2b420d481e729630b0120dc6d0058c1a396ad21b1",
+  "after_manifest_sha256": "6ab5f90fa72dfed84c295d5df4741d3cb9aaf6a0fa89ed155b4cb76400570874",
+  "personal_accounts_used": 0
+}

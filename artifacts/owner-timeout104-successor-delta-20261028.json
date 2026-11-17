@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "date": "2026-10-28",
+  "status": "SUCCESSOR_PLAN_REQUIRED",
+  "candidate_build": "104",
+  "candidate_source_commit": "9c375d1655f8fb27aa4389b11f546193e05b05f5",
+  "base_manifest_sha256": "03fb35eb2787ebd67079dd1cbe4dda125f430964540bdd2f2e9c81eda602fd7a",
+  "candidate_manifest_sha256": "9f74789f12b1f5a009bb145569a09156743c9e334f69bd4561dcc6993aa9725e",
+  "changed_public_paths": [
+    "owner.app/Contents/Info.plist",
+    "owner.app/Contents/MacOS/AccountAccess",
+    "owner.app/Contents/MacOS/AccountAccessBackground",
+    "owner.app/Contents/Resources/account_access.whl",
+    "owner.app/Contents/_CodeSignature/CodeResources",
+    "package-identity.json"
+  ],
+  "existing_owner_successor_allowed_paths": [
+    "owner.app/Contents/Info.plist",
+    "owner.app/Contents/MacOS/AccountAccess",
+    "package-identity.json"
+  ],
+  "predecessor_app_wheel_sha256": "ec543fd044d76db5e4632d3e93cff414b7c05d6239533bd6accd70209e0f1a05",
+  "candidate_app_wheel_sha256": "43a7830bdc978394c716654a2016fb30a1a599083bedf142ef26c9dcbaf18733",
+  "predecessor_authlib": "1.8.0",
+  "candidate_authlib": "1.9.1",
+  "installed_tree_read": false,
+  "package_assembled": false,
+  "production_ready": false
+}

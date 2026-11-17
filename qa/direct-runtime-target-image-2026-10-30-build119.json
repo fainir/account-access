@@ -1,0 +1,31 @@
+{
+  "builder_commit": "217b614cb0f38c1f51f9c62dc094cf9f26165108",
+  "developer_team": "WBULD6N4NQ",
+  "installed": false,
+  "installer_executed": false,
+  "native_manifest_preflight": true,
+  "native_payload_audit": {
+    "bundles": 1,
+    "executables": 11,
+    "native_files": 49,
+    "notarization_verified": false,
+    "publisher_signatures_verified": true,
+    "wheels": 34
+  },
+  "owner_app_build": 119,
+  "production_ready": false,
+  "project_wheel_runtime_scripts": [
+    "access",
+    "account-access"
+  ],
+  "project_wheel_sha256": "d378c9d246c3325dabb5e4b5e5ea947e7d0d536ccde56083947a0765878274e6",
+  "schema": 1,
+  "source_image_build": 118,
+  "source_image_unchanged": true,
+  "source_manifest_sha256": "bb14a99941c7a82938cd0e9b3f91a16ab975e6cdd61a30741d29726a7f7bed38",
+  "status": "TARGET_IMAGE_QUALIFIED",
+  "target_manifest": "/private/tmp/account-access-direct119-target/TargetManifest.json",
+  "target_manifest_bytes": 4968480,
+  "target_manifest_sha256": "630e77605faac2dfdace9faaa5da55e671335c6b18e62114d7f0224a8574f24c",
+  "target_source_commit": "d5f7c074a4cc1df48b743bf109cf6d99986a2ca5"
+}

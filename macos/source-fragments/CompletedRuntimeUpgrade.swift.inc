@@ -78,7 +78,15 @@ extension ComponentController {
         let global = try routes.globalJournal(plan: pins.planSHA256), files = try routes.files(plan: pins.planSHA256)
         checkpoint(.predecessorIntent)
         let intent = try FullImageGlobalJournal.readIntent(directory: global.fd, owner: 0, group: 0, beforeGroup: beforeGroup,
+            // This is a completed, read-only predecessor. APFS may assign a
+            // different transient device number after restart. The intent is
+            // only tentatively decoded here. The predecessor proof below is
+            // revalidated against its persistent root-volume receipt before
+            // any historical device mapping is accepted.
+            historicalObservation: true,
+            diagnosticContext: .predecessorRuntime,
             validateIntent: { try fullPreliminary($0, source: source, ownerUID: ownerUID) }, verifyAttachment: global.verify)
+        let observationDevice = intent.workerPolicy.device
         let projectedFiles: Set<FullImageFileUnit> = [.packageIdentity, .hostPolicy, .ownerPolicy, .installRecord]
         func fileStorage(_ unit: FullImageFileUnit) throws -> FullImageFileStorage {
             let records = intent.operations.compactMap(\.file).filter { $0.unit == unit }
@@ -94,7 +102,8 @@ extension ComponentController {
             } else { current = nil }
             return try FullImageFileStorage(operation: operation, retained: files.fd, owner: 0,
                 resolve: routes.resolve, verifyAttachments: { try routes.verify() },
-                requireQuiescent: { throw FullImageFailure.journal }, completedProjection: current)
+                requireQuiescent: { throw FullImageFailure.journal }, observationDevice: observationDevice,
+                completedProjection: current)
         }
         func originalFile(_ unit: FullImageFileUnit) throws -> (Data, ComponentObject) {
             guard [.packageIdentity, .repairIdentityRemoval, .hostPolicy, .ownerPolicy, .installRecord].contains(unit) else {
@@ -106,25 +115,48 @@ extension ComponentController {
         let proof = try completedBrokerRepairLocked(resources: previous, pins: repairPins,
             predecessorPins: predecessorPins, expectedEvidenceSHA256: intent.predecessorEvidenceSHA256,
             historical: originalFile)
+        // Revalidate the exact component receipt that authorized this runtime
+        // transition before translating its saved device number. The receipt
+        // binds unchanged support/application roots to their persistent volume
+        // UUID; this operation only reads the protected predecessor history.
+        checkpoint(.predecessorRepairRoute)
+        let repairRoutes = try BrokerRepairRoutes(plan: repairPins.planSHA256,
+            predecessorPlan: repairPins.predecessorPlanSHA256)
+        let repairTransition = try repairRoutes.transition()
+        checkpoint(.predecessorRepairIntent)
+        let repairIntentBytes = try ComponentFiles.read(repairTransition.fd, "intent.json", owner: 0, mode: 0o600).0
+        let repairIntent = try BrokerRepairIntent.decode(repairIntentBytes)
+        checkpoint(.predecessorRepairEvidence)
+        let proofFields = try FullImageJSON.object(proof.evidence, maximum: 8192)
+        guard proofFields["intent_sha256"] as? String == FullImageJSON.hash(repairIntentBytes) else {
+            throw FullImageFailure.predecessor
+        }
+        checkpoint(.predecessorComponentRevalidation)
+        _ = try repairComponentDevice(resources: previous, pins: predecessorPins,
+            intent: repairIntent, routes: repairRoutes)
+        checkpoint(.predecessorRepairStability)
+        try repairRoutes.verify()
         checkpoint(.predecessorAuthority)
         let authority = try RuntimeUpgradeAuthority.bind(source: source, proof: proof)
         guard authority.ownerUID == ownerUID else { throw FullImageFailure.predecessor }
         try identity(ownerUID, authority.brokerUID)
         let worker = try publicRead("broker/worker.json", mode: 0o644), service = try jobPlist(ownerGroup: ownerGroup)
-        guard worker.1 == authority.workerPolicy, service == authority.servicePlist,
-              intent.workerPolicy == worker.1, intent.servicePlist == service else { throw FullImageFailure.object }
+        let currentDevice = support.identity.device
+        guard worker.1 == authority.workerPolicy, service == authority.servicePlist else { throw FullImageFailure.object }
         checkpoint(.predecessorPolicy)
         let policy = try runtimePolicy(source: source, predecessor: predecessor,
             install: originalFile(.installRecord).0, host: originalFile(.hostPolicy).0,
             profile: originalFile(.ownerPolicy).0, worker: worker.0, ownerUID: ownerUID)
         let dynamic = try fullDynamic(policy, source: source, proofSHA256: authority.proofSHA256)
-        try authority.validate(intent, source: source, publicOwner: 0, publicGroup: 0,
-            beforeGroup: beforeGroup, device: support.identity.device, dynamic: dynamic)
+        try authority.validateHistorical(intent, source: source, publicOwner: 0, publicGroup: 0,
+            beforeGroup: beforeGroup, device: observationDevice, currentDevice: currentDevice,
+            observedWorker: worker.1, observedService: service, dynamic: dynamic)
         let journal = try FullImageGlobalJournal.open(directory: global.fd, owner: 0, group: 0, beforeGroup: beforeGroup,
             expected: intent, validateIntent: {
-                try authority.validate($0, source: source, publicOwner: 0, publicGroup: 0,
-                    beforeGroup: beforeGroup, device: support.identity.device, dynamic: dynamic)
-            }, verifyAttachment: global.verify, createIfMissing: false)
+                try authority.validateHistorical($0, source: source, publicOwner: 0, publicGroup: 0,
+                    beforeGroup: beforeGroup, device: observationDevice, currentDevice: currentDevice,
+                    observedWorker: worker.1, observedService: service, dynamic: dynamic)
+            }, verifyAttachment: global.verify, createIfMissing: false, observationDevice: observationDevice)
         let history = try journal.completedEvidence()
         var units: [FullImageMixedStorage.Unit] = [], trees: [PublicTreeStorage] = []
         for (index, record) in intent.operations.enumerated() {
@@ -140,46 +172,90 @@ extension ComponentController {
                     targetAttachment: target.attachment(.target(unit)), retainedAttachment: retained.attachment(.retained(unit)),
                     journalAttachment: local.attachment(.journal(unit)), old: old, new: new, owner: 0, group: 0,
                     beforeGroup: beforeGroup, requireQuiescent: { throw FullImageFailure.journal },
-                    createIfMissing: false, completedProjection: projected)
+                    createIfMissing: false, observationDevice: observationDevice, completedProjection: projected)
                 trees.append(tree); units.append(.tree(tree))
             }
         }
-        func unchanged(original checkedOriginal: Int32? = nil, predecessor checkedPrevious: Int32? = nil) throws {
+        func unchanged(original checkedOriginal: Int32? = nil, predecessor checkedPrevious: Int32? = nil,
+                       progress: (FullImageInstallCheckpoint) -> Void) throws {
+            progress(.predecessorViewRoutes)
             try routes.verify(); try ComponentProcesses.requireOwnerClosed()
-            guard try owner().0 == ownerUID, try InstallerPayloadIO.contents(namespace.fd) == names,
-                  try publicRead("broker/worker.json", mode: 0o644).1 == worker.1,
-                  try jobPlist(ownerGroup: ownerGroup) == service,
-                  try journal.completedEvidence() == history else { throw FullImageFailure.object }
+            progress(.predecessorViewOwner)
+            guard try owner().0 == ownerUID, try InstallerPayloadIO.contents(namespace.fd) == names else { throw FullImageFailure.object }
+            progress(.predecessorViewPolicies)
+            guard try publicRead("broker/worker.json", mode: 0o644).1 == worker.1,
+                  try jobPlist(ownerGroup: ownerGroup) == service else { throw FullImageFailure.object }
+            progress(.predecessorViewJournal)
+            guard try journal.completedEvidence() == history else { throw FullImageFailure.object }
+            progress(.predecessorViewOriginalReceipt)
             try originalReceipt(checkedOriginal ?? original, ownerUID: ownerUID)
-            let rechecked = try completedBrokerRepairLocked(resources: checkedPrevious ?? previous, pins: repairPins,
-                predecessorPins: predecessorPins, expectedEvidenceSHA256: intent.predecessorEvidenceSHA256,
-                historical: originalFile)
-            guard rechecked.sha256 == proof.sha256 else { throw FullImageFailure.predecessor }
-        }
-        let storage = try FullImageMixedStorage(units: units,
-            writeEvent: { _, _ in throw FullImageFailure.journal }, verifyOld: {}, verifyRecoverable: {}, verifyNew: {})
-        checkpoint(.predecessorStorage)
-        try intent.verifyStorage(storage)
-        func completeView() throws {
-            try unchanged()
-            guard try storage.operations.allSatisfy({ try storage.state($0) == .applied }) else { throw FullImageFailure.predecessor }
-            try fullLayout(source: source, routes: routes, storage: storage, intent: intent)
-            if let projection { try projection.verifyPublic() }
-            else {
-                try FullImagePublicView.verify(source: source, states: Array(repeating: .applied, count: source.units.count),
-                    support: support.fd, owner: 0)
-                try runtimeSignatures(source, root: InstallerPayloadManifest.support, after: true)
+            progress(.predecessorViewRepairProof)
+            let rechecked: CompletedBrokerRepairProof
+            do {
+                rechecked = try completedBrokerRepairLocked(resources: checkedPrevious ?? previous, pins: repairPins,
+                    predecessorPins: predecessorPins, expectedEvidenceSHA256: intent.predecessorEvidenceSHA256,
+                    historical: originalFile)
+            } catch {
+                progress(.predecessorViewRepairProofRecheck)
+                throw error
             }
+            guard rechecked.sha256 == proof.sha256 else {
+                let difference: CompletedRuntimeRepairEvidenceDifference
+                do {
+                    difference = try CompletedRuntimeRepairEvidenceDifference.compare(proof.evidence, rechecked.evidence)
+                } catch {
+                    progress(.predecessorViewRepairProofCompareError)
+                    throw error
+                }
+                progress(difference.checkpoint)
+                throw FullImageFailure.predecessor
+            }
+            progress(.predecessorViewRepairProofCompare)
+        }
+        checkpoint(.predecessorStorage)
+        let storage = try FullImageMixedStorage(units: units,
+            writeEvent: { _, _ in throw FullImageFailure.journal },
+            verifyOld: { _ in }, verifyRecoverable: { _ in }, verifyNew: { _ in })
+        try intent.verifyStorage(storage)
+        func completeView(verifyImage: Bool) throws {
+            checkpoint(.predecessorViewBefore)
+            try unchanged(progress: checkpoint)
+            checkpoint(.predecessorViewStates)
+            let states = try storage.operations.map { try storage.state($0) }
+            guard !states.contains(.conflict), states.allSatisfy({ $0 == .applied }) else { throw FullImageFailure.predecessor }
+            checkpoint(.predecessorViewLayout)
+            try fullLayout(source: source, routes: routes, storage: storage, intent: intent, states: states)
+            checkpoint(.predecessorViewProjection)
+            if verifyImage {
+                if let projection { try projection.verifyPublic() }
+                else {
+                    try FullImagePublicView.verify(source: source, states: Array(states.prefix(source.units.count)),
+                        support: support.fd, owner: 0)
+                }
+            }
+            try runtimeSignatures(source, root: InstallerPayloadManifest.support, after: true)
             let root = open("/", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
             guard root >= 0 else { throw FullImageFailure.object }; defer { Darwin.close(root) }
             _ = try InstallerPayloadIO.verifyApplicationAlias(from: root, owner: 0)
-            try unchanged()
+            checkpoint(.predecessorViewAfter)
+            try unchanged(progress: checkpoint)
         }
         checkpoint(.predecessorView)
-        try completeView()
+        try completeView(verifyImage: true)
+        for tree in trees { try tree.enableVerifiedReadOnlyFastState() }
+        checkpoint(.predecessorFinalTreeHistoryRead)
         let localHistory = try trees.map { FullImageJSON.hash(try $0.completedEvidence()) }
+        checkpoint(.predecessorInitialHeadRead)
         let head = try ComponentFiles.read(namespace.fd, "head.json", owner: 0, mode: 0o644)
-        guard head.1 == intent.operations.last?.file?.after else { throw FullImageFailure.predecessor }
+        // The journal head is pinned to the predecessor's device number too.
+        // After an APFS restart, accept only that device-number translation;
+        // inode, mode, size and content digest must still match exactly.
+        guard let recordedHead = intent.operations.last?.file?.after,
+              RuntimeUpgradeHistoricalObjectBinding.matches(recorded: recordedHead, observed: head.1,
+                  recordedDevice: observationDevice, currentDevice: currentDevice) else {
+            throw FullImageFailure.predecessor
+        }
+        checkpoint(.predecessorFinalRootsRead)
         let roots = try InstallationRootBinding.capture(withVolumeUUID: true)
         checkpoint(.predecessorEvidence)
         let evidence = try FullImageJSON.encode(["schema": 1,
@@ -192,14 +268,29 @@ extension ComponentController {
             "roots": roots.mapValues { ["device": Int64($0.device), "inode": $0.inode, "volume_uuid": $0.volumeUUID] as [String: Any] }
         ] as [String: Any])
         if let expectedEvidenceSHA256 { guard FullImageJSON.hash(evidence) == expectedEvidenceSHA256 else { throw FullImageFailure.predecessor } }
-        try completeView()
-        guard try trees.map({ FullImageJSON.hash(try $0.completedEvidence()) }) == localHistory,
-              try ComponentFiles.read(namespace.fd, "head.json", owner: 0, mode: 0o644).1 == head.1,
-              try InstallationRootBinding.capture(withVolumeUUID: true) == roots else { throw FullImageFailure.predecessor }
+        // The complete view was just hashed above. The second pass confirms
+        // every pinned transition object, route, history and signature without
+        // rereading the same large immutable trees a second time.
+        try completeView(verifyImage: false)
+        checkpoint(.predecessorFinalTreeHistoryRead)
+        let finalTreeHistory = try trees.map { FullImageJSON.hash(try $0.completedEvidence()) }
+        checkpoint(.predecessorFinalTreeHistoryCompare)
+        guard finalTreeHistory == localHistory else { throw FullImageFailure.predecessor }
+        checkpoint(.predecessorFinalTreeHistoryVerified)
+        checkpoint(.predecessorFinalHeadRead)
+        let finalHead = try ComponentFiles.read(namespace.fd, "head.json", owner: 0, mode: 0o644).1
+        checkpoint(.predecessorFinalHeadCompare)
+        guard finalHead == head.1 else { throw FullImageFailure.predecessor }
+        checkpoint(.predecessorFinalHeadVerified)
+        checkpoint(.predecessorFinalRootsRead)
+        let finalRoots = try InstallationRootBinding.capture(withVolumeUUID: true)
+        checkpoint(.predecessorFinalRootsCompare)
+        guard finalRoots == roots else { throw FullImageFailure.predecessor }
+        checkpoint(.predecessorFinalRootsVerified)
         let heldOriginal = try RuntimeVerificationDescriptor(original), heldPrevious = try RuntimeVerificationDescriptor(previous)
         return CompletedRuntimeUpgradeProof(evidence: evidence, ownerUID: ownerUID, brokerUID: authority.brokerUID,
             worker: worker.1, service: service, historyCheck: {
-                try unchanged(original: heldOriginal.fd, predecessor: heldPrevious.fd)
+                try unchanged(original: heldOriginal.fd, predecessor: heldPrevious.fd, progress: { _ in })
                 guard try trees.map({ FullImageJSON.hash(try $0.journalEvidence()) }) == localHistory,
                       try ComponentFiles.read(namespace.fd, "head.json", owner: 0, mode: 0o644).1 == head.1,
                       try InstallationRootBinding.capture(withVolumeUUID: true) == roots else { throw FullImageFailure.predecessor }

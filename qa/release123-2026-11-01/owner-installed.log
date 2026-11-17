@@ -1,0 +1,29 @@
+Before owner-Mac build-123 installation: version=0.8.0 build=122
+Directory/alias metadata only; no private file or configuration was opened.
+before	/Library/Application Support/Account Access	16777229	617554083	0o40755	0	80
+before	/Applications/Account Access.app	16777229	556369026	0o120755	0	80
+before	/Library/Application Support/Account Access/vault	16777229	556370482	0o40755	0	80
+before	/Library/Application Support/Account Access Installation Binding	16777229	563018617	0o40700	0	80
+before	/Library/Application Support/Account Access Runtime Recovery	16777229	615512526	0o40700	0	0
+before	/Library/Application Support/Account Access Runtime JIT Repair	16777229	625270576	0o40700	0	0
+before	/Library/Application Support/Account Access Owner Connection Repair	16777229	625610012	0o40700	0	0
+
+After owner installation and full Mac restart: version=0.8.0 build=123
+Pre-install log created 2026-11-01T11:20:14+02:00; current kernel boot 2026-11-01T11:38:37+02:00.
+st_dev changed for every path after reboot/remount; all seven inode, mode, uid and gid values are unchanged.
+after	/Library/Application Support/Account Access	16777234	617554083	0o40755	0	80	inode/mode/uid/gid preserved
+after	/Applications/Account Access.app	16777234	556369026	0o120755	0	80	inode/mode/uid/gid preserved
+after	/Library/Application Support/Account Access/vault	16777234	556370482	0o40755	0	80	inode/mode/uid/gid preserved
+after	/Library/Application Support/Account Access Installation Binding	16777234	563018617	0o40700	0	80	inode/mode/uid/gid preserved
+after	/Library/Application Support/Account Access Runtime Recovery	16777234	615512526	0o40700	0	0	inode/mode/uid/gid preserved
+after	/Library/Application Support/Account Access Runtime JIT Repair	16777234	625270576	0o40700	0	0	inode/mode/uid/gid preserved
+after	/Library/Application Support/Account Access Owner Connection Repair	16777234	625610012	0o40700	0	0	inode/mode/uid/gid preserved
+Installed runtime catalog byte-for-byte matches qualified build-123 public image: PASS.
+Installed owner wheel byte-for-byte matches qualified build-123 public image: PASS.
+Owner-wheel catalog and installed runtime catalog match; reviewed personal-betterloop handle present: PASS.
+Normal installed discovery: service_version=0.8.0; browser_runtime=READY; background_recovery=RUNNING; failures_total=0; consecutive_failures=0.
+Codex installed launcher: COMPLETED personal-store inventory; environment=public-example; six items with only name and price.
+Claude Code installed launcher: COMPLETED personal-store inventory; environment=public-example; six items with only name and price.
+Existing private Namecheap remains needs_attention; no private operation was retried.
+No private file/configuration, password, code, new grant or private Betterloop operation was read or entered.
+Native post-restart UI handoff was not observed: computer-use RPC is unavailable in this session. No credential handoff was requested.

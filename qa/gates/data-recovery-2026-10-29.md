@@ -1,0 +1,9 @@
+# Data recovery and account controls - 2026-10-29
+
+- `uv run pytest -q tests/test_vault_backup.py tests/test_security.py tests/test_account_data.py tests/test_worker_boundary.py tests/test_managed_client.py`: **83 passed** against the current source.
+- The local CLI backup/restore journey passed end to end with a fresh backup, changed data, explicit restore confirmation and hidden passphrase prompts. The backup is password-protected with scrypt and AES-GCM, owner-only on disk, bounded to 128 MiB, and includes the vault key only inside the encrypted payload for recovery on another Mac.
+- Restore validates the authenticated archive, configuration, SQLite integrity and every encrypted record before publication. It refuses to race the service, refuses existing backup destinations, preserves the vault after a wrong passphrase or tampered file, and uses a private recovery journal to roll back an interrupted replacement or finish committed cleanup.
+- Tests cover restoring into a different local key store, credential/grant/client continuity, additive schema 0-to-1 migration, future-schema refusal, and interruption recovery after one data file was already rolled back.
+- Existing owner-account tests cover explicit plaintext single-login export and local forget/delete behavior. The encrypted backup does not include installed agent files or Android app state; the guide explains reconnect/pairing steps.
+- Ruff, Python compilation and `git diff --check` passed. The full repository suite was started and stopped after **583 passed, 1 skipped, 0 failures observed**; this is partial evidence, not a full-suite pass.
+- **Data gate remains building:** source recovery and account-data checks pass, but the new code is not in a signed installed successor and the owner UI data-operation acceptance is still open.

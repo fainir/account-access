@@ -1,0 +1,9 @@
+# AI connection setup diagnostics - 2026-10-29
+
+- `uv run pytest -q tests/test_agent_setup.py`: 46 passed.
+- `uv run ruff check account_access/agent_setup.py tests/test_agent_setup.py`: passed.
+- Native owner UI target Swift type-check: passed with `ACCOUNT_ACCESS_UI_CHECKS`.
+- Added a fixed allowlist for helper error codes. Unknown reasons and exception details reduce to `agent_setup_not_completed`.
+- Added native regression assertions for each mapped category and for rejection of arbitrary/private helper fields.
+- The installed system app remains build 110; this source change is not installed. The live owner app still needs its connection setup retried after a qualified successor update.
+- The native owner UI executable assertions are queued for push CI; local optimized compilation exceeded the available run window.

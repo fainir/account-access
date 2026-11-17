@@ -1,0 +1,70 @@
+2026-10-30 19:29:18+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[11064]: Referenced component packages (1) trustLevel=350
+2026-10-30 19:29:18+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[11064]: -[IFPKGDerivedDocument sortedPackageLocations]: result = (
+	    "file://localhost"
+	)
+2026-10-30 19:29:18+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[11064]: -[IFDInstallController(Private) _buildInstallPlanReturningError:]: location = file://localhost
+2026-10-30 19:29:18+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[11064]: -[IFDInstallController(Private) _buildInstallPlanReturningError:]: file://localhost/Users/runner/work/_temp/direct-inputs/candidate.pkg
+2026-10-30 19:29:18+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[11064]: Set authorization level to root for session
+2026-10-30 19:29:18+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[11064]: Authorization is being checked, waiting until authorization arrives.
+2026-10-30 19:29:18+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[11064]: Administrator authorization granted.
+2026-10-30 19:29:18+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[11064]: Packages have been authorized for installation.
+2026-10-30 19:29:18+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[11064]: Will use PK session
+2026-10-30 19:29:18+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[11064]: Using authorization level of root for IFPKInstallElement
+2026-10-30 19:29:18+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[11064]: Starting installation:
+2026-10-30 19:29:18+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[11064]: Configuring volume "Macintosh HD"
+2026-10-30 19:29:18+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[11064]: Preparing disk for local booted install.
+2026-10-30 19:29:18+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[11064]: Free space on "Macintosh HD": 43.19 GB (43188531200 bytes).
+2026-10-30 19:29:18+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[11064]: Create temporary directory "/var/folders/zz/zyxvpxvq6csfxvn_n0000000000000/T//Install.11064oUOewK"
+2026-10-30 19:29:18+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[11064]: IFPKInstallElement (1 packages)
+2026-10-30 19:29:18+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[11064]: Current Path: /usr/sbin/installer
+2026-10-30 19:29:18+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[11064]: Current Path: /opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/Resources/Python.app/Contents/MacOS/Python
+2026-10-30 19:29:18+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[11064]: Current Path: /usr/bin/sudo
+2026-10-30 19:29:18+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: Adding client PKInstallDaemonClient pid=11064, uid=0 (/usr/sbin/installer)
+2026-10-30 19:29:18+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[11064]: PackageKit: Enqueuing install with framework-specified quality of service (utility)
+2026-10-30 19:29:18+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: Set reponsibility for install to 927
+2026-10-30 19:29:18+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: Hosted team responsibility for install set to team:(WBULD6N4NQ)
+2026-10-30 19:29:18+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: ----- Begin install -----
+2026-10-30 19:29:18+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: request=PKInstallRequest <1 packages, destination=/>
+2026-10-30 19:29:18+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: packages=(
+	    "PKLeopardPackage <id=com.fainir.accountaccess.directruntimeupgrade120recovery, version=0.8.0, url=file://localhost/Users/runner/work/_temp/direct-inputs/candidate.pkg>"
+	)
+2026-10-30 19:29:22+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: prevent user idle system sleep
+2026-10-30 19:29:22+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: suspending Spotlight indexing
+2026-10-30 19:29:22+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: suspending backupd
+2026-10-30 19:29:22+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: Using trashcan path /var/folders/zz/zyxvpxvq6csfxvn_n0000000000000/T/PKInstallSandboxTrash/6D41D70E-CB8D-4920-BF6E-9ABCBDE9CB40.sandboxTrash for sandbox /Library/InstallerSandboxes/.PKInstallSandboxManager/6D41D70E-CB8D-4920-BF6E-9ABCBDE9CB40.activeSandbox
+2026-10-30 19:29:22+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: Shoving /Library/InstallerSandboxes/.PKInstallSandboxManager/6D41D70E-CB8D-4920-BF6E-9ABCBDE9CB40.activeSandbox/Root (0 items) to /
+2026-10-30 19:29:22+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit (package_script_service): Preparing to execute script "./postinstall" in /private/tmp/PKInstallSandbox.HHhKJ8/Scripts/com.fainir.accountaccess.directruntimeupgrade120recovery.7cUGun
+2026-10-30 19:29:22+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 package_script_service[2220]: PackageKit: Preparing to execute script "postinstall" in /tmp/PKInstallSandbox.HHhKJ8/Scripts/com.fainir.accountaccess.directruntimeupgrade120recovery.7cUGun
+2026-10-30 19:29:22+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 package_script_service[2220]: Set responsibility to pid: 927, responsible_path: /opt/hca/hosted-compute-agent
+2026-10-30 19:29:22+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 package_script_service[2220]: Hosted team responsibility for script set to team:(WBULD6N4NQ)
+2026-10-30 19:29:22+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 package_script_service[2220]: PackageKit: Executing script "postinstall" in /tmp/PKInstallSandbox.HHhKJ8/Scripts/com.fainir.accountaccess.directruntimeupgrade120recovery.7cUGun
+2026-10-30 19:29:22+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 install_monitor[11084]: Temporarily excluding: /Applications, /Library, /System, /bin, /private, /sbin, /usr
+2026-10-30 19:30:24+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 package_script_service[2220]: ./postinstall: {"schema":1,"status":"ALREADY_UPDATED_GUI_UNVERIFIED","checkpoint":"complete","gui_verified":false,"account_qa_verified":false}
+2026-10-30 19:30:24+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 package_script_service[2220]: PackageKit: Hosted team responsible for script has been cleared.
+2026-10-30 19:30:24+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 package_script_service[2220]: Responsibility set back to self.
+2026-10-30 19:30:24+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: No Intel binaries to translate.
+2026-10-30 19:30:24+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: Installed "candidate" ()
+2026-10-30 19:30:24+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: Successfully wrote install history to /Library/Receipts/InstallHistory.plist
+2026-10-30 19:30:24+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: releasing Spotlight indexing
+2026-10-30 19:30:24+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 install_monitor[11084]: Re-included: /Applications, /Library, /System, /bin, /private, /sbin, /usr
+2026-10-30 19:30:24+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: releasing backupd
+2026-10-30 19:30:24+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: allow user idle system sleep
+2026-10-30 19:30:24+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: ----- End install -----
+2026-10-30 19:30:24+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: 65.8s elapsed install time
+2026-10-30 19:30:24+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: Cleared responsibility for install from 11064.
+2026-10-30 19:30:24+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: Hosted team responsible for install has been cleared.
+2026-10-30 19:30:24+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: Running idle tasks
+2026-10-30 19:30:24+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: Removing client PKInstallDaemonClient pid=11064, uid=0 (/usr/sbin/installer)
+2026-10-30 19:30:24+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installd[537]: PackageKit: Done with sandbox removals
+2026-10-30 19:30:25+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[11064]: Removing temporary directory "/var/folders/zz/zyxvpxvq6csfxvn_n0000000000000/T//Install.11064oUOewK"
+2026-10-30 19:30:25+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[11064]: Finalize disk "Macintosh HD"
+2026-10-30 19:30:25+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[11064]: Notifying system of updated components
+2026-10-30 19:30:25+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[11064]: 
+2026-10-30 19:30:25+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[11064]: **** Summary Information ****
+2026-10-30 19:30:25+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[11064]:   Operation      Elapsed time
+2026-10-30 19:30:25+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[11064]: -----------------------------
+2026-10-30 19:30:25+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[11064]:        zero      0.00 seconds
+2026-10-30 19:30:25+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[11064]:        disk      0.01 seconds
+2026-10-30 19:30:25+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[11064]:     install      66.58 seconds
+2026-10-30 19:30:25+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[11064]:     -total-      66.59 seconds
+2026-10-30 19:30:25+00 sat12-dp155-9ad484b9-3c31-458e-a02a-e680952a10e9-668805429E64 installer[11064]: 

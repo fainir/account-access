@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "release_tag": "qa-betterloop123-20261101",
+  "assets": {
+    "baseline.tar.gz": {
+      "sha256": "2dfd1a19939f224910a265ec37e0c14bee3d6a848848824be42400c61d9ad5ea",
+      "bytes": 289368508
+    },
+    "candidate.pkg": {
+      "sha256": "4691cfbe15f57cf15a9ff0b1cca8c4dd5b909db611bba8b56389962709cf71c4",
+      "bytes": 6072318
+    },
+    "fresh.pkg": {
+      "sha256": "6195c679166c19ecd2478dbeea96be28c84baba98b61624ce9a029f59d1e7169",
+      "bytes": 289327752
+    }
+  },
+  "before_manifest_sha256": "b6537a7617db5a53540adca82023fdbf50ef45e9ca9e9dd1ae46dd682639832d",
+  "after_manifest_sha256": "5f3390496afaa436c64e3629cc125cbb4017e9deec8f70e4f5eb06c16e790930",
+  "personal_accounts_used": 0
+}

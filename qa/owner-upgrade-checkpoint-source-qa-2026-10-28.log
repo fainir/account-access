@@ -1,0 +1,5 @@
+2026-10-28 - The completed-image snapshot checkpoints now precede their reads.
+The focused Python regression suite passed: 10 tests.
+The native owner-upgrade probe passed: 79 shared checks, 2 ordinary-context refusals, 477 tree checks and 324 transition-storage checks.
+The ordinary installer entry point refused with its expected status. The probe performed no installed reads or writes and is not an installed-package acceptance test.
+Probe fixture binaries use -Onone to keep behavior QA bounded; release-package optimization and signature checks remain separate gates.

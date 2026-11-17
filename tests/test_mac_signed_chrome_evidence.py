@@ -358,6 +358,12 @@ def test_child_failure_reason_never_serializes_exception_or_provider_text():
         assert probe.failure_reason(error) == "runtime_unavailable"
 
 
+def test_chrome_publisher_failure_has_a_specific_safe_diagnostic():
+    assert probe.failure_reason(RuntimeError("signed_chrome_publisher_not_verified")) == (
+        "signed_chrome_publisher_not_verified"
+    )
+
+
 @pytest.mark.parametrize("change", [
     {"completed_cli_reads": True}, {"completed_cli_reads": -1}, {"completed_cli_reads": 3},
     {"completed_cli_reads": "1"}, {"synthetic_dom_inserted": 1}, {"active_cli": None},

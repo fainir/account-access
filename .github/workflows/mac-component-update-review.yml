@@ -1,6 +1,6 @@
 name: Signed component update Installer review
+# Historical runbook only; the $0 CI policy forbids dispatching GitHub Actions.
 on:
-  push:
   workflow_dispatch:
     inputs:
       component_source:

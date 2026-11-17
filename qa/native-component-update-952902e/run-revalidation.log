@@ -1,0 +1,1 @@
+{"returncode": 78, "stderr": "", "stdout": "{\"schema\":1,\"status\":\"REFUSED\",\"reason\":\"installation_revalidation_context_required\",\"production_ready\":false}\n"}

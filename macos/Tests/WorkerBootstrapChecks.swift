@@ -95,6 +95,12 @@ import Darwin
         } catch let error as WorkerLaunchFailure {
             guard error == .rootRequired else { exit(1) }
         }
+        do {
+            try MacWorkerBootstrap.createWorkerSession()
+            exit(1)
+        } catch let error as WorkerLaunchFailure {
+            guard error == .rootRequired else { exit(1) }
+        }
         let probe = Process()
         probe.executableURL = URL(fileURLWithPath: CommandLine.arguments[0])
         probe.arguments = ["--prepare-inherited"]

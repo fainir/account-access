@@ -1,0 +1,6 @@
+# Full-image planner peer-rotation QA - 2026-10-29
+
+- Aligned the data-only Python plan derivation with the native full-image plan: broker and bootstrap code hashes may rotate only inside the fixed Developer ID team and bundle identities; both identities remain bound to their exact before/after manifests and canonical plan.
+- `./.venv/bin/pytest -q tests/test_full_image_update.py tests/test_full_image_ca_update.py tests/test_runtime_upgrade_plan.py` -> 169 passed.
+- Ruff and `git diff --check` passed.
+- Synthetic plan evidence only. No installed state, payload signatures, root actions, services, credentials, provider accounts or network were used. `production_ready` remains false; no successor package was built or installed.

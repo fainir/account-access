@@ -1,0 +1,58 @@
+Local CI results: /Users/nirfeinstein/.codex/worktrees/upgrade-continuation/login soltion/dist/local-ci-20261104T215002Z
+UNRUN: production publisher signing/notarization and publisher-signed XPC peers.
+UNRUN: privileged Installer, cross-user service/vault journeys and macOS 14/15/26 matrix.
+UNRUN: Linux sandbox/AppArmor, Android/emulator/physical phone and private MFA acceptance.
+RUN: locked-dependencies
+PASS: locked-dependencies
+RUN: workflow-policy
+PASS: workflow-policy
+RUN: dependency-audit
+PASS: dependency-audit
+RUN: requirements-pin
+PASS: requirements-pin
+RUN: lint
+PASS: lint
+RUN: pytest
+PASS: pytest
+RUN: python-build
+PASS: python-build
+RUN: gateway-typecheck-arm64
+PASS: gateway-typecheck-arm64
+RUN: owner-typecheck-arm64
+PASS: owner-typecheck-arm64
+RUN: gateway-typecheck-x86_64
+PASS: gateway-typecheck-x86_64
+RUN: owner-typecheck-x86_64
+PASS: owner-typecheck-x86_64
+RUN: owner-ui-compile
+PASS: owner-ui-compile
+RUN: owner-ui
+PASS: owner-ui
+RUN: native-gateway
+PASS: native-gateway
+RUN: desktop-channel-compile
+PASS: desktop-channel-compile
+RUN: desktop-channel
+PASS: desktop-channel
+RUN: browser-bridge-compile
+PASS: browser-bridge-compile
+RUN: browser-bridge
+PASS: browser-bridge
+RUN: mailbox-callback-compile
+PASS: mailbox-callback-compile
+RUN: mailbox-callback
+PASS: mailbox-callback
+RUN: launch-compile
+PASS: launch-compile
+RUN: launch
+PASS: launch
+RUN: full-image-source
+PASS: full-image-source
+RUN: runtime-source
+PASS: runtime-source
+RUN: owner-upgrade-source
+PASS: owner-upgrade-source
+Local source checks finished: 0 failed stage(s). External journeys remain UNRUN.
+Reports: /Users/nirfeinstein/.codex/worktrees/upgrade-continuation/login soltion/dist/local-ci-20261104T215002Z
+ci-local: success 32e5870 in 2577s (log /Users/nirfeinstein/.agents/ci-logs/account-access-32e5870.log)
+ci-local: posted success to fainir/account-access@32e5870

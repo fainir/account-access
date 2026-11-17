@@ -1,0 +1,1 @@
+{"returncode": 78, "stderr": "", "stdout": "{\"schema\":1,\"status\":\"REFUSED\",\"reason\":\"component_update_context_required\"}\n"}

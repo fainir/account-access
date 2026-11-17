@@ -1,0 +1,2 @@
+2026-11-02 20:07:27+02 Nirs-MacBook-Air-2 package_script_service[5196]: ./postinstall: {"schema":1,"status":"UPDATED_GUI_UNVERIFIED","checkpoint":"complete","gui_verified":false,"account_qa_verified":false}
+2026-11-02 20:11:06+02 Nirs-MacBook-Air-2 package_script_service[5972]: ./postinstall: {"schema":1,"status":"REFUSED","reason":"full_image_update_unavailable","checkpoint":"journal"}

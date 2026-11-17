@@ -1,0 +1,3 @@
+2026-10-28 - Build 111 compiled from the pushed checkpoint fix.
+Developer ID signature, Apple notarization, stapling, Gatekeeper assessment and Installer parsing passed.
+Expanded package content matched the reviewed source inventory. Owner-Mac installation and post-restart service/agent smoke checks remain pending.

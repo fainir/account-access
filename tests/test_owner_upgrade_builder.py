@@ -21,6 +21,26 @@ OLD_HELPER = "71adcbfa469f9b6dcb6705cefc55015dea23807cf7d08c7e9ba369658c7f4daa"
 NEW_HELPER = "f45ec93061242a71c7bcf25539ad70fd922a50a4e5c2a46e0efd2dc65f70bedf"
 
 
+def completed_predecessor_rows(directory, file):
+    root = "Predecessor/CompletedImage"
+    rows = {root: directory}
+    for name in ("Predecessor", "TargetImage"):
+        rows[f"{root}/{name}"] = directory
+    for name in (
+        "FullImagePlan.json", "BaseManifest.json", "TargetManifest.json",
+        "BaseIdentity.json", "TargetIdentity.json", "ProviderManifest.json",
+        "RuntimeCAReceipt.json", "AccountAccess-fullimageupdate", "postinstall",
+    ):
+        rows[f"{root}/{name}"] = file
+    for name in (
+        "ComponentPlan.json", "BaseManifest.json", "TargetManifest.json",
+        "BaseIdentity.json", "AccountAccess-componentupdate", "postinstall",
+    ):
+        rows[f"{root}/Predecessor/{name}"] = file
+    rows[f"{root}/TargetImage/verified-payload"] = file
+    return rows
+
+
 def target_fixture(command=None, *, cpu=0x100000C, filetype=2, ncmds=1, minimum=14 << 16, sdk=27 << 16, platform=1):
     command = struct.pack("<6I", 0x32, 24, platform, minimum, sdk, 0) if command is None else command
     return struct.pack("<8I", 0xFEEDFACF, cpu, 0, filetype, ncmds, len(command), 0, 0) + command
@@ -122,10 +142,10 @@ def test_sparse_cpio_extraction_keeps_verifier_and_omits_only_payloads(tmp_path,
     output.mkdir(mode=0o700)
     rows = {
         "TargetImage/large-payload": b"omit unchanged image",
-        "Predecessor/CompletedImage/large-payload": b"omit unchanged ancestor",
+        "Predecessor/CompletedImage/TargetImage/large-payload": b"retain verified predecessor image",
+        "Predecessor/CompletedImage/Predecessor/ComponentPlan.json": b"retain component verifier input",
         "TargetImageExtra/keep": b"different component",
         "._TargetImage": b"omit directory AppleDouble metadata",
-        "Predecessor/._CompletedImage": b"omit ancestor AppleDouble metadata",
         "._TargetImageExtra": b"retain unrelated metadata-looking name",
         "Predecessor/AccountAccess-broker": b"retain exact native verifier",
         "Predecessor/Plan.json": b"retain original source record",
@@ -152,13 +172,13 @@ def test_sparse_cpio_extraction_keeps_verifier_and_omits_only_payloads(tmp_path,
         capture_output=True,
     )
     subprocess.run(builder.proof_extract_command(archive, output), check=True, capture_output=True)
+    builder.discard_target_image_payload(output)
     assert output.stat().st_mode & 0o777 == 0o700
     actual = {str(p.relative_to(output)): p.read_bytes() for p in output.rglob("*") if p.is_file()}
     assert actual == {
         name: raw
         for name, raw in rows.items()
-        if not name.startswith(("TargetImage/", "Predecessor/CompletedImage/"))
-        and name not in {"._TargetImage", "Predecessor/._CompletedImage"}
+        if not name.startswith("TargetImage/") and name != "._TargetImage"
     }
 
 
@@ -175,7 +195,7 @@ def reports():
         "status": "PASSED",
         "entrypoint_ordinary_refusal": True,
         "installed_reads": False,
-        "result": {"status": "PASSED", "checks": 68},
+        "result": {"status": "PASSED", "checks": 69},
         "source_sha256": pins,
     }
     owner = {
@@ -186,7 +206,7 @@ def reports():
         "production_ready": False,
         "source_sha256": pins,
         "results": [
-            {"status": "PASSED", "checks": 32},
+            {"status": "PASSED", "checks": 68},
             {"status": "PASSED", "ordinary_context_refusals": 2, "namespace_checks": 26, "preparation_checks": 21},
             {"status": "PASSED", "checks": 477, "root_execution": False},
             {"status": "PASSED", "checks": 324, "owned_temp_fake_barrier_only": True},
@@ -339,16 +359,12 @@ def test_predecessor_projection_keeps_exact_records_and_native_broker():
         "TargetImage": directory,
         "TargetImage/large-runtime": file,
         "Predecessor": directory,
-        "Predecessor/CompletedImage": directory,
-        "Predecessor/CompletedImage/large-runtime": file,
         "RuntimeUpgradePlan.json": file,
         "Predecessor/AccountAccess-broker": file,
+        **completed_predecessor_rows(directory, file),
     }
     projected = builder.proof_inventory(rows)
-    assert set(projected) == set(rows) - {
-        "TargetImage/large-runtime",
-        "Predecessor/CompletedImage/large-runtime",
-    }
+    assert set(projected) == set(rows) - {"TargetImage/large-runtime"}
     assert projected[""] == {"kind": "directory", "mode": 0o755, "acl": "empty"}
     assert rows[""]["mode"] == 0o700
     assert all(projected[name] == rows[name] for name in projected if name)
@@ -356,10 +372,9 @@ def test_predecessor_projection_keeps_exact_records_and_native_broker():
 
 @pytest.mark.parametrize("fault", ["missing", "file", "wrong_mode"])
 def test_predecessor_projection_refuses_unexpected_roots(fault):
-    rows = {
-        name: {"kind": "directory", "mode": 0o755}
-        for name in ("TargetImage", "Predecessor/CompletedImage")
-    }
+    directory = {"kind": "directory", "mode": 0o755}
+    file = {"kind": "file", "mode": 0o644, "sha256": "a" * 64, "bytes": 3}
+    rows = {"TargetImage": directory, **completed_predecessor_rows(directory, file)}
     rows[""] = {"kind": "directory", "mode": 0o700, "acl": "empty"}
     if fault == "missing":
         del rows["TargetImage"]
@@ -367,6 +382,24 @@ def test_predecessor_projection_refuses_unexpected_roots(fault):
         rows["TargetImage"]["kind"] = "file"
     else:
         rows["TargetImage"]["mode"] = 0o700
+    with pytest.raises(ValueError, match="owner_upgrade_build_refused"):
+        builder.proof_inventory(rows)
+
+
+@pytest.mark.parametrize("removed", [
+    "Predecessor/CompletedImage/Predecessor/ComponentPlan.json",
+    "Predecessor/CompletedImage/FullImagePlan.json",
+    "Predecessor/CompletedImage/TargetImage/verified-payload",
+])
+def test_predecessor_projection_refuses_missing_completed_verification_inputs(removed):
+    directory = {"kind": "directory", "mode": 0o755}
+    file = {"kind": "file", "mode": 0o644, "sha256": "a" * 64, "bytes": 3}
+    rows = {
+        "": {"kind": "directory", "mode": 0o700, "acl": "empty"},
+        "TargetImage": directory,
+        **completed_predecessor_rows(directory, file),
+    }
+    del rows[removed]
     with pytest.raises(ValueError, match="owner_upgrade_build_refused"):
         builder.proof_inventory(rows)
 
@@ -381,10 +414,9 @@ def test_predecessor_projection_refuses_unexpected_roots(fault):
     ],
 )
 def test_predecessor_projection_refuses_an_unqualified_original_container(root):
-    rows = {
-        name: {"kind": "directory", "mode": 0o755}
-        for name in ("TargetImage", "Predecessor/CompletedImage")
-    }
+    directory = {"kind": "directory", "mode": 0o755}
+    file = {"kind": "file", "mode": 0o644, "sha256": "a" * 64, "bytes": 3}
+    rows = {"TargetImage": directory, **completed_predecessor_rows(directory, file)}
     if root is not None:
         rows[""] = root
     with pytest.raises(ValueError, match="owner_upgrade_build_refused"):

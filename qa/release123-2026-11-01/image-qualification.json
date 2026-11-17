@@ -1,0 +1,28 @@
+{
+  "account_data_used": false,
+  "base_manifest_sha256": "b6537a7617db5a53540adca82023fdbf50ef45e9ca9e9dd1ae46dd682639832d",
+  "builder_commit": "d16c4263cf4b1e9f4dda2bd9bf9ca7e429f75265",
+  "installed_paths_changed": false,
+  "jit_roles": [
+    "browsers/chromium_headless_shell-1243/chrome-headless-shell-mac-arm64/chrome-headless-shell",
+    "wheels/playwright-1.63.0-py3-none-macosx_11_0_arm64.whl/playwright/driver/node"
+  ],
+  "manifest_sha256": "5f3390496afaa436c64e3629cc125cbb4017e9deec8f70e4f5eb06c16e790930",
+  "native_audit": {
+    "bundles": 1,
+    "executables": 11,
+    "native_files": 49,
+    "notarization_verified": false,
+    "publisher_signatures_verified": true,
+    "wheels": 34
+  },
+  "native_dependency_bytes_unchanged": true,
+  "native_source_commit": "d16c4263cf4b1e9f4dda2bd9bf9ca7e429f75265",
+  "owner_app_build": 123,
+  "owner_source_commit": "d16c4263cf4b1e9f4dda2bd9bf9ca7e429f75265",
+  "project_wheel_sha256": "b0146b5ea6fb30ba3fdf88b6a1813e8ef50f09d5be5ad98b4bbaff4ed8059a92",
+  "publisher_sandboxed_browser_execution": true,
+  "source_image_build": 122,
+  "status": "TARGET_IMAGE_QUALIFIED",
+  "target_source_commit": "d16c4263cf4b1e9f4dda2bd9bf9ca7e429f75265"
+}

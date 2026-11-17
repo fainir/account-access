@@ -43,7 +43,7 @@ import Darwin
                 throw RootVaultKeyFailure.invalidIdentity
             }
             let value = try WorkerLaunchPaths.object(path)
-            guard Set(value.keys) == ["fixture", "vault_id", "root", "launcher", "worker_launcher", "bootstrap_hash"],
+            guard Set(value.keys) == ["fixture", "vault_id", "root", "launcher", "worker_launcher", "bootstrap_hash", "delayed_bootstrap_hash"],
                   value["fixture"] as? String == "account-access-system-key-ci-v1",
                   let identity = value["vault_id"] as? String else { throw RootVaultKeyFailure.invalidIdentity }
             let root = try WorkerLaunchPaths.protected(WorkerLaunchPaths.lexical(value["root"]))

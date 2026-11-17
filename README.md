@@ -12,32 +12,39 @@ Access automatically when relevant, without a slash command or an MCP server.
 Codex and Claude Code have been exercised; other local agents can load the same
 skill or use the CLI.
 
-**Public download: 0.7.4 preview. Development candidate: 0.8.0. Neither is a
-production release.** Websites need reviewed connectors; importing a password
-does not make an arbitrary website supported. Private password/code logins,
-physical phone delivery and notarized consumer installation remain unverified.
-The 0.8 Mac runtime targets **Apple silicon and macOS 14 or later**. See the
-[current production gates](docs/production-gates.md).
+**Public download: 0.7.4 preview. Qualified Mac candidate: 0.8.0 build 123.**
+The signed/notarized build-123 packages passed actual fresh install, repair,
+upgrade and reapply on macOS 14.8.9, 15.8.2 and 26.6.2 arm64. Current-source CI
+passes 4,656 tests, Ruff/audit and native checks; all 18 Mac worker reports pass.
+[Build-123 acceptance](qa/release123-2026-11-01/acceptance.md).
 
-Earlier owner testing completed a protected setup, one approved personal Chrome
-password import and a Gmail mailbox check. A successful private website login
-has not been established. Package 91 subsequently installed, but **Connect
-automatically** failed. Runtime 92 contains the connection fix; package 93's
-attempt to install it left the old public image intact and the broker disabled.
-Package 94 passed all four actual Installer and recovery scenarios, including
-that disabled-service condition. It installed on the owner Mac on 25 October,
-but the account worker cannot start: the upgrade recreated 20 public Python
-links with root-only permissions. Package 95 fixes link staging and repairs the
-completed package 94 image. It passed all five actual Installer scenarios,
-including checks under both ordinary-user identities. It installed successfully
-on the owner Mac; after a normal restart, all public files and aliases passed
-verification and the app opened to **Upgrade AI connection**. That upgrade then
-failed after the owner reported macOS approval; one explicit retry also failed.
-The current agent connection and account operations remain unverified.
-Personal email/SMS/TOTP login, the physical Android phone
-and consumer distribution remain open acceptance gates.
-[Initial owner observations](artifacts/owner-startup-and-import-213509c-20261021.json) ·
-[current acceptance status](docs/production-gates.md).
+The owner Mac has build 123 installed. After a confirmed full OS restart, its
+protected worker is READY and both installed Codex/Claude launchers returned six
+approved public product names/prices. The saved vault and recovery directory
+identities and permissions are preserved. That example does not validate a private account.
+Build 123 adds a reviewed Betterloop connector returning only sign-in status;
+its real private password/session acceptance now passes after the owner-selected
+Chrome import. Both installed AI launchers return only authenticated=true.
+[Private acceptance](qa/betterloop-private-2026-11-02/acceptance.md).
+Real email/SMS/TOTP personal acceptance remains open.
+
+The Android 0.8.0 APK is publisher-signed with native Mac Keychain custody and
+passes [actual emulator acceptance](qa/gates/android-publisher-acceptance-2026-10-31.md).
+Physical-phone delivery remains unqualified; no phone is currently connected.
+The publisher approved the complete privacy notice and terms on 1 November
+2026. Publication remains gated by the recorded acceptance checks. Namecheap
+stays paused; Harel, Phoenix and portable protected-vault backup are outside v1.
+See [the current production ledger](READINESS.md).
+
+The [customer release draft](docs/mac-release-candidate.md) identifies the current
+build-123 full installer, exact legacy predecessor updates and matching third-party
+source. Earlier build-122 assets remain explicitly labeled legacy. Nothing has
+been published from this draft. The [data-handling disclosure](docs/data-handling.md)
+explains storage, provider/AI recipients, permissions and retention/removal limits.
+
+Websites need reviewed connectors; importing a password does not add arbitrary
+website support. The Mac candidate targets **Apple silicon and macOS 14 or later**
+and remains separate from the public preview download below.
 
 ![Account Access dashboard](docs/account-dashboard.png)
 
@@ -55,7 +62,7 @@ fresh agent session after installing so it loads the new instructions.
 
 The preview is Developer ID signed, but Apple notarization is pending. A fresh
 download can be blocked by Gatekeeper; installation on a clean separate Mac has
-not been validated. The protected 0.8 installer is still under development and
+not been validated. The qualified protected 0.8 candidate remains a draft and
 is **not** the download above. [Mac distribution notes](macos/README.md).
 
 Linux has a [developer setup guide](docs/setup.md#linux-sandbox-setup). Native
@@ -80,8 +87,9 @@ must be awake and its secure keyring available. If you pause access, reopen the
 app to resume it.
 
 The built-in catalog includes public SauceDemo and The Internet test accounts.
-The 0.8 candidate also includes narrow Namecheap, PyPI and Read the Docs
-Community pilots; private acceptance is unfinished. Read the Docs requires a
+The 0.8 candidate also includes narrow Betterloop, Namecheap, PyPI and Read the Docs
+Community pilots. Betterloop's password/status acceptance passes; other private
+provider and MFA acceptance remains unfinished. Read the Docs requires a
 locally enrolled authenticator and permits only checking the signed-in username.
 PyPI supports the reviewed password/authenticator
 route. In **Verification**, you can link an already checked mailbox for PyPI's
@@ -112,6 +120,18 @@ plaintext passwords: keep them local and use the app's option to move the export
 to Trash afterward. This does not securely erase it or empty Trash. Never upload
 an export or paste credentials into chat.
 
+In the account list, **Export saved login** creates an owner-selected plain-text
+CSV for a supported website login. **Forget saved login** removes that login,
+its website session and its local password-source link; it keeps approved reads
+and shared verification methods. These controls are in the development build
+and are not in the currently published preview.
+
+The legacy per-user CLI has a password-protected backup and restore feature.
+It does **not** back up or restore the protected vault used by the installed Mac
+app. Portable protected-vault backup is outside v1; do not run the legacy
+commands expecting them to recover the installed service. See the
+[scope and legacy backup guide](docs/vault-backup.md).
+
 **Chrome and other CSV imports are snapshots.** Re-import after changing a
 password. The 0.8 candidate supports ongoing updates from approved Bitwarden
 items through a separate, explicitly connected local vault session, and from
@@ -138,6 +158,9 @@ connection, so sync cannot undo your edit.
 | Authenticator TOTP | Enroll the website's original setup key or supported QR locally | Generate and submit its changing six-digit code |
 
 See the [step-by-step Gmail, SMS and Google Authenticator guide](docs/gmail-authenticator-and-sms.md).
+The build-121 candidate also offers **Verification → Set up Android phone**
+before a website is connected. Its bounded [connection test](android/README.md#setup)
+confirms only a matching test message and creates no website permissions.
 The public preview has no ready-to-use consumer Google OAuth application, and
 some Google accounts cannot create app passwords. Email support depends on a
 configured Gmail API or TLS IMAP connection; arbitrary webmail is not supported.

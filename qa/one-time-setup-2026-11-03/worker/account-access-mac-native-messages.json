@@ -1,0 +1,26 @@
+{
+  "status": "PASSED",
+  "environment": "controlled-demo",
+  "production_ready": false,
+  "private_signins": 0,
+  "actual_separate_owner_uid_reader": true,
+  "real_messages_database_used": false,
+  "physical_sms_delivery_verified": false,
+  "full_worker_browser_sms_journey_verified": false,
+  "genuine_full_disk_access_verified": false,
+  "checks": {
+    "wrong_reader_code_refused_before_launch": true,
+    "root_launches_reader_as_separate_owner_uid": true,
+    "truncated_result_set_cannot_supply_code": true,
+    "private_socket_returns_matching_fresh_fixture_code": true,
+    "forged_reader_pid_refused_before_request": true,
+    "ambiguous_matching_texts_refused": true,
+    "pre_request_baseline_excludes_old_messages": true,
+    "expired_native_request_refused": true,
+    "wrong_root_parent_signature_refused": true,
+    "future_dated_message_excluded": true,
+    "boolean_baseline_refused": true,
+    "already_used_message_excluded": true,
+    "untrusted_invoker_cannot_read_codes": true
+  }
+}

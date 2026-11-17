@@ -1,0 +1,115 @@
+{
+  "checked_at": "2026-11-03T13:26:53.237503+02:00",
+  "installed_build": "125",
+  "macos_version": "27.2",
+  "matched_predecessor_public_files": [
+    "package-identity.json",
+    "owner.app/Contents/Info.plist",
+    "owner.app/Contents/_CodeSignature/CodeResources",
+    "owner.app/Contents/MacOS/AccountAccess",
+    "owner.app/Contents/Resources/account_access.whl",
+    "bin/AccountAccess-bootstrap",
+    "bin/AccountAccess-broker",
+    "bin/AccountAccess-installerverify",
+    "runtime/bin/python3.12",
+    "wheels/account_access-0.8.0-py3-none-any.whl",
+    "runtime/lib/python3.12/site-packages/account_access/authenticator_import.py",
+    "runtime/lib/python3.12/site-packages/account_access/owner.py",
+    "runtime/lib/python3.12/site-packages/account_access/ui/welcome.js"
+  ],
+  "metadata_only_roots": [
+    {
+      "path": "/Library/Application Support/Account Access",
+      "device": 16777229,
+      "inode": 617554083,
+      "mode": "0o40755",
+      "uid": 0,
+      "gid": 80
+    },
+    {
+      "path": "/Applications/Account Access.app",
+      "device": 16777229,
+      "inode": 556369026,
+      "mode": "0o120755",
+      "uid": 0,
+      "gid": 80
+    },
+    {
+      "path": "/Library/Application Support/Account Access/vault",
+      "device": 16777229,
+      "inode": 556370482,
+      "mode": "0o40755",
+      "uid": 0,
+      "gid": 80
+    },
+    {
+      "path": "/Library/Application Support/Account Access Installation Binding",
+      "device": 16777229,
+      "inode": 563018617,
+      "mode": "0o40700",
+      "uid": 0,
+      "gid": 80
+    },
+    {
+      "path": "/Library/Application Support/Account Access Runtime Recovery",
+      "device": 16777229,
+      "inode": 615512526,
+      "mode": "0o40700",
+      "uid": 0,
+      "gid": 0
+    },
+    {
+      "path": "/Library/Application Support/Account Access Runtime JIT Repair",
+      "device": 16777229,
+      "inode": 625270576,
+      "mode": "0o40700",
+      "uid": 0,
+      "gid": 0
+    },
+    {
+      "path": "/Library/Application Support/Account Access Owner Connection Repair",
+      "device": 16777229,
+      "inode": 625610012,
+      "mode": "0o40700",
+      "uid": 0,
+      "gid": 0
+    },
+    {
+      "path": "/Library/Application Support/Account Access Betterloop Connection",
+      "device": 16777229,
+      "inode": 632999024,
+      "mode": "0o40700",
+      "uid": 0,
+      "gid": 0
+    },
+    {
+      "path": "/Library/Application Support/Account Access Lemon Squeezy Connection",
+      "device": 16777229,
+      "inode": 638243838,
+      "mode": "0o40700",
+      "uid": 0,
+      "gid": 0
+    },
+    {
+      "path": "/Library/Application Support/Account Access Worker Startup Recovery",
+      "device": 16777229,
+      "inode": 639464971,
+      "mode": "0o40700",
+      "uid": 0,
+      "gid": 0
+    }
+  ],
+  "new_namespace_absent": true,
+  "health": {
+    "status": "OK",
+    "service_version": "0.8.0",
+    "accounts_count": 3,
+    "worker": {
+      "status": "RUNNING",
+      "consecutive_failures": 0,
+      "failures_total": 1
+    },
+    "browser": "READY"
+  },
+  "credential_or_policy_files_read": false
+}

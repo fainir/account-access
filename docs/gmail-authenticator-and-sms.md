@@ -8,6 +8,35 @@ These are three separate ways a website can verify a sign-in:
 | Google Authenticator on your phone | A copy of that website's original authenticator setup key |
 | An SMS text message on your iPhone or Android phone | Forwarded Messages on a Mac, or the paired Android SMS companion |
 
+## One setup for later sign-ins
+
+The one-time-setup candidate adds **Automatic sign-in** in the Mac sidebar.
+Import passwords and review their permitted reads together, then connect the
+verification sources those websites need. Saved passwords, enrolled authenticator
+keys, the checked mailbox and paired SMS source are reused during later
+supported logins; the AI does not receive the password or changing code.
+Completed source setup is not repeated for every AI session. A changed password,
+removed source, new website permission or owner-presence check needs its own repair.
+
+The candidate's **Import my authenticator accounts** accepts one complete Google
+Authenticator transfer export and lets you map several keys to configured
+website sources in one review. Every mapping starts at **Do not import**. Select
+each key at most once, check its website/account, then approve **Import selected
+authenticators**. All selected source definitions, account bindings and enrollment
+revisions must still match; otherwise none of the selected keys change. Successful
+enrollment and consumption of the encrypted preview share one transaction.
+Unselected keys are discarded. This does not add websites, credentials or AI grants.
+The earlier per-website setup-key/QR path remains available under Verification.
+
+This is source-candidate behavior, with controlled native and browser QA; it is
+not yet part of the installed build 125 or a published customer download. Real
+private MFA and physical SMS acceptance remain recorded separately.
+Passkeys are not carried by the supported password CSV import. Existing platform
+passkeys, fingerprint, security-key, push and administrator approvals keep their
+required owner confirmation. [Apple's passkey contract](https://developer.apple.com/documentation/authenticationservices/supporting-passkeys)
+and [WebAuthn](https://www.w3.org/TR/webauthn/) describe those presence and
+verification requirements; copying an authenticator key does not replace them.
+
 ## Gmail
 
 Google recommends **Sign in with Google**. Account Access supports an operator-configured Gmail OAuth connection, but the public preview does not include a registered, ready-to-use Google OAuth application. A generic “Connect verification” button is not evidence that this setup has been completed. [Google's Gmail connection guidance](https://support.google.com/mail/answer/7126229).

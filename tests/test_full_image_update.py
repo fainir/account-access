@@ -30,10 +30,10 @@ def image(rows):
                 "": {"kind": "symlink", "target": "../Library/Application Support/Account Access/owner.app"}}}}
 
 
-def identity(owner):
+def identity(owner, *, broker="c", bootstrap="d"):
     return plan.encoded({"schema": 1, "managed_by": "account-access-package-identity-v1", "signatures": {
         kind: {"team": plan.TEAM, "identifier": "com.fainir.accountaccess" + ("" if kind == "owner" else "." + kind),
-               "hashes": [char * 40]} for kind, char in (("owner", owner), ("broker", "c"), ("bootstrap", "d"))}})
+               "hashes": [char * 40]} for kind, char in (("owner", owner), ("broker", broker), ("bootstrap", bootstrap))}})
 
 
 @pytest.fixture
@@ -111,6 +111,33 @@ def test_complete_before_after_unit_coverage_and_canonical_roundtrip(inputs):
     assert plan.PROVIDER + "/node_modules/node-forge/unused.js" not in provider["after"]
 
 
+def test_successor_peer_hash_rotation_is_bound_to_target_identity_and_plan(inputs):
+    new_identity = identity("b", broker="e", bootstrap="f")
+    inputs["new_identity"] = new_identity
+    inputs["after"]["roots"][plan.SUPPORT]["package-identity.json"] = file_node(new_identity)
+    args = arguments(inputs)
+
+    raw = plan.derive(**args)
+    result = plan.parse(raw, expected_plan_sha256=plan.digest(raw), **args)
+
+    assert result["old_peers"]["broker"]["hashes"] == ["c" * 40]
+    assert result["new_peers"]["broker"]["hashes"] == ["e" * 40]
+    assert result["old_peers"]["bootstrap"]["hashes"] == ["d" * 40]
+    assert result["new_peers"]["bootstrap"]["hashes"] == ["f" * 40]
+    assert result["native_signature_and_payload_verification_required"] is True
+
+
+def test_successor_peer_hash_rotation_cannot_change_team_or_bundle_identity(inputs):
+    value = json.loads(inputs["new_identity"])
+    value["signatures"]["broker"]["team"] = "OTHERTEAM1"
+    new_identity = plan.encoded(value)
+    inputs["new_identity"] = new_identity
+    inputs["after"]["roots"][plan.SUPPORT]["package-identity.json"] = file_node(new_identity)
+
+    with pytest.raises(plan.Refused):
+        plan.derive(**arguments(inputs))
+
+
 @pytest.mark.parametrize("path", ["runtime/bin/python3.12", "browsers/chromium/new", "runtime/lib/other.py",
                                   "bin/AccountAccess-broker", "bin/AccountAccess-bootstrap", "unknown.txt",
                                   "runtime/lib/python3.12/site-packages/pip/__init__.py",
@@ -146,9 +173,17 @@ def configuration_extension(inputs):
     return inputs
 
 
-def test_configuration_upgrade_profile_matches_reviewed_model_source():
+def test_historical_configuration_profile_refuses_the_later_model_source(inputs):
+    # The historical signed transition retains its reviewed model bytes. New
+    # connector models use a separate exact transition, never a widened old one.
     raw = (Path(__file__).parents[1] / "account_access/models.py").read_bytes()
-    assert plan.CONFIGURATION_MODEL_AFTER == file_node(raw)
+    current = file_node(raw)
+    assert current != plan.CONFIGURATION_MODEL_AFTER
+    configuration_extension(inputs)
+    inputs["after"]["roots"][plan.SUPPORT][plan.PACKAGE + "/models.py"] = current
+    inputs["provenance"]["target_source_files"]["account_access/models.py"] = current["sha256"]
+    with pytest.raises(plan.Refused):
+        plan.derive(**arguments(inputs))
 
 
 def test_explicit_configuration_extension_does_not_claim_unchanged_source(inputs):
@@ -274,13 +309,13 @@ def test_resealed_plan_cannot_enlarge_or_shrink_complete_coverage(inputs, mutati
         plan.parse(raw, expected_plan_sha256=plan.digest(raw), **args)
 
 
-@pytest.mark.parametrize("fault", ["fixture-team", "new-broker", "changed-dr", "source-path", "source-bool", "stale-wheel"])
+@pytest.mark.parametrize("fault", ["fixture-team", "new-broker-id", "changed-dr", "source-path", "source-bool", "stale-wheel"])
 def test_signature_source_and_archive_pins_are_concrete(inputs, fault):
     peers = json.loads(inputs["new_identity"])
     if fault == "fixture-team":
         peers["signatures"]["owner"]["team"] = "fixture"
-    elif fault == "new-broker":
-        peers["signatures"]["broker"]["hashes"] = ["e" * 40]
+    elif fault == "new-broker-id":
+        peers["signatures"]["broker"]["identifier"] = "com.attacker.broker"
     elif fault == "changed-dr":
         inputs["provenance"]["designated_requirements"]["owner"]["after"] = "other"
     elif fault == "source-path":

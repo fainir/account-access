@@ -1,0 +1,15 @@
+{
+  "status": "READY_FOR_RELEASE_REVIEW",
+  "submission_id": "a1dbdc96-f23a-44c0-b9dd-29452f358904",
+  "apple_status": "Accepted",
+  "package": {
+    "team": "WBULD6N4NQ",
+    "certificate_sha256": "333f08ecdb56967369880369b3ba475db8865b1eca5ee92cb338e6f0c797c406",
+    "trusted_timestamp": "2026-11-02 11:30:31 +0000"
+  },
+  "archive_sha256": "6e674c8249f47798723b4ecb699f51caf2dca4bf076c7d5e919b92d295e68ed2",
+  "production_qa": "not_evaluated",
+  "artifact": "/Users/nirfeinstein/.codex/worktrees/upgrade-continuation/login soltion/dist/root-recovery-release/lemon124/fresh-notary/Account-Access-arm64-notarized.pkg",
+  "sha256": "33ecb2e9dcb55fa0b5c09c02d766cb99a843c7fcebdfd27834524027386100a3",
+  "ticket_and_distribution_check": "passed_on_this_mac"
+}

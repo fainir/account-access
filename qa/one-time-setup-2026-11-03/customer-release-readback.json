@@ -1,0 +1,99 @@
+{
+  "release_id": 430241889,
+  "tag": "v0.8.0",
+  "draft": true,
+  "published_at": null,
+  "tested_source_target": "633d8ee15953ee2b3f75de1f6c862bff7a96ed10",
+  "asset_count": 11,
+  "assets": [
+    {
+      "digest": "sha256:6195c679166c19ecd2478dbeea96be28c84baba98b61624ce9a029f59d1e7169",
+      "id": 697870795,
+      "label": "Legacy build 123 full installer; choose build 126",
+      "name": "Account-Access-0.8.0-build123-Mac-arm64.pkg",
+      "size": 289327752,
+      "state": "uploaded"
+    },
+    {
+      "digest": "sha256:33ecb2e9dcb55fa0b5c09c02d766cb99a843c7fcebdfd27834524027386100a3",
+      "id": 701571499,
+      "label": "Legacy build 124 full installer; choose build 126",
+      "name": "Account-Access-0.8.0-build124-Mac-arm64.pkg",
+      "size": 289321568,
+      "state": "uploaded"
+    },
+    {
+      "digest": "sha256:f587b7a8580317b3411122c1c0ca6c0e687d42feab8572bb79d246e582b3099c",
+      "id": 702023427,
+      "label": "Legacy build 125 full installer; choose build 126",
+      "name": "Account-Access-0.8.0-build125-Mac-arm64.pkg",
+      "size": 289324400,
+      "state": "uploaded"
+    },
+    {
+      "digest": "sha256:850820b82becdf44e64a37310c3f1726f6d5da196a79e035d149d2641452536c",
+      "id": 705371473,
+      "label": "Current build 126: clean Mac or identical-image repair",
+      "name": "Account-Access-0.8.0-build126-Mac-arm64.pkg",
+      "size": 289354174,
+      "state": "uploaded"
+    },
+    {
+      "digest": "sha256:6c4d6b52da4220dd3590630da01400fc99acc57e515a69a7d1f3ecd008cd5105",
+      "id": 696728514,
+      "label": "Legacy build 122 full installer; choose build 126",
+      "name": "Account-Access-0.8.0-Mac-arm64.pkg",
+      "size": 289330711,
+      "state": "uploaded"
+    },
+    {
+      "digest": "sha256:2bf86403885c2e0717fc9962e8a0571c218a2c531fcbf9be39962c94868aadd2",
+      "id": 696728512,
+      "label": "Legacy 121-to-122 bridge; then each bridge through 126",
+      "name": "Account-Access-0.8.0-update-from-build121.pkg",
+      "size": 5813686,
+      "state": "uploaded"
+    },
+    {
+      "digest": "sha256:4691cfbe15f57cf15a9ff0b1cca8c4dd5b909db611bba8b56389962709cf71c4",
+      "id": 697870794,
+      "label": "Legacy 122-to-123 bridge; then each bridge through 126",
+      "name": "Account-Access-0.8.0-update-from-build122.pkg",
+      "size": 6072318,
+      "state": "uploaded"
+    },
+    {
+      "digest": "sha256:fa0ebd21101277d936c9a564c3451f51fb682ded255752e2b2abbf2fd4bf6926",
+      "id": 701571502,
+      "label": "Legacy 123-to-124 bridge; then 124-to-125-to-126",
+      "name": "Account-Access-0.8.0-update-from-build123.pkg",
+      "size": 6074988,
+      "state": "uploaded"
+    },
+    {
+      "digest": "sha256:ff45e08745b6b4c9f7af3cfe224736356d5a9c66e8e65e03223baed14136311b",
+      "id": 702023426,
+      "label": "Legacy 124-to-125 bridge; follow with 125-to-126",
+      "name": "Account-Access-0.8.0-update-from-build124.pkg",
+      "size": 5499724,
+      "state": "uploaded"
+    },
+    {
+      "digest": "sha256:c2926bbeb75e1a44a8397cf9710fba6737553ebcda517c12d5e1ad70dc58cc31",
+      "id": 705371471,
+      "label": "Current: exact protected 125-to-126 update",
+      "name": "Account-Access-0.8.0-update-from-build125.pkg",
+      "size": 6103990,
+      "state": "uploaded"
+    },
+    {
+      "digest": "sha256:8d31c19571b032bfd557716b4b7c124f6a4624b917eca25cda359944c1fe2753",
+      "id": 696728513,
+      "label": "Matching Bitwarden corresponding source; no charge",
+      "name": "account-access-bitwarden-2026.10.0-corresponding-source.tar.gz",
+      "size": 219117936,
+      "state": "uploaded"
+    }
+  ],
+  "notes_read_back_equal": true
+}

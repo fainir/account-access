@@ -1,0 +1,29 @@
+{
+  "developer_team": "WBULD6N4NQ",
+  "installed": false,
+  "installer_executed": false,
+  "native_manifest_preflight": true,
+  "native_payload_audit": {
+    "bundles": 1,
+    "executables": 11,
+    "native_files": 49,
+    "notarization_verified": false,
+    "publisher_signatures_verified": true,
+    "wheels": 34
+  },
+  "owner_app_build": 118,
+  "production_ready": false,
+  "project_wheel_runtime_scripts": [
+    "access",
+    "account-access"
+  ],
+  "project_wheel_sha256": "98e194ae409ca08062f7852863d826e4d8884b752a0c9dcc041cfd804adb1148",
+  "schema": 1,
+  "source_commit": "35ffa63df4a178f699be7b4cba3d73404b48e182",
+  "source_image_unchanged": true,
+  "source_manifest_sha256": "78113e53f553cdec0bfb9d0744406a18baaaa3327e1be834af5b45b74c3926aa",
+  "status": "TARGET_IMAGE_QUALIFIED",
+  "target_manifest": "/private/tmp/account-access-direct118-target/TargetManifest.json",
+  "target_manifest_bytes": 4968480,
+  "target_manifest_sha256": "bb14a99941c7a82938cd0e9b3f91a16ab975e6cdd61a30741d29726a7f7bed38"
+}

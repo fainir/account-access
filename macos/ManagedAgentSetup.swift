@@ -3,7 +3,31 @@ import Foundation
 import CryptoKit
 import Darwin
 
-enum ManagedAgentSetupFailure: Error { case unavailable, invalidResponse, connectionConflict, connectionRevoked }
+enum ManagedAgentSetupFailure: Error, Equatable {
+    case unavailable, invalidResponse, connectionConflict, connectionRevoked
+    case setupAuthorizationRequired, ownerChannelUnavailable, ownerBackendUnavailable
+    case serviceRecovering, vaultRepairRequired, connectionResponseRejected
+    case setupApprovalTimedOut, setupApprovalPending, setupNotApproved
+    case agentMigrationReview, agentSetupNeedsRepair, agentSetupUnsupported
+    case agentSetupRetryable, agentPermissionsReview, clientConnectionNotConfirmed
+
+    static func desktopFailure(_ failure: DesktopOwnerFailure) -> Self {
+        switch failure {
+        case .approval: return .setupNotApproved
+        case .approvalTimedOut: return .setupApprovalTimedOut
+        case .approvalPending: return .setupApprovalPending
+        case .profile, .unavailable: return .ownerBackendUnavailable
+        case .response: return .connectionResponseRejected
+        }
+    }
+
+    static func ownerGatewayFailure(_ failure: OwnerGatewayError) -> Self {
+        switch failure {
+        case .unavailable: return .ownerBackendUnavailable
+        case .invalidPolicy, .invalidResponse: return .connectionResponseRejected
+        }
+    }
+}
 
 struct ManagedAgentConnectionFailure: Error {
     enum Stage: String, CaseIterable {
@@ -20,18 +44,39 @@ struct ManagedAgentConnectionFailure: Error {
         }
     }
     let stage: Stage
-    let conflict: Bool
-    let revoked: Bool
+    let failure: ManagedAgentSetupFailure?
     init(stage: Stage, error: Error? = nil) {
         self.stage = stage
-        if case ManagedAgentSetupFailure.connectionConflict? = error { conflict = true } else { conflict = false }
-        if case ManagedAgentSetupFailure.connectionRevoked? = error { revoked = true } else { revoked = false }
+        failure = error as? ManagedAgentSetupFailure
+    }
+    var conflict: Bool { failure == .connectionConflict }
+    var revoked: Bool { failure == .connectionRevoked }
+    private var detail: String {
+        switch failure {
+        case .some(.connectionConflict): return "An existing connection conflicts with this setup and needs review."
+        case .some(.connectionRevoked): return "This connection was revoked and cannot be re-enabled by retrying setup."
+        case .some(.setupAuthorizationRequired): return "The Mac approval was not accepted for this request. Approve the current setup dialog before continuing."
+        case .some(.setupApprovalTimedOut): return "No macOS approval finished within two minutes. If the separate Account Access setup dialog is visible, finish or cancel it before trying again. No account setup data was sent."
+        case .some(.setupApprovalPending): return "A previous macOS approval is still open. Finish or cancel that dialog before trying again. No account setup data was sent."
+        case .some(.setupNotApproved): return "This setup was not approved on the Mac. Reopen Account Access to check the connection status; it will not reopen an approval dialog. No account setup data was sent."
+        case .some(.ownerChannelUnavailable): return "The protected owner channel is reconnecting. Check the connection status before retrying."
+        case .some(.ownerBackendUnavailable): return "The protected app is not responding. Check its status before retrying."
+        case .some(.serviceRecovering): return "The protected service is restarting. Wait until it is ready, then check the connection status."
+        case .some(.vaultRepairRequired): return "The protected account store needs repair. Your saved data is preserved."
+        case .some(.connectionResponseRejected): return "The protected service refused the connection response. Check the connection status before retrying."
+        case .some(.invalidResponse): return "Account Access could not verify the connection response. Check the current connection status before retrying."
+        case .some(.unavailable): return "The local AI connection files could not be verified. Repair the existing Account Access setup before continuing."
+        case .some(.agentMigrationReview): return "An existing AI-tool connection needs a compatibility review before it can be upgraded. Your existing files are preserved."
+        case .some(.agentSetupNeedsRepair): return "The existing AI connection needs repair before it can be upgraded. Your saved accounts and tool preferences are preserved."
+        case .some(.agentSetupUnsupported): return "This AI-tool connection cannot be upgraded safely by this version. Your existing files are preserved."
+        case .some(.agentSetupRetryable): return "The AI-tool files changed during setup, or another setup is running. Check the connection status before retrying."
+        case .some(.agentPermissionsReview): return "macOS file permissions prevent a safe AI-tool update. Your existing files are preserved."
+        case .some(.clientConnectionNotConfirmed): return "The protected account store did not confirm the local AI connection. No AI-tool launcher was changed."
+        case nil: return "Reopen Account Access to check its current state before retrying."
+        }
     }
     var explanation: String {
         // Fixed text only: never interpolate an error, response, path or capability.
-        let detail = conflict ? "An existing connection conflicts with this setup and needs review."
-            : revoked ? "This connection was revoked and cannot be re-enabled by retrying setup."
-            : "Reopen Account Access to check its current state before retrying."
         return "The AI connection stopped while \(stage.description). \(detail) Your saved accounts and tool preferences are preserved."
     }
 }
@@ -52,6 +97,34 @@ final class ManagedAgentSetup {
     #endif
     func status() throws -> [String: Any] { try helper("status") }
     static func prepareBrowser() throws -> [String: Any] { try runHelper("browser") }
+    static func helperResponse(exitStatus: Int32, data: Data) throws -> [String: Any] {
+        guard data.count <= 8192,
+              let value = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw ManagedAgentSetupFailure.unavailable
+        }
+        guard exitStatus != 78 else {
+            guard Set(value.keys) == ["status", "reason"],
+                  let status = value["status"] as? String,
+                  let reason = value["reason"] as? String else {
+                throw ManagedAgentSetupFailure.unavailable
+            }
+            let expected: (String, ManagedAgentSetupFailure)?
+            switch reason {
+            case "client_migration_requires_review", "client_migration_required",
+                 "existing_skill_would_be_overwritten": expected = ("NEEDS_USER", .agentMigrationReview)
+            case "client_setup_needs_repair", "client_upgrade_needs_repair": expected = ("NEEDS_USER", .agentSetupNeedsRepair)
+            case "client_setup_permissions_need_review": expected = ("NEEDS_USER", .agentPermissionsReview)
+            case "client_upgrade_not_supported": expected = ("NEEDS_USER", .agentSetupUnsupported)
+            case "client_connection_not_confirmed": expected = ("NEEDS_USER", .clientConnectionNotConfirmed)
+            case "client_setup_busy", "client_setup_changed": expected = ("RETRYABLE", .agentSetupRetryable)
+            default: expected = nil
+            }
+            guard let expected, expected.0 == status else { throw ManagedAgentSetupFailure.unavailable }
+            throw expected.1
+        }
+        guard exitStatus == 0 else { throw ManagedAgentSetupFailure.unavailable }
+        return value
+    }
     func connect(upgrade: Bool = false, request: (String, [String: Any]) throws -> [String: Any]) throws {
         var stage = ManagedAgentConnectionFailure.Stage.prepare
         do {
@@ -147,10 +220,6 @@ final class ManagedAgentSetup {
         while process.isRunning && Date() < deadline { Thread.sleep(forTimeInterval: 0.02) }
         guard !process.isRunning else { process.terminate(); throw ManagedAgentSetupFailure.unavailable }
         let data = output.fileHandleForReading.readDataToEndOfFile()
-        guard process.terminationStatus == 0, data.count <= 8192,
-              let value = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw ManagedAgentSetupFailure.unavailable
-        }
-        return value
+        return try Self.helperResponse(exitStatus: process.terminationStatus, data: data)
     }
 }

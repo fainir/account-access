@@ -168,6 +168,45 @@ enum ComponentUpdateIdentity {
         guard observed == Set(peer.hashes) else { throw ComponentUpdateFailure.source }
     }
 
+    // Used for the payload's installer verifier, which is signed by the same
+    // fixed Developer ID publisher but is intentionally omitted from
+    // package-identity.json. The image manifest pins its bytes; this check
+    // independently verifies the Apple chain, team, identifier and every
+    // architecture without inventing a peer hash.
+    static func verifyStaticPublisher(path: String, team: String, identifier: String) throws {
+        guard path.hasPrefix("/"), !path.utf8.contains(0),
+              matches(team, "^[A-Z0-9]{10}$"),
+              matches(identifier, "^[A-Za-z0-9][A-Za-z0-9.-]{1,199}$") else {
+            throw ComponentUpdateFailure.source
+        }
+        let expected = try requirement(team: team, identifier: identifier)
+        var code: SecStaticCode?
+        guard SecStaticCodeCreateWithPath(URL(fileURLWithPath: path) as CFURL, [], &code) == errSecSuccess,
+              let code, SecStaticCodeCheckValidity(code,
+                SecCSFlags(rawValue: kSecCSStrictValidate | kSecCSCheckAllArchitectures), expected) == errSecSuccess else {
+            throw ComponentUpdateFailure.source
+        }
+        var observed = 0
+        for architecture in ["arm64", "x86_64"] {
+            var slice: SecStaticCode?
+            let attributes = [kSecCodeAttributeArchitecture as String: architecture] as CFDictionary
+            if SecStaticCodeCreateWithPathAndAttributes(URL(fileURLWithPath: path) as CFURL, [], attributes, &slice) != errSecSuccess {
+                continue
+            }
+            var information: CFDictionary?
+            guard let slice,
+                  SecStaticCodeCheckValidity(slice, SecCSFlags(rawValue: kSecCSStrictValidate), expected) == errSecSuccess,
+                  SecCodeCopySigningInformation(slice, SecCSFlags(rawValue: kSecCSSigningInformation), &information) == errSecSuccess,
+                  let values = information as? [String: Any],
+                  values[kSecCodeInfoIdentifier as String] as? String == identifier,
+                  values[kSecCodeInfoTeamIdentifier as String] as? String == team else {
+                throw ComponentUpdateFailure.source
+            }
+            observed += 1
+        }
+        guard observed > 0 else { throw ComponentUpdateFailure.source }
+    }
+
     static func verifySelf(team: String) throws {
         guard getuid() == 0, geteuid() == 0 else { throw ComponentUpdateFailure.context }
         do {
@@ -186,6 +225,17 @@ enum ComponentUpdateIdentity {
     // A narrow parser for successful bounded print of this exact fixed job.
     // Only root-level fields count; nested dictionaries cannot smuggle a PID.
     static func printedPID(_ output: Data) throws -> Int32? {
+        try parsePID(output, allowingTermination: false)
+    }
+
+    // This observation grants no PID authority. During removal launchd keeps
+    // the exact job visible as SIGTERMed until its enrolled worker exits.
+    // Only the later exact missing-service response confirms removal.
+    static func validateRemovalObservation(_ output: Data) throws {
+        _ = try parsePID(output, allowingTermination: true)
+    }
+
+    private static func parsePID(_ output: Data, allowingTermination: Bool) throws -> Int32? {
         guard !output.isEmpty, output.count <= 256 * 1024, !output.contains(0),
               let text = String(data: output, encoding: .utf8) else { throw ComponentUpdateFailure.quiescence }
         let lines = text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
@@ -225,7 +275,8 @@ enum ComponentUpdateIdentity {
             throw ComponentUpdateFailure.quiescence
         }
         if let value = fields["pid"] {
-            guard state == "running", matches(value, "^[1-9][0-9]{0,9}$"),
+            guard (state == "running" || allowingTermination && state == "SIGTERMed"),
+                  matches(value, "^[1-9][0-9]{0,9}$"),
                   let pid = Int32(value), pid > 1 else { throw ComponentUpdateFailure.quiescence }
             return pid
         }

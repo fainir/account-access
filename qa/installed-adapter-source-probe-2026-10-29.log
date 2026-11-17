@@ -1,0 +1,2 @@
+Command: `uv run python scripts/mac_full_image_installed_probe.py --output /private/tmp/account-access-full-image-installed-probe-codex-20261029-1801`
+Result: `PASSED`; production source pin matched; ordinary-user entrypoint refusal checks passed; installed reads and provider operations were not performed.

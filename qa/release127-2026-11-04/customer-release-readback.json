@@ -1,0 +1,114 @@
+{
+  "id": 430241889,
+  "tag_name": "v0.8.0",
+  "name": "Account Access 0.8.0 - Mac build 127 review",
+  "draft": true,
+  "published_at": null,
+  "target_commitish": "cc6d90302ab569b6d8921047aa17add053189dcf",
+  "assets": [
+    {
+      "id": 697870795,
+      "name": "Account-Access-0.8.0-build123-Mac-arm64.pkg",
+      "label": "Legacy build 123 full installer; choose build 126",
+      "size": 289327752,
+      "state": "uploaded",
+      "digest": "sha256:6195c679166c19ecd2478dbeea96be28c84baba98b61624ce9a029f59d1e7169"
+    },
+    {
+      "id": 701571499,
+      "name": "Account-Access-0.8.0-build124-Mac-arm64.pkg",
+      "label": "Legacy build 124 full installer; choose build 126",
+      "size": 289321568,
+      "state": "uploaded",
+      "digest": "sha256:33ecb2e9dcb55fa0b5c09c02d766cb99a843c7fcebdfd27834524027386100a3"
+    },
+    {
+      "id": 702023427,
+      "name": "Account-Access-0.8.0-build125-Mac-arm64.pkg",
+      "label": "Legacy build 125 full installer; choose build 126",
+      "size": 289324400,
+      "state": "uploaded",
+      "digest": "sha256:f587b7a8580317b3411122c1c0ca6c0e687d42feab8572bb79d246e582b3099c"
+    },
+    {
+      "id": 705371473,
+      "name": "Account-Access-0.8.0-build126-Mac-arm64.pkg",
+      "label": "Current build 126: clean Mac or identical-image repair",
+      "size": 289354174,
+      "state": "uploaded",
+      "digest": "sha256:850820b82becdf44e64a37310c3f1726f6d5da196a79e035d149d2641452536c"
+    },
+    {
+      "id": 709439644,
+      "name": "Account-Access-0.8.0-build127-Mac-arm64.pkg",
+      "label": "Mac build 127 - clean install or identical-image repair",
+      "size": 289354598,
+      "state": "uploaded",
+      "digest": "sha256:e5764586fadb339e3dea49bfd2e10360e1b2d739fac79415b3b3fc8f96ad803c"
+    },
+    {
+      "id": 696728514,
+      "name": "Account-Access-0.8.0-Mac-arm64.pkg",
+      "label": "Legacy build 122 full installer; choose build 126",
+      "size": 289330711,
+      "state": "uploaded",
+      "digest": "sha256:6c4d6b52da4220dd3590630da01400fc99acc57e515a69a7d1f3ecd008cd5105"
+    },
+    {
+      "id": 696728512,
+      "name": "Account-Access-0.8.0-update-from-build121.pkg",
+      "label": "Legacy 121-to-122 bridge; then each bridge through 126",
+      "size": 5813686,
+      "state": "uploaded",
+      "digest": "sha256:2bf86403885c2e0717fc9962e8a0571c218a2c531fcbf9be39962c94868aadd2"
+    },
+    {
+      "id": 697870794,
+      "name": "Account-Access-0.8.0-update-from-build122.pkg",
+      "label": "Legacy 122-to-123 bridge; then each bridge through 126",
+      "size": 6072318,
+      "state": "uploaded",
+      "digest": "sha256:4691cfbe15f57cf15a9ff0b1cca8c4dd5b909db611bba8b56389962709cf71c4"
+    },
+    {
+      "id": 701571502,
+      "name": "Account-Access-0.8.0-update-from-build123.pkg",
+      "label": "Legacy 123-to-124 bridge; then 124-to-125-to-126",
+      "size": 6074988,
+      "state": "uploaded",
+      "digest": "sha256:fa0ebd21101277d936c9a564c3451f51fb682ded255752e2b2abbf2fd4bf6926"
+    },
+    {
+      "id": 702023426,
+      "name": "Account-Access-0.8.0-update-from-build124.pkg",
+      "label": "Legacy 124-to-125 bridge; follow with 125-to-126",
+      "size": 5499724,
+      "state": "uploaded",
+      "digest": "sha256:ff45e08745b6b4c9f7af3cfe224736356d5a9c66e8e65e03223baed14136311b"
+    },
+    {
+      "id": 705371471,
+      "name": "Account-Access-0.8.0-update-from-build125.pkg",
+      "label": "Current: exact protected 125-to-126 update",
+      "size": 6103990,
+      "state": "uploaded",
+      "digest": "sha256:c2926bbeb75e1a44a8397cf9710fba6737553ebcda517c12d5e1ad70dc58cc31"
+    },
+    {
+      "id": 709439642,
+      "name": "Account-Access-0.8.0-update-from-build126.pkg",
+      "label": "Update qualified build 126 to 127 - navigation fix",
+      "size": 6104806,
+      "state": "uploaded",
+      "digest": "sha256:a7bfcfccac742651da9572c67c66e1bdbed22a953ce978aa864e8186b7d42a2b"
+    },
+    {
+      "id": 696728513,
+      "name": "account-access-bitwarden-2026.10.0-corresponding-source.tar.gz",
+      "label": "Matching Bitwarden corresponding source; no charge",
+      "size": 219117936,
+      "state": "uploaded",
+      "digest": "sha256:8d31c19571b032bfd557716b4b7c124f6a4624b917eca25cda359944c1fe2753"
+    }
+  ]
+}

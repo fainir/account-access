@@ -1,0 +1,30 @@
+2026-11-04 14:40:37+02 PackageKit starts the exact loginnavigation127 postinstall.
+No scoped completion/refusal JSON is present before restart.
+Kernel boot read-back: Wed Nov4 15:10:55 2026 local.
+After restart no previous updater process remains. All14 selected public files
+still match qualified126; all11 prior metadata identities are preserved.
+Current installed launcher returns RETRYABLE/service_unavailable. This is not
+installed127 acceptance or proof of private vault contents.
+
+Native UI tools disappeared after restart. The same qualified6,104,806-byte
+update was rechecked: trusted publisher signature, Apple notarization, stapled
+ticket and Gatekeeper accepted. No rebuild or replacement was made.
+At15:23:57 Installer11987 logs Opened from the exact persistent customer
+update-from-build126.pkg. lsof independently shows that Installer11987 holds
+the matching6,104,806-byte package open on descriptors5 and6. Finder reveal
+was requested for that same file. The owner must complete native installation
+locally; the agent cannot supply macOS authorization or use removed UI tools.
+At the initial reopen15:23 no second postinstall had started. A new attempt
+subsequently started15:27:37, package_script_service15241/helper15242.
+
+2026-11-04 15:33:39+02 package_script_service[15241]: ./postinstall:
+{"schema":1,"status":"UPDATED_GUI_UNVERIFIED","checkpoint":"complete","gui_verified":false,"account_qa_verified":false}
+The scoped helper has exited. Independent read-back: actual127, all14 selected
+public files match,all11 prior metadata roots preserved,new fixed namespace
+root:wheel0700. Worker RUNNING/zero failures,browser READY. Both installed
+launchers complete private Betterloop status and six public-example items.
+Lemon task82250e562d9b8864541c3d2854885eee now stops at
+NEEDS_USER/authenticator_not_enrolled(kindtotp), not browser_execution_failed.
+No real TOTP key, code or QR was read/enrolled by the agent. Private MFA remains
+unverified. Current kernel boot precedes127 installation; no new127 kernel
+reboot is claimed. Native owner127 is opened for the one-time local transfer.

@@ -37,6 +37,59 @@ def test_api_rejects_client_identity_override_and_arbitrary_url(env):
         assert client.post("/v1/run", content="x" * 65537, headers=auth).status_code == 413
 
 
+def test_every_service_endpoint_requires_a_bearer_capability(env):
+    _, broker, _ = env
+    with TestClient(create_app(broker, worker=False)) as client:
+        requests = [
+            client.get("/v1/accounts"),
+            client.get("/v1/status/demo-api/summary"),
+            client.post("/v1/run", json={"account": "demo-api", "operation": "summary"}),
+            client.post("/v1/tasks", json={"key": "unauthorized", "steps": [
+                {"account": "demo-api", "operation": "summary"}]}),
+            client.get("/v1/tasks/" + "0" * 32),
+            client.get("/v1/audit"),
+        ]
+        assert [response.status_code for response in requests] == [401] * len(requests)
+
+
+def test_authentication_failures_are_throttled_and_window_expires(env):
+    _, broker, token = env
+    now = [100.0]
+    with TestClient(create_app(broker, worker=False, auth_failure_limit=2,
+                               auth_failure_window=60, clock=lambda: now[0])) as client:
+        assert client.get("/v1/accounts", headers={"Authorization": "Bearer invalid"}).status_code == 401
+        assert client.get("/v1/accounts").status_code == 401
+        limited = client.get("/v1/accounts", headers={"Authorization": "Bearer invalid"})
+        assert limited.status_code == 429
+        assert limited.headers["Retry-After"] == "60"
+        assert "invalid" not in limited.text
+        now[0] += 61
+        assert client.get("/v1/accounts", headers={"Authorization": "Bearer " + token}).status_code == 200
+
+
+def test_task_lookup_is_scoped_to_the_creating_principal(env):
+    _, broker, token = env
+    other_token = broker.store.new_client("other")
+    broker.grant("other", "demo-api", ["summary"])
+    with TestClient(create_app(broker, worker=False)) as client:
+        created = client.post("/v1/tasks", json={"key": "principal-scope", "steps": [
+            {"account": "demo-api", "operation": "summary"}]},
+            headers={"Authorization": "Bearer " + token})
+        assert created.status_code == 200
+        task_id = created.json()["task_id"]
+        denied = client.get("/v1/tasks/" + task_id,
+                           headers={"Authorization": "Bearer " + other_token})
+        assert denied.status_code == 403
+        assert denied.json()["reason"] == "unknown_task"
+
+
+def test_malformed_client_capabilities_are_rejected_before_hashing(env):
+    _, broker, _ = env
+    for token in [None, "", "short", "x" * 100_000, "!" * 43]:
+        with pytest.raises(AccessError, match="invalid_client"):
+            broker.store.client(token)
+
+
 def test_wrong_vault_key_and_tampered_ciphertext_fail_closed(env):
     _, broker, _ = env
     wrong = Store(broker.store.root, os.urandom(32))

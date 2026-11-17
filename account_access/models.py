@@ -120,6 +120,7 @@ class IdentityContactFields(StrictModel):
     identity_selector: str = Field(min_length=1, max_length=500)
     phone_selector: str = Field(min_length=1, max_length=500)
     post_url: str
+    protocol: Literal["harel-otp-v1"] | None = None
 
 
 class LoginForm(StrictModel):
@@ -142,8 +143,9 @@ class LoginForm(StrictModel):
     @model_validator(mode="after")
     def one_factor_configuration(self):
         if self.identity_contact:
+            allowed_factors = {"email", "sms"} if self.identity_contact.protocol == "harel-otp-v1" else {"sms"}
             if (self.username_selector or self.password_selector or self.identity_step
-                    or self.device_email_source or set(self.factors) != {"sms"}
+                    or self.device_email_source or len(self.factors) != 1 or not set(self.factors) <= allowed_factors
                     or self.choices or self.code_requests or self.choice_toggle_selector):
                 raise ValueError("Identity and phone login requires its own fields and a single SMS factor")
             if self.identity_contact.identity_selector == self.identity_contact.phone_selector:
@@ -190,11 +192,19 @@ class LoginForm(StrictModel):
         return factor.code_source if factor and config.code_sources[factor.code_source].kind == "totp" else None
 
 
+class ServerPageMarker(StrictModel):
+    selector: str = Field(min_length=1, max_length=2048)
+    attribute: Literal["data-page"] = "data-page"
+    component: str = Field(min_length=1, max_length=128)
+    url: str = Field(min_length=1, max_length=2048)
+
+
 class BrowserAccount(StrictModel):
     kind: Literal["browser"]
     label: str = Field(min_length=1, max_length=100)
     login_url: str
     ready_selector: str
+    ready_page: ServerPageMarker | None = None
     login: LoginForm | None = None
     # Explicit reviewed aliases for password-manager exports, never a hostname
     # suffix match. This does not grant browser network access to an alias.
@@ -212,6 +222,14 @@ class BrowserAccount(StrictModel):
     javascript: bool = False
     state_timeout_ms: int = Field(default=5000, ge=0, le=15000)
     operations: dict[Handle, BrowserOperation] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def bounded_server_page(self):
+        if self.ready_page and (self.javascript or any(not op.session_only for op in self.operations.values())
+                or self.ready_page.url not in {op.url for op in self.operations.values()}
+                or urlsplit(self.ready_page.url).query or urlsplit(self.ready_page.url).fragment):
+            raise ValueError("Server-page readiness requires script-free, exact session-status operations")
+        return self
 
 
 class CodeSource(StrictModel):
@@ -262,6 +280,8 @@ class Configuration(StrictModel):
                 if account.revoke_url:
                     urls.append(account.revoke_url)
             else:
+                if account.ready_page:
+                    validate_url(account.ready_page.url, self.test_mode)
                 if account.login_challenge:
                     from .pypi_challenge import validate_configuration
                     validate_configuration(account, self.test_mode)
@@ -278,6 +298,9 @@ class Configuration(StrictModel):
                 urls = [account.login_url, *account.read_resources, *account.login_resources,
                         *account.login_assets, *account.login_post_urls]
                 if account.login:
+                    if account.login.identity_contact and account.login.identity_contact.protocol:
+                        from .harel_login import validate_configuration
+                        validate_configuration(account)
                     if account.login.identity_contact and (
                             account.password_import_origins or account.login_challenge
                             or account.login_asset_discovery
@@ -340,6 +363,9 @@ class Configuration(StrictModel):
 
     def fingerprint(self, account: str) -> str:
         data = self.accounts[account].model_dump()
+        if isinstance(self.accounts[account], BrowserAccount) and data.get("ready_page") is None:
+            # An absent new marker must not rotate existing grants or sessions.
+            data.pop("ready_page", None)
         if isinstance(self.accounts[account], BrowserAccount):
             for operation in data["operations"].values():
                 if operation.get("session_only") is False:
@@ -361,6 +387,8 @@ class Configuration(StrictModel):
         if isinstance(self.accounts[account], BrowserAccount) and data.get("login"):
             if data["login"].get("identity_contact") is None:
                 data["login"].pop("identity_contact", None)
+            elif data["login"]["identity_contact"].get("protocol") is None:
+                data["login"]["identity_contact"].pop("protocol", None)
             if data["login"].get("device_email_source") is None:
                 data["login"].pop("device_email_source", None)
             if data["login"].get("identity_step") is None:

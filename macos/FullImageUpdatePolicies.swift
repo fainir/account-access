@@ -7,11 +7,12 @@ enum FullImageUpdatePolicies {
     static func derive(install: Data, host: Data, owner: Data, worker: Data,
                        oldPeers: [String: ComponentPeerSignature], newPeers: [String: ComponentPeerSignature],
                        oldFingerprint: String, newFingerprint: String, consoleOwner: uid_t) throws -> ComponentPolicyResult {
-        // The first complete-image scope preserves the already repaired native
-        // broker/bootstrap. Its different signed GUI needs a new owner pin.
+        // The target image carries the exact owner/broker/bootstrap identities
+        // and designated requirements pinned by FullImageSource. Permit code
+        // hash rotation for those peers while preserving the publisher team and
+        // bundle identifiers; ComponentUpdatePolicies revalidates the complete
+        // peer set and updates the corresponding protected policy fields.
         guard let oldOwner = oldPeers["owner"], let newOwner = newPeers["owner"],
-              newPeers["broker"] == oldPeers["broker"],
-              newPeers["bootstrap"] == oldPeers["bootstrap"],
               newOwner.team == oldOwner.team, newOwner.identifier == oldOwner.identifier,
               (1...2).contains(newOwner.hashes.count),
               newOwner.hashes == Array(Set(newOwner.hashes)).sorted(),

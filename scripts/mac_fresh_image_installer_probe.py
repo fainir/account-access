@@ -23,7 +23,7 @@ import xml.etree.ElementTree as ET
 
 REPOSITORY = "fainir/account-access"
 HELPER = "scripts/mac_component_update_installer_probe.py"
-HELPER_SHA = "a4507756990cf6ff96e666653dab7aa7d636f1c37a01027dce9fae0e465311da"
+HELPER_SHA = "1b790d06ae7d20bc04d9f356b364145cc24afdba9a42cd63e5c9089911d3b92b"
 INPUTS = "scripts/download_fresh_image_installer_inputs.py"
 CONTRACT = "artifacts/fresh-image80-installer-inputs.json"
 MANIFEST_SHA = "d1f74db86890b306f989b65a8c521ce3b0879f261ded122dd409be2ca2fbe317"

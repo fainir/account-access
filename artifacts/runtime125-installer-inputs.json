@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "release_tag": "qa-worker-startup125-20261102",
+  "assets": {
+    "baseline.tar.gz": {
+      "sha256": "8e0a2f89325e3e047116e11e76b8b1b74448470bea0074ddbd959a733d9b0b4c",
+      "bytes": 288408996
+    },
+    "candidate.pkg": {
+      "sha256": "ff45e08745b6b4c9f7af3cfe224736356d5a9c66e8e65e03223baed14136311b",
+      "bytes": 5499724
+    },
+    "fresh.pkg": {
+      "sha256": "f587b7a8580317b3411122c1c0ca6c0e687d42feab8572bb79d246e582b3099c",
+      "bytes": 289324400
+    }
+  },
+  "before_manifest_sha256": "37cadaf59502657983f6cdb4a3bec0a755eb5e0dd041b625151ee51608ab2d8f",
+  "after_manifest_sha256": "8abffd8078832752aa13c59e58834b0a9b669656758dab47d4418ae663c41bcd",
+  "personal_accounts_used": 0
+}

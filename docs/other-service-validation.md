@@ -4,6 +4,21 @@ Further GitHub account testing stopped at the owner's request on 16 October
 2026. Its historical results remain in the validation report; they do not count
 as coverage of the services below.
 
+## Lemon Squeezy authenticator acceptance
+
+The public Lemon Squeezy sign-in page in Chrome offers Google, Twitter and
+email/password. It does not show an authenticator challenge before sign-in.
+No credential was entered and sign-in was not submitted. The app's generic TOTP
+fixtures do not qualify this provider; its authenticated challenge, owner-local
+authenticator enrollment and successful private sign-in remain untested.
+[Sanitized public-page check](../artifacts/lemon-squeezy-public-login-check-20261028.json).
+
+On 2 November the owner selected Lemon Squeezy as an existing MFA account.
+The public form was rechecked in personal Chrome and the official authenticator
+documentation reviewed. Its actual code challenge still requires owner presence
+before connector implementation. [Current review and handoff](../qa/lemon-squeezy-2026-11-02/review.md).
+No new signup, credential/code access, enrollment or installed support is claimed.
+
 ## Namecheap password pilot
 
 The 0.8 candidate adds **Namecheap** to the native account picker and password

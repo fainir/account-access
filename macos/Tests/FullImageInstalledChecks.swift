@@ -249,10 +249,50 @@ private enum InstalledFixtureFailure: Error { case failed }
                 + FullImageInstallCheckpoint.allCases.map { BrokerRepairProgressCheckpoint.predecessor($0) }
             let fullImageCheckpoints = FullImageInstallCheckpoint.allCases.map(\.rawValue)
             try expect(Set(fullImageCheckpoints).count == fullImageCheckpoints.count)
+            let repairEvidence: [String: Any] = ["schema": 1, "managed_by": "account-access-completed-broker-repair-v1",
+                "plan_sha256": String(repeating: "1", count: 64), "manifest_sha256": String(repeating: "2", count: 64),
+                "source_commit": String(repeating: "a", count: 40), "owner_uid": 501, "broker_uid": 450,
+                "intent_sha256": String(repeating: "3", count: 64), "history_sha256": String(repeating: "4", count: 64),
+                "predecessor_evidence_sha256": String(repeating: "5", count: 64), "head_sha256": String(repeating: "6", count: 64),
+                "mount_sha256": String(repeating: "7", count: 64), "worker_sha256": String(repeating: "8", count: 64),
+                "service_sha256": String(repeating: "9", count: 64), "host_sha256": String(repeating: "a", count: 64)]
+            let repairEvidenceBytes = try FullImageJSON.encode(repairEvidence)
+            try expect(try CompletedRuntimeRepairEvidenceDifference.compare(repairEvidenceBytes, repairEvidenceBytes) == .same)
+            try expect(CompletedRuntimeRepairEvidenceDifference.same.checkpoint == .predecessorViewRepairProofSameHashMismatch)
+            for difference in CompletedRuntimeRepairEvidenceDifference.allCases where difference.key != nil {
+                var changed = repairEvidence
+                let key = difference.key!
+                if key == "schema" || key == "owner_uid" || key == "broker_uid" {
+                    changed[key] = (changed[key] as! Int) + 1
+                } else {
+                    changed[key] = (changed[key] as! String) + "-changed"
+                }
+                try expect(try CompletedRuntimeRepairEvidenceDifference.compare(
+                    repairEvidenceBytes, FullImageJSON.encode(changed)) == difference)
+            }
+            var missingRepairEvidenceField = repairEvidence
+            missingRepairEvidenceField.removeValue(forKey: "host_sha256")
+            try expect(try CompletedRuntimeRepairEvidenceDifference.compare(
+                repairEvidenceBytes, FullImageJSON.encode(missingRepairEvidenceField)) == .structure)
+            let prettyRepairEvidence = try JSONSerialization.data(withJSONObject: repairEvidence, options: [.prettyPrinted, .fragmentsAllowed])
+            if prettyRepairEvidence != repairEvidenceBytes {
+                try expect(try CompletedRuntimeRepairEvidenceDifference.compare(repairEvidenceBytes, prettyRepairEvidence) == .encoding)
+            }
             try expect(["predecessor_runtime_source", "predecessor_repair_source", "predecessor_namespace",
-                        "predecessor_intent", "predecessor_repair_history", "predecessor_authority",
+                        "predecessor_intent", "predecessor_repair_history", "predecessor_repair_route",
+                        "predecessor_repair_intent", "predecessor_repair_evidence",
+                        "predecessor_component_revalidation", "predecessor_repair_stability", "predecessor_authority",
                         "predecessor_policy", "predecessor_storage", "predecessor_view",
-                        "predecessor_evidence"].allSatisfy { fullImageCheckpoints.contains($0) })
+                        "predecessor_view_routes", "predecessor_view_owner", "predecessor_view_policies",
+                        "predecessor_view_journal", "predecessor_view_original_receipt",
+                        "predecessor_view_repair_proof", "predecessor_view_before", "predecessor_view_states",
+                        "predecessor_view_layout", "predecessor_view_projection", "predecessor_view_after",
+                        "predecessor_final_tree_history_read", "predecessor_final_tree_history_compare",
+                        "predecessor_final_tree_history_verified", "predecessor_initial_head_read",
+                        "predecessor_final_head_read",
+                        "predecessor_final_head_compare", "predecessor_final_head_verified",
+                        "predecessor_final_roots_read", "predecessor_final_roots_compare",
+                        "predecessor_final_roots_verified", "predecessor_evidence"].allSatisfy { fullImageCheckpoints.contains($0) })
             for category in progressCases {
                 for elapsed in [0.0, 1800.9, 86400.0] {
                     let text = BrokerRepairProgress.encoded(category, elapsed: elapsed)!

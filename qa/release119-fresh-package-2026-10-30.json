@@ -1,0 +1,42 @@
+{
+  "status": "BUILT",
+  "version": "0.8.0",
+  "architecture": "arm64",
+  "source_commit": "d42dc438b39ff71b1e0b8e5499d74430d9937617",
+  "source_tree_clean": true,
+  "development": false,
+  "offline_runtime": true,
+  "fresh_install_only": true,
+  "installation_strategy": "verified-script-image-v1",
+  "recovery_scope": "same-image-same-owner-only",
+  "preassembled_image": true,
+  "preassembled_source_unchanged": true,
+  "runtime_transformed": false,
+  "production_ready": false,
+  "notarized": true,
+  "installed": false,
+  "native_payload_audit": {
+    "native_files": 49,
+    "executables": 11,
+    "bundles": 1,
+    "wheels": 34,
+    "publisher_signatures_verified": true,
+    "notarization_verified": false
+  },
+  "payload_manifest_sha256": "630e77605faac2dfdace9faaa5da55e671335c6b18e62114d7f0224a8574f24c",
+  "installer_verifier_sha256": "af3fa2fa83fa65f65ff7efbf33140ec7cb2234cc1aecbafdd07a22cbdfbe0b03",
+  "payload_manifest_counts": {
+    "files": 25168,
+    "directories": 2298,
+    "aliases": 21
+  },
+  "required_install_bytes": 2075910144,
+  "native_manifest_preflight": true,
+  "sha256": "fd04b1ea8baaca39f19704414ebdbdba276d93566eedbc22195d6476878d20f4",
+  "stapled": true,
+  "gatekeeper": "accepted",
+  "notarization_id": "3203a950-bff7-4384-8588-bbaf33029bb5",
+  "published_package": "/Users/nirfeinstein/Downloads/Account-Access-0.8.0-build119-signed.pkg",
+  "published_sha256": "e9ced80a3175647a6bb8f85eef7384312eeeff6664c0ea5f6e162ea8afe6cf75",
+  "published_bytes": 289224482
+}

@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "date": "2026-10-28",
+  "status": "PASSED",
+  "check": "installed Account Access skill account discovery from current Codex task",
+  "launcher_command": "scripts/access accounts",
+  "service_version": "0.8.0",
+  "environment": "live",
+  "local_client_status": "INSTALLED",
+  "broker_service_status": "running",
+  "installed_owner_app": {
+    "version": "0.8.0",
+    "build": 92,
+    "signature": "Developer ID Application",
+    "visible_screen": "Checking your mailbox",
+    "visible_status": "macOS approval requested",
+    "mailbox_check_completed": false,
+    "credential_or_message_data_recorded": false
+  },
+  "requested_insurer_targets_configured": false,
+  "controlled_demo_or_public_example_accounts_available": false,
+  "account_inventory_recorded": false,
+  "hosted_android_acceptance": {
+    "run_id": 40635545547,
+    "commit": "3579548e27ad289e5f54b30c58d1000239334d9f",
+    "conclusion": "success",
+    "android_11_sms_login": true,
+    "android_15_notification_forwarding_refused_without_association": true,
+    "android_15_manual_code_refused_without_association": true,
+    "android_15_positive_computer_association_tested": false,
+    "physical_phone_tested": false
+  },
+  "private_account_data_read": false,
+  "login_or_code_attempted": false,
+  "production_ready": false,
+  "limits": "Confirms the installed skill launcher can reach the protected broker and return the permitted account list from the current Codex task. It does not verify a private website login, Harel or Phoenix, a verification source, or the owner app's upgrade screen. Unrelated account names and metadata were not recorded."
+}

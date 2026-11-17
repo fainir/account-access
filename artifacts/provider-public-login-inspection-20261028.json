@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "date": "2026-10-28",
+  "status": "PUBLIC_LOGIN_INSPECTION_ONLY",
+  "harel": {
+    "url": "https://www.harel-group.co.il/Pages/login-page/Login.aspx",
+    "page_loaded": true,
+    "visible_login_fields": ["national ID", "mobile phone"],
+    "visible_code_delivery_options": ["SMS", "email"],
+    "credentials_entered": false,
+    "login_submitted": false
+  },
+  "phoenix": {
+    "url": "https://auth.fnx.co.il/u/login",
+    "page_loaded": true,
+    "visible_login_form": false,
+    "visible_state": "provider error page: possible configuration problem or service outage",
+    "credentials_entered": false,
+    "login_submitted": false
+  },
+  "account_access_launcher_environment": "controlled-demo",
+  "private_account_data_read": false,
+  "verification_code_requested": false,
+  "production_ready": false
+}

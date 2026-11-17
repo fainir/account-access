@@ -1,0 +1,25 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+E   AssertionError: {'status': 'RETRYABLE', 'reason': 'browser_execution_failed', 'account': 'personal-lemonsqueezy'}
+    assert 'RETRYABLE' == 'COMPLETED'
+      
+      - COMPLETED
+      + RETRYABLE
+/Users/nirfeinstein/.codex/worktrees/upgrade-continuation/login soltion/tests/test_lemonsqueezy.py:234: AssertionError: {'status': 'RETRYABLE', 'reason': 'browser_execution_failed', 'account': 'personal-lemonsqueezy'}
+E   AssertionError: {'status': 'RETRYABLE', 'reason': 'browser_execution_failed', 'account': 'personal-lemonsqueezy'}
+    assert 'RETRYABLE' == 'NEEDS_USER'
+      
+      - NEEDS_USER
+      + RETRYABLE
+/Users/nirfeinstein/.codex/worktrees/upgrade-continuation/login soltion/tests/test_lemonsqueezy.py:255: AssertionError: {'status': 'RETRYABLE', 'reason': 'browser_execution_failed', 'account': 'personal-lemonsqueezy'}
+E   AssertionError: {'status': 'RETRYABLE', 'reason': 'browser_execution_failed', 'account': 'personal-lemonsqueezy'}
+    assert 'RETRYABLE' == 'NEEDS_USER'
+      
+      - NEEDS_USER
+      + RETRYABLE
+/Users/nirfeinstein/.codex/worktrees/upgrade-continuation/login soltion/tests/test_lemonsqueezy.py:255: AssertionError: {'status': 'RETRYABLE', 'reason': 'browser_execution_failed', 'account': 'personal-lemonsqueezy'}
+=========================== short test summary info ============================
+FAILED tests/test_lemonsqueezy.py::test_session_status_uses_reviewed_authentication_entry_without_application_bridge
+FAILED tests/test_lemonsqueezy.py::test_new_status_connection_reaches_missing_authenticator_without_application_bridge[False]
+FAILED tests/test_lemonsqueezy.py::test_new_status_connection_reaches_missing_authenticator_without_application_bridge[True]
+3 failed, 20 deselected in 12.99s

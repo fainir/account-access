@@ -1,0 +1,61 @@
+2026-10-31 12:08:32+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installer[5761]: Referenced component packages (1) trustLevel=350
+2026-10-31 12:08:32+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installer[5761]: -[IFPKGDerivedDocument sortedPackageLocations]: result = (
+	    "file://localhost"
+	)
+2026-10-31 12:08:32+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installer[5761]: -[IFDInstallController(Private) _buildInstallPlanReturningError:]: location = file://localhost
+2026-10-31 12:08:32+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installer[5761]: -[IFDInstallController(Private) _buildInstallPlanReturningError:]: file://localhost/Users/runner/work/_temp/direct-inputs/candidate.pkg
+2026-10-31 12:08:32+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installer[5761]: Set authorization level to root for session
+2026-10-31 12:08:32+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installer[5761]: Authorization is being checked, waiting until authorization arrives.
+2026-10-31 12:08:32+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installer[5761]: Administrator authorization granted.
+2026-10-31 12:08:32+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installer[5761]: Packages have been authorized for installation.
+2026-10-31 12:08:32+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installer[5761]: Will use PK session
+2026-10-31 12:08:32+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installer[5761]: Using authorization level of root for IFPKInstallElement
+2026-10-31 12:08:32+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installer[5761]: Starting installation:
+2026-10-31 12:08:32+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installer[5761]: Configuring volume "Macintosh HD"
+2026-10-31 12:08:32+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installer[5761]: Preparing disk for local booted install.
+2026-10-31 12:08:32+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installer[5761]: Free space on "Macintosh HD": 43.69 GB (43689676800 bytes).
+2026-10-31 12:08:32+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installer[5761]: Create temporary directory "/var/folders/zz/zyxvpxvq6csfxvn_n0000000000000/T//Install.5761TXNOb7"
+2026-10-31 12:08:32+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installer[5761]: IFPKInstallElement (1 packages)
+2026-10-31 12:08:32+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installer[5761]: Current Path: /usr/sbin/installer
+2026-10-31 12:08:32+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installer[5761]: Current Path: /opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/Resources/Python.app/Contents/MacOS/Python
+2026-10-31 12:08:32+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installer[5761]: Current Path: /usr/bin/sudo
+2026-10-31 12:08:32+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installd[514]: PackageKit: Adding client PKInstallDaemonClient pid=5761, uid=0 (/usr/sbin/installer)
+2026-10-31 12:08:32+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installer[5761]: PackageKit: Enqueuing install with framework-specified quality of service (utility)
+2026-10-31 12:08:32+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installd[514]: PackageKit: Set reponsibility for install to 924
+2026-10-31 12:08:33+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installd[514]: PackageKit: Hosted team responsibility for install set to team:(WBULD6N4NQ)
+2026-10-31 12:08:33+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installd[514]: PackageKit: ----- Begin install -----
+2026-10-31 12:08:33+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installd[514]: PackageKit: request=PKInstallRequest <1 packages, destination=/>
+2026-10-31 12:08:33+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installd[514]: PackageKit: packages=(
+	    "PKLeopardPackage <id=com.fainir.accountaccess.runtimejit121, version=0.8.0, url=file://localhost/Users/runner/work/_temp/direct-inputs/candidate.pkg>"
+	)
+2026-10-31 12:08:35+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installd[514]: PackageKit: prevent user idle system sleep
+2026-10-31 12:08:35+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installd[514]: PackageKit: suspending Spotlight indexing
+2026-10-31 12:08:35+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installd[514]: PackageKit: suspending backupd
+2026-10-31 12:08:35+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 install_monitor[5769]: Temporarily excluding: /Applications, /Library, /System, /bin, /private, /sbin, /usr
+2026-10-31 12:08:35+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installd[514]: PackageKit: Using trashcan path /var/folders/zz/zyxvpxvq6csfxvn_n0000000000000/T/PKInstallSandboxTrash/90ACBAE1-02A7-4034-B44A-56A11EA04AC8.sandboxTrash for sandbox /Library/InstallerSandboxes/.PKInstallSandboxManager/90ACBAE1-02A7-4034-B44A-56A11EA04AC8.activeSandbox
+2026-10-31 12:08:35+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installd[514]: PackageKit: Shoving /Library/InstallerSandboxes/.PKInstallSandboxManager/90ACBAE1-02A7-4034-B44A-56A11EA04AC8.activeSandbox/Root (0 items) to /
+2026-10-31 12:08:35+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installd[514]: PackageKit (package_script_service): Preparing to execute script "./postinstall" in /private/tmp/PKInstallSandbox.NjwcZ1/Scripts/com.fainir.accountaccess.runtimejit121.LxUbRl
+2026-10-31 12:08:35+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 package_script_service[5770]: PackageKit: Preparing to execute script "postinstall" in /tmp/PKInstallSandbox.NjwcZ1/Scripts/com.fainir.accountaccess.runtimejit121.LxUbRl
+2026-10-31 12:08:35+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 package_script_service[5770]: Set responsibility to pid: 924, responsible_path: /opt/hca/hosted-compute-agent
+2026-10-31 12:08:35+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 package_script_service[5770]: Hosted team responsibility for script set to team:(WBULD6N4NQ)
+2026-10-31 12:08:35+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 package_script_service[5770]: PackageKit: Executing script "postinstall" in /tmp/PKInstallSandbox.NjwcZ1/Scripts/com.fainir.accountaccess.runtimejit121.LxUbRl
+2026-10-31 12:08:39+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 package_script_service[5770]: ./postinstall: {"schema":1,"status":"REFUSED","reason":"component_source_not_verified","checkpoint":"payload"}
+2026-10-31 12:08:39+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 package_script_service[5770]: PackageKit: Hosted team responsible for script has been cleared.
+2026-10-31 12:08:39+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 package_script_service[5770]: Responsibility set back to self.
+2026-10-31 12:08:39+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installd[514]: PackageKit: releasing Spotlight indexing
+2026-10-31 12:08:39+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 install_monitor[5769]: Re-included: /Applications, /Library, /System, /bin, /private, /sbin, /usr
+2026-10-31 12:08:40+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installd[514]: PackageKit: releasing backupd
+2026-10-31 12:08:40+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installd[514]: PackageKit: allow user idle system sleep
+2026-10-31 12:08:40+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installd[514]: PackageKit: Install Failed: Error Domain=PKInstallErrorDomain Code=112 "An error occurred while running scripts from the package “candidate.pkg”." UserInfo={NSFilePath=./postinstall, NSURL=file://localhost/Users/runner/work/_temp/direct-inputs/candidate.pkg, PKInstallPackageIdentifier=com.fainir.accountaccess.runtimejit121, NSLocalizedDescription=An error occurred while running scripts from the package “candidate.pkg”.} {
+	    NSFilePath = "./postinstall";
+	    NSLocalizedDescription = "An error occurred while running scripts from the package \U201ccandidate.pkg\U201d.";
+	    NSURL = "file://localhost/Users/runner/work/_temp/direct-inputs/candidate.pkg";
+	    PKInstallPackageIdentifier = "com.fainir.accountaccess.runtimejit121";
+	}
+2026-10-31 12:08:40+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installd[514]: PackageKit: Cleared responsibility for install from 5761.
+2026-10-31 12:08:40+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installd[514]: PackageKit: Hosted team responsible for install has been cleared.
+2026-10-31 12:08:40+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installd[514]: PackageKit: Running idle tasks
+2026-10-31 12:08:40+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installd[514]: PackageKit: Removing client PKInstallDaemonClient pid=5761, uid=0 (/usr/sbin/installer)
+2026-10-31 12:08:40+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installer[5761]: install:didFailWithError:Error Domain=PKInstallErrorDomain Code=112 "An error occurred while running scripts from the package “candidate.pkg”." UserInfo={NSFilePath=./postinstall, NSURL=file://localhost/Users/runner/work/_temp/direct-inputs/candidate.pkg, PKInstallPackageIdentifier=com.fainir.accountaccess.runtimejit121, NSLocalizedDescription=An error occurred while running scripts from the package “candidate.pkg”.}
+2026-10-31 12:08:40+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installd[514]: PackageKit: Done with sandbox removals
+2026-10-31 12:08:40+00 iad20-fj921-a26c6010-e004-4bc0-989c-ea3006c9275e-FE7F407BD006 installer[5761]: Install failed: The Installer encountered an error that caused the installation to fail. Contact the software manufacturer for assistance.

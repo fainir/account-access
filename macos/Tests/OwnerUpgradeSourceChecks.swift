@@ -32,6 +32,43 @@ struct OwnerUpgradeSourceChecks {
         func refuses(_ body: () throws -> Void) {
             var refused = false; do { try body() } catch { refused = true }; check(refused)
         }
+        let privateFailure = NSError(domain: "fictional-private-owner-upgrade", code: 1,
+            userInfo: [NSLocalizedDescriptionKey: "fictional-private-account-path"])
+        for predecessorCheckpoint in CompletedPredecessorCheckpoint.allCases {
+            let text = OwnerUpgradeDiagnostics.refusal(
+                CompletedPredecessorDiagnostic(checkpoint: predecessorCheckpoint, failure: privateFailure),
+                checkpoint: .predecessor)
+            let value = try FullImageJSON.object(Data(text.utf8), maximum: 4096)
+            check(value["reason"] as? String == "owner_upgrade_unavailable"
+                && value["checkpoint"] as? String == "predecessor_" + predecessorCheckpoint.rawValue
+                && !text.contains("fictional-private"))
+        }
+        let fixedRefusal = OwnerUpgradeDiagnostics.refusal(
+            CompletedPredecessorDiagnostic(checkpoint: .workerBinding, failure: FullImageFailure.journal),
+            checkpoint: .predecessor)
+        let fixedValue = try FullImageJSON.object(Data(fixedRefusal.utf8), maximum: 4096)
+        check(fixedValue["reason"] as? String == "owner_upgrade_transition_conflict"
+            && fixedValue["checkpoint"] as? String == "predecessor_worker_binding")
+        for repairCheckpoint in CompletedBrokerRepairCheckpoint.allCases {
+            let text = OwnerUpgradeDiagnostics.refusal(
+                CompletedBrokerRepairDiagnostic(checkpoint: repairCheckpoint, failure: FullImageFailure.source),
+                checkpoint: .predecessorRepairHistory)
+            let value = try FullImageJSON.object(Data(text.utf8), maximum: 4096)
+            check(value["reason"] as? String == "owner_upgrade_source_not_verified"
+                && value["checkpoint"] as? String == "predecessor_repair_history_" + repairCheckpoint.rawValue)
+        }
+        let intentRefusal = OwnerUpgradeDiagnostics.refusal(
+            FullImageIntentReadDiagnostic(context: .predecessorRuntime, checkpoint: .structure,
+                failure: FullImageFailure.journal), checkpoint: .predecessorIntent)
+        let intentValue = try FullImageJSON.object(Data(intentRefusal.utf8), maximum: 4096)
+        check(intentValue["reason"] as? String == "owner_upgrade_transition_conflict"
+            && intentValue["checkpoint"] as? String == "predecessor_runtime_intent_structure"
+            && !intentRefusal.contains("intent.json") && !intentRefusal.contains("/Library"))
+        let fallbackRefusal = OwnerUpgradeDiagnostics.refusal(privateFailure, checkpoint: .predecessor)
+        let fallbackValue = try FullImageJSON.object(Data(fallbackRefusal.utf8), maximum: 4096)
+        check(fallbackValue["reason"] as? String == "owner_upgrade_unavailable"
+            && fallbackValue["checkpoint"] as? String == "predecessor"
+            && !fallbackRefusal.contains("fictional-private"))
         let source = try load(raw)
         check(source.changed == ["owner.app/Contents/Info.plist", "owner.app/Contents/MacOS/AccountAccess", "package-identity.json"])
         check(source.units.map(\.path) == ["owner.app", "package-identity.json"])

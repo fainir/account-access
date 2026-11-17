@@ -1,0 +1,11 @@
+{
+  "status": "COMPLETED",
+  "account": "personal-betterloop",
+  "operation": "status",
+  "environment": "live",
+  "environment_source": "connector-configuration",
+  "data": {
+    "authenticated": true
+  },
+  "untrusted_data": true
+}

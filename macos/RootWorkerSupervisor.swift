@@ -16,6 +16,38 @@ struct WorkerRestartBudget {
     mutating func stable() { used = 0 }
 }
 
+// Initial readiness recovery is separate from the running-worker crash budget.
+// Only a trusted enrollment coordinator may opt in. Cleanup must succeed before
+// the exact timeout can be considered; every other failure remains terminal.
+enum InitialWorkerStartupRecovery {
+    static let delays: [TimeInterval] = [5, 20]
+
+    static func run(launch: () throws -> Bool, cleanup: () throws -> Void,
+                    revalidate: (() throws -> Bool)?,
+                    clock: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
+                    pause: (TimeInterval) -> Void = { Thread.sleep(forTimeInterval: $0) }) throws -> Bool {
+        var retries = 0
+        while true {
+            do {
+                return try launch()
+            } catch {
+                try cleanup()
+                guard error as? RootWorkerProcessFailure == .startupTimedOut,
+                      let revalidate, retries < delays.count else { throw error }
+                let deadline = clock() + delays[retries]
+                retries += 1
+                while clock() < deadline {
+                    guard try revalidate() else { return false }
+                    pause(min(0.1, max(0, deadline - clock())))
+                }
+                // Pause, cancellation or changed durable authority during the
+                // last sleep must be observed before creating another child.
+                guard try revalidate() else { return false }
+            }
+        }
+    }
+}
+
 final class RootWorkerSupervisor: OwnerGatewayBackend {
     private let policy: String
     private let bootstrap: String
@@ -89,13 +121,24 @@ final class RootWorkerSupervisor: OwnerGatewayBackend {
         current = .running
     }
     func start() throws {
+        _ = try start(revalidateBeforeRetry: nil)
+    }
+    func start(revalidateBeforeRetry: (() throws -> Bool)?) throws -> Bool {
         try RootVaultKeyStore.requireDaemon()
         lock.lock(); defer { lock.unlock() }
         guard current == .idle else { throw RootWorkerProcessFailure.invalidState }
-        do { try launch() }
-        catch {
+        do {
+            let completed = try InitialWorkerStartupRecovery.run(launch: {
+                try self.launch()
+                return self.current == .running
+            }, cleanup: {
+                self.current = .failed
+                try self.discardWorker()
+            }, revalidate: revalidateBeforeRetry)
+            if !completed { current = .paused }
+            return completed
+        } catch {
             current = .failed
-            try discardWorker()
             throw error
         }
     }

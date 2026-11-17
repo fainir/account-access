@@ -68,7 +68,7 @@ FAILURES = {
     "browser_fixture_cli_google_messages_tab_unavailable", "browser_fixture_cli_google_messages_tab_reloaded",
     "browser_fixture_cli_google_messages_not_connected", "browser_fixture_cli_service_unavailable",
     "browser_fixture_deadline_expired", "signed_chrome_fixture_delivery_invalid",
-    "signed_chrome_sms_journey_failed",
+    "signed_chrome_sms_journey_failed", "signed_chrome_publisher_not_verified",
 }
 
 

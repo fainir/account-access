@@ -11,7 +11,13 @@ enum InstallationRootBinding {
     static let namespace = "/Library/Application Support/Account Access Installation Binding"
     static let receiptName = "revalidated-v1.json"
     static let pendingName = "pending-revalidated-v1.json"
+    static let recoveryName = "recovered-v2.json"
+    static let pendingRecoveryName = "pending-recovered-v2.json"
+    static let renewedName = "recovered-v3.json"
+    static let pendingRenewedName = "pending-recovered-v3.json"
     static let marker = "account-access-installation-root-revalidation-v1"
+    static let recoveryMarker = "account-access-installation-root-recovery-v2"
+    private static let renewedMarker = "account-access-installation-root-recovery-v3"
     private static let policyNames: Set<String> = ["install", "host", "owner", "worker", "service"]
 
     struct LegacyRoot: Equatable { let device: Int32; let inode: UInt64 }
@@ -133,14 +139,152 @@ enum InstallationRootBinding {
         return data
     }
     static func validateSupplement(_ data: Data, legacy: Legacy, current: [String: CurrentRoot]) throws {
-        try requireSameRoots(legacy, current: current)
         let value = try object(data)
-        guard Set(value.keys) == ["schema", "managed_by", "base_manifest_sha256", "owner_uid", "original_receipt_sha256",
+        if [2, 3].contains((value["schema"] as? NSNumber)?.intValue ?? 0) {
+            let previous = try embeddedPrevious(value)
+            try validateRecoverySupplement(data, previous: previous, legacy: legacy, current: current)
+            return
+        }
+        try validateOriginalSupplement(data, legacy: legacy, current: current)
+    }
+    private static func validateOriginalSupplement(_ data: Data, legacy: Legacy,
+                                                   current: [String: CurrentRoot]) throws {
+        try requireSameRoots(legacy, current: current)
+        let roots = try supplementRoots(data, legacy: legacy)
+        for path in paths {
+            guard roots[path]!.inode == current[path]!.inode,
+                  roots[path]!.volumeUUID == current[path]!.volumeUUID else { throw ComponentUpdateFailure.base }
+        }
+    }
+    private static func supplementRoots(_ data: Data, legacy: Legacy) throws -> [String: CurrentRoot] {
+        let value = try object(data)
+        guard let canonical = try? JSONSerialization.data(withJSONObject: value, options: [.sortedKeys, .withoutEscapingSlashes]),
+              canonical == data,
+              Set(value.keys) == ["schema", "managed_by", "base_manifest_sha256", "owner_uid", "original_receipt_sha256",
             "roots", "publisher_team", "publisher_identifier", "authorizing_plan_sha256", "authorizing_source_commit", "policy_sha256"],
               try InstallerPayloadManifest.integer(value["schema"], maximum: 1) == 1,
               value["managed_by"] as? String == marker, value["base_manifest_sha256"] as? String == legacy.manifestSHA256,
               try InstallerPayloadManifest.integer(value["owner_uid"], maximum: Int64(UInt32.max)) == Int64(legacy.ownerUID),
               value["original_receipt_sha256"] as? [String: String] == legacy.hashes,
+              value["publisher_team"] as? String == "WBULD6N4NQ",
+              value["publisher_identifier"] as? String == "com.fainir.accountaccess.componentupdate",
+              let plan = value["authorizing_plan_sha256"] as? String, hex(plan, count: 64),
+              let source = value["authorizing_source_commit"] as? String, hex(source, count: 40),
+              let policies = value["policy_sha256"] as? [String: String], Set(policies.keys) == policyNames,
+              policies.values.allSatisfy({ hex($0, count: 64) }),
+              let roots = value["roots"] as? [String: [String: Any]], Set(roots.keys) == Set(paths) else {
+            throw ComponentUpdateFailure.base
+        }
+        for path in paths {
+            let root = roots[path]!, original = legacy.roots[path]!
+            guard Set(root.keys) == ["inode", "volume_uuid"],
+                  try InstallerPayloadManifest.integer(root["inode"], maximum: Int64.max) == Int64(original.inode),
+                  let volume = root["volume_uuid"] as? String, uuid(volume) else {
+                throw ComponentUpdateFailure.base
+            }
+        }
+        let result = Dictionary(uniqueKeysWithValues: paths.map { path in
+            let root = roots[path]!
+            return (path, CurrentRoot(device: legacy.roots[path]!.device, inode: legacy.roots[path]!.inode,
+                                      volumeUUID: root["volume_uuid"] as! String))
+        })
+        guard Set(result.values.map(\.volumeUUID)).count == 1 else { throw ComponentUpdateFailure.base }
+        return result
+    }
+    private static func requireCurrentRootSet(_ current: [String: CurrentRoot]) throws {
+        guard Set(current.keys) == Set(paths), paths.allSatisfy({ current[$0]!.inode > 0
+                  && current[$0]!.inode <= UInt64(Int64.max) && current[$0]!.device >= 0
+                  && uuid(current[$0]!.volumeUUID) }),
+              Set(current.values.map(\.device)).count == 1,
+              Set(current.values.map(\.volumeUUID)).count == 1 else { throw ComponentUpdateFailure.base }
+    }
+    private static func replacementRoots(previous: [String: CurrentRoot], current: [String: CurrentRoot]) throws {
+        try requireCurrentRootSet(current)
+        let support = InstallerPayloadManifest.support, application = InstallerPayloadManifest.application
+        guard previous[support]!.inode != current[support]!.inode,
+              previous[support]!.volumeUUID == current[support]!.volumeUUID,
+              previous[application]!.inode == current[application]!.inode,
+              previous[application]!.volumeUUID == current[application]!.volumeUUID else {
+            throw ComponentUpdateFailure.base
+        }
+    }
+    static func requireRecoveryReplacement(previous: Data, legacy: Legacy,
+                                           current: [String: CurrentRoot]) throws {
+        try replacementRoots(previous: recoveryBase(previous, legacy: legacy).roots, current: current)
+    }
+    private static func embeddedPrevious(_ value: [String: Any]) throws -> Data {
+        guard let encoded = value["previous_supplement"] as? String,
+              let previous = Data(base64Encoded: encoded), previous.base64EncodedString() == encoded else {
+            throw ComponentUpdateFailure.base
+        }
+        return previous
+    }
+    private static func recoveryBase(_ previous: Data, legacy: Legacy)
+            throws -> (schema: Int64, marker: String, roots: [String: CurrentRoot]) {
+        let value = try object(previous)
+        let schema = try InstallerPayloadManifest.integer(value["schema"], maximum: 2)
+        if schema == 1 {
+            return (2, recoveryMarker, try supplementRoots(previous, legacy: legacy))
+        }
+        guard schema == 2, let roots = value["roots"] as? [String: [String: Any]],
+              Set(roots.keys) == Set(paths), let device = legacy.roots[InstallerPayloadManifest.support]?.device else {
+            throw ComponentUpdateFailure.base
+        }
+        let original = try embeddedPrevious(value)
+        let originalRoots = try supplementRoots(original, legacy: legacy)
+        let recorded = try roots.mapValues { root -> CurrentRoot in
+            guard let uuid = root["volume_uuid"] as? String else { throw ComponentUpdateFailure.base }
+            let inode = try InstallerPayloadManifest.integer(root["inode"], maximum: Int64.max)
+            return CurrentRoot(device: device, inode: UInt64(inode), volumeUUID: uuid)
+        }
+        try validateRecoverySupplement(previous, previous: original, legacy: legacy, current: recorded,
+            base: (2, recoveryMarker, originalRoots))
+        return (3, renewedMarker, recorded)
+    }
+    static func recoverySupplement(legacy: Legacy, previous: Data, current: [String: CurrentRoot],
+                                   planSHA256: String, sourceCommit: String,
+                                   policyHashes: [String: String]) throws -> Data {
+        let base = try recoveryBase(previous, legacy: legacy)
+        try replacementRoots(previous: base.roots, current: current)
+        guard hex(planSHA256, count: 64), hex(sourceCommit, count: 40), Set(policyHashes.keys) == policyNames,
+              policyHashes.values.allSatisfy({ hex($0, count: 64) }) else { throw ComponentUpdateFailure.base }
+        let roots = current.mapValues { ["inode": NSNumber(value: $0.inode), "volume_uuid": $0.volumeUUID] as [String: Any] }
+        let result: [String: Any] = ["schema": base.schema, "managed_by": base.marker, "base_manifest_sha256": legacy.manifestSHA256,
+            "owner_uid": legacy.ownerUID, "original_receipt_sha256": legacy.hashes,
+            "previous_supplement_sha256": ComponentFiles.digest(previous),
+            "previous_supplement": previous.base64EncodedString(),
+            "publisher_team": "WBULD6N4NQ", "publisher_identifier": "com.fainir.accountaccess.componentupdate",
+            "authorizing_plan_sha256": planSHA256, "authorizing_source_commit": sourceCommit,
+            "policy_sha256": policyHashes, "roots": roots]
+        let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys, .withoutEscapingSlashes])
+        try validateRecoverySupplement(data, previous: previous, legacy: legacy, current: current, base: base)
+        return data
+    }
+    static func validateRecoverySupplement(_ data: Data, previous: Data, legacy: Legacy,
+                                           current: [String: CurrentRoot]) throws {
+        try validateRecoverySupplement(data, previous: previous, legacy: legacy, current: current,
+            base: recoveryBase(previous, legacy: legacy))
+    }
+    private static func validateRecoverySupplement(_ data: Data, previous: Data, legacy: Legacy,
+            current: [String: CurrentRoot], base: (schema: Int64, marker: String, roots: [String: CurrentRoot])) throws {
+        try replacementRoots(previous: base.roots, current: current)
+        let support = InstallerPayloadManifest.support
+        guard base.schema != 3 || current[support]?.inode != legacy.roots[support]?.inode else {
+            throw ComponentUpdateFailure.base
+        }
+        let value = try object(data)
+        guard let canonical = try? JSONSerialization.data(withJSONObject: value, options: [.sortedKeys, .withoutEscapingSlashes]),
+              canonical == data,
+              Set(value.keys) == ["schema", "managed_by", "base_manifest_sha256", "owner_uid", "original_receipt_sha256",
+            "previous_supplement_sha256", "previous_supplement", "publisher_team", "publisher_identifier", "authorizing_plan_sha256",
+            "authorizing_source_commit", "policy_sha256", "roots"],
+              try InstallerPayloadManifest.integer(value["schema"], maximum: base.schema) == base.schema,
+              value["managed_by"] as? String == base.marker,
+              value["base_manifest_sha256"] as? String == legacy.manifestSHA256,
+              try InstallerPayloadManifest.integer(value["owner_uid"], maximum: Int64(UInt32.max)) == Int64(legacy.ownerUID),
+              value["original_receipt_sha256"] as? [String: String] == legacy.hashes,
+              value["previous_supplement_sha256"] as? String == ComponentFiles.digest(previous),
+              value["previous_supplement"] as? String == previous.base64EncodedString(),
               value["publisher_team"] as? String == "WBULD6N4NQ",
               value["publisher_identifier"] as? String == "com.fainir.accountaccess.componentupdate",
               let plan = value["authorizing_plan_sha256"] as? String, hex(plan, count: 64),
@@ -265,8 +409,29 @@ enum InstallationRootBinding {
         return false
     }
     static func readSupplement(_ directory: Int32) throws -> Data {
-        guard try InstallerPayloadIO.contents(directory) == [receiptName] else { throw ComponentUpdateFailure.base }
-        let fd = openat(directory, receiptName, O_RDONLY | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK)
+        let names = try InstallerPayloadIO.contents(directory)
+        if names == [receiptName] { return try readOriginalSupplement(directory) }
+        if names == [receiptName, recoveryName, renewedName] {
+            let latest = try readReceipt(directory, name: renewedName, schema: 3)
+            let previous = try readRecoverySupplement(directory)
+            guard try embeddedPrevious(object(latest)) == previous else { throw ComponentUpdateFailure.base }
+            return latest
+        }
+        guard names == [receiptName, recoveryName] else { throw ComponentUpdateFailure.base }
+        return try readRecoverySupplement(directory)
+    }
+    static func readOriginalSupplement(_ directory: Int32) throws -> Data {
+        try readReceipt(directory, name: receiptName, schema: 1)
+    }
+    static func readRecoverySupplement(_ directory: Int32) throws -> Data {
+        let data = try readReceipt(directory, name: recoveryName, schema: 2)
+        guard try embeddedPrevious(object(data)) == readOriginalSupplement(directory) else {
+            throw ComponentUpdateFailure.base
+        }
+        return data
+    }
+    private static func readReceipt(_ directory: Int32, name: String, schema: Int64) throws -> Data {
+        let fd = openat(directory, name, O_RDONLY | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK)
         guard fd >= 0 else { throw ComponentUpdateFailure.base }
         defer { Darwin.close(fd) }
         let before = try InstallerPayloadIO.check(fd, owner: 0, directory: false)
@@ -274,7 +439,8 @@ enum InstallationRootBinding {
         guard before.st_mode & 0o7777 == 0o600 else { throw ComponentUpdateFailure.base }
         let data = try InstallerPayloadIO.read(fd, maximum: 8192, owner: 0)
         var current = stat()
-        guard fstatat(directory, receiptName, &current, AT_SYMLINK_NOFOLLOW) == 0,
+        guard try InstallerPayloadManifest.integer(object(data)["schema"], maximum: schema) == schema,
+              fstatat(directory, name, &current, AT_SYMLINK_NOFOLLOW) == 0,
               InstallerPayloadIO.same(before, current) else { throw ComponentUpdateFailure.base }
         return data
     }
@@ -306,6 +472,37 @@ enum InstallationRootBinding {
         guard final.st_size == data.count, fstatat(directory, pendingName, &current, AT_SYMLINK_NOFOLLOW) == 0,
               InstallerPayloadIO.same(final, current) else { throw ComponentUpdateFailure.base }
     }
+    static func prepareRecoverySupplement(_ directory: Int32, data: Data, renewing: Bool = false) throws {
+        let names = try InstallerPayloadIO.contents(directory)
+        let required: Set<String> = renewing ? [receiptName, recoveryName] : [receiptName]
+        let pending = renewing ? pendingRenewedName : pendingRecoveryName
+        guard !data.isEmpty, data.count <= 8192, required.isSubset(of: names),
+              names.isSubset(of: required.union([pending])) else { throw ComponentUpdateFailure.base }
+        var fd = openat(directory, pending, O_RDWR | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK, 0o600)
+        if fd < 0, errno == EEXIST { fd = openat(directory, pending, O_RDWR | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK) }
+        guard fd >= 0 else { throw ComponentUpdateFailure.base }
+        defer { Darwin.close(fd) }
+        let before = try InstallerPayloadIO.check(fd, owner: 0, directory: false)
+        try noACL(fd)
+        guard before.st_mode & 0o7777 == 0o600, before.st_size <= data.count else { throw ComponentUpdateFailure.base }
+        let prefix = try InstallerPayloadIO.read(fd, maximum: data.count, owner: 0)
+        var current = stat()
+        guard prefix == data.prefix(prefix.count), fstatat(directory, pending, &current, AT_SYMLINK_NOFOLLOW) == 0,
+              InstallerPayloadIO.same(before, current) else { throw ComponentUpdateFailure.base }
+        try data.withUnsafeBytes { bytes in
+            var offset = prefix.count
+            while offset < bytes.count {
+                let count = Darwin.write(fd, bytes.baseAddress!.advanced(by: offset), bytes.count - offset)
+                if count < 0, errno == EINTR { continue }
+                guard count > 0 else { throw ComponentUpdateFailure.unavailable }
+                offset += count
+            }
+        }
+        guard fsync(fd) == 0, fsync(directory) == 0 else { throw ComponentUpdateFailure.unavailable }
+        let final = try InstallerPayloadIO.check(fd, owner: 0, directory: false)
+        guard final.st_size == data.count, fstatat(directory, pending, &current, AT_SYMLINK_NOFOLLOW) == 0,
+              InstallerPayloadIO.same(final, current) else { throw ComponentUpdateFailure.base }
+    }
     static func verify(journal: Int32, ownerUID: uid_t, manifestSHA256: String) throws {
         let legacy = try readLegacy(journal, ownerUID: ownerUID, manifestSHA256: manifestSHA256)
         if try !hasSupplementNamespace() {
@@ -315,8 +512,10 @@ enum InstallationRootBinding {
         let current = try capture(withVolumeUUID: true)
         let directory = try receiptDirectory(create: false)
         defer { Darwin.close(directory) }
-        try validateSupplement(readSupplement(directory), legacy: legacy, current: current)
+        let proof = try readSupplement(directory)
+        try validateSupplement(proof, legacy: legacy, current: current)
         guard try readLegacy(journal, ownerUID: ownerUID, manifestSHA256: manifestSHA256) == legacy,
-              try capture(withVolumeUUID: true) == current else { throw ComponentUpdateFailure.base }
+              try capture(withVolumeUUID: true) == current,
+              try readSupplement(directory) == proof else { throw ComponentUpdateFailure.base }
     }
 }

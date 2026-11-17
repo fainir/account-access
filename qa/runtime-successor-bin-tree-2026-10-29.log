@@ -1,0 +1,9 @@
+Runtime successor signed-helper tree coverage QA - 2026-10-29
+
+- `uv run pytest -q tests/test_runtime_upgrade_plan.py`: 23 passed. The synthetic plan covers broker/bootstrap peer rotation, exact three-file `bin` closure, executable modes, and refusal of foreign or missing native files.
+- `uv run ruff check macos/runtime_upgrade_plan.py tests/test_runtime_upgrade_plan.py scripts/mac_runtime_upgrade_probe.py scripts/mac_full_image_installed_probe.py`, Python compilation, and `git diff --check`: passed.
+- Native runtime successor probe: 72 checks passed, including source/plan parity and ordinary-user entrypoint refusal.
+- Native public-tree transaction fixture: 488 checks passed. The new `bin` tree exercised interrupted rename recovery, retry, reverse, metadata validation and refusal cases.
+- Full-image installed-adapter fixture: passed with result `4a25ff6bee2ed657a1711798b94431e83eafba9cbd8703a9a446d79eb0609032` after refreshing the reviewed source pins.
+- All native checks used synthetic public manifests and ordinary temporary directories. They read no installed state, ran no root action, changed no service, and report `production_ready: false`.
+- This qualifies a future runtime successor only. The owner Mac still has original public image `5618053e…`; the planner exercised here is pinned to a different predecessor (`5a732de4…`) and target (`03fb35eb…`). No direct successor package was built or installed, so F1 remains open.

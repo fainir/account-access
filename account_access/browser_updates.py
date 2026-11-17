@@ -18,6 +18,39 @@ RECOVERY_PAGE = "https://github.com/sessions/two-factor/recovery"
 RECOVERY_SELECTOR = '#recovery_code, input[name="recovery_code"]'
 PROFILE_HEADING = "main #public-profile-heading"
 LEGACY_PROFILE_HEADINGS = {"h1", "main h1", "#settings-frame h1", "#settings-frame h2", PROFILE_HEADING}
+PUBLIC_SCRIPT_PREDECESSOR = "https://www.saucedemo.com/assets/index-D3OxT1jE.js"
+PUBLIC_SCRIPT_CURRENT = "https://www.saucedemo.com/assets/index-DnLqFcJI.js"
+
+
+def public_example_proposal(config, account):
+    """One exact public-example asset refresh, without adopting custom policies."""
+    from .public_demo import configuration
+
+    previous = config.accounts.get(account)
+    if not isinstance(previous, BrowserAccount) or previous.login_url != 'https://www.saucedemo.com/':
+        return None
+    current = configuration().accounts['sauce-standard']
+    if any(getattr(current, name).count(PUBLIC_SCRIPT_CURRENT) != 1
+           for name in ('read_resources', 'login_resources')):
+        return None
+    legacy = current.model_copy(deep=True)
+    for name in ('read_resources', 'login_resources'):
+        setattr(legacy, name, [url.replace(PUBLIC_SCRIPT_CURRENT, PUBLIC_SCRIPT_PREDECESSOR)
+                              for url in getattr(legacy, name)])
+
+    def shape(spec):
+        value = spec.model_dump(exclude={'label'})
+        for operation in value['operations'].values():
+            operation.pop('description', None)
+        return value
+
+    if shape(previous) != shape(legacy):
+        return None
+    updated = previous.model_copy(deep=True)
+    for name in ('read_resources', 'login_resources'):
+        setattr(updated, name, [PUBLIC_SCRIPT_CURRENT if url == PUBLIC_SCRIPT_PREDECESSOR else url
+                               for url in getattr(previous, name)])
+    return updated
 
 
 def profile_marker_repair(previous, updated):
@@ -47,6 +80,9 @@ def github_assets():
 
 
 def proposal(config, account):
+    public = public_example_proposal(config, account)
+    if public is not None:
+        return public
     spec = config.accounts.get(account)
     if (not isinstance(spec, BrowserAccount) or not spec.login
             or origin(spec.login_url) != "https://github.com"
@@ -103,7 +139,11 @@ def proposal(config, account):
 def view(store):
     config = store.config()
     return [{"account": account, "fingerprint": config.fingerprint(account),
-             "summary": "Update reviewed GitHub sign-in controls, public profile heading and assets"}
+             "kind": ('public_example_assets' if config.accounts[account].login_url == 'https://www.saucedemo.com/'
+                      else 'github'),
+             "summary": ('Update the reviewed SauceDemo example script'
+                         if config.accounts[account].login_url == 'https://www.saucedemo.com/'
+                         else 'Update reviewed GitHub sign-in controls, public profile heading and assets')}
             for account in config.accounts if proposal(config, account)]
 
 
@@ -122,7 +162,10 @@ def apply(broker, account, fingerprint):
         # This repair adds reviewed login GETs, optional choices, the stable
         # public profile heading marker and the bounded anonymous asset loader.
         # It cannot widen reads, POST destinations, credentials or recipients.
-        if (not profile_marker_repair(previous, updated) or updated.read_resources != previous.read_resources
+        public = public_example_proposal(config, account)
+        reads_match = (updated == public and updated.operations == previous.operations
+                       if public is not None else updated.read_resources == previous.read_resources)
+        if (not profile_marker_repair(previous, updated) or not reads_match
                 or updated.login_post_urls != previous.login_post_urls
                 or updated.login.sources() != previous.login.sources()):
             raise AccessError("DENIED", "invalid_browser_update")
@@ -145,5 +188,6 @@ def apply(broker, account, fingerprint):
                     db.execute("UPDATE challenges SET resolved=? WHERE account=? AND kind='action' AND reason='browser_action_required' AND resolved IS NULL", (time.time(), account))
                 else:
                     db.execute("UPDATE challenges SET kind='recovery', reason='browser_recovery_required' WHERE account=? AND kind='action' AND reason='browser_action_required' AND resolved IS NULL", (account,))
-        store.audit("owner", account, "", "login_connector_updated", "authenticator_choice")
+        store.audit("owner", account, "", "login_connector_updated",
+                    "public_example_assets" if public is not None else "authenticator_choice")
     return {"status": "UPDATED", "account": account}

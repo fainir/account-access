@@ -10,6 +10,7 @@ import binascii
 import re
 import secrets
 import time
+from contextlib import ExitStack
 from urllib.parse import parse_qs, urlsplit
 
 from .errors import AccessError
@@ -180,6 +181,8 @@ def apply(store, ident, index):
         staged = store.get("authenticator-import:" + ident)
         if not staged or staged["expires"] <= time.time():
             raise AccessError("DENIED", "authenticator_preview_expired")
+        if staged.get("batch"):
+            raise AccessError("DENIED", "invalid_authenticator_selection")
         source_id = staged["source"]
         with source_mutation(store, source_id):
             if staged["expires"] <= time.time():
@@ -204,3 +207,94 @@ def discard(store, ident):
     with store.lock("authenticator-import"):
         store.put("authenticator-import:" + ident, None)
     return {"status": "DISCARDED"}
+
+
+def batch_preview(store, uris):
+    """One complete transfer; explicit mappings to existing sources only.
+
+    Public labels are for owner review, never matching authority. No source,
+    account, credential or grant is created by preview or enrollment.
+    """
+    items = parse_many(uris)
+    ident = secrets.token_hex(24)
+    with store.lock("catalog"), store.lock("authenticator-import"):
+        config = store.config()
+        candidates = {key: source for key, source in config.code_sources.items()
+                      if source.kind == "totp" and _bindings(config, key)}
+        if not 1 <= len(candidates) <= MAX_ACCOUNTS:
+            raise AccessError("DENIED", "unknown_authenticator_source")
+        snapshots = {}
+        public_sources = []
+        with ExitStack() as held:
+            for key in sorted(candidates):
+                held.enter_context(store.lock("source:" + key))
+            current = store.config()
+            for key, source in candidates.items():
+                bindings = _bindings(config, key)
+                if current.code_sources.get(key) != source or _bindings(current, key) != bindings:
+                    raise AccessError("DENIED", "authenticator_selection_changed")
+                snapshots[key] = {"source_config": source.model_dump(), "bindings": bindings,
+                                  "source_generation": store.get("source-generation:" + key)}
+                public_sources.append({"id": key, "accounts": list(bindings),
+                                       "label": ", ".join(config.accounts[account].label for account in bindings)})
+            with store.db() as db:
+                live = 0
+                for row in db.execute("SELECT id,value FROM records WHERE id LIKE 'authenticator-import:%'").fetchall():
+                    staged = store.unseal(row["id"], row["value"])
+                    if not staged or staged["expires"] <= time.time():
+                        db.execute("DELETE FROM records WHERE id=?", (row["id"],))
+                    else:
+                        live += 1
+                if live >= 8:
+                    raise AccessError("DENIED", "too_many_import_previews")
+                store.put("authenticator-import:" + ident,
+                          {"batch": True, "items": items, "sources": snapshots,
+                           "expires": time.time() + 600}, db=db)
+    return {"status": "PREVIEW", "id": ident, "expires_in": 600,
+            "accounts": [{"index": i, "label": item["label"]} for i, item in enumerate(items)],
+            "sources": public_sources}
+
+
+def batch_apply(store, ident, selections):
+    """Validate every selected binding before atomically replacing any key."""
+    if (not isinstance(ident, str) or not re.fullmatch(r"[a-f0-9]{48}", ident)
+            or type(selections) is not list or not 1 <= len(selections) <= MAX_ACCOUNTS):
+        raise AccessError("DENIED", "invalid_authenticator_selection")
+    from .factors import replace_source, source_mutation, totp_seed
+    with store.lock("catalog"), store.lock("authenticator-import"):
+        staged = store.get("authenticator-import:" + ident)
+        if not staged or staged["expires"] <= time.time():
+            raise AccessError("DENIED", "authenticator_preview_expired")
+        if staged.get("batch") is not True:
+            raise AccessError("DENIED", "invalid_authenticator_selection")
+        chosen = {}
+        indices = set()
+        for selection in selections:
+            if type(selection) is not dict or set(selection) != {"source", "index"}:
+                raise AccessError("DENIED", "invalid_authenticator_selection")
+            source_id, index = selection["source"], selection["index"]
+            if (not isinstance(source_id, str) or source_id not in staged["sources"] or source_id in chosen
+                    or type(index) is not int or not 0 <= index < len(staged["items"]) or index in indices):
+                raise AccessError("DENIED", "invalid_authenticator_selection")
+            indices.add(index)
+            chosen[source_id] = totp_seed(staged["items"][index]["seed"])
+        with ExitStack() as held:
+            for source_id in sorted(chosen):
+                held.enter_context(source_mutation(store, source_id))
+            config = store.config()
+            for source_id in chosen:
+                snapshot = staged["sources"][source_id]
+                source = config.code_sources.get(source_id)
+                if (not source or source.kind != "totp" or source.model_dump() != snapshot["source_config"]
+                        or _bindings(config, source_id) != snapshot["bindings"]
+                        or store.get("source-generation:" + source_id) != snapshot["source_generation"]):
+                    raise AccessError("DENIED", "authenticator_selection_changed")
+            if staged["expires"] <= time.time():
+                raise AccessError("DENIED", "authenticator_preview_expired")
+            with store.db() as db:
+                for source_id, seed in chosen.items():
+                    replace_source(store, source_id, {"seed": seed}, db=db)
+                store.put("authenticator-import:" + ident, None, db=db)
+        for source_id in chosen:
+            store.audit("owner", "", "", "factor_enrolled", "totp")
+    return {"status": "ENROLLED", "sources": list(chosen), "kind": "totp"}

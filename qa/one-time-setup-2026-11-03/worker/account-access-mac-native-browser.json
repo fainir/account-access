@@ -1,0 +1,26 @@
+{
+  "status": "PASSED",
+  "environment": "controlled-demo",
+  "production_ready": false,
+  "private_signins": 0,
+  "platform": "macos",
+  "full_worker_browser_sms_journey_verified": true,
+  "actual_native_collector_used": true,
+  "actual_distinct_uids": true,
+  "real_messages_database_used": false,
+  "physical_sms_delivery_verified": false,
+  "genuine_full_disk_access_verified": false,
+  "system_key_used": false,
+  "checks": {
+    "cli_completed_native_sms_browser_reads": true,
+    "only_approved_result_fields_returned": true,
+    "no_six_digit_code_in_cli_results": true,
+    "agent_still_cannot_read_worker_store": true,
+    "agent_cannot_fetch_native_collector_requests": true,
+    "provider_verified_password_and_fresh_sms": true,
+    "session_reuse_avoids_second_password_and_sms": true,
+    "real_distinct_reader_and_worker_uids": true,
+    "root_collector_stops_cleanly": true,
+    "temporary_collector_job_removed": true
+  }
+}

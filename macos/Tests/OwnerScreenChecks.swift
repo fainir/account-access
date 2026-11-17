@@ -73,6 +73,24 @@ final class OwnerApprovalWindowFixture: NSWindow {
 
 final class NativeOwnerScreenFixture: DesktopOwnerChannel {
     var isAvailable = false
+    private let harelLock = NSLock()
+    private var harelLog: [(String, [String: Any])] = []
+    private var harelPhase = "WAITING_CODE"
+    private var harelRevision = 0
+    private var harelDone = false
+    private var harelHoldRoute: String?
+    private var harelHeldReply: (() -> Void)?
+    var harelRequests: [(String, [String: Any])] { harelLock.withLock { harelLog } }
+    func completeHarel() { harelLock.withLock { harelDone = true } }
+    func holdHarel(_ route: String) { harelLock.withLock { harelHoldRoute = route } }
+    var harelReplyPending: Bool { harelLock.withLock { harelHeldReply != nil } }
+    func releaseHarelReply() {
+        let reply = harelLock.withLock { () -> (() -> Void)? in
+            defer { harelHeldReply = nil }
+            return harelHeldReply
+        }
+        reply?()
+    }
     var enrollments = 0
     var lostNextEnrollment = false
     var clientEnrollments = 0
@@ -106,6 +124,39 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
     func prepare(reply: @escaping (Bool) -> Void) { isAvailable = true; reply(true) }
     func authorizeSetup(_ form: Data, reply: @escaping (Bool) -> Void) { reply(form.count == 32) }
     func request(_ route: String, body: Data?, reply: @escaping (Int, Data) -> Void) {
+        if route.hasPrefix("owner/harel/") {
+            let input = body.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } ?? [:]
+            let response: [String: Any] = harelLock.withLock {
+                harelLog.append((route, input))
+                if route.hasSuffix("/start") { harelPhase = "WAITING_CODE"; harelDone = false }
+                if route.hasSuffix("/code") { harelPhase = "REVIEW" }
+                if route.hasSuffix("/approve") { harelPhase = "TESTING" }
+                if route.hasSuffix("/cancel") { harelPhase = "CANCELLED" }
+                if harelDone && harelPhase == "TESTING" {
+                    harelPhase = "COMPLETED"
+                    state["accounts"] = [["account": "personal-harel", "label": "Fictional Harel", "route": "browser",
+                        "environment": "controlled-demo", "connected": true, "portable_ready": true,
+                        "operations": [["name": "status", "description": "Confirm sign-in status"]]]]
+                }
+                harelRevision += 1
+                var value: [String: Any] = ["id": input["id"] ?? "", "status": harelPhase, "revision": harelRevision]
+                if harelPhase == "REVIEW" {
+                    value["candidate"] = String(repeating: "c", count: 32)
+                    value["review"] = ["sender": "login@example.test", "recipient": "fixture@example.test",
+                        "subject": "Fictional Harel sign-in", "template": "Fictional Harel sign-in: {code}"]
+                }
+                return value
+            }
+            let encoded = try! JSONSerialization.data(withJSONObject: response)
+            let held = harelLock.withLock { () -> Bool in
+                guard harelHoldRoute == route else { return false }
+                harelHoldRoute = nil
+                harelHeldReply = { reply(200, encoded) }
+                return true
+            }
+            if !held { reply(200, encoded) }
+            return
+        }
         if route == "owner/verify" { verificationRequestLock.withLock { verificationRequests += 1 } }
         if route == "owner/source" {
             let request = body.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } ?? [:]
@@ -176,7 +227,101 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
     func invalidate() { isAvailable = false }
 }
 
+final class AuthenticatorBatchPreviewAction: NSObject {
+    let owner: AccountAccess
+    init(_ owner: AccountAccess) { self.owner = owner }
+    @objc func openReview() {
+        owner.chooseAuthenticatorBatch([
+            "id": String(repeating: "a", count: 48),
+            "accounts": [["index": 0, "label": "Fictional first account"],
+                         ["index": 1, "label": "Fictional second account"]],
+            "sources": [["id": "first-totp", "label": "Fictional website A", "accounts": ["fixture"]],
+                        ["id": "second-totp", "label": "Fictional website B", "accounts": ["fixture"]]]])
+    }
+}
+
 @main struct OwnerScreenChecks {
+    static func waitForHarel(_ condition: () -> Bool) {
+        let deadline = Date().addingTimeInterval(5)
+        while !condition() && Date() < deadline { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
+        precondition(condition())
+    }
+
+    static func checkHarel(_ owner: AccountAccess, _ channel: NativeOwnerScreenFixture) {
+        func harelViews(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(harelViews) }
+        owner.fixtureSystemOwnerSelected = true
+        owner.systemOwner = DesktopOwnerConnection(makeChannel: { channel }, acquire: { Data(repeating: 0x46, count: 32) })
+        owner.systemOwnerReady = true
+        let checked: [String: Any] = ["available": true, "mailboxes": [[
+            "id": "mailbox-" + String(repeating: "b", count: 24), "label": "Checked fixture mailbox", "recipient": "fixture@example.test"]]]
+        owner.harelEmailSetup = checked
+        owner.busy = false
+        owner.window.setContentSize(NSSize(width: 880, height: 740))
+        owner.showHarelEmailSetup()
+        owner.window.contentView?.layoutSubtreeIfNeeded()
+        precondition(owner.window.contentView!.bounds.width == 880)
+        precondition(owner.harelConsent!.frame.width <= owner.stack.bounds.width)
+        precondition(owner.harelFields.count == 2 && owner.harelStart?.isEnabled == false)
+        owner.harelFields["identity"]!.stringValue = "000000000"
+        owner.harelFields["phone"]!.stringValue = "0500000000"
+        owner.harelConsent!.state = .on
+        owner.harelInputChanged()
+        precondition(owner.harelStart?.isEnabled == true)
+        let oldFields = owner.harelFields
+        let mailboxWrites = channel.mailboxPostCount
+        owner.startHarelEmail()
+        precondition(oldFields.values.allSatisfy { $0.stringValue.isEmpty })
+        waitForHarel { owner.harelPhase == "WAITING_CODE" && !owner.busy }
+        precondition(channel.harelRequests.filter { $0.0 == "owner/harel/start" }.count == 1)
+        owner.harelFields["code"]!.stringValue = "654321"
+        let codeField = owner.harelFields["code"]!
+        channel.holdHarel("owner/harel/code")
+        owner.submitHarelCode()
+        precondition(codeField.stringValue.isEmpty)
+        waitForHarel { channel.harelReplyPending }
+        let pendingID = owner.harelJobID!
+        owner.acceptHarel(["id": pendingID, "status": "WAITING_CODE", "revision": owner.harelRevision + 1], id: pendingID, epoch: owner.harelEpoch)
+        precondition(owner.busy && owner.harelMutationButton?.isEnabled == false)
+        owner.submitHarelCode()
+        precondition(channel.harelRequests.filter { $0.0 == "owner/harel/code" }.count == 1)
+        channel.releaseHarelReply()
+        waitForHarel { owner.harelPhase == "REVIEW" && !owner.busy }
+        let text = harelViews(owner.stack).compactMap { ($0 as? NSTextField)?.stringValue }.joined(separator: " ")
+        precondition(text.contains("••••••") && !text.contains("654321"))
+        precondition(channel.harelRequests.filter { $0.0 == "owner/harel/approve" }.isEmpty)
+        let id = owner.harelJobID!
+        let epoch = owner.harelEpoch
+        owner.acceptHarel(["id": id, "status": "WAITING_CODE", "revision": owner.harelRevision - 1], id: id, epoch: epoch)
+        precondition(owner.harelPhase == "REVIEW" && owner.harelFields.isEmpty)
+        channel.holdHarel("owner/harel/approve")
+        owner.approveHarelEmail()
+        waitForHarel { channel.harelReplyPending }
+        owner.acceptHarel(["id": id, "status": "REVIEW", "revision": owner.harelRevision + 1], id: id, epoch: epoch)
+        precondition(owner.busy && owner.harelMutationButton?.isEnabled == false)
+        owner.approveHarelEmail()
+        precondition(channel.harelRequests.filter { $0.0 == "owner/harel/approve" }.count == 1)
+        channel.releaseHarelReply()
+        waitForHarel { owner.harelPhase == "TESTING" && owner.busy }
+        precondition(owner.harelFields.isEmpty && channel.mailboxPostCount == mailboxWrites)
+        channel.completeHarel()
+        waitForHarel { owner.harelJobID == nil && !owner.busy }
+        precondition(owner.status.stringValue.contains("Harel email sign-in verified"))
+        let starts = channel.harelRequests.filter { $0.0 == "owner/harel/start" }
+        precondition(starts.count == 1 && starts[0].1["identity"] as? String == "000000000" && starts[0].1["password"] == nil)
+        precondition(channel.harelRequests.filter { $0.0 == "owner/harel/code" }.count == 1)
+        precondition(channel.harelRequests.filter { $0.0 == "owner/harel/approve" }.count == 1)
+        print("PASS: native Harel reuses a checked mailbox, masks local fields, reviews a redacted pattern and verifies automatic delivery before completion")
+        print("PASS: pre-mutation Harel polls cannot unlock held code or approval requests or dispatch a duplicate action")
+        owner.harelEmailSetup = checked
+        owner.showHarelEmailSetup()
+        let draft = owner.harelFields["identity"]!
+        draft.stringValue = "000000000"
+        owner.showReady()
+        precondition(draft.stringValue.isEmpty && owner.harelFields.isEmpty)
+        owner.acceptHarel(["id": id, "status": "WAITING_CODE", "revision": 9999], id: id, epoch: epoch)
+        precondition(owner.harelFields.isEmpty && owner.harelJobID == nil)
+        print("PASS: Harel navigation clears drafts and rejects stale replies without another email or grant")
+    }
     static func main() {
         setbuf(stdout, nil)
         let legacy = Bundle.main
@@ -253,6 +398,139 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
                                 styleMask: [.titled, .resizable], backing: .buffered, defer: false)
         owner.base = URL(string: "http://127.0.0.1:1/")!
         owner.token = "synthetic-ui-session"
+        owner.accounts = [["account": "fixture", "label": "Fixture account", "route": "browser",
+                           "portable_ready": true, "connected": true,
+                           "saved_login_available": true, "saved_login_exportable": true,
+                           "operations": []]]
+        if let mode = ProcessInfo.processInfo.environment["ACCOUNT_ACCESS_SETUP_UI_QA"]
+            ?? Bundle.main.object(forInfoDictionaryKey: "AccountAccessSetupQA") as? String {
+            // This binary is compiled only with ACCOUNT_ACCESS_UI_CHECKS. Its
+            // ordinary temp home and blocked helpers cannot touch an install.
+            owner.window.title = "Account Access - controlled setup QA"
+            owner.androidConnectionTest = ["available": true]
+            owner.sources = [["id": "fixture-totp", "kind": "totp", "accounts": ["fixture"]]]
+            owner.harelEmailSetup = ["available": true, "mailboxes": [["id": "mailbox-" + String(repeating: "b", count: 24),
+                "label": "Checked fixture mailbox", "recipient": "fixture@example.test"]]]
+            if ProcessInfo.processInfo.environment["ACCOUNT_ACCESS_QA_NARROW"] == "1" {
+                owner.window.setContentSize(NSSize(width: 880, height: 740))
+            }
+            if mode == "empty-import" {
+                owner.reviewImport(["id": String(repeating: "a", count: 48), "rows": [], "unsupported": 4])
+            } else if mode.hasPrefix("harel-") {
+                owner.showHarelEmailSetup()
+                if mode != "harel-setup" {
+                    let id = String(repeating: "a", count: 32)
+                    owner.harelJobID = id
+                    owner.harelPollScheduled = true // Render-only: no request or delivery.
+                    var response: [String: Any] = ["id": id, "revision": 1, "status": mode == "harel-code" ? "WAITING_CODE" : mode == "harel-review" ? "REVIEW" : "TESTING"]
+                    if mode == "harel-review" {
+                        response["candidate"] = id
+                        response["review"] = ["sender": "login@example.test", "recipient": "fixture@example.test",
+                            "subject": "Fictional Harel sign-in", "template": "Fictional Harel sign-in code: {code}"]
+                    }
+                    owner.acceptHarel(response, id: id, epoch: owner.harelEpoch)
+                }
+            } else {
+                owner.showAutomaticSetup()
+            }
+            NSApp.setActivationPolicy(.regular)
+            owner.window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            if let output = ProcessInfo.processInfo.environment["ACCOUNT_ACCESS_QA_SNAPSHOT_OUTPUT"],
+               let view = owner.window.contentView {
+                owner.window.appearance = NSAppearance(named: .aqua)
+                view.wantsLayer = true
+                view.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+                view.layoutSubtreeIfNeeded()
+                view.displayIfNeeded()
+                RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+                if let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+                    view.cacheDisplay(in: view.bounds, to: bitmap)
+                    try! bitmap.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: output))
+                }
+                owner.clearHarelSetup(cancel: false)
+                return
+            }
+            let reviewAction = AuthenticatorBatchPreviewAction(owner)
+            if mode == "authenticator-review" {
+                owner.page("Controlled authenticator review", "Only fictional website labels are used. No private account, grant or authenticator key can be changed.")
+                owner.stack.addArrangedSubview(NSButton(title: "Review fictional export", target: reviewAction, action: #selector(AuthenticatorBatchPreviewAction.openReview)))
+            }
+            withExtendedLifetime(reviewAction) { NSApp.run() }
+            return
+        }
+        owner.showAutomaticSetup()
+        var setupViews = descendants(owner.stack)
+        let setupButtons = setupViews.compactMap { ($0 as? NSButton)?.title }
+        precondition(setupButtons.contains("Import my passwords"))
+        precondition(setupButtons.contains("Import my authenticator accounts"))
+        precondition(setupButtons.contains("Review my email connection"))
+        precondition(setupButtons.contains("Review SMS verification"))
+        precondition(setupViews.compactMap { ($0 as? NSTextField)?.stringValue }.contains("Owner confirmation"))
+        precondition(setupViews.compactMap { ($0 as? NSTextField)?.stringValue }.contains { $0.contains("cannot import passkeys") })
+        owner.reviewImport(["id": String(repeating: "a", count: 48), "rows": [], "unsupported": 4])
+        setupViews = descendants(owner.stack)
+        let emptyButtons = setupViews.compactMap { ($0 as? NSButton)?.title }
+        precondition(emptyButtons.contains("Choose another password file"))
+        precondition(!emptyButtons.contains("Import selected accounts"))
+        precondition(!emptyButtons.contains("Move the plaintext export file to Trash after importing"))
+        precondition(owner.importRows.isEmpty)
+        print("PASS: one-time setup exposes all five methods and no-match imports offer safe recovery without import/deletion controls")
+        let importButton = NSButton()
+        owner.authenticatorBatchButton = importButton
+        let firstMenu = NSPopUpButton(), secondMenu = NSPopUpButton()
+        for menu in [firstMenu, secondMenu] {
+            menu.addItem(withTitle: "Do not import")
+            for index in 0..<2 {
+                menu.addItem(withTitle: "Fictional key " + String(index))
+                menu.lastItem?.representedObject = index
+            }
+        }
+        owner.authenticatorBatchMenus = [("first", firstMenu), ("second", secondMenu)]
+        owner.authenticatorBatchChanged()
+        precondition(!importButton.isEnabled)
+        firstMenu.selectItem(at: 1)
+        owner.authenticatorBatchChanged()
+        precondition(importButton.isEnabled)
+        secondMenu.selectItem(at: 1)
+        owner.authenticatorBatchChanged()
+        precondition(!importButton.isEnabled)
+        secondMenu.selectItem(at: 2)
+        owner.authenticatorBatchChanged()
+        precondition(importButton.isEnabled)
+        owner.authenticatorBatchMenus = []
+        owner.authenticatorBatchButton = nil
+        for route in ["owner/authenticator/batch-preview", "owner/authenticator/batch-apply"] {
+            let request = try! OwnerGatewayRoute(route, body: Data("{}".utf8))
+            precondition(request.requiresSetup)
+        }
+        print("PASS: batch authenticator review starts unselected, refuses duplicate keys and requires native owner authorization")
+        owner.ready()
+        var accountActions = descendants(owner.stack).compactMap { $0 as? NSButton }
+        precondition(accountActions.contains { $0.title == "Export saved login…" && $0.action == #selector(AccountAccess.exportSavedLogin) })
+        precondition(accountActions.contains { $0.title == "Forget saved login" && $0.action == #selector(AccountAccess.forgetSavedLogin) })
+        owner.window.setContentSize(NSSize(width: 880, height: 650))
+        owner.window.contentView!.layoutSubtreeIfNeeded()
+        for control in accountActions where ["Export saved login…", "Forget saved login"].contains(control.title) {
+            precondition(control.frame.width > 0 && control.frame.height > 0)
+        }
+        owner.accounts[0]["saved_login_exportable"] = false
+        owner.ready()
+        accountActions = descendants(owner.stack).compactMap { $0 as? NSButton }
+        precondition(!accountActions.contains { $0.title == "Export saved login…" })
+        precondition(accountActions.contains { $0.title == "Forget saved login" })
+        let exportSentinel = fixtureRoot.appendingPathComponent("export-sentinel.txt")
+        let selectedExport = fixtureRoot.appendingPathComponent("saved-login.csv")
+        try! Data("keep this file".utf8).write(to: exportSentinel)
+        try! FileManager.default.createSymbolicLink(at: selectedExport, withDestinationURL: exportSentinel)
+        try! AccountAccess.writePrivateExport(Data("url,username,password\r\nhttps://fixture.test,owner,synthetic\r\n".utf8), to: selectedExport)
+        var exportedInfo = stat()
+        precondition(lstat(selectedExport.path, &exportedInfo) == 0
+            && exportedInfo.st_mode & S_IFMT == S_IFREG
+            && exportedInfo.st_mode & 0o077 == 0
+            && (try? String(contentsOf: selectedExport, encoding: .utf8))?.contains("synthetic") == true
+            && (try? String(contentsOf: exportSentinel, encoding: .utf8)) == "keep this file")
+        print("PASS: account login export is explicit, destination writes replace links safely, and files are owner-only")
         owner.accounts = [["account": "fixture", "label": "Fixture account",
                            "route": "browser", "portable_ready": true]]
         owner.showPasswordSync()
@@ -557,12 +835,14 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
             ["id": "identity-fixture", "label": "Fictional identity login", "login_method": "identity_phone_sms",
              "operations": [["name": "status", "description": "Confirm the signed-in session"]]],
             ["id": "password-fixture", "label": "Fictional password login",
+             "operations": [["name": "status", "description": "Confirm the signed-in session"]]],
+            ["id": "identity-email-fixture", "label": "Fictional identity email login", "login_method": "identity_phone_email",
              "operations": [["name": "status", "description": "Confirm the signed-in session"]]]
         ]
         owner.connections()
         precondition(owner.username is NSSecureTextField && owner.password != nil)
         precondition(owner.loginIdentityLabel?.stringValue == "Identity number")
-        precondition(owner.loginSecretLabel?.stringValue == "Phone number for login SMS")
+        precondition(owner.loginSecretLabel?.stringValue == "Mobile number registered with the website")
         owner.username.stringValue = "fictional-identity"
         owner.password.stringValue = "fictional-phone"
         let identityEntry = owner.services.selectedItem!.representedObject as! [String: Any]
@@ -574,6 +854,12 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         precondition(owner.loginIdentityLabel?.stringValue == "Email or username" && owner.loginSecretLabel?.stringValue == "Password")
         precondition(AccountAccess.loginCredential(entry: [:], identity: "fictional-user", secret: "fictional-password")
             == ["username": "fictional-user", "password": "fictional-password"])
+        owner.services.selectItem(at: 2)
+        owner.serviceChanged()
+        precondition(owner.username is NSSecureTextField && owner.username.stringValue.isEmpty && owner.password.stringValue.isEmpty)
+        let emailIdentityEntry = owner.services.selectedItem!.representedObject as! [String: Any]
+        precondition(AccountAccess.loginCredential(entry: emailIdentityEntry, identity: "fictional-identity", secret: "fictional-phone")
+            == ["identity": "fictional-identity", "phone": "fictional-phone"])
         owner.catalog = savedCatalog
         owner.accounts = savedAccounts
         print("PASS: identity and phone enrollment uses distinct masked fields; changing login kind clears values and restores password labels")
@@ -724,7 +1010,16 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         precondition(inheritedExampleText.contains("1 ready · 1 example connections"))
         precondition(inheritedExampleText.contains("Example connected"))
         precondition(inheritedExampleText.contains("Example connection. These results do not validate access to a personal account."))
+        owner.agents = ["codex"]
+        owner.automaticSessions = ["codex": ["enabled": true]]
+        owner.ready()
+        views = descendants(owner.stack)
+        let demoAgentText = views.compactMap { ($0 as? NSTextField)?.stringValue }
+        precondition(demoAgentText.contains("Demo connection only"))
+        precondition(demoAgentText.contains("Example only"))
+        precondition(!demoAgentText.contains("Ready in every new session"))
         owner.serviceEnvironment = "mixed"
+        owner.systemAgentClientID = String(repeating: "a", count: 64)
         precondition(AccountAccess.effectiveEnvironment(owner.accounts[0], fallback: owner.serviceEnvironment) == "unclassified")
         precondition(AccountAccess.verificationEnvironment(legacyAuthenticator, accounts: owner.accounts,
                                                            fallback: owner.serviceEnvironment) == "unclassified")
@@ -735,9 +1030,64 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         precondition(unclassifiedText.contains("1 connections · source unverified"))
         precondition(unclassifiedText.contains("Source unverified"))
         precondition(unclassifiedText.contains("The service source could not be verified. This connection does not establish personal-account access."))
+        precondition(unclassifiedText.contains("AI connection source unverified"))
+        precondition(!unclassifiedText.contains("Ready in every new session"))
+        owner.accounts = [["account": "example", "environment": "public-example", "connected": true, "portable_ready": true],
+                          ["account": "service", "environment": "live", "connected": false, "portable_ready": true]]
+        owner.ready()
+        views = descendants(owner.stack)
+        let mixedAgentText = views.compactMap { ($0 as? NSTextField)?.stringValue }
+        precondition(mixedAgentText.contains("AI tools connected"))
+        precondition(mixedAgentText.contains("Automatic"))
+        precondition(!mixedAgentText.contains("AI connection source unverified"))
+        precondition(mixedAgentText.contains("0 ready · 1 service connections"))
+        precondition(mixedAgentText.contains("1 ready · 1 example connections"))
+        owner.browserRuntime = ["status": "UNAVAILABLE"]
+        owner.ready()
+        precondition(descendants(owner.stack).compactMap { ($0 as? NSTextField)?.stringValue }
+            .contains("Website sign-in needs repair"))
+        owner.browserRuntime = [:]
+        owner.androidConnectionTest = ["available": true, "configured": false, "pairing_prepared": false]
+        owner.showFactors()
+        precondition(descendants(owner.stack).compactMap { ($0 as? NSButton)?.title }.contains("Set up Android phone"))
+        owner.showAndroidTest()
+        precondition(owner.androidTestSender?.stringValue == "")
+        precondition(!descendants(owner.stack).compactMap { ($0 as? NSButton)?.title }.contains("Start message test"))
+        owner.androidConnectionTest = ["available": true, "configured": true, "pairing_prepared": true, "sender": "Fixture sender"]
+        owner.showAndroidTest()
+        precondition(owner.androidTestSender?.stringValue == "Fixture sender")
+        precondition(descendants(owner.stack).compactMap { ($0 as? NSButton)?.title }.contains("Start message test"))
+        precondition(descendants(owner.stack).compactMap { ($0 as? NSButton)?.title }.contains("Disconnect test phone"))
+        owner.androidConnectionTest = [:]
+        print("PASS: browser runtime failure is visible and Android setup is reachable without a website source; pairing is distinct from delivery")
+        owner.serviceEnvironment = "public-example"
+        owner.accounts.removeLast()
+        owner.ready()
+        views = descendants(owner.stack)
+        let publicAgentText = views.compactMap { ($0 as? NSTextField)?.stringValue }
+        precondition(publicAgentText.contains("Example connection ready"))
+        precondition(!publicAgentText.contains("AI connection source unverified"))
+        precondition(!publicAgentText.contains("Ready in every new session"))
+        owner.serviceEnvironment = "live"
+        owner.accounts = [["account": "personal-service", "label": "Personal service", "environment": "live",
+                           "connected": true, "portable_ready": true]]
+        owner.systemAgentClientID = nil
+        owner.ready()
+        views = descendants(owner.stack)
+        var liveAgentText = views.compactMap { ($0 as? NSTextField)?.stringValue }
+        precondition(liveAgentText.contains("Check your AI connection"))
+        precondition(liveAgentText.contains("Needs check"))
+        precondition(!liveAgentText.contains("Ready in every new session"))
+        precondition(views.compactMap { ($0 as? NSButton)?.title }.contains("Check connection"))
+        owner.systemAgentClientID = String(repeating: "a", count: 64)
+        owner.ready()
+        views = descendants(owner.stack)
+        liveAgentText = views.compactMap { ($0 as? NSTextField)?.stringValue }
+        precondition(liveAgentText.contains("Ready in every new session"))
+        precondition(liveAgentText.contains("Automatic"))
         owner.accounts = []
         precondition(owner.requestText.contains("what needs attention"))
-        print("PASS: public examples and legacy demo responses stay labeled as examples; mixed or unknown sources never claim personal-account access")
+        print("PASS: examples and legacy demo responses stay labeled; AI setup reports demo-only, unverified, and live readiness truthfully")
         owner.backgroundServiceStatus = "requires_approval"
         owner.ready()
         views = descendants(owner.stack)
@@ -945,6 +1295,79 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
                 precondition(!failure.explanation.contains(privateFailureText))
             }
         }
+        let managedSetupFailures: [(String, ManagedAgentSetupFailure, String)] = [
+            ("owner_setup_authorization_required", .setupAuthorizationRequired, "Approve the current setup dialog"),
+            ("owner_channel_unavailable", .ownerChannelUnavailable, "protected owner channel is reconnecting"),
+            ("owner_backend_unavailable", .ownerBackendUnavailable, "protected app is not responding"),
+            ("broker_worker_recovering", .serviceRecovering, "protected service is restarting"),
+            ("vault_setup_repair_required", .vaultRepairRequired, "account store needs repair"),
+            ("unrecognized_private_reason", .connectionResponseRejected, "refused the connection response"),
+        ]
+        for (reason, expectedFailure, expectedMessage) in managedSetupFailures {
+            do {
+                _ = try owner.checkedOwnerResponse(503, ["reason": reason, "detail": privateFailureText], managedClientSetup: true)
+                preconditionFailure("Managed-client setup failure was accepted")
+            } catch {
+                let failure = ManagedAgentConnectionFailure(stage: .enroll, error: error)
+                precondition(failure.failure == expectedFailure)
+                precondition(failure.explanation.localizedCaseInsensitiveContains(expectedMessage))
+                precondition(!failure.explanation.contains(privateFailureText))
+                precondition(!failure.explanation.contains(reason))
+            }
+        }
+        let desktopSetupFailures: [(DesktopOwnerFailure, ManagedAgentSetupFailure, String)] = [
+            (.approvalTimedOut, .setupApprovalTimedOut, "No macOS approval finished"),
+            (.approvalPending, .setupApprovalPending, "A previous macOS approval is still open"),
+            (.approval, .setupNotApproved, "will not reopen an approval dialog"),
+            (.unavailable, .ownerBackendUnavailable, "protected app is not responding"),
+            (.response, .connectionResponseRejected, "refused the connection response"),
+        ]
+        for (desktopFailure, expectedFailure, expectedMessage) in desktopSetupFailures {
+            let mapped = ManagedAgentSetupFailure.desktopFailure(desktopFailure)
+            let failure = ManagedAgentConnectionFailure(stage: .enroll, error: mapped)
+            precondition(mapped == expectedFailure)
+            precondition(failure.explanation.localizedCaseInsensitiveContains(expectedMessage))
+            precondition(!failure.explanation.contains(privateFailureText))
+            precondition(!failure.explanation.contains(nativeChannel.clientToken))
+        }
+        for (gatewayFailure, expectedFailure, expectedMessage) in [
+            (OwnerGatewayError.unavailable, ManagedAgentSetupFailure.ownerBackendUnavailable, "protected app is not responding"),
+            (OwnerGatewayError.invalidPolicy, ManagedAgentSetupFailure.connectionResponseRejected, "refused the connection response"),
+            (OwnerGatewayError.invalidResponse, ManagedAgentSetupFailure.connectionResponseRejected, "refused the connection response"),
+        ] {
+            let mapped = ManagedAgentSetupFailure.ownerGatewayFailure(gatewayFailure)
+            let failure = ManagedAgentConnectionFailure(stage: .enroll, error: mapped)
+            precondition(mapped == expectedFailure)
+            precondition(failure.explanation.localizedCaseInsensitiveContains(expectedMessage))
+            precondition(!failure.explanation.contains(privateFailureText))
+        }
+        let helperFailures: [(String, String, ManagedAgentSetupFailure)] = [
+            ("NEEDS_USER", "client_migration_requires_review", .agentMigrationReview),
+            ("NEEDS_USER", "client_setup_permissions_need_review", .agentPermissionsReview),
+            ("NEEDS_USER", "client_upgrade_needs_repair", .agentSetupNeedsRepair),
+            ("NEEDS_USER", "client_upgrade_not_supported", .agentSetupUnsupported),
+            ("NEEDS_USER", "client_connection_not_confirmed", .clientConnectionNotConfirmed),
+            ("RETRYABLE", "client_setup_busy", .agentSetupRetryable),
+        ]
+        for (status, reason, expectedFailure) in helperFailures {
+            let data = try! JSONSerialization.data(withJSONObject: ["status": status, "reason": reason])
+            do {
+                _ = try ManagedAgentSetup.helperResponse(exitStatus: 78, data: data)
+                preconditionFailure("Allowlisted helper failure was accepted")
+            } catch let failure as ManagedAgentSetupFailure {
+                precondition(failure == expectedFailure)
+            } catch { preconditionFailure("Helper failure escaped its closed error type") }
+        }
+        let privateHelperFailure = try! JSONSerialization.data(withJSONObject: [
+            "status": "NEEDS_USER", "reason": privateFailureText, "detail": privateFailureText,
+        ])
+        do {
+            _ = try ManagedAgentSetup.helperResponse(exitStatus: 78, data: privateHelperFailure)
+            preconditionFailure("Private helper details were accepted")
+        } catch let failure as ManagedAgentSetupFailure {
+            precondition(failure == .unavailable)
+        } catch { preconditionFailure("Unknown helper failure escaped its closed error type") }
+        print("PASS: native helper errors expose only allowlisted reasons and keep arbitrary details private")
         let verificationFailure = ManagedAgentConnectionFailure(stage: .verify)
         precondition(verificationFailure.explanation.contains("checking the completed connection"))
         print("PASS: connection failures identify their exact closed stage, stop without replay, and hide arbitrary errors, responses and capabilities; conflicts and revocations require review")
@@ -1300,7 +1723,7 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
         let liveFeedback = feedbackOwner.ownerSetupContext.snapshot(), liveFeedbackID = UUID()
         feedbackOwner.ownerApprovalProgress(.requestingApproval, identifier: liveFeedbackID, context: liveFeedback)
         drainApprovalFeedback("approval_live_begin_drained")
-        requireLocalUX(feedbackOwner.status.stringValue.contains("macOS approval requested")
+        requireLocalUX(feedbackOwner.status.stringValue == "Find the separate macOS dialog “Authorize Account Access setup” and approve with Touch ID or your Mac login password. If no dialog appears, wait up to two minutes; the request stops without sending account setup data."
                        && replacementWindow.approvalFrontRequests == 1, "approval_live_begin_rendered_once")
         feedbackOwner.ownerApprovalProgress(.approvalAccepted, identifier: liveFeedbackID, context: liveFeedback)
         feedbackOwner.page("A later page", "The accepted event must not change this page")
@@ -1317,7 +1740,30 @@ final class NativeOwnerScreenFixture: DesktopOwnerChannel {
                        "approval_live_pair_completes_without_extra_front")
         feedbackOwner.busy = false
         print("PASS: approval feedback ignores delayed first/accepted events after page, window or operation changes and fronts only its current setup")
+        let failedConnectionOwner = AccountAccess(
+            fixtureRoot: fixtureRoot,
+            session: fixtureSession,
+            managedAgents: ManagedAgentSetup(
+                helper: { _ in throw ManagedAgentSetupFailure.setupApprovalPending },
+                readToken: { throw ManagedAgentSetupFailure.unavailable }
+            ),
+            ownerProfile: missingFixtureProfile
+        )
+        failedConnectionOwner.window = OwnerApprovalWindowFixture(
+            contentRect: NSRect(x: 0, y: 0, width: 1040, height: 740),
+            styleMask: [.titled], backing: .buffered, defer: false
+        )
+        failedConnectionOwner.connectSystemAgents()
+        let failedConnectionDeadline = Date().addingTimeInterval(5)
+        while failedConnectionOwner.busy && Date() < failedConnectionDeadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+        }
+        requireLocalUX(!failedConnectionOwner.busy
+                       && descendants(failedConnectionOwner.stack).compactMap { ($0 as? NSButton)?.title }
+                           .contains("Reopen and check status"), "connection_failure_reopens_and_checks_status")
+        print("PASS: interrupted AI setup points to its actual recovery action without replaying authorization")
         requireLocalUX(fixtureProfileReads == 1 && helperLock.withLock { unexpectedHelperCalls == 0 }, "fixture_dependencies_only")
+        checkHarel(owner, nativeChannel)
         print("PASS: UI fixtures use only temporary roots, synthetic owner profiles, fake helpers and intercepted URL requests")
 
 

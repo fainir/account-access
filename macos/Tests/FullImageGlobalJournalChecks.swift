@@ -104,6 +104,8 @@ private enum JournalCheckFailure: Error { case failed, interrupted }
                     operations.append(FullImageDurableOperation(tree: PublicTreeOperation(schema: 2, unit: unit.rawValue,
                         planSHA256: localSource.pins.planSHA256, beforeManifestSHA256: localSource.before.sha256, afterManifestSHA256: localSource.after.sha256,
                         before: pin(before, group: legacyGroup), after: pin(after, group: getgid()))))
+                case .directFile:
+                    throw FullImageFailure.journal
                 }
             }
             for unit in [FullImageFileUnit.hostPolicy, .ownerPolicy, .installRecord, .head] {

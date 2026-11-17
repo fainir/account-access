@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "status": "FAILED_OWNER_INSTALL",
+  "production_ready": false,
+  "source_commit": "31d9561f4356a107826b51a43841803887992c21",
+  "package_build": 110,
+  "package_sha256": "223232416738344adb4b08b4451acc2b0071d5d88956c9df380f4b7b25f452a4",
+  "package_bytes": 309847068,
+  "notary_submission_id": "c3deef3c-4dbb-4216-8b10-16dbb984b2f0",
+  "notary_status": "Accepted",
+  "stapler_validation": "PASSED",
+  "installer_signature": "PASSED",
+  "gatekeeper_assessment": "accepted",
+  "installer_parser_validation": "PASSED",
+  "owner_attempts": [
+    {
+      "status": "REFUSED",
+      "reason": "component_owner_app_close_required",
+      "checkpoint": "context"
+    },
+    {
+      "status": "REFUSED",
+      "reason": "owner_upgrade_predecessor_not_verified",
+      "checkpoint": "predecessor_view",
+      "authorized": true,
+      "app_closed": true
+    }
+  ],
+  "package_receipt_created": false,
+  "installed_app_changed": false,
+  "real_account_data_read": false,
+  "evidence_source": "/var/log/install.log"
+}

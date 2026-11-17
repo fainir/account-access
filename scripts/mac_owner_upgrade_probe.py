@@ -88,8 +88,25 @@ def main():
     ]
     raw = {name: (ROOT / name).read_bytes() for name in names}
     pins = {name: hashlib.sha256(data).hexdigest() for name, data in raw.items()}
+    completed_runtime = raw["macos/source-fragments/CompletedRuntimeUpgrade.swift.inc"].decode("utf-8")
+    historical_steps = (
+        "historicalObservation: true",
+        "let proof = try completedBrokerRepairLocked(",
+        "checkpoint(.predecessorRepairRoute)",
+        "checkpoint(.predecessorRepairIntent)",
+        "checkpoint(.predecessorRepairEvidence)",
+        "checkpoint(.predecessorComponentRevalidation)",
+        "repairComponentDevice(resources: previous, pins: predecessorPins",
+        "checkpoint(.predecessorRepairStability)",
+        "createIfMissing: false, observationDevice: observationDevice",
+    )
+    positions = [completed_runtime.index(step) for step in historical_steps]
+    assert positions == sorted(positions), "completed_runtime_historical_binding_order"
+    assert "observationDevice: observationDevice,\n                completedProjection: current" in completed_runtime
+    assert "createIfMissing: false, observationDevice: observationDevice, completedProjection: projected" in completed_runtime
     for name in core:
         (sources / Path(name).name).write_bytes(raw[name])
+    (sources / "OwnerUpgradeMain.swift").write_bytes(raw["macos/OwnerUpgradeMain.swift"])
     composed = sources / "ComponentUpdate.swift"
     composed.write_bytes(b"\n".join(raw[n] for n in ("macos/ComponentUpdate.swift", *fragments)))
     dummy = sources / "DummyPins.swift"
@@ -101,7 +118,10 @@ def main():
         "swiftc",
         "-j",
         "2",
-        "-O",
+        # These binaries exercise refusal and fixture behavior. Release
+        # optimization is covered by the signed package build; optimizing the
+        # full probe source here exceeded its bounded QA compile window.
+        "-Onone",
         "-parse-as-library",
         "-warnings-as-errors",
         "-module-cache-path",
@@ -149,7 +169,8 @@ def main():
         ],
         30,
     )
-    core_paths = [str(sources / Path(name).name) for name in core] + [str(composed)]
+    core_paths = [str(sources / Path(name).name) for name in core] + [str(composed),
+        str(sources / "OwnerUpgradeMain.swift")]
     fixture_names = [
         "OwnerUpgradeSourceChecks",
         "OwnerUpgradeNamespaceChecks",
@@ -180,6 +201,7 @@ def main():
     assert len(results) == 2 and all(r["status"] == "PASSED" for r in results)
     entry = sources / "OwnerUpgradeMain.swift"
     entry.write_bytes(raw["macos/OwnerUpgradeMain.swift"])
+    entry_core_paths = [path for path in core_paths if Path(path).name != "OwnerUpgradeMain.swift"]
     binary = output / "AccountAccess-ownerupgrade"
     command(
         "entry-compile",
@@ -187,7 +209,7 @@ def main():
             *flags,
             "-D",
             "ACCOUNT_ACCESS_OWNER_UPGRADE_MAIN",
-            *core_paths,
+            *entry_core_paths,
             str(dummy),
             str(entry),
             "-o",
@@ -221,10 +243,12 @@ def main():
         executable = output / label
         command(label + "-compile", [*flags, *selected, str(test), "-o", str(executable)])
         results.append(json.loads(command(label, [str(executable)], 180)))
-    assert all(
-        hashlib.sha256((ROOT / name).read_bytes()).hexdigest() == digest
-        for name, digest in pins.items()
-    )
+    changed_sources = [
+        name for name, digest in pins.items()
+        if hashlib.sha256((ROOT / name).read_bytes()).hexdigest() != digest
+    ]
+    if changed_sources:
+        raise ValueError("owner_upgrade_source_changed_during_probe:" + ",".join(sorted(changed_sources)))
     report = {
         "schema": 1,
         "status": "PASSED",

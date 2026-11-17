@@ -72,7 +72,7 @@ enum RootEnrollmentChecks {
         let rejected = try RootWorkerProcess(policy: stageLauncher, bootstrap: bootstrap, peer: peer, vault: wrongID)
         defer { try? rejected.stop() }
         do { _ = try rejected.start(); throw RootStoreInitializationFailure.unavailable }
-        catch RootWorkerProcessFailure.unavailable { checks["wrong_existing_key_never_reports_ready"] = rejected.pid == nil }
+        catch RootWorkerProcessFailure.bootstrapExited { checks["wrong_existing_key_never_reports_ready"] = rejected.pid == nil }
         try rejected.stop()
         try store.removeFixture(wrongID); removed = true
         checks["wrong_key_fixture_removed"] = true

@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "date": "2026-10-28",
+  "source_commit": "6c1dc5deda5838df798faad1fcc93162f2dac3f4",
+  "production_ready": false,
+  "python_suite": {
+    "command": "uv run --locked pytest -q",
+    "status": "PASSED",
+    "collected": 4483,
+    "passed": 4479,
+    "skipped": 4,
+    "failed": 0,
+    "duration_seconds": 2894.92,
+    "authlib_version": "1.9.1"
+  },
+  "lint": {
+    "status": "PASSED",
+    "command": "uv run --locked ruff check account_access tests scripts macos/notarize.py macos/system_package.py macos/payload_audit.py macos/runtime_prepare.py macos/runtime_image.py macos/runtime_ca.py macos/full_image_update.py macos/bitwarden_runtime.py macos/bitwarden_sources.py macos/bitwarden_notices.py"
+  },
+  "dependency_audit": {
+    "status": "PASSED",
+    "command": "uv run --locked pip-audit --local",
+    "third_party_dependencies": "no known vulnerabilities found",
+    "project_package": "not published on PyPI; not covered by this audit"
+  },
+  "focused_regressions": {
+    "status": "PASSED",
+    "passed": 103,
+    "scope": [
+      "runtime CA refresh and pinned Python source",
+      "system installer package guards",
+      "launchd bootout observation and worker boundary"
+    ]
+  },
+  "notarized_package": {
+    "version": 103,
+    "sha256": "a8623256aff321faf979b3edea7dced627177bcb3550365af221fb005c194f50",
+    "status": "NOTARIZED_AND_STAPLED",
+    "install_result_on_existing_owner_mac": "REFUSED_BY_FRESH_INSTALL_PATH",
+    "existing_installed_app_version": 92
+  },
+  "open_release_gates": [
+    "A signed and notarized owner-upgrade package must pass the installed owner's predecessor check, installation, restart, and protected-store health check.",
+    "Real Harel and Phoenix login journeys, real email delivery, Lemon Squeezy TOTP, physical Android SMS delivery, and real agent continuation remain unverified.",
+    "Clean downloaded installation and recovery from interrupted update remain unqualified."
+  ]
+}

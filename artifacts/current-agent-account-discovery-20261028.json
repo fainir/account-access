@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "date": "2026-10-28",
+  "status": "PASSED",
+  "check": "installed Account Access skill account discovery",
+  "launcher": "/Users/nirfeinstein/.agents/skills/account-access/scripts/access accounts",
+  "repeats": 2,
+  "service_version": "0.6.0",
+  "environment": "controlled-demo",
+  "accounts": [
+    {"account": "demo-web", "label": "Atlas Membership", "operations": ["summary"]},
+    {"account": "demo-mfa", "label": "Juniper Workspace", "operations": ["summary"]},
+    {"account": "example-sms", "label": "Orbit Travel", "operations": ["summary"]}
+  ],
+  "requested_insurer_targets_configured": false,
+  "private_account_data_read": false,
+  "login_or_verification_code_attempted": false,
+  "production_ready": false,
+  "supersedes_current_environment_claim_in": "current-agent-connection-check-20261028.json"
+}

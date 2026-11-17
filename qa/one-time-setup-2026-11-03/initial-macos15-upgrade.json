@@ -1,0 +1,1 @@
+{"architecture":"arm64","checks":["pinned_predecessor_manifest","exact_signed_public_predecessor","same_volume_support_root_replaced"],"created_job_stopped_or_absent":true,"failure_reason":"KeyError","macos_version":"15.8.2","personal_accounts_used":0,"production_ready":false,"retained_predecessor_namespaces":["120","121","122","123","124","125"],"status":"FAILED"}

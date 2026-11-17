@@ -15,6 +15,29 @@ from account_access.owner import make_owner_server
 from account_access.service import create_app
 
 
+def test_sync_skill_omits_generated_python_bytecode(env, tmp_path, monkeypatch):
+    from account_access import install
+
+    _, broker, _ = env
+    source = tmp_path / "skill-source"
+    (source / "agents").mkdir(parents=True)
+    (source / "scripts/__pycache__").mkdir(parents=True)
+    (source / "SKILL.md").write_text("Instructions")
+    (source / "agents/openai.yaml").write_text("name: account-access")
+    (source / "scripts/access.py").write_text("print('ok')")
+    (source / "scripts/__pycache__/access.cpython-313.pyc").write_bytes(b"cache")
+    monkeypatch.setattr(install, "SKILL_SOURCE", source)
+
+    target = tmp_path / "installed-skill"
+    install.sync_skill(target, broker.store.root / "clients/generic/client.json")
+
+    assert (target / "scripts/access.py").is_file()
+    assert not (target / "scripts/__pycache__").exists()
+    result = subprocess.run([str(target / "scripts/access")], capture_output=True, text=True, timeout=10)
+    assert result.returncode == 0 and result.stdout.strip() == "ok"
+    assert not (target / "scripts/__pycache__").exists()
+
+
 def test_installed_skill_calls_real_private_service_and_worker(env, tmp_path):
     _, broker, _ = env
     installation = install_skill(broker.store, "generic", tmp_path)

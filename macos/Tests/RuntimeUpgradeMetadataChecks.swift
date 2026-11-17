@@ -64,6 +64,8 @@ enum RuntimeUpgradeMetadataChecks {
         try check(PublicTreeUnit.pythonRoot.precedingGroup("bin/pip", legacy: legacy, published: published) == published)
         try check(PublicTreeUnit.pythonRoot.precedingGroup("bin/other", legacy: legacy, published: published) == legacy)
         try check(PublicTreeUnit.wheels.precedingGroup("account_access-0.8.0-py3-none-any.whl", legacy: legacy, published: published) == published)
+        try check(PublicTreeUnit.binRoot.precedingGroup("AccountAccess-broker", legacy: legacy, published: published) == legacy)
+        try check(PublicTreeUnit.binRoot.precedingGroup("AccountAccess-installerverify", legacy: legacy, published: published) == legacy)
         var current = stat()
         guard lstat(path, &current) == 0, PublicTreeDirectoryIdentity(current) == identity else { throw RuntimeUpgradeMetadataFailure.rejected(#line, errno) }
         for (name, node) in tree.nodes.sorted(by: { $0.key.count > $1.key.count }) where !name.isEmpty {

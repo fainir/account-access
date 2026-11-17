@@ -63,6 +63,8 @@ def serve(args):
             if (root / "service.paused").exists() or (root / "service.paused").is_symlink():
                 return 0
             broker = Broker(store)
+            if not args.controlled_fixture:
+                broker.browser_health.check()
             if sys.platform == "darwin":
                 from .native_messages import NativeMessagesRelay
                 native_messages = NativeMessagesRelay()
