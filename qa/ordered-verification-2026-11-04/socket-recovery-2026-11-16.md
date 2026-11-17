@@ -95,3 +95,13 @@ The direct updater can renew the original binding once. Its completed v2 path re
 The corrected source passed 405 native component assertions, 72 runtime checks, the exact 20-unit direct plan and all six shared guarded entry-point refusals. The focused release tests passed 291 cases. Lint and local workflow input checks passed. Independent source review found an older revalidation compatibility gap, corrected before the final checks. These checks do not exercise publication under the real installed root; action24 is the first actual Installer acceptance of this route.
 
 The replacement helper was built from the reviewed source with the unchanged build130 public target. Apple accepted submission `06d7e858-684c-4dd8-a01b-d8a35c4ea6d3`. Independent expansion passed, the stapled ticket validated, and cache-independent Gatekeeper accepted the persistent package. Installer opened `Account-Access-130-corrected-update.pkg` at 11:11 IST on November 17 with build128 installed and Account Access closed.
+
+## Installed build 130
+
+The corrected package's native postinstall ran from 11:30:25 to 11:42:13 IST on November 17. It reported `UPDATED_GUI_UNVERIFIED` at `complete`, and macOS Installer displayed “Install Succeeded” at 11:42:14. Installer's estimate remained at about a minute while its transition records advanced and the new broker started. A later kernel boot was observed at 11:43:46 IST.
+
+After reboot, the app reported build130. All 27,493 public target entries matched their expected type, content, ownership and mode where applicable. The installed app and broker passed strict signature verification. The runtime contains OpenTelemetry API 1.45.2, and the two root-owned socket directories have modes 0755 and 0700. The installed v3 recovery receipt links to both prior receipts and matches the current installation roots.
+
+The protected broker registered with one run and no exit. Both launchers initially returned `RETRYABLE/service_unavailable`. A broker sample advanced from a macOS account lookup to filesystem validation while system load fell. This verifies installation and the binding recovery. Launcher readiness and approved login operations are measured separately below.
+
+The same broker started the protected Python worker without a manual service restart. Both installed launchers returned `OK` and discovered four standing accounts. Codex completed the approved Betterloop status check, returning only `authenticated: true`. Claude Code's public SauceDemo inventory call initially returned `RETRYABLE/browser_execution_failed` and succeeded on its one retry with six products. No account setup action was required for these checks. Harel email, physical SMS and private authenticator acceptance are still open.
