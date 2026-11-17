@@ -354,6 +354,75 @@ def test_guarded_adapter_reads_real_fixture_mailbox_reuses_then_recovers(adapter
     assert len([r for r in provider.requests if r.url.path.endswith("StartProcess")]) == 2
 
 
+@pytest.mark.parametrize("paired", [False, True])
+def test_harel_sms_adapter_reuses_paired_source_after_session_expiry(adapter, monkeypatch, paired):
+    import time
+
+    from account_access import harel_login
+    from account_access.factors import replace_source
+    from account_access.models import CodeSource, Configuration
+    from account_access.phone import deliver
+
+    broker, _, mailbox, _ = adapter
+    email_account = harel_login.ACCOUNT
+    assert broker.run("test", email_account, "status")["data"] == {"authenticated": True}
+    account = "personal-harel-sms-login"
+    source = harel_login.SOURCES["sms"]
+    config = broker.store.config()
+    config.accounts[account] = harel_login.configuration("sms")
+    config.code_sources[source] = CodeSource(kind="phone_relay", sender="Harel Fixture", recipient="owner",
+                                            template="Harel fixture login: {code}")
+    broker.store.configure(Configuration.model_validate(config.model_dump()))
+    broker.store.put("credential:" + account, {"identity": IDENTITY, "phone": PHONE})
+    broker.grant("test", account, ["status"])
+    with broker.store.db() as db:
+        replace_source(broker.store, source, {"enabled": True}, db=db)
+
+    provider = Provider()
+    delivered = []
+    token = "fixture-harel-sms-pair"
+
+    def transport(request):
+        result = provider(request)
+        if request.url.path.endswith("StartProcess"):
+            assert provider.channel == 0
+            message = {"id": f"harel-fixture-{len(delivered)}", "sender": "Harel Fixture", "recipient": "owner",
+                       "body": "Harel fixture login: " + CODE, "received_at": time.time()}
+            with pytest.raises(AccessError, match="phone_message_mismatch"):
+                deliver(broker.store, source, {**message, "sender": "Unrelated"}, pair_token=token)
+            assert deliver(broker.store, source, message, pair_token=token) == {"status": "RECEIVED"}
+            delivered.append(message)
+        return result
+
+    monkeypatch.setattr(harel_login, "HarelLogin", lambda channel, state=None: harel.HarelLogin(
+        channel, state=state, transport=httpx.MockTransport(transport)))
+    if not paired:
+        missing_pair = broker.run("test", account, "status")
+        assert (missing_pair["status"], missing_pair["reason"]) == ("NEEDS_USER", "phone_not_paired")
+        assert not any(r.url.path.endswith("StartProcess") for r in provider.requests)
+        return
+    broker.store.put("phone-pair:" + source, {"token": token})
+    email_connection = broker.store.get("connection:" + email_account)
+    email_fingerprint = broker.store.config().fingerprint(email_account)
+    for attempt in range(2):
+        result = broker.run("test", account, "status")
+        assert result["status"] == "COMPLETED", result.get("reason")
+        assert result["data"] == {"authenticated": True}
+        assert all(secret not in json.dumps(result) for secret in (IDENTITY, PHONE, CODE, "Fixture", token))
+        assert broker.store.get("code-window:" + source) is None
+        assert broker.run("test", account, "status")["data"] == {"authenticated": True}
+        assert len(delivered) == attempt + 1
+        with pytest.raises(AccessError, match="no_current_login_window"):
+            deliver(broker.store, source, delivered[-1], pair_token=token)
+        provider.authenticated = False
+        broker.store.put("connection:" + account, None)
+        broker.store.put("login-attempt:" + account, 0)
+    assert mailbox.fetches == 1
+    assert broker.store.get("connection:" + email_account) == email_connection
+    assert broker.store.config().fingerprint(email_account) == email_fingerprint
+    assert len([r for r in provider.requests if r.url.path.endswith("StartProcess")]) == 2
+
+
 @pytest.mark.parametrize("stage", ["before_request", "during_response"])
 def test_source_revocation_refuses_private_dispatch_or_publication(adapter, stage):
     from account_access.factors import replace_source, source_mutation

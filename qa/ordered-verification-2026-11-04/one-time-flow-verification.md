@@ -46,3 +46,15 @@ Real Harel email, physical carrier SMS and Google Authenticator transfer/login r
 
 No completed Chrome import, mailbox password, installation or grant approval is requested again. Complete the existing native Harel enrollment first, then qualify email, SMS and authenticator in the owner's order. The completed installation monitor remains deleted; no personal-enrollment polling is scheduled.
 
+## November 17 acceptance run on build 130
+
+The real installed Chrome import and Betterloop sign-in were already completed. On build 130, fresh Codex and Claude Code smoke calls passed. Codex returned the approved Betterloop status `authenticated: true`. Claude Code returned six products from the public SauceDemo example. Discovery found four approved accounts and no Harel enrollment.
+
+The fresh controlled run passed 288 cases across password import, the separate-worker sign-in journey, saved Gmail reuse, the native SMS collector and Google Messages transport, Harel protocol and email setup, and authenticator import. An additional 23 cases passed for setup screens and refusals. The reusable verification journey clears site sessions and starts a new worker with the same fixture setup. The first run found the default test Chromium cache missing. The rerun used the exact build 130 Chromium in isolated temporary profiles and passed all 311 cases.
+
+In the installed Account Access app, **Automatic sign-in → Connect Harel with email** opened the native form. The consent checkbox was present and **Send Harel login email** was disabled before owner input. This is the first outstanding real-account step. Enter the registered identity and mobile in the app. The checked mailbox is available, and the later automatic email test will follow the first code and pattern approval. Real Harel SMS and private Google Authenticator acceptance depend on their own enrolled sources.
+
+### Harel SMS enrollment gap
+
+Independent review identified that native build 130 can enroll only Harel email. A controlled Harel adapter regression now exercises the paired Android relay end to end after synthetic configuration. It refuses the unpaired source before dispatch, rejects unrelated SMS, completes only the explicit SMS channel, checks a new delivery after session expiry, and preserves the email connection. The Harel protocol and source-generation suite passed 162 cases, including both new fixture paths. Native Harel SMS enrollment and real delivery remain open.
+
