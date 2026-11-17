@@ -266,7 +266,7 @@ extension ComponentController {
     private static func recoverDirectRootBindingIfRequired(source: RuntimeUpgradeSource, original: Int32,
             ownerUID: uid_t, ownerGroup: gid_t, brokerUID: uid_t,
             installData: Data, hostData: Data, profileData: Data,
-            worker: (Data, ComponentObject), servicePlist: ComponentObject) throws {
+            worker: (Data, ComponentObject), servicePlist: ComponentObject, allowRenewal: Bool) throws {
         let legacy = try InstallationRootBinding.readLegacy(original, ownerUID: ownerUID,
             manifestSHA256: DirectRuntimeUpgradeSource.originalReceipt)
         guard try InstallationRootBinding.hasSupplementNamespace() else {
@@ -280,15 +280,21 @@ extension ComponentController {
         let binding = try InstallationRootBinding.receiptDirectory(create: false)
         defer { Darwin.close(binding) }
         let names = try InstallerPayloadIO.contents(binding)
-        if names == [InstallationRootBinding.receiptName, InstallationRootBinding.recoveryName] {
+        let recovered: Set<String> = [InstallationRootBinding.receiptName, InstallationRootBinding.recoveryName]
+        if names == recovered.union([InstallationRootBinding.renewedName]) || names == recovered && !allowRenewal {
             try originalReceipt(original, ownerUID: ownerUID)
             return
         }
-        guard names == [InstallationRootBinding.receiptName]
-                || names == [InstallationRootBinding.receiptName, InstallationRootBinding.pendingRecoveryName] else {
+        let renewing = names.contains(InstallationRootBinding.recoveryName)
+        let required: Set<String> = renewing ? recovered : [InstallationRootBinding.receiptName]
+        let pending = renewing ? InstallationRootBinding.pendingRenewedName : InstallationRootBinding.pendingRecoveryName
+        let published = renewing ? InstallationRootBinding.renewedName : InstallationRootBinding.recoveryName
+        guard (!renewing || allowRenewal), names == required || names == required.union([pending]) else {
             throw ComponentUpdateFailure.journal
         }
-        let previous = try InstallationRootBinding.readOriginalSupplement(binding)
+        let readPrevious: (Int32) throws -> Data = renewing
+            ? InstallationRootBinding.readRecoverySupplement : InstallationRootBinding.readOriginalSupplement
+        let previous = try readPrevious(binding)
         let current = try InstallationRootBinding.capture(withVolumeUUID: true)
         do {
             try InstallationRootBinding.validateSupplement(previous, legacy: legacy, current: current)
@@ -320,7 +326,7 @@ extension ComponentController {
             guard try owner().0 == ownerUID, try owner().1 == ownerGroup,
                   try InstallationRootBinding.readLegacy(original, ownerUID: ownerUID,
                       manifestSHA256: DirectRuntimeUpgradeSource.originalReceipt) == legacy,
-                  try InstallationRootBinding.readOriginalSupplement(binding) == previous,
+                  try readPrevious(binding) == previous,
                   try InstallationRootBinding.capture(withVolumeUUID: true) == current,
                   try publicRead("broker/install.json", mode: 0o600) == install,
                   try publicRead("broker/host.json", mode: 0o644) == host,
@@ -339,10 +345,9 @@ extension ComponentController {
         let data = try InstallationRootBinding.recoverySupplement(legacy: legacy, previous: previous,
             current: current, planSHA256: source.planSHA256, sourceCommit: source.targetSourceCommit,
             policyHashes: hashes)
-        try InstallationRootBinding.prepareRecoverySupplement(binding, data: data)
+        try InstallationRootBinding.prepareRecoverySupplement(binding, data: data, renewing: renewing)
         try verifyCurrent()
-        try ComponentFiles.rename(binding, InstallationRootBinding.pendingRecoveryName,
-                                  binding, InstallationRootBinding.recoveryName, swap: false)
+        try ComponentFiles.rename(binding, pending, binding, published, swap: false)
         try InstallationRootBinding.validateSupplement(InstallationRootBinding.readSupplement(binding),
                                                         legacy: legacy, current: current)
         try verifyCurrent()
@@ -490,7 +495,8 @@ extension ComponentController {
             try recoverDirectRootBindingIfRequired(source: source, original: original, ownerUID: ownerUID,
                 ownerGroup: ownerGroup, brokerUID: authority.brokerUID,
                 installData: directOriginals.install, hostData: directOriginals.host,
-                profileData: directOriginals.profile, worker: worker, servicePlist: plist)
+                profileData: directOriginals.profile, worker: worker, servicePlist: plist,
+                allowRenewal: namespaceKind == .brokerStartupSecurity)
             try originalReceipt(original, ownerUID: ownerUID)
         }
         checkpoint(.preparation)

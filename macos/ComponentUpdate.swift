@@ -1146,6 +1146,8 @@ enum ComponentController {
         }
         checkpoint("current_binding")
         let current = try InstallationRootBinding.capture(withVolumeUUID: true)
+        let recovered: Set<String> = [InstallationRootBinding.receiptName, InstallationRootBinding.recoveryName]
+        let renewed = recovered.union([InstallationRootBinding.renewedName])
         var existingProof: Data?, previousProof: Data?, recoveryNeeded = false
         if hasNamespace {
             let existing = try InstallationRootBinding.receiptDirectory(create: false)
@@ -1162,7 +1164,7 @@ enum ComponentController {
                     existingProof = previousProof
                     recoveryNeeded = true
                 }
-            } else if names == [InstallationRootBinding.receiptName, InstallationRootBinding.recoveryName] {
+            } else if names == recovered || names == renewed {
                 previousProof = try InstallationRootBinding.readOriginalSupplement(existing)
                 existingProof = try InstallationRootBinding.readSupplement(existing)
                 try InstallationRootBinding.validateSupplement(existingProof!, legacy: legacy, current: current)
@@ -1227,7 +1229,7 @@ enum ComponentController {
         let bindingDirectory = try InstallationRootBinding.receiptDirectory(create: true)
         defer { Darwin.close(bindingDirectory) }
         let names = try InstallerPayloadIO.contents(bindingDirectory)
-        if names == [InstallationRootBinding.receiptName, InstallationRootBinding.recoveryName] {
+        if names == recovered || names == renewed {
             let proof = try InstallationRootBinding.readSupplement(bindingDirectory)
             guard proof == existingProof else { throw ComponentUpdateFailure.base }
             try InstallationRootBinding.validateSupplement(proof, legacy: legacy, current: current)

@@ -88,6 +88,12 @@ source, plan, publisher and policy hashes record creation evidence. Policy
 hashes are not permanent equality requirements: a legitimate component update
 changes some policy values.
 
+The build-130 direct updater can append a v3 receipt when the support directory
+has been replaced again. It verifies the earlier v1 and v2 receipts and their
+links, requires the original application alias and volume, and refuses either
+earlier support inode. Both earlier files stay in place. It does not renew a
+completed v3 receipt.
+
 Publication uses a fixed pending file, an exclusive rename and filesystem
 synchronization. A retry can finish an interrupted pending file only when its
 protected metadata and every existing byte match the newly verified expected

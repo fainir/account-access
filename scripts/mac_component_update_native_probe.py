@@ -71,6 +71,7 @@ CORE_CHECKS = frozenset({
     "device_only_migration_never_accepts_inode_or_root_set_changes",
     "supplement_binds_uuid_and_both_original_inodes_across_device_renumbering",
     "verified_support_root_replacement_requires_same_volume_and_original_application_alias",
+    "second_support_root_replacement_preserves_both_previous_receipts",
     "supplement_requires_supported_canonical_nonzero_volume_uuid",
     "supplement_owner_publisher_schema_plan_source_policy_provenance_fail_closed",
     "supplement_fixed_root_schema_uuid_and_inode_cannot_be_substituted",
@@ -105,7 +106,7 @@ def fixture_result(raw, *, kind):
     """A count or optimistic summary alone cannot satisfy native acceptance."""
     value = json.loads(raw)
     expected = CORE_CHECKS if kind == "core" else POLICY_CHECKS
-    count_key, count = ("ordinary_fixture_assertions", 396) if kind == "core" else ("count", 41)
+    count_key, count = ("ordinary_fixture_assertions", 405) if kind == "core" else ("count", 41)
     if (not isinstance(value, dict)
             or set(value) != {"schema", "status", "checks", count_key, "installed_reads", "service_actions"}
             or type(value["schema"]) is not int or value["schema"] != 1

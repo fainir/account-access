@@ -99,6 +99,7 @@ CORE_CHECKS = frozenset({
     "device_only_migration_never_accepts_inode_or_root_set_changes",
     "supplement_binds_uuid_and_both_original_inodes_across_device_renumbering",
     "verified_support_root_replacement_requires_same_volume_and_original_application_alias",
+    "second_support_root_replacement_preserves_both_previous_receipts",
     "supplement_requires_supported_canonical_nonzero_volume_uuid",
     "supplement_owner_publisher_schema_plan_source_policy_provenance_fail_closed",
     "supplement_fixed_root_schema_uuid_and_inode_cannot_be_substituted",
@@ -267,7 +268,7 @@ def validate_native_report(files, *, source, sources, run_id, run_attempt=1):
     core, policy = report.get("core_fixture_json", {}), report.get("policy_fixture_json", {})
     if (set(core) != {"schema", "status", "checks", "ordinary_fixture_assertions", "installed_reads", "service_actions"}
             or type(core.get("schema")) is not int or core["schema"] != 1 or core.get("status") != "PASSED"
-            or type(core.get("ordinary_fixture_assertions")) is not int or core["ordinary_fixture_assertions"] != 396
+            or type(core.get("ordinary_fixture_assertions")) is not int or core["ordinary_fixture_assertions"] != 405
             or not _true_checks(core.get("checks"), CORE_CHECKS)
             or set(policy) != {"schema", "status", "checks", "count", "installed_reads", "service_actions"}
             or type(policy.get("schema")) is not int or policy["schema"] != 1 or policy.get("status") != "PASSED"
